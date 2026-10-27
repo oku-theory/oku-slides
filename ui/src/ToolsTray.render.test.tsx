@@ -35,7 +35,7 @@ const snapshot = (o: Partial<Snapshot> = {}): Snapshot =>
     can_undo: false, can_redo: false, undo_label: null, redo_label: null, ...o,
   }) as unknown as Snapshot;
 
-async function mount(snap: Snapshot, view: SlideView | null = null) {
+async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = false) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -45,7 +45,7 @@ async function mount(snap: Snapshot, view: SlideView | null = null) {
       createElement(ToolsTray, {
         api: {} as TabApi, snap, view, widgetActive: false, widgets: {} as PackWidgetEditor,
         keptUi: {} as KeptUi, mainMenu: null, run: async () => null,
-        onAdd: () => {}, onPacks: () => void opened++, thumbs: null,
+        onAdd: () => {}, onPacks: () => void opened++, thumbs: null, themeTab,
       }),
     ),
   );
@@ -69,6 +69,11 @@ test("ToolsTray with pending updates shows the dot", async () => {
 
 test("ToolsTray in help mode hides the packs button", async () => {
   const { packs } = await mount(snapshot({ read_only: true }));
+  expect(packs()).toBeNull();
+});
+
+test("ToolsTray in a theme tab hides the packs button", async () => {
+  const { packs } = await mount(snapshot({ theming: {} as Snapshot["theming"] }), null, true);
   expect(packs()).toBeNull();
 });
 

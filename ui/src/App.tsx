@@ -1,6 +1,7 @@
 import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePreview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ImportTarget, InterfaceChange, SlideView, Snapshot } from "./api";
+import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
+import type { ImportTarget, InterfaceChange, SlideView, Snapshot, Surface } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { bumpVoiceSeq } from "./voiceSeq";
 import { packGestures, showFinish, widgetGesture } from "./packGestures";
@@ -31,6 +32,7 @@ import { usePastedImages } from "./agent/usePastedImages";
 import { useDictation } from "./useDictation";
 import { Icon } from "./icons";
 import { canAdd } from "./slideTools";
+import { themeToOpen } from "./themeToOpen";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
 import { SlotView } from "./agent/slot";
@@ -40,8 +42,9 @@ import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
 import { usePackWidgetEditor } from "./usePackWidgetEditor";
 import { COMMON } from "./widgetList";
-import { THEME_TAB, activeWidget } from "./widgetTabs";
+import { activeWidget } from "./widgetTabs";
 import ThemePanel from "./ThemePanel";
+import ThemeTabHeader from "./ThemeTabHeader";
 import HostSettings from "./HostSettings";
 import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { useDataSettings } from "./useDataSettings";
@@ -71,7 +74,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
-  onHelp, updates, onClose, onOpenPack, onChange,
+  onHelp, updates, onClose, onOpenPack, onOpenTheme, onChange,
 }: {
   tab: string;
   /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
@@ -104,6 +107,8 @@ export default function App({
   onClose?: () => void;
   /** Opens pack `pack` on widget `widget`; true when this tab is still the active one after. */
   onOpenPack: (pack: string, widget: string) => Promise<boolean>;
+  /** Opens theme `theme` in its own tab (the theme row's "Open" in the deck's packs panel). */
+  onOpenTheme: (theme: string) => void;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
   onChange?: () => void;
 }) {
@@ -167,8 +172,8 @@ export default function App({
     blocked: () => agentStatus.modal || editing !== null || dialogOpen || !!snapRef.current?.history || !!snapRef.current?.read_only,
   });
   const widgetActive = !!snap?.editing && activeWidget(widgets.tabs) !== null;
-  // Onglet « Thème » : la scène au centre, les jetons à droite (à la place du fil de l'agent).
-  const themeActive = !!snap?.editing && !snap.history && widgets.tabs.active === THEME_TAB;
+  // A theme tab, known by its live snapshot: the specimens at the centre, the tokens on the right.
+  const themeTab = !!snap?.theming;
 
   // --- Historique (lecture seule) -------------------------------------------
   // `run` numérote la réponse d'un cran à son arrivée, pas à l'envoi : sans effet, car sortir (Revenir, Restaurer) annule d'abord le Seeker.
@@ -222,7 +227,7 @@ export default function App({
   };
   const addSlide = () => setPicking(true);
   useClipboardEvents({
-    tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, apply, addElement,
+    tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, themeTab, apply, addElement,
     setSelected, say, share: onCopy, clip, setCutMark, dropCut,
   });
 
@@ -230,10 +235,10 @@ export default function App({
 
   // Réglages du widget du sous-onglet actif, à ses valeurs d'exemple.
   const host = useHostSettings(api, snap, widgets.activeName, run, say);
-  // Données du graphique ou du tableau sélectionné (résolu dans la vue), au dock de l'agent ; ni sur
-  // l'onglet « Thème » ni sur un sous-onglet widget, où la scène n'est pas montrée.
+  // The selected chart's or table's data (resolved in the view), at the agent's dock; not on a
+  // widget sub-tab, where the stage is not shown, nor in a theme tab (useDataSettings).
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
-  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, widgetActive || themeActive, run, say);
+  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, widgetActive, run, say);
   const dataSurfaces = useMemo(() => (data.surface ? [data.surface] : []), [data.surface]);
 
   const {
@@ -243,6 +248,13 @@ export default function App({
     tab, snap, view, current, selected, editing, editField, widgets, widgetActive, importJob, showSlide,
     setSelected,
   });
+
+  /** The packs panel's "Open" on the theme row: this tab asks the workspace for the theme's tab. */
+  const openTheme = (s: Surface, a: A2uiClientAction): boolean => {
+    const theme = themeToOpen(s, a);
+    if (theme !== null) onOpenTheme(theme);
+    return theme !== null;
+  };
 
   const { insertLayout } = useLayoutInsert({ snap, current, apply, setCurrent, setSelected, setPicking });
   const { packWidgets, addSections } = usePackWidgets(snap);
@@ -257,7 +269,7 @@ export default function App({
    *  dernier instantané, pas celui du rendu : l'agent peut présenter juste après une modification. */
   const present = (mode: PresentMode) => {
     const s = snapRef.current;
-    if (!s?.slides.length || s.editing || s.history || s.read_only) return;
+    if (!s?.slides.length || s.editing || s.theming || s.history || s.read_only) return;
     stage.current?.commitEditing();
     setSelected(null);
     setEditing(null);
@@ -295,7 +307,7 @@ export default function App({
 
   // Raccourcis clavier.
   useAppKeys({
-    api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, widgetActive,
+    api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, widgetActive, themeTab,
     cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
     saveCopy, cancelAgent, setEditing, setSelected,
   });
@@ -313,30 +325,32 @@ export default function App({
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu packMode={!!snap.editing} present={present} open={open} onHelp={onHelp} onCheckUpdates={checkUpdates} />
+    <AppMenu packMode={!!snap.editing} themeTab={themeTab} present={present} open={open} onHelp={onHelp} onCheckUpdates={checkUpdates} />
   );
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).
   const history = snap.history;
   // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
   const readOnly = !!history || snap.read_only;
-  // Mode deck : ni pack, ni historique, ni lecture seule (là l'hôte passe « thème » à l'agent).
-  const deckMode = !snap.editing && !readOnly;
+  // Deck mode: no pack, theme tab, history or read-only (there the host passes "theme" to the agent).
+  const deckMode = !snap.editing && !themeTab && !readOnly;
+  // A theme tab's stage shows specimens: no selection, no field editing.
+  const locked = readOnly || themeTab;
   const noop = () => {};
 
   // Section des miniatures (repliée à part en mode pack) ; aucune pour un pack de widgets.
-  const thumbsSection = pileSection(snap);
+  const thumbsSection = pileSection(snap, themeTab);
   const thumbsOpen = thumbsSection === null || !keptUi.folded.includes(thumbsSection);
   const thumbsTitle = t(thumbsSection === "layouts" ? "ui-pile-layouts" : "ui-pile-slides");
   const toggleThumbs = () => thumbsSection && keptUi.setFolded(thumbsSection, thumbsOpen);
   const deckPile = (axis: "x" | "y") => (
-    <DeckPile snap={snap} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} axis={axis} />
+    <DeckPile snap={snap} themeTab={themeTab} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} axis={axis} />
   );
-  // Colonne de gauche en mode pack seulement (layouts et widgets) ; ailleurs, les miniatures en bande sous la scène.
-  const packColumn = !!snap.editing && !history;
-  // Un pack de widgets n'a de slides (aperçus en lecture seule) que sur l'onglet « Thème » : ailleurs la scène vide invite à ouvrir un widget.
+  // The left column in pack mode and theme tabs only; elsewhere, the thumbnails in a strip under the stage.
+  const packColumn = (!!snap.editing || themeTab) && !history;
+  // A widget pack has no slides to show: its empty stage invites to open a widget.
   const widgetPack = snap.editing?.kind === "widgets";
-  const layoutPackStage = snap.editing?.kind === "layouts" && !themeActive;
+  const layoutPackStage = snap.editing?.kind === "layouts";
   // Légende du pack édité : ses layouts, ou ses widgets (sans le fichier commun).
   const packCount = widgetPack ? (widgets.files.statuses ?? []).filter((w) => w.name !== COMMON).length : snap.slides.length;
 
@@ -344,7 +358,7 @@ export default function App({
     <NumberLangContext.Provider value={snap.lang ?? null}>
     <StagePreviewContext.Provider value={previewStore}>
     {/* Agent détaché : la colonne de droite se replie, sauf pour montrer les données sélectionnées. */}
-    <div className={`table${agentDetached && !themeActive && !data.surface ? " agent-detached" : ""}`}>
+    <div className={`table${agentDetached && !themeTab && !data.surface ? " agent-detached" : ""}`}>
       {history ? (
         <HistoryBar
           history={history}
@@ -354,7 +368,14 @@ export default function App({
         />
       ) : snap.read_only ? (
         <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} search={api.search} onClose={onClose} />
-      ) : (<>
+      ) : snap.theming ? (<>
+      <ThemeTabHeader theming={snap.theming} dirty={snap.dirty} onFinish={onClose} />
+      <ToolsTray
+        api={api} snap={snap} view={view} widgetActive={false} widgets={widgets}
+        keptUi={keptUi} mainMenu={mainMenu} themeTab
+        run={run} onAdd={noop} onPacks={noop} thumbs={null}
+      />
+      </>) : (<>
       {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition d'un pack. */}
       <header className={`label${snap.editing ? " editing-pack" : ""}`}>
         {snap.editing && <PackBrand name={snap.editing.name} kind={snap.editing.kind} deckOnly={snap.editing.deck_only} />}
@@ -377,7 +398,7 @@ export default function App({
 
       <ToolsTray
         api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
-        keptUi={keptUi} mainMenu={mainMenu}
+        keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
         run={run} onAdd={() => setAdding(true)}
         onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
         thumbs={!packColumn && thumbsSection ? { open: thumbsOpen, onToggle: toggleThumbs } : null}
@@ -398,7 +419,7 @@ export default function App({
           open={thumbsOpen}
           onToggle={toggleThumbs}
           slides={thumbsSection && deckPile("y")}
-          widgets={
+          widgets={themeTab ? null : (
             <PileWidgets
               files={widgets.files}
               open={!keptUi.folded.includes("widgets")}
@@ -407,30 +428,30 @@ export default function App({
               onOpen={widgets.open}
               onRemoved={widgets.removed}
             />
-          }
+          )}
         />
       )}
 
       {/* La feuille, posée au centre. */}
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
-        {/* La scène : panneau de l'onglet « Layouts » d'un pack de layouts (hors « Thème »). */}
+        {/* The stage: the panel of a layout pack's "Layouts" sub-tab. */}
         <div id="stage-panel" className="stage-panel" role={layoutPackStage ? "tabpanel" : undefined} aria-labelledby={layoutPackStage ? "widget-tab-0" : undefined} hidden={widgetActive}>
         <div className="stage-box">
-        {widgetPack && !themeActive ? (
+        {widgetPack ? (
           <div className="stage-wrap empty">{t("ui-stage-widget-pack")}</div>
         ) : view && view.slide.id === current ? (
           <Stage
             ref={stage}
             view={view}
             svgUrl={cur ? svgs.svg(cur.id, cur.hash) : null}
-            selected={readOnly ? null : selected}
-            cut={!readOnly && cutMark?.slide === view.slide.id ? cutMark.element : null}
-            editing={readOnly ? null : editing}
-            onSelect={readOnly ? noop : setSelected}
-            onEdit={readOnly ? noop : setEditing}
-            onApply={readOnly ? noop : apply}
-            readOnly={readOnly}
+            selected={locked ? null : selected}
+            cut={!locked && cutMark?.slide === view.slide.id ? cutMark.element : null}
+            editing={locked ? null : editing}
+            onSelect={locked ? noop : setSelected}
+            onEdit={locked ? noop : setEditing}
+            onApply={locked ? noop : apply}
+            readOnly={locked}
             packMode={!!snap.editing}
             packWidgets={packWidgets}
             hoverPreview={previewStore}
@@ -451,7 +472,7 @@ export default function App({
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
-        {!readOnly && (!widgetPack || themeActive) && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
+        {!readOnly && !widgetPack && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
         {/* Hors mode pack, les miniatures en bande sous la scène ; cachées depuis la barre d'outils, elles rendent
             toute leur place à la slide. L'aide et l'historique, sans barre d'outils, les montrent toujours. */}
@@ -464,9 +485,9 @@ export default function App({
       </main>
 
       {/* Cartes à droite de la feuille. */}
-      <aside className={`notes${themeActive ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
-        {/* Onglet « Thème » : les jetons en tête ; le fil de l'agent reste monté, caché (styles.css). */}
-        {themeActive && <ThemePanel api={api} snap={snap} run={run} say={say} />}
+      <aside className={`notes${themeTab ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
+        {/* A theme tab: the tokens first; the agent thread stays mounted, hidden (workshop.css). */}
+        {themeTab && <ThemePanel api={api} snap={snap} run={run} say={say} />}
         {/* Agent détaché : pas de dock ici, les données sélectionnées se montrent seules. */}
         {agentDetached && data.surface && (
           <HostSettings surface={data.surface} onAction={onSurfaceAction} outcome={data.outcome} onError={(m) => say(m, true)} />
@@ -475,7 +496,7 @@ export default function App({
           tab={tab} agent={agent} mode={agentMode} route={route} ui={agentUiNow}
           keysOff={!!editing || dialogOpen || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
-          hostSurfaces={dataSurfaces} onHostAction={(s, a) => host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
+          hostSurfaces={dataSurfaces} onHostAction={(s, a) => openTheme(s, a) || host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
           onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
           onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
@@ -500,7 +521,7 @@ export default function App({
         />}
       </aside>
       {/* Agent détaché : la colonne reste pour rattacher, même si sa fenêtre n'a pas pu s'ouvrir. */}
-      {agentDetached && !themeActive && (
+      {agentDetached && !themeTab && (
         <AttachButton className="agent-reattach" onClick={() => void workspace.attachAgent().catch((e) => say(errorText(e), true))} />
       )}
 

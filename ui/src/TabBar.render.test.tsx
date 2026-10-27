@@ -98,3 +98,12 @@ test("TabBar badge follows editing_pack, not the document kind", async () => {
   const badges = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
   expect(badges).toEqual([null, "ui-tab-pack", null]);
 });
+
+test("TabBar theme tab shows the theme badge, a pack tab still the pack badge", async () => {
+  const host = await mount(false, [
+    tab("theme", false, { kind: "theme", theme: "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31" }),
+    tab("pack", true, { kind: "pack", pack: "a7e11e40-0000-4000-8000-000000000001" }),
+  ]);
+  const badges = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
+  expect(badges).toEqual(["ui-tab-theme", "ui-tab-pack"]);
+});

@@ -7,21 +7,27 @@
 //! cleared. A pack the library lost is restored orphaned (read-only); a
 //! lease held by another editor restores the tab read-only, never sets it
 //! aside. A pack tab that fails a check is set aside (`ResumeError::PackTab`);
-//! a workshop falls back to its deck.
+//! a workshop falls back to its deck. A state before version 5 held a theme
+//! draft in its working deck: that deck takes the user deck's style back, and
+//! a changed draft is said lost (`notice-theme-draft-dropped`).
 
+use serde_json::{Map, Value};
 use snafu::ResultExt;
 
 use super::{
-    DECK_DIR, DocIn, MAX_JSON_BYTES, PACK_DIR, PackTabSnafu, Result, Resume, SavedMode, SessionSnafu, State,
-    ThemeBaseSnafu,
+    DECK_DIR, DocIn, EDITOR_STATE_VERSION, MAX_JSON_BYTES, PACK_DIR, PackTabSnafu, Result, Resume, SavedMode,
+    SessionSnafu, State,
 };
 use crate::agent::bounds::label;
 use crate::deck_closure::combined_pins;
+use crate::deck_theme::manifest_of;
+use crate::error::SourcesSnafu;
 use crate::pack::PackManifest;
 use crate::pack_lease::PackLease;
+use crate::pack_mode::embed_reached_themes;
 use crate::pack_receive::is_library_pack;
 use crate::pack_scratch::PackScratch;
-use crate::theme_edit::ThemeEdit;
+use crate::theme_edit::{ThemeEdit, draft_differs};
 use crate::views::{PackHost, PackMode, UiState};
 use crate::{Document, Mode, PackLibrary, Session};
 
@@ -34,6 +40,18 @@ pub(super) struct DocHeader {
     pub(super) saved_hash: bool,
     /// The files in its `assets/`, dot-files aside.
     pub(super) assets: usize,
+}
+
+/// A pack state before version 5: its working deck had the theme draft as its style.
+#[derive(Debug)]
+pub(super) struct Legacy {
+    /// The draft it held, if the state named one.
+    draft: Option<ThemeEdit>,
+}
+
+/// The legacy part of `state`: `None` from version 5 on.
+pub(super) fn legacy_of(state: &State) -> Option<Legacy> {
+    (state.version < EDITOR_STATE_VERSION).then(|| Legacy { draft: state.theme_edit.clone() })
 }
 
 /// What the library says of a resumed workshop's pack.
@@ -79,13 +97,14 @@ pub(super) fn read_doc_header(resume: &Resume, dir: &str) -> Result<DocHeader> {
 /// # Errors
 ///
 /// `PackTab` for every inconsistency of the folder or the state; the tail's
-/// own errors (`ThemeBase`, `Session`).
+/// own errors (`Session`).
 ///
 /// # Blocking
 ///
 /// Reads the tab folder and the library, and renders.
 pub(super) fn restore_pack_tab(s: &mut Session, resume: &Resume, state: State) -> Result<()> {
-    let State { mode: SavedMode::Pack(edit), ui, theme_edit, .. } = state else {
+    let legacy = legacy_of(&state);
+    let State { mode: SavedMode::Pack(edit), ui, .. } = state else {
         return PackTabSnafu { reason: "not a pack tab state" }.fail();
     };
     // An early exit only: the loaded document is checked again below.
@@ -109,7 +128,7 @@ pub(super) fn restore_pack_tab(s: &mut Session, resume: &Resume, state: State) -
     let pins = combined_pins(preview.sources.deck());
     let (widgets, notice) = s.resolve_widgets(&pins, &preview.sources.packs).context(SessionSnafu)?;
     s.install_document(preview, widgets, notice).context(SessionSnafu)?;
-    s.finish_pack_restore(edit, pack_doc, theme_edit, ui)
+    s.finish_pack_restore(edit, pack_doc, legacy, ui)
 }
 
 impl Session {
@@ -117,12 +136,12 @@ impl Session {
     ///
     /// For both hosts: checked against the library (`check_pack_doc`), the
     /// lease taken if free (`restore_lease`), a pack tab that never saved
-    /// freezing its base, then the theme draft checked and the workshop rendered.
+    /// freezing its base, a `legacy` working deck restyled, then the workshop rendered.
     ///
     /// # Errors
     ///
-    /// `PackTab` for a pack tab whose pack does not match; `ThemeBase` and
-    /// `Session` (theme draft, widgets, render, freezing).
+    /// `PackTab` for a pack tab whose pack does not match; `Session`
+    /// (restyle, widgets, render, freezing).
     ///
     /// # Blocking
     ///
@@ -130,8 +149,8 @@ impl Session {
     pub(super) fn finish_pack_restore(
         &mut self,
         mut edit: PackMode,
-        pack_doc: Document,
-        theme_edit: Option<ThemeEdit>,
+        mut pack_doc: Document,
+        legacy: Option<Legacy>,
         ui: UiState,
     ) -> Result<()> {
         let check = self.check_pack_doc(&mut edit, &pack_doc);
@@ -148,33 +167,52 @@ impl Session {
         if let Some(lease) = lease.as_ref().filter(|_| edit.host == PackHost::Tab && edit.session_version.is_none()) {
             self.freeze_base(lease, &edit.base).context(SessionSnafu)?;
         }
-        let theme = match theme_edit {
-            Some(theme) => theme,
-            None => self.initial_theme_edit().context(SessionSnafu)?.0,
+        let dropped = match legacy {
+            Some(legacy) => self.restyle_legacy(&mut pack_doc, legacy.draft.as_ref()).context(SessionSnafu)?,
+            None => false,
         };
         let stash = std::mem::replace(&mut self.doc, pack_doc);
         let orphaned = matches!(check, PackCheck::Orphaned);
-        let (scratch, switches) = (PackScratch::default(), Vec::new());
-        self.mode = Mode::Pack { stash: Box::new(stash), edit, scratch, theme, switches, lease, orphaned };
-        self.embed_theme_base();
-        // La bibliothèque a pu changer depuis : une liste refusée, ou un espace
-        // de noms qui n'est pas celui de la base, fait échouer la reprise (mise
-        // de côté), jamais réparée en silence.
-        if let Mode::Pack { theme, .. } = &self.mode {
-            let base = self.base_manifest().map(|m| m.namespace);
-            snafu::ensure!(
-                base.as_ref() == Some(&theme.namespace),
-                ThemeBaseSnafu { namespace: theme.namespace.as_str() }
-            );
-            self.check_theme_extends(theme, &theme.extends).context(SessionSnafu)?;
-        }
+        self.mode = Mode::Pack { stash: Box::new(stash), edit, scratch: PackScratch::default(), lease, orphaned };
         if let Some(notice) = notice {
             self.set_notice(notice);
+        }
+        if dropped {
+            self.set_notice(self.localizer.tr("notice-theme-draft-dropped"));
         }
         self.sync_widgets().context(SessionSnafu)?;
         self.rerender().context(SessionSnafu)?;
         self.ui = ui.sanitized(true);
         Ok(())
+    }
+
+    /// Gives a legacy working deck `doc` the user deck's style back; true if `draft` changed.
+    ///
+    /// The theme, pinned themes and token overrides come from the current
+    /// document (the deck, not yet set aside), with the theme versions they
+    /// reach; no undo step. A draft whose base is unreadable, or whose tokens
+    /// are neither an object nor null, counts as changed.
+    fn restyle_legacy(&self, doc: &mut Document, draft: Option<&ThemeEdit>) -> crate::Result<bool> {
+        let mut deck = doc.sources.deck().clone();
+        let tokens = match &deck.tokens {
+            Value::Object(map) => Some(map.clone()),
+            Value::Null => Some(Map::new()),
+            _ => {
+                tracing::warn!("legacy working deck tokens are not an object: its theme draft counts as changed");
+                None
+            }
+        };
+        let base = |d: &ThemeEdit| {
+            let held = [&doc.sources.themes, &self.doc.sources.themes];
+            held.into_iter().find_map(|t| manifest_of(&d.base, t.get(&d.base.version)?).ok())
+        };
+        let differs = |d: &ThemeEdit, tokens: &Map<String, Value>| base(d).is_none_or(|m| draft_differs(d, &m, tokens));
+        let changed = draft.is_some_and(|d| tokens.as_ref().is_none_or(|t| differs(d, t)));
+        let user = self.doc.sources.deck();
+        (deck.theme, deck.themes, deck.tokens) = (user.theme.clone(), user.themes.clone(), user.tokens.clone());
+        doc.sources.apply_silent(deck).context(SourcesSnafu)?;
+        embed_reached_themes(&mut doc.sources, &self.doc.sources.themes);
+        Ok(changed)
     }
 
     /// Checks `pack_doc` against `edit` and the library; recomputes what the library knows.
@@ -292,3 +330,7 @@ mod resume_pack_tests;
 #[cfg(test)]
 #[path = "resume_pack_refusal_tests.rs"]
 mod resume_pack_refusal_tests;
+
+#[cfg(test)]
+#[path = "resume_pack_legacy_tests.rs"]
+mod resume_pack_legacy_tests;

@@ -240,11 +240,13 @@ the same day after the lot-3 plan review: deck-only packs move to their own lot.
    tab; saving it there switches no real deck's theme (a deck-only pack's workshop keeps
    switching its own deck's theme until lot 5).
 4. **Theme tabs**: `TabDocument::Theme`, `Mode::Theme`, specimen slides, theme drafts
-   through `draft_write` / `save_draft`; the theme sub-tab leaves the pack tab.
+   through `draft_write` / `save_draft`; the theme sub-tab leaves the pack tab; "Ouvrir" on
+   the theme row of "Packs du deck".
 5. **Deck-only pack tabs**: `TabDocument::DeckPack` linked to its owner deck, saves
    forwarded to the owner (acknowledged, ordered, undo included), closed with its deck;
    the in-deck workshop and `Request::{EditPack, ClosePack}` removed.
-6. **UI**: borders, item pile, preview theme selector, "Ouvrir" in "Packs du deck",
+6. **UI**: borders, item pile, preview theme selector, "Ouvrir" on packs in "Packs du deck"
+   (the theme's moved to lot 4),
    app-menu entries; `PackTabs` and its helpers removed; e2e rewritten.
 7. **MCP tools**: filtering by kind, `open_pack` / `open_theme` for a deck's agent.
 
@@ -283,6 +285,31 @@ resumed after a restart, without its opener. `WrongDocument` comes with lot 4. S
 { deck_tab, … }` (identified there by the pack uuid, not the namespace), `ReceiveDeckPack`
 (a session method called by the workspace, merged per editing session), and closing a
 deck flushing its linked tabs.
+
+**Implementation note (lot 4).** Decisions of the lot-4 plan (2026-10-26) that amend this spec.
+The theme row of "Packs du deck" gets its "Ouvrir" in lot 4 (`OpenTheme`, which focuses a tab
+already editing that theme; packs and themes share one opening lock; the requester is the tab's
+opener in memory). The theme draft leaves `Mode::Pack` for both hosts, the in-deck workshop
+included: a pack working deck keeps its deck's theme, pins and overrides, refuses token and
+`SetTheme` ops (`WrongDocument { kind: Pack }`), and `save_pack` saves no theme.
+`Mode::Theme` holds `edit: ThemeTab { draft, parent, session_version }`, `switches` (for `extends`
+edits only) and `lease`; its working document is the specimen deck (Essentiel's `layout-<name>`
+slides, built-in `base` and `essentiel` pinned, no theme, the draft as tokens, so a narrower token
+schema than pack mode's: other packs' `component.<ns>` tokens are kept, not shown). **A theme
+tab never changes which theme it edits**: `SetEditedTheme` and the panel's base picker are gone,
+so `ThemePanel` shows name, `extends` and tokens. `WrongDocument { kind: DocumentKind }` refuses
+every request outside `Request::theme_tab_allows` in a theme tab, and the draft requests outside
+one; the op filter lives in `Session::apply` (token ops only in a theme tab). Saving goes through
+`draft_write` / `save_draft` (an adopted base gets a child); a built-in or "save as new" makes a
+new theme the tab then edits; saving pins nothing in a deck (decks see it in "Packs du deck",
+t-1207 offers a new theme to the opener). Opening a theme tab on a user theme freezes its base.
+Theme leases are a `Themes` scope in the shared lease registry (`ThemeOpenInTab`); `edit_theme`
+refuses a leased theme. A theme tab persists only `state.json`, and every pack-mode and theme
+state is written at version 5 (version 4 is read only), so 6.0.0 sets them aside, a workshop
+deck tab included; version-3 workshops and version-4 pack tabs resume with their theme draft
+dropped (a notice when it differed). A theme tab whose theme or base is gone at resume is kept
+aside as unreadable. The UI's theme tab has a header (theme name, "Terminer"), autosaves while
+leased, and shows a "Thème" tab badge until lot 6's borders.
 
 ## Out of scope
 

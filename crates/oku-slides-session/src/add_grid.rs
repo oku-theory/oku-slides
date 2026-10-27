@@ -85,7 +85,7 @@ impl Session {
     /// pack sans widget à ajouter.
     pub(crate) fn add_packs(&self) -> Vec<AddPackView> {
         let edited = match &self.mode {
-            Mode::History { .. } => return Vec::new(),
+            Mode::History { .. } | Mode::Theme { .. } => return Vec::new(),
             Mode::Pack { edit, .. } if edit.kind == PackKind::Widgets => self.edited_pin().map(|(ns, _)| ns),
             Mode::Pack { .. } | Mode::Deck | Mode::Help { .. } => None,
         };

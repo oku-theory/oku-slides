@@ -304,6 +304,7 @@ export default function Workspace() {
             const v = await run(workspace.openPack(win.active, pack, widget));
             return v?.windows.find((w) => w.label === label)?.active === win.active;
           }}
+          onOpenTheme={(theme) => void run(workspace.openTheme(win.active, theme))}
           onChange={inTauri ? undefined : reread}
         />
       </div>

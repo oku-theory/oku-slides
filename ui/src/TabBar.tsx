@@ -214,7 +214,10 @@ export default function TabBar(props: Props) {
               setMenu({ id: tab.id, x: e.clientX, y: e.clientY });
             }}
           >
-            {tab.editing_pack && <span className="tab-badge">{t("ui-tab-pack")}</span>}
+            {/* Pack or theme, until lot 6's borders; a theme tab never edits a pack. */}
+            {(tab.editing_pack || tab.document?.kind === "theme") && (
+              <span className="tab-badge">{t(tab.editing_pack ? "ui-tab-pack" : "ui-tab-theme")}</span>
+            )}
             <span className="tab-title">{tab.title}</span>
             {tab.dirty && <span className="tab-dirty" role="img" aria-label={t("ui-tab-unsaved")} />}
             <button

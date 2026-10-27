@@ -48,6 +48,8 @@ pub struct PackLibrary {
     themes: ThemeLibrary,
     /// The lease key of this library; `None` without both directories.
     lease_scope: Option<LeaseScope>,
+    /// The lease key of its theme library; `None` without its directory.
+    theme_scope: Option<LeaseScope>,
 }
 
 /// L'autre sorte que `kind`.
@@ -66,13 +68,20 @@ impl PackLibrary {
     pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
         let (widgets, layouts) = (Library::new(widgets, storage.clone()), Library::new(layouts, storage));
         let lease_scope = widgets.dir().zip(layouts.dir()).map(|(w, l)| LeaseScope::new(w, l));
-        Self { widgets, layouts, themes, lease_scope }
+        let theme_scope = themes.dir().map(LeaseScope::themes);
+        Self { widgets, layouts, themes, lease_scope, theme_scope }
     }
 
     /// This library's lease key; None without both directories.
     #[must_use]
     pub(crate) fn lease_scope(&self) -> Option<&LeaseScope> {
         self.lease_scope.as_ref()
+    }
+
+    /// The lease key of its theme library; None without its directory.
+    #[must_use]
+    pub(crate) fn theme_scope(&self) -> Option<&LeaseScope> {
+        self.theme_scope.as_ref()
     }
 
     /// Les packs de l'utilisateur (`paths.widgets` et `paths.layouts` des réglages), et les intégrés.

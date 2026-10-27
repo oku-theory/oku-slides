@@ -6,7 +6,7 @@ import "./test/dom";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { default: TextEditor } = await import("./TextEditor");
-const { appKeyScope } = await import("./appKeyScope");
+const { appKeyScope, themeTabIgnores } = await import("./appKeyScope");
 
 const FREE = { modal: false, dialog: false, editing: false };
 
@@ -67,5 +67,46 @@ describe("appKeyScope", () => {
 
   test("appKeyScope any key outside text entry is App's", () => {
     expect(appKeyScope(FREE, { key: "z", metaKey: true, ctrlKey: false, shiftKey: false, target: document.body })).toBe("all");
+  });
+});
+
+describe("themeTabIgnores", () => {
+  const key = (o: Partial<KeyboardEvent>) => ({ key: "x", metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, preventDefault: () => {}, ...o });
+  /** `e` with a `preventDefault` that counts its calls. */
+  const counted = (e: ReturnType<typeof key>) => {
+    const seen = { calls: 0 };
+    return { seen, e: { ...e, preventDefault: () => void seen.calls++ } };
+  };
+
+  test.each([
+    ["cmd S", key({ key: "s", metaKey: true })],
+    ["cmd shift S", key({ key: "S", metaKey: true, shiftKey: true })],
+    ["ctrl S", key({ key: "s", ctrlKey: true })],
+    ["alt up", key({ key: "ArrowUp", altKey: true })],
+    ["alt down", key({ key: "ArrowDown", altKey: true })],
+    ["delete", key({ key: "Delete" })],
+    ["backspace", key({ key: "Backspace" })],
+    ["enter", key({ key: "Enter" })],
+  ])("themeTabIgnores %s", (_name, e) => {
+    expect(themeTabIgnores(e)).toBe(true);
+  });
+
+  test.each([
+    ["cmd Z", key({ key: "z", metaKey: true })],
+    ["right arrow", key({ key: "ArrowRight" })],
+    ["page down", key({ key: "PageDown" })],
+  ])("themeTabIgnores keeps %s", (_name, e) => {
+    expect(themeTabIgnores(e)).toBe(false);
+  });
+
+  test.each([
+    ["cmd S", key({ key: "s", metaKey: true }), 1],
+    ["cmd shift S", key({ key: "S", metaKey: true, shiftKey: true }), 1],
+    ["ctrl S", key({ key: "s", ctrlKey: true }), 1],
+    ["delete", key({ key: "Delete" }), 0],
+  ])("themeTabIgnores %s prevents the browser default only for the save keys", (_name, key, calls) => {
+    const { seen, e } = counted(key);
+    themeTabIgnores(e);
+    expect(seen.calls).toBe(calls);
   });
 });

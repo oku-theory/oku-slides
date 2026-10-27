@@ -2,12 +2,12 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { Element } from "./api";
+import type { Element, SlideView, Snapshot, TabApi } from "./api";
 import type { Clip, ClipRef } from "./useClipboard";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { useClipboard } = await import("./useClipboard");
+const { useClipboard, useClipboardEvents } = await import("./useClipboard");
 
 const element = { id: "e-image", kind: "base/image", params: {} } as unknown as Element;
 
@@ -92,5 +92,46 @@ describe("useClipboard", () => {
     // `gen` croît, mais une coupe faite ici depuis tient l'élément : la marque reste.
     await act(async () => root.render(createElement(Tab, { clip, n: 1, gen: 1 })));
     expect(shownCut).toEqual({ slide: "s-1", element: "e-image" });
+  });
+});
+
+describe("useClipboardEvents", () => {
+  const view = { slide: { id: "layout-title", kind: "essentiel/title", params: {} } } as unknown as SlideView;
+  const snap = (theming: boolean) =>
+    ({
+      slides: [{ id: "layout-title" }], history: null, read_only: false, theming: theming ? {} : null,
+      free_slots: { "essentiel/title": null }, add_packs: [{ widgets: [{ name: "base/text", seed: { params: {} } }] }],
+    }) as unknown as Snapshot;
+
+  /** Mounts a tab listening to the clipboard, pastes `text` on the window; the elements added. */
+  async function pasteIn(themeTab: boolean, text: string) {
+    const added: unknown[] = [];
+    const s = snap(themeTab);
+    function Probe() {
+      const board = useClipboard({ current: null }, 0, s, view);
+      useClipboardEvents({
+        tab: "t", api: {} as TabApi, snap: s, snapRef: { current: s }, view, selected: null, editing: null,
+        dialogOpen: false, widgetActive: false, themeTab, apply: async () => true, addElement: (w) => void added.push(w),
+        setSelected: () => {}, say: () => {}, share: () => {}, clip: board.clip, setCutMark: board.setCutMark, dropCut: board.dropCut,
+      });
+      return null;
+    }
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    await act(async () => root.render(createElement(Probe)));
+    const e = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(e, "clipboardData", { value: { getData: () => text } });
+    await act(async () => void document.body.dispatchEvent(e));
+    return added;
+  }
+
+  test("useClipboardEvents in a deck pastes outside text as a text element", async () => {
+    expect(await pasteIn(false, "Bonjour")).toHaveLength(1);
+  });
+
+  test("useClipboardEvents in a theme tab pastes no element", async () => {
+    expect(await pasteIn(true, "Bonjour")).toHaveLength(0);
   });
 });

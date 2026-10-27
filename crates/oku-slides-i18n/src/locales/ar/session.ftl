@@ -25,6 +25,13 @@ session-pack-not-make-current = لا يمكن أن يصبح إصدار { $pack }
 session-pack-already-current = يستخدم العرض التقديمي بالفعل إصدارك الحالي من { $pack }.
 session-theme-not-outdated = سمة العرض التقديمي { $theme } ليست أقدم من إصدارك الحالي.
 session-editing-pack = أنهِ تعديل الحزمة أولًا
+session-theme-open-in-tab = السمة { $theme } قيد التعديل في علامة التبويب «{ $tab }»: عدّلها هناك، أو أغلق علامة التبويب تلك أولًا.
+session-wrong-document = { $kind ->
+    [deck] علامة التبويب هذه تعرض عرضًا تقديميًا: يتم هذا التغيير في علامة تبويب سمة.
+    [help] التعليمات للقراءة فقط: يتم هذا التغيير في علامة تبويب سمة.
+    [pack] علامة التبويب هذه تعدّل حزمة: تتغير السمة في علامة تبويب العرض التقديمي، وقيمها في علامة تبويب سمة.
+   *[theme] علامة التبويب هذه تعدّل سمة: لا يتغير هنا إلا قيمها واسمها والسمات التي توسّعها.
+}
 session-in-pack-tab = علامة التبويب هذه تعدّل حزمة: أغلقها للإنهاء؛ أما حزم العرض التقديمي وحده فتُفتح من علامة تبويب عرضها التقديمي.
 session-pack-open-in-tab = الحزمة { $pack } قيد التعديل في علامة التبويب «{ $tab }»: عدّلها هناك، أو أغلق علامة التبويب تلك أولًا.
 session-pack-offer-expired = لم يُحدَّث العرض التقديمي: تغيّر العرض التقديمي أو هذا الإصدار من الحزمة في أثناء ذلك.
@@ -33,7 +40,6 @@ session-lease-missing = لا يمكن حفظ هذه الحزمة إلا من ع�
 session-not-editing-pack = لا توجد حزمة قيد التعديل
 session-pack-mode-slides = في وضع الحزمة، الشرائح هي أمثلة التخطيطات: لا يمكن إضافتها أو إزالتها أو نقلها أو تغيير تخطيطها
 session-pack-mode-preview = في وضع الحزمة، شرائح معاينة عناصر الواجهة للقراءة فقط
-session-theme-choice-alone = في وضع الحزمة، اختر السمة وحدها، ثم عدّل رموزها باستخدام set_token
 session-response = تعذّرت كتابة الرد
 session-unknown-tab = لم تعد علامة التبويب هذه مفتوحة.
 session-unknown-window = لم تعد هذه النافذة مفتوحة.
@@ -115,6 +121,7 @@ deck-new-slide-text = قل ما تريد عرضه.
 pack-default-name = حزمتي
 pack-copy-name = { $name } (نسخة)
 theme-copy-name = { $name } (متغيّر)
+theme-copy-of = { $name } (نسخة)
 pack-adopt-label = الحزمة: { $name }
 session-widgets-broken = استُبعدت عناصر واجهة لأنها لا تُترجَم: { $names }. تبقى عناصر الواجهة الأخرى في الحزمة.
 session-widgets-not-saved = تعذّر حفظ إصدار عناصر الواجهة للحزمة «{ $pack }» في المكتبة. يحتفظ به العرض التقديمي.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] تخصيصات العرض التقديمي: { $count }
 }
 packs-theme-pick = سمة العرض التقديمي
+packs-theme-open = فتح
 packs-undo-add = إضافة الحزمة «{ $name }»
 packs-undo-remove = إزالة الحزمة «{ $name }»
 packs-undo-use-mine = التبديل إلى إصداري
@@ -163,6 +171,8 @@ notice-modified-elsewhere = عدّلت أداة أخرى ملف PDF هذا بع�
 notice-open-failed = تعذّر فتح { $path }: { $reason }
 notice-tab-resume-failed = تعذّرت استعادة حالة علامة التبويب هذه: وُضعت جانبًا، وتبدأ علامة التبويب من جديد بعرض تقديمي فارغ.
 notice-tab-set-aside = علامة التبويب «{ $name }» من إصدار أقدم من Oku Slides: تعذّرت استعادة تغييراتها غير المحفوظة فوُضعت جانبًا، وتبدأ علامة التبويب من جديد بعرض تقديمي فارغ.
+notice-theme-draft-dropped = محرر الحزمة هذا من إصدار أقدم من Oku Slides: تعذّر الاحتفاظ بتغييرات السمة غير المحفوظة. تُفتح السمة الآن في علامة تبويب خاصة بها.
+notice-theme-edited-elsewhere = السمة { $theme } قيد التعديل في علامة التبويب «{ $tab }»: أُعيد فتح علامة التبويب هذه بجانبها، للقراءة فقط إلى أن تُغلق تلك العلامة.
 notice-pack-edited-elsewhere = الحزمة { $pack } قيد التعديل في علامة التبويب «{ $tab }»: أُعيد فتح علامة التبويب هذه بجانبها، للقراءة فقط إلى أن تُغلق تلك العلامة.
 notice-pack-deleted = لم تعد الحزمة { $pack } في المكتبة: علامة التبويب هذه للقراءة فقط؛ اطلب من الوكيل حفظها كحزمة جديدة للاحتفاظ بتغييراتك.
 notice-themes-skipped = بعض السمات في مكتبتك من إصدار أقدم من Oku Slides: تعذّرت قراءتها ولا تُعرض ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = نقل لأعلى
 theme-extends-down = نقل لأسفل
 theme-extends-remove = إزالة
 theme-extends-add = إضافة سمة لتوسيعها
-theme-deck-overrides = تجاوزات العرض التقديمي، غير مطبّقة هنا: { $paths }
 theme-section-colors = الألوان
 theme-section-typography = الطباعة
 theme-section-scripts = أنظمة كتابة أخرى

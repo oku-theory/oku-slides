@@ -25,6 +25,13 @@ session-pack-not-make-current = เวอร์ชันของ { $pack } ใ�
 session-pack-already-current = งานนำเสนอใช้ { $pack } เวอร์ชันปัจจุบันของคุณอยู่แล้ว
 session-theme-not-outdated = ธีม { $theme } ของงานนำเสนอไม่ได้เก่ากว่าเวอร์ชันปัจจุบันของคุณ
 session-editing-pack = แก้ไขแพ็กให้เสร็จก่อน
+session-theme-open-in-tab = ธีม { $theme } กำลังถูกแก้ไขในแท็บ “{ $tab }”: แก้ไขที่นั่น หรือปิดแท็บนั้นก่อน
+session-wrong-document = { $kind ->
+    [deck] แท็บนี้แสดงงานนำเสนอ: การเปลี่ยนแปลงนี้ทำในแท็บธีม
+    [help] ความช่วยเหลือเป็นแบบอ่านอย่างเดียว: การเปลี่ยนแปลงนี้ทำในแท็บธีม
+    [pack] แท็บนี้แก้ไขแพ็กอยู่: เปลี่ยนธีมได้ในแท็บของงานนำเสนอ และเปลี่ยนค่าของธีมได้ในแท็บธีม
+   *[theme] แท็บนี้แก้ไขธีมอยู่: ที่นี่เปลี่ยนได้เฉพาะค่า ชื่อ และธีมที่ธีมนี้ขยายเท่านั้น
+}
 session-in-pack-tab = แท็บนี้แก้ไขแพ็กอยู่: ปิดแท็บเพื่อเสร็จสิ้น ส่วนแพ็กเฉพาะงานนำเสนอจะเปิดจากแท็บของงานนำเสนอนั้น
 session-pack-open-in-tab = แพ็ก { $pack } กำลังถูกแก้ไขในแท็บ “{ $tab }”: แก้ไขที่นั่น หรือปิดแท็บนั้นก่อน
 session-pack-offer-expired = งานนำเสนอไม่ได้อัปเดต: ระหว่างนั้นงานนำเสนอหรือเวอร์ชันนั้นของแพ็กเปลี่ยนไปแล้ว
@@ -33,7 +40,6 @@ session-lease-missing = แพ็กนี้บันทึกได้จา�
 session-not-editing-pack = ไม่มีแพ็กที่กำลังแก้ไข
 session-pack-mode-slides = ในโหมดแพ็ก สไลด์คือตัวอย่างของเลย์เอาต์ จึงเพิ่ม ลบ ย้าย หรือเปลี่ยนเลย์เอาต์ไม่ได้
 session-pack-mode-preview = ในโหมดแพ็ก สไลด์ตัวอย่างของวิดเจ็ตเป็นแบบอ่านอย่างเดียว
-session-theme-choice-alone = ในโหมดแพ็ก ให้เลือกธีมแยกต่างหาก แล้วแก้ไขโทเค็นของธีมด้วย set_token
 session-response = เขียนคำตอบไม่ได้
 session-unknown-tab = แท็บนี้ไม่ได้เปิดอยู่แล้ว
 session-unknown-window = หน้าต่างนี้ไม่ได้เปิดอยู่แล้ว
@@ -115,6 +121,7 @@ deck-new-slide-text = บอกสิ่งที่คุณอยากนำ�
 pack-default-name = แพ็กของฉัน
 pack-copy-name = { $name } (สำเนา)
 theme-copy-name = { $name } (รูปแบบย่อย)
+theme-copy-of = { $name } (สำเนา)
 pack-adopt-label = แพ็ก: { $name }
 session-widgets-broken = ละวิดเจ็ตเหล่านี้เพราะคอมไพล์ไม่ผ่าน: { $names } วิดเจ็ตอื่นในแพ็กยังคงอยู่
 session-widgets-not-saved = บันทึกเวอร์ชันวิดเจ็ตของแพ็ก “{ $pack }” ลงในคลังไม่ได้ งานนำเสนอยังเก็บเวอร์ชันนี้ไว้
@@ -148,6 +155,7 @@ packs-remove = นำออก
 packs-add = เพิ่มจากคลัง
 packs-theme-overrides = การปรับแต่งของงานนำเสนอ: { $count }
 packs-theme-pick = ธีมของงานนำเสนอ
+packs-theme-open = เปิด
 packs-undo-add = เพิ่มแพ็ก “{ $name }”
 packs-undo-remove = นำแพ็ก “{ $name }” ออก
 packs-undo-use-mine = เปลี่ยนเป็นเวอร์ชันของฉัน
@@ -160,6 +168,8 @@ notice-modified-elsewhere = PDF นี้ถูกแก้ไขโดยเค
 notice-open-failed = ไม่สามารถเปิด { $path } ได้: { $reason }
 notice-tab-resume-failed = ไม่สามารถกู้คืนสถานะของแท็บนี้ได้: สถานะถูกแยกเก็บไว้ และแท็บจะเริ่มใหม่จากงานนำเสนอเปล่า
 notice-tab-set-aside = แท็บ “{ $name }” มาจาก Oku Slides รุ่นเก่ากว่า: ไม่สามารถกู้คืนการเปลี่ยนแปลงที่ยังไม่บันทึกได้ จึงแยกเก็บไว้ และแท็บจะเริ่มใหม่จากงานนำเสนอเปล่า
+notice-theme-draft-dropped = ตัวแก้ไขแพ็กนี้มาจาก Oku Slides รุ่นเก่ากว่า: เก็บการเปลี่ยนแปลงธีมที่ยังไม่ได้บันทึกไว้ไม่ได้ ตอนนี้ธีมจะเปิดในแท็บของตัวเอง
+notice-theme-edited-elsewhere = ธีม { $theme } กำลังถูกแก้ไขในแท็บ “{ $tab }”: แท็บนี้เปิดขึ้นใหม่ข้าง ๆ แบบอ่านอย่างเดียวจนกว่าแท็บนั้นจะปิด
 notice-pack-edited-elsewhere = แพ็ก { $pack } กำลังถูกแก้ไขในแท็บ “{ $tab }”: แท็บนี้เปิดขึ้นใหม่ข้าง ๆ แบบอ่านอย่างเดียวจนกว่าแท็บนั้นจะปิด
 notice-pack-deleted = แพ็ก { $pack } ไม่อยู่ในคลังแล้ว: แท็บนี้อ่านได้อย่างเดียว ให้เอเจนต์บันทึกเป็นแพ็กใหม่เพื่อเก็บการเปลี่ยนแปลงของคุณไว้
 notice-themes-skipped = ธีมบางรายการในคลังของคุณมาจาก Oku Slides รุ่นเก่า จึงอ่านไม่ได้และไม่ได้นำเสนอ ({ $count })
@@ -442,7 +452,6 @@ theme-extends-up = เลื่อนขึ้น
 theme-extends-down = เลื่อนลง
 theme-extends-remove = นำออก
 theme-extends-add = เพิ่มธีมที่จะขยาย
-theme-deck-overrides = ค่าที่งานนำเสนอกำหนดเอง ไม่ใช้ที่นี่: { $paths }
 theme-section-colors = สี
 theme-section-typography = การพิมพ์
 theme-section-scripts = ระบบอักษรอื่น

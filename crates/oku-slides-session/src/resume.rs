@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 use oku_slides_core::{
@@ -28,12 +29,15 @@ use oku_slides_platform::storage::{Storage, StorageError};
 use crate::files::read_document;
 use crate::resume_writer::{AgentWrite, Job, Writer};
 use crate::theme_edit::ThemeEdit;
+use crate::theme_tab::ThemeTab;
 use crate::views::{PackHost, PackMode, UiState};
-use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError};
+use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError, TabDocument};
 
 pub(crate) const VERSION: u32 = 3;
-/// The state version of a pack tab: the previous release sets it aside, never misreads it.
+/// The state version of a 6.0.0 pack tab, with its theme draft: read, no longer written.
 pub(crate) const PACK_TAB_STATE_VERSION: u32 = 4;
+/// The state version of pack mode, both hosts, written without a theme draft.
+pub(crate) const EDITOR_STATE_VERSION: u32 = 5;
 pub(crate) const DECK_DIR: &str = "deck";
 pub(crate) const PACK_DIR: &str = "pack";
 /// Taille maximale d'un JSON relu par [`Resume::read_json`] : au-delà, illisible.
@@ -44,6 +48,9 @@ mod versions;
 
 #[path = "resume_pack.rs"]
 mod pack;
+
+#[path = "resume_theme.rs"]
+mod theme;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -56,10 +63,12 @@ pub(crate) enum ResumeError {
     Version { version: u32, backtrace: Backtrace },
     #[snafu(display("cannot restore the session"))]
     Session { source: SessionError, backtrace: Backtrace },
-    #[snafu(display("theme draft namespace {namespace} does not match a readable base"))]
-    ThemeBase { namespace: String, backtrace: Backtrace },
     #[snafu(display("inconsistent pack tab state: {reason}"))]
     PackTab { reason: &'static str, backtrace: Backtrace },
+    #[snafu(display("inconsistent theme tab state: {reason}"))]
+    ThemeTab { reason: &'static str, backtrace: Backtrace },
+    #[snafu(display("theme draft namespace {namespace} does not match its base"))]
+    ThemeBase { namespace: String, backtrace: Backtrace },
     #[snafu(display("unreadable replica {}", path.display()))]
     Replica {
         path: PathBuf,
@@ -80,8 +89,9 @@ impl ResumeError {
             Self::Access { .. }
             | Self::Json { .. }
             | Self::Session { .. }
-            | Self::ThemeBase { .. }
-            | Self::PackTab { .. } => false,
+            | Self::PackTab { .. }
+            | Self::ThemeTab { .. }
+            | Self::ThemeBase { .. } => false,
         }
     }
 
@@ -114,6 +124,8 @@ pub(crate) enum SavedMode {
     Pack(PackMode),
     /// L'aide, dans cette langue : relue depuis l'app, aucun document gardé.
     Help(String),
+    /// A theme tab: its draft, rebuilt on the specimen deck; no document kept.
+    Theme(ThemeTab),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,9 +137,12 @@ pub(crate) struct State {
     /// Id du thème de l'aide (`SavedMode::Help`), relu avec elle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help_theme: Option<uuid::Uuid>,
-    /// Le thème édité (`SavedMode::Pack`) ; absent : celui du deck.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The theme draft of a pack state before version 5: read to notice its loss, never written.
+    #[serde(default, skip_serializing)]
     pub theme_edit: Option<ThemeEdit>,
+    /// A theme tab's draft tokens (`SavedMode::Theme`), checked again on reading.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft_tokens: Option<Map<String, Value>>,
 }
 
 /// Octets d'un document (images, polices, packs, thèmes), partagés d'un envoi au
@@ -286,9 +301,9 @@ impl Resume {
 
     /// The previous launch's state; `None` at the first one.
     ///
-    /// Versions 3 (deck, help, workshop) and 4 (pack tab) are read.
+    /// Versions 3 (deck, help, workshop), 4 (pack tab) and 5 (pack mode) are read.
     pub fn read_state(&self) -> Result<Option<State>> {
-        self.read_json_versions("state.json", VERSION..=PACK_TAB_STATE_VERSION)
+        self.read_json_versions("state.json", VERSION..=EDITOR_STATE_VERSION)
     }
 
     /// Écrit un document : assets et polices d'abord (le deck les cite), puis
@@ -610,18 +625,19 @@ impl Session {
     /// lancement, ou le garde vierge s'il le relit plus tard (`workspace_slot.rs`).
     #[must_use]
     pub fn resume(&mut self, dir: PathBuf) -> bool {
-        self.resume_checked(dir) == Resumed::Restored
+        self.resume_checked(dir, None) == Resumed::Restored
     }
 
     /// [`Self::resume`], qui dit aussi pourquoi un état est mis de côté.
     ///
     /// `Outdated` : un état d'une version plus ancienne de l'app (état ou deck
     /// d'un format refusé) dont le deck avait du travail non enregistré.
-    pub(crate) fn resume_checked(&mut self, dir: PathBuf) -> Resumed {
+    /// `cached`: the document `workspace.json` says the tab holds, if read.
+    pub(crate) fn resume_checked(&mut self, dir: PathBuf, cached: Option<&TabDocument>) -> Resumed {
         // Un seul écrivain par dossier : l'ancien fil finit et s'arrête d'abord.
         self.resume = None;
         let resume = Resume::new(self.storage.clone(), dir);
-        if let Err(e) = self.restore(&resume) {
+        if let Err(e) = self.restore(&resume, cached) {
             tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise impossible");
             let outdated = e.is_outdated() && resume.deck_unsaved();
             // `restore` peut avoir échoué après avoir déjà basculé en mode
@@ -685,7 +701,7 @@ impl Session {
         true
     }
 
-    fn restore(&mut self, resume: &Resume) -> Result<()> {
+    fn restore(&mut self, resume: &Resume, cached: Option<&TabDocument>) -> Result<()> {
         self.conversation = resume.read_conversation();
         let Some(state) = resume.read_state()? else { return Ok(()) };
         // Only a pack tab writes version 4: any other mode there is forged (a workshop would
@@ -695,19 +711,28 @@ impl Session {
             pack_tab || state.version != PACK_TAB_STATE_VERSION,
             PackTabSnafu { reason: "version 4 state of a tab that is not a pack tab" }
         );
+        let in_editor = matches!(&state.mode, SavedMode::Pack(_) | SavedMode::Theme(_));
+        ensure!(
+            in_editor || state.version != EDITOR_STATE_VERSION,
+            PackTabSnafu { reason: "version 5 outside pack mode or a theme tab" }
+        );
         if let SavedMode::Help(locale) = &state.mode {
             self.open_help(locale, state.help_theme).context(SessionSnafu)?;
             self.ui = state.ui.sanitized(false);
             return Ok(());
         }
+        if let SavedMode::Theme(_) = &state.mode {
+            return theme::restore_theme_tab(self, state, cached);
+        }
         // A pack tab has no deck of its own: its preview and pack are checked apart.
         if pack_tab {
             return pack::restore_pack_tab(self, resume, state);
         }
+        let legacy = pack::legacy_of(&state);
         let max = self.source_limits.replica();
         let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
         let pack = match state.mode {
-            SavedMode::Deck | SavedMode::Help(_) => None,
+            SavedMode::Deck | SavedMode::Help(_) | SavedMode::Theme(_) => None,
             SavedMode::Pack(edit) => match resume.read_doc(PACK_DIR, &self.doc_defaults, max, &self.registry) {
                 Ok(doc) => Some((doc, edit)),
                 Err(e) => {
@@ -718,7 +743,7 @@ impl Session {
         };
         self.load_document(deck).context(SessionSnafu)?;
         match pack {
-            Some((doc, edit)) => self.finish_pack_restore(edit, doc, state.theme_edit, state.ui)?,
+            Some((doc, edit)) => self.finish_pack_restore(edit, doc, legacy, state.ui)?,
             None => self.ui = state.ui.sanitized(false),
         }
         Ok(())
@@ -760,7 +785,7 @@ impl Session {
         // Pendant l'historique, le deck mis de côté est écrit en mode deck (un
         // onglet rouvert n'y revient pas), avec les images et polices prêtées
         // à l'aperçu.
-        let (deck, blobs, mode, theme_edit) = match &self.mode {
+        let (deck, blobs, mode) = match &self.mode {
             // L'aide se relit depuis l'app : seule sa langue est gardée.
             Mode::Help { locale } => {
                 let state = State {
@@ -772,15 +797,16 @@ impl Session {
                         deck.theme.as_ref().and_then(|ns| deck.themes.get(ns)).map(|pin| pin.id)
                     },
                     theme_edit: None,
+                    draft_tokens: None,
                 };
                 writer.send(Job { docs: Vec::new(), state, agent });
                 return;
             }
-            Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck, None),
-            Mode::Pack { stash, edit, theme, .. } => {
-                (&**stash, &**stash, SavedMode::Pack(edit.clone()), Some(theme.clone()))
-            }
-            Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck, None),
+            Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck),
+            Mode::Pack { stash, edit, .. } => (&**stash, &**stash, SavedMode::Pack(edit.clone())),
+            Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck),
+            // A theme tab keeps no document: its draft rebuilds the specimen deck.
+            Mode::Theme { .. } => return self.persist_theme(writer, agent),
         };
         let mut docs = Vec::new();
         if documents {
@@ -801,8 +827,9 @@ impl Session {
         if pack_tab && let Some((_, preview)) = docs.iter_mut().find(|(sub, _)| *sub == DECK_DIR) {
             preview.dirty = false;
         }
-        let version = if pack_tab { PACK_TAB_STATE_VERSION } else { VERSION };
-        let state = State { version, mode, ui: self.ui.clone(), help_theme: None, theme_edit };
+        let version = if matches!(mode, SavedMode::Pack(_)) { EDITOR_STATE_VERSION } else { VERSION };
+        let state =
+            State { version, mode, ui: self.ui.clone(), help_theme: None, theme_edit: None, draft_tokens: None };
         writer.send(Job { docs, state, agent });
     }
 }

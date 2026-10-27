@@ -6,14 +6,14 @@ import { t } from "./i18n";
 import { tabShortcut } from "./tabs";
 import type { EditorCommands, EditorHistory } from "./TypstEditor";
 import { useWidgetFiles, type WidgetFiles } from "./useWidgetFiles";
-import { NO_TABS, THEME_TAB, activated, activeName, activeWidget, closed, kept, opened, placeTouched, pruned, renamed, withRestored, type ActiveTab, type KeptTabs, type WidgetTabs } from "./widgetTabs";
+import { NO_TABS, activated, activeName, activeWidget, closed, kept, opened, placeTouched, pruned, renamed, withRestored, type ActiveTab, type KeptTabs, type WidgetTabs } from "./widgetTabs";
 
 export interface PackWidgetEditor {
   files: WidgetFiles;
   tabs: WidgetTabs;
   /** La revision des packs épinglés et du pack édité (statuts et sources s'y relisent). */
   revision: string;
-  /** Nom du sous-onglet widget actif ; `null` : la scène, « Thème » ou hors mode pack. */
+  /** The active widget sub-tab's name; `null`: the stage, or outside pack mode. */
   activeName: string | null;
   /** Pour `useKeptUi` : vide hors mode pack, dès le même rendu. */
   kept: KeptTabs;
@@ -109,7 +109,7 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
   const depths = useRef(new Map<number, EditorHistory>());
   const commandsCbs = useRef(new Map<number, (c: EditorCommands | null) => void>());
   const historyCbs = useRef(new Map<number, (h: EditorHistory) => void>());
-  // Le sous-onglet widget actif (son éditeur) ; « Thème » n'en a pas.
+  // The active widget sub-tab (its editor).
   const active = pack === null ? null : activeWidget(tabs);
   const activeRef = useRef(active);
   const [shown, setShown] = useState<{ id: number | null; h: EditorHistory }>({ id: null, h: ZERO });
@@ -169,8 +169,9 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
     refocus.current = false;
     const now = document.activeElement;
     if (now && now !== document.body && now.isConnected) return;
-    // Plus d'onglet actif : « Layouts » (la scène d'un pack de layouts), sinon « Thème ».
-    document.getElementById(`widget-tab-${tabs.active ?? (stageTab ? 0 : THEME_TAB)}`)?.focus();
+    // No active tab: "Layouts" (a layout pack's stage), else the first widget sub-tab, if any.
+    const next = tabs.active ?? (stageTab ? 0 : tabs.tabs[0]?.id);
+    if (next !== undefined) document.getElementById(`widget-tab-${next}`)?.focus();
   }, [tabs]);
   const removed = useCallback(
     (name: string) =>

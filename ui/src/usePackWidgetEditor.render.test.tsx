@@ -424,14 +424,14 @@ describe("usePackWidgetEditor, revue finale", () => {
     expect(document.activeElement?.id).toBe(`widget-tab-${kpi}`);
   });
 
-  test("⌘W depuis l'éditeur du dernier sous-onglet : le focus va à « Thème »", async () => {
+  test("usePackWidgetEditor closing the last widget sub-tab of a widget pack leaves the focus alone", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, snapOf({ widgets: ["kpi"], widget: "kpi" }));
     const editor = m.view("kpi").contentDOM;
     editor.focus();
     await press(editor, "w");
     expect(m.names()).toEqual([]);
-    expect(document.activeElement?.id).toBe("widget-tab-theme");
+    expect(document.activeElement?.id ?? "").not.toMatch(/^widget-tab-/);
   });
 
   test("⌘W depuis l'éditeur du dernier sous-onglet d'un pack de layouts : le focus va à « Layouts »", async () => {

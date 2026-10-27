@@ -25,6 +25,13 @@ session-pack-not-make-current = A versão de { $pack } da apresentação não po
 session-pack-already-current = A apresentação já usa a sua versão atual de { $pack }.
 session-theme-not-outdated = O tema { $theme } da apresentação não é mais antigo que a sua versão atual.
 session-editing-pack = Termine de editar o pacote primeiro
+session-theme-open-in-tab = O tema { $theme } está sendo editado na aba “{ $tab }”: edite-o lá, ou feche essa aba primeiro.
+session-wrong-document = { $kind ->
+    [deck] Esta aba mostra uma apresentação: essa alteração é feita em uma aba de tema.
+    [help] A ajuda é somente leitura: essa alteração é feita em uma aba de tema.
+    [pack] Esta aba edita um pacote: o tema é alterado na aba da apresentação, e seus valores em uma aba de tema.
+   *[theme] Esta aba edita um tema: aqui só mudam seus valores, seu nome e os temas que ele estende.
+}
 session-in-pack-tab = Esta aba edita um pacote: feche-a para terminar; os pacotes próprios de uma apresentação abrem pela aba dessa apresentação.
 session-pack-open-in-tab = O pacote { $pack } está sendo editado na aba “{ $tab }”: edite-o lá, ou feche essa aba primeiro.
 session-pack-offer-expired = A apresentação não foi atualizada: a apresentação ou essa versão do pacote mudou nesse meio-tempo.
@@ -33,7 +40,6 @@ session-lease-missing = Este pacote só pode ser salvo pela aba que o edita.
 session-not-editing-pack = Nenhum pacote está sendo editado
 session-pack-mode-slides = No modo de pacote, os slides são os exemplos dos layouts: não podem ser adicionados, removidos, movidos nem mudar de layout
 session-pack-mode-preview = No modo de pacote, os slides de pré-visualização dos widgets são somente leitura
-session-theme-choice-alone = No modo de pacote, escolha o tema sozinho e depois edite os tokens dele com set_token
 session-response = Não foi possível gravar a resposta
 session-unknown-tab = Esta aba não está mais aberta.
 session-unknown-window = Esta janela não está mais aberta.
@@ -115,6 +121,7 @@ deck-new-slide-text = Diga o que você quer mostrar.
 pack-default-name = Meu pacote
 pack-copy-name = { $name } (cópia)
 theme-copy-name = { $name } (variante)
+theme-copy-of = { $name } (cópia)
 pack-adopt-label = Pacote: { $name }
 session-widgets-broken = Widgets excluídos porque não compilam: { $names }. Os outros widgets do pacote são mantidos.
 session-widgets-not-saved = Não foi possível salvar na biblioteca a versão dos widgets do pacote “{ $pack }”. A apresentação a mantém.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } ajustes da apresentação
 }
 packs-theme-pick = Tema da apresentação
+packs-theme-open = Abrir
 packs-undo-add = Adicionar o pacote “{ $name }”
 packs-undo-remove = Remover o pacote “{ $name }”
 packs-undo-use-mine = Mudar para a minha versão
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Este PDF foi alterado por outra ferramenta depois do
 notice-open-failed = Não foi possível abrir { $path }: { $reason }
 notice-tab-resume-failed = Não foi possível restaurar o estado desta aba: ele foi deixado de lado e a aba recomeça com uma apresentação em branco.
 notice-tab-set-aside = A aba “{ $name }” vem de uma versão anterior do Oku Slides: as alterações não salvas não puderam ser restauradas e foram deixadas de lado, e a aba recomeça com uma apresentação em branco.
+notice-theme-draft-dropped = Este editor de pacotes vem de uma versão anterior do Oku Slides: suas alterações de tema não salvas não puderam ser mantidas. Agora um tema abre em sua própria aba.
+notice-theme-edited-elsewhere = O tema { $theme } está sendo editado na aba “{ $tab }”: esta aba foi reaberta ao lado, somente leitura até essa aba ser fechada.
 notice-pack-edited-elsewhere = O pacote { $pack } está sendo editado na aba “{ $tab }”: esta aba foi reaberta ao lado, somente leitura até essa aba ser fechada.
 notice-pack-deleted = O pacote { $pack } não está mais na biblioteca: esta aba é somente leitura; peça ao agente para salvá-lo como um novo pacote para manter suas alterações.
 notice-themes-skipped = Alguns temas da sua biblioteca vêm de uma versão anterior do Oku Slides: não puderam ser lidos e não são oferecidos ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Mover para cima
 theme-extends-down = Mover para baixo
 theme-extends-remove = Remover
 theme-extends-add = Adicionar um tema a estender
-theme-deck-overrides = Substituições da apresentação, não aplicadas aqui: { $paths }
 theme-section-colors = Cores
 theme-section-typography = Tipografia
 theme-section-scripts = Outras escritas

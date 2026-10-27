@@ -12,4 +12,5 @@
 | [0008](0008-import-representation-intermediaire-et-projecteurs.md) | Import through an intermediate representation and projectors | accepted |
 | [0009](0009-import-dans-la-session-packs-du-deck-ajustement-borne.md) | Import pipeline in the session, deck-only packs, bounded agent tuning | accepted |
 | [0010](0010-miroir-des-mises-a-jour.md) | Update mirror on updates.okutheory.com (Scaleway) | accepted |
-| [0011](0011-tab-document-kinds-and-preview-decks.md) | Tab document kinds, pack tabs beside a preview deck, pack leases | accepted |
+| [0011](0011-tab-document-kinds-and-preview-decks.md) | Tab document kinds, pack tabs beside a preview deck, pack leases | accepted, amended by 0012 |
+| [0012](0012-theme-tabs.md) | Theme tabs on a specimen deck, the theme draft out of pack mode | accepted |

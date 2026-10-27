@@ -85,7 +85,7 @@ export function useSlideOps({
     });
   };
 
-  /** Montre une slide, sans sélection ; un sous-onglet widget ouvert cède la place à la scène, « Thème » reste. */
+  /** Shows a slide, unselected; an open widget sub-tab gives way to the stage. */
   const goToSlide = (id: string) => {
     showSlide(id);
     setSelected(null);

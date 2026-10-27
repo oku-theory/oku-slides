@@ -126,6 +126,8 @@ impl Session {
         let tab = scope.map(|scope| PackRoute::Tab { scope, name: label(&stored.manifest.name) });
         let edited = match &self.mode {
             Mode::Pack { edit, .. } => Some((edit.pack == pack, edit.host)),
+            // A theme tab opens no pack in place.
+            Mode::Theme { .. } => return crate::document_kind::refused_in_theme_tab(),
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => None,
         };
         match (edited, tab) {

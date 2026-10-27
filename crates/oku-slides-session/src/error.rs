@@ -76,6 +76,8 @@ pub enum SessionErrorKind {
     InPackTab,
     /// The library pack is being edited in another tab.
     PackOpenInTab,
+    /// The library theme is being edited in another tab.
+    ThemeOpenInTab,
     /// The offered pack version no longer applies to this deck.
     PackOfferExpired,
     /// The session given to a new pack tab was not fresh.
@@ -88,8 +90,8 @@ pub enum SessionErrorKind {
     PackModeSlides,
     /// En mode pack, une op sur une slide d'aperçu d'un pack de widgets.
     PackModePreview,
-    /// En mode pack, un choix de thème mêlé à d'autres ops.
-    ThemeChoiceAlone,
+    /// A request that makes no sense for the session's kind of document.
+    WrongDocument,
     /// Réglage de l'hôte inconnu.
     HostKey,
     /// La réponse n'a pas pu être écrite en JSON.
@@ -248,6 +250,8 @@ pub(crate) enum SessionInner {
     InPackTab { backtrace: Backtrace },
     #[snafu(display("pack {pack} is being edited in tab {tab}"))]
     PackOpenInTab { pack: String, tab: String, backtrace: Backtrace },
+    #[snafu(display("theme {theme} is being edited in tab {tab}"))]
+    ThemeOpenInTab { theme: String, tab: String, backtrace: Backtrace },
     #[snafu(display("the deck or the offered pack version changed meanwhile"))]
     PackOfferExpired { backtrace: Backtrace },
     #[snafu(display("the pack tab could not be prepared"))]
@@ -260,8 +264,8 @@ pub(crate) enum SessionInner {
     PackModeSlides { backtrace: Backtrace },
     #[snafu(display("in pack mode, the widget preview slides are read-only"))]
     PackModePreview { backtrace: Backtrace },
-    #[snafu(display("in pack mode, choose the theme alone and edit its tokens with set_token"))]
-    ThemeChoiceAlone { backtrace: Backtrace },
+    #[snafu(display("this request does not fit a {} tab", kind.as_str()))]
+    WrongDocument { kind: crate::DocumentKind, backtrace: Backtrace },
     #[snafu(display("unknown host setting: {key}"))]
     HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
@@ -367,12 +371,12 @@ impl SessionError {
             PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
             PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
             Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
-            ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
-            ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
             TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UnknownAsset,
             UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
             UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
-            Write,
+            Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
@@ -415,13 +419,14 @@ impl SessionError {
             EditingPack { .. } => SessionErrorKind::EditingPack,
             InPackTab { .. } => SessionErrorKind::InPackTab,
             PackOpenInTab { .. } => SessionErrorKind::PackOpenInTab,
+            ThemeOpenInTab { .. } => SessionErrorKind::ThemeOpenInTab,
             PackOfferExpired { .. } => SessionErrorKind::PackOfferExpired,
             PackTabNotFresh { .. } => SessionErrorKind::PackTabNotFresh,
             LeaseMissing { .. } => SessionErrorKind::LeaseMissing,
             NotEditingPack { .. } => SessionErrorKind::NotEditingPack,
             PackModeSlides { .. } => SessionErrorKind::PackModeSlides,
             PackModePreview { .. } => SessionErrorKind::PackModePreview,
-            ThemeChoiceAlone { .. } => SessionErrorKind::ThemeChoiceAlone,
+            WrongDocument { .. } => SessionErrorKind::WrongDocument,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
@@ -501,11 +506,11 @@ impl SessionError {
         }
     }
 
-    /// The label of the tab holding the lease, for a `PackOpenInTab` error.
+    /// The label of the tab holding the lease, for a `PackOpenInTab` or `ThemeOpenInTab` error.
     #[must_use]
     pub(crate) fn lease_holder(&self) -> Option<&str> {
         match &*self.0 {
-            SessionInner::PackOpenInTab { tab, .. } => Some(tab),
+            SessionInner::PackOpenInTab { tab, .. } | SessionInner::ThemeOpenInTab { tab, .. } => Some(tab),
             _ => None,
         }
     }
@@ -580,12 +585,12 @@ impl Localize for SessionError {
             PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
             PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
             Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
-            ThemeChoiceAlone, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
-            ThemeJson, ThemeNotOutdated, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
             TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UnknownAsset,
             UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
             UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
-            Write,
+            Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -659,13 +664,17 @@ impl Localize for SessionError {
             PackOpenInTab { pack, tab, .. } => {
                 l.tr_with("session-pack-open-in-tab", &[("pack", pack.as_str().into()), ("tab", tab.as_str().into())])
             }
+            ThemeOpenInTab { theme, tab, .. } => l.tr_with(
+                "session-theme-open-in-tab",
+                &[("theme", theme.as_str().into()), ("tab", tab.as_str().into())],
+            ),
             PackOfferExpired { .. } => l.tr("session-pack-offer-expired"),
             PackTabNotFresh { .. } => l.tr("session-pack-tab-not-fresh"),
             LeaseMissing { .. } => l.tr("session-lease-missing"),
             NotEditingPack { .. } => l.tr("session-not-editing-pack"),
             PackModeSlides { .. } => l.tr("session-pack-mode-slides"),
             PackModePreview { .. } => l.tr("session-pack-mode-preview"),
-            ThemeChoiceAlone { .. } => l.tr("session-theme-choice-alone"),
+            WrongDocument { kind, .. } => l.tr_with("session-wrong-document", &[("kind", kind.as_str().into())]),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
             Response { .. } => l.tr("session-response"),
             Paste { reason, .. } => l.tr(reason.key()),

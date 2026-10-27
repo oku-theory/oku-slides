@@ -7,7 +7,7 @@ import type { DataOp } from "./chart/chartTypes";
 import type { DataEdit } from "./chart/dataEdit";
 import type { Cell, ZoneView } from "./grid";
 import { locale } from "./i18n";
-import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin } from "./packTypes";
+import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin, ThemeTabView } from "./packTypes";
 import type { PresentMode } from "./present";
 import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
@@ -85,6 +85,8 @@ export interface Snapshot {
   layouts: Record<string, PackPin>;
   /** Édition d'un pack en cours (mode pack). */
   editing: PackMode | null;
+  /** The theme draft of a theme tab; null in any other tab. */
+  theming: ThemeTabView | null;
   /** Le pack du deck n'appartient qu'à lui (import) : jamais dans la bibliothèque. */
   deck_pack: boolean;
   /** Épinglages (packs et thème) plus anciens que ma version courante : la pastille du bouton des packs. */
@@ -156,7 +158,7 @@ export interface UiState {
   notes: number | null;
   /** Sous-onglets de widgets ouverts en mode pack, dans l'ordre d'ouverture. */
   widgets: string[];
-  /** Sous-onglet actif ; `null` : la scène, ou « Thème ». */
+  /** Sous-onglet actif ; `null` : la scène. */
   widget: string | null;
   /** Code source des widgets déplié à droite de l'aperçu ; replié par défaut. */
   code: boolean;
@@ -508,10 +510,11 @@ type Request =
   | { cmd: "close_pack" }
   | { cmd: "delete_pack"; pack: string }
   | { cmd: "use_pack_version"; pack: string; version: string; deck_uid: string }
-  | { cmd: "set_edited_theme"; id: string }
   | { cmd: "rename_edited_theme"; name: string }
   | { cmd: "set_edited_theme_extends"; extends: string[] }
   | { cmd: "edit_theme_extends"; edit: ExtendsEdit; theme: string }
+  // Answers the saved ThemePin, or null when unchanged.
+  | { cmd: "save_theme"; as_new: boolean }
   | { cmd: "host_settings"; widget: string | null }
   | { cmd: "data_panel"; slide: string; element: string }
   | { cmd: "data_edit"; slide: string; element: string; edit: DataEdit }
@@ -738,15 +741,15 @@ export function tabApi(tab: string) {
     renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
     previewWidget: (name: string, pack?: string) => call<WidgetPreview>({ cmd: "preview_widget", name, pack }),
-    /** Mode pack : le brouillon du thème repart de la version courante du thème `id` (annulable). */
-    setEditedTheme: (id: string) => call<Snapshot>({ cmd: "set_edited_theme", id }),
-    /** Mode pack : renomme le thème édité (annulable). */
+    /** Theme tab: saves the draft; the saved version, or null when unchanged. */
+    saveTheme: (asNew = false) => call<ThemePin | null>({ cmd: "save_theme", as_new: asNew }),
+    /** Theme tab: renames the draft (undoable). */
     renameEditedTheme: (name: string) => call<Snapshot>({ cmd: "rename_edited_theme", name }),
-    /** Mode pack : change la liste `extends` du brouillon par un delta appliqué par la session (annulable). */
+    /** Theme tab: changes the draft's `extends` list by a delta the session applies (undoable). */
     editThemeExtends: (edit: ExtendsEdit, theme: string) => call<Snapshot>({ cmd: "edit_theme_extends", edit, theme }),
-    /** Surface A2UI des jetons du thème édité, filtrée ; `null` hors mode pack. */
+    /** The A2UI surface of the draft's tokens, filtered; `null` outside a theme tab. */
     hostTheme: (filter: string) => call<Surface | null>({ cmd: "host_theme", filter }),
-    /** Change le jeton `path` du thème édité (mode pack, annulable). */
+    /** Changes token `path` of the draft (theme tab, undoable). */
     hostToken: (path: string[], action: TokenAction, value?: unknown) =>
       call<Snapshot>({ cmd: "host_token", path, action, ...(value === undefined ? {} : { value }) }),
     ui: (ui: UiState, order?: UiOrder) => call<Snapshot>({ cmd: "ui", ...ui, order }),

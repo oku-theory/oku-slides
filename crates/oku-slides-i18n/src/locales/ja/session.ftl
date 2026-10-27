@@ -25,6 +25,13 @@ session-pack-not-make-current = プレゼンテーション内の { $pack } の�
 session-pack-already-current = プレゼンテーションはすでに { $pack } の現在のバージョンを使っています。
 session-theme-not-outdated = プレゼンテーションのテーマ { $theme } は現在のバージョンより古くありません。
 session-editing-pack = 先にパックの編集を終了してください
+session-theme-open-in-tab = テーマ { $theme } はタブ「{ $tab }」で編集中です。そちらで編集するか、先にそのタブを閉じてください。
+session-wrong-document = { $kind ->
+    [deck] このタブはプレゼンテーションを表示しています。この変更はテーマのタブで行います。
+    [help] ヘルプは読み取り専用です。この変更はテーマのタブで行います。
+    [pack] このタブはパックを編集しています。テーマはプレゼンテーションのタブで、その値はテーマのタブで変更します。
+   *[theme] このタブはテーマを編集しています。ここで変更できるのは、その値と名前、拡張するテーマだけです。
+}
 session-in-pack-tab = このタブはパックを編集しています。終了するには閉じてください。プレゼンテーション専用のパックは、そのプレゼンテーションのタブから開きます。
 session-pack-open-in-tab = パック { $pack } はタブ「{ $tab }」で編集中です。そちらで編集するか、先にそのタブを閉じてください。
 session-pack-offer-expired = プレゼンテーションは更新されませんでした。その間にプレゼンテーションまたはパックのそのバージョンが変わりました。
@@ -33,7 +40,6 @@ session-lease-missing = このパックは、編集しているタブからの�
 session-not-editing-pack = 編集中のパックはありません
 session-pack-mode-slides = パックモードでは、スライドはレイアウトの例です。追加、削除、移動、レイアウトの変更はできません
 session-pack-mode-preview = パックモードでは、ウィジェットのプレビュースライドは読み取り専用です
-session-theme-choice-alone = パックモードでは、テーマは単独で選択し、そのトークンは set_token で編集してください
 session-response = 応答を書き込めませんでした
 session-unknown-tab = このタブはもう開いていません。
 session-unknown-window = このウィンドウはもう開いていません。
@@ -115,6 +121,7 @@ deck-new-slide-text = 伝えたいことを書きましょう。
 pack-default-name = マイパック
 pack-copy-name = { $name }（コピー）
 theme-copy-name = { $name }（バリエーション）
+theme-copy-of = { $name }（コピー）
 pack-adopt-label = パック：{ $name }
 session-widgets-broken = コンパイルできないためウィジェットを除外しました：{ $names }。パックのほかのウィジェットはそのまま使えます。
 session-widgets-not-saved = パック「{ $pack }」のウィジェットのバージョンをライブラリに保存できませんでした。プレゼンテーションには保持されています。
@@ -148,6 +155,7 @@ packs-remove = 削除
 packs-add = ライブラリから追加
 packs-theme-overrides = プレゼンテーションの上書き：{ $count }
 packs-theme-pick = プレゼンテーションのテーマ
+packs-theme-open = 開く
 packs-undo-add = パック「{ $name }」を追加
 packs-undo-remove = パック「{ $name }」を削除
 packs-undo-use-mine = 自分のバージョンに切り替える
@@ -160,6 +168,8 @@ notice-modified-elsewhere = この PDF は Oku Slides の後に別のツール�
 notice-open-failed = { $path } を開けませんでした: { $reason }
 notice-tab-resume-failed = このタブの状態を復元できませんでした。状態は別に保管され、タブは空のプレゼンテーションから始まります。
 notice-tab-set-aside = タブ「{ $name }」は古いバージョンの Oku Slides で作られました。保存されていない変更は復元できず別に保管され、タブは空のプレゼンテーションから始まります。
+notice-theme-draft-dropped = このパックエディターは以前のバージョンの Oku Slides で作られました。保存されていないテーマの変更は保持できませんでした。テーマは現在、専用のタブで開きます。
+notice-theme-edited-elsewhere = テーマ { $theme } はタブ「{ $tab }」で編集中です。このタブはその隣に再び開かれ、そのタブが閉じるまで読み取り専用です。
 notice-pack-edited-elsewhere = パック { $pack } はタブ「{ $tab }」で編集中です。このタブはその隣に再び開かれ、そのタブが閉じるまで読み取り専用です。
 notice-pack-deleted = パック { $pack } はもうライブラリにありません。このタブは読み取り専用です。変更を残すには、新しいパックとして保存するようエージェントに頼んでください。
 notice-themes-skipped = ライブラリの一部のテーマは古いバージョンの Oku Slides で作成されたため、読み取れず、表示されません（{ $count }）。
@@ -442,7 +452,6 @@ theme-extends-up = 上へ移動
 theme-extends-down = 下へ移動
 theme-extends-remove = 削除
 theme-extends-add = 継承するテーマを追加
-theme-deck-overrides = デッキの上書き（ここでは適用されません）：{ $paths }
 theme-section-colors = 色
 theme-section-typography = タイポグラフィ
 theme-section-scripts = その他の文字体系

@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::{Result, UnknownTabSnafu};
 use crate::resume::Resumed;
 use crate::views::TabInfo;
-use crate::{Fonts, Platform, Session};
+use crate::{Fonts, Platform, Session, TabDocument};
 
 /// Ce qu'il faut pour relire la session d'un onglet endormi.
 pub(super) struct Dormant {
@@ -18,6 +18,8 @@ pub(super) struct Dormant {
     pub(super) dir: PathBuf,
     /// Son titre enregistré, que nomme l'avis d'un état mis de côté.
     pub(super) title: String,
+    /// The document `workspace.json` cached for it: a theme tab must hold it.
+    pub(super) document: TabDocument,
     pub(super) fonts: Fonts,
     pub(super) platform: Platform,
 }
@@ -30,7 +32,7 @@ impl Dormant {
     /// version plus ancienne qui avait du travail non enregistré le dit en nommant l'onglet.
     fn wake(&self) -> Result<Session> {
         let mut session = super::tab_session(&self.fonts, &self.platform)?;
-        let notice = match session.resume_checked(self.dir.clone()) {
+        let notice = match session.resume_checked(self.dir.clone(), Some(&self.document)) {
             Resumed::Restored => return Ok(session),
             Resumed::Unreadable => self.platform.localizer.tr("notice-tab-resume-failed"),
             Resumed::Outdated => {

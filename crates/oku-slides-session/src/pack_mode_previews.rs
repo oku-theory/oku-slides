@@ -1,10 +1,10 @@
-//! Aperçus des layouts (`Request::Layouts`) : un rendu par pack de layouts, en cache.
+//! Layout previews (`Request::Layouts`): one render per layout pack, cached.
 //!
-//! Le document montré (le deck, ou en mode pack le deck de travail) liste
-//! ses packs de layouts épinglés ; chaque layout s'y rend à sa valeur
-//! d'exemple, au style du document (en mode pack, le brouillon du thème).
-//! Le cache garde les aperçus d'une version de pack tant que le style ne
-//! change pas.
+//! The document shown (the deck, the working deck in pack mode, the
+//! specimen deck in a theme tab) lists its pinned layout packs; each layout
+//! renders there at its example value, in the document's style (in a theme
+//! tab, the theme draft). The cache keeps a pack version's previews while
+//! the style does not change.
 
 use snafu::ResultExt;
 

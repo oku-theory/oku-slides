@@ -178,13 +178,18 @@ impl Session {
         self.sync_widgets()
     }
 
-    /// Refuse ce qui changerait le deck pendant l'historique (`InHistory`)
-    /// ou dans l'aide (`ReadOnly`). `handle` filtre déjà les requêtes ;
-    /// l'agent, lui, appelle les méthodes directement (`TabSession::with`) :
-    /// chacune se garde avant tout changement.
+    /// Refuses what would change the deck in history, help or a theme tab.
+    ///
+    /// The errors are `InHistory`, `ReadOnly` and `WrongDocument`. `handle`
+    /// already filters requests; the agent calls methods directly
+    /// (`TabSession::with`): each guards itself before any change.
     pub(crate) fn ensure_editable(&self) -> Result<()> {
         snafu::ensure!(!matches!(self.mode, Mode::History { .. }), InHistorySnafu);
-        self.ensure_not_help()
+        self.ensure_not_help()?;
+        // A theme tab's specimen deck is not edited: only its draft is.
+        let theme = crate::DocumentKind::Theme;
+        snafu::ensure!(self.document_kind() != theme, crate::error::WrongDocumentSnafu { kind: theme });
+        Ok(())
     }
 
     /// Is the session in deck mode? If not, why (help, pack, history).
@@ -193,7 +198,8 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails when read-only (`ReadOnly`), in pack mode (`EditingPack`) or in history (`InHistory`).
+    /// Fails when read-only (`ReadOnly`), in pack mode (`EditingPack`), in history (`InHistory`)
+    /// or in a theme tab (`WrongDocument`).
     pub fn ensure_deck_mode(&self) -> Result<()> {
         self.ensure_not_help()?;
         match self.mode {
@@ -201,6 +207,7 @@ impl Session {
             Mode::Help { .. } => ReadOnlySnafu.fail()?,
             Mode::Pack { .. } => EditingPackSnafu.fail()?,
             Mode::History { .. } => InHistorySnafu.fail()?,
+            Mode::Theme { .. } => crate::document_kind::refused_in_theme_tab(),
         }
     }
 

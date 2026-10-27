@@ -332,3 +332,14 @@ fn save_pack_after_the_session_version_was_adopted_opens_a_child() {
     assert_that!(second.manifest.parent.clone()).is_equal_to(Some(first.version.clone()));
     assert_that!(edit_of(&s).session_version).is_equal_to(Some(second.version));
 }
+
+#[test]
+fn save_pack_writes_no_theme_version() {
+    let data = fresh_dir("oku-slides-pack-save-theme-");
+    let mut s = session_on(data.path());
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let before = s.themes.themes();
+    s.apply("t", vec![set_title("layout-content", "Nouveau")], None).unwrap();
+    s.save_pack(true).unwrap();
+    assert_that!(s.themes.themes()).is_equal_to(before);
+}

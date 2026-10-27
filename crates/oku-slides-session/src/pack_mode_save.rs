@@ -120,8 +120,7 @@ impl Session {
     /// pack are those of the latest version (each op already writes them,
     /// `layout_examples`). `as_new`: a copy (new id, no parent), on which the
     /// session continues, without undo history (an undo does not bring back
-    /// the original). The theme draft is saved too (`save_theme_edit`); the
-    /// deck set aside moves to its theme in the pack's step.
+    /// the original). No theme version is written: themes save in their own tab.
     /// A render that fails afterwards is not an error: the version stays, a
     /// notice gives the cause ("diagnostics + success" choice, like
     /// `set_widget`). Returns the saved version.
@@ -129,7 +128,7 @@ impl Session {
     /// # Errors
     ///
     /// Fails outside pack mode (`NotEditingPack`), or if the library rejects or does not write the
-    /// version or the theme draft: while another tab edits the pack (`PackOpenInTab`), once the
+    /// version: while another tab edits the pack (`PackOpenInTab`), once the
     /// library lost it (`UnknownPack`), without its base (`PackVersionMissing`) or its lease
     /// (`LeaseMissing`).
     pub fn save_pack(&mut self, as_new: bool) -> Result<PackVersion> {
@@ -160,10 +159,6 @@ impl Session {
         }
         let files = manifest.to_files(kind, widgets).context(PackJsonSnafu { id })?;
         let version = self.adopt_session_version(deck, files, &edit, as_new, AdoptStep::Silent)?;
-        // Le brouillon du thème, s'il change le thème du deck, rejoint l'étape du pack.
-        if let Some((ns, pin)) = self.save_theme_edit()? {
-            self.stash_adopt_theme(ns, pin)?;
-        }
         if as_new {
             // Une copie est un autre pack : son document repart sans historique,
             // un annuler ne ramène jamais à l'original (l'édition suit la copie).

@@ -50,6 +50,11 @@ export function useFileActions({ api, snap, snapRef, run, say, onOpen, onImportP
           await run(api.savePack());
           return;
         }
+        // A theme tab saves its draft; the answer is a pin, the snapshot is read after it.
+        if (s.theming) {
+          await run(api.saveTheme().then(() => api.snapshot()));
+          return;
+        }
         const saved = await run(saveGuarded(api, s));
         if (!saved) setAutosavePaused(true);
       }),

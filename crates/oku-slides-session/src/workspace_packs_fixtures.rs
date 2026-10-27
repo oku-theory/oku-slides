@@ -197,7 +197,7 @@ pub(super) fn forge_pack_entry(layout: &mut Value, tab: &str, pack: Uuid) {
 }
 
 /// Runs `f` on another thread; panics if it takes more than 10 s (a deadlock).
-pub(super) fn within<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'static) -> R {
+pub(in crate::workspace) fn within<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'static) -> R {
     let (done, finished) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let _ = done.send(f());

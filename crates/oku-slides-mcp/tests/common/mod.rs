@@ -159,6 +159,25 @@ async fn prepared_with(tweak: impl FnOnce(&mut Settings) + Send + 'static) -> (P
     .unwrap_or_else(|e| panic!("tâche bloquante de préparation : {e}"))
 }
 
+/// A fresh session on its own data dir, turned into the theme tab of `theme`.
+///
+/// Blocking (`Storage`): call it from `spawn_blocking` or `block_in_place`.
+pub fn theme_tab_session(theme: uuid::Uuid) -> (Platform, Session, tempfile::TempDir) {
+    let (platform, data) = platform_with(|_| {});
+    let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("test session: {e}"));
+    session.open_theme_here(theme).unwrap_or_else(|e| panic!("theme tab: {e}"));
+    (platform, session, data)
+}
+
+/// [`start`] on a theme tab of `theme` instead of the fixture deck.
+pub async fn start_theme_tab(theme: uuid::Uuid) -> Harness {
+    let (platform, session, data) = tokio::task::spawn_blocking(move || theme_tab_session(theme))
+        .await
+        .unwrap_or_else(|e| panic!("blocking setup task: {e}"));
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), session.clone(), session, "t-1").await
+}
+
 /// Démarre le serveur pour un onglet dont les sessions sont fournies par `sessions`.
 async fn start_with(
     (platform, data): (Platform, tempfile::TempDir),

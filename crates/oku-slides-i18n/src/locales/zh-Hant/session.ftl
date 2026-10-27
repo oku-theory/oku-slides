@@ -25,6 +25,13 @@ session-pack-not-make-current = 簡報中 { $pack } 的版本無法成為您的�
 session-pack-already-current = 簡報已在使用您目前版本的 { $pack }。
 session-theme-not-outdated = 簡報的主題 { $theme } 並不比您的目前版本舊。
 session-editing-pack = 請先完成套件的編輯
+session-theme-open-in-tab = 主題 { $theme } 正在分頁「{ $tab }」中編輯：請在那裡編輯，或先關閉該分頁。
+session-wrong-document = { $kind ->
+    [deck] 此分頁顯示的是簡報：此變更需在主題分頁中進行。
+    [help] 說明為唯讀：此變更需在主題分頁中進行。
+    [pack] 此分頁正在編輯一個套件：主題在簡報的分頁中變更，其取值在主題分頁中變更。
+   *[theme] 此分頁正在編輯一個主題：這裡只能變更它的取值、名稱以及它延伸的主題。
+}
 session-in-pack-tab = 此分頁正在編輯一個套件：關閉它即可完成；簡報專用的套件從該簡報的分頁開啟。
 session-pack-open-in-tab = 套件 { $pack } 正在分頁「{ $tab }」中編輯：請在那裡編輯，或先關閉該分頁。
 session-pack-offer-expired = 簡報未更新：在此期間簡報或該套件的這個版本已變更。
@@ -33,7 +40,6 @@ session-lease-missing = 此套件只能由正在編輯它的分頁儲存。
 session-not-editing-pack = 目前沒有正在編輯的套件
 session-pack-mode-slides = 在套件模式下，投影片就是版面的範例：不能新增、刪除、移動或變更其版面
 session-pack-mode-preview = 在套件模式下，元件預覽投影片為唯讀
-session-theme-choice-alone = 在套件模式下，請單獨選擇主題，然後使用 set_token 編輯其權杖
 session-response = 無法寫入回應
 session-unknown-tab = 此分頁已不再開啟。
 session-unknown-window = 此視窗已不再開啟。
@@ -115,6 +121,7 @@ deck-new-slide-text = 寫下你想呈現的內容。
 pack-default-name = 我的套件
 pack-copy-name = { $name }（副本）
 theme-copy-name = { $name }（變體）
+theme-copy-of = { $name }（副本）
 pack-adopt-label = 套件：{ $name }
 session-widgets-broken = 以下小工具無法編譯，已排除：{ $names }。套件中的其他小工具保留。
 session-widgets-not-saved = 無法將套件「{ $pack }」的小工具版本儲存到資料庫中。簡報仍保留該版本。
@@ -148,6 +155,7 @@ packs-remove = 移除
 packs-add = 從資料庫加入
 packs-theme-overrides = 簡報覆寫：{ $count }
 packs-theme-pick = 簡報主題
+packs-theme-open = 開啟
 packs-undo-add = 加入套件「{ $name }」
 packs-undo-remove = 移除套件「{ $name }」
 packs-undo-use-mine = 切換到我的版本
@@ -160,6 +168,8 @@ notice-modified-elsewhere = 此 PDF 在 Oku Slides 之後曾被其他工具修�
 notice-open-failed = 無法開啟 { $path }：{ $reason }
 notice-tab-resume-failed = 無法還原此分頁的狀態：該狀態已另行保存，分頁從空白簡報重新開始。
 notice-tab-set-aside = 分頁「{ $name }」來自較舊版本的 Oku Slides：其未儲存的變更無法還原，已另行保存，分頁從空白簡報重新開始。
+notice-theme-draft-dropped = 此套件編輯器來自舊版 Oku Slides：其未儲存的主題變更無法保留。現在主題會在獨立的分頁中開啟。
+notice-theme-edited-elsewhere = 主題 { $theme } 正在分頁「{ $tab }」中編輯：此分頁已在其旁重新開啟，在該分頁關閉前為唯讀。
 notice-pack-edited-elsewhere = 套件 { $pack } 正在分頁「{ $tab }」中編輯：此分頁已在其旁重新開啟，在該分頁關閉前為唯讀。
 notice-pack-deleted = 套件 { $pack } 已不在資料庫中：此分頁為唯讀；如需保留變更，請讓 AI 代理將其另存為新套件。
 notice-themes-skipped = 你的資料庫中有些主題來自舊版 Oku Slides：無法讀取，不再提供（{ $count }）。
@@ -442,7 +452,6 @@ theme-extends-up = 上移
 theme-extends-down = 下移
 theme-extends-remove = 移除
 theme-extends-add = 新增要繼承的主題
-theme-deck-overrides = 簡報中的覆寫項目，此處不套用：{ $paths }
 theme-section-colors = 顏色
 theme-section-typography = 排版
 theme-section-scripts = 其他文字

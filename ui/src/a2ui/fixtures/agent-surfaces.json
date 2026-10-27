@@ -1861,6 +1861,19 @@
               }
             },
             {
+              "id": "theme-open",
+              "component": "Button",
+              "label": "Ouvrir",
+              "action": {
+                "event": {
+                  "name": "open_theme",
+                  "context": {
+                    "theme": "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31"
+                  }
+                }
+              }
+            },
+            {
               "id": "theme-update",
               "component": "Button",
               "label": "Utiliser ma version",
@@ -1879,6 +1892,7 @@
                 "theme-name",
                 "theme-overrides",
                 "theme-pick",
+                "theme-open",
                 "theme-update"
               ]
             },

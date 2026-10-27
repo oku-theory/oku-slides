@@ -11,11 +11,8 @@ export interface OpenWidget {
   name: string;
 }
 
-/** L'onglet fixe « Thème », après « Layouts » (la scène d'un pack de layouts). */
-export const THEME_TAB = "theme";
-
-/** Onglet actif : `null` pour la scène (une slide choisie dans la pile), `THEME_TAB`, ou l'id d'un sous-onglet widget. */
-export type ActiveTab = number | typeof THEME_TAB | null;
+/** The active sub-tab: `null` for the stage (a slide picked in the pile), or a widget sub-tab's id. */
+export type ActiveTab = number | null;
 
 /** Sous-onglets ouverts, dans l'ordre d'ouverture, et l'onglet actif. */
 export interface WidgetTabs {
@@ -67,7 +64,7 @@ export function closed(s: WidgetTabs, id: number): WidgetTabs {
   return { ...s, tabs, active };
 }
 
-/** Active `id` ; `null` : la scène ; `THEME_TAB` : « Thème ». */
+/** Activates `id`; `null`: the stage. */
 export function activated(s: WidgetTabs, id: ActiveTab): WidgetTabs {
   return s.active === id ? s : { ...s, active: id };
 }
@@ -82,21 +79,21 @@ export function renamed(s: WidgetTabs, from: string, to: string): WidgetTabs {
 export function pruned(s: WidgetTabs, names: ReadonlySet<string>): WidgetTabs {
   const tabs = s.tabs.filter((t) => names.has(t.name));
   if (tabs.length === s.tabs.length) return s;
-  const active = s.active === THEME_TAB || tabs.some((t) => t.id === s.active) ? s.active : null;
+  const active = tabs.some((t) => t.id === s.active) ? s.active : null;
   return { ...s, tabs, active };
 }
 
-/** Nom du sous-onglet widget actif ; `null` : la scène ou « Thème ». */
+/** The active widget sub-tab's name; `null`: the stage. */
 export function activeName(s: WidgetTabs): string | null {
   return s.tabs.find((t) => t.id === s.active)?.name ?? null;
 }
 
-/** Id du sous-onglet widget actif ; `null` : la scène ou « Thème ». */
+/** The active widget sub-tab's id; `null`: the stage. */
 export function activeWidget(s: WidgetTabs): number | null {
-  return typeof s.active === "number" ? s.active : null;
+  return s.active;
 }
 
-/** Ce que l'hôte garde pour la reprise (« Thème » n'est pas gardé : la reprise ouvre la scène). */
+/** What the host keeps for resuming: the open sub-tabs and the active widget. */
 export function kept(s: WidgetTabs): KeptTabs {
   return { widgets: s.tabs.map((t) => t.name), widget: activeName(s) };
 }

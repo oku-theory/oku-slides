@@ -348,21 +348,21 @@ export function pickSlide(slides: { id: string }[], current: string | null, reme
   return slides[0]?.id ?? null;
 }
 
-type LookSource = Pick<Snapshot, "theme_pins" | "appearance" | "editing" | "undo_label" | "redo_label">;
+type LookSource = Pick<Snapshot, "theme_pins" | "appearance" | "theming" | "undo_label" | "redo_label">;
 
 /**
- * Style du deck vu par les aperçus de widgets : un changement le relance.
+ * The deck's style as widget previews see it: a change restarts them.
  *
- * En mode pack, le deck de travail n'a pas de thème : le brouillon (base,
- * nom, modifié, révision de ses jetons) et les étapes d'annulation (une
- * modification de l'agent, une annulation) en tiennent lieu. La révision
- * distingue deux réglages successifs du même jeton, que rien d'autre ne sépare.
+ * A theme tab's specimen deck has no theme: the draft (base, name, dirty,
+ * revision of its tokens) and the undo steps (an agent edit, an undo) stand
+ * for it. The revision tells apart two successive settings of one token,
+ * which nothing else separates.
  */
 export function previewLook(snap: LookSource): string {
   return JSON.stringify([
     snap.theme_pins,
     snap.appearance.slide,
-    snap.editing?.theme ?? null,
+    snap.theming?.theme ?? null,
     snap.undo_label,
     snap.redo_label,
   ]);

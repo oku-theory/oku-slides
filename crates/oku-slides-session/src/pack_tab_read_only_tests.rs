@@ -1,5 +1,4 @@
 use rstest::rstest;
-use serde_json::json;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -14,7 +13,7 @@ use crate::test_support_packs::{
     CARD_V2, ReadOnly, delete_from_library, dormant_editor, draft_of, opener_on, pack_tab_from, read_only,
     read_only_pack_tab, read_only_workshop, scope_of, snapshot_json, unfreeze,
 };
-use crate::{BASE_PACK, Localize, PackLibrary, Request, SessionErrorKind, TokenAction};
+use crate::{BASE_PACK, Localize, PackLibrary, Request, SessionErrorKind};
 
 /// The versions of `pack` the library of `s` has.
 fn versions(s: &Session, pack: Uuid) -> Vec<PackVersion> {
@@ -39,8 +38,6 @@ enum Edit {
     UndoRequest,
     UndoMethod,
     RedoMethod,
-    HostToken,
-    RenameEditedTheme,
 }
 
 /// `edit` on `t`.
@@ -59,11 +56,6 @@ fn try_edit(t: &mut Session, edit: Edit) -> crate::Result<()> {
         Edit::UndoRequest => t.handle(Request::Undo).map(drop),
         Edit::UndoMethod => t.undo(),
         Edit::RedoMethod => t.redo(),
-        Edit::HostToken => {
-            let path = vec!["color".into(), "accent".into()];
-            t.handle(Request::HostToken { path, action: TokenAction::Set, value: Some(json!("#0000ff")) }).map(drop)
-        }
-        Edit::RenameEditedTheme => t.handle(Request::RenameEditedTheme { name: "Autre".into() }).map(drop),
     }
 }
 
@@ -77,8 +69,6 @@ fn try_edit(t: &mut Session, edit: Edit) -> crate::Result<()> {
 #[case::tab_undo_request(PackHost::Tab, Edit::UndoRequest)]
 #[case::tab_undo_method(PackHost::Tab, Edit::UndoMethod)]
 #[case::tab_redo_method(PackHost::Tab, Edit::RedoMethod)]
-#[case::tab_host_token(PackHost::Tab, Edit::HostToken)]
-#[case::tab_rename_edited_theme(PackHost::Tab, Edit::RenameEditedTheme)]
 #[case::deck_save_request(PackHost::Deck, Edit::SavePackRequest)]
 #[case::deck_save_method(PackHost::Deck, Edit::SavePackMethod)]
 #[case::deck_widget_request(PackHost::Deck, Edit::WidgetRequest)]
@@ -88,8 +78,6 @@ fn try_edit(t: &mut Session, edit: Edit) -> crate::Result<()> {
 #[case::deck_undo_request(PackHost::Deck, Edit::UndoRequest)]
 #[case::deck_undo_method(PackHost::Deck, Edit::UndoMethod)]
 #[case::deck_redo_method(PackHost::Deck, Edit::RedoMethod)]
-#[case::deck_host_token(PackHost::Deck, Edit::HostToken)]
-#[case::deck_rename_edited_theme(PackHost::Deck, Edit::RenameEditedTheme)]
 fn read_only_pack_tab_refuses_every_edit(#[case] host: PackHost, #[case] edit: Edit) {
     let data = fresh_dir("oku-slides-read-only-");
     let ReadOnly { mut tab, h, pack, holder: _holder, dir: _dir, deck_dir: _deck_dir } = read_only(data.path(), host);
@@ -164,7 +152,7 @@ fn editor_in(state: Flags, data: &std::path::Path) -> (Session, Vec<Box<dyn std:
             let dormant = dormant_editor(data, PackHost::Tab);
             delete_from_library(data, dormant.pack);
             let mut tab = session_on(data);
-            assert_that!(tab.resume_checked(dormant.dir.path().to_path_buf())).is_equal_to(Resumed::Restored);
+            assert_that!(tab.resume_checked(dormant.dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
             (tab, vec![Box::new(dormant)])
         }
         Flags::DeckOnlyWorkshop => {
@@ -243,7 +231,7 @@ fn read_only_pack_tab_freezes_its_base_when_it_takes_the_lease() {
     holder.edit_pack(acme).unwrap();
     unfreeze(data.path(), acme, &base);
     let mut tab = session_on(data.path());
-    assert_that!(tab.resume_checked(dir.path().to_path_buf())).is_equal_to(Resumed::Restored);
+    assert_that!(tab.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
     assert_that!(draft_of(&tab, acme, &base)).is_equal_to(DraftWrite::Replace(base.clone()));
     drop(holder);
     tab.apply("x", vec![rename_title("acme 5")], None).unwrap();
@@ -380,7 +368,7 @@ fn orphaned_tab(data: &std::path::Path) -> (Session, crate::test_support_packs::
     let dormant = dormant_editor(data, PackHost::Tab);
     delete_from_library(data, dormant.pack);
     let mut tab = session_on(data);
-    assert_that!(tab.resume_checked(dormant.dir.path().to_path_buf())).is_equal_to(Resumed::Restored);
+    assert_that!(tab.resume_checked(dormant.dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
     (tab, dormant)
 }
 
@@ -431,7 +419,7 @@ fn resume_v3_deck_only_workshop_stays_writable() {
         assert_that!(state["mode"]["pack"].as_object_mut().and_then(|m| m.remove("host"))).is_some();
     });
     let mut back = session_on(data.path());
-    assert_that!(back.resume_checked(dir.path().to_path_buf())).is_equal_to(Resumed::Restored);
+    assert_that!(back.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
     assert_that!((flags(&back), back.snapshot().notice.is_none())).is_equal_to(((false, true), true));
     back.apply("x", vec![rename_title("importé 2")], None).unwrap();
     back.save_pack(false).unwrap();

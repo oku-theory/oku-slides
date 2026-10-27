@@ -12,11 +12,11 @@ const { HOST_DATA, useDataSettings } = await import("./useDataSettings");
 const { memory, stub, wait } = await import("./test/widgetApi");
 
 const surface = (): Surface => ({ id: HOST_DATA, place: "thread", live: true, turn: null, messages: [] }) as unknown as Surface;
-interface Snap { readOnly?: boolean; history?: boolean }
+interface Snap { readOnly?: boolean; history?: boolean; theming?: boolean }
 const snapshot = (o: Snap = {}): Snapshot =>
   ({
     host_params: { "base/chart": { chart: "option" }, "base/table": { table: "data" } },
-    read_only: !!o.readOnly, history: o.history ? {} : null, undo_label: null, redo_label: null,
+    read_only: !!o.readOnly, history: o.history ? {} : null, theming: o.theming ? {} : null, undo_label: null, redo_label: null,
     slides: [{ id: "s1", hash: "h1" }],
   }) as unknown as Snapshot;
 const element = (id: string, kind: string): Element => ({ id, kind }) as Element;
@@ -94,6 +94,12 @@ describe("useDataSettings", () => {
   test("useDataSettings in history reads nothing", async () => {
     const f = fake();
     await mountData(f.fake, { snap: snapshot({ history: true }), selected: element("g", "base/chart") });
+    expect(f.reads.length).toBe(0);
+  });
+
+  test("useDataSettings in a theme tab reads nothing", async () => {
+    const f = fake();
+    await mountData(f.fake, { snap: snapshot({ theming: true }), selected: element("g", "base/chart") });
     expect(f.reads.length).toBe(0);
   });
 

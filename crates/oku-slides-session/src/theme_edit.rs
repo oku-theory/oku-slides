@@ -1,22 +1,16 @@
-//! Brouillon du thème en mode pack : le deck de travail porte ses jetons.
+//! A theme tab's draft: the specimen deck carries its tokens.
 //!
-//! À l'entrée du mode pack, le deck de travail perd son thème (`theme:
-//! None`). Éditer un thème de l'utilisateur part de ses propres jetons ;
-//! éditer un thème intégré part d'un brouillon vide, celui d'un enfant
-//! (`ThemeEdit::child`) qui l'étendra. Le deck de travail se rend sur le
-//! calque des thèmes qu'étend le brouillon (`ThemeEdit::extends`, au départ
-//! les parents de sa base, ou l'intégré lui-même pour un enfant ;
-//! `theme_draft`), sous le brouillon qu'il porte dans ses jetons. Chaque
-//! réglage est un `SetToken` / `UnsetToken`, vérifié par le schéma composé du
-//! deck de travail (`theme_schema`, `theme_composed`) ; choisir un autre thème
-//! remplace les jetons en une étape annulable (`SetTokens`), et la base suit
-//! l'annulation (`ThemeSwitch`). Changer la liste `extends` est aussi une
-//! étape sous un rang (`theme_extends`). Renommer le thème est un simple
-//! changement d'état, sans étape.
-//!
-//! L'enregistrement (`theme_draft`) fait d'un brouillon qui diffère de son
-//! point de départ une nouvelle version d'un thème de l'utilisateur, ou un
-//! enfant de l'intégré édité.
+//! The specimen deck has no theme (`theme: None`). Editing a user theme
+//! starts from its own tokens; editing a built-in starts from an empty
+//! draft, that of a child (`ThemeEdit::child`) that will extend it. The
+//! specimen deck renders over the layer of the themes the draft extends
+//! (`ThemeEdit::extends`, first its base's parents, or the built-in itself
+//! for a child; `theme_draft`), under the draft its tokens hold. Each setting
+//! is a `SetToken` / `UnsetToken`, checked by the specimen deck's composed
+//! schema (`theme_schema`, `theme_composed`). A tab never changes the theme
+//! it edits; changing the `extends` list is an undo step under a rank
+//! (`theme_extends`), which the draft follows on undo (`ThemeSwitch`).
+//! Renaming the theme is a plain state change, without a step.
 
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -26,19 +20,19 @@ use serde_json::{Map, Value};
 use snafu::OptionExt;
 
 use oku_slides_core::{Deck, Namespace, Op, ThemePin};
+use uuid::Uuid;
 
 use crate::deck_theme_edit::token_deck;
-use crate::error::{NotEditingPackSnafu, ThemeChoiceAloneSnafu, ThemeVersionMissingSnafu, UnknownThemeSnafu};
-use crate::theme::{ThemeLibrary, ThemeManifest, default_namespace};
+use crate::error::UnknownThemeSnafu;
+use crate::theme::{ThemeLibrary, ThemeManifest};
 use crate::theme_closure::pin_of;
 use crate::theme_composed::without_unpinned_components;
 use crate::theme_schema::{
     Control, TokenSpec, default_tokens, ensure_unused, lookup, merge, spec, validate, validate_tree,
 };
-use crate::views::EditingView;
 use crate::{Mode, Result, Session};
 
-/// Le thème édité en mode pack : sa version de base, son nom et ses parents.
+/// The theme a theme tab edits: its base version, name and parents.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThemeEdit {
     /// La version de base du brouillon : id, version et parents.
@@ -108,8 +102,8 @@ pub struct ThemeParentView {
     pub name: String,
 }
 
-/// Un changement de base (`set_edited_theme`) ou de parents, sous son rang : l'annuler ou
-/// le rétablir ramène la base qui va avec.
+/// A change of the draft's parents (or of its base, on a save), under its rank:
+/// undoing or redoing it brings back the draft that goes with it.
 #[derive(Debug, Clone)]
 pub(crate) struct ThemeSwitch {
     /// Le rang écrit dans [`DRAFT_SWITCH_VAR`] par ce changement.
@@ -118,16 +112,15 @@ pub(crate) struct ThemeSwitch {
     pub(crate) to: ThemeEdit,
 }
 
-/// Variable du deck de travail qui porte le rang du dernier changement de
-/// base fait (absente : aucun). Chaque choix d'un thème l'écrit avec les
-/// jetons, en une étape, sous un rang neuf : plus grand que celui du deck et
-/// que tous ceux de la séance ([`next_switch_rank`]). L'étape change donc
-/// toujours le deck, même quand les jetons ne changent pas (d'un intégré à
-/// l'autre), et annuler ou rétablir ramène un rang d'où se relit la base. Un
-/// rang sans changement connu (celui d'avant le premier changement, ou
-/// d'avant une reprise, qui ne garde pas les changements) est la base d'avant
-/// le premier. Aucun gabarit ne la nomme : elle ne se voit pas au rendu, et le
-/// deck de l'utilisateur ne la reçoit jamais.
+/// Variable of the specimen deck that holds the rank of the last change of
+/// the draft's parents (absent: none). Each change writes it, in one step,
+/// under a new rank: above the deck's and every rank of the session
+/// ([`next_switch_rank`]). The step thus always changes the deck, even when
+/// the tokens do not, and undo or redo brings back a rank the draft is read
+/// from. A rank with no known change (before the first change, or before a
+/// resume, which keeps no changes) is the draft before the first one. No
+/// template names it: it never shows in the render. Only the session's own
+/// rank steps write it: a caller's `SetVar` of it is refused (`WrongDocument`).
 pub(crate) const DRAFT_SWITCH_VAR: &str = "oku-slides-theme-switch";
 
 /// Le rang du changement de base que porte `deck` (0 : aucun).
@@ -145,13 +138,19 @@ fn tokens_of(v: &Value) -> Map<String, Value> {
     v.as_object().cloned().unwrap_or_default()
 }
 
+/// True when the draft `edit` of tokens `tokens` differs from its base `base` (tokens, name or parents).
+pub(crate) fn draft_differs(edit: &ThemeEdit, base: &ThemeManifest, tokens: &Map<String, Value>) -> bool {
+    let origin = if edit.child() { Map::new() } else { base.tokens.clone() };
+    base.name != edit.name || edit.extends != edit.starting_extends(base) || origin != *tokens
+}
+
 /// `tokens` en valeur de deck : un objet vide n'en est pas une.
 pub(crate) fn tokens_value(tokens: Map<String, Value>) -> Value {
     if tokens.is_empty() { Value::Null } else { Value::Object(tokens) }
 }
 
-/// Une op qui touche aux jetons.
-fn is_token_op(op: &Op) -> bool {
+/// True for an op that touches the tokens.
+pub(crate) fn is_token_op(op: &Op) -> bool {
     matches!(op, Op::SetToken { .. } | Op::UnsetToken { .. } | Op::SetTokens { .. })
 }
 
@@ -160,24 +159,24 @@ fn has_path(tokens: &Map<String, Value>, path: &[String]) -> bool {
     lookup(tokens, path).is_some()
 }
 
-/// Une op de jetons, vérifiée par le schéma en dehors du mode pack : la
-/// valeur d'une couleur ou d'une palette (règle t-194).
+/// A token op the schema checks outside a theme tab: the value of a color or
+/// a palette (rule t-194).
 fn checked_outside_drafts(schema: &[TokenSpec], path: &[String]) -> bool {
     spec(schema, path).is_some_and(|s| matches!(s.control, Control::Color | Control::Palette))
 }
 
 impl Session {
-    /// Les jetons du deck de travail : le brouillon du thème en mode pack.
+    /// The working deck's tokens: the theme draft in a theme tab.
     pub(crate) fn edited_tokens(&self) -> Map<String, Value> {
         tokens_of(&self.doc.sources.deck().tokens)
     }
 
-    /// Le deck dont les aperçus (layouts, widgets) prennent le style : en mode
-    /// pack, le deck de travail (le brouillon du thème, sans surcharges du
-    /// deck) ; sinon le deck de l'utilisateur.
+    /// The deck whose style the previews (layouts, widgets) take: the working
+    /// deck in pack mode (the deck's theme and overrides) and in a theme tab
+    /// (the draft); otherwise the user's deck.
     pub(crate) fn style_deck(&self) -> &Deck {
         match &self.mode {
-            Mode::Pack { .. } => self.doc.sources.deck(),
+            Mode::Pack { .. } | Mode::Theme { .. } => self.doc.sources.deck(),
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => self.user_deck(),
         }
     }
@@ -187,20 +186,13 @@ impl Session {
         self.theme_manifest(pin).or_else(|| ThemeManifest::from_files(&self.themes.version(pin.id, &pin.version)?).ok())
     }
 
-    /// La version courante du thème `ns` de la bibliothèque, épinglée, et son manifeste.
-    fn library_theme(&self, ns: &Namespace) -> Result<(ThemePin, ThemeManifest)> {
-        let current = self.themes.by_namespace(ns).context(UnknownThemeSnafu { theme: ns.as_str() })?;
-        Ok((pin_of(&current.manifest, current.version), current.manifest))
-    }
-
-    /// Embarque la version de base du brouillon dans le deck de travail si
-    /// aucune source ne la porte : la base se lit ensuite en mémoire, sans
-    /// la bibliothèque (la surface `host-theme` et le snapshot la relisent
-    /// souvent). Le deck de l'utilisateur n'en reçoit rien : seul un
-    /// enregistrement y embarque une version.
+    /// Embeds the draft's base version in the specimen deck if no source holds it.
+    ///
+    /// The base is then read in memory, without the library (the `host-theme`
+    /// surface and the snapshot read it often).
     pub(crate) fn embed_theme_base(&mut self) {
-        let Mode::Pack { theme, .. } = &self.mode else { return };
-        let base = theme.base.clone();
+        let Mode::Theme { edit, .. } = &self.mode else { return };
+        let base = edit.draft.base.clone();
         if self.theme_manifest(&base).is_some() {
             return;
         }
@@ -209,112 +201,63 @@ impl Session {
         }
     }
 
-    /// Le manifeste de la version de base du brouillon.
+    /// The manifest of the draft's base version.
     pub(crate) fn base_manifest(&self) -> Option<ThemeManifest> {
-        let Mode::Pack { theme, .. } = &self.mode else { return None };
-        self.theme_version(&theme.base)
+        let Mode::Theme { edit, .. } = &self.mode else { return None };
+        self.theme_version(&edit.draft.base)
     }
 
-    /// Les jetons d'où part le brouillon : vides pour un enfant, sinon ceux de sa base
-    /// (vides hors mode pack). Un jeton ramené (↺) reprend sa valeur ici.
+    /// The tokens the draft starts from: none for a child, else its base's
+    /// (none outside a theme tab). A token brought back (↺) takes its value here.
     pub(crate) fn base_tokens(&self) -> Map<String, Value> {
         match &self.mode {
-            Mode::Pack { theme, .. } if !theme.child() => self.base_manifest().map(|m| m.tokens).unwrap_or_default(),
+            Mode::Theme { edit, .. } if !edit.draft.child() => {
+                self.base_manifest().map(|m| m.tokens).unwrap_or_default()
+            }
             _ => Map::new(),
         }
     }
 
-    /// Le thème à éditer en entrant en mode pack, et ses jetons : celui du
-    /// deck de l'utilisateur, sinon la version courante du thème par défaut.
-    /// Un intégré donne un brouillon vide (`child`).
-    pub(crate) fn initial_theme_edit(&self) -> Result<(ThemeEdit, Map<String, Value>)> {
-        let base = match self.deck_theme_pin() {
-            Some(pin) => pin.clone(),
-            None => self.library_theme(&default_namespace()?)?.0,
-        };
-        let manifest = self
-            .theme_version(&base)
-            .context(ThemeVersionMissingSnafu { id: base.id, version: base.version.clone() })?;
-        let edit = ThemeEdit::starting(base, &manifest);
-        let tokens = if edit.child() { Map::new() } else { manifest.tokens };
+    /// The draft a theme tab on `theme` starts from, at its current library version, and its tokens.
+    ///
+    /// A built-in gives an empty draft (`child`).
+    pub(crate) fn initial_theme_edit(&self, theme: Uuid) -> Result<(ThemeEdit, Map<String, Value>)> {
+        let current = self.themes.current_version(theme).context(UnknownThemeSnafu { theme: theme.to_string() })?;
+        let edit = ThemeEdit::starting(pin_of(&current.manifest, current.version), &current.manifest);
+        let tokens = if edit.child() { Map::new() } else { current.manifest.tokens };
         Ok((edit, tokens))
     }
 
-    /// L'empreinte des jetons du deck de travail (stable dans une même version de l'app).
+    /// The hash of the working deck's tokens (stable within one app version).
     fn draft_revision(&self) -> String {
         let mut hasher = DefaultHasher::new();
         self.doc.sources.deck().tokens.to_string().hash(&mut hasher);
         format!("{:016x}", hasher.finish())
     }
 
-    /// Le brouillon diffère-t-il de son point de départ (jetons, nom ou parents) ?
+    /// True when the draft `edit` differs from its starting point (tokens, name or parents).
     fn theme_dirty(&self, edit: &ThemeEdit) -> bool {
         let Some(base) = self.base_manifest() else { return true };
-        base.name != edit.name
-            || edit.extends != edit.starting_extends(&base)
-            || self.base_tokens() != self.edited_tokens()
+        draft_differs(edit, &base, &self.edited_tokens())
     }
 
-    /// Pack mode for the snapshot: the pack, the theme draft and the lease flags.
-    pub(crate) fn editing_view(&self) -> Option<EditingView<'_>> {
-        let Mode::Pack { edit, theme, .. } = &self.mode else { return None };
-        let view = ThemeEditView {
-            base: theme.base.clone(),
-            namespace: theme.namespace.to_string(),
-            name: theme.name.clone(),
-            child: theme.child(),
-            extends: self.draft_parents(theme),
-            dirty: self.theme_dirty(theme),
+    /// The draft `edit` as the interface sees it.
+    pub(crate) fn theme_edit_view(&self, edit: &ThemeEdit) -> ThemeEditView {
+        ThemeEditView {
+            base: edit.base.clone(),
+            namespace: edit.namespace.to_string(),
+            name: edit.name.clone(),
+            child: edit.child(),
+            extends: self.draft_parents(edit),
+            dirty: self.theme_dirty(edit),
             revision: self.draft_revision(),
-        };
-        let (read_only, leased) = self.edit_flags();
-        let display_name = crate::agent::bounds::label(&edit.name);
-        Some(EditingView { mode: edit, theme: view, read_only, leased, display_name })
+        }
     }
 
-    /// The draft starts from theme `ns`, at its current version in the library.
-    ///
-    /// Its tokens (none for a built-in, whose draft will be a child) replace
-    /// those of the working deck in one undoable step, which also carries the
-    /// change's rank ([`DRAFT_SWITCH_VAR`]): a choice that does not change the
-    /// tokens (from one built-in to another) gets its own step.
-    ///
-    /// # Errors
-    ///
-    /// Fails outside pack mode (`NotEditingPack`), for a theme unknown to the library, or if the
-    /// transaction is rejected.
-    pub fn set_edited_theme(&mut self, ns: &Namespace) -> Result<()> {
-        let Mode::Pack { theme, switches, .. } = &self.mode else {
-            return NotEditingPackSnafu.fail()?;
-        };
-        let from = theme.clone();
-        let rank = next_switch_rank(self.doc.sources.deck(), switches);
-        let (base, manifest) = self.library_theme(ns)?;
-        let label = self.localizer.tr_with("session-undo-edited-theme", &[("name", manifest.name.as_str().into())]);
-        let to = ThemeEdit::starting(base, &manifest);
-        let tokens = if to.child() { Map::new() } else { manifest.tokens };
-        // La base change avant `apply`, qui écrit l'état de reprise : il la
-        // garde avec les jetons. Un échec la remet.
-        self.set_theme_edit(to.clone());
-        self.embed_theme_base();
-        let ops = vec![
-            Op::SetTokens { tokens: tokens_value(tokens) },
-            Op::SetVar { key: DRAFT_SWITCH_VAR.to_owned(), value: Value::from(rank) },
-        ];
-        if let Err(e) = self.apply(&label, ops, None) {
-            self.set_theme_edit(from);
-            return Err(e);
-        }
-        if let Mode::Pack { switches, .. } = &mut self.mode {
-            switches.push(ThemeSwitch { rank, from, to });
-        }
-        Ok(())
-    }
-
-    /// Le thème édité devient `edit` (en mode pack).
-    pub(crate) fn set_theme_edit(&mut self, edit: ThemeEdit) {
-        if let Mode::Pack { theme, .. } = &mut self.mode {
-            *theme = edit;
+    /// The theme tab's draft becomes `draft`.
+    pub(crate) fn set_theme_edit(&mut self, draft: ThemeEdit) {
+        if let Mode::Theme { edit, .. } = &mut self.mode {
+            edit.draft = draft;
         }
     }
 
@@ -324,65 +267,46 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails outside pack mode (`NotEditingPack`).
+    /// Fails outside a theme tab (`WrongDocument`).
     pub fn rename_edited_theme(&mut self, name: &str) -> Result<()> {
-        if !matches!(self.mode, Mode::Pack { .. }) {
-            return NotEditingPackSnafu.fail()?;
-        }
+        self.ensure_theme_tab()?;
         let name = match name.trim() {
             "" => self.base_manifest().map(|m| m.name).unwrap_or_default(),
             trimmed => trimmed.to_owned(),
         };
-        if let Mode::Pack { theme, .. } = &mut self.mode {
-            theme.name = name;
+        if let Mode::Theme { edit, .. } = &mut self.mode {
+            edit.draft.name = name;
         }
         self.doc.dirty = true;
         Ok(())
     }
 
-    /// Après annuler ou rétablir : la base suit le rang du changement de
-    /// thème ([`DRAFT_SWITCH_VAR`]) que ramène le deck de travail.
+    /// After undo or redo: the draft follows the rank ([`DRAFT_SWITCH_VAR`]) the specimen deck brings back.
     ///
-    /// Le rang d'un changement de la séance : la base où il mène ; tout autre
-    /// rang (aucun, ou d'avant la séance) : la base d'avant son premier
-    /// changement. Sans changement dans la séance (après un changement de pack
-    /// ou une reprise, l'historique repart vide), rien ne bouge.
+    /// A change of the session's rank: the draft it leads to; any other rank
+    /// (none, or from before the session): the draft before its first change.
+    /// Without a change in the session (after a resume the history starts
+    /// empty), nothing moves.
     pub(crate) fn realign_theme_edit(&mut self) {
         let rank = switch_rank(self.doc.sources.deck());
-        let Mode::Pack { theme, switches, .. } = &mut self.mode else { return };
+        let Mode::Theme { edit, switches, .. } = &mut self.mode else { return };
         let reached = switches.iter().find(|s| s.rank == rank).map(|s| &s.to);
-        let edit = reached.or_else(|| switches.first().map(|s| &s.from));
-        if let Some(edit) = edit {
-            *theme = edit.clone();
+        if let Some(draft) = reached.or_else(|| switches.first().map(|s| &s.from)) {
+            edit.draft = draft.clone();
         }
         self.embed_theme_base();
     }
 
-    /// En mode pack, une transaction faite du seul choix d'un thème : son
-    /// espace de noms (`null` : le thème par défaut), dont le brouillon part
-    /// alors (`set_edited_theme`). `None` ailleurs ou pour toute autre transaction.
-    pub(crate) fn drafted_theme_choice(&self, ops: &[Op]) -> Option<Result<Namespace>> {
-        match (&self.mode, ops) {
-            (Mode::Pack { .. }, [Op::SetTheme { theme, .. }]) => Some(theme.clone().map_or_else(default_namespace, Ok)),
-            _ => None,
-        }
-    }
-
-    /// Vérifie les ops de jetons de `ops` avant leur application.
+    /// Checks the token ops of `ops` before they apply.
     ///
-    /// En mode pack (brouillon du thème) : chaque `SetToken` passe par le
-    /// schéma composé du deck de travail, et un `UnsetToken` qui retire un jeton encore nommé ailleurs
-    /// est refusé. Ailleurs : seules les couleurs et palettes des surcharges
-    /// du deck sont vérifiées (t-194). Chaque op est vérifiée dans les jetons
-    /// effectifs (défauts, thème, surcharges) laissés par les précédentes ; un
-    /// `SetTokens` l'est feuille à feuille, selon la même règle. En mode
-    /// pack, un `SetTheme` mêlé à d'autres ops est refusé : le thème s'y
-    /// choisit seul (`drafted_theme_choice`), ses jetons par `SetToken`.
+    /// In a theme tab (the draft): each `SetToken` goes through the specimen
+    /// deck's composed schema, and an `UnsetToken` that removes a token still
+    /// named elsewhere is refused. Elsewhere: only the colors and palettes of
+    /// the deck's overrides are checked (t-194). Each op is checked in the
+    /// effective tokens (defaults, theme, overrides) the previous ones left; a
+    /// `SetTokens` leaf by leaf, by the same rule.
     pub(crate) fn check_token_ops(&self, ops: &[Op]) -> Result<()> {
-        let drafting = matches!(self.mode, Mode::Pack { .. });
-        if drafting && ops.iter().any(|op| matches!(op, Op::SetTheme { .. })) {
-            return ThemeChoiceAloneSnafu.fail()?;
-        }
+        let drafting = matches!(self.mode, Mode::Theme { .. });
         if !ops.iter().any(is_token_op) {
             return Ok(());
         }
@@ -448,10 +372,6 @@ impl Session {
 #[cfg(test)]
 #[path = "theme_edit_tests.rs"]
 pub(crate) mod theme_edit_tests;
-
-#[cfg(test)]
-#[path = "theme_edit_save_tests.rs"]
-mod theme_edit_save_tests;
 
 #[cfg(test)]
 #[path = "theme_edit_switch_tests.rs"]

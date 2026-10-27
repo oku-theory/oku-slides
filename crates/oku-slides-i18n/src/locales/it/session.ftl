@@ -25,6 +25,13 @@ session-pack-not-make-current = La versione di { $pack } della presentazione non
 session-pack-already-current = La presentazione usa già la tua versione attuale di { $pack }.
 session-theme-not-outdated = Il tema { $theme } della presentazione non è più vecchio della tua versione attuale.
 session-editing-pack = Termina prima la modifica del pacchetto
+session-theme-open-in-tab = Il tema { $theme } è in modifica nella scheda «{ $tab }»: modificalo lì, oppure chiudi prima quella scheda.
+session-wrong-document = { $kind ->
+    [deck] Questa scheda mostra una presentazione: questa modifica si fa in una scheda del tema.
+    [help] La guida è di sola lettura: questa modifica si fa in una scheda del tema.
+    [pack] Questa scheda modifica un pacchetto: il tema si cambia nella scheda della presentazione, i suoi valori in una scheda del tema.
+   *[theme] Questa scheda modifica un tema: qui cambiano solo i suoi valori, il suo nome e i temi che estende.
+}
 session-in-pack-tab = Questa scheda modifica un pacchetto: chiudila per terminare; i pacchetti propri di una presentazione si aprono dalla scheda di quella presentazione.
 session-pack-open-in-tab = Il pacchetto { $pack } è in modifica nella scheda «{ $tab }»: modificalo lì, oppure chiudi prima quella scheda.
 session-pack-offer-expired = La presentazione non è stata aggiornata: nel frattempo la presentazione o quella versione del pacchetto è cambiata.
@@ -33,7 +40,6 @@ session-lease-missing = Questo pacchetto può essere salvato solo dalla scheda c
 session-not-editing-pack = Nessun pacchetto in modifica
 session-pack-mode-slides = In modalità pacchetto, le slide sono gli esempi dei layout: non si possono aggiungere, rimuovere, spostare né cambiare layout
 session-pack-mode-preview = In modalità pacchetto, le slide di anteprima dei widget sono di sola lettura
-session-theme-choice-alone = In modalità pacchetto, scegli il tema da solo, poi modifica i suoi token con set_token
 session-response = Impossibile scrivere la risposta
 session-unknown-tab = Questa scheda non è più aperta.
 session-unknown-window = Questa finestra non è più aperta.
@@ -115,6 +121,7 @@ deck-new-slide-text = Di’ cosa vuoi mostrare.
 pack-default-name = Il mio pacchetto
 pack-copy-name = { $name } (copia)
 theme-copy-name = { $name } (variante)
+theme-copy-of = { $name } (copia)
 pack-adopt-label = Pacchetto: { $name }
 session-widgets-broken = Widget esclusi perché non compilano: { $names }. Gli altri widget del pacchetto restano.
 session-widgets-not-saved = Impossibile salvare nella libreria la versione dei widget del pacchetto «{ $pack }». La presentazione la conserva.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } modifiche della presentazione
 }
 packs-theme-pick = Tema della presentazione
+packs-theme-open = Apri
 packs-undo-add = Aggiungi il pacchetto «{ $name }»
 packs-undo-remove = Rimuovi il pacchetto «{ $name }»
 packs-undo-use-mine = Passa alla mia versione
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Questo PDF è stato modificato da un altro strumento
 notice-open-failed = Impossibile aprire { $path }: { $reason }
 notice-tab-resume-failed = Non è stato possibile ripristinare lo stato di questa scheda: è stato messo da parte e la scheda riparte da una presentazione vuota.
 notice-tab-set-aside = La scheda «{ $name }» proviene da una versione precedente di Oku Slides: le sue modifiche non salvate non sono state ripristinate e sono state messe da parte, e la scheda riparte da una presentazione vuota.
+notice-theme-draft-dropped = Questo editor di pacchetti proviene da una versione precedente di Oku Slides: le sue modifiche al tema non salvate non sono state conservate. Ora un tema si apre nella propria scheda.
+notice-theme-edited-elsewhere = Il tema { $theme } è in modifica nella scheda «{ $tab }»: questa scheda è stata riaperta accanto, in sola lettura finché quella scheda non si chiude.
 notice-pack-edited-elsewhere = Il pacchetto { $pack } è in modifica nella scheda «{ $tab }»: questa scheda è stata riaperta accanto, in sola lettura finché quella scheda non si chiude.
 notice-pack-deleted = Il pacchetto { $pack } non è più nella libreria: questa scheda è in sola lettura; chiedi all'agente di salvarlo come nuovo pacchetto per conservare le tue modifiche.
 notice-themes-skipped = Alcuni temi della tua libreria provengono da una versione precedente di Oku Slides: non è stato possibile leggerli e non vengono proposti ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Sposta su
 theme-extends-down = Sposta giù
 theme-extends-remove = Rimuovi
 theme-extends-add = Aggiungi un tema da estendere
-theme-deck-overrides = Sostituzioni della presentazione, non applicate qui: { $paths }
 theme-section-colors = Colori
 theme-section-typography = Tipografia
 theme-section-scripts = Altre scritture

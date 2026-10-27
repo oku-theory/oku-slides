@@ -1,12 +1,12 @@
 /**
- * Barre des sous-onglets du mode pack : « Layouts » (la scène, pack de layouts seulement),
- * « Thème », puis un par widget ouvert.
+ * The pack mode's sub-tab bar: "Layouts" (the stage, layout packs only), then one per open
+ * widget. A theme is edited in its own tab, never here.
  */
 import { useRef, type KeyboardEvent } from "react";
 import type { PackKind } from "./packTypes";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { THEME_TAB, type ActiveTab, type OpenWidget } from "./widgetTabs";
+import type { ActiveTab, OpenWidget } from "./widgetTabs";
 import { widgetLabel } from "./widgetList";
 
 /** Les sous-onglets ouverts, l'actif et leurs gestes. */
@@ -20,20 +20,20 @@ export interface PackTabsProps {
   onClose: (id: number) => void;
 }
 
-/** Clé d'un onglet dans l'ordre clavier : `STAGE_TAB` (« Layouts »), `THEME_TAB`, ou l'id du widget. */
-type Key = number | typeof THEME_TAB;
+/** A tab's key in keyboard order: `STAGE_TAB` ("Layouts") or the widget's id. */
+type Key = number;
 
 /** Clé de l'onglet « Layouts » : la scène (onglet actif `null`) ; les ids des widgets partent de 1. */
 const STAGE_TAB = 0;
 
 /**
- * Les sous-onglets du pack édité. Un pack de widgets n'a pas de scène à montrer : sans onglet
- * actif (aucun widget ouvert), « Thème » reste l'entrée de la barre au clavier.
+ * The edited pack's sub-tabs. A widget pack has no stage to show: without an active tab its
+ * first widget sub-tab is the bar's keyboard entry, and without any widget open there is no bar.
  */
 export default function PackTabs({ kind, tabs, active, unsaved, onActivate, onClose }: PackTabsProps) {
   const els = useRef(new Map<Key, HTMLButtonElement>());
   const stage = kind === "layouts";
-  const order: Key[] = [...(stage ? [STAGE_TAB] : []), THEME_TAB, ...tabs.map((tab) => tab.id)];
+  const order: Key[] = [...(stage ? [STAGE_TAB] : []), ...tabs.map((tab) => tab.id)];
   const rtl = typeof document !== "undefined" && document.dir === "rtl";
   const go = (key: Key) => {
     els.current.get(key)?.focus();
@@ -46,15 +46,15 @@ export default function PackTabs({ kind, tabs, active, unsaved, onActivate, onCl
     else if (e.key === "Home") go(order[0]);
     else if (e.key === "End") go(order[order.length - 1]);
     else if (e.key === "Delete" || e.key === "Backspace") {
-      // Suppr, ou ⌫ (Mac). Sur « Layouts » et « Thème », rien, mais l'élément choisi de la scène ne doit pas être supprimé.
-      if (typeof key === "number" && key !== STAGE_TAB) onClose(key);
+      // Delete, or ⌫ (Mac). On "Layouts", nothing, but the stage's selected element must not be deleted.
+      if (key !== STAGE_TAB) onClose(key);
     } else return;
     // Les raccourcis de la fenêtre (scène : flèches, Suppr) ne voient pas la touche.
     e.preventDefault();
     e.stopPropagation();
   };
-  // Aucun onglet actif : « Layouts », sinon « Thème » prend la tabulation, la barre reste joignable.
-  const tabbable = active ?? (stage ? STAGE_TAB : THEME_TAB);
+  // No active tab: "Layouts", else the first widget takes the tab key, so the bar stays reachable.
+  const tabbable = active ?? order[0];
   const tabProps = (key: Key, selected: boolean) => ({
     role: "tab" as const,
     id: `widget-tab-${key}`,
@@ -68,6 +68,7 @@ export default function PackTabs({ kind, tabs, active, unsaved, onActivate, onCl
     onKeyDown: (e: KeyboardEvent) => onKey(e, key),
   });
 
+  if (order.length === 0) return null;
   return (
     <div role="tablist" aria-label={t("ui-pack-tabs")} className="pack-tabs">
       {stage && (
@@ -75,9 +76,6 @@ export default function PackTabs({ kind, tabs, active, unsaved, onActivate, onCl
           {t("ui-pack-layouts-tab")}
         </button>
       )}
-      <button {...tabProps(THEME_TAB, active === THEME_TAB)} aria-controls="theme-panel" onClick={() => onActivate(THEME_TAB)}>
-        {t("ui-theme-tab")}
-      </button>
       {tabs.map((tab) => {
         const label = widgetLabel(tab.name);
         // L'enveloppe sort de l'arbre d'accessibilité ; le ×, caché aux

@@ -3,7 +3,9 @@ use speculoos::prelude::*;
 
 use super::{is_builtin_namespace, without_unpinned_components};
 use crate::pack::ESSENTIEL_PACK;
-use crate::test_support::{add_pack, add_user_theme, add_version, fresh_dir, manifest_ns, ns, opened_on, session};
+use crate::test_support::{
+    add_pack, add_user_theme, add_version, fresh_dir, manifest_ns, ns, opened_on, session, session_on,
+};
 use crate::theme_schema::Section;
 
 #[test]
@@ -61,34 +63,14 @@ fn pack_mode_schema_holds_the_packs_of_the_stashed_deck() {
 }
 
 #[test]
-fn user_theme_with_tokens_of_a_stashed_only_pack_can_be_chosen_and_shows_them() {
-    let tokens = json!({"component": {"frise": {"dot": {"bg": "#123456"}}}});
-    let (_d, mut s) = session_with_frise_and_theme("marque", tokens.clone());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    s.set_edited_theme(&ns("marque")).unwrap();
-    assert_that!(s.deck().tokens.clone()).is_equal_to(tokens);
-    let surface = serde_json::to_string(&s.host_theme("").unwrap().unwrap()).unwrap();
-    assert_that!(surface.contains("s-pack:frise")).is_true();
-    assert_that!(surface.contains("component.frise.dot.bg")).is_true();
-    assert_that!(surface.contains("\"Point\"")).is_true();
-}
-
-#[test]
-fn theme_with_tokens_of_an_unpinned_pack_can_be_chosen() {
+fn theme_tab_on_a_theme_with_tokens_of_an_unpinned_pack_keeps_them() {
     let tokens = json!({"component": {"ailleurs": {"x": {"y": 1}}}});
-    let (_d, mut s) = session_with_frise_and_theme("autre", tokens.clone());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    s.set_edited_theme(&ns("autre")).unwrap();
+    let data = fresh_dir("oku-slides-composed-");
+    let mut s = session_on(data.path());
+    let id = uuid::Uuid::new_v4();
+    add_user_theme(&s.themes, id, "autre", &[], serde_json::from_value(tokens.clone()).unwrap(), None);
+    s.open_theme_here(id).unwrap();
     assert_that!(s.deck().tokens.clone()).is_equal_to(tokens);
-}
-
-#[test]
-fn invalid_token_of_a_pinned_pack_is_still_refused() {
-    let tokens = json!({"component": {"frise": {"dot": {"bg": "pas-une-couleur"}}}});
-    let (_d, mut s) = session_with_frise_and_theme("fausse", tokens);
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    let err = s.set_edited_theme(&ns("fausse")).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::InvalidTokenValue);
 }
 
 #[test]

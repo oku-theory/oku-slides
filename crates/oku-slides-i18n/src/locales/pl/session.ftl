@@ -25,6 +25,13 @@ session-pack-not-make-current = Wersja pakietu { $pack } z prezentacji nie może
 session-pack-already-current = Prezentacja już używa Twojej bieżącej wersji { $pack }.
 session-theme-not-outdated = Motyw { $theme } prezentacji nie jest starszy niż Twoja bieżąca wersja.
 session-editing-pack = Najpierw zakończ edycję pakietu
+session-theme-open-in-tab = Motyw { $theme } jest edytowany na karcie „{ $tab }”: edytuj go tam albo najpierw zamknij tamtą kartę.
+session-wrong-document = { $kind ->
+    [deck] Ta karta pokazuje prezentację: tę zmianę wprowadza się na karcie motywu.
+    [help] Pomoc jest tylko do odczytu: tę zmianę wprowadza się na karcie motywu.
+    [pack] Ta karta edytuje pakiet: motyw zmienia się na karcie prezentacji, a jego wartości na karcie motywu.
+   *[theme] Ta karta edytuje motyw: zmieniają się tu tylko jego wartości, nazwa i motywy, które rozszerza.
+}
 session-in-pack-tab = Ta karta edytuje pakiet: zamknij ją, aby zakończyć; pakiety jednej prezentacji otwierają się z karty tej prezentacji.
 session-pack-open-in-tab = Pakiet { $pack } jest edytowany na karcie „{ $tab }”: edytuj go tam albo najpierw zamknij tamtą kartę.
 session-pack-offer-expired = Prezentacja nie została zaktualizowana: w międzyczasie zmieniła się prezentacja lub ta wersja pakietu.
@@ -33,7 +40,6 @@ session-lease-missing = Ten pakiet może zapisać tylko karta, która go edytuje
 session-not-editing-pack = Żaden pakiet nie jest edytowany
 session-pack-mode-slides = W trybie pakietu slajdy są przykładami układów: nie można ich dodawać, usuwać, przenosić ani zmieniać ich układu
 session-pack-mode-preview = W trybie pakietu slajdy podglądu widżetów są tylko do odczytu
-session-theme-choice-alone = W trybie pakietu wybierz sam motyw, a następnie edytuj jego tokeny za pomocą set_token
 session-response = Nie udało się zapisać odpowiedzi
 session-unknown-tab = Ta karta nie jest już otwarta.
 session-unknown-window = To okno nie jest już otwarte.
@@ -115,6 +121,7 @@ deck-new-slide-text = Powiedz, co chcesz pokazać.
 pack-default-name = Mój pakiet
 pack-copy-name = { $name } (kopia)
 theme-copy-name = { $name } (wariant)
+theme-copy-of = { $name } (kopia)
 pack-adopt-label = Pakiet: { $name }
 session-widgets-broken = Pominięto widżety, które się nie kompilują: { $names }. Pozostałe widżety pakietu zostają.
 session-widgets-not-saved = Nie udało się zapisać w bibliotece wersji widżetów pakietu „{ $pack }”. Prezentacja ją zachowuje.
@@ -153,6 +160,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } nadpisania prezentacji
 }
 packs-theme-pick = Motyw prezentacji
+packs-theme-open = Otwórz
 packs-undo-add = Dodaj pakiet „{ $name }”
 packs-undo-remove = Usuń pakiet „{ $name }”
 packs-undo-use-mine = Przełącz na moją wersję
@@ -165,6 +173,8 @@ notice-modified-elsewhere = Ten plik PDF został zmieniony innym narzędziem po 
 notice-open-failed = Nie udało się otworzyć { $path }: { $reason }
 notice-tab-resume-failed = Nie udało się przywrócić stanu tej karty: został odłożony na bok, a karta zaczyna od pustej prezentacji.
 notice-tab-set-aside = Karta „{ $name }” pochodzi ze starszej wersji Oku Slides: jej niezapisanych zmian nie udało się przywrócić i odłożono je na bok, a karta zaczyna od pustej prezentacji.
+notice-theme-draft-dropped = Ten edytor pakietu pochodzi ze starszej wersji Oku Slides: jego niezapisanych zmian motywu nie udało się zachować. Motyw otwiera się teraz na osobnej karcie.
+notice-theme-edited-elsewhere = Motyw { $theme } jest edytowany na karcie „{ $tab }”: ta karta otworzyła się ponownie obok, tylko do odczytu do czasu zamknięcia tamtej karty.
 notice-pack-edited-elsewhere = Pakiet { $pack } jest edytowany na karcie „{ $tab }”: ta karta otworzyła się ponownie obok, tylko do odczytu do czasu zamknięcia tamtej karty.
 notice-pack-deleted = Pakietu { $pack } nie ma już w bibliotece: ta karta jest tylko do odczytu; poproś agenta, aby zapisał go jako nowy pakiet, by zachować zmiany.
 notice-themes-skipped = Niektóre motywy w Twojej bibliotece pochodzą ze starszej wersji Oku Slides: nie udało się ich odczytać i nie są proponowane ({ $count }).
@@ -447,7 +457,6 @@ theme-extends-up = W górę
 theme-extends-down = W dół
 theme-extends-remove = Usuń
 theme-extends-add = Dodaj motyw do rozszerzenia
-theme-deck-overrides = Nadpisania w prezentacji, tu niestosowane: { $paths }
 theme-section-colors = Kolory
 theme-section-typography = Typografia
 theme-section-scripts = Inne pisma

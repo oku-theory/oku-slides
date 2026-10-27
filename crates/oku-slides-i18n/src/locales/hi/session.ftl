@@ -25,6 +25,13 @@ session-pack-not-make-current = प्रस्तुति में { $pack } 
 session-pack-already-current = प्रस्तुति पहले से { $pack } का आपका वर्तमान संस्करण उपयोग कर रही है।
 session-theme-not-outdated = प्रस्तुति की थीम { $theme } आपके वर्तमान संस्करण से पुरानी नहीं है।
 session-editing-pack = पहले पैक का संपादन पूरा करें
+session-theme-open-in-tab = थीम { $theme } का संपादन टैब “{ $tab }” में हो रहा है: वहीं इसे संपादित करें, या पहले वह टैब बंद करें।
+session-wrong-document = { $kind ->
+    [deck] यह टैब एक प्रस्तुति दिखाता है: यह बदलाव थीम टैब में किया जाता है।
+    [help] सहायता केवल पढ़ने के लिए है: यह बदलाव थीम टैब में किया जाता है।
+    [pack] यह टैब एक पैक का संपादन करता है: थीम प्रस्तुति के टैब में बदलती है, और उसके मान थीम टैब में।
+   *[theme] यह टैब एक थीम का संपादन करता है: यहाँ केवल उसके मान, उसका नाम और वे थीम बदलते हैं जिनका वह विस्तार करती है।
+}
 session-in-pack-tab = यह टैब एक पैक का संपादन करता है: पूरा करने के लिए इसे बंद करें; केवल एक प्रेज़ेंटेशन के पैक उसी प्रेज़ेंटेशन के टैब से खुलते हैं।
 session-pack-open-in-tab = पैक { $pack } का संपादन टैब “{ $tab }” में हो रहा है: वहीं इसे संपादित करें, या पहले वह टैब बंद करें।
 session-pack-offer-expired = प्रेज़ेंटेशन अपडेट नहीं हुआ: इस बीच प्रेज़ेंटेशन या पैक का वह संस्करण बदल गया।
@@ -33,7 +40,6 @@ session-lease-missing = इस पैक को केवल वही टैब
 session-not-editing-pack = कोई पैक संपादित नहीं हो रहा है
 session-pack-mode-slides = पैक मोड में स्लाइड लेआउट के उदाहरण हैं: उन्हें जोड़ा, हटाया, खिसकाया या उनका लेआउट बदला नहीं जा सकता
 session-pack-mode-preview = पैक मोड में विजेट की पूर्वावलोकन स्लाइड केवल पढ़ने के लिए हैं
-session-theme-choice-alone = पैक मोड में थीम को अकेले चुनें, फिर set_token से उसके टोकन संपादित करें
 session-response = उत्तर लिखा नहीं जा सका
 session-unknown-tab = यह टैब अब खुला नहीं है।
 session-unknown-window = यह विंडो अब खुली नहीं है।
@@ -115,6 +121,7 @@ deck-new-slide-text = बताइए कि आप क्या दिखान
 pack-default-name = मेरा पैक
 pack-copy-name = { $name } (कॉपी)
 theme-copy-name = { $name } (वैरिएंट)
+theme-copy-of = { $name } (कॉपी)
 pack-adopt-label = पैक: { $name }
 session-widgets-broken = ये विजेट कंपाइल नहीं होते, इसलिए छोड़ दिए गए: { $names }। पैक के बाकी विजेट बने रहते हैं।
 session-widgets-not-saved = पैक “{ $pack }” के विजेट का संस्करण लाइब्रेरी में सहेजा नहीं जा सका। प्रेज़ेंटेशन इसे रखता है।
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] प्रस्तुति के { $count } बदलाव
 }
 packs-theme-pick = प्रस्तुति की थीम
+packs-theme-open = खोलें
 packs-undo-add = पैक “{ $name }” जोड़ें
 packs-undo-remove = पैक “{ $name }” हटाएँ
 packs-undo-use-mine = मेरे संस्करण पर जाएँ
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Oku Slides के बाद इस PDF को कि
 notice-open-failed = { $path } नहीं खुल सका: { $reason }
 notice-tab-resume-failed = इस टैब की स्थिति बहाल नहीं की जा सकी: उसे अलग रख दिया गया है, और टैब एक खाली प्रस्तुति से फिर शुरू होता है।
 notice-tab-set-aside = टैब “{ $name }” Oku Slides के पुराने संस्करण का है: इसके बिना सहेजे बदलाव बहाल नहीं हो सके और अलग रख दिए गए, और टैब एक खाली प्रस्तुति से फिर शुरू होता है।
+notice-theme-draft-dropped = यह पैक संपादक Oku Slides के पुराने संस्करण से है: इसके सहेजे न गए थीम बदलाव रखे नहीं जा सके। अब थीम अपने अलग टैब में खुलती है।
+notice-theme-edited-elsewhere = थीम { $theme } का संपादन टैब “{ $tab }” में हो रहा है: यह टैब उसके बगल में फिर से खुला है, उस टैब के बंद होने तक केवल पढ़ने के लिए।
 notice-pack-edited-elsewhere = पैक { $pack } का संपादन टैब “{ $tab }” में हो रहा है: यह टैब उसके बगल में फिर से खुला है, उस टैब के बंद होने तक केवल पढ़ने के लिए।
 notice-pack-deleted = पैक { $pack } अब लाइब्रेरी में नहीं है: यह टैब केवल पढ़ने के लिए है; अपने बदलाव रखने के लिए एजेंट से इसे नए पैक के रूप में सहेजने को कहें।
 notice-themes-skipped = आपकी लाइब्रेरी की कुछ थीम Oku Slides के पुराने संस्करण से हैं: उन्हें पढ़ा नहीं जा सका और वे पेश नहीं की जातीं ({ $count })।
@@ -445,7 +455,6 @@ theme-extends-up = ऊपर ले जाएँ
 theme-extends-down = नीचे ले जाएँ
 theme-extends-remove = हटाएँ
 theme-extends-add = विस्तार के लिए थीम जोड़ें
-theme-deck-overrides = प्रस्तुति के ओवरराइड, यहाँ लागू नहीं: { $paths }
 theme-section-colors = रंग
 theme-section-typography = टाइपोग्राफ़ी
 theme-section-scripts = अन्य लिपियाँ

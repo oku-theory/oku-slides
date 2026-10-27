@@ -73,6 +73,11 @@ pub(crate) fn scope_of(s: &Session) -> LeaseScope {
     s.library.lease_scope().cloned().unwrap_or_else(|| panic!("a library with a lease scope"))
 }
 
+/// The theme lease scope of `s`'s library.
+pub(crate) fn theme_scope_of(s: &Session) -> LeaseScope {
+    s.library.theme_scope().cloned().unwrap_or_else(|| panic!("a theme library with a lease scope"))
+}
+
 /// An opener deck in `s`: a saved file, `acme` with a `card`, Pro, a token, a chart, an asset and a font.
 ///
 /// The returned folder holds the deck's file: the caller keeps it.
@@ -103,7 +108,7 @@ pub(crate) fn opener_deck(s: &mut Session) -> tempfile::TempDir {
     folder
 }
 
-/// Asserts that nobody holds `pack`'s lease in `scope`.
+/// Asserts that nobody holds the lease of `pack` (a pack or a theme) in `scope`.
 pub(crate) fn assert_unleased(scope: &LeaseScope, pack: Uuid) {
     assert_that!(pack_leased(scope, pack)).is_none();
 }
@@ -146,7 +151,7 @@ fn holder_of(data: &Path, pack: Uuid) -> (Session, PackVersion) {
 /// Resumes `dir` read-only in a new session on `data` (asserted).
 fn resumed_read_only(data: &Path, dir: &Path) -> Session {
     let mut tab = session_on(data);
-    assert_that!(tab.resume_checked(dir.to_path_buf())).is_equal_to(Resumed::Restored);
+    assert_that!(tab.resume_checked(dir.to_path_buf(), None)).is_equal_to(Resumed::Restored);
     let view = tab.editing_view().unwrap_or_else(|| panic!("pack mode restored"));
     assert_that!((view.read_only, view.leased)).is_equal_to((true, false));
     tab
@@ -203,7 +208,8 @@ pub(crate) fn park(live: Live) -> Dormant {
     assert_unleased(&scope, pack);
     if host == crate::PackHost::Deck {
         edit_state(dir.path(), |state| {
-            assert_that!(state["version"]).is_equal_to(json!(3));
+            assert_that!(state["version"]).is_equal_to(json!(5));
+            state["version"] = json!(3);
             let removed = state["mode"]["pack"].as_object_mut().and_then(|m| m.remove("host"));
             assert_that!(removed).is_some();
         });

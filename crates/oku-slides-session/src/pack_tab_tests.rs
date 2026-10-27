@@ -5,10 +5,10 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::resume::{PACK_TAB_STATE_VERSION, VERSION};
+use crate::resume::{EDITOR_STATE_VERSION, VERSION};
 use crate::test_support::{edit_of, fresh_dir, rename_title, session_on, stash_of};
 use crate::test_support_packs::{CARD_V2, editing, opener_on, pack_tab_from};
-use crate::{ESSENTIEL_PACK, Localize, Request, SessionErrorKind, TokenAction};
+use crate::{ESSENTIEL_PACK, Localize, Request, SessionErrorKind};
 
 /// A pack tab on `acme`, its opener and their folders.
 fn acme_tab() -> (tempfile::TempDir, tempfile::TempDir, Session, Session, Uuid) {
@@ -16,11 +16,6 @@ fn acme_tab() -> (tempfile::TempDir, tempfile::TempDir, Session, Session, Uuid) 
     let (mut s, deck, acme) = opener_on(data.path());
     let t = pack_tab_from(&mut s, data.path(), acme);
     (data, deck, s, t, acme)
-}
-
-/// A token edit of the pack tab's theme draft.
-fn edit_token(t: &mut Session) {
-    t.host_token(vec!["color".into(), "accent".into()], TokenAction::Set, Some(json!("#00ff00"))).unwrap();
 }
 
 /// The `state.json` of `dir`.
@@ -36,31 +31,13 @@ fn pack_tab_is_dirty_after_an_unsaved_edit() {
     assert_that!(t.tab_info().dirty).is_true();
 }
 
-#[rstest]
-#[case::widgets(false)]
-#[case::theme(true)]
-fn pack_tab_is_not_dirty_after_a_save(#[case] theme: bool) {
+#[test]
+fn pack_tab_is_not_dirty_after_a_save() {
     let (_data, _deck, _s, mut t, _) = acme_tab();
-    if theme {
-        edit_token(&mut t);
-    } else {
-        t.apply("x", vec![rename_title("acme 2")], None).unwrap();
-    }
+    t.apply("x", vec![rename_title("acme 2")], None).unwrap();
     t.save_pack(false).unwrap();
     assert_that!(stash_of(&t).dirty).is_true();
     assert_that!(t.tab_info().dirty).is_false();
-}
-
-#[test]
-fn pack_tab_theme_save_never_freezes_the_theme_version() {
-    let (_data, _deck, _s, mut t, _) = acme_tab();
-    let before = stash_of(&t).sources.deck().themes.clone();
-    edit_token(&mut t);
-    t.save_pack(false).unwrap();
-    let preview = stash_of(&t).sources.deck();
-    let pin = preview.theme.as_ref().and_then(|ns| preview.themes.get(ns)).cloned().unwrap();
-    assert_that!(before.values().any(|p| p.version == pin.version)).is_false();
-    assert_that!(t.themes.is_frozen(pin.id, &pin.version)).is_false();
 }
 
 #[test]
@@ -79,24 +56,25 @@ fn pack_tab_persists_its_preview_clean() {
 }
 
 #[test]
-fn pack_tab_state_is_written_as_version_4() {
+fn pack_tab_state_is_written_as_version_5() {
     let (_data, _deck, _s, mut t, _) = acme_tab();
     let dir = fresh_dir("oku-slides-pack-tab-dir-");
     assert_that!(t.resume_fresh(dir.path().to_path_buf())).is_true();
-    assert_that!(state(dir.path())["version"]).is_equal_to(json!(PACK_TAB_STATE_VERSION));
+    assert_that!(state(dir.path())["version"]).is_equal_to(json!(EDITOR_STATE_VERSION));
 }
 
 #[test]
-fn deck_state_is_still_written_as_version_3() {
+fn deck_state_is_written_as_version_3_and_its_workshop_as_version_5() {
     let (_data, _deck, mut s, t, acme) = acme_tab();
     drop(t);
     let dir = fresh_dir("oku-slides-pack-tab-dir-");
     assert_that!(s.resume_fresh(dir.path().to_path_buf())).is_true();
+    assert_that!(state(dir.path())["version"]).is_equal_to(json!(VERSION));
     s.handle(Request::EditPack { pack: acme }).unwrap();
     s.flush_resume();
     let state = state(dir.path());
     assert_that!((state["version"].clone(), state["mode"]["pack"]["host"].clone()))
-        .is_equal_to((json!(VERSION), json!("deck")));
+        .is_equal_to((json!(EDITOR_STATE_VERSION), json!("deck")));
 }
 
 /// A file write `pack_tab_refuses_writing_a_file` tries.
@@ -210,14 +188,12 @@ fn pack_tab_title_is_a_label() {
 #[derive(Debug, Clone, Copy)]
 enum Wrote {
     Save,
-    ThemeSave,
     Widget,
     LayoutOp,
 }
 
 #[rstest]
 #[case::save(Wrote::Save)]
-#[case::theme_save(Wrote::ThemeSave)]
 #[case::widget(Wrote::Widget)]
 #[case::layout_op(Wrote::LayoutOp)]
 fn wrote_in_pack_tab_after_a_write(#[case] wrote: Wrote) {
@@ -228,10 +204,6 @@ fn wrote_in_pack_tab_after_a_write(#[case] wrote: Wrote) {
     assert_that!(t.wrote_in_pack_tab().is_none()).is_true();
     match wrote {
         Wrote::Save => drop(t.save_pack(false).unwrap()),
-        Wrote::ThemeSave => {
-            edit_token(&mut t);
-            t.save_pack(false).unwrap();
-        }
         Wrote::Widget => drop(t.set_widget(None, "card", CARD_V2.into()).unwrap()),
         Wrote::LayoutOp => {
             let op = json!({ "op": "set_param", "target": { "slide": "layout-content" }, "param": "title", "value": "Neuf" });

@@ -345,3 +345,25 @@ fn pin_all_namespace_pinned_under_the_other_kind_is_refused_and_pins_nothing() {
     assert_that!(refused.map_err(|e| e.kind())).is_equal_to(Err(SessionErrorKind::NamespaceTaken));
     assert_that!(deck).is_equal_to(before);
 }
+
+#[test]
+fn pack_working_deck_keeps_the_deck_theme_and_overrides() {
+    let data = fresh_dir("oku-slides-pack-style-");
+    let mut s = session_on(data.path());
+    s.handle(crate::Request::SetTheme { theme: "pro".into() }).unwrap();
+    let ink = Op::SetToken { path: vec!["color".into(), "ink".into()], value: serde_json::json!("#101010") };
+    s.apply("ink", vec![ink], None).unwrap();
+    let accent = crate::theme_edit::theme_edit_tests::rendered_token(&s, "/color/accent");
+    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let (user, working) = (stash_of(&s).sources.deck().clone(), s.deck().clone());
+    assert_that!((&working.theme, &working.themes, &working.tokens)).is_equal_to((
+        &user.theme,
+        &user.themes,
+        &user.tokens,
+    ));
+    let reached = user.themes.values().all(|pin| s.doc.sources.themes.contains_key(&pin.version));
+    assert_that!(reached).is_true();
+    assert_that!(crate::theme_edit::theme_edit_tests::rendered_token(&s, "/color/accent")).is_equal_to(accent);
+    let ink = crate::theme_edit::theme_edit_tests::rendered_token(&s, "/color/ink");
+    assert_that!(ink).is_equal_to(Some(serde_json::json!("#101010")));
+}

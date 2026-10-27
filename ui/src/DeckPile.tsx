@@ -1,7 +1,8 @@
 /**
  * La pile des miniatures d'un onglet : les slides du deck, ou, en mode pack, les slides du deck
- * de travail d'un pack de layouts (une par layout, nommée d'après lui). En mode pack, ni ajout,
- * ni déplacement, ni suppression : l'hôte les refuse, la pile ne les offre pas.
+ * de travail d'un pack de layouts (une par layout, nommée d'après lui), or a theme tab's
+ * specimens (likewise). In pack mode and in a theme tab, no add, move or delete: the host
+ * refuses them, the pile does not offer them.
  */
 import type { PileSectionName, SlideSummary, Snapshot } from "./api";
 import { pileMarks } from "./history";
@@ -15,6 +16,8 @@ import { canRemoveSlide } from "./slideTools";
 interface Props {
   /** Instantané de l'onglet : slides, mode pack, historique, aide. */
   snap: Snapshot;
+  /** A theme tab: the specimen deck, named after its layouts and fixed. */
+  themeTab: boolean;
   /** Slide montrée sur la scène. */
   current: string | null;
   /** URL de la miniature d'une slide à son empreinte ; `null` tant qu'elle se rend. */
@@ -31,8 +34,9 @@ interface Props {
   axis: PileAxis;
 }
 
-/** Section repliable des miniatures : slides, layouts d'un pack de layouts, aucune pour un pack de widgets. */
-export function pileSection(snap: Snapshot): PileSectionName | null {
+/** The thumbnails' foldable section: slides, layouts (layout pack, theme tab), none for a widget pack. */
+export function pileSection(snap: Snapshot, themeTab: boolean): PileSectionName | null {
+  if (themeTab) return "layouts";
   if (!snap.editing) return "slides";
   return snap.editing.kind === "layouts" ? "layouts" : null;
 }
@@ -42,16 +46,17 @@ function layoutNames(slides: SlideSummary[]): Record<string, string> {
   return Object.fromEntries(slides.map((s) => [s.id, splitKind(s.kind)?.name ?? s.id]));
 }
 
-export default function DeckPile({ snap, current, svg, onSelect, onMove, onAdd, onRemove, axis }: Props) {
-  // Historique ou aide : la pile se lit, elle ne se modifie pas ; le mode pack ne change pas les slides.
-  const fixed = !!snap.history || snap.read_only || !!snap.editing;
+export default function DeckPile({ snap, themeTab, current, svg, onSelect, onMove, onAdd, onRemove, axis }: Props) {
+  // History or help: the pile reads, it does not change; neither pack mode nor a theme tab changes the slides.
+  const fixed = !!snap.history || snap.read_only || !!snap.editing || themeTab;
+  const layouts = !!snap.editing || themeTab;
   return (
     <SlidePile
       slides={snap.slides}
       current={current}
       svg={svg}
-      names={snap.editing ? layoutNames(snap.slides) : undefined}
-      label={t(snap.editing ? "ui-pile-layouts" : "ui-pile-slides")}
+      names={layouts ? layoutNames(snap.slides) : undefined}
+      label={t(layouts ? "ui-pile-layouts" : "ui-pile-slides")}
       addLabel={t("ui-pile-add-slide")}
       marks={snap.history ? pileMarks(snap.history.changes) : undefined}
       onSelect={onSelect}

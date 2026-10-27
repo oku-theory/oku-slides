@@ -1,13 +1,14 @@
-// Import PowerPoint dans l'app : « Ouvrir » un .pptx (alto) ouvre le dialogue d'import ; en copie
-// fidèle avec le peaufinage, l'onglet importé s'ouvre et le faux agent joue son tour de
-// fine-tuning (import_report, import_diff de la slide 7, report) ; l'atelier édite son pack de layouts
-// du deck seul, et son thème du deck seul se reprend après Papier ; puis un import sur mes layouts
-// (Essentiel par défaut, sans agent).
-// Contre `oku-slides serve` lancé par `just e2e` : faux agent « Faux » choisi, son journal dans
-// E2E_AGENT_LOG (les résultats MCP s'y lisent). Le témoin (office2pdf) tourne pour de vrai : attentes longues.
+// PowerPoint import in the app: "Ouvrir" on a .pptx (alto) opens the import dialog; as a faithful copy
+// with fine-tuning, the imported tab opens and the fake agent plays its fine-tuning turn (import_report,
+// import_diff of slide 7, report); the workshop edits its deck-only layout pack, its theme is picked again
+// after Papier with its overrides kept, and opens in a theme tab ("Ouvrir" in "Packs du deck"), closed
+// without writing; then an import on my layouts (Essentiel by default, no agent). Writes: the imported
+// decks and their deck-only pack versions. Leaves: the imported tabs, no theme tab.
+// Against `oku-slides serve` started by `just e2e`: fake agent "Faux" chosen, its log in E2E_AGENT_LOG
+// (the MCP results are read there). The witness (office2pdf) really runs: long waits.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { openAtelier } = require('./lib/atelier.cjs');
+const { closePacksPanel, openAtelier, openThemeTab } = require('./lib/atelier.cjs');
 const agentLog = require('./lib/agentLog.cjs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
@@ -165,20 +166,16 @@ const noTurnSince = async (p, from, ms) => {
   const pinOf = (snap) => snap.layouts['deck-layouts'];
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
   assert.ok(packBefore, 'le deck importé épingle son pack de layouts');
-  // Le panneau du thème d'un atelier liste les surcharges du deck, que l'import a générées.
-  const deckOverrides = async (pack) => {
-    // Le pack se referme même si la lecture échoue : l'onglet ne reste pas en mode pack (t-1108).
-    await api(p, hifi, { cmd: 'edit_pack', pack });
-    let text;
-    try {
-      text = JSON.stringify(await api(p, hifi, { cmd: 'host_theme', filter: '' }));
-    } finally {
-      await api(p, hifi, { cmd: 'close_pack' });
-    }
-    return /Surcharges du deck[^"]*/.exec(text)?.[0] ?? '';
+  // The deck's overrides that the import wrote (deck.tokens), counted on the theme row of "Packs du deck".
+  const PACKS = '[data-surface-id="host-packs"]';
+  const deckOverrides = async () => {
+    await p.getByRole('button', { name: /^Packs du deck/ }).click();
+    const row = p.locator(`${PACKS} [data-component-id="theme-overrides"]`);
+    await row.waitFor();
+    return (await row.innerText()).replace(/[⁨⁩]/g, '').trim();
   };
-  const overridesAtImport = await deckOverrides(packBefore.id);
-  assert.match(overridesAtImport, /Surcharges du deck/, "l'import n'écrit pas de jetons dans deck.tokens");
+  const overridesAtImport = await deckOverrides();
+  assert.match(overridesAtImport, /^[1-9]\d* surcharges? du deck$/, `l'import n'écrit pas de jetons dans deck.tokens : « ${overridesAtImport} »`);
   // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck, dans cet onglet (pack du deck seul).
   assert.equal(await openAtelier(p, hifi), hifi, "l'atelier du pack du deck seul ne s'ouvre pas dans son onglet");
   await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
@@ -223,11 +220,24 @@ const noTurnSince = async (p, from, ms) => {
   const repicked = await api(p, hifi, { cmd: 'snapshot' });
   assert.equal(repicked.theme, 'neutre', 'Neutre ne revient pas');
   assert.equal(repicked.theme_pins.neutre.version, importTheme.version, 'Neutre revient dans une autre version');
-  // Les surcharges du deck (deck.tokens) se lisent dans le panneau du thème d'un atelier : Neutre les garde.
-  const packId = pinOf(repicked).id;
-  const overridesAfterRepick = await deckOverrides(packId);
-  assert.match(overridesAfterRepick, /Surcharges du deck/, 'les jetons du deck ont disparu au changement de thème');
+  // The deck's overrides (deck.tokens) are kept by Neutre: the theme row of "Packs du deck" counts the same.
+  await p.reload();
+  const overridesAfterRepick = await deckOverrides();
   assert.equal(overridesAfterRepick, overridesAtImport, 'les jetons du deck ont changé avec le thème');
+  // The deck's theme is edited in its own theme tab, by "Ouvrir" on that row (no workshop sub-tab): Neutre, as
+  // the deck pins it, right after the imported tab; "Terminer" closes it clean, back on the imported tab, pins kept.
+  const themeTab = await openThemeTab(p, hifi);
+  const themed = await api(p, themeTab, { cmd: 'snapshot' });
+  assert.deepEqual([themed.theming?.theme.namespace, themed.theming?.theme.base.id], ['neutre', repicked.theme_pins.neutre.id], "l'onglet de thème n'édite pas Neutre");
+  const order = (await post(p, '/api/workspace', { cmd: 'view' })).windows[0].tabs.map((t) => t.id);
+  assert.equal(order.indexOf(themeTab), order.indexOf(hifi) + 1, `l'onglet de thème n'est pas juste après l'onglet importé : ${order}`);
+  await p.getByRole('button', { name: 'Terminer' }).click();
+  await until(p, async () => {
+    const win = (await post(p, '/api/workspace', { cmd: 'view' })).windows[0];
+    return win.active === hifi && !win.tabs.some((t) => t.id === themeTab);
+  }, "l'onglet de thème ne se ferme pas sur l'onglet importé");
+  await closePacksPanel(p);
+  assert.deepEqual((await api(p, hifi, { cmd: 'snapshot' })).theme_pins, repicked.theme_pins, "l'onglet de thème change les épingles du deck");
   assert.deepEqual(repicked.themes, onPapier.themes, 'la bibliothèque des thèmes ne change pas');
 
   // 2. Sur mes layouts : Essentiel coché par défaut, le thème du pack, sans agent.

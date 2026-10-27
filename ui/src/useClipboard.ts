@@ -91,6 +91,8 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
   editing: FieldKey | null;
   dialogOpen: boolean;
   widgetActive: boolean;
+  /** A theme tab: its specimens take no element, copied or pasted. */
+  themeTab: boolean;
   apply: (label: string, ops: Op[]) => Promise<boolean>;
   addElement: (widget: AddWidget, override?: { text: Paragraph[]; label: string }) => void;
   setSelected: (id: string | null) => void;
@@ -101,12 +103,12 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
 
 /** ⌘C, ⌘X et ⌘V, écoutés sur la fenêtre et réabonnés à chaque rendu. */
 export function useClipboardEvents({
-  tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, apply, addElement,
+  tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, themeTab, apply, addElement,
   setSelected, say, share, clip, setCutMark, dropCut,
 }: ClipboardEventsContext) {
   useEffect(() => {
     const skip = (e: ClipboardEvent) =>
-      editing || dialogOpen || widgetActive || !view || snap?.history || snap?.read_only
+      editing || dialogOpen || widgetActive || themeTab || !view || snap?.history || snap?.read_only
       || (e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable="true"]');
     const copy = (e: ClipboardEvent) => {
       if (skip(e) || !view || !selected) return false;

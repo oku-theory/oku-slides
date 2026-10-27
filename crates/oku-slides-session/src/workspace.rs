@@ -7,12 +7,13 @@
 //! requête : le lancement ne relit aucune session, la barre vient de
 //! `workspace.json`.
 //!
-//! Lock order: a pack's opening lock, the workspace, then one session, never
-//! the reverse. Only [`Workspace::apply`], [`Workspace::request`] (through
-//! [`Workspace::with_session`], which the agent takes too),
-//! [`Workspace::open_files`], [`Workspace::settle`], `post_notice`,
-//! `open_pack_with` and `pack_opener` take both, in sequence, never nested; a
-//! new session is built outside the workspace lock.
+//! Lock order: a pack's or theme's opening lock, the workspace, then one
+//! session, never the reverse. Only [`Workspace::apply`],
+//! [`Workspace::request`] (through [`Workspace::with_session`], which the
+//! agent takes too), [`Workspace::open_files`], [`Workspace::settle`],
+//! `post_notice`, `open_pack_with`, `open_theme_ui` and `pack_opener` take
+//! both, in sequence, never nested; a new session is built outside the
+//! workspace lock.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -185,6 +186,9 @@ impl Workspace {
         if let WorkspaceRequest::OpenPack { tab, pack, widget } = &req {
             return Self::open_pack_ui(ws, tab, *pack, widget.as_deref());
         }
+        if let WorkspaceRequest::OpenTheme { tab, theme } = &req {
+            return Self::open_theme_ui(ws, tab, *theme);
+        }
         if let WorkspaceRequest::PackOpener { tab } = &req {
             let offer = Self::pack_opener(ws, tab)?;
             return Ok(WorkspaceOutcome::Applied(serde_json::to_string(&offer).context(ResponseSnafu)?));
@@ -346,6 +350,12 @@ mod session;
 
 #[path = "workspace_packs.rs"]
 mod packs;
+
+#[path = "workspace_opening.rs"]
+mod opening;
+
+#[path = "workspace_themes.rs"]
+mod themes;
 
 pub use clip::Clip;
 pub use ids::is_window_label;

@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-            "t": " : Papier, Pro, Neutre ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. En mode pack, l'onglet Thème règle ses jetons un par un ; l'éditeur montre ce que le thème étend et ce que le deck surcharge, avec une section par pack de widgets. « Terminer » l'enregistre : modifier Papier, Pro ou Neutre crée une variante qui l'étend. Dans l'onglet d'un pack, la variante va dans la bibliothèque et s'applique depuis le sélecteur de thème ou « Packs du deck » : le deck ne change pas de thème ; dans le pack propre à un deck importé, le deck la prend, comme avant. L'onglet Thème d'un pack de widgets montre des slides d'aperçu. La liste extends se réordonne, et on y ajoute ou retire des parents."
+            "t": " : Papier, Pro, Neutre ou les vôtres. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour appliquer. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. « Ouvrir », sur la ligne du thème dans « Packs du deck », l'ouvre dans son propre onglet : des slides d'exemple, une par layout d'Essentiel, montrent le brouillon, et le panneau règle ses jetons un par un et montre ce qu'il étend. L'onglet enregistre tout seul ; « Terminer » le ferme. Modifier Papier, Pro ou Neutre crée une variante qui l'étend, à choisir ensuite dans le sélecteur de thème ; votre propre thème reçoit une nouvelle version, que chaque deck prend depuis « Packs du deck ». Tant que cet onglet est ouvert, aucun autre onglet ne modifie ce thème. La liste extends se réordonne, et on y ajoute ou retire des parents."
           }
          ],
          "list": "bullet"
@@ -337,7 +337,7 @@
            "bold": true
           },
           {
-           "t": " : le thème du deck se choisit aussi ici, avec sa liste extends : les parents s'appliquent d'abord, les suivants l'emportent ; on peut en ajouter, retirer ou réordonner."
+           "t": " : le thème du deck se choisit aussi ici, avec sa liste extends : les parents s'appliquent d'abord, les suivants l'emportent ; on peut en ajouter, retirer ou réordonner. « Ouvrir » l'ouvre dans son onglet pour le modifier."
           }
          ],
          "list": "bullet"

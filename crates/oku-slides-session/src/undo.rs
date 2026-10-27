@@ -40,10 +40,11 @@ impl Session {
         // A step may bring a session version back into the library: the editor needs its lease.
         self.ensure_pack_lease()?;
         self.end_widget_session();
-        self.ensure_editable()?;
+        self.ensure_document_editable()?;
         if step(&mut self.doc.sources).context(SourcesSnafu)? {
             self.doc.dirty = true;
             self.realign_pack()?;
+            self.realign_theme_edit();
             self.sync_widgets()?;
             self.refresh_pack_updates_if_pins_changed();
             self.rerender()?;

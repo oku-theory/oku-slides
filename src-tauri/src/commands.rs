@@ -66,7 +66,8 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::NewWindow
         | WorkspaceRequest::MoveTab { .. }
-        | WorkspaceRequest::OpenPack { .. } => (true, true),
+        | WorkspaceRequest::OpenPack { .. }
+        | WorkspaceRequest::OpenTheme { .. } => (true, true),
     }
 }
 
@@ -104,6 +105,7 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::MoveTab { .. }
         | WorkspaceRequest::ImportPicked { .. }
         | WorkspaceRequest::OpenPack { .. }
+        | WorkspaceRequest::OpenTheme { .. }
         | WorkspaceRequest::PackOpener { .. } => None,
     }
 }

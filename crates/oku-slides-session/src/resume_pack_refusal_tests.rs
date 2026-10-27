@@ -16,7 +16,7 @@ use crate::{Mode, PackHost, Request, Storage};
 /// The refusal of restoring `dir` on `data`, from a session dropped right after.
 fn refusal(data: &Path, dir: &Path) -> ResumeError {
     let mut s = session_on(data);
-    let refused = s.restore(&Resume::new(Storage::local().unwrap(), dir.to_path_buf()));
+    let refused = s.restore(&Resume::new(Storage::local().unwrap(), dir.to_path_buf()), None);
     refused.err().unwrap_or_else(|| panic!("restore refused"))
 }
 
@@ -84,8 +84,6 @@ enum Broken {
     EditedPinElsewhere,
     UnreadablePack,
     UnreadablePreview,
-    ThemeNamespace,
-    RefusedExtends,
     BaseMissing,
 }
 
@@ -134,8 +132,6 @@ fn broken_tab(data: &Path, broken: Broken) -> (tempfile::TempDir, Option<tempfil
         }
         Broken::UnreadablePack => std::fs::write(p.join("pack").join("deck.loro"), b"illisible").unwrap(),
         Broken::UnreadablePreview => std::fs::write(p.join("deck").join("deck.loro"), b"illisible").unwrap(),
-        Broken::ThemeNamespace => edit_state(p, |s| s["theme_edit"]["namespace"] = json!("ailleurs")),
-        Broken::RefusedExtends => edit_state(p, |s| s["theme_edit"]["extends"] = json!(["ailleurs"])),
         Broken::BaseMissing => edit_state(p, |s| s["mode"]["pack"]["base"] = json!(unknown_version().as_str())),
         Broken::DeckOnlyPack | Broken::DeckScopedLibraryId => {}
     }
@@ -164,9 +160,6 @@ fn is_expected(e: &ResumeError, broken: Broken) -> bool {
         Broken::UnreadablePack => "unreadable pack",
         Broken::UnreadablePreview => "unreadable preview",
         Broken::BaseMissing => "base missing",
-        // The tail's own errors: the theme draft is checked once pack mode is set.
-        Broken::ThemeNamespace => return matches!(e, ResumeError::ThemeBase { .. }),
-        Broken::RefusedExtends => return matches!(e, ResumeError::Session { .. }),
     };
     e.pack_tab_reason() == Some(reason)
 }
@@ -183,8 +176,6 @@ fn is_expected(e: &ResumeError, broken: Broken) -> bool {
 #[case::edited_pin_elsewhere(Broken::EditedPinElsewhere)]
 #[case::unreadable_pack(Broken::UnreadablePack)]
 #[case::unreadable_preview(Broken::UnreadablePreview)]
-#[case::theme_namespace(Broken::ThemeNamespace)]
-#[case::refused_extends(Broken::RefusedExtends)]
 #[case::base_missing(Broken::BaseMissing)]
 fn resume_inconsistent_pack_tab_is_set_aside(#[case] broken: Broken) {
     let data = fresh_dir("oku-slides-refusal-");
@@ -192,7 +183,7 @@ fn resume_inconsistent_pack_tab_is_set_aside(#[case] broken: Broken) {
     let e = refusal(data.path(), dir.path());
     assert_that!(is_expected(&e, broken)).named(&format!("{e}")).is_true();
     let mut back = session_on(data.path());
-    assert_that!(back.resume_checked(dir.path().to_path_buf())).is_equal_to(Resumed::Unreadable);
+    assert_that!(back.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Unreadable);
     assert_that!(back.tab_info().title).is_not_equal_to("opener".to_owned());
 }
 
@@ -201,18 +192,18 @@ fn resume_refused_pack_tab_leaves_a_blank_deck() {
     let data = fresh_dir("oku-slides-refusal-");
     let (dir, _deck) = broken_tab(data.path(), Broken::PreviewHash);
     let mut back = session_on(data.path());
-    assert_that!(back.resume_checked(dir.path().to_path_buf())).is_equal_to(Resumed::Unreadable);
+    assert_that!(back.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Unreadable);
     assert_that!((matches!(back.mode, Mode::Deck), back.doc.blank)).is_equal_to((true, true));
 }
 
 #[test]
 fn resume_refused_pack_tab_leaves_no_lease() {
     let data = fresh_dir("oku-slides-refusal-");
-    let (dir, _deck) = broken_tab(data.path(), Broken::ThemeNamespace);
+    let (dir, _deck) = broken_tab(data.path(), Broken::BaseMissing);
     let state: serde_json::Value =
         serde_json::from_slice(&std::fs::read(dir.path().join("state.json")).unwrap()).unwrap();
     let pack: Uuid = serde_json::from_value(state["mode"]["pack"]["pack"].clone()).unwrap();
     let mut back = session_on(data.path());
-    assert_that!(back.resume_checked(dir.path().to_path_buf())).is_equal_to(Resumed::Unreadable);
+    assert_that!(back.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Unreadable);
     assert_unleased(&scope_of(&back), pack);
 }

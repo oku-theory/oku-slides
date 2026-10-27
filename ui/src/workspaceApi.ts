@@ -7,7 +7,8 @@ import { host } from "./hostCall";
 export type TabDocument =
   | { kind: "deck"; path: string | null; deck_uid: string | null }
   | { kind: "help"; locale: string }
-  | { kind: "pack"; pack: string };
+  | { kind: "pack"; pack: string }
+  | { kind: "theme"; theme: string };
 
 /** A tab, as the bar shows it. */
 export interface TabInfo {
@@ -32,6 +33,7 @@ export function tabPath(tab: TabInfo): string | null {
       return d.path;
     case "help":
     case "pack":
+    case "theme":
       return null;
     default: {
       // A kind this build does not know (a newer host): no file.
@@ -133,6 +135,7 @@ type WorkspaceRequest =
   | { cmd: "attach_agent" }
   | { cmd: "import_picked"; id: number }
   | { cmd: "open_pack"; tab: string; pack: string; widget: string | null }
+  | { cmd: "open_theme"; tab: string; theme: string }
   | { cmd: "pack_opener"; tab: string };
 
 const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
@@ -179,6 +182,8 @@ export const workspace = {
   importPicked: (id: number) => ws<WorkspaceView>({ cmd: "import_picked", id }),
   /** Opens a pack from a tab, beside it or in place. */
   openPack: (tab: string, pack: string, widget: string | null) => ws<WorkspaceView>({ cmd: "open_pack", tab, pack, widget }),
+  /** Opens theme `theme` in its own tab, after `tab`, or focuses the tab that has it. */
+  openTheme: (tab: string, theme: string) => ws<WorkspaceView>({ cmd: "open_theme", tab, theme }),
   /** The deck a pack tab may update, if any. */
   packOpener: (tab: string) => ws<OpenerOffer | null>({ cmd: "pack_opener", tab }),
 };

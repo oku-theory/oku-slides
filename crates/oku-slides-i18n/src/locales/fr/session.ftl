@@ -25,6 +25,13 @@ session-pack-not-make-current = La version du deck de { $pack } ne peut pas deve
 session-pack-already-current = Le deck utilise déjà votre version courante de { $pack }.
 session-theme-not-outdated = Le thème { $theme } du deck n'est pas plus ancien que votre version courante.
 session-editing-pack = Terminez d'abord l'édition du pack
+session-theme-open-in-tab = Le thème { $theme } est en cours d'édition dans l'onglet « { $tab } » : modifiez-le là, ou fermez d'abord cet onglet.
+session-wrong-document = { $kind ->
+    [deck] Cet onglet montre un deck : cette modification se fait dans un onglet de thème.
+    [help] L'aide est en lecture seule : cette modification se fait dans un onglet de thème.
+    [pack] Cet onglet édite un pack : le thème se change dans l'onglet du deck, ses valeurs dans un onglet de thème.
+   *[theme] Cet onglet édite un thème : seuls ses valeurs, son nom et les thèmes qu'il étend se modifient ici.
+}
 session-in-pack-tab = Cet onglet édite un pack : fermez-le pour terminer ; les packs propres à un deck s'ouvrent depuis l'onglet de ce deck.
 session-pack-open-in-tab = Le pack { $pack } est en cours d'édition dans l'onglet « { $tab } » : modifiez-le là, ou fermez d'abord cet onglet.
 session-pack-offer-expired = Le deck n'a pas été mis à jour : le deck ou cette version du pack a changé entre-temps.
@@ -33,7 +40,6 @@ session-lease-missing = Ce pack ne peut être enregistré que par l'onglet qui l
 session-not-editing-pack = Pas de pack en cours d'édition
 session-pack-mode-slides = En mode pack, les slides sont les exemples des layouts : elles ne s'ajoutent, ne se retirent, ne se déplacent ni ne changent de layout
 session-pack-mode-preview = En mode pack, les slides d'aperçu des widgets sont en lecture seule
-session-theme-choice-alone = En mode pack, choisissez le thème seul, puis modifiez ses jetons avec set_token
 session-response = La réponse n'a pas pu être écrite
 session-unknown-tab = Cet onglet n'est plus ouvert.
 session-unknown-window = Cette fenêtre n'est plus ouverte.
@@ -115,6 +121,7 @@ deck-new-slide-text = Dites ce que vous voulez montrer.
 pack-default-name = Mon pack
 pack-copy-name = { $name } (copie)
 theme-copy-name = { $name } (variante)
+theme-copy-of = { $name } (copie)
 pack-adopt-label = Pack : { $name }
 session-widgets-broken = Widgets écartés, ils ne compilent pas : { $names }. Les autres widgets du pack restent.
 session-widgets-not-saved = La version des widgets du pack « { $pack } » n'a pas pu être enregistrée dans la bibliothèque. Le deck la garde.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } surcharges du deck
 }
 packs-theme-pick = Thème du deck
+packs-theme-open = Ouvrir
 packs-undo-add = Ajouter le pack « { $name } »
 packs-undo-remove = Retirer le pack « { $name } »
 packs-undo-use-mine = Passer à ma version
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Ce PDF a été modifié par un autre outil après Ok
 notice-open-failed = { $path } n'a pas pu être ouvert : { $reason }
 notice-tab-resume-failed = L'état de cet onglet n'a pas pu être repris : il a été mis de côté, et l'onglet repart d'une présentation vierge.
 notice-tab-set-aside = L'onglet « { $name } » vient d'une version plus ancienne d'Oku Slides : ses changements non enregistrés n'ont pas pu être repris et ont été mis de côté, et l'onglet repart d'une présentation vierge.
+notice-theme-draft-dropped = Cet éditeur de pack vient d'une version plus ancienne d'Oku Slides : ses changements de thème non enregistrés n'ont pas pu être gardés. Un thème s'ouvre désormais dans son propre onglet.
+notice-theme-edited-elsewhere = Le thème { $theme } est en cours d'édition dans l'onglet « { $tab } » : cet onglet a rouvert à côté, en lecture seule jusqu'à la fermeture de cet onglet.
 notice-pack-edited-elsewhere = Le pack { $pack } est en cours d'édition dans l'onglet « { $tab } » : cet onglet a rouvert à côté, en lecture seule jusqu'à la fermeture de cet onglet.
 notice-pack-deleted = Le pack { $pack } n'est plus dans la bibliothèque : cet onglet est en lecture seule ; demandez à l'agent de l'enregistrer comme nouveau pack pour garder vos modifications.
 notice-themes-skipped = Des thèmes de votre bibliothèque viennent d'une version plus ancienne d'Oku Slides : ils n'ont pas pu être lus et ne sont pas proposés ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Monter
 theme-extends-down = Descendre
 theme-extends-remove = Retirer
 theme-extends-add = Ajouter un thème à étendre
-theme-deck-overrides = Surcharges du deck, non appliquées ici : { $paths }
 theme-section-colors = Couleurs
 theme-section-typography = Typographie
 theme-section-scripts = Autres écritures

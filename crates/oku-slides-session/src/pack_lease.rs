@@ -1,7 +1,8 @@
-//! The marks of library packs being edited, per library.
+//! The marks of library packs and themes being edited, per library.
 //!
 //! A library pack is leased while one editor (a pack tab or a deck's
-//! workshop) edits it: nobody else writes it meanwhile. The registry is
+//! workshop) edits it, a library theme while its theme tab is awake: nobody
+//! else writes it meanwhile. The registry is
 //! process-wide (`PACK_TABS`), keyed by the library's [`LeaseScope`] and the
 //! pack id, and stores the holder's label of record for refusals. It is a
 //! pure registry: it knows `LeaseScope`, never `PackLibrary`.
@@ -22,7 +23,7 @@ use oku_slides_platform::storage;
 
 use crate::Result;
 use crate::agent::bounds::label;
-use crate::error::PackOpenInTabSnafu;
+use crate::error::{PackOpenInTabSnafu, ThemeOpenInTabSnafu};
 use crate::library::{DraftLock, draft_lock};
 use crate::pack_receive::is_library_pack;
 
@@ -35,20 +36,49 @@ static PACK_TABS: Mutex<Leases> = Mutex::new(BTreeMap::new());
 /// The next lease's identity.
 static NEXT_TOKEN: AtomicU64 = AtomicU64::new(1);
 
-/// The directories that identify one pack library for leases.
+/// The directories that identify one library for leases: of packs or of themes.
+///
+/// Its `Ord` keeps the registry a `BTreeMap`; the two kinds never share a key,
+/// so a pack and a theme with equal ids are leased apart.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct LeaseScope {
-    /// The widget library directory, resolved.
-    widgets: PathBuf,
-    /// The layout library directory, resolved.
-    layouts: PathBuf,
+pub(crate) enum LeaseScope {
+    /// A pack library.
+    Packs {
+        /// The widget library directory, resolved.
+        widgets: PathBuf,
+        /// The layout library directory, resolved.
+        layouts: PathBuf,
+    },
+    /// A theme library.
+    Themes {
+        /// The theme library directory, resolved.
+        themes: PathBuf,
+    },
 }
 
 impl LeaseScope {
-    /// The lease key of these two library directories.
+    /// The lease key of these two pack library directories.
     #[must_use]
     pub(crate) fn new(widgets: &Path, layouts: &Path) -> Self {
-        Self { widgets: storage::resolve(widgets), layouts: storage::resolve(layouts) }
+        Self::Packs { widgets: storage::resolve(widgets), layouts: storage::resolve(layouts) }
+    }
+
+    /// The lease key of this theme library directory.
+    #[must_use]
+    pub(crate) fn themes(dir: &Path) -> Self {
+        Self::Themes { themes: storage::resolve(dir) }
+    }
+
+    /// The refusal of a write to `name` while `tab` holds its lease in this scope.
+    ///
+    /// # Errors
+    ///
+    /// Always: `PackOpenInTab` for a pack library, `ThemeOpenInTab` for a theme library.
+    pub(crate) fn held<T>(&self, name: &str, tab: &str) -> Result<T> {
+        match self {
+            Self::Packs { .. } => PackOpenInTabSnafu { pack: name, tab }.fail()?,
+            Self::Themes { .. } => ThemeOpenInTabSnafu { theme: name, tab }.fail()?,
+        }
     }
 }
 
@@ -71,7 +101,8 @@ impl PackLease {
     ///
     /// # Errors
     ///
-    /// `PackOpenInTab { pack: name, tab: holder of record }` when held.
+    /// `PackOpenInTab { pack: name, tab: holder of record }` when held in a
+    /// pack library, `ThemeOpenInTab { theme: name, tab }` in a theme library.
     pub(crate) fn try_take(
         _drafts: &DraftLock,
         scope: &LeaseScope,
@@ -83,7 +114,7 @@ impl PackLease {
         {
             let mut tabs = PACK_TABS.lock().unwrap_or_else(PoisonError::into_inner);
             if let Some((_, tab)) = tabs.get(scope).and_then(|leases| leases.get(&pack)) {
-                return PackOpenInTabSnafu { pack: name, tab: tab.as_str() }.fail()?;
+                return scope.held(name, tab);
             }
             let entry = (token, holder.to_owned());
             if let Some(leases) = tabs.get_mut(scope) {
@@ -100,7 +131,7 @@ impl PackLease {
     ///
     /// # Errors
     ///
-    /// `PackOpenInTab` when held.
+    /// `PackOpenInTab` or `ThemeOpenInTab` when held, as `try_take`.
     ///
     /// # Blocking
     ///
@@ -169,9 +200,20 @@ pub(crate) fn covers(lease: Option<&PackLease>, scope: Option<&LeaseScope>, pack
 ///
 /// `PackOpenInTab` naming the holder.
 pub(crate) fn refuse_leased(scope: Option<&LeaseScope>, pack: Uuid, files: &PackFiles, name: &str) -> Result<()> {
-    let Some(scope) = scope.filter(|_| is_library_pack(files)) else { return Ok(()) };
-    match pack_leased(scope, pack) {
-        Some(tab) => PackOpenInTabSnafu { pack: label(name), tab }.fail()?,
+    refuse_held(scope.filter(|_| is_library_pack(files)), pack, name)
+}
+
+/// Refuses a write to `id` in `scope` while an editor holds its lease.
+///
+/// `name` is the pack's or theme's name, cleaned here. Without a scope, nothing is leased.
+///
+/// # Errors
+///
+/// `PackOpenInTab` or `ThemeOpenInTab` (by scope) naming the holder.
+pub(crate) fn refuse_held(scope: Option<&LeaseScope>, id: Uuid, name: &str) -> Result<()> {
+    let Some(scope) = scope else { return Ok(()) };
+    match pack_leased(scope, id) {
+        Some(tab) => scope.held(&label(name), &tab),
         None => Ok(()),
     }
 }

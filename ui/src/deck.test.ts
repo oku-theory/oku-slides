@@ -468,23 +468,23 @@ describe("previewLook", () => {
   type Source = Parameters<typeof previewLook>[0];
   const draft = (dirty: boolean, version = "v1", revision = "r1") => ({
     theme: { base: { id: "t", version }, name: "Papier", child: true, extends: [], dirty, revision },
-  }) as Source["editing"];
-  // Mode modèles : le deck de travail n'a pas de thème, le brouillon en tient lieu.
+  }) as Source["theming"];
+  // A theme tab: the specimen deck has no theme, the draft stands for it.
   const snap = (over: Partial<Source> = {}): Source => ({
     theme_pins: {},
     appearance: { slide: { accent: "#123456" } } as Source["appearance"],
-    editing: draft(false),
+    theming: draft(false),
     undo_label: null,
     redo_label: null,
     ...over,
   });
 
   test("previewLook_draft_change_without_deck_theme_changes_the_key", () => {
-    expect(previewLook(snap({ editing: draft(true) }))).not.toBe(previewLook(snap()));
+    expect(previewLook(snap({ theming: draft(true) }))).not.toBe(previewLook(snap()));
   });
 
   test("previewLook_new_base_changes_the_key", () => {
-    expect(previewLook(snap({ editing: draft(false, "v2") }))).not.toBe(previewLook(snap()));
+    expect(previewLook(snap({ theming: draft(false, "v2") }))).not.toBe(previewLook(snap()));
   });
 
   test("previewLook_undo_or_redo_changes_the_key", () => {
@@ -494,8 +494,13 @@ describe("previewLook", () => {
 
   test("previewLook_new_draft_revision_with_same_labels_changes_the_key", () => {
     // Deux réglages successifs du même jeton (taille 16 → 18 → 20) : même libellé, même `dirty`.
-    const at = (revision: string) => previewLook(snap({ editing: draft(true, "v1", revision), undo_label: "Jeton" }));
+    const at = (revision: string) => previewLook(snap({ theming: draft(true, "v1", revision), undo_label: "Jeton" }));
     expect(at("r2")).not.toBe(at("r1"));
+  });
+
+  test("previewLook_outside_a_theme_tab_follows_the_deck_theme_pins", () => {
+    const deck = (version: string) => previewLook(snap({ theming: null, theme_pins: { papier: { id: "t", version } } }));
+    expect(deck("v2")).not.toBe(deck("v1"));
   });
 
   test("previewLook_same_snapshot_keeps_the_key", () => {

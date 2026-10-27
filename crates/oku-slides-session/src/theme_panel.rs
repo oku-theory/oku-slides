@@ -1,42 +1,38 @@
-//! Surface `host-theme` : chaque jeton du brouillon du thème, par section,
-//! avec son état et ses actions (`host_theme`, `host_token`). L'interface la
-//! rend au dock de l'agent, en mode pack.
+//! The `host-theme` surface: each token of a theme tab's draft, by section,
+//! with its state and its actions (`host_theme`, `host_token`). The interface
+//! renders it in the right column of a theme tab.
 //!
-//! Les jetons sont ceux du schéma composé du deck de travail : les sections
-//! globales, puis une par pack épinglé (nommée comme lui, dans l'ordre des
-//! espaces de noms), puis les variantes d'interface. Un jeton d'un pack
-//! intégré se nomme par Fluent (`theme-token-component-<ns>-…`), celui d'un
-//! autre pack par le `label` de son entrée, sinon par son chemin pointé. En
-//! tête : les thèmes qu'étend le brouillon, une ligne chacun avec ses
-//! boutons monter, descendre et retirer, puis la liste des thèmes à ajouter
-//! (évènement [`THEME_EXTENDS_EVENT`] : `{edit, theme}`, un `ExtendsEdit`) ;
-//! en lecture seule, les surcharges du deck mis de côté
-//! (`theme-deck-overrides`), qui ne s'y appliquent pas.
+//! The tokens are those of the specimen deck's composed schema: the global
+//! sections, then one per pinned pack (named like it, in namespace order),
+//! then the interface variants. A token of a built-in pack is named through
+//! Fluent (`theme-token-component-<ns>-…`), one of another pack by its entry's
+//! `label`, else by its dotted path. At the top: the themes the draft
+//! extends, one row each with its up, down and remove buttons, then the list
+//! of themes to add (event [`THEME_EXTENDS_EVENT`]: `{edit, theme}`, an
+//! `ExtendsEdit`).
 //!
-//! Chaque action est l'évènement `token` : `{token, action, value?, name?}`,
-//! avec `token` le chemin du jeton (un tableau de segments) et `action` un
-//! [`TokenAction`]. Jamais de clé `path` dans le contexte : @a2ui y verrait
-//! une liaison de données et l'action ne partirait pas. Un
-//! champ envoie `set` et sa valeur (`value`), ou le changement d'un tableau
-//! sous `change` au lieu de `value` ; les boutons envoient `reset`, `remove`
-//! ou `clear` sans valeur. La ligne « nouvelle couleur » envoie `set` avec
-//! `token: ["color"]` et le nom saisi sous `name`, à ajouter au chemin. Le
-//! champ de filtre envoie l'évènement `filter {filter}`.
+//! Each action is the `token` event: `{token, action, value?, name?}`, with
+//! `token` the token's path (an array of segments) and `action` a
+//! [`TokenAction`]. Never a `path` key in the context: @a2ui would see a data
+//! binding there and the action would not leave. A field sends `set` and its
+//! value (`value`), or an array's change under `change` instead of `value`;
+//! the buttons send `reset`, `remove` or `clear` without a value. The "new
+//! color" row sends `set` with `token: ["color"]` and the typed name under
+//! `name`, to append to the path. The filter field sends the `filter {filter}` event.
 
 use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
 use oku_slides_core::Op;
 use oku_slides_i18n::Localizer;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
-use snafu::ensure;
 
 use crate::agent::Surface;
 use crate::agent::forms::{FieldEvent, Place, field_components, lit, surface};
-use crate::error::{InvalidTokenValueSnafu, NotEditingPackSnafu};
+use crate::error::InvalidTokenValueSnafu;
 use crate::theme_composed::is_builtin_namespace;
 use crate::theme_controls::{Shown, token_fields, token_value};
 use crate::theme_edit::ThemeParentView;
-use crate::theme_schema::{Section, TokenSpec, default_tokens, lookup, merge, spec, token_paths};
+use crate::theme_schema::{Section, TokenSpec, default_tokens, lookup, merge, spec};
 use crate::{Mode, Result, Session};
 
 /// Surface des jetons du brouillon du thème.
@@ -330,9 +326,10 @@ impl Session {
         rows
     }
 
-    /// L'en-tête : parents du brouillon, puis surcharges du deck mis de côté (lecture seule).
-    fn theme_header(&self, b: &mut Builder, schema: &[TokenSpec], body: &mut Vec<String>) {
-        let Mode::Pack { theme, .. } = &self.mode else { return };
+    /// The header: the draft's parents and the themes to add.
+    fn theme_header(&self, b: &mut Builder, body: &mut Vec<String>) {
+        let Mode::Theme { edit, .. } = &self.mode else { return };
+        let theme = &edit.draft;
         let l = &self.localizer;
         // À ajouter : les thèmes de la bibliothèque hors de la liste, sauf le sien (un enfant n'en a pas).
         let choices = self
@@ -342,18 +339,13 @@ impl Session {
             .map(|t| ChoiceOption { id: t.namespace.to_string(), label: t.name.clone(), hint: None })
             .collect();
         body.push(b.extends(&self.draft_parents(theme), choices, l));
-        let overrides = self.user_deck().tokens.as_object().map(|t| token_paths(schema, t)).unwrap_or_default();
-        if !overrides.is_empty() {
-            let text = l.tr_with("theme-deck-overrides", &[("paths", overrides.join(", ").into())]);
-            b.components.push(Component::text("deck-overrides", text, Some(TextVariant::Caption)));
-            body.push("deck-overrides".to_owned());
-        }
     }
 
-    /// La surface des jetons du brouillon (mode pack) ; `filter` garde les
-    /// jetons dont le libellé traduit ou le chemin le contient (casse ignorée).
+    /// The surface of the draft's tokens (a theme tab); `filter` keeps the
+    /// tokens whose translated label or path holds it (case ignored).
     pub(crate) fn host_theme(&self, filter: &str) -> Result<Option<Surface>> {
-        let Mode::Pack { theme, .. } = &self.mode else { return Ok(None) };
+        let Mode::Theme { edit, .. } = &self.mode else { return Ok(None) };
+        let theme = &edit.draft;
         let l = &self.localizer;
         let typed = filter;
         // Normalisé pour la recherche seulement : le champ garde la saisie telle quelle.
@@ -369,7 +361,7 @@ impl Session {
         let mut b = Builder::default();
         let mut body = vec!["title".to_owned()];
         b.components.push(Component::text("title", theme.name.clone(), Some(TextVariant::H4)));
-        self.theme_header(&mut b, &schema, &mut body);
+        self.theme_header(&mut b, &mut body);
         body.push("filter".to_owned());
         b.components.push(Component::new(
             "filter",
@@ -408,10 +400,10 @@ impl Session {
         Ok(Some(surface(HOST_THEME, Place::Thread, None, b.components, Value::Object(b.data))))
     }
 
-    /// Agit sur le jeton `path` du brouillon : une étape d'annulation, vérifiée
-    /// par le schéma ; sans effet si le jeton a déjà la valeur visée.
+    /// Acts on the draft's token `path`: one undo step, checked by the schema;
+    /// no effect if the token already has the target value.
     pub(crate) fn host_token(&mut self, path: Vec<String>, action: TokenAction, value: Option<Value>) -> Result<()> {
-        ensure!(self.in_pack_mode(), NotEditingPackSnafu);
+        self.ensure_theme_tab()?;
         let draft = self.edited_tokens();
         let schema = self.token_schema(self.doc.sources.deck());
         let (path, target) = match action {

@@ -17,9 +17,9 @@ const isEdit = (v: unknown): v is DataEdit =>
   typeof v === "object" && v !== null && typeof (v as { edit?: unknown }).edit === "string";
 
 /**
- * La surface `host-data` de `selected` sur `slide` : lue pour un graphique ou un tableau
- * (`ownPanel`, d'après `host_params`), hors lecture seule et historique ; `off` la retire
- * (onglet « Thème », sous-onglet widget). Relue quand l'élément, le rendu ou l'annulation changent.
+ * The `host-data` surface of `selected` on `slide`, read for a chart or a table
+ * (`ownPanel`, from `host_params`) outside read-only, history and theme tabs; `off`
+ * removes it (a widget sub-tab). Reread when the element, the render or undo change.
  */
 export function useDataSettings(
   api: TabApi,
@@ -34,7 +34,7 @@ export function useDataSettings(
   const data = !!snap && ownPanel(snap.host_params, selected?.kind) !== null;
   return useSessionSurface({
     ids: IDS,
-    active: data && !!slide && !!selected && !snap.read_only && !snap.history && !off,
+    active: data && !!slide && !!selected && !snap.read_only && !snap.history && !snap.theming && !off,
     scope: { slide: slide ?? "", element: selected?.id ?? "" },
     // Un refus force la relecture (`sync`) : le modèle porte la valeur refusée.
     key: [slide, selected?.id, hash, snap?.undo_label, snap?.redo_label].join("|"),

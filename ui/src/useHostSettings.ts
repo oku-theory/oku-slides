@@ -13,7 +13,7 @@ import { fromA2ui, type QuickAction } from "./agent/quick";
 
 /** Surface des réglages du widget du sous-onglet actif. */
 export const HOST_WIDGET = "host-widget";
-/** Surface des jetons du thème édité (onglet « Thème », routée par `useThemeSettings`). */
+/** Surface of the edited theme's tokens (a theme tab, routed by `useThemeSettings`). */
 export const HOST_THEME = "host-theme";
 
 /** La surface de réglages de l'hôte, et le routage de ses actions. */

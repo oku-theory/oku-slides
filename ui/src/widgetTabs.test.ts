@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { NO_TABS, THEME_TAB, activated, activeName, closed, kept, opened, openedBehind, placeTouched, pruned, renamed, withRestored } from "./widgetTabs";
+import { NO_TABS, activated, activeName, closed, kept, opened, openedBehind, placeTouched, pruned, renamed, withRestored } from "./widgetTabs";
 
 const names = (s: { tabs: { name: string }[] }) => s.tabs.map((t) => t.name);
 
@@ -23,7 +23,7 @@ describe("widgetTabs", () => {
     expect(activeName(s)).toBe("a");
   });
 
-  // Décision : fermer le premier sous-onglet actif rend la scène, pas « Thème ».
+  // Decision: closing the first sub-tab while active gives back the stage.
   test("closed du premier actif revient à la scène", () => {
     let s = opened(opened(NO_TABS, "a"), "b");
     s = closed(activated(s, s.tabs[0].id), s.tabs[0].id);
@@ -92,19 +92,5 @@ describe("widgetTabs", () => {
 
   test("placeTouched ouvre derrière si l'actif a des frappes en attente", () => {
     expect(activeName(placeTouched(opened(NO_TABS, "a"), "b", (n) => n === "a"))).toBe("a");
-  });
-
-  test("activated(THEME_TAB) : aucun widget actif, rien de gardé comme widget", () => {
-    const s = activated(opened(NO_TABS, "a"), THEME_TAB);
-    expect(s.active).toBe(THEME_TAB);
-    expect(activeName(s)).toBeNull();
-    expect(kept(s)).toEqual({ widgets: ["a"], widget: null });
-  });
-
-  test("Thème actif : fermer ou élaguer un widget le garde ; withRestored ne le remplace pas", () => {
-    const s = activated(opened(opened(NO_TABS, "a"), "b"), THEME_TAB);
-    expect(closed(s, s.tabs[0].id).active).toBe(THEME_TAB);
-    expect(pruned(s, new Set(["b"])).active).toBe(THEME_TAB);
-    expect(withRestored(s, ["c"], "c").active).toBe(THEME_TAB);
   });
 });

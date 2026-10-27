@@ -22,10 +22,13 @@ use uuid::Uuid;
 use oku_slides_core::{DECK_VERSION, Deck, Namespace, Op, PackFiles, PackVersion, ThemePin};
 
 use crate::deck_theme::{LayerReading, pack_defaults};
-use crate::error::{EditingPackSnafu, OpSnafu, ThemeJsonSnafu, UnknownThemeSnafu};
+use crate::document_kind::refused_in_theme_tab;
+use crate::error::{EditingPackSnafu, OpSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu, UnknownThemeSnafu};
+use crate::library::draft_lock;
 use crate::library_lookup::find_theme;
 use crate::namespace_slug::library_namespace;
 use crate::pack::now_created;
+use crate::pack_lease::refuse_held;
 use crate::theme::{ThemeInfo, ThemeLibrary, ThemeManifest};
 use crate::theme_closure::{Closure, chain_tokens, closure_with, embedded_or_library, library_theme, pin_of};
 use crate::theme_schema::{default_tokens, merge};
@@ -162,16 +165,26 @@ impl Session {
     ///
     /// Starts from its current version in the library: from its tokens for
     /// a user theme, from none for a built-in one (whose edit saves a
-    /// child).
+    /// child). A user theme's version it builds on is frozen first.
     ///
     /// Rejected outside deck mode. An empty name keeps the current name.
-    /// Without a change, nothing is saved.
+    /// Without a change, nothing is saved. A user theme that a theme tab
+    /// edits is refused: its tab writes it.
     ///
     /// # Errors
     ///
-    /// Fails outside deck mode (`EditingPack`), for an unknown theme, token ops rejected by the
-    /// schema, or if the library does not write the version.
+    /// Fails outside deck mode (`EditingPack`; `WrongDocument` in a theme tab), for an unknown
+    /// theme, while a theme tab holds it (`ThemeOpenInTab`), for token ops rejected by the
+    /// schema, without the bytes of the version it builds on (`ThemeVersionMissing`), or if the
+    /// library does not freeze that version or write the new one.
+    ///
+    /// # Blocking
+    ///
+    /// Reads and writes the theme library, under `DRAFTS` for the freeze and the write.
     pub fn edit_theme(&mut self, id: Uuid, name: Option<String>, ops: Vec<TokenOp>) -> Result<EditedTheme> {
+        if matches!(self.mode, Mode::Theme { .. }) {
+            return refused_in_theme_tab();
+        }
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let (current, base) = self.theme_base(id)?;
         let child = ThemeLibrary::is_builtin(id);
@@ -208,17 +221,28 @@ impl Session {
                 tokens,
             }
         } else {
-            ThemeManifest { name, parent: Some(current), created: now_created(), tokens, ..base }
+            ThemeManifest { name, parent: Some(current.clone()), created: now_created(), tokens, ..base }
         };
         let new_id = manifest.id;
         self.library.check_theme(new_id, &manifest.namespace)?;
         let files = manifest.to_files().context(ThemeJsonSnafu { id: new_id })?;
         let version = files.version();
         let adopted = self.deck_theme_pin().is_some_and(|t| t.id == id);
-        // Ses parents doivent se trouver avant toute écriture.
+        // Its parents must be found before anything is written.
         let (pins, _) = self.deck_closure(&manifest.namespace, &(pin_of(&manifest, version.clone()), files.clone()))?;
+        // The bytes of the version it builds on are read before `DRAFTS`: no disk read under it.
+        let missing = || ThemeVersionMissingSnafu { id, version: current.clone() };
+        let built_on = if child { None } else { Some(self.themes.version(id, &current).context(missing())?) };
+        // Checked and written under one `DRAFTS` scope: no tab takes the theme in between.
+        let lock = draft_lock();
+        refuse_held(self.library.theme_scope(), new_id, &manifest.name)?;
+        // Frozen first: a sleeping theme tab's next save never replaces this version's parent (t-1223).
+        if let Some(files) = &built_on {
+            self.themes.adopt(&lock, id, files)?;
+        }
         self.themes.add_version(new_id, &files)?;
         self.themes.set_current(new_id, &version)?;
+        drop(lock);
         self.theme_list = self.themes.themes();
         if adopted {
             self.adopt_edited_theme(&manifest.namespace, pins)?;

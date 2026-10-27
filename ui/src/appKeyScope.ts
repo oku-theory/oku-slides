@@ -28,3 +28,21 @@ export function appKeyScope(holds: KeyHolds, e: ScopedKey): "all" | "display" | 
   if (holds.editing || targetOwnsKeys(target, e)) return viewToggle(e) ? "display" : "none";
   return "all";
 }
+
+/** A key as `themeTabIgnores` reads it. */
+export type ThemeTabKey = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "preventDefault">;
+
+/**
+ * True for a key a theme tab ignores: ⌘S and ⌘⇧S (the draft saves itself, no copy) and the
+ * slide and element keys (⌥↑ ⌥↓ move, Delete, Backspace, Enter); the specimens stay browsable.
+ * The save keys are also kept from the browser, whose "Save as" would open otherwise.
+ */
+export function themeTabIgnores(e: ThemeTabKey): boolean {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    return true;
+  }
+  if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) return true;
+  return !mod && (e.key === "Delete" || e.key === "Backspace" || e.key === "Enter");
+}

@@ -21,6 +21,7 @@ fn deck() -> TabDocument {
 )]
 #[case::help(TabDocument::Help { locale: "fr".to_owned() }, json!({"kind": "help", "locale": "fr"}))]
 #[case::pack(TabDocument::Pack { pack: PACK }, json!({"kind": "pack", "pack": "a7e11e40-0000-4000-8000-000000000001"}))]
+#[case::theme(TabDocument::Theme { theme: PACK }, json!({"kind": "theme", "theme": "a7e11e40-0000-4000-8000-000000000001"}))]
 fn tab_document_serializes_with_its_kind(#[case] document: TabDocument, #[case] expected: serde_json::Value) {
     assert_that!(serde_json::to_value(&document).unwrap()).is_equal_to(&expected);
     assert_that!(serde_json::from_value::<TabDocument>(expected).unwrap()).is_equal_to(&document);
@@ -30,6 +31,7 @@ fn tab_document_serializes_with_its_kind(#[case] document: TabDocument, #[case] 
 #[case::deck(deck(), Some("/d/a.oku-slides.pdf"), Some("u-1"), None)]
 #[case::help(TabDocument::Help { locale: "fr".to_owned() }, None, None, Some("fr"))]
 #[case::pack(TabDocument::Pack { pack: PACK }, None, None, None)]
+#[case::theme(TabDocument::Theme { theme: PACK }, None, None, None)]
 fn tab_document_path_only_for_a_deck(
     #[case] document: TabDocument,
     #[case] path: Option<&str>,

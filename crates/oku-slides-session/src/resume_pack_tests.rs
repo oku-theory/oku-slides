@@ -22,7 +22,7 @@ use crate::{Mode, PackHost, Request, Session, SessionErrorKind};
 /// A new session on `data` resuming `dir`, and what it gave.
 fn resumed(data: &Path, dir: &Path) -> (Session, Resumed) {
     let mut s = session_on(data);
-    let result = s.resume_checked(dir.to_path_buf());
+    let result = s.resume_checked(dir.to_path_buf(), None);
     (s, result)
 }
 
@@ -184,10 +184,13 @@ fn resume_tab_host_state_at_version_3_is_checked_like_version_4() {
 }
 
 #[test]
-fn resume_pack_tab_state_claiming_host_deck_is_set_aside() {
+fn resume_legacy_pack_tab_state_claiming_host_deck_is_set_aside() {
     let data = fresh_dir("oku-slides-resume-pack-");
     let dormant = dormant_editor(data.path(), PackHost::Tab);
-    edit_state(dormant.dir.path(), |state| state["mode"]["pack"]["host"] = json!("deck"));
+    edit_state(dormant.dir.path(), |state| {
+        state["version"] = json!(crate::resume::PACK_TAB_STATE_VERSION);
+        state["mode"]["pack"]["host"] = json!("deck");
+    });
     let (back, result) = resumed(data.path(), dormant.dir.path());
     assert_that!((result, matches!(back.mode, Mode::Deck))).is_equal_to((Resumed::Unreadable, true));
 }

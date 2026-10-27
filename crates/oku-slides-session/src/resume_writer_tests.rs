@@ -43,6 +43,7 @@ fn state(slide: &str) -> State {
         ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false, ..UiState::default() },
         help_theme: None,
         theme_edit: None,
+        draft_tokens: None,
     }
 }
 

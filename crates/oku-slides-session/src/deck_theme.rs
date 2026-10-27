@@ -345,16 +345,12 @@ impl Session {
 
     /// The deck takes theme `ns` and its closure, embedded at their current version; undoable.
     ///
-    /// In pack mode, the theme draft starts from `ns` (`set_edited_theme`).
-    ///
     /// # Errors
     ///
     /// Fails if the session is not editable, if theme `ns` is unknown or if the transaction is
-    /// rejected; in pack mode, like `set_edited_theme`.
+    /// rejected; in pack mode and in a theme tab (`WrongDocument`): a theme tab never changes
+    /// the theme it edits, and a pack's workshop keeps its deck's theme.
     pub fn set_theme(&mut self, ns: &Namespace) -> Result<()> {
-        if matches!(self.mode, Mode::Pack { .. }) {
-            return self.set_edited_theme(ns);
-        }
         let label = self.localizer.tr("session-undo-theme");
         self.apply(&label, vec![Op::SetTheme { theme: Some(ns.clone()), themes: BTreeMap::new() }], None)
     }
@@ -384,10 +380,10 @@ impl Session {
         [Some(&self.doc.sources.themes), self.stash_sources().map(|s| &s.themes)].into_iter().flatten()
     }
 
-    /// Les sources du deck mis de côté (mode pack, historique).
+    /// The sources of the deck set aside (pack mode, history).
     fn stash_sources(&self) -> Option<&SourceBundle> {
         match &self.mode {
-            Mode::Deck | Mode::Help { .. } => None,
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => None,
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
         }
     }
@@ -396,7 +392,7 @@ impl Session {
     ///
     /// The component defaults of its packs, then its linearized theme chain,
     /// read from the embedded versions (shown document, then the deck set
-    /// aside). In pack mode, a deck without a theme (the working deck, its
+    /// aside). In a theme tab, a deck without a theme (the specimen deck, its
     /// previews) renders on the chain under the draft (`Session::draft_chain`):
     /// that of its base's parents, or of the built-in a child will extend; the
     /// draft is in its tokens.
@@ -407,10 +403,10 @@ impl Session {
     pub fn theme_layer(&self, deck: &Deck) -> Result<Map<String, Value>> {
         let stash = self.stash_sources();
         let packs = |v: &PackVersion| self.doc.sources.packs.get(v).or_else(|| stash?.packs.get(v));
-        if let Mode::Pack { theme, .. } = &self.mode
+        if let Mode::Theme { edit, .. } = &self.mode
             && deck.theme.is_none()
         {
-            let chain = self.draft_chain(theme)?;
+            let chain = self.draft_chain(&edit.draft)?;
             let defaults = pack_defaults(&packs, deck, LayerReading::Lenient)?;
             return Ok(theme_layer(defaults.iter().map(|(ns, d)| (ns, d.clone())), chain.iter()));
         }

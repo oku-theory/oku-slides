@@ -25,6 +25,13 @@ session-pack-not-make-current = 프레젠테이션의 { $pack } 버전은 현재
 session-pack-already-current = 프레젠테이션이 이미 { $pack }의 현재 버전을 사용하고 있습니다.
 session-theme-not-outdated = 프레젠테이션 테마 { $theme }는 현재 버전보다 오래되지 않았습니다.
 session-editing-pack = 먼저 팩 편집을 완료하세요
+session-theme-open-in-tab = 테마 { $theme }은(는) 탭 “{ $tab }”에서 편집 중입니다. 거기에서 편집하거나 먼저 그 탭을 닫으세요.
+session-wrong-document = { $kind ->
+    [deck] 이 탭은 프레젠테이션을 보여 줍니다: 이 변경은 테마 탭에서 합니다.
+    [help] 도움말은 읽기 전용입니다: 이 변경은 테마 탭에서 합니다.
+    [pack] 이 탭은 팩을 편집합니다: 테마는 프레젠테이션 탭에서, 그 값은 테마 탭에서 바꿉니다.
+   *[theme] 이 탭은 테마를 편집합니다: 여기서는 그 값과 이름, 확장하는 테마만 바뀝니다.
+}
 session-in-pack-tab = 이 탭은 팩을 편집합니다. 끝내려면 탭을 닫으세요. 프레젠테이션 전용 팩은 그 프레젠테이션의 탭에서 엽니다.
 session-pack-open-in-tab = 팩 { $pack }은(는) 탭 “{ $tab }”에서 편집 중입니다. 거기에서 편집하거나 먼저 그 탭을 닫으세요.
 session-pack-offer-expired = 프레젠테이션이 업데이트되지 않았습니다. 그사이 프레젠테이션 또는 팩의 해당 버전이 바뀌었습니다.
@@ -33,7 +40,6 @@ session-lease-missing = 이 팩은 편집 중인 탭에서만 저장할 수 있�
 session-not-editing-pack = 편집 중인 팩이 없습니다
 session-pack-mode-slides = 팩 모드에서 슬라이드는 레이아웃의 예시입니다. 추가, 삭제, 이동하거나 레이아웃을 바꿀 수 없습니다
 session-pack-mode-preview = 팩 모드에서 위젯 미리보기 슬라이드는 읽기 전용입니다
-session-theme-choice-alone = 팩 모드에서는 테마만 따로 선택한 다음 set_token으로 토큰을 편집하세요
 session-response = 응답을 작성할 수 없습니다
 session-unknown-tab = 이 탭은 더 이상 열려 있지 않습니다.
 session-unknown-window = 이 창은 더 이상 열려 있지 않습니다.
@@ -115,6 +121,7 @@ deck-new-slide-text = 보여 주고 싶은 내용을 입력하세요.
 pack-default-name = 내 팩
 pack-copy-name = { $name } (사본)
 theme-copy-name = { $name } (변형)
+theme-copy-of = { $name } (사본)
 pack-adopt-label = 팩: { $name }
 session-widgets-broken = 컴파일되지 않아 제외된 위젯: { $names }. 팩의 다른 위젯은 그대로 유지됩니다.
 session-widgets-not-saved = 팩 “{ $pack }”의 위젯 버전을 라이브러리에 저장하지 못했습니다. 프레젠테이션에는 유지됩니다.
@@ -148,6 +155,7 @@ packs-remove = 제거
 packs-add = 라이브러리에서 추가
 packs-theme-overrides = 프레젠테이션 재정의: { $count }
 packs-theme-pick = 프레젠테이션 테마
+packs-theme-open = 열기
 packs-undo-add = 팩 “{ $name }” 추가
 packs-undo-remove = 팩 “{ $name }” 제거
 packs-undo-use-mine = 내 버전으로 전환
@@ -160,6 +168,8 @@ notice-modified-elsewhere = 이 PDF는 Oku Slides 이후 다른 도구에서 수
 notice-open-failed = { $path }을(를) 열 수 없습니다: { $reason }
 notice-tab-resume-failed = 이 탭의 상태를 복원하지 못했습니다. 상태는 따로 보관되었고, 탭은 빈 프레젠테이션으로 다시 시작합니다.
 notice-tab-set-aside = 탭 “{ $name }”은(는) 이전 버전의 Oku Slides에서 만들어졌습니다. 저장하지 않은 변경 사항을 복원하지 못해 따로 보관했고, 탭은 빈 프레젠테이션으로 다시 시작합니다.
+notice-theme-draft-dropped = 이 팩 편집기는 이전 버전의 Oku Slides에서 만들어졌습니다: 저장하지 않은 테마 변경 사항을 유지할 수 없었습니다. 이제 테마는 자체 탭에서 열립니다.
+notice-theme-edited-elsewhere = 테마 { $theme }은(는) 탭 “{ $tab }”에서 편집 중입니다. 이 탭은 그 옆에 다시 열렸으며, 그 탭이 닫힐 때까지 읽기 전용입니다.
 notice-pack-edited-elsewhere = 팩 { $pack }은(는) 탭 “{ $tab }”에서 편집 중입니다. 이 탭은 그 옆에 다시 열렸으며, 그 탭이 닫힐 때까지 읽기 전용입니다.
 notice-pack-deleted = 팩 { $pack }이(가) 더 이상 라이브러리에 없습니다. 이 탭은 읽기 전용입니다. 변경 사항을 유지하려면 에이전트에게 새 팩으로 저장해 달라고 요청하세요.
 notice-themes-skipped = 라이브러리의 일부 테마는 이전 버전의 Oku Slides에서 만들어져 읽을 수 없으므로 제공되지 않습니다({ $count }).
@@ -442,7 +452,6 @@ theme-extends-up = 위로 이동
 theme-extends-down = 아래로 이동
 theme-extends-remove = 제거
 theme-extends-add = 확장할 테마 추가
-theme-deck-overrides = 프레젠테이션의 재정의, 여기에는 적용되지 않음: { $paths }
 theme-section-colors = 색
 theme-section-typography = 타이포그래피
 theme-section-scripts = 기타 문자 체계

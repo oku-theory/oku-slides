@@ -6,7 +6,6 @@ use common::*;
 use oku_slides_core::kinds;
 use oku_slides_mcp::McpEvent;
 use oku_slides_session::pack::ESSENTIEL_PACK;
-use oku_slides_session::{LibraryKind, Themes};
 use rust_mcp_sdk::McpClient;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -178,51 +177,6 @@ async fn edit_then_close_pack_round_trips_mode() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn in_pack_mode_outline_reports_the_edited_theme() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
-    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    let papier = Themes::builtins().iter().find(|b| b.manifest.name == "Papier").unwrap().clone();
-    assert_that!(outline["mode"].as_str()).is_equal_to(Some("pack"));
-    assert_that!(outline["edited_theme"]).is_equal_to(json!({
-        "id": papier.manifest.id, "version": papier.version, "namespace": "papier", "name": "Papier",
-        "child": true, "extends": [{ "namespace": "papier", "name": "Papier" }], "dirty": false,
-    }));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn deck_outline_edited_theme_has_namespace() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
-    call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] })).await;
-    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    assert_that!(outline["edited_theme"]["namespace"].as_str()).is_equal_to(Some("pro"));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn set_theme_extends_in_pack_mode_sets_the_parents() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
-    let r = call(&c, "set_theme_extends", json!({ "extends": ["pro"] })).await;
-    assert_that!(r.is_error).is_not_equal_to(Some(true));
-    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    assert_that!(outline["edited_theme"]["extends"].clone())
-        .is_equal_to(json!([{ "namespace": "pro", "name": "Pro" }]));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn set_theme_extends_outside_pack_mode_is_refused() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let r = call(&c, "set_theme_extends", json!({ "extends": ["pro"] })).await;
-    assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-not-editing-pack"));
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn remove_pack_in_use_returns_the_localized_reason() {
     use oku_slides_i18n::Localize;
     let h = start().await;
@@ -283,33 +237,6 @@ async fn show_packs_tool_in_pack_mode_is_refused() {
     h.live.set(std::sync::Arc::new(oku_slides_i18n::Localizer::new(Some("en"))));
     let english = call(&c, "show_packs", json!({})).await;
     assert_that!(text_of(&english)).is_not_equal_to(text_of(&r));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn in_pack_mode_set_theme_alone_chooses_the_edited_theme() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
-    let r = call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] })).await;
-    assert_that!(r.is_error).is_not_equal_to(Some(true));
-    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    assert_that!(outline["edited_theme"]["name"].as_str()).is_equal_to(Some("Pro"));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn in_pack_mode_set_theme_with_other_ops_is_refused_with_a_dedicated_message() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
-    let ops = json!([
-        { "op": "set_theme", "theme": theme_ref("pro") },
-        { "op": "set_token", "path": ["color", "accent"], "value": "#ff0000" },
-    ]);
-    let r = call(&c, "apply", json!({ "ops": ops })).await;
-    assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).contains("set_token");
-    let outline = json_of(&call(&c, "deck_outline", json!({})).await);
-    assert_that!(outline["edited_theme"]["name"].as_str()).is_equal_to(Some("Papier"));
 }
 
 /// `edit_pack` sur `pack` : refusé par le message qui renvoie vers

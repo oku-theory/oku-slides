@@ -9,7 +9,6 @@ const { createRoot } = await import("react-dom/client");
 const { usePackWidgetEditor } = await import("./usePackWidgetEditor");
 const WidgetPane = (await import("./WidgetPane")).default;
 const { memory, wait } = await import("./test/widgetApi");
-const { THEME_TAB } = await import("./widgetTabs");
 
 /** Le dernier état des sous-onglets rendu par `mount`. */
 let latest: ReturnType<typeof usePackWidgetEditor> | null = null;
@@ -54,15 +53,6 @@ describe("WidgetPane", () => {
     expect(tabs.map((t) => t.hidden)).toEqual([true, false]);
     expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(false);
     expect([...host.querySelectorAll(".widget-tab .cm-content")].map((c) => c.textContent)).toEqual(["k", "c"]);
-  });
-
-  test("sur Thème, le volet entier est caché", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const host = await mount(fake, ["kpi"], "kpi");
-    expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(false);
-    await act(async () => latest!.activate(THEME_TAB));
-    expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(true);
-    expect(latest!.activeName).toBeNull();
   });
 
   test("sur la scène, le volet entier est caché", async () => {

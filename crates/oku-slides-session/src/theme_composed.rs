@@ -1,16 +1,16 @@
-//! Le schéma composé d'un deck : le schéma global, puis les jetons de composant de ses packs.
+//! A deck's composed schema: the global schema, then its packs' component tokens.
 //!
-//! Les packs sont ceux que le deck épingle (`deck.widgets` et `deck.layouts`),
-//! dans l'ordre de leurs espaces de noms ; en mode pack, ceux du deck de
-//! travail et ceux du deck mis de côté (un thème choisi ou édité là sert à
-//! ce deck : ses jetons pour un pack que seul lui épingle restent visibles et
-//! valides). Un sous-arbre `component.<ns>` dont aucun des deux n'épingle le
-//! pack n'est pas vérifié : il ne se rend pas
-//! ([`without_unpinned_components`]). Chaque manifeste se lit dans les
-//! sources (document montré, puis deck mis de côté), sinon parmi les versions
-//! intégrées. Un pack dont la version manque ou dont le manifeste ne se lit pas
-//! n'apporte pas de jetons : il est journalisé, comme au calque de rendu
-//! (`deck_theme::pack_defaults`), où il n'apporte pas non plus de défauts.
+//! The packs are those the deck pins (`deck.widgets` and `deck.layouts`), in
+//! the order of their namespaces; in pack mode, those of the working deck and
+//! those of the set-aside deck. The working deck keeps that deck's theme and
+//! token overrides (`pack_mode`), never edited there: its tokens for a pack
+//! only the set-aside deck pins stay listed and valid. A `component.<ns>`
+//! subtree whose pack neither pins is not checked: it does not render
+//! ([`without_unpinned_components`]). Each manifest is read from the sources
+//! (shown document, then set-aside deck), else among the built-in versions. A
+//! pack whose version is missing or whose manifest does not read brings no
+//! tokens: it is logged, as in the render layer (`deck_theme::pack_defaults`),
+//! where it brings no defaults either.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -46,12 +46,14 @@ pub(crate) fn without_unpinned_components(
 }
 
 impl Session {
-    /// Les packs dont le schéma de `deck` prend les jetons, par espace de noms :
-    /// ceux de `deck`, puis en mode pack ceux du deck mis de côté (le premier l'emporte).
+    /// The packs whose tokens `deck`'s schema takes, by namespace.
+    ///
+    /// Those of `deck`, then in pack mode those of the set-aside deck, whose
+    /// token overrides the working deck keeps (the first one wins).
     fn schema_pins<'a>(&'a self, deck: &'a Deck) -> BTreeMap<&'a Namespace, &'a PackPin> {
         let stash = match &self.mode {
             Mode::Pack { stash, .. } => Some(stash.sources.deck()),
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => None,
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Theme { .. } => None,
         };
         let mut pins = BTreeMap::new();
         for (_, ns, pin) in deck.all_pins().chain(stash.into_iter().flat_map(Deck::all_pins)) {
@@ -69,7 +71,7 @@ impl Session {
     pub(crate) fn pack_version_files(&self, version: &PackVersion) -> Option<&PackFiles> {
         let stash = match &self.mode {
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
-            Mode::Deck | Mode::Help { .. } => None,
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => None,
         };
         self.doc
             .sources
@@ -79,8 +81,9 @@ impl Session {
             .or_else(|| builtin_versions().iter().find(|b| b.version == *version).map(|b| &b.files))
     }
 
-    /// Les jetons de composant des packs que `deck` épingle (en mode pack, avec
-    /// ceux du deck mis de côté), par espace de noms.
+    /// The component tokens of the packs `deck` pins, by namespace.
+    ///
+    /// In pack mode, with those of the set-aside deck (see [`Self::schema_pins`]).
     pub(crate) fn pack_tokens(&self, deck: &Deck) -> Vec<PackTokens> {
         let mut out = BTreeMap::new();
         for (ns, pin) in self.schema_pins(deck) {
@@ -100,8 +103,9 @@ impl Session {
         out.into_iter().map(|(ns, (name, tokens))| (ns, name, tokens)).collect()
     }
 
-    /// Le schéma composé de `deck` : global, puis une section par pack épinglé
-    /// (en mode pack, par `deck` ou par le deck mis de côté).
+    /// The composed schema of `deck`: global, then one section per pinned pack.
+    ///
+    /// In pack mode, a pack pinned by `deck` or by the set-aside deck.
     pub(crate) fn token_schema(&self, deck: &Deck) -> Vec<TokenSpec> {
         composed(&self.pack_tokens(deck))
     }

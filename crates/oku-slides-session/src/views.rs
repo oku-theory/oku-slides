@@ -100,8 +100,10 @@ pub struct Snapshot<'a> {
     pub widgets: &'a BTreeMap<Namespace, PackPin>,
     /// Packs de layouts épinglés par le deck, par espace de noms (id, version embarquée, besoins).
     pub layouts: &'a BTreeMap<Namespace, PackPin>,
-    /// Mode pack : le pack en cours de modification et le thème édité.
+    /// Pack mode: the pack being edited.
     pub editing: Option<EditingView<'a>>,
+    /// A theme tab: the edited theme's draft and flags.
+    pub theming: Option<crate::ThemeTabView>,
     /// Le deck épingle un pack qui n'appartient qu'à lui (import, pack `deck`).
     ///
     /// L'atelier l'édite depuis sa version embarquée ; ses versions restent dans le deck.
@@ -321,14 +323,12 @@ pub struct PackMode {
     pub host: PackHost,
 }
 
-/// Pack mode as the interface sees it: the edited pack and the theme draft.
+/// Pack mode as the interface sees it: the edited pack and its lease flags.
 #[derive(Debug, Serialize)]
 pub struct EditingView<'a> {
     /// The edited pack, its fields flattened into the view.
     #[serde(flatten)]
     pub mode: &'a PackMode,
-    /// The draft of the theme edited alongside the pack.
-    pub theme: crate::ThemeEditView,
     /// True when this tab cannot save its pack now: held elsewhere, or gone.
     pub read_only: bool,
     /// True when this tab may write without first taking the lease.

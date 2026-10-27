@@ -60,10 +60,13 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails when read-only or in pack mode, if the file cannot be read, is not an Oku Slides
-    /// document (`NotOkuSlides`) or does not merge.
+    /// Fails when read-only or in pack mode, in a theme tab (`WrongDocument`), if the file cannot
+    /// be read, is not an Oku Slides document (`NotOkuSlides`) or does not merge.
     pub fn merge_file(&mut self, path: &Path) -> Result<MergeReport> {
         self.ensure_not_help()?;
+        if matches!(self.mode, Mode::Theme { .. }) {
+            return crate::document_kind::refused_in_theme_tab();
+        }
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         ensure!(opened.pdf, NotOkuSlidesSnafu);

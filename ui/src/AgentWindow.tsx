@@ -24,6 +24,7 @@ import { useDraft } from "./agent/useDraft";
 import { AttachButton } from "./agent/AttachButton";
 import { useAppearance } from "./useAppearance";
 import { bumpVoiceSeq } from "./voiceSeq";
+import { themeToOpen } from "./themeToOpen";
 import type { DictationMode } from "./agent/keys";
 import type { QuickTarget } from "./agent/useQuickKeys";
 
@@ -252,8 +253,13 @@ export function AgentWindowFor({
         thumbs={thumbs}
         slots={slots}
         handle={handle}
-        // Les réglages de l'hôte (widget, cible) restent dans la fenêtre principale.
-        onHostAction={() => false}
+        // Host settings (widget, target) stay in the main window; the packs panel's "Open" on the
+        // theme row asks the workspace for the theme's tab, as the main window does.
+        onHostAction={(s, a) => {
+          const theme = themeToOpen(s, a);
+          if (theme !== null) void workspace.openTheme(tab, theme).catch((e) => say(errorText(e), true));
+          return theme !== null;
+        }}
         onStatus={setStatus}
         onChanged={reread}
         onFocus={NOOP}

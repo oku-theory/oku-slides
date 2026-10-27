@@ -46,14 +46,15 @@ impl Tools {
                     })
                     .collect();
                 Ok(json!({
-                    "mode": match (&snap.history, &snap.editing) {
-                        (Some(_), _) => "history",
-                        (None, Some(_)) => "pack",
-                        (None, None) => "deck",
+                    "mode": match (&snap.history, &snap.editing, &snap.theming) {
+                        (Some(_), _, _) => "history",
+                        (None, Some(_), _) => "pack",
+                        (None, None, Some(_)) => "theme",
+                        (None, None, None) => "deck",
                     },
                     "theme": snap.theme.map(|ns| json!({ "namespace": ns, "name": snap.theme_name })),
-                    // En mode pack : le thème dont part le brouillon (`set_theme` le change).
-                    "edited_theme": snap.editing.as_ref().map(|e| json!({
+                    // In a theme tab: the draft and the theme it starts from.
+                    "edited_theme": snap.theming.as_ref().map(|e| json!({
                         "id": e.theme.base.id,
                         "version": e.theme.base.version,
                         "namespace": e.theme.namespace,

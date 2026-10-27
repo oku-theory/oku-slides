@@ -65,7 +65,7 @@ export interface ThemeInfo {
 /** Where a pack is edited: its deck's workshop, or its own tab (Rust `PackHost`). */
 export type PackHost = "deck" | "tab";
 
-/** The pack edited in pack mode, and the theme draft. */
+/** The pack edited in pack mode. */
 export interface PackMode {
   /** Id du pack édité. */
   pack: string;
@@ -89,8 +89,20 @@ export interface PackMode {
   leased: boolean;
   /** The edited pack's name, cleaned for titles and dialogs. */
   display_name: string;
-  /** Le thème édité en brouillon : les jetons du deck de travail. */
+}
+
+/** A theme tab: the theme draft and its flags (Rust `ThemeTabView`). */
+export interface ThemeTabView {
+  /** The draft, as the theme panel shows it. */
   theme: ThemeEditView;
+  /** The version this tab wrote last, if it wrote one. */
+  session_version: string | null;
+  /** True when this tab lacks its theme's lease: it cannot save until it retakes it. */
+  read_only: boolean;
+  /** True when this tab may write without first taking the lease (autosave needs it). */
+  leased: boolean;
+  /** The theme's name, cleaned for titles and dialogs. */
+  display_name: string;
 }
 
 /** Un thème qu'étend le brouillon : son espace de noms et son nom (l'espace de noms s'il est introuvable). */
@@ -99,7 +111,7 @@ export interface ThemeParentView {
   name: string;
 }
 
-/** Le brouillon du thème édité en mode pack (session, `ThemeEditView`). */
+/** The theme draft of a theme tab (session, `ThemeEditView`). */
 export interface ThemeEditView {
   /** Version de base du brouillon. */
   base: ThemePin;

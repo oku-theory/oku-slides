@@ -75,6 +75,7 @@ impl Session {
             Mode::Pack { .. } => return EditingPackSnafu.fail()?,
             Mode::History { .. } => return InHistorySnafu.fail()?,
             Mode::Help { .. } => return ReadOnlySnafu.fail()?,
+            Mode::Theme { .. } => return crate::document_kind::refused_in_theme_tab(),
         }
         self.import.as_mut().ok_or_else(|| refused(NoImportSnafu.build()))
     }

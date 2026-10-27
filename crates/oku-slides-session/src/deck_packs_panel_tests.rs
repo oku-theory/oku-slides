@@ -17,6 +17,7 @@ use crate::test_support::{ns, session};
 #[case("make_current", json!({"kind": "widgets", "namespace": "acme"}), Some(PacksEvent::MakeCurrent { kind: PackKind::Widgets, namespace: ns("acme") }))]
 #[case("theme", json!({"theme": "pro"}), Some(PacksEvent::Theme { theme: ns("pro") }))]
 #[case("theme_update", json!({}), Some(PacksEvent::ThemeUpdate))]
+#[case("open_theme", json!({"theme": "00000000-0000-0000-0000-000000000000"}), None)]
 #[case("add_pack", json!({"kind": "themes", "namespace": "acme"}), None)]
 #[case("add_pack", json!({"kind": "widgets"}), None)]
 #[case("add_pack", json!({"kind": "widgets", "namespace": "Not Valid"}), None)]
@@ -144,4 +145,34 @@ fn deck_packs_panel_ids_stay_unique_for_namespaces_like_fixed_ids() {
     let ids = component_ids(&deck_packs_panel(&view, &Localizer::new(Some("en"))));
     let unique: std::collections::BTreeSet<&String> = ids.iter().collect();
     assert_that!(unique.len()).is_equal_to(ids.len());
+}
+
+#[test]
+fn theme_row_has_an_open_button_carrying_the_theme_id() {
+    let s = session();
+    let view = s.deck_packs().unwrap();
+    let id = s.deck_theme_pin().map(|pin| pin.id).unwrap();
+    let surface = deck_packs_panel(&view, &Localizer::new(Some("fr")));
+    let open = component(&surface, "theme-open");
+    let event = &open["action"]["event"];
+    assert_that!(event["name"].as_str()).is_equal_to(Some("open_theme"));
+    assert_that!(event["context"].clone()).is_equal_to(json!({"theme": id.to_string()}));
+    assert_that!(open["label"].as_str()).is_equal_to(Some("Ouvrir"));
+}
+
+#[test]
+fn theme_row_without_a_theme_pin_has_no_open_button() {
+    let mut view = session().deck_packs().unwrap();
+    view.theme.id = None;
+    let ids = component_ids(&deck_packs_panel(&view, &Localizer::new(Some("en"))));
+    assert_that!(ids.contains(&"theme-open".to_owned())).is_false();
+}
+
+#[test]
+fn theme_row_places_open_after_the_theme_pick() {
+    let view = session().deck_packs().unwrap();
+    let theme = component(&deck_packs_panel(&view, &Localizer::new(Some("en"))), "theme");
+    let children: Vec<&str> = theme["children"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+    let at = |id: &str| children.iter().position(|c| *c == id);
+    assert_that!(at("theme-open")).is_equal_to(at("theme-pick").map(|i| i + 1));
 }

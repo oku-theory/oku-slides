@@ -182,6 +182,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         ui: ui.clone(),
         help_theme: None,
         theme_edit: None,
+        draft_tokens: None,
     })
     .unwrap();
     let back = r.read_state().unwrap().unwrap();
@@ -276,7 +277,7 @@ fn read_state_oversized_returns_access_error_too_large() {
 fn read_state_future_version_with_other_shape_returns_version_error() {
     let r = resume();
     std::fs::create_dir_all(&r.dir).unwrap();
-    let future = PACK_TAB_STATE_VERSION + 1;
+    let future = EDITOR_STATE_VERSION + 1;
     std::fs::write(r.dir.join("state.json"), format!(r#"{{"version":{future},"mode":{{"nouveau":1}}}}"#)).unwrap();
     assert_that!(matches!(r.read_state(), Err(ResumeError::Version { version, .. }) if version == future)).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
@@ -632,56 +633,10 @@ fn resume_of_a_version_8_tab_with_unsaved_work_is_set_aside_as_outdated() {
     doc.commit();
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
     let mut back = crate::test_support::session_on(data.path());
-    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
+    assert_that!(back.resume_checked(dir.clone(), None)).is_equal_to(Resumed::Outdated);
     assert_that!(back.deck().theme.as_ref().map(oku_slides_core::Namespace::as_str))
         .is_equal_to(Some(crate::PAPIER_NAMESPACE));
     assert_that!(dir.exists()).is_false();
-}
-
-/// Une session reprise dans `dir`, passée en mode pack, dont le brouillon étend aussi Pro.
-fn pack_mode_with_extends_edit(data: &std::path::Path, dir: &std::path::Path) {
-    let mut s = crate::test_support::session_on(data);
-    assert_that!(s.resume(dir.to_path_buf())).is_true();
-    s.handle(crate::Request::EditPack { pack: crate::ESSENTIEL_PACK }).unwrap();
-    let edit = crate::ExtendsEdit::Add { theme: crate::test_support::ns("pro") };
-    s.handle(crate::Request::EditThemeExtends { edit }).unwrap();
-    s.flush_resume();
-}
-
-#[test]
-fn resume_pack_mode_keeps_edited_extends() {
-    let data = crate::test_support::fresh_dir("oku-slides-resume-extends-");
-    let dir = data.path().join("tab");
-    pack_mode_with_extends_edit(data.path(), &dir);
-    let mut back = crate::test_support::session_on(data.path());
-    assert_that!(back.resume(dir.clone())).is_true();
-    let parents: Vec<String> = back.editing_view().unwrap().theme.extends.into_iter().map(|p| p.namespace).collect();
-    assert_that!(parents).is_equal_to(vec!["papier".to_owned(), "pro".to_owned()]);
-}
-
-/// Une liste `extends` que la bibliothèque ne permet plus : la reprise est mise de côté, jamais réparée.
-#[test]
-fn resume_pack_mode_with_unknown_parent_is_set_aside() {
-    let data = crate::test_support::fresh_dir("oku-slides-resume-extends-");
-    let dir = data.path().join("tab");
-    pack_mode_with_extends_edit(data.path(), &dir);
-    crate::test_support::edit_state(&dir, |state| state["theme_edit"]["extends"] = serde_json::json!(["ailleurs"]));
-    let mut back = crate::test_support::session_on(data.path());
-    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Unreadable);
-    assert_that!(back.editing_view()).is_none();
-    assert_that!(dir.exists()).is_false();
-}
-
-/// Un brouillon de thème dont l'espace de noms n'est pas celui de sa base : mis de côté, jamais cru.
-#[test]
-fn resume_pack_mode_with_a_theme_namespace_unlike_its_base_is_set_aside() {
-    let data = crate::test_support::fresh_dir("oku-slides-resume-theme-ns-");
-    let dir = data.path().join("tab");
-    pack_mode_with_extends_edit(data.path(), &dir);
-    crate::test_support::edit_state(&dir, |state| state["theme_edit"]["namespace"] = serde_json::json!("ailleurs"));
-    let mut back = crate::test_support::session_on(data.path());
-    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Unreadable);
-    assert_that!(back.editing_view()).is_none();
 }
 
 /// Un état de la version 2 avec du travail non enregistré : mis de côté, signalé (`notice-tab-set-aside`).
@@ -696,6 +651,6 @@ fn resume_version_2_state_is_set_aside() {
     drop(s);
     crate::test_support::edit_state(&dir, |state| state["version"] = serde_json::json!(2));
     let mut back = crate::test_support::session_on(data.path());
-    assert_that!(back.resume_checked(dir.clone())).is_equal_to(Resumed::Outdated);
+    assert_that!(back.resume_checked(dir.clone(), None)).is_equal_to(Resumed::Outdated);
     assert_that!(dir.exists()).is_false();
 }

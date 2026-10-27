@@ -208,11 +208,11 @@ deck's widget packs.
   `extends` list (parents first, later ones win, cycles refused). The agent picks the deck's
   theme; the deck pins it and its whole `extends` closure, and a received file keeps its own
   (“File theme”). Component tokens are owned by packs (`component.base.*`,
-  `component.essentiel.*`); a deck's `tokens` override the theme. In pack mode, the Theme tab
-  sets tokens one by one (filter, state of each token, ↺): the sheet follows every change, and
-  “Done” saves the draft: editing a built-in theme creates a variant that extends it. The editor
-  shows `extends` read-only and the deck's overrides, with a section per embedded pack; a widget
-  pack's Theme tab shows preview slides. User themes without a namespace are ignored, with a
+  `component.essentiel.*`); a deck's `tokens` override the theme. “Open” on the theme row of
+  “Deck packs” opens the theme in its own tab, on Essentiel's specimen slides: it sets tokens one
+  by one (filter, state of each token, ↺) and `extends`, the slides follow every change, and it
+  autosaves while it holds the theme; “Done” closes it. A built-in theme saved there becomes a
+  variant that extends it. User themes without a namespace are ignored, with a
   notice.
 
 ### Files, tabs, history

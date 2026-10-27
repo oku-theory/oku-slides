@@ -138,16 +138,16 @@ impl Session {
                 let view = history.view();
                 format!("history(read_only, version={}/{})", view.index + 1, view.count)
             }
+            Mode::Theme { edit, .. } => format!("theme_tab(id={})", edit.draft.base.id),
         };
         let _ = writeln!(out, "mode: {mode}");
-        // En mode pack, le deck de travail n'a pas de thème : le brouillon
-        // part du thème édité, que l'agent change par `set_theme`.
+        // A theme tab's specimen deck has no theme: the draft stands for it.
         let theme = match &self.mode {
-            Mode::Pack { theme, .. } => {
-                let names: Vec<String> = self.draft_parents(theme).into_iter().map(|p| p.name).collect();
-                format!("theme (draft): {}{}", theme.name, extends_note(&names))
+            Mode::Theme { edit, .. } => {
+                let names: Vec<String> = self.draft_parents(&edit.draft).into_iter().map(|p| p.name).collect();
+                format!("theme (draft): {}{}", edit.draft.name, extends_note(&names))
             }
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => {
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Pack { .. } => {
                 let manifest = deck.theme.as_ref().and_then(|ns| self.theme_manifest(deck.themes.get(ns)?));
                 match manifest {
                     Some(m) => {

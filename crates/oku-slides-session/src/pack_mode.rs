@@ -1,21 +1,21 @@
-//! Mode pack : un pack de widgets ou de layouts s'édite, le deck attend de côté.
+//! Pack mode: a widget or layout pack is edited, the deck waits aside.
 //!
-//! Le deck de travail d'un pack de layouts a une slide par layout (id
-//! `layout-<nom>`, dans l'ordre des fichiers), à la valeur d'exemple du
-//! layout ; celui d'un pack de widgets a une slide d'aperçu en lecture seule
-//! par widget (`pack_mode_preview`). Ses slides sont les
-//! exemples : aucune ne s'ajoute, ne se retire, ne se déplace ni ne change
-//! de widget (`PackModeSlides`) ; écrire un layout ajoute sa slide, le
-//! supprimer la retire (`realign_layouts`). Elles ne sont que l'aperçu des
-//! exemples du manifeste : une op sur l'une s'écrit dans l'exemple de son
-//! layout (`layout_examples`), puis la slide est refaite depuis lui.
+//! The working deck of a layout pack has one slide per layout (id
+//! `layout-<name>`, in file order), at the layout's example value; that of a
+//! widget pack has one read-only preview slide per widget
+//! (`pack_mode_preview`). Its slides are the examples: none is added,
+//! removed, moved or changes widget (`PackModeSlides`); writing a layout adds
+//! its slide, deleting it removes it (`realign_layouts`). They only preview
+//! the manifest's examples: an op on one is written into its layout's example
+//! (`layout_examples`), then the slide is rebuilt from it.
 //!
-//! Le deck de travail épingle le pack édité, ses besoins et `base` (celui du
-//! deck, sinon l'intégré), plus `essentiel` intégré pour un pack de widgets
-//! (ses slides hôtes), rien d'autre. Un pack du deck seul (import) part de
-//! la version qu'embarque le deck ; ses versions, copie comprise, restent
-//! dans le deck (`pack_library`). Le thème du deck s'y édite en brouillon
-//! (voir `theme_edit`).
+//! The working deck pins the edited pack, its requirements and `base` (the
+//! deck's, else the built-in one), plus the built-in `essentiel` for a widget
+//! pack (its host slides), nothing else. A deck-only pack (import) starts from
+//! the version the deck embeds; its versions, copy included, stay in the deck
+//! (`pack_library`). The working deck keeps the deck's theme, pinned themes
+//! and token overrides, which are not edited there: a theme is edited in its
+//! own tab (`theme_tab`).
 
 use std::collections::BTreeMap;
 
@@ -44,7 +44,6 @@ use crate::pack_mode_lease::Settled;
 use crate::pack_mode_preview::preview_slides;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_scratch::PackScratch;
-use crate::theme_edit::tokens_value;
 use crate::views::PackHost;
 use crate::{Document, Mode, PackMode, Result, Session};
 
@@ -168,6 +167,15 @@ pub(crate) fn embed_packs(sources: &mut SourceBundle, packs: Vec<Pinned>) {
     }
 }
 
+/// Embeds in `sources` the theme versions of `held` that its deck pins.
+pub(crate) fn embed_reached_themes(sources: &mut SourceBundle, held: &BTreeMap<PackVersion, PackFiles>) {
+    let reached: Vec<PackFiles> =
+        sources.deck().themes.values().filter_map(|pin| held.get(&pin.version).cloned()).collect();
+    for files in reached {
+        sources.add_theme(files);
+    }
+}
+
 /// Une op qui change les slides du deck : refusée en mode pack.
 fn is_structural(op: &Op) -> bool {
     match op {
@@ -182,9 +190,7 @@ impl Session {
     ///
     /// Its layouts become the slides, at their example values, rendered with
     /// its widgets; a widget pack has its preview slides. The working deck
-    /// keeps the deck's parameters and variables; in place of its theme, it
-    /// carries the draft of the edited theme (`theme_edit`, kept from one pack
-    /// to the next). It carries no assets (a pack does not save any). A
+    /// keeps the deck's parameters, variables, theme and token overrides. It carries no assets (a pack does not save any). A
     /// library pack is leased meanwhile (`pack_lease`).
     ///
     /// # Errors
@@ -222,17 +228,8 @@ impl Session {
         let version = stored.version.clone();
         let mut slides = layout_slides(&stored.manifest, &stored.files, &self.localizer);
         slides.extend(preview_slides(&stored.manifest, &stored.files, &self.localizer));
-        // Le brouillon du thème : gardé d'un pack à l'autre, sinon le thème du deck.
-        let (theme, tokens) = match &self.mode {
-            Mode::Pack { theme, .. } => (theme.clone(), self.edited_tokens()),
-            _ => self.initial_theme_edit()?,
-        };
-        // Sans thème, avec le brouillon du thème édité (rendu sur le calque de
-        // ses parents) : les surcharges du deck ne s'y appliquent pas.
+        // The deck's own style: its theme, pinned themes and token overrides.
         let mut deck = styled_like(self.user_deck(), slides);
-        deck.theme = None;
-        deck.themes.clear();
-        deck.tokens = tokens_value(tokens);
         deck.params.title = Some(stored.manifest.name.clone());
         // Les exemples peuvent garder `""` (texte vidé) : les slides ont la forme du replica.
         oku_slides_core::canonicalize(&mut deck);
@@ -253,6 +250,7 @@ impl Session {
         for f in files.into_values() {
             sources.add_pack(f);
         }
+        embed_reached_themes(&mut sources, &self.user_blobs().themes);
         let working = Document::new(sources, None, &self.doc_defaults);
         let edit = PackMode {
             pack,
@@ -273,15 +271,12 @@ impl Session {
             Mode::Pack { stash, lease, .. } => {
                 self.doc = working;
                 let lease = settled.into_lease(lease);
-                let (scratch, switches) = (PackScratch::default(), Vec::new());
-                Mode::Pack { stash, edit, scratch, theme, switches, lease, orphaned: false }
+                Mode::Pack { stash, edit, scratch: PackScratch::default(), lease, orphaned: false }
             }
             Mode::Deck => Mode::Pack {
                 stash: Box::new(std::mem::replace(&mut self.doc, working)),
                 edit,
                 scratch: PackScratch::default(),
-                theme,
-                switches: Vec::new(),
                 lease: settled.into_lease(None),
                 orphaned: false,
             },
@@ -295,9 +290,12 @@ impl Session {
                 self.mode = history;
                 return InHistorySnafu.fail()?;
             }
+            // A theme tab never enters a workshop (`ensure_editable` refuses before here).
+            theme @ Mode::Theme { .. } => {
+                self.mode = theme;
+                return crate::document_kind::refused_in_theme_tab();
+            }
         };
-        // Le deck de travail est neuf : la base du brouillon y est embarquée.
-        self.embed_theme_base();
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
@@ -353,7 +351,6 @@ impl Session {
     /// du deck seul n'y entre jamais. Le deck mis de côté passe à cette
     /// version, dans l'étape de la séance.
     pub(crate) fn realign_pack(&mut self) -> Result<()> {
-        self.realign_theme_edit();
         // Une copie vide l'historique du document (`save_pack`) : aucune
         // étape ne ramène à un autre pack que celui de l'édition.
         let Some((ns, pin)) = self.edited_pin().map(|(ns, pin)| (ns.clone(), pin.clone())) else { return Ok(()) };
@@ -396,6 +393,10 @@ impl Session {
             }
             Mode::Deck => {}
             help @ Mode::Help { .. } => self.mode = help,
+            theme @ Mode::Theme { .. } => {
+                self.mode = theme;
+                return crate::document_kind::refused_in_theme_tab();
+            }
             // Le deck est de côté pour l'historique : il n'est pas perdu ici.
             history @ Mode::History { .. } => {
                 self.mode = history;

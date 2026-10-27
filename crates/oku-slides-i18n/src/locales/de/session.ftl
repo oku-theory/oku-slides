@@ -25,6 +25,13 @@ session-pack-not-make-current = Die Version von { $pack } in der Präsentation k
 session-pack-already-current = Die Präsentation verwendet bereits Ihre aktuelle Version von { $pack }.
 session-theme-not-outdated = Das Design { $theme } der Präsentation ist nicht älter als Ihre aktuelle Version.
 session-editing-pack = Zuerst die Bearbeitung des Pakets abschließen
+session-theme-open-in-tab = Das Design { $theme } wird im Tab „{ $tab }“ bearbeitet: Bearbeiten Sie es dort, oder schließen Sie zuerst diesen Tab.
+session-wrong-document = { $kind ->
+    [deck] Dieser Tab zeigt eine Präsentation: Diese Änderung erfolgt in einem Design-Tab.
+    [help] Die Hilfe ist schreibgeschützt: Diese Änderung erfolgt in einem Design-Tab.
+    [pack] Dieser Tab bearbeitet ein Paket: Das Design wird im Tab der Präsentation geändert, seine Werte in einem Design-Tab.
+   *[theme] Dieser Tab bearbeitet ein Design: Hier ändern sich nur seine Werte, sein Name und die Designs, die es erweitert.
+}
 session-in-pack-tab = Dieser Tab bearbeitet ein Paket: Schließen Sie ihn, um fertig zu werden; Pakete einer einzelnen Präsentation öffnen sich aus dem Tab dieser Präsentation.
 session-pack-open-in-tab = Das Paket { $pack } wird im Tab „{ $tab }“ bearbeitet: Bearbeiten Sie es dort, oder schließen Sie zuerst diesen Tab.
 session-pack-offer-expired = Die Präsentation wurde nicht aktualisiert: Die Präsentation oder diese Version des Pakets hat sich inzwischen geändert.
@@ -33,7 +40,6 @@ session-lease-missing = Dieses Paket kann nur von dem Tab gespeichert werden, de
 session-not-editing-pack = Es wird kein Paket bearbeitet
 session-pack-mode-slides = Im Paketmodus sind die Folien die Beispiele der Layouts: Sie können weder hinzugefügt, entfernt noch verschoben werden, und ihr Layout bleibt fest
 session-pack-mode-preview = Im Paketmodus sind die Vorschaufolien der Widgets schreibgeschützt
-session-theme-choice-alone = Wählen Sie im Paketmodus das Design allein aus und bearbeiten Sie dann seine Tokens mit set_token
 session-response = Die Antwort konnte nicht geschrieben werden
 session-unknown-tab = Dieser Tab ist nicht mehr geöffnet.
 session-unknown-window = Dieses Fenster ist nicht mehr geöffnet.
@@ -115,6 +121,7 @@ deck-new-slide-text = Beschreiben, was gezeigt werden soll.
 pack-default-name = Mein Paket
 pack-copy-name = { $name } (Kopie)
 theme-copy-name = { $name } (Variante)
+theme-copy-of = { $name } (Kopie)
 pack-adopt-label = Paket: { $name }
 session-widgets-broken = Widgets ausgelassen, da sie nicht kompilieren: { $names }. Die übrigen Widgets des Pakets bleiben erhalten.
 session-widgets-not-saved = Die Widget-Version des Pakets „{ $pack }“ konnte nicht in der Bibliothek gespeichert werden. Die Präsentation behält sie.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } Überschreibungen der Präsentation
 }
 packs-theme-pick = Design der Präsentation
+packs-theme-open = Öffnen
 packs-undo-add = Paket „{ $name }“ hinzufügen
 packs-undo-remove = Paket „{ $name }“ entfernen
 packs-undo-use-mine = Zu meiner Version wechseln
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Dieses PDF wurde nach Oku Slides mit einem anderen P
 notice-open-failed = { $path } konnte nicht geöffnet werden: { $reason }
 notice-tab-resume-failed = Der Zustand dieses Tabs konnte nicht wiederhergestellt werden: Er wurde beiseitegelegt, und der Tab beginnt mit einer leeren Präsentation neu.
 notice-tab-set-aside = Der Tab „{ $name }“ stammt aus einer älteren Version von Oku Slides: Seine nicht gespeicherten Änderungen konnten nicht wiederhergestellt werden und wurden beiseitegelegt, und der Tab beginnt mit einer leeren Präsentation neu.
+notice-theme-draft-dropped = Dieser Paket-Editor stammt aus einer älteren Version von Oku Slides: Seine nicht gespeicherten Designänderungen konnten nicht behalten werden. Ein Design öffnet sich jetzt in einem eigenen Tab.
+notice-theme-edited-elsewhere = Das Design { $theme } wird im Tab „{ $tab }“ bearbeitet: Dieser Tab wurde daneben wieder geöffnet, schreibgeschützt, bis jener Tab geschlossen wird.
 notice-pack-edited-elsewhere = Das Paket { $pack } wird im Tab „{ $tab }“ bearbeitet: Dieser Tab wurde daneben wieder geöffnet, schreibgeschützt, bis jener Tab geschlossen wird.
 notice-pack-deleted = Das Paket { $pack } ist nicht mehr in der Bibliothek: Dieser Tab ist schreibgeschützt; bitten Sie den Agenten, es als neues Paket zu speichern, um Ihre Änderungen zu behalten.
 notice-themes-skipped = Einige Designs in Ihrer Bibliothek stammen aus einer älteren Version von Oku Slides: Sie konnten nicht gelesen werden und werden nicht angeboten ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Nach oben
 theme-extends-down = Nach unten
 theme-extends-remove = Entfernen
 theme-extends-add = Zu erweiterndes Design hinzufügen
-theme-deck-overrides = Überschreibungen im Deck, hier nicht angewendet: { $paths }
 theme-section-colors = Farben
 theme-section-typography = Typografie
 theme-section-scripts = Andere Schriftsysteme

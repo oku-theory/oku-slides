@@ -23,7 +23,7 @@ async function openMenu(extra: Record<string, unknown> = {}) {
   mounted = { root, host };
   const noop = () => {};
   await act(async () =>
-    root.render(createElement(AppMenu, { packMode: false, present: noop, open: noop, onHelp: noop, ...extra })),
+    root.render(createElement(AppMenu, { packMode: false, themeTab: false, present: noop, open: noop, onHelp: noop, ...extra })),
   );
   await act(async () => (host.querySelector(".action-menu-trigger") as HTMLButtonElement).click());
   return [...host.querySelectorAll('[role="menuitem"]')] as HTMLButtonElement[];
@@ -42,6 +42,11 @@ describe("AppMenu", () => {
     const items = await openMenu({ onCheckUpdates: () => checks++ });
     await act(async () => labelled(items, "ui-update-check")?.click());
     expect(checks).toBe(1);
+  });
+
+  test("AppMenu in a theme tab offers neither present nor open", async () => {
+    const items = await openMenu({ themeTab: true });
+    expect([labelled(items, "ui-present-screen"), labelled(items, "ui-toolbar-open"), !!labelled(items, "ui-help")]).toEqual([undefined, undefined, true]);
   });
 
   test("AppMenu pack mode keeps the update entry", async () => {

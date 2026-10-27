@@ -1,12 +1,13 @@
-//! La surface A2UI du panneau des packs du deck, et ses évènements.
+//! The A2UI surface of the deck's packs panel, and its events.
 //!
-//! Construite d'une vue sans texte ([`DeckPacksView`]) et du traducteur de
-//! l'hôte à chaque usage. Trois sections dans l'ordre : layouts, widgets,
-//! thème. Chaque pack épinglé est une carte : nom, version courte, espace de
-//! noms, relation à ma version, puis ses actions, ou son refus de retrait à
-//! la place du bouton. Chaque évènement nomme son action (`add_pack`,
-//! `remove_pack`, `use_mine`, `make_current`, `theme`, `theme_update`) ; son
-//! contexte porte la sorte et l'espace de noms, que la session revérifie.
+//! Built from a view without text ([`DeckPacksView`]) and the host's
+//! localizer at each use. Three sections in order: layouts, widgets, theme.
+//! Each pinned pack is a card: name, short version, namespace, relation to
+//! my version, then its actions, or its removal refusal in place of the
+//! button. Each event names its action (`add_pack`, `remove_pack`,
+//! `use_mine`, `make_current`, `theme`, `theme_update`, `open_theme`); its
+//! context carries the kind and namespace, which the session checks again.
+//! `open_theme` is no session action: the interface opens the theme's tab.
 
 use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
 use oku_slides_core::{Namespace, PackKind};
@@ -196,7 +197,7 @@ impl Builder {
         self.push(Component::column(id, &refs))
     }
 
-    /// La section du thème : nom, parents, surcharges, choix, mise à jour.
+    /// The theme section: name, parents, overrides, choice, opening, update.
     fn theme(&mut self, t: &ThemeSectionView, l: &Localizer) -> String {
         let title = l.tr("packs-section-theme");
         let mut children = vec![
@@ -224,6 +225,10 @@ impl Builder {
             action: Some(Action::event("theme", [("theme", Dynamic::path("/theme"))])),
         };
         children.push(self.push(Component::new("theme-pick", pick)));
+        if let Some(id) = t.id {
+            let action = Action::event("open_theme", [("theme", lit(json!(id.to_string())))]);
+            children.push(self.push(Component::button("theme-open", l.tr("packs-theme-open"), false, action)));
+        }
         if t.outdated {
             let update = Component::button("theme-update", l.tr("packs-use-mine"), true, Action::named("theme_update"));
             children.push(self.push(update));

@@ -1,17 +1,17 @@
-//! Les thèmes qu'étend le brouillon du mode pack : la liste `extends` de `ThemeEdit`.
+//! The themes a theme tab's draft extends: the `extends` list of `ThemeEdit`.
 //!
-//! La liste se change en entier (`set_edited_theme_extends`, l'outil de
-//! l'agent) ou par un delta sur la liste courante (`edit_theme_extends`, les
-//! boutons de la surface `host-theme`), pour que deux clics rapprochés ne
-//! s'écrasent pas. Chaque changement accepté est une étape d'annulation sous
-//! un rang neuf de `DRAFT_SWITCH_VAR`, sans changer les jetons : annuler ou
-//! rétablir ramène la liste par `realign_theme_edit`, comme un changement de base.
+//! The list changes whole (`set_edited_theme_extends`, the agent's tool) or
+//! by a delta on the current list (`edit_theme_extends`, the buttons of the
+//! `host-theme` surface), so that two close clicks do not overwrite each
+//! other. Each accepted change is an undo step under a new rank of
+//! `DRAFT_SWITCH_VAR` (`apply_draft_step`), without changing the tokens:
+//! undo or redo brings the list back through `realign_theme_edit`.
 //!
-//! Les vérifications, les moins chères d'abord : mode pack ; aucun doublon
-//! (une liste plus longue que la bibliothèque en a forcément un, ou un
-//! inconnu) ; chaque thème dans la bibliothèque ; enfin la fermeture du
-//! brouillon, où une boucle (par son propre espace de noms) est `ThemeCycle`.
-//! La reprise d'un état passe par les mêmes (`check_theme_extends`).
+//! The checks, cheapest first: a theme tab; no duplicate (a list longer
+//! than the library has one, or an unknown theme); each theme in the
+//! library; last the draft's closure, where a loop (through its own
+//! namespace) is `ThemeCycle`. Resuming a state goes through the same ones
+//! (`check_theme_extends`).
 
 use std::collections::BTreeSet;
 
@@ -21,7 +21,7 @@ use snafu::{OptionExt, ensure};
 
 use oku_slides_core::{Namespace, Op};
 
-use crate::error::{NotEditingPackSnafu, ThemeExtendsDuplicateSnafu, ThemeExtendsMoveSnafu, UnknownThemeSnafu};
+use crate::error::{ThemeExtendsDuplicateSnafu, ThemeExtendsMoveSnafu, UnknownThemeSnafu};
 use crate::theme_edit::{DRAFT_SWITCH_VAR, ThemeEdit, ThemeSwitch, next_switch_rank};
 use crate::{Mode, Result, Session};
 
@@ -101,13 +101,12 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails outside pack mode (`NotEditingPack`), if the list is rejected (see the module), or if the
+    /// Fails outside a theme tab (`WrongDocument`), if the list is rejected (see the module), or if the
     /// transaction fails.
     pub fn set_edited_theme_extends(&mut self, extends: Vec<Namespace>) -> Result<()> {
-        let Mode::Pack { theme, switches, .. } = &self.mode else {
-            return NotEditingPackSnafu.fail()?;
-        };
-        let from = theme.clone();
+        // Outside a theme tab, `ensure_theme_tab` says why.
+        let Mode::Theme { edit, switches, .. } = &self.mode else { return self.ensure_theme_tab() };
+        let from = edit.draft.clone();
         let rank = next_switch_rank(self.doc.sources.deck(), switches);
         self.check_theme_extends(&from, &extends)?;
         if from.extends == extends {
@@ -115,15 +114,15 @@ impl Session {
         }
         let to = ThemeEdit { extends, ..from.clone() };
         let label = self.localizer.tr("session-undo-theme-extends");
-        // Comme un changement de base : la liste change avant `apply`, qui
-        // rend le brouillon et écrit l'état de reprise ; un échec la remet.
+        // The list changes before the step, which renders the draft and writes
+        // the resume state; a failure puts it back.
         self.set_theme_edit(to.clone());
         let ops = vec![Op::SetVar { key: DRAFT_SWITCH_VAR.to_owned(), value: Value::from(rank) }];
-        if let Err(e) = self.apply(&label, ops, None) {
+        if let Err(e) = self.apply_draft_step(&label, ops) {
             self.set_theme_edit(from);
             return Err(e);
         }
-        if let Mode::Pack { switches, .. } = &mut self.mode {
+        if let Mode::Theme { switches, .. } = &mut self.mode {
             switches.push(ThemeSwitch { rank, from, to });
         }
         Ok(())
@@ -136,13 +135,11 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// Fails outside pack mode, on an impossible move (`ThemeExtendsMove`), a missing theme
-    /// (`UnknownTheme`), or like `set_edited_theme_extends`.
-    pub fn edit_theme_extends(&mut self, edit: ExtendsEdit) -> Result<()> {
-        let Mode::Pack { theme, .. } = &self.mode else {
-            return NotEditingPackSnafu.fail()?;
-        };
-        let list = edited_list(theme.extends.clone(), edit)?;
+    /// Fails outside a theme tab (`WrongDocument`), on an impossible move (`ThemeExtendsMove`), a
+    /// missing theme (`UnknownTheme`), or like `set_edited_theme_extends`.
+    pub fn edit_theme_extends(&mut self, change: ExtendsEdit) -> Result<()> {
+        let Mode::Theme { edit, .. } = &self.mode else { return self.ensure_theme_tab() };
+        let list = edited_list(edit.draft.extends.clone(), change)?;
         self.set_edited_theme_extends(list)
     }
 }

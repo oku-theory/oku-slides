@@ -1,4 +1,4 @@
-//! What a tab edits: a deck, the shipped help, or a pack of the library.
+//! What a tab edits: a deck, the shipped help, or a pack or theme of the library.
 
 use std::path::{Path, PathBuf};
 
@@ -26,6 +26,11 @@ pub enum TabDocument {
         /// The edited pack.
         pack: Uuid,
     },
+    /// A theme of the library, edited in its own tab.
+    Theme {
+        /// The edited theme.
+        theme: Uuid,
+    },
 }
 
 impl TabDocument {
@@ -34,7 +39,7 @@ impl TabDocument {
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::Deck { path, .. } => path.as_deref(),
-            Self::Help { .. } | Self::Pack { .. } => None,
+            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
         }
     }
 
@@ -43,7 +48,7 @@ impl TabDocument {
     pub fn deck_uid(&self) -> Option<&str> {
         match self {
             Self::Deck { deck_uid, .. } => deck_uid.as_deref(),
-            Self::Help { .. } | Self::Pack { .. } => None,
+            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
         }
     }
 
@@ -52,7 +57,7 @@ impl TabDocument {
     pub fn help_locale(&self) -> Option<&str> {
         match self {
             Self::Help { locale } => Some(locale),
-            Self::Deck { .. } | Self::Pack { .. } => None,
+            Self::Deck { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
         }
     }
 }

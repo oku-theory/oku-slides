@@ -1,8 +1,7 @@
-// Jetons du thème édité (onglet « Thème » du mode pack) : la surface
-// `host-theme` construite par la session, filtrée. Chaque ligne envoie
-// l'évènement `token` ; les parents du brouillon, `extends` ; le champ de
-// filtre, `filter`. Même contrat que `useHostSettings` : un changement refusé
-// relit la surface, le champ reprend la valeur de la session.
+// The draft's tokens in a theme tab: the surface `host-theme` built by the
+// session, filtered. Each row sends the `token` event; the draft's parents,
+// `extends`; the filter field, `filter`. Same contract as `useHostSettings`: a
+// refused change rereads the surface, and the field takes back the session's value.
 
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
@@ -11,9 +10,9 @@ import { fromA2ui } from "./agent/quick";
 import { HOST_THEME, type HostSettings } from "./useHostSettings";
 
 /**
- * Jetons du thème édité : relus après chaque changement accepté, et quand le brouillon
- * (base, nom, état), l'annulation, le pack ou le filtre changent. `onFilter` reçoit le filtre saisi dans la surface :
- * l'appelant le garde et le rend par `filter` (une seule source).
+ * The edited theme's tokens, reread after each accepted change and when the draft
+ * (base, name, state), undo or the filter change. `onFilter` gets the filter typed in the surface:
+ * the caller keeps it and gives it back through `filter` (one source).
  */
 export function useThemeSettings(
   api: TabApi,
@@ -34,10 +33,10 @@ export function useThemeSettings(
   // sur le même jeton (poser, puis ↺) gardent le même libellé d'annulation et le même `dirty`.
   const [edits, setEdits] = useState(0);
   const outcome = useRef<Promise<boolean> | null>(null);
-  const active = !!snap?.editing && !snap.history;
+  const active = !!snap?.theming && !snap.history;
   // Ce qui change les jetons hors de cette surface (annuler, rétablir, l'agent, l'en-tête du panneau).
   // Les ids des listes (polices, palette) changent à chaque relecture : toute étape d'annulation la provoque.
-  const key = [JSON.stringify(snap?.editing?.theme ?? null), snap?.editing?.base, snap?.undo_label, snap?.redo_label, filter].join("|");
+  const key = [JSON.stringify(snap?.theming?.theme ?? null), snap?.undo_label, snap?.redo_label, filter].join("|");
   useEffect(() => {
     if (!active) return setShown(null);
     let alive = true;

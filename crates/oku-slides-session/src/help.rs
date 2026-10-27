@@ -68,6 +68,10 @@ impl Session {
     pub fn open_help(&mut self, locale: &str, theme: Option<Uuid>) -> Result<()> {
         // Le deck mis de côté par l'édition d'un pack serait perdu.
         ensure!(!matches!(self.mode, Mode::Pack { .. }), EditingPackSnafu);
+        // Likewise the theme draft of a theme tab.
+        if matches!(self.mode, Mode::Theme { .. }) {
+            return crate::document_kind::refused_in_theme_tab();
+        }
         let locale = help_locale(locale);
         // Son premier replica connaît déjà les widgets de `base` (hôtes des tableaux et graphiques) et d'`essentiel`.
         let registry = oku_slides_render::builtin_registry(&self.app_fonts).context(RegistrySnafu)?;
@@ -120,7 +124,7 @@ impl Session {
     pub(crate) fn help(&self) -> Option<&'static str> {
         match self.mode {
             Mode::Help { locale } => Some(locale),
-            Mode::Deck | Mode::Pack { .. } | Mode::History { .. } => None,
+            Mode::Deck | Mode::Pack { .. } | Mode::History { .. } | Mode::Theme { .. } => None,
         }
     }
 

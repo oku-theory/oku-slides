@@ -1,16 +1,16 @@
-//! What each request does: changes the deck, edits, ends the widget session, writes the pack.
+//! What each request does: changes the deck, edits, ends the widget session, writes the draft.
 //!
 //! Classifiers of [`Request`], read by `Session::handle` before it answers.
 
 use super::Request;
 
 impl Request {
-    /// Vrai si la requête peut changer le deck (slides ajoutées ou retirées).
+    /// True if the request may change the deck (slides added or removed).
     ///
-    /// `Save` aussi : un fichier changé sur disque est d'abord fusionné.
-    /// L'historique (sauf la liste des versions) : le deck montré change.
-    /// `SavePack` aussi : la bibliothèque change, le panneau des packs se relit (`prune`).
-    /// Exhaustif à dessein : une requête ajoutée doit dire si elle change le deck.
+    /// `Save` too: a file changed on disk is merged first. History (except
+    /// the version list): the deck shown changes. `SavePack` and `SaveTheme`
+    /// too: the library changes, the packs panel rereads it (`prune`).
+    /// Exhaustive on purpose: a new request must say whether it changes the deck.
     #[must_use]
     pub fn changes_deck(&self) -> bool {
         match self {
@@ -25,10 +25,10 @@ impl Request {
             | Self::ShowAs { .. }
             | Self::EditPack { .. }
             | Self::ClosePack
-            | Self::SetEditedTheme { .. }
             | Self::SetEditedThemeExtends { .. }
             | Self::EditThemeExtends { .. }
             | Self::SavePack { .. }
+            | Self::SaveTheme { .. }
             | Self::Merge { .. }
             | Self::HistoryOpen
             | Self::HistorySeek { .. }
@@ -84,8 +84,8 @@ impl Request {
                 | Self::ShowAs { .. }
                 | Self::EditPack { .. }
                 | Self::SavePack { .. }
+                | Self::SaveTheme { .. }
                 | Self::ClosePack
-                | Self::SetEditedTheme { .. }
                 | Self::SetEditedThemeExtends { .. }
                 | Self::EditThemeExtends { .. }
                 | Self::RenameEditedTheme { .. }
@@ -127,11 +127,13 @@ impl Request {
         )
     }
 
-    /// True for a request that writes the edited pack or a draft of it, in pack mode.
+    /// True for a request that writes the edited pack or theme, or a draft of it.
     ///
-    /// Such a request first takes the lease (`Session::ensure_pack_lease`).
-    /// Exhaustive on purpose: a new request must say whether it writes.
-    pub(crate) fn writes_edited_pack(&self) -> bool {
+    /// Such a request first takes the lease (`Session::ensure_pack_lease` in
+    /// pack mode, `Session::ensure_theme_lease` in a theme tab). A copy
+    /// (`as_new`) takes its own. Exhaustive on purpose: a new request must
+    /// say whether it writes.
+    pub(crate) fn writes_edited_draft(&self) -> bool {
         match self {
             Self::Apply { .. }
             | Self::SetTheme { .. }
@@ -142,17 +144,17 @@ impl Request {
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
             | Self::DataEdit { .. }
-            | Self::HostToken { .. }
             | Self::SavePack { as_new: false }
-            | Self::SetEditedTheme { .. }
-            | Self::SetEditedThemeExtends { .. }
-            | Self::EditThemeExtends { .. }
-            | Self::RenameEditedTheme { .. }
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
             | Self::SetExampleValue { .. }
-            | Self::EditExampleList { .. } => true,
+            | Self::EditExampleList { .. }
+            | Self::HostToken { .. }
+            | Self::SetEditedThemeExtends { .. }
+            | Self::EditThemeExtends { .. }
+            | Self::RenameEditedTheme { .. }
+            | Self::SaveTheme { as_new: false } => true,
             Self::Snapshot
             | Self::Save { .. }
             | Self::Slide { .. }
@@ -167,6 +169,7 @@ impl Request {
             | Self::Packs { .. }
             | Self::EditPack { .. }
             | Self::SavePack { as_new: true }
+            | Self::SaveTheme { as_new: true }
             | Self::ClosePack
             | Self::DeletePack { .. }
             | Self::Ui { .. }
@@ -182,6 +185,63 @@ impl Request {
             | Self::WidgetSource { .. }
             | Self::PreviewWidget { .. }
             | Self::UsePackVersion { .. } => false,
+        }
+    }
+
+    /// True for a request a theme tab takes: reads, its draft's edits and their undo.
+    ///
+    /// `Apply` passes here; its ops are then filtered (`Session::ensure_caller_ops`).
+    /// Exhaustive on purpose: a new request must say whether a theme tab takes it.
+    pub(crate) fn theme_tab_allows(&self) -> bool {
+        match self {
+            Self::Snapshot
+            | Self::Slide { .. }
+            | Self::Search { .. }
+            | Self::Svg { .. }
+            | Self::Schema
+            | Self::Widgets
+            | Self::HostTheme { .. }
+            | Self::HostToken { .. }
+            | Self::Ui { .. }
+            | Self::Apply { .. }
+            | Self::Undo
+            | Self::Redo
+            | Self::UndoTurn { .. }
+            | Self::RenameEditedTheme { .. }
+            | Self::SetEditedThemeExtends { .. }
+            | Self::EditThemeExtends { .. }
+            | Self::SaveTheme { .. } => true,
+            Self::Save { .. }
+            | Self::SetTheme { .. }
+            | Self::EditTheme { .. }
+            | Self::ChartKind { .. }
+            | Self::ShowAs { .. }
+            | Self::EditPack { .. }
+            | Self::ClosePack
+            | Self::SavePack { .. }
+            | Self::Merge { .. }
+            | Self::HistoryOpen
+            | Self::HistorySeek { .. }
+            | Self::HistoryRestore
+            | Self::HistoryClose
+            | Self::HistoryVersions
+            | Self::Move { .. }
+            | Self::SaveCopy { .. }
+            | Self::SetWidget { .. }
+            | Self::RemoveWidget { .. }
+            | Self::RenameWidget { .. }
+            | Self::SetExampleValue { .. }
+            | Self::EditExampleList { .. }
+            | Self::DataEdit { .. }
+            | Self::UsePackVersion { .. }
+            | Self::HostSettings { .. }
+            | Self::DataPanel { .. }
+            | Self::Layouts
+            | Self::Packs { .. }
+            | Self::DeletePack { .. }
+            | Self::WidgetStatus { .. }
+            | Self::WidgetSource { .. }
+            | Self::PreviewWidget { .. } => false,
         }
     }
 }

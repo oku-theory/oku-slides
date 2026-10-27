@@ -1,15 +1,15 @@
-// Atelier d'un pack de layouts, dans son propre onglet de pack : la grille de `layout-blank` changée (`set_grid`,
-// comme le fait l'agent : plus de carte de la slide), enregistrée dans un nouveau pack, se retrouve en le rouvrant.
-// L'atelier se demande à l'agent (t-988). Au passage : pas de sous-onglet « Modèles » (sa scène est l'onglet
-// « Layouts »), une miniature ramène la scène, l'onglet « Thème » montre les jetons à droite ; « Terminer » ferme
-// l'onglet de pack et rend l'onglet du deck ; une frappe juste avant la croix est enregistrée (garde de fermeture).
+// Workshop of a layout pack, in its own pack tab: the grid of `layout-blank` changed (`set_grid`, as the agent
+// does: no slide card any more), saved as a new pack, is found again when reopening it. The workshop is asked of
+// the agent (t-988). On the way: no "Modèles" nor "Thème" sub-tab (its stage is the "Layouts" tab), a thumbnail
+// brings the stage back; "Terminer" closes the pack tab and gives the deck's tab back; `t-1`'s theme opens in a
+// theme tab from "Packs du deck", its tokens on the right, closed clean; typing right before the × is saved (close guard).
 // Writes: Essentiel (the `essai-pile` widget writes make a session version), a copy of Essentiel. Leaves: no pack
-// tab; `t-1` pins an older Essentiel than the library's current one (its "Packs du deck" badge lit at its next snapshot).
+// or theme tab; `t-1` pins an older Essentiel than the library's current one (its "Packs du deck" badge lit at its next snapshot).
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e (serveur neuf, port 4872).
 // À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur (défaut port 4870).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { closePackTabs, openAtelier, openPackTab: openFrom } = require('./lib/atelier.cjs');
+const { closePackTabs, openAtelier, openPackTab: openFrom, openThemeTab, closePacksPanel } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -72,28 +72,13 @@ const backToOpener = (p, tab, why) =>
   await p.click('.pile-widgets-row:has-text("essai-pile") .pile-widgets-remove');
   await p.waitForSelector('.pile-widgets-row:has-text("essai-pile")', { state: 'detached' });
 
-  // Onglet « Thème » : les jetons à droite, à la place du fil ; une miniature cliquée le garde.
-  await p.getByRole('tab', { name: 'Thème', exact: true }).click();
-  await p.waitForSelector('#theme-panel [data-surface-id="host-theme"] .a2ui-disclosure');
-  assert.equal(await p.locator('.notes #theme-panel').count(), 1);
-  // Les sections : les jetons globaux (dont l'habillage), puis une par pack embarqué.
-  const sections = await p.locator('#theme-panel [data-surface-id="host-theme"]').innerText();
-  assert.match(sections, /Couleurs/);
-  assert.match(sections, /Habillage/);
-  assert.equal(await stageHidden(p), false);
-  await p.click(thumb('blank'));
-  await untilValue(p, () => p.locator(thumb('blank')).getAttribute('aria-current'), (v) => v === 'true', 'la miniature cliquée ne devient pas la courante');
-  // négatif : un retour fautif à la scène seule aurait le temps d'arriver.
-  await p.waitForTimeout(300);
-  assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).getAttribute('aria-selected'), 'true');
+  // No "Thème" sub-tab: a theme opens in its own tab (step 5b).
+  assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).count(), 0, 'un sous-onglet « Thème » reste');
   // Le menu ⋯ du mode pack n'offre que l'aide : le reste se demande à l'agent (t-988).
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.waitForSelector('[role="menu"]');
   assert.deepEqual(await p.locator('[role="menu"] [role="menuitem"] > span').allTextContents(), ['Aide']);
   await p.keyboard.press('Escape');
-  // Retour à la scène par l'onglet « Layouts » : le Thème rend la colonne de droite.
-  await p.getByRole('tab', { name: 'Layouts', exact: true }).click();
-  await p.waitForSelector('#theme-panel', { state: 'detached' });
 
   // 2-3. La slide `layout-blank` : sa grille passe à 4 colonnes.
   await p.click(thumb('blank'));
@@ -113,6 +98,24 @@ const backToOpener = (p, tab, why) =>
   await p.getByRole('button', { name: 'Terminer' }).click();
   await backToOpener(p, packTab, "l'onglet de pack ne se ferme pas");
   await p.waitForSelector('.stage img');
+
+  // 5b. The theme of t-1 in its own tab, by "Ouvrir" in "Packs du deck": the tokens on the right, in place of the
+  // thread (the global sections, wrapping included); a specimen click keeps the panel. Closed clean, nothing written.
+  const themeTab = await openThemeTab(p, 't-1');
+  await p.waitForSelector('#theme-panel [data-surface-id="host-theme"] .a2ui-disclosure');
+  assert.equal(await p.locator('.notes #theme-panel').count(), 1);
+  const sections = await p.locator('#theme-panel [data-surface-id="host-theme"]').innerText();
+  assert.match(sections, /Couleurs/);
+  assert.match(sections, /Habillage/);
+  await p.click(thumb('blank'));
+  await untilValue(p, () => p.locator(thumb('blank')).getAttribute('aria-current'), (v) => v === 'true', 'le spécimen cliqué ne devient pas le courant');
+  // négatif : un retrait fautif du panneau aurait le temps d'arriver.
+  await p.waitForTimeout(300);
+  assert.equal(await p.locator('.notes #theme-panel').count(), 1, 'un clic sur un spécimen retire le panneau du thème');
+  await p.getByRole('button', { name: 'Terminer' }).click();
+  await backToOpener(p, themeTab, "l'onglet de thème ne se ferme pas");
+  await p.waitForSelector('#theme-panel', { state: 'detached' });
+  await closePacksPanel(p);
 
   // 6. Rouvrir le nouveau pack (aucun deck ne l'épingle : par l'espace de travail), puis recharger la page.
   const reopened = await openPackTab(p, copy.pack);

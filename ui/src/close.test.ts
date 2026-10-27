@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { Snapshot, TabApi, TabDocument, TabInfo } from "./api";
 import { mayClose, saveForClose } from "./close";
 import { setMessages } from "./i18n";
-import type { PackMode } from "./packTypes";
+import type { PackMode, ThemeTabView } from "./packTypes";
 import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -264,6 +264,58 @@ describe("mayClose", () => {
     } as unknown as TabApi;
     expect(await mayClose(tab(true, packDoc), snap({ dirty: true, path: "/x.oku-slides.pdf" }), api, deps)).toBe("keep");
     expect(calls).toEqual(["save"]);
+  });
+
+  const themeDoc: TabDocument = { kind: "theme", theme: "t" };
+  /** A theme tab's live snapshot: no editing view, the draft in `theming`. */
+  const themeSnap = (o: Partial<ThemeTabView> = {}, dirty = true) =>
+    snap({ dirty, editing: null, theming: { read_only: false, leased: true, display_name: "Maison", session_version: null, ...o } as ThemeTabView });
+  /** A theme tab's fake API: `after` is the snapshot read once saveTheme answered. */
+  const themeApi = (after: () => Snapshot) => {
+    const calls: string[] = [];
+    const api = {
+      snapshot: async () => (calls.push("snapshot"), after()),
+      saveTheme: async () => (calls.push("saveTheme"), null),
+      savePack: async () => (calls.push("savePack"), snap({})),
+      save: async () => (calls.push("save"), snap({})),
+      closePack: async () => (calls.push("closePack"), snap({})),
+    } as unknown as TabApi;
+    return { api, calls };
+  };
+
+  test("mayClose of a clean theme tab keeps and saves nothing", async () => {
+    const { api, calls } = themeApi(() => themeSnap({}, false));
+    expect(await mayClose(tab(false, themeDoc), themeSnap({}, false), api, deps)).toBe("keep");
+    expect(calls).toEqual([]);
+  });
+
+  test("mayClose of a dirty theme tab saves its theme then keeps", async () => {
+    const { api, calls } = themeApi(() => themeSnap({}, false));
+    const confirm = mock(() => true);
+    expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm })).toBe("keep");
+    expect(calls).toEqual(["saveTheme", "snapshot"]);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  test("mayClose of a read-only dirty theme tab asks without saving then discards", async () => {
+    const { api, calls } = themeApi(() => themeSnap());
+    const confirm = mock(() => true);
+    expect(await mayClose(tab(true, themeDoc), themeSnap({ read_only: true, leased: false }), api, { confirm })).toBe("discard");
+    expect(calls).toEqual([]);
+    expect(confirm).toHaveBeenCalledWith("⁨Maison⁩ cannot be saved here. Close this tab and lose its changes?");
+  });
+
+  test("mayClose of a theme tab still dirty after its save asks then discards", async () => {
+    const { api, calls } = themeApi(() => themeSnap());
+    const confirm = mock(() => true);
+    expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm })).toBe("discard");
+    expect(calls).toEqual(["saveTheme", "snapshot"]);
+    expect(confirm).toHaveBeenCalledWith("Quit without saving the modified theme?");
+  });
+
+  test("mayClose of a theme tab still dirty with confirm declined stays", async () => {
+    const { api } = themeApi(() => themeSnap());
+    expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm: () => false })).toBeNull();
   });
 
   test("unknown document kind takes the deck path", async () => {

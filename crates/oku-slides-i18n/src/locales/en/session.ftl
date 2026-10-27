@@ -25,6 +25,13 @@ session-pack-not-make-current = The deck's version of { $pack } cannot become yo
 session-pack-already-current = The deck already uses your current version of { $pack }.
 session-theme-not-outdated = The deck's theme { $theme } is not older than your current version.
 session-editing-pack = Finish editing the pack first
+session-theme-open-in-tab = The theme { $theme } is being edited in the tab “{ $tab }”: edit it there, or close that tab first.
+session-wrong-document = { $kind ->
+    [deck] This tab shows a deck: that change is made in a theme tab.
+    [help] The help is read-only: that change is made in a theme tab.
+    [pack] This tab edits a pack: the theme changes in the deck's tab, its values in a theme tab.
+   *[theme] This tab edits a theme: only its values, its name and the themes it extends change here.
+}
 session-in-pack-tab = This tab edits a pack: close it to finish; deck-only packs open from their deck's tab.
 session-pack-open-in-tab = The pack { $pack } is being edited in the tab “{ $tab }”: edit it there, or close that tab first.
 session-pack-offer-expired = The deck was not updated: the deck or that version of the pack changed meanwhile.
@@ -33,7 +40,6 @@ session-lease-missing = This pack can only be saved by the tab that edits it.
 session-not-editing-pack = No pack is being edited
 session-pack-mode-slides = In pack mode, the slides are the layout examples: they cannot be added, removed, moved or change their layout
 session-pack-mode-preview = In pack mode, the widget preview slides are read-only
-session-theme-choice-alone = In pack mode, choose the theme on its own, then edit its tokens with set_token
 session-response = The answer could not be written
 session-unknown-tab = This tab is no longer open.
 session-unknown-window = This window is no longer open.
@@ -115,6 +121,7 @@ deck-new-slide-text = Say what you want to show.
 pack-default-name = My pack
 pack-copy-name = { $name } (copy)
 theme-copy-name = { $name } (variant)
+theme-copy-of = { $name } (copy)
 pack-adopt-label = Pack: { $name }
 session-widgets-broken = Widgets left out because they do not compile: { $names }. The pack's other widgets remain.
 session-widgets-not-saved = The widget version of the “{ $pack }” pack could not be saved in the library. The deck keeps it.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } deck overrides
 }
 packs-theme-pick = Deck theme
+packs-theme-open = Open
 packs-undo-add = Add pack “{ $name }”
 packs-undo-remove = Remove pack “{ $name }”
 packs-undo-use-mine = Switch to my version
@@ -163,6 +171,8 @@ notice-modified-elsewhere = This PDF was changed by another tool after Oku Slide
 notice-open-failed = { $path } could not be opened: { $reason }
 notice-tab-resume-failed = This tab's state could not be restored: it was set aside, and the tab starts again from a blank presentation.
 notice-tab-set-aside = The tab “{ $name }” was made by an older version of Oku Slides: its unsaved changes could not be restored and were set aside, and the tab starts again from a blank presentation.
+notice-theme-draft-dropped = This pack editor comes from an older version of Oku Slides: its unsaved theme changes could not be kept. A theme now opens in its own tab.
+notice-theme-edited-elsewhere = The theme { $theme } is being edited in the tab “{ $tab }”: this tab reopened beside it, read-only until that tab closes.
 notice-pack-edited-elsewhere = The pack { $pack } is being edited in the tab “{ $tab }”: this tab reopened beside it, read-only until that tab closes.
 notice-pack-deleted = The pack { $pack } is no longer in the library: this tab is read-only; ask the agent to save it as a new pack to keep your changes.
 notice-themes-skipped = Some themes in your library come from an older version of Oku Slides: they could not be read and are not offered ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Move up
 theme-extends-down = Move down
 theme-extends-remove = Remove
 theme-extends-add = Add a theme to extend
-theme-deck-overrides = Overrides in the deck, not applied here: { $paths }
 theme-section-colors = Colors
 theme-section-typography = Typography
 theme-section-scripts = Other scripts

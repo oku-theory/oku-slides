@@ -13,12 +13,13 @@ const { memory, stub, wait } = await import("./test/widgetApi");
 
 const PAPIER = "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31";
 const surface = (id = HOST_THEME): Surface => ({ id, place: "thread", live: true, turn: null, messages: [] }) as unknown as Surface;
-interface Snap { history?: boolean; undo?: string | null; dirty?: boolean; name?: string; editing?: boolean }
+interface Snap { history?: boolean; undo?: string | null; dirty?: boolean; name?: string; theming?: boolean }
 const snapshot = (o: Snap = {}): Snapshot =>
   ({
-    editing: o.editing === false ? null : {
-      pack: "p", base: "b",
+    editing: null,
+    theming: o.theming === false ? null : {
       theme: { base: { id: PAPIER, version: "v1" }, name: o.name ?? "Papier", namespace: "papier", child: true, extends: [], dirty: o.dirty ?? false, revision: "r1" },
+      session_version: null, read_only: false, leased: true, display_name: o.name ?? "Papier",
     },
     history: o.history ? {} : null, undo_label: o.undo ?? null, redo_label: null, slides: [],
   }) as unknown as Snapshot;
@@ -89,11 +90,11 @@ describe("useThemeSettings", () => {
     expect(asked).toEqual(["", "taille", "taille", "taille"]);
   });
 
-  test("hors mode pack ou pendant l'historique : aucune surface, aucune lecture", async () => {
+  test("useThemeSettings outside a theme tab or in history reads no surface", async () => {
     const { fake, asked } = counted();
     const m = await mountTheme(fake, { snap: snapshot({ history: true }), filter: "" });
     expect(m.out.h!.surface).toBeNull();
-    await m.render({ snap: snapshot({ editing: false }), filter: "" });
+    await m.render({ snap: snapshot({ theming: false }), filter: "" });
     expect(m.out.h!.surface).toBeNull();
     expect(asked).toEqual([]);
   });

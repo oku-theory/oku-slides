@@ -206,7 +206,12 @@ impl Session {
     ///
     /// En mode deck, sans `pack`, une slide va au pack `deck-layouts` (voir `deck_widget_target`).
     fn widget_target_for(&self, pack: Option<&Namespace>, category: Option<Category>) -> Result<WidgetTarget> {
-        let Mode::Pack { edit, .. } = &self.mode else { return self.deck_widget_target(pack, category) };
+        let edit = match &self.mode {
+            Mode::Pack { edit, .. } => edit,
+            // A theme tab writes no widget: its specimens are Essentiel's.
+            Mode::Theme { .. } => return crate::document_kind::refused_in_theme_tab(),
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => return self.deck_widget_target(pack, category),
+        };
         let files = self
             .doc
             .sources
@@ -533,6 +538,7 @@ impl Session {
             }
             Mode::Help { .. } => ReadOnlySnafu.fail()?,
             Mode::History { .. } => InHistorySnafu.fail()?,
+            Mode::Theme { .. } => crate::document_kind::refused_in_theme_tab(),
         }
     }
 }

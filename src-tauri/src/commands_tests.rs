@@ -122,10 +122,14 @@ fn broadcast_scheme_read_stays_with_its_window() {
     assert_that!(broadcast(&req(serde_json::json!({"cmd": "scheme"})))).is_none();
 }
 
-/// `open_pack` changes the windows and focuses like `open_tab`; `pack_opener` answers like `messages`.
+/// `open_pack` and `open_theme` change the windows and focus like `open_tab`; `pack_opener` answers like `messages`.
 #[rstest]
 #[case::open_pack(
     serde_json::json!({"cmd": "open_pack", "tab": "t-1", "pack": "6f9619ff-8b86-4011-b42d-00c04fc964ff"}),
+    (true, true)
+)]
+#[case::open_theme(
+    serde_json::json!({"cmd": "open_theme", "tab": "t-1", "theme": "6f9619ff-8b86-4011-b42d-00c04fc964ff"}),
     (true, true)
 )]
 #[case::pack_opener(serde_json::json!({"cmd": "pack_opener", "tab": "t-2"}), (false, false))]

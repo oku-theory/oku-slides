@@ -36,6 +36,14 @@ describe("enregistrement automatique", () => {
     expect(wantsAutosave({ dirty: true, path: null, read_only: false, editing: { leased: false } }, false)).toBe(false);
   });
 
+  test("wantsAutosave is true for a dirty leased theme tab", () => {
+    expect(wantsAutosave({ dirty: true, path: null, editing: null, theming: { leased: true, read_only: false } }, false)).toBe(true);
+  });
+
+  test("wantsAutosave is false for a read-only theme tab", () => {
+    expect(wantsAutosave({ dirty: true, path: null, editing: null, theming: { leased: false, read_only: true } }, false)).toBe(false);
+  });
+
   test("wantsAutosave is true for a tab holding its lease", () => {
     expect(wantsAutosave({ dirty: true, path: null, read_only: false, editing: { leased: true } }, false)).toBe(true);
   });

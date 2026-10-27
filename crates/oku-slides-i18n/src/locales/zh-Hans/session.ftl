@@ -25,6 +25,13 @@ session-pack-not-make-current = 演示文稿中 { $pack } 的版本无法成为�
 session-pack-already-current = 演示文稿已在使用您当前版本的 { $pack }。
 session-theme-not-outdated = 演示文稿的主题 { $theme } 并不比您的当前版本旧。
 session-editing-pack = 请先完成包的编辑
+session-theme-open-in-tab = 主题 { $theme } 正在标签页“{ $tab }”中编辑：请在那里编辑，或先关闭该标签页。
+session-wrong-document = { $kind ->
+    [deck] 此标签页显示的是演示文稿：此更改需在主题标签页中进行。
+    [help] 帮助为只读：此更改需在主题标签页中进行。
+    [pack] 此标签页正在编辑一个包：主题在演示文稿的标签页中更改，其取值在主题标签页中更改。
+   *[theme] 此标签页正在编辑一个主题：这里只能更改它的取值、名称以及它扩展的主题。
+}
 session-in-pack-tab = 此标签页正在编辑一个包：关闭它即可完成；演示文稿专用的包从该演示文稿的标签页打开。
 session-pack-open-in-tab = 包 { $pack } 正在标签页“{ $tab }”中编辑：请在那里编辑，或先关闭该标签页。
 session-pack-offer-expired = 演示文稿未更新：在此期间演示文稿或该包的这个版本已更改。
@@ -33,7 +40,6 @@ session-lease-missing = 此包只能由正在编辑它的标签页保存。
 session-not-editing-pack = 当前没有正在编辑的包
 session-pack-mode-slides = 在包模式下，幻灯片就是版式的示例：不能添加、删除、移动或更改其版式
 session-pack-mode-preview = 在包模式下，组件预览幻灯片为只读
-session-theme-choice-alone = 在包模式下，请单独选择主题，然后使用 set_token 编辑其令牌
 session-response = 无法写入响应
 session-unknown-tab = 此标签页已不再打开。
 session-unknown-window = 此窗口已不再打开。
@@ -115,6 +121,7 @@ deck-new-slide-text = 写下你想展示的内容。
 pack-default-name = 我的包
 pack-copy-name = { $name }（副本）
 theme-copy-name = { $name }（变体）
+theme-copy-of = { $name }（副本）
 pack-adopt-label = 包：{ $name }
 session-widgets-broken = 以下小组件无法编译，已排除：{ $names }。包中的其他小组件保留。
 session-widgets-not-saved = 无法将包“{ $pack }”的小组件版本保存到库中。演示文稿仍保留该版本。
@@ -148,6 +155,7 @@ packs-remove = 移除
 packs-add = 从库中添加
 packs-theme-overrides = 演示文稿覆盖：{ $count }
 packs-theme-pick = 演示文稿主题
+packs-theme-open = 打开
 packs-undo-add = 添加包“{ $name }”
 packs-undo-remove = 移除包“{ $name }”
 packs-undo-use-mine = 切换到我的版本
@@ -160,6 +168,8 @@ notice-modified-elsewhere = 此 PDF 在 Oku Slides 之后被其他工具修改�
 notice-open-failed = 无法打开 { $path }：{ $reason }
 notice-tab-resume-failed = 无法恢复此标签页的状态：该状态已另行保存，标签页从空白演示文稿重新开始。
 notice-tab-set-aside = 标签页“{ $name }”来自较早版本的 Oku Slides：其未保存的更改无法恢复，已另行保存，标签页从空白演示文稿重新开始。
+notice-theme-draft-dropped = 此包编辑器来自旧版 Oku Slides：其未保存的主题更改无法保留。现在主题会在单独的标签页中打开。
+notice-theme-edited-elsewhere = 主题 { $theme } 正在标签页“{ $tab }”中编辑：此标签页已在其旁边重新打开，在该标签页关闭前为只读。
 notice-pack-edited-elsewhere = 包 { $pack } 正在标签页“{ $tab }”中编辑：此标签页已在其旁边重新打开，在该标签页关闭前为只读。
 notice-pack-deleted = 包 { $pack } 已不在库中：此标签页为只读；如需保留更改，请让智能体将其另存为新包。
 notice-themes-skipped = 你的库中有些主题来自旧版 Oku Slides：无法读取，不再提供（{ $count }）。
@@ -442,7 +452,6 @@ theme-extends-up = 上移
 theme-extends-down = 下移
 theme-extends-remove = 移除
 theme-extends-add = 添加要继承的主题
-theme-deck-overrides = 演示文稿中的覆盖项，此处不应用：{ $paths }
 theme-section-colors = 颜色
 theme-section-typography = 排版
 theme-section-scripts = 其他文字

@@ -1,8 +1,8 @@
 //! Pack tabs in the workspace: opening a pack from a tab, and its opener.
 //!
-//! An open of pack P runs under P's opening lock (`with_opening`): a second
-//! open of P waits, then finds the first one's tab and focuses it; opens of
-//! other packs never wait on it. Under that lock, the workspace and each
+//! An open of pack P runs under P's opening lock (`with_opening`,
+//! `workspace_opening.rs`): a second open of P waits, then finds the first
+//! one's tab and focuses it; opens of other packs never wait on it. Under that lock, the workspace and each
 //! session are taken in sequence, never nested: a pack tab of P already open
 //! is focused (steps 1-2, `focus_existing`), else the requesting tab routes
 //! the pack (`route_pack`): a deck-only workshop entered in place, or a new
@@ -11,8 +11,7 @@
 //! opening lock held; the user's open asks nothing and makes the requesting
 //! deck the tab's opener, which a close hands the focus back to.
 
-use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex, PoisonError, TryLockError};
+use std::sync::{Mutex, TryLockError};
 
 use serde::Serialize;
 use snafu::OptionExt;
@@ -26,6 +25,9 @@ use crate::deck_offer::DeckOffer;
 use crate::pack_lease::PackLease;
 use crate::pack_tab::{PackRoute, PackWrite};
 
+use super::opening::with_opening;
+#[cfg(test)]
+use super::opening::{opening_entry, opening_waiters};
 use super::{Opening, Result, Slot, TabPlace, UnknownTabSnafu, Workspace, WorkspaceOutcome};
 use crate::TabDocument;
 
@@ -47,43 +49,6 @@ impl std::fmt::Debug for Opener<'_> {
             Self::Agent(_) => "Agent",
         })
     }
-}
-
-/// One opening lock per pack id; the map is a leaf.
-static OPENING: Mutex<BTreeMap<Uuid, Arc<Mutex<()>>>> = Mutex::new(BTreeMap::new());
-
-/// A pack's opening lock, fetched from `OPENING`; its entry goes when unused.
-struct OpeningSlot {
-    /// The pack.
-    pack: Uuid,
-    /// Its lock, cloned under the map lock.
-    arc: Arc<Mutex<()>>,
-}
-
-impl Drop for OpeningSlot {
-    fn drop(&mut self) {
-        // Runs during an unwind too, where a panic would abort: the poison is taken over.
-        let mut map = OPENING.lock().unwrap_or_else(PoisonError::into_inner);
-        // The map's copy plus this one: every clone is taken under the map lock, so nobody waits.
-        if Arc::strong_count(&self.arc) == 2 && map.get(&self.pack).is_some_and(|a| Arc::ptr_eq(a, &self.arc)) {
-            map.remove(&self.pack);
-        }
-    }
-}
-
-/// Runs `f` holding `pack`'s opening lock, then forgets the lock if unused.
-///
-/// # Blocking
-///
-/// Waits for another open of `pack`, its session build included.
-fn with_opening<R>(pack: Uuid, f: impl FnOnce() -> R) -> R {
-    let slot = {
-        let mut map = OPENING.lock().unwrap_or_else(PoisonError::into_inner);
-        OpeningSlot { pack, arc: Arc::clone(map.entry(pack).or_default()) }
-    };
-    // Declared after `slot`: released first.
-    let _held = slot.arc.lock().unwrap_or_else(PoisonError::into_inner);
-    f()
 }
 
 /// How opening a pack went, for `apply`.
@@ -202,7 +167,7 @@ impl Workspace {
             };
             let mut ask = |g: PackGate| gate.as_mut().is_none_or(|gate| gate(g));
             let ctx = OpenCtx { ws, tab, pack, widget, retarget };
-            let (window, candidates) = Self::lock(ws).pack_candidates(tab, pack)?;
+            let (window, candidates) = Self::lock(ws).candidates(tab, &TabDocument::Pack { pack })?;
             if let Some(done) = Self::focus_existing(&ctx, &candidates, &mut ask)? {
                 return Ok(done);
             }
@@ -210,15 +175,14 @@ impl Workspace {
         })
     }
 
-    /// Step 1: `tab`'s window, and the tabs cached as `pack`'s pack tabs.
+    /// Step 1: `tab`'s window, and the tabs cached as editing `wanted` (a pack or a theme).
     ///
     /// Every awake one (ready or busy) first, then at most four dormant ones, in window order.
-    fn pack_candidates(&self, tab: &str, pack: Uuid) -> Result<(String, Vec<String>)> {
+    pub(super) fn candidates(&self, tab: &str, wanted: &TabDocument) -> Result<(String, Vec<String>)> {
         let window = self.opening_window(tab)?;
-        let wanted = TabDocument::Pack { pack };
         let (mut awake, mut dormant) = (Vec::new(), Vec::new());
         for id in self.layout.windows.iter().flat_map(|w| &w.tabs) {
-            let Some(t) = self.tabs.get(id).filter(|t| t.info.document == wanted) else { continue };
+            let Some(t) = self.tabs.get(id).filter(|t| t.info.document == *wanted) else { continue };
             let sleeps = match t.session.try_lock() {
                 Ok(slot) => slot.is_dormant(),
                 Err(TryLockError::Poisoned(p)) => p.into_inner().is_dormant(),
@@ -304,7 +268,7 @@ impl Workspace {
         let lease = match PackLease::acquire(&scope, ctx.pack, &name, &name) {
             Ok(lease) => lease,
             Err(refused) => {
-                let lagging = Self::lock(ctx.ws).live_pack_tab(ctx.pack);
+                let lagging = Self::lock(ctx.ws).live_tab(&TabDocument::Pack { pack: ctx.pack });
                 let focused = match lagging {
                     Some(tab) => Self::focus_candidate(ctx, &tab)?,
                     None => None,
@@ -336,12 +300,11 @@ impl Workspace {
         }
     }
 
-    /// The first tab, in window order, whose live session is `pack`'s pack tab.
+    /// The first tab, in window order, whose live session edits `wanted` (a pack or a theme).
     ///
     /// Read without waiting: an awake slot through `try_lock`, a busy one by
     /// its cached document; a dormant one holds no lease.
-    fn live_pack_tab(&self, pack: Uuid) -> Option<String> {
-        let wanted = TabDocument::Pack { pack };
+    pub(super) fn live_tab(&self, wanted: &TabDocument) -> Option<String> {
         let live = |slot: &Slot| slot.info().map(|i| i.document);
         self.layout.windows.iter().flat_map(|w| &w.tabs).find_map(|id| {
             let t = self.tabs.get(id)?;
@@ -350,7 +313,7 @@ impl Workspace {
                 Err(TryLockError::Poisoned(p)) => live(&p.into_inner()),
                 Err(TryLockError::WouldBlock) => Some(t.info.document.clone()),
             };
-            (document.as_ref() == Some(&wanted)).then(|| id.clone())
+            (document.as_ref() == Some(wanted)).then(|| id.clone())
         })
     }
 
@@ -381,7 +344,7 @@ impl Workspace {
         Ok(Some(OpenerOffer { tab: opener, deck, pack, pack_name: name, version }))
     }
 
-    /// Detaches `tab`; an active pack tab hands the focus back to its opener.
+    /// Detaches `tab`; an active pack or theme tab hands the focus back to its opener.
     ///
     /// Only when the opener is still a tab of the same window; otherwise the neighbour rule.
     pub(super) fn detach_to_opener(&mut self, tab: &str) -> Result<()> {
@@ -400,24 +363,9 @@ impl Workspace {
     }
 }
 
-/// How many opens of `pack` wait on its opening lock.
-///
-/// The clones beyond the map's and its holder's.
-#[cfg(test)]
-pub(super) fn opening_waiters(pack: Uuid) -> usize {
-    let map = OPENING.lock().unwrap_or_else(PoisonError::into_inner);
-    map.get(&pack).map_or(0, |arc| Arc::strong_count(arc).saturating_sub(2))
-}
-
-/// Whether `pack` has an opening entry.
-#[cfg(test)]
-pub(super) fn opening_entry(pack: Uuid) -> bool {
-    OPENING.lock().unwrap_or_else(PoisonError::into_inner).contains_key(&pack)
-}
-
 #[cfg(test)]
 #[path = "workspace_packs_fixtures.rs"]
-mod workspace_packs_fixtures;
+pub(super) mod workspace_packs_fixtures;
 
 #[cfg(test)]
 #[path = "workspace_packs_tests.rs"]

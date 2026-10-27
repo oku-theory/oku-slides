@@ -3,16 +3,17 @@
 //!
 //! - [`Session`] and [`Request`]: one deck (one session per tab).
 //! - [`Workspace`], [`WorkspaceRequest`], [`WorkspaceView`], [`TabInfo`],
-//!   [`TabDocument`]: the windows, the tabs and what each edits (a deck, the
-//!   help or a pack, whose [`PackHost`] is a deck's workshop or its own tab),
-//!   and the resume of the whole.
+//!   [`TabDocument`], [`DocumentKind`]: the windows, the tabs and what each edits (a deck,
+//!   the help, a pack, whose [`PackHost`] is a deck's workshop or its own tab, or a theme
+//!   in its own tab: [`ThemeTab`], [`ThemeTabView`]), and the resume of the whole.
 //!
 //! The agent reaches a tab's session through [`agent::TabSession`], provided by
 //! the host through [`agent::Sessions`] (see [`Workspace::with_session`]).
 //!
-//! The Tauri app and the development server expose the same API. Lock order: a pack's opening lock,
-//! then the workspace, then one session, never the reverse; seven functions take both in sequence:
-//! `Workspace::apply`, `request`, `open_files`, `settle`, `post_notice`, `open_pack_with` and `pack_opener`.
+//! The Tauri app and the development server expose the same API. Lock order: a pack's or theme's opening
+//! lock, then the workspace, then one session, never the reverse; eight functions take both in sequence:
+//! `Workspace::apply`, `request`, `open_files`, `settle`, `post_notice`, `open_pack_with`, `open_theme_ui`
+//! and `pack_opener`.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
@@ -52,6 +53,7 @@ mod deck_packs_panel;
 mod deck_theme;
 mod deck_theme_edit;
 mod deck_widgets;
+mod document_kind;
 mod error;
 mod example_text;
 mod fields;
@@ -109,6 +111,8 @@ mod theme_extends;
 mod theme_panel;
 mod theme_picker;
 pub mod theme_schema;
+mod theme_tab;
+mod theme_tab_save;
 mod undo;
 mod views;
 #[cfg(any(test, feature = "test-support"))]
@@ -131,6 +135,7 @@ pub use deck_packs::{DeckPacksView, Drift};
 pub use deck_packs_panel::{HOST_PACKS, PacksEvent, deck_packs_panel, packs_event};
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
+pub use document_kind::DocumentKind;
 use error::{NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
@@ -156,6 +161,7 @@ pub use theme_edit::{ThemeEdit, ThemeEditView, ThemeParentView};
 pub use theme_extends::ExtendsEdit;
 pub use theme_panel::{THEME_EXTENDS_EVENT, TokenAction, TokenState};
 pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
+pub use theme_tab::{ThemeTab, ThemeTabView};
 pub use views::{
     EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackHost, PackMode, PageHash, PileSection,
     SlideSummary, SlideView, Snapshot, TabInfo, Target, UiState,
@@ -211,9 +217,9 @@ struct DocDefaults {
     author: Option<String>,
 }
 
-/// What the session edits: the deck, or a pack (pack mode) while the deck
-/// waits aside; or what it shows: a version of the deck, read-only, the deck
-/// aside too; or the help, read-only.
+/// What the session edits: the deck, a pack (pack mode) while the deck
+/// waits aside, or a theme over its specimen deck (a theme tab); or what it
+/// shows: a version of the deck, read-only, the deck aside too; or the help, read-only.
 pub(crate) enum Mode {
     Deck,
     /// The shipped help (`help.rs`), in this locale: nothing waits aside.
@@ -226,14 +232,19 @@ pub(crate) enum Mode {
         edit: PackMode,
         /// Draft (trials), reset at each entry.
         scratch: PackScratch,
-        /// The edited theme: its tokens are those of the working deck.
-        theme: ThemeEdit,
-        /// Its base theme changes, tracked for undo.
-        switches: Vec<theme_edit::ThemeSwitch>,
         /// The edited library pack's lease; `None`: read-only until taken.
         lease: Option<pack_lease::PackLease>,
         /// The pack left the library while dormant: read-only for the session's life.
         orphaned: bool,
+    },
+    /// A library theme edited in its own tab: its tokens are the specimen deck's.
+    Theme {
+        /// The draft, its writes' parent and its last write.
+        edit: ThemeTab,
+        /// Its parents' changes, tracked for undo.
+        switches: Vec<theme_edit::ThemeSwitch>,
+        /// The edited theme's lease; `None`: read-only until taken.
+        lease: Option<pack_lease::PackLease>,
     },
     History {
         /// The deck set aside; its images and fonts are lent to the preview.
@@ -509,7 +520,7 @@ impl Session {
     /// Le deck de l'utilisateur, même pendant l'édition d'un pack.
     fn user_deck(&self) -> &Deck {
         match &self.mode {
-            Mode::Deck | Mode::Help { .. } => self.doc.sources.deck(),
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.sources.deck(),
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash.sources.deck(),
         }
     }
@@ -520,7 +531,7 @@ impl Session {
     /// montré, qui les a pris au deck mis de côté (`history.rs`).
     fn user_blobs(&self) -> &SourceBundle {
         match &self.mode {
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => &self.doc.sources,
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Theme { .. } => &self.doc.sources,
             Mode::Pack { stash, .. } => &stash.sources,
         }
     }
@@ -538,7 +549,7 @@ impl Session {
                 let ns = self.edited_pin().map(|(ns, _)| ns);
                 files.zip(ns).map_or_else(Vec::new, |(f, ns)| named(ns, f))
             }
-            Mode::Deck | Mode::Help { .. } => self
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self
                 .user_deck()
                 .all_pins()
                 .filter_map(|(_, ns, pin)| Some(named(ns, self.user_blobs().packs.get(&pin.version)?)))
@@ -550,7 +561,7 @@ impl Session {
 
     fn editing(&self) -> Option<&PackMode> {
         match &self.mode {
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => None,
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Theme { .. } => None,
             Mode::Pack { edit, .. } => Some(edit),
         }
     }
@@ -559,7 +570,7 @@ impl Session {
     /// (pas l'aperçu de l'historique).
     fn unsaved(&self) -> bool {
         match &self.mode {
-            Mode::Deck | Mode::Help { .. } => self.doc.dirty,
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.dirty,
             Mode::Pack { edit, .. } if edit.host == PackHost::Tab => self.doc.dirty,
             Mode::Pack { stash, .. } => self.doc.dirty || stash.dirty,
             Mode::History { stash, .. } => stash.dirty,
@@ -579,15 +590,16 @@ impl Session {
 
     /// What the tab bar shows of this session.
     ///
-    /// A pack tab reports its pack's name and a `Pack` document, a help tab a
-    /// `Help` document. Otherwise, while a pack is edited in the deck or history
-    /// is open, the title and the file stay those of the stashed deck.
+    /// A pack tab reports its pack's name and a `Pack` document, a theme tab
+    /// its theme's and a `Theme` document, a help tab a `Help` document. Otherwise,
+    /// while a pack is edited in the deck or history is open, the title and the
+    /// file stay those of the stashed deck.
     pub fn tab_info(&self) -> TabInfo {
-        if let Some(info) = self.pack_tab_info() {
+        if let Some(info) = self.pack_tab_info().or_else(|| self.theme_tab_info()) {
             return info;
         }
         let deck = match &self.mode {
-            Mode::Deck | Mode::Help { .. } => &self.doc,
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => &self.doc,
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash,
         };
         let document = match self.help() {
@@ -743,6 +755,7 @@ impl Session {
             widgets: self.deck_pins(),
             layouts: &self.user_deck().layouts,
             editing: self.editing_view(),
+            theming: self.theme_tab_view(),
             deck_pack: self.deck_pack_is_deck_only(),
             pack_updates: self.pack_updates(),
             pack_widgets: self.pack_widget_names(),

@@ -299,17 +299,29 @@ impl Session {
     /// Fails if the session is not editable, if an op is rejected (pack mode, core validation), if a
     /// pack cannot be embedded, or if rendering fails: nothing changes then. In pack mode, an
     /// editor without its pack's lease is refused first (`PackOpenInTab`, `UnknownPack`,
-    /// `PackVersionMissing`), and a library write without it too (`LeaseMissing`).
-    pub fn apply(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+    /// `PackVersionMissing`), and a library write without it too (`LeaseMissing`); in a theme
+    /// tab, one without its theme's lease (`ThemeOpenInTab`). Ops that do
+    /// not fit the session's kind are refused before any lease (`WrongDocument`, see `ensure_caller_ops`).
+    pub fn apply(&mut self, label: &str, ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+        // Filtered first: a refused op neither takes the lease nor freezes anything.
+        self.ensure_caller_ops(&ops)?;
         // MCP and the agent reach here without `handle`: a read-only editor changes nothing.
         self.ensure_pack_lease()?;
-        // En mode pack, choisir un thème fait partir le brouillon de ce thème.
-        if let Some(ns) = self.drafted_theme_choice(&ops) {
-            return self.set_edited_theme(&ns?);
-        }
+        self.ensure_theme_lease()?;
+        self.apply_ops(label, ops, merge)
+    }
+
+    /// Applies a rank step of a theme tab's draft (`theme_extends`), past the callers' op filter.
+    pub(crate) fn apply_draft_step(&mut self, label: &str, ops: Vec<Op>) -> Result<()> {
+        self.apply_ops(label, ops, None)
+    }
+
+    /// `apply` once its ops passed the callers' filter.
+    fn apply_ops(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
-        self.ensure_editable()?;
+        // A theme tab's ops are its draft's: `ensure_caller_ops` already kept only those.
+        self.ensure_document_editable()?;
         // Les slides d'aperçu d'un pack de widgets sont en lecture seule ; les
         // slides du deck de travail sont les exemples du pack : leur liste ne change pas.
         self.ensure_no_preview_ops(&ops)?;

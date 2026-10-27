@@ -37,6 +37,8 @@ interface Props {
   onPacks: () => void;
   /** La bande des miniatures sous la scène (montrée, et sa bascule) ; `null` : pas de bande (mode pack). */
   thumbs: { open: boolean; onToggle: () => void } | null;
+  /** A theme tab: nothing to add, no deck packs. */
+  themeTab: boolean;
 }
 
 /** Les outils posés sous la feuille. */
@@ -52,6 +54,7 @@ export function ToolsTray({
   onAdd,
   onPacks,
   thumbs,
+  themeTab,
 }: Props) {
   const undoLabel = snap.undo_label
     ? t("ui-toolbar-undo-label", { label: snap.undo_label })
@@ -59,9 +62,9 @@ export function ToolsTray({
   const redoLabel = snap.redo_label
     ? t("ui-toolbar-redo-label", { label: snap.redo_label })
     : t("ui-toolbar-redo");
-  // Le bouton des packs : en mode deck seulement, ni dans l'aide ni dans l'historique. Une pastille
-  // dit qu'un épinglage est plus ancien que ma version courante.
-  const packsShown = !snap.editing && !snap.read_only && !snap.history;
+  // The packs button: in deck mode only, neither in help, history nor a theme tab. A dot
+  // says a pin is older than my current version.
+  const packsShown = !snap.editing && !themeTab && !snap.read_only && !snap.history;
   const packsUpdate = snap.pack_updates > 0;
   // Avec une mise à jour, le nom accessible et l'infobulle la disent aussi (une seule phrase Fluent).
   const packsLabel = t(packsUpdate ? "ui-toolbar-packs-update" : "ui-toolbar-packs");
@@ -76,7 +79,7 @@ export function ToolsTray({
         aria-label={t("ui-toolbar-add-label")}
         title={t("ui-toolbar-add-label")}
         aria-haspopup="dialog"
-        hidden={widgetActive}
+        hidden={widgetActive || themeTab}
         disabled={!acceptsElements(view?.slide.kind, snap.free_slots)}
         onClick={onAdd}
       >

@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::{action, next_surface, start, wait_event};
+use common::{action, next_surface, start, theme_tab_session, wait_event};
 use oku_slides_a2ui::{ComponentKind, ServerBody};
 use oku_slides_core::Namespace;
 use oku_slides_mcp::{HubErrorKind, McpEvent};
@@ -172,11 +172,14 @@ async fn prune_after_an_outside_theme_change_marks_it_active() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn prune_in_pack_mode_closes_the_picker() {
+async fn prune_in_a_theme_tab_closes_the_picker() {
     let h = start().await;
     show(&h);
-    tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap();
+    // The tab's session becomes a theme tab: a session turns into one only when fresh.
+    let _data = tokio::task::block_in_place(|| {
+        let (_platform, tab, data) = theme_tab_session(oku_slides_session::PAPIER_THEME);
+        *h.session.lock().unwrap() = tab;
+        data
     });
     tokio::task::block_in_place(|| h.hub.prune());
     assert_that!(open(&h)).is_false();

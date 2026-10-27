@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { Op, SlideView, Snapshot, TabApi } from "./api";
 import { escapeAction } from "./agent/keys";
 import type { AgentStatusView } from "./agent/AgentPanel";
-import { appKeyScope } from "./appKeyScope";
+import { appKeyScope, themeTabIgnores } from "./appKeyScope";
 import { findElement, gridPlacement, placeOnGridOps } from "./deck";
 import { moveCell, trackSize } from "./grid";
 import type { HistoryCursor } from "./HistoryBar";
@@ -29,6 +29,8 @@ interface AppKeysContext {
   agentStatus: AgentStatusView;
   dialogOpen: boolean;
   widgetActive: boolean;
+  /** A theme tab: no save keys, no slide or element keys. */
+  themeTab: boolean;
   cutMark: { slide: string; element: string } | null;
   keptUi: KeptUi;
   cursor: HistoryCursor;
@@ -48,7 +50,7 @@ interface AppKeysContext {
 
 /** Les raccourcis de l'onglet, sauf ceux qu'un composant a déjà pris. */
 export function useAppKeys({
-  api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, widgetActive,
+  api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, widgetActive, themeTab,
   cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
   saveCopy, cancelAgent, setEditing, setSelected,
 }: AppKeysContext) {
@@ -68,9 +70,10 @@ export function useAppKeys({
         keptUi.handleKey(e);
         return;
       }
+      if (themeTab && themeTabIgnores(e)) return;
       const mod = e.metaKey || e.ctrlKey;
       const presentMode = presentShortcut(e);
-      if (presentMode && !snap?.editing && !snap?.history) {
+      if (presentMode && !snap?.editing && !themeTab && !snap?.history) {
         e.preventDefault();
         present(presentMode);
         return;

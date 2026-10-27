@@ -20,7 +20,7 @@ use crate::library_kind::StoredVersion;
 use crate::pack::PackManifest;
 use crate::pack_lease::{PackLease, covers, pack_leased};
 use crate::pack_receive::{deck_scope, is_library_pack};
-use crate::views::PackHost;
+use crate::views::{EditingView, PackHost};
 use crate::{Mode, PackLibrary, PackMode, Result, Session};
 
 /// What entering a workshop does with the lease.
@@ -47,10 +47,13 @@ impl Settled {
 
 impl Session {
     /// The title of the deck this session edits, as a label: a workshop's holder.
+    ///
+    /// A theme tab holds no deck: its theme's name stands for it.
     fn deck_label(&self) -> String {
         let deck = match &self.mode {
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash,
             Mode::Deck | Mode::Help { .. } => &self.doc,
+            Mode::Theme { edit, .. } => return label(&edit.draft.name),
         };
         label(&self.document_name(deck))
     }
@@ -157,6 +160,13 @@ impl Session {
         (read_only, !needs || covered)
     }
 
+    /// Pack mode for the snapshot: the edited pack and its lease flags.
+    pub(crate) fn editing_view(&self) -> Option<EditingView<'_>> {
+        let Mode::Pack { edit, .. } = &self.mode else { return None };
+        let (read_only, leased) = self.edit_flags();
+        Some(EditingView { mode: edit, read_only, leased, display_name: label(&edit.name) })
+    }
+
     /// Takes the edited pack's lease before a write, if this editor lacks it.
     ///
     /// Only in pack mode. A pack the library no longer lists marks the editor
@@ -239,8 +249,10 @@ impl Session {
     }
 
     /// The body of `set_pack_dirs`: a new library, refused in pack mode.
+    ///
+    /// A pack lease's scope is the current pack library's: pack mode is
+    /// refused. A theme tab's lease is the theme library's, which stays: it is kept.
     pub(crate) fn move_pack_dirs(&mut self, widgets: PathBuf, layouts: PathBuf) -> Result<()> {
-        // Only pack mode holds a lease, whose scope is the current library's.
         ensure!(!matches!(self.mode, Mode::Pack { .. }), EditingPackSnafu);
         let themes = self.themes.clone();
         self.library = PackLibrary::new(Some(widgets), Some(layouts), themes, self.storage.clone());

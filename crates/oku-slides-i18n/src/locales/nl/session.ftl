@@ -25,6 +25,13 @@ session-pack-not-make-current = De versie van { $pack } in de presentatie kan ni
 session-pack-already-current = De presentatie gebruikt al uw huidige versie van { $pack }.
 session-theme-not-outdated = Het thema { $theme } van de presentatie is niet ouder dan uw huidige versie.
 session-editing-pack = Rond eerst het bewerken van het pakket af
+session-theme-open-in-tab = Het thema { $theme } wordt bewerkt in het tabblad ‘{ $tab }’: bewerk het daar, of sluit eerst dat tabblad.
+session-wrong-document = { $kind ->
+    [deck] Dit tabblad toont een presentatie: die wijziging gebeurt in een thematabblad.
+    [help] De help is alleen-lezen: die wijziging gebeurt in een thematabblad.
+    [pack] Dit tabblad bewerkt een pakket: het thema wijzigt in het tabblad van de presentatie, de waarden ervan in een thematabblad.
+   *[theme] Dit tabblad bewerkt een thema: hier wijzigen alleen de waarden, de naam en de thema's die het uitbreidt.
+}
 session-in-pack-tab = Dit tabblad bewerkt een pakket: sluit het om af te ronden; pakketten van één presentatie openen vanuit het tabblad van die presentatie.
 session-pack-open-in-tab = Het pakket { $pack } wordt bewerkt in het tabblad ‘{ $tab }’: bewerk het daar, of sluit eerst dat tabblad.
 session-pack-offer-expired = De presentatie is niet bijgewerkt: de presentatie of die versie van het pakket is intussen veranderd.
@@ -33,7 +40,6 @@ session-lease-missing = Dit pakket kan alleen worden opgeslagen door het tabblad
 session-not-editing-pack = Er wordt geen pakket bewerkt
 session-pack-mode-slides = In de pakketmodus zijn de dia's de voorbeelden van de lay-outs: ze kunnen niet worden toegevoegd, verwijderd, verplaatst of van lay-out veranderen
 session-pack-mode-preview = In de pakketmodus zijn de voorbeelddia's van de widgets alleen-lezen
-session-theme-choice-alone = Kies in de pakketmodus het thema afzonderlijk en bewerk daarna de tokens met set_token
 session-response = Het antwoord kon niet worden geschreven
 session-unknown-tab = Dit tabblad is niet meer geopend.
 session-unknown-window = Dit venster is niet meer geopend.
@@ -115,6 +121,7 @@ deck-new-slide-text = Zeg wat je wilt laten zien.
 pack-default-name = Mijn pakket
 pack-copy-name = { $name } (kopie)
 theme-copy-name = { $name } (variant)
+theme-copy-of = { $name } (kopie)
 pack-adopt-label = Pakket: { $name }
 session-widgets-broken = Widgets weggelaten omdat ze niet compileren: { $names }. De andere widgets van het pakket blijven.
 session-widgets-not-saved = De widgetversie van het pakket ‘{ $pack }’ kon niet in de bibliotheek worden opgeslagen. De presentatie behoudt haar.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } aanpassingen van de presentatie
 }
 packs-theme-pick = Thema van de presentatie
+packs-theme-open = Openen
 packs-undo-add = Pakket “{ $name }” toevoegen
 packs-undo-remove = Pakket “{ $name }” verwijderen
 packs-undo-use-mine = Naar mijn versie overschakelen
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Deze pdf is na Oku Slides door een ander programma g
 notice-open-failed = { $path } kon niet worden geopend: { $reason }
 notice-tab-resume-failed = De toestand van dit tabblad kon niet worden hersteld: die is apart gezet en het tabblad begint opnieuw met een lege presentatie.
 notice-tab-set-aside = Het tabblad ‘{ $name }’ komt uit een oudere versie van Oku Slides: de niet-opgeslagen wijzigingen konden niet worden hersteld en zijn apart gezet, en het tabblad begint opnieuw met een lege presentatie.
+notice-theme-draft-dropped = Deze pakketeditor komt uit een oudere versie van Oku Slides: de niet-opgeslagen themawijzigingen konden niet worden bewaard. Een thema opent nu in een eigen tabblad.
+notice-theme-edited-elsewhere = Het thema { $theme } wordt bewerkt in het tabblad ‘{ $tab }’: dit tabblad is ernaast heropend, alleen-lezen tot dat tabblad sluit.
 notice-pack-edited-elsewhere = Het pakket { $pack } wordt bewerkt in het tabblad ‘{ $tab }’: dit tabblad is ernaast heropend, alleen-lezen tot dat tabblad sluit.
 notice-pack-deleted = Het pakket { $pack } staat niet meer in de bibliotheek: dit tabblad is alleen-lezen; vraag de agent het als nieuw pakket op te slaan om je wijzigingen te bewaren.
 notice-themes-skipped = Sommige thema's in je bibliotheek komen uit een oudere versie van Oku Slides: ze konden niet worden gelezen en worden niet aangeboden ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Omhoog
 theme-extends-down = Omlaag
 theme-extends-remove = Verwijderen
 theme-extends-add = Uit te breiden thema toevoegen
-theme-deck-overrides = Overschrijvingen in de presentatie, hier niet toegepast: { $paths }
 theme-section-colors = Kleuren
 theme-section-typography = Typografie
 theme-section-scripts = Andere schriften

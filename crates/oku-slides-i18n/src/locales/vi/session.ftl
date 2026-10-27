@@ -25,6 +25,13 @@ session-pack-not-make-current = Phiên bản { $pack } trong bản trình bày k
 session-pack-already-current = Bản trình bày đã dùng phiên bản hiện tại của bạn cho { $pack }.
 session-theme-not-outdated = Chủ đề { $theme } của bản trình bày không cũ hơn phiên bản hiện tại của bạn.
 session-editing-pack = Hãy hoàn tất chỉnh sửa gói trước
+session-theme-open-in-tab = Chủ đề { $theme } đang được chỉnh sửa trong thẻ “{ $tab }”: hãy chỉnh sửa ở đó, hoặc đóng thẻ đó trước.
+session-wrong-document = { $kind ->
+    [deck] Thẻ này hiển thị một bản trình bày: thay đổi đó được thực hiện trong một thẻ chủ đề.
+    [help] Trợ giúp chỉ để đọc: thay đổi đó được thực hiện trong một thẻ chủ đề.
+    [pack] Thẻ này đang chỉnh sửa một gói: chủ đề được đổi trong thẻ của bản trình bày, còn các giá trị của nó trong một thẻ chủ đề.
+   *[theme] Thẻ này đang chỉnh sửa một chủ đề: ở đây chỉ thay đổi các giá trị, tên và các chủ đề mà nó mở rộng.
+}
 session-in-pack-tab = Thẻ này đang chỉnh sửa một gói: hãy đóng thẻ để hoàn tất; các gói riêng của một bản trình bày mở từ thẻ của bản trình bày đó.
 session-pack-open-in-tab = Gói { $pack } đang được chỉnh sửa trong thẻ “{ $tab }”: hãy chỉnh sửa ở đó, hoặc đóng thẻ đó trước.
 session-pack-offer-expired = Bản trình bày chưa được cập nhật: trong lúc đó bản trình bày hoặc phiên bản đó của gói đã thay đổi.
@@ -33,7 +40,6 @@ session-lease-missing = Gói này chỉ có thể được lưu bởi thẻ đan
 session-not-editing-pack = Không có gói nào đang được chỉnh sửa
 session-pack-mode-slides = Trong chế độ gói, các trang chiếu là ví dụ của bố cục: không thể thêm, xóa, di chuyển hay đổi bố cục của chúng
 session-pack-mode-preview = Trong chế độ gói, các trang chiếu xem trước tiện ích chỉ để đọc
-session-theme-choice-alone = Trong chế độ gói, hãy chọn chủ đề riêng, rồi chỉnh sửa các token của nó bằng set_token
 session-response = Không thể ghi phản hồi
 session-unknown-tab = Thẻ này không còn mở nữa.
 session-unknown-window = Cửa sổ này không còn mở nữa.
@@ -115,6 +121,7 @@ deck-new-slide-text = Hãy nói điều bạn muốn trình bày.
 pack-default-name = Gói của tôi
 pack-copy-name = { $name } (bản sao)
 theme-copy-name = { $name } (biến thể)
+theme-copy-of = { $name } (bản sao)
 pack-adopt-label = Gói: { $name }
 session-widgets-broken = Đã bỏ qua các widget không biên dịch được: { $names }. Các widget khác của gói vẫn được giữ.
 session-widgets-not-saved = Không thể lưu phiên bản widget của gói “{ $pack }” vào thư viện. Bản trình bày vẫn giữ phiên bản này.
@@ -148,6 +155,7 @@ packs-remove = Gỡ bỏ
 packs-add = Thêm từ thư viện
 packs-theme-overrides = Tùy chỉnh của bản trình bày: { $count }
 packs-theme-pick = Chủ đề của bản trình bày
+packs-theme-open = Mở
 packs-undo-add = Thêm gói “{ $name }”
 packs-undo-remove = Gỡ gói “{ $name }”
 packs-undo-use-mine = Chuyển sang phiên bản của tôi
@@ -160,6 +168,8 @@ notice-modified-elsewhere = PDF này đã bị công cụ khác sửa đổi sau
 notice-open-failed = Không thể mở { $path }: { $reason }
 notice-tab-resume-failed = Không thể khôi phục trạng thái của thẻ này: trạng thái đã được để riêng, và thẻ bắt đầu lại với một bản trình bày trống.
 notice-tab-set-aside = Thẻ “{ $name }” được tạo bởi phiên bản cũ hơn của Oku Slides: không thể khôi phục các thay đổi chưa lưu nên chúng đã được để riêng, và thẻ bắt đầu lại với một bản trình bày trống.
+notice-theme-draft-dropped = Trình chỉnh sửa gói này đến từ một phiên bản Oku Slides cũ hơn: không thể giữ lại các thay đổi chủ đề chưa lưu. Giờ đây một chủ đề mở trong thẻ riêng của nó.
+notice-theme-edited-elsewhere = Chủ đề { $theme } đang được chỉnh sửa trong thẻ “{ $tab }”: thẻ này đã mở lại bên cạnh, chỉ đọc cho đến khi thẻ đó đóng.
 notice-pack-edited-elsewhere = Gói { $pack } đang được chỉnh sửa trong thẻ “{ $tab }”: thẻ này đã mở lại bên cạnh, chỉ đọc cho đến khi thẻ đó đóng.
 notice-pack-deleted = Gói { $pack } không còn trong thư viện: thẻ này chỉ đọc; hãy nhờ tác nhân AI lưu nó thành một gói mới để giữ các thay đổi của bạn.
 notice-themes-skipped = Một số chủ đề trong thư viện của bạn đến từ phiên bản cũ hơn của Oku Slides: không đọc được và không được đề xuất ({ $count }).
@@ -442,7 +452,6 @@ theme-extends-up = Chuyển lên
 theme-extends-down = Chuyển xuống
 theme-extends-remove = Bỏ
 theme-extends-add = Thêm chủ đề để mở rộng
-theme-deck-overrides = Giá trị ghi đè trong bản trình bày, không áp dụng ở đây: { $paths }
 theme-section-colors = Màu sắc
 theme-section-typography = Kiểu chữ
 theme-section-scripts = Hệ chữ khác

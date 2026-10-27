@@ -1,13 +1,12 @@
 /**
- * Panneau de l'onglet « Thème » du mode pack, à droite de la scène : le thème
- * de base du brouillon, son nom, la marque non enregistré, puis les jetons
- * (surface `host-theme`, filtrée par son propre champ).
+ * A theme tab's panel, right of the stage: its title, the draft's name, the
+ * unsaved mark, then its tokens (surface `host-theme`, filtered by its own
+ * field). A theme tab never changes which theme it edits: there is no base picker.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Snapshot, TabApi } from "./api";
 import HostSettings from "./HostSettings";
 import { t } from "./i18n";
-import ThemeMenu from "./ThemeMenu";
 import { useThemeSettings } from "./useThemeSettings";
 
 interface Props {
@@ -21,7 +20,7 @@ export default function ThemePanel({ api, snap, run, say }: Props) {
   // Le filtre saisi dans la surface : gardé ici, renvoyé à la session à chaque relecture.
   const [filter, setFilter] = useState("");
   const settings = useThemeSettings(api, snap, filter, run, say, setFilter);
-  const theme = snap.editing?.theme ?? null;
+  const theme = snap.theming?.theme ?? null;
   const name = theme?.name ?? "";
   const [draft, setDraft] = useState(name);
   // Le nom déjà envoyé : Entrée puis la sortie du champ ne le renvoient pas.
@@ -45,19 +44,10 @@ export default function ThemePanel({ api, snap, run, say }: Props) {
   };
 
   return (
-    <section id="theme-panel" role="tabpanel" aria-labelledby="widget-tab-theme" className="theme-panel">
-      {theme && (
-        <div className="theme-panel-head">
-          <ThemeMenu
-            theme={theme.namespace}
-            themeName={theme.name}
-            themes={snap.themes}
-            label={t("ui-theme-picker")}
-            onPick={(ns) => {
-              const picked = snap.themes.find((th) => th.namespace === ns);
-              if (picked) void run(api.setEditedTheme(picked.id));
-            }}
-          />
+    <section id="theme-panel" role="region" aria-labelledby="theme-panel-title" className="theme-panel">
+      <div className="theme-panel-head">
+        <h2 id="theme-panel-title" className="theme-panel-title">{t("ui-tab-theme")}</h2>
+        {theme && (
           <label className="note-field">
             <span className="caption">
               {t("ui-theme-name")}
@@ -75,8 +65,8 @@ export default function ThemePanel({ api, snap, run, say }: Props) {
               }}
             />
           </label>
-        </div>
-      )}
+        )}
+      </div>
       {settings.surface && <HostSettings surface={settings.surface} onAction={settings.onAction} outcome={settings.outcome} onError={(m) => say(m, true)} />}
     </section>
   );

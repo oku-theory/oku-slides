@@ -16,6 +16,8 @@ interface Saveable {
    * the tab may write it (it holds the lease, or needs none).
    */
   editing: { leased: boolean } | null;
+  /** A theme tab's draft: saved only while the tab holds its theme's lease. */
+  theming?: { leased: boolean } | null;
   /** Historique ouvert : la version montrée n'est qu'un aperçu. */
   history?: unknown;
 }
@@ -25,11 +27,13 @@ interface Saveable {
  * folder); a modified pack, built-in included: one version per editing session, created at the
  * first save then replaced. `paused`: a save was refused (file replaced). Never while history
  * is open (the session would refuse; the deck set aside saves when it closes), and never for a
- * pack without its lease (fail closed): such a tab would make its pre-restart work current on
- * its own once the holder closes.
+ * pack or theme without its lease (fail closed): such a tab would make its pre-restart work
+ * current on its own once the holder closes.
  */
 export function wantsAutosave(s: Saveable, paused: boolean): boolean {
-  return !paused && s.dirty && !s.history && (s.editing === null || s.editing.leased === true);
+  if (paused || !s.dirty || s.history) return false;
+  if (s.theming) return s.theming.leased === true;
+  return s.editing === null || s.editing.leased === true;
 }
 
 /** Enregistrements différés : `schedule` à chaque modification, `flush` avant de partir. */

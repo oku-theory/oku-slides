@@ -53,14 +53,15 @@ impl Session {
     /// Le deck de l'utilisateur, mis de côté ou non : celui dont le tour groupe les étapes.
     fn turn_deck_steps(&self) -> u64 {
         match &self.mode {
-            Mode::Deck | Mode::Help { .. } => self.doc.sources.undo_steps(),
+            // A theme tab's own document is the one its turns change.
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.sources.undo_steps(),
             Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash.sources.undo_steps(),
         }
     }
 
     /// Note l'ouverture du tour `turn` ; seul un tour ouvert sur le deck peut s'annuler depuis son reçu.
     pub(super) fn turn_steps_begin(&mut self, turn: u32) {
-        if matches!(self.mode, Mode::Deck) {
+        if matches!(self.mode, Mode::Deck | Mode::Theme { .. }) {
             let steps = self.turn_deck_steps();
             self.turn_steps.begin(turn, steps);
         }
@@ -76,7 +77,7 @@ impl Session {
     ///
     /// `None` hors du mode deck : le mode pack et l'historique ont leur propre annuler.
     pub fn undo_turn(&self) -> Option<u32> {
-        if !matches!(self.mode, Mode::Deck) {
+        if !matches!(self.mode, Mode::Deck | Mode::Theme { .. }) {
             return None;
         }
         self.turn_steps.owner(self.doc.sources.replica().undo_step()?)
@@ -89,7 +90,7 @@ impl Session {
     /// Fails if the session is not editable, if the turn is no longer on top of the stack
     /// (`TurnNotOnTop`), or if the undo fails.
     pub fn undo_agent_turn(&mut self, turn: u32) -> Result<()> {
-        self.ensure_editable()?;
+        self.ensure_document_editable()?;
         ensure!(self.undo_turn() == Some(turn), TurnNotOnTopSnafu { turn });
         self.undo()
     }

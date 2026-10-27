@@ -95,6 +95,8 @@ pub struct PinnedPackView {
 /// Le thème du deck dans le panneau.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ThemeSectionView {
+    /// The id of the deck's theme pin; `None` without one (no "Open" button).
+    pub id: Option<Uuid>,
     /// L'espace de noms du thème avec lequel le deck se rend.
     pub active: Namespace,
     /// Son nom.
@@ -412,6 +414,7 @@ impl Session {
         let extends = deck.themes.get(&active).map(|pin| pin.extends.iter().map(named).collect()).unwrap_or_default();
         let overrides = deck.tokens.as_object().map_or(0, |t| token_paths(&self.token_schema(deck), t).len());
         Ok(ThemeSectionView {
+            id: self.deck_theme_pin().map(|pin| pin.id),
             name: named(&active),
             active,
             extends,

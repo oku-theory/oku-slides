@@ -1,5 +1,6 @@
 // The workshop no longer opens from the menu: the agent opens it (tool `edit_pack`, t-988), in a
 // pack tab of its own for a library pack. The fake agent plays the `ouvre l'atelier` turn of fixtures/agent/e2e.json.
+// A theme opens in its own tab, from the theme row of "Packs du deck" (openThemeTab).
 const assert = require('node:assert/strict');
 const { post, activeTab } = require('./http.cjs');
 const { logOffset, mcpResults } = require('./agentLog.cjs');
@@ -36,21 +37,51 @@ async function openAtelier(p, tab) {
 }
 
 /**
- * Closes every pack tab over HTTP (idempotent): `t-1` active first and the page reloaded, so no
- * App of a pack tab is mounted; a dirty one is saved first (an HTTP-dirtied or inactive tab never
- * autosaves), then closed with discard. Reloads the page at the end.
+ * Closes every pack and theme tab over HTTP (idempotent): `t-1` active first and the page
+ * reloaded, so no App of such a tab is mounted; a dirty one is saved first (save_pack or
+ * save_theme: an HTTP-dirtied or inactive tab never autosaves), then closed with discard.
+ * Reloads the page at the end.
  */
 async function closePackTabs(p) {
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
-  const tabs = (await view(p)).windows.flatMap((w) => w.tabs).filter((x) => x.document.kind === 'pack');
-  for (const { id } of tabs) {
-    if ((await snapshot(p, id)).dirty) await post(p, '/api', { tab: id, req: { cmd: 'save_pack', as_new: false } });
-    await untilValue(p, async () => (await snapshot(p, id)).dirty, (dirty) => dirty === false, `l'onglet de pack ${id} reste modifié`, 10_000);
+  const tabs = (await view(p)).windows.flatMap((w) => w.tabs).filter((x) => x.document.kind === 'pack' || x.document.kind === 'theme');
+  for (const { id, document } of tabs) {
+    const save = document.kind === 'pack' ? { cmd: 'save_pack', as_new: false } : { cmd: 'save_theme', as_new: false };
+    if ((await snapshot(p, id)).dirty) await post(p, '/api', { tab: id, req: save });
+    await untilValue(p, async () => (await snapshot(p, id)).dirty, (dirty) => dirty === false, `l'onglet ${document.kind} ${id} reste modifié`, 10_000);
     const closed = await post(p, '/api/workspace', { cmd: 'close', tab: id, discard: true });
-    assert.equal(closed.error, undefined, `fermeture de l'onglet de pack ${id} refusée : ${closed.error}`);
+    assert.equal(closed.error, undefined, `fermeture de l'onglet ${document.kind} ${id} refusée : ${closed.error}`);
   }
   await p.reload();
+}
+
+/**
+ * Opens a theme tab from `tab` and returns it: over HTTP for `theme` (an id), else by the
+ * "Ouvrir" button on the theme row of `tab`'s "Packs du deck" (opened from the toolbar). Waits
+ * for an active theme tab, then reloads the page (serve pushes no view) and waits for its panel.
+ * The packs panel stays in `tab`'s dock: `closePacksPanel` closes it once back there.
+ */
+async function openThemeTab(p, tab, theme = null) {
+  if (theme) {
+    const v = await post(p, '/api/workspace', { cmd: 'open_theme', tab, theme });
+    assert.equal(v.error, undefined, `open_theme refusé : ${v.error}`);
+  } else {
+    await post(p, '/api/workspace', { cmd: 'activate', tab });
+    await p.reload();
+    await p.getByRole('button', { name: /^Packs du deck/ }).click();
+    await p.locator('[data-surface-id="host-packs"]').getByRole('button', { name: 'Ouvrir', exact: true }).click();
+  }
+  let opened = null;
+  await until(p, async () => {
+    const win = (await view(p)).windows[0];
+    const active = win.tabs.find((x) => x.id === win.active);
+    if (active && active.id !== tab && active.document.kind === 'theme') opened = active.id;
+    return opened !== null;
+  }, `aucun onglet de thème ne s'ouvre depuis ${tab}`, SLOW);
+  await p.reload();
+  await p.waitForSelector('#theme-panel [data-surface-id="host-theme"]');
+  return opened;
 }
 
 /** Opens pack `pack` from tab `from` over HTTP, as a widget click does; returns its tab, read in the view. */
@@ -72,4 +103,15 @@ async function openEssentiel(p) {
   return tab;
 }
 
-module.exports = { openAtelier, closePackTabs, openPackTab, openEssentiel };
+/**
+ * Closes the "Packs du deck" panel that `openThemeTab` left in the opener's dock, once back on the opener.
+ * Later specs expect an empty dock.
+ */
+async function closePacksPanel(p) {
+  const panel = p.locator('.agent-dock [data-surface-id="host-packs"]');
+  await panel.waitFor();
+  await panel.locator('[data-component-id="close"]').getByRole('button').click();
+  await panel.waitFor({ state: 'detached' });
+}
+
+module.exports = { openAtelier, closePackTabs, openPackTab, openEssentiel, openThemeTab, closePacksPanel };

@@ -10,6 +10,8 @@ import type { PresentMode } from "./present";
 interface Props {
   /** Mode pack : ni présenter ni ouvrir. */
   packMode: boolean;
+  /** A theme tab: no deck entries either (present, open). */
+  themeTab: boolean;
   /** Lance la présentation. */
   present: (mode: PresentMode) => void;
   /** Ouvre un fichier. */
@@ -21,12 +23,12 @@ interface Props {
 }
 
 /** Le menu principal : gestes plus rapides que la voix, mises à jour et aide. */
-export function AppMenu({ packMode, present, open, onHelp, onCheckUpdates }: Props) {
+export function AppMenu({ packMode, themeTab, present, open, onHelp, onCheckUpdates }: Props) {
   const app: MenuEntry[] = [
     ...(onCheckUpdates ? [{ label: t("ui-update-check"), onSelect: onCheckUpdates }] : []),
     { label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
   ];
-  const menuEntries: MenuEntry[] = packMode
+  const menuEntries: MenuEntry[] = packMode || themeTab
     ? app
     : [
         { label: t("ui-present-screen"), shortcut: "⌘↩", onSelect: () => present("screen") },

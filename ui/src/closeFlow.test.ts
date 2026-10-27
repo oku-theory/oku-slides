@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { closeFlowDeps, closeTabFlow } from "./closeFlow";
 import { isolate, setMessages } from "./i18n";
-import { OFFER, T0, deferred, fake, packEditing, snap, tabOf } from "./test/closeFlowFake";
+import { OFFER, T0, deferred, fake, packEditing, snap, tabOf, themeTabOf, themeTabView } from "./test/closeFlowFake";
 import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -213,6 +213,39 @@ describe("closeTabFlow, live state", () => {
     expect(await closeTabFlow("a", f.deps())).toBe(true);
     expect(f.log.at(-1)).toBe("close a true");
     expect(f.log.filter((l) => l.startsWith("opener") || l.startsWith("guard"))).toEqual(["guard a"]);
+  });
+});
+
+describe("closeTabFlow, theme tabs", () => {
+  const ASK_QUIT_THEME = "confirm Quit without saving the modified theme?";
+
+  test("a kept theme tab saves its theme and closes without an opener offer", async () => {
+    const f = fake([themeTabOf("a", true)]);
+    let saved = false;
+    f.state.snapshot = async () => snap({ dirty: !saved, theming: themeTabView() });
+    f.state.saveTheme = async () => {
+      saved = true;
+      f.state.tabs = [themeTabOf("a", false)];
+      return null;
+    };
+    f.state.offer = OFFER;
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "saveTheme a", "snapshot a", "guard a", "fresh", "close a false"]);
+  });
+
+  test("a theme tab snapshot rejection tries saveTheme before offering to discard", async () => {
+    const f = fake([themeTabOf("a", true)]);
+    f.state.snapshot = () => Promise.reject(new Error("rendu"));
+    f.state.saveTheme = () => Promise.reject(new Error("rendu"));
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "report rendu", "fresh", "saveTheme a", ASK_QUIT_THEME, "close a true"]);
+  });
+
+  test("a theme tab snapshot rejection whose saveTheme resolves closes with keep", async () => {
+    const f = fake([themeTabOf("a", true)]);
+    f.state.snapshot = () => Promise.reject(new Error("rendu"));
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "report rendu", "fresh", "saveTheme a", "close a false"]);
   });
 });
 

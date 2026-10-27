@@ -72,6 +72,11 @@ pub(super) enum Opening {
         /// A widget whose sub-tab opens.
         widget: Option<String>,
     },
+    /// A theme tab; its lease is passed to [`Pending::build_theme`].
+    Theme {
+        /// The theme the new tab edits.
+        theme: uuid::Uuid,
+    },
 }
 
 /// L'import qu'un onglet à créer montrera.
@@ -128,8 +133,8 @@ impl Pending {
                 let name = i.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
                 session.load_import(imported, &name)?;
             }
-            // Only `build_pack` builds a pack tab: it needs a seed and a lease.
-            Opening::Pack { .. } => return PackTabNotFreshSnafu.fail()?,
+            // Only `build_pack` and `build_theme` build these tabs: they are given their lease.
+            Opening::Pack { .. } | Opening::Theme { .. } => return PackTabNotFreshSnafu.fail()?,
         }
         self.arm_resume(&mut session);
         Ok(session)
@@ -148,6 +153,23 @@ impl Pending {
         let Opening::Pack { pack, widget } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
         let mut session = tab_session(&self.fonts, &self.platform)?;
         session.init_pack_tab(seed, lease, *pack, widget.as_deref())?;
+        self.arm_resume(&mut session);
+        Ok(session)
+    }
+
+    /// Builds this pending theme tab, holding `lease` if given.
+    ///
+    /// # Errors
+    ///
+    /// `PackTabNotFresh` unless the opening is `Opening::Theme`; the `init_theme_tab` errors.
+    ///
+    /// # Blocking
+    ///
+    /// Builds a session, renders the specimen deck and freezes the theme's base.
+    pub(super) fn build_theme(&self, lease: Option<PackLease>) -> Result<Session> {
+        let Opening::Theme { theme } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
+        let mut session = tab_session(&self.fonts, &self.platform)?;
+        session.init_theme_tab(lease, *theme)?;
         self.arm_resume(&mut session);
         Ok(session)
     }
@@ -248,9 +270,9 @@ impl Workspace {
         // Le même fichier a pu être ouvert pendant la construction (Finder et
         // seconde instance, double clic) : le premier onglet reste, seul.
         // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
-        // A pack has no dedupe here: its opening lock and single lease forbid a second tab.
+        // A pack or theme has no dedupe here: its opening lock and single lease forbid a second tab.
         let existing = match &opening {
-            Opening::Blank | Opening::Import(_) | Opening::Pack { .. } => None,
+            Opening::Blank | Opening::Import(_) | Opening::Pack { .. } | Opening::Theme { .. } => None,
             Opening::File(path) => w.tab_with_path(path),
             Opening::Help { locale, .. } => w.tab_with_help(locale),
         };
@@ -378,6 +400,7 @@ impl Workspace {
             | WorkspaceRequest::NewWindow
             | WorkspaceRequest::ImportPicked { .. }
             | WorkspaceRequest::OpenPack { .. }
+            | WorkspaceRequest::OpenTheme { .. }
             | WorkspaceRequest::PackOpener { .. }
             // Traitée directement dans `apply` (décision atomique de la
             // dernière fenêtre, sous le même verrou) : jamais atteinte ici.

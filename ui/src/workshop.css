@@ -1,5 +1,5 @@
-/* Mode pack (l'atelier) : widgets, sous-onglets, bande des réglages de l'hôte, onglet « Thème ».
-   Suite de styles.css, chargée juste après lui et avant glass.css (main.tsx). */
+/* Pack mode (the workshop): widgets, sub-tabs, the host settings strip; a theme tab's panel.
+   Follows styles.css, loaded right after it and before glass.css (main.tsx). */
 
 /* Widgets : pastilles d'état et éditeur Typst. */
 .pill { flex: none; width: 8px; height: 8px; border-radius: 50%; }
@@ -156,12 +156,13 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .widget-pane > .widget-tab { flex: 1; }
 .stage-panel[hidden], .widget-pane[hidden], .add-button[hidden], .tools-sep[hidden] { display: none; }
 
-/* Onglet « Thème » : les jetons dans la colonne de droite ; le fil de l'agent y reste monté, caché. */
+/* A theme tab: the tokens in the right column; the agent thread stays mounted there, hidden. */
 .notes.theme-active > :not(.theme-panel) { display: none; }
 .theme-panel { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; padding-bottom: var(--space-6); }
 .theme-panel-head {
   display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4);
   background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object);
 }
+.theme-panel-title { margin: 0; font: inherit; font-weight: 600; }
 .theme-panel-head .caption { display: flex; align-items: center; gap: var(--space-2); }
 .theme-panel > .host-settings { width: auto; }

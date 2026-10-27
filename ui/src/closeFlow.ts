@@ -139,21 +139,23 @@ function isPackTab(tab: TabInfo, snap: Snapshot | null): boolean {
 type Unread = "keep" | "discard" | null | "gone";
 
 /**
- * After the live snapshot of `id` could not be read: a tab still of kind pack tries savePack
- * ("keep" when it resolves), else asks to quit without saving ("discard" on yes); any other
- * tab stays (null).
+ * After the live snapshot of `id` could not be read: a tab still of kind pack tries savePack,
+ * one of kind theme saveTheme ("keep" when it resolves), else asks to quit without saving
+ * ("discard" on yes); any other tab stays (null).
  */
 async function unreadVerdict(id: string, error: unknown, deps: CloseFlowDeps): Promise<Unread> {
   deps.report(error);
   // The wake attempt refreshed the cached info.
   const again = await findTab(id, deps);
   if (!again) return "gone";
-  if (again.document?.kind !== "pack") return null;
+  const kind = again.document?.kind;
+  if (kind !== "pack" && kind !== "theme") return null;
   try {
-    await deps.tabApi(id).savePack();
+    if (kind === "pack") await deps.tabApi(id).savePack();
+    else await deps.tabApi(id).saveTheme();
     return "keep";
   } catch {
-    return deps.confirm(t("ui-confirm-quit-pack")) ? "discard" : null;
+    return deps.confirm(t(kind === "pack" ? "ui-confirm-quit-pack" : "ui-confirm-quit-theme")) ? "discard" : null;
   }
 }
 

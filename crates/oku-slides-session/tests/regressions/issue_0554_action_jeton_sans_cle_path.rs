@@ -5,11 +5,11 @@
 //! et sa résolution levait (« startsWith is not a function ») avant l'envoi.
 //! Aucun changement de jeton n'arrivait à la session depuis l'interface.
 
-use oku_slides_session::{ESSENTIEL_PACK, Request};
-use serde_json::{Value, json};
+use oku_slides_session::{PAPIER_THEME, Request};
+use serde_json::Value;
 use speculoos::prelude::*;
 
-use crate::common::{req, session};
+use crate::common::session;
 
 /// Les contextes de toutes les actions de `v`, à toute profondeur.
 fn contexts<'a>(v: &'a Value, out: &mut Vec<&'a serde_json::Map<String, Value>>) {
@@ -28,7 +28,7 @@ fn contexts<'a>(v: &'a Value, out: &mut Vec<&'a serde_json::Map<String, Value>>)
 #[test]
 fn host_theme_action_contexts_have_no_path_key() {
     let mut s = session();
-    s.handle(req(json!({ "cmd": "edit_pack", "pack": ESSENTIEL_PACK }))).unwrap_or_else(|e| panic!("{e}"));
+    s.open_theme_here(PAPIER_THEME).unwrap_or_else(|e| panic!("{e}"));
     let reply = s.handle(Request::HostTheme { filter: String::new() }).unwrap_or_else(|e| panic!("{e}"));
     let surface: Value = serde_json::from_str(&reply).unwrap_or_else(|e| panic!("{e}"));
     let mut found = Vec::new();

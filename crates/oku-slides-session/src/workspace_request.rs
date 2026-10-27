@@ -160,6 +160,13 @@ pub enum WorkspaceRequest {
         #[serde(default)]
         widget: Option<String>,
     },
+    /// Opens theme `theme` in its own tab beside `tab`, or focuses its tab.
+    OpenTheme {
+        /// The requesting tab.
+        tab: String,
+        /// The theme to edit.
+        theme: Uuid,
+    },
     /// The deck that opened pack tab `tab`, if offered an update.
     ///
     /// Answers the bare JSON of the offer (its tab, deck title and identity,

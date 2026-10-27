@@ -2,7 +2,7 @@
 
 import { errorText, type OpenerOffer, type Snapshot, type TabApi, type TabDocument, type TabInfo, type WorkspaceView } from "../api";
 import { type CloseFlowInput, closeFlowDeps } from "../closeFlow";
-import type { PackMode } from "../packTypes";
+import type { PackMode, ThemePin, ThemeTabView } from "../packTypes";
 
 /** A snapshot with what the close flows read. */
 export const snap = (s: Partial<Snapshot> = {}) => ({ dirty: false, path: null, name: "essai", editing: null, history: null, ...s }) as Snapshot;
@@ -24,6 +24,13 @@ export const tabOf = (id: string, dirty = false, pack = false): TabInfo => ({
   document: pack ? { kind: "pack", pack: "p" } : DECK,
 });
 
+/** A theme tab as the bar shows it: its cached kind is a theme. */
+export const themeTabOf = (id: string, dirty = false): TabInfo => ({ ...tabOf(id, dirty), document: { kind: "theme", theme: "t" } });
+
+/** A theme tab's view: writable, leased. */
+export const themeTabView = (o: Partial<ThemeTabView> = {}) =>
+  ({ read_only: false, leased: true, display_name: "Maison", session_version: null, ...o }) as ThemeTabView;
+
 /** The offer of the opener `t-1` for version `v2` of pack `p`. */
 export const OFFER: OpenerOffer = { tab: "t-1", title: "Roadmap", deck_uid: "d1", pack: "p", pack_name: "Acme", version: "v2" };
 
@@ -44,6 +51,7 @@ export function fake(tabs: TabInfo[]) {
     /** A deck tab as dirty as the bar says. */
     snapshot: (id: string): Promise<Snapshot> => Promise.resolve(snap({ dirty: !!state.tabs.find((t) => t.id === id)?.dirty, path: "/x.oku-slides.pdf" })),
     savePack: (_id: string): Promise<Snapshot> => Promise.resolve(snap()),
+    saveTheme: (_id: string): Promise<ThemePin | null> => Promise.resolve(null),
     /** A save cleans the tab. */
     save: (id: string): Promise<Snapshot> => {
       state.tabs = state.tabs.map((t) => (t.id === id ? { ...t, dirty: false } : t));
@@ -63,6 +71,7 @@ export function fake(tabs: TabInfo[]) {
     ({
       snapshot: () => (log.push(`snapshot ${id}`), state.snapshot(id)),
       savePack: () => (log.push(`savePack ${id}`), state.savePack(id)),
+      saveTheme: () => (log.push(`saveTheme ${id}`), state.saveTheme(id)),
       save: () => (log.push(`save ${id}`), state.save(id)),
       closePack: () => (log.push(`closePack ${id}`), Promise.resolve(snap())),
       historyClose: () => (log.push(`historyClose ${id}`), Promise.resolve(snap())),

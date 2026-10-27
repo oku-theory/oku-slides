@@ -110,15 +110,17 @@ pub enum Request {
         #[serde(default)]
         widget: Option<String>,
     },
-    /// Mode pack : la surface des jetons du brouillon du thème (`null`
-    /// ailleurs) ; `filter` garde les jetons dont le libellé ou le chemin le contient.
+    /// In a theme tab, the token surface of its draft (`null` elsewhere).
+    ///
+    /// `filter` keeps the tokens whose label or path contains it.
     HostTheme {
         /// Text searched for in labels and paths; empty, all tokens.
         #[serde(default)]
         filter: String,
     },
-    /// Mode pack : agit sur le jeton `path` du brouillon (une étape
-    /// d'annulation) ; `value` pour `set` seulement.
+    /// In a theme tab, acts on the draft's token `path` (one undo step).
+    ///
+    /// `value` is read by `set` only.
     HostToken {
         /// Path of the token in the theme draft.
         path: Vec<String>,
@@ -188,29 +190,31 @@ pub enum Request {
     },
     /// Quitte l'édition du pack et retrouve le deck.
     ClosePack,
-    /// Mode pack : le brouillon du thème part du thème `id` (version
-    /// courante), ses jetons remplacés en une étape annulable.
-    SetEditedTheme {
-        /// Id of the starting theme.
-        id: Uuid,
-    },
-    /// Mode pack : renomme le thème édité (sans étape d'annulation).
+    /// In a theme tab, renames the edited theme (no undo step).
     RenameEditedTheme {
         /// New name of the edited theme.
         name: String,
     },
-    /// Mode pack : le brouillon du thème étend `extends`, dans cet ordre (une étape annulable).
+    /// In a theme tab, the draft extends `extends`, in order (one undo step).
     SetEditedThemeExtends {
         /// Namespaces of the extended themes, in order.
         extends: Vec<Namespace>,
     },
-    /// Mode pack : change la liste `extends` du brouillon par un delta (une étape annulable).
+    /// In a theme tab, changes the draft's `extends` by a delta (one undo step).
     ///
-    /// À plat : `{cmd: "edit_theme_extends", edit: "add", theme: "<espace de noms>"}`.
+    /// Flat: `{cmd: "edit_theme_extends", edit: "add", theme: "<namespace>"}`.
     EditThemeExtends {
         /// The delta: adding, removing or reordering a theme.
         #[serde(flatten)]
         edit: ExtendsEdit,
+    },
+    /// In a theme tab, saves the draft by the library's draft rule.
+    ///
+    /// Answers the saved `ThemePin`, or `null` when the draft is unchanged.
+    SaveTheme {
+        /// Saves a copy under a new id.
+        #[serde(default)]
+        as_new: bool,
     },
     /// Mode deck : nouvelle version du thème `id` (ops de jetons, nom), que
     /// le deck adopte s'il l'utilise. Répond `EditedTheme`.
@@ -387,13 +391,16 @@ impl Session {
         if matches!(self.mode, Mode::History { .. }) && req.edits() {
             return InHistorySnafu.fail()?;
         }
+        // A theme tab takes only its draft's requests; the draft's only fit there.
+        self.ensure_fits(&req)?;
         // L'aide ne change pas le deck et n'ouvre pas d'historique.
         if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen)) {
             return ReadOnlySnafu.fail()?;
         }
-        // An editor without its pack's lease takes it before writing, or is refused.
-        if matches!(self.mode, Mode::Pack { .. }) && req.writes_edited_pack() {
+        // An editor without its pack's or theme's lease takes it before writing, or is refused.
+        if req.writes_edited_draft() {
             self.ensure_pack_lease()?;
+            self.ensure_theme_lease()?;
         }
         // Les commandes modifient la session et renvoient le nouvel état ; les
         // requêtes renvoient ce qu'elles lisent.
@@ -407,12 +414,12 @@ impl Session {
                 Request::Snapshot
                     | Request::Apply { .. }
                     | Request::SetTheme { .. }
-                    | Request::SetEditedTheme { .. }
                     | Request::SetEditedThemeExtends { .. }
                     | Request::EditThemeExtends { .. }
                     | Request::HostToken { .. }
                     | Request::DataEdit { .. }
                     | Request::UsePackVersion { .. }
+                    | Request::SaveTheme { .. }
             ),
             !matches!(
                 req,
@@ -502,13 +509,11 @@ impl Session {
                 self.save_pack(as_new)?;
             }
             Request::ClosePack => self.close_pack()?,
-            Request::SetEditedTheme { id } => {
-                let ns = self.themes.current_version(id).map(|s| s.manifest.namespace);
-                self.set_edited_theme(&ns.context(crate::error::UnknownThemeSnafu { theme: id.to_string() })?)?;
-            }
             Request::RenameEditedTheme { name } => self.rename_edited_theme(&name)?,
             Request::SetEditedThemeExtends { extends } => self.set_edited_theme_extends(extends)?,
             Request::EditThemeExtends { edit } => self.edit_theme_extends(edit)?,
+            // `save_theme` persists the tab's state itself.
+            Request::SaveTheme { as_new } => return json(&self.save_theme(as_new)?),
             Request::Ui { ui, order } => self.keep_ui(ui, order),
             Request::HistoryOpen => self.history_open()?,
             Request::HistorySeek { index } => self.history_seek(index)?,

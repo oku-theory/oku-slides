@@ -1,55 +1,44 @@
-//! Le brouillon du thème du mode pack : sa fermeture, son calque, son enregistrement.
+//! A theme tab's draft: its closure, its layer, the manifest it saves.
 //!
-//! Le brouillon se rend sur la chaîne linéarisée de ses parents
-//! ([`ThemeEdit::extends`]) : sous son espace de noms pour un thème de
-//! l'utilisateur (une boucle qui y revient est refusée), sous une racine
-//! synthétique pour un enfant d'un intégré ([`ThemeEdit::child`]), qui n'en
-//! a pas encore. La base et les parents se lisent dans les versions
-//! embarquées (deck mis de côté, puis deck de travail), sinon dans la
-//! bibliothèque.
+//! The draft renders on the linearized chain of its parents
+//! ([`ThemeEdit::extends`]): under its namespace for a user theme (a loop
+//! that comes back to it is refused), under a synthetic root for a child of
+//! a built-in ([`ThemeEdit::child`]), which has none yet. The base and the
+//! parents are read from the versions the specimen deck embeds, else from
+//! the library.
 //!
-//! À l'enregistrement du pack, un brouillon qui diffère de son point de
-//! départ (jetons ou nom) devient une version courante de la bibliothèque :
-//! d'un enfant de l'intégré édité (nouvel id, espace de noms tiré de son nom,
-//! les seuls jetons édités, nommé « (variante) » si le nom n'a pas changé),
-//! ou du même thème de l'utilisateur (même espace de noms) ; l'un et l'autre
-//! étendent la liste du brouillon. Sinon, une base autre que le thème du deck est
-//! adoptée telle quelle. Le deck mis de côté embarque la fermeture du thème
-//! retenu, ses parents pris aux mêmes sources, et y passe, dans l'étape
-//! d'annulation du pack.
+//! A draft that differs from its starting point (tokens, name or parents)
+//! saves as a version of the library (`theme_tab_save`): of a child of the
+//! edited built-in (a new id, a namespace from its name, only the edited
+//! tokens, named "(variante)" if the name did not change), of a copy, or of
+//! the same user theme (same namespace); all extend the draft's list.
 
 use serde_json::{Map, Value};
-use snafu::{OptionExt, ResultExt};
+use snafu::OptionExt;
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, SourceBundle, ThemePin};
+use oku_slides_core::{Namespace, PackFiles, PackVersion, SourceBundle, ThemePin};
 
-use crate::deck_theme::pin_closure;
-use crate::error::{NotEditingPackSnafu, SourcesSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu};
+use crate::error::ThemeVersionMissingSnafu;
 use crate::namespace_slug::library_namespace;
 use crate::pack::now_created;
-use crate::pack_mode_save::adopt_merge_key;
 use crate::theme::ThemeManifest;
 use crate::theme_closure::{
-    Closure, chain_tokens, closure_of_parents, closure_with, embedded_or_library, parents_order, pin_of,
-    tokens_in_order,
+    Closure, chain_tokens, closure_of_parents, closure_with, embedded_or_library, parents_order, tokens_in_order,
 };
-use crate::theme_edit::{ThemeEdit, ThemeParentView};
-use crate::{Mode, Result, Session};
+use crate::theme_edit::{ThemeEdit, ThemeParentView, draft_differs};
+use crate::{Result, Session};
 
 impl Session {
-    /// Les sources où se lisent les thèmes du brouillon : deck mis de côté, puis deck de travail.
+    /// The sources the draft's themes are read from: the specimen deck's (a theme tab sets no deck aside).
     fn draft_sources(&self) -> Vec<&SourceBundle> {
-        match &self.mode {
-            Mode::Pack { stash, .. } => vec![&stash.sources, &self.doc.sources],
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => vec![&self.doc.sources],
-        }
+        vec![&self.doc.sources]
     }
 
-    /// La fermeture du thème `ns`, dont la version `root` (épinglage et
-    /// fichiers) est donnée ; ses parents viennent des versions embarquées,
-    /// sinon de la bibliothèque.
-    fn closure_from(&self, ns: &Namespace, root: &(ThemePin, PackFiles)) -> Result<Closure> {
+    /// The closure of theme `ns` whose version `root` (pin and files) is given.
+    ///
+    /// Its parents come from the embedded versions, else from the library.
+    pub(crate) fn closure_from(&self, ns: &Namespace, root: &(ThemePin, PackFiles)) -> Result<Closure> {
         let sources = self.draft_sources();
         closure_with(ns, |n| if n == ns { Some(root.clone()) } else { embedded_or_library(&self.themes, &sources, n) })
     }
@@ -95,21 +84,28 @@ impl Session {
             .collect()
     }
 
-    /// Le manifeste qu'enregistre le brouillon `edit` de jetons `tokens`, s'il
-    /// diffère de son point de départ `base`.
-    fn saved_manifest(
+    /// The manifest the draft `edit` of tokens `tokens` saves, from its starting point `base`.
+    ///
+    /// `None` when the draft does not differ, unless `as_new`. A child of a
+    /// built-in, or a copy (`as_new`), is a new theme: a new id, a namespace
+    /// from its name, the draft's parents, no parent version; named
+    /// "(variante)" (a child) or "(copie)" (a copy) when the name did not
+    /// change. Otherwise the same user theme, parented on `parent`, the
+    /// version the tab's writes descend from (never `edit.base`).
+    pub(crate) fn saved_manifest(
         &self,
-        edit: &ThemeEdit,
+        (edit, parent): (&ThemeEdit, Option<PackVersion>),
         base: ThemeManifest,
         tokens: Map<String, Value>,
+        as_new: bool,
     ) -> Result<Option<ThemeManifest>> {
-        let origin = if edit.child() { Map::new() } else { base.tokens.clone() };
-        if tokens == origin && edit.name == base.name && edit.extends == edit.starting_extends(&base) {
+        if !as_new && !draft_differs(edit, &base, &tokens) {
             return Ok(None);
         }
-        let manifest = if edit.child() {
+        let manifest = if as_new || edit.child() {
             let name = if edit.name == base.name {
-                self.localizer.tr_with("theme-copy-name", &[("name", base.name.as_str().into())])
+                let key = if as_new { "theme-copy-of" } else { "theme-copy-name" };
+                self.localizer.tr_with(key, &[("name", base.name.as_str().into())])
             } else {
                 edit.name.clone()
             };
@@ -122,7 +118,7 @@ impl Session {
                 id: edit.base.id,
                 name: edit.name.clone(),
                 extends: edit.extends.clone(),
-                parent: Some(edit.base.version.clone()),
+                parent,
                 created: now_created(),
                 tokens,
                 ..base
@@ -130,76 +126,6 @@ impl Session {
         };
         self.library.check_theme(manifest.id, &manifest.namespace)?;
         Ok(Some(manifest))
-    }
-
-    /// Enregistre le brouillon du thème ; le thème que le deck mis de côté
-    /// doit prendre (`None` : il garde le sien).
-    ///
-    /// Voir le module : un enfant d'un intégré, ou une nouvelle version d'un
-    /// thème de l'utilisateur ; sa fermeture est vérifiée avant l'écriture.
-    pub(crate) fn save_theme_edit(&mut self) -> Result<Option<(Namespace, ThemePin)>> {
-        let Mode::Pack { theme, .. } = &self.mode else {
-            return NotEditingPackSnafu.fail()?;
-        };
-        let edit = theme.clone();
-        let base = self
-            .theme_version(&edit.base)
-            .context(ThemeVersionMissingSnafu { id: edit.base.id, version: edit.base.version.clone() })?;
-        let tokens = self.edited_tokens();
-        let base_ns = base.namespace.clone();
-        let (pin, ns) = match self.saved_manifest(&edit, base, tokens)? {
-            Some(manifest) => {
-                let id = manifest.id;
-                let files = manifest.to_files().context(ThemeJsonSnafu { id })?;
-                let version = files.version();
-                let pin = pin_of(&manifest, version.clone());
-                // Ses parents doivent se trouver avant toute écriture.
-                self.closure_from(&manifest.namespace, &(pin.clone(), files.clone()))?;
-                self.themes.add_version(id, &files)?;
-                self.themes.set_current(id, &version)?;
-                self.theme_list = self.themes.themes();
-                (pin, manifest.namespace)
-            }
-            None if self.deck_theme_pin() != Some(&edit.base) => (edit.base.clone(), base_ns),
-            None => return Ok(None),
-        };
-        let files =
-            self.theme_files(&pin).context(ThemeVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
-        let manifest = ThemeManifest::from_files(&files).context(ThemeJsonSnafu { id: pin.id })?;
-        if let Mode::Pack { theme, switches, .. } = &mut self.mode {
-            let saved = ThemeEdit::starting(pin.clone(), &manifest);
-            // L'historique du deck de travail reste : les changements de base
-            // qui menaient à l'ancienne base mènent à la version enregistrée,
-            // chacun avec ses parents.
-            for s in switches.iter_mut() {
-                for edit in [&mut s.from, &mut s.to] {
-                    if edit.base == theme.base {
-                        *edit = ThemeEdit { extends: std::mem::take(&mut edit.extends), ..saved.clone() };
-                    }
-                }
-            }
-            *theme = saved;
-        }
-        Ok(Some((ns, pin)))
-    }
-
-    /// Le deck mis de côté passe au thème `ns` dans la version `pin`, et à ses
-    /// parents (versions embarquées, sinon courantes de la bibliothèque), tous
-    /// embarqués, dans l'étape d'annulation de l'enregistrement du pack qui vient d'avoir lieu.
-    pub(crate) fn stash_adopt_theme(&mut self, ns: Namespace, pin: ThemePin) -> Result<()> {
-        let files =
-            self.theme_files(&pin).context(ThemeVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
-        let closure = self.closure_from(&ns, &(pin, files))?;
-        let Mode::Pack { stash, edit, .. } = &mut self.mode else {
-            return NotEditingPackSnafu.fail()?;
-        };
-        let label = self.localizer.tr_with("pack-adopt-label", &[("name", edit.name.as_str().into())]);
-        let merge_key = adopt_merge_key(edit.pack, edit.parent.as_ref());
-        let mut user = stash.sources.deck().clone();
-        pin_closure(&mut stash.sources, &mut user, ns, closure);
-        stash.sources.apply(user, &label, Some(&merge_key)).context(SourcesSnafu)?;
-        stash.dirty = true;
-        Ok(())
     }
 }
 

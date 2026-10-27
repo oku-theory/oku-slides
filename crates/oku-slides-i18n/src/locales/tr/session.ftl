@@ -25,6 +25,13 @@ session-pack-not-make-current = Sunudaki { $pack } sürümü güncel sürümün�
 session-pack-already-current = Sunu zaten { $pack } paketinin güncel sürümünüzü kullanıyor.
 session-theme-not-outdated = Sununun { $theme } teması güncel sürümünüzden daha eski değil.
 session-editing-pack = Önce paketi düzenlemeyi bitirin
+session-theme-open-in-tab = { $theme } teması “{ $tab }” sekmesinde düzenleniyor: orada düzenleyin ya da önce o sekmeyi kapatın.
+session-wrong-document = { $kind ->
+    [deck] Bu sekme bir sunu gösteriyor: bu değişiklik bir tema sekmesinde yapılır.
+    [help] Yardım salt okunurdur: bu değişiklik bir tema sekmesinde yapılır.
+    [pack] Bu sekme bir paketi düzenliyor: tema sununun sekmesinde, değerleri ise bir tema sekmesinde değişir.
+   *[theme] Bu sekme bir temayı düzenliyor: burada yalnızca değerleri, adı ve genişlettiği temalar değişir.
+}
 session-in-pack-tab = Bu sekme bir paketi düzenliyor: bitirmek için kapatın; yalnızca bir sunuma ait paketler o sunumun sekmesinden açılır.
 session-pack-open-in-tab = { $pack } paketi “{ $tab }” sekmesinde düzenleniyor: orada düzenleyin ya da önce o sekmeyi kapatın.
 session-pack-offer-expired = Sunu güncellenmedi: bu arada sunu ya da paketin o sürümü değişti.
@@ -33,7 +40,6 @@ session-lease-missing = Bu paket yalnızca onu düzenleyen sekme tarafından kay
 session-not-editing-pack = Düzenlenmekte olan paket yok
 session-pack-mode-slides = Paket modunda slaytlar düzenlerin örnekleridir: eklenemez, kaldırılamaz, taşınamaz ve düzenleri değiştirilemez
 session-pack-mode-preview = Paket modunda bileşen önizleme slaytları salt okunurdur
-session-theme-choice-alone = Paket modunda temayı tek başına seçin, ardından belirteçlerini set_token ile düzenleyin
 session-response = Yanıt yazılamadı
 session-unknown-tab = Bu sekme artık açık değil.
 session-unknown-window = Bu pencere artık açık değil.
@@ -115,6 +121,7 @@ deck-new-slide-text = Ne göstermek istediğinizi anlatın.
 pack-default-name = Paketim
 pack-copy-name = { $name } (kopya)
 theme-copy-name = { $name } (varyant)
+theme-copy-of = { $name } (kopya)
 pack-adopt-label = Paket: { $name }
 session-widgets-broken = Derlenmediği için çıkarılan widget'lar: { $names }. Paketin diğer widget'ları kalıyor.
 session-widgets-not-saved = “{ $pack }” paketinin widget sürümü kitaplığa kaydedilemedi. Sunu onu koruyor.
@@ -151,6 +158,7 @@ packs-theme-overrides = { $count ->
    *[other] { $count } sunu geçersiz kılması
 }
 packs-theme-pick = Sunu teması
+packs-theme-open = Aç
 packs-undo-add = “{ $name }” paketini ekle
 packs-undo-remove = “{ $name }” paketini kaldır
 packs-undo-use-mine = Benim sürümüme geç
@@ -163,6 +171,8 @@ notice-modified-elsewhere = Bu PDF, Oku Slides'dan sonra başka bir araçla değ
 notice-open-failed = { $path } açılamadı: { $reason }
 notice-tab-resume-failed = Bu sekmenin durumu geri yüklenemedi: kenara ayrıldı ve sekme boş bir sunumla yeniden başlıyor.
 notice-tab-set-aside = “{ $name }” sekmesi Oku Slides'ın daha eski bir sürümünden geliyor: kaydedilmemiş değişiklikleri geri yüklenemedi ve kenara ayrıldı; sekme boş bir sunumla yeniden başlıyor.
+notice-theme-draft-dropped = Bu paket düzenleyicisi Oku Slides'ın eski bir sürümünden geliyor: kaydedilmemiş tema değişiklikleri korunamadı. Artık bir tema kendi sekmesinde açılır.
+notice-theme-edited-elsewhere = { $theme } teması “{ $tab }” sekmesinde düzenleniyor: bu sekme yanında yeniden açıldı, o sekme kapanana kadar salt okunur.
 notice-pack-edited-elsewhere = { $pack } paketi “{ $tab }” sekmesinde düzenleniyor: bu sekme yanında yeniden açıldı, o sekme kapanana kadar salt okunur.
 notice-pack-deleted = { $pack } paketi artık kitaplıkta değil: bu sekme salt okunur; değişikliklerinizi korumak için ajandan onu yeni bir paket olarak kaydetmesini isteyin.
 notice-themes-skipped = Kitaplığınızdaki bazı temalar Oku Slides'ın eski bir sürümünden geliyor: okunamadılar ve sunulmuyorlar ({ $count }).
@@ -445,7 +455,6 @@ theme-extends-up = Yukarı taşı
 theme-extends-down = Aşağı taşı
 theme-extends-remove = Kaldır
 theme-extends-add = Genişletilecek tema ekle
-theme-deck-overrides = Sunumdaki geçersiz kılmalar, burada uygulanmaz: { $paths }
 theme-section-colors = Renkler
 theme-section-typography = Tipografi
 theme-section-scripts = Diğer yazılar

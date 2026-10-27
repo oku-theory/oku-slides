@@ -48,7 +48,17 @@ const snapshotInPackMode = (kind: PackKind): Snapshot =>
       : [],
   }) as unknown as Snapshot;
 
-async function renderPile(snap: Snapshot) {
+/** A theme tab: the specimen deck, one slide per layout of Essentiel. */
+const themeTabSnapshot = (): Snapshot =>
+  ({
+    editing: null, history: null, read_only: false, theming: {},
+    slides: [
+      { id: "layout-blank", kind: "essentiel/blank", title: null, hash: "a" },
+      { id: "layout-title", kind: "essentiel/title", title: "Titre", hash: "b" },
+    ],
+  }) as unknown as Snapshot;
+
+async function renderPile(snap: Snapshot, themeTab = false) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -56,7 +66,7 @@ async function renderPile(snap: Snapshot) {
   const noop = () => {};
   await act(async () =>
     root.render(
-      createElement(DeckPile, { snap, current: snap.slides[0]?.id ?? null, svg: () => null, onSelect: noop, onMove: noop, onAdd: noop, onRemove: noop, axis: "x" }),
+      createElement(DeckPile, { snap, themeTab, current: snap.slides[0]?.id ?? null, svg: () => null, onSelect: noop, onMove: noop, onAdd: noop, onRemove: noop, axis: "x" }),
     ),
   );
   return host;
@@ -91,6 +101,13 @@ describe("DeckPile", () => {
     expect(host.querySelectorAll(".thumb-name")).toHaveLength(0);
   });
 
+  test("DeckPile in a theme tab is fixed: no add, delete or drag, slides named after their layout", async () => {
+    const host = await renderPile(themeTabSnapshot(), true);
+    expect([buttons(host, /New slide/).length, host.querySelectorAll(".thumb-remove").length]).toEqual([0, 0]);
+    expect([...host.querySelectorAll(".thumb")].map((b) => b.getAttribute("title"))).toEqual([null, null]);
+    expect([...host.querySelectorAll(".thumb-name")].map((e) => e.textContent)).toEqual(["blank", "title"]);
+  });
+
   test("DeckPile read only offers nothing to change", async () => {
     const host = await renderPile({ ...deckSnapshot(), read_only: true });
     expect([buttons(host, /New slide/).length, host.querySelectorAll(".thumb-remove").length]).toEqual([0, 0]);
@@ -98,8 +115,12 @@ describe("DeckPile", () => {
 });
 
 describe("pileSection", () => {
+  test("pileSection gives layouts in a theme tab", () => {
+    expect(pileSection(themeTabSnapshot(), true)).toBe("layouts");
+  });
+
   test("pileSection gives slides on the deck, layouts for a layout pack, none for a widget pack", () => {
-    expect([pileSection(deckSnapshot()), pileSection(snapshotInPackMode("layouts")), pileSection(snapshotInPackMode("widgets"))]).toEqual([
+    expect([pileSection(deckSnapshot(), false), pileSection(snapshotInPackMode("layouts"), false), pileSection(snapshotInPackMode("widgets"), false)]).toEqual([
       "slides",
       "layouts",
       null,
