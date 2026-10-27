@@ -1812,7 +1812,19 @@
            "bold": true
           },
           {
-           "t": " : le niveau des journaux, dans les versions de développement seulement, par exemple RUST_LOG=info,ureq=debug pour le réseau ; une version publiée journalise en info, sur la sortie d'erreur."
+           "t": " : le niveau des journaux, dans les versions de développement seulement ; une version publiée journalise en info, sur la sortie d'erreur."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_DEBUG_NETWORK",
+           "bold": true
+          },
+          {
+           "t": " : 1 ajoute les journaux de débogage des appels HTTP et de TLS (API de dictée, téléchargements, mises à jour), dans toutes les versions ; les en-têtes secrets et les chemins des adresses restent masqués. Lancez l'app depuis un terminal pour les lire."
           }
          ],
          "list": "bullet"

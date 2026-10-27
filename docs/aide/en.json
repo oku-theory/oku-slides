@@ -1812,7 +1812,19 @@
            "bold": true
           },
           {
-           "t": ": the log level, in development builds only, such as RUST_LOG=info,ureq=debug for the network; a release logs at info, on the standard error."
+           "t": ": the log level, in development builds only; a release logs at info, on the standard error."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_DEBUG_NETWORK",
+           "bold": true
+          },
+          {
+           "t": ": 1 adds debug logs of HTTP calls and TLS (dictation API, downloads, updates), in every build; secret headers and URL paths stay masked. Start the app from a terminal to read them."
           }
          ],
          "list": "bullet"
