@@ -5,6 +5,22 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.0.0] - 2026-10-27
+
+### Added
+
+- *(platform)* OKU_SLIDES_DEBUG_NETWORK turns on HTTP and TLS debug logs (t-1217)
+- *(session,ui)* [**breaking**] themes open in their own tab from Packs du deck (t-1156, t-1218, t-1219, t-1220, t-1221, t-1222, t-1223)
+
+### Fixed
+
+- *(stt)* keep an unreadable dictation config.json aside (t-1216)
+
+### Documentation
+
+- *(aide)* document every environment variable in the help (t-1225)
+- *(aide)* add OKU_SLIDES_DEBUG_NETWORK to the network help slide (t-1217, t-1225)
+
 ## [6.0.0] - 2026-10-26
 
 ### Added
