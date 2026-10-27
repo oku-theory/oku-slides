@@ -1318,6 +1318,548 @@
    }
   },
   {
+   "id": "s-ch-reglages",
+   "kind": "essentiel/chapter",
+   "params": {
+    "title": "Settings",
+    "subtitle": "Environment variables"
+   }
+  },
+  {
+   "id": "s-env-regle",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Settings",
+    "title": "How they work",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-regle",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_<SECTION>__<KEY>",
+           "bold": true
+          },
+          {
+           "t": ": overrides any key of config.toml; a double underscore goes down one level, so OKU_SLIDES_STT__VAD__PAUSE=1.0 sets pause in [stt.vad]."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Order",
+           "bold": true
+          },
+          {
+           "t": ": the built-in defaults, then config.toml in the app data folder, then the variables; the last one wins."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "At launch",
+           "bold": true
+          },
+          {
+           "t": ": settings are read once; restart the app after changing a variable."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Lists",
+           "bold": true
+          },
+          {
+           "t": ", such as [import] soffice, can only be set in config.toml: as a variable, the settings are invalid and the app does not start."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Where to set them",
+           "bold": true
+          },
+          {
+           "t": ": opened from the Dock, the Finder or a desktop menu, the app does not see your shell's variables. Start it from a terminal, or on macOS run launchctl setenv NAME value before opening it."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-dossiers",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Settings",
+    "title": "Folders",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-dossiers",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__DATA",
+           "bold": true
+          },
+          {
+           "t": ": the app data folder, config.toml included (macOS: ~/Library/Application Support/me.dartiguenave.oku-slides; Linux: ~/.local/share/…; Windows: %APPDATA%\\…)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__DECKS",
+           "bold": true
+          },
+          {
+           "t": ": where new decks save themselves (default Documents/Oku Slides)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__MODELS",
+           "bold": true
+          },
+          {
+           "t": ": dictation and local agent models, and the dictation settings (config.json)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__FONTS",
+           "bold": true
+          },
+          {
+           "t": ": extra TTF or OTF fonts."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__WIDGETS, __LAYOUTS, __THEMES",
+           "bold": true
+          },
+          {
+           "t": ": your widget packs, layout packs and themes."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-interface",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Settings",
+    "title": "Interface, updates, tools",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-interface",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_I18N__LOCALE",
+           "bold": true
+          },
+          {
+           "t": ": the interface language (en, fr, de, ja…); default: the system's."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_APPEARANCE__SCHEME",
+           "bold": true
+          },
+          {
+           "t": ": light or dark; default: the system's."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_AUTHOR__NAME",
+           "bold": true
+          },
+          {
+           "t": ": the name written in the history of decks you edit."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_UPDATES__CHECK_AUTOMATICALLY",
+           "bold": true
+          },
+          {
+           "t": ": false checks only through Check for Updates…; a development build never checks by itself."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS",
+           "bold": true
+          },
+          {
+           "t": ": hours between automatic checks (default 6)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_IMPORT__WITNESS",
+           "bold": true
+          },
+          {
+           "t": ": office2pdf or soffice, the reference rendering of a faithful import."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_SERVE__HOST, __PORT",
+           "bold": true
+          },
+          {
+           "t": ": address of the oku-slides serve dev server (127.0.0.1:4870)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-voix",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Settings",
+    "title": "Dictation and agent",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-voix",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_AGENT__SELECTED",
+           "bold": true
+          },
+          {
+           "t": ": the agent, a key of [agent.presets] (claude, codex, gemini, local); the agent choice is then locked. An unknown key stops the launch."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_LOCAL_AGENT__ENGINE",
+           "bold": true
+          },
+          {
+           "t": ": auto or gguf, the engine of the local agent."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_STT__APPLE",
+           "bold": true
+          },
+          {
+           "t": ": false keeps Whisper only, without Apple's engine."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_STT__VAD__PAUSE",
+           "bold": true
+          },
+          {
+           "t": ": the pause that ends a sentence (s), like every [stt.vad] key."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_STT__FAKE_MIC",
+           "bold": true
+          },
+          {
+           "t": ": a WAV file replayed instead of the microphone."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "The API key",
+           "bold": true
+          },
+          {
+           "t": ": the variable named in the dictation settings (OPENAI_API_KEY by default) and each $VARIABLE of its headers, read when dictation starts, never stored."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "The agent's own variables",
+           "bold": true
+          },
+          {
+           "t": " (its account, its key): the agent inherits the app's environment."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-systeme",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Settings",
+    "title": "Read from the system",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-systeme",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "HOME",
+           "bold": true
+          },
+          {
+           "t": ", or USERPROFILE when HOME is not set: the base of the default folders."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "XDG_DATA_HOME",
+           "bold": true
+          },
+          {
+           "t": " on Linux, APPDATA on Windows: the parent of the app data folder."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "USER, USERNAME",
+           "bold": true
+          },
+          {
+           "t": ": your name in the deck history when [author] name is not set."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "LC_ALL, LC_MESSAGES, LANG",
+           "bold": true
+          },
+          {
+           "t": " (Linux): the system language, default of the interface and of dictation."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "PATH",
+           "bold": true
+          },
+          {
+           "t": ": finds the agents' programs (npx…) and LibreOffice (soffice)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-reseau",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Settings",
+    "title": "Network and diagnostics",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-reseau",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "HTTPS_PROXY, HTTP_PROXY, ALL_PROXY, NO_PROXY",
+           "bold": true
+          },
+          {
+           "t": ": the proxy of model downloads and of the dictation API (never for an API on this computer)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "SSL_CERT_FILE",
+           "bold": true
+          },
+          {
+           "t": " (Linux): certificates are the system's; a company proxy's authority must be installed there."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "RUST_LOG",
+           "bold": true
+          },
+          {
+           "t": ": the log level, in development builds only, such as RUST_LOG=info,ureq=debug for the network; a release logs at info, on the standard error."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "APPIMAGE",
+           "bold": true
+          },
+          {
+           "t": " (Linux): set by AppImage, the app installs its updates; without it, it only tells you about them."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "DBUS_SESSION_BUS_ADDRESS, XDG_RUNTIME_DIR",
+           "bold": true
+          },
+          {
+           "t": " (Linux): without a session bus, a second launch opens a second app."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_RENDER_WORKER",
+           "bold": true
+          },
+          {
+           "t": ": marks the app's own render process; never set it."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "s-ch-typst",
    "kind": "essentiel/chapter",
    "params": {

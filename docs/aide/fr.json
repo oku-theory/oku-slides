@@ -1318,6 +1318,548 @@
    }
   },
   {
+   "id": "s-ch-reglages",
+   "kind": "essentiel/chapter",
+   "params": {
+    "title": "Réglages",
+    "subtitle": "Variables d'environnement"
+   }
+  },
+  {
+   "id": "s-env-regle",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Réglages",
+    "title": "Le principe",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-regle",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_<SECTION>__<CLÉ>",
+           "bold": true
+          },
+          {
+           "t": " : remplace n'importe quelle clé de config.toml ; un double tiret bas descend d'un niveau, ainsi OKU_SLIDES_STT__VAD__PAUSE=1.0 règle pause dans [stt.vad]."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Ordre",
+           "bold": true
+          },
+          {
+           "t": " : les valeurs par défaut intégrées, puis config.toml dans le dossier de données de l'app, puis les variables ; la dernière l'emporte."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Au lancement",
+           "bold": true
+          },
+          {
+           "t": " : les réglages sont lus une fois ; relancez l'app après avoir changé une variable."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Les listes",
+           "bold": true
+          },
+          {
+           "t": ", comme [import] soffice, ne se règlent que dans config.toml : en variable, les réglages sont invalides et l'app ne démarre pas."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Où les poser",
+           "bold": true
+          },
+          {
+           "t": " : ouverte depuis le Dock, le Finder ou un menu du bureau, l'app ne voit pas les variables de votre shell. Lancez-la depuis un terminal, ou sur macOS faites launchctl setenv NOM valeur avant de l'ouvrir."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-dossiers",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Réglages",
+    "title": "Dossiers",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-dossiers",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__DATA",
+           "bold": true
+          },
+          {
+           "t": " : le dossier de données de l'app, config.toml compris (macOS : ~/Library/Application Support/me.dartiguenave.oku-slides ; Linux : ~/.local/share/… ; Windows : %APPDATA%\\…)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__DECKS",
+           "bold": true
+          },
+          {
+           "t": " : où s'enregistrent d'eux-mêmes les nouveaux decks (par défaut Documents/Oku Slides)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__MODELS",
+           "bold": true
+          },
+          {
+           "t": " : les modèles de la dictée et de l'agent local, et les réglages de la dictée (config.json)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__FONTS",
+           "bold": true
+          },
+          {
+           "t": " : des polices TTF ou OTF en plus."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_PATHS__WIDGETS, __LAYOUTS, __THEMES",
+           "bold": true
+          },
+          {
+           "t": " : vos packs de widgets, packs de mises en page et thèmes."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-interface",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Réglages",
+    "title": "Interface, mises à jour, outils",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-interface",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_I18N__LOCALE",
+           "bold": true
+          },
+          {
+           "t": " : la langue de l'interface (en, fr, de, ja…) ; par défaut, celle du système."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_APPEARANCE__SCHEME",
+           "bold": true
+          },
+          {
+           "t": " : light ou dark ; par défaut, celui du système."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_AUTHOR__NAME",
+           "bold": true
+          },
+          {
+           "t": " : le nom inscrit dans l'historique des decks que vous modifiez."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_UPDATES__CHECK_AUTOMATICALLY",
+           "bold": true
+          },
+          {
+           "t": " : false ne cherche que par Rechercher des mises à jour… ; une version de développement ne cherche jamais d'elle-même."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS",
+           "bold": true
+          },
+          {
+           "t": " : heures entre deux recherches automatiques (6 par défaut)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_IMPORT__WITNESS",
+           "bold": true
+          },
+          {
+           "t": " : office2pdf ou soffice, le rendu de référence d'un import fidèle."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_SERVE__HOST, __PORT",
+           "bold": true
+          },
+          {
+           "t": " : l'adresse du serveur de développement oku-slides serve (127.0.0.1:4870)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-voix",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Réglages",
+    "title": "Dictée et agent",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-voix",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_AGENT__SELECTED",
+           "bold": true
+          },
+          {
+           "t": " : l'agent, une clé de [agent.presets] (claude, codex, gemini, local) ; le choix de l'agent est alors verrouillé. Une clé inconnue empêche le lancement."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_LOCAL_AGENT__ENGINE",
+           "bold": true
+          },
+          {
+           "t": " : auto ou gguf, le moteur de l'agent local."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_STT__APPLE",
+           "bold": true
+          },
+          {
+           "t": " : false garde Whisper seul, sans le moteur d'Apple."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_STT__VAD__PAUSE",
+           "bold": true
+          },
+          {
+           "t": " : la pause qui clôt une phrase (s), comme chaque clé de [stt.vad]."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_STT__FAKE_MIC",
+           "bold": true
+          },
+          {
+           "t": " : un fichier WAV rejoué à la place du micro."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "La clé de l'API",
+           "bold": true
+          },
+          {
+           "t": " : la variable nommée dans les réglages de la dictée (OPENAI_API_KEY par défaut) et chaque $VARIABLE de ses en-têtes, lues au début de la dictée, jamais enregistrées."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Les variables de l'agent",
+           "bold": true
+          },
+          {
+           "t": " (son compte, sa clé) : l'agent hérite de l'environnement de l'app."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-systeme",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Réglages",
+    "title": "Lues dans le système",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-systeme",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "HOME",
+           "bold": true
+          },
+          {
+           "t": ", ou USERPROFILE quand HOME n'est pas posée : la base des dossiers par défaut."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "XDG_DATA_HOME",
+           "bold": true
+          },
+          {
+           "t": " sous Linux, APPDATA sous Windows : le parent du dossier de données de l'app."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "USER, USERNAME",
+           "bold": true
+          },
+          {
+           "t": " : votre nom dans l'historique des decks quand [author] name n'est pas réglé."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "LC_ALL, LC_MESSAGES, LANG",
+           "bold": true
+          },
+          {
+           "t": " (Linux) : la langue du système, par défaut celle de l'interface et de la dictée."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "PATH",
+           "bold": true
+          },
+          {
+           "t": " : trouve les programmes des agents (npx…) et LibreOffice (soffice)."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "s-env-reseau",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Réglages",
+    "title": "Réseau et diagnostic",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-env-reseau",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "HTTPS_PROXY, HTTP_PROXY, ALL_PROXY, NO_PROXY",
+           "bold": true
+          },
+          {
+           "t": " : le proxy des téléchargements de modèles et de l'API de dictée (jamais pour une API sur cet ordinateur)."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "SSL_CERT_FILE",
+           "bold": true
+          },
+          {
+           "t": " (Linux) : les certificats sont ceux du système ; l'autorité du proxy d'une entreprise doit y être installée."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "RUST_LOG",
+           "bold": true
+          },
+          {
+           "t": " : le niveau des journaux, dans les versions de développement seulement, par exemple RUST_LOG=info,ureq=debug pour le réseau ; une version publiée journalise en info, sur la sortie d'erreur."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "APPIMAGE",
+           "bold": true
+          },
+          {
+           "t": " (Linux) : posée par AppImage, l'app installe ses mises à jour ; sans elle, elle ne fait que les signaler."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "DBUS_SESSION_BUS_ADDRESS, XDG_RUNTIME_DIR",
+           "bold": true
+          },
+          {
+           "t": " (Linux) : sans bus de session, un deuxième lancement ouvre une deuxième app."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_RENDER_WORKER",
+           "bold": true
+          },
+          {
+           "t": " : marque le processus de rendu de l'app ; ne la posez jamais."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "s-ch-typst",
    "kind": "essentiel/chapter",
    "params": {
