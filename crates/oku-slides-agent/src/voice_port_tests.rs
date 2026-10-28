@@ -87,7 +87,9 @@ fn agent_origin(tab: &str, confirmed: bool) -> Origin {
 #[case(DictationPatch { api_url: Some("http://evil.example/v1".into()), ..Default::default() }, VoiceErrorKind::BadUrl)]
 #[case(DictationPatch { api_key_env: Some("sk-abc-123".into()), ..Default::default() }, VoiceErrorKind::BadKeyEnv)]
 #[case(DictationPatch { api_model: Some("m\r\nx".into()), ..Default::default() }, VoiceErrorKind::BadApiModel)]
-#[case(DictationPatch { api_query: Some("a=b c".into()), ..Default::default() }, VoiceErrorKind::BadApiQuery)]
+#[case(DictationPatch { api_key_env: Some(String::new()), ..Default::default() }, VoiceErrorKind::BadKeyEnv)]
+#[case(DictationPatch { api_version: Some("2025/03".into()), ..Default::default() }, VoiceErrorKind::BadApiVersion)]
+#[case(DictationPatch { api_headers: Some("Authorization: Basic x".into()), ..Default::default() }, VoiceErrorKind::BadApiHeaders)]
 #[case(DictationPatch { api_headers: Some("Host: evil.example".into()), ..Default::default() }, VoiceErrorKind::BadApiHeaders)]
 #[case(DictationPatch { api_headers: Some("X-A: $lower".into()), ..Default::default() }, VoiceErrorKind::BadApiHeaders)]
 fn apply_invalid_patch_from_the_user_is_refused(#[case] patch: DictationPatch, #[case] kind: VoiceErrorKind) {
@@ -98,8 +100,8 @@ fn apply_invalid_patch_from_the_user_is_refused(#[case] patch: DictationPatch, #
 #[rstest]
 #[case(DictationPatch { api_url: Some("https://api.groq.com/openai/v1".into()), ..Default::default() })]
 #[case(DictationPatch { api_key_env: Some("GROQ_API_KEY".into()), ..Default::default() })]
-#[case(DictationPatch { api_query: Some("a=b".into()), ..Default::default() })]
-#[case(DictationPatch { api_headers: Some("api-key: $GITHUB_TOKEN".into()), ..Default::default() })]
+#[case(DictationPatch { api_version: Some("2024-10-21".into()), ..Default::default() })]
+#[case(DictationPatch { api_headers: Some("X-Token: $GITHUB_TOKEN".into()), ..Default::default() })]
 fn check_api_target_from_the_agent_is_reserved_to_the_user(#[case] patch: DictationPatch) {
     let t = voice_with_stt();
     let r = t.voice.check(&dictation(patch), &agent_origin("t-1", false));
@@ -119,41 +121,43 @@ fn apply_api_target_from_the_agent_is_reserved_to_the_user(#[case] patch: Dictat
 fn apply_azure_settings_from_the_user_are_shown_back() {
     let t = voice_with_stt();
     let patch = DictationPatch {
-        api_key_env: Some(String::new()),
-        api_query: Some(" api-version=2025-03-01-preview ".into()),
-        api_headers: Some("api-key:$HOME".into()),
+        api_key_env: Some("AZURE_OPENAI_API_KEY".into()),
+        api_version: Some("2025-03-01-preview".into()),
+        api_headers: Some("X-Tenant:acme".into()),
         ..Default::default()
     };
     t.voice.apply(dictation(patch), Origin::User).unwrap();
     let api = t.voice.view().dictation.unwrap().api;
-    assert_that!((api.query.as_str(), api.headers.as_str()))
-        .is_equal_to(("api-version=2025-03-01-preview", "api-key: $HOME"));
+    assert_that!((api.api_version.as_str(), api.headers.as_str()))
+        .is_equal_to(("2025-03-01-preview", "X-Tenant: acme"));
 }
 
 #[test]
-fn apply_azure_settings_one_field_at_a_time_in_hint_order_is_accepted() {
+fn apply_azure_deployment_with_a_slash_is_accepted_until_use() {
     let t = voice_with_stt();
     for patch in [
-        DictationPatch { api_key_env: Some(String::new()), ..Default::default() },
-        DictationPatch { api_query: Some("api-version=2025-03-01-preview".into()), ..Default::default() },
-        DictationPatch { api_headers: Some("api-key: $HOME".into()), ..Default::default() },
+        DictationPatch { api_model: Some("team/whisper".into()), ..Default::default() },
+        DictationPatch { api_version: Some("2025-03-01-preview".into()), ..Default::default() },
     ] {
         t.voice.apply(dictation(patch), Origin::User).unwrap();
     }
-    assert_that!(t.voice.view().dictation.unwrap().api.headers).is_equal_to("api-key: $HOME".to_owned());
+    assert_that!(t.voice.view().dictation.unwrap().api.model).is_equal_to("team/whisper".to_owned());
 }
 
 #[test]
-fn check_switch_to_api_from_the_agent_with_no_variable_is_refused() {
+fn check_switch_to_api_from_the_agent_with_a_bad_azure_deployment_is_refused() {
     let t = voice_with_stt();
-    t.voice
-        .apply(dictation(DictationPatch { api_key_env: Some(String::new()), ..Default::default() }), Origin::User)
-        .unwrap();
+    let patch = DictationPatch {
+        api_model: Some("team/whisper".into()),
+        api_version: Some("2025-03-01-preview".into()),
+        ..Default::default()
+    };
+    t.voice.apply(dictation(patch), Origin::User).unwrap();
     let r = t.voice.check(
         &dictation(DictationPatch { model: Some("api".into()), ..Default::default() }),
         &agent_origin("t-1", false),
     );
-    assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::BadApiHeaders);
+    assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::BadApiModel);
 }
 
 #[test]
@@ -161,7 +165,7 @@ fn view_api_names_the_first_unset_variable() {
     let t = voice_with_stt();
     let patch = DictationPatch {
         api_key_env: Some("HOME".into()),
-        api_headers: Some("api-key: $OKU_T1213_UNSET".into()),
+        api_headers: Some("X-Token: $OKU_T1213_UNSET".into()),
         ..Default::default()
     };
     t.voice.apply(dictation(patch), Origin::User).unwrap();
@@ -271,6 +275,58 @@ fn check_switch_to_api_from_the_agent_with_an_invalid_stored_url_is_refused() {
         &agent_origin("t-1", false),
     );
     assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::BadUrl);
+}
+
+fn store_legacy_query(t: &T) {
+    // Settings saved by 7.0.0 or earlier: their query parameters are not migrated (t-1233).
+    let stt = t.stt.as_ref().unwrap();
+    let mut config = stt.status().config;
+    config.api.legacy_query =
+        vec![oku_slides_stt::LegacyQueryParam { name: "api-version".into(), value: "2024-06-01".into() }];
+    let _applied = stt.configure(config);
+}
+
+#[test]
+fn check_switch_to_api_from_the_agent_with_legacy_query_is_refused_as_bad_version() {
+    let t = voice_with_stt();
+    store_legacy_query(&t);
+    let r = t.voice.check(
+        &dictation(DictationPatch { model: Some("api".into()), ..Default::default() }),
+        &agent_origin("t-1", false),
+    );
+    assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::BadApiVersion);
+}
+
+#[test]
+fn apply_api_field_from_the_user_drops_the_legacy_query() {
+    let t = voice_with_stt();
+    store_legacy_query(&t);
+    let patch = DictationPatch { api_version: Some("2024-06-01".into()), ..Default::default() };
+    t.voice.apply(dictation(patch), Origin::User).unwrap();
+    assert_that!(t.stt.as_ref().unwrap().status().config.api.legacy_query).is_empty();
+}
+
+#[test]
+fn apply_non_api_field_from_the_user_keeps_the_legacy_query() {
+    let t = voice_with_stt();
+    store_legacy_query(&t);
+    let patch = DictationPatch { auto_stop: Some(true), ..Default::default() };
+    t.voice.apply(dictation(patch), Origin::User).unwrap();
+    assert_that!(t.stt.as_ref().unwrap().status().config.api.legacy_query).has_length(1);
+}
+
+#[test]
+fn check_switch_to_api_from_the_agent_with_an_empty_key_variable_is_refused_as_bad_key() {
+    let t = voice_with_stt();
+    let stt = t.stt.as_ref().unwrap();
+    let mut config = stt.status().config;
+    config.api.key_env = String::new();
+    let _applied = stt.configure(config);
+    let r = t.voice.check(
+        &dictation(DictationPatch { model: Some("api".into()), ..Default::default() }),
+        &agent_origin("t-1", false),
+    );
+    assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::BadKeyEnv);
 }
 
 #[test]

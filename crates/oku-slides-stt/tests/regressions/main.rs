@@ -7,5 +7,5 @@ mod common;
 
 mod issue_0273_stale_test_dirs;
 mod issue_1205_fake_mic_low_rate;
-mod issue_1211_system_root_certs;
+mod issue_1211_dictation_system_roots;
 mod issue_1216_unreadable_config_kept;

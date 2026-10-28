@@ -557,9 +557,9 @@ voice-api-url = عنوان API
 voice-api-model = النموذج
 voice-api-key-env = متغير المفتاح
 voice-api-note = تُرسل كل جملة إلى هذه الخدمة. يُقرأ المفتاح من متغير البيئة عند بدء الإملاء؛ التطبيق المفتوح من Finder لا يرى متغيرات الصدفة (استخدم launchctl setenv).
-voice-api-query = معلمات الاستعلام
+voice-api-version = إصدار واجهة Azure البرمجية
 voice-api-headers = ترويسات إضافية
-voice-api-azure-note = Azure OpenAI: اترك متغير المفتاح فارغًا، واضبط api-version=… كمعلمة و api-key: $AZURE_OPENAI_API_KEY كترويسة. $NAME يقرأ متغيرًا.
+voice-api-azure-note = Azure OpenAI: عنوان المورد (https://….openai.azure.com) عنوانًا، والنشر نموذجًا، ومتغير المفتاح (يُرسل في api-key) وإصدار الواجهة البرمجية، مثل 2025-03-01-preview. اترك الإصدار فارغًا لـ OpenAI. في الترويسات، يقرأ $NAME متغيرًا.
 voice-cancel = إلغاء
 voice-agent-title = الوكيل
 voice-agent-busy = تبديل الوكيل سيوقف الدور الجاري.

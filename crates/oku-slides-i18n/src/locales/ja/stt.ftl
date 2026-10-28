@@ -11,6 +11,7 @@ stt-cancelled = ダウンロードをキャンセルしました
 stt-speech-denied = システム設定 › プライバシーとセキュリティで音声認識を許可してください
 stt-locale-unsupported = Apple のエンジンはこの言語に対応していません ({ $language })
 stt-api-key-missing = 音声入力 API を使うには、環境変数 { $var } を設定してください
+stt-api-key-invalid = 環境変数 { $var } の値は HTTP ヘッダーで送信できません
 stt-api-config = 音声入力 API の設定が無効です。設定ボックスで修正してください。
 stt-api-unreachable = 音声入力 API に接続できません
 stt-api-status = 音声入力 API がリクエストを拒否しました (HTTP { $status })

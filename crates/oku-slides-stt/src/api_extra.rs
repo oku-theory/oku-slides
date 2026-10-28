@@ -1,26 +1,27 @@
-//! Query parameters and custom headers of the dictation API (t-1213).
+//! Custom headers of the dictation API, and its redacted error messages (t-1213).
 //!
-//! Azure OpenAI and gateways need `?api-version=…` and their own headers. Both are set by
-//! the user only: a header may carry the secret of an environment variable. The settings box
-//! edits them in a one-line syntax: `a=b&c=d` and `Name: value; Name: $VARIABLE`.
+//! Gateways need their own headers, set by the user only: a header may carry the secret of an
+//! environment variable. The settings box edits them in one line: `Name: value; Name: $VARIABLE`.
 
 use serde::{Deserialize, Serialize};
 
 use crate::ApiConfig;
-use crate::api_check::valid_key_env;
+use crate::api_check::{valid_api_version, valid_key_env};
 
-/// Most query parameters, and most headers, one API setting may hold.
+/// Most headers one API setting may hold.
 const MAX_ENTRIES: usize = 8;
-/// Longest name of a parameter or header, in bytes.
+/// Longest header name, in bytes.
 const MAX_NAME: usize = 64;
-/// Longest value of a parameter or header, in bytes.
+/// Longest header value, in bytes.
 const MAX_VALUE: usize = 256;
 /// Longest API error message shown, in characters.
 const MAX_DETAIL: usize = 200;
 /// Shortest secret whose echo can be masked without guessing; below, no message is shown.
-const MIN_SECRET: usize = 8;
-/// Headers the client sets itself or that change the framing or proxying: never user-set.
-const RESERVED: [&str; 11] = [
+pub(crate) const MIN_SECRET: usize = 8;
+/// Headers the client sets itself (the key included) or that change the framing or proxying.
+const RESERVED: [&str; 13] = [
+    "authorization",
+    "api-key",
     "host",
     "content-type",
     "content-length",
@@ -34,15 +35,6 @@ const RESERVED: [&str; 11] = [
     "keep-alive",
 ];
 
-/// A query parameter appended to the transcription address, stored in clear.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ApiParam {
-    /// Parameter name, such as `api-version`.
-    pub name: String,
-    /// Parameter value, URL-encoded when sent.
-    pub value: String,
-}
-
 /// Where a custom header takes its value from.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -53,10 +45,35 @@ pub enum HeaderValue {
     Env(String),
 }
 
+/// A query parameter saved by 7.0.0 or earlier, read only so such settings are refused (t-1233).
+///
+/// The Azure `api-version` and other parameters are not migrated: the user enters the
+/// settings again, and saving any API field drops these.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct LegacyQueryParam {
+    /// Parameter name, such as `api-version`.
+    pub name: String,
+    /// Its value, stored in clear.
+    pub value: String,
+}
+
+/// Why API settings cannot be used together, from [`api_access_problem`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApiAccessProblem {
+    /// The key variable is missing or not a variable name.
+    KeyEnv,
+    /// The Azure version is malformed, or query parameters of 7.0.0 are still saved.
+    Version,
+    /// A header is malformed, reserved or repeated, or there are too many.
+    Headers,
+    /// The Azure deployment (the model) is not a single path segment.
+    Deployment,
+}
+
 /// A header sent with every transcription request.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ApiHeader {
-    /// Header name, such as `api-key`.
+    /// Header name, such as `X-Tenant`.
     pub name: String,
     /// Its value, or the variable holding it.
     pub value: HeaderValue,
@@ -72,34 +89,6 @@ impl ApiConfig {
         });
         std::iter::once(self.key_env.as_str()).filter(|k| !k.is_empty()).chain(headers).collect()
     }
-}
-
-/// Parses `a=b&c=d`; blank gives no parameter, a malformed pair `None`.
-///
-/// Names and values are visible ASCII without `&`, `#` or `%`: they are encoded when sent.
-/// Every pair needs `=`, so an empty pair (a trailing or doubled `&`) is refused.
-#[must_use]
-pub fn parse_api_query(text: &str) -> Option<Vec<ApiParam>> {
-    if text.trim().is_empty() {
-        return Some(Vec::new());
-    }
-    let params = text
-        .split('&')
-        .map(|pair| {
-            let (name, value) = pair.trim().split_once('=')?;
-            let plain = |s: &str| s.bytes().all(|b| b.is_ascii_graphic() && !matches!(b, b'&' | b'#' | b'%'));
-            let ok =
-                !name.is_empty() && name.len() <= MAX_NAME && value.len() <= MAX_VALUE && plain(name) && plain(value);
-            ok.then(|| ApiParam { name: name.into(), value: value.into() })
-        })
-        .collect::<Option<Vec<_>>>()?;
-    (params.len() <= MAX_ENTRIES).then_some(params)
-}
-
-/// The one-line form of `query`, read back by [`parse_api_query`].
-#[must_use]
-pub fn format_api_query(query: &[ApiParam]) -> String {
-    query.iter().map(|p| format!("{}={}", p.name, p.value)).collect::<Vec<_>>().join("&")
 }
 
 /// Parses `Name: value; Name: $VARIABLE`; blank gives no header, a malformed one `None`.
@@ -136,9 +125,6 @@ pub fn format_api_headers(headers: &[ApiHeader]) -> String {
 }
 
 /// No reserved and no duplicate header name: checked on every write.
-///
-/// `Authorization` is allowed here; whether it clashes with the key variable depends on the
-/// other fields, so [`valid_api_access`] checks it at use.
 #[must_use]
 pub fn valid_api_headers(headers: &[ApiHeader]) -> bool {
     let mut names: Vec<String> = headers.iter().map(|h| h.name.to_ascii_lowercase()).collect();
@@ -148,33 +134,44 @@ pub fn valid_api_headers(headers: &[ApiHeader]) -> bool {
     !reserved && !duplicate
 }
 
-/// The key variable, parameters and headers can be used together.
-///
-/// The key variable may be empty (no Bearer) only if a header names a variable: some secret
-/// is always required. `Authorization` is user-set only without a key variable.
+/// The key variable, Azure version, model and headers can be used together.
 #[must_use]
 pub fn valid_api_access(config: &ApiConfig) -> bool {
-    let key_ok = config.key_env.is_empty() || valid_key_env(&config.key_env);
-    let query_ok = config.query.len() <= MAX_ENTRIES
-        && parse_api_query(&format_api_query(&config.query)).is_some_and(|q| q == config.query);
+    api_access_problem(config).is_none()
+}
+
+/// The first reason these settings cannot be used, or `None`.
+///
+/// The key variable is required, and no query parameter of 7.0.0 may remain. For Azure the model
+/// is the deployment name, a path segment: letters, digits, `.`, `_` and `-`, not only dots.
+#[must_use]
+pub fn api_access_problem(config: &ApiConfig) -> Option<ApiAccessProblem> {
     let headers_ok = config.headers.len() <= MAX_ENTRIES
         && parse_api_headers(&format_api_headers(&config.headers)).is_some_and(|h| h == config.headers)
         && valid_api_headers(&config.headers);
-    let bearer_clash =
-        !config.key_env.is_empty() && config.headers.iter().any(|h| h.name.eq_ignore_ascii_case("authorization"));
-    key_ok && query_ok && headers_ok && !bearer_clash && !config.variables().is_empty()
+    let model = config.model.as_bytes();
+    let deployment_ok = !config.is_azure()
+        || (model.iter().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+            && !model.iter().all(|&b| b == b'.'));
+    if !valid_key_env(&config.key_env) {
+        Some(ApiAccessProblem::KeyEnv)
+    } else if !valid_api_version(&config.api_version) || !config.legacy_query.is_empty() {
+        Some(ApiAccessProblem::Version)
+    } else if !headers_ok {
+        Some(ApiAccessProblem::Headers)
+    } else if !deployment_ok {
+        Some(ApiAccessProblem::Deployment)
+    } else {
+        None
+    }
 }
 
-/// The API's own error message in `body`, cleaned, cut and with `secrets` masked.
+/// The API's own error `message`, cleaned, cut and with `secrets` masked.
 ///
-/// Reads `error.message` or a string `error` (OpenAI, Azure); `None` without one. Each secret
-/// and each of its words of 8 characters or more is masked; if a secret is shorter than that,
-/// or 8 characters of one are still in the text (a partial echo), no message is shown.
+/// Each secret and each of its words of 8 characters or more is masked; if a secret is shorter
+/// than that, or 8 characters of one are still in the text (a partial echo), `None`.
 #[must_use]
-pub fn api_error_detail(body: &str, secrets: &[&str]) -> Option<String> {
-    let json: serde_json::Value = serde_json::from_str(body).ok()?;
-    let error = json.get("error")?;
-    let message = error.get("message").unwrap_or(error).as_str()?;
+pub fn api_error_detail(message: &str, secrets: &[&str]) -> Option<String> {
     let clean: String = message.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut text: String = clean.chars().filter(|c| !c.is_control()).collect();
     let secrets: Vec<Vec<char>> = secrets.iter().map(|s| s.chars().collect()).collect();

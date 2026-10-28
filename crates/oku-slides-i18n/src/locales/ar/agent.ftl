@@ -149,10 +149,10 @@ voice-error-bad-silence = يجب أن يدوم الصمت من 0.5 إلى 10 ث�
 voice-error-bad-language = لغة إملاء غير معروفة
 voice-error-bad-url = يجب أن يبدأ عنوان الواجهة البرمجية بـ https:// (و http:// لهذا الحاسوب فقط)، دون اسم مستخدم أو معاملات أو محارف خاصة
 voice-error-bad-key-env = يجب أن يكون متغير المفتاح اسمًا مثل OPENAI_API_KEY: أحرف كبيرة وأرقام و _
-voice-error-bad-api-model = لا يقبل اسم نموذج الواجهة البرمجية إلا الأحرف والأرقام و . _ : / -
-voice-error-bad-api-query = تُكتب المعلمات بالشكل name=value&name=value، بأحرف ASCII مرئية دون % أو #، و8 على الأكثر
-voice-error-bad-api-headers = تُكتب الترويسات بالشكل Name: value; Name: $VARIABLE، و8 على الأكثر. يلزم متغير مفتاح أو ترويسة $VARIABLE؛ وتُرفض Host, Content-Type, Content-Length, Transfer-Encoding, Connection والأسماء المكررة و Authorization مع متغير مفتاح
-voice-error-api-reserved = المستخدم وحده يضبط عنوان الواجهة البرمجية ومتغير المفتاح ومعلمات الاستعلام والترويسات: افتح المربع بـ show_dictation واطلب منه ذلك
+voice-error-bad-api-model = لا يقبل اسم نموذج الواجهة البرمجية إلا الحروف والأرقام و. _ : / -؛ واسم نشر Azure إلا الحروف والأرقام و. _ -
+voice-error-bad-api-version = لا يقبل إصدار واجهة Azure البرمجية إلا الحروف والأرقام و. و-، و32 حرفًا على الأكثر، مثل 2025-03-01-preview
+voice-error-bad-api-headers = تُكتب الترويسات بالشكل Name: value; Name: $VARIABLE، و8 على الأكثر. تُرفض Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection والتكرارات
+voice-error-api-reserved = المستخدم وحده يضبط عنوان الواجهة البرمجية ومتغير المفتاح وإصدار Azure والترويسات: افتح النافذة عبر show_dictation واطلب منه ذلك
 voice-error-changed = تغيّرت الإعدادات منذ السؤال: اسأل مجددًا
 voice-error-nothing-to-download = لا شيء لتنزيله لهذا الوكيل
 agent-tune-prompt = اضبط العرض التقديمي المستورد بدقة

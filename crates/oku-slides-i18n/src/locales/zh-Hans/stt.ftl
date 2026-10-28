@@ -11,6 +11,7 @@ stt-cancelled = 下载已取消
 stt-speech-denied = 请在“系统设置 › 隐私与安全性”中允许语音识别
 stt-locale-unsupported = Apple 的引擎不支持此语言（{ $language }）
 stt-api-key-missing = 设置环境变量 { $var } 以使用听写 API
+stt-api-key-invalid = 环境变量 { $var } 的值无法在 HTTP 标头中发送
 stt-api-config = 听写 API 的设置无效：请在设置框中更正。
 stt-api-unreachable = 无法连接听写 API
 stt-api-status = 听写 API 拒绝了请求（HTTP { $status }）

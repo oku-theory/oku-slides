@@ -14,6 +14,9 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Store, show and call only the normalized_url form of the dictation API address; refuse invalid settings at use. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Check API variables with key_present or missing_variable; read their values only in ApiTranscriber. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1213)
 - Show an API error message only for statuses other than 401 and 403, with every secret masked. (spec:2026-10-25-dictee-api-entetes-design)
+- Call the dictation API only through async-openai with the client built in ApiTranscriber::new; no hand-made HTTP. (t-1233)
+- Send dictation API requests only through api_http::send: one attempt, a bounded reply, the status kept. (t-1233)
+- Set the key, base and empty org and project on every async-openai config, so no OPENAI_* variable leaks. (t-1233)
 - Load config.json only through saved_config::load; keep an unparseable one aside, log no serde message. (t-1216)
 
 ## Testing
@@ -24,3 +27,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Use the Apple engine only on macOS 26+ with stt.apple enabled; keep Whisper as the engine elsewhere. (plan:2026-10-03-dictee-native-macos, t-393)
 - Never silently fall back from the Apple speech engine to Whisper; grey out unsupported languages instead. (spec:2026-10-03-dictee-native-macos-design)
+- Never migrate the API query parameters of 7.0.0 and earlier; refuse such settings until the user writes an API field again. (t-1233)

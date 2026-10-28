@@ -93,8 +93,8 @@ pub enum VoiceErrorKind {
     BadKeyEnv,
     /// Modèle d'API refusé.
     BadApiModel,
-    /// API query parameters refused.
-    BadApiQuery,
+    /// Azure API version refused.
+    BadApiVersion,
     /// API headers refused, or no secret named at all.
     BadApiHeaders,
     /// Adresse et variable de l'API : réservées à l'utilisateur.
@@ -127,7 +127,7 @@ impl VoiceErrorKind {
             Self::BadUrl => "voice-error-bad-url",
             Self::BadKeyEnv => "voice-error-bad-key-env",
             Self::BadApiModel => "voice-error-bad-api-model",
-            Self::BadApiQuery => "voice-error-bad-api-query",
+            Self::BadApiVersion => "voice-error-bad-api-version",
             Self::BadApiHeaders => "voice-error-bad-api-headers",
             Self::ApiReservedToUser => "voice-error-api-reserved",
             Self::Changed => "voice-error-changed",

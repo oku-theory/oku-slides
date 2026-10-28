@@ -16,7 +16,7 @@ use crate::common::*;
 async fn issue_1144_agent_api_target_is_refused_in_french(#[case] args: Value) {
     let h = start().await;
     let r = call_within(&server(&h).await, "set_dictation", args).await;
-    assert_that!(text_of(&r)).is_equal_to("Seul l'utilisateur règle l'adresse, la variable de la clé, les paramètres et les en-têtes de l'API : ouvrez la boîte avec show_dictation et demandez-le-lui".to_owned());
+    assert_that!(text_of(&r)).is_equal_to("Seul l'utilisateur règle l'adresse, la variable de la clé, la version Azure et les en-têtes de l'API : ouvrez la boîte avec show_dictation et demandez-le-lui".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]

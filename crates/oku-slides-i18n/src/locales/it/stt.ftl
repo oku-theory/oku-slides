@@ -11,6 +11,7 @@ stt-cancelled = Download annullato
 stt-speech-denied = Consenti il riconoscimento vocale in Impostazioni di Sistema › Privacy e sicurezza
 stt-locale-unsupported = Il motore di Apple non supporta questa lingua ({ $language })
 stt-api-key-missing = Imposta la variabile d'ambiente { $var } per usare l'API di dettatura
+stt-api-key-invalid = La variabile d'ambiente { $var } contiene un valore che non può essere inviato in un'intestazione HTTP
 stt-api-config = Le impostazioni dell'API di dettatura non sono valide: correggile nella finestra delle impostazioni.
 stt-api-unreachable = L'API di dettatura non è raggiungibile
 stt-api-status = L'API di dettatura ha rifiutato la richiesta (HTTP { $status })

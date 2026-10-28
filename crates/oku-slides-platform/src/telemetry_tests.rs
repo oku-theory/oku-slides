@@ -94,3 +94,16 @@ fn filter_with_network_debug_records_ureq_debug_and_keeps_loro_quiet() {
     let recorded = seen.0.lock().unwrap_or_else(PoisonError::into_inner).clone();
     assert_that!(recorded).is_equal_to(vec![("ureq::run".to_owned(), Level::DEBUG)]);
 }
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn filter_drops_async_openai_errors_that_quote_bodies(#[case] network: bool) {
+    let seen = Seen::default();
+    let (installed, _) = filter(None, network, false);
+    let subscriber = tracing_subscriber::registry().with(seen.clone().with_filter(installed));
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::error!(target: "async_openai::error", "failed deserialization of: {{\"key\":\"sk-x\"}}");
+    });
+    assert_that!(seen.0.lock().unwrap_or_else(PoisonError::into_inner).clone()).is_empty();
+}

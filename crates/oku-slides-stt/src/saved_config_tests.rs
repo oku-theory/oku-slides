@@ -64,3 +64,15 @@ fn load_unreadable_file_is_not_savable() {
     let loaded = load(&storage(), dir.path());
     assert_that!(loaded.savable).is_false();
 }
+
+#[test]
+fn load_7_0_0_azure_file_is_kept_but_refused() {
+    let dir = fresh_dir("saved-config-legacy-");
+    let json = r#"{"model": "api", "version": 1, "api": {"key_env": "",
+      "url": "https://acme.openai.azure.com/openai/deployments/whisper",
+      "query": [{"name": "api-version", "value": "2024-06-01"}],
+      "headers": [{"name": "X-Key", "value": {"env": "AZURE_KEY"}}]}}"#;
+    storage().write(&path(dir.path()), json).unwrap_or_else(|e| panic!("write: {e}"));
+    let loaded = load(&storage(), dir.path());
+    assert_that!((loaded.savable, crate::valid_api_access(&loaded.config.api))).is_equal_to((true, false));
+}

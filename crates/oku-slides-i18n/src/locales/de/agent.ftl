@@ -141,10 +141,10 @@ voice-error-bad-silence = Die Stille muss 0,5 bis 10 Sekunden dauern
 voice-error-bad-language = Unbekannte Diktiersprache
 voice-error-bad-url = Die API-Adresse muss mit https:// beginnen (http:// nur für diesen Computer), ohne Benutzernamen, Parameter oder Sonderzeichen
 voice-error-bad-key-env = Die Schlüsselvariable muss ein Name wie OPENAI_API_KEY sein: Großbuchstaben, Ziffern und _
-voice-error-bad-api-model = Der Name des API-Modells darf nur Buchstaben, Ziffern und . _ : / - enthalten
-voice-error-bad-api-query = Parameter werden name=wert&name=wert geschrieben, in sichtbarem ASCII ohne % oder #, höchstens 8
-voice-error-bad-api-headers = Header werden Name: Wert; Name: $VARIABLE geschrieben, höchstens 8. Eine Schlüsselvariable oder ein $VARIABLE-Header ist nötig; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, Duplikate und Authorization mit Schlüsselvariable werden abgelehnt
-voice-error-api-reserved = Nur der Benutzer legt API-Adresse, Schlüsselvariable, Abfrageparameter und Header fest: öffnen Sie die Box mit show_dictation und fragen Sie ihn
+voice-error-bad-api-model = Der Name des API-Modells darf nur Buchstaben, Ziffern und . _ : / - enthalten; ein Azure-Bereitstellungsname nur Buchstaben, Ziffern und . _ -
+voice-error-bad-api-version = Die Azure-API-Version darf nur Buchstaben, Ziffern, . und - enthalten, höchstens 32 Zeichen, etwa 2025-03-01-preview
+voice-error-bad-api-headers = Header werden Name: Wert; Name: $VARIABLE geschrieben, höchstens 8. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection und Duplikate werden abgelehnt
+voice-error-api-reserved = Nur der Benutzer legt Adresse, Schlüsselvariable, Azure-Version und Header der API fest: Öffne das Fenster mit show_dictation und frag ihn
 voice-error-changed = Die Einstellungen haben sich seit der Frage geändert: fragen Sie erneut
 voice-error-nothing-to-download = Für diesen Agenten gibt es nichts herunterzuladen
 agent-tune-prompt = Die importierte Präsentation feinabstimmen

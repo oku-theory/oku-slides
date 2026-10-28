@@ -141,10 +141,10 @@ voice-error-bad-silence = मौन 0.5 से 10 सेकंड तक का 
 voice-error-bad-language = अज्ञात डिक्टेशन भाषा
 voice-error-bad-url = API पता https:// से शुरू होना चाहिए (http:// केवल इस कंप्यूटर के लिए), बिना उपयोगकर्ता नाम, पैरामीटर या विशेष वर्णों के
 voice-error-bad-key-env = कुंजी का वेरिएबल OPENAI_API_KEY जैसा नाम होना चाहिए: बड़े अक्षर, अंक और _
-voice-error-bad-api-model = API मॉडल के नाम में केवल अक्षर, अंक और . _ : / - हो सकते हैं
-voice-error-bad-api-query = पैरामीटर name=value&name=value के रूप में, % या # के बिना दिखने वाले ASCII में, अधिकतम 8 लिखे जाते हैं
-voice-error-bad-api-headers = हेडर Name: value; Name: $VARIABLE के रूप में, अधिकतम 8 लिखे जाते हैं। एक कुंजी वेरिएबल या एक $VARIABLE हेडर ज़रूरी है; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, दोहराए गए नाम और कुंजी वेरिएबल के साथ Authorization अस्वीकार किए जाते हैं
-voice-error-api-reserved = API पता, कुंजी का वेरिएबल, क्वेरी पैरामीटर और हेडर केवल उपयोगकर्ता तय करते हैं: show_dictation से बॉक्स खोलें और उनसे कहें
+voice-error-bad-api-model = API मॉडल के नाम में केवल अक्षर, अंक और . _ : / - हो सकते हैं; Azure डिप्लॉयमेंट के नाम में केवल अक्षर, अंक और . _ -
+voice-error-bad-api-version = Azure API संस्करण में केवल अक्षर, अंक, . और - हो सकते हैं, अधिकतम 32 वर्ण, जैसे 2025-03-01-preview
+voice-error-bad-api-headers = हेडर Name: value; Name: $VARIABLE के रूप में लिखे जाते हैं, अधिकतम 8। Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection और दोहराव अस्वीकार किए जाते हैं
+voice-error-api-reserved = API का पता, कुंजी चर, Azure संस्करण और हेडर केवल उपयोगकर्ता सेट करता है: show_dictation से बॉक्स खोलें और उनसे कहें
 voice-error-changed = प्रश्न के बाद सेटिंग्स बदल गई हैं: फिर से पूछें
 voice-error-nothing-to-download = इस एजेंट के लिए डाउनलोड करने को कुछ नहीं है
 agent-tune-prompt = आयात की गई प्रस्तुति को बारीकी से सुधारें

@@ -145,7 +145,7 @@ fn voice_panel_api_chip_hint_says_whether_the_key_is_set(#[case] found: bool, #[
 #[case("d-api-url")]
 #[case("d-api-model")]
 #[case("d-api-key-env")]
-#[case("d-api-query")]
+#[case("d-api-version")]
 #[case("d-api-headers")]
 #[case("d-api-azure-note")]
 fn voice_panel_api_model_shows_its_field(#[case] id: &str) {

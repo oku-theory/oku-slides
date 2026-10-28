@@ -70,6 +70,12 @@ pub fn valid_api_model(name: &str) -> bool {
         && name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b':' | b'/' | b'-'))
 }
 
+/// Azure `api-version`, such as `2025-03-01-preview`; empty means OpenAI.
+#[must_use]
+pub fn valid_api_version(version: &str) -> bool {
+    version.len() <= 32 && version.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
+}
+
 #[cfg(test)]
 #[path = "api_check_tests.rs"]
 mod api_check_tests;

@@ -559,9 +559,9 @@ voice-api-url = Адрес API
 voice-api-model = Модель
 voice-api-key-env = Переменная ключа
 voice-api-note = Каждая фраза отправляется в этот сервис. Ключ читается из переменной окружения при запуске диктовки; приложение, открытое из Finder, не видит переменные оболочки (используйте launchctl setenv).
-voice-api-query = Параметры запроса
+voice-api-version = Версия API Azure
 voice-api-headers = Дополнительные заголовки
-voice-api-azure-note = Azure OpenAI: оставьте переменную ключа пустой, задайте api-version=… как параметр и api-key: $AZURE_OPENAI_API_KEY как заголовок. $NAME читает переменную.
+voice-api-azure-note = Azure OpenAI: адрес ресурса (https://….openai.azure.com) как адрес, развёртывание как модель, переменная ключа (отправляется как api-key) и версия API, например 2025-03-01-preview. Для OpenAI оставьте версию пустой. В заголовках $NAME читает переменную.
 voice-cancel = Отмена
 voice-agent-title = Агент
 voice-agent-busy = Смена агента прервёт текущий ход.

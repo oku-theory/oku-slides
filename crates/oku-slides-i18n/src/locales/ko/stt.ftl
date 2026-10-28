@@ -11,6 +11,7 @@ stt-cancelled = 다운로드가 취소되었습니다
 stt-speech-denied = 시스템 설정 › 개인정보 보호 및 보안에서 음성 인식을 허용하세요
 stt-locale-unsupported = Apple 엔진은 이 언어를 지원하지 않습니다 ({ $language })
 stt-api-key-missing = 받아쓰기 API를 사용하려면 환경 변수 { $var }을(를) 설정하세요
+stt-api-key-invalid = 환경 변수 { $var }의 값은 HTTP 헤더로 보낼 수 없습니다
 stt-api-config = 받아쓰기 API 설정이 올바르지 않습니다. 설정 상자에서 수정하세요.
 stt-api-unreachable = 받아쓰기 API에 연결할 수 없습니다
 stt-api-status = 받아쓰기 API가 요청을 거부했습니다 (HTTP { $status })

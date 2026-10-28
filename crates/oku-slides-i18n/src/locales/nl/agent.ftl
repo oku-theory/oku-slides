@@ -141,10 +141,10 @@ voice-error-bad-silence = De stilte moet 0,5 tot 10 seconden duren
 voice-error-bad-language = Onbekende dicteertaal
 voice-error-bad-url = Het API-adres moet beginnen met https:// (http:// alleen voor deze computer), zonder gebruikersnaam, parameters of speciale tekens
 voice-error-bad-key-env = De sleutelvariabele moet een naam zijn zoals OPENAI_API_KEY: hoofdletters, cijfers en _
-voice-error-bad-api-model = De naam van het API-model mag alleen letters, cijfers en . _ : / - bevatten
-voice-error-bad-api-query = Parameters schrijf je als naam=waarde&naam=waarde, in zichtbare ASCII zonder % of #, hoogstens 8
-voice-error-bad-api-headers = Headers schrijf je als Naam: waarde; Naam: $VARIABLE, hoogstens 8. Een sleutelvariabele of een $VARIABLE-header is nodig; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, dubbele namen en Authorization met een sleutelvariabele worden geweigerd
-voice-error-api-reserved = Alleen de gebruiker stelt het API-adres, de sleutelvariabele, de queryparameters en de headers in: open het venster met show_dictation en vraag het hem
+voice-error-bad-api-model = De naam van het API-model mag alleen letters, cijfers en . _ : / - bevatten; een Azure-implementatienaam alleen letters, cijfers en . _ -
+voice-error-bad-api-version = De Azure-API-versie bevat alleen letters, cijfers, . en -, hoogstens 32 tekens, zoals 2025-03-01-preview
+voice-error-bad-api-headers = Headers schrijf je als Naam: waarde; Naam: $VARIABLE, hoogstens 8. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection en dubbele namen worden geweigerd
+voice-error-api-reserved = Alleen de gebruiker stelt het adres, de sleutelvariabele, de Azure-versie en de headers van de API in: open het venster met show_dictation en vraag het hem
 voice-error-changed = De instellingen zijn sinds de vraag veranderd: vraag opnieuw
 voice-error-nothing-to-download = Niets te downloaden voor deze agent
 agent-tune-prompt = De geïmporteerde presentatie verfijnen

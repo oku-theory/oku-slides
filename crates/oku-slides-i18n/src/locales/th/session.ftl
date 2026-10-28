@@ -554,9 +554,9 @@ voice-api-url = ที่อยู่ API
 voice-api-model = โมเดล
 voice-api-key-env = ตัวแปรของคีย์
 voice-api-note = ทุกประโยคจะถูกส่งไปยังบริการนี้ คีย์จะถูกอ่านจากตัวแปรสภาพแวดล้อมเมื่อเริ่มพิมพ์ตามคำพูด แอปที่เปิดจาก Finder จะไม่เห็นตัวแปรของเชลล์ (ใช้ launchctl setenv)
-voice-api-query = พารามิเตอร์คิวรี
+voice-api-version = เวอร์ชัน API ของ Azure
 voice-api-headers = เฮดเดอร์เพิ่มเติม
-voice-api-azure-note = Azure OpenAI: เว้นตัวแปรคีย์ว่างไว้ ตั้ง api-version=… เป็นพารามิเตอร์ และ api-key: $AZURE_OPENAI_API_KEY เป็นเฮดเดอร์ $NAME จะอ่านตัวแปร
+voice-api-azure-note = Azure OpenAI: ใส่ที่อยู่ของทรัพยากร (https://….openai.azure.com) เป็นที่อยู่ ชื่อการปรับใช้เป็นโมเดล ตัวแปรของคีย์ (ส่งเป็น api-key) และเวอร์ชัน API เช่น 2025-03-01-preview เว้นเวอร์ชันว่างไว้สำหรับ OpenAI ในส่วนหัว $NAME จะอ่านตัวแปร
 voice-cancel = ยกเลิก
 voice-agent-title = เอเจนต์
 voice-agent-busy = การเปลี่ยนเอเจนต์จะหยุดเทิร์นที่กำลังทำงานอยู่

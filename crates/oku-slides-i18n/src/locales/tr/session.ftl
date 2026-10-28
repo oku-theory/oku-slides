@@ -557,9 +557,9 @@ voice-api-url = API adresi
 voice-api-model = Model
 voice-api-key-env = Anahtar değişkeni
 voice-api-note = Her cümle bu hizmete gönderilir. Anahtar, dikte başladığında ortam değişkeninden okunur; Finder'dan açılan bir uygulama kabuk değişkenlerini görmez (launchctl setenv kullanın).
-voice-api-query = Sorgu parametreleri
+voice-api-version = Azure API sürümü
 voice-api-headers = Ek başlıklar
-voice-api-azure-note = Azure OpenAI: anahtar değişkenini boş bırakın, api-version=… değerini parametre ve api-key: $AZURE_OPENAI_API_KEY değerini başlık olarak girin. $NAME bir değişkeni okur.
+voice-api-azure-note = Azure OpenAI: adres olarak kaynak adresi (https://….openai.azure.com), model olarak dağıtım adı, anahtar değişkeni (api-key olarak gönderilir) ve API sürümü, örneğin 2025-03-01-preview. OpenAI için sürümü boş bırakın. Başlıklarda $NAME bir değişkeni okur.
 voice-cancel = İptal
 voice-agent-title = Ajan
 voice-agent-busy = Ajanı değiştirmek devam eden turu durduracak.

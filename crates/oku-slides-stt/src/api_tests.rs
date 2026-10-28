@@ -15,16 +15,6 @@ fn wav_one_second_parses_back_at_16k_mono() {
 }
 
 #[test]
-fn multipart_fields_and_file_are_in_the_body() {
-    let (ct, body) = multipart(&[("model", "whisper-1")], b"RIFFxx");
-    let boundary = ct.strip_prefix("multipart/form-data; boundary=").unwrap();
-    let text = String::from_utf8_lossy(&body);
-    assert_that!(text.as_ref()).contains("name=\"model\"\r\n\r\nwhisper-1\r\n");
-    assert_that!(text.as_ref()).contains("filename=\"phrase.wav\"");
-    assert_that!(text.as_ref()).ends_with(format!("--{boundary}--\r\n"));
-}
-
-#[test]
 fn key_unset_variable_returns_api_key_missing() {
     let config = ApiConfig { key_env: "OKU_SLIDES_TEST_NO_SUCH_KEY_7f3a".into(), ..ApiConfig::default() };
     assert_that!(ApiConfig::secret(&config.key_env).unwrap_err().kind()).is_equal_to(SttErrorKind::Model);
@@ -48,13 +38,6 @@ fn transcriber(url: String) -> ApiTranscriber {
 }
 
 #[test]
-fn new_remote_api_trusts_the_system_certificate_store() {
-    let t = transcriber("https://transcribe.example.com/v1".into());
-    let roots = t.agent.config().tls_config().root_certs();
-    assert_that!(matches!(roots, ureq::tls::RootCerts::PlatformVerifier)).is_true();
-}
-
-#[test]
 fn transcribe_ok_returns_the_api_text() {
     let (url, _calls) = fake_api(200, r#"{"text":"Bonjour à tous."}"#);
     let t = transcriber(url).transcribe(&[0.0; 1600], Some("fr"), Some("Oku"), false).unwrap();
@@ -73,18 +56,19 @@ fn transcribe_sends_bearer_key_model_language_and_prompt() {
     assert_that!(body.as_str()).contains("name=\"prompt\"\r\n\r\nOku\r\n");
 }
 
-/// Azure-like settings: `api-version` in the query, the secret in `api-key`, no Bearer.
+/// Azure settings: deployment in the path, `api-version` in the query, the key in `api-key`.
 fn azure_transcriber(url: String) -> ApiTranscriber {
     let config = ApiConfig {
         url,
-        model: "whisper-1".into(),
-        key_env: String::new(),
-        query: vec![ApiParam { name: "api-version".into(), value: "2025-03-01-preview".into() }],
+        model: "transcribe-prod".into(),
+        // PATH: always set and long enough to be masked (HOME is `/root` on some CI).
+        key_env: "PATH".into(),
+        api_version: "2025-03-01-preview".into(),
         headers: vec![
-            // PATH: always set and long enough to be masked (HOME is `/root` on some CI).
-            ApiHeader { name: "api-key".into(), value: HeaderValue::Env("PATH".into()) },
+            ApiHeader { name: "X-Token".into(), value: HeaderValue::Env("HOME".into()) },
             ApiHeader { name: "X-Tenant".into(), value: HeaderValue::Literal("acme".into()) },
         ],
+        ..ApiConfig::default()
     };
     ApiTranscriber::new(config, Duration::from_secs(5)).unwrap()
 }
@@ -93,36 +77,47 @@ fn header<'a>(call: &'a ApiCall, name: &str) -> Option<&'a str> {
     call.headers.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| v.as_str())
 }
 
-#[test]
-fn transcribe_query_params_are_encoded_in_the_url() {
+fn azure_call() -> ApiCall {
     let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
     azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
-    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert_that!(call.url).is_equal_to("/v1/audio/transcriptions?api-version=2025-03-01-preview".to_owned());
+    calls.recv_timeout(Duration::from_secs(5)).unwrap()
 }
 
 #[test]
-fn transcribe_variable_header_sends_the_variable_value() {
-    let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
-    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
-    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
+fn transcribe_azure_calls_the_deployment_with_its_api_version() {
+    assert_that!(azure_call().url).is_equal_to(
+        "/v1/openai/deployments/transcribe-prod/audio/transcriptions?api-version=2025-03-01-preview".to_owned(),
+    );
+}
+
+#[test]
+fn transcribe_azure_sends_the_key_as_api_key() {
+    let call = azure_call();
     assert_that!(header(&call, "api-key")).is_equal_to(Some(std::env::var("PATH").unwrap().as_str()));
 }
 
 #[test]
-fn transcribe_literal_header_sends_the_literal() {
-    let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
-    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
-    let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert_that!(header(&call, "X-Tenant")).is_equal_to(Some("acme"));
+fn transcribe_azure_sends_no_authorization() {
+    assert_that!(header(&azure_call(), "Authorization")).is_none();
 }
 
 #[test]
-fn transcribe_empty_key_variable_sends_no_authorization() {
+fn transcribe_variable_header_sends_the_variable_value() {
+    let call = azure_call();
+    assert_that!(header(&call, "X-Token")).is_equal_to(Some(std::env::var("HOME").unwrap().as_str()));
+}
+
+#[test]
+fn transcribe_literal_header_sends_the_literal() {
+    assert_that!(header(&azure_call(), "X-Tenant")).is_equal_to(Some("acme"));
+}
+
+#[test]
+fn transcribe_openai_sends_no_organization_or_project() {
     let (url, calls) = fake_api(200, r#"{"text":"x"}"#);
-    azure_transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
+    transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap();
     let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert_that!(header(&call, "Authorization")).is_none();
+    assert_that!((header(&call, "OpenAI-Organization"), header(&call, "OpenAI-Project"))).is_equal_to((None, None));
 }
 
 #[test]
@@ -147,17 +142,20 @@ fn transcribe_forbidden_shows_no_api_message() {
 #[test]
 fn new_unset_header_variable_returns_api_key_missing() {
     let config = ApiConfig {
-        key_env: String::new(),
-        headers: vec![ApiHeader { name: "api-key".into(), value: HeaderValue::Env("OKU_T1213_UNSET".into()) }],
+        key_env: "HOME".into(),
+        headers: vec![ApiHeader { name: "X-Token".into(), value: HeaderValue::Env("OKU_T1213_UNSET".into()) }],
         ..ApiConfig::default()
     };
     let e = ApiTranscriber::new(config, Duration::from_secs(5)).unwrap_err();
     assert_that!(e.localize(&Localizer::new(Some("en")))).contains("OKU_T1213_UNSET");
 }
 
-#[test]
-fn new_reserved_header_is_refused() {
-    let headers = vec![ApiHeader { name: "Host".into(), value: HeaderValue::Literal("evil.example".into()) }];
+#[rstest::rstest]
+#[case("Host")]
+#[case("Authorization")]
+#[case("api-key")]
+fn new_reserved_header_is_refused(#[case] name: &str) {
+    let headers = vec![ApiHeader { name: name.into(), value: HeaderValue::Literal("evil.example".into()) }];
     refused(ApiConfig { headers, ..ApiConfig::default() });
 }
 
@@ -165,7 +163,7 @@ fn new_reserved_header_is_refused() {
 fn key_present_unset_header_variable_is_absent() {
     let config = ApiConfig {
         key_env: "HOME".into(),
-        headers: vec![ApiHeader { name: "api-key".into(), value: HeaderValue::Env("OKU_T1213_UNSET".into()) }],
+        headers: vec![ApiHeader { name: "X-Token".into(), value: HeaderValue::Env("OKU_T1213_UNSET".into()) }],
         ..ApiConfig::default()
     };
     assert_that!(config.key_present()).is_false();
@@ -173,7 +171,7 @@ fn key_present_unset_header_variable_is_absent() {
 
 #[test]
 fn transcribe_unauthorized_returns_transcription_error() {
-    let (url, _calls) = fake_api(401, r#"{"error":"bad key"}"#);
+    let (url, _calls) = fake_api(401, r#"{"error":{"message":"bad key"}}"#);
     let e = transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap_err();
     assert_that!(e.kind()).is_equal_to(SttErrorKind::Transcription);
     assert_that!(e.localize(&Localizer::new(Some("en")))).contains("401");
@@ -221,6 +219,11 @@ fn api_transcriber_invalid_stored_url_is_refused() {
 }
 
 #[test]
+fn api_transcriber_empty_key_env_is_refused() {
+    refused(ApiConfig { key_env: String::new(), ..ApiConfig::default() });
+}
+
+#[test]
 fn api_transcriber_invalid_key_env_is_refused() {
     refused(ApiConfig {
         url: "http://127.0.0.1:9/v1".into(),
@@ -246,8 +249,31 @@ fn api_transcriber_redirect_is_not_followed() {
         }
     });
     let e = transcriber(url).transcribe(&[0.0; 1600], None, None, false).unwrap_err();
-    assert_that!(e.kind()).is_equal_to(SttErrorKind::Transcription);
-    assert_that!(e.localize(&Localizer::new(Some("fr")))).contains("307");
+    assert_that!(e.localize(&Localizer::new(Some("en")))).contains("307");
     let reached = hit.join().unwrap().unwrap_or_else(|e| panic!("seconde API : {e}"));
     assert_that!(reached.is_none()).is_true();
+}
+
+#[test]
+fn transcribe_bad_request_masks_a_long_literal_header() {
+    let config = ApiConfig {
+        key_env: "PATH".into(),
+        headers: vec![ApiHeader { name: "X-Gateway".into(), value: HeaderValue::Literal("gw-0123456789".into()) }],
+        ..ApiConfig::default()
+    };
+    let (url, _calls) = fake_api(400, r#"{"error":{"message":"bad gateway token gw-0123456789"}}"#);
+    let t =
+        ApiTranscriber::new(ApiConfig { url, model: "whisper-1".into(), ..config }, Duration::from_secs(5)).unwrap();
+    let e = t.transcribe(&[0.0; 1600], None, None, false).unwrap_err();
+    assert_that!(e.localize(&Localizer::new(Some("en")))).does_not_contain("gw-0123456789");
+}
+
+#[test]
+fn api_transcriber_legacy_query_is_refused() {
+    refused(ApiConfig {
+        url: "http://127.0.0.1:9/v1".into(),
+        key_env: "HOME".into(),
+        legacy_query: vec![LegacyQueryParam { name: "api-version".into(), value: "2024-06-01".into() }],
+        ..ApiConfig::default()
+    });
 }

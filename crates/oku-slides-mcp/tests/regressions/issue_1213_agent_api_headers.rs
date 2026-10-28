@@ -1,4 +1,4 @@
-//! t-1213: the agent never sets the dictation API query or headers, which can carry secrets.
+//! t-1213: the agent never sets the dictation API version or headers, which decide where secrets go.
 
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -9,13 +9,12 @@ use crate::common::*;
 #[rstest]
 #[case(json!({"api_headers": "api-key: $GITHUB_TOKEN"}))]
 #[case(json!({"headers": "api-key: $GITHUB_TOKEN"}))]
-#[case(json!({"api_query": "api-version=1"}))]
-#[case(json!({"query": "api-version=1"}))]
+#[case(json!({"api_version": "2024-10-21"}))]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_1213_agent_api_headers_are_refused_in_french(#[case] args: Value) {
     let h = start().await;
     let r = call_within(&server(&h).await, "set_dictation", args).await;
-    assert_that!(text_of(&r)).is_equal_to("Seul l'utilisateur règle l'adresse, la variable de la clé, les paramètres et les en-têtes de l'API : ouvrez la boîte avec show_dictation et demandez-le-lui".to_owned());
+    assert_that!(text_of(&r)).is_equal_to("Seul l'utilisateur règle l'adresse, la variable de la clé, la version Azure et les en-têtes de l'API : ouvrez la boîte avec show_dictation et demandez-le-lui".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]

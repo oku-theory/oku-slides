@@ -18,9 +18,9 @@ use crate::tool_error::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, VoiceSn
 use crate::tools::Tools;
 use crate::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
 
-/// Argument keys that would target the API address, variables, query or headers.
+/// Argument keys that would target the API address, variables, Azure version or headers.
 const API_TARGET_KEYS: [&str; 9] =
-    ["api", "api_url", "url", "api_key_env", "key_env", "api_query", "query", "api_headers", "headers"];
+    ["api", "api_url", "url", "api_key_env", "key_env", "api_version", "version", "api_headers", "headers"];
 
 /// Dictation settings to change; absent: unchanged.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -87,7 +87,7 @@ impl Tools {
             api_url: None,
             api_model: a.api_model,
             api_key_env: None,
-            api_query: None,
+            api_version: None,
             api_headers: None,
         };
         if patch.is_empty() {

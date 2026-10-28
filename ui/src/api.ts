@@ -381,14 +381,14 @@ export interface SlotRef {
 export type SttModel = "apple" | "turbo" | "large" | "base" | "api";
 export type SttState = "idle" | "downloading" | "recording" | "transcribing";
 
-/** Service de dictée compatible OpenAI ; la clé n'est jamais ici, seulement le nom de sa variable. */
+/** OpenAI or Azure OpenAI dictation service; never the key here, only its variable's name. */
 export interface SttApiConfig {
   url: string;
   model: string;
-  /** Empty: no Bearer, the secret goes in a header. */
+  /** Name of the variable holding the key, required; never the key itself. */
   key_env: string;
-  /** Query parameters, such as `api-version` for Azure OpenAI. */
-  query: { name: string; value: string }[];
+  /** Azure OpenAI `api-version`; empty: the OpenAI API. */
+  api_version: string;
   /** Custom headers; an `env` value names a variable, never its value. */
   headers: { name: string; value: { literal: string } | { env: string } }[];
 }

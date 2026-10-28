@@ -5,7 +5,7 @@
 //!   audio comes in, through a Swift bridge (`apple.rs`).
 //! - Whisper (Turbo, Large, Base): CTranslate2 (the one in faster-whisper),
 //!   via ct2rs; it is the engine elsewhere, or on request.
-//! - OpenAI-compatible API (`api.rs`): sentence by sentence, without preview.
+//! - OpenAI or Azure OpenAI API (`api.rs`, async-openai): sentence by sentence, without preview.
 //!
 //! Voice is detected frame by frame (earshot): listening stops by itself
 //! after a silence. With Whisper, each finished sentence is transcribed once,
@@ -21,6 +21,7 @@
 mod api;
 mod api_check;
 mod api_extra;
+mod api_http;
 #[cfg(target_os = "macos")]
 mod apple;
 mod audio;
@@ -50,10 +51,10 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 pub use api::ApiConfig;
-pub use api_check::{is_loopback, normalized_url, url_host, valid_api_model, valid_key_env};
+pub use api_check::{is_loopback, normalized_url, url_host, valid_api_model, valid_api_version, valid_key_env};
 pub use api_extra::{
-    ApiHeader, ApiParam, HeaderValue, format_api_headers, format_api_query, parse_api_headers, parse_api_query,
-    valid_api_access, valid_api_headers,
+    ApiAccessProblem, ApiHeader, HeaderValue, LegacyQueryParam, api_access_problem, format_api_headers,
+    parse_api_headers, valid_api_access, valid_api_headers,
 };
 use audio::SAMPLE_RATE_F32;
 pub use audio::{SAMPLE_RATE, resample};

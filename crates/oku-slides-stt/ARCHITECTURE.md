@@ -15,13 +15,15 @@ Oku Slides dictation: microphone -> voice detection -> engine -> text. Polled
 - **Whisper** (Turbo, Large, Base): CTranslate2 (`whisper.rs`), models
   downloaded from Hugging Face by `oku_slides_platform::models` (`models.rs` lists the files),
   sentence by sentence (`dictation_whisper.rs`).
-- **API** (`Model::Api`): an OpenAI-compatible transcription API (`api.rs`), phrase by
-  phrase like Whisper but without preview; the key is read from the environment
-  variable named in `ApiConfig`, never stored or copied (`key_present` only tests it).
-  `api_check.rs` holds the settings rules (`normalized_url`, `is_loopback`, `valid_key_env`,
-  `valid_api_model`); `api_extra.rs` the user-only query parameters and headers (literal or
-  `$VARIABLE`, Azure OpenAI) and the redacted API error message; the client refuses invalid settings, follows no redirect, skips
-  the proxy for loopback and trusts the system certificates (`http::system_tls`). `Model::id`/`from_id` give the stable model names.
+- **API** (`Model::Api`): OpenAI-compatible or Azure OpenAI transcription through async-openai
+  (`api.rs`: `OpenAIConfig`, or `AzureConfig` when `api_version` is set), phrase by phrase
+  like Whisper but without preview; the key is read from the environment variable named in
+  `ApiConfig`, never stored or copied (`key_present` only tests it). `api_check.rs` holds the
+  settings rules (`normalized_url`, `is_loopback`, `valid_key_env`, `valid_api_model`,
+  `valid_api_version`); `api_extra.rs` the user-only headers, `api_access_problem` (7.0.0
+  `query` refused, not migrated) and redacted errors; `api_http.rs` the transport: one attempt,
+  1 MiB reply, status kept. Its reqwest client follows no redirect, skips the proxy for loopback,
+  trusts system certificates; a current-thread Tokio runtime runs it. `Model::id`/`from_id`: stable names.
 
 ## Settings
 

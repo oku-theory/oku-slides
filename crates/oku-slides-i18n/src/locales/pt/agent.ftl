@@ -141,10 +141,10 @@ voice-error-bad-silence = O silêncio deve durar de 0,5 a 10 segundos
 voice-error-bad-language = Idioma de ditado desconhecido
 voice-error-bad-url = O endereço da API deve começar com https:// (http:// só para este computador), sem nome de usuário, parâmetros nem caracteres especiais
 voice-error-bad-key-env = A variável da chave deve ser um nome como OPENAI_API_KEY: maiúsculas, dígitos e _
-voice-error-bad-api-model = O nome do modelo da API só aceita letras, dígitos e . _ : / -
-voice-error-bad-api-query = Os parâmetros são escritos nome=valor&nome=valor, em ASCII visível sem % nem #, no máximo 8
-voice-error-bad-api-headers = Os cabeçalhos são escritos Nome: valor; Nome: $VARIABLE, no máximo 8. É preciso uma variável de chave ou um cabeçalho $VARIABLE; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, duplicados e Authorization com variável de chave são recusados
-voice-error-api-reserved = Só o usuário define o endereço, a variável da chave, os parâmetros e os cabeçalhos da API: abra a caixa com show_dictation e peça a ele
+voice-error-bad-api-model = O nome do modelo da API só admite letras, algarismos e . _ : / -; um nome de implantação do Azure só letras, algarismos e . _ -
+voice-error-bad-api-version = A versão da API do Azure só admite letras, algarismos, . e -, no máximo 32 caracteres, por exemplo 2025-03-01-preview
+voice-error-bad-api-headers = Os cabeçalhos são escritos Nome: valor; Nome: $VARIABLE, no máximo 8. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection e duplicados são recusados
+voice-error-api-reserved = Só o utilizador define o endereço, a variável da chave, a versão do Azure e os cabeçalhos da API: abra a caixa com show_dictation e peça-lhe
 voice-error-changed = As configurações mudaram desde a pergunta: pergunte de novo
 voice-error-nothing-to-download = Nada a baixar para este agente
 agent-tune-prompt = Afinar a apresentação importada

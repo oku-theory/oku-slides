@@ -230,7 +230,8 @@ deck's widget packs.
 
 ### Dictation
 
-Everything happens on the machine. On macOS 26+, Apple's speech engine is the default when it knows the language
+Everything happens on the machine, unless you choose the API engine
+([OpenAI or Azure OpenAI](#dictation-through-azure-openai-in-a-company)). On macOS 26+, Apple's speech engine is the default when it knows the language
 (streaming, language installed by the system; `[stt] apple = false` turns it off).
 Otherwise, Whisper runs on CTranslate2 (faster-whisper's engine, through
 [ct2rs](https://crates.io/crates/ct2rs)), int8-quantized weights, Accelerate on Mac.
@@ -273,6 +274,81 @@ just transcribe voice.wav turbo fr                # split into sentences, transc
 OKU_SLIDES_STT__FAKE_MIC=voice.wav just serve     # simulate the mic in the interface
 just test-apple                                   # Apple's engine for real (macOS 26, French installed)
 ```
+
+#### Dictation through Azure OpenAI in a company
+
+The **API** engine sends each sentence to OpenAI or to an Azure OpenAI transcription
+deployment instead of transcribing on the machine. A typical company setup: a
+`gpt-4o-transcribe` (or `whisper`) deployment on an Azure resource, reached through a
+gateway that wants its own headers, behind a proxy that inspects TLS.
+
+1. **Put the secrets in environment variables.** Oku Slides never stores a key: it stores
+   the *name* of a variable (capitals, digits and `_`, such as `AZURE_OPENAI_API_KEY`) and
+   reads it when dictation starts. An app opened from the Finder does not see your shell's
+   variables, so set them for the session, then restart the app:
+
+   ```sh
+   launchctl setenv AZURE_OPENAI_API_KEY "…"
+   launchctl setenv GATEWAY_TOKEN "…"       # only if your gateway needs one
+   ```
+
+   Or start the app from a terminal where they are exported. On Linux and Windows, set
+   them in the environment the app is launched from.
+2. **Fill the dictation settings** (⚙ of the dictation bar, engine **API**):
+
+   | Field | Value |
+   | --- | --- |
+   | API address | The resource address, `https://<resource>.openai.azure.com`, or your gateway's address in front of it (no `/openai/deployments/…` path) |
+   | Model | The **deployment name** (letters, digits, `.`, `_`, `-`), not the model name |
+   | Key variable | `AZURE_OPENAI_API_KEY`; its value goes in the `api-key` header |
+   | Azure API version | The `api-version` your deployment supports, such as `2025-03-01-preview` |
+   | Extra headers | `Name: value; Name: $VARIABLE`, such as `X-Tenant: acme; Ocp-Apim-Subscription-Key: $GATEWAY_TOKEN` |
+
+   Each request goes to
+   `<address>/openai/deployments/<deployment>/audio/transcriptions?api-version=<version>`.
+   With an empty version, the OpenAI API is called instead (`<address>/audio/transcriptions`,
+   key as `Authorization: Bearer`): use it for OpenAI itself or for an OpenAI-compatible
+   endpoint, such as Azure's `https://<resource>.openai.azure.com/openai/v1`.
+3. **Headers.** A `$VARIABLE` value is read from the environment at each start, like the
+   key, and never stored; a literal is stored in clear in `config.json`, so put tokens in
+   variables. At most 8 headers, values in printable ASCII without `;`. `Authorization`,
+   `api-key`, `Host`, `Content-Type`, `Proxy-Authorization` and the other framing headers
+   are reserved: the key always goes through the key variable. Only you can change the
+   address, key variable, version and headers; the agent may only switch to the API once
+   you have set them, after asking.
+4. **Proxy and certificates.** Requests use `HTTPS_PROXY` / `NO_PROXY` (and, in the app,
+   the system proxy settings), except to this computer. Certificates are checked against the
+   system's trust store, so a company root CA installed in the Keychain (or the Linux and
+   Windows stores) is trusted, TLS-inspecting proxies included. Redirects are not followed:
+   give the final address.
+5. **Check it.** The settings box shows **Key found** or the first variable that is not set.
+   A refused request shows its HTTP status, with the service's message except for 401 and
+   403, and every secret masked. Each sentence gets one attempt (no retry) within
+   `[stt] api_timeout_secs` (30 s). To see the calls, start the app from a terminal with
+   `OKU_SLIDES_DEBUG_NETWORK=1`: secret headers stay masked.
+
+The same settings in `config.json` (models folder, app closed):
+
+```json
+{
+  "version": 1,
+  "model": "api",
+  "api": {
+    "url": "https://acme-ai.openai.azure.com",
+    "model": "transcribe-prod",
+    "key_env": "AZURE_OPENAI_API_KEY",
+    "api_version": "2025-03-01-preview",
+    "headers": [
+      { "name": "X-Tenant", "value": { "literal": "acme" } },
+      { "name": "Ocp-Apim-Subscription-Key", "value": { "env": "GATEWAY_TOKEN" } }
+    ]
+  }
+}
+```
+
+Settings saved by version 7.0.0 or earlier with query parameters (`"query": […]`, the old way to pass
+`api-version`) are not migrated: dictation reports invalid settings until you enter the
+API fields again in the box.
 
 ### Agent
 
@@ -384,7 +460,7 @@ Every key, with its default and a comment, is in
 The app writes to `config.toml` itself when you change the language, the scheme or the
 agent, and when the agent changes an app setting for you (applied at next launch); it
 sets one key at a time and keeps your comments. The choices of the dictation box (engine,
-Whisper model, language, auto stop, API address, model, key variable, query parameters and
+Whisper model, language, auto stop, API address, model, key variable, Azure API version and
 headers) are not in `config.toml`: they go to `config.json` in the models folder.
 Edit that file with the app closed: the app reads it at launch and rewrites it whole on
 the next change in the box. A file that does not parse is kept aside as

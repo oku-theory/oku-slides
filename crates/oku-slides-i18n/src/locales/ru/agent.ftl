@@ -145,10 +145,10 @@ voice-error-bad-silence = Пауза должна длиться от 0,5 до 1
 voice-error-bad-language = Неизвестный язык диктовки
 voice-error-bad-url = Адрес API должен начинаться с https:// (http:// только для этого компьютера), без имени пользователя, параметров и специальных символов
 voice-error-bad-key-env = Переменная ключа должна быть именем вроде OPENAI_API_KEY: заглавные буквы, цифры и _
-voice-error-bad-api-model = Имя модели API может содержать только буквы, цифры и . _ : / -
-voice-error-bad-api-query = Параметры записываются как имя=значение&имя=значение, видимыми символами ASCII без % и #, не более 8
-voice-error-bad-api-headers = Заголовки записываются как Имя: значение; Имя: $VARIABLE, не более 8. Нужна переменная ключа или заголовок $VARIABLE; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, повторы и Authorization при заданной переменной ключа отклоняются
-voice-error-api-reserved = Адрес API, переменную ключа, параметры запроса и заголовки задаёт только пользователь: откройте окно через show_dictation и попросите его
+voice-error-bad-api-model = Имя модели API может содержать только буквы, цифры и . _ : / -; имя развёртывания Azure — только буквы, цифры и . _ -
+voice-error-bad-api-version = Версия API Azure может содержать только буквы, цифры, . и -, не более 32 символов, например 2025-03-01-preview
+voice-error-bad-api-headers = Заголовки записываются как Имя: значение; Имя: $VARIABLE, не более 8. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection и повторы отклоняются
+voice-error-api-reserved = Только пользователь задаёт адрес, переменную ключа, версию Azure и заголовки API: откройте окно через show_dictation и попросите его
 voice-error-changed = Настройки изменились после вопроса: спросите снова
 voice-error-nothing-to-download = Для этого агента нечего скачивать
 agent-tune-prompt = Доработать импортированную презентацию

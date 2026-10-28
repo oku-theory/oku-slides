@@ -557,9 +557,9 @@ voice-api-url = API address
 voice-api-model = Model
 voice-api-key-env = Key variable
 voice-api-note = Each sentence is sent to this service. The key is read from the environment variable when dictation starts; an app opened from the Finder does not see shell variables (use launchctl setenv).
-voice-api-query = Query parameters
+voice-api-version = Azure API version
 voice-api-headers = Extra headers
-voice-api-azure-note = Azure OpenAI: leave the key variable empty, set api-version=… as a parameter and api-key: $AZURE_OPENAI_API_KEY as a header. $NAME reads a variable.
+voice-api-azure-note = Azure OpenAI: the resource address (https://….openai.azure.com) as the address, the deployment as the model, the key variable (sent as api-key) and the API version, such as 2025-03-01-preview. Leave the version empty for OpenAI. In headers, $NAME reads a variable.
 voice-cancel = Cancel
 voice-agent-title = Agent
 voice-agent-busy = Switching agents will stop the current turn.

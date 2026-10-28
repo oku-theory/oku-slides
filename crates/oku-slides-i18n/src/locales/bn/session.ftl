@@ -554,9 +554,9 @@ voice-api-url = API-র ঠিকানা
 voice-api-model = মডেল
 voice-api-key-env = কী-র ভেরিয়েবল
 voice-api-note = প্রতিটি বাক্য এই পরিষেবায় পাঠানো হয়। ডিক্টেশন শুরুর সময় কী এনভায়রনমেন্ট ভেরিয়েবল থেকে পড়া হয়; Finder থেকে খোলা অ্যাপ শেল ভেরিয়েবল দেখতে পায় না (launchctl setenv ব্যবহার করুন)।
-voice-api-query = কোয়েরি প্যারামিটার
+voice-api-version = Azure API সংস্করণ
 voice-api-headers = অতিরিক্ত হেডার
-voice-api-azure-note = Azure OpenAI: কী ভেরিয়েবল খালি রাখুন, api-version=… প্যারামিটার হিসেবে এবং api-key: $AZURE_OPENAI_API_KEY হেডার হিসেবে দিন। $NAME একটি ভেরিয়েবল পড়ে।
+voice-api-azure-note = Azure OpenAI: ঠিকানায় রিসোর্সের ঠিকানা (https://….openai.azure.com), মডেলে ডিপ্লয়মেন্ট, কী-এর ভেরিয়েবল (api-key হিসেবে পাঠানো হয়) এবং API সংস্করণ, যেমন 2025-03-01-preview। OpenAI-এর জন্য সংস্করণ খালি রাখুন। হেডারে $NAME একটি ভেরিয়েবল পড়ে।
 voice-cancel = বাতিল
 voice-agent-title = এজেন্ট
 voice-agent-busy = এজেন্ট বদলালে চলমান পালা বন্ধ হয়ে যাবে।

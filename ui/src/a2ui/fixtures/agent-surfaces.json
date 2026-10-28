@@ -2121,7 +2121,7 @@
                 "d-api-url",
                 "d-api-model",
                 "d-api-key-env",
-                "d-api-query",
+                "d-api-version",
                 "d-api-headers",
                 "d-api-note",
                 "d-api-azure-note",
@@ -2248,19 +2248,19 @@
               }
             },
             {
-              "id": "d-api-query",
+              "id": "d-api-version",
               "component": "TextField",
-              "label": "Paramètres de requête",
+              "label": "Version de l'API Azure",
               "value": {
-                "path": "/api/query"
+                "path": "/api/api_version"
               },
               "action": {
                 "event": {
                   "name": "api",
                   "context": {
-                    "field": "query",
+                    "field": "api_version",
                     "value": {
-                      "path": "/api/query"
+                      "path": "/api/api_version"
                     }
                   }
                 }
@@ -2294,7 +2294,7 @@
             {
               "id": "d-api-azure-note",
               "component": "Text",
-              "text": "Azure OpenAI : laissez la variable de la clé vide, mettez api-version=… en paramètre et api-key: $AZURE_OPENAI_API_KEY en en-tête. $NAME lit une variable.",
+              "text": "Azure OpenAI : l'adresse de la ressource (https://….openai.azure.com) comme adresse, le déploiement comme modèle, la variable de la clé (envoyée en api-key) et la version de l'API, par exemple 2025-03-01-preview. Laissez la version vide pour OpenAI. Dans les en-têtes, $NAME lit une variable.",
               "variant": "caption"
             },
             {
@@ -2506,7 +2506,7 @@
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
-              "query": "",
+              "api_version": "",
               "headers": ""
             }
           }
@@ -2821,7 +2821,7 @@
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
-              "query": "",
+              "api_version": "",
               "headers": ""
             }
           }
@@ -3140,7 +3140,7 @@
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
-              "query": "",
+              "api_version": "",
               "headers": ""
             }
           }
@@ -3448,7 +3448,7 @@
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
-              "query": "",
+              "api_version": "",
               "headers": ""
             }
           }

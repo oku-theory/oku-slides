@@ -554,9 +554,9 @@ voice-api-url = API 位址
 voice-api-model = 模型
 voice-api-key-env = 金鑰變數
 voice-api-note = 每句話都會傳送到此服務。金鑰會在聽寫開始時從環境變數讀取；從 Finder 開啟的 App 看不到 shell 變數（請使用 launchctl setenv）。
-voice-api-query = 查詢參數
+voice-api-version = Azure API 版本
 voice-api-headers = 附加請求標頭
-voice-api-azure-note = Azure OpenAI：將金鑰變數留空，把 api-version=… 設為參數，把 api-key: $AZURE_OPENAI_API_KEY 設為請求標頭。$NAME 讀取一個變數。
+voice-api-azure-note = Azure OpenAI：位址填資源位址（https://….openai.azure.com），模型填部署名稱，填寫金鑰變數（以 api-key 傳送）和 API 版本，例如 2025-03-01-preview。使用 OpenAI 時版本留空。在標頭中，$NAME 讀取一個變數。
 voice-cancel = 取消
 voice-agent-title = 代理
 voice-agent-busy = 切換代理將中斷目前的回合。

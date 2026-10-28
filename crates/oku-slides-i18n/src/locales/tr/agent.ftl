@@ -135,10 +135,10 @@ voice-error-bad-silence = Sessizlik 0,5 ile 10 saniye arasında sürmelidir
 voice-error-bad-language = Bilinmeyen dikte dili
 voice-error-bad-url = API adresi https:// ile başlamalıdır (http:// yalnızca bu bilgisayar için), kullanıcı adı, parametre veya özel karakter olmadan
 voice-error-bad-key-env = Anahtar değişkeni OPENAI_API_KEY gibi bir ad olmalıdır: büyük harfler, rakamlar ve _
-voice-error-bad-api-model = API model adı yalnızca harf, rakam ve . _ : / - içerebilir
-voice-error-bad-api-query = Parametreler ad=değer&ad=değer biçiminde, % veya # içermeyen görünür ASCII ile ve en çok 8 tane yazılır
-voice-error-bad-api-headers = Başlıklar Ad: değer; Ad: $VARIABLE biçiminde ve en çok 8 tane yazılır. Bir anahtar değişkeni veya bir $VARIABLE başlığı gerekir; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, yinelenen adlar ve anahtar değişkeniyle birlikte Authorization reddedilir
-voice-error-api-reserved = API adresini, anahtar değişkenini, sorgu parametrelerini ve başlıkları yalnızca kullanıcı belirler: kutuyu show_dictation ile açın ve kendisinden isteyin
+voice-error-bad-api-model = API model adı yalnızca harf, rakam ve . _ : / - içerebilir; Azure dağıtım adı yalnızca harf, rakam ve . _ -
+voice-error-bad-api-version = Azure API sürümü yalnızca harf, rakam, . ve - içerebilir, en çok 32 karakter, örneğin 2025-03-01-preview
+voice-error-bad-api-headers = Başlıklar Ad: değer; Ad: $VARIABLE biçiminde, en çok 8 tane yazılır. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection ve yinelenenler reddedilir
+voice-error-api-reserved = API adresini, anahtar değişkenini, Azure sürümünü ve başlıkları yalnızca kullanıcı ayarlar: kutuyu show_dictation ile açın ve ondan isteyin
 voice-error-changed = Ayarlar sorudan bu yana değişti: yeniden sorun
 voice-error-nothing-to-download = Bu ajan için indirilecek bir şey yok
 agent-tune-prompt = İçe aktarılan sunumu ince ayarla

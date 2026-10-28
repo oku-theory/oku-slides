@@ -19,7 +19,11 @@ oku-slides-platform = { workspace = true, features = ["download"] }
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-ureq.workspace = true
+async-openai.workspace = true
+reqwest.workspace = true
+tower.workspace = true
+http.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
 snafu.workspace = true
 # CTranslate2, le moteur de faster-whisper.

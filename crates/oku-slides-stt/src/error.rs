@@ -99,14 +99,20 @@ pub(crate) enum SttInner {
     NotDownloadable { backtrace: Backtrace },
     #[snafu(display("dictation API key missing: environment variable {var} is not set"))]
     ApiKeyMissing { var: String, backtrace: Backtrace },
+    #[snafu(display("dictation API key unusable: environment variable {var} holds a non-header value"))]
+    ApiKeyInvalid { var: String, backtrace: Backtrace },
     #[snafu(display("invalid dictation API settings"))]
     ApiConfig { backtrace: Backtrace },
     #[snafu(display("dictation API unreachable"))]
-    ApiHttp { source: Box<ureq::Error>, backtrace: Backtrace },
+    ApiHttp { source: reqwest::Error, backtrace: Backtrace },
     #[snafu(display("dictation API answered HTTP {status}"))]
     ApiStatus { status: u16, detail: Option<String>, backtrace: Backtrace },
     #[snafu(display("unreadable dictation API answer"))]
     ApiResponse { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("dictation API request failed"))]
+    ApiClient { source: Box<async_openai::error::OpenAIError>, backtrace: Backtrace },
+    #[snafu(display("dictation API runtime did not start"))]
+    ApiRuntime { source: std::io::Error, backtrace: Backtrace },
 }
 
 impl SttError {
@@ -116,10 +122,11 @@ impl SttError {
         #[cfg(any(test, target_os = "macos"))]
         use SttInner::SpeechDenied;
         use SttInner::{
-            Analyzer, ApiConfig, ApiHttp, ApiKeyMissing, ApiResponse, ApiStatus, AssetInstall, AudioFile, Cancelled,
-            Download, Features, FinishTimeout, LocaleUnsupported, MelFilters, MicrophoneConfig, MicrophonePlay,
-            MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile, ModelLoad, ModelSettings, NoLanguage,
-            NoMicrophone, NotContiguous, NotDownloadable, Transcribe, UnsupportedFormat, Wav, ZeroSetting,
+            Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
+            AssetInstall, AudioFile, Cancelled, Download, Features, FinishTimeout, LocaleUnsupported, MelFilters,
+            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile,
+            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, Transcribe,
+            UnsupportedFormat, Wav, ZeroSetting,
         };
         match *self.0 {
             NoMicrophone { .. }
@@ -138,6 +145,7 @@ impl SttError {
             | LocaleUnsupported { .. }
             | NotDownloadable { .. }
             | ApiKeyMissing { .. }
+            | ApiKeyInvalid { .. }
             | ApiConfig { .. } => SttErrorKind::Model,
             Transcribe { .. }
             | Features { .. }
@@ -147,7 +155,9 @@ impl SttError {
             | FinishTimeout { .. }
             | ApiHttp { .. }
             | ApiStatus { .. }
-            | ApiResponse { .. } => SttErrorKind::Transcription,
+            | ApiResponse { .. }
+            | ApiClient { .. }
+            | ApiRuntime { .. } => SttErrorKind::Transcription,
             Cancelled { .. } => SttErrorKind::Cancelled,
             Download { ref source, .. } if source.kind() == DownloadErrorKind::Cancelled => SttErrorKind::Cancelled,
             Download { .. } | AssetInstall { .. } => SttErrorKind::Download,
@@ -162,10 +172,11 @@ impl Localize for SttError {
         #[cfg(any(test, target_os = "macos"))]
         use SttInner::SpeechDenied;
         use SttInner::{
-            Analyzer, ApiConfig, ApiHttp, ApiKeyMissing, ApiResponse, ApiStatus, AssetInstall, AudioFile, Cancelled,
-            Download, Features, FinishTimeout, LocaleUnsupported, MelFilters, MicrophoneConfig, MicrophonePlay,
-            MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile, ModelLoad, ModelSettings, NoLanguage,
-            NoMicrophone, NotContiguous, NotDownloadable, Transcribe, UnsupportedFormat, Wav, ZeroSetting,
+            Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
+            AssetInstall, AudioFile, Cancelled, Download, Features, FinishTimeout, LocaleUnsupported, MelFilters,
+            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile,
+            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, Transcribe,
+            UnsupportedFormat, Wav, ZeroSetting,
         };
         match &*self.0 {
             NoMicrophone { .. } => l.tr("stt-microphone-missing"),
@@ -188,8 +199,11 @@ impl Localize for SttError {
             | NotContiguous { .. }
             | Analyzer { .. }
             | FinishTimeout { .. }
-            | ApiResponse { .. } => l.tr("stt-transcription"),
+            | ApiResponse { .. }
+            | ApiClient { .. }
+            | ApiRuntime { .. } => l.tr("stt-transcription"),
             ApiKeyMissing { var, .. } => l.tr_with("stt-api-key-missing", &[("var", var.as_str().into())]),
+            ApiKeyInvalid { var, .. } => l.tr_with("stt-api-key-invalid", &[("var", var.as_str().into())]),
             ApiConfig { .. } => l.tr("stt-api-config"),
             ApiHttp { .. } => l.tr("stt-api-unreachable"),
             ApiStatus { status, detail: None, .. } => l.tr_with("stt-api-status", &[("status", (*status).into())]),

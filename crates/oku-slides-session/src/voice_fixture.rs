@@ -24,7 +24,7 @@ pub fn voice_view_fixture() -> VoiceView {
                 url: "https://api.openai.com/v1".into(),
                 model: "gpt-4o-transcribe".into(),
                 key_env: "OPENAI_API_KEY".into(),
-                query: String::new(),
+                api_version: String::new(),
                 headers: String::new(),
                 key_found: false,
                 missing: Some("OPENAI_API_KEY".into()),

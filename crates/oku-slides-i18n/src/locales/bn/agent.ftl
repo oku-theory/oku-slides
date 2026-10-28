@@ -141,10 +141,10 @@ voice-error-bad-silence = নীরবতা 0.5 থেকে 10 সেকেন
 voice-error-bad-language = অজানা ডিকটেশন ভাষা
 voice-error-bad-url = API ঠিকানা https:// দিয়ে শুরু হতে হবে (http:// শুধু এই কম্পিউটারের জন্য), ব্যবহারকারীর নাম, প্যারামিটার বা বিশেষ অক্ষর ছাড়া
 voice-error-bad-key-env = কী-এর ভেরিয়েবল OPENAI_API_KEY-এর মতো একটি নাম হতে হবে: বড় হাতের অক্ষর, সংখ্যা ও _
-voice-error-bad-api-model = API মডেলের নামে শুধু অক্ষর, সংখ্যা ও . _ : / - চলে
-voice-error-bad-api-query = প্যারামিটার name=value&name=value আকারে, % বা # ছাড়া দৃশ্যমান ASCII-তে, সর্বোচ্চ 8টি লেখা হয়
-voice-error-bad-api-headers = হেডার Name: value; Name: $VARIABLE আকারে, সর্বোচ্চ 8টি লেখা হয়। একটি কী ভেরিয়েবল বা একটি $VARIABLE হেডার দরকার; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, পুনরাবৃত্ত নাম এবং কী ভেরিয়েবলের সঙ্গে Authorization প্রত্যাখ্যাত হয়
-voice-error-api-reserved = API ঠিকানা, কী-এর ভেরিয়েবল, কোয়েরি প্যারামিটার ও হেডার শুধু ব্যবহারকারী ঠিক করেন: show_dictation দিয়ে বাক্সটি খুলে তাঁকে বলুন
+voice-error-bad-api-model = API মডেলের নামে কেবল অক্ষর, সংখ্যা এবং . _ : / - থাকতে পারে; Azure ডিপ্লয়মেন্টের নামে কেবল অক্ষর, সংখ্যা এবং . _ -
+voice-error-bad-api-version = Azure API সংস্করণে কেবল অক্ষর, সংখ্যা, . এবং - থাকতে পারে, সর্বোচ্চ 32টি অক্ষর, যেমন 2025-03-01-preview
+voice-error-bad-api-headers = হেডার Name: value; Name: $VARIABLE আকারে লেখা হয়, সর্বোচ্চ 8টি। Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection এবং পুনরাবৃত্তি প্রত্যাখ্যাত হয়
+voice-error-api-reserved = API-এর ঠিকানা, কী-এর ভেরিয়েবল, Azure সংস্করণ ও হেডার কেবল ব্যবহারকারী ঠিক করেন: show_dictation দিয়ে বাক্সটি খুলুন এবং তাঁকে বলুন
 voice-error-changed = প্রশ্নের পর থেকে সেটিংস বদলেছে: আবার জিজ্ঞেস করুন
 voice-error-nothing-to-download = এই এজেন্টের জন্য ডাউনলোড করার কিছু নেই
 agent-tune-prompt = আমদানি করা উপস্থাপনাটি সূক্ষ্মভাবে ঠিক করো

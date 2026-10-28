@@ -1,32 +1,44 @@
-//! Dictée par une API de transcription compatible OpenAI.
+//! Dictation through the OpenAI or Azure OpenAI transcription API, with async-openai.
 
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
+use async_openai::Client;
+use async_openai::config::{AzureConfig, Config, OpenAIConfig};
+use async_openai::error::OpenAIError;
+use async_openai::types::InputSource;
+use async_openai::types::audio::{AudioInput, AudioResponseFormat, CreateTranscriptionRequest};
+use reqwest::header::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt};
+use snafu::{IntoError, OptionExt, ResultExt};
 
 use crate::api_check::{is_loopback, normalized_url, valid_api_model};
-use crate::api_extra::{ApiHeader, ApiParam, HeaderValue, api_error_detail, valid_api_access};
-use crate::error::{ApiConfigSnafu, ApiHttpSnafu, ApiKeyMissingSnafu, ApiResponseSnafu, ApiStatusSnafu, WavSnafu};
+use crate::api_extra::{ApiHeader, HeaderValue, LegacyQueryParam, MIN_SECRET, api_error_detail, valid_api_access};
+use crate::api_http::{ApiReply, send};
+use crate::error::{
+    ApiClientSnafu, ApiConfigSnafu, ApiHttpSnafu, ApiKeyInvalidSnafu, ApiKeyMissingSnafu, ApiResponseSnafu,
+    ApiRuntimeSnafu, ApiStatusSnafu, WavSnafu,
+};
 use crate::phrase_engine::PhraseEngine;
 use crate::{SAMPLE_RATE, SttError, Transcript};
 
-/// Réglages de l'API de transcription : adresse, modèle, variable de la clé.
+/// Settings of the transcription API: address, model, key variable, Azure version, headers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ApiConfig {
-    /// Adresse racine de l'API, sans `/audio/transcriptions`.
+    /// Root address of the API: `…/v1` for OpenAI, the resource address for Azure.
     pub url: String,
-    /// Modèle de transcription demandé.
+    /// Requested transcription model; the deployment name for Azure.
     pub model: String,
-    /// Nom de la variable d'environnement qui porte la clé ; vide : pas d'en-tête Bearer.
+    /// Name of the environment variable that holds the key.
     pub key_env: String,
-    /// Query parameters appended to the transcription address, such as `api-version`.
-    pub query: Vec<ApiParam>,
-    /// Headers sent with every request, literal or read from a variable.
+    /// Azure OpenAI `api-version`; empty: the OpenAI API.
+    pub api_version: String,
+    /// Extra headers sent with every request, literal or read from a variable.
     pub headers: Vec<ApiHeader>,
+    /// Query parameters saved by 7.0.0 or earlier, kept only to refuse the settings: never migrated.
+    #[serde(rename = "query", skip_serializing_if = "Vec::is_empty")]
+    pub legacy_query: Vec<LegacyQueryParam>,
 }
 
 impl Default for ApiConfig {
@@ -35,8 +47,9 @@ impl Default for ApiConfig {
             url: "https://api.openai.com/v1".into(),
             model: "gpt-4o-transcribe".into(),
             key_env: "OPENAI_API_KEY".into(),
-            query: Vec::new(),
+            api_version: String::new(),
             headers: Vec::new(),
+            legacy_query: Vec::new(),
         }
     }
 }
@@ -63,6 +76,11 @@ impl ApiConfig {
     /// Every variable these settings read is set, without copying any value.
     pub(crate) fn key_present(&self) -> bool {
         !self.variables().is_empty() && self.missing_variable().is_none()
+    }
+
+    /// Azure OpenAI rather than OpenAI: an `api-version` is set.
+    pub(crate) fn is_azure(&self) -> bool {
+        !self.api_version.is_empty()
     }
 }
 
@@ -100,45 +118,14 @@ pub(crate) fn wav(samples: &[f32]) -> Result<Vec<u8>, SttError> {
     Ok(out)
 }
 
-/// Assemble un corps `multipart/form-data` : champs texte, puis le WAV ; rend type et corps.
-pub(crate) fn multipart(fields: &[(&str, &str)], wav: &[u8]) -> (String, Vec<u8>) {
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    #[expect(clippy::cast_possible_truncation, reason = "the low 64 bits are enough: only uniqueness matters")]
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos()) as u64;
-    let boundary = format!("oku-slides-{nanos:016x}{:016x}", COUNTER.fetch_add(1, Ordering::Relaxed));
-    let mut body = Vec::with_capacity(wav.len() + 512);
-    for (name, value) in fields {
-        body.extend_from_slice(
-            format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes(),
-        );
-    }
-    body.extend_from_slice(
-        format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"phrase.wav\"\r\nContent-Type: audio/wav\r\n\r\n"
-        )
-        .as_bytes(),
-    );
-    body.extend_from_slice(wav);
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-    (format!("multipart/form-data; boundary={boundary}"), body)
-}
-
-/// Réponse de l'API : le texte transcrit.
-#[derive(Deserialize)]
-struct ApiReply {
-    text: String,
-}
-
-/// Un client de l'API de transcription, prêt à servir (secrets déjà lus).
+/// A transcription API client, ready to serve (secrets already read).
 pub(crate) struct ApiTranscriber {
     config: ApiConfig,
-    /// Normalized transcription address with its query: the only one called.
-    url: String,
-    /// Headers sent, Bearer included; values read from variables are secrets.
-    headers: Vec<(String, String)>,
-    /// Values read from variables, and long literals, masked in API error messages.
+    client: Client<Box<dyn Config>>,
+    /// Values read from variables, and literals of 8 characters or more, masked in API messages.
     secrets: Vec<String>,
-    agent: ureq::Agent,
+    /// Runs the async client on the dictation thread.
+    runtime: tokio::runtime::Runtime,
 }
 
 impl fmt::Debug for ApiTranscriber {
@@ -149,53 +136,90 @@ impl fmt::Debug for ApiTranscriber {
 }
 
 impl ApiTranscriber {
-    /// Refuses invalid settings, reads the secrets and prepares the HTTP agent.
+    /// Refuses invalid settings, reads the secrets and prepares the client.
     ///
-    /// No redirects; no proxy to this machine, the environment's proxy otherwise;
-    /// system certificates (t-1211).
+    /// The key goes as `Authorization: Bearer` (OpenAI) or `api-key` (Azure), the extra headers
+    /// as the HTTP client's defaults. No redirects and no retry; no proxy to this machine, the
+    /// environment's proxy otherwise; system certificates (t-1211).
     pub(crate) fn new(config: ApiConfig, timeout: Duration) -> Result<Self, SttError> {
         let root = match normalized_url(&config.url) {
             Some(root) if valid_api_access(&config) && valid_api_model(&config.model) => root,
             _ => return Err(ApiConfigSnafu.build().into()),
         };
-        let mut url = url::Url::parse(&format!("{root}/audio/transcriptions")).ok().context(ApiConfigSnafu)?;
-        if !config.query.is_empty() {
-            url.query_pairs_mut().extend_pairs(config.query.iter().map(|p| (&p.name, &p.value)));
-        }
-        let mut headers = Vec::with_capacity(config.headers.len() + 1);
-        let mut secrets = Vec::new();
-        if !config.key_env.is_empty() {
-            let key = ApiConfig::secret(&config.key_env)?;
-            headers.push(("Authorization".to_owned(), format!("Bearer {key}")));
-            secrets.push(key);
-        }
+        let key = ApiConfig::secret(&config.key_env)?;
+        // async-openai panics on a key that is not a header value: refuse it here.
+        reqwest::header::HeaderValue::from_str(&key)
+            .ok()
+            .context(ApiKeyInvalidSnafu { var: config.key_env.as_str() })?;
+        let mut secrets = vec![key.clone()];
+        let mut headers = HeaderMap::with_capacity(config.headers.len());
         for header in &config.headers {
             let value = match &header.value {
-                HeaderValue::Literal(value) => {
-                    // A key pasted as a literal is still masked in API messages.
-                    if value.chars().count() >= 8 {
-                        secrets.push(value.clone());
-                    }
-                    value.clone()
-                }
-                HeaderValue::Env(var) => {
-                    let value = ApiConfig::secret(var)?;
-                    secrets.push(value.clone());
-                    value
-                }
+                HeaderValue::Literal(value) => value.clone(),
+                HeaderValue::Env(var) => ApiConfig::secret(var)?,
             };
-            headers.push((header.name.clone(), value));
+            let name = HeaderName::from_bytes(header.name.as_bytes()).ok().context(ApiConfigSnafu)?;
+            let Ok(mut sent) = reqwest::header::HeaderValue::from_str(&value) else {
+                return Err(match &header.value {
+                    HeaderValue::Env(var) => ApiKeyInvalidSnafu { var: var.as_str() }.build().into(),
+                    HeaderValue::Literal(_) => ApiConfigSnafu.build().into(),
+                });
+            };
+            // A variable's value, or a literal long enough to be a pasted key: masked in API
+            // messages and marked sensitive so no HTTP debug log shows it.
+            if matches!(header.value, HeaderValue::Env(_)) || value.chars().count() >= MIN_SECRET {
+                sent.set_sensitive(true);
+                secrets.push(value);
+            }
+            headers.insert(name, sent);
         }
-        let proxy = if is_loopback(&root) { None } else { ureq::Proxy::try_from_env() };
-        let agent = ureq::Agent::config_builder()
-            .proxy(proxy)
-            .tls_config(oku_slides_platform::http::system_tls())
-            .max_redirects(0)
-            .timeout_global(Some(timeout))
-            .http_status_as_error(false)
-            .build()
-            .into();
-        Ok(Self { config, url: url.into(), headers, secrets, agent })
+        let mut http = reqwest::Client::builder()
+            .default_headers(headers)
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(timeout);
+        if is_loopback(&root) {
+            http = http.no_proxy();
+        }
+        let http = http.build().context(ApiHttpSnafu)?;
+        // An explicit key, base and empty ids: no OPENAI_* variable reaches another host.
+        let api: Box<dyn Config> = if config.is_azure() {
+            Box::new(
+                AzureConfig::new()
+                    .with_api_base(root)
+                    .with_api_key(key)
+                    .with_deployment_id(config.model.as_str())
+                    .with_api_version(config.api_version.as_str()),
+            )
+        } else {
+            Box::new(OpenAIConfig::new().with_api_base(root).with_api_key(key).with_org_id("").with_project_id(""))
+        };
+        // `build` and not `with_config`, which first makes a throwaway client that can panic.
+        let client = Client::build(http.clone(), api)
+            .with_http_service(tower::service_fn(move |request| send(http.clone(), request)));
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().context(ApiRuntimeSnafu)?;
+        Ok(Self { config, client, secrets, runtime })
+    }
+
+    /// The localized error for a failed call; no API message on 401/403.
+    fn error(&self, error: OpenAIError) -> SttError {
+        match error {
+            OpenAIError::ApiError(reply) => {
+                let status = reply.status_code.as_u16();
+                // No message on 401/403: their body may quote a fragment of a secret.
+                let detail = if matches!(status, 401 | 403) {
+                    None
+                } else {
+                    let secrets: Vec<&str> = self.secrets.iter().map(String::as_str).collect();
+                    api_error_detail(&reply.api_error.message, &secrets)
+                };
+                tracing::warn!(status, detail = detail.as_deref().unwrap_or_default(), "API de dictée");
+                ApiStatusSnafu { status, detail }.build().into()
+            }
+            OpenAIError::Reqwest(source) => ApiHttpSnafu.into_error(source).into(),
+            // The body it carries may echo a secret: only the parse error is kept.
+            OpenAIError::JSONDeserialize(source, _) => ApiResponseSnafu.into_error(source).into(),
+            other => ApiClientSnafu.into_error(Box::new(other)).into(),
+        }
     }
 }
 
@@ -207,33 +231,18 @@ impl PhraseEngine for ApiTranscriber {
         context: Option<&str>,
         _quick: bool,
     ) -> Result<Transcript, SttError> {
-        let mut fields = vec![("model", self.config.model.as_str()), ("response_format", "json")];
-        if let Some(language) = language {
-            fields.push(("language", language));
-        }
-        if let Some(context) = context.map(str::trim).filter(|c| !c.is_empty()) {
-            fields.push(("prompt", context));
-        }
-        let (content_type, body) = multipart(&fields, &wav(audio)?);
-        let mut request = self.agent.post(&self.url).header("Content-Type", content_type);
-        for (name, value) in &self.headers {
-            request = request.header(name, value);
-        }
-        let mut response = request.send(&body[..]).map_err(Box::new).context(ApiHttpSnafu)?;
-        let status = response.status().as_u16();
-        let text = response.body_mut().read_to_string().map_err(Box::new).context(ApiHttpSnafu)?;
-        if !(200..300).contains(&status) {
-            // No message on 401/403: their body may quote a fragment of a secret.
-            let detail = if matches!(status, 401 | 403) {
-                None
-            } else {
-                let secrets: Vec<&str> = self.secrets.iter().map(String::as_str).collect();
-                api_error_detail(&text, &secrets)
-            };
-            tracing::warn!(status, detail = detail.as_deref().unwrap_or_default(), "API de dictée");
-            return Err(ApiStatusSnafu { status, detail }.build().into());
-        }
-        let reply: ApiReply = serde_json::from_str(&text).context(ApiResponseSnafu)?;
+        let request = CreateTranscriptionRequest {
+            file: AudioInput { source: InputSource::VecU8 { filename: "phrase.wav".into(), vec: wav(audio)? } },
+            model: self.config.model.clone(),
+            language: language.map(str::to_owned),
+            prompt: context.map(str::trim).filter(|c| !c.is_empty()).map(str::to_owned),
+            response_format: Some(AudioResponseFormat::Json),
+            ..CreateTranscriptionRequest::default()
+        };
+        let reply: ApiReply = self
+            .runtime
+            .block_on(self.client.audio().transcription().create_byot(request))
+            .map_err(|e| self.error(e))?;
         Ok(Transcript { text: reply.text, language: None, no_speech: 0.0 })
     }
 }

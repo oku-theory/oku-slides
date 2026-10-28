@@ -135,10 +135,10 @@ voice-error-bad-silence = Khoảng lặng phải kéo dài từ 0,5 đến 10 gi
 voice-error-bad-language = Ngôn ngữ đọc chính tả không xác định
 voice-error-bad-url = Địa chỉ API phải bắt đầu bằng https:// (http:// chỉ cho máy tính này), không có tên người dùng, tham số hay ký tự đặc biệt
 voice-error-bad-key-env = Biến khóa phải là một tên như OPENAI_API_KEY: chữ hoa, chữ số và _
-voice-error-bad-api-model = Tên mô hình API chỉ được dùng chữ cái, chữ số và . _ : / -
-voice-error-bad-api-query = Tham số được viết name=value&name=value, bằng ASCII nhìn thấy được, không có % hay #, tối đa 8
-voice-error-bad-api-headers = Header được viết Name: value; Name: $VARIABLE, tối đa 8. Cần một biến khóa hoặc một header $VARIABLE; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, tên trùng và Authorization khi có biến khóa đều bị từ chối
-voice-error-api-reserved = Chỉ người dùng đặt địa chỉ API, biến khóa, tham số truy vấn và header: hãy mở hộp bằng show_dictation và nhờ họ
+voice-error-bad-api-model = Tên mô hình API chỉ được dùng chữ cái, chữ số và . _ : / -; tên bản triển khai Azure chỉ chữ cái, chữ số và . _ -
+voice-error-bad-api-version = Phiên bản API Azure chỉ gồm chữ cái, chữ số, . và -, tối đa 32 ký tự, ví dụ 2025-03-01-preview
+voice-error-bad-api-headers = Tiêu đề được viết Name: value; Name: $VARIABLE, tối đa 8. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection và tên trùng lặp bị từ chối
+voice-error-api-reserved = Chỉ người dùng mới đặt địa chỉ, biến khóa, phiên bản Azure và tiêu đề của API: hãy mở hộp bằng show_dictation và nhờ họ
 voice-error-changed = Cài đặt đã thay đổi kể từ câu hỏi: hãy hỏi lại
 voice-error-nothing-to-download = Không có gì để tải xuống cho tác nhân này
 agent-tune-prompt = Tinh chỉnh bài trình bày đã nhập

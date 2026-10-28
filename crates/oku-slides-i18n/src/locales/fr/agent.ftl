@@ -141,10 +141,10 @@ voice-error-bad-silence = Le silence doit durer de 0,5 à 10 secondes
 voice-error-bad-language = Langue de dictée inconnue
 voice-error-bad-url = L'adresse de l'API doit commencer par https:// (http:// seulement pour cet ordinateur), sans nom d'utilisateur, paramètres ni caractères spéciaux
 voice-error-bad-key-env = La variable de la clé doit être un nom comme OPENAI_API_KEY : majuscules, chiffres et _
-voice-error-bad-api-model = Le nom du modèle de l'API n'admet que lettres, chiffres et . _ : / -
-voice-error-bad-api-query = Les paramètres s'écrivent nom=valeur&nom=valeur, en ASCII visible sans % ni #, 8 au plus
-voice-error-bad-api-headers = Les en-têtes s'écrivent Nom: valeur; Nom: $VARIABLE, 8 au plus. Il faut une variable de clé ou un en-tête $VARIABLE ; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, les doublons et Authorization avec une variable de clé sont refusés
-voice-error-api-reserved = Seul l'utilisateur règle l'adresse, la variable de la clé, les paramètres et les en-têtes de l'API : ouvrez la boîte avec show_dictation et demandez-le-lui
+voice-error-bad-api-model = Le nom du modèle de l'API n'admet que lettres, chiffres et . _ : / - ; un nom de déploiement Azure, que lettres, chiffres et . _ -
+voice-error-bad-api-version = La version de l'API Azure n'admet que lettres, chiffres, . et -, 32 caractères au plus, par exemple 2025-03-01-preview
+voice-error-bad-api-headers = Les en-têtes s'écrivent Nom: valeur; Nom: $VARIABLE, 8 au plus. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection et les doublons sont refusés
+voice-error-api-reserved = Seul l'utilisateur règle l'adresse, la variable de la clé, la version Azure et les en-têtes de l'API : ouvrez la boîte avec show_dictation et demandez-le-lui
 voice-error-changed = Les réglages ont changé depuis la question : redemandez
 voice-error-nothing-to-download = Rien à télécharger pour cet agent
 agent-tune-prompt = Peaufiner la présentation importée

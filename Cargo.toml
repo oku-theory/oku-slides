@@ -114,6 +114,15 @@ cpal = "0.18"
 # platform-verifier: system roots, including a company proxy's CA (t-1211).
 ureq = { version = "3", features = ["platform-verifier"] }
 url = "2.5.8"
+# Dictation API: OpenAI and Azure OpenAI transcription; rustls = reqwest's system verifier (t-1211).
+# middleware: our own one-attempt transport replaces the default retry layer (t-1233).
+async-openai = { version = "0.42.2", default-features = false, features = ["audio", "byot", "middleware", "rustls"] }
+# The dictation API's transport: a tower service_fn, and the reply rebuilt as an http::Response.
+tower = { version = "0.5", default-features = false, features = ["util"] }
+http = "1"
+# Same 0.13 as async-openai and tauri: the dictation API's own client (headers, redirects, proxy).
+# Its rustls feature brings aws-lc-rs beside the ring other clients use; each names its provider.
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 # Pont Swift du moteur de dictée d'Apple (build.rs de oku-slides-stt).
 swift-rs = "1.0.8"
 # Agent local de repli (moteur Gguf, Apple silicon) : llama.cpp avec Metal. Audit du lot 3

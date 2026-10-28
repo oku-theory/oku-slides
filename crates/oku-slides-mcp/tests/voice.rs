@@ -380,7 +380,8 @@ async fn set_dictation_unknown_field_is_refused_without_echoing_it() {
 #[case("api_url")]
 #[case("key_env")]
 #[case("headers")]
-#[case("query")]
+#[case("api_version")]
+#[case("version")]
 #[case("\"url\"")]
 #[tokio::test(flavor = "multi_thread")]
 async fn set_dictation_schema_has_no_api_target_field(#[case] key: &str) {

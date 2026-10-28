@@ -201,6 +201,15 @@ pub(crate) struct ApiCall {
 
 /// Une fausse API : répond `status` et `body` à chaque requête ; rend son URL racine.
 pub(crate) fn fake_api(status: u16, body: &'static str) -> (String, mpsc::Receiver<ApiCall>) {
+    fake_api_with(status, body.to_owned(), &[])
+}
+
+/// Une fausse API qui répond aussi les en-têtes `headers` à chaque requête.
+pub(crate) fn fake_api_with(
+    status: u16,
+    body: String,
+    reply_headers: &'static [(&'static str, &'static str)],
+) -> (String, mpsc::Receiver<ApiCall>) {
     let server = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("fausse API : {e}"));
     let addr = server.server_addr().to_ip().unwrap_or_else(|| panic!("fausse API : adresse non IP"));
     let url = format!("http://{addr}/v1");
@@ -219,7 +228,13 @@ pub(crate) fn fake_api(status: u16, body: &'static str) -> (String, mpsc::Receiv
             let mut bytes = Vec::new();
             std::io::Read::read_to_end(request.as_reader(), &mut bytes).ok();
             tx.send(ApiCall { url, authorization, headers, body: bytes }).ok();
-            request.respond(tiny_http::Response::from_string(body).with_status_code(status)).ok();
+            let mut response = tiny_http::Response::from_string(body.as_str()).with_status_code(status);
+            for (name, value) in reply_headers {
+                let header = tiny_http::Header::from_bytes(name.as_bytes(), value.as_bytes())
+                    .unwrap_or_else(|()| panic!("fausse API : en-tête {name} invalide"));
+                response.add_header(header);
+            }
+            request.respond(response).ok();
         }
     });
     (url, rx)

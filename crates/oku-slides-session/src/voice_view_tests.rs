@@ -60,8 +60,8 @@ fn ctx(v: Value) -> Map<String, Value> {
 )]
 #[case(
     "api",
-    json!({"field": "query", "value": "api-version=1"}),
-    Some(VoiceEvent::Dictation(DictationPatch { api_query: Some("api-version=1".into()), ..Default::default() }))
+    json!({"field": "api_version", "value": "2024-10-21"}),
+    Some(VoiceEvent::Dictation(DictationPatch { api_version: Some("2024-10-21".into()), ..Default::default() }))
 )]
 #[case(
     "api",
@@ -88,7 +88,7 @@ fn voice_event_known_action_parses(#[case] name: &str, #[case] context: Value, #
 #[case("silence", json!({"value": "NaN"}))]
 #[case("silence", json!({"value": "abc"}))]
 #[case("api", json!({"field": "key", "value": "x"}))]
-#[case("api", json!({"field": "query"}))]
+#[case("api", json!({"field": "api_version"}))]
 #[case("api", json!({"field": "url"}))]
 #[case("dismiss", json!({}))]
 #[case("nope", json!({}))]
@@ -101,7 +101,7 @@ fn voice_event_malformed_action_is_none(#[case] name: &str, #[case] context: Val
 #[case(DictationPatch { api_model: Some("m".into()), ..Default::default() }, false)]
 #[case(DictationPatch { api_url: Some("https://a.example".into()), ..Default::default() }, true)]
 #[case(DictationPatch { api_key_env: Some("K".into()), ..Default::default() }, true)]
-#[case(DictationPatch { api_query: Some("api-version=1".into()), ..Default::default() }, true)]
+#[case(DictationPatch { api_version: Some("2024-10-21".into()), ..Default::default() }, true)]
 #[case(DictationPatch { api_headers: Some("api-key: $K".into()), ..Default::default() }, true)]
 fn dictation_patch_touches_api_target_with_url_or_variable(#[case] p: DictationPatch, #[case] touches: bool) {
     assert_that!(p.touches_api_target()).is_equal_to(touches);

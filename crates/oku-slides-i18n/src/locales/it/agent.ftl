@@ -141,10 +141,10 @@ voice-error-bad-silence = Il silenzio deve durare da 0,5 a 10 secondi
 voice-error-bad-language = Lingua di dettatura sconosciuta
 voice-error-bad-url = L'indirizzo dell'API deve iniziare con https:// (http:// solo per questo computer), senza nome utente, parametri né caratteri speciali
 voice-error-bad-key-env = La variabile della chiave deve essere un nome come OPENAI_API_KEY: maiuscole, cifre e _
-voice-error-bad-api-model = Il nome del modello dell'API ammette solo lettere, cifre e . _ : / -
-voice-error-bad-api-query = I parametri si scrivono nome=valore&nome=valore, in ASCII visibile senza % né #, al massimo 8
-voice-error-bad-api-headers = Le intestazioni si scrivono Nome: valore; Nome: $VARIABLE, al massimo 8. Serve una variabile della chiave o un'intestazione $VARIABLE; Host, Content-Type, Content-Length, Transfer-Encoding, Connection, i duplicati e Authorization con una variabile della chiave sono rifiutati
-voice-error-api-reserved = Solo l'utente imposta l'indirizzo, la variabile della chiave, i parametri e le intestazioni dell'API: apri il riquadro con show_dictation e chiediglielo
+voice-error-bad-api-model = Il nome del modello dell'API ammette solo lettere, cifre e . _ : / -; un nome di distribuzione di Azure solo lettere, cifre e . _ -
+voice-error-bad-api-version = La versione dell'API di Azure ammette solo lettere, cifre, . e -, al massimo 32 caratteri, ad esempio 2025-03-01-preview
+voice-error-bad-api-headers = Le intestazioni si scrivono Nome: valore; Nome: $VARIABLE, al massimo 8. Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection e i duplicati sono rifiutati
+voice-error-api-reserved = Solo l'utente imposta l'indirizzo, la variabile della chiave, la versione di Azure e le intestazioni dell'API: apri il riquadro con show_dictation e chiediglielo
 voice-error-changed = Le impostazioni sono cambiate dopo la domanda: chiedi di nuovo
 voice-error-nothing-to-download = Niente da scaricare per questo agente
 agent-tune-prompt = Rifinire la presentazione importata

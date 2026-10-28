@@ -1,4 +1,5 @@
 use rstest::rstest;
+use snafu::IntoError;
 use speculoos::prelude::*;
 
 use oku_slides_platform::config::Settings;
@@ -71,6 +72,21 @@ fn localize_each_kind_speaks_to_the_user() {
         (AnalyzerSnafu { reason: "x" }.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
         (FinishTimeoutSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
         (NotDownloadableSnafu.build().into(), SttErrorKind::Model, "Modèle de dictée illisible"),
+        (
+            ApiKeyInvalidSnafu { var: "OPENAI_API_KEY" }.build().into(),
+            SttErrorKind::Model,
+            "La variable d'environnement OPENAI_API_KEY contient une valeur impossible à envoyer dans un en-tête HTTP",
+        ),
+        (
+            ApiClientSnafu.into_error(Box::new(async_openai::error::OpenAIError::InvalidArgument("x".into()))).into(),
+            SttErrorKind::Transcription,
+            "La transcription a échoué",
+        ),
+        (
+            ApiRuntimeSnafu.into_error(std::io::Error::other("x")).into(),
+            SttErrorKind::Transcription,
+            "La transcription a échoué",
+        ),
     ];
     for (err, kind, message) in cases {
         asserting(message).that(&err.kind()).is_equal_to(kind);

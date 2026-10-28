@@ -42,7 +42,14 @@ pub(crate) fn load(storage: &Storage, dir: &Path) -> Loaded {
         }
     };
     match serde_json::from_slice(&bytes) {
-        Ok(config) => Loaded { config, savable: true },
+        Ok(config) => {
+            let config: Config = config;
+            if !config.api.legacy_query.is_empty() {
+                // Not migrated (t-1233): the API settings stay refused until entered again.
+                tracing::warn!(path = %file.display(), "réglages de l'API de dictée de la 7.0.0 ou avant refusés : à ressaisir");
+            }
+            Loaded { config, savable: true }
+        }
         Err(e) => {
             let kept = keep_aside(storage, &file);
             tracing::warn!(

@@ -180,7 +180,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
         "url": d.api.url,
         "model": d.api.model,
         "key_env": d.api.key_env,
-        "query": d.api.query,
+        "api_version": d.api.api_version,
         "headers": d.api.headers,
     });
 
@@ -216,7 +216,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
             ("url", "d-api-url", "voice-api-url"),
             ("model", "d-api-model", "voice-api-model"),
             ("key_env", "d-api-key-env", "voice-api-key-env"),
-            ("query", "d-api-query", "voice-api-query"),
+            ("api_version", "d-api-version", "voice-api-version"),
             ("headers", "d-api-headers", "voice-api-headers"),
         ] {
             let path = format!("/api/{field}");

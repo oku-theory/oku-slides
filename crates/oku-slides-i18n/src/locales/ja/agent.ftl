@@ -135,10 +135,10 @@ voice-error-bad-silence = 無音は 0.5〜10秒にしてください
 voice-error-bad-language = 不明な音声入力の言語です
 voice-error-bad-url = API のアドレスは https:// で始めてください（http:// はこのコンピュータのみ）。ユーザー名、パラメータ、特殊文字は使えません
 voice-error-bad-key-env = キーの変数は OPENAI_API_KEY のような名前にしてください：大文字、数字、_
-voice-error-bad-api-model = API モデル名に使えるのは文字、数字、. _ : / - だけです
-voice-error-bad-api-query = パラメーターは name=value&name=value の形式で、% と # を含まない表示可能な ASCII で、最大8個まで書きます
-voice-error-bad-api-headers = ヘッダーは Name: value; Name: $VARIABLE の形式で、最大8個まで書きます。キー変数か $VARIABLE ヘッダーが必要です。Host, Content-Type, Content-Length, Transfer-Encoding, Connection、重複、キー変数がある場合の Authorization は拒否されます
-voice-error-api-reserved = API のアドレス、キーの変数、クエリパラメーター、ヘッダーはユーザーだけが設定します。show_dictation でボックスを開き、ユーザーに依頼してください
+voice-error-bad-api-model = API モデル名に使えるのは英字、数字と . _ : / - だけです。Azure のデプロイ名は英字、数字と . _ - だけです
+voice-error-bad-api-version = Azure API バージョンに使えるのは英字、数字、. と - だけで、最大32文字です (例: 2025-03-01-preview)
+voice-error-bad-api-headers = ヘッダーは Name: value; Name: $VARIABLE の形式で、最大8個まで書きます。Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection と重複は拒否されます
+voice-error-api-reserved = API のアドレス、キーの変数、Azure バージョン、ヘッダーを設定できるのはユーザーだけです: show_dictation でボックスを開いて依頼してください
 voice-error-changed = 質問のあとで設定が変わりました。もう一度確認してください
 voice-error-nothing-to-download = このエージェントにダウンロードするものはありません
 agent-tune-prompt = インポートしたプレゼンテーションを微調整する

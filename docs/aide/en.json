@@ -380,7 +380,7 @@
            "bold": true
           },
           {
-           "t": ": pick API in the dictation settings; each sentence goes to an OpenAI-compatible service, with the key read from an environment variable. Only you set the API address (https, or http for this computer) and the key variable (a name like OPENAI_API_KEY), in the settings box. An app opened from the Finder does not see shell variables: set the key with `launchctl setenv OPENAI_API_KEY …` or start the app from a terminal. For Azure OpenAI or a gateway, add query parameters (`api-version=…`) and headers (`api-key: $AZURE_OPENAI_API_KEY`; `$NAME` reads a variable), and leave the key variable empty to send no Bearer."
+           "t": ": pick API in the dictation settings; each sentence goes to an OpenAI-compatible or Azure OpenAI service, with the key read from an environment variable. Only you set the API address (https, or http for this computer) and the key variable (a name like OPENAI_API_KEY), in the settings box. An app opened from the Finder does not see shell variables: set the key with `launchctl setenv OPENAI_API_KEY …` or start the app from a terminal. For Azure OpenAI, give the resource address (`https://….openai.azure.com`), the deployment as the model, the key variable (sent as `api-key`) and the Azure API version (`2025-03-01-preview`); leave the version empty for OpenAI. A gateway can get extra headers (`X-Tenant: acme; X-Token: $GATEWAY_TOKEN`; `$NAME` reads a variable). API settings saved by version 7.0.0 or earlier with query parameters are refused: enter them again in the settings box."
           }
          ],
          "list": "bullet"

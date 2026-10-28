@@ -11,6 +11,7 @@ stt-cancelled = ডাউনলোড বাতিল হয়েছে
 stt-speech-denied = সিস্টেম সেটিংস › গোপনীয়তা ও নিরাপত্তায় স্পিচ রিকগনিশনের অনুমতি দিন
 stt-locale-unsupported = অ্যাপলের ইঞ্জিন এই ভাষা সমর্থন করে না ({ $language })
 stt-api-key-missing = ডিকটেশন API ব্যবহার করতে এনভায়রনমেন্ট ভেরিয়েবল { $var } সেট করুন
+stt-api-key-invalid = এনভায়রনমেন্ট ভেরিয়েবল { $var }-এ এমন মান আছে যা HTTP হেডারে পাঠানো যায় না
 stt-api-config = ডিকটেশন API-এর সেটিংস অবৈধ: সেটিংস বাক্সে সংশোধন করুন।
 stt-api-unreachable = ডিকটেশন API-তে পৌঁছানো যাচ্ছে না
 stt-api-status = ডিকটেশন API অনুরোধ প্রত্যাখ্যান করেছে (HTTP { $status })

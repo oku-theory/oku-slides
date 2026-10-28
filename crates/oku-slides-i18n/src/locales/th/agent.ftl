@@ -135,10 +135,10 @@ voice-error-bad-silence = ความเงียบต้องยาว 0.5 �
 voice-error-bad-language = ไม่รู้จักภาษาของการป้อนด้วยเสียง
 voice-error-bad-url = ที่อยู่ API ต้องขึ้นต้นด้วย https:// (http:// สำหรับคอมพิวเตอร์เครื่องนี้เท่านั้น) โดยไม่มีชื่อผู้ใช้ พารามิเตอร์ หรืออักขระพิเศษ
 voice-error-bad-key-env = ตัวแปรของคีย์ต้องเป็นชื่ออย่าง OPENAI_API_KEY: ตัวพิมพ์ใหญ่ ตัวเลข และ _
-voice-error-bad-api-model = ชื่อโมเดล API ใช้ได้เฉพาะตัวอักษร ตัวเลข และ . _ : / -
-voice-error-bad-api-query = พารามิเตอร์เขียนแบบ name=value&name=value ด้วย ASCII ที่มองเห็นได้ ไม่มี % หรือ # ไม่เกิน 8 รายการ
-voice-error-bad-api-headers = เฮดเดอร์เขียนแบบ Name: value; Name: $VARIABLE ไม่เกิน 8 รายการ ต้องมีตัวแปรคีย์หรือเฮดเดอร์ $VARIABLE และจะปฏิเสธ Host, Content-Type, Content-Length, Transfer-Encoding, Connection ชื่อซ้ำ และ Authorization เมื่อมีตัวแปรคีย์
-voice-error-api-reserved = มีเพียงผู้ใช้ที่ตั้งที่อยู่ API ตัวแปรของคีย์ พารามิเตอร์คิวรี และเฮดเดอร์: เปิดกล่องด้วย show_dictation แล้วขอให้ผู้ใช้ทำ
+voice-error-bad-api-model = ชื่อโมเดล API ใช้ได้เฉพาะตัวอักษร ตัวเลข และ . _ : / - ส่วนชื่อการปรับใช้ของ Azure ใช้ได้เฉพาะตัวอักษร ตัวเลข และ . _ -
+voice-error-bad-api-version = เวอร์ชัน API ของ Azure ใช้ได้เฉพาะตัวอักษร ตัวเลข . และ - ไม่เกิน 32 อักขระ เช่น 2025-03-01-preview
+voice-error-bad-api-headers = ส่วนหัวเขียนแบบ Name: value; Name: $VARIABLE ไม่เกิน 8 รายการ Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection และชื่อซ้ำจะถูกปฏิเสธ
+voice-error-api-reserved = มีเพียงผู้ใช้ที่ตั้งค่าที่อยู่ ตัวแปรของคีย์ เวอร์ชัน Azure และส่วนหัวของ API ได้: เปิดกล่องด้วย show_dictation แล้วขอให้ผู้ใช้ตั้งค่า
 voice-error-changed = การตั้งค่าเปลี่ยนไปหลังคำถาม: โปรดถามอีกครั้ง
 voice-error-nothing-to-download = ไม่มีอะไรให้ดาวน์โหลดสำหรับเอเจนต์นี้
 agent-tune-prompt = ปรับแต่งงานนำเสนอที่นำเข้าอย่างละเอียด

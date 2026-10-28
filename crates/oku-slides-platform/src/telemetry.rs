@@ -9,17 +9,18 @@ use tracing_subscriber::prelude::*;
 
 /// Default level without `RUST_LOG`: `info` for us, `warn` for Loro
 /// (`loro`, `loro_internal`), whose `info` logs (import, commit) do not
-/// interest the user and drown ours.
-pub(crate) const DEFAULT_FILTER: &str = "info,loro=warn,loro_internal=warn";
+/// interest the user and drown ours, `off` for async-openai, whose `warn` and
+/// `error` copy dictation API bodies that may echo a secret (t-1233).
+pub(crate) const DEFAULT_FILTER: &str = "info,loro=warn,loro_internal=warn,async_openai=off";
 
 /// Environment variable that turns on HTTP and TLS debug logs.
 ///
 /// Any value but empty, `0`, `false`, `no` or `off` (any case) enables them.
 pub const NETWORK_DEBUG_ENV: &str = "OKU_SLIDES_DEBUG_NETWORK";
 
-/// Outgoing HTTP clients and TLS: ureq (dictation API, model downloads),
-/// reqwest and hyper-util (updater) and rustls with the system verifier. At
-/// `debug`, ureq redacts sensitive headers and URL paths.
+/// Outgoing HTTP clients and TLS: ureq (model downloads), reqwest and
+/// hyper-util (dictation API, updater) and rustls with the system verifier.
+/// At `debug`, ureq redacts sensitive headers and URL paths; reqwest logs none.
 pub(crate) const NETWORK_FILTER: &str = "ureq=debug,ureq_proto=debug,reqwest=debug,hyper_util=debug,\
                                          tauri_plugin_updater=debug,rustls=debug,rustls_platform_verifier=debug";
 

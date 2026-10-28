@@ -559,9 +559,9 @@ voice-api-url = Adres API
 voice-api-model = Model
 voice-api-key-env = Zmienna klucza
 voice-api-note = Każde zdanie jest wysyłane do tej usługi. Klucz jest odczytywany ze zmiennej środowiskowej przy rozpoczęciu dyktowania; aplikacja otwarta z Findera nie widzi zmiennych powłoki (użyj launchctl setenv).
-voice-api-query = Parametry zapytania
+voice-api-version = Wersja API Azure
 voice-api-headers = Dodatkowe nagłówki
-voice-api-azure-note = Azure OpenAI: zostaw zmienną klucza pustą, ustaw api-version=… jako parametr i api-key: $AZURE_OPENAI_API_KEY jako nagłówek. $NAME odczytuje zmienną.
+voice-api-azure-note = Azure OpenAI: adres zasobu (https://….openai.azure.com) jako adres, wdrożenie jako model, zmienna klucza (wysyłana jako api-key) i wersja API, np. 2025-03-01-preview. Dla OpenAI zostaw wersję pustą. W nagłówkach $NAME odczytuje zmienną.
 voice-cancel = Anuluj
 voice-agent-title = Agent
 voice-agent-busy = Zmiana agenta przerwie bieżącą turę.

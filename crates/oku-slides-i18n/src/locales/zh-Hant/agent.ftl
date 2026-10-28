@@ -135,10 +135,10 @@ voice-error-bad-silence = 靜音時長須為 0.5 至 10秒
 voice-error-bad-language = 未知的聽寫語言
 voice-error-bad-url = API 位址必須以 https:// 開頭（http:// 僅限本機），不得包含使用者名稱、參數或特殊字元
 voice-error-bad-key-env = 金鑰變數必須是類似 OPENAI_API_KEY 的名稱：大寫字母、數字和 _
-voice-error-bad-api-model = API 模型名稱只能包含字母、數字和 . _ : / -
-voice-error-bad-api-query = 參數寫作 name=value&name=value，使用不含 % 和 # 的可見 ASCII 字元，最多8個
-voice-error-bad-api-headers = 請求標頭寫作 Name: value; Name: $VARIABLE，最多8個。需要一個金鑰變數或一個 $VARIABLE 請求標頭；Host, Content-Type, Content-Length, Transfer-Encoding, Connection、重複名稱以及已設金鑰變數時的 Authorization 會被拒絕
-voice-error-api-reserved = 只有使用者可以設定 API 位址、金鑰變數、查詢參數和請求標頭：請用 show_dictation 開啟設定框並請使用者設定
+voice-error-bad-api-model = API 模型名稱只能使用字母、數字和 . _ : / -；Azure 部署名稱只能使用字母、數字和 . _ -
+voice-error-bad-api-version = Azure API 版本只能使用字母、數字、. 和 -，最多32個字元，例如 2025-03-01-preview
+voice-error-bad-api-headers = 標頭寫作 Name: value; Name: $VARIABLE，最多8個。Authorization, api-key, Host, Content-Type, Content-Length, Transfer-Encoding, Connection 和重複項會被拒絕
+voice-error-api-reserved = 只有使用者能設定 API 的位址、金鑰變數、Azure 版本和標頭：請用 show_dictation 開啟設定框並請使用者設定
 voice-error-changed = 提問之後設定已變更：請重新詢問
 voice-error-nothing-to-download = 此代理沒有需要下載的內容
 agent-tune-prompt = 微調匯入的簡報

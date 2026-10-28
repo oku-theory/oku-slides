@@ -554,9 +554,9 @@ voice-api-url = API 地址
 voice-api-model = 模型
 voice-api-key-env = 密钥变量
 voice-api-note = 每句话都会发送到此服务。密钥在听写开始时从环境变量中读取；从 Finder 打开的应用看不到 shell 变量（请使用 launchctl setenv）。
-voice-api-query = 查询参数
+voice-api-version = Azure API 版本
 voice-api-headers = 附加请求头
-voice-api-azure-note = Azure OpenAI：将密钥变量留空，把 api-version=… 设为参数，把 api-key: $AZURE_OPENAI_API_KEY 设为请求头。$NAME 读取一个变量。
+voice-api-azure-note = Azure OpenAI：地址填资源地址（https://….openai.azure.com），模型填部署名称，填写密钥变量（以 api-key 发送）和 API 版本，例如 2025-03-01-preview。使用 OpenAI 时版本留空。在标头中，$NAME 读取一个变量。
 voice-cancel = 取消
 voice-agent-title = 智能体
 voice-agent-busy = 切换智能体将中断当前回合。

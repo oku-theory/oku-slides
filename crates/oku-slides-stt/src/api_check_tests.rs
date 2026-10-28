@@ -115,3 +115,15 @@ fn valid_key_env_name_length_is_capped_at_64(#[case] len: usize, #[case] ok: boo
 fn valid_api_model_follows_the_name_rule(#[case] name: &str, #[case] ok: bool) {
     assert_that!(valid_api_model(name)).is_equal_to(ok);
 }
+
+#[rstest]
+#[case("", true)]
+#[case("2025-03-01-preview", true)]
+#[case("2024-10-21", true)]
+#[case("2025/03", false)]
+#[case("v1&x=y", false)]
+#[case("01234567890123456789012345678901", true)]
+#[case("012345678901234567890123456789012", false)]
+fn valid_api_version_follows_the_version_rule(#[case] version: &str, #[case] ok: bool) {
+    assert_that!(valid_api_version(version)).is_equal_to(ok);
+}

@@ -26,7 +26,7 @@ fn voice_error_every_kind_has_a_translation(
         VoiceErrorKind::BadUrl,
         VoiceErrorKind::BadKeyEnv,
         VoiceErrorKind::BadApiModel,
-        VoiceErrorKind::BadApiQuery,
+        VoiceErrorKind::BadApiVersion,
         VoiceErrorKind::BadApiHeaders,
         VoiceErrorKind::ApiReservedToUser,
         VoiceErrorKind::Changed,
