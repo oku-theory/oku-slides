@@ -140,8 +140,8 @@ export default function App({
   // Une relecture (`nonce`) croise parfois une modification : la réponse la
   // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
   const latest = useRef(new Latest());
-  // Le dernier instantané accepté, à jour dès sa réception : `finishPack` le lit
-  // juste après l'enregistrement en attente, avant le rendu qui suit.
+  // The last accepted snapshot, current as soon as it arrives: read after an await,
+  // before the render that follows.
   const snapRef = useRef(snap);
   snapRef.current = snap;
   // `null` : rien n'a été fait (dialogue abandonné), l'état ne change pas.
@@ -262,9 +262,7 @@ export default function App({
 
   const { insertLayout } = useLayoutInsert({ snap, current, apply, setCurrent, setSelected, setPicking });
   const { packWidgets, addSections } = usePackWidgets(snap);
-  const { editPack, finishPack } = packGestures({
-    api, snap, snapRef, run, autosave, widgets, setCurrent, setSelected, onOpenPack, onClose, confirm: (m) => window.confirm(m),
-  });
+  const { editPack, finishPack } = packGestures({ onOpenPack, onClose });
   useCloseGuard(tab, async () => { await widgets.files.settle(); await autosave.flush(); });
 
   // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----

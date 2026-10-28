@@ -77,7 +77,29 @@ pub(super) enum Opening {
         /// The theme the new tab edits.
         theme: uuid::Uuid,
     },
+    /// A deck-only pack's tab, linked to its owner deck.
+    DeckPack {
+        /// The owner deck's tab.
+        deck_tab: String,
+        /// The edited pack.
+        pack: uuid::Uuid,
+        /// The widget to open first, if any.
+        widget: Option<String>,
+    },
 }
+
+/// Makes the next deck-pack tab build fail, once (tests only).
+///
+/// Nextest only: one process per test, so no other test sees it set.
+#[cfg(test)]
+pub(super) static FAIL_DECK_PACK_BUILD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// A test hook run once by the next deck-pack tab build, before it builds.
+///
+/// Nextest only: one process per test, so no other test sees it set.
+#[cfg(test)]
+pub(super) static DURING_DECK_PACK_BUILD: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> =
+    std::sync::Mutex::new(None);
 
 /// L'import qu'un onglet à créer montrera.
 pub(super) struct ImportOpening {
@@ -133,8 +155,10 @@ impl Pending {
                 let name = i.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
                 session.load_import(imported, &name)?;
             }
-            // Only `build_pack` and `build_theme` build these tabs: they are given their lease.
-            Opening::Pack { .. } | Opening::Theme { .. } => return PackTabNotFreshSnafu.fail()?,
+            // Only `build_pack`, `build_theme` and `build_deck_pack` build these tabs: they are given their seed or lease.
+            Opening::Pack { .. } | Opening::Theme { .. } | Opening::DeckPack { .. } => {
+                return PackTabNotFreshSnafu.fail()?;
+            }
         }
         self.arm_resume(&mut session);
         Ok(session)
@@ -153,6 +177,35 @@ impl Pending {
         let Opening::Pack { pack, widget } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
         let mut session = tab_session(&self.fonts, &self.platform)?;
         session.init_pack_tab(seed, lease, *pack, widget.as_deref())?;
+        self.arm_resume(&mut session);
+        Ok(session)
+    }
+
+    /// Builds a deck-pack tab session from its owner's seed.
+    ///
+    /// # Errors
+    ///
+    /// `PackTabNotFresh` unless the opening is `Opening::DeckPack`; the `init_deck_pack_tab` errors.
+    ///
+    /// # Blocking
+    ///
+    /// Builds and renders a session.
+    pub(super) fn build_deck_pack(&self, seed: Box<PreviewSeed>) -> Result<Session> {
+        let Opening::DeckPack { deck_tab, pack, widget } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
+        #[cfg(test)]
+        {
+            // Taken out first: the hook never runs with the static's mutex held.
+            let hook = DURING_DECK_PACK_BUILD.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+            if let Some(hook) = hook {
+                hook();
+            }
+        }
+        #[cfg(test)]
+        if FAIL_DECK_PACK_BUILD.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            return PackTabNotFreshSnafu.fail()?;
+        }
+        let mut session = tab_session(&self.fonts, &self.platform)?;
+        session.init_deck_pack_tab(seed, deck_tab, *pack, widget.as_deref())?;
         self.arm_resume(&mut session);
         Ok(session)
     }
@@ -267,12 +320,26 @@ impl Workspace {
             trash.empty(vec![(id, Tab::new(session))]);
             return Err(UnknownWindowSnafu { label: window.unwrap_or_default() }.build().into());
         }
+        // The owner closed during the build: its deck-pack tab would be an
+        // orphan. Refused; `open_deck_pack` cancels the pending link.
+        if let Opening::DeckPack { deck_tab, .. } = &opening
+            && !w.tabs.contains_key(deck_tab)
+        {
+            let trash = w.trash();
+            drop(w);
+            trash.empty(vec![(id, Tab::new(session))]);
+            return Err(UnknownTabSnafu { id: deck_tab }.build().into());
+        }
         // Le même fichier a pu être ouvert pendant la construction (Finder et
         // seconde instance, double clic) : le premier onglet reste, seul.
         // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
         // A pack or theme has no dedupe here: its opening lock and single lease forbid a second tab.
         let existing = match &opening {
-            Opening::Blank | Opening::Import(_) | Opening::Pack { .. } | Opening::Theme { .. } => None,
+            Opening::Blank
+            | Opening::Import(_)
+            | Opening::Pack { .. }
+            | Opening::Theme { .. }
+            | Opening::DeckPack { .. } => None,
             Opening::File(path) => w.tab_with_path(path),
             Opening::Help { locale, .. } => w.tab_with_help(locale),
         };
@@ -296,7 +363,7 @@ impl Workspace {
             if let Err(e) = w.detach(&r) {
                 tracing::warn!(tab = %r, error = %e.one_line(), "onglet vierge non retiré");
             }
-            gone.extend(w.tabs.remove(&r).map(|t| (r, t)));
+            gone.extend(w.remove_tab(&r));
         }
         w.save_layout();
         let (json, trash) = (w.view_json(), w.trash());
@@ -375,11 +442,6 @@ impl Workspace {
     pub(super) fn change(&mut self, req: WorkspaceRequest) -> Result<Vec<(String, Tab)>> {
         match req {
             WorkspaceRequest::Activate { tab } => self.activate(&tab)?,
-            WorkspaceRequest::Close { tab, discard } => {
-                self.ensure_closable(&tab, discard)?;
-                self.detach_to_opener(&tab)?;
-                return Ok(self.tabs.remove(&tab).map(|t| (tab, t)).into_iter().collect());
-            }
             WorkspaceRequest::Reorder { tab, index } => self.reorder(&tab, index)?,
             WorkspaceRequest::MoveTab { tab, window, index } => self.move_tab(&tab, window.as_deref(), index)?,
             WorkspaceRequest::DetachAgent => self.set_agent_detached(true),
@@ -402,8 +464,9 @@ impl Workspace {
             | WorkspaceRequest::OpenPack { .. }
             | WorkspaceRequest::OpenTheme { .. }
             | WorkspaceRequest::PackOpener { .. }
-            // Traitée directement dans `apply` (décision atomique de la
-            // dernière fenêtre, sous le même verrou) : jamais atteinte ici.
+            // Handled in `apply` itself (flushed outside the lock first, the last
+            // window decided under the same lock as the close): never reached here.
+            | WorkspaceRequest::Close { .. }
             | WorkspaceRequest::CloseWindow { .. } => {}
         }
         Ok(Vec::new())
@@ -428,23 +491,22 @@ impl Workspace {
         Ok(())
     }
 
-    /// Onglets dont `req` doit lire l'état réel.
+    /// The tabs whose real state `req` must read.
     ///
-    /// Fermés sans abandon, ou l'onglet vierge qu'un fichier ouvert ou importé remplacerait (s'il
-    /// l'était).
+    /// Closed without discarding, with the tabs linked to them, or the blank
+    /// tab a file opened or imported would replace (if it still is).
     pub(super) fn to_wake(&self, req: &WorkspaceRequest) -> Vec<String> {
         match req {
-            WorkspaceRequest::Close { tab, discard: false } => vec![tab.clone()],
+            WorkspaceRequest::Close { tab, discard: false } => {
+                std::iter::once(tab.clone()).chain(self.linked_tabs(tab)).collect()
+            }
             // La seule fenêtre ne se ferme pas (l'app quitte en gardant tout) :
             // rien à relire, la reprise paresseuse reste paresseuse.
             WorkspaceRequest::CloseWindow { window, .. } if self.is_only_window(window) => Vec::new(),
-            WorkspaceRequest::CloseWindow { window, discard } => self
-                .layout
-                .windows
-                .iter()
-                .find(|w| &w.label == window)
-                .map(|w| w.tabs.iter().filter(|t| !discard.contains(t)).cloned().collect())
-                .unwrap_or_default(),
+            WorkspaceRequest::CloseWindow { window, discard } => {
+                let (closing, discarded) = self.window_closing(window, discard);
+                closing.into_iter().filter(|t| !discarded.contains(t)).collect()
+            }
             // Fin engagée, ou fichier déjà ouvert : aucun onglet ne sera remplacé.
             WorkspaceRequest::OpenTab { path, .. }
                 if self.is_closed() || self.tab_with_path(&resolve(path)).is_some() =>

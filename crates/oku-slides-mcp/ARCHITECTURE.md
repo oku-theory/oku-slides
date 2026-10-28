@@ -11,7 +11,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
   to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
-  settings), `edit_tools` (undoable edits, `edit_pack`: a pack tab per turn or a deck-only workshop, `add_pack`/`remove_pack`, `set_theme_extends`), `widget_tools` (no `pack`: `deck`, so
+  settings), `edit_tools` (undoable edits, `edit_pack`: a pack tab per turn, a deck-only pack's tab linked to its deck, `add_pack`/`remove_pack`, `set_theme_extends`), `widget_tools` (no `pack`: `deck`, so
   `deck-layouts` is named; writes refused in a turn that opened a pack tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
   `save_pack`, `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,

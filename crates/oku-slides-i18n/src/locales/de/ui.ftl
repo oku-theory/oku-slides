@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = { $theme } kann hier nicht gespeichert werden.
 ui-confirm-update-opener = „{ $deck }“ auf diese Version des Pakets „{ $pack }“ aktualisieren?
 ui-close-writes-pending = Dieser Tab speichert noch: Schließen Sie ihn gleich noch einmal.
 ui-confirm-close-writes-pending = Dieser Tab speichert noch. Trotzdem schließen und verlieren, was nicht gespeichert ist?
+ui-confirm-close-writes-pending-linked = Dieser Tab speichert noch, und diese Paket-Tabs werden ungespeichert mit ihm geschlossen: { $tabs }. Trotzdem schließen und verlieren, was nicht gespeichert ist?
 ui-confirm-quit-read-only-pack = { $pack } kann hier nicht gespeichert werden. Diesen Tab schließen und seine Änderungen verlieren? Um sie zu behalten, bitten Sie den Agenten, es als neues Paket zu speichern.
 
 ## Meldungen

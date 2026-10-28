@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = { $theme } ne peut pas être enregistré ici. 
 ui-confirm-update-opener = Mettre à jour « { $deck } » avec cette version du pack « { $pack } » ?
 ui-close-writes-pending = Cet onglet enregistre encore : fermez-le de nouveau dans un instant.
 ui-confirm-close-writes-pending = Cet onglet enregistre encore. Le fermer quand même et perdre ce qui n'est pas enregistré ?
+ui-confirm-close-writes-pending-linked = Cet onglet enregistre encore, et ces onglets de pack se ferment avec lui sans être enregistrés : { $tabs }. Les fermer quand même et perdre ce qui n'est pas enregistré ?
 ui-confirm-quit-read-only-pack = { $pack } ne peut pas être enregistré ici. Fermer cet onglet et perdre ses modifications ? Pour les garder, demandez à l'agent de l'enregistrer comme nouveau pack.
 
 ## Toasts

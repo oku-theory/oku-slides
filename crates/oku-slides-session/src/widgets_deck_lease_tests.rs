@@ -166,12 +166,3 @@ fn deck_widget_write_to_a_deck_only_pack_ignores_leases() {
     s.set_widget(Some(&Namespace::deck()), "card", CARD_V2.into()).unwrap();
     assert_that!(s.widget_source(Some(&Namespace::deck()), "card").unwrap()).is_equal_to(CARD_V2.to_owned());
 }
-
-#[test]
-fn edit_pack_of_a_leased_library_pack_is_refused() {
-    let data = fresh_dir("oku-slides-deck-lease-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let _tab = pack_tab_from(&mut s, data.path(), acme);
-    assert_that!(s.edit_pack(acme).unwrap_err().kind()).is_equal_to(SessionErrorKind::PackOpenInTab);
-    assert_that!(matches!(s.mode, crate::Mode::Deck)).is_true();
-}

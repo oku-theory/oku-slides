@@ -13,7 +13,7 @@ use oku_slides_core::{Namespace, PackPin};
 
 use super::bounds::clip;
 use crate::widgets_edit::parse_name;
-use crate::{Mode, PackHost, Session};
+use crate::{Mode, Session};
 
 /// Longueur du début de consigne dans le libellé d'annulation.
 const LABEL_CHARS: usize = 40;
@@ -104,14 +104,20 @@ impl Session {
         self.turn_steps_begin(turn);
     }
 
-    /// Ferme le groupe du tour, y compris sur le deck mis de côté (mode pack, historique).
+    /// Closes the turn's group, on the deck set aside too (pack mode, history).
+    ///
+    /// A deck-pack tab's outbox becomes due (`mark_due`); an owner deck asks
+    /// for its links' parked sends (`pull_links`).
     pub fn end_turn(&mut self) {
         self.end_widget_session();
         self.doc.sources.end_group();
-        if let Mode::Pack { stash, .. } | Mode::History { stash, .. } = &mut self.mode {
+        if let Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } = &mut self.mode {
             stash.sources.end_group();
         }
         self.turn_steps_end();
+        // A deck-pack tab's saves of the turn go to its owner; an owner pulls its parked ones.
+        self.mark_due();
+        self.pull_links();
     }
 
     /// Une action faite sans l'agent, qu'il apprendra au prochain tour.
@@ -130,10 +136,7 @@ impl Session {
         let mut out = String::from("<oku-slides-context>\n");
         let mode = match &self.mode {
             Mode::Deck | Mode::Help { .. } => "deck".to_owned(),
-            Mode::Pack { edit, .. } => {
-                let host = if edit.host == PackHost::Tab { "tab" } else { "deck" };
-                format!("pack(id={}, host={host})", edit.pack)
-            }
+            Mode::Pack { edit, .. } => format!("pack(id={})", edit.pack),
             Mode::History { history, .. } => {
                 let view = history.view();
                 format!("history(read_only, version={}/{})", view.index + 1, view.count)

@@ -62,6 +62,13 @@ fn would_empty(ws: &Mutex<Workspace>, req: &WorkspaceRequest) -> bool {
     }
 }
 
+/// Tells `after` each owner deck a deck-pack forward changed since the last call.
+///
+/// The interface re-reads the workspace after each command: no view to emit.
+fn drain_owners(ws: &Mutex<Workspace>, after: impl FnMut(&str)) {
+    Workspace::drain_touched(ws, || {}, after);
+}
+
 /// 413 : corps de requête trop long.
 fn too_large() -> Response {
     (StatusCode::PAYLOAD_TOO_LARGE, [(CONTENT_TYPE, "text/plain; charset=utf-8")], "").into_response()
@@ -133,7 +140,7 @@ impl Shared {
         };
         let last_window =
             || (StatusCode::CONFLICT, serde_json::json!({ "error": l.tr("session-last-window") }).to_string());
-        match url {
+        let reply = match url {
             "/api" => match serde_json::from_slice::<TabRequest>(body) {
                 Ok(TabRequest { tab, req }) => {
                     // Le serveur de développement ignore le drapeau : l'interface relit
@@ -171,7 +178,7 @@ impl Shared {
                             self.stack.tune(&tab);
                             (StatusCode::OK, json)
                         }
-                        // A workshop entered in place: the agent's orphaned notes close, as after a deck request.
+                        // A tab's deck changed: the agent's orphaned notes close, as after a deck request.
                         Ok(WorkspaceOutcome::DeckChanged { json, tab }) => {
                             self.stack.after_change(&tab);
                             (StatusCode::OK, json)
@@ -193,7 +200,12 @@ impl Shared {
                 Ok(r) => (StatusCode::OK, serde_json::to_string(&self.stt.handle(r)).unwrap_or_default()),
                 Err(e) => bad_request(e),
             },
+        };
+        // A deck-pack tab's save reached its owner deck (an agent turn's at the next request).
+        if url != "/api/stt" {
+            drain_owners(&self.workspace, |owner| self.stack.after_change(owner));
         }
+        reply
     }
 
     /// Un fichier de l'interface (`index.html` pour `/`). Bloquant.

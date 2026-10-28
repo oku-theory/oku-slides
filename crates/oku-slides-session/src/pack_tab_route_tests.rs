@@ -5,7 +5,7 @@ use uuid::Uuid;
 use super::*;
 use crate::library::DraftWrite;
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, session_on};
-use crate::test_support_packs::{CARD_V2, draft_of, editing, opener_on, pack_tab_from, scope_of, snapshot_json};
+use crate::test_support_packs::{CARD_V2, draft_of, opener_on, pack_tab_from, scope_of, snapshot_json};
 use crate::{BASE_PACK, Request, SessionErrorKind};
 
 /// The deck of `s` in a widget session on `acme`: its unfrozen draft.
@@ -60,102 +60,41 @@ fn take_preview_of_a_pack_that_became_deck_only_is_refused() {
 }
 
 #[test]
-fn route_pack_of_a_deck_only_pack_enters_the_workshop_here() {
-    let mut s = crate::test_support::session();
-    let d = adopt_deck_only_pack(&mut s);
-    let route = s.route_pack(d.id, None).unwrap();
-    assert_that!(matches!(route, PackRoute::Here { entered: true })).is_true();
-    assert_that!(editing(&s)).is_equal_to(Some((d.id, PackHost::Deck)));
-}
-
-#[test]
-fn route_pack_in_place_ends_the_deck_widget_session() {
-    let data = fresh_dir("oku-slides-route-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let d = adopt_deck_only_pack(&mut s);
-    let v = in_widget_session(&mut s, acme);
-    s.route_pack(d.id, None).unwrap();
-    assert_that!(draft_of(&s, acme, &v)).is_equal_to(DraftWrite::Child(v));
-}
-
-#[test]
-fn route_pack_in_place_persists_the_workshop() {
+fn route_pack_of_a_deck_only_pack_from_a_deck_tab_is_deck_tab() {
     let data = fresh_dir("oku-slides-route-");
     let dir = fresh_dir("oku-slides-route-tab-");
     let mut s = session_on(data.path());
     assert_that!(s.resume_fresh(dir.path().to_path_buf())).is_true();
     let d = adopt_deck_only_pack(&mut s);
-    s.route_pack(d.id, None).unwrap();
     s.flush_resume();
-    let state: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(dir.path().join("state.json")).unwrap()).unwrap();
-    assert_that!(state["mode"]["pack"]["pack"]).is_equal_to(serde_json::json!(d.id));
-}
-
-/// A deck-only pack of `s`'s deck holding a widget `oops` that does not compile.
-fn broken_deck_only_pack(s: &mut Session) -> Uuid {
-    let d = adopt_deck_only_pack(s);
-    let files = s.doc.sources.packs[&d.version].clone();
-    let manifest = crate::pack::PackManifest::from_files(&files).unwrap();
-    let mut widgets = files.widgets().clone();
-    widgets.insert(oku_slides_core::WidgetFile::parse("oops").unwrap(), "#let widget = (".into());
-    let broken = manifest.to_files(files.kind(), widgets).unwrap();
-    let pin = oku_slides_core::PackPin { id: d.id, version: broken.version(), requires: d.requires.clone() };
-    s.doc.sources.add_pack(broken);
-    s.apply("oops", vec![crate::test_support::add_pack(&manifest, &pin)], None).unwrap();
-    d.id
+    let state = std::fs::read(dir.path().join("state.json")).unwrap();
+    let route = s.route_pack(d.id, None).unwrap();
+    assert_that!(matches!(&route, PackRoute::DeckTab { name } if name == "Importé")).is_true();
+    s.flush_resume();
+    assert_that!((matches!(s.mode, Mode::Deck), std::fs::read(dir.path().join("state.json")).unwrap()))
+        .is_equal_to((true, state));
 }
 
 #[test]
-fn route_pack_in_place_keeps_the_edit_pack_notice() {
+fn route_pack_of_a_deck_only_pack_without_lease_scope_is_refused() {
     let mut s = crate::test_support::session();
-    let d = broken_deck_only_pack(&mut s);
-    s.doc.notice = None;
-    s.route_pack(d, None).unwrap();
-    assert_that!(s.snapshot().notice.is_some_and(|n| n.contains("oops"))).is_true();
+    let d = adopt_deck_only_pack(&mut s);
+    s.library = crate::PackLibrary::new(None, None, s.themes.clone(), s.storage.clone());
+    assert_that!(s.route_pack(d.id, None).unwrap_err().kind()).is_equal_to(SessionErrorKind::DeckOnly);
 }
 
-#[rstest]
-#[case::deck(PackHost::Deck)]
-#[case::tab(PackHost::Tab)]
-fn route_pack_of_the_edited_pack_opens_the_widget_here(#[case] host: PackHost) {
+#[test]
+fn route_pack_of_the_edited_pack_opens_the_widget_here() {
     let data = fresh_dir("oku-slides-route-");
     let (mut s, _deck, acme) = opener_on(data.path());
-    let mut t = match host {
-        PackHost::Deck => {
-            s.edit_pack(acme).unwrap();
-            s
-        }
-        PackHost::Tab => pack_tab_from(&mut s, data.path(), acme),
-    };
+    let mut t = pack_tab_from(&mut s, data.path(), acme);
     let route = t.route_pack(acme, Some("card")).unwrap();
-    assert_that!(matches!(route, PackRoute::Here { entered: false })).is_true();
+    assert_that!(matches!(route, PackRoute::Here)).is_true();
     assert_that!(t.ui.widget.as_deref()).is_equal_to(Some("card"));
 }
 
 #[test]
-fn route_pack_from_a_workshop_to_another_deck_only_pack_switches_here() {
-    let data = fresh_dir("oku-slides-route-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let d = adopt_deck_only_pack(&mut s);
-    s.edit_pack(acme).unwrap();
-    let route = s.route_pack(d.id, None).unwrap();
-    assert_that!(matches!(route, PackRoute::Here { entered: true })).is_true();
-    assert_that!(editing(&s)).is_equal_to(Some((d.id, PackHost::Deck)));
-}
-
-#[test]
-fn route_pack_from_a_workshop_to_a_library_pack_is_tab() {
-    let data = fresh_dir("oku-slides-route-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let d = adopt_deck_only_pack(&mut s);
-    s.edit_pack(d.id).unwrap();
-    assert_that!(matches!(s.route_pack(acme, None).unwrap(), PackRoute::Tab { .. })).is_true();
-    assert_that!(editing(&s)).is_equal_to(Some((d.id, PackHost::Deck)));
-}
-
-#[test]
-fn route_pack_from_a_pack_tab_to_a_library_pack_is_tab() {
+fn route_pack_of_another_library_pack_from_a_pack_tab_is_tab() {
     let data = fresh_dir("oku-slides-route-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let mut t = pack_tab_from(&mut s, data.path(), acme);
@@ -163,7 +102,7 @@ fn route_pack_from_a_pack_tab_to_a_library_pack_is_tab() {
 }
 
 #[test]
-fn route_pack_from_a_pack_tab_to_a_deck_only_pack_is_refused() {
+fn route_pack_of_another_deck_only_pack_from_a_pack_tab_is_in_pack_tab() {
     let data = fresh_dir("oku-slides-route-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let d = adopt_deck_only_pack(&mut s);
@@ -222,18 +161,7 @@ fn take_preview_seed_carries_the_font_but_no_asset() {
     let lease = PackLease::acquire(&scope_of(&s), acme, "acme", "acme").unwrap();
     let mut t = session_on(data.path());
     t.init_pack_tab(*seed, lease, acme, None).unwrap();
-    assert_that!(crate::test_support::stash_of(&t).sources.assets.is_empty()).is_true();
-}
-
-#[test]
-fn take_preview_seed_from_a_workshop_is_the_user_deck() {
-    let data = fresh_dir("oku-slides-route-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let d = adopt_deck_only_pack(&mut s);
-    let deck = s.user_deck().clone();
-    s.edit_pack(d.id).unwrap();
-    let seed = s.take_preview(acme).unwrap();
-    assert_that!(seed.deck).is_equal_to(deck);
+    assert_that!(crate::test_support::preview_of(&t).sources.assets.is_empty()).is_true();
 }
 
 #[test]

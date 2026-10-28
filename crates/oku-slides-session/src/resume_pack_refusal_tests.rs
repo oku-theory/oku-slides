@@ -11,7 +11,7 @@ use crate::pack::PackManifest;
 use crate::resume::Resumed;
 use crate::test_support::{adopt_deck_only_pack, edit_of, edit_state, fresh_dir, manifest_ns, session_on};
 use crate::test_support_packs::{Dormant, Live, assert_unleased, live_editor, park, scope_of};
-use crate::{Mode, PackHost, Request, Storage};
+use crate::{Mode, Request, Storage};
 
 /// The refusal of restoring `dir` on `data`, from a session dropped right after.
 fn refusal(data: &Path, dir: &Path) -> ResumeError {
@@ -54,15 +54,15 @@ fn forge_base(live: &mut Live, forge: impl FnOnce(&mut PackManifest)) {
     }
 }
 
-/// A dormant pack tab on a deck-only pack: a blank deck's workshop marked as a pack tab.
+/// A dormant pack tab on a deck-only pack: a deck-pack tab's state, as a version-4 pack tab.
 fn deck_only_pack_tab(data: &Path) -> tempfile::TempDir {
     let dir = fresh_dir("oku-slides-refusal-");
-    let mut s = session_on(data);
+    let mut owner = session_on(data);
+    let d = adopt_deck_only_pack(&mut owner);
+    let mut s = crate::test_support_packs::deck_pack_tab_of(&mut owner, data, d.id);
     assert_that!(s.resume_fresh(dir.path().to_path_buf())).is_true();
-    let d = adopt_deck_only_pack(&mut s);
-    s.handle(Request::EditPack { pack: d.id }).unwrap();
     s.flush_resume();
-    drop(s);
+    drop((s, owner));
     edit_state(dir.path(), |state| {
         state["version"] = json!(4);
         state["mode"]["pack"]["host"] = json!("tab");
@@ -92,7 +92,7 @@ fn broken_tab(data: &Path, broken: Broken) -> (tempfile::TempDir, Option<tempfil
     if let Broken::DeckOnlyPack = broken {
         return (deck_only_pack_tab(data), None);
     }
-    let mut live = live_editor(data, PackHost::Tab);
+    let mut live = live_editor(data);
     match broken {
         Broken::DeckScopedLibraryId => forge_base(&mut live, |m| m.scope = oku_slides_core::PackScope::Deck),
         Broken::EditedPinElsewhere => {

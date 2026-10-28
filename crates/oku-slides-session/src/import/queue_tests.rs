@@ -404,10 +404,24 @@ fn import_report_with_one_slide_failing_marks_it_unscored_and_scores_the_others(
     assert_that!(report["mean"].is_number()).is_true();
 }
 
+#[rstest::rstest]
+#[case::report("import_report")]
+#[case::diff("import_diff")]
+#[case::job("import_reference_job")]
+fn import_tools_in_a_pack_tab_are_refused_as_editing_pack(#[case] tool: &str) {
+    let data = fresh_dir("oku-slides-import-queue-pack-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), crate::BASE_PACK);
+    let err = match tool {
+        "import_report" => s.import_report(&crate::Localizer::new(Some("en"))).map(|_| ()).unwrap_err(),
+        "import_diff" => s.import_diff("s-1", None).map(|_| ()).unwrap_err(),
+        _ => s.import_reference_job().map(|_| ()).unwrap_err(),
+    };
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingPack);
+}
+
 /// Fait passer `s` dans un autre mode que le deck.
 fn enter(s: &mut crate::Session, mode: &str) {
     match mode {
-        "pack" => s.edit_pack(crate::ESSENTIEL_PACK).unwrap(),
         "history" => s.history_open().unwrap(),
         "help" => s.open_help("fr", None).unwrap(),
         other => panic!("mode inconnu : {other}"),
@@ -415,9 +429,6 @@ fn enter(s: &mut crate::Session, mode: &str) {
 }
 
 #[rstest::rstest]
-#[case::pack_report("pack", "import_report", crate::SessionErrorKind::EditingPack)]
-#[case::pack_diff("pack", "import_diff", crate::SessionErrorKind::EditingPack)]
-#[case::pack_job("pack", "import_reference_job", crate::SessionErrorKind::EditingPack)]
 #[case::history_report("history", "import_report", crate::SessionErrorKind::InHistory)]
 #[case::history_diff("history", "import_diff", crate::SessionErrorKind::InHistory)]
 #[case::history_job("history", "import_reference_job", crate::SessionErrorKind::InHistory)]
@@ -439,6 +450,6 @@ fn import_tools_outside_deck_mode_are_refused_by_mode(
         _ => s.import_reference_job().map(|_| ()).unwrap_err(),
     };
     assert_that!(err.kind()).is_equal_to(expected);
-    // L'aide remplace le document (l'import est oublié) ; les modèles et l'historique le mettent de côté.
+    // Help replaces the document (the import is dropped); history sets it aside.
     assert_that!(s.import_state().is_some()).is_equal_to(mode != "help");
 }

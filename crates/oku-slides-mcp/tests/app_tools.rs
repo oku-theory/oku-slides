@@ -267,8 +267,7 @@ async fn merge_confirmation_names_the_file() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn merge_in_pack_mode_is_refused_without_asking() {
-    let h = start().await;
-    handle(&h, req(json!({ "cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK })));
+    let h = start_pack_tab(oku_slides_session::ESSENTIEL_PACK).await;
     let dir = temp_dir("oku-slides-merge-tpl-");
     let r = direct(&h, "merge", json!({ "path": dir.path().join("x.oku-slides.pdf").to_string_lossy() })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
@@ -405,21 +404,24 @@ enum NoPresent {
     NoSlide,
 }
 
-/// Met la session dans `mode`.
-fn enter(h: &Harness, mode: NoPresent) {
+/// A harness whose session is in `mode`; pack mode is a pack tab of Essentiel.
+async fn start_in(mode: NoPresent) -> Harness {
+    if let NoPresent::Pack = mode {
+        return start_pack_tab(oku_slides_session::ESSENTIEL_PACK).await;
+    }
+    let h = start().await;
     match mode {
         NoPresent::History => {
-            handle(h, Request::HistoryOpen);
+            handle(&h, Request::HistoryOpen);
         }
-        NoPresent::Pack => {
-            handle(h, req(json!({ "cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK })));
-        }
+        NoPresent::Pack => {}
         NoPresent::NoSlide => {
-            let ids: Vec<String> = snapshot(h, |s| s.slides.iter().map(|s| s.id.to_owned()).collect());
+            let ids: Vec<String> = snapshot(&h, |s| s.slides.iter().map(|s| s.id.to_owned()).collect());
             let ops: Vec<Value> = ids.iter().map(|id| json!({ "op": "remove_slide", "slide": id })).collect();
-            handle(h, req(json!({ "cmd": "apply", "label": "Vider", "ops": ops })));
+            handle(&h, req(json!({ "cmd": "apply", "label": "Vider", "ops": ops })));
         }
     }
+    h
 }
 
 #[rstest]
@@ -428,8 +430,7 @@ fn enter(h: &Harness, mode: NoPresent) {
 #[case::no_slide(NoPresent::NoSlide)]
 #[tokio::test(flavor = "multi_thread")]
 async fn present_where_the_page_cannot_present_is_refused_and_emits_nothing(#[case] mode: NoPresent) {
-    let h = start().await;
-    enter(&h, mode);
+    let h = start_in(mode).await;
     let mut rx = h.hub.subscribe();
     let r = direct(&h, "present", json!({})).await;
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-present"));
@@ -518,12 +519,13 @@ async fn set_setting_no_longer_writes_the_locale() {
 
 // --- edit_pack --------------------------------------------------------------
 
-/// Revue t-988 : sans `pack`, le pack principal du deck (celui que l'interface ouvre aussi) : un
-/// pack non intégré, layouts d'abord, sinon Essentiel ; jamais `base`.
+/// Review t-988: without `pack`, the deck's main pack (the one the interface opens too): a
+/// non-built-in pack, layouts first, else Essentiel; never `base`.
 #[tokio::test(flavor = "multi_thread")]
 async fn edit_pack_without_pack_opens_the_deck_pack_not_base() {
     use oku_slides_session::{BASE_PACK, ESSENTIEL_PACK};
-    let h = start().await;
+    let (h, tabs) = start_other_tabs().await;
+    h.hub.begin_turn();
     let builtin = |id: &uuid::Uuid| *id == BASE_PACK || *id == ESSENTIEL_PACK;
     let (layouts, widgets): (Vec<_>, Vec<_>) = snapshot(&h, |s| {
         let own = |pins: &std::collections::BTreeMap<oku_slides_core::Namespace, oku_slides_core::PackPin>| {
@@ -533,8 +535,19 @@ async fn edit_pack_without_pack_opens_the_deck_pack_not_base() {
     });
     let expected = layouts.first().or(widgets.first()).copied().unwrap_or(ESSENTIEL_PACK);
     direct(&h, "edit_pack", json!({})).await;
-    let editing = snapshot(&h, |s| s.editing.map(|e| e.pack));
-    assert_that!(editing).is_equal_to(Some(expected));
+    let opened: Vec<uuid::Uuid> = lock(&tabs.opened_packs).iter().map(|(_, pack, _)| *pack).collect();
+    assert_that!(opened).is_equal_to(vec![expected]);
+}
+
+/// A single-document host opens no pack tab: `edit_pack` there is refused, the deck unchanged.
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_pack_on_a_single_document_host_is_refused_as_single_document() {
+    let h = start().await;
+    let r = direct(&h, "edit_pack", json!({})).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let refused = snapshot(&h, |s| s.editing.is_none());
+    assert_that!(refused).is_true();
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-single-document"));
 }
 
 // --- contrat avec l'interface -------------------------------------------------

@@ -137,6 +137,8 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
             // Le deck a changé : les post-its orphelins de l'agent se ferment.
             state.stack.after_change(&tab);
         }
+        // A deck-pack tab's save reached its owner deck: the view, then the owner's notes.
+        Workspace::drain_touched(&state.workspace, || windows::emit_view(app), |owner| state.stack.after_change(owner));
         Ok(reply.map_err(|e| state.refuse(&e)))
     })
     .await?;
@@ -164,10 +166,12 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         if let Some(tab) = outcome.tune_tab() {
             state.tune(tab);
         }
-        // A workshop entered in place: the agent's orphaned notes close, as after a deck request.
+        // A tab's deck changed: the agent's orphaned notes close, as after a deck request.
         if let Some(tab) = outcome.after_change_tab() {
             state.stack.after_change(tab);
         }
+        // A close's flush reached owner decks: the view, then their notes.
+        Workspace::drain_touched(&state.workspace, || windows::emit_view(app), |owner| state.stack.after_change(owner));
         if outcome.is_last_window() {
             state::shutdown(app);
             return Ok(outcome.into_json());

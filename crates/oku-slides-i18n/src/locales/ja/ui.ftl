@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = { $theme } はここでは保存できませ�
 ui-confirm-update-opener = 「{ $deck }」をパック「{ $pack }」のこのバージョンに更新しますか？
 ui-close-writes-pending = このタブはまだ保存中です。少ししてからもう一度閉じてください。
 ui-confirm-close-writes-pending = このタブはまだ保存中です。それでも閉じて、保存されていない内容を失いますか？
+ui-confirm-close-writes-pending-linked = このタブはまだ保存中です。次のパックのタブも保存されないまま一緒に閉じます: { $tabs }。それでも閉じて、保存されていない内容を失いますか？
 ui-confirm-quit-read-only-pack = { $pack } はここでは保存できません。このタブを閉じて変更を失いますか？変更を残すには、エージェントに新しいパックとして保存するよう依頼してください。
 
 ## トースト

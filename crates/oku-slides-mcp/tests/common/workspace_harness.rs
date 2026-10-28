@@ -59,6 +59,54 @@ pub async fn start_on_workspace() -> (Harness, Arc<Mutex<Workspace>>) {
     (start_with((platform, data), sessions, session, "t-1").await, ws)
 }
 
+/// A server bound to the deck tab `t-1` of a real workspace, holding the import of fixture `name`.
+pub async fn start_on_imported_workspace(name: &'static str) -> (Harness, Arc<Mutex<Workspace>>) {
+    let (platform, data, ws) = imported_workspace(name).await;
+    let session = Arc::new(Mutex::new(placeholder(&platform).await));
+    let sessions: Arc<dyn Sessions> = ws.clone();
+    (start_with((platform, data), sessions, session, "t-1").await, ws)
+}
+
+/// A server bound to the deck-pack tab of the import of `name`.
+///
+/// The tab is linked to the deck tab `t-1`; returns its id and its pack.
+pub async fn start_in_deck_pack_tab(name: &'static str) -> (Harness, Arc<Mutex<Workspace>>, String, Uuid) {
+    let (platform, data, ws) = imported_workspace(name).await;
+    let pack = Workspace::with_session(&ws, "t-1", |s| s.deck().layouts.get(&Namespace::deck_layouts()).map(|p| p.id))
+        .0
+        .unwrap_or_else(|e| panic!("tab t-1: {e}"))
+        .unwrap_or_else(|| panic!("the import's deck pack"));
+    let tab = open_pack_tab(&ws, "t-1", pack).await;
+    let session = Arc::new(Mutex::new(placeholder(&platform).await));
+    let sessions: Arc<dyn Sessions> = ws.clone();
+    (start_with((platform, data), sessions, session, &tab).await, ws, tab, pack)
+}
+
+/// [`workspace`], its deck tab `t-1` holding the hi-fi import of fixture `name`.
+async fn imported_workspace(name: &'static str) -> (Platform, tempfile::TempDir, Arc<Mutex<Workspace>>) {
+    let (platform, data, ws) = workspace().await;
+    let (imported_on, root, tabs) = (platform.clone(), data.path().to_owned(), ws.clone());
+    tokio::task::spawn_blocking(move || {
+        use oku_slides_session::import::{ImportRequest, PackLookup, import};
+        let pptx = super::pptx(&root, name);
+        let request = ImportRequest { pptx, target: super::hifi(), system_fonts: false, packs: PackLookup::Library };
+        let imported = import(&imported_on, &Fonts::default(), &request).unwrap_or_else(|e| panic!("import : {e}"));
+        Workspace::with_session(&tabs, "t-1", |s| s.load_import(imported, name))
+            .0
+            .unwrap_or_else(|e| panic!("onglet t-1 : {e}"))
+            .unwrap_or_else(|e| panic!("chargement de l'import : {e}"));
+    })
+    .await
+    .unwrap_or_else(|e| panic!("tâche bloquante de l'import : {e}"));
+    (platform, data, ws)
+}
+
+/// The document of tab `tab`, as the tab bar shows it.
+pub fn document_of(ws: &Arc<Mutex<Workspace>>, tab: &str) -> Option<oku_slides_session::TabDocument> {
+    let view = lock(ws).view();
+    view.windows.iter().flat_map(|w| &w.tabs).find(|t| t.id == tab).map(|t| t.info.document.clone())
+}
+
 /// A server bound to the pack tab of `acme`, opened beside the deck tab `t-1`; the tab's id.
 pub async fn start_in_pack_tab() -> (Harness, Arc<Mutex<Workspace>>, String) {
     let (platform, data, ws) = workspace().await;

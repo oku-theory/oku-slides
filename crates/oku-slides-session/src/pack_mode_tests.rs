@@ -5,9 +5,10 @@ use speculoos::prelude::*;
 
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
 use crate::test_support::{
-    adopt_deck_only_pack, edit_of, editing_layout_pack, fresh_dir, library_files, library_of, ns, pin, rename_title,
-    session, session_on, slide_widget, stash_of,
+    adopt_deck_only_pack, edit_of, fresh_dir, layout_pack_tab, library_files, library_of, ns, pin, preview_of,
+    rename_title, session, session_on, slide_widget,
 };
+use crate::test_support_packs::{deck_pack_tab_of, pack_tab_from, pack_tab_of, scope_of};
 use crate::{Session, SessionErrorKind};
 
 /// Les ids des slides du deck de `s`.
@@ -17,8 +18,8 @@ fn slide_ids(s: &Session) -> Vec<String> {
 
 #[test]
 fn edit_pack_essentiel_working_deck_has_one_slide_per_layout() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     assert_that!(slide_ids(&s)).is_equal_to(
         ["layout-blank", "layout-chapter", "layout-content", "layout-end", "layout-title", "layout-toc"]
             .map(String::from)
@@ -28,22 +29,22 @@ fn edit_pack_essentiel_working_deck_has_one_slide_per_layout() {
 
 #[test]
 fn edit_pack_base_working_deck_has_only_preview_slides() {
-    let mut s = session();
-    s.edit_pack(BASE_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let s = pack_tab_of(data.path(), BASE_PACK);
     assert_that!(slide_ids(&s).iter().all(|id| id.starts_with("widget-"))).is_true();
 }
 
 #[test]
 fn edit_pack_records_the_kind_of_the_edited_pack() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     assert_that!(edit_of(&s).kind).is_equal_to(oku_slides_core::PackKind::Layouts);
 }
 
 #[test]
 fn pack_mode_content_slide_starts_from_its_example() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     let slide = s.deck().slides.iter().find(|sl| sl.id == "layout-content").unwrap();
     assert_that!(slide.params.text("title")).is_equal_to(Some("Titre de la slide"));
 }
@@ -57,16 +58,16 @@ fn pack_mode_content_slide_starts_from_its_example() {
 })]
 #[case::add(Op::AddSlide { index: None, defaults: false, slide: oku_slides_core::Slide::new("neuve", kinds::essentiel::BLANK) })]
 fn pack_mode_structural_slide_op_is_refused(#[case] op: Op) {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     let err = s.apply("x", vec![op], None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::PackModeSlides);
 }
 
 #[test]
 fn pack_mode_refused_transaction_runs_none_of_its_ops() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     let before = s.deck().clone();
     let err = s.apply("x", vec![rename_title("Autre"), Op::RemoveSlide { slide: "layout-end".into() }], None);
     assert_that!(err.map_err(|e| e.kind()).err()).is_equal_to(Some(SessionErrorKind::PackModeSlides));
@@ -75,8 +76,8 @@ fn pack_mode_refused_transaction_runs_none_of_its_ops() {
 
 #[test]
 fn pack_mode_slides_message_is_localized_in_french() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     let err = s.apply("x", vec![Op::RemoveSlide { slide: "layout-end".into() }], None).unwrap_err();
     assert_that!(err.localize(&Localizer::new(Some("fr")))).is_not_equal_to(err.localize(oku_slides_i18n::english()));
 }
@@ -91,7 +92,7 @@ fn deck_mode_remove_slide_is_not_refused_as_pack_mode() {
 #[test]
 fn pack_mode_writing_a_layout_appends_its_slide() {
     let data = fresh_dir("oku-slides-pack-mode-");
-    let (mut s, _) = editing_layout_pack(data.path(), "acme", &["one"]);
+    let (mut s, _) = layout_pack_tab(data.path(), "acme", &["one"]);
     s.set_widget(None, "two", slide_widget("two")).unwrap();
     assert_that!(slide_ids(&s)).is_equal_to(vec!["layout-one".to_owned(), "layout-two".to_owned()]);
 }
@@ -99,7 +100,7 @@ fn pack_mode_writing_a_layout_appends_its_slide() {
 #[test]
 fn pack_mode_removing_a_layout_removes_its_slide() {
     let data = fresh_dir("oku-slides-pack-mode-");
-    let (mut s, _) = editing_layout_pack(data.path(), "acme", &["one", "two"]);
+    let (mut s, _) = layout_pack_tab(data.path(), "acme", &["one", "two"]);
     s.remove_widget(None, "one").unwrap();
     assert_that!(slide_ids(&s)).is_equal_to(vec!["layout-two".to_owned()]);
 }
@@ -107,7 +108,7 @@ fn pack_mode_removing_a_layout_removes_its_slide() {
 #[test]
 fn pack_mode_renaming_a_layout_keeps_its_slide_edits() {
     let data = fresh_dir("oku-slides-pack-mode-");
-    let (mut s, _) = editing_layout_pack(data.path(), "acme", &["one"]);
+    let (mut s, _) = layout_pack_tab(data.path(), "acme", &["one"]);
     let set = serde_json::json!({ "op": "set_param", "target": { "slide": "layout-one" }, "param": "title", "value": "Gardé" });
     s.apply("Titre", vec![serde_json::from_value(set).unwrap()], None).unwrap();
     s.rename_widget(None, "one", "uno").unwrap();
@@ -117,8 +118,8 @@ fn pack_mode_renaming_a_layout_keeps_its_slide_edits() {
 
 #[test]
 fn pack_mode_example_value_of_a_layout_changes_its_slide() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     s.set_example_values("content", serde_json::Map::from_iter([("title".into(), serde_json::json!("Essai"))]))
         .unwrap();
     let slide = s.deck().slides.iter().find(|sl| sl.id == "layout-content").unwrap();
@@ -127,8 +128,8 @@ fn pack_mode_example_value_of_a_layout_changes_its_slide() {
 
 #[test]
 fn pack_mode_example_values_of_a_layout_are_read_on_its_slide() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     let set = serde_json::json!({ "op": "set_param", "target": { "slide": "layout-end" }, "param": "text", "value": "Au revoir" });
     s.apply("Texte", vec![serde_json::from_value(set).unwrap()], None).unwrap();
     let end = oku_slides_core::WidgetFile::parse("end").unwrap();
@@ -140,7 +141,7 @@ fn pack_mode_example_values_of_a_layout_are_read_on_its_slide() {
 fn edit_pack_of_an_unknown_pack_returns_unknown_pack() {
     let data = fresh_dir("oku-slides-pack-mode-");
     let mut s = session_on(data.path());
-    let err = s.edit_pack(uuid::Uuid::new_v4()).unwrap_err();
+    let err = s.open_pack_tab_here(uuid::Uuid::new_v4(), None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::UnknownPack);
 }
 
@@ -148,12 +149,11 @@ fn edit_pack_of_an_unknown_pack_returns_unknown_pack() {
 fn layouts_view_of_the_deck_pack_shows_the_embedded_version() {
     let data = fresh_dir("oku-slides-pack-mode-");
     let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    s.set_widget(None, "extra", slide_widget("extra")).unwrap();
-    s.save_pack(false).unwrap();
-    // Le deck mis de côté est passé à la nouvelle version : on revient à l'ancienne.
-    s.close_pack().unwrap();
-    s.undo().unwrap();
+    let mut t = pack_tab_from(&mut s, data.path(), ESSENTIEL_PACK);
+    t.set_widget(None, "extra", slide_widget("extra")).unwrap();
+    t.save_pack(false).unwrap();
+    drop(t);
+    // The library has a newer version: the deck still pins and shows its own.
     let view = s.layouts_view().unwrap();
     let shown = view.packs.iter().find(|p| p.namespace == ns("essentiel")).map(|p| p.layouts.len());
     assert_that!(shown).is_equal_to(Some(kinds::essentiel::ALL.len()));
@@ -166,29 +166,6 @@ fn open_tabs(s: &mut crate::Session) {
         ..crate::views::UiState::default()
     };
     s.handle(crate::Request::Ui { ui, order: None }).unwrap();
-}
-
-/// Sortir du mode pack : le deck ne garde aucun sous-onglet.
-#[test]
-fn close_pack_with_open_widget_tabs_clears_them() {
-    let data = fresh_dir("oku-slides-pack-mode-");
-    let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    open_tabs(&mut s);
-    s.close_pack().unwrap();
-    assert_that!(s.ui.widgets).is_empty();
-    assert_that!(s.ui.widget).is_none();
-}
-
-/// Passer à un autre pack : les sous-onglets de l'ancien ne le suivent pas.
-#[test]
-fn edit_pack_of_another_pack_clears_the_widget_tabs() {
-    let data = fresh_dir("oku-slides-pack-mode-");
-    let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    open_tabs(&mut s);
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    assert_that!(s.ui.widgets).is_empty();
 }
 
 /// En mode deck, l'interface ne peut pas poser de sous-onglets.
@@ -208,9 +185,9 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #[test]
 fn edit_pack_of_a_deck_only_pack_starts_from_its_embedded_version() {
     let data = fresh_dir("oku-slides-pack-mode-");
-    let mut s = session_on(data.path());
-    let r = adopt_deck_only_pack(&mut s);
-    s.edit_pack(r.id).unwrap();
+    let mut owner = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut owner);
+    let s = deck_pack_tab_of(&mut owner, data.path(), r.id);
     let edit = edit_of(&s);
     assert_that!((edit.pack, edit.base.clone(), edit.deck_only)).is_equal_to((r.id, r.version.clone(), true));
     assert_that!(edit.name.as_str()).is_equal_to("Importé");
@@ -220,25 +197,24 @@ fn edit_pack_of_a_deck_only_pack_starts_from_its_embedded_version() {
 #[test]
 fn edit_pack_of_a_library_pack_is_not_deck_only() {
     let data = fresh_dir("oku-slides-pack-mode-");
-    let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let s = pack_tab_of(data.path(), ESSENTIEL_PACK);
     assert_that!(edit_of(&s).deck_only).is_false();
 }
 
 #[test]
 fn undo_after_saving_a_deck_only_pack_writes_no_library() {
     let data = fresh_dir("oku-slides-pack-mode-");
-    let mut s = session_on(data.path());
-    let r = adopt_deck_only_pack(&mut s);
+    let mut owner = session_on(data.path());
+    let r = adopt_deck_only_pack(&mut owner);
     let before = library_files(data.path());
-    s.edit_pack(r.id).unwrap();
+    let mut s = deck_pack_tab_of(&mut owner, data.path(), r.id);
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     let log = crate::test_support::logged(|| s.undo().unwrap());
     assert_that!(log.as_str()).does_not_contain("ERROR");
     assert_that!(library_files(data.path())).is_equal_to(before);
     let edit = edit_of(&s);
     assert_that!((edit.base.clone(), edit.session_version.clone())).is_equal_to((r.version.clone(), None));
-    assert_that!(stash_of(&s).sources.deck().widgets.get(&ns("deck")).cloned()).is_equal_to(Some(r));
+    assert_that!(preview_of(&s).sources.deck().widgets.get(&ns("deck")).cloned()).is_equal_to(Some(r));
 }
 
 #[test]
@@ -249,7 +225,7 @@ fn edit_pack_of_a_deck_only_pack_only_in_history_is_refused_as_deck_only() {
     // Le deck revient à son pack d'avant : la version du deck seul ne reste que dans l'historique.
     s.undo().unwrap();
     assert_that!(pin(&s, "deck").map(|t| t.id)).is_not_equal_to(Some(r.id));
-    let err = s.edit_pack(r.id).unwrap_err();
+    let err = s.route_pack(r.id, None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::DeckOnly);
     let de = Localizer::new(Some("de"));
     assert_that!(err.localize(&de)).is_not_equal_to(err.localize(&Localizer::new(Some("en"))));
@@ -301,7 +277,7 @@ fn add_text_to_first_layout(s: &crate::Session) -> Op {
 fn edit_pack_of_a_pack_without_base_can_add_a_base_text() {
     let data = fresh_dir("oku-slides-pack-mode-");
     let (mut s, id) = session_on_pack_without_base(data.path(), "acme");
-    s.edit_pack(id).unwrap();
+    s.open_pack_tab_here(id, None).unwrap();
     let op = add_text_to_first_layout(&s);
     let r = s.apply("Ajouter", vec![op], None);
     assert_that!(r.is_ok()).is_true();
@@ -311,11 +287,10 @@ fn edit_pack_of_a_pack_without_base_can_add_a_base_text() {
 fn save_pack_of_a_pack_without_base_requires_base_once_an_example_uses_it() {
     let data = fresh_dir("oku-slides-pack-mode-");
     let (mut s, id) = session_on_pack_without_base(data.path(), "acme");
-    s.edit_pack(id).unwrap();
+    s.open_pack_tab_here(id, None).unwrap();
     let op = add_text_to_first_layout(&s);
     s.apply("Ajouter", vec![op], None).unwrap();
     s.save_pack(false).unwrap();
-    s.close_pack().unwrap();
     let requires = library_of(&s).current_version(id).unwrap().manifest.requires;
     assert_that!(requires).is_equal_to(vec![kinds::base::namespace()]);
 }
@@ -328,7 +303,10 @@ fn edit_pack_deck_pinning_a_base_version_found_nowhere_returns_pack_version_miss
     let base = deck.widgets.get_mut(&kinds::base::namespace()).unwrap();
     base.version = oku_slides_core::PackVersion::from_hex(&"0".repeat(64)).unwrap();
     s.doc.sources.apply_silent(deck).unwrap();
-    let err = s.edit_pack(id).unwrap_err();
+    let seed = s.take_preview(id).unwrap();
+    let lease = crate::pack_lease::PackLease::acquire(&scope_of(&s), id, "acme", "acme").unwrap();
+    let mut t = session_on(data.path());
+    let err = t.init_pack_tab(*seed, lease, id, None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::PackVersionMissing);
 }
 
@@ -354,8 +332,8 @@ fn pack_working_deck_keeps_the_deck_theme_and_overrides() {
     let ink = Op::SetToken { path: vec!["color".into(), "ink".into()], value: serde_json::json!("#101010") };
     s.apply("ink", vec![ink], None).unwrap();
     let accent = crate::theme_edit::theme_edit_tests::rendered_token(&s, "/color/accent");
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    let (user, working) = (stash_of(&s).sources.deck().clone(), s.deck().clone());
+    let s = pack_tab_from(&mut s, data.path(), ESSENTIEL_PACK);
+    let (user, working) = (preview_of(&s).sources.deck().clone(), s.deck().clone());
     assert_that!((&working.theme, &working.themes, &working.tokens)).is_equal_to((
         &user.theme,
         &user.themes,

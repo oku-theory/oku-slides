@@ -13,7 +13,7 @@ import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
 
 export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
-export { tabDrag, tabPath, workspace } from "./workspaceApi";
+export { closeStays, linkedTabs, tabDrag, tabPath, workspace } from "./workspaceApi";
 export type { ClipReply, ImportPick, ImportTarget, OpenerOffer, SharedClip, TabAt, TabDocument, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
 export { pickOpenPath, pickSavePath } from "./filePick";
 export { subscribeUpdates, tauriUpdates } from "./updateApi";
@@ -504,10 +504,7 @@ type Request =
   | { cmd: "undo_turn"; turn: number }
   | { cmd: "layouts" }
   | { cmd: "packs"; kind: PackKind }
-  // The UI no longer sends it (packs open in their own tab; e2e specs still do); lot 5 removes it (t-1200).
-  | { cmd: "edit_pack"; pack: string }
   | { cmd: "save_pack"; as_new: boolean }
-  | { cmd: "close_pack" }
   | { cmd: "delete_pack"; pack: string }
   | { cmd: "use_pack_version"; pack: string; version: string; deck_uid: string }
   | { cmd: "rename_edited_theme"; name: string }
@@ -722,7 +719,6 @@ export function tabApi(tab: string) {
     packs: (kind: PackKind) => call<PackInfo[]>({ cmd: "packs", kind }),
     /** Enregistre le pack édité (une copie : l'agent, outil `save_pack`). */
     savePack: () => call<Snapshot>({ cmd: "save_pack", as_new: false }),
-    closePack: () => call<Snapshot>({ cmd: "close_pack" }),
     /**
      * Pins an offered pack version if it still holds (sends `use_pack_version`).
      *

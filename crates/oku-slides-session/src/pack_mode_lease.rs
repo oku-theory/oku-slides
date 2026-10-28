@@ -1,6 +1,6 @@
 //! The lease of the edited library pack: taken, checked and moved in pack mode.
 //!
-//! A workshop or a pack tab of a library pack holds its lease (`pack_lease`)
+//! A pack tab of a library pack holds its lease (`pack_lease`)
 //! in its `Mode::Pack`. An editor without it is read-only: every write first
 //! asks for it again (`ensure_pack_lease`). The two library writers of pack
 //! mode (`pack_library.rs`) take it as a witness. A pack tab freezes its base
@@ -20,88 +20,35 @@ use crate::library_kind::StoredVersion;
 use crate::pack::PackManifest;
 use crate::pack_lease::{PackLease, covers, pack_leased};
 use crate::pack_receive::{deck_scope, is_library_pack};
-use crate::views::{EditingView, PackHost};
+use crate::views::EditingView;
 use crate::{Mode, PackLibrary, PackMode, Result, Session};
 
-/// What entering a workshop does with the lease.
-#[derive(Debug)]
-pub(crate) enum Settled {
-    /// The current workshop's lease stays: the same pack is entered again.
-    Keep,
-    /// A lease given in, or just taken.
-    Hold(PackLease),
-    /// No lease: a deck-only pack, or a library without a lease scope.
-    Free,
-}
-
-impl Settled {
-    /// The lease the entered mode holds, from the previous mode's `old`.
-    pub(crate) fn into_lease(self, old: Option<PackLease>) -> Option<PackLease> {
-        match self {
-            Self::Keep => old,
-            Self::Hold(lease) => Some(lease),
-            Self::Free => None,
-        }
-    }
-}
-
 impl Session {
-    /// The title of the deck this session edits, as a label: a workshop's holder.
+    /// Checks the lease a pack tab enters `pack` (read as `stored`) with.
     ///
-    /// A theme tab holds no deck: its theme's name stands for it.
-    fn deck_label(&self) -> String {
-        let deck = match &self.mode {
-            Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash,
-            Mode::Deck | Mode::Help { .. } => &self.doc,
-            Mode::Theme { edit, .. } => return label(&edit.draft.name),
-        };
-        label(&self.document_name(deck))
-    }
-
-    /// What entering `pack` (read as `stored`) hosted by `host` does with the lease.
-    ///
-    /// A lease `given` (a pack tab's) must be `pack`'s in this library. Host
-    /// `Deck`: re-entering the same pack keeps the lease; a library pack with
-    /// a lease scope takes it now; anything else holds none.
+    /// The lease `given` must be `pack`'s in this library, and `pack` a
+    /// library pack. A deck-pack tab never comes here: `enter_pack` gives its
+    /// link no lease itself.
     ///
     /// # Errors
     ///
-    /// `LeaseMissing` for a host `Tab` without a matching lease, `DeckOnly`
-    /// for a deck-only pack in a tab, `PackOpenInTab` when another editor holds it.
-    ///
-    /// # Blocking
-    ///
-    /// Takes `DRAFTS` to lease the pack.
+    /// `LeaseMissing` without a matching lease, `DeckOnly` for a deck-only pack.
     pub(crate) fn settle_lease(
         &self,
         pack: Uuid,
-        host: PackHost,
         stored: &StoredVersion<PackManifest>,
         given: Option<PackLease>,
-    ) -> Result<Settled> {
-        if let Some(lease) = given {
-            if !covers(Some(&lease), self.library.lease_scope(), pack) {
-                tracing::error!(pack = %pack, "lease of another pack or library given to its editor");
-                return LeaseMissingSnafu.fail()?;
-            }
-            ensure!(host == PackHost::Deck || is_library_pack(&stored.files), crate::error::DeckOnlySnafu { id: pack });
-            return Ok(Settled::Hold(lease));
-        }
-        if host == PackHost::Tab {
+    ) -> Result<PackLease> {
+        let Some(lease) = given else {
             tracing::error!(pack = %pack, "pack tab entered without its lease");
             return LeaseMissingSnafu.fail()?;
-        }
-        if matches!(&self.mode, Mode::Pack { edit, .. } if edit.pack == pack) {
-            return Ok(Settled::Keep);
-        }
-        let Some(scope) = self.library.lease_scope().filter(|_| is_library_pack(&stored.files)) else {
-            return Ok(Settled::Free);
         };
-        let holder = self.deck_label();
-        let lock = draft_lock();
-        let lease = PackLease::try_take(&lock, scope, pack, &label(&stored.manifest.name), &holder);
-        drop(lock);
-        Ok(Settled::Hold(lease?))
+        if !covers(Some(&lease), self.library.lease_scope(), pack) {
+            tracing::error!(pack = %pack, "lease of another pack or library given to its editor");
+            return LeaseMissingSnafu.fail()?;
+        }
+        ensure!(is_library_pack(&stored.files), crate::error::DeckOnlySnafu { id: pack });
+        Ok(lease)
     }
 
     /// Freezes `base` of the leased pack from the library's bytes when it is a draft.
@@ -164,7 +111,7 @@ impl Session {
     pub(crate) fn editing_view(&self) -> Option<EditingView<'_>> {
         let Mode::Pack { edit, .. } = &self.mode else { return None };
         let (read_only, leased) = self.edit_flags();
-        Some(EditingView { mode: edit, read_only, leased, display_name: label(&edit.name) })
+        Some(EditingView { mode: edit, read_only, leased, display_name: label(&edit.name), unsent: self.unsent() })
     }
 
     /// Takes the edited pack's lease before a write, if this editor lacks it.
@@ -197,10 +144,9 @@ impl Session {
             tracing::warn!(pack = %pack, "edited pack no longer in the library: read-only");
             return UnknownPackSnafu { id: pack }.fail()?;
         }
-        let (name, unsaved_tab) = (label(&edit.name), edit.host == PackHost::Tab && edit.session_version.is_none());
-        let holder = if edit.host == PackHost::Tab { name.clone() } else { self.deck_label() };
-        let taken = PackLease::acquire(scope, pack, &name, &holder)?;
-        if unsaved_tab {
+        let (name, unsaved) = (label(&edit.name), edit.session_version.is_none());
+        let taken = PackLease::acquire(scope, pack, &name, &name)?;
+        if unsaved {
             self.freeze_base(&taken, &base)?;
         }
         if let Mode::Pack { lease, .. } = &mut self.mode {
@@ -238,8 +184,7 @@ impl Session {
             return Ok(None);
         };
         let name = label(&manifest.name);
-        let holder = if edit.host == PackHost::Tab { name.clone() } else { self.deck_label() };
-        match PackLease::try_take(lock, scope, manifest.id, &name, &holder) {
+        match PackLease::try_take(lock, scope, manifest.id, &name, &name) {
             Ok(lease) => Ok(Some(lease)),
             Err(e) => {
                 tracing::error!(pack = %manifest.id, error = %e.one_line(), "a brand-new pack id is already leased");

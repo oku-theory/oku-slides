@@ -175,11 +175,6 @@ pub enum Request {
         /// Kind of packs listed: widgets or layouts.
         kind: PackKind,
     },
-    /// Passe en édition de la version courante d'un pack (le deck est mis de côté).
-    EditPack {
-        /// Id of the pack to edit.
-        pack: Uuid,
-    },
     /// Enregistre le pack édité dans la version de cette session d'édition.
     ///
     /// `as_new` : une copie (nouvel id).
@@ -188,8 +183,6 @@ pub enum Request {
         #[serde(default)]
         as_new: bool,
     },
-    /// Quitte l'édition du pack et retrouve le deck.
-    ClosePack,
     /// In a theme tab, renames the edited theme (no undo step).
     RenameEditedTheme {
         /// New name of the edited theme.
@@ -504,11 +497,10 @@ impl Session {
             Request::Undo => self.undo()?,
             Request::Redo => self.redo()?,
             Request::UndoTurn { turn } => self.undo_agent_turn(turn)?,
-            Request::EditPack { pack } => self.edit_pack(pack)?,
             Request::SavePack { as_new } => {
                 self.save_pack(as_new)?;
+                self.mark_due();
             }
-            Request::ClosePack => self.close_pack()?,
             Request::RenameEditedTheme { name } => self.rename_edited_theme(&name)?,
             Request::SetEditedThemeExtends { extends } => self.set_edited_theme_extends(extends)?,
             Request::EditThemeExtends { edit } => self.edit_theme_extends(edit)?,
@@ -526,10 +518,8 @@ impl Session {
             self.persist(documents);
         }
         let out = json(&self.snapshot())?;
-        // Les avis ne s'affichent qu'une fois : celui du document affiché
-        // vient d'être envoyé, il ne le sera plus. (Celui du deck mis de
-        // côté, s'il y en a un, n'est pas encore montré : il reste, pour
-        // apparaître à son tour quand `close_pack` le rendra visible.)
+        // A notice shows once: the shown document's was just sent, it will not be again.
+        // (One of a deck set aside, if any, is not shown yet: it stays.)
         self.doc.notice = None;
         self.doc.disk_replaced = false;
         Ok(out)

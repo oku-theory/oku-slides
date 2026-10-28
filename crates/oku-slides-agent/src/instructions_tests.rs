@@ -40,7 +40,8 @@ fn instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
 #[test]
 fn instructions_mention_pack_tabs() {
     assert_that!(INSTRUCTIONS).contains("a library pack opens in its own tab, once per turn");
-    assert_that!(INSTRUCTIONS).contains("a deck-only pack in this tab's workshop, left with close_pack");
+    assert_that!(INSTRUCTIONS).contains("a deck-only pack in its own tab linked to this deck");
+    assert_that!(INSTRUCTIONS).does_not_contain("close_pack");
     assert_that!(INSTRUCTIONS).does_not_contain("the deck's own pack when pack is omitted");
 }
 

@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = { $theme } burada kaydedilemez. Bu sekme kapat
 ui-confirm-update-opener = “{ $deck }”, “{ $pack }” paketinin bu sürümüne güncellensin mi?
 ui-close-writes-pending = Bu sekme hâlâ kaydediyor: birazdan yeniden kapatın.
 ui-confirm-close-writes-pending = Bu sekme hâlâ kaydediyor. Yine de kapatılıp kaydedilmeyenler kaybedilsin mi?
+ui-confirm-close-writes-pending-linked = Bu sekme hâlâ kaydediyor ve şu paket sekmeleri kaydedilmeden onunla birlikte kapanacak: { $tabs }. Yine de kapatılıp kaydedilmeyenler kaybedilsin mi?
 ui-confirm-quit-read-only-pack = { $pack } burada kaydedilemez. Bu sekme kapatılıp değişiklikleri kaybedilsin mi? Korumak için ajandan onu yeni bir paket olarak kaydetmesini isteyin.
 
 ## Bildirimler

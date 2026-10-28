@@ -56,7 +56,7 @@ fn issue_1068_legacy_copy_lets_pack_mode_edit_an_essentiel_example() {
     let data = data_dir();
     store_legacy_copy(&data);
     let mut s = session_in(&data);
-    s.edit_pack(ESSENTIEL_PACK).unwrap_or_else(|e| panic!("{e}"));
+    s.open_pack_tab_here(ESSENTIEL_PACK, None).unwrap_or_else(|e| panic!("{e}"));
     let edited = s.set_example_values("content", Map::from_iter([("title".into(), json!("Neuf"))]));
     assert_that!(edited.map(|v| v.get("title").cloned())).is_ok().is_equal_to(Some(json!("Neuf")));
 }
@@ -66,7 +66,7 @@ fn issue_1068_legacy_copy_lets_save_pack_save_essentiel() {
     let data = data_dir();
     store_legacy_copy(&data);
     let mut s = session_in(&data);
-    s.edit_pack(ESSENTIEL_PACK).unwrap_or_else(|e| panic!("{e}"));
+    s.open_pack_tab_here(ESSENTIEL_PACK, None).unwrap_or_else(|e| panic!("{e}"));
     s.set_example_values("content", Map::from_iter([("title".into(), json!("Neuf"))]))
         .unwrap_or_else(|e| panic!("{e}"));
     assert_that!(s.save_pack(false)).is_ok();

@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { closeTabFlow, closeWindowFlow } from "./closeFlow";
 import { setMessages } from "./i18n";
-import { T0, deferred, fake, packEditing, snap, tabOf } from "./test/closeFlowFake";
+import { T0, deferred, fake, linkedOf, packEditing, snap, tabOf } from "./test/closeFlowFake";
 import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -125,7 +125,7 @@ describe("closeWindowFlow", () => {
     f.state.savePack = async () => snap({ dirty: true, editing: packEditing() });
     f.state.answers = [false];
     expect(await closeWindowFlow("x", f.deps())).toBe(false);
-    expect(f.log.slice(-3)).toEqual(["savePack p", "confirm Quit without saving the modified pack?", "activate x"]);
+    expect(f.log.slice(-4)).toEqual(["savePack p", "snapshot p", "confirm Quit without saving the modified pack?", "activate x"]);
   });
 
   test("a last-round stall re-activates the previous tab and returns false", async () => {
@@ -149,5 +149,26 @@ describe("closeWindowFlow", () => {
     expect(await closeWindowFlow("b", f.deps())).toBe(true);
     expect([f.guardCalls.get("a"), f.guardCalls.get("b")]).toEqual([2, 2]);
     expect(f.log.at(-1)).toBe("closeWindow a");
+  });
+
+  test("closeWindowFlow skips a linked tab the user discarded", async () => {
+    const f = fake([tabOf("a"), linkedOf("p", "a", true)]);
+    f.state.guard = onlyFor("p");
+    f.input.stalls.set("p", T0 - 5_000);
+    expect(await closeWindowFlow("a", f.deps())).toBe(true);
+    expect(f.log.filter((l) => l === "snapshot p" || l === "savePack p")).toEqual([]);
+    expect(f.log.at(-1)).toBe("closeWindow p");
+  });
+
+  test("closeWindowFlow saves an owner's dirty linked tab before the owner", async () => {
+    const f = fake([tabOf("a"), linkedOf("p", "a", true)]);
+    let saved = false;
+    const deckSnapshot = f.state.snapshot;
+    const packSave = f.state.savePack;
+    f.state.snapshot = (id) => (id === "p" ? Promise.resolve(snap({ dirty: !saved, editing: packEditing({ deck_only: true }) })) : deckSnapshot(id));
+    f.state.savePack = (id) => ((saved = true), packSave(id));
+    expect(await closeWindowFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(4, 13)).toEqual(["guard p", "snapshot p", "savePack p", "snapshot p", "fresh", "activate a", "snapshot a", "save a", "guard a"]);
+    expect(f.log.at(-1)).toBe("closeWindow ");
   });
 });

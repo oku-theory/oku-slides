@@ -40,13 +40,13 @@ impl Workspace {
     /// Focuses the theme tab of `theme`, or opens one after `tab`: its id.
     fn open_theme(ws: &Mutex<Self>, tab: &str, theme: Uuid) -> Result<String> {
         let wanted = TabDocument::Theme { theme };
-        let (window, candidates) = Self::lock(ws).candidates(tab, &wanted)?;
+        let (window, candidates) = Self::lock(ws).candidates(tab, std::slice::from_ref(&wanted))?;
         for candidate in &candidates {
             if Self::focus_theme_tab(ws, tab, &wanted, candidate)? {
                 return Ok(candidate.clone());
             }
         }
-        let (route, _changed) = Self::with_session(ws, tab, |s| s.route_theme(theme));
+        let (route, _changed) = Self::with_quiet(ws, tab, |s| s.route_theme(theme));
         let (scope, name) = route??;
         let lease = match scope.map(|scope| PackLease::acquire(&scope, theme, &name, &name)).transpose() {
             Ok(lease) => lease,
@@ -73,7 +73,7 @@ impl Workspace {
     ///
     /// A focus from another tab makes it the theme tab's opener.
     fn focus_theme_tab(ws: &Mutex<Self>, tab: &str, wanted: &TabDocument, candidate: &str) -> Result<bool> {
-        let (live, _changed) = Self::with_session(ws, candidate, |s| s.tab_info().document);
+        let (live, _changed) = Self::with_quiet(ws, candidate, |s| s.tab_info().document);
         match live {
             Ok(document) if document == *wanted => {}
             Ok(_) => return Ok(false),

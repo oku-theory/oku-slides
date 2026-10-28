@@ -12,7 +12,7 @@ use crate::pack_lease::PackLease;
 use crate::test_support::{apply_ws, fresh_dir, settings_on};
 use crate::test_support_packs::assert_unleased;
 use crate::workspace::{Opening, Pending, TabPlace};
-use crate::{BASE_PACK, Fonts, Platform, Request, Session, SessionErrorKind, TabDocument, Workspace};
+use crate::{BASE_PACK, Fonts, Platform, Session, SessionErrorKind, TabDocument, Workspace};
 
 const WAIT: Duration = Duration::from_secs(10);
 
@@ -142,8 +142,10 @@ fn open_pack_refused_by_another_workspace_reports_the_holder() {
     settings.paths.themes = Some(f.data.path().join("themes"));
     let platform = Platform::with_settings(settings).unwrap();
     let other = Mutex::new(Workspace::new(Fonts::default(), &platform, None).unwrap());
-    Workspace::request(&other, "t-1", Request::EditPack { pack: f.acme }).0.unwrap();
-    let holder = Workspace::lock(&other).tabs["t-1"].info.title.clone();
+    Workspace::open_pack_with(&other, "t-1", f.acme, None, Opener::Ui).unwrap();
+    let held = TabDocument::Pack { pack: f.acme };
+    let holder = Workspace::lock(&other).tabs.values().find(|t| t.info.document == held).map(|t| t.info.title.clone());
+    let holder = holder.unwrap_or_else(|| panic!("the other workspace's pack tab"));
     let err = f.open("t-1", f.acme, None).unwrap_err();
     assert_that!((err.kind(), err.lease_holder()))
         .is_equal_to((SessionErrorKind::PackOpenInTab, Some(holder.as_str())));

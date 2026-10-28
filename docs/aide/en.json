@@ -234,7 +234,7 @@
            "bold": true
           },
           {
-            "t": ": ask the agent for the workshop. The pack opens as a deck with one slide per layout. A library pack opens in its own tab; closing it (“Done” or the tab’s ×) offers to update the deck if the pack changed, otherwise the update waits in “Deck packs”. While that tab is open, no other tab changes the pack. An imported deck’s own pack opens in the deck’s tab, and “Done” brings the deck back."
+            "t": ": ask the agent to open it. The pack opens as a deck with one slide per layout. A library pack opens in its own tab; closing it (“Done” or the tab’s ×) offers to update the deck if the pack changed, otherwise the update waits in “Deck packs”. While that tab is open, no other tab changes the pack. An imported deck’s own pack opens in its own tab too, beside the deck: each save goes into the deck as one undo step, and the tab closes with the deck. Undo its changes in that tab; while it is open, the deck does not change that pack."
           }
          ],
          "list": "bullet"
@@ -673,7 +673,7 @@
            "bold": true
           },
           {
-            "t": ": the workshop, asked of the agent, edits its layouts, saved in this presentation only; its look stays in the deck’s own tokens, over the Neutre theme."
+            "t": ": its layouts are edited in its pack’s tab, which the agent opens beside the deck, and saved in this presentation only; its look stays in the deck’s own tokens, over the Neutre theme."
           }
          ],
          "list": "bullet"

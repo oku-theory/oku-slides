@@ -59,7 +59,6 @@ impl Tools {
             "chart_kind" => self.chart_kind(args).await,
             "show_as" => self.show_as(args).await,
             "edit_pack" => self.edit_pack(turn, args).await,
-            "close_pack" => self.close_pack().await,
             "add_pack" => self.add_pack(args).await,
             "remove_pack" => self.remove_pack(args).await,
             "set_theme_extends" => self.set_theme_extends(args).await,

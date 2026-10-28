@@ -831,29 +831,6 @@ fn turn_groups_every_apply_into_one_undo() {
 }
 
 #[test]
-fn end_turn_after_edit_pack_closes_stashed_group_too() {
-    let mut s = session();
-    s.open(&fixture_path()).unwrap();
-    s.begin_turn(1, "modèles");
-    s.apply(
-        "a",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("pro")), themes: BTreeMap::default() }],
-        None,
-    )
-    .unwrap();
-    s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
-    s.end_turn();
-    s.close_pack().unwrap();
-    s.apply(
-        "Seul",
-        vec![oku_slides_core::Op::SetTheme { theme: Some(common::ns("papier")), themes: BTreeMap::default() }],
-        None,
-    )
-    .unwrap();
-    assert_that!(s.snapshot().undo_label.as_deref()).is_equal_to(Some("Seul"));
-}
-
-#[test]
 fn document_dir_of_unsaved_deck_is_none() {
     assert_that!(session().document_dir()).is_none();
 }

@@ -53,9 +53,9 @@ impl Workspace {
     }
 }
 
-/// L'agent atteint les sessions des onglets par l'espace de travail ; la
-/// barre à redessiner est ignorée ici (l'hôte qui la veut appelle
-/// [`Workspace::with_session`], et redessine après `open_tab`).
+/// The agent reaches tab sessions through the workspace, deck-pack forwards included.
+/// The redraw flag and the touched owners stay with the host, which calls
+/// [`Workspace::with_session`] and drains [`Workspace::drain_touched`] itself.
 impl Sessions for Mutex<Workspace> {
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> Result<()> {
         Workspace::with_session(self, tab, |s| f(s)).0

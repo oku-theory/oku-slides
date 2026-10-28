@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use uuid::Uuid;
 
 use crate::Session;
+use crate::pack_tab::PackRoute;
 
 /// What opening a pack asks an agent's gate before acting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +20,7 @@ pub enum PackGate {
 /// Where an agent's pack open landed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PackOpen {
-    /// The requesting tab edits it (workshop entered, or sub-tab opened).
+    /// The requesting tab edits it (its sub-tab opened, if one was named).
     Here,
     /// Another tab edits it and now has the focus.
     Tab(String),
@@ -101,7 +102,11 @@ impl Sessions for Mutex<Session> {
         Ok(())
     }
 
-    /// A host without tabs (tests, a future single-document host) edits in place; no gate is asked.
+    /// A host without tabs opens only the pack its session edits.
+    ///
+    /// No gate is asked.
+    ///
+    /// Any other pack would need a tab of its own: `SingleDocument`.
     fn open_pack(
         &self,
         _tab: &str,
@@ -109,8 +114,10 @@ impl Sessions for Mutex<Session> {
         widget: Option<&str>,
         _gate: &mut dyn FnMut(PackGate) -> bool,
     ) -> crate::Result<PackOpen> {
-        self.lock().unwrap_or_else(PoisonError::into_inner).open_pack_here(pack, widget)?;
-        Ok(PackOpen::Here)
+        match self.lock().unwrap_or_else(PoisonError::into_inner).route_pack(pack, widget)? {
+            PackRoute::Here => Ok(PackOpen::Here),
+            PackRoute::Tab { .. } | PackRoute::DeckTab { .. } => Err(crate::error::SingleDocumentSnafu.build().into()),
+        }
     }
 }
 

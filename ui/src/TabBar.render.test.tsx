@@ -17,21 +17,20 @@ afterEach(async () => {
   m.host.remove();
 });
 
-const tab = (
-  id: string,
-  editing_pack = false,
-  document: TabDocument = { kind: "deck", path: null, deck_uid: null },
-): TabInfo => ({
+const PACK = "a7e11e40-0000-4000-8000-000000000001";
+const tab = (id: string, document: TabDocument = { kind: "deck", path: null, deck_uid: null }): TabInfo => ({
   id,
   title: id,
   dirty: false,
   pristine: true,
-  editing_pack,
   theme: null,
   document,
 });
 
-async function mount(packTab = false, tabs: TabInfo[] = [tab("a", packTab), tab("b")]) {
+/** Each tab's badge text, or null. */
+const badges = (host: HTMLElement) => [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
+
+async function mount(packTab = false, tabs: TabInfo[] = [tab("a", packTab ? { kind: "pack", pack: PACK } : undefined), tab("b")]) {
   const win: WindowView = { label: "main", active: "a", tabs };
   const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, import_pick: null, windows: [win] };
   const noop = () => {};
@@ -73,37 +72,52 @@ test("TabBar context menu renders outside the glass tab bar", async () => {
 
 test("TabBar tab in pack mode shows the pack badge", async () => {
   const host = await mount(true);
-  const badges = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
-  expect(badges).toEqual(["ui-tab-pack", null]);
+  expect(badges(host)).toEqual(["ui-tab-pack", null]);
 });
 
-// One tab per document kind: the tooltip is the deck's file, else the title; the badge follows `editing_pack` alone.
+// One tab per document kind: the tooltip is the deck's file, else the title.
 test("TabBar tooltip is the deck's file, else the title, whatever the kind", async () => {
   const host = await mount(false, [
-    tab("deck", false, { kind: "deck", path: "/d/a.oku-slides.pdf", deck_uid: "u" }),
-    tab("new", false, { kind: "deck", path: null, deck_uid: null }),
-    tab("help", false, { kind: "help", locale: "fr" }),
-    tab("pack", false, { kind: "pack", pack: "a7e11e40-0000-4000-8000-000000000001" }),
+    tab("deck", { kind: "deck", path: "/d/a.oku-slides.pdf", deck_uid: "u" }),
+    tab("new", { kind: "deck", path: null, deck_uid: null }),
+    tab("help", { kind: "help", locale: "fr" }),
+    tab("pack", { kind: "pack", pack: PACK }),
   ]);
   const titles = [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("title"));
   expect(titles).toEqual(["/d/a.oku-slides.pdf", "new", "help", "pack"]);
 });
 
-test("TabBar badge follows editing_pack, not the document kind", async () => {
+test("TabBar badge follows the document kind, pack or deck_pack", async () => {
   const host = await mount(false, [
-    tab("pack", false, { kind: "pack", pack: "a7e11e40-0000-4000-8000-000000000001" }),
-    tab("workshop", true, { kind: "deck", path: null, deck_uid: null }),
-    tab("help", false, { kind: "help", locale: "fr" }),
+    tab("pack", { kind: "pack", pack: PACK }),
+    tab("deck", { kind: "deck", path: null, deck_uid: null }),
+    tab("deck-pack", { kind: "deck_pack", deck_tab: "deck", pack: PACK }),
+    tab("help", { kind: "help", locale: "fr" }),
   ]);
-  const badges = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
-  expect(badges).toEqual([null, "ui-tab-pack", null]);
+  expect(badges(host)).toEqual(["ui-tab-pack", null, "ui-tab-pack", null]);
+});
+
+test("TabBar of a deck tab whose linked tab is the only other tab keeps its close disabled", async () => {
+  const host = await mount(false, [tab("a"), tab("p", { kind: "deck_pack", deck_tab: "a", pack: PACK })]);
+  const closes = [...host.querySelectorAll<HTMLButtonElement>(".tab-close")].map((b) => b.disabled);
+  expect(closes).toEqual([true, false]);
+});
+
+test("TabBar close others is disabled on a deck-pack tab whose only other tab is its owner", async () => {
+  const host = await mount(false, [tab("a"), tab("p", { kind: "deck_pack", deck_tab: "a", pack: PACK })]);
+  const linked = host.querySelectorAll('[role="tab"]')[1]!;
+  await act(async () => {
+    linked.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  });
+  const items = [...document.querySelectorAll<HTMLButtonElement>('.tab-menu [role="menuitem"]')];
+  const others = items.find((b) => b.textContent === "ui-tab-close-others");
+  expect(others?.disabled).toBe(true);
 });
 
 test("TabBar theme tab shows the theme badge, a pack tab still the pack badge", async () => {
   const host = await mount(false, [
-    tab("theme", false, { kind: "theme", theme: "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31" }),
-    tab("pack", true, { kind: "pack", pack: "a7e11e40-0000-4000-8000-000000000001" }),
+    tab("theme", { kind: "theme", theme: "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31" }),
+    tab("pack", { kind: "pack", pack: PACK }),
   ]);
-  const badges = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
-  expect(badges).toEqual(["ui-tab-theme", "ui-tab-pack"]);
+  expect(badges(host)).toEqual(["ui-tab-theme", "ui-tab-pack"]);
 });

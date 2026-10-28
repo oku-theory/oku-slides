@@ -1,5 +1,6 @@
 // The workshop no longer opens from the menu: the agent opens it (tool `edit_pack`, t-988), in a
-// pack tab of its own for a library pack. The fake agent plays the `ouvre l'atelier` turn of fixtures/agent/e2e.json.
+// tab of its own: a pack tab for a library pack, a deck-pack tab for a deck-only one. The fake
+// agent plays the `ouvre l'atelier` turn of fixtures/agent/e2e.json.
 // A theme opens in its own tab, from the theme row of "Packs du deck" (openThemeTab).
 const assert = require('node:assert/strict');
 const { post, activeTab } = require('./http.cjs');
@@ -11,8 +12,8 @@ const snapshot = (p, tab) => post(p, '/api', { tab, req: { cmd: 'snapshot' } });
 
 /**
  * Asks the agent of `tab` (default: the active tab) for the workshop, then waits for it: a new
- * active pack tab, or for a deck-only pack the same tab in its workshop. Reloads the page (serve
- * pushes no view) and returns the tab that now edits the pack.
+ * active tab of kind pack, or deck_pack for a deck-only pack, never `tab` itself. Reloads the page
+ * (serve pushes no view) and returns the tab that now edits the pack.
  */
 async function openAtelier(p, tab) {
   const LOG = process.env.E2E_AGENT_LOG;
@@ -26,9 +27,7 @@ async function openAtelier(p, tab) {
     if (mcpResults(LOG, from, 'edit_pack').length === 0) return false;
     const win = (await view(p)).windows[0];
     const active = win.tabs.find((x) => x.id === win.active);
-    const packTab = active && active.id !== before && active.document.kind === 'pack';
-    const workshop = active && active.id === before && active.document.kind === 'deck' && active.editing_pack;
-    if (packTab || workshop) editing = active.id;
+    if (active && active.id !== before && ['pack', 'deck_pack'].includes(active.document.kind)) editing = active.id;
     return editing !== null;
   }, `l'atelier ne s'ouvre pas depuis ${before}`, SLOW);
   await p.reload();
@@ -37,17 +36,17 @@ async function openAtelier(p, tab) {
 }
 
 /**
- * Closes every pack and theme tab over HTTP (idempotent): `t-1` active first and the page
- * reloaded, so no App of such a tab is mounted; a dirty one is saved first (save_pack or
+ * Closes every pack, deck-pack and theme tab over HTTP (idempotent): `t-1` active first and the
+ * page reloaded, so no App of such a tab is mounted; a dirty one is saved first (save_pack or
  * save_theme: an HTTP-dirtied or inactive tab never autosaves), then closed with discard.
  * Reloads the page at the end.
  */
 async function closePackTabs(p) {
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
-  const tabs = (await view(p)).windows.flatMap((w) => w.tabs).filter((x) => x.document.kind === 'pack' || x.document.kind === 'theme');
+  const tabs = (await view(p)).windows.flatMap((w) => w.tabs).filter((x) => ['pack', 'deck_pack', 'theme'].includes(x.document.kind));
   for (const { id, document } of tabs) {
-    const save = document.kind === 'pack' ? { cmd: 'save_pack', as_new: false } : { cmd: 'save_theme', as_new: false };
+    const save = document.kind !== 'theme' ? { cmd: 'save_pack', as_new: false } : { cmd: 'save_theme', as_new: false };
     if ((await snapshot(p, id)).dirty) await post(p, '/api', { tab: id, req: save });
     await untilValue(p, async () => (await snapshot(p, id)).dirty, (dirty) => dirty === false, `l'onglet ${document.kind} ${id} reste modifié`, 10_000);
     const closed = await post(p, '/api/workspace', { cmd: 'close', tab: id, discard: true });

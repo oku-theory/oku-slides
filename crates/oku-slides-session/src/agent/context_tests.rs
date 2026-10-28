@@ -12,9 +12,8 @@ const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 
 fn pack_with_quote() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-context-");
-    let mut s = opened_on(data.path());
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
+    let mut opener = opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     s.set_widget(None, "quote", QUOTE.into()).unwrap();
     (data, s)
 }
@@ -195,23 +194,12 @@ fn declared_language_refuses_what_is_not_a_language_tag() {
     }
 }
 
-/// The mode line says where the pack is edited, so the agent knows whether its own deck is set aside.
-#[rstest::rstest]
-#[case::deck(crate::PackHost::Deck, "deck")]
-#[case::tab(crate::PackHost::Tab, "tab")]
-fn context_of_a_pack_says_its_host(#[case] host: crate::PackHost, #[case] said: &str) {
+/// The mode line names the pack this tab edits.
+#[test]
+fn context_of_a_pack_names_it() {
     let data = fresh_dir("oku-slides-context-");
-    let (mut s, pack) = match host {
-        crate::PackHost::Deck => {
-            let mut s = opened_on(data.path());
-            s.edit_pack(crate::BASE_PACK).unwrap();
-            (s, crate::BASE_PACK)
-        }
-        crate::PackHost::Tab => {
-            let (mut opener, _deck, acme) = crate::test_support_packs::opener_on(data.path());
-            (crate::test_support_packs::pack_tab_from(&mut opener, data.path(), acme), acme)
-        }
-    };
+    let (mut opener, _deck, pack) = crate::test_support_packs::opener_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), pack);
     let context = s.agent_context(&AgentUi::default());
-    assert_that!(context.as_str()).contains(format!("mode: pack(id={pack}, host={said})\n"));
+    assert_that!(context.as_str()).contains(format!("mode: pack(id={pack})\n"));
 }

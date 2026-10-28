@@ -4,8 +4,8 @@
 //! - [`Session`] and [`Request`]: one deck (one session per tab).
 //! - [`Workspace`], [`WorkspaceRequest`], [`WorkspaceView`], [`TabInfo`],
 //!   [`TabDocument`], [`DocumentKind`]: the windows, the tabs and what each edits (a deck,
-//!   the help, a pack, whose [`PackHost`] is a deck's workshop or its own tab, or a theme
-//!   in its own tab: [`ThemeTab`], [`ThemeTabView`]), and the resume of the whole.
+//!   the help, a pack or a theme, each in its own tab: [`ThemeTab`], [`ThemeTabView`]),
+//!   and the resume of the whole.
 //!
 //! The agent reaches a tab's session through [`agent::TabSession`], provided by
 //! the host through [`agent::Sessions`] (see [`Workspace::with_session`]).
@@ -48,6 +48,9 @@ mod deck_fallback;
 mod deck_file;
 mod deck_offer;
 mod deck_pack;
+mod deck_pack_link;
+mod deck_pack_receive;
+mod deck_pack_tab;
 mod deck_packs;
 mod deck_packs_panel;
 mod deck_theme;
@@ -163,8 +166,8 @@ pub use theme_panel::{THEME_EXTENDS_EVENT, TokenAction, TokenState};
 pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
 pub use theme_tab::{ThemeTab, ThemeTabView};
 pub use views::{
-    EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackHost, PackMode, PageHash, PileSection,
-    SlideSummary, SlideView, Snapshot, TabInfo, Target, UiState,
+    EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
+    SlideView, Snapshot, TabInfo, Target, UiState,
 };
 pub use voice_panel::{HOST_VOICE, VoicePanel, gigabytes_text, model_label, seconds_text, size_text};
 pub use voice_view::{
@@ -227,8 +230,8 @@ pub(crate) enum Mode {
         locale: &'static str,
     },
     Pack {
-        /// The deck set aside, found unchanged at the end; a pack tab's preview.
-        stash: Box<Document>,
+        /// The deck set aside (a pack tab's preview copy), found unchanged at the end.
+        preview: Box<Document>,
         edit: PackMode,
         /// Draft (trials), reset at each entry.
         scratch: PackScratch,
@@ -236,6 +239,8 @@ pub(crate) enum Mode {
         lease: Option<pack_lease::PackLease>,
         /// The pack left the library while dormant: read-only for the session's life.
         orphaned: bool,
+        /// A deck-pack tab's owner and unsent save; `None` for any other pack mode.
+        link: Option<Box<deck_pack_tab::TabLink>>,
     },
     /// A library theme edited in its own tab: its tokens are the specimen deck's.
     Theme {
@@ -349,6 +354,12 @@ pub struct Session {
     widget_preview: Option<widget_preview::PreviewSlot>,
     /// L'import d'où vient le deck montré, en mémoire tant que vit l'onglet ; jamais repris.
     import: Option<import::ImportState>,
+    /// The deck-pack tabs linked to this owner deck, by tab id (`deck_pack_link`).
+    deck_links: BTreeMap<String, deck_pack_link::DeckLink>,
+    /// A turn end or history close asked for the links' parked sends.
+    link_pull: bool,
+    /// The layout generation of the last `set_deck_links` applied.
+    links_generation: u64,
     #[cfg(test)]
     failpoints: deck_widgets::Failpoints,
 }
@@ -495,6 +506,9 @@ impl Session {
             widget_preview: None,
             import: None,
             sent_blobs: Vec::new(),
+            deck_links: BTreeMap::new(),
+            link_pull: false,
+            links_generation: 0,
             #[cfg(test)]
             failpoints: deck_widgets::Failpoints::default(),
         };
@@ -521,7 +535,7 @@ impl Session {
     fn user_deck(&self) -> &Deck {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.sources.deck(),
-            Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash.sources.deck(),
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => stash.sources.deck(),
         }
     }
 
@@ -532,7 +546,7 @@ impl Session {
     fn user_blobs(&self) -> &SourceBundle {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Theme { .. } => &self.doc.sources,
-            Mode::Pack { stash, .. } => &stash.sources,
+            Mode::Pack { preview, .. } => &preview.sources,
         }
     }
 
@@ -566,13 +580,11 @@ impl Session {
         }
     }
 
-    /// Travail non enregistré : le deck, ou le pack en cours d'édition
-    /// (pas l'aperçu de l'historique).
+    /// Unsaved work: the deck, or the pack a pack tab edits (not the history's preview).
     fn unsaved(&self) -> bool {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.dirty,
-            Mode::Pack { edit, .. } if edit.host == PackHost::Tab => self.doc.dirty,
-            Mode::Pack { stash, .. } => self.doc.dirty || stash.dirty,
+            Mode::Pack { .. } => self.doc.dirty || self.unsent(),
             Mode::History { stash, .. } => stash.dirty,
         }
     }
@@ -590,9 +602,9 @@ impl Session {
 
     /// What the tab bar shows of this session.
     ///
-    /// A pack tab reports its pack's name and a `Pack` document, a theme tab
-    /// its theme's and a `Theme` document, a help tab a `Help` document. Otherwise,
-    /// while a pack is edited in the deck or history is open, the title and the
+    /// A pack tab reports its pack's name and a `Pack` (or `DeckPack`)
+    /// document, a theme tab its theme's and a `Theme` document, a help tab a
+    /// `Help` document. Otherwise, while history is open, the title and the
     /// file stay those of the stashed deck.
     pub fn tab_info(&self) -> TabInfo {
         if let Some(info) = self.pack_tab_info().or_else(|| self.theme_tab_info()) {
@@ -600,7 +612,7 @@ impl Session {
         }
         let deck = match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => &self.doc,
-            Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash,
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => stash,
         };
         let document = match self.help() {
             Some(locale) => TabDocument::Help { locale: locale.to_owned() },
@@ -618,7 +630,6 @@ impl Session {
                 && !deck.dirty
                 && !deck.sources.replica().can_undo()
                 && !deck.sources.replica().can_redo(),
-            editing_pack: self.editing().is_some(),
             theme: {
                 let user = deck.sources.deck();
                 user.theme.as_ref().and_then(|ns| user.themes.get(ns)).map(|pin| pin.id)

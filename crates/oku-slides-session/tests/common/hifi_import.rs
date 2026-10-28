@@ -7,7 +7,7 @@ use oku_slides_session::import::{ImportRequest, ImportTarget, PackLookup, import
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 
 /// Le `.pptx` de `fixtures/import/minimal`, zippé dans `dir`.
-fn minimal_pptx(dir: &Path) -> PathBuf {
+pub(crate) fn minimal_pptx(dir: &Path) -> PathBuf {
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
             let p = e.unwrap_or_else(|e| panic!("{e}")).path();

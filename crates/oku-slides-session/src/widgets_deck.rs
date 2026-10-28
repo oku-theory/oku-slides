@@ -91,9 +91,9 @@ impl Session {
         }
     }
 
-    /// La version épinglée `pin` est-elle le brouillon de la séance de widgets en cours ?
-    pub(crate) fn is_widget_draft(&self, pin: &PackPin) -> bool {
-        self.widget_session.as_ref().is_some_and(|s| s.id == pin.id && s.version == pin.version)
+    /// Is `version` of pack `id` the draft of the running widget session?
+    pub(crate) fn is_widget_draft(&self, id: Uuid, version: &PackVersion) -> bool {
+        self.widget_session.as_ref().is_some_and(|s| s.id == id && s.version == *version)
     }
 
     /// Le pack du deck de l'utilisateur et sa sorte, épinglé sous `ns`, s'il y en a un.
@@ -199,6 +199,7 @@ impl Session {
         mut manifest: PackManifest,
         widgets: BTreeMap<WidgetFile, String>,
     ) -> Result<()> {
+        self.refuse_linked(t.id)?;
         // La séance continue tant que le deck est sur sa version.
         let session = self.widget_session.take().filter(|s| s.id == t.id && s.version == t.version);
         let committed = self.adopt_deck_widgets(t, &mut manifest, widgets, session.as_ref());
@@ -269,22 +270,44 @@ impl Session {
         // Le deck embarque la version : un échec d'écriture n'y perd rien. Un
         // pack du deck seul ne quitte jamais le deck.
         if manifest.scope.is_library() {
-            self.write_deck_widgets(t.id, &manifest.name, replaced, &files);
+            self.write_deck_widgets(t.id, &manifest.name, replaced, parent.as_ref(), &files);
         }
         Ok(WidgetSession { id: t.id, parent, version })
     }
 
     /// Writes `files` to the library, in place of the version `replaced` if any.
     ///
-    /// A failure sets the "not saved" notice. So does a lease another editor
-    /// took since the early check: the library write is skipped, the deck
-    /// keeps the version and the session its parent.
-    fn write_deck_widgets(&mut self, id: Uuid, name: &str, replaced: Option<&WidgetSession>, files: &PackFiles) {
-        // Décider puis écrire sous le verrou ; relâché avant que le deck compare ses épinglages.
+    /// A first write of a widget session (`replaced` is `None`) first freezes its
+    /// `parent` if `adopt_pins` left it a draft, so a pack tab's next save never
+    /// replaces the version `files` descend from (t-1224). A failure, or a
+    /// parent that cannot be frozen, sets the "not saved" notice and writes
+    /// nothing. So does a lease another editor took since the early check: the
+    /// library write is skipped, the deck keeps the version and the session its parent.
+    fn write_deck_widgets(
+        &mut self,
+        id: Uuid,
+        name: &str,
+        replaced: Option<&WidgetSession>,
+        parent: Option<&PackVersion>,
+        files: &PackFiles,
+    ) {
+        // Decide then write under the lock; released before the deck compares its pins.
         let lock = draft_lock();
         if let Some(tab) = self.library.lease_scope().and_then(|scope| pack_leased(scope, id)) {
             drop(lock);
             tracing::warn!(pack = %id, tab = %tab, "version de widgets non écrite : le pack est en cours d'édition");
+            let notice = self.localizer.tr_with("session-widgets-not-saved", &[("pack", name.into())]);
+            self.set_notice(notice);
+            return;
+        }
+        // Only a first write: a later one builds on the session's own draft, which stays a draft.
+        let frozen = match parent.filter(|_| replaced.is_none()).and_then(|v| self.adoptable(id, v)) {
+            Some(parent_files) => self.library.adopt(&lock, id, parent_files),
+            None => Ok(()),
+        };
+        if let Err(e) = frozen {
+            drop(lock);
+            tracing::error!(error = %e.one_line(), "version parente non figée : version de widgets non écrite");
             let notice = self.localizer.tr_with("session-widgets-not-saved", &[("pack", name.into())]);
             self.set_notice(notice);
             return;

@@ -37,22 +37,10 @@ fn adopt_pins_keeps_a_received_version_received() {
 #[test]
 fn adopt_pins_in_pack_mode_leaves_the_session_version_a_draft() {
     let data = fresh_dir("oku-slides-adopt-");
-    let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     s.apply("Nom", vec![rename_title("Un")], None).unwrap();
     let v = s.save_pack(false).unwrap();
     assert_that!(library_of(&s).is_frozen(ESSENTIEL_PACK, &v)).is_false();
-}
-
-#[test]
-fn close_pack_freezes_the_version_the_deck_now_pins() {
-    let data = fresh_dir("oku-slides-adopt-");
-    let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
-    s.apply("Nom", vec![rename_title("Un")], None).unwrap();
-    let v = s.save_pack(false).unwrap();
-    s.close_pack().unwrap();
-    assert_that!(library_of(&s).is_frozen(ESSENTIEL_PACK, &v)).is_true();
 }
 
 #[test]

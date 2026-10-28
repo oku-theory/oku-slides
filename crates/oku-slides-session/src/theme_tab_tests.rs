@@ -132,7 +132,6 @@ fn theme_tab_info_names_the_theme_and_its_document() {
     let info = s.tab_info();
     assert_that!(info.title.as_str()).is_equal_to("maison");
     assert_that!(info.document).is_equal_to(TabDocument::Theme { theme: maison });
-    assert_that!(info.editing_pack).is_false();
     assert_that!(info.pristine).is_false();
     assert_that!(info.theme).is_equal_to(Some(maison));
 }

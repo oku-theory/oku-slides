@@ -6,7 +6,8 @@ use crate::SessionErrorKind;
 use crate::library::draft_lock;
 use crate::pack::{PackManifest, PackScope};
 use crate::test_support::{
-    adopt_deck_only_pack, fresh_dir, library_of, ns, opened_on, pin, rename_title, touch_elsewhere,
+    add_pack, add_version, adopt_deck_only_pack, fresh_dir, library_of, manifest, namespace_of, ns, opened_on, pin,
+    rename_title, touch_elsewhere, widget_files,
 };
 
 const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
@@ -519,4 +520,32 @@ fn a_version_adopted_by_another_deck_mid_session_gets_a_child_not_a_replacement(
     let written = library_of(&s).version(second.id, &second.version).unwrap();
     assert_that!(PackManifest::from_files(&written).unwrap().parent).is_equal_to(Some(first.version.clone()));
     assert_that!(library_of(&s).current(second.id)).is_equal_to(Some(second.version));
+}
+
+/// A draft `v1` the deck pins without `adopt_pins` having run is frozen by the deck-mode widget write on top of it.
+///
+/// `adopt_pins` is the first safety (every public pin path runs it); this covers its failure (t-1224).
+#[test]
+fn deck_mode_widget_write_freezes_an_unfrozen_parent() {
+    let data = fresh_dir("oku-slides-widgets-deck-");
+    let mut s = opened_on(data.path());
+    let id = uuid::Uuid::new_v4();
+    let m0 = manifest(id, "P", None, "2026-10-24T10:00:00Z");
+    let pin0 = add_version(&s.library, &m0, &[("quote", QUOTE)]);
+    s.apply("Pack", vec![add_pack(&m0, &pin0)], None).unwrap();
+    // A draft `v1` the library lists, current and not frozen.
+    let m1 = manifest(id, "P", Some(&pin0.version), "2026-10-24T11:00:00Z");
+    let files1 = m1.to_files(oku_slides_core::PackKind::Widgets, widget_files(&[("quote", QUOTE_V2)])).unwrap();
+    let v1 = files1.version();
+    s.library.save_draft(&draft_lock(), id, &crate::library::DraftWrite::New, &files1).unwrap();
+    // The deck pins it through its sources: no `refresh_pack_updates`, so no `adopt_pins`.
+    s.doc.sources.add_pack(files1);
+    let mut deck = s.doc.sources.deck().clone();
+    deck.widgets.insert(namespace_of(id), oku_slides_core::PackPin { id, version: v1.clone(), requires: vec![] });
+    s.doc.sources.apply_silent(deck).unwrap();
+    assert_that!(library_of(&s).is_frozen(id, &v1)).is_false();
+    s.set_widget(Some(&namespace_of(id)), "quote", QUOTE.into()).unwrap();
+    assert_that!(library_of(&s).is_frozen(id, &v1)).is_true();
+    let written = pin(&s, namespace_of(id).as_str()).unwrap();
+    assert_that!(library_of(&s).is_frozen(id, &written.version)).is_false();
 }

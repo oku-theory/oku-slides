@@ -5,9 +5,10 @@
 //! one's tab and focuses it; opens of other packs never wait on it. Under that lock, the workspace and each
 //! session are taken in sequence, never nested: a pack tab of P already open
 //! is focused (steps 1-2, `focus_existing`), else the requesting tab routes
-//! the pack (`route_pack`): a deck-only workshop entered in place, or a new
-//! pack tab right after it, leased before anything changes (steps 3-5,
-//! `open_new`). An agent's gate is asked before any change, with only the
+//! the pack (`route_pack`): a library pack opens a new pack tab right after
+//! it, leased before anything changes (steps 3-5, `open_new`); a deck-only
+//! pack of a deck opens its deck-pack tab, linked to that deck
+//! (`open_deck_pack`, `workspace_deck_packs.rs`). An agent's gate is asked before any change, with only the
 //! opening lock held; the user's open asks nothing and makes the requesting
 //! deck the tab's opener, which a close hands the focus back to.
 
@@ -58,13 +59,8 @@ pub(crate) enum PackOpened {
     Focused(String),
     /// A new pack tab opened.
     Opened(String),
-    /// The requesting tab edits it: workshop entered, or sub-tab opened.
-    Here {
-        /// The requesting tab.
-        tab: String,
-        /// True when a deck-only workshop was entered.
-        entered: bool,
-    },
+    /// The requesting tab edits it; its sub-tab opened, if one was named.
+    Here,
     /// The gate refused.
     Refused,
 }
@@ -86,21 +82,21 @@ pub(crate) struct OpenerOffer {
 }
 
 /// One open of a pack, as the steps share it.
-struct OpenCtx<'a> {
+pub(super) struct OpenCtx<'a> {
     /// The workspace.
-    ws: &'a Mutex<Workspace>,
+    pub(super) ws: &'a Mutex<Workspace>,
     /// The requesting tab.
-    tab: &'a str,
+    pub(super) tab: &'a str,
     /// The pack to open.
-    pack: Uuid,
+    pub(super) pack: Uuid,
     /// A widget whose sub-tab opens.
-    widget: Option<&'a str>,
+    pub(super) widget: Option<&'a str>,
     /// The user's open: the requesting deck becomes the focused tab's opener.
-    retarget: bool,
+    pub(super) retarget: bool,
 }
 
 /// The gate of one open, asked at most once per kind.
-type Ask<'a> = dyn FnMut(PackGate) -> bool + 'a;
+pub(super) type Ask<'a> = dyn FnMut(PackGate) -> bool + 'a;
 
 impl Workspace {
     /// Opens `pack` from `tab` for an agent; says where it landed.
@@ -120,28 +116,21 @@ impl Workspace {
         gate: &mut dyn FnMut(PackGate) -> bool,
     ) -> Result<PackOpen> {
         Ok(match Self::open_pack_with(ws, tab, pack, widget, Opener::Agent(gate))? {
-            PackOpened::Here { .. } => PackOpen::Here,
+            PackOpened::Here => PackOpen::Here,
             PackOpened::Focused(t) | PackOpened::Opened(t) => PackOpen::Tab(t),
             PackOpened::Refused => PackOpen::Refused,
         })
     }
 
-    /// `apply` on `OpenPack`: the view, `DeckChanged` when a workshop was entered in place.
+    /// `apply` on `OpenPack`: the view.
     pub(super) fn open_pack_ui(
         ws: &Mutex<Self>,
         tab: &str,
         pack: Uuid,
         widget: Option<&str>,
     ) -> Result<WorkspaceOutcome> {
-        let opened = Self::open_pack_with(ws, tab, pack, widget, Opener::Ui)?;
-        let json = Self::lock(ws).view_json()?;
-        Ok(match opened {
-            PackOpened::Here { tab, entered: true } => WorkspaceOutcome::DeckChanged { json, tab },
-            PackOpened::Here { entered: false, .. }
-            | PackOpened::Focused(_)
-            | PackOpened::Opened(_)
-            | PackOpened::Refused => WorkspaceOutcome::Applied(json),
-        })
+        Self::open_pack_with(ws, tab, pack, widget, Opener::Ui)?;
+        Ok(WorkspaceOutcome::Applied(Self::lock(ws).view_json()?))
     }
 
     /// Opens `pack` from `tab`, saying how; holds the pack's opening lock.
@@ -167,7 +156,11 @@ impl Workspace {
             };
             let mut ask = |g: PackGate| gate.as_mut().is_none_or(|gate| gate(g));
             let ctx = OpenCtx { ws, tab, pack, widget, retarget };
-            let (window, candidates) = Self::lock(ws).candidates(tab, &TabDocument::Pack { pack })?;
+            let (window, candidates) = {
+                let w = Self::lock(ws);
+                let wanted = w.pack_documents(tab, pack);
+                w.candidates(tab, &wanted)?
+            };
             if let Some(done) = Self::focus_existing(&ctx, &candidates, &mut ask)? {
                 return Ok(done);
             }
@@ -175,14 +168,27 @@ impl Workspace {
         })
     }
 
-    /// Step 1: `tab`'s window, and the tabs cached as editing `wanted` (a pack or a theme).
+    /// The documents of `pack`'s tab as `tab` may find it: its pack tab, or its deck-pack tab.
+    ///
+    /// A deck-pack tab's is the one linked to `tab`, or `tab` itself when it edits `pack`.
+    fn pack_documents(&self, tab: &str, pack: Uuid) -> Vec<TabDocument> {
+        let mut wanted = vec![TabDocument::Pack { pack }, TabDocument::DeckPack { deck_tab: tab.to_owned(), pack }];
+        if let Some(TabDocument::DeckPack { deck_tab, pack: own }) = self.tabs.get(tab).map(|t| &t.info.document)
+            && *own == pack
+        {
+            wanted.push(TabDocument::DeckPack { deck_tab: deck_tab.clone(), pack });
+        }
+        wanted
+    }
+
+    /// Step 1: `tab`'s window, and the tabs cached as editing one of `wanted` (a pack or a theme).
     ///
     /// Every awake one (ready or busy) first, then at most four dormant ones, in window order.
-    pub(super) fn candidates(&self, tab: &str, wanted: &TabDocument) -> Result<(String, Vec<String>)> {
+    pub(super) fn candidates(&self, tab: &str, wanted: &[TabDocument]) -> Result<(String, Vec<String>)> {
         let window = self.opening_window(tab)?;
         let (mut awake, mut dormant) = (Vec::new(), Vec::new());
         for id in self.layout.windows.iter().flat_map(|w| &w.tabs) {
-            let Some(t) = self.tabs.get(id).filter(|t| t.info.document == *wanted) else { continue };
+            let Some(t) = self.tabs.get(id).filter(|t| wanted.contains(&t.info.document)) else { continue };
             let sleeps = match t.session.try_lock() {
                 Ok(slot) => slot.is_dormant(),
                 Err(TryLockError::Poisoned(p)) => p.into_inner().is_dormant(),
@@ -212,11 +218,19 @@ impl Workspace {
         Ok(None)
     }
 
-    /// Focuses `candidate` if its live session is `pack`'s pack tab; `None`: skipped.
+    /// Focuses `candidate` if its live session is `pack`'s pack or deck-pack tab; `None`: skipped.
+    ///
+    /// A deck-pack tab counts when linked to the requesting tab, or when it is that tab.
     fn focus_candidate(ctx: &OpenCtx<'_>, candidate: &str) -> Result<Option<PackOpened>> {
-        let wanted = TabDocument::Pack { pack: ctx.pack };
-        let (woken, _changed) = Self::with_session(ctx.ws, candidate, |s| {
-            if s.tab_info().document != wanted {
+        let edits = |document: TabDocument| match document {
+            TabDocument::Pack { pack } => pack == ctx.pack,
+            TabDocument::DeckPack { deck_tab, pack } => {
+                pack == ctx.pack && (deck_tab == ctx.tab || candidate == ctx.tab)
+            }
+            TabDocument::Deck { .. } | TabDocument::Help { .. } | TabDocument::Theme { .. } => false,
+        };
+        let (woken, _changed) = Self::with_quiet(ctx.ws, candidate, |s| {
+            if !edits(s.tab_info().document) {
                 return Ok(false);
             }
             if let Some(w) = ctx.widget {
@@ -247,19 +261,18 @@ impl Workspace {
             t.opener = Some(ctx.tab.to_owned());
         }
         w.save_layout();
-        Ok(Some(if candidate == ctx.tab {
-            PackOpened::Here { tab: ctx.tab.to_owned(), entered: false }
-        } else {
-            PackOpened::Focused(candidate.to_owned())
-        }))
+        Ok(Some(if candidate == ctx.tab { PackOpened::Here } else { PackOpened::Focused(candidate.to_owned()) }))
     }
 
     /// Steps 3-5: routes the pack from `tab`; a library pack opens a new pack tab after it.
+    ///
+    /// A deck-only pack of `tab`'s deck opens its deck-pack tab (`open_deck_pack`).
     fn open_new(ctx: &OpenCtx<'_>, window: String, ask: &mut Ask<'_>) -> Result<PackOpened> {
-        let (route, _changed) = Self::with_session(ctx.ws, ctx.tab, |s| s.route_pack(ctx.pack, ctx.widget));
+        let (route, _changed) = Self::with_quiet(ctx.ws, ctx.tab, |s| s.route_pack(ctx.pack, ctx.widget));
         let (scope, name) = match route?? {
-            PackRoute::Here { entered } => return Ok(PackOpened::Here { tab: ctx.tab.to_owned(), entered }),
+            PackRoute::Here => return Ok(PackOpened::Here),
             PackRoute::Tab { scope, name } => (scope, name),
+            PackRoute::DeckTab { name } => return Self::open_deck_pack(ctx, window, &name, ask),
         };
         if !ask(PackGate::NewTab) {
             return Ok(PackOpened::Refused);
@@ -276,7 +289,7 @@ impl Workspace {
                 return focused.ok_or(refused);
             }
         };
-        let (seed, _changed) = Self::with_session(ctx.ws, ctx.tab, |s| s.take_preview(ctx.pack));
+        let (seed, _changed) = Self::with_quiet(ctx.ws, ctx.tab, |s| s.take_preview(ctx.pack));
         let seed = seed??;
         let pending = {
             let mut w = Self::lock(ctx.ws);
@@ -319,6 +332,8 @@ impl Workspace {
 
     /// The opener of pack tab `tab`, with the version it would take.
     ///
+    /// `None` for a deck-pack tab: its saves go to its owner deck.
+    ///
     /// # Errors
     ///
     /// `UnknownTab` for `tab`.
@@ -329,12 +344,13 @@ impl Workspace {
     pub(crate) fn pack_opener(ws: &Mutex<Self>, tab: &str) -> Result<Option<OpenerOffer>> {
         let opener = {
             let w = Self::lock(ws);
-            w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?.opener.clone()
+            let t = w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
+            t.opener.clone().filter(|_| t.info.document.deck_tab().is_none())
         };
         let Some(opener) = opener else { return Ok(None) };
-        let (wrote, _changed) = Self::with_session(ws, tab, |s| s.wrote_in_pack_tab());
+        let (wrote, _changed) = Self::with_quiet(ws, tab, |s| s.wrote_in_pack_tab());
         let Some(PackWrite { pack, name, version }) = wrote? else { return Ok(None) };
-        let (offer, _changed) = Self::with_session(ws, &opener, |s| s.opener_offer(pack, &version));
+        let (offer, _changed) = Self::with_quiet(ws, &opener, |s| s.opener_offer(pack, &version));
         let deck = match offer {
             Ok(Some(deck)) => deck,
             Ok(None) => return Ok(None),

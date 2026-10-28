@@ -32,10 +32,10 @@ async fn tools_list_has_pack_tools_and_no_template_tool() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
-    for t in ["packs", "edit_pack", "save_pack", "close_pack", "delete_pack", "layouts"] {
+    for t in ["packs", "edit_pack", "save_pack", "delete_pack", "layouts"] {
         assert_that!(names.contains(&t.to_owned())).named(t).is_true();
     }
-    assert_that!(names.iter().any(|n| n.contains("template"))).is_false();
+    assert_that!(names.iter().any(|n| n.contains("template") || n == "close_pack")).is_false();
 }
 
 #[tokio::test(flavor = "multi_thread")]

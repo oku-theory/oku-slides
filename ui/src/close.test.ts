@@ -1,4 +1,4 @@
-// Closing a tab: saveForClose and mayClose, deck tabs, the in-deck workshop and pack tabs.
+// Closing a tab: saveForClose and mayClose, deck tabs, pack tabs and theme tabs.
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { Snapshot, TabApi, TabDocument, TabInfo } from "./api";
 import { mayClose, saveForClose } from "./close";
@@ -14,36 +14,24 @@ beforeAll(async () => {
 afterAll(resetMessages);
 
 const snap = (s: Partial<Snapshot>) => ({ dirty: false, path: null, name: "essai", editing: null, ...s }) as Snapshot;
-/** An editing view: an in-deck workshop by default. */
+/** A pack tab's editing view. */
 const editing = (o: Partial<PackMode> = {}) =>
-  ({ pack: "s", name: "S", kind: "layouts", builtin: false, host: "deck", read_only: false, leased: true, display_name: "S", ...o }) as PackMode;
+  ({ pack: "s", name: "S", kind: "layouts", builtin: false, read_only: false, leased: true, display_name: "S", ...o }) as PackMode;
 const yes = () => true;
 
 describe("saveForClose", () => {
   test("saveForClose of a clean deck saves nothing", async () => {
     const save = mock(async () => snap({}));
     const api = { snapshot: async () => snap({}), save } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes })).toBe(true);
+    expect(await saveForClose(api)).toBe(true);
     expect(save).not.toHaveBeenCalled();
   });
 
   test("saveForClose of a deck with a file saves it in place", async () => {
     const save = mock(async () => snap({ path: "/x.oku-slides.pdf" }));
     const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes })).toBe(true);
+    expect(await saveForClose(api)).toBe(true);
     expect(save).toHaveBeenCalledWith(null, false);
-  });
-
-  test("saveForClose of a dirty workshop saves the pack then closes it", async () => {
-    const calls: string[] = [];
-    const api = {
-      snapshot: async () => snap({ dirty: true, editing: editing() }),
-      savePack: async () => (calls.push("savePack"), snap({ editing: editing() })),
-      closePack: async () => (calls.push("closePack"), snap({})),
-      save: async () => (calls.push("save"), snap({})),
-    } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes })).toBe(true);
-    expect(calls).toEqual(["savePack", "closePack"]);
   });
 
   test("saveForClose with history open closes it first and saves the deck found again", async () => {
@@ -54,27 +42,15 @@ describe("saveForClose", () => {
       historyClose: async () => (calls.push("historyClose"), snap({ dirty: true, path: "/x.oku-slides.pdf", history: null })),
       save: async () => (calls.push("save"), snap({ path: "/x.oku-slides.pdf" })),
     } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes })).toBe(true);
+    expect(await saveForClose(api)).toBe(true);
     expect(calls).toEqual(["historyClose", "save"]);
-  });
-
-  test("saveForClose saves the deck still dirty after the workshop closed", async () => {
-    const calls: string[] = [];
-    const api = {
-      snapshot: async () => snap({ dirty: true, editing: editing() }),
-      savePack: async () => (calls.push("savePack"), snap({ editing: editing() })),
-      closePack: async () => (calls.push("closePack"), snap({ dirty: true, path: "/x.oku-slides.pdf" })),
-      save: async () => (calls.push("save"), snap({})),
-    } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes })).toBe(true);
-    expect(calls).toEqual(["savePack", "closePack", "save"]);
   });
 
   test("saveForClose of a new deck saves to the default folder without a dialog", async () => {
     const save = mock(async () => snap({ path: "/Documents/Oku Slides/essai.oku-slides.pdf" }));
     const api = { snapshot: async () => snap({ dirty: true }), save } as unknown as TabApi;
     const pick = mock(async () => null);
-    expect(await saveForClose(api, { confirm: yes, pick })).toBe(true);
+    expect(await saveForClose(api, { pick })).toBe(true);
     expect(save).toHaveBeenCalledWith(null, false);
     expect(pick).not.toHaveBeenCalled();
   });
@@ -82,7 +58,7 @@ describe("saveForClose", () => {
   test("saveForClose of a file replaced by another deck, given up, stays", async () => {
     const save = mock(async () => snap({ dirty: true, path: "/x.oku-slides.pdf", disk_replaced: true }));
     const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes, ask: async () => "cancel" })).toBe(false);
+    expect(await saveForClose(api, { ask: async () => "cancel" })).toBe(false);
     expect(save).toHaveBeenCalledTimes(1);
   });
 
@@ -91,27 +67,28 @@ describe("saveForClose", () => {
     const save = async (p: string | null, o = false) =>
       (calls.push([p, o]), snap({ path: "/x.oku-slides.pdf", disk_replaced: calls.length === 1 }));
     const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes, ask: async () => "overwrite" })).toBe(true);
+    expect(await saveForClose(api, { ask: async () => "overwrite" })).toBe(true);
     expect(calls).toEqual([[null, false], [null, true]]);
   });
 
-  test("saveForClose never closes a pack tab's pack", async () => {
+  test("saveForClose of a pack tab answers its dirty flag", async () => {
     const calls: string[] = [];
     const api = {
-      snapshot: async () => snap({ editing: editing({ host: "tab" }) }),
       savePack: async () => (calls.push("savePack"), snap({})),
-      closePack: async () => (calls.push("closePack"), snap({})),
       save: async () => (calls.push("save"), snap({})),
     } as unknown as TabApi;
-    await saveForClose(api, { confirm: yes });
-    expect(calls).toEqual([]);
+    const answers = [
+      await saveForClose(api, { first: snap({ dirty: true, editing: editing() }) }),
+      await saveForClose(api, { first: snap({ dirty: false, editing: editing() }) }),
+    ];
+    expect([answers, calls]).toEqual([[false, true], []]);
   });
 
   test("saveForClose takes the first snapshot it is given", async () => {
     const snapshot = mock(async () => snap({}));
     const save = mock(async () => snap({ path: "/x.oku-slides.pdf" }));
     const api = { snapshot, save } as unknown as TabApi;
-    expect(await saveForClose(api, { confirm: yes, first: snap({ dirty: true, path: "/x.oku-slides.pdf" }) })).toBe(true);
+    expect(await saveForClose(api, { first: snap({ dirty: true, path: "/x.oku-slides.pdf" }) })).toBe(true);
     expect(snapshot).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalledTimes(1);
   });
@@ -122,26 +99,24 @@ describe("mayClose", () => {
     id: "t1",
     title: "essai",
     dirty,
-    editing_pack: document.kind === "pack",
     pristine: !dirty,
     theme: null,
     document,
   });
   const packDoc: TabDocument = { kind: "pack", pack: "s" };
   const deps = { confirm: yes };
-  /** A pack tab's fake API: each call noted in `calls`; `saved` answers savePack. */
+  /** A pack tab's fake API: each call noted in `calls`; `saved` answers savePack and the snapshot read after it. */
   const packApi = (saved: () => Promise<Snapshot>) => {
     const calls: string[] = [];
     const api = {
-      snapshot: async () => (calls.push("snapshot"), snap({})),
+      snapshot: async () => (calls.push("snapshot"), saved()),
       savePack: async () => (calls.push("savePack"), saved()),
       saveGuarded: async () => (calls.push("saveGuarded"), snap({})),
       save: async () => (calls.push("save"), snap({})),
-      closePack: async () => (calls.push("closePack"), snap({})),
     } as unknown as TabApi;
     return { api, calls };
   };
-  const packSnap = (o: Partial<PackMode> = {}, dirty = true) => snap({ dirty, editing: editing({ host: "tab", display_name: "Acme", ...o }) });
+  const packSnap = (o: Partial<PackMode> = {}, dirty = true) => snap({ dirty, editing: editing({ display_name: "Acme", ...o }) });
 
   test("mayClose of a clean tab keeps and saves nothing", async () => {
     const api = { snapshot: mock(async () => snap({})) } as unknown as TabApi;
@@ -172,21 +147,43 @@ describe("mayClose", () => {
     const { api, calls } = packApi(async () => packSnap());
     const confirm = mock(() => true);
     expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm })).toBe("discard");
-    expect(calls).toEqual(["savePack"]);
+    expect(calls).toEqual(["savePack", "snapshot"]);
     expect(confirm).toHaveBeenCalledWith("Quit without saving the modified pack?");
   });
 
   test("pack tab still dirty with confirm declined stays", async () => {
     const { api, calls } = packApi(async () => packSnap());
     expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm: () => false })).toBeNull();
-    expect(calls).toEqual(["savePack"]);
+    expect(calls).toEqual(["savePack", "snapshot"]);
   });
 
-  test("pack tab saves then keeps without closePack", async () => {
+  test("pack tab saves then keeps", async () => {
     const { api, calls } = packApi(async () => packSnap({}, false));
     const confirm = mock(() => true);
     expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm })).toBe("keep");
-    expect(calls).toEqual(["savePack"]);
+    expect(calls).toEqual(["savePack", "snapshot"]);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  test("packTabVerdict of an unsent clean pack tab asks ui-confirm-quit-pack", async () => {
+    const { api, calls } = packApi(async () => packSnap({ deck_only: true, unsent: true }, false));
+    const confirm = mock(() => false);
+    expect(await mayClose(tab(true, packDoc), packSnap({ deck_only: true, unsent: true }, false), api, { confirm })).toBeNull();
+    expect(calls).toEqual(["savePack", "snapshot"]);
+    expect(confirm).toHaveBeenCalledWith("Quit without saving the modified pack?");
+  });
+
+  test("packTabVerdict re-reads the snapshot after savePack", async () => {
+    let forwarded = false;
+    const calls: string[] = [];
+    const api = {
+      snapshot: async () => (calls.push("snapshot"), packSnap({ deck_only: true, unsent: !forwarded }, false)),
+      // The save's answer predates the forward: still unsent.
+      savePack: async () => (calls.push("savePack"), (forwarded = true), packSnap({ deck_only: true, unsent: true }, false)),
+    } as unknown as TabApi;
+    const confirm = mock(() => true);
+    expect(await mayClose(tab(true, packDoc), packSnap({ deck_only: true, unsent: true }), api, { confirm })).toBe("keep");
+    expect(calls).toEqual(["savePack", "snapshot"]);
     expect(confirm).not.toHaveBeenCalled();
   });
 
@@ -217,37 +214,8 @@ describe("mayClose", () => {
     const { api, calls } = packApi(async () => packSnap({ leased: true }, false));
     const confirm = mock(() => true);
     expect(await mayClose(tab(true, packDoc), packSnap({ read_only: false, leased: false }), api, { confirm })).toBe("keep");
-    expect(calls).toEqual(["savePack"]);
+    expect(calls).toEqual(["savePack", "snapshot"]);
     expect(confirm).not.toHaveBeenCalled();
-  });
-
-  test("read-only dirty deck workshop asks, then closes the pack and saves the deck", async () => {
-    const calls: string[] = [];
-    const api = {
-      snapshot: async () => (calls.push("snapshot"), snap({})),
-      savePack: async () => (calls.push("savePack"), snap({})),
-      closePack: async () => (calls.push("closePack"), snap({ dirty: true, path: "/x.oku-slides.pdf" })),
-      save: async () => (calls.push("save"), snap({ path: "/x.oku-slides.pdf" })),
-    } as unknown as TabApi;
-    const confirm = mock(() => true);
-    const workshop = snap({ dirty: true, editing: editing({ read_only: true, leased: false, display_name: "Acme" }) });
-    expect(await mayClose(tab(true), workshop, api, { confirm })).toBe("keep");
-    expect(calls).toEqual(["closePack", "save"]);
-    expect(confirm).toHaveBeenCalledWith(
-      "⁨Acme⁩ cannot be saved here. Close this tab and lose its changes? To keep them, ask the agent to save it as a new pack.",
-    );
-  });
-
-  test("read-only dirty deck workshop declined stays and closes nothing", async () => {
-    const calls: string[] = [];
-    const api = {
-      savePack: async () => (calls.push("savePack"), snap({})),
-      closePack: async () => (calls.push("closePack"), snap({})),
-      save: async () => (calls.push("save"), snap({})),
-    } as unknown as TabApi;
-    const workshop = snap({ dirty: true, editing: editing({ read_only: true, leased: false }) });
-    expect(await mayClose(tab(true), workshop, api, { confirm: () => false })).toBeNull();
-    expect(calls).toEqual([]);
   });
 
   test("clean pack tab never calls savePack", async () => {
@@ -278,7 +246,6 @@ describe("mayClose", () => {
       saveTheme: async () => (calls.push("saveTheme"), null),
       savePack: async () => (calls.push("savePack"), snap({})),
       save: async () => (calls.push("save"), snap({})),
-      closePack: async () => (calls.push("closePack"), snap({})),
     } as unknown as TabApi;
     return { api, calls };
   };

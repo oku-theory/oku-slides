@@ -70,6 +70,7 @@ impl Session {
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
         ensure!(opened.pdf, NotOkuSlidesSnafu);
+        self.refuse_linked_merge(&opened.sources)?;
         self.absorb(opened.sources, &file_name(path), false)
     }
 

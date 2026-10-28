@@ -372,24 +372,22 @@ fn load_with_a_failed_registry_install_keeps_the_previous_document() {
 }
 
 #[test]
-fn edit_pack_of_a_pack_with_widgets_uses_them_then_close_returns_to_the_deck_registry() {
+fn edit_pack_of_a_pack_with_widgets_uses_them() {
     let data = data_dir();
-    let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
-    s.edit_pack(quote.id).unwrap();
+    let mut opener = session_in(&data.0);
+    let quote = user_pack(&opener, "Citation", &[("quote", QUOTE)]);
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, &data.0, quote.id);
     assert_that!(widgets_have_quote(&mut s, &quote)).is_true();
     assert_registry_agrees(&s);
-    s.close_pack().unwrap();
-    assert_that!(widgets_have_quote(&mut s, &quote)).is_false();
-    assert_registry_agrees(&s);
+    assert_that!(widgets_have_quote(&mut opener, &quote)).is_false();
 }
 
 #[test]
 fn save_pack_as_a_copy_takes_the_pack_widgets_along() {
     let data = data_dir();
-    let mut s = session_in(&data.0);
-    let quote = user_pack(&s, "Citation", &[("quote", QUOTE)]);
-    s.edit_pack(quote.id).unwrap();
+    let mut opener = session_in(&data.0);
+    let quote = user_pack(&opener, "Citation", &[("quote", QUOTE)]);
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, &data.0, quote.id);
     s.save_pack(true).unwrap();
     let copy = s.snapshot().editing.unwrap().pack;
     assert_that!(copy).is_not_equal_to(quote.id);

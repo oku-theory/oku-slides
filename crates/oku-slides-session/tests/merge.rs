@@ -85,8 +85,9 @@ fn merge_request_while_editing_pack_is_refused() {
     let path = dir.join("deck.oku-slides.pdf");
     let mut a = session();
     a.save(Some(&path)).unwrap();
-    a.edit_pack(oku_slides_session::BASE_PACK).unwrap();
-    let err = a.handle(req(json!({"cmd": "merge", "path": path}))).unwrap_err();
+    let mut b = session();
+    b.open_pack_tab_here(oku_slides_session::BASE_PACK, None).unwrap();
+    let err = b.handle(req(json!({"cmd": "merge", "path": path}))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(oku_slides_session::SessionErrorKind::EditingPack);
 }
 

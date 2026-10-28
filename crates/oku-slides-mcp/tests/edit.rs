@@ -167,16 +167,6 @@ async fn focus_emits_focus_event_without_changing_deck() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_then_close_pack_round_trips_mode() {
-    let h = start().await;
-    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
-    assert_that!(h.session.lock().unwrap().snapshot().editing.is_some()).is_true();
-    call(&c, "close_pack", json!({})).await;
-    assert_that!(h.session.lock().unwrap().snapshot().editing.is_none()).is_true();
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn remove_pack_in_use_returns_the_localized_reason() {
     use oku_slides_i18n::Localize;
     let h = start().await;
@@ -228,9 +218,8 @@ async fn show_packs_tool_shows_the_panel() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_packs_tool_in_pack_mode_is_refused() {
-    let h = start().await;
+    let h = start_pack_tab(ESSENTIEL_PACK).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     let r = call(&c, "show_packs", json!({})).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-packs-deck-mode"));

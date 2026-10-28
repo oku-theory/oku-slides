@@ -54,9 +54,9 @@ fn session_with_frise_and_theme(namespace: &str, tokens: Value) -> (tempfile::Te
 }
 
 #[test]
-fn pack_mode_schema_holds_the_packs_of_the_stashed_deck() {
-    let (_d, mut s) = session_with_frise_and_theme("marque", json!({}));
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+fn pack_mode_schema_holds_the_packs_of_the_preview_deck() {
+    let (d, mut opener) = session_with_frise_and_theme("marque", json!({}));
+    let s = crate::test_support_packs::pack_tab_from(&mut opener, d.path(), ESSENTIEL_PACK);
     assert_that!(s.deck().widgets.contains_key(&ns("frise"))).is_false();
     let schema = s.token_schema(s.deck());
     assert_that!(schema.iter().any(|t| t.section == Section::Pack(ns("frise")))).is_true();

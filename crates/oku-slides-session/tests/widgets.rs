@@ -43,7 +43,7 @@ fn snapshot_lists_the_pack_widget_files_without_common() {
 #[test]
 fn snapshot_lists_the_edited_pack_widgets_in_pack_mode() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::BASE_PACK}))).unwrap();
+    s.open_pack_tab_here(oku_slides_session::BASE_PACK, None).unwrap();
     s.handle(req(json!({"cmd": "set_widget", "name": "kpi", "source": KPI_WIDGET}))).unwrap();
     let snap = snapshot_json(&mut s);
     let names: Vec<&str> = snap["pack_widgets"].as_array().into_iter().flatten().filter_map(|v| v.as_str()).collect();
@@ -133,7 +133,8 @@ const QUOTE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 /// Une session en édition du pack de widgets `base`.
 fn editing_widgets() -> Isolated {
     let mut s = session();
-    s.edit_pack(oku_slides_session::BASE_PACK).unwrap_or_else(|e| panic!("édition du pack refusée : {}", e.one_line()));
+    s.open_pack_tab_here(oku_slides_session::BASE_PACK, None)
+        .unwrap_or_else(|e| panic!("édition du pack refusée : {}", e.one_line()));
     s
 }
 

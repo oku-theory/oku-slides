@@ -170,6 +170,7 @@ impl Session {
     /// Fails outside deck mode, or if the core rejects the removal.
     pub fn remove_deck_pack(&mut self, kind: PackKind, ns: &Namespace) -> Result<()> {
         self.ensure_deck_mode()?;
+        self.deck().pins(kind).get(ns).map_or(Ok(()), |pin| self.refuse_linked(pin.id))?;
         let name = self.deck().pins(kind).get(ns).map_or_else(|| ns.to_string(), |pin| self.pack_name(ns, pin));
         let label = self.localizer.tr_with("packs-undo-remove", &[("name", name.as_str().into())]);
         self.apply(&label, vec![Op::RemovePack { kind, namespace: ns.clone() }], None)

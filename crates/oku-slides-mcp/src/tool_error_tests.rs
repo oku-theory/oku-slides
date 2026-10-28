@@ -90,8 +90,8 @@ fn a_voice_tool_error_is_said_in_french(#[case] e: ToolError, #[case] said: &str
     assert_that!(e.localize(&Localizer::new(Some("fr")))).is_equal_to(said.to_owned());
 }
 
-/// The refusal a deck session gets when another session holds the pack's workshop: `PackOpenInTab`.
-fn refused_by_a_workshop() -> oku_slides_session::SessionError {
+/// The refusal a deck session gets when another session holds the pack's tab: `PackOpenInTab`.
+fn refused_by_a_pack_tab() -> oku_slides_session::SessionError {
     use oku_slides_core::Namespace;
     use oku_slides_session::{BASE_PACK, Fonts, Platform, Session, Settings};
     let data = tempfile::tempdir().unwrap_or_else(|e| panic!("dossier de test : {e}"));
@@ -100,12 +100,12 @@ fn refused_by_a_workshop() -> oku_slides_session::SessionError {
     settings.paths.decks = Some(data.path().join("decks"));
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     let mut deck = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
-    let mut workshop = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
+    let mut tab = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
     deck.new_deck().unwrap_or_else(|e| panic!("deck : {e}"));
-    workshop.edit_pack(BASE_PACK).unwrap_or_else(|e| panic!("atelier : {e}"));
+    tab.open_pack_tab_here(BASE_PACK, None).unwrap_or_else(|e| panic!("onglet de pack : {e}"));
     let base = Namespace::parse("base").unwrap_or_else(|| panic!("espace de noms"));
     let Err(refused) = deck.set_widget(Some(&base), "carte", "#let x = 1".into()) else {
-        panic!("l'écriture d'un pack tenu par un atelier est refusée")
+        panic!("l'écriture d'un pack tenu par un onglet est refusée")
     };
     assert_that!(refused.kind()).is_equal_to(oku_slides_session::SessionErrorKind::PackOpenInTab);
     refused
@@ -116,7 +116,7 @@ fn refused_by_a_workshop() -> oku_slides_session::SessionError {
 #[case::fr("fr")]
 fn hub_session_error_reaches_the_agent_without_a_title(#[case] locale: &str) {
     let l = Localizer::new(Some(locale));
-    let refused = refused_by_a_workshop();
+    let refused = refused_by_a_pack_tab();
     let with_title = refused.localize(&l);
     let e: ToolError = HubSnafu.into_error(Box::new(crate::HubError::from_session(refused)));
     assert_that!(e.localize(&l)).is_equal_to(l.tr("agent-error-pack-open-in-tab"));

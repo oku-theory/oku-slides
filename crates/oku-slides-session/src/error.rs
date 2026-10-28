@@ -76,6 +76,12 @@ pub enum SessionErrorKind {
     InPackTab,
     /// The library pack is being edited in another tab.
     PackOpenInTab,
+    /// An undo or redo would change a pack a deck-pack tab edits.
+    UndoInPackTab,
+    /// A deck-pack tab's save no longer matches what its owner deck embeds.
+    DeckPackMismatch,
+    /// A refused undo or redo could not be taken back.
+    UndoCompensationFailed,
     /// The library theme is being edited in another tab.
     ThemeOpenInTab,
     /// The offered pack version no longer applies to this deck.
@@ -250,6 +256,12 @@ pub(crate) enum SessionInner {
     InPackTab { backtrace: Backtrace },
     #[snafu(display("pack {pack} is being edited in tab {tab}"))]
     PackOpenInTab { pack: String, tab: String, backtrace: Backtrace },
+    #[snafu(display("this step changes pack {pack}, edited in tab {tab}"))]
+    UndoInPackTab { pack: String, tab: String, backtrace: Backtrace },
+    #[snafu(display("pack {pack} no longer matches what the deck embeds"))]
+    DeckPackMismatch { pack: String, backtrace: Backtrace },
+    #[snafu(display("a refused undo or redo could not be taken back"))]
+    UndoCompensationFailed { backtrace: Backtrace },
     #[snafu(display("theme {theme} is being edited in tab {tab}"))]
     ThemeOpenInTab { theme: String, tab: String, backtrace: Backtrace },
     #[snafu(display("the deck or the offered pack version changed meanwhile"))]
@@ -364,19 +376,19 @@ impl SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one kind per variant")]
     pub fn kind(&self) -> SessionErrorKind {
         use SessionInner::{
-            AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, EditingPack, FieldNeeded, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated,
-            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable,
-            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
-            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
-            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
-            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
-            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
-            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
-            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UnknownAsset,
-            UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
-            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
-            Write, WrongDocument,
+            AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, HelpDeck,
+            HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing,
+            MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath,
+            NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
+            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides,
+            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
+            PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument,
+            Sources, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
+            ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode,
+            TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop,
+            UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner,
+            UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists,
+            WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
@@ -419,6 +431,9 @@ impl SessionError {
             EditingPack { .. } => SessionErrorKind::EditingPack,
             InPackTab { .. } => SessionErrorKind::InPackTab,
             PackOpenInTab { .. } => SessionErrorKind::PackOpenInTab,
+            UndoInPackTab { .. } => SessionErrorKind::UndoInPackTab,
+            DeckPackMismatch { .. } => SessionErrorKind::DeckPackMismatch,
+            UndoCompensationFailed { .. } => SessionErrorKind::UndoCompensationFailed,
             ThemeOpenInTab { .. } => SessionErrorKind::ThemeOpenInTab,
             PackOfferExpired { .. } => SessionErrorKind::PackOfferExpired,
             PackTabNotFresh { .. } => SessionErrorKind::PackTabNotFresh,
@@ -578,19 +593,19 @@ impl Localize for SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one Fluent key per variant")]
     fn localize(&self, l: &Localizer) -> String {
         use SessionInner::{
-            AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, EditingPack, FieldNeeded, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated,
-            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath, NoSlide, NoTable,
-            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
-            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
-            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
-            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
-            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
-            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
-            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UnknownAsset,
-            UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
-            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
-            Write, WrongDocument,
+            AgentForm, BuiltinPack, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, HelpDeck,
+            HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing,
+            MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoLibraryDir, NoPath,
+            NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
+            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides,
+            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
+            PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument,
+            Sources, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
+            ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode,
+            TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop,
+            UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner,
+            UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists,
+            WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -664,6 +679,11 @@ impl Localize for SessionError {
             PackOpenInTab { pack, tab, .. } => {
                 l.tr_with("session-pack-open-in-tab", &[("pack", pack.as_str().into()), ("tab", tab.as_str().into())])
             }
+            UndoInPackTab { pack, tab, .. } => {
+                l.tr_with("session-undo-in-pack-tab", &[("pack", pack.as_str().into()), ("tab", tab.as_str().into())])
+            }
+            DeckPackMismatch { pack, .. } => l.tr_with("session-deck-pack-mismatch", &[("pack", pack.as_str().into())]),
+            UndoCompensationFailed { .. } => l.tr("session-undo-compensation-failed"),
             ThemeOpenInTab { theme, tab, .. } => l.tr_with(
                 "session-theme-open-in-tab",
                 &[("theme", theme.as_str().into()), ("tab", tab.as_str().into())],

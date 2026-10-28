@@ -115,10 +115,8 @@ fn undo_turn_in_pack_mode_is_none() {
     let data = fresh_dir("oku-slides-turn-undo-");
     let mut s = opened_on(data.path());
     agent_turn(&mut s, 5, "Par l'agent");
-    let set = crate::ESSENTIEL_PACK;
-    s.edit_pack(set).unwrap();
-    assert_that!(s.snapshot().undo_turn).is_none();
-    s.close_pack().unwrap();
+    let t = crate::test_support_packs::pack_tab_from(&mut s, data.path(), crate::ESSENTIEL_PACK);
+    assert_that!(t.snapshot().undo_turn).is_none();
     assert_that!(s.undo_turn()).is_equal_to(Some(5));
 }
 

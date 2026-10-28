@@ -13,9 +13,10 @@
 //! agent takes too), [`Workspace::open_files`], [`Workspace::settle`],
 //! `post_notice`, `open_pack_with`, `open_theme_ui` and `pack_opener` take
 //! both, in sequence, never nested; a new session is built outside the
-//! workspace lock.
+//! workspace lock. A deck-pack forward takes the tab's session, then its
+//! owner's, then the tab's again, one at a time.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -59,6 +60,12 @@ pub struct Workspace {
     clip: Option<Clip>,
     /// Numéro de `clip` : croît à chaque copie (0 sans copie).
     clip_seq: u64,
+    /// Owner deck tabs a deck-pack forward changed, until a host drains them.
+    touched: Vec<String>,
+    /// Bumped on every layout change: an owner ignores links copied before it.
+    layout_generation: u64,
+    /// Deck-pack tabs whose work a refused close discarded: a quit never flushes them.
+    discard_at_quit: HashSet<String>,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -99,6 +106,9 @@ impl Workspace {
             last_pick: 0,
             clip: None,
             clip_seq: 0,
+            touched: Vec::new(),
+            layout_generation: 0,
+            discard_at_quit: HashSet::new(),
         }
     }
 
@@ -165,9 +175,9 @@ impl Workspace {
     /// and opened, then inserted. The folders of closed tabs are deleted after
     /// `workspace.json` is written, outside the lock too.
     ///
-    /// `CloseWindow` on the only remaining window: rejected atomically
-    /// (under this same lock, see [`Workspace::is_only_window`]); two
-    /// concurrent closes can never empty the workspace.
+    /// `Close` and `CloseWindow` take linked deck-pack tabs along, flushed
+    /// first; one that would close every tab answers `LastWindow`, closing
+    /// nothing: two concurrent closes can never empty the workspace.
     ///
     /// # Errors
     ///
@@ -195,6 +205,14 @@ impl Workspace {
         }
         let waking = Self::lock(ws).to_wake(&req);
         Self::wake(ws, &waking);
+        // Pre-phase outside the lock: the deck-pack tabs a close takes are flushed first
+        // (see `workspace_deck_packs_close.rs`); the last window is refused atomically.
+        if let WorkspaceRequest::Close { tab, discard } = &req {
+            return Self::close_tab(ws, tab, *discard);
+        }
+        if let WorkspaceRequest::CloseWindow { window, discard } = &req {
+            return Self::close_window(ws, window, discard);
+        }
         let pending = {
             let mut w = Self::lock(ws);
             match req {
@@ -227,7 +245,6 @@ impl Workspace {
                     Step::Build(pending) => *pending,
                 },
                 WorkspaceRequest::NewWindow => w.pending(None, Opening::Blank, TabPlace::End),
-                WorkspaceRequest::CloseWindow { window, discard } => return Self::close_window(w, &window, &discard),
                 WorkspaceRequest::ImportPicked { id } => {
                     w.import_picked(id);
                     return w.view_json().map(WorkspaceOutcome::Applied);
@@ -263,7 +280,11 @@ impl Workspace {
     /// fichier reçu ensuite (`open_files`, `apply` sur `OpenTab`) ne s'ouvre,
     /// et un onglet dont la construction chevauche cet appel n'est pas inséré ;
     /// plus aucune session ne change ensuite ([`Workspace::with_session`]).
+    ///
+    /// Every awake deck-pack tab is flushed to its owner first, unless a
+    /// refused close discarded it; a second call forwards nothing.
     pub fn settle(ws: &Mutex<Self>) {
+        Self::flush_all_deck_packs(ws);
         let w = Self::lock(ws);
         w.closed.store(true, Ordering::SeqCst);
         w.save_layout();
@@ -273,6 +294,15 @@ impl Workspace {
         for session in sessions {
             relock(&session).flush();
         }
+    }
+
+    /// Removes tab `id` from the workspace, with its pending discard at quit.
+    ///
+    /// The one way a tab leaves `tabs`: a discard recorded by a refused last
+    /// close never outlives its tab, so a later tab reusing the id keeps its edits.
+    fn remove_tab(&mut self, id: &str) -> Option<(String, Tab)> {
+        self.discard_at_quit.remove(id);
+        self.tabs.remove(id).map(|t| (id.to_owned(), t))
     }
 
     /// De quoi supprimer des onglets fermés une fois le verrou rendu.
@@ -356,6 +386,12 @@ mod opening;
 
 #[path = "workspace_themes.rs"]
 mod themes;
+
+#[path = "workspace_deck_packs.rs"]
+mod deck_packs;
+
+#[path = "workspace_deck_packs_close.rs"]
+mod deck_packs_close;
 
 pub use clip::Clip;
 pub use ids::is_window_label;

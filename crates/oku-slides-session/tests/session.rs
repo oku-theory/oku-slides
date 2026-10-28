@@ -229,14 +229,13 @@ fn layouts_view_renders_previews_in_deck_theme() {
 }
 
 #[test]
-fn edit_builtin_pack_then_save_as_copy_creates_a_new_pack_and_close_restores_deck() {
+fn edit_builtin_pack_then_save_as_copy_creates_a_new_pack() {
     use serde_json::json;
     let dir = data_dir();
     let mut s = session();
     s.set_pack_dirs(dir.join("widgets"), dir.join("layouts")).unwrap();
-    let before = s.deck().clone();
 
-    s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
+    s.open_pack_tab_here(oku_slides_session::ESSENTIEL_PACK, None).unwrap();
     let snap = s.snapshot();
     assert_that!(snap.editing.as_ref().unwrap().pack).is_equal_to(oku_slides_session::ESSENTIEL_PACK);
     assert_that!(snap.editing.as_ref().unwrap().builtin).is_true();
@@ -253,34 +252,6 @@ fn edit_builtin_pack_then_save_as_copy_creates_a_new_pack_and_close_restores_dec
     let file =
         dir.join("layouts").join(mode.pack.to_string()).join("versions").join(version.hex()).join("layouts.json");
     assert_that!(file.exists()).is_true();
-
-    s.close_pack().unwrap();
-    assert_that!(s.snapshot().editing).is_none();
-    // Le deck retrouve ses slides, et passe à la copie.
-    assert_that!(s.deck().slides).is_equal_to(&before.slides);
-    assert_that!(s.deck().layouts.values().any(|p| p.id == mode.pack)).is_true();
-    let view = s.layouts_view().unwrap();
-    assert_that!(view.packs.iter().any(|p| p.name == mode.name)).is_true();
-}
-
-#[test]
-fn edit_pack_switching_set_keeps_deck_and_history_aside() {
-    let mut s = session();
-    s.open(&fixture_path()).unwrap();
-    s.apply("Notes", vec![Op::SetNotes { slide: "s-fin".into(), notes: "à garder".into() }], None).unwrap();
-    let before = s.deck().clone();
-
-    s.edit_pack(oku_slides_session::BASE_PACK).unwrap();
-    s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
-    let snap = s.snapshot();
-    assert_that!(snap.editing.as_ref().unwrap().pack).is_equal_to(oku_slides_session::ESSENTIEL_PACK);
-    asserting("l'édition des modèles a son propre historique").that(&snap.can_undo).is_false();
-
-    s.close_pack().unwrap();
-    assert_that!(s.deck()).is_equal_to(&before);
-    let snap = s.snapshot();
-    asserting("le deck retrouve son état").that(&snap.dirty).is_true();
-    asserting("le deck retrouve son historique").that(&snap.can_undo).is_true();
 }
 
 #[test]
@@ -417,21 +388,6 @@ fn resume_after_edits_restores_deck_and_ui_but_not_undo() {
 }
 
 #[test]
-fn resume_while_editing_pack_restores_mode_and_stashed_deck() {
-    let data = data_dir();
-    let mut a = resumed(&data);
-    a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
-    drop(a);
-    let mut b = resumed(&data);
-    assert_that!(snapshot_json(&mut b)["editing"]["pack"]).is_equal_to(json!(oku_slides_session::ESSENTIEL_PACK));
-    b.handle(req(json!({"cmd": "close_pack"}))).unwrap();
-    let snap = snapshot_json(&mut b);
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
-    assert_that!(snap["dirty"]).is_equal_to(json!(true));
-}
-
-#[test]
 fn resume_saved_deck_modified_elsewhere_reopens_from_disk() {
     let data = data_dir();
     let file = data.join("essai.oku-slides.pdf");
@@ -491,7 +447,6 @@ fn tab_info_new_session_is_pristine_clean_and_named_like_the_snapshot() {
     let info = s.tab_info();
     assert_that!(info.pristine).is_true();
     assert_that!(info.dirty).is_false();
-    assert_that!(info.editing_pack).is_false();
     assert_that!(info.document.path()).is_none();
     assert_that!(info.title).is_equal_to(s.snapshot().name);
 }
@@ -544,34 +499,13 @@ fn tab_info_after_save_has_file_name_as_title_and_resolved_path() {
     assert_that!(info.pristine).is_false();
 }
 
+/// A clean preview deck does not make the pack tab unsaved: only the deck
+/// (or the pack) actually changed counts.
 #[test]
-fn tab_info_editing_pack_keeps_deck_title_and_reports_mode() {
+fn tab_info_editing_pack_with_a_clean_preview_deck_is_not_dirty() {
     let mut s = session();
-    let title = s.tab_info().title;
-    s.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
-    let info = s.tab_info();
-    assert_that!(info.editing_pack).is_true();
-    assert_that!(info.title).is_equal_to(title);
-    assert_that!(info.pristine).is_false();
-}
-
-/// Un deck propre mis de côté ne rend pas l'onglet non enregistré : seul le
-/// deck (ou l'ensemble de modèles) réellement modifié doit compter.
-#[test]
-fn tab_info_editing_pack_with_a_clean_stashed_deck_is_not_dirty() {
-    let mut s = session();
-    s.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
+    s.open_pack_tab_here(oku_slides_session::ESSENTIEL_PACK, None).unwrap();
     assert_that!(s.tab_info().dirty).is_false();
-}
-
-/// Le deck mis de côté pendant l'édition des modèles garde son travail non
-/// enregistré, que l'onglet doit continuer à signaler.
-#[test]
-fn tab_info_editing_pack_reports_dirty_from_the_stashed_deck() {
-    let mut s = session();
-    s.handle(set_theme("pro")).unwrap();
-    s.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
-    assert_that!(s.tab_info().dirty).is_true();
 }
 
 #[test]
@@ -659,53 +593,6 @@ fn session_without_resume_writes_nothing() {
     let mut s = session_in(&data);
     s.handle(set_theme("pro")).unwrap();
     assert_that!(data.join("resume").exists()).is_false();
-}
-
-/// t-145 : en mode pack, un pack de reprise illisible ramène au deck,
-/// sans rien perdre du deck mis de côté.
-#[test]
-fn resume_with_unreadable_pack_returns_to_the_deck_without_loss() {
-    let data = data_dir();
-    let mut a = resumed(&data);
-    a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
-    drop(a);
-    let pack = data.join("resume/pack/document.json");
-    assert_that!(pack.exists()).is_true();
-    std::fs::write(&pack, b"pas du json").unwrap();
-    let mut b = resumed(&data);
-    let snap = snapshot_json(&mut b);
-    assert_that!(snap["editing"]).is_equal_to(json!(null));
-    assert_that!(snap["theme"]).is_equal_to(json!("pro"));
-    assert_that!(snap["dirty"]).is_equal_to(json!(true));
-}
-
-/// t-394 : reprise en mode pack, les sous-onglets de widgets reviennent.
-#[test]
-fn resume_in_pack_mode_returns_the_widget_tabs() {
-    let data = data_dir();
-    let mut a = resumed(&data);
-    a.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
-    a.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "widgets": ["_commun"], "widget": "_commun"})))
-        .unwrap();
-    drop(a);
-    let mut b = resumed(&data);
-    let ui = snapshot_json(&mut b)["ui"].clone();
-    assert_that!((ui["widgets"].clone(), ui["widget"].clone())).is_equal_to((json!(["_commun"]), json!("_commun")));
-}
-
-/// t-394 : modèles illisibles, la reprise revient au deck sans sous-onglets.
-#[test]
-fn resume_with_unreadable_pack_returns_no_widget_tabs() {
-    let data = data_dir();
-    let mut a = resumed(&data);
-    a.handle(req(json!({"cmd": "edit_pack", "pack": oku_slides_session::ESSENTIEL_PACK}))).unwrap();
-    a.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "widgets": ["_commun"], "widget": "_commun"})))
-        .unwrap();
-    drop(a);
-    std::fs::write(data.join("resume/pack/document.json"), b"pas du json").unwrap();
-    let mut b = resumed(&data);
-    assert_that!(snapshot_json(&mut b)["ui"]["widgets"].clone()).is_equal_to(json!([]));
 }
 
 /// t-145 : un deck illisible fait repartir d'un deck vierge ; l'ancien

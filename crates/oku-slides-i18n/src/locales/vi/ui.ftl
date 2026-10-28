@@ -30,6 +30,7 @@ ui-confirm-quit-read-only-theme = Không thể lưu { $theme } ở đây. Đóng
 ui-confirm-update-opener = Cập nhật “{ $deck }” lên phiên bản này của gói “{ $pack }”?
 ui-close-writes-pending = Thẻ này vẫn đang lưu: hãy đóng lại sau giây lát.
 ui-confirm-close-writes-pending = Thẻ này vẫn đang lưu. Vẫn đóng và mất những gì chưa được lưu?
+ui-confirm-close-writes-pending-linked = Thẻ này vẫn đang lưu, và các thẻ gói này sẽ đóng cùng nó mà chưa được lưu: { $tabs }. Vẫn đóng chúng và mất những gì chưa được lưu?
 ui-confirm-quit-read-only-pack = Không thể lưu { $pack } ở đây. Đóng thẻ này và mất các thay đổi của nó? Để giữ lại, hãy nhờ tác nhân AI lưu nó thành một gói mới.
 
 ## Thông báo

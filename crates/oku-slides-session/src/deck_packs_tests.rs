@@ -261,9 +261,9 @@ fn pack_make_current_unpinned_namespace_is_refused() {
 
 #[test]
 fn pack_make_current_is_refused_while_editing_pack() {
-    let (_me, _them, mut s, theirs, mine) = opened_on_newer();
-    let id = user_pack_id(&s);
-    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    let (me, _them, mut opener, theirs, mine) = opened_on_newer();
+    let id = user_pack_id(&opener);
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, me.path(), crate::pack::ESSENTIEL_PACK);
     let err = s.pack_make_current(PackKind::Widgets, &namespace_of_pack(&theirs)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
     assert_that!(s.library.current(id)).is_equal_to(Some(mine.version()));
@@ -333,8 +333,8 @@ fn deck_packs_relation_compares_the_pin_with_my_current_version(
 
 #[test]
 fn deck_packs_outside_deck_mode_is_refused() {
-    let mut s = session();
-    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let s = crate::test_support_packs::pack_tab_of(data.path(), crate::pack::ESSENTIEL_PACK);
     assert_that!(s.deck_packs().unwrap_err().kind()).is_equal_to(SessionErrorKind::EditingPack);
 }
 
@@ -353,8 +353,8 @@ fn pack_use_mine_switches_the_deck_and_undo_brings_theirs_back() {
 
 #[test]
 fn pack_use_mine_is_refused_while_editing_pack() {
-    let (_me, _them, mut s, theirs, _mine) = opened_on_newer();
-    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    let (me, _them, mut opener, theirs, _mine) = opened_on_newer();
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, me.path(), crate::pack::ESSENTIEL_PACK);
     let err = s.pack_use_mine(PackKind::Widgets, &namespace_of_pack(&theirs)).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
 }

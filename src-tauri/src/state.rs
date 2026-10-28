@@ -101,10 +101,28 @@ impl std::fmt::Debug for AppSessions {
 }
 
 impl Sessions for AppSessions {
+    /// A deck-pack forward that changed owner decks: the view is emitted, and
+    /// each owner's `after_change` deferred to a blocking task, never inline
+    /// (the stack calls this method).
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
         let (done, changed) = Workspace::with_session(&self.workspace, tab, |s| f(s));
         if changed {
             crate::windows::emit_view(&self.app);
+        }
+        let mut owners = Vec::new();
+        Workspace::drain_touched(
+            &self.workspace,
+            || crate::windows::emit_view(&self.app),
+            |o| owners.push(o.to_owned()),
+        );
+        if !owners.is_empty() {
+            let app = self.app.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let state = app.state::<AppState>();
+                for owner in &owners {
+                    state.stack.after_change(owner);
+                }
+            });
         }
         done
     }
@@ -125,7 +143,7 @@ impl Sessions for AppSessions {
         Ok(opened)
     }
 
-    /// Opens a pack for the agent; the windows follow a pack tab, the view a workshop.
+    /// Opens a pack for the agent; the windows follow a pack tab, the view one opened here.
     fn open_pack(
         &self,
         tab: &str,

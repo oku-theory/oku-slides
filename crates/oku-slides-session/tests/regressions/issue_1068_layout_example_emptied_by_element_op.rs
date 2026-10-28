@@ -29,7 +29,7 @@ fn current_example(data: &Path, layout: &str, param: &str) -> Option<Value> {
 fn issue_1068_removing_the_last_block_of_a_layout_keeps_its_example_slot_empty() {
     let data = data_dir();
     let mut s = session_in(&data);
-    s.edit_pack(ESSENTIEL_PACK).unwrap_or_else(|e| panic!("{e}"));
+    s.open_pack_tab_here(ESSENTIEL_PACK, None).unwrap_or_else(|e| panic!("{e}"));
     let remove: Op =
         serde_json::from_value(json!({ "op": "remove_element", "slide": "layout-content", "element": "b" }))
             .unwrap_or_else(|e| panic!("{e}"));

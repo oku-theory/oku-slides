@@ -1,5 +1,7 @@
 // Barre d'onglets : logique pure (places de dépôt, raccourcis, navigation).
 
+import type { TabInfo } from "./workspaceApi";
+
 /**
  * Place de dépôt (0 = avant le premier onglet), d'après le milieu de chaque onglet.
  *
@@ -21,6 +23,17 @@ export function cycle(tabs: string[], active: string, delta: number): string | u
   const i = tabs.indexOf(active);
   if (n === 0 || i < 0) return undefined;
   return tabs[(((i + delta) % n) + n) % n];
+}
+
+/**
+ * The tabs "close others" closes, in bar order: all but `keep` and, for a deck-pack tab, its owner.
+ *
+ * The owner's other deck-pack tabs close like any tab.
+ */
+export function othersToClose(tabs: TabInfo[], keep: string): string[] {
+  const kept = tabs.find((x) => x.id === keep)?.document;
+  const owner = kept?.kind === "deck_pack" ? kept.deck_tab : null;
+  return tabs.filter((x) => x.id !== keep && x.id !== owner).map((x) => x.id);
 }
 
 /** Onglet n (1 à 8) ; 9 : le dernier. */

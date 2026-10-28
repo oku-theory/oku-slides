@@ -141,8 +141,8 @@ fn edit_theme_with_an_invalid_token_is_refused_without_a_version() {
 #[test]
 fn edit_theme_is_refused_while_editing_pack() {
     let data = fresh_dir("oku-slides-deck-theme-edit-");
-    let mut s = session_with_theme(&data, PAPIER_THEME);
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let mut opener = session_with_theme(&data, PAPIER_THEME);
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), ESSENTIEL_PACK);
     let err = s.handle(Request::EditTheme { id: PAPIER_THEME, name: None, ops: vec![accent("#c0392b")] });
     assert_that!(err.unwrap_err().kind()).is_equal_to(SessionErrorKind::EditingPack);
 }

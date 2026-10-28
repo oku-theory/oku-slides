@@ -35,7 +35,7 @@ fn deck(path: Option<&str>, uid: Option<&str>) -> TabDocument {
 }
 
 fn info_of(document: TabDocument) -> TabInfo {
-    TabInfo { title: "t".to_owned(), dirty: false, pristine: false, editing_pack: false, theme: None, document }
+    TabInfo { title: "t".to_owned(), dirty: false, pristine: false, theme: None, document }
 }
 
 #[test]
@@ -65,7 +65,6 @@ fn layout_entry_without_document_with_editing_pack_stays_a_deck() {
     let mut entry = legacy(json!("/d/a.oku-slides.pdf"), json!("u-1"), Value::Null);
     entry["editing_pack"] = json!(true);
     let info = layout_of(&[entry]).take_info("t-1");
-    assert_that!(info.as_ref().map(|i| i.editing_pack)).is_equal_to(Some(true));
     assert_that!(info.map(|i| i.document)).is_equal_to(Some(deck(Some("/d/a.oku-slides.pdf"), Some("u-1"))));
 }
 
@@ -161,7 +160,7 @@ fn saved_layout_entry_carries_the_legacy_keys(
     #[case] help: Value,
 ) {
     let expected = json!({
-        "title": "t", "dirty": false, "pristine": false, "editing_pack": false, "theme": null,
+        "title": "t", "dirty": false, "pristine": false, "theme": null,
         "document": written, "path": path, "deck_uid": deck_uid, "help": help,
     });
     assert_that!(saved_entry(document)).is_equal_to(expected);

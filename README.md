@@ -107,7 +107,7 @@ adjusts the slides the witness flags (`[import] witness`) with the tools
 `[import] tune_iterations` (default 3) per slide, `tune_stall` (default 2) tries
 in a row without gain, and `tune_global` (default 3) for theme and pack changes,
 which change the whole deck.
-Hi-fi packs belong to the deck: the pack workshop edits them from the
+Hi-fi packs belong to the deck: their own tab, linked to the deck, edits them from the
 version the deck embeds and saves them in the deck, never in the library. The hi-fi
 import pins the Neutre theme and writes its generated tokens in the deck's `tokens`. A retrofit deck pins
 the library layout packs; a widget written for it goes to the deck's own packs, as in any deck.
@@ -198,10 +198,10 @@ deck's widget packs.
   content, end, blank; user packs in the `layouts/` folder of the app data). A new slide
   starts from the layout's example values. A pack does not depend on the theme: a deck
   picks its packs and its theme independently.
-- **Editing a pack** (ask the agent for the workshop): the deck is set aside and the pack opens as a
+- **Editing a pack** (ask the agent): the pack opens in its own tab, beside a preview of the deck, as a
   working deck, one slide per layout, seeded from its example; each edit on a slide is
   written to the layout's example at once (one undo step), and saving only saves the
-  pack's name and theme. Slides cannot be added, removed or moved there. A built-in pack is saved as a copy; “Done” brings the deck back.
+  pack's name. Slides cannot be added, removed or moved there. A built-in pack is saved as a copy; a deck-only pack's tab is linked to its deck; “Done” closes the tab.
 - **Themes**: a theme is a set of design tokens (colors, fonts, sizes, margins, components),
   versioned like packs. Papier, Pro and Neutre are built in (`typst/oku-slides/themes/*.json`);
   user themes go to the `themes/` folder of the app data. A theme has a namespace and an ordered

@@ -70,8 +70,9 @@ fn restore_label_uses_the_fluent_message() {
 
 #[test]
 fn history_open_in_pack_mode_returns_editing_pack() {
-    let mut s = session_in(data_dir().path());
-    s.handle(req(json!({ "cmd": "edit_pack", "pack": crate::ESSENTIEL_PACK }))).unwrap();
+    let data = data_dir();
+    let mut s = session_in(data.path());
+    s.open_pack_tab_here(crate::ESSENTIEL_PACK, None).unwrap();
     let err = s.handle(req(json!({ "cmd": "history_open" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
     assert_that!(matches!(s.mode, Mode::Pack { .. })).is_true();
@@ -102,7 +103,7 @@ fn history_unsaved_and_tab_info_see_the_stashed_deck() {
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     assert_that!(s.unsaved()).is_true();
     assert_that!(s.user_deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("papier"));
-    assert_that!(s.tab_info().editing_pack).is_false();
+    assert_that!(s.tab_info().document.deck_uid()).is_some();
 }
 
 /// Un onglet rouvert ne revient pas dans l'historique : la reprise garde le

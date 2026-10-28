@@ -55,7 +55,7 @@ impl Session {
         match &self.mode {
             // A theme tab's own document is the one its turns change.
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.sources.undo_steps(),
-            Mode::Pack { stash, .. } | Mode::History { stash, .. } => stash.sources.undo_steps(),
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => stash.sources.undo_steps(),
         }
     }
 

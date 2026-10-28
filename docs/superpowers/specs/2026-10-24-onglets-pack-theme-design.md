@@ -311,6 +311,26 @@ dropped (a notice when it differed). A theme tab whose theme or base is gone at 
 aside as unreadable. The UI's theme tab has a header (theme name, "Terminer"), autosaves while
 leased, and shows a "Thème" tab badge until lot 6's borders.
 
+**Implementation note (lot 5).** Decisions 1-15 of the lot-5 plan (2026-10-27) that amend this
+spec; ADR-0013 records them. The link is `TabDocument::DeckPack { deck_tab, pack }`, by pack uuid
+(not namespace), and the layout is its only persisted form; the owner keeps each link's state in
+memory, keyed by tab id, re-seeded at resume from the version it pins. `ReceiveDeckPack` is not a
+`Request`: the workspace calls the owner's session method `receive_deck_pack` with the tab's due
+send, which the owner validates against its own pins (scope, kind, namespace, expected parent,
+byte budget; a copy keeps the original's namespace and replaces its pins) and applies as one undo
+step per editing session (merge key `pack-adopt:<tab>`). Forwards block: the caller of a public
+call on the pack tab waits until the owner answers, one send in flight per tab, a busy owner
+(agent turn, history) parking it until its pull; the tab stays unsent, so not closable, until
+acknowledged. While linked, the owner refuses every change of that pack's pin (`PackOpenInTab`),
+and an undo or redo that would move it is taken back and refused (`UndoInPackTab`), the undo stop
+replacing "undo included" for steps made in the deck. Closing a deck flushes then closes its
+linked tabs; a close that takes linked tabs and would empty the workspace answers `LastWindow`,
+while a plain last tab closes as before. A deck tab saved in an old in-deck workshop (state version
+3, or 5 with host `deck`) reopens on its deck, `pack/` ignored, with a notice when its edits are
+lost; pack states are written without `host` and gain `unforwarded`. `EditPack`, `ClosePack`,
+`PackHost`, `TabInfo.editing_pack` and the in-deck workshop are removed; `Mode::Pack`'s deck is
+named `preview`. Single-document hosts open library pack tabs in place (`open_pack_tab_here`).
+
 ## Out of scope
 
 - Splitting `Session` into one type per kind (a possible later refactor).

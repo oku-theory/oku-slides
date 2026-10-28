@@ -1,4 +1,4 @@
-//! Resuming pack mode: a deck's workshop or a pack tab, checked against the library.
+//! Resuming a pack tab, checked against the library.
 //!
 //! `state.json` and the tab folder are untrusted. A pack tab's preview must
 //! hold no file, hash or asset; its `pack/` must be the pack the state names,
@@ -6,20 +6,23 @@
 //! built-in, scope) is recomputed; a session version that does not fit is
 //! cleared. A pack the library lost is restored orphaned (read-only); a
 //! lease held by another editor restores the tab read-only, never sets it
-//! aside. A pack tab that fails a check is set aside (`ResumeError::PackTab`);
-//! a workshop falls back to its deck. A state before version 5 held a theme
-//! draft in its working deck: that deck takes the user deck's style back, and
-//! a changed draft is said lost (`notice-theme-draft-dropped`).
+//! aside. A pack tab that fails a check is set aside (`ResumeError::PackTab`).
+//! A version-4 state held a theme draft in its working deck: that deck takes
+//! the user deck's style back, and a changed draft is said lost
+//! (`notice-theme-draft-dropped`). Workshops reopen on their deck (`resume_workshop.rs`).
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::ResultExt;
 
+use super::workshop::LegacyHost;
 use super::{
-    DECK_DIR, DocIn, EDITOR_STATE_VERSION, MAX_JSON_BYTES, PACK_DIR, PackTabSnafu, Result, Resume, SavedMode,
+    DECK_DIR, DocIn, MAX_JSON_BYTES, PACK_DIR, PACK_TAB_STATE_VERSION, PackTabSnafu, Result, Resume, SavedMode,
     SessionSnafu, State,
 };
 use crate::agent::bounds::label;
 use crate::deck_closure::combined_pins;
+use crate::deck_pack_tab::{SendBase, TabLink};
 use crate::deck_theme::manifest_of;
 use crate::error::SourcesSnafu;
 use crate::pack::PackManifest;
@@ -28,8 +31,35 @@ use crate::pack_mode::embed_reached_themes;
 use crate::pack_receive::is_library_pack;
 use crate::pack_scratch::PackScratch;
 use crate::theme_edit::{ThemeEdit, draft_differs};
-use crate::views::{PackHost, PackMode, UiState};
-use crate::{Document, Mode, PackLibrary, Session};
+use crate::views::{PackMode, UiState};
+use crate::{Document, Mode, PackLibrary, Session, TabDocument};
+
+/// A saved pack mode with what older versions and the outbox add.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct SavedPack {
+    /// The pack being edited.
+    #[serde(flatten)]
+    pub edit: PackMode,
+    /// The host an older state saved, read by `classify`; never written.
+    #[serde(default, rename = "host", skip_serializing)]
+    pub(super) legacy: Option<LegacyHost>,
+    /// The base of a deck-pack tab's save its owner had not acknowledged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unforwarded: Option<SendBase>,
+}
+
+impl SavedPack {
+    /// A pack state to write, from the live mode.
+    #[must_use]
+    pub(crate) fn new(edit: PackMode, unforwarded: Option<SendBase>) -> Self {
+        Self { edit, legacy: None, unforwarded }
+    }
+}
+
+/// The pack state `s` saves for `edit`.
+pub(super) fn saved_pack(s: &Session, edit: &PackMode) -> SavedPack {
+    SavedPack::new(edit.clone(), s.deck_pack_unforwarded())
+}
 
 /// What a saved `document.json` claims, read before the document itself.
 #[derive(Debug)]
@@ -42,22 +72,22 @@ pub(super) struct DocHeader {
     pub(super) assets: usize,
 }
 
-/// A pack state before version 5: its working deck had the theme draft as its style.
+/// A version-4 pack tab state: its working deck had the theme draft as its style.
 #[derive(Debug)]
 pub(super) struct Legacy {
     /// The draft it held, if the state named one.
     draft: Option<ThemeEdit>,
 }
 
-/// The legacy part of `state`: `None` from version 5 on.
+/// The legacy part of `state`: `Some` only for a version-4 pack tab state.
 pub(super) fn legacy_of(state: &State) -> Option<Legacy> {
-    (state.version < EDITOR_STATE_VERSION).then(|| Legacy { draft: state.theme_edit.clone() })
+    (state.version == PACK_TAB_STATE_VERSION).then(|| Legacy { draft: state.theme_edit.clone() })
 }
 
-/// What the library says of a resumed workshop's pack.
+/// What the library says of a resumed pack tab's pack.
 #[derive(Debug)]
 enum PackCheck {
-    /// A deck-only pack: today's path, no lease.
+    /// A deck-only pack of a deck-pack tab: no lease.
     DeckOnly,
     /// A library pack whose checks passed: lease it.
     Library,
@@ -94,6 +124,9 @@ pub(super) fn read_doc_header(resume: &Resume, dir: &str) -> Result<DocHeader> {
 
 /// Restores a pack tab from `state`: its preview, its pack, then pack mode.
 ///
+/// `cached` is the tab's document in `workspace.json`: a deck-pack tab's
+/// names its owner and pack (checked by `check_pack_doc`, fail closed).
+///
 /// # Errors
 ///
 /// `PackTab` for every inconsistency of the folder or the state; the tail's
@@ -102,9 +135,14 @@ pub(super) fn read_doc_header(resume: &Resume, dir: &str) -> Result<DocHeader> {
 /// # Blocking
 ///
 /// Reads the tab folder and the library, and renders.
-pub(super) fn restore_pack_tab(s: &mut Session, resume: &Resume, state: State) -> Result<()> {
+pub(super) fn restore_pack_tab(
+    s: &mut Session,
+    resume: &Resume,
+    state: State,
+    cached: Option<&TabDocument>,
+) -> Result<()> {
     let legacy = legacy_of(&state);
-    let State { mode: SavedMode::Pack(edit), ui, .. } = state else {
+    let State { mode: SavedMode::Pack(saved), ui, .. } = state else {
         return PackTabSnafu { reason: "not a pack tab state" }.fail();
     };
     // An early exit only: the loaded document is checked again below.
@@ -118,7 +156,7 @@ pub(super) fn restore_pack_tab(s: &mut Session, resume: &Resume, state: State) -
         PackTabSnafu { reason: "unreadable pack" }.build()
     })?;
     // A blob that does not match its key was dropped on reading: the base is then missing.
-    snafu::ensure!(pack_doc.sources.packs.contains_key(&edit.base), PackTabSnafu { reason: "base missing" });
+    snafu::ensure!(pack_doc.sources.packs.contains_key(&saved.edit.base), PackTabSnafu { reason: "base missing" });
     let preview = resume.read_doc(DECK_DIR, &s.doc_defaults, max, &s.registry).map_err(|e| {
         tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "aperçu de reprise illisible");
         PackTabSnafu { reason: "unreadable preview" }.build()
@@ -128,52 +166,57 @@ pub(super) fn restore_pack_tab(s: &mut Session, resume: &Resume, state: State) -
     let pins = combined_pins(preview.sources.deck());
     let (widgets, notice) = s.resolve_widgets(&pins, &preview.sources.packs).context(SessionSnafu)?;
     s.install_document(preview, widgets, notice).context(SessionSnafu)?;
-    s.finish_pack_restore(edit, pack_doc, legacy, ui)
+    s.finish_pack_restore(saved, pack_doc, legacy, ui, cached)
 }
 
 impl Session {
-    /// Pack mode resumed on `pack_doc` for `edit`, the current document set aside.
+    /// A pack tab resumed on `pack_doc` for `saved`, its preview set aside.
     ///
-    /// For both hosts: checked against the library (`check_pack_doc`), the
-    /// lease taken if free (`restore_lease`), a pack tab that never saved
-    /// freezing its base, a `legacy` working deck restyled, then the workshop rendered.
+    /// Checked against the library and `cached` (`check_pack_doc`), the
+    /// lease taken if free (`restore_lease`), a tab that never saved freezing
+    /// its base, a `legacy` working deck restyled, a deck-pack tab linked with
+    /// its unforwarded save due again (or `notice-deck-pack-unforwarded-lost`),
+    /// then rendered.
     ///
     /// # Errors
     ///
-    /// `PackTab` for a pack tab whose pack does not match; `Session`
-    /// (restyle, widgets, render, freezing).
+    /// `PackTab` when its pack does not match; `Session` (restyle, widgets,
+    /// render, freezing).
     ///
     /// # Blocking
     ///
     /// Reads the library and renders.
     pub(super) fn finish_pack_restore(
         &mut self,
-        mut edit: PackMode,
+        saved: SavedPack,
         mut pack_doc: Document,
         legacy: Option<Legacy>,
         ui: UiState,
+        cached: Option<&TabDocument>,
     ) -> Result<()> {
-        let check = self.check_pack_doc(&mut edit, &pack_doc);
+        let SavedPack { mut edit, unforwarded, .. } = saved;
+        let check = self.check_pack_doc(&mut edit, &pack_doc, cached, unforwarded.as_ref());
         if let PackCheck::Mismatch(reason) = check {
-            if edit.host == PackHost::Tab {
-                return PackTabSnafu { reason }.fail();
-            }
-            tracing::warn!(pack = %edit.pack, reason, "pack de reprise refusé : le deck est repris seul");
-            self.ui = ui.sanitized(false);
-            return Ok(());
+            return PackTabSnafu { reason }.fail();
         }
         let (lease, notice) = self.restore_lease(&edit, &check);
         // The library's bytes of the base, never `pack/`'s; a read-only tab freezes it later.
-        if let Some(lease) = lease.as_ref().filter(|_| edit.host == PackHost::Tab && edit.session_version.is_none()) {
+        if let Some(lease) = lease.as_ref().filter(|_| edit.session_version.is_none()) {
             self.freeze_base(lease, &edit.base).context(SessionSnafu)?;
         }
         let dropped = match legacy {
             Some(legacy) => self.restyle_legacy(&mut pack_doc, legacy.draft.as_ref()).context(SessionSnafu)?,
             None => false,
         };
-        let stash = std::mem::replace(&mut self.doc, pack_doc);
+        let preview = std::mem::replace(&mut self.doc, pack_doc);
         let orphaned = matches!(check, PackCheck::Orphaned);
-        self.mode = Mode::Pack { stash: Box::new(stash), edit, scratch: PackScratch::default(), lease, orphaned };
+        let link = cached.and_then(TabDocument::deck_tab).map(|owner| Box::new(TabLink::new(owner)));
+        let resent = unforwarded.filter(|_| link.is_some());
+        self.mode =
+            Mode::Pack { preview: Box::new(preview), edit, scratch: PackScratch::default(), lease, orphaned, link };
+        if let Some(base) = resent {
+            self.resend_unforwarded(base);
+        }
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
@@ -184,6 +227,27 @@ impl Session {
         self.rerender().context(SessionSnafu)?;
         self.ui = ui.sanitized(true);
         Ok(())
+    }
+
+    /// Makes a resumed deck-pack tab's unforwarded save due again, from its base's files.
+    ///
+    /// The files come from `pack/`, which `check_pack_doc` requires to hold
+    /// the base; an undo back to the parent leaves no session version but
+    /// keeps that base. A pack document that pins another version loses the
+    /// save: `notice-deck-pack-unforwarded-lost`, logged.
+    fn resend_unforwarded(&mut self, base: SendBase) {
+        let edited = match &self.mode {
+            Mode::Pack { edit, .. } => Some(edit.base.clone()),
+            _ => None,
+        };
+        let pinned = self.edited_pin().map(|(_, pin)| pin.version.clone());
+        let version = edited.filter(|v| pinned.as_ref() == Some(v));
+        if let Some(files) = version.and_then(|v| self.doc.sources.packs.get(&v).cloned()) {
+            self.resume_outbox(base, &files);
+        } else {
+            tracing::warn!(pack = %base.pack, "deck-pack tab resumed without its unforwarded save");
+            self.set_notice(self.localizer.tr("notice-deck-pack-unforwarded-lost"));
+        }
     }
 
     /// Gives a legacy working deck `doc` the user deck's style back; true if `draft` changed.
@@ -218,8 +282,17 @@ impl Session {
     /// Checks `pack_doc` against `edit` and the library; recomputes what the library knows.
     ///
     /// `edit`'s name, built-in and scope are recomputed, its session version
-    /// cleared unless it is the base and descends from the saved parent.
-    fn check_pack_doc(&self, edit: &mut PackMode, pack_doc: &Document) -> PackCheck {
+    /// cleared unless it is the base and descends from the saved parent. A
+    /// pack tab of a deck-only pack must be a deck-pack tab (`cached`) naming
+    /// that pack (the unforwarded save's base pack while there is one), and
+    /// a deck-pack tab a deck-only pack.
+    fn check_pack_doc(
+        &self,
+        edit: &mut PackMode,
+        pack_doc: &Document,
+        cached: Option<&TabDocument>,
+        unforwarded: Option<&SendBase>,
+    ) -> PackCheck {
         let packs = &pack_doc.sources.packs;
         let Some(base) = packs.get(&edit.base) else { return PackCheck::Mismatch("base missing") };
         let Ok(manifest) = PackManifest::from_files(base) else {
@@ -242,19 +315,27 @@ impl Session {
             return PackCheck::Mismatch("saved version of another pack");
         }
         let listed = self.library.current(edit.pack).is_some();
+        let deck_pack = match cached {
+            Some(TabDocument::DeckPack { pack, .. }) => Some(*pack),
+            _ => None,
+        };
         if !is_library_pack(base) {
-            if edit.host == PackHost::Tab {
-                return PackCheck::Mismatch(if listed {
-                    "deck-scoped base of a library pack"
-                } else {
-                    "deck-only pack in a pack tab"
-                });
-            }
             if listed {
                 return PackCheck::Mismatch("deck-scoped base of a library pack");
             }
+            match deck_pack {
+                None => return PackCheck::Mismatch("deck-only pack in a pack tab"),
+                Some(_) if !edit.deck_only => return PackCheck::Mismatch("deck-pack tab state not deck-only"),
+                Some(pack) if pack != unforwarded.map_or(edit.pack, |base| base.pack) => {
+                    return PackCheck::Mismatch("deck-pack tab of another pack");
+                }
+                Some(_) => clear_foreign_session_version(edit, saved_manifest),
+            }
             recompute(edit, &manifest, true);
             return PackCheck::DeckOnly;
+        }
+        if deck_pack.is_some() {
+            return PackCheck::Mismatch("library pack in a deck-pack tab");
         }
         if listed && self.library.kind_of(edit.pack) != edit.kind {
             return PackCheck::Mismatch("kind differs from the library");
@@ -271,11 +352,7 @@ impl Session {
         } else {
             PackCheck::Library
         };
-        let saved_parent = saved_manifest.and_then(Result::ok).map(|m| m.parent);
-        if saved.is_some() && (saved.as_ref() != Some(&edit.base) || saved_parent.as_ref() != Some(&edit.parent)) {
-            tracing::warn!(pack = %edit.pack, "version de séance reprise étrangère : la prochaine sera neuve");
-            edit.session_version = None;
-        }
+        clear_foreign_session_version(edit, saved_manifest);
         recompute(edit, &manifest, false);
         check
     }
@@ -293,10 +370,7 @@ impl Session {
             }
             PackCheck::Library => {
                 let Some(scope) = self.library.lease_scope() else { return (None, None) };
-                // Host `Deck`: the deck is the current document, not yet set aside.
-                let holder =
-                    if edit.host == PackHost::Tab { name.clone() } else { label(&self.document_name(&self.doc)) };
-                match PackLease::acquire(scope, edit.pack, &name, &holder) {
+                match PackLease::acquire(scope, edit.pack, &name, &name) {
                     Ok(lease) => (Some(lease), None),
                     Err(e) => {
                         if let Some(tab) = e.lease_holder() {
@@ -309,6 +383,18 @@ impl Session {
                 }
             }
         }
+    }
+}
+
+/// Clears `edit`'s session version unless it is the base and descends from the saved parent.
+///
+/// `saved_manifest` is the session version's manifest, read before.
+fn clear_foreign_session_version<E>(edit: &mut PackMode, saved_manifest: Option<std::result::Result<PackManifest, E>>) {
+    let saved_parent = saved_manifest.and_then(Result::ok).map(|m| m.parent);
+    let saved = edit.session_version.as_ref();
+    if saved.is_some() && (saved != Some(&edit.base) || saved_parent.as_ref() != Some(&edit.parent)) {
+        tracing::warn!(pack = %edit.pack, "version de séance reprise étrangère : la prochaine sera neuve");
+        edit.session_version = None;
     }
 }
 

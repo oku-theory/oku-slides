@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = 无法在此保存 { $theme }。要关闭此�
 ui-confirm-update-opener = 要将“{ $deck }”更新到包“{ $pack }”的此版本吗？
 ui-close-writes-pending = 此标签页仍在保存：请稍后再次关闭。
 ui-confirm-close-writes-pending = 此标签页仍在保存。仍要关闭并丢失尚未保存的内容吗？
+ui-confirm-close-writes-pending-linked = 此标签页仍在保存，以下包标签页将随之关闭且不会保存：{ $tabs }。仍要关闭并丢失尚未保存的内容吗？
 ui-confirm-quit-read-only-pack = 无法在此保存 { $pack }。要关闭此标签页并丢失其更改吗？若要保留，请让智能体将其另存为新包。
 
 ## 提示消息

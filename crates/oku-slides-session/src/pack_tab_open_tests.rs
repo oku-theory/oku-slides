@@ -4,17 +4,16 @@ use uuid::Uuid;
 
 use super::*;
 use crate::library::DraftWrite;
-use crate::test_support::{adopt_deck_only_pack, fresh_dir, rename_title, session_on, stash_of};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, preview_of, rename_title, session_on};
 use crate::test_support_packs::{
-    CARD_V2, adopting_deck, assert_unleased, draft_of, editing, opener_on, pack_tab_from, scope_of,
+    CARD_V2, adopting_deck, assert_unleased, draft_of, editing, opener_on, pack_tab_from, pack_tab_of, scope_of,
 };
 use crate::{BASE_PACK, Localize, SessionErrorKind};
 
-/// The opener of `init_pack_tab_preview_*`: a deck, a workshop or a pack tab.
+/// The opener of `init_pack_tab_preview_*`: a deck or a pack tab.
 #[derive(Debug, Clone, Copy)]
 enum Opener {
     Deck,
-    Workshop,
     PackTab,
 }
 
@@ -23,11 +22,6 @@ fn base_tab_from(kind: Opener, data: &std::path::Path) -> Session {
     let (mut s, _deck, acme) = opener_on(data);
     let mut opener = match kind {
         Opener::Deck => s,
-        Opener::Workshop => {
-            let d = adopt_deck_only_pack(&mut s);
-            s.edit_pack(d.id).unwrap();
-            s
-        }
         Opener::PackTab => pack_tab_from(&mut s, data, acme),
     };
     pack_tab_from(&mut opener, data, BASE_PACK)
@@ -38,7 +32,7 @@ fn init_pack_tab_edits_the_pack_in_a_tab() {
     let data = fresh_dir("oku-slides-open-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let t = pack_tab_from(&mut s, data.path(), acme);
-    assert_that!(editing(&t)).is_equal_to(Some((acme, PackHost::Tab)));
+    assert_that!(editing(&t)).is_equal_to(Some(acme));
     assert_that!(t.tab_info().document).is_equal_to(TabDocument::Pack { pack: acme });
     assert_that!(crate::pack_lease::pack_leased(&scope_of(&t), acme)).is_equal_to(Some("acme".to_owned()));
 }
@@ -49,29 +43,27 @@ fn init_pack_tab_preview_keeps_the_opener_theme_and_tokens() {
     let (mut s, _deck, acme) = opener_on(data.path());
     let (theme, tokens) = (s.deck().theme.clone(), s.deck().tokens.clone());
     let t = pack_tab_from(&mut s, data.path(), acme);
-    let preview = stash_of(&t).sources.deck();
+    let preview = preview_of(&t).sources.deck();
     assert_that!(preview.theme.as_ref().map(oku_slides_core::Namespace::as_str)).is_equal_to(Some("pro"));
     assert_that!((preview.theme.clone(), preview.tokens.clone())).is_equal_to((theme, tokens));
 }
 
 #[rstest]
 #[case::deck(Opener::Deck)]
-#[case::workshop(Opener::Workshop)]
 #[case::pack_tab(Opener::PackTab)]
 fn init_pack_tab_preview_has_no_broken_widget_notice(#[case] kind: Opener) {
     let data = fresh_dir("oku-slides-open-");
     let t = base_tab_from(kind, data.path());
-    assert_that!(stash_of(&t).notice.as_deref()).is_none();
+    assert_that!(preview_of(&t).notice.as_deref()).is_none();
 }
 
 #[rstest]
 #[case::deck(Opener::Deck)]
-#[case::workshop(Opener::Workshop)]
 #[case::pack_tab(Opener::PackTab)]
 fn init_pack_tab_preview_registry_holds_the_chart_kind(#[case] kind: Opener) {
     let data = fresh_dir("oku-slides-open-");
     let t = base_tab_from(kind, data.path());
-    let preview = &stash_of(&t).sources;
+    let preview = &preview_of(&t).sources;
     assert_that!(preview.deck().slide("s-1").and_then(|s| s.locate("c-1")).is_some()).is_true();
     assert_that!(preview.registry().get("base/chart").is_some()).is_true();
 }
@@ -90,7 +82,7 @@ fn init_pack_tab_preview_has_no_file_and_a_new_identity() {
     let (mut s, _deck, acme) = opener_on(data.path());
     let uid = s.doc.sources.replica().deck_uid();
     let t = pack_tab_from(&mut s, data.path(), acme);
-    let preview = stash_of(&t);
+    let preview = preview_of(&t);
     assert_that!((preview.path.is_none(), preview.saved_hash.is_none())).is_equal_to((true, true));
     assert_that!(preview.sources.replica().deck_uid()).is_not_equal_to(uid);
 }
@@ -100,9 +92,9 @@ fn init_pack_tab_preview_is_isolated_from_the_opener() {
     let data = fresh_dir("oku-slides-open-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let t = pack_tab_from(&mut s, data.path(), acme);
-    let title = stash_of(&t).sources.deck().params.title.clone();
+    let title = preview_of(&t).sources.deck().params.title.clone();
     s.apply("titre", vec![rename_title("Autre")], None).unwrap();
-    assert_that!(stash_of(&t).sources.deck().params.title.clone()).is_equal_to(title);
+    assert_that!(preview_of(&t).sources.deck().params.title.clone()).is_equal_to(title);
 }
 
 #[test]
@@ -120,9 +112,8 @@ fn init_pack_tab_preview_adopts_nothing() {
 fn init_pack_tab_freezes_its_base() {
     let data = fresh_dir("oku-slides-open-");
     let (mut s, _deck, acme) = opener_on(data.path());
-    // Another workshop leaves an unfrozen current draft, then goes without closing.
-    let mut other = session_on(data.path());
-    other.edit_pack(acme).unwrap();
+    // Another pack tab leaves an unfrozen current draft, then goes without closing.
+    let mut other = pack_tab_of(data.path(), acme);
     other.apply("x", vec![rename_title("acme 2")], None).unwrap();
     let draft = other.save_pack(false).unwrap();
     drop(other);
@@ -276,20 +267,11 @@ fn open_widget_tab_persists_the_sub_tab() {
 }
 
 #[test]
-fn open_pack_here_edits_in_place() {
-    let data = fresh_dir("oku-slides-open-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    s.open_pack_here(acme, Some("card")).unwrap();
-    assert_that!(editing(&s)).is_equal_to(Some((acme, PackHost::Deck)));
-    assert_that!(s.ui.widget.as_deref()).is_equal_to(Some("card"));
-}
-
-#[test]
-fn open_pack_here_in_a_pack_tab_is_refused() {
+fn enter_pack_in_a_pack_tab_is_refused() {
     let data = fresh_dir("oku-slides-open-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let mut t = pack_tab_from(&mut s, data.path(), acme);
-    let err = t.open_pack_here(BASE_PACK, None).unwrap_err();
+    let err = t.enter_pack(BASE_PACK, None, None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InPackTab);
-    assert_that!(editing(&t)).is_equal_to(Some((acme, PackHost::Tab)));
+    assert_that!(editing(&t)).is_equal_to(Some(acme));
 }

@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { closeFlowDeps, closeTabFlow } from "./closeFlow";
 import { isolate, setMessages } from "./i18n";
-import { OFFER, T0, deferred, fake, packEditing, snap, tabOf, themeTabOf, themeTabView } from "./test/closeFlowFake";
+import { OFFER, T0, deferred, fake, linkedOf, packEditing, snap, tabOf, themeTabOf, themeTabView } from "./test/closeFlowFake";
 import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -18,7 +18,7 @@ const ASK_UPDATE = "confirm Update “⁨Roadmap⁩” to this version of the pa
 const timeout = () => Promise.resolve("timeout" as const);
 
 describe("closeTabFlow, guards", () => {
-  test("runs the guard before freshTabs, mayClose and close", async () => {
+  test("runs the guard before freshView, mayClose and close", async () => {
     const f = fake([tabOf("a", true)]);
     expect(await closeTabFlow("a", f.deps())).toBe(true);
     const at = (s: string) => f.log.indexOf(s);
@@ -138,7 +138,7 @@ describe("closeTabFlow, guards", () => {
 
   test("a tab list read failure is reported and the tab stays", async () => {
     const f = fake([tabOf("a")]);
-    f.input.freshTabs = () => Promise.reject(new Error("vue"));
+    f.input.freshView = () => Promise.reject(new Error("vue"));
     expect(await closeTabFlow("a", f.deps())).toBe(false);
     expect(f.log).toEqual(["guard a", "report vue"]);
     expect(f.input.closing.size).toBe(0);
@@ -301,11 +301,109 @@ describe("closeTabFlow, the opener offer", () => {
     expect(f.log.slice(-3)).toEqual(["take t-1 p v2 d1", "report expirée", "refresh"]);
   });
 
+  test("closeTabFlow of a deck-pack tab offers no opener", async () => {
+    const f = fake([{ ...tabOf("a", true), document: { kind: "deck_pack", deck_tab: "t-1", pack: "p" } }]);
+    f.state.offer = OFFER;
+    f.state.snapshot = () => Promise.resolve(snap({ dirty: !!f.state.tabs[0]?.dirty, editing: packEditing({ deck_only: true }) }));
+    f.state.savePack = () => ((f.state.tabs = f.state.tabs.map((t) => ({ ...t, dirty: false }))), Promise.resolve(snap()));
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.filter((l) => l.startsWith("opener") || l.startsWith("close"))).toEqual(["close a false"]);
+  });
+
   test("a deck tab never asks packOpener", async () => {
     const f = fake([tabOf("a", true)]);
     f.state.offer = OFFER;
     await closeTabFlow("a", f.deps());
     expect(f.log.filter((l) => l.startsWith("opener"))).toEqual([]);
+  });
+});
+
+describe("closeTabFlow, linked deck-pack tabs", () => {
+  /** Owner `a` clean, its deck-pack tab `p`; `p`'s snapshot is unsent until a save delivers when `delivers`. */
+  const owned = (delivers: boolean) => {
+    const f = fake([tabOf("a"), linkedOf("p", "a", true)]);
+    let unsent = true;
+    const deckSnapshot = f.state.snapshot;
+    const packSave = f.state.savePack;
+    f.state.snapshot = (id) => (id === "p" ? Promise.resolve(snap({ editing: packEditing({ deck_only: true, unsent }) })) : deckSnapshot(id));
+    f.state.savePack = (id) => {
+      if (delivers) unsent = false;
+      return packSave(id);
+    };
+    return f;
+  };
+
+  test("closeTabFlow of a clean owner saves its unsent linked tab first", async () => {
+    const f = owned(true);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual([
+      "guard a", "fresh", "guard p", "snapshot p", "savePack p", "snapshot p", "fresh",
+      "snapshot a", "save a", "guard a", "fresh", "close a false",
+    ]);
+  });
+
+  test("closeTabFlow of an owner whose linked tab stays unsent asks ui-confirm-quit-pack", async () => {
+    const f = owned(false);
+    f.state.answers = [false];
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log.slice(-2)).toEqual(["snapshot p", ASK_QUIT]);
+  });
+
+  test("closeTabFlow of an owner whose linked tab stays unsent closes with discard on yes", async () => {
+    const f = owned(false);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.filter((l) => l.startsWith("close") || l.startsWith("confirm"))).toEqual([ASK_QUIT, "close a true"]);
+  });
+
+  test("closeTabFlow of an owner marks its linked tabs closing", async () => {
+    const f = owned(true);
+    let closing = false;
+    const save = f.state.savePack;
+    f.state.savePack = (id) => ((closing = f.input.closing.has("p")), save(id));
+    await closeTabFlow("a", f.deps());
+    expect(closing).toBe(true);
+  });
+
+  test("closeTabFlow of an owner that stops clears its linked tabs from closing", async () => {
+    const f = owned(false);
+    f.state.answers = [false];
+    await closeTabFlow("a", f.deps());
+    expect(f.input.closing.size).toBe(0);
+  });
+
+  test("closeTabFlow of an owner leaves a linked tab already closing alone", async () => {
+    const f = owned(false);
+    f.input.closing.add("p");
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.filter((l) => l.endsWith(" p"))).toEqual([]);
+    expect(f.input.closing.has("p")).toBe(true);
+  });
+
+  test("closeTabFlow of an owner saves a linked tab in another window without its guard", async () => {
+    const f = owned(true);
+    f.state.tabs = [tabOf("a")];
+    f.state.otherWindows = [{ label: "w-2", active: "p", tabs: [linkedOf("p", "a", true)] }];
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(0, 5)).toEqual(["guard a", "fresh", "snapshot p", "savePack p", "snapshot p"]);
+  });
+
+  test("closeTabFlow stalled twice on an owner names its dirty linked tabs", async () => {
+    const f = fake([tabOf("a"), linkedOf("p", "a", true), linkedOf("q", "a")]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    f.state.answers = [false];
+    expect(await closeTabFlow("a", f.deps())).toBe(false);
+    expect(f.log).toEqual([
+      "guard a", "fresh",
+      "confirm This tab is still saving, and these pack tabs close with it, unsaved: ⁨p⁩. Close them anyway and lose what has not been saved?",
+    ]);
+  });
+
+  test("closeTabFlow of a deck-pack tab whose snapshot fails tries savePack", async () => {
+    const f = fake([tabOf("a"), linkedOf("p", "a", true)]);
+    f.state.snapshot = () => Promise.reject(new Error("rendu"));
+    expect(await closeTabFlow("p", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard p", "fresh", "snapshot p", "report rendu", "fresh", "savePack p", "close p false"]);
   });
 });
 

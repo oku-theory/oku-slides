@@ -150,7 +150,7 @@ pub enum WorkspaceRequest {
         /// Numéro du choix traité ([`ImportPick::id`]).
         id: u64,
     },
-    /// Opens `pack` from tab `tab`, beside it or in its workshop.
+    /// Opens `pack` from tab `tab`, in its own tab beside it.
     OpenPack {
         /// The requesting tab.
         tab: String,

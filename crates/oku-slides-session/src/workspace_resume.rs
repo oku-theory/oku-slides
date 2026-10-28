@@ -24,9 +24,12 @@ use serde::{Deserialize, Serialize};
 
 use super::import_pick::is_pptx;
 use super::{
-    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, TABS_DIR, Tab, TabPlace, WindowLayout, Workspace,
+    Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, Slot, TABS_DIR, Tab, TabPlace, WindowLayout, Workspace,
     WorkspaceRequest, is_tab_id, is_window_label, number,
 };
+
+/// A window's layout with its accepted tabs and their saved info, before restoring.
+type Entry = (WindowLayout, Vec<(String, Option<TabInfo>)>);
 
 /// A tab's saved entry: the [`TabInfo`] plus the legacy keys of the previous release.
 ///
@@ -120,6 +123,8 @@ fn read_info(id: &str, mut raw: Value) -> Option<TabInfo> {
             path: path.filter(|p| valid_deck_path(id, p)),
             deck_uid: deck_uid.filter(|uid| valid_deck_uid(id, uid)),
         },
+        // Kept even with an invalid owner (not a tab id, its own id): the
+        // pre-pass of `restore` sets it aside, never reread as a pack tab.
         other => other,
     };
     info.title = label(&info.title);
@@ -208,9 +213,10 @@ impl Workspace {
         };
         let windows = std::mem::take(&mut file.layout.windows);
         let mut cited = HashSet::new();
-        let mut restored = HashSet::new();
         let mut labels = HashSet::new();
         let mut max_window = 0;
+        // Every entry first: a deck-pack tab is restored only once its owner is.
+        let mut entries: Vec<Entry> = Vec::new();
         for w in windows {
             // Une fenêtre refusée cite quand même ses onglets : leurs dossiers restent.
             let accepted = is_window_label(&w.label) && labels.insert(w.label.clone());
@@ -220,16 +226,20 @@ impl Workspace {
                 tracing::warn!(label = %w.label, "fenêtre de reprise refusée");
             }
             let mut tabs = Vec::new();
-            for id in w.tabs {
-                if !is_tab_id(&id) || !cited.insert(id.clone()) {
+            for id in &w.tabs {
+                if !is_tab_id(id) || !cited.insert(id.clone()) {
                     tracing::warn!(tab = %id, "onglet de reprise refusé");
                     continue;
                 }
-                if accepted && self.restore_tab(dir, &id, file.take_info(&id)) {
-                    restored.insert(id.clone());
-                    tabs.push(id);
+                if accepted {
+                    tabs.push((id.clone(), file.take_info(id)));
                 }
             }
+            entries.push((w, tabs));
+        }
+        let restored = self.restore_entries(dir, &mut entries);
+        for (w, tabs) in entries {
+            let tabs: Vec<String> = tabs.into_iter().map(|(id, _)| id).filter(|id| restored.contains(id)).collect();
             if tabs.is_empty() {
                 continue;
             }
@@ -268,6 +278,57 @@ impl Workspace {
         Ok(cited)
     }
 
+    /// Restores `entries`' tabs: every other tab first, then each deck-pack tab whose owner is a restored deck.
+    ///
+    /// The pre-pass sets aside a deck-pack entry whose owner is not a
+    /// restored tab of kind exactly `Deck`, or that repeats an earlier
+    /// `(deck_tab, pack)`: not restored, its folder kept (`kept`), and the
+    /// owner, or else the first restored tab, shows `notice-tab-resume-failed`
+    /// once it wakes. Returns the restored ids.
+    fn restore_entries(&mut self, dir: &Path, entries: &mut [Entry]) -> HashSet<String> {
+        let mut restored = HashSet::new();
+        let mut deck_packs = Vec::new();
+        for (id, info) in entries.iter_mut().flat_map(|(_, tabs)| tabs.iter_mut()) {
+            if let Some(TabDocument::DeckPack { deck_tab, pack }) = info.as_ref().map(|i| &i.document) {
+                deck_packs.push((id.clone(), deck_tab.clone(), *pack, info.take()));
+            } else if self.restore_tab(dir, id, info.take()) {
+                restored.insert(id.clone());
+            }
+        }
+        let mut seen = HashSet::new();
+        let mut set_aside = Vec::new();
+        for (id, deck_tab, pack, info) in deck_packs {
+            let owner_is_deck = restored.contains(&deck_tab)
+                && self.tabs.get(&deck_tab).is_some_and(|t| matches!(t.info.document, TabDocument::Deck { .. }));
+            if !owner_is_deck || !seen.insert((deck_tab.clone(), pack)) {
+                tracing::warn!(tab = %id, owner = %label(&deck_tab), "deck-pack tab set aside at resume: no owner deck, or a duplicate");
+                set_aside.push(deck_tab);
+                continue;
+            }
+            if self.restore_tab(dir, &id, info) {
+                restored.insert(id);
+            }
+        }
+        if let Some(owner) = set_aside.first() {
+            let first = entries.iter().flat_map(|(_, tabs)| tabs).map(|(id, _)| id).find(|id| restored.contains(*id));
+            let target = Some(owner).filter(|o| restored.contains(*o)).or(first).cloned();
+            self.leave_notice(target.as_deref(), "notice-tab-resume-failed");
+        }
+        restored
+    }
+
+    /// Leaves `key`'s notice on dormant tab `tab`, shown once it wakes; a tab already awake is logged.
+    fn leave_notice(&mut self, tab: Option<&str>, key: &str) {
+        let text = self.platform.localizer.tr(key);
+        let Some(t) = tab.and_then(|id| self.tabs.get(id)) else { return };
+        // Nothing else holds a slot while the workspace resumes: never waits.
+        if let Ok(Slot::Dormant(dormant)) = t.session.try_lock().as_deref_mut() {
+            dormant.notice = Some(text);
+        } else {
+            tracing::warn!(tab, "resume notice not left: the tab is awake");
+        }
+    }
+
     /// Reprend un onglet ; `false` : onglet retiré (sans dossier, ou illisible).
     ///
     /// Avec ses infos enregistrées, l'onglet dort : sa session ne sera relue
@@ -291,7 +352,7 @@ impl Workspace {
         if let Some(info) = info {
             let (fonts, platform) = (self.fonts.clone(), self.platform.clone());
             let (title, document) = (info.title.clone(), info.document.clone());
-            let dormant = Dormant { dir: tab_dir, title, document, fonts, platform };
+            let dormant = Dormant { dir: tab_dir, title, document, notice: None, fonts, platform };
             self.tabs.insert(id.to_owned(), Tab::dormant(info, dormant));
             return true;
         }

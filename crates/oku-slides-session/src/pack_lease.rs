@@ -1,7 +1,7 @@
 //! The marks of library packs and themes being edited, per library.
 //!
-//! A library pack is leased while one editor (a pack tab or a deck's
-//! workshop) edits it, a library theme while its theme tab is awake: nobody
+//! A library pack is leased while its pack tab edits it, a library theme
+//! while its theme tab is awake: nobody
 //! else writes it meanwhile. The registry is
 //! process-wide (`PACK_TABS`), keyed by the library's [`LeaseScope`] and the
 //! pack id, and stores the holder's label of record for refusals. It is a

@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 use crate::deck_packs::deck_packs_tests::{files, namespace_of_pack, opened_older_than_library, pin_op};
 use crate::deck_widgets::deck_widgets_tests::fixture_pack;
-use crate::pack::PackManifest;
 use crate::test_support::{fresh_dir, opened_on, session_on};
 use crate::{BASE_PACK, Request, Session};
 
@@ -41,16 +40,6 @@ fn pack_updates_history_restore_before_use_mine_counts_one_again() {
     s.history_seek(before).unwrap();
     s.history_restore().unwrap();
     assert_that!(s.pack_updates()).is_equal_to(1);
-}
-
-#[test]
-fn pack_updates_save_pack_of_the_older_pin_clears_it() {
-    let (_a, _b, mut s, theirs, _mine) = opened_older_than_library();
-    let id = PackManifest::from_files(&theirs).unwrap().id;
-    s.edit_pack(id).unwrap();
-    s.save_pack(false).unwrap();
-    s.close_pack().unwrap();
-    assert_that!(s.pack_updates()).is_equal_to(0);
 }
 
 #[test]

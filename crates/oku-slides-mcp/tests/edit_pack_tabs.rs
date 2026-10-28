@@ -7,12 +7,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use common::workspace_harness::{
-    ACME, BETA, activate, active_tab, open_pack_tab, start_in_pack_tab, start_on_workspace,
+    ACME, BETA, activate, active_tab, document_of, open_pack_tab, start_in_pack_tab, start_on_imported_workspace,
+    start_on_workspace,
 };
 use common::*;
 use oku_slides_i18n::Localizer;
 use oku_slides_mcp::McpEvent;
-use oku_slides_session::ESSENTIEL_PACK;
+use oku_slides_session::{ESSENTIEL_PACK, TabDocument, Workspace};
 use rstest::rstest;
 use rust_mcp_sdk::mcp_client::ClientRuntime;
 use rust_mcp_sdk::schema::CallToolResult;
@@ -126,17 +127,21 @@ async fn edit_pack_without_a_pack_in_a_pack_tab_stays_on_the_edited_pack() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_of_a_deck_only_pack_stays_in_this_tab() {
-    let h = start_imported("alto-wealth", hifi(), |_| {}).await;
+async fn edit_pack_of_a_deck_only_pack_opens_its_deck_pack_tab() {
+    let (h, ws) = start_on_imported_workspace("alto-wealth").await;
     let c = server(&h).await;
-    let pack = lock(&h.session)
-        .deck()
-        .layouts
-        .get(&oku_slides_core::Namespace::deck_layouts())
-        .map_or_else(|| panic!("pack du deck"), |p| p.id);
+    let pack = Workspace::with_session(&ws, "t-1", |s| {
+        s.deck().layouts.get(&oku_slides_core::Namespace::deck_layouts()).map(|p| p.id)
+    })
+    .0
+    .ok()
+    .flatten()
+    .unwrap_or_else(|| panic!("pack du deck"));
+    h.hub.begin_turn();
     let r = edit(&c, pack).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(json!({ "ok": true }).to_string());
+    let tab = json_of(&r)["tab"].as_str().map_or_else(|| panic!("un onglet : {r:?}"), str::to_owned);
+    assert_that!(document_of(&ws, &tab)).is_equal_to(Some(TabDocument::DeckPack { deck_tab: "t-1".to_owned(), pack }));
 }
 
 // --- one new tab per turn, only in a turn ----------------------------------------------------
@@ -188,11 +193,23 @@ async fn edit_pack_outside_a_turn_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn edit_pack_in_place_needs_no_turn() {
-    let h = start().await;
+    let h = start_pack_tab(ESSENTIEL_PACK).await;
     let c = server(&h).await;
     let r = call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     assert_that!(json_of(&r)).is_equal_to(json!({ "ok": true }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn start_pack_tab_edits_widgets_of_its_pack() {
+    let h = start_pack_tab(oku_slides_session::BASE_PACK).await;
+    let c = server(&h).await;
+    let r = call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let s = lock(&h.session);
+    let snap = s.snapshot();
+    let edited = snap.editing.as_ref().map(|e| (e.pack, e.session_version.is_some()));
+    assert_that!(edited).is_equal_to(Some((oku_slides_session::BASE_PACK, true)));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -288,7 +305,7 @@ async fn set_widget_after_edit_pack_opened_a_tab_is_allowed_next_turn() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_after_edit_pack_in_place_is_allowed() {
-    let h = start().await;
+    let h = start_pack_tab(ESSENTIEL_PACK).await;
     let c = server(&h).await;
     h.hub.begin_turn();
     let opened = call(&c, "edit_pack", json!({ "pack": ESSENTIEL_PACK })).await;
@@ -357,16 +374,6 @@ async fn edit_pack_on_a_real_workspace_in_a_turn_focuses_the_open_pack_tab() {
     let beta = edit(&c, BETA).await;
     assert_that!(beta.is_error).is_not_equal_to(Some(true));
     assert_that!(common::workspace_harness::tab_ids(&ws).len()).is_equal_to(3);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn close_pack_in_a_pack_tab_is_refused_for_the_agent() {
-    let (h, _ws, _tab) = start_in_pack_tab().await;
-    let c = server(&h).await;
-    let r = call(&c, "close_pack", json!({})).await;
-    assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-in-pack-tab"));
-    assert_that!(text_of(&r)).starts_with("Cet onglet édite un pack");
 }
 
 #[rstest]

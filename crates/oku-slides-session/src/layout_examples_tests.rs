@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use crate::Session;
 use crate::pack::ESSENTIEL_PACK;
-use crate::test_support::{fresh_dir, session, session_on};
+use crate::test_support::{fresh_dir, session_on};
 
 /// La valeur d'exemple `param` du layout `name` que montre `s` (mode pack).
 fn example(s: &Session, name: &str, param: &str) -> Option<Value> {
@@ -25,31 +25,31 @@ fn empty_content_title(s: &mut Session) {
 
 /// Le titre d'exemple d'Essentiel pour `content`, avant toute édition.
 fn initial_title() -> Option<Value> {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     example(&s, "content", "title")
 }
 
 #[test]
 fn apply_emptying_a_layout_text_writes_an_empty_example() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     empty_content_title(&mut s);
     assert_that!(example(&s, "content", "title")).is_equal_to(Some(json!("")));
 }
 
 #[test]
 fn set_example_values_emptying_a_layout_text_keeps_it_empty() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     s.set_example_values("content", Map::from_iter([("title".into(), json!(""))])).unwrap();
     assert_that!(example(&s, "content", "title")).is_equal_to(Some(json!("")));
 }
 
 #[test]
 fn undo_after_emptying_a_layout_text_brings_the_text_back() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     empty_content_title(&mut s);
     s.undo().unwrap();
     assert_that!(example(&s, "content", "title")).is_equal_to(initial_title());
@@ -57,8 +57,8 @@ fn undo_after_emptying_a_layout_text_brings_the_text_back() {
 
 #[test]
 fn redo_after_undoing_an_emptied_layout_text_empties_it_again() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     empty_content_title(&mut s);
     s.undo().unwrap();
     s.redo().unwrap();
@@ -67,8 +67,8 @@ fn redo_after_undoing_an_emptied_layout_text_empties_it_again() {
 
 #[test]
 fn apply_on_a_layout_slide_reseeds_the_slide_from_its_example() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     s.apply("Titre", vec![set_param("layout-content", "title", json!("Neuf"))], None).unwrap();
     let slide = s.deck().slide("layout-content").cloned().unwrap();
     assert_that!((slide.params.text("title"), example(&s, "content", "title")))
@@ -79,9 +79,9 @@ fn apply_on_a_layout_slide_reseeds_the_slide_from_its_example() {
 fn resume_after_emptying_a_layout_text_keeps_it_empty() {
     let data = fresh_dir("oku-slides-layout-examples-");
     let dir = fresh_dir("oku-slides-layout-examples-resume-");
-    let mut s = session_on(data.path());
+    let mut opener = session_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), ESSENTIEL_PACK);
     assert_that!(s.resume(dir.path().to_path_buf())).is_true();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
     empty_content_title(&mut s);
     s.flush_resume();
     drop(s);
@@ -92,19 +92,19 @@ fn resume_after_emptying_a_layout_text_keeps_it_empty() {
 
 #[test]
 fn save_and_reopen_after_emptying_a_layout_text_keeps_it_empty() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     empty_content_title(&mut s);
     s.save_pack(false).unwrap();
-    s.close_pack().unwrap();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    drop(s);
+    let s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     assert_that!(example(&s, "content", "title")).is_equal_to(Some(json!("")));
 }
 
 #[test]
 fn set_grid_on_a_layout_slide_writes_the_example_grid() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     let op = Op::SetGrid { slide: "layout-blank".into(), columns: Some(4), rows: None };
     s.apply("Grille", vec![op], None).unwrap();
     assert_that!(example(&s, "blank", "grid")).is_equal_to(Some(json!({ "columns": 4, "rows": 6 })));
@@ -112,8 +112,8 @@ fn set_grid_on_a_layout_slide_writes_the_example_grid() {
 
 #[test]
 fn undo_after_set_grid_on_a_layout_slide_restores_the_example() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     let before = example(&s, "blank", "grid");
     let op = Op::SetGrid { slide: "layout-blank".into(), columns: Some(4), rows: None };
     s.apply("Grille", vec![op], None).unwrap();
@@ -128,8 +128,8 @@ fn remove_element(slide: &str, element: &str) -> Op {
 
 #[test]
 fn remove_element_of_the_last_block_of_a_layout_keeps_an_empty_slot() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     s.apply("Retirer", vec![remove_element("layout-content", "b")], None).unwrap();
     assert_that!(example(&s, "content", "blocks")).is_equal_to(Some(json!([])));
 }
@@ -150,7 +150,7 @@ fn edit_items(change: Value) -> Op {
 #[test]
 fn edit_list_removing_the_last_item_of_a_layout_list_keeps_it_empty() {
     let data = fresh_dir("oku-slides-layout-examples-");
-    let (mut s, _) = crate::test_support::editing_layout_pack(data.path(), "acme", &["one"]);
+    let (mut s, _) = crate::test_support::layout_pack_tab(data.path(), "acme", &["one"]);
     s.set_widget(None, "liste", LIST_LAYOUT.into()).unwrap();
     s.apply("Ajouter", vec![edit_items(json!({ "op": "insert", "id": "x", "values": { "t": "deux" } }))], None)
         .unwrap();
@@ -160,8 +160,8 @@ fn edit_list_removing_the_last_item_of_a_layout_list_keeps_it_empty() {
 
 #[test]
 fn apply_setting_a_layout_text_then_emptying_it_in_one_batch_keeps_it_empty() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     let ops =
         vec![set_param("layout-content", "title", json!("Neuf")), set_param("layout-content", "title", json!(""))];
     s.apply("Titre", ops, None).unwrap();

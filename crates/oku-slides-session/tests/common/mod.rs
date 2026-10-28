@@ -138,6 +138,36 @@ pub fn add_user_theme(data: &std::path::Path, namespace: &str, extends: &[&str],
     themes.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("thème : {}", e.one_line()));
 }
 
+/// Adds a user widget pack named `name` (also its namespace) with one widget to the widget library under `data`: its id.
+#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+pub fn add_user_pack(data: &std::path::Path, name: &str) -> uuid::Uuid {
+    const WIDGET: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("quote", params: (body: p.rich()),
+  (args, ctx) => field(ctx, "body", emph(args.body)))
+"#;
+    let storage = oku_slides_session::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let library = oku_slides_session::PackLibrary::new(Some(data.join("widgets")), None, no_user_themes(), storage);
+    let manifest = oku_slides_session::PackManifest {
+        id: uuid::Uuid::new_v4(),
+        name: name.to_owned(),
+        namespace: ns(name),
+        requires: vec![],
+        description: String::new(),
+        parent: None,
+        created: "2026-10-22T10:00:00Z".to_owned(),
+        scope: oku_slides_session::PackScope::Library,
+        profiles: vec![],
+        examples: std::collections::BTreeMap::default(),
+        styles: std::collections::BTreeMap::default(),
+        tokens: vec![],
+    };
+    let quote = oku_slides_core::WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget invalide"));
+    let widgets = std::collections::BTreeMap::from([(quote, WIDGET.to_owned())]);
+    let files = manifest.to_files(oku_slides_core::PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("pack : {e}"));
+    library.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("pack : {}", e.one_line()));
+    manifest.id
+}
+
 /// Une bibliothèque de thèmes sans dossier : les seuls intégrés.
 #[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
 pub fn no_user_themes() -> oku_slides_session::ThemeLibrary {

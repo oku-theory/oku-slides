@@ -8,7 +8,7 @@ use speculoos::prelude::*;
 use super::PackOpened;
 use super::workspace_packs_fixtures::{Packs, forge_pack_entry, packs, packs_resumed, within};
 use crate::test_support::{add_pack, apply_ws, library_of, rename_title};
-use crate::test_support_packs::{CARD_V2, assert_unleased};
+use crate::test_support_packs::CARD_V2;
 use crate::workspace::relock;
 use crate::{BASE_PACK, Request, SessionErrorKind, Workspace};
 
@@ -75,22 +75,12 @@ fn closing_a_pack_tab_frees_the_lease() {
 }
 
 #[test]
-fn closing_a_deck_tab_in_its_workshop_frees_the_lease() {
-    let f = packs();
-    let w = f.new_tab();
-    Workspace::request(&f.ws, &w, Request::EditPack { pack: f.acme }).0.unwrap();
-    assert_that!(crate::pack_lease::pack_leased(&f.scope, f.acme)).is_some();
-    f.close(&w);
-    assert_unleased(&f.scope, f.acme);
-}
-
-#[test]
 fn stale_session_handle_of_a_closed_tab_cannot_write() {
     let f = packs();
     let p = f.pack_tab();
     let slot = Workspace::lock(&f.ws).session(&p).unwrap();
     f.close(&p);
-    let ready = relock(&slot).ready().map(|_| ()).map_err(|e| e.kind());
+    let ready = relock(&slot).ready_with_links(0, &[]).map(|_| ()).map_err(|e| e.kind());
     assert_that!(ready).is_equal_to(Err(SessionErrorKind::UnknownTab));
 }
 
@@ -223,7 +213,6 @@ enum Null {
     OpenerCurrent,
     NothingWritten,
     NewerElsewhere,
-    OpenerInWorkshop,
     OpenerIsPackTab,
 }
 
@@ -248,7 +237,6 @@ fn newer_elsewhere(f: &Packs, v: &PackVersion) {
 #[case::opener_current(Null::OpenerCurrent)]
 #[case::nothing_written(Null::NothingWritten)]
 #[case::newer_elsewhere(Null::NewerElsewhere)]
-#[case::opener_in_workshop(Null::OpenerInWorkshop)]
 #[case::opener_is_pack_tab(Null::OpenerIsPackTab)]
 fn pack_opener_is_null(#[case] why: Null) {
     let f = packs();
@@ -276,10 +264,6 @@ fn pack_opener_is_null(#[case] why: Null) {
         Null::NewerElsewhere => {
             let v = f.write_in(&p);
             newer_elsewhere(&f, &v);
-        }
-        Null::OpenerInWorkshop => {
-            f.write_in(&p);
-            Workspace::request(&f.ws, "t-1", Request::EditPack { pack: BASE_PACK }).0.unwrap();
         }
         Null::OpenerIsPackTab => {
             let Ok(PackOpened::Opened(q)) = f.open(&p, BASE_PACK, None) else { panic!("a pack tab of Base") };

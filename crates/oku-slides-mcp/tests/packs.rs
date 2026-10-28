@@ -3,7 +3,9 @@
 
 mod common;
 
-use common::{action, component_ids, last_surface, next_surface, start, start_with_library_widget_pack};
+use common::{
+    action, component_ids, last_surface, next_surface, start, start_pack_tab, start_with_library_widget_pack,
+};
 use oku_slides_a2ui::{ComponentKind, Dynamic, ServerBody};
 use oku_slides_mcp::HubErrorKind;
 use oku_slides_session::agent::Surface;
@@ -18,13 +20,6 @@ fn show(h: &common::Harness) -> bool {
 
 fn open(h: &common::Harness) -> bool {
     h.hub.surfaces().iter().any(|s| s.id == HOST_PACKS)
-}
-
-fn edit_essentiel(h: &common::Harness) {
-    tokio::task::block_in_place(|| {
-        h.session.lock().unwrap_or_else(|e| panic!("session : {e}")).edit_pack(ESSENTIEL_PACK)
-    })
-    .unwrap_or_else(|e| panic!("mode pack : {e}"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -85,15 +80,6 @@ async fn packs_dismiss_closes_the_panel() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn packs_panel_closes_when_pack_mode_starts() {
-    let h = start().await;
-    show(&h);
-    edit_essentiel(&h);
-    tokio::task::block_in_place(|| h.hub.prune());
-    assert_that!(open(&h)).is_false();
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn prune_without_change_emits_no_new_panel() {
     let h = start().await;
     show(&h);
@@ -119,8 +105,7 @@ async fn prune_after_an_outside_add_rebuilds_the_panel() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_packs_outside_deck_mode_shows_nothing() {
-    let h = start().await;
-    edit_essentiel(&h);
+    let h = start_pack_tab(ESSENTIEL_PACK).await;
     assert_that!((show(&h), open(&h))).is_equal_to((false, false));
 }
 

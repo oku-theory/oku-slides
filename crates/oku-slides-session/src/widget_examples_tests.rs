@@ -4,6 +4,7 @@ use speculoos::prelude::*;
 
 use crate::pack::{BASE_PACK, PackManifest};
 use crate::test_support::{fresh_dir, session_on};
+use crate::test_support_packs::pack_tab_of;
 use crate::widgets_edit::parse_name;
 use crate::{Request, Session, SessionErrorKind};
 
@@ -14,8 +15,7 @@ const KPI: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 /// Une session en édition du pack par défaut, avec le widget `kpi`.
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-examples-");
-    let mut s = session_on(data.path());
-    s.edit_pack(BASE_PACK).unwrap();
+    let mut s = pack_tab_of(data.path(), BASE_PACK);
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     (data, s)
 }
@@ -67,8 +67,8 @@ fn set_example_values_back_to_neutral_leaves_no_stored_values() {
 
 #[test]
 fn set_example_values_outside_pack_mode_is_refused() {
-    let (_d, mut s) = editing();
-    s.close_pack().unwrap();
+    let data = fresh_dir("oku-slides-examples-");
+    let mut s = session_on(data.path());
     let err = s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
 }
@@ -93,8 +93,8 @@ fn set_example_values_drops_a_stored_value_the_schema_no_longer_takes() {
 
 #[test]
 fn example_requests_outside_pack_mode_are_refused() {
-    let (_d, mut s) = editing();
-    s.close_pack().unwrap();
+    let data = fresh_dir("oku-slides-examples-");
+    let mut s = session_on(data.path());
     let req = json!({ "cmd": "set_example_value", "name": "kpi", "param": "value", "value": "12" });
     let err = s.handle(serde_json::from_value::<Request>(req).unwrap()).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::NotEditingPack);
@@ -138,18 +138,16 @@ fn snapshot_revision_is_a_safe_javascript_integer() {
 #[test]
 fn set_example_values_moves_the_deck_to_the_session_version_in_one_undo_step() {
     let data = fresh_dir("oku-slides-examples-");
-    let mut s = session_on(data.path());
-    let original = crate::test_support::pin(&s, "base");
-    s.edit_pack(BASE_PACK).unwrap();
+    let mut s = pack_tab_of(data.path(), BASE_PACK);
+    let original = crate::test_support::preview_pin(&s, "base");
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     let before = s.snapshot().editing.map(|e| e.base.clone()).unwrap();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
     let written = s.snapshot().editing.map(|e| e.base.clone()).unwrap();
     assert_that!(written).is_not_equal_to(&before);
-    s.close_pack().unwrap();
-    assert_that!(crate::test_support::pin(&s, "base").map(|r| r.version)).is_equal_to(Some(written));
-    s.undo().unwrap();
-    assert_that!(crate::test_support::pin(&s, "base")).is_equal_to(original);
+    assert_that!(crate::test_support::preview_pin(&s, "base").map(|r| r.version)).is_equal_to(Some(written));
+    crate::test_support::undo_preview(&mut s);
+    assert_that!(crate::test_support::preview_pin(&s, "base")).is_equal_to(original);
 }
 
 #[test]
@@ -191,10 +189,10 @@ fn save_pack_keeps_the_values() {
 
 #[test]
 fn values_survive_leaving_and_editing_again() {
-    let (_d, mut s) = editing();
+    let (d, mut s) = editing();
     s.set_example_values("kpi", values(json!({ "value": "12" }))).unwrap();
-    s.close_pack().unwrap();
-    s.edit_pack(BASE_PACK).unwrap();
+    drop(s);
+    let s = pack_tab_of(d.path(), BASE_PACK);
     assert_that!(value_of(&s, "kpi", "value")).is_equal_to(Some(json!("12")));
 }
 

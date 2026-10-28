@@ -268,29 +268,15 @@ mod views_tests;
 pub struct TabInfo {
     /// The deck's file name, else its title.
     pub title: String,
-    /// Unsaved work: the deck, or the pack being edited.
+    /// Unsaved work: the deck, the edited pack, or a save its owner has not taken.
     pub dirty: bool,
     /// A new deck never touched: opening a file replaces it.
     pub pristine: bool,
-    /// The tab edits a pack, in its own tab or a deck's workshop.
-    #[serde(default)]
-    pub editing_pack: bool,
     /// Id of the deck's theme: help opened from this tab takes it.
     #[serde(default)]
     pub theme: Option<uuid::Uuid>,
-    /// What the tab edits; a pack tab's comes from `PackMode.host`.
+    /// What the tab edits: a deck, a pack or a theme, read from its mode.
     pub document: TabDocument,
-}
-
-/// Where a pack is edited: its deck's workshop, or its own tab.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PackHost {
-    /// In the deck tab's workshop; the deck is set aside.
-    #[default]
-    Deck,
-    /// In its own tab, beside a preview deck.
-    Tab,
 }
 
 /// A pack being edited: a layout pack has one slide per layout, at its example value.
@@ -318,9 +304,6 @@ pub struct PackMode {
     ///
     /// Its versions stay in the deck, never in the library.
     pub deck_only: bool,
-    /// Where this pack is edited: its deck's workshop, or its own tab.
-    #[serde(default)]
-    pub host: PackHost,
 }
 
 /// Pack mode as the interface sees it: the edited pack and its lease flags.
@@ -335,6 +318,8 @@ pub struct EditingView<'a> {
     pub leased: bool,
     /// The edited pack's name, cleaned for titles and dialogs.
     pub display_name: String,
+    /// True while a deck-pack tab holds a save its owner deck has not acknowledged.
+    pub unsent: bool,
 }
 
 impl std::ops::Deref for EditingView<'_> {

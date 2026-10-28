@@ -56,15 +56,14 @@ impl Workspace {
     }
 
     /// The non-pristine tab holding the deck `uid` under a file other than
-    /// `path`, and its title; the oldest if there are several. A tab in pack
-    /// mode does not count (it would refuse the merge), nor does any tab that
-    /// is not a deck.
+    /// `path`, and its title; the oldest if there are several. Only deck tabs
+    /// count: a pack, theme or help tab has no deck identity.
     fn tab_of_deck(&self, uid: &str, path: &Path) -> Option<(String, String)> {
         self.tabs
             .iter()
             .filter(|(_, t)| {
                 let i = &t.info;
-                !i.pristine && !i.editing_pack && i.document.path() != Some(path) && i.document.deck_uid() == Some(uid)
+                !i.pristine && i.document.path() != Some(path) && i.document.deck_uid() == Some(uid)
             })
             .min_by_key(|(id, _)| number(id))
             .map(|(id, t)| (id.clone(), t.info.title.clone()))
@@ -93,13 +92,20 @@ impl Workspace {
 
     /// Pose un avis sur la session d'un onglet (relue si elle dormait), puis
     /// met ses infos à jour ; jamais sous le verrou de l'espace de travail.
+    ///
+    /// The session gets its deck-pack links first, like any acquisition.
     pub(super) fn post_notice(ws: &Mutex<Self>, id: &str, session: &Arc<Mutex<Slot>>, text: String) {
-        let info = relock(session).ready().map(|s| {
+        let (links, generation) = {
+            let w = Self::lock(ws);
+            (w.deck_links_of(id), w.layout_generation)
+        };
+        let info = relock(session).ready_with_links(generation, &links).map(|(s, refused)| {
             s.set_notice(text);
-            s.tab_info()
+            (s.tab_info(), refused)
         });
         match info {
-            Ok(info) => {
+            Ok((info, refused)) => {
+                Self::set_aside(ws, &refused);
                 Self::refresh(ws, id, info);
             }
             Err(e) => tracing::warn!(tab = %id, error = %e.one_line(), "avis non posé"),

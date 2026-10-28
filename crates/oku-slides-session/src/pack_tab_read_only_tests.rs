@@ -10,10 +10,10 @@ use crate::pack_library::{restore_session_version, write_session_version};
 use crate::resume::Resumed;
 use crate::test_support::{add_version, edit_of, fresh_dir, manifest_ns, rename_title, session_on};
 use crate::test_support_packs::{
-    CARD_V2, ReadOnly, delete_from_library, dormant_editor, draft_of, opener_on, pack_tab_from, read_only,
-    read_only_pack_tab, read_only_workshop, scope_of, snapshot_json, unfreeze,
+    CARD_V2, ReadOnly, delete_from_library, dormant_editor, draft_of, opener_on, pack_tab_from, read_only_pack_tab,
+    scope_of, snapshot_json, unfreeze,
 };
-use crate::{BASE_PACK, Localize, PackLibrary, Request, SessionErrorKind};
+use crate::{Localize, Request, SessionErrorKind};
 
 /// The versions of `pack` the library of `s` has.
 fn versions(s: &Session, pack: Uuid) -> Vec<PackVersion> {
@@ -60,27 +60,19 @@ fn try_edit(t: &mut Session, edit: Edit) -> crate::Result<()> {
 }
 
 #[rstest]
-#[case::tab_save_request(PackHost::Tab, Edit::SavePackRequest)]
-#[case::tab_save_method(PackHost::Tab, Edit::SavePackMethod)]
-#[case::tab_widget_request(PackHost::Tab, Edit::WidgetRequest)]
-#[case::tab_widget_by_agent(PackHost::Tab, Edit::WidgetByAgent)]
-#[case::tab_op_request(PackHost::Tab, Edit::OpRequest)]
-#[case::tab_op_method(PackHost::Tab, Edit::OpMethod)]
-#[case::tab_undo_request(PackHost::Tab, Edit::UndoRequest)]
-#[case::tab_undo_method(PackHost::Tab, Edit::UndoMethod)]
-#[case::tab_redo_method(PackHost::Tab, Edit::RedoMethod)]
-#[case::deck_save_request(PackHost::Deck, Edit::SavePackRequest)]
-#[case::deck_save_method(PackHost::Deck, Edit::SavePackMethod)]
-#[case::deck_widget_request(PackHost::Deck, Edit::WidgetRequest)]
-#[case::deck_widget_by_agent(PackHost::Deck, Edit::WidgetByAgent)]
-#[case::deck_op_request(PackHost::Deck, Edit::OpRequest)]
-#[case::deck_op_method(PackHost::Deck, Edit::OpMethod)]
-#[case::deck_undo_request(PackHost::Deck, Edit::UndoRequest)]
-#[case::deck_undo_method(PackHost::Deck, Edit::UndoMethod)]
-#[case::deck_redo_method(PackHost::Deck, Edit::RedoMethod)]
-fn read_only_pack_tab_refuses_every_edit(#[case] host: PackHost, #[case] edit: Edit) {
+#[case::save_request(Edit::SavePackRequest)]
+#[case::save_method(Edit::SavePackMethod)]
+#[case::widget_request(Edit::WidgetRequest)]
+#[case::widget_by_agent(Edit::WidgetByAgent)]
+#[case::op_request(Edit::OpRequest)]
+#[case::op_method(Edit::OpMethod)]
+#[case::undo_request(Edit::UndoRequest)]
+#[case::undo_method(Edit::UndoMethod)]
+#[case::redo_method(Edit::RedoMethod)]
+fn read_only_pack_tab_refuses_every_edit(#[case] edit: Edit) {
     let data = fresh_dir("oku-slides-read-only-");
-    let ReadOnly { mut tab, h, pack, holder: _holder, dir: _dir, deck_dir: _deck_dir } = read_only(data.path(), host);
+    let ReadOnly { mut tab, h, pack, holder: _holder, dir: _dir, deck_dir: _deck_dir } =
+        read_only_pack_tab(data.path());
     let (before, listed, current) = (snapshot_json(&tab), versions(&tab, pack), tab.library.current(pack));
     let err = try_edit(&mut tab, edit).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::PackOpenInTab);
@@ -116,8 +108,7 @@ enum Flags {
     AfterASave,
     Retaken,
     Orphaned,
-    DeckOnlyWorkshop,
-    WithoutDirs,
+    DeckPackTab,
     BaseFilesAbsent,
 }
 
@@ -149,23 +140,17 @@ fn editor_in(state: Flags, data: &std::path::Path) -> (Session, Vec<Box<dyn std:
             (tab, vec![Box::new(dir), Box::new(deck_dir)])
         }
         Flags::Orphaned => {
-            let dormant = dormant_editor(data, PackHost::Tab);
+            let dormant = dormant_editor(data);
             delete_from_library(data, dormant.pack);
             let mut tab = session_on(data);
             assert_that!(tab.resume_checked(dormant.dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
             (tab, vec![Box::new(dormant)])
         }
-        Flags::DeckOnlyWorkshop => {
-            let mut s = session_on(data);
-            let d = crate::test_support::adopt_deck_only_pack(&mut s);
-            s.edit_pack(d.id).unwrap();
-            (s, Vec::new())
-        }
-        Flags::WithoutDirs => {
-            let mut s = session_on(data);
-            s.library = PackLibrary::new(None, None, s.themes.clone(), s.storage.clone());
-            s.edit_pack(BASE_PACK).unwrap();
-            (s, Vec::new())
+        Flags::DeckPackTab => {
+            let mut owner = session_on(data);
+            let d = crate::test_support::adopt_deck_only_pack(&mut owner);
+            let t = crate::test_support_packs::deck_pack_tab_of(&mut owner, data, d.id);
+            (t, vec![Box::new(owner)])
         }
     }
 }
@@ -177,8 +162,7 @@ fn editor_in(state: Flags, data: &std::path::Path) -> (Session, Vec<Box<dyn std:
 #[case::after_a_save(Flags::AfterASave, (false, true))]
 #[case::retaken(Flags::Retaken, (false, true))]
 #[case::orphaned(Flags::Orphaned, (true, false))]
-#[case::deck_only_workshop(Flags::DeckOnlyWorkshop, (false, true))]
-#[case::without_dirs(Flags::WithoutDirs, (false, true))]
+#[case::deck_pack_tab(Flags::DeckPackTab, (false, true))]
 #[case::base_files_absent(Flags::BaseFilesAbsent, (true, false))]
 fn snapshot_reports_read_only_and_leased(#[case] state: Flags, #[case] expected: (bool, bool)) {
     let data = fresh_dir("oku-slides-read-only-");
@@ -227,8 +211,7 @@ fn read_only_pack_tab_freezes_its_base_when_it_takes_the_lease() {
     let base = edit_of(&t).base;
     assert_that!(t.resume_fresh(dir.path().to_path_buf())).is_true();
     drop(t);
-    let mut holder = session_on(data.path());
-    holder.edit_pack(acme).unwrap();
+    let holder = crate::test_support_packs::pack_tab_of(data.path(), acme);
     unfreeze(data.path(), acme, &base);
     let mut tab = session_on(data.path());
     assert_that!(tab.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
@@ -365,7 +348,7 @@ fn read_only_pack_tab_save_of_a_deleted_pack_is_unknown_pack() {
 
 /// A pack tab restored orphaned: `acme` was deleted while it was dormant.
 fn orphaned_tab(data: &std::path::Path) -> (Session, crate::test_support_packs::Dormant) {
-    let dormant = dormant_editor(data, PackHost::Tab);
+    let dormant = dormant_editor(data);
     delete_from_library(data, dormant.pack);
     let mut tab = session_on(data);
     assert_that!(tab.resume_checked(dormant.dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
@@ -406,23 +389,19 @@ fn pack_deleted_while_the_tab_is_awake_makes_it_read_only() {
 }
 
 #[test]
-fn resume_v3_deck_only_workshop_stays_writable() {
+fn resume_v5_deck_only_state_without_host_is_set_aside_as_a_pack_tab() {
     let data = fresh_dir("oku-slides-read-only-");
     let dir = fresh_dir("oku-slides-read-only-tab-");
-    let mut s = session_on(data.path());
+    let mut owner = session_on(data.path());
+    let d = crate::test_support::adopt_deck_only_pack(&mut owner);
+    let mut s = crate::test_support_packs::deck_pack_tab_of(&mut owner, data.path(), d.id);
     assert_that!(s.resume_fresh(dir.path().to_path_buf())).is_true();
-    let d = crate::test_support::adopt_deck_only_pack(&mut s);
-    s.handle(Request::EditPack { pack: d.id }).unwrap();
     s.flush_resume();
-    drop(s);
-    crate::test_support::edit_state(dir.path(), |state| {
-        assert_that!(state["mode"]["pack"].as_object_mut().and_then(|m| m.remove("host"))).is_some();
-    });
+    drop((s, owner));
+    crate::test_support::edit_state(dir.path(), |state| assert_that!(state["mode"]["pack"].get("host")).is_none());
+    // Without `host`, a version-5 state is a pack tab: a deck-only pack outside a deck-pack tab is refused.
     let mut back = session_on(data.path());
-    assert_that!(back.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Restored);
-    assert_that!((flags(&back), back.snapshot().notice.is_none())).is_equal_to(((false, true), true));
-    back.apply("x", vec![rename_title("importé 2")], None).unwrap();
-    back.save_pack(false).unwrap();
+    assert_that!(back.resume_checked(dir.path().to_path_buf(), None)).is_equal_to(Resumed::Unreadable);
 }
 
 #[test]
@@ -442,29 +421,6 @@ fn read_only_pack_tab_deletes_an_unrelated_pack() {
     add_version(&tab.library, &manifest_ns(other, "autre", &[]), &[]);
     tab.handle(Request::DeletePack { pack: other }).unwrap();
     assert_that!(tab.library.current(other)).is_none();
-}
-
-#[test]
-fn read_only_workshop_close_pack_returns_to_its_deck() {
-    let data = fresh_dir("oku-slides-read-only-");
-    let ReadOnly { mut tab, holder: _holder, dir: _dir, deck_dir: _deck_dir, pack: _pack, h: _h } =
-        read_only_workshop(data.path());
-    tab.handle(Request::ClosePack).unwrap();
-    assert_that!(matches!(tab.mode, Mode::Deck)).is_true();
-    assert_that!(tab.doc.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()))
-        .is_equal_to(Some(format!("opener{}", crate::EXTENSION)));
-}
-
-#[test]
-fn read_only_workshop_can_switch_pack() {
-    let data = fresh_dir("oku-slides-read-only-");
-    let ReadOnly { mut tab, holder: _holder, dir: _dir, deck_dir: _deck_dir, pack: _pack, h: _h } =
-        read_only_workshop(data.path());
-    tab.handle(Request::EditPack { pack: BASE_PACK }).unwrap();
-    assert_that!(
-        matches!(&tab.mode, Mode::Pack { edit, lease: Some(l), .. } if edit.pack == BASE_PACK && l.pack() == BASE_PACK)
-    )
-    .is_true();
 }
 
 #[test]

@@ -1,9 +1,11 @@
 use std::sync::{Arc, Mutex};
 
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::{PackGate, PackOpen, Sessions, TabSession};
 use crate::test_support::{fresh_dir, session, session_on};
+use crate::test_support_packs::pack_tab_of;
 
 #[derive(Debug)]
 struct Closed;
@@ -55,10 +57,27 @@ fn open_tab_defaults_to_single_document_for_a_single_session_host() {
 }
 
 #[test]
-fn single_document_host_opens_a_pack_in_place() {
+fn single_document_host_opens_its_own_pack_widget_here() {
     let data = fresh_dir("oku-slides-tabs-");
-    let host = Mutex::new(session_on(data.path()));
+    let host = Mutex::new(pack_tab_of(data.path(), crate::BASE_PACK));
+    let opened =
+        host.open_pack("t-1", crate::BASE_PACK, Some("card"), &mut |_| panic!("no gate in a single-document host"));
+    let s = host.lock().unwrap();
+    let here = (s.editing_view().map(|e| e.pack), s.ui.widget.clone());
+    assert_that!((opened.map_err(|e| e.kind()), here))
+        .is_equal_to((Ok(PackOpen::Here), (Some(crate::BASE_PACK), Some("card".to_owned()))));
+}
+
+/// A deck session, or a pack tab of another pack, opens no pack tab of its own.
+#[rstest]
+#[case::deck(None)]
+#[case::other_pack_tab(Some(crate::ESSENTIEL_PACK))]
+fn single_document_host_refuses_another_pack(#[case] edited: Option<uuid::Uuid>) {
+    let data = fresh_dir("oku-slides-tabs-");
+    let s = edited.map_or_else(|| session_on(data.path()), |pack| pack_tab_of(data.path(), pack));
+    let host = Mutex::new(s);
     let opened = host.open_pack("t-1", crate::BASE_PACK, None, &mut |_| panic!("no gate in a single-document host"));
     let editing = host.lock().unwrap().editing_view().map(|e| e.pack);
-    assert_that!((opened.map_err(|e| e.kind()), editing)).is_equal_to((Ok(PackOpen::Here), Some(crate::BASE_PACK)));
+    assert_that!((opened.map_err(|e| e.kind()), editing))
+        .is_equal_to((Err(crate::SessionErrorKind::SingleDocument), edited));
 }

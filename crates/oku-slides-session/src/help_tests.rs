@@ -138,18 +138,19 @@ fn help_resume_file_written_before_mode_help_still_loads_and_keeps_its_form() {
     assert_that!(written["help_theme"]).is_equal_to(json!(crate::PRO_THEME));
 }
 
-/// L'aide est un mode (t-489) : l'ouvrir pendant l'édition d'un pack est
-/// refusé, le deck mis de côté reste.
+/// Help is a mode (t-489): opening it while editing a pack is refused, and
+/// the pack tab's preview deck stays the opener's.
 #[test]
-fn open_help_while_editing_pack_is_refused_and_keeps_the_stashed_deck() {
+fn open_help_while_editing_pack_is_refused_and_keeps_the_preview_deck() {
     let data = data_dir();
-    let mut s = session_in(&data.0);
-    s.edit_pack(crate::ESSENTIEL_PACK).unwrap();
+    let mut opener = session_in(&data.0);
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, &data.0, crate::ESSENTIEL_PACK);
     let err = s.open_help("fr", None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
     assert_that!(s.snapshot().read_only).is_false();
-    assert_that!(s.close_pack()).is_ok();
+    assert_that!(s.editing_view().is_some()).is_true();
     assert_that!(s.tab_info().document.help_locale()).is_none();
+    assert_that!(crate::test_support::preview_of(&s).sources.deck()).is_equal_to(opener.deck());
 }
 
 #[test]
@@ -180,13 +181,6 @@ fn help_direct_merge_file_is_refused_as_read_only() {
 fn help_direct_history_open_is_refused_as_read_only() {
     let (_data, mut s) = help_session("fr");
     let err = s.history_open().unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
-}
-
-#[test]
-fn help_direct_edit_pack_is_refused_as_read_only() {
-    let (_data, mut s) = help_session("fr");
-    let err = s.edit_pack(crate::ESSENTIEL_PACK).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::ReadOnly);
 }
 

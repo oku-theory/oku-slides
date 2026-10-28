@@ -36,13 +36,13 @@ fn add_slide() -> Op {
         .unwrap()
 }
 
-/// A session of `kind` on `data`: a deck tab, a help tab, a workshop, or a theme tab on Papier.
+/// A session of `kind` on `data`: a deck tab, a help tab, a pack tab on Essentiel, or a theme tab on Papier.
 fn session_of(kind: DocumentKind, data: &std::path::Path) -> Session {
     let mut s = session_on(data);
     match kind {
         DocumentKind::Deck => {}
         DocumentKind::Help => s.open_help("fr", None).unwrap(),
-        DocumentKind::Pack => s.edit_pack(ESSENTIEL_PACK).unwrap(),
+        DocumentKind::Pack => s.open_pack_tab_here(ESSENTIEL_PACK, None).unwrap(),
         DocumentKind::Theme => s.open_theme_here(PAPIER_THEME).unwrap(),
     }
     s

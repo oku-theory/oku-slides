@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = { $theme } no se puede guardar aquí. ¿Cerrar
 ui-confirm-update-opener = ¿Actualizar «{ $deck }» a esta versión del paquete «{ $pack }»?
 ui-close-writes-pending = Esta pestaña aún está guardando: ciérrala de nuevo en un momento.
 ui-confirm-close-writes-pending = Esta pestaña aún está guardando. ¿Cerrarla de todos modos y perder lo que no se ha guardado?
+ui-confirm-close-writes-pending-linked = Esta pestaña aún está guardando, y estas pestañas de paquete se cierran con ella sin guardar: { $tabs }. ¿Cerrarlas de todos modos y perder lo que no se ha guardado?
 ui-confirm-quit-read-only-pack = { $pack } no se puede guardar aquí. ¿Cerrar esta pestaña y perder sus cambios? Para conservarlos, pide al agente que lo guarde como un paquete nuevo.
 
 ## Avisos

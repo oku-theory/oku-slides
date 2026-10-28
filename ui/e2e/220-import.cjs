@@ -1,9 +1,11 @@
 // PowerPoint import in the app: "Ouvrir" on a .pptx (alto) opens the import dialog; as a faithful copy
 // with fine-tuning, the imported tab opens and the fake agent plays its fine-tuning turn (import_report,
-// import_diff of slide 7, report); the workshop edits its deck-only layout pack, its theme is picked again
+// import_diff of slide 7, report); its deck-only layout pack is edited in a deck-pack tab linked to the
+// deck (saves forwarded to the deck, undo refused there while it is open), its theme is picked again
 // after Papier with its overrides kept, and opens in a theme tab ("Ouvrir" in "Packs du deck"), closed
-// without writing; then an import on my layouts (Essentiel by default, no agent). Writes: the imported
-// decks and their deck-only pack versions. Leaves: the imported tabs, no theme tab.
+// without writing; the deck's × closes its deck-pack tab with it; then an import on my layouts
+// (Essentiel by default, no agent). Writes: the imported decks and their deck-only pack versions.
+// Leaves: the retrofit tab, no pack, deck-pack or theme tab.
 // Against `oku-slides serve` started by `just e2e`: fake agent "Faux" chosen, its log in E2E_AGENT_LOG
 // (the MCP results are read there). The witness (office2pdf) really runs: long waits.
 const { chromium } = require('playwright');
@@ -13,6 +15,7 @@ const agentLog = require('./lib/agentLog.cjs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
 const { SLOW, until, untilValue } = require('./lib/until.cjs');
+const fs = require('node:fs/promises');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const LOG = process.env.E2E_AGENT_LOG;
 const ALTO = path.resolve(__dirname, '..', '..', 'fixtures', 'import', 'alto-wealth.pptx');
@@ -176,39 +179,79 @@ const noTurnSince = async (p, from, ms) => {
   };
   const overridesAtImport = await deckOverrides();
   assert.match(overridesAtImport, /^[1-9]\d* surcharges? du deck$/, `l'import n'écrit pas de jetons dans deck.tokens : « ${overridesAtImport} »`);
-  // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck, dans cet onglet (pack du deck seul).
-  assert.equal(await openAtelier(p, hifi), hifi, "l'atelier du pack du deck seul ne s'ouvre pas dans son onglet");
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing?.deck_only === true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
+  // L'atelier demandé à l'agent (t-988) ouvre le pack de layouts propre du deck dans un onglet lié au deck, juste après lui.
+  const tabsOf = async () => (await post(p, '/api/workspace', { cmd: 'view' })).windows[0];
+  const countBefore = (await tabsOf()).tabs.length;
+  const packTab = await openAtelier(p, hifi);
+  const opened = await tabsOf();
+  const order = (win) => win.tabs.map((t) => t.id);
+  assert.equal(opened.tabs.length, countBefore + 1, "l'atelier n'ouvre pas un onglet de plus");
+  assert.equal(opened.active, packTab, "l'onglet du pack n'est pas actif");
+  assert.equal(order(opened).indexOf(packTab), order(opened).indexOf(hifi) + 1, `l'onglet du pack n'est pas juste après l'onglet importé : ${order(opened)}`);
+  assert.deepEqual(opened.tabs.find((t) => t.id === packTab).document, { kind: 'deck_pack', deck_tab: hifi, pack: packBefore.id }, "l'onglet n'édite pas le pack du deck seul");
+  const editing = await api(p, packTab, { cmd: 'snapshot' });
+  assert.equal(editing.editing?.deck_only, true, "l'atelier ne s'ouvre pas sur le pack du deck seul");
   // A layouts pack: its layouts are its widgets. The first one, by its bare name, as open_pack takes it.
-  const firstLayout = (await api(p, hifi, { cmd: 'snapshot' })).pack_widgets[0].split('/').pop();
+  const firstLayout = editing.pack_widgets[0].split('/').pop();
   await p.locator('.brand-note', { hasText: 'Enregistré dans cette présentation seulement' }).waitFor();
   assert.match(await p.locator('.label .brand').textContent(), / · pack de layouts$/);
+  // The hifi layouts have no title parameter: the edit renames the pack. The autosave then forwards the version to the deck.
   await p.locator('.doc-name-button').click();
   await p.getByRole('textbox', { name: 'Titre de la présentation' }).fill('Alto (layouts)');
   await p.keyboard.press('Enter');
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).title === 'Alto (layouts)', "le pack n'est pas renommé");
-  // ✓ : l'enregistrement automatique part d'abord, puis le deck revient.
-  await p.getByRole('button', { name: 'Terminer' }).click();
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing === null, "l'atelier ne se ferme pas");
+  await until(p, async () => (await api(p, packTab, { cmd: 'snapshot' })).title === 'Alto (layouts)', "le pack n'est pas renommé");
+  const forwarded = await untilValue(
+    p,
+    async () => pinOf(await api(p, hifi, { cmd: 'snapshot' })),
+    (pin) => pin?.id === packBefore.id && pin.version !== packBefore.version,
+    "le deck n'épingle pas la version enregistrée dans l'onglet du pack",
+    SLOW,
+  );
+  // Back on the deck: it pins that version, the library has no new pack.
+  await post(p, '/api/workspace', { cmd: 'activate', tab: hifi });
+  await p.reload();
+  await p.waitForSelector('.stage img');
   const back = await api(p, hifi, { cmd: 'snapshot' });
   assert.ok(back.deck_pack, 'le pack enregistré reste propre au deck');
-  assert.equal(pinOf(back).id, packBefore.id);
-  assert.notEqual(pinOf(back).version, packBefore.version, 'le deck passe à la version enregistrée');
+  assert.deepEqual(pinOf(back), forwarded, 'le deck passe à la version enregistrée');
   assert.deepEqual(await library(), packsBefore, 'la bibliothèque ne change pas');
-
-  // Reopened by open_pack on one of its layouts: the workshop enters in this tab on that sub-tab; finishing it
-  // clean leaves the deck's pin unchanged.
-  const tabCount = (await post(p, '/api/workspace', { cmd: 'view' })).windows[0].tabs.length;
-  const reopened = await post(p, '/api/workspace', { cmd: 'open_pack', tab: hifi, pack: packBefore.id, widget: firstLayout });
-  assert.equal(reopened.windows?.[0].active, hifi, `open_pack quitte l'onglet importé : ${JSON.stringify(reopened).slice(0, 300)}`);
-  assert.equal(reopened.windows[0].tabs.length, tabCount, 'open_pack ouvre un onglet');
+  // An undo of the pack step in the deck is refused while the pack tab is open: the toast names the pack and the tab.
+  const packName = (await api(p, packTab, { cmd: 'snapshot' })).editing.name;
+  const tabTitle = (await tabsOf()).tabs.find((t) => t.id === packTab).title;
+  const fr = await fs.readFile(path.resolve(__dirname, '..', '..', 'crates', 'oku-slides-i18n', 'src', 'locales', 'fr', 'session.ftl'), 'utf8');
+  const template = fr.match(/^session-undo-in-pack-tab = (.*)$/m)?.[1];
+  assert.ok(template, 'session-undo-in-pack-tab absent de fr/session.ftl');
+  const refusal = template.replace('{ $pack }', packName).replace('{ $tab }', tabTitle);
+  await p.locator('.stage').click({ position: { x: 5, y: 5 } });
+  await p.keyboard.press('Control+z');
+  const toast = p.locator('.toast.error');
+  await toast.waitFor();
+  assert.equal((await toast.innerText()).replace(/[⁨⁩]/g, ''), refusal, "l'annulation n'est pas refusée par l'onglet du pack");
+  assert.deepEqual(pinOf(await api(p, hifi, { cmd: 'snapshot' })), forwarded, "l'annulation refusée change l'épingle");
+  // "Terminer" in the pack tab closes it, back on the deck; the pack step then undoes from the deck.
+  await post(p, '/api/workspace', { cmd: 'activate', tab: packTab });
   await p.reload();
-  const entered = await api(p, hifi, { cmd: 'snapshot' });
-  assert.equal(entered.editing?.deck_only, true, "l'atelier rouvert n'est pas celui du pack du deck seul");
-  assert.equal(entered.ui.widget, firstLayout, `le sous-onglet ${firstLayout} n'est pas ouvert`);
   await p.getByRole('button', { name: 'Terminer' }).click();
-  await until(p, async () => (await api(p, hifi, { cmd: 'snapshot' })).editing === null, "l'atelier rouvert ne se ferme pas");
-  assert.deepEqual(pinOf(await api(p, hifi, { cmd: 'snapshot' })), pinOf(back), "l'atelier rouvert change l'épingle du deck");
+  await until(p, async () => {
+    const win = await tabsOf();
+    return win.active === hifi && !win.tabs.some((t) => t.id === packTab);
+  }, "l'onglet du pack ne se ferme pas sur l'onglet importé");
+  await p.waitForSelector('.stage img');
+  await p.locator('.stage').click({ position: { x: 5, y: 5 } });
+  await p.keyboard.press('Control+z');
+  await until(p, async () => pinOf(await api(p, hifi, { cmd: 'snapshot' }))?.version === packBefore.version, "l'étape du pack ne s'annule pas depuis le deck");
+  await p.keyboard.press('Control+Shift+z');
+  await until(p, async () => pinOf(await api(p, hifi, { cmd: 'snapshot' }))?.version === forwarded.version, "l'étape du pack ne se refait pas");
+
+  // Reopened by the agent, then refocused by open_pack on one of its layouts: the same tab, no new one.
+  const reopenedTab = await openAtelier(p, hifi);
+  const tabCount = (await tabsOf()).tabs.length;
+  const refocused = await post(p, '/api/workspace', { cmd: 'open_pack', tab: hifi, pack: packBefore.id, widget: firstLayout });
+  assert.equal(refocused.windows?.[0].active, reopenedTab, `open_pack n'active pas l'onglet du pack : ${JSON.stringify(refocused).slice(0, 300)}`);
+  assert.equal(refocused.windows[0].tabs.length, tabCount, 'open_pack ouvre un onglet');
+  await post(p, '/api/workspace', { cmd: 'activate', tab: hifi });
+  await p.reload();
+  await p.waitForSelector('.stage img');
 
   // L'agent choisit le thème par l'op set_theme (t-988) : Papier, puis Neutre, sans perdre les jetons du deck.
   assert.equal(back.theme, 'neutre', "l'atelier garde le thème de l'import");
@@ -229,8 +272,8 @@ const noTurnSince = async (p, from, ms) => {
   const themeTab = await openThemeTab(p, hifi);
   const themed = await api(p, themeTab, { cmd: 'snapshot' });
   assert.deepEqual([themed.theming?.theme.namespace, themed.theming?.theme.base.id], ['neutre', repicked.theme_pins.neutre.id], "l'onglet de thème n'édite pas Neutre");
-  const order = (await post(p, '/api/workspace', { cmd: 'view' })).windows[0].tabs.map((t) => t.id);
-  assert.equal(order.indexOf(themeTab), order.indexOf(hifi) + 1, `l'onglet de thème n'est pas juste après l'onglet importé : ${order}`);
+  const themeOrder = order(await tabsOf());
+  assert.equal(themeOrder.indexOf(themeTab), themeOrder.indexOf(hifi) + 1, `l'onglet de thème n'est pas juste après l'onglet importé : ${themeOrder}`);
   await p.getByRole('button', { name: 'Terminer' }).click();
   await until(p, async () => {
     const win = (await post(p, '/api/workspace', { cmd: 'view' })).windows[0];
@@ -239,6 +282,19 @@ const noTurnSince = async (p, from, ms) => {
   await closePacksPanel(p);
   assert.deepEqual((await api(p, hifi, { cmd: 'snapshot' })).theme_pins, repicked.theme_pins, "l'onglet de thème change les épingles du deck");
   assert.deepEqual(repicked.themes, onPapier.themes, 'la bibliothèque des thèmes ne change pas');
+
+  // Closing the deck by its × closes its deck-pack tab with it; the dirty deck saves silently to its file.
+  // Dirtied over HTTP with no reload: the App never sees it dirty, so only the close saves it.
+  await setTheme('papier');
+  const savedAt = (await fs.stat(hifiTab.document.path)).mtimeMs;
+  const bar = await tabsOf();
+  assert.ok(bar.tabs.some((t) => t.id === reopenedTab), "l'onglet du pack rouvert n'est plus là");
+  await p.locator('[role="tab"]').nth(order(bar).indexOf(hifi)).locator('.tab-close').click();
+  await until(p, async () => {
+    const win = await tabsOf();
+    return !win.tabs.some((t) => t.id === hifi || t.id === reopenedTab);
+  }, "l'onglet importé et son onglet de pack ne se ferment pas ensemble");
+  assert.ok((await fs.stat(hifiTab.document.path)).mtimeMs > savedAt, "le deck fermé n'est pas enregistré dans son fichier");
 
   // 2. Sur mes layouts : Essentiel coché par défaut, le thème du pack, sans agent.
   const second = await openImport(p, ALTO);

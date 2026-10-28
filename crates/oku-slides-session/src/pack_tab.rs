@@ -1,12 +1,12 @@
 //! Pack tabs: a library pack edited in its own tab, beside a preview deck.
 //!
-//! Opening a pack from a tab is routed first (`route_pack`): a deck-only
-//! pack's workshop is entered in place, as today; a library pack opens a pack
-//! tab, whose session is built fresh and turned into one (`init_pack_tab`)
-//! from a copy of the opener's deck (`take_preview`). The preview carries the
+//! Opening a pack from a tab is routed first (`route_pack`): a library pack
+//! opens a pack tab, whose session is built fresh and turned into one
+//! (`init_pack_tab`) from a copy of the opener's deck (`take_preview`); a
+//! deck-only pack of a deck opens a deck-pack tab linked to it (`DeckTab`). The preview carries the
 //! deck's value, the pack and theme versions its pins reach and its fonts —
 //! no file, no identity, no assets — and never adopts anything. The pack
-//! tab's `Mode::Pack` has host `Tab` and holds the pack's lease.
+//! tab's `Mode::Pack` holds the pack's lease.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -19,12 +19,12 @@ use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle};
 use crate::agent::bounds::label;
 use crate::deck_closure::{combined_pins, pinned_versions};
 use crate::error::{
-    DeckOnlySnafu, InPackTabSnafu, NotEditingPackSnafu, PackTabNotFreshSnafu, PackVersionMissingSnafu, SourcesSnafu,
-    UnknownWidgetSnafu,
+    DeckOnlySnafu, InPackTabSnafu, NotEditingPackSnafu, PackTabNotFreshSnafu, PackVersionMissingSnafu,
+    SingleDocumentSnafu, SourcesSnafu, UnknownWidgetSnafu,
 };
 use crate::pack_lease::{LeaseScope, PackLease};
 use crate::pack_receive::is_library_pack;
-use crate::views::{MAX_WIDGET_TABS, PackHost};
+use crate::views::MAX_WIDGET_TABS;
 use crate::widgets_edit::parse_name;
 use crate::{Document, Mode, Result, Session, TabDocument, TabInfo};
 
@@ -54,16 +54,18 @@ impl std::fmt::Debug for PreviewSeed {
 /// Where opening a pack from this tab goes.
 #[derive(Debug)]
 pub(crate) enum PackRoute {
-    /// Done here: the workshop entered, or a sub-tab of the edited pack opened.
-    Here {
-        /// True when a deck-only pack's workshop was entered.
-        entered: bool,
-    },
+    /// Done here: this tab edits the pack; its sub-tab opened, if one was named.
+    Here,
     /// A library pack: open a pack tab; nothing changed here yet.
     Tab {
         /// The lease scope of this session's library.
         scope: LeaseScope,
         /// The pack's name, as a label.
+        name: String,
+    },
+    /// A deck-only pack of this deck: its own tab, linked to it.
+    DeckTab {
+        /// The pack's name, cleaned with `label`.
         name: String,
     },
 }
@@ -101,49 +103,64 @@ impl Session {
     /// True when this session is a pack tab.
     #[must_use]
     pub(crate) fn is_pack_tab(&self) -> bool {
-        matches!(&self.mode, Mode::Pack { edit, .. } if edit.host == PackHost::Tab)
+        matches!(self.mode, Mode::Pack { .. })
     }
 
-    /// Routes opening `pack` from this tab; enters a deck-only workshop here.
+    /// True for a pristine, file-less deck tab.
     ///
-    /// Changes nothing unless it enters a deck-only pack's workshop, or opens
-    /// a sub-tab of the pack this tab edits.
+    /// Only such a tab may become a pack or theme tab.
+    #[must_use]
+    pub(crate) fn is_fresh(&self) -> bool {
+        matches!(self.mode, Mode::Deck) && self.doc.path.is_none() && self.tab_info().pristine
+    }
+
+    /// Routes opening `pack` from this tab (decision 10's table).
+    ///
+    /// A deck tab opens a library pack in a pack tab, and a deck-only pack it
+    /// pins in a deck-pack tab; a pack tab opens its own pack's widget here,
+    /// another library pack in a pack tab, and refuses another deck-only one.
+    /// Without a lease scope (single-document host) a pack opens nowhere but in
+    /// the tab already editing it. Changes nothing unless it opens a sub-tab of
+    /// the pack this tab edits.
     ///
     /// # Errors
     ///
-    /// `ReadOnly`, `InHistory`, `UnknownPack`, `DeckOnly`, `UnknownWidget`, `InPackTab`.
+    /// `ReadOnly`, `InHistory`, `UnknownPack`, `DeckOnly`, `UnknownWidget`,
+    /// `InPackTab`, `SingleDocument` for a library pack without a lease scope.
     ///
     /// # Blocking
     ///
-    /// Reads the library index; renders when it enters a workshop.
+    /// Reads the library index; persists when it opens a sub-tab.
     pub(crate) fn route_pack(&mut self, pack: Uuid, widget: Option<&str>) -> Result<PackRoute> {
         self.ensure_editable()?;
         let stored = self.pack_base(pack)?;
         if let Some(w) = widget {
             ensure!(has_widget(&stored.files, w)?, UnknownWidgetSnafu { name: label(w) });
         }
-        let scope = self.library.lease_scope().filter(|_| is_library_pack(&stored.files)).cloned();
+        let has_scope = self.library.lease_scope().is_some();
+        let deck_only = !is_library_pack(&stored.files);
+        let scope = self.library.lease_scope().filter(|_| !deck_only).cloned();
         let tab = scope.map(|scope| PackRoute::Tab { scope, name: label(&stored.manifest.name) });
         let edited = match &self.mode {
-            Mode::Pack { edit, .. } => Some((edit.pack == pack, edit.host)),
+            Mode::Pack { edit, .. } => Some(edit.pack == pack),
             // A theme tab opens no pack in place.
             Mode::Theme { .. } => return crate::document_kind::refused_in_theme_tab(),
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } => None,
         };
         match (edited, tab) {
-            (Some((true, _)), _) => {
+            (Some(true), _) => {
                 if let Some(w) = widget {
                     self.open_widget_tab(w)?;
                 }
-                Ok(PackRoute::Here { entered: false })
+                Ok(PackRoute::Here)
             }
             (_, Some(route)) => Ok(route),
-            // A pack tab never enters a deck-only workshop: that opens from its deck's tab.
-            (Some((false, PackHost::Tab)), None) => InPackTabSnafu.fail()?,
-            (Some((false, PackHost::Deck)) | None, None) => {
-                self.enter_here(pack, widget)?;
-                Ok(PackRoute::Here { entered: true })
-            }
+            // A pack tab never opens another deck-only pack: that opens from its deck's tab.
+            (Some(false), None) => InPackTabSnafu.fail()?,
+            (None, None) if deck_only && has_scope => Ok(PackRoute::DeckTab { name: label(&stored.manifest.name) }),
+            (None, None) if deck_only => DeckOnlySnafu { id: pack }.fail()?,
+            // No lease scope: no tab to open a library pack in.
+            (None, None) => SingleDocumentSnafu.fail()?,
         }
     }
 
@@ -161,6 +178,22 @@ impl Session {
         let stored = self.pack_base(pack)?;
         let routes_to_tab = self.library.lease_scope().is_some() && is_library_pack(&stored.files);
         ensure!(routes_to_tab, DeckOnlySnafu { id: pack });
+        self.preview_seed()
+    }
+
+    /// The seed of a preview deck copied from this deck.
+    ///
+    /// The deck's widget session ends first, so its draft is frozen.
+    ///
+    /// # Errors
+    ///
+    /// `ReadOnly`, `InHistory` and the other refusals of `ensure_editable`.
+    ///
+    /// # Blocking
+    ///
+    /// Freezes the widget draft in the library.
+    pub(crate) fn preview_seed(&mut self) -> Result<Box<PreviewSeed>> {
+        self.ensure_editable()?;
         if matches!(self.mode, Mode::Deck) {
             // The deck's draft is frozen before it is copied.
             self.end_widget_session();
@@ -175,31 +208,10 @@ impl Session {
         Ok(Box::new(PreviewSeed { deck, packs, themes, fonts: blobs.fonts.clone() }))
     }
 
-    /// Enters `pack`'s workshop in this tab, then opens `widget` there.
-    ///
-    /// The notice `edit_pack` set stays for the next snapshot.
-    ///
-    /// # Errors
-    ///
-    /// As `edit_pack`, and `open_widget_tab`'s.
-    ///
-    /// # Blocking
-    ///
-    /// As `edit_pack`.
-    fn enter_here(&mut self, pack: Uuid, widget: Option<&str>) -> Result<()> {
-        self.end_widget_session();
-        self.edit_pack(pack)?;
-        self.persist(true);
-        if let Some(w) = widget {
-            self.open_widget_tab(w)?;
-        }
-        Ok(())
-    }
-
     /// Turns this freshly built session into a pack tab on `pack`.
     ///
-    /// The preview is installed from `seed` (never adopting), then the
-    /// workshop entered with `lease`. Resume is turned on by the caller.
+    /// The preview is installed from `seed` (never adopting), then pack mode
+    /// entered with `lease`. Resume is turned on by the caller.
     ///
     /// # Errors
     ///
@@ -207,7 +219,7 @@ impl Session {
     ///
     /// # Blocking
     ///
-    /// Resolves the preview's widgets and renders the workshop.
+    /// Resolves the preview's widgets and renders the working deck.
     pub(crate) fn init_pack_tab(
         &mut self,
         seed: PreviewSeed,
@@ -215,35 +227,55 @@ impl Session {
         pack: Uuid,
         widget: Option<&str>,
     ) -> Result<()> {
-        let fresh = matches!(self.mode, Mode::Deck) && self.doc.path.is_none() && self.tab_info().pristine;
-        ensure!(fresh, PackTabNotFreshSnafu);
-        let PreviewSeed { deck, packs, themes, fonts } = seed;
-        let (widgets, notice) = self.resolve_widgets(&combined_pins(&deck), &packs)?;
-        let mut sources = SourceBundle::new(deck, Arc::clone(&widgets.registry)).context(SourcesSnafu)?;
-        (sources.packs, sources.themes, sources.fonts) = (packs, themes, fonts);
-        let doc = Document { blank: false, dirty: false, ..Document::new(sources, None, &self.doc_defaults) };
-        self.install_document(doc, widgets, notice)?;
-        self.enter_pack(pack, PackHost::Tab, Some(lease))?;
+        self.install_preview(seed)?;
+        self.enter_pack(pack, Some(lease), None)?;
         if let Some(w) = widget {
             self.open_widget_tab(w)?;
         }
         Ok(())
     }
 
-    /// Opens `pack` in this session, for a host without tabs.
+    /// Installs `seed` as the document of this fresh session, never adopting.
     ///
     /// # Errors
     ///
-    /// The `route_pack` and `edit_pack` errors; `InPackTab` in a pack tab.
+    /// `PackTabNotFresh` unless this session is a pristine deck tab; `Sources`
+    /// and the widget resolution errors.
     ///
     /// # Blocking
     ///
-    /// As `edit_pack`.
-    pub fn open_pack_here(&mut self, pack: Uuid, widget: Option<&str>) -> Result<()> {
-        match self.route_pack(pack, widget)? {
-            PackRoute::Here { .. } => Ok(()),
-            PackRoute::Tab { .. } => self.enter_here(pack, widget),
-        }
+    /// Resolves the preview's widgets.
+    pub(crate) fn install_preview(&mut self, seed: PreviewSeed) -> Result<()> {
+        ensure!(self.is_fresh(), PackTabNotFreshSnafu);
+        let PreviewSeed { deck, packs, themes, fonts } = seed;
+        let (widgets, notice) = self.resolve_widgets(&combined_pins(&deck), &packs)?;
+        let mut sources = SourceBundle::new(deck, Arc::clone(&widgets.registry)).context(SourcesSnafu)?;
+        (sources.packs, sources.themes, sources.fonts) = (packs, themes, fonts);
+        let doc = Document { blank: false, dirty: false, ..Document::new(sources, None, &self.doc_defaults) };
+        self.install_document(doc, widgets, notice)
+    }
+
+    /// Turns this fresh session into the tab of library pack `pack`.
+    ///
+    /// The preview is this session's own deck; the tab holds the pack's lease.
+    ///
+    /// # Errors
+    ///
+    /// `UnknownPack`; `DeckOnly` for a deck-only pack, or when the library has no lease scope;
+    /// `PackTabNotFresh`, `PackOpenInTab`, the `init_pack_tab` errors.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the library, takes `DRAFTS` for the lease, renders the preview.
+    pub fn open_pack_tab_here(&mut self, pack: Uuid, widget: Option<&str>) -> Result<()> {
+        let stored = self.pack_base(pack)?;
+        let scope = self.library.lease_scope().filter(|_| is_library_pack(&stored.files)).cloned();
+        let scope = scope.context(DeckOnlySnafu { id: pack })?;
+        ensure!(self.is_fresh(), PackTabNotFreshSnafu);
+        let name = label(&stored.manifest.name);
+        let lease = PackLease::acquire(&scope, pack, &name, &name)?;
+        let seed = self.take_preview(pack)?;
+        self.init_pack_tab(*seed, lease, pack, widget)
     }
 
     /// Opens `widget`'s sub-tab in the pack this tab edits, then persists.
@@ -272,20 +304,23 @@ impl Session {
     }
 
     /// This pack tab's info: its pack, label and preview theme; `None` outside a pack tab.
+    ///
+    /// A deck-pack tab names its owner and, until its owner acknowledges a
+    /// save, the pack that save was built on (never an unaccepted copy).
     #[must_use]
     pub(crate) fn pack_tab_info(&self) -> Option<TabInfo> {
-        let Mode::Pack { stash, edit, .. } = &self.mode else { return None };
-        if edit.host != PackHost::Tab {
-            return None;
-        }
-        let preview = stash.sources.deck();
+        let Mode::Pack { preview, edit, link, .. } = &self.mode else { return None };
+        let preview = preview.sources.deck();
+        let document = match link {
+            Some(link) => TabDocument::DeckPack { deck_tab: link.owner.clone(), pack: link.reported_pack(edit.pack) },
+            None => TabDocument::Pack { pack: edit.pack },
+        };
         Some(TabInfo {
             title: label(&edit.name),
-            dirty: self.doc.dirty,
+            dirty: self.doc.dirty || self.unsent(),
             pristine: false,
-            editing_pack: true,
             theme: preview.theme.as_ref().and_then(|ns| preview.themes.get(ns)).map(|pin| pin.id),
-            document: TabDocument::Pack { pack: edit.pack },
+            document,
         })
     }
 
@@ -293,7 +328,7 @@ impl Session {
     #[must_use]
     pub(crate) fn wrote_in_pack_tab(&self) -> Option<PackWrite> {
         let Mode::Pack { edit, .. } = &self.mode else { return None };
-        let version = edit.session_version.clone().filter(|_| edit.host == PackHost::Tab)?;
+        let version = edit.session_version.clone()?;
         Some(PackWrite { pack: edit.pack, name: label(&edit.name), version })
     }
 }

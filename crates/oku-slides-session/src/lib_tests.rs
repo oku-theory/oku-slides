@@ -167,8 +167,6 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "undo" }),
         json!({ "cmd": "redo" }),
         json!({ "cmd": "save", "path": null }),
-        json!({ "cmd": "edit_pack", "pack": uuid::Uuid::new_v4() }),
-        json!({ "cmd": "close_pack" }),
         json!({ "cmd": "save_pack" }),
         json!({ "cmd": "merge", "path": "/tmp/x.oku-slides.pdf" }),
         json!({ "cmd": "history_open" }),
@@ -221,7 +219,7 @@ fn ends_widget_session_spares_save_and_widget_writes() {
         json!({ "cmd": "snapshot" }),
     ];
     assert_that!(kept.into_iter().map(request).any(|r| r.ends_widget_session())).is_false();
-    let ending = [json!({ "cmd": "undo" }), json!({ "cmd": "merge", "path": "x" }), json!({ "cmd": "close_pack" })];
+    let ending = [json!({ "cmd": "undo" }), json!({ "cmd": "merge", "path": "x" })];
     assert_that!(ending.into_iter().map(request).all(|r| r.ends_widget_session())).is_true();
 }
 

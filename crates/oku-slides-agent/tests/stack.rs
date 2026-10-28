@@ -672,7 +672,10 @@ async fn prompt_theme_during_a_turn_leaves_the_turn_running() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prompt_theme_outside_deck_mode_goes_to_the_agent() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
-    stack.on_session("t-1", |s| s.edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap());
+    stack.on_session("t-1", |s| {
+        s.new_deck().unwrap();
+        s.open_pack_tab_here(oku_slides_session::pack::ESSENTIEL_PACK, None).unwrap();
+    });
     stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "thème" }))).unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);
@@ -706,7 +709,10 @@ async fn show_packs_relays_the_packs_panel_to_its_tab() {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_packs_outside_deck_mode_shows_nothing() {
     let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
-    stack.on_session("t-1", |s| s.edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap());
+    stack.on_session("t-1", |s| {
+        s.new_deck().unwrap();
+        s.open_pack_tab_here(oku_slides_session::pack::ESSENTIEL_PACK, None).unwrap();
+    });
     let shown = tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_packs", "tab": "t-1" }))));
     // Witness: the tab's commands run in order, a packs panel would be relayed before the settings box.
     tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-1" })))).unwrap();

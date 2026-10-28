@@ -13,7 +13,7 @@ use crate::agent::PackGate;
 use crate::library::DraftWrite;
 use crate::pack_lease::{PackLease, pack_leased};
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, rename_title, workspace_on};
-use crate::test_support_packs::{CARD_V2, assert_unleased, draft_of, editing};
+use crate::test_support_packs::{CARD_V2, as_workshop, assert_unleased, draft_of, editing, pack_tab_of};
 use crate::workspace::{Opening, TABS_DIR, TabPlace};
 use crate::{BASE_PACK, Request, SessionErrorKind, TabDocument, Workspace, WorkspaceOutcome};
 
@@ -164,12 +164,13 @@ fn open_pack_asks_focus_before_focusing_another_tab() {
 fn open_pack_asks_nothing_in_place(#[case] deck_only: bool) {
     let f = packs();
     let (tab, pack) = if deck_only {
-        ("t-1".to_owned(), f.with("t-1", |s| adopt_deck_only_pack(s).id))
+        let pack = f.adopt_deck_only().id;
+        (f.deck_pack_tab(pack), pack)
     } else {
         (f.pack_tab(), f.acme)
     };
     let r = f.open_by_agent(&tab, pack, &mut |g| panic!("asked {g:?}"));
-    assert_outcome(r, &format!("Here {{ tab: {tab:?}, entered: {deck_only} }}"));
+    assert_outcome(r, "Here");
 }
 
 #[test]
@@ -227,29 +228,11 @@ fn open_pack_with_an_unknown_widget_on_an_open_pack_tab_activates_nothing() {
 }
 
 #[test]
-fn open_pack_of_a_deck_only_pack_enters_the_workshop_in_place() {
-    let f = packs();
-    let d = f.with("t-1", |s| adopt_deck_only_pack(s).id);
-    let out = send(&f, json!({"cmd": "open_pack", "tab": "t-1", "pack": d}));
-    assert_that!(matches!(out, WorkspaceOutcome::DeckChanged { tab, .. } if tab == "t-1")).is_true();
-}
-
-#[test]
 fn open_pack_of_the_pack_the_tab_edits_is_applied() {
     let f = packs();
     let p = f.pack_tab();
     let out = send(&f, json!({"cmd": "open_pack", "tab": p, "pack": f.acme}));
     assert_that!(matches!(out, WorkspaceOutcome::Applied(_))).is_true();
-}
-
-#[test]
-fn open_pack_while_a_deck_workshop_edits_it_is_refused() {
-    let f = packs();
-    let w = f.new_tab();
-    Workspace::request(&f.ws, &w, Request::EditPack { pack: f.acme }).0.unwrap();
-    let title = Workspace::lock(&f.ws).tabs[&w].info.title.clone();
-    let err = f.open("t-1", f.acme, None).unwrap_err();
-    assert_that!((err.kind(), err.lease_holder())).is_equal_to((SessionErrorKind::PackOpenInTab, Some(title.as_str())));
 }
 
 #[test]
@@ -306,8 +289,8 @@ fn open_pack_never_replaces_a_pristine_tab() {
 fn open_pack_refused_by_a_held_lease_keeps_the_widget_session() {
     let f = packs();
     widget_session(&f, "t-1");
-    let w = f.new_tab();
-    Workspace::request(&f.ws, &w, Request::EditPack { pack: f.acme }).0.unwrap();
+    // Another editor of acme, outside this workspace's tabs, holds its lease.
+    let _holder = pack_tab_of(f.data.path(), f.acme);
     let before = widget_session(&f, "t-1");
     assert_that!(before.0).is_true();
     let r = f.open("t-1", f.acme, None);
@@ -398,11 +381,9 @@ fn second_restored_pack_tab_of_one_pack_reopens_without_a_lease() {
     assert_that!((notice, refused, edit())).is_equal_to((Some(expected), Err(SessionErrorKind::PackOpenInTab), Ok(())));
 }
 
-/// The workshop `t-1` (a state without `info`, before the pack tab) and pack tab P, restored.
-fn workshop_and_pack_tab(keep_workshop_info: bool) -> (Packs, String, String) {
+/// An older version's workshop `t-1` (its state saved before the pack tab) and pack tab P, restored.
+fn workshop_and_pack_tab() -> (Packs, String) {
     let f = packs_resumed();
-    Workspace::request(&f.ws, "t-1", Request::EditPack { pack: f.acme }).0.unwrap();
-    let workshop_title = Workspace::lock(&f.ws).tabs["t-1"].info.title.clone();
     f.with("t-1", |s| {
         s.persist(true);
         s.flush_resume();
@@ -410,37 +391,29 @@ fn workshop_and_pack_tab(keep_workshop_info: bool) -> (Packs, String, String) {
     let saved = fresh_dir("oku-slides-ws-workshop-");
     let resume = f.resume.clone().unwrap();
     copy_dir(&resume.join(TABS_DIR).join("t-1"), saved.path());
-    Workspace::request(&f.ws, "t-1", Request::ClosePack).0.unwrap();
+    let tab_dir = fresh_dir("oku-slides-ws-workshop-pack-");
+    let mut t = pack_tab_of(f.data.path(), f.acme);
+    assert_that!(t.resume_fresh(tab_dir.path().to_path_buf())).is_true();
+    t.persist(true);
+    t.flush_resume();
+    drop(t);
+    as_workshop(saved.path(), tab_dir.path());
     let p = f.pack_tab();
-    let f = f.restart(|resume, layout| {
+    let f = f.restart(|resume, _| {
         let t1 = resume.join(TABS_DIR).join("t-1");
         std::fs::remove_dir_all(&t1).unwrap();
         copy_dir(saved.path(), &t1);
-        if !keep_workshop_info {
-            layout["info"].as_object_mut().unwrap().remove("t-1");
-        }
     });
-    (f, p, workshop_title)
-}
-
-#[test]
-fn restored_workshop_without_info_takes_the_lease_first() {
-    let (f, p, workshop) = workshop_and_pack_tab(false);
-    let holder = pack_leased(&f.scope, f.acme);
-    let notice = f.with(&p, |s| s.snapshot().notice.map(str::to_owned));
-    let expected = f.with(&p, |s| {
-        s.localizer
-            .tr_with("notice-pack-edited-elsewhere", &[("pack", "acme".into()), ("tab", workshop.as_str().into())])
-    });
-    assert_that!((holder, notice)).is_equal_to((Some(workshop.clone()), Some(expected)));
+    (f, p)
 }
 
 #[test]
 fn restored_pack_tab_woken_first_holds_the_lease() {
-    let (f, p, _) = workshop_and_pack_tab(true);
+    let (f, p) = workshop_and_pack_tab();
     Workspace::request(&f.ws, &p, Request::Snapshot).0.unwrap();
-    let leased = f.with("t-1", |s| s.editing_view().map(|e| e.leased));
-    assert_that!((pack_leased(&f.scope, f.acme), leased)).is_equal_to((Some("acme".to_owned()), Some(false)));
+    // The workshop reopens on its deck: it takes no lease.
+    let editing = f.with("t-1", |s| s.editing_view().is_some());
+    assert_that!((pack_leased(&f.scope, f.acme), editing)).is_equal_to((Some("acme".to_owned()), false));
 }
 
 #[test]
@@ -450,7 +423,7 @@ fn pack_tab_after_save_as_new_focuses_on_the_copy() {
     let copy = f.with(&p, |s| {
         s.apply("x", vec![rename_title("acme copie")], None).unwrap();
         s.save_pack(true).unwrap();
-        editing(s).map(|(pack, _)| pack)
+        editing(s)
     });
     let copy = copy.unwrap_or_else(|| panic!("the copy is edited"));
     assert_that!(copy).is_not_equal_to(f.acme);

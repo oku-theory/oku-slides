@@ -43,3 +43,5 @@ mod issue_1178_coller_image_autre_onglet;
 mod issue_1182_copier_coller_entre_fenetres;
 mod issue_1204_stepper_default_bounds;
 mod issue_1223_deck_theme_edit_freezes_its_parent;
+mod issue_1224_deck_pack_write_keeps_its_parent;
+mod issue_1228_deck_only_pack_opens_a_linked_tab;

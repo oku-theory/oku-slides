@@ -369,6 +369,13 @@ impl SourcesError {
     }
 }
 
+/// A replica failure seen through the sources, as `SourcesErrorKind::Replica`.
+impl From<ReplicaError> for SourcesError {
+    fn from(source: ReplicaError) -> Self {
+        Self(ReplicaSnafu.into_error(source))
+    }
+}
+
 impl Localize for OpError {
     fn localize(&self, l: &Localizer) -> String {
         let host = match &*self.0 {

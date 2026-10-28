@@ -33,7 +33,7 @@ impl Workspace {
 
     /// L'onglet d'aide `tab` prend le thème `theme` ; un échec est journalisé.
     pub(super) fn retheme_help(ws: &Mutex<Self>, tab: &str, theme: Uuid) {
-        match Self::with_session(ws, tab, |s| s.set_help_theme(theme)).0 {
+        match Self::with_quiet(ws, tab, |s| s.set_help_theme(theme)).0 {
             Ok(Ok(())) => {}
             Ok(Err(e)) | Err(e) => tracing::warn!(tab, %theme, error = %e.one_line(), "thème de l'aide inchangé"),
         }

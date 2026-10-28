@@ -173,7 +173,7 @@ type Assets = BTreeMap<String, Vec<u8>>;
 fn user_assets<'a>(mode: &'a Mode, doc: &'a Document) -> &'a Assets {
     match mode {
         Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Theme { .. } => &doc.sources.assets,
-        Mode::Pack { stash, .. } => &stash.sources.assets,
+        Mode::Pack { preview, .. } => &preview.sources.assets,
     }
 }
 

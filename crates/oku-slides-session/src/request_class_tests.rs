@@ -48,8 +48,6 @@ fn version() -> oku_slides_core::PackVersion {
 #[case::data_panel(Request::DataPanel { slide: "s".into(), element: "e".into() }, false)]
 #[case::layouts(Request::Layouts, false)]
 #[case::packs(Request::Packs { kind: oku_slides_core::PackKind::Widgets }, false)]
-#[case::edit_pack(Request::EditPack { pack: Uuid::nil() }, false)]
-#[case::close_pack(Request::ClosePack, false)]
 #[case::delete_pack(Request::DeletePack { pack: Uuid::nil() }, false)]
 #[case::ui(Request::Ui { ui: UiState::default(), order: None }, false)]
 #[case::merge(Request::Merge { path: PathBuf::from("/x") }, false)]
@@ -89,7 +87,6 @@ fn writes_edited_draft_classifies_every_request(#[case] request: Request, #[case
 #[case::save_theme_as_new(Request::SaveTheme { as_new: true }, true)]
 #[case::save(Request::Save { path: None, overwrite: false }, false)]
 #[case::save_pack(Request::SavePack { as_new: false }, false)]
-#[case::edit_pack(Request::EditPack { pack: Uuid::nil() }, false)]
 #[case::edit_theme(Request::EditTheme { id: Uuid::nil(), name: None, ops: Vec::new() }, false)]
 #[case::set_theme(Request::SetTheme { theme: "pro".into() }, false)]
 #[case::host_settings(Request::HostSettings { widget: None }, false)]
@@ -100,7 +97,6 @@ fn writes_edited_draft_classifies_every_request(#[case] request: Request, #[case
 #[case::preview_widget(Request::PreviewWidget { pack: None, name: "w".into(), params: serde_json::Map::new() }, false)]
 #[case::history_versions(Request::HistoryVersions, false)]
 #[case::history_open(Request::HistoryOpen, false)]
-#[case::close_pack(Request::ClosePack, false)]
 #[case::save_copy(Request::SaveCopy { path: PathBuf::from("/x") }, false)]
 fn theme_tab_allows_only_the_draft_requests(#[case] request: Request, #[case] allows: bool) {
     assert_that!(request.theme_tab_allows()).is_equal_to(allows);

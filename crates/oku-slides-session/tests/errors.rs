@@ -106,7 +106,7 @@ fn svg_of_missing_slide_returns_no_slide() {
 fn edit_unknown_pack_returns_unknown_pack() {
     let dir = workdir();
     let id = uuid::Uuid::new_v4();
-    let err = session(&dir).edit_pack(id).unwrap_err();
+    let err = session(&dir).open_pack_tab_here(id, None).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownPack);
     assert_that!(french(&err)).is_equal_to(format!("Pack introuvable : {id}"));
 }
@@ -135,7 +135,7 @@ fn delete_builtin_pack_is_refused() {
 fn save_while_editing_pack_is_refused() {
     let dir = workdir();
     let mut s = session(&dir);
-    s.edit_pack(oku_slides_session::ESSENTIEL_PACK).unwrap();
+    s.open_pack_tab_here(oku_slides_session::ESSENTIEL_PACK, None).unwrap();
     let err = request(&mut s, serde_json::json!({"cmd": "save", "path": null})).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::EditingPack);
     assert_that!(french(&err)).is_equal_to("Terminez d'abord l'édition du pack".to_owned());

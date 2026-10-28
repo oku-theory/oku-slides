@@ -66,7 +66,7 @@ fn issue_1091_pack_requiring_base_pins_the_builtin_base_despite_a_legacy_copy() 
     let data = data_dir();
     let acme = library_with_acme(&data, "base", "base");
     let mut s = session_in(&data);
-    s.edit_pack(acme).unwrap_or_else(|e| panic!("atelier : {}", e.one_line()));
+    s.open_pack_tab_here(acme, None).unwrap_or_else(|e| panic!("atelier : {}", e.one_line()));
     let base = Namespace::parse("base").map(|b| s.deck().widgets.get(&b).map(|p| p.id));
     assert_that!(base).is_equal_to(Some(Some(BASE_PACK)));
 }
@@ -76,7 +76,7 @@ fn issue_1091_requirement_on_a_legacy_essentiel_copy_is_refused_not_resolved() {
     let data = data_dir();
     let acme = library_with_acme(&data, "essentiel", "essentiel");
     let mut s = session_in(&data);
-    let edited = s.edit_pack(acme).map_err(|e| e.kind());
+    let edited = s.open_pack_tab_here(acme, None).map_err(|e| e.kind());
     assert_that!(edited).is_equal_to(Err(oku_slides_session::SessionErrorKind::UnknownNamespace));
     assert_that!(s.deck().all_pins().any(|(_, _, pin)| pin.id == LEGACY_ID)).is_false();
 }

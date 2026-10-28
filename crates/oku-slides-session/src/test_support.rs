@@ -617,10 +617,22 @@ pub(crate) fn edit_of(s: &Session) -> crate::PackMode {
     s.snapshot().editing.map_or_else(|| panic!("mode pack attendu"), |e| e.mode.clone())
 }
 
-/// Le deck mis de côté par le mode pack de `s`.
-pub(crate) fn stash_of(s: &Session) -> &crate::Document {
-    let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
-    stash
+/// The pin of the preview deck of `s` (pack mode) under `namespace`, of either kind.
+pub(crate) fn preview_pin(s: &Session, namespace: &str) -> Option<oku_slides_core::PackPin> {
+    let deck = preview_of(s).sources.deck();
+    deck.all_pins().find(|(_, n, _)| n.as_str() == namespace).map(|(_, _, pin)| pin.clone())
+}
+
+/// Undoes one step of the preview deck of `s` (pack mode), as its own deck would.
+pub(crate) fn undo_preview(s: &mut Session) {
+    let crate::Mode::Pack { preview, .. } = &mut s.mode else { panic!("mode pack attendu") };
+    assert!(preview.sources.undo().unwrap_or_else(|e| panic!("undo: {e}")), "a step to undo");
+}
+
+/// The preview deck set aside by the pack mode of `s`.
+pub(crate) fn preview_of(s: &Session) -> &crate::Document {
+    let crate::Mode::Pack { preview, .. } = &s.mode else { panic!("mode pack attendu") };
+    preview
 }
 
 /// La source d'un layout `name` des tests : un widget de slide au seul paramètre `title`.
@@ -632,15 +644,16 @@ pub(crate) fn slide_widget(name: &str) -> String {
     )
 }
 
-/// Une session sur `data` dont la bibliothèque a le pack de layouts `namespace` (besoin `base`),
-/// aux layouts `layouts` ; en mode pack sur lui. Son id.
-pub(crate) fn editing_layout_pack(data: &std::path::Path, namespace: &str, layouts: &[&str]) -> (Session, uuid::Uuid) {
+/// A pack tab on `data` of a new library layout pack `namespace` (requiring `base`), and its id.
+///
+/// The pack holds the layouts `layouts`.
+pub(crate) fn layout_pack_tab(data: &std::path::Path, namespace: &str, layouts: &[&str]) -> (Session, uuid::Uuid) {
     let mut s = session_on(data);
     let m = manifest_ns(uuid::Uuid::new_v4(), namespace, &["base"]);
     let sources: Vec<(String, String)> = layouts.iter().map(|n| ((*n).to_owned(), slide_widget(n))).collect();
     let files: Vec<(&str, &str)> = sources.iter().map(|(n, src)| (n.as_str(), src.as_str())).collect();
     add_version_of(&s.library, oku_slides_core::PackKind::Layouts, &m, &files);
-    s.edit_pack(m.id).unwrap_or_else(|e| panic!("mode pack : {}", e.one_line()));
+    s.open_pack_tab_here(m.id, None).unwrap_or_else(|e| panic!("pack tab : {}", e.one_line()));
     (s, m.id)
 }
 

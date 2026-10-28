@@ -73,7 +73,7 @@ fn a_received_pack_with_malformed_examples_keeps_its_values_through_save_pack() 
     let library = PackLibrary::new(Some(data.join("widgets")), None, crate::common::no_user_themes(), storage);
     library.add_version(id, &received(id, "Ventes")).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
-    s.edit_pack(id).unwrap_or_else(|e| panic!("{e}"));
+    s.open_pack_tab_here(id, None).unwrap_or_else(|e| panic!("{e}"));
     s.save_pack(false).unwrap_or_else(|e| panic!("{e}"));
     let current = library.current_version(id).unwrap_or_else(|| panic!("version courante"));
     assert_that!(current.manifest.description.as_str()).is_equal_to("Ma charte");
@@ -89,7 +89,7 @@ fn a_received_value_over_the_text_bound_is_ignored_in_the_preview_and_dropped_at
     let long = "x".repeat(PLAIN_MAX + 1);
     library.add_version(id, &well_formed(id, &long)).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
-    s.edit_pack(id).unwrap_or_else(|e| panic!("{e}"));
+    s.open_pack_tab_here(id, None).unwrap_or_else(|e| panic!("{e}"));
     let p = s.preview_widget(None, "kpi", &Map::new(), PreviewFormat::Svg).unwrap_or_else(|e| panic!("{e}"));
     let params = &p.view.unwrap_or_else(|| panic!("vue de l'aperçu"))["slide"]["params"]["elements"][0]["params"];
     assert_that!(params["value"]).is_equal_to(json!("12"));

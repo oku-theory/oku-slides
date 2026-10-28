@@ -1,6 +1,6 @@
 use speculoos::prelude::*;
 
-use crate::test_support::{editing_layout_pack, fresh_dir, session};
+use crate::test_support::{fresh_dir, layout_pack_tab, session};
 use crate::{LayoutsView, Request};
 
 /// La réponse de `Request::Layouts`, relue.
@@ -38,7 +38,7 @@ fn layouts_view_slide_of_a_layout_is_its_example() {
 #[test]
 fn layouts_view_in_pack_mode_lists_the_edited_layout_pack() {
     let data = fresh_dir("oku-slides-pack-previews-");
-    let (mut s, _) = editing_layout_pack(data.path(), "acme", &["one"]);
+    let (mut s, _) = layout_pack_tab(data.path(), "acme", &["one"]);
     let view = s.layouts_view().unwrap();
     let names: Vec<&str> = view.packs.iter().map(|p| p.namespace.as_str()).collect();
     assert_that!(names).is_equal_to(vec!["acme"]);

@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = Não é possível salvar { $theme } aqui. Fech
 ui-confirm-update-opener = Atualizar “{ $deck }” para esta versão do pacote “{ $pack }”?
 ui-close-writes-pending = Esta aba ainda está salvando: feche-a de novo em um instante.
 ui-confirm-close-writes-pending = Esta aba ainda está salvando. Fechar mesmo assim e perder o que não foi salvo?
+ui-confirm-close-writes-pending-linked = Esta aba ainda está salvando, e estas abas de pacote fecham com ela sem salvar: { $tabs }. Fechar mesmo assim e perder o que não foi salvo?
 ui-confirm-quit-read-only-pack = Não é possível salvar { $pack } aqui. Fechar esta aba e perder suas alterações? Para mantê-las, peça ao agente que o salve como um novo pacote.
 
 ## Notificações

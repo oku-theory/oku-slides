@@ -1,18 +1,19 @@
-//! t-1093 : enregistrer un pack écrivait sa version dans la bibliothèque avant d'épingler.
+//! t-1093: saving a pack wrote its version to the library before pinning it.
 //!
-//! Le deck mis de côté épingle déjà l'espace de noms du pack édité sous l'autre sorte (pack de
-//! layouts reçu avec le fichier) : l'épinglage refuse (`NamespaceTaken`), mais la version était
-//! déjà écrite, et chaque essai en ajoutait une.
+//! The preview, taken from the opening deck, already pins the edited pack's namespace under the
+//! other kind (a layouts pack received with the file): pinning is refused (`NamespaceTaken`), but
+//! the version was already written, and each attempt added one more.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use oku_slides_core::{Op, PackKind, PackPin, PackScope};
-use oku_slides_session::{PackLibrary, PackManifest, SessionErrorKind, Storage};
+use oku_slides_session::{PackLibrary, PackManifest, Request, SessionErrorKind, Storage, Workspace};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
 use crate::common::{data_dir, fixture_path, no_user_themes, ns, session_in};
+use crate::workspace_support::{on, open_pack, workspace};
 
 fn library(data: &Path) -> PackLibrary {
     let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
@@ -59,10 +60,10 @@ fn issue_1093_pack_save_conflict_writes_no_version() {
     let mine = manifest(Uuid::new_v4(), "acme");
     let files = mine.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"));
     library(&me).add_version(mine.id, &files).unwrap_or_else(|e| panic!("{}", e.one_line()));
-    let mut s = session_in(&me);
-    s.open(&path).unwrap_or_else(|e| panic!("ouverture : {}", e.one_line()));
-    s.edit_pack(mine.id).unwrap_or_else(|e| panic!("atelier : {}", e.one_line()));
-    let saved = s.save_pack(false).map_err(|e| e.kind());
+    let ws = workspace(&me);
+    on(&ws, "t-1", |s| s.open(&path)).unwrap_or_else(|e| panic!("ouverture : {}", e.one_line()));
+    let tab = open_pack(&ws, "t-1", mine.id);
+    let saved = Workspace::request(&ws, &tab, Request::SavePack { as_new: false }).0.map_err(|e| e.kind());
     assert_that!(saved).is_equal_to(Err(SessionErrorKind::NamespaceTaken));
     assert_that!(library(&me).versions(mine.id).len()).is_equal_to(1);
 }

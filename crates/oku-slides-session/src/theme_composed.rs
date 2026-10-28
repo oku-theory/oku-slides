@@ -51,12 +51,12 @@ impl Session {
     /// Those of `deck`, then in pack mode those of the set-aside deck, whose
     /// token overrides the working deck keeps (the first one wins).
     fn schema_pins<'a>(&'a self, deck: &'a Deck) -> BTreeMap<&'a Namespace, &'a PackPin> {
-        let stash = match &self.mode {
-            Mode::Pack { stash, .. } => Some(stash.sources.deck()),
+        let preview = match &self.mode {
+            Mode::Pack { preview, .. } => Some(preview.sources.deck()),
             Mode::Deck | Mode::Help { .. } | Mode::History { .. } | Mode::Theme { .. } => None,
         };
         let mut pins = BTreeMap::new();
-        for (_, ns, pin) in deck.all_pins().chain(stash.into_iter().flat_map(Deck::all_pins)) {
+        for (_, ns, pin) in deck.all_pins().chain(preview.into_iter().flat_map(Deck::all_pins)) {
             pins.entry(ns).or_insert(pin);
         }
         pins
@@ -70,7 +70,7 @@ impl Session {
     /// Les fichiers de la version `version` d'un pack : embarqués, sinon intégrés.
     pub(crate) fn pack_version_files(&self, version: &PackVersion) -> Option<&PackFiles> {
         let stash = match &self.mode {
-            Mode::Pack { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => None,
         };
         self.doc

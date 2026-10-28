@@ -86,7 +86,6 @@ enum NotDue {
     Newer,
     Parallel,
     DeckOnly,
-    InWorkshop,
     NoLongerCurrent,
     RequiresUnpinned,
 }
@@ -97,7 +96,6 @@ enum NotDue {
 #[case::newer(NotDue::Newer)]
 #[case::parallel(NotDue::Parallel)]
 #[case::deck_only(NotDue::DeckOnly)]
-#[case::in_workshop(NotDue::InWorkshop)]
 #[case::no_longer_current(NotDue::NoLongerCurrent)]
 #[case::requires_unpinned(NotDue::RequiresUnpinned)]
 fn opener_offer_is_none_unless_due(#[case] why: NotDue) {
@@ -124,11 +122,6 @@ fn opener_offer_is_none_unless_due(#[case] why: NotDue) {
             let library_scoped = crate::pack::PackManifest { id: d.id, ..manifest_ns(d.id, "dlib", &[]) };
             let pin = add_version(&o.s.library, &library_scoped, &[]);
             (d.id, pin.version)
-        }
-        NotDue::InWorkshop => {
-            let d = adopt_deck_only_pack(&mut o.s);
-            o.s.edit_pack(d.id).unwrap();
-            (o.acme, o.v2.clone())
         }
         NotDue::NoLongerCurrent => {
             o.s.library.set_current(o.acme, &o.v1).unwrap();

@@ -11,6 +11,7 @@ const { EditorView } = await import("@codemirror/view");
 const { isMac } = await import("./api");
 const { PREVIEW_DELAY_MS } = await import("./debounce");
 const { usePackWidgetEditor } = await import("./usePackWidgetEditor");
+const { runCloseGuard, useCloseGuard } = await import("./closeGuards");
 const { t } = await import("./i18n");
 const WidgetPane = (await import("./WidgetPane")).default;
 const PackTabs = (await import("./PackTabs")).default;
@@ -48,7 +49,11 @@ interface Out {
   notices: string[];
 }
 
+/** Each mount's close guard tab, unique to it (App registers `widgets.files.settle` the same way). */
+let guardTabs = 0;
+
 async function mount(fake: TabApi, first: Snapshot, strict = false) {
+  const guardTab = `probe-${++guardTabs}`;
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -64,6 +69,7 @@ async function mount(fake: TabApi, first: Snapshot, strict = false) {
       blocked: () => out.blocked,
     });
     out.w = w;
+    useCloseGuard(guardTab, () => w.files.settle());
     out.renders.push({ editing: !!snap.editing, widgets: w.kept.widgets });
     return createElement(
       Fragment,
@@ -89,7 +95,7 @@ async function mount(fake: TabApi, first: Snapshot, strict = false) {
       v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert }, userEvent: "input.type" });
     });
   const text = (name: string) => content(name)?.textContent;
-  return { host, out, render, names, idOf, view, typeIn, text };
+  return { host, out, render, names, idOf, view, typeIn, text, guardTab };
 }
 
 /** Une touche avec ⌘ (Ctrl hors macOS) ; vrai si un écouteur `window` en bulle l'a reçue. */
@@ -371,17 +377,16 @@ describe("usePackWidgetEditor, raccourcis", () => {
   });
 });
 
-describe("usePackWidgetEditor, ✓", () => {
-  test("régression ✓ : la frappe en attente d'un sous-onglet caché est écrite avant close_pack", async () => {
+describe("usePackWidgetEditor, close guard", () => {
+  test("regression: a hidden sub-tab's pending typing is written before the close guard answers", async () => {
     const { fake, log } = memory({ kpi: "k", chart: "c" });
     const m = await mount(fake, snapOf({ widgets: ["kpi", "chart"], widget: "kpi" }));
     await m.typeIn("kpi", "k2");
     await act(async () => m.out.w!.activate(m.idOf("chart")));
-    await act(async () =>
-      m.out.w!.finish(async () => {
-        log.push("close");
-      }),
-    );
+    await act(async () => {
+      expect(await runCloseGuard(m.guardTab)).toBe("done");
+      log.push("close");
+    });
     expect(log).toEqual(["set kpi:k2", "close"]);
   });
 });

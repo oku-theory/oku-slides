@@ -534,6 +534,7 @@ impl Session {
             }
             Mode::Deck => {
                 refuse_leased(self.library.lease_scope(), t.id, &t.files, &manifest.name)?;
+                self.refuse_linked(t.id)?;
                 self.commit_deck_widgets(t, manifest, widgets).map(|()| Vec::new())
             }
             Mode::Help { .. } => ReadOnlySnafu.fail()?,

@@ -30,13 +30,13 @@ use crate::files::read_document;
 use crate::resume_writer::{AgentWrite, Job, Writer};
 use crate::theme_edit::ThemeEdit;
 use crate::theme_tab::ThemeTab;
-use crate::views::{PackHost, PackMode, UiState};
+use crate::views::UiState;
 use crate::{DocDefaults, Document, EXTENSION, Mode, Session, SessionError, TabDocument};
 
 pub(crate) const VERSION: u32 = 3;
 /// The state version of a 6.0.0 pack tab, with its theme draft: read, no longer written.
 pub(crate) const PACK_TAB_STATE_VERSION: u32 = 4;
-/// The state version of pack mode, both hosts, written without a theme draft.
+/// The state version of pack mode, written without a theme draft or host.
 pub(crate) const EDITOR_STATE_VERSION: u32 = 5;
 pub(crate) const DECK_DIR: &str = "deck";
 pub(crate) const PACK_DIR: &str = "pack";
@@ -51,6 +51,9 @@ mod pack;
 
 #[path = "resume_theme.rs"]
 mod theme;
+
+#[path = "resume_workshop.rs"]
+mod workshop;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -121,7 +124,7 @@ pub(crate) enum Resumed {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SavedMode {
     Deck,
-    Pack(PackMode),
+    Pack(pack::SavedPack),
     /// L'aide, dans cette langue : relue depuis l'app, aucun document gardé.
     Help(String),
     /// A theme tab: its draft, rebuilt on the specimen deck; no document kept.
@@ -301,7 +304,7 @@ impl Resume {
 
     /// The previous launch's state; `None` at the first one.
     ///
-    /// Versions 3 (deck, help, workshop), 4 (pack tab) and 5 (pack mode) are read.
+    /// Versions 3 (deck, help, older workshop), 4 (pack tab) and 5 (pack mode) are read.
     pub fn read_state(&self) -> Result<Option<State>> {
         self.read_json_versions("state.json", VERSION..=EDITOR_STATE_VERSION)
     }
@@ -704,18 +707,12 @@ impl Session {
     fn restore(&mut self, resume: &Resume, cached: Option<&TabDocument>) -> Result<()> {
         self.conversation = resume.read_conversation();
         let Some(state) = resume.read_state()? else { return Ok(()) };
-        // Only a pack tab writes version 4: any other mode there is forged (a workshop would
-        // resume the preview copy as a user deck).
-        let pack_tab = matches!(&state.mode, SavedMode::Pack(edit) if edit.host == PackHost::Tab);
-        ensure!(
-            pack_tab || state.version != PACK_TAB_STATE_VERSION,
-            PackTabSnafu { reason: "version 4 state of a tab that is not a pack tab" }
-        );
-        let in_editor = matches!(&state.mode, SavedMode::Pack(_) | SavedMode::Theme(_));
-        ensure!(
-            in_editor || state.version != EDITOR_STATE_VERSION,
-            PackTabSnafu { reason: "version 5 outside pack mode or a theme tab" }
-        );
+        if let SavedMode::Pack(_) = &state.mode {
+            return workshop::resume_pack_state(self, resume, state, cached);
+        }
+        // Versions 4 and 5 are only written in pack mode and theme tabs: any other mode there is forged.
+        let theme_tab = matches!(&state.mode, SavedMode::Theme(_));
+        ensure!(theme_tab || state.version == VERSION, PackTabSnafu { reason: "version 4 or 5 outside pack mode" });
         if let SavedMode::Help(locale) = &state.mode {
             self.open_help(locale, state.help_theme).context(SessionSnafu)?;
             self.ui = state.ui.sanitized(false);
@@ -724,28 +721,15 @@ impl Session {
         if let SavedMode::Theme(_) = &state.mode {
             return theme::restore_theme_tab(self, state, cached);
         }
-        // A pack tab has no deck of its own: its preview and pack are checked apart.
-        if pack_tab {
-            return pack::restore_pack_tab(self, resume, state);
-        }
-        let legacy = pack::legacy_of(&state);
+        self.restore_deck(resume, state.ui)
+    }
+
+    /// Restores `deck/` as the document, reread from its file if unchanged, with `ui`.
+    fn restore_deck(&mut self, resume: &Resume, ui: UiState) -> Result<()> {
         let max = self.source_limits.replica();
         let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
-        let pack = match state.mode {
-            SavedMode::Deck | SavedMode::Help(_) | SavedMode::Theme(_) => None,
-            SavedMode::Pack(edit) => match resume.read_doc(PACK_DIR, &self.doc_defaults, max, &self.registry) {
-                Ok(doc) => Some((doc, edit)),
-                Err(e) => {
-                    tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "pack de reprise illisible");
-                    None
-                }
-            },
-        };
         self.load_document(deck).context(SessionSnafu)?;
-        match pack {
-            Some((doc, edit)) => self.finish_pack_restore(edit, doc, legacy, state.ui)?,
-            None => self.ui = state.ui.sanitized(false),
-        }
+        self.ui = ui.sanitized(false);
         Ok(())
     }
 
@@ -803,7 +787,7 @@ impl Session {
                 return;
             }
             Mode::Deck => (&self.doc, &self.doc, SavedMode::Deck),
-            Mode::Pack { stash, edit, .. } => (&**stash, &**stash, SavedMode::Pack(edit.clone())),
+            Mode::Pack { preview, edit, .. } => (&**preview, &**preview, SavedMode::Pack(pack::saved_pack(self, edit))),
             Mode::History { stash, .. } => (&**stash, &self.doc, SavedMode::Deck),
             // A theme tab keeps no document: its draft rebuilds the specimen deck.
             Mode::Theme { .. } => return self.persist_theme(writer, agent),

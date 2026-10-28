@@ -10,9 +10,8 @@ use crate::{Session, SessionErrorKind};
 /// Une session en édition des modèles du deck, avec la frise de test.
 fn editing() -> (tempfile::TempDir, Session) {
     let data = fresh_dir("oku-slides-preview-items-");
-    let mut s = opened_on(data.path());
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
+    let mut opener = opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     set_frise_widget(&mut s);
     (data, s)
 }

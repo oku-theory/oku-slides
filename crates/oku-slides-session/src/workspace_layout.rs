@@ -82,6 +82,11 @@ impl Layout {
 }
 
 impl Workspace {
+    /// A layout change: an owner ignores the links copied before it.
+    pub(super) fn bump_layout(&mut self) {
+        self.layout_generation = self.layout_generation.saturating_add(1);
+    }
+
     pub(super) fn window_index(&self, label: &str) -> Result<usize> {
         Ok(self.layout.windows.iter().position(|w| w.label == label).context(UnknownWindowSnafu { label })?)
     }
@@ -128,6 +133,7 @@ impl Workspace {
             None => self.add_window(),
         };
         self.tabs.insert(id.clone(), Tab::new(session));
+        self.bump_layout();
         let win = self.layout.windows.iter_mut().find(|w| w.label == label);
         debug_assert!(win.is_some(), "la fenêtre vient d'être trouvée ou créée : elle existe toujours ici");
         if let Some(win) = win {
@@ -157,6 +163,7 @@ impl Workspace {
     /// fenêtre vide est retirée.
     pub(super) fn detach(&mut self, tab: &str) -> Result<()> {
         let w = self.window_of(tab)?;
+        self.bump_layout();
         let win = &mut self.layout.windows[w];
         if let Some(i) = win.tabs.iter().position(|t| t == tab) {
             win.tabs.remove(i);
@@ -174,6 +181,7 @@ impl Workspace {
 
     pub(super) fn reorder(&mut self, tab: &str, index: usize) -> Result<()> {
         let w = self.window_of(tab)?;
+        self.bump_layout();
         let tabs = &mut self.layout.windows[w].tabs;
         let from = tabs.iter().position(|t| t == tab).context(UnknownTabSnafu { id: tab })?;
         let id = tabs.remove(from);
@@ -184,6 +192,7 @@ impl Workspace {
     /// Déplace un onglet vers `window`, ou une nouvelle fenêtre ; il y devient actif.
     pub(super) fn move_tab(&mut self, tab: &str, window: Option<&str>, index: Option<usize>) -> Result<()> {
         let from = self.window_of(tab)?;
+        self.bump_layout();
         if window == Some(self.layout.windows[from].label.as_str()) {
             // Même fenêtre : un index réordonne ; sans index, rien ne change.
             if let Some(index) = index {

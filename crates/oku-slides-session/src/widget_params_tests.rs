@@ -17,9 +17,8 @@ const ALL: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 
 fn pack() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-params-");
-    let mut s = opened_on(data.path());
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
+    let mut opener = opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     s.set_widget(None, "tout", ALL.into()).unwrap();
     (data, s)
 }
@@ -295,9 +294,8 @@ fn widget_settings_slider_step_has_no_float_noise() {
 
 fn pack_with_list() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-params-");
-    let mut s = opened_on(data.path());
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
+    let mut opener = opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     crate::test_support::set_frise_widget(&mut s);
     (data, s)
 }

@@ -23,6 +23,7 @@ use oku_slides_core::{Deck, Moved, Namespace, PackFiles, PackVersion};
 use oku_slides_i18n::Localize;
 
 use crate::deck_closure::{closure_with_files, examples_requires};
+use crate::deck_pack_tab::SendBase;
 use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, SourcesSnafu};
 use crate::example_text::localized_examples;
 use crate::library::{DraftWrite, draft_lock};
@@ -185,7 +186,8 @@ impl Session {
     /// pack); `deck` (the pack's document) moves to it in one `step` (see
     /// `AdoptStep`), and the deck set aside in one undo step. The editor takes
     /// its lease first unless `as_new`: a library copy takes its own
-    /// (`copy_lease`). Without rendering: the caller renders the pack's document.
+    /// (`copy_lease`). A deck-pack tab's outbox takes `files`, based on `edit`
+    /// (`fill_outbox`). Without rendering: the caller renders the pack's document.
     pub(crate) fn adopt_session_version(
         &mut self,
         mut deck: Deck,
@@ -223,9 +225,9 @@ impl Session {
         // Le deck mis de côté embarque la version (et ses besoins) et l'épingle.
         let mut held = self.doc.sources.packs.clone();
         held.extend(packs.iter().map(|(_, pin, f)| (pin.version.clone(), f.clone())));
-        let stashed = match &self.mode {
-            Mode::Pack { stash, .. } => {
-                let user = stash.sources.deck().clone();
+        let previewed = match &self.mode {
+            Mode::Pack { preview, .. } => {
+                let user = preview.sources.deck().clone();
                 let packs = closure_with_files(&self.library, &user, edited, &held)?;
                 Some((user, packs))
             }
@@ -234,8 +236,8 @@ impl Session {
         // Les deux épinglages se font sur des copies d'abord : un refus
         // (`NamespaceTaken`) n'écrit rien dans la bibliothèque (t-1093).
         pin_deck(&mut deck, &packs)?;
-        let stashed =
-            stashed.map(|(mut user, packs)| pin_deck(&mut user, &packs).map(|()| (user, packs))).transpose()?;
+        let previewed =
+            previewed.map(|(mut user, packs)| pin_deck(&mut user, &packs).map(|()| (user, packs))).transpose()?;
         let copy = self.copy_lease(&lock, edit, as_new, &manifest, &files)?;
         let witness = match &self.mode {
             _ if as_new => copy.as_ref(),
@@ -252,17 +254,17 @@ impl Session {
         }
         .context(SourcesSnafu)?;
         let label = self.localizer.tr_with("pack-adopt-label", &[("name", manifest.name.as_str().into())]);
-        if let (Mode::Pack { stash, edit, lease, orphaned, .. }, Some((user, packs))) = (&mut self.mode, stashed) {
-            embed_packs(&mut stash.sources, packs);
-            let steps = stash.sources.undo_steps();
-            stash.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
-            stash.dirty = true;
+        if let (Mode::Pack { preview, edit, lease, orphaned, .. }, Some((user, packs))) = (&mut self.mode, previewed) {
+            embed_packs(&mut preview.sources, packs);
+            let steps = preview.sources.undo_steps();
+            preview.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
+            preview.dirty = true;
             if let Some(old) = replaced.filter(|old| **old != version && Some(*old) != parent.as_ref()) {
-                if stash.sources.undo_steps() == steps {
+                if preview.sources.undo_steps() == steps {
                     // Fusionnée dans l'étape qui l'avait introduite : plus
                     // atteignable depuis le deck mis de côté.
-                    stash.sources.packs.remove(old);
-                } else if let Some(files) = stash.sources.packs.get(old) {
+                    preview.sources.packs.remove(old);
+                } else if let Some(files) = preview.sources.packs.get(old) {
                     // Nouvelle étape : annuler y revient ; la bibliothèque la retrouve.
                     let witness = if as_new { copy.as_ref() } else { lease.as_ref() };
                     restore_session_version(&self.library, id, files, witness);
@@ -277,7 +279,6 @@ impl Session {
                 parent,
                 session_version: Some(version.clone()),
                 deck_only,
-                host: edit.host,
             };
             // A copy is another pack: it holds its own lease (none for a deck-only
             // one), the original's drops here, and a library copy is never orphaned.
@@ -286,6 +287,7 @@ impl Session {
                 *orphaned = false;
             }
         }
+        self.fill_outbox(SendBase { pack: edit.pack, parent: edit.parent.clone() }, &files);
         self.sync_widgets()?;
         Ok(version)
     }

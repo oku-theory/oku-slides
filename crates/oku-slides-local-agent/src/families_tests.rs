@@ -40,7 +40,6 @@ fn route_grammar_names_every_routable_family() {
 #[case("packs")]
 #[case("edit_pack")]
 #[case("save_pack")]
-#[case("close_pack")]
 #[case("delete_pack")]
 fn families_of_a_pack_tool_is_packs(#[case] tool: &str) {
     assert_that!(families_of(tool)).is_equal_to(&[Family::Packs][..]);

@@ -173,6 +173,7 @@ impl Session {
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
+        self.pull_links();
         // La version montrée avait peut-être un autre pack ; un pack écarté
         // pendant l'historique : le deck mis de côté suit.
         self.sync_widgets()
@@ -258,6 +259,7 @@ impl Session {
     /// Fails if history is not open, if the restore is rejected (history stays open), or if
     /// rendering fails.
     pub fn history_restore(&mut self) -> Result<()> {
+        self.refuse_linked_pins(&crate::deck_closure::combined_pins(self.doc.sources.deck()))?;
         let (mut stash, history) = self.take_history()?;
         let label = self.restore_label(history.version.timestamp);
         // En cas d'échec, le deck mis de côté est intact (sa vue est la

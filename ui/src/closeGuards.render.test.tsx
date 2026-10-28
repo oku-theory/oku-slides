@@ -211,7 +211,7 @@ test("real editor hooks: the guard waits for the typed write and sends it once",
   });
   const first = {
     dirty: false, path: null, name: "p", history: null, read_only: false,
-    editing: { pack: "p", base: "b", kind: "widgets", host: "tab", leased: true },
+    editing: { pack: "p", base: "b", kind: "widgets", leased: true },
     widgets: { deck: { id: "p", version: "v" } }, layouts: {},
     ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widgets: ["kpi"], widget: "kpi" },
   } as unknown as Snapshot;

@@ -26,9 +26,11 @@ fn session_with_widget_pack_example(namespace: &str, widget: &str, example: Valu
     s
 }
 
-/// Édite Essentiel, puis l'enregistre comme copie nommée `name` ; le manifeste de la copie.
-fn save_builtin_layouts_as_copy(s: &mut Session, name: &str) -> PackManifest {
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+/// Saves Essentiel as a copy named `name` from a pack tab on `data`.
+///
+/// Returns the copy's manifest.
+fn save_builtin_layouts_as_copy(data: &std::path::Path, name: &str) -> PackManifest {
+    let mut s = crate::test_support_packs::pack_tab_of(data, ESSENTIEL_PACK);
     s.apply("Nom", vec![rename_title(name)], None).unwrap();
     let saved = s.save_pack(true).unwrap();
     let files = s.doc.sources.packs.get(&saved).unwrap_or_else(|| panic!("copie embarquée"));
@@ -112,8 +114,8 @@ fn add_packs_lists_a_pinned_library_pack_after_base() {
 
 #[test]
 fn add_packs_in_widget_pack_mode_lists_only_the_edited_pack() {
-    let mut s = session();
-    s.edit_pack(crate::pack::BASE_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let s = crate::test_support_packs::pack_tab_of(data.path(), crate::pack::BASE_PACK);
     let names: Vec<String> = s.add_packs().into_iter().map(|p| p.namespace).collect();
     assert_that!(names).is_equal_to(vec!["base".to_owned()]);
 }
@@ -128,15 +130,15 @@ fn free_slots_content_and_blank_accept_everything() {
 
 #[test]
 fn saving_essentiel_as_copy_writes_plain_text_examples() {
-    let mut s = session();
-    let copy = save_builtin_layouts_as_copy(&mut s, "Ma copie");
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let copy = save_builtin_layouts_as_copy(data.path(), "Ma copie");
     assert_that!(serde_json::to_string(&copy.examples).unwrap()).does_not_contain("ftl:");
 }
 
 #[test]
 fn saving_essentiel_keeps_markers_of_untouched_examples() {
-    let mut s = session();
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
     let saved = s.save_pack(false).unwrap();
     let m = PackManifest::from_files(s.doc.sources.packs.get(&saved).unwrap()).unwrap();
     assert_that!(serde_json::to_string(&m.examples).unwrap()).contains("ftl:session-example-essentiel-end-text");

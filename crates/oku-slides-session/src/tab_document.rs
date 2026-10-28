@@ -1,4 +1,4 @@
-//! What a tab edits: a deck, the shipped help, or a pack or theme of the library.
+//! What a tab edits: a deck, the shipped help, a pack or theme, or a deck's own pack.
 
 use std::path::{Path, PathBuf};
 
@@ -31,6 +31,13 @@ pub enum TabDocument {
         /// The edited theme.
         theme: Uuid,
     },
+    /// A pack embedded only in one deck, edited in its own tab.
+    DeckPack {
+        /// The owner deck's tab id.
+        deck_tab: String,
+        /// The edited pack's id.
+        pack: Uuid,
+    },
 }
 
 impl TabDocument {
@@ -39,7 +46,7 @@ impl TabDocument {
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::Deck { path, .. } => path.as_deref(),
-            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
+            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::DeckPack { .. } => None,
         }
     }
 
@@ -48,7 +55,7 @@ impl TabDocument {
     pub fn deck_uid(&self) -> Option<&str> {
         match self {
             Self::Deck { deck_uid, .. } => deck_uid.as_deref(),
-            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
+            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::DeckPack { .. } => None,
         }
     }
 
@@ -57,7 +64,16 @@ impl TabDocument {
     pub fn help_locale(&self) -> Option<&str> {
         match self {
             Self::Help { locale } => Some(locale),
-            Self::Deck { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
+            Self::Deck { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::DeckPack { .. } => None,
+        }
+    }
+
+    /// The owner deck's tab, for a deck-pack tab.
+    #[must_use]
+    pub fn deck_tab(&self) -> Option<&str> {
+        match self {
+            Self::DeckPack { deck_tab, .. } => Some(deck_tab),
+            Self::Deck { .. } | Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
         }
     }
 }

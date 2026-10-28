@@ -237,20 +237,6 @@ fn preview_widget_shows_an_asset_of_the_deck() {
 }
 
 #[test]
-fn preview_widget_in_pack_mode_shows_an_asset_of_the_set_aside_deck() {
-    let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    let id = s.doc.sources.add_asset(red_png());
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
-    s.set_widget(None, "logo", LOGO.into()).unwrap();
-    let given: Map<String, serde_json::Value> = serde_json::from_value(json!({ "asset": id })).unwrap();
-    let preview = s.preview_widget(None, "logo", &given, PreviewFormat::Svg).unwrap();
-    assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
-    assert_that!(preview.svg.unwrap_or_default().contains("<image")).is_true();
-}
-
-#[test]
 fn preview_widget_in_history_mode_shows_an_asset_of_the_deck() {
     let data = fresh_dir("oku-slides-preview-");
     let mut s = opened_on(data.path());
@@ -267,9 +253,8 @@ fn preview_widget_in_history_mode_shows_an_asset_of_the_deck() {
 }
 fn in_pack_mode_with_quote() -> (tempfile::TempDir, crate::Session) {
     let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
+    let mut opener = opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     s.set_widget(None, "quote", QUOTE.into()).unwrap();
     (data, s)
 }
@@ -491,8 +476,8 @@ fn preview_widget_of_an_element_in_a_widget_pack_has_a_box_and_fields() {
 #[test]
 fn preview_widget_of_an_element_in_a_copied_widget_pack_has_a_box_and_fields() {
     let data = fresh_dir("oku-slides-preview-");
-    let mut s = opened_on(data.path());
-    s.edit_pack(crate::BASE_PACK).unwrap();
+    let mut opener = opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     s.save_pack(true).unwrap();
     s.set_widget(None, "quote", QUOTE.into()).unwrap();
     let preview = s.preview_widget(None, "quote", &Map::new(), PreviewFormat::Svg).unwrap();

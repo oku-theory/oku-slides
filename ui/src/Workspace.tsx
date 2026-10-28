@@ -6,13 +6,13 @@ import App from "./App";
 import { APP_VERSION, RELEASES } from "./appInfo";
 import TabBar from "./TabBar";
 import UpdateBar from "./UpdateBar";
-import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
+import { closeStays, errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
 import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
 import { runCloseGuard } from "./closeGuards";
 import { t } from "./i18n";
 import { newest } from "./latest";
 import { mergedNotice, openGuarded } from "./merge";
-import { cycle, nth } from "./tabs";
+import { cycle, nth, othersToClose } from "./tabs";
 import { useImportJob } from "./useImportJob";
 import { useImportPick } from "./useImportPick";
 import { useSharedClip } from "./useSharedClip";
@@ -20,6 +20,7 @@ import { useTabShortcuts } from "./useTabShortcuts";
 import { ERROR_MS } from "./useToast";
 import { useTransient } from "./useTransient";
 import { useUpdate } from "./useUpdate";
+import { showBroadcast } from "./workspaceBroadcast";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
 async function ownLabel(view: WorkspaceView): Promise<string> {
@@ -53,9 +54,8 @@ export default function Workspace() {
     };
   }, []);
 
-  // Chaque vue diffusée par l'hôte fait relire son snapshot à l'`App` : un avis
-  // posé sur l'onglet actif sans le changer (fichier reçu qui n'a pas pu
-  // s'ouvrir) s'affiche aussitôt.
+  // Every view the host broadcasts makes the `App` re-read its snapshot (showBroadcast): a
+  // notice set on the active tab, or an owner deck changed by its deck-pack tab, shows at once.
   const [nonce, setNonce] = useState(0);
   const bump = useCallback(() => setNonce((n) => n + 1), []);
   // The About dialog, one per window (main menu of any tab).
@@ -112,11 +112,7 @@ export default function Workspace() {
     }
     return listenTauri(async () => {
       const { listen } = await import("@tauri-apps/api/event");
-      const stop = await listen<WorkspaceView>("workspace", (e) => {
-        if (!alive.current) return;
-        setView(e.payload);
-        bump();
-      });
+      const stop = await listen<WorkspaceView>("workspace", (e) => showBroadcast(e.payload, { alive, setView, bump }));
       first();
       return stop;
     });
@@ -139,11 +135,11 @@ export default function Workspace() {
   const winRef = useRef(win);
   winRef.current = win;
 
-  /** La vue relue juste avant de demander : son « modifié » est à jour. */
-  const freshTabs = async () => {
+  /** The view read right before asking: its "modified" flags are current. */
+  const freshView = async () => {
     const v = await workspace.view();
     if (alive.current) setView(v);
-    return v.windows.find((w) => w.label === label)?.tabs ?? [];
+    return v;
   };
 
   // Ids whose close runs (tab and window flows alike): a double click on × asks once.
@@ -155,7 +151,7 @@ export default function Workspace() {
   const flowDeps = (l: string) =>
     closeFlowDeps({
       tabApi, confirm: (m) => window.confirm(m), runGuard: (x) => runCloseGuard(x), closing: closingRef.current,
-      stalls: stallsRef.current, refresh, freshTabs, now: Date.now, ws: workspace, label: l, alive, run, setError,
+      stalls: stallsRef.current, refresh, freshView, now: Date.now, ws: workspace, label: l, alive, run, setError,
     });
 
   /** Closes a tab through closeTabFlow (guard, save, offer); false: not closed. */
@@ -167,10 +163,10 @@ export default function Workspace() {
     [run, label],
   );
 
-  // « Annuler » sur un onglet arrête tout.
+  // « Annuler » sur un onglet arrête tout. A deck-pack tab keeps its owner open.
   const closeOthers = async (id: string) => {
-    for (const tab of winRef.current?.tabs ?? []) {
-      if (tab.id !== id && !(await closeTab(tab.id))) return;
+    for (const other of othersToClose(winRef.current?.tabs ?? [], id)) {
+      if (!(await closeTab(other))) return;
     }
   };
 
@@ -225,7 +221,8 @@ export default function Workspace() {
       if (action.kind === "new-tab") run(workspace.newTab(label));
       else if (action.kind === "help") run(workspace.openHelp(label));
       else if (action.kind === "close-tab") {
-        if (inTauri || ids.length > 1) closeTab(w.active);
+        const v = viewRef.current;
+        if (v && !closeStays(v, label, w.active, inTauri)) closeTab(w.active);
       } else if (action.kind === "new-window") run(workspace.newWindow());
       else {
         const id = action.kind === "cycle" ? cycle(ids, w.active, action.delta) : nth(ids, action.n);
@@ -305,7 +302,7 @@ export default function Workspace() {
           onAbout={() => setAbout(true)}
           aboutOpen={about}
           updates={appUpdates}
-          onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}
+          onClose={closeStays(view, label, win.active, inTauri) ? undefined : () => void closeTab(win.active)}
           onOpenPack={async (pack, widget) => {
             const v = await run(workspace.openPack(win.active, pack, widget));
             return v?.windows.find((w) => w.label === label)?.active === win.active;

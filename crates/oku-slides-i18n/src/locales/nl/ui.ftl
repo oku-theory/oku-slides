@@ -33,6 +33,7 @@ ui-confirm-quit-read-only-theme = { $theme } kan hier niet worden opgeslagen. Di
 ui-confirm-update-opener = “{ $deck }” bijwerken naar deze versie van het pakket “{ $pack }”?
 ui-close-writes-pending = Dit tabblad slaat nog op: sluit het zo meteen opnieuw.
 ui-confirm-close-writes-pending = Dit tabblad slaat nog op. Toch sluiten en verliezen wat niet is opgeslagen?
+ui-confirm-close-writes-pending-linked = Dit tabblad slaat nog op, en deze pakkettabbladen sluiten mee zonder te zijn opgeslagen: { $tabs }. Toch sluiten en verliezen wat niet is opgeslagen?
 ui-confirm-quit-read-only-pack = { $pack } kan hier niet worden opgeslagen. Dit tabblad sluiten en de wijzigingen verliezen? Vraag de agent om het als nieuw pakket op te slaan om ze te bewaren.
 
 ## Meldingen

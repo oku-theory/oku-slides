@@ -332,6 +332,7 @@ impl Session {
         self.check_token_ops(&ops)?;
         self.embed_op_themes(&mut ops)?;
         let pins = pins_after(&combined_pins(self.doc.sources.deck()), &ops);
+        self.refuse_linked_pins(&pins)?;
         let (widgets, notice) = if pins == self.widgets_pins {
             (None, None)
         } else {

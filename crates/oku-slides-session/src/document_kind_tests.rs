@@ -30,10 +30,10 @@ fn document_kind_of_a_help_tab_is_help() {
 }
 
 #[test]
-fn document_kind_of_a_workshop_is_pack() {
+fn document_kind_of_a_pack_tab_is_pack() {
     let data = fresh_dir("oku-slides-kind-");
     let mut s = session_on(data.path());
-    s.edit_pack(ESSENTIEL_PACK).unwrap();
+    s.open_pack_tab_here(ESSENTIEL_PACK, None).unwrap();
     assert_that!(s.document_kind()).is_equal_to(DocumentKind::Pack);
 }
 

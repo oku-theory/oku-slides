@@ -128,9 +128,5 @@ fn edit_pack_description_says_a_library_pack_opens_in_its_own_tab() {
     assert_that!(d.as_str()).contains("A library pack opens in its own tab beside this one");
     assert_that!(d.as_str()).contains("one new tab per turn");
     assert_that!(d.as_str()).does_not_contain("Switch to pack mode");
-}
-
-#[test]
-fn close_pack_description_leaves_a_pack_tab_to_the_user() {
-    assert_that!(tool_description("close_pack")).contains("a pack's own tab is closed by the user");
+    assert_that!(d.as_str()).does_not_contain("close_pack");
 }

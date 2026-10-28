@@ -29,8 +29,6 @@ export interface PackWidgetEditor {
   history: EditorHistory;
   commandsOf(id: number): (c: EditorCommands | null) => void;
   historyOf(id: number): (h: EditorHistory) => void;
-  /** Frappes écrites et file vide, puis `close` (✓). */
-  finish(close: () => Promise<unknown>): Promise<void>;
 }
 
 interface Callbacks {
@@ -151,7 +149,7 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
 
   const open = useCallback((name: string) => setTabs((s) => opened(s, name)), []);
   const activate = useCallback((id: ActiveTab) => setTabs((s) => activated(s, id)), []);
-  const { flush, settle } = files;
+  const { flush } = files;
   /** Un sous-onglet vient d'être fermé : le focus perdu va au sous-onglet devenu actif. */
   const refocus = useRef(false);
   const close = useCallback(
@@ -204,15 +202,6 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
     if (activeRef.current !== null) commands.current.get(activeRef.current)?.redo();
   }, []);
 
-  const finish = useCallback(
-    async (closePack: () => Promise<unknown>) => {
-      // Avant de quitter : un changement de pack abandonnerait la file.
-      await settle();
-      await closePack();
-    },
-    [settle],
-  );
-
   // ⌘W et ⌘Z d'un sous-onglet widget, avant le `Workspace` et l'`App` (capture).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -255,6 +244,5 @@ export function usePackWidgetEditor(api: TabApi, snap: Snapshot | null, on: Call
     history: shown.id === active ? shown.h : ZERO,
     commandsOf,
     historyOf,
-    finish,
   };
 }

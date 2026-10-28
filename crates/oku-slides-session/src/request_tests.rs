@@ -13,8 +13,7 @@ use crate::test_support_packs::{acme_of, acme_pack, adopting_deck};
 
 /// A second version of `pack` made current by another session on `data`.
 fn newer_elsewhere(data: &Path, pack: Uuid) {
-    let mut other = session_on(data);
-    other.edit_pack(pack).unwrap();
+    let mut other = crate::test_support_packs::pack_tab_of(data, pack);
     other.apply("x", vec![rename_title("acme 2")], None).unwrap();
     other.save_pack(false).unwrap();
 }
@@ -49,7 +48,7 @@ fn use_pack_version_request_parses_the_ui_json() {
 fn snapshot_request_relights_the_badge_after_a_library_write() {
     let data = fresh_dir("oku-slides-badge-");
     let mut a = session_on(data.path());
-    let (acme, _) = acme_pack(&mut a);
+    let (acme, _) = acme_pack(&mut a, data.path());
     a.handle(Request::Snapshot).unwrap();
     assert_that!(a.snapshot().pack_updates).is_equal_to(0);
     newer_elsewhere(data.path(), acme);
@@ -64,7 +63,7 @@ fn snapshot_request_relights_the_badge_after_a_library_write() {
 fn snapshot_request_without_an_in_process_write_keeps_the_badge_unlit() {
     let (data, scratch) = (fresh_dir("oku-slides-badge-"), fresh_dir("oku-slides-badge-scratch-"));
     let mut a = session_on(data.path());
-    let (acme, _) = acme_pack(&mut a);
+    let (acme, _) = acme_pack(&mut a, data.path());
     copy_over(&data.path().join("widgets"), &scratch.path().join("widgets"));
     newer_elsewhere(scratch.path(), acme);
     a.handle(Request::Snapshot).unwrap();
@@ -78,7 +77,7 @@ fn snapshot_request_without_an_in_process_write_keeps_the_badge_unlit() {
 fn snapshot_request_after_a_foreign_write_takes_no_drafts() {
     let data = fresh_dir("oku-slides-badge-");
     let mut a = session_on(data.path());
-    acme_pack(&mut a);
+    acme_pack(&mut a, data.path());
     a.handle(Request::Snapshot).unwrap();
     let other = session_on(data.path());
     add_version(crate::test_support::library_of(&other), &manifest_ns(Uuid::new_v4(), "autre", &[]), &[]);
@@ -122,7 +121,7 @@ fn snapshot_request_changes_nothing_persisted() {
     let dir = fresh_dir("oku-slides-badge-tab-");
     let mut a = session_on(data.path());
     assert_that!(a.resume_fresh(dir.path().to_path_buf())).is_true();
-    let (acme, _) = acme_pack(&mut a);
+    let (acme, _) = acme_pack(&mut a, data.path());
     a.flush_resume();
     edit_state(dir.path(), |state| state["ui"]["grid"] = json!(false));
     newer_elsewhere(data.path(), acme);

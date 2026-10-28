@@ -8,7 +8,8 @@ export type TabDocument =
   | { kind: "deck"; path: string | null; deck_uid: string | null }
   | { kind: "help"; locale: string }
   | { kind: "pack"; pack: string }
-  | { kind: "theme"; theme: string };
+  | { kind: "theme"; theme: string }
+  | { kind: "deck_pack"; deck_tab: string; pack: string };
 
 /** A tab, as the bar shows it. */
 export interface TabInfo {
@@ -17,8 +18,6 @@ export interface TabInfo {
   dirty: boolean;
   /** A new deck never touched: opening a file replaces it. */
   pristine: boolean;
-  /** The tab edits a pack, in its own tab or a deck's workshop. */
-  editing_pack: boolean;
   /** Id of the deck's theme, or null. */
   theme: string | null;
   /** What the tab edits. */
@@ -34,6 +33,7 @@ export function tabPath(tab: TabInfo): string | null {
     case "help":
     case "pack":
     case "theme":
+    case "deck_pack":
       return null;
     default: {
       // A kind this build does not know (a newer host): no file.
@@ -42,6 +42,24 @@ export function tabPath(tab: TabInfo): string | null {
       return null;
     }
   }
+}
+
+/** The deck-pack tabs whose owner is deck tab `deckTab`, in every window. */
+export function linkedTabs(windows: WindowView[], deckTab: string): TabInfo[] {
+  return windows.flatMap((w) => w.tabs).filter((x) => x.document?.kind === "deck_pack" && x.document.deck_tab === deckTab);
+}
+
+/**
+ * Would closing tab `tab` of window `win` empty the workspace? Then it stays.
+ *
+ * Never in Tauri (the host quits keeping everything); in the browser, when the tab and its
+ * linkedTabs are every tab of every window: the host refuses such a close, a lone plain tab
+ * included. False for a tab the window does not hold.
+ */
+export function closeStays(view: WorkspaceView, win: string, tab: string, inTauri: boolean): boolean {
+  if (inTauri || !view.windows.find((w) => w.label === win)?.tabs.some((x) => x.id === tab)) return false;
+  const closing = new Set([tab, ...linkedTabs(view.windows, tab).map((x) => x.id)]);
+  return view.windows.every((w) => w.tabs.every((x) => closing.has(x.id)));
 }
 
 /** The deck a closed pack tab may update, and the version. */

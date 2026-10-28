@@ -260,8 +260,8 @@ fn theme_choices_on_an_empty_deck_keep_every_card_without_thumbnail() {
 
 #[test]
 fn theme_choices_outside_deck_mode_are_none() {
-    let mut s = session();
-    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), crate::pack::ESSENTIEL_PACK);
     assert_that!(s.theme_choices(None).unwrap()).is_none();
 }
 
@@ -306,7 +306,7 @@ fn pick_theme_of_an_unknown_namespace_is_refused() {
 
 #[test]
 fn pick_theme_in_pack_mode_is_refused() {
-    let mut s = session();
-    s.edit_pack(crate::pack::ESSENTIEL_PACK).unwrap();
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), crate::pack::ESSENTIEL_PACK);
     assert_that!(s.pick_theme(&ns(PRO_NAMESPACE))).is_err();
 }

@@ -50,3 +50,38 @@ pub fn png() -> Vec<u8> {
 pub fn op(v: serde_json::Value) -> Op {
     serde_json::from_value(v).unwrap_or_else(|e| panic!("op invalide : {e}"))
 }
+
+/// The open tabs of `ws`, in bar order.
+fn tab_ids(ws: &Mutex<Workspace>) -> Vec<String> {
+    Workspace::lock(ws).tab_ids()
+}
+
+/// The one tab `f` opened in `ws`: its id.
+fn opened_by(ws: &Mutex<Workspace>, f: impl FnOnce()) -> String {
+    let before = tab_ids(ws);
+    f();
+    let new: Vec<String> = tab_ids(ws).into_iter().filter(|t| !before.contains(t)).collect();
+    match new.as_slice() {
+        [tab] => tab.clone(),
+        other => panic!("one new tab expected, got {other:?}"),
+    }
+}
+
+/// Opens `pack` from `tab` as the interface does: the new tab's id.
+pub fn open_pack(ws: &Mutex<Workspace>, tab: &str, pack: uuid::Uuid) -> String {
+    opened_by(ws, || {
+        send(ws, serde_json::json!({ "cmd": "open_pack", "tab": tab, "pack": pack }));
+    })
+}
+
+/// Imports `fixtures/import/minimal` in hi-fi into a new tab of `w-1`: its id.
+pub fn import_hifi(ws: &Mutex<Workspace>, data: &Data) -> String {
+    let path = crate::hifi_import::minimal_pptx(data);
+    let target = oku_slides_session::import::ImportTarget::Hifi {
+        witness: Some(oku_slides_platform::config::ImportWitness::Office2pdf),
+    };
+    let req = WorkspaceRequest::ImportTab { window: "w-1".to_owned(), path, target, tune: false };
+    opened_by(ws, || {
+        Workspace::apply(ws, req).unwrap_or_else(|e| panic!("import refused: {}", e.one_line()));
+    })
+}

@@ -178,6 +178,20 @@ pub async fn start_theme_tab(theme: uuid::Uuid) -> Harness {
     start_with((platform, data), session.clone(), session, "t-1").await
 }
 
+/// [`start`] on a pack tab of library pack `pack` instead of the fixture deck.
+pub async fn start_pack_tab(pack: uuid::Uuid) -> Harness {
+    let (platform, session, data) = tokio::task::spawn_blocking(move || {
+        let (platform, data) = platform_with(|_| {});
+        let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("test session: {e}"));
+        session.open_pack_tab_here(pack, None).unwrap_or_else(|e| panic!("pack tab: {}", e.one_line()));
+        (platform, session, data)
+    })
+    .await
+    .unwrap_or_else(|e| panic!("blocking setup task: {e}"));
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), session.clone(), session, "t-1").await
+}
+
 /// Démarre le serveur pour un onglet dont les sessions sont fournies par `sessions`.
 async fn start_with(
     (platform, data): (Platform, tempfile::TempDir),

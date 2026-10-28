@@ -18,12 +18,13 @@ const FRAMED: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as 
 #let widget = widget("cadre", params: (value: p.plain()), (args, ctx) => cadre(field(ctx, "value", args.value)))
 "#;
 
-/// Une session sur un dossier neuf, en édition du pack de widgets `atelier`, vide, que le deck épingle.
+/// A pack tab of the empty widget pack `atelier`, on a fresh folder.
+///
+/// Its preview deck pins `atelier`.
 fn editing(data: &std::path::Path) -> Session {
-    let mut s = crate::test_support::session_on(data);
-    crate::test_support::pin_atelier(&mut s);
-    s.edit_pack(ATELIER).unwrap();
-    s
+    let mut opener = crate::test_support::session_on(data);
+    crate::test_support::pin_atelier(&mut opener);
+    crate::test_support_packs::pack_tab_from(&mut opener, data, ATELIER)
 }
 
 /// Une session en mode deck dont les fichiers de widgets sont bornés : ses écritures vont au pack `deck`, vide.
@@ -54,18 +55,18 @@ fn set_widget_twice_then_save_makes_one_version_holding_the_file() {
 #[test]
 fn set_widget_in_pack_mode_on_a_deck_only_pack_writes_no_library() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = crate::test_support::session_on(data.path());
-    let r = crate::test_support::adopt_deck_only_pack(&mut s);
+    let mut owner = crate::test_support::session_on(data.path());
+    let r = crate::test_support::adopt_deck_only_pack(&mut owner);
     let before = crate::test_support::library_files(data.path());
-    s.edit_pack(r.id).unwrap();
+    let mut s = crate::test_support_packs::deck_pack_tab_of(&mut owner, data.path(), r.id);
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     s.set_widget(None, "kpi", KPI_V2.into()).unwrap();
     assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
     assert_that!(crate::test_support::library_of(&s).versions(r.id)).is_empty();
     let edit = s.snapshot().editing.map(|e| e.mode.clone()).unwrap();
     let version = edit.session_version.clone().unwrap();
-    let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
-    let files = stash.sources.packs.get(&version).cloned().unwrap();
+    let crate::Mode::Pack { preview, .. } = &s.mode else { panic!("mode pack attendu") };
+    let files = preview.sources.packs.get(&version).cloned().unwrap();
     let kpi = oku_slides_core::WidgetFile::parse("kpi").unwrap();
     assert_that!(files.widget(&kpi)).is_equal_to(Some(KPI_V2));
     assert_that!(files.scope().unwrap()).is_equal_to(oku_slides_core::PackScope::Deck);
@@ -142,10 +143,13 @@ fn remove_widget_used_by_an_example_is_refused_with_the_example_names() {
 #[test]
 fn remove_widget_used_by_a_saved_example_is_refused_in_deck_mode() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = example_using_kpi(data.path());
-    s.save_pack(false).unwrap();
-    s.close_pack().unwrap();
+    let mut tab = example_using_kpi(data.path());
+    tab.save_pack(false).unwrap();
+    drop(tab);
     // Mode deck : aucune slide du deck ne l'utilise, seul l'exemple enregistré de `pile`.
+    let mut s = crate::test_support::session_on(data.path());
+    let atelier = crate::test_support::add_current(crate::test_support::library_of(&s), "atelier");
+    s.apply("Atelier", vec![atelier], None).unwrap();
     let err = s.remove_widget(Some(&crate::test_support::ns("atelier")), "kpi").unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::WidgetInUse);
     assert_that!(err.one_line()).contains("pile");
@@ -161,8 +165,7 @@ fn remove_widget_whose_own_example_uses_nothing_else_is_accepted() {
 #[test]
 fn remove_layout_in_pack_mode_is_not_refused_by_its_own_slide() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
-    let mut s = crate::test_support::session_on(data.path());
-    s.edit_pack(crate::ESSENTIEL_PACK).unwrap();
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), crate::ESSENTIEL_PACK);
     assert_that!(s.remove_widget(None, "end").is_ok()).is_true();
 }
 
@@ -210,8 +213,8 @@ fn set_widget_that_breaks_a_widget_posts_no_broken_widgets_notice() {
     assert_that!(s.doc.notice).is_none();
     // Hors écriture, l'avis revient : une session neuve sur la version cassée le pose.
     s.save_pack(false).unwrap();
-    s.close_pack().unwrap();
-    s.edit_pack(ATELIER).unwrap();
+    drop(s);
+    let s = crate::test_support_packs::pack_tab_of(data.path(), ATELIER);
     assert_that!(s.doc.notice.as_deref().unwrap_or_default()).contains("kpi");
 }
 
@@ -279,24 +282,24 @@ fn set_widget_with_the_same_source_commits_nothing() {
     let mut s = editing(data.path());
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     let before = crate::test_support::library_of(&s).current(ATELIER);
-    let crate::Mode::Pack { stash, .. } = &mut s.mode else { panic!("mode pack attendu") };
-    stash.dirty = false;
+    let crate::Mode::Pack { preview, .. } = &mut s.mode else { panic!("mode pack attendu") };
+    preview.dirty = false;
     let change = s.set_widget(None, "kpi", KPI.into()).unwrap();
     assert_that!(change.status.is_valid()).is_true();
-    let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
-    assert_that!(stash.dirty).is_false();
+    let crate::Mode::Pack { preview, .. } = &s.mode else { panic!("mode pack attendu") };
+    assert_that!(preview.dirty).is_false();
     assert_that!(crate::test_support::library_of(&s).current(ATELIER)).is_equal_to(before);
 }
 
 #[test]
-fn successive_writes_in_pack_mode_keep_only_the_session_version_in_the_stash_sources() {
+fn successive_writes_in_pack_mode_keep_only_the_session_version_in_the_preview_sources() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let count = |s: &Session| {
-        let crate::Mode::Pack { stash, .. } = &s.mode else { panic!("mode pack attendu") };
-        // Le document du pack garde ses versions (une étape peut y ramener) ;
-        // le deck mis de côté, lui, n'a que celle de la séance.
-        stash.sources.packs.len()
+        let crate::Mode::Pack { preview, .. } = &s.mode else { panic!("mode pack attendu") };
+        // The pack document keeps its versions (a step may bring one back);
+        // the preview deck, on the other hand, only has the session's.
+        preview.sources.packs.len()
     };
     s.set_widget(None, "kpi", KPI.into()).unwrap();
     let first = count(&s);
@@ -480,7 +483,7 @@ fn redo_of_a_pack_turn_restores_the_turn_source() {
 }
 
 #[test]
-fn undo_to_the_parent_then_close_leaves_the_deck_on_the_parent_version() {
+fn undo_to_the_parent_leaves_the_preview_on_the_parent_version() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = editing(data.path());
     let parent = s.snapshot().editing.unwrap().parent.clone();
@@ -488,8 +491,7 @@ fn undo_to_the_parent_then_close_leaves_the_deck_on_the_parent_version() {
     s.set_widget_by_agent(None, "kpi", KPI.into()).unwrap();
     s.end_turn();
     s.undo().unwrap();
-    s.close_pack().unwrap();
-    assert_that!(crate::test_support::pin(&s, "atelier").map(|r| r.version)).is_equal_to(parent);
+    assert_that!(crate::test_support::preview_pin(&s, "atelier").map(|r| r.version)).is_equal_to(parent);
 }
 
 #[test]

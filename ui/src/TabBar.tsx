@@ -3,9 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { listenTauri, type TabAt, tabPath, type WindowView, type WorkspaceView } from "./api";
+import { closeStays, listenTauri, type TabAt, type TabInfo, tabPath, type WindowView, type WorkspaceView } from "./api";
 import { t } from "./i18n";
-import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, outside, slotAt } from "./tabs";
+import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, othersToClose, outside, slotAt } from "./tabs";
 
 interface Props {
   view: WorkspaceView;
@@ -37,6 +37,13 @@ interface Drag {
   grabY: number;
   /** Hors de la fenêtre : le fantôme est chez la fenêtre survolée, s'il y en a une. */
   out: boolean;
+}
+
+/** A tab's badge, from its document kind: a pack (library or deck-only) or a theme. */
+function TabBadge({ tab }: { tab: TabInfo }) {
+  const kind = tab.document?.kind;
+  const key = kind === "pack" || kind === "deck_pack" ? "ui-tab-pack" : kind === "theme" ? "ui-tab-theme" : null;
+  return key && <span className="tab-badge">{t(key)}</span>;
 }
 
 /** Barre d'onglets d'une fenêtre. */
@@ -164,8 +171,8 @@ export default function TabBar(props: Props) {
     action();
     setMenu(null);
   };
-  // Dans le navigateur, le dernier onglet reste : sans lui, plus de fenêtre.
-  const lastStays = !windows && win.tabs.length === 1;
+  // In the browser, a tab whose close would empty the workspace (with its deck-pack tabs) stays.
+  const stays = (id: string) => closeStays(view, win.label, id, windows);
 
   // Place de dépôt montrée : celle de notre glisser, ou celle d'un onglet venu d'ailleurs.
   const slot = drag ? drag.slot : incoming ? slotAt(mids(), incoming.x, rtl) : -1;
@@ -214,17 +221,15 @@ export default function TabBar(props: Props) {
               setMenu({ id: tab.id, x: e.clientX, y: e.clientY });
             }}
           >
-            {/* Pack or theme, until lot 6's borders; a theme tab never edits a pack. */}
-            {(tab.editing_pack || tab.document?.kind === "theme") && (
-              <span className="tab-badge">{t(tab.editing_pack ? "ui-tab-pack" : "ui-tab-theme")}</span>
-            )}
+            {/* Pack (of the library or of one deck) or theme, until lot 6's borders. */}
+            <TabBadge tab={tab} />
             <span className="tab-title">{tab.title}</span>
             {tab.dirty && <span className="tab-dirty" role="img" aria-label={t("ui-tab-unsaved")} />}
             <button
               className="tab-close"
               aria-label={t("ui-tab-close")}
               title={t("ui-tab-close")}
-              disabled={lastStays}
+              disabled={stays(tab.id)}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => onClose(tab.id)}
             >
@@ -263,8 +268,8 @@ export default function TabBar(props: Props) {
                   </button>
                 ),
               )}
-            <button role="menuitem" disabled={win.tabs.length < 2} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
-            <button role="menuitem" disabled={lastStays} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
+            <button role="menuitem" disabled={othersToClose(win.tabs, menu.id).length === 0} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
+            <button role="menuitem" disabled={stays(menu.id)} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
           </div>,
           document.body,
         )}

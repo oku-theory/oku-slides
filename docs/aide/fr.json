@@ -234,7 +234,7 @@
            "bold": true
           },
           {
-            "t": " : demandez l'atelier à l'agent. Le pack s'ouvre comme un deck, une slide par layout. Un pack de la bibliothèque s'ouvre dans son propre onglet ; le fermer (« Terminer » ou la croix de l'onglet) propose de mettre le deck à jour si le pack a changé, sinon la mise à jour attend dans « Packs du deck ». Tant que cet onglet est ouvert, aucun autre onglet ne modifie ce pack. Le pack propre à un deck importé s'ouvre dans l'onglet du deck, et « Terminer » ramène au deck."
+            "t": " : demandez à l'agent de l'ouvrir. Le pack s'ouvre comme un deck, une slide par layout. Un pack de la bibliothèque s'ouvre dans son propre onglet ; le fermer (« Terminer » ou la croix de l'onglet) propose de mettre le deck à jour si le pack a changé, sinon la mise à jour attend dans « Packs du deck ». Tant que cet onglet est ouvert, aucun autre onglet ne modifie ce pack. Le pack propre à un deck importé s'ouvre lui aussi dans son onglet, à côté du deck : chaque enregistrement va dans le deck, en une seule étape d'annulation, et l'onglet se ferme avec le deck. Ses changements s'annulent dans cet onglet ; tant qu'il est ouvert, le deck ne modifie pas ce pack."
           }
          ],
          "list": "bullet"
@@ -673,7 +673,7 @@
            "bold": true
           },
           {
-            "t": " : l'atelier, demandé à l'agent, édite ses layouts, enregistrés dans cette présentation seulement ; son aspect reste dans les jetons du deck, par-dessus le thème Neutre."
+            "t": " : ses layouts s'éditent dans l'onglet de son pack, que l'agent ouvre à côté du deck, et s'enregistrent dans cette présentation seulement ; son aspect reste dans les jetons du deck, par-dessus le thème Neutre."
           }
          ],
          "list": "bullet"

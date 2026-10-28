@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::{action, next_surface, start, theme_tab_session, wait_event};
+use common::{action, next_surface, start, start_pack_tab, theme_tab_session, wait_event};
 use oku_slides_a2ui::{ComponentKind, ServerBody};
 use oku_slides_core::Namespace;
 use oku_slides_mcp::{HubErrorKind, McpEvent};
@@ -77,10 +77,7 @@ async fn show_themes_twice_replaces_the_picker_without_closing_it() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_outside_deck_mode_shows_nothing() {
-    let h = start().await;
-    tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap();
-    });
+    let h = start_pack_tab(oku_slides_session::pack::ESSENTIEL_PACK).await;
     assert_that!((show(&h), open(&h))).is_equal_to((false, false));
 }
 
@@ -299,10 +296,7 @@ async fn show_themes_tool_pick_is_noted_for_the_agent() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_outside_deck_mode_says_so_in_french() {
-    let h = start().await;
-    tokio::task::block_in_place(|| {
-        h.session.lock().unwrap().edit_pack(oku_slides_session::pack::ESSENTIEL_PACK).unwrap();
-    });
+    let h = start_pack_tab(oku_slides_session::pack::ESSENTIEL_PACK).await;
     let r = call_show_themes(&h, json!({})).await;
     let said = (r.is_error, common::text_of(&r), open(&h));
     let want = (Some(true), h.localizer.tr("agent-error-themes-deck-mode"), false);

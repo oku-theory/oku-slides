@@ -1,20 +1,40 @@
-//! Les versions qu'épingle un deck sont figées dans la bibliothèque.
+//! Versions a deck pins are frozen in the library.
 //!
-//! Un deck en mode deck adopte chaque version de la bibliothèque qu'il
-//! épingle, packs et thèmes : la bibliothèque ne la remplacera plus. Le
-//! deck de travail du mode pack, le deck mis de côté qui épingle la
-//! version de la séance et le brouillon d'une séance de widgets n'adoptent
-//! rien : fermer le mode pack ou finir la séance adopte.
+//! A deck in deck mode adopts every library version it pins, packs and
+//! themes, so the library never replaces it: whenever its pack updates are
+//! refreshed (`refresh_pack_updates`) and when a widget session ends. A pack
+//! tab's working deck, a preview deck and a running widget session's draft
+//! adopt nothing; deck-only versions never enter the library.
+
+use oku_slides_core::{PackFiles, PackVersion};
+use uuid::Uuid;
 
 use crate::library::draft_lock;
 use crate::pack_receive::is_deck_only;
 use crate::{Mode, Session};
 
 impl Session {
-    /// Fige chaque version de la bibliothèque qu'épingle le deck, en mode deck seulement.
+    /// The embedded files of `version` of `pin_id` when adopting it is due.
     ///
-    /// Un échec est journalisé : le deck embarque la version, rien n'est
-    /// perdu ; seul un enregistrement à venir pourrait la remplacer.
+    /// `None` otherwise. Due: not the widget session's draft (the session
+    /// still replaces it), listed by the library, not yet frozen and not
+    /// deck-only. An unlisted version (received, or a draft replaced
+    /// meanwhile) stays the deck's, keeping its `received` mark; the index
+    /// suffices, no loading under the lock.
+    pub(crate) fn adoptable(&self, pin_id: Uuid, version: &PackVersion) -> Option<&PackFiles> {
+        if self.is_widget_draft(pin_id, version) {
+            return None;
+        }
+        if self.library.is_frozen(pin_id, version) || !self.library.lists(pin_id, version) {
+            return None;
+        }
+        self.doc.sources.packs.get(version).filter(|f| !is_deck_only(f))
+    }
+
+    /// Freezes every library version the deck pins, in deck mode only.
+    ///
+    /// A failure is logged: the deck embeds the version, nothing is lost;
+    /// only a later save could replace it.
     pub(crate) fn adopt_pins(&self) {
         if !matches!(self.mode, Mode::Deck) {
             return;
@@ -23,17 +43,7 @@ impl Session {
         let blobs = &self.doc.sources;
         let deck = blobs.deck();
         for (_, _, pin) in deck.all_pins() {
-            // Le brouillon d'une séance de widgets n'est pas adopté : la séance le remplace encore.
-            if self.is_widget_draft(pin) {
-                continue;
-            }
-            // Déjà figée : rien à faire. Une version inconnue de la bibliothèque reste au deck : une version
-            // reçue reste reçue (load précède receive_packs), un brouillon remplacé entre-temps n'est que dans
-            // le deck, rien n'est perdu. L'index suffit : pas de chargement sous le verrou.
-            if self.library.is_frozen(pin.id, &pin.version) || !self.library.lists(pin.id, &pin.version) {
-                continue;
-            }
-            let Some(files) = blobs.packs.get(&pin.version).filter(|f| !is_deck_only(f)) else { continue };
+            let Some(files) = self.adoptable(pin.id, &pin.version) else { continue };
             if let Err(e) = self.library.adopt(&lock, pin.id, files) {
                 tracing::warn!(pack = %pin.id, error = %e.one_line(), "version épinglée non figée");
             }

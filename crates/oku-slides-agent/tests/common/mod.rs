@@ -309,7 +309,9 @@ impl oku_slides_session::agent::Sessions for TabSessions {
         Ok(())
     }
 
-    /// A known tab opens in place; an unknown one is refused by the closed workspace.
+    /// A known tab answers as a single-document host; an unknown one is refused by the closed workspace.
+    ///
+    /// Its session already editing `pack` opens it `Here`; any other pack is `SingleDocument`.
     fn open_pack(
         &self,
         tab: &str,
@@ -317,10 +319,15 @@ impl oku_slides_session::agent::Sessions for TabSessions {
         widget: Option<&str>,
         gate: &mut dyn FnMut(oku_slides_session::agent::PackGate) -> bool,
     ) -> oku_slides_session::Result<oku_slides_session::agent::PackOpen> {
-        if let Some(s) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_mut(tab) {
-            s.open_pack_here(pack, widget)?;
-            return Ok(oku_slides_session::agent::PackOpen::Here);
+        // The map stays locked while its session is out: no other call finds the tab missing.
+        let mut sessions = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(s) = sessions.remove(tab) {
+            let single = Mutex::new(s);
+            let opened = oku_slides_session::agent::Sessions::open_pack(&single, tab, pack, widget, gate);
+            sessions.insert(tab.to_owned(), single.into_inner().unwrap_or_else(std::sync::PoisonError::into_inner));
+            return opened;
         }
+        drop(sessions);
         oku_slides_session::Workspace::open_pack(&self.1, "onglet-ferme", pack, widget, gate)
     }
 }

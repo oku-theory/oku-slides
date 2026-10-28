@@ -1,14 +1,14 @@
-use rstest::rstest;
 use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::*;
-use crate::library::{DraftWrite, draft_lock};
+use crate::SessionErrorKind;
+use crate::library::DraftWrite;
 use crate::pack_lease::pack_leased;
-use crate::pack_mode_lease::Settled;
-use crate::test_support::{adopt_deck_only_pack, fresh_dir, manifest_ns, rename_title, session_on};
-use crate::test_support_packs::{assert_unleased, draft_of, editing, opener_on, pack_tab_from, scope_of};
-use crate::{BASE_PACK, Request, SessionErrorKind};
+use crate::test_support::{adopt_deck_only_pack, fresh_dir, rename_title, session_on};
+use crate::test_support_packs::{
+    assert_unleased, deck_pack_tab_of, draft_of, editing, opener_on, pack_tab_from, scope_of,
+};
 
 /// Whether `s`'s mode holds a lease of `pack`.
 fn holds(s: &Session, pack: Uuid) -> bool {
@@ -16,106 +16,14 @@ fn holds(s: &Session, pack: Uuid) -> bool {
 }
 
 #[test]
-fn deck_workshop_of_a_library_pack_takes_its_lease() {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    s.edit_pack(acme).unwrap();
-    assert_that!(holds(&s, acme)).is_true();
-    assert_that!(pack_leased(&scope_of(&s), acme))
-        .is_equal_to(Some(label(&s.document_name(crate::test_support::stash_of(&s)))));
-}
-
-#[test]
-fn deck_workshop_close_pack_frees_the_lease() {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    s.edit_pack(acme).unwrap();
-    s.close_pack().unwrap();
-    assert_unleased(&scope_of(&s), acme);
-}
-
-#[test]
-fn deck_workshop_switch_to_another_library_pack_moves_the_lease() {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    s.edit_pack(acme).unwrap();
-    s.edit_pack(BASE_PACK).unwrap();
-    assert_that!(holds(&s, BASE_PACK)).is_true();
-    assert_unleased(&scope_of(&s), acme);
-}
-
-#[test]
-fn deck_workshop_switch_to_a_deck_only_pack_frees_the_lease() {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let d = adopt_deck_only_pack(&mut s);
-    s.edit_pack(acme).unwrap();
-    s.edit_pack(d.id).unwrap();
-    assert_that!(matches!(&s.mode, Mode::Pack { lease: None, .. })).is_true();
-    assert_unleased(&scope_of(&s), acme);
-}
-
-#[test]
-fn deck_workshop_refused_switch_keeps_the_old_lease() {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let mut other = session_on(data.path());
-    other.edit_pack(BASE_PACK).unwrap();
-    s.edit_pack(acme).unwrap();
-    assert_that!(s.edit_pack(BASE_PACK).unwrap_err().kind()).is_equal_to(SessionErrorKind::PackOpenInTab);
-    assert_that!(holds(&s, acme)).is_true();
-    assert_that!(editing(&s)).is_equal_to(Some((acme, PackHost::Deck)));
-}
-
-#[test]
-fn deck_workshop_of_a_library_without_dirs_takes_no_lease() {
-    let mut s = crate::test_support::session();
-    s.library = crate::PackLibrary::new(None, None, s.themes.clone(), s.storage.clone());
-    s.edit_pack(BASE_PACK).unwrap();
-    assert_that!(editing(&s)).is_equal_to(Some((BASE_PACK, PackHost::Deck)));
-    assert_that!(matches!(&s.mode, Mode::Pack { lease: None, .. })).is_true();
-}
-
-#[test]
-fn deck_workshop_enter_failure_after_the_lease_frees_it() {
+fn save_pack_as_new_moves_the_lease_to_the_copy() {
     let data = fresh_dir("oku-slides-lease-tab-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let scope = scope_of(&s);
-    // Q requires a namespace no pack provides: its closure fails after the lease is taken.
-    let q = Uuid::new_v4();
-    let manifest = manifest_ns(q, "qux", &["nulle-part"]);
-    crate::test_support::add_version(&s.library, &manifest, &[]);
-    let stored = s.pack_base(q).unwrap();
-    let settled = s.settle_lease(q, PackHost::Deck, &stored, None).unwrap();
-    assert_that!(matches!(settled, Settled::Hold(_))).is_true();
-    let probe = PackLease::try_take(&draft_lock(), &scope, q, "q", "probe");
-    assert_that!(probe.map(|_| ()).unwrap_err().kind()).is_equal_to(SessionErrorKind::PackOpenInTab);
-    drop(settled);
-    assert_unleased(&scope, q);
-    s.handle(Request::EditPack { pack: acme }).unwrap();
-    let err = s.handle(Request::EditPack { pack: q }).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownNamespace);
-    assert_unleased(&scope, q);
-    assert_that!(holds(&s, acme)).is_true();
-}
-
-#[rstest]
-#[case::deck(PackHost::Deck)]
-#[case::tab(PackHost::Tab)]
-fn save_pack_as_new_moves_the_lease_to_the_copy(#[case] host: PackHost) {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    let scope = scope_of(&s);
-    let mut t = match host {
-        PackHost::Deck => {
-            s.edit_pack(acme).unwrap();
-            s
-        }
-        PackHost::Tab => pack_tab_from(&mut s, data.path(), acme),
-    };
+    let mut t = pack_tab_from(&mut s, data.path(), acme);
     assert_that!(pack_leased(&scope, acme).is_some()).is_true();
     t.save_pack(true).unwrap();
-    let (copy, _) = editing(&t).unwrap();
+    let copy = editing(&t).unwrap();
     assert_unleased(&scope, acme);
     assert_that!(holds(&t, copy)).is_true();
     assert_that!(pack_leased(&scope, copy).is_some()).is_true();
@@ -124,23 +32,14 @@ fn save_pack_as_new_moves_the_lease_to_the_copy(#[case] host: PackHost) {
 #[test]
 fn save_pack_as_new_of_a_deck_only_pack_takes_no_lease() {
     let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, _acme) = opener_on(data.path());
-    let d = adopt_deck_only_pack(&mut s);
-    s.edit_pack(d.id).unwrap();
+    let (mut owner, _deck, _acme) = opener_on(data.path());
+    let d = adopt_deck_only_pack(&mut owner);
+    let mut s = deck_pack_tab_of(&mut owner, data.path(), d.id);
     s.save_pack(true).unwrap();
-    let (copy, _) = editing(&s).unwrap();
+    let copy = editing(&s).unwrap();
     assert_that!(copy).is_not_equal_to(d.id);
     assert_that!(matches!(&s.mode, Mode::Pack { lease: None, .. })).is_true();
     assert_unleased(&scope_of(&s), copy);
-}
-
-#[test]
-fn pack_to_pack_switch_keeps_the_host() {
-    let data = fresh_dir("oku-slides-lease-tab-");
-    let (mut s, _deck, acme) = opener_on(data.path());
-    s.edit_pack(acme).unwrap();
-    s.edit_pack(BASE_PACK).unwrap();
-    assert_that!(editing(&s)).is_equal_to(Some((BASE_PACK, PackHost::Deck)));
 }
 
 #[test]
@@ -163,7 +62,7 @@ fn pack_tab_lease_refuses_another_session_while_it_lasts() {
     let data = fresh_dir("oku-slides-lease-tab-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let _t = pack_tab_from(&mut s, data.path(), acme);
-    let err = s.edit_pack(acme).unwrap_err();
+    let err = session_on(data.path()).open_pack_tab_here(acme, None).unwrap_err();
     assert_that!((err.kind(), err.lease_holder())).is_equal_to((SessionErrorKind::PackOpenInTab, Some("acme")));
 }
 

@@ -267,24 +267,6 @@ fn close_edited_tab_without_discard_returns_unsaved_and_keeps_it() {
     assert_that!(w.tabs[0].info.dirty).is_true();
 }
 
-/// Seul le pack en cours d'édition est modifié : c'est du travail aussi.
-#[test]
-fn close_tab_with_only_edited_pack_returns_unsaved() {
-    let data = Data::new();
-    let ws = workspace_on(&data.0);
-    let edit: Request = serde_json::from_value(json!({"cmd": "edit_pack", "pack": crate::ESSENTIEL_PACK})).unwrap();
-    Workspace::request(&ws, "t-1", edit).0.unwrap();
-    let first =
-        Workspace::lock(&ws).session("t-1").unwrap().lock().unwrap().ready().unwrap().deck().slides[0].id.clone();
-    let notes: Request = serde_json::from_value(
-        json!({"cmd": "apply", "label": "Noter", "ops": [{"op": "set_notes", "slide": first, "notes": "Changé"}]}),
-    )
-    .unwrap();
-    Workspace::request(&ws, "t-1", notes).0.unwrap();
-    let err = apply_ws(&ws, json!({"cmd": "close", "tab": "t-1"})).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::Unsaved);
-}
-
 #[test]
 fn close_edited_tab_with_discard_closes_it() {
     let data = Data::new();
@@ -760,12 +742,12 @@ fn view_generation_of_a_reply_is_newer_than_an_earlier_view() {
 fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
     let data = Data::new();
     let dir = data.0.join("tabs/t-9");
-    let platform = workspace_platform(&data.0);
-    let document = crate::TabDocument::Deck { path: None, deck_uid: None };
-    let dormant = Dormant { dir: dir.clone(), title: "t-9".into(), document, fonts: Fonts::default(), platform };
-    let mut slot = Slot::Dormant(Box::new(dormant));
+    let (platform, document) = (workspace_platform(&data.0), crate::TabDocument::Deck { path: None, deck_uid: None });
+    let d =
+        Dormant { dir: dir.clone(), title: "t-9".into(), document, notice: None, fonts: Fonts::default(), platform };
+    let mut slot = Slot::Dormant(Box::new(d));
     slot.stop_resume("t-9");
-    let err = slot.ready().err().map(|e| e.kind());
+    let err = slot.ready_with_links(0, &[]).err().map(|e| e.kind());
     assert_that!(err).is_equal_to(Some(SessionErrorKind::UnknownTab));
     assert_that!(dir.exists()).is_false();
 }

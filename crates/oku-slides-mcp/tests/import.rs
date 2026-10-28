@@ -9,7 +9,7 @@ use base64::Engine as _;
 use common::*;
 use oku_slides_core::Namespace;
 use oku_slides_session::import::ImportTarget;
-use oku_slides_session::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE};
+use oku_slides_session::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE, Workspace};
 use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::schema::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
@@ -279,54 +279,45 @@ const COVER: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 "#;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_of_the_hifi_pack_edits_it_in_the_deck_and_never_writes_the_library() {
-    let h = start_imported(ALTO, hifi(), |_| {}).await;
+async fn deck_pack_tab_of_the_hifi_pack_edits_it_and_never_writes_the_library() {
+    let (h, ws, tab, pack) = common::workspace_harness::start_in_deck_pack_tab(ALTO).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let pack = h
-        .session
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .deck()
-        .layouts
-        .get(&Namespace::deck_layouts())
-        .cloned();
-    let pack = pack.unwrap_or_else(|| panic!("pack du deck"));
     let before = library_files(h.data());
-    let r = call(&c, "edit_pack", json!({ "pack": pack.id })).await;
-    assert_that!(r.is_error).is_not_equal_to(Some(true));
     let r = call(&c, "set_widget", json!({ "name": "cover", "source": COVER })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
-    let edit = {
-        let s = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        s.snapshot().editing.map_or_else(|| panic!("mode pack attendu"), |e| e.mode.clone())
-    };
-    assert_that!((edit.pack, edit.deck_only)).is_equal_to((pack.id, true));
+    let edit = Workspace::with_session(&ws, &tab, |s| s.snapshot().editing.map(|e| e.mode.clone())).0;
+    let edit = edit.unwrap_or_else(|e| panic!("onglet {tab} : {e}")).unwrap_or_else(|| panic!("mode pack attendu"));
+    assert_that!((edit.pack, edit.deck_only)).is_equal_to((pack, true));
     assert_that!(edit.session_version.is_some()).is_true();
     assert_that!(library_files(h.data())).is_equal_to(before);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn edit_pack_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
-    let h = start_imported(ALTO, hifi(), |_| {}).await;
+    let (h, ws) = common::workspace_harness::start_on_imported_workspace(ALTO).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let session = h.session.clone();
     // Le deck quitte le pack de l'import (hors du runtime : le stockage bloque) : celui de l'import ne
     // reste que dans l'historique.
     let pack = tokio::task::spawn_blocking(move || {
-        let mut s = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let pack = s.deck().layouts.get(&Namespace::deck_layouts()).cloned().unwrap_or_else(|| panic!("pack du deck"));
-        // Le pack ne se retire qu'une fois ses slides parties.
-        let mut ops: Vec<_> =
-            s.deck().slides.iter().map(|sl| oku_slides_core::Op::RemoveSlide { slide: sl.id.clone() }).collect();
-        ops.push(oku_slides_core::Op::RemovePack {
-            kind: oku_slides_core::PackKind::Layouts,
-            namespace: Namespace::deck_layouts(),
-        });
-        s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("pack retiré : {}", e.one_line()));
-        pack
+        Workspace::with_session(&ws, "t-1", |s| {
+            let pack =
+                s.deck().layouts.get(&Namespace::deck_layouts()).cloned().unwrap_or_else(|| panic!("pack du deck"));
+            // Le pack ne se retire qu'une fois ses slides parties.
+            let mut ops: Vec<_> =
+                s.deck().slides.iter().map(|sl| oku_slides_core::Op::RemoveSlide { slide: sl.id.clone() }).collect();
+            ops.push(oku_slides_core::Op::RemovePack {
+                kind: oku_slides_core::PackKind::Layouts,
+                namespace: Namespace::deck_layouts(),
+            });
+            s.apply("Pack", ops, None).unwrap_or_else(|e| panic!("pack retiré : {}", e.one_line()));
+            pack
+        })
+        .0
+        .unwrap_or_else(|e| panic!("onglet t-1 : {e}"))
     })
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
+    h.hub.begin_turn();
     let r = call(&c, "edit_pack", json!({ "pack": pack.id })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     let expected = h.localizer.tr_with("session-deck-only", &[("id", pack.id.to_string().into())]);

@@ -349,7 +349,7 @@ impl Session {
     ///
     /// Fails if the session is not editable, if theme `ns` is unknown or if the transaction is
     /// rejected; in pack mode and in a theme tab (`WrongDocument`): a theme tab never changes
-    /// the theme it edits, and a pack's workshop keeps its deck's theme.
+    /// the theme it edits, and a pack tab keeps its deck's theme.
     pub fn set_theme(&mut self, ns: &Namespace) -> Result<()> {
         let label = self.localizer.tr("session-undo-theme");
         self.apply(&label, vec![Op::SetTheme { theme: Some(ns.clone()), themes: BTreeMap::new() }], None)
@@ -384,7 +384,7 @@ impl Session {
     fn stash_sources(&self) -> Option<&SourceBundle> {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => None,
-            Mode::Pack { stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
         }
     }
 

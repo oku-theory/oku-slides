@@ -63,9 +63,8 @@ async fn set_widget_on_common_reports_diagnostics_and_broken_widgets() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn widget_tools_work_in_pack_mode() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": SET })).await;
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     assert_that!(call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await.is_error)
         .is_not_equal_to(Some(true));
@@ -180,11 +179,10 @@ async fn widget_tools_on_a_closed_tab_answer_in_the_user_language() {
     assert_that!(text).is_equal_to("Cet onglet n'est plus ouvert.".to_owned());
 }
 
-/// Le pack de widgets intégré `base`, édité en mode pack.
+/// The built-in widget pack `base`, edited in its own tab.
 const SET: uuid::Uuid = oku_slides_session::pack::BASE_PACK;
 
 async fn in_pack_mode_with_kpi(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>) {
-    call(c, "edit_pack", json!({ "pack": SET })).await;
     call(c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
 }
@@ -201,7 +199,7 @@ fn touched(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<(String, 
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_trial_in_pack_mode_returns_the_trials() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     in_pack_mode_with_kpi(&c).await;
     let r = json_of(&call(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await);
@@ -210,7 +208,7 @@ async fn set_widget_trial_in_pack_mode_returns_the_trials() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_trial_in_pack_mode_emits_changed() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     in_pack_mode_with_kpi(&c).await;
     let mut rx = h.hub.subscribe();
@@ -226,7 +224,7 @@ async fn set_widget_trial_in_pack_mode_emits_changed() {
 /// d'annulation ; l'annuler ramène l'étape d'avant le tour.
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_trial_twice_in_a_pack_mode_turn_is_one_undo_step() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     in_pack_mode_with_kpi(&c).await;
     let session = std::sync::Arc::clone(&h.session);
@@ -266,9 +264,8 @@ async fn set_widget_trial_in_deck_mode_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_and_remove_widget_in_pack_mode_emit_widget_touched() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": SET })).await;
     let mut rx = h.hub.subscribe();
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
@@ -291,9 +288,8 @@ async fn set_widget_in_deck_mode_emits_no_widget_touched() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_refused_emits_no_widget_touched() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": SET })).await;
     let mut rx = h.hub.subscribe();
     call(&c, "set_widget", json!({ "name": "kpi", "source": "a\0b" })).await;
     assert_that!(touched(&mut rx)).is_empty();
@@ -301,9 +297,8 @@ async fn set_widget_refused_emits_no_widget_touched() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_widget_twice_in_a_pack_mode_turn_is_one_undo_step() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "edit_pack", json!({ "pack": SET })).await;
     h.session.lock().unwrap().begin_turn(1, "deux widgets");
     call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;

@@ -1,4 +1,4 @@
-/* Pack mode (the workshop): widgets, sub-tabs, the host settings strip; a theme tab's panel.
+/* Pack and deck-pack tabs: widgets, sub-tabs, the host settings strip; a theme tab's panel.
    Follows styles.css, loaded right after it and before glass.css (main.tsx). */
 
 /* Widgets : pastilles d'état et éditeur Typst. */

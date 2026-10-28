@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_core::{Namespace, Op, PackKind, PackPin};
+use oku_slides_session::Request;
 use oku_slides_session::agent::{PackGate, PackOpen};
-use oku_slides_session::{PackHost, Request};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -151,7 +151,7 @@ impl Tools {
         self.change(Request::ShowAs { label, slide, element, view }).await
     }
 
-    /// Opens a pack for editing: a library pack in its own tab, a deck-only one in this tab's workshop.
+    /// Opens a pack for editing in its own tab, a deck-only one linked to this deck.
     ///
     /// `turn` is the turn the call arrived in. The agent's gate lets at most one new pack tab open
     /// per turn, and no tab open or take the focus outside a turn.
@@ -181,11 +181,11 @@ impl Tools {
             Ok(done) => done,
             Err(e) => return self.fail_with(&TaskSnafu.into_error(e)),
         };
-        // `Some(tab)`: the pack opened in that other tab; `None`: here, in this tab.
-        let elsewhere = match result {
+        let tab = match result {
             Ok(PackOpen::Refused) => return self.fail_with(&verdict.refusal()),
-            Ok(PackOpen::Here) => None,
-            Ok(PackOpen::Tab(tab)) => Some(tab),
+            // This tab already edits the pack: nothing changed.
+            Ok(PackOpen::Here) => return self.json_result(&json!({ "ok": true })),
+            Ok(PackOpen::Tab(tab)) => tab,
             Err(e) => {
                 if let (true, Some(turn)) = (verdict.claimed, turn) {
                     self.hub.release_pack_tab(turn, pack);
@@ -193,19 +193,13 @@ impl Tools {
                 return self.fail_with(&SessionSnafu.into_error(e));
             }
         };
-        if let (Some(_), true, Some(turn)) = (&elsewhere, verdict.focused, turn) {
+        if let (true, Some(turn)) = (verdict.focused, turn) {
             self.hub.note_elsewhere(turn);
         }
         self.hub.emit(McpEvent::Changed);
         self.prune_surfaces().await;
-        match elsewhere {
-            Some(tab) => {
-                let note =
-                    self.localizer.current().tr_with("agent-pack-opened-in-tab", &[("tab", tab.as_str().into())]);
-                self.json_result(&json!({ "ok": true, "tab": tab, "note": note }))
-            }
-            None => self.json_result(&json!({ "ok": true })),
-        }
+        let note = self.localizer.current().tr_with("agent-pack-opened-in-tab", &[("tab", tab.as_str().into())]);
+        self.json_result(&json!({ "ok": true, "tab": tab, "note": note }))
     }
 
     /// The pack `edit_pack` opens without an argument.
@@ -217,8 +211,8 @@ impl Tools {
             .with_session(|s| {
                 let snap = s.snapshot();
                 Ok(match &snap.editing {
-                    Some(editing) if editing.host == PackHost::Tab => Some(editing.pack),
-                    _ => main_pack(snap.widgets, snap.layouts),
+                    Some(editing) => Some(editing.pack),
+                    None => main_pack(snap.widgets, snap.layouts),
                 })
             })
             .await?;
@@ -273,10 +267,6 @@ impl Tools {
             Err(r) => return r,
         };
         self.change(Request::SetEditedThemeExtends { extends }).await
-    }
-
-    pub(crate) async fn close_pack(&self) -> CallToolResult {
-        self.change(Request::ClosePack).await
     }
 
     pub(crate) fn focus(&self, args: Value) -> CallToolResult {

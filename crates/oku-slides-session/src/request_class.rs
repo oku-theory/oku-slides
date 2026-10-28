@@ -23,8 +23,6 @@ impl Request {
             | Self::UndoTurn { .. }
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
-            | Self::EditPack { .. }
-            | Self::ClosePack
             | Self::SetEditedThemeExtends { .. }
             | Self::EditThemeExtends { .. }
             | Self::SavePack { .. }
@@ -65,8 +63,7 @@ impl Request {
         }
     }
 
-    /// Requêtes refusées pendant l'historique : elles modifieraient le deck,
-    /// l'enregistreraient, ou passeraient en mode pack.
+    /// Requests refused while history is open: they would change or save the deck.
     pub(crate) fn edits(&self) -> bool {
         matches!(
             self,
@@ -82,10 +79,8 @@ impl Request {
                 | Self::SaveCopy { .. }
                 | Self::ChartKind { .. }
                 | Self::ShowAs { .. }
-                | Self::EditPack { .. }
                 | Self::SavePack { .. }
                 | Self::SaveTheme { .. }
-                | Self::ClosePack
                 | Self::SetEditedThemeExtends { .. }
                 | Self::EditThemeExtends { .. }
                 | Self::RenameEditedTheme { .. }
@@ -167,10 +162,8 @@ impl Request {
             | Self::DataPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
-            | Self::EditPack { .. }
             | Self::SavePack { as_new: true }
             | Self::SaveTheme { as_new: true }
-            | Self::ClosePack
             | Self::DeletePack { .. }
             | Self::Ui { .. }
             | Self::Merge { .. }
@@ -216,8 +209,6 @@ impl Request {
             | Self::EditTheme { .. }
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
-            | Self::EditPack { .. }
-            | Self::ClosePack
             | Self::SavePack { .. }
             | Self::Merge { .. }
             | Self::HistoryOpen

@@ -1,7 +1,7 @@
 //! Les assets d'un élément collé passent d'un onglet à l'autre (t-1178).
 //!
 //! Les deux sessions sont prises l'une après l'autre, jamais ensemble, et
-//! jamais sous le verrou de l'espace de travail ([`Workspace::with_session`]).
+//! jamais sous le verrou de l'espace de travail (`Workspace::with_quiet`).
 
 use std::sync::Mutex;
 
@@ -22,7 +22,7 @@ impl Workspace {
     pub(super) fn carry_assets(ws: &Mutex<Self>, from: &str, to: &str, element: &Element) -> Result<WorkspaceOutcome> {
         let assets = Self::ready_assets(ws, from, element);
         // `to` est l'onglet actif, déjà prêt, et `carry_assets` ne change pas ses infos : rien à redessiner.
-        let carried = Self::with_session(ws, to, |s| s.carry_assets(assets)).0?;
+        let carried = Self::with_quiet(ws, to, |s| s.carry_assets(assets)).0?;
         let reply = serde_json::json!({ "carried": carried });
         Ok(WorkspaceOutcome::Applied(serde_json::to_string(&reply).context(ResponseSnafu)?))
     }

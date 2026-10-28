@@ -127,8 +127,7 @@ impl Session {
     ///
     /// Reads the theme library, renders the specimen deck and takes `DRAFTS` to freeze its base.
     pub(crate) fn init_theme_tab(&mut self, lease: Option<PackLease>, theme: Uuid) -> Result<()> {
-        let fresh = matches!(self.mode, Mode::Deck) && self.doc.path.is_none() && self.tab_info().pristine;
-        ensure!(fresh, PackTabNotFreshSnafu);
+        ensure!(self.is_fresh(), PackTabNotFreshSnafu);
         if lease.as_ref().is_some_and(|l| !covers(Some(l), self.library.theme_scope(), theme)) {
             tracing::error!(theme = %theme, "lease of another theme or library given to its tab");
             return LeaseMissingSnafu.fail()?;
@@ -216,7 +215,6 @@ impl Session {
             title: label(&edit.draft.name),
             dirty: self.doc.dirty,
             pristine: false,
-            editing_pack: false,
             theme: Some(edit.draft.base.id),
             document: TabDocument::Theme { theme: edit.draft.base.id },
         })

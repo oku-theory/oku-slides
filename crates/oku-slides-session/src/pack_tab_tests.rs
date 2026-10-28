@@ -6,9 +6,9 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::resume::{EDITOR_STATE_VERSION, VERSION};
-use crate::test_support::{edit_of, fresh_dir, rename_title, session_on, stash_of};
+use crate::test_support::{edit_of, fresh_dir, preview_of, rename_title, session_on};
 use crate::test_support_packs::{CARD_V2, editing, opener_on, pack_tab_from};
-use crate::{ESSENTIEL_PACK, Localize, Request, SessionErrorKind};
+use crate::{ESSENTIEL_PACK, Request, SessionErrorKind};
 
 /// A pack tab on `acme`, its opener and their folders.
 fn acme_tab() -> (tempfile::TempDir, tempfile::TempDir, Session, Session, Uuid) {
@@ -36,7 +36,7 @@ fn pack_tab_is_not_dirty_after_a_save() {
     let (_data, _deck, _s, mut t, _) = acme_tab();
     t.apply("x", vec![rename_title("acme 2")], None).unwrap();
     t.save_pack(false).unwrap();
-    assert_that!(stash_of(&t).dirty).is_true();
+    assert_that!(preview_of(&t).dirty).is_true();
     assert_that!(t.tab_info().dirty).is_false();
 }
 
@@ -47,7 +47,7 @@ fn pack_tab_persists_its_preview_clean() {
     assert_that!(t.resume_fresh(dir.path().to_path_buf())).is_true();
     t.apply("x", vec![rename_title("acme 2")], None).unwrap();
     t.save_pack(false).unwrap();
-    assert_that!(stash_of(&t).dirty).is_true();
+    assert_that!(preview_of(&t).dirty).is_true();
     t.persist(true);
     t.flush_resume();
     let doc: serde_json::Value =
@@ -64,17 +64,12 @@ fn pack_tab_state_is_written_as_version_5() {
 }
 
 #[test]
-fn deck_state_is_written_as_version_3_and_its_workshop_as_version_5() {
-    let (_data, _deck, mut s, t, acme) = acme_tab();
+fn deck_state_is_written_as_version_3() {
+    let (_data, _deck, mut s, t, _) = acme_tab();
     drop(t);
     let dir = fresh_dir("oku-slides-pack-tab-dir-");
     assert_that!(s.resume_fresh(dir.path().to_path_buf())).is_true();
     assert_that!(state(dir.path())["version"]).is_equal_to(json!(VERSION));
-    s.handle(Request::EditPack { pack: acme }).unwrap();
-    s.flush_resume();
-    let state = state(dir.path());
-    assert_that!((state["version"].clone(), state["mode"]["pack"]["host"].clone()))
-        .is_equal_to((json!(EDITOR_STATE_VERSION), json!("deck")));
 }
 
 /// A file write `pack_tab_refuses_writing_a_file` tries.
@@ -112,68 +107,15 @@ fn pack_tab_refuses_writing_a_file(#[case] write: FileWrite, #[case] kind: Sessi
     .unwrap_err();
     assert_that!(err.kind()).is_equal_to(kind);
     assert_that!(path.exists()).is_false();
-    assert_that!(editing(&t).map(|(_, host)| host)).is_equal_to(Some(PackHost::Tab));
-}
-
-#[rstest]
-#[case::save_copy(true)]
-#[case::new_deck(false)]
-fn save_copy_and_new_deck_in_the_deck_workshop_behave_as_today(#[case] save_copy: bool) {
-    let (_data, deck, mut s, _t, _) = acme_tab();
-    let d = crate::test_support::adopt_deck_only_pack(&mut s);
-    s.edit_pack(d.id).unwrap();
-    let path = deck.path().join(format!("copie{}", crate::EXTENSION));
-    if save_copy {
-        s.save_copy(&path).unwrap();
-        assert_that!(path.exists()).is_true();
-    } else {
-        s.new_deck().unwrap();
-        assert_that!(s.doc.blank).is_true();
-    }
-}
-
-/// A pack-mode exit `edit_pack_and_close_pack_in_a_pack_tab_are_refused` tries.
-#[derive(Debug, Clone, Copy)]
-enum Exit {
-    EditPackRequest,
-    ClosePackRequest,
-    EditPackMethod,
-    ClosePackMethod,
-}
-
-#[rstest]
-#[case::edit_pack_request(Exit::EditPackRequest)]
-#[case::close_pack_request(Exit::ClosePackRequest)]
-#[case::edit_pack_method(Exit::EditPackMethod)]
-#[case::close_pack_method(Exit::ClosePackMethod)]
-fn edit_pack_and_close_pack_in_a_pack_tab_are_refused(#[case] exit: Exit) {
-    let (_data, _deck, _s, mut t, acme) = acme_tab();
-    let err = match exit {
-        Exit::EditPackRequest => t.handle(Request::EditPack { pack: crate::BASE_PACK }).map(|_| ()),
-        Exit::ClosePackRequest => t.handle(Request::ClosePack).map(|_| ()),
-        Exit::EditPackMethod => t.edit_pack(crate::BASE_PACK),
-        Exit::ClosePackMethod => t.close_pack(),
-    }
-    .unwrap_err();
-    assert_that!(err.kind()).is_equal_to(SessionErrorKind::InPackTab);
-    assert_that!(err.localize(&t.localizer)).starts_with("Cet onglet édite un pack");
-    assert_that!(editing(&t)).is_equal_to(Some((acme, PackHost::Tab)));
+    assert_that!(t.is_pack_tab()).is_true();
 }
 
 #[test]
-fn save_pack_as_new_in_a_pack_tab_keeps_the_tab_host() {
+fn save_pack_as_new_in_a_pack_tab_stays_the_copy_s_pack_tab() {
     let (_data, _deck, _s, mut t, acme) = acme_tab();
     t.save_pack(true).unwrap();
-    let (pack, host) = editing(&t).unwrap();
-    assert_that!((pack != acme, host)).is_equal_to((true, PackHost::Tab));
-}
-
-#[test]
-fn edit_pack_request_of_a_library_pack_in_a_deck_tab_still_enters_the_workshop() {
-    let (_data, _deck, mut s, t, acme) = acme_tab();
-    drop(t);
-    s.handle(Request::EditPack { pack: acme }).unwrap();
-    assert_that!(editing(&s)).is_equal_to(Some((acme, PackHost::Deck)));
+    let pack = editing(&t).unwrap();
+    assert_that!((pack != acme, t.tab_info().document)).is_equal_to((true, TabDocument::Pack { pack }));
 }
 
 #[test]
@@ -246,4 +188,29 @@ fn delete_pack_of_its_own_pack_in_a_pack_tab_is_refused_as_in_pack_tab() {
     let err = t.handle(Request::DeletePack { pack: acme }).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InPackTab);
     assert_that!(t.library.current(acme).is_some()).is_true();
+}
+
+#[test]
+fn open_pack_tab_here_opens_a_library_pack_tab() {
+    let data = fresh_dir("oku-slides-pack-tab-");
+    let mut s = session_on(data.path());
+    s.open_pack_tab_here(ESSENTIEL_PACK, Some("content")).unwrap();
+    let info = s.tab_info();
+    assert_that!((editing(&s), info.document, s.ui.widget.as_deref())).is_equal_to((
+        Some(ESSENTIEL_PACK),
+        TabDocument::Pack { pack: ESSENTIEL_PACK },
+        Some("content"),
+    ));
+    let view = s.editing_view().unwrap();
+    assert_that!((view.read_only, view.leased)).is_equal_to((false, true));
+}
+
+#[test]
+fn open_pack_tab_here_of_a_deck_only_pack_is_refused() {
+    let data = fresh_dir("oku-slides-pack-tab-");
+    let mut s = session_on(data.path());
+    let pin = crate::test_support::adopt_deck_only_pack(&mut s);
+    let err = s.open_pack_tab_here(pin.id, None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::DeckOnly);
+    assert_that!(editing(&s)).is_none();
 }

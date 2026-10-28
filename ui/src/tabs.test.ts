@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, nth, outside, slotAt, tabShortcut } from "./tabs";
+import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, nth, othersToClose, outside, slotAt, tabShortcut } from "./tabs";
+import type { TabDocument, TabInfo } from "./workspaceApi";
 
 const key = (code: string, key: string, mods: Partial<{ metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; repeat: boolean }> = {}) => ({
   code,
@@ -173,5 +174,23 @@ describe("barre d'onglets", () => {
 
   test("arrivalIndex au-delà du dernier onglet laisse l'onglet en fin de barre", () => {
     expect(arrivalIndex([50, 150, 250], 400)).toBeNull();
+  });
+});
+
+describe("othersToClose", () => {
+  const PACK = "a7e11e40-0000-4000-8000-000000000001";
+  const tab = (id: string, document: TabDocument = { kind: "deck", path: null, deck_uid: null }): TabInfo => ({
+    id, title: id, dirty: false, pristine: false, theme: null, document,
+  });
+  const linked = (id: string, owner: string) => tab(id, { kind: "deck_pack", deck_tab: owner, pack: PACK });
+
+  test("closeOthers from a deck-pack tab keeps its owner", () => {
+    const tabs = [tab("t-1"), linked("t-2", "t-1"), linked("t-3", "t-1"), tab("t-4")];
+    expect(othersToClose(tabs, "t-2")).toEqual(["t-3", "t-4"]);
+  });
+
+  test("closeOthers from a deck tab closes its deck-pack tabs", () => {
+    const tabs = [tab("t-1"), linked("t-2", "t-1"), tab("t-3")];
+    expect(othersToClose(tabs, "t-1")).toEqual(["t-2", "t-3"]);
   });
 });

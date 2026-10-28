@@ -21,7 +21,7 @@ pub enum DocumentKind {
     Deck,
     /// The shipped help.
     Help,
-    /// A pack, in a deck's workshop or its own tab.
+    /// A pack, in its own tab.
     Pack,
     /// A library theme, in its own tab.
     Theme,
@@ -90,7 +90,7 @@ impl Session {
 
     /// Refuses caller ops that do not fit this session's kind (`WrongDocument`).
     ///
-    /// A theme tab takes only token ops; a pack workshop neither token ops
+    /// A theme tab takes only token ops; a pack tab neither token ops
     /// nor a theme choice, its theme being the deck's. No caller writes the
     /// draft's rank ([`DRAFT_SWITCH_VAR`]): only the theme tab's rank steps do.
     pub(crate) fn ensure_caller_ops(&self, ops: &[Op]) -> Result<()> {

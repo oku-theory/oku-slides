@@ -2,7 +2,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::test_support::registry;
-use crate::views::PileSection;
+use crate::views::{PackMode, PileSection};
 use oku_slides_core::{Deck, SourceBundle};
 use oku_slides_platform::storage::StorageErrorKind;
 
@@ -162,7 +162,6 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         parent: Some(v),
         session_version: None,
         deck_only: false,
-        host: crate::PackHost::Deck,
     };
     let ui = UiState {
         slide: Some("s-1".into()),
@@ -178,7 +177,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
     };
     r.write_state(&State {
         version: VERSION,
-        mode: SavedMode::Pack(edit),
+        mode: SavedMode::Pack(super::pack::SavedPack::new(edit, None)),
         ui: ui.clone(),
         help_theme: None,
         theme_edit: None,
@@ -186,7 +185,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
     })
     .unwrap();
     let back = r.read_state().unwrap().unwrap();
-    assert_that!(matches!(back.mode, SavedMode::Pack(ref m) if m.pack == crate::ESSENTIEL_PACK)).is_true();
+    assert_that!(matches!(back.mode, SavedMode::Pack(ref m) if m.edit.pack == crate::ESSENTIEL_PACK)).is_true();
     assert_that!(back.ui).is_equal_to(ui);
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -546,10 +545,9 @@ fn write_snapshot_removes_orphan_themes() {
 fn set_example_value_writes_the_resume_documents() {
     let data = crate::test_support::fresh_dir("oku-slides-example-");
     let dir = temp_dir();
-    let mut s = crate::test_support::opened_on(data.path());
+    let mut opener = crate::test_support::opened_on(data.path());
+    let mut s = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::BASE_PACK);
     assert_that!(s.resume(dir.clone())).is_true();
-    let set = crate::BASE_PACK;
-    s.edit_pack(set).unwrap();
     let source = "#import \"/oku-slides/lib.typ\": widget, params as p\n\
                   #let widget = widget(\"essai\", params: (title: p.plain()), (args, ctx) => args.title)\n";
     s.handle(crate::Request::SetWidget { pack: None, name: "essai".into(), source: source.into() }).unwrap();
@@ -593,27 +591,6 @@ fn read_doc_compacts_a_node_marked_before_the_delay() {
     };
     assert_that!(tree.is_node_deleted(&slide).unwrap()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
-}
-
-/// Reprise en mode pack sur un pack du deck seul : l'édition le reste, la bibliothèque n'en reçoit rien.
-#[test]
-fn resume_in_pack_mode_on_a_deck_only_pack_keeps_it_deck_only() {
-    let dir = temp_dir();
-    let data = crate::test_support::fresh_dir("oku-slides-resume-");
-    let mut s = crate::test_support::session_on(data.path());
-    assert_that!(s.resume(dir.clone())).is_true();
-    let r = crate::test_support::adopt_deck_only_pack(&mut s);
-    let before = crate::test_support::library_files(data.path());
-    s.handle(crate::Request::EditPack { pack: r.id }).unwrap();
-    s.flush_resume();
-    drop(s);
-    let mut back = crate::test_support::session_on(data.path());
-    assert_that!(back.resume(dir.clone())).is_true();
-    let edit = back.snapshot().editing.map(|e| e.mode.clone()).unwrap();
-    assert_that!((edit.pack, edit.deck_only)).is_equal_to((r.id, true));
-    back.save_pack(false).unwrap();
-    assert_that!(crate::test_support::library_files(data.path())).is_equal_to(before);
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 /// Un onglet repris dont le deck est encore en version 8 (thème par id) : mis de côté, signalé comme ancien.
