@@ -362,6 +362,11 @@ ui-update-installing = Téléchargement de la mise à jour… { $percent } %
 ui-update-downloading = Téléchargement de la mise à jour…
 ui-update-up-to-date = Oku Slides est à jour.
 ui-update-check = Rechercher des mises à jour…
+ui-about = À propos d’Oku Slides
+ui-about-version = Version { $version }
+ui-about-changelog = Nouveautés
+ui-about-breaking = incompatible
+ui-about-close = Fermer
 
 # Mots qui, seuls dans une consigne, ouvrent le sélecteur de thème ; séparés par des virgules, anglais compris.
 ui-shortcut-theme = thème, thèmes, theme, themes

@@ -1,4 +1,4 @@
-// Le menu principal d'un onglet : présenter, ouvrir, les mises à jour et l'aide.
+// Le menu principal d'un onglet : présenter, ouvrir, les mises à jour, l'aide et « À propos ».
 // Le reste se demande à l'agent (t-988).
 
 import type { MenuEntry } from "./ActionMenu";
@@ -18,15 +18,18 @@ interface Props {
   open: () => void;
   /** Ouvre l'aide. */
   onHelp: () => void;
+  /** Opens the About dialog (version and changelog). */
+  onAbout: () => void;
   /** Cherche une mise à jour ; absent hors de l'app (pas d'hôte). */
   onCheckUpdates?: () => void;
 }
 
 /** Le menu principal : gestes plus rapides que la voix, mises à jour et aide. */
-export function AppMenu({ packMode, themeTab, present, open, onHelp, onCheckUpdates }: Props) {
+export function AppMenu({ packMode, themeTab, present, open, onHelp, onAbout, onCheckUpdates }: Props) {
   const app: MenuEntry[] = [
     ...(onCheckUpdates ? [{ label: t("ui-update-check"), onSelect: onCheckUpdates }] : []),
     { label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
+    { label: t("ui-about"), onSelect: onAbout },
   ];
   const menuEntries: MenuEntry[] = packMode || themeTab
     ? app

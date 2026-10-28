@@ -1,7 +1,9 @@
 // Une fenêtre : l'`App` de l'onglet actif, la barre d'onglets en bas.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AboutDialog from "./AboutDialog";
 import App from "./App";
+import { APP_VERSION, RELEASES } from "./appInfo";
 import TabBar from "./TabBar";
 import UpdateBar from "./UpdateBar";
 import { errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
@@ -56,6 +58,8 @@ export default function Workspace() {
   // s'ouvrir) s'affiche aussitôt.
   const [nonce, setNonce] = useState(0);
   const bump = useCallback(() => setNonce((n) => n + 1), []);
+  // The About dialog, one per window (main menu of any tab).
+  const [about, setAbout] = useState(false);
   // L'avis d'une fusion faite à l'ouverture : seule la réponse de la fusion
   // le porte, l'`App` de son onglet le montre (voir `openGuarded`).
   const [merged, setMerged] = useState<{ tab: string; text: string } | null>(null);
@@ -209,11 +213,11 @@ export default function Workspace() {
       .catch((e) => alive.current && setError(errorText(e)));
   });
 
-  // Raccourcis des onglets, retenus pendant que le dialogue d'import est ouvert.
+  // Raccourcis des onglets, retenus pendant que le dialogue d'import ou « À propos » est ouvert.
   useTabShortcuts(label !== null, {
     mac: isMac,
     windows: inTauri,
-    held: imports.holdsKeys,
+    held: () => imports.holdsKeys() || about,
     onAction: (action) => {
       const w = winRef.current;
       if (!w || label === null) return;
@@ -298,6 +302,8 @@ export default function Workspace() {
           onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
           onImportClose={imports.close}
           onHelp={() => run(workspace.openHelp(label))}
+          onAbout={() => setAbout(true)}
+          aboutOpen={about}
           updates={appUpdates}
           onClose={inTauri || win.tabs.length > 1 ? () => void closeTab(win.active) : undefined}
           onOpenPack={async (pack, widget) => {
@@ -322,6 +328,7 @@ export default function Workspace() {
         onDragLeave={tabDrag.leave}
         onDropOutside={dropOutside}
       />
+      {about && <AboutDialog version={APP_VERSION} releases={RELEASES} onClose={() => setAbout(false)} />}
     </div>
   );
 }

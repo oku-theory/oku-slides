@@ -74,11 +74,19 @@ const backToOpener = (p, tab, why) =>
 
   // No "Thème" sub-tab: a theme opens in its own tab (step 5b).
   assert.equal(await p.getByRole('tab', { name: 'Thème', exact: true }).count(), 0, 'un sous-onglet « Thème » reste');
-  // Le menu ⋯ du mode pack n'offre que l'aide : le reste se demande à l'agent (t-988).
+  // Le menu ⋯ du mode pack n'offre que l'aide et « À propos » : le reste se demande à l'agent (t-988, t-1236).
   await p.getByRole('button', { name: 'Menu' }).click();
   await p.waitForSelector('[role="menu"]');
-  assert.deepEqual(await p.locator('[role="menu"] [role="menuitem"] > span').allTextContents(), ['Aide']);
+  assert.deepEqual(await p.locator('[role="menu"] [role="menuitem"] > span').allTextContents(), ['Aide', 'À propos d’Oku Slides']);
+  // « À propos » : la version ; derrière lui, Page↓ ne change pas de slide (t-1236).
+  await p.getByRole('menuitem', { name: 'À propos d’Oku Slides' }).click();
+  const about = p.getByRole('dialog', { name: 'À propos d’Oku Slides' });
+  await p.waitForSelector('.about-dialog[data-armed]');
+  assert.match(await about.locator('.about-version').innerText(), /^Version \u2068?\d+\.\d+\.\d+\u2069?$/);
+  await p.keyboard.press('PageDown');
   await p.keyboard.press('Escape');
+  await about.waitFor({ state: 'detached' });
+  assert.equal(await p.locator(thumb('title')).getAttribute('aria-current'), 'true', 'Page↓ a changé de slide derrière « À propos »');
 
   // 2-3. La slide `layout-blank` : sa grille passe à 4 colonnes.
   await p.click(thumb('blank'));

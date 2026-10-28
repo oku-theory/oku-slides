@@ -74,7 +74,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
-  onHelp, updates, onClose, onOpenPack, onOpenTheme, onChange,
+  onHelp, onAbout, aboutOpen = false, updates, onClose, onOpenPack, onOpenTheme, onChange,
 }: {
   tab: string;
   /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
@@ -101,6 +101,10 @@ export default function App({
   onImportClose: () => void;
   /** Montrer l'aide de l'app : l'espace de travail ouvre (ou retrouve) son onglet. */
   onHelp: () => void;
+  /** Opens the window's About dialog (version and changelog). */
+  onAbout: () => void;
+  /** The window's About dialog is open: nothing behind it reacts. */
+  aboutOpen?: boolean;
   /** Recherche de mise à jour de la fenêtre ; absente hors de l'app (pas d'entrée). */
   updates?: AppUpdates;
   /** Closes this tab (help bar, a pack tab's finish button); absent: the last tab stays. */
@@ -218,8 +222,8 @@ export default function App({
 
   const [picking, setPicking] = useState(false);
   const [adding, setAdding] = useState(false);
-  // Une fenêtre de l'app (layouts, ajout, import) est ouverte : rien derrière elle ne réagit.
-  const dialogOpen = picking || adding || importJob !== null;
+  // Une fenêtre de l'app (layouts, ajout, import, à propos) est ouverte : rien derrière elle ne réagit.
+  const dialogOpen = picking || adding || importJob !== null || aboutOpen;
   /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
     setAdding(false);
@@ -325,7 +329,7 @@ export default function App({
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu packMode={!!snap.editing} themeTab={themeTab} present={present} open={open} onHelp={onHelp} onCheckUpdates={checkUpdates} />
+    <AppMenu packMode={!!snap.editing} themeTab={themeTab} present={present} open={open} onHelp={onHelp} onAbout={onAbout} onCheckUpdates={checkUpdates} />
   );
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).

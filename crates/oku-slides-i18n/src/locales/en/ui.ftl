@@ -362,6 +362,11 @@ ui-update-installing = Downloading the update… { $percent }%
 ui-update-downloading = Downloading the update…
 ui-update-up-to-date = Oku Slides is up to date.
 ui-update-check = Check for Updates…
+ui-about = About Oku Slides
+ui-about-version = Version { $version }
+ui-about-changelog = What's new
+ui-about-breaking = breaking
+ui-about-close = Close
 
 # Words that, alone in an agent prompt, open the theme picker; comma-separated, the English ones included.
 ui-shortcut-theme = theme, themes

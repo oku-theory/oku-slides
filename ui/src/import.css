@@ -16,3 +16,14 @@
 .import-actions > .caption { margin-inline-end: auto; }
 .import-actions .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; }
 .import-actions .btn:disabled { opacity: 0.5; cursor: default; }
+/* The About dialog (AboutDialog.tsx) reuses the import veil and frame. */
+.about-dialog { width: min(560px, 90vw); }
+.about-changelog { max-height: 55vh; overflow-y: auto; border-top: 1px solid var(--edge); padding-top: var(--space-2); outline: none; }
+.about-changelog:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+.about-release h3 { font: 600 14px/20px var(--sans); margin: var(--space-2) 0 4px; }
+.about-release h4 { margin: 6px 0 2px; font-weight: 500; }
+.about-release ul { margin: 0; padding-inline-start: 18px; font-size: 13px; line-height: 19px; }
+.about-scope { color: var(--ink-muted); margin-inline-end: 6px; }
+.about-scope::before { content: "("; }
+.about-scope::after { content: ")"; }
+.about-breaking { color: var(--danger); font-weight: 600; margin-inline-end: 6px; }

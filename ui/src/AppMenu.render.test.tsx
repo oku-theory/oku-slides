@@ -23,7 +23,7 @@ async function openMenu(extra: Record<string, unknown> = {}) {
   mounted = { root, host };
   const noop = () => {};
   await act(async () =>
-    root.render(createElement(AppMenu, { packMode: false, themeTab: false, present: noop, open: noop, onHelp: noop, ...extra })),
+    root.render(createElement(AppMenu, { packMode: false, themeTab: false, present: noop, open: noop, onHelp: noop, onAbout: noop, ...extra })),
   );
   await act(async () => (host.querySelector(".action-menu-trigger") as HTMLButtonElement).click());
   return [...host.querySelectorAll('[role="menuitem"]')] as HTMLButtonElement[];
@@ -47,6 +47,18 @@ describe("AppMenu", () => {
   test("AppMenu in a theme tab offers neither present nor open", async () => {
     const items = await openMenu({ themeTab: true });
     expect([labelled(items, "ui-present-screen"), labelled(items, "ui-toolbar-open"), !!labelled(items, "ui-help")]).toEqual([undefined, undefined, true]);
+  });
+
+  test("AppMenu about entry opens the about dialog", async () => {
+    let opened = 0;
+    const items = await openMenu({ onAbout: () => opened++ });
+    await act(async () => labelled(items, "ui-about")?.click());
+    expect(opened).toBe(1);
+  });
+
+  test("AppMenu theme tab keeps the about entry", async () => {
+    const items = await openMenu({ themeTab: true });
+    expect(labelled(items, "ui-about")).toBeDefined();
   });
 
   test("AppMenu pack mode keeps the update entry", async () => {

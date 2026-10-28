@@ -362,5 +362,10 @@ ui-update-installing = Download dell'aggiornamento… { $percent }%
 ui-update-downloading = Download dell'aggiornamento…
 ui-update-up-to-date = Oku Slides è aggiornato.
 ui-update-check = Verifica aggiornamenti…
+ui-about = Informazioni su Oku Slides
+ui-about-version = Versione { $version }
+ui-about-changelog = Novità
+ui-about-breaking = incompatibile
+ui-about-close = Chiudi
 
 ui-shortcut-theme = tema, temi, theme, themes

@@ -359,5 +359,10 @@ ui-update-installing = Güncelleme indiriliyor… %{ $percent }
 ui-update-downloading = Güncelleme indiriliyor…
 ui-update-up-to-date = Oku Slides güncel.
 ui-update-check = Güncellemeleri Denetle…
+ui-about = Oku Slides Hakkında
+ui-about-version = Sürüm { $version }
+ui-about-changelog = Yenilikler
+ui-about-breaking = uyumsuz
+ui-about-close = Kapat
 
 ui-shortcut-theme = tema, temalar, theme, themes

@@ -359,5 +359,10 @@ ui-update-installing = 正在下載更新… { $percent }%
 ui-update-downloading = 正在下載更新…
 ui-update-up-to-date = Oku Slides 已是最新版本。
 ui-update-check = 檢查更新…
+ui-about = 關於 Oku Slides
+ui-about-version = 版本 { $version }
+ui-about-changelog = 新功能
+ui-about-breaking = 不相容
+ui-about-close = 關閉
 
 ui-shortcut-theme = 主題, theme, themes
