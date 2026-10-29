@@ -3,11 +3,11 @@
 //! [`AppVoice`] est le seul écrivain des réglages de la dictée et du choix de l'agent : clics
 //! de la boîte (`Origin::User`) et outils de l'agent (`Origin::Agent`) passent par lui.
 //!
-//! Verrous : `switch` (l'état, mémoire seulement) n'est jamais tenu pendant une entrée-sortie,
-//! ni pendant `view`. `edit` couvre la lecture-écriture des réglages de la dictée (`Stt::configure`
-//! écrit sur le disque) et `AgentChoice.saving` l'écriture de `agent.selected` ; aucun des deux
-//! n'est pris sous `switch`. Ordre quand ils s'emboîtent : `saving` → `switch` → `AgentChoice.active`
-//! → les verrous du `Link`.
+//! Locks: `switch` (the state, memory only) is never held during I/O, nor during `view`.
+//! `edit` covers reading and writing the dictation settings (`Stt::configure` writes to disk),
+//! and `AgentChoice.saving` the writes of `agent.selected` and of a preset's model; neither is
+//! taken under `switch`. Order when they nest: `saving` → `switch` → `AgentChoice.active` →
+//! `AgentChoice.models` → the `Link` locks; the `ModelBoard` state lock is a leaf.
 
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
@@ -26,7 +26,7 @@ use tokio::runtime::Handle;
 use tokio::sync::watch;
 
 use crate::agent_switch::{AgentSwitch, PromptGuard, Requested, Switch};
-use crate::choice::{AgentChoice, Refusal};
+use crate::choice::{AgentChoice, ModelRefusal, Refusal};
 
 /// La réponse d'un changement d'agent demandé quand rien ne tournait, selon son issue.
 ///
@@ -254,6 +254,14 @@ impl AppVoice {
         if let Some(stt) = stt {
             crate::stt_watch::spawn(stt, Arc::downgrade(&voice));
         }
+        // What the sessions tell of models shows in every tab's box.
+        let (mut models, me) = (voice.choice.models_revision(), Arc::downgrade(&voice));
+        voice.rt.spawn(async move {
+            while models.changed().await.is_ok() {
+                let Some(voice) = me.upgrade() else { break };
+                voice.bump();
+            }
+        });
         voice
     }
 
@@ -377,6 +385,32 @@ impl AppVoice {
         };
         let agent = if unchanged { None } else { self.choice.preset_view(id) };
         Ok(Checked { unchanged, agent, ..Checked::default() })
+    }
+
+    /// The preset model `id` would be saved for, and the check the box sees.
+    fn check_model_choice(&self, id: &str) -> Result<(String, Checked), VoiceError> {
+        let (preset, unchanged) = self.choice.check_model(id).map_err(|r| match r {
+            ModelRefusal::Unknown => refused(VoiceErrorKind::UnknownAgentModel),
+            ModelRefusal::NotSaved => refused(VoiceErrorKind::AgentModelNotSaved),
+        })?;
+        Ok((preset, Checked { unchanged, ..Checked::default() }))
+    }
+
+    /// The active agent's sessions use model `id` from their next prompt; saved first.
+    ///
+    /// A failed write changes nothing: the model shown stays the saved one. Writes to the disk.
+    fn select_model(&self, id: &str) -> Result<VoiceApplied, VoiceError> {
+        let (preset, checked) = self.check_model_choice(id)?;
+        if checked.unchanged {
+            return Ok(VoiceApplied::Unchanged);
+        }
+        // The preset checked, even if an agent switch happened since: its model is the one offered.
+        if let Err(e) = self.choice.choose_model(&preset, id) {
+            tracing::warn!(error = %snafu::Report::from_error(&e), "modèle de l'agent non enregistré");
+            return Err(refused(VoiceErrorKind::AgentModelNotSaved));
+        }
+        self.bump();
+        Ok(VoiceApplied::Now)
     }
 
     fn check_agent_model(&self) -> Result<Checked, VoiceError> {
@@ -520,6 +554,7 @@ impl VoicePort for AppVoice {
             VoiceEvent::SelectAgent { id } => self.check_agent(id),
             VoiceEvent::DownloadAgentModel => self.check_agent_model(),
             VoiceEvent::CancelAgentModelDownload => self.check_cancel_agent_model(),
+            VoiceEvent::SelectAgentModel { id } => self.check_model_choice(id).map(|(_, c)| c),
         }
     }
 
@@ -547,6 +582,8 @@ impl VoicePort for AppVoice {
                 self.bump();
                 Ok(VoiceApplied::Now)
             }
+            // Only the box sends it: no tool of the agent chooses its model.
+            VoiceEvent::SelectAgentModel { id } => self.select_model(&id),
         }
     }
 }

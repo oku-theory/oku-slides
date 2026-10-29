@@ -109,6 +109,10 @@ pub enum VoiceErrorKind {
     AgentLocked,
     /// Le choix de l'agent n'a pas pu être enregistré.
     AgentNotSaved,
+    /// The active agent does not offer this model.
+    UnknownAgentModel,
+    /// The model choice could not be saved.
+    AgentModelNotSaved,
 }
 
 impl VoiceErrorKind {
@@ -135,6 +139,8 @@ impl VoiceErrorKind {
             Self::UnknownAgent => "agent-error-unknown-agent",
             Self::AgentLocked => "agent-error-agent-locked",
             Self::AgentNotSaved => "agent-error-agent-not-saved",
+            Self::UnknownAgentModel => "agent-error-unknown-model",
+            Self::AgentModelNotSaved => "agent-error-model-not-saved",
         }
     }
 }

@@ -33,7 +33,9 @@ fn voice_error_every_kind_has_a_translation(
         VoiceErrorKind::NothingToDownload,
         VoiceErrorKind::UnknownAgent,
         VoiceErrorKind::AgentLocked,
-        VoiceErrorKind::AgentNotSaved
+        VoiceErrorKind::AgentNotSaved,
+        VoiceErrorKind::UnknownAgentModel,
+        VoiceErrorKind::AgentModelNotSaved
     )]
     kind: VoiceErrorKind,
 ) {

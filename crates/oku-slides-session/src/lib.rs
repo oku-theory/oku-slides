@@ -172,8 +172,9 @@ pub use views::{
 };
 pub use voice_panel::{HOST_VOICE, VoicePanel, gigabytes_text, model_label, seconds_text, size_text};
 pub use voice_view::{
-    AgentPresetView, AgentsView, ApiView, DICTATION_LANGUAGES, DictationLanguage, DictationPatch, DictationView,
-    DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, VoiceEvent, VoiceView, voice_event,
+    AgentModelView, AgentModelsView, AgentPresetView, AgentsView, ApiView, DICTATION_LANGUAGES, DictationLanguage,
+    DictationPatch, DictationView, DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, VoiceEvent,
+    VoiceView, voice_event,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};

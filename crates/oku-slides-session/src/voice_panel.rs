@@ -14,7 +14,8 @@ use serde_json::{Value, json};
 use crate::agent::Surface;
 use crate::agent::forms::{Place, lit, surface};
 use crate::voice_view::{
-    AgentsView, DICTATION_LANGUAGES, DictationView, LocalFailure, LocalModelView, ModelKind, ModelView, VoiceView,
+    AgentModelsView, AgentsView, DICTATION_LANGUAGES, DictationView, LocalFailure, LocalModelView, ModelKind,
+    ModelView, VoiceView,
 };
 
 /// Surface de la boîte des réglages de la dictée et de l'agent.
@@ -327,6 +328,9 @@ fn agents(a: &AgentsView, l: &Localizer, b: &mut Builder, data: &mut Value) {
         action: (!a.locked).then(|| Action::event("select", [("id", Dynamic::path("/choice"))])),
     };
     b.push(Component::new("a-agents", chips));
+    if let Some(models) = &a.models {
+        agent_models(models, l, b, data);
+    }
 
     let reason = |size: u64| l.tr_with("agent-local-needs-download", &[("gigabytes", gigabytes_text(size, l).into())]);
     let download = || Action::named("download_agent_model");
@@ -371,6 +375,42 @@ fn agents(a: &AgentsView, l: &Localizer, b: &mut Builder, data: &mut Value) {
     }
     if a.locked {
         b.text("a-locked", l.tr("voice-agent-locked"), TextVariant::Caption);
+    }
+}
+
+/// The active agent's model: a list once a session told the offered ones, else a note.
+///
+/// The list shows the chosen model if the agent offers it, else the one in use.
+fn agent_models(models: &AgentModelsView, l: &Localizer, b: &mut Builder, data: &mut Value) {
+    match models {
+        AgentModelsView::Unknown { chosen } => {
+            let text = match chosen {
+                Some(model) => l.tr_with("voice-agent-model-asked", &[("model", model.as_str().into())]),
+                None => l.tr("voice-agent-model-later"),
+            };
+            b.text("a-model-note", text, TextVariant::Caption);
+        }
+        AgentModelsView::Offered { models, current, chosen } => {
+            let offered = |id: &str| models.iter().any(|m| m.id == id);
+            let value = chosen.as_deref().filter(|c| offered(c)).unwrap_or(current);
+            data["agent_model"] = json!(value);
+            let options = models
+                .iter()
+                .map(|m| ChoiceOption { id: m.id.clone(), label: m.name.clone(), hint: m.hint.clone() })
+                .collect();
+            let select = ComponentKind::Select {
+                label: Dynamic::Literal(l.tr("voice-agent-model")),
+                value: Dynamic::path("/agent_model"),
+                options,
+                action: Some(Action::event("agent_model", [("id", Dynamic::path("/agent_model"))])),
+            };
+            b.push(Component::new("a-model", select));
+            if let Some(missing) = chosen.as_deref().filter(|c| !offered(c)) {
+                let text = l.tr_with("voice-agent-model-missing", &[("model", missing.into())]);
+                b.text("a-model-missing", text, TextVariant::Caption);
+            }
+            b.text("a-model-note", l.tr("voice-agent-model-next"), TextVariant::Caption);
+        }
     }
 }
 

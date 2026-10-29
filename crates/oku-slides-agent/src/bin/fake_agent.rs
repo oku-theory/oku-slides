@@ -30,6 +30,10 @@
 //! `new_session_delay_ms` fait attendre la réponse à `session/new` (ouverture lente),
 //! `load_delay_ms` celle à `session/load`. `late_replay_ms` (agent non conforme) envoie
 //! le rejeu de `session/load` après sa réponse, au bout de ce délai.
+//! `models` (`[{ "id", "name" }]`) offers these models in a `model` select option of every
+//! session reply (the first one in use); `session/set_config_option` is logged, switches the
+//! session's model and answers its options, or fails for a value not offered.
+//! `no_options_on_reopen` leaves the options out of the `session/load` and `session/resume` replies.
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -41,8 +45,9 @@ use agent_client_protocol::schema::v1::{
     AgentCapabilities, CancelNotification, ContentBlock, ContentChunk, InitializeRequest, InitializeResponse,
     LoadSessionRequest, LoadSessionResponse, McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse, Plan,
     PlanEntry, PlanEntryPriority, PlanEntryStatus, PromptCapabilities, PromptRequest, PromptResponse,
-    ResumeSessionRequest, ResumeSessionResponse, SessionCapabilities, SessionId, SessionNotification,
-    SessionResumeCapabilities, SessionUpdate, StopReason, TextContent, ToolCall, ToolCallStatus,
+    ResumeSessionRequest, ResumeSessionResponse, SessionCapabilities, SessionConfigOption, SessionConfigOptionCategory,
+    SessionConfigSelectOption, SessionId, SessionNotification, SessionResumeCapabilities, SessionUpdate,
+    SetSessionConfigOptionRequest, SetSessionConfigOptionResponse, StopReason, TextContent, ToolCall, ToolCallStatus,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Stdio};
 use async_trait::async_trait;
@@ -102,6 +107,19 @@ struct Script {
     /// Rejeu envoyé après la réponse à `session/load`, au bout de ce délai (millisecondes).
     #[serde(default)]
     late_replay_ms: Option<u64>,
+    /// Models offered in every session's `model` option; empty: no config option.
+    #[serde(default)]
+    models: Vec<FakeModel>,
+    /// `session/load` and `session/resume` replies carry no config options (they are optional).
+    #[serde(default)]
+    no_options_on_reopen: bool,
+}
+
+/// A model the fake agent offers.
+#[derive(Debug, Deserialize)]
+struct FakeModel {
+    id: String,
+    name: String,
 }
 
 impl Script {
@@ -123,6 +141,8 @@ impl Script {
             new_session_delay_ms: 0,
             load_delay_ms: 0,
             late_replay_ms: None,
+            models: Vec::new(),
+            no_options_on_reopen: false,
         }
     }
 }
@@ -198,6 +218,8 @@ struct State {
     turns: Mutex<HashMap<String, usize>>,
     /// Notification d'annulation par session ; `session/cancel` ne réveille que la sienne.
     wait_cancel: Mutex<HashMap<String, Arc<Notify>>>,
+    /// The model each session uses, once changed by `session/set_config_option`.
+    model: Mutex<HashMap<String, String>>,
 }
 
 impl State {
@@ -221,6 +243,7 @@ impl State {
             mcp: Mutex::new(HashMap::new()),
             turns: Mutex::new(HashMap::new()),
             wait_cancel: Mutex::new(HashMap::new()),
+            model: Mutex::new(HashMap::new()),
         }
     }
 
@@ -269,6 +292,35 @@ impl State {
         )
     }
 
+    /// The config options of `session`: its `model` select, `None` without scenario models.
+    fn config_options(&self, session: &str) -> Option<Vec<SessionConfigOption>> {
+        let first = self.script.models.first()?;
+        let model = self.model.lock().unwrap_or_else(PoisonError::into_inner);
+        let current = model.get(session).cloned().unwrap_or_else(|| first.id.clone());
+        let values: Vec<_> =
+            self.script.models.iter().map(|m| SessionConfigSelectOption::new(m.id.clone(), m.name.clone())).collect();
+        let option =
+            SessionConfigOption::select("model", "Model", current, values).category(SessionConfigOptionCategory::Model);
+        Some(vec![option])
+    }
+
+    /// The config options of a reopened `session`; none if the scenario leaves them out.
+    fn reopen_options(&self, session: &str) -> Option<Vec<SessionConfigOption>> {
+        if self.script.no_options_on_reopen { None } else { self.config_options(session) }
+    }
+
+    /// Answers `session/set_config_option`: the session's new options, `None` for an unknown value.
+    fn set_config_option(&self, req: &SetSessionConfigOptionRequest) -> Option<Vec<SessionConfigOption>> {
+        self.log("session/set_config_option", &serde_json::to_value(req).unwrap_or_default());
+        let value = req.value.as_value_id()?.0.to_string();
+        if req.config_id.0.as_ref() != "model" || !self.script.models.iter().any(|m| m.id == value) {
+            return None;
+        }
+        let session = req.session_id.0.to_string();
+        self.model.lock().unwrap_or_else(PoisonError::into_inner).insert(session.clone(), value);
+        self.config_options(&session)
+    }
+
     /// Answers `session/new`: a numbered `sess-<n>` session, which keeps its MCP server.
     async fn new_session(&self, req: &NewSessionRequest) -> NewSessionResponse {
         self.log("session/new", &serde_json::to_value(req).unwrap_or_default());
@@ -278,7 +330,8 @@ impl State {
         let n = self.sessions.fetch_add(1, Ordering::Relaxed) + 1;
         let id = format!("sess-{n}");
         self.remember_mcp(&id, &req.mcp_servers);
-        NewSessionResponse::new(id)
+        let options = self.config_options(&id);
+        NewSessionResponse::new(id).config_options(options)
     }
 
     /// The turn that prompt `req` plays.
@@ -483,7 +536,7 @@ async fn play(
 async fn main() -> agent_client_protocol::Result<()> {
     let state = Arc::new(State::from_args());
     let (s1, s2, s3, s4) = (state.clone(), state.clone(), state.clone(), state.clone());
-    let (s5, s6) = (state.clone(), state.clone());
+    let (s5, s6, s7) = (state.clone(), state.clone(), state.clone());
     Agent
         .builder()
         .name("oku-slides-fake-agent")
@@ -532,11 +585,12 @@ async fn main() -> agent_client_protocol::Result<()> {
                 if s5.script.load_delay_ms > 0 {
                     tokio::time::sleep(Duration::from_millis(s5.script.load_delay_ms)).await;
                 }
+                let loaded = LoadSessionResponse::new().config_options(s5.reopen_options(&req.session_id.0));
                 let Some(late) = s5.script.late_replay_ms else {
                     s5.replay(&cx, &req.session_id)?;
-                    return responder.respond(LoadSessionResponse::new());
+                    return responder.respond(loaded);
                 };
-                responder.respond(LoadSessionResponse::new())?;
+                responder.respond(loaded)?;
                 let (state, session) = (s5.clone(), req.session_id.clone());
                 cx.spawn({
                     let cx = cx.clone();
@@ -554,7 +608,16 @@ async fn main() -> agent_client_protocol::Result<()> {
                 if !s6.reopen("session/resume", &value, &req.session_id, &req.mcp_servers) {
                     return responder.respond_with_internal_error("unknown session");
                 }
-                responder.respond(ResumeSessionResponse::new())
+                responder.respond(ResumeSessionResponse::new().config_options(s6.reopen_options(&req.session_id.0)))
+            },
+            agent_client_protocol::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |req: SetSessionConfigOptionRequest, responder, _cx: ConnectionTo<Client>| match s7
+                .set_config_option(&req)
+            {
+                Some(options) => responder.respond(SetSessionConfigOptionResponse::new(options)),
+                None => responder.respond_with_internal_error("unknown config value"),
             },
             agent_client_protocol::on_receive_request!(),
         )

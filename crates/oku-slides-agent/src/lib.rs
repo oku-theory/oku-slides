@@ -27,6 +27,7 @@ mod model_download;
 mod paste;
 mod permission;
 mod prompt_images;
+mod session_model;
 mod settings_port;
 mod shortcut;
 mod stack;

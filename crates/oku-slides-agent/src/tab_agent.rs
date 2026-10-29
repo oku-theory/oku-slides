@@ -10,7 +10,8 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
-    HttpHeader, LoadSessionRequest, McpServer, McpServerHttp, NewSessionRequest, ResumeSessionRequest, SessionId,
+    HttpHeader, LoadSessionRequest, McpServer, McpServerHttp, NewSessionRequest, ResumeSessionRequest,
+    SessionConfigOption, SessionId, SetSessionConfigOptionRequest,
 };
 use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
@@ -23,6 +24,7 @@ use crate::agent_switch::PromptGuard;
 use crate::error::{AgentError, RequestSnafu, StoppedSnafu};
 use crate::keeper::{Keep, Keeper};
 use crate::link::{Link, Live, Route};
+use crate::session_model::{Offered, model_options};
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, AgentState};
 
@@ -31,6 +33,9 @@ use crate::{AgentEvent, AgentState};
 /// fin, et le prompt suivant doit relancer l'agent plutôt que reprendre
 /// l'ancienne connexion.
 const CLOSE_GRACE: Duration = Duration::from_secs(1);
+
+/// Beyond this, a model request goes unanswered: the turn goes on with the session's model.
+const MODEL_WITHIN: Duration = Duration::from_secs(30);
 
 #[derive(Debug)]
 pub(crate) enum Command {
@@ -303,6 +308,7 @@ impl TabAgent {
                 return None;
             }
         };
+        self.ensure_model(&live, &id).await;
         let prompting = || self.link.prompting(live.generation, &id);
         match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, live.caps.image, prompting)
             .await
@@ -346,8 +352,33 @@ impl TabAgent {
     async fn open(&mut self, live: &Live, turn: u32) -> agent_client_protocol::Result<SessionId> {
         let (cwd, tools) = self.setup().await;
         let r = live.cx.send_request(NewSessionRequest::new(cwd).mcp_servers(vec![tools])).block_task().await?;
-        self.adopt(live, turn, &r.session_id, false);
+        self.adopt(live, turn, &r.session_id, false, r.config_options.as_deref());
         Ok(r.session_id)
+    }
+
+    /// Asks session `id` for the chosen model, if the agent offers it and the session uses another.
+    ///
+    /// A refusal is logged and the turn goes on with the session's model; the box shows it.
+    async fn ensure_model(&self, live: &Live, id: &SessionId) {
+        let Some(wanted) = self.link.wanted_model() else { return };
+        let board = self.link.models();
+        let config_id = match board.session(live.generation, id) {
+            Some(o) if o.current != wanted && o.offers(&wanted) => o.config_id,
+            Some(_) => return,
+            // Its reply told no options: the offer of the agent's other sessions stands in.
+            None => match board.offered(live.epoch) {
+                Offered::Models(o) if o.offers(&wanted) => o.config_id,
+                Offered::Models(_) | Offered::NoChoice | Offered::Unknown => return,
+            },
+        };
+        let asked = SetSessionConfigOptionRequest::new(id.clone(), config_id, wanted.as_str());
+        match tokio::time::timeout(MODEL_WITHIN, live.cx.send_request(asked).block_task()).await {
+            Ok(Ok(r)) => board.told(live.generation, live.epoch, id, model_options(&r.config_options)),
+            Ok(Err(e)) => {
+                tracing::warn!(tab = %self.ctx.tab.tab(), model = %wanted, error = %e, "modèle de l'agent refusé");
+            }
+            Err(_) => tracing::warn!(tab = %self.ctx.tab.tab(), model = %wanted, "modèle de l'agent sans réponse"),
+        }
     }
 
     /// Reprend la session `id`, si l'agent le peut.
@@ -373,18 +404,18 @@ impl TabAgent {
                 .send_request(ResumeSessionRequest::new(id.clone(), cwd).mcp_servers(vec![tools]))
                 .block_task()
                 .await
-                .map(drop)
+                .map(|r| r.config_options)
         } else {
             live.cx
                 .send_request(LoadSessionRequest::new(id.clone(), cwd).mcp_servers(vec![tools]))
                 .block_task()
                 .await
-                .map(drop)
+                .map(|r| r.config_options)
         };
         match asked {
-            Ok(()) => {
+            Ok(options) => {
                 // Un rejeu tardif (agent non conforme) reste hors du tour jusqu'au premier prompt (t-612).
-                self.adopt(live, turn, &id, !live.caps.resume);
+                self.adopt(live, turn, &id, !live.caps.resume, options.as_deref());
                 Ok(Reopened::Resumed(id))
             }
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) || live.closed.is_cancelled() => Err(e),
@@ -397,8 +428,20 @@ impl TabAgent {
 
     /// Session `id` serves the tab from turn `turn`: routed, live, handed to the keeper.
     ///
-    /// The keeper keeps it only if the turn is still in the thread (no new conversation meanwhile).
-    fn adopt(&mut self, live: &Live, turn: u32, id: &SessionId, replaying: bool) {
+    /// Its config `options` tell the models it offers. The keeper keeps it only if the turn is
+    /// still in the thread (no new conversation meanwhile).
+    fn adopt(
+        &mut self,
+        live: &Live,
+        turn: u32,
+        id: &SessionId,
+        replaying: bool,
+        options: Option<&[SessionConfigOption]>,
+    ) {
+        // A reply without options tells nothing: optional in ACP, it does not mean no choice.
+        if let Some(options) = options {
+            self.link.models().told(live.generation, live.epoch, id, model_options(options));
+        }
         self.link.route(
             live.generation,
             id.clone(),

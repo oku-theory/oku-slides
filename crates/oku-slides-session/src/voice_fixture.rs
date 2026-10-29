@@ -42,6 +42,7 @@ pub fn voice_view_fixture() -> VoiceView {
             locked: false,
             local: None,
             pending: None,
+            models: None,
         },
     }
 }

@@ -207,6 +207,9 @@ read_timeout_secs = 30
 # d'Oku Slides (serveur MCP local), ni fichiers ni terminal.
 # OKU_SLIDES_AGENT__SELECTED impose le choix (le panneau est alors verrouillé).
 # Un config.toml peut ajouter un agent : [agent.presets.<id>] name, command, args.
+# `model` (facultatif) : le modèle demandé à chaque session de cet agent, une valeur de
+# son option ACP de catégorie « model » (ex. `model = "gpt-5-codex"`) ; absent, celui de
+# l'agent. Choisi aussi dans le panneau de l'agent, qui l'écrit dans config.toml.
 selected = "claude"
 
 [agent.presets.claude]

@@ -12,16 +12,16 @@ with the UI context; agent updates become A2UI turn surfaces.
   import's fine-tuning turn for the host (never deserialized; refused, the tab told why, while
   `availability` gives a reason), `forward` relays `{tab, event}`, `shutdown` kills it.
 - `choice` : `AgentChoice` (an `Arc`): active agent, `availability` (no program on `PATH`; built-in:
-  no app binary, else `local_engine` states; else the link's recent failure), `check`, `switch_to`,
-  `persist`, `agents_view`, `local_panel`, `start_download` (each percent bumps the voice revision).
-- `model_download` : `ModelDownload`, the cancellable local model download thread.
+  no app binary, else `local_engine` states; else the link's recent failure), `check`, `switch_to`, `persist`,
+  `check_model`/`choose_model` (per preset), `agents_view`, `local_panel`, `start_download` (`model_download`).
 - `tab_entry` : one tab; starts its tools then its agent on the runtime, queues commands until
   then, and holds the draft (`TabLink`: text and pasted images, `session`). Closing it closes its `SurfaceHub`.
 - `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes.
 - `paste` : `paste_image` (base64, `[paste] max_draft_images`, `Session::paste_image`), the draft's images, `resolve_images` (ids of a prompt).
 - `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission requests routed
-  by epoch and `SessionId`; `Link::switch` changes agent; `failure`: last launch failure of this epoch (`Unusable`),
+  by epoch and `SessionId`; `Link::switch` changes agent and its wanted model; `failure`: last launch failure of this epoch (`Unusable`),
   cleared by success or switch, stale after 30 s. `wire`: its stdio, logged on `ACP_TARGET` (`OKU_SLIDES_DEBUG_ACP`).
+  `session_model`: `ModelBoard`, sessions' `model` options; the actor asks the chosen one before a prompt if offered.
 - `keeper` : `Keeper`, the per-tab queue that alone reads and writes the conversation (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`).
 - `turns` : `Turns`, reducer from events to A2UI turn surfaces (`TurnOut`), emitted by the hub.

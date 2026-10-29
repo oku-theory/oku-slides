@@ -146,6 +146,36 @@ pub struct AgentPresetView {
     pub hint: Option<String>,
 }
 
+/// A model the active agent offers.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentModelView {
+    /// Its value id, sent back to the agent.
+    pub id: String,
+    /// Its name, shown as the agent gives it.
+    pub name: String,
+    /// Its description from the agent, if any.
+    pub hint: Option<String>,
+}
+
+/// The active agent's models, as the box shows them.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AgentModelsView {
+    /// No session of this agent has told its models yet.
+    Unknown {
+        /// The model the app asks for, if any.
+        chosen: Option<String>,
+    },
+    /// The agent offers these models.
+    Offered {
+        /// The offered models, in the agent's order.
+        models: Vec<AgentModelView>,
+        /// The model of the agent's last session.
+        current: String,
+        /// The model the app asks for, if any; it may not be offered.
+        chosen: Option<String>,
+    },
+}
+
 /// Les agents tels que les montre la boîte.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AgentsView {
@@ -161,6 +191,8 @@ pub struct AgentsView {
     pub local: Option<LocalModelView>,
     /// L'id de l'agent choisi, en attente de la fin des réponses.
     pub pending: Option<String>,
+    /// The active agent's models; `None` when it offers no model choice.
+    pub models: Option<AgentModelsView>,
 }
 
 /// Tout ce que montre la boîte.
@@ -239,6 +271,11 @@ pub enum VoiceEvent {
     DownloadAgentModel,
     /// Annuler le téléchargement du modèle de l'agent local.
     CancelAgentModelDownload,
+    /// Choose the model the active agent's sessions use.
+    SelectAgentModel {
+        /// The model's value id, offered by the agent.
+        id: String,
+    },
 }
 
 /// L'évènement d'une action de la boîte et de son contexte ; `None` si mal formé.
@@ -278,6 +315,7 @@ pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEven
         "select" => Some(VoiceEvent::SelectAgent { id: text("id")? }),
         "download_agent_model" => Some(VoiceEvent::DownloadAgentModel),
         "cancel_agent_model_download" => Some(VoiceEvent::CancelAgentModelDownload),
+        "agent_model" => Some(VoiceEvent::SelectAgentModel { id: text("id").filter(|id| !id.is_empty())? }),
         _ => None,
     }
 }

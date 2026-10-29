@@ -1682,6 +1682,18 @@
           }
          ],
          "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Le modèle de l'agent",
+           "bold": true
+          },
+          {
+           "t": " : choisi dans la boîte Dictée et agent une fois que l'agent a répondu, parmi les modèles qu'il propose ; enregistré en model dans son [agent.presets.<id>] de config.toml, il vaut à partir du prochain message de chaque onglet."
+          }
+         ],
+         "list": "bullet"
         }
        ]
       }

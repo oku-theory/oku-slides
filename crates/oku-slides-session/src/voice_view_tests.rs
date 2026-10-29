@@ -73,6 +73,7 @@ fn ctx(v: Value) -> Map<String, Value> {
 #[case("select", json!({"id": "bis"}), Some(VoiceEvent::SelectAgent { id: "bis".into() }))]
 #[case("download_agent_model", json!({}), Some(VoiceEvent::DownloadAgentModel))]
 #[case("cancel_agent_model_download", json!({}), Some(VoiceEvent::CancelAgentModelDownload))]
+#[case("agent_model", json!({"id": "gpt-5"}), Some(VoiceEvent::SelectAgentModel { id: "gpt-5".into() }))]
 fn voice_event_known_action_parses(#[case] name: &str, #[case] context: Value, #[case] expected: Option<VoiceEvent>) {
     assert_that!(voice_event(name, &ctx(context))).is_equal_to(expected);
 }
@@ -82,6 +83,8 @@ fn voice_event_known_action_parses(#[case] name: &str, #[case] context: Value, #
 #[case("language", json!({}))]
 #[case("download", json!({}))]
 #[case("select", json!({}))]
+#[case("agent_model", json!({}))]
+#[case("agent_model", json!({"id": ""}))]
 #[case("silence", json!({"value": "0"}))]
 #[case("silence", json!({"value": "-1"}))]
 #[case("silence", json!({"value": "inf"}))]

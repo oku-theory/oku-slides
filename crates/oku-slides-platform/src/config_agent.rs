@@ -102,17 +102,20 @@ pub struct AgentPreset {
     /// Builtin agent: exclusive with `command`.
     #[serde(default)]
     pub builtin: Option<Builtin>,
+    /// Model asked of each session, a value of the agent's `model` option; absent: its default.
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 impl AgentPreset {
     /// An offered agent launched by a program (tests, tools).
     pub fn new(name: impl Into<String>, command: impl Into<String>, args: Vec<String>) -> Self {
-        Self { name: name.into(), command: command.into(), args, builtin: None }
+        Self { name: name.into(), command: command.into(), args, builtin: None, model: None }
     }
 
     /// An agent built into Oku Slides.
     pub fn builtin(name: impl Into<String>, builtin: Builtin) -> Self {
-        Self { name: name.into(), command: String::new(), args: Vec::new(), builtin: Some(builtin) }
+        Self { name: name.into(), command: String::new(), args: Vec::new(), builtin: Some(builtin), model: None }
     }
 }
 

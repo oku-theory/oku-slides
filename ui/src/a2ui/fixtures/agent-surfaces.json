@@ -3236,6 +3236,8 @@
                 "d-progress",
                 "a-title",
                 "a-agents",
+                "a-model",
+                "a-model-note",
                 "a-progress",
                 "a-cancel",
                 "a-pending",
@@ -3439,6 +3441,40 @@
               }
             },
             {
+              "id": "a-model",
+              "component": "Select",
+              "label": "Modèle",
+              "value": {
+                "path": "/agent_model"
+              },
+              "options": [
+                {
+                  "id": "big",
+                  "label": "Big"
+                },
+                {
+                  "id": "mini",
+                  "label": "Mini"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "agent_model",
+                  "context": {
+                    "id": {
+                      "path": "/agent_model"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "a-model-note",
+              "component": "Text",
+              "text": "Un nouveau modèle vaut à partir du prochain message de chaque onglet.",
+              "variant": "caption"
+            },
+            {
               "id": "a-progress",
               "component": "Text",
               "text": {
@@ -3506,7 +3542,8 @@
               "key_env": "OPENAI_API_KEY",
               "api_version": "",
               "headers": ""
-            }
+            },
+            "agent_model": "mini"
           }
         }
       }

@@ -1,13 +1,15 @@
 use std::path::PathBuf;
 
+use agent_client_protocol::schema::v1::SessionId;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::config::{AgentPreset, AgentSettings, Builtin};
 use oku_slides_platform::local_agent::{AGENT_MODEL_SIZE, Target, Unavailable, agent_model_dir};
-use oku_slides_session::{AgentPresetView, LocalModelView, Platform, Settings};
+use oku_slides_session::{AgentModelsView, AgentPresetView, LocalModelView, Platform, Settings};
 use speculoos::prelude::*;
 
-use super::{AgentChoice, Refusal};
+use super::{AgentChoice, ModelRefusal, Refusal};
 use crate::error::Unusable;
+use crate::session_model::{ModelOptions, ModelValue};
 use crate::{Launch, Link};
 
 /// Une plateforme sur `data`, l'agent « local » choisi ; `program` : le binaire de l'app.
@@ -214,4 +216,127 @@ fn agents_view_builtin_has_no_hint() {
     let view = choice(&platform).agents_view();
     let expected = AgentPresetView { id: "local".into(), name: "Local".into(), hint: None };
     assert_that!(view.presets).is_equal_to(vec![expected]);
+}
+
+/// Settings on `data` with the external preset `id`, active, asking `model`.
+fn external_settings(data: &std::path::Path, id: &str, model: Option<&str>) -> Settings {
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("settings: {e}"));
+    settings.paths.data = Some(data.to_path_buf());
+    settings.paths.decks = Some(data.join("decks"));
+    let mut preset = AgentPreset::new("Codex", "/bin/codex", Vec::new());
+    preset.model = model.map(str::to_owned);
+    settings.agent.insert_preset(id, preset).unwrap_or_else(|e| panic!("preset: {e}"));
+    settings.agent.select(id).unwrap_or_else(|e| panic!("agent: {e}"));
+    settings.i18n.locale = Some("fr".into());
+    settings
+}
+
+/// A platform on `data` whose active agent is the external preset `codex`, asking `model`.
+fn codex_platform(data: &std::path::Path, model: Option<&str>) -> Platform {
+    Platform::with_settings(external_settings(data, "codex", model)).unwrap_or_else(|e| panic!("platform: {e}"))
+}
+
+/// A session of the current launch offered `fast` (in use) and `deep`.
+fn offer(choice: &AgentChoice) {
+    let values =
+        ["fast", "deep"].map(|id| ModelValue { id: id.to_owned(), name: id.to_owned(), description: None }).to_vec();
+    let options = ModelOptions { config_id: "model".into(), current: "fast".into(), values };
+    choice.link.models().told(1, 0, &SessionId::new("s"), Some(options));
+}
+
+#[test]
+fn new_seeds_the_chosen_model_from_the_preset() {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&codex_platform(dir.path(), Some("deep")));
+    assert_that!(choice.chosen_model("codex")).is_equal_to(Some("deep".to_owned()));
+}
+
+#[test]
+fn agents_view_builtin_agent_shows_no_models() {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&platform(dir.path(), Some(PathBuf::from("/app"))));
+    offer(&choice);
+    assert_that!(choice.agents_view().models).is_none();
+}
+
+#[test]
+fn agents_view_external_agent_before_any_session_shows_the_chosen_model_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&codex_platform(dir.path(), Some("deep")));
+    let expected = AgentModelsView::Unknown { chosen: Some("deep".into()) };
+    assert_that!(choice.agents_view().models).is_equal_to(Some(expected));
+}
+
+#[test]
+fn check_model_before_any_session_is_refused_as_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&codex_platform(dir.path(), None));
+    assert_that!(choice.check_model("deep")).is_equal_to(Err(ModelRefusal::Unknown));
+}
+
+#[test]
+fn check_model_not_offered_is_refused_as_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&codex_platform(dir.path(), None));
+    offer(&choice);
+    assert_that!(choice.check_model("huge")).is_equal_to(Err(ModelRefusal::Unknown));
+}
+
+#[rstest::rstest]
+#[case::already_chosen(Some("deep"), true)]
+#[case::new_choice(None, false)]
+fn check_model_offered_tells_whether_it_is_unchanged(#[case] chosen: Option<&str>, #[case] unchanged: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&codex_platform(dir.path(), chosen));
+    offer(&choice);
+    assert_that!(choice.check_model("deep")).is_equal_to(Ok(("codex".to_owned(), unchanged)));
+}
+
+#[test]
+fn check_model_of_a_dotted_preset_id_is_refused_as_not_saved() {
+    let dir = tempfile::tempdir().unwrap();
+    let settings = external_settings(dir.path(), "co.dex", None);
+    let choice = choice(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")));
+    offer(&choice);
+    assert_that!(choice.check_model("deep")).is_equal_to(Err(ModelRefusal::NotSaved));
+}
+
+#[test]
+fn choose_model_writes_the_preset_model_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let platform = codex_platform(dir.path(), None);
+    choice(&platform).choose_model("codex", "deep").unwrap_or_else(|e| panic!("write: {e}"));
+    let toml = std::fs::read_to_string(platform.settings.config_file()).unwrap();
+    assert_that!(toml.contains("[agent.presets.codex]") && toml.contains("model = \"deep\"")).is_true();
+}
+
+#[test]
+fn choose_model_of_the_active_agent_asks_it_of_the_link() {
+    let dir = tempfile::tempdir().unwrap();
+    let choice = choice(&codex_platform(dir.path(), None));
+    choice.choose_model("codex", "deep").unwrap_or_else(|e| panic!("write: {e}"));
+    assert_that!(choice.link.wanted_model()).is_equal_to(Some("deep".to_owned()));
+}
+
+#[test]
+fn choose_model_unsaved_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let platform = codex_platform(dir.path(), None);
+    // `config.toml` cannot be written: a directory stands in its place.
+    std::fs::create_dir_all(platform.settings.config_file()).unwrap();
+    let choice = choice(&platform);
+    assert_that!(choice.choose_model("codex", "deep")).is_err();
+    assert_that!((choice.chosen_model("codex"), choice.link.wanted_model())).is_equal_to((None, None));
+}
+
+#[test]
+fn switch_to_asks_the_chosen_model_of_the_new_agent() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = external_settings(dir.path(), "codex", None);
+    let mut bis = AgentPreset::new("Bis", "/bin/bis", Vec::new());
+    bis.model = Some("deep".into());
+    settings.agent.insert_preset("bis", bis).unwrap_or_else(|e| panic!("preset: {e}"));
+    let choice = choice(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")));
+    choice.switch_to("bis");
+    assert_that!(choice.link.wanted_model()).is_equal_to(Some("deep".to_owned()));
 }

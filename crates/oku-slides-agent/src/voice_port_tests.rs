@@ -379,6 +379,7 @@ fn view_api_key_found_for_a_set_variable() {
 #[case(VoiceEvent::CancelDictationDownload, VoiceErrorKind::NothingToCancel)]
 #[case(VoiceEvent::CancelAgentModelDownload, VoiceErrorKind::NothingToCancel)]
 #[case(VoiceEvent::SelectAgent { id: "nope".into() }, VoiceErrorKind::UnknownAgent)]
+#[case::model_before_any_session(VoiceEvent::SelectAgentModel { id: "deep".into() }, VoiceErrorKind::UnknownAgentModel)]
 fn check_refuses_before_any_change(#[case] event: VoiceEvent, #[case] kind: VoiceErrorKind) {
     let t = voice_with_stt();
     assert_that!(t.voice.check(&event, &Origin::User).map_err(|e| e.kind())).is_err_containing(kind);

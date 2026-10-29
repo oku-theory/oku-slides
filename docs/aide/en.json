@@ -1682,6 +1682,18 @@
           }
          ],
          "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "The agent's model",
+           "bold": true
+          },
+          {
+           "t": ": picked in the Dictation and agent box once the agent has replied, from the models it offers; saved as model in its [agent.presets.<id>] of config.toml, it applies from the next message of each tab."
+          }
+         ],
+         "list": "bullet"
         }
        ]
       }

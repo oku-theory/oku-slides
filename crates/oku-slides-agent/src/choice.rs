@@ -3,6 +3,7 @@
 //! Partagé (`Arc`) entre la pile, la boîte des réglages (`AppVoice`) et le fil de téléchargement
 //! du modèle local, qui fait avancer la révision de la boîte quand l'état du modèle change.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -19,6 +20,7 @@ use oku_slides_session::{AgentPresetView, AgentsView, LocalFailure, LocalModelVi
 use crate::command_error::{CommandError, UnknownAgentSnafu};
 use crate::error::Unusable;
 use crate::model_download::{DownloadState, ModelDownload, percent};
+use crate::session_model::Offered;
 use crate::{Launch, Link};
 
 /// Pourquoi un agent ne peut pas être choisi.
@@ -30,13 +32,26 @@ pub(crate) enum Refusal {
     Locked,
 }
 
+/// Why a model of the active agent cannot be chosen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModelRefusal {
+    /// The active agent does not offer it, or offers no choice yet.
+    Unknown,
+    /// Its preset id cannot be written as a `config.toml` key.
+    NotSaved,
+}
+
 /// L'agent actif de l'app (clé de `[agent.presets]`) et ce qui en dépend.
 #[derive(Debug)]
 pub(crate) struct AgentChoice {
     platform: Platform,
     link: Link,
     active: Mutex<String>,
-    /// Tenu pendant l'écriture de `agent.selected` : jamais avec le verrou d'état de la boîte.
+    /// The model asked of each preset's sessions, by preset id; seeded from the settings.
+    ///
+    /// Taken after `active`, never before.
+    models: Mutex<HashMap<String, String>>,
+    /// Tenu pendant l'écriture de `agent.selected` ou d'un modèle : jamais avec le verrou d'état de la boîte.
     saving: Mutex<()>,
     /// Le téléchargement du modèle de l'agent local.
     download: ModelDownload,
@@ -45,10 +60,13 @@ pub(crate) struct AgentChoice {
 impl AgentChoice {
     /// Le choix des réglages de `platform`, sur la connexion `link`.
     pub(crate) fn new(platform: &Platform, link: Link) -> Self {
+        let models =
+            platform.settings.agent.presets().filter_map(|(id, p)| Some((id.to_owned(), p.model.clone()?))).collect();
         Self {
             platform: platform.clone(),
             link,
             active: Mutex::new(platform.settings.agent.selected().to_owned()),
+            models: Mutex::new(models),
             saving: Mutex::new(()),
             download: ModelDownload::default(),
         }
@@ -123,14 +141,63 @@ impl AgentChoice {
     /// Peut bloquer : lit le disque (état du modèle local).
     pub(crate) fn agents_view(&self) -> AgentsView {
         let agent = &self.platform.settings.agent;
+        let active = self.active();
+        let external = agent.preset(&active).is_some_and(|p| p.builtin.is_none());
+        let models = if external { self.link.offered_models().view(self.chosen_model(&active)) } else { None };
         AgentsView {
             presets: agent.presets().map(|(id, p)| preset_view(id, p)).collect(),
-            active: self.active(),
+            active,
             busy: false,
             locked: agent.locked,
             local: self.local_panel(),
             pending: None,
+            models,
         }
+    }
+
+    /// Advances each time what the active agent's sessions tell of models may change.
+    pub(crate) fn models_revision(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.link.models_revision()
+    }
+
+    /// The model asked of the sessions of preset `id`, if one is chosen.
+    pub(crate) fn chosen_model(&self, id: &str) -> Option<String> {
+        self.models.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned()
+    }
+
+    /// Whether model `model` of the active agent can be chosen.
+    ///
+    /// Gives the preset checked, to save the choice for, and whether `model` is already chosen.
+    pub(crate) fn check_model(&self, model: &str) -> Result<(String, bool), ModelRefusal> {
+        let active = self.active();
+        let Offered::Models(offered) = self.link.offered_models() else { return Err(ModelRefusal::Unknown) };
+        let external = self.platform.settings.agent.preset(&active).is_some_and(|p| p.builtin.is_none());
+        if !external || !offered.offers(model) {
+            return Err(ModelRefusal::Unknown);
+        }
+        // `write_value` splits its key on dots: such a preset id would name another key.
+        if active.contains('.') {
+            return Err(ModelRefusal::NotSaved);
+        }
+        let unchanged = self.chosen_model(&active).as_deref() == Some(model);
+        Ok((active, unchanged))
+    }
+
+    /// Writes `model` for preset `id` in `config.toml`, then asks it of its sessions.
+    ///
+    /// A failed write changes nothing: the model shown stays the saved one. Applies from
+    /// the next prompt of each tab if `id` is still the active agent. Writes to the disk.
+    pub(crate) fn choose_model(&self, id: &str, model: &str) -> Result<(), Box<ConfigWriteError>> {
+        let _saving = self.saving.lock().unwrap_or_else(PoisonError::into_inner);
+        let (storage, file) = (&self.platform.storage, self.platform.settings.config_file());
+        let key = format!("agent.presets.{id}.model");
+        write_value(storage, &file, &key, &serde_json::Value::from(model)).map_err(Box::new)?;
+        let active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
+        self.models.lock().unwrap_or_else(PoisonError::into_inner).insert(id.to_owned(), model.to_owned());
+        if *active == id {
+            self.link.set_wanted_model(Some(model.to_owned()));
+        }
+        Ok(())
     }
 
     /// La langue courante de l'interface.
@@ -203,7 +270,9 @@ impl AgentChoice {
             tracing::error!(id, "agent absent des réglages : bascule refusée");
             return;
         };
-        self.link.switch(Self::launch_of(preset, &self.platform));
+        // The built-in agent offers no model choice: none is asked of it.
+        let model = preset.builtin.is_none().then(|| self.chosen_model(id)).flatten();
+        self.link.switch(Self::launch_of(preset, &self.platform), model);
         id.clone_into(&mut active);
     }
 

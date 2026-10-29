@@ -174,6 +174,23 @@ fn config_file_preset_is_added_without_dropping_the_defaults() {
 }
 
 #[test]
+fn config_file_model_alone_keeps_the_default_preset_launch() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("config.toml");
+    std::fs::write(&file, "[agent.presets.codex]\nmodel = \"gpt-5-codex\"\n").unwrap();
+    let s = Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new()))).unwrap();
+    let codex = s.agent.preset("codex").unwrap();
+    assert_that!(codex.model.as_deref()).is_equal_to(Some("gpt-5-codex"));
+    assert_that!(codex.command.as_str()).is_equal_to("npx");
+}
+
+#[test]
+fn defaults_agent_presets_ask_no_model() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.agent.presets().filter(|(_, p)| p.model.is_some()).count()).is_equal_to(0);
+}
+
+#[test]
 fn unknown_selected_agent_fails_to_load_and_names_the_known_ones() {
     let env = Settings::environment()
         .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "mistral".to_owned())])));

@@ -144,7 +144,7 @@ async fn switch_between_turns_sends_the_next_prompt_to_the_new_agent() {
     until(&mut rx, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
     let before = h.link.agent_id();
     let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
-    h.link.switch(launch);
+    h.link.switch(launch, None);
     assert_that!(h.link.agent_id()).is_not_equal_to(before);
     t.agent.prompt("second".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text == "bis")).await;
@@ -163,7 +163,7 @@ async fn switch_during_a_turn_stops_it_and_the_next_prompt_reaches_the_new_agent
     t.agent.prompt("premier".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::Status { state: AgentState::Working, .. })).await;
     let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
-    h.link.switch(launch);
+    h.link.switch(launch, None);
     until(&mut rx, |e| matches!(e, AgentEvent::Error { .. })).await;
     t.agent.prompt("second".into(), AgentUi::default());
     until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text == "bis")).await;
@@ -185,7 +185,7 @@ async fn switch_while_launching_relaunches_with_the_new_agent() {
     .await
     .unwrap_or_else(|_| panic!("le premier agent n'a pas reçu `initialize`"));
     let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
-    h.link.switch(launch);
+    h.link.switch(launch, None);
     until(&mut rx, |e| matches!(e, AgentEvent::Chunk { text, .. } if text == "bis")).await;
     // Le premier agent avait bien commencé sa poignée de main.
     assert_that!(logged(&h.log, "initialize")).has_length(1);
@@ -208,7 +208,7 @@ async fn switch_during_a_hung_handshake_reaches_the_new_agent_without_waiting_fo
     .await
     .unwrap_or_else(|_| panic!("le premier agent n'a pas reçu `initialize`"));
     let (launch, log_bis) = second_launch(&h, &json!({ "turns": [{ "chunks": ["bis"] }] }));
-    h.link.switch(launch);
+    h.link.switch(launch, None);
     let chunk = within(
         std::time::Duration::from_secs(5),
         &mut rx,
@@ -224,7 +224,7 @@ async fn switch_during_a_hung_handshake_reaches_the_new_agent_without_waiting_fo
 async fn shutdown_after_switch_is_still_final() {
     let h = start(json!({ "turns": [] })).await;
     let (launch, _) = second_launch(&h, &json!({ "turns": [] }));
-    h.link.switch(launch);
+    h.link.switch(launch, None);
     h.link.shutdown(std::time::Duration::from_secs(2)).await;
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();

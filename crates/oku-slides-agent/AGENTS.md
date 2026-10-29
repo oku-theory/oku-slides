@@ -27,6 +27,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Send the import instructions only in a Tune turn, hidden before the context; the thread shows only its short text. (t-692)
 - Decide whether the local agent can run only through oku_slides_platform::local_agent::local_engine, in the host and the child alike. (plan:2026-10-18-agent-local-repli-lot3)
 - Start a Tune turn only from the host through Stack::tune; never deserialize AgentCommand::Tune from the UI. (t-692)
+- Ask the chosen agent model before a prompt only if the session offers it and uses another; never restart the agent for it. (plan:2026-10-29-modele-agent-acp, t-1257)
+- Let only the box choose the agent model; no MCP tool sends VoiceEvent::SelectAgentModel. (plan:2026-10-29-modele-agent-acp, t-1257)
 
 ## Pitfalls
 

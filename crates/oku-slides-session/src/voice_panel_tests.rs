@@ -58,6 +58,16 @@ fn option(p: &VoicePanel, chips: &str, id: &str) -> Value {
     c["options"].as_array().unwrap().iter().find(|o| o["id"] == id).cloned().unwrap()
 }
 
+/// Two models offered, `big` in use; `chosen` asked by the app.
+fn offered(chosen: Option<&str>) -> AgentModelsView {
+    let model = |id: &str, name: &str| AgentModelView { id: id.into(), name: name.into(), hint: None };
+    AgentModelsView::Offered {
+        models: vec![model("big", "Big"), model("mini", "Mini")],
+        current: "big".into(),
+        chosen: chosen.map(str::to_owned),
+    }
+}
+
 /// Les vues qui couvrent toutes les actions de la boîte.
 pub(crate) fn covering_views() -> Vec<VoiceView> {
     let api = with(|d| {
@@ -77,6 +87,7 @@ pub(crate) fn covering_views() -> Vec<VoiceView> {
     agent.agents.local = Some(LocalModelView::Failed { size: 2_500_000_000, failure: LocalFailure::Integrity });
     let mut running = voice_view_fixture();
     running.agents.local = Some(LocalModelView::Running { percent: 40 });
+    running.agents.models = Some(offered(Some("mini")));
     vec![api, local, agent, running]
 }
 
@@ -384,9 +395,55 @@ fn voice_panel_every_action_parses_back_into_an_event() {
         "select",
         "download_agent_model",
         "cancel_agent_model_download",
+        "agent_model",
     ]
     .into_iter()
     .map(String::from)
     .collect();
     assert_that!(seen).is_equal_to(expected);
+}
+
+#[test]
+fn voice_panel_agent_without_model_choice_shows_no_model() {
+    let p = VoicePanel::build(&voice_view_fixture(), &en());
+    assert_that!(ids(&p).iter().filter(|id| id.starts_with("a-model")).count()).is_equal_to(0);
+}
+
+#[test]
+fn voice_panel_offered_models_are_the_options_of_the_model_select() {
+    let p = VoicePanel::build(&agents(|a| a.models = Some(offered(None))), &en());
+    assert_that!(option_ids(&component(&p, "a-model"))).is_equal_to(vec!["big".to_owned(), "mini".to_owned()]);
+}
+
+#[rstest]
+#[case::none(None, "big")]
+#[case::offered(Some("mini"), "mini")]
+#[case::not_offered(Some("gone"), "big")]
+fn voice_panel_model_select_shows_the_chosen_offered_model(#[case] chosen: Option<&str>, #[case] shown: &str) {
+    let p = VoicePanel::build(&agents(|a| a.models = Some(offered(chosen))), &en());
+    assert_that!(data(&p)["agent_model"].clone()).is_equal_to(json!(shown));
+}
+
+#[test]
+fn voice_panel_chosen_model_not_offered_is_named_in_french() {
+    let p = VoicePanel::build(&agents(|a| a.models = Some(offered(Some("gone")))), &fr());
+    assert_that!(component(&p, "a-model-missing")["text"].as_str().unwrap_or("")).contains("gone");
+}
+
+#[test]
+fn voice_panel_model_choice_change_keeps_the_layout() {
+    let a = VoicePanel::build(&agents(|a| a.models = Some(offered(None))), &en());
+    let b = VoicePanel::build(&agents(|a| a.models = Some(offered(Some("mini")))), &en());
+    assert_that!(a.same_layout(&b)).is_true();
+}
+
+#[rstest]
+#[case::nothing_asked(None, "voice-agent-model-later")]
+#[case::asked(Some("gpt-5"), "voice-agent-model-asked")]
+fn voice_panel_unknown_models_show_a_note_without_select(#[case] chosen: Option<&str>, #[case] key: &str) {
+    let v = agents(|a| a.models = Some(AgentModelsView::Unknown { chosen: chosen.map(str::to_owned) }));
+    let p = VoicePanel::build(&v, &fr());
+    let expected = fr().tr_with(key, &[("model", chosen.unwrap_or_default().into())]);
+    assert_that!(ids(&p)).does_not_contain("a-model".to_owned());
+    assert_that!(component(&p, "a-model-note")["text"].clone()).is_equal_to(json!(expected));
 }

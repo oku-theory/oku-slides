@@ -198,7 +198,8 @@ impl Stack {
     /// et l'outil `settings`. Seules la veille de la dictée et le suivi de la boîte partent ici.
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
         let a = platform.settings.agent.active();
-        let link = Link::new(AgentChoice::launch_of(a, platform));
+        let model = a.builtin.is_none().then(|| a.model.clone()).flatten();
+        let link = Link::with_model(AgentChoice::launch_of(a, platform), model);
         let (out_tx, out_rx) = mpsc::unbounded_channel();
         let choice = Arc::new(AgentChoice::new(platform, link.clone()));
         let voice = AppVoice::new(stt.clone(), choice.clone(), rt.clone());
