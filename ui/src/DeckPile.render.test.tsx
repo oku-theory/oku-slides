@@ -1,9 +1,8 @@
-// La pile d'un onglet : slides du deck, ou layouts du pack édité (mode pack).
+// A tab's pile: the deck's slides, or a theme tab's specimens.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { Snapshot } from "./api";
-import type { PackKind } from "./packTypes";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -35,19 +34,6 @@ const deckSnapshot = (): Snapshot =>
     ],
   }) as unknown as Snapshot;
 
-/** Un onglet en mode pack sur un pack de `kind` : une slide par layout pour un pack de layouts. */
-const snapshotInPackMode = (kind: PackKind): Snapshot =>
-  ({
-    editing: { pack: "e", name: "Essentiel", kind, builtin: true, deck_only: false, read_only: false, leased: true, display_name: "Essentiel" },
-    history: null, read_only: false,
-    slides: kind === "layouts"
-      ? [
-          { id: "layout-blank", kind: "essentiel/blank", title: null, hash: "a" },
-          { id: "layout-title", kind: "essentiel/title", title: "Titre", hash: "b" },
-        ]
-      : [],
-  }) as unknown as Snapshot;
-
 /** A theme tab: the specimen deck, one slide per layout of Essentiel. */
 const themeTabSnapshot = (): Snapshot =>
   ({
@@ -72,28 +58,11 @@ async function renderPile(snap: Snapshot, themeTab = false) {
   return host;
 }
 
-/** Boutons nommés `name`, par leur texte ou, pictogramme seul, par leur `aria-label`. */
+/** Buttons named `name`, by their text or, icon only, by their `aria-label`. */
 const buttons = (host: HTMLElement, name: RegExp) =>
   [...host.querySelectorAll("button")].filter((b) => name.test(b.textContent ?? "") || name.test(b.getAttribute("aria-label") ?? ""));
 
 describe("DeckPile", () => {
-  test("pack mode hides the add-slide button", async () => {
-    const host = await renderPile(snapshotInPackMode("layouts"));
-    expect(buttons(host, /Nouvelle slide|New slide/)).toHaveLength(0);
-  });
-
-  test("DeckPile in pack mode offers no delete and no drag", async () => {
-    const host = await renderPile(snapshotInPackMode("layouts"));
-    expect(host.querySelectorAll(".thumb-remove")).toHaveLength(0);
-    expect([...host.querySelectorAll(".thumb")].map((b) => b.getAttribute("title"))).toEqual([null, null]);
-  });
-
-  test("DeckPile in pack mode names each slide after its layout", async () => {
-    const host = await renderPile(snapshotInPackMode("layouts"));
-    expect([...host.querySelectorAll(".thumb-name")].map((e) => e.textContent)).toEqual(["blank", "title"]);
-    expect(host.querySelector("nav")?.getAttribute("aria-label")).toBe("Layouts");
-  });
-
   test("DeckPile on the deck offers add, delete and drag", async () => {
     const host = await renderPile(deckSnapshot());
     expect(buttons(host, /New slide/)).toHaveLength(1);
@@ -116,14 +85,10 @@ describe("DeckPile", () => {
 
 describe("pileSection", () => {
   test("pileSection gives layouts in a theme tab", () => {
-    expect(pileSection(themeTabSnapshot(), true)).toBe("layouts");
+    expect(pileSection(true)).toBe("layouts");
   });
 
-  test("pileSection gives slides on the deck, layouts for a layout pack, none for a widget pack", () => {
-    expect([pileSection(deckSnapshot(), false), pileSection(snapshotInPackMode("layouts"), false), pileSection(snapshotInPackMode("widgets"), false)]).toEqual([
-      "slides",
-      "layouts",
-      null,
-    ]);
+  test("pileSection gives slides outside a theme tab", () => {
+    expect(pileSection(false)).toBe("slides");
   });
 });

@@ -8,7 +8,7 @@ const { act, createElement, StrictMode, useCallback, useRef, useState } = await 
 const { createRoot } = await import("react-dom/client");
 const { EditorView } = await import("@codemirror/view");
 const { runCloseGuard, useCloseGuard } = await import("./closeGuards");
-const { usePackWidgetEditor } = await import("./usePackWidgetEditor");
+const { usePackItem } = await import("./usePackItem");
 const { useFileActions } = await import("./useFileActions");
 const WidgetPane = (await import("./WidgetPane")).default;
 const { deferred, memory, stub, wait } = await import("./test/widgetApi");
@@ -213,9 +213,9 @@ test("real editor hooks: the guard waits for the typed write and sends it once",
     dirty: false, path: null, name: "p", history: null, read_only: false,
     editing: { pack: "p", base: "b", kind: "widgets", leased: true },
     widgets: { deck: { id: "p", version: "v" } }, layouts: {},
-    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widgets: ["kpi"], widget: "kpi" },
+    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widget: "kpi" },
   } as unknown as Snapshot;
-  // App's declaration order: the widget editor, the file actions, then the close guard.
+  // App's declaration order: the pack item, the file actions, then the close guard.
   function Tab({ api }: { api: TabApi }) {
     const [snap, setSnap] = useState<Snapshot | null>(first);
     const snapRef = useRef(snap);
@@ -225,13 +225,13 @@ test("real editor hooks: the guard waits for the typed write and sends it once",
       if (s) setSnap(s);
       return s;
     }, []);
-    const widgets = usePackWidgetEditor(api, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
+    const item = usePackItem(api, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
     const { autosave } = useFileActions({ api, snap, snapRef, run, say: () => {}, onOpen: () => {}, onImportPick: () => {} });
     useCloseGuard(tab, async () => {
-      await widgets.files.settle();
+      await item.files.settle();
       await autosave.flush();
     });
-    return createElement(WidgetPane, { api, widgets, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {}, run, palette: [] });
+    return createElement(WidgetPane, { api, item, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {}, run, palette: [] });
   }
   const host = document.createElement("div");
   document.body.append(host);

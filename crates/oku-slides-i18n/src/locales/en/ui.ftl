@@ -56,6 +56,9 @@ ui-toolbar-finish = Done
 ui-pack-deck-only = Saved in this presentation only
 ui-toolbar-open = Open
 ui-menu = Menu
+ui-menu-new-widget-pack = New widget pack
+ui-menu-new-layout-pack = New layout pack
+ui-menu-new-theme = New theme
 ui-toolbar-add-label = Add to the slide
 ui-toolbar-packs = Deck packs
 ui-toolbar-packs-update = Deck packs — updates available
@@ -93,7 +96,6 @@ ui-slide-alt = Slide { $n }
 ## Stage
 
 ui-stage-rendering = Rendering…
-ui-stage-widget-pack = Open a widget from the pile, or create one.
 ui-stage-elements = Slide elements
 ui-stage-fields = Slide fields
 ui-stage-edit-text = Edit the text
@@ -274,8 +276,10 @@ ui-tabs = Open presentations
 ui-tab-new = New tab
 ui-tab-close = Close tab
 ui-tab-unsaved = Unsaved changes
-ui-tab-pack = Pack
+ui-tab-kind-pack = { $title }, pack
+ui-tab-kind-theme = { $title }, theme
 ui-tab-theme = Theme
+ui-preview-theme = Preview theme
 ui-tab-move-new-window = Move to new window
 ui-tab-move-to = Move to window { $n }
 ui-tab-close-others = Close other tabs
@@ -310,15 +314,16 @@ ui-help-search-count = { $count ->
     [one] 1 result
    *[other] { $count } results
 }
-ui-widgets-files = Widget files
 ui-widgets-common = Shared
 ui-widgets-new = New widget
 ui-widgets-name = Widget name (lowercase letters, digits and hyphens)
+ui-layouts-name = Layout name (lowercase letters, digits and hyphens)
 ui-widgets-name-taken = This name is already taken
 ui-widgets-name-letter = The name must start with a letter
-ui-widgets-valid = Valid
-ui-widgets-errors = Errors
 ui-widgets-empty = This pack has no widget yet.
+ui-layouts-new = New layout
+ui-layouts-empty = This pack has no layout yet.
+ui-confirm-delete-ok = Delete
 ui-widgets-preview = Widget preview
 ui-widgets-no-preview = No preview
 ui-widgets-field-bound = Linked to the presentation: read-only here
@@ -326,17 +331,15 @@ ui-widgets-source = Source code
 ui-widgets-unsaved = Not saved
 ui-widgets-in-error = Widgets with errors
 ui-widgets-none-in-error = No widget has errors
-ui-widgets-section = Widgets
 ui-widgets-open = Open widget { $name }
 ui-widgets-delete-named = Delete { $name }
 ui-widgets-confirm-delete = Delete the widget “{ $name }”?
+ui-layouts-confirm-delete = Delete the layout “{ $name }”?
 ui-widgets-rename-hint = Double-click or F2 to rename
-ui-pack-tabs = Pack tabs
-ui-pack-layouts-tab = Layouts
 ui-theme-name = Theme name
 ui-theme-unsaved = Unsaved theme changes
-ui-widgets-close-tab = Close { $name }
 ui-widgets-removed-by-agent = The agent deleted widget { $name }.
+ui-layouts-removed-by-agent = The agent deleted layout { $name }.
 
 ## Import
 

@@ -331,6 +331,36 @@ lost; pack states are written without `host` and gain `unforwarded`. `EditPack`,
 `PackHost`, `TabInfo.editing_pack` and the in-deck workshop are removed; `Mode::Pack`'s deck is
 named `preview`. Single-document hosts open library pack tabs in place (`open_pack_tab_here`).
 
+**Implementation note (lot 6).** Decisions of the lot-6 plan (2026-10-28) that amend this spec.
+The app menu gains "Nouveau pack de widgets", "Nouveau pack de layouts" and "Nouveau thème"
+(`NewPack { tab, kind }` / `NewTheme { tab }`): the draft is created under the draft lock with a
+lease, then opened with `Created::Yes`, and rolled back only if the open fails. The created id is
+kept in `PackMode.created_empty` / `ThemeTab.created_empty` and `TabInfo.created`, so a dormant tab
+carries it. A tab that leaves for good is collected in `Trash::empty`, after the tab drops, with
+`try_take` and only when the library holds a single version of that id; `LastWindow` keeps its tabs
+(they resume), and the lease is per process (cross-process races, and an untabbed empty draft left
+by a crash, are t-1251). Layout packs got their own wording keys, `ui-layouts-name` and
+`ui-layouts-confirm-delete`. The pile lists one item at a time: `UiState.widget` is the selected
+item (`_commun` included), `widgets`, `MAX_WIDGET_TABS` and `PileSection::Widgets` are gone, and
+the selected item's `WidgetTab` fills the sheet area for both kinds (a layout pack's big-stage view
+is gone), remounted by name after `files.flush`, a refused text surviving through
+`files.attempted`. Agent writes select the neighbour of a removed item, keep pending keystrokes,
+and move the selection otherwise unless keystrokes are pending (t-1253). Inside the Typst editor
+CodeMirror owns undo; elsewhere in a pack tab undo is the session's. "Ouvrir" on a pack row
+(`PinnedPackView.id`, event `open_pack`) opens the library's current version, in the tab and in the
+detached agent window (t-1252). `SetPreviewTheme` is silent: accepted in pack tabs only, lease
+checked, written by `apply_silent` with no undo step, `doc.dirty` untouched and no
+`stack.after_change`, since the slides are unchanged; it is persisted, and it starts from the
+opener's theme rather than the spec's default. Tabs carry `data-kind`, a 3 px top border
+(`--tab-pack`, `--tab-theme`) and an icon, and `.tab-badge` is gone. Deviations from the spec: no
+context menu on pile items (t-1250); `PackPile` beside `SlidePile` rather than `SlidePile` alone;
+`PreviewThemeMenu` for the spec's `ThemeMenu`; duplicate and reorder deferred (t-1249); `close.ts`'s
+pack path is kept (lot 3's lease and save verdict are still needed). Rulings from the lot's review:
+`DraftKind` and `Created` follow `Opening`'s visibility; a library pack tab is never a linked tab; no
+visible session undo in a pack tab, and a blank sheet while items exist but none is selected (both
+left for the final review); the layout pile's name field focus ring, clipped by `.pile-column`
+overflow, is fixed in `pack.css`.
+
 ## Out of scope
 
 - Splitting `Session` into one type per kind (a possible later refactor).

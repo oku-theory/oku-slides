@@ -234,7 +234,7 @@
            "bold": true
           },
           {
-            "t": ": ask the agent to open it. The pack opens as a deck with one slide per layout. A library pack opens in its own tab; closing it (“Done” or the tab’s ×) offers to update the deck if the pack changed, otherwise the update waits in “Deck packs”. While that tab is open, no other tab changes the pack. An imported deck’s own pack opens in its own tab too, beside the deck: each save goes into the deck as one undo step, and the tab closes with the deck. Undo its changes in that tab; while it is open, the deck does not change that pack."
+            "t": ": ask the agent to open it. A library pack opens in its own tab, where the pile lists its items: one thumbnail per widget or layout, plus the Common row when it exists. The selected item fills the slide area, with its tools; items can be added, renamed (F2 or double-click) or deleted (after confirmation). “Open”, on a pack’s row in “Deck packs”, opens that pack in its own tab. The app menu creates a pack from scratch (“New widget pack”, “New layout pack”); a pack never saved whose tab is closed is removed from the library. “Preview theme”, in the tab’s header, changes the preview with no undo step and without marking the pack as changed. Pack and theme tabs carry a coloured top border and an icon. Closing the tab (“Done” or its ×) offers to update the deck if the pack changed, otherwise the update waits in “Deck packs”. While that tab is open, no other tab changes the pack. An imported deck’s own pack opens in its own tab too, beside the deck: each save goes into the deck as one undo step, and the tab closes with the deck. Undo its changes in that tab; while it is open, the deck does not change that pack."
           }
          ],
          "list": "bullet"
@@ -246,7 +246,7 @@
            "bold": true
           },
           {
-           "t": ": in pack mode, the Widgets section of the pile opens their Typst code, with a live preview."
+           "t": ": in a widget pack’s tab, the pile lists the widgets, one thumbnail each; the one you pick shows with its settings, its Typst code and a live preview."
           }
          ],
          "list": "bullet"
@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-            "t": ": Papier, Pro, Neutre or your own. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. “Open”, on the theme’s row in “Deck packs”, opens it in its own tab: sample slides, one per Essentiel layout, show the draft, and the panel sets its tokens one by one and shows what it extends. The tab saves on its own; “Done” closes it. Editing Papier, Pro or Neutre creates a variant that extends it, to pick next in the theme picker; your own theme gets a new version, which each deck takes from “Deck packs”. While that tab is open, no other tab changes the theme. The extends list can be reordered, and parents can be added or removed there."
+            "t": ": Papier, Pro, Neutre or your own. “New theme”, in the app menu, creates one from scratch (a new theme closed without ever being saved is removed from the library); its coloured border sets it apart from other tabs. Say or type “theme” alone: each theme shows on your slide, without waiting for the agent; hover to preview, click to apply. Ask the agent to suggest a theme: it opens the same picker. It is independent of the layout packs. “Open”, on the theme’s row in “Deck packs”, opens it in its own tab: sample slides, one per Essentiel layout, show the draft, and the panel sets its tokens one by one and shows what it extends. The tab saves on its own; “Done” closes it. Editing Papier, Pro or Neutre creates a variant that extends it, to pick next in the theme picker; your own theme gets a new version, which each deck takes from “Deck packs”. While that tab is open, no other tab changes the theme. The extends list can be reordered, and parents can be added or removed there."
           }
          ],
          "list": "bullet"

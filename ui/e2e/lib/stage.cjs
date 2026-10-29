@@ -1,5 +1,5 @@
-// Lecture de la scène depuis la page : l'image visible, son texte alternatif et son rendu (SVG).
-// Une image d'une autre slide (encore présente pendant un changement) ou d'un sous-onglet caché est écartée.
+// Reads the stage from the page: the visible image, its alt text and its render (SVG).
+// An image of another slide (still there during a change) or of a hidden item view is skipped.
 
 /** L'image visible de la scène : `alt` (« Slide n », sans les marques d'isolement de Fluent) et `svg` ;
  *  `{ alt: '', svg: '' }` s'il n'y en a pas encore. */

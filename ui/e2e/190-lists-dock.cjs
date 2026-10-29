@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
 const { until } = require('./lib/until.cjs');
-const { PREVIEW, widgetPreviewSvg } = require('./lib/widget.cjs');
+const { PREVIEW, newPackItem, widgetPreviewSvg } = require('./lib/widget.cjs');
 
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
@@ -20,10 +20,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await closePackTabs(p);
   await p.waitForSelector('.stage img');
   const packTab = await openEssentiel(p);
-  await p.getByRole('button', { name: 'Nouveau widget' }).click();
-  const name = p.getByRole('textbox', { name: /Nom du widget/ });
-  await name.fill('jalons');
-  await name.press('Enter');
+  await newPackItem(p, 'jalons');
   await p.waitForSelector(PREVIEW);
   // Le widget d'essai déclare une liste de trois colonnes (dont une riche), trois lignes par défaut.
   // Un élément dans un pack de widgets ; une slide dans un pack de layouts (Essentiel, ouvert ici).

@@ -23,13 +23,13 @@ async function mount(checked: boolean) {
   const root = createRoot(host);
   mounted = { root, host };
   const asked: boolean[] = [];
-  await act(async () => root.render(createElement(CodeSwitch, { checked, controls: "widget-code-3", onChange: (v: boolean) => asked.push(v) })));
+  await act(async () => root.render(createElement(CodeSwitch, { checked, controls: "widget-code", onChange: (v: boolean) => asked.push(v) })));
   return { button: host.querySelector<HTMLButtonElement>("button")!, asked };
 }
 
 test("CodeSwitch relâché dit aria-pressed=false et désigne le code", async () => {
   const { button } = await mount(false);
-  expect([button.getAttribute("aria-pressed"), button.getAttribute("aria-controls")]).toEqual(["false", "widget-code-3"]);
+  expect([button.getAttribute("aria-pressed"), button.getAttribute("aria-controls")]).toEqual(["false", "widget-code"]);
 });
 
 test("CodeSwitch est un pictogramme nommé en aria-label et en infobulle", async () => {

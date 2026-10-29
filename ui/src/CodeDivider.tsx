@@ -7,7 +7,7 @@ import Divider from "./Divider";
 
 interface Props {
   label: string;
-  /** Largeur du sous-onglet et largeur du code, lues au début d'un geste. */
+  /** The item view's width and the code's width, read when a gesture starts. */
   measure: () => { total: number; size: number };
   /** Largeur bornée : en direct pendant le glisser, puis `done` au relâcher ou au clavier. */
   onResize: (size: number, done: boolean) => void;

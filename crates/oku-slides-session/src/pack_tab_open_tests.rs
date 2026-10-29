@@ -216,50 +216,34 @@ fn init_pack_tab_refusal_leaves_no_lease_on_either_pack() {
 }
 
 #[test]
-fn init_pack_tab_with_a_widget_opens_its_sub_tab() {
+fn init_pack_tab_with_a_widget_selects_it() {
     let data = fresh_dir("oku-slides-open-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let seed = s.take_preview(acme).unwrap();
     let lease = PackLease::acquire(&scope_of(&s), acme, "acme", "acme").unwrap();
     let mut t = session_on(data.path());
     t.init_pack_tab(*seed, lease, acme, Some("card")).unwrap();
-    assert_that!((t.ui.widgets.clone(), t.ui.widget.clone()))
-        .is_equal_to((vec!["card".to_owned()], Some("card".to_owned())));
+    assert_that!(t.ui.widget.clone()).is_equal_to(Some("card".to_owned()));
 }
 
 #[test]
-fn open_widget_tab_of_an_unknown_widget_is_refused() {
+fn select_item_of_an_unknown_widget_is_refused() {
     let data = fresh_dir("oku-slides-open-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let mut t = pack_tab_from(&mut s, data.path(), acme);
     let before = t.ui.clone();
-    assert_that!(t.open_widget_tab("nope").unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownWidget);
-    assert_that!((t.ui.widgets.clone(), t.ui.widget.clone())).is_equal_to((before.widgets, before.widget));
-}
-
-#[rstest]
-#[case::oldest_non_active((0..MAX_WIDGET_TABS).map(|i| format!("w{i}")).collect(), Some("w0"), MAX_WIDGET_TABS, "w1")]
-#[case::active_when_alone(vec!["w0".to_owned()], Some("w0"), 1, "w0")]
-fn open_widget_tab_makes_room_in_a_full_list(
-    #[case] mut widgets: Vec<String>,
-    #[case] active: Option<&str>,
-    #[case] cap: usize,
-    #[case] dropped: &str,
-) {
-    let before = widgets.len();
-    make_room(&mut widgets, active, cap);
-    assert_that!(widgets.len()).is_equal_to(before - 1);
-    assert_that!(widgets.iter().any(|w| w == dropped)).is_false();
+    assert_that!(t.select_item("nope").unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownWidget);
+    assert_that!(t.ui.widget.clone()).is_equal_to(before.widget);
 }
 
 #[test]
-fn open_widget_tab_persists_the_sub_tab() {
+fn select_item_persists_the_selection() {
     let data = fresh_dir("oku-slides-open-");
     let dir = fresh_dir("oku-slides-open-tab-");
     let (mut s, _deck, acme) = opener_on(data.path());
     let mut t = pack_tab_from(&mut s, data.path(), acme);
     assert_that!(t.resume_fresh(dir.path().to_path_buf())).is_true();
-    t.open_widget_tab("card").unwrap();
+    t.select_item("card").unwrap();
     t.flush_resume();
     let state: serde_json::Value =
         serde_json::from_slice(&std::fs::read(dir.path().join("state.json")).unwrap()).unwrap();

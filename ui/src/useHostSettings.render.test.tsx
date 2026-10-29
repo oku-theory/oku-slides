@@ -77,7 +77,7 @@ describe("useHostSettings", () => {
     expect([m.out.h!.surface, reads.n]).toEqual([null, 0]);
   });
 
-  test("montre le widget du sous-onglet actif", async () => {
+  test("useHostSettings shows the selected item's widget", async () => {
     const { fake } = counted(HOST_WIDGET);
     const m = await mountHost(fake, { snap: snapshot(), widget: "carte" });
     expect(m.out.h!.surface?.id).toBe(HOST_WIDGET);

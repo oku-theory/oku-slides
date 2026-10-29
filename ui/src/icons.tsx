@@ -20,6 +20,8 @@ export const Icon = {
   // La grille d'ajout : trois tuiles et une pièce posée de biais.
   widget: stroke(<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 3.5l3.5 3.5-3.5 3.5-3.5-3.5z" /></>),
   // Les packs du deck : une boîte, son couvercle et son ruban.
+  // A thème : une palette de peintre et ses taches de couleur.
+  palette: stroke(<><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.3-1.7-.3-.9.2-1.8 1.2-1.8H16a4 4 0 0 0 4-4c0-4-3.6-8.5-8-8.5z" /><circle cx="8" cy="11" r="1" /><circle cx="11" cy="7.5" r="1" /><circle cx="15.5" cy="8.5" r="1" /></>),
   packs: stroke(<><path d="M4 8l8-4 8 4v8l-8 4-8-4z" /><path d="M4 8l8 4 8-4" /><path d="M12 12v8" /></>),
   // Actions.
   add: stroke(<path d="M12 5v14M5 12h14" />),

@@ -1,10 +1,7 @@
-/* Pack and deck-pack tabs: widgets, sub-tabs, the host settings strip; a theme tab's panel.
-   Follows styles.css, loaded right after it and before glass.css (main.tsx). */
+/* Pack and deck-pack tabs: the item pile, the item view, the host settings strip; a theme tab's
+   panel. Follows styles.css, loaded right after it and before glass.css (main.tsx). */
 
-/* Widgets : pastilles d'état et éditeur Typst. */
-.pill { flex: none; width: 8px; height: 8px; border-radius: 50%; }
-.pill.valid { background: color-mix(in oklab, #2f8a4f 80%, var(--ink)); }
-.pill.errors { background: var(--danger); }
+/* The Typst editor. */
 .typst-editor { height: 100%; }
 .typst-editor .cm-editor { height: 100%; font: 13px/20px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .cm-typ-comment { color: color-mix(in oklab, var(--ink) 50%, transparent); font-style: italic; }
@@ -45,7 +42,6 @@
 .code-divider.active::before, .code-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
 body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 .code-divider::after { inset-inline-start: 4px; top: 50%; width: 4px; height: 32px; margin-top: -16px; }
-.widget-tab[hidden] { display: none; }
 /* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */
 .widget-tab-preview {
   min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column;
@@ -80,8 +76,8 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .widget-tab-diagnostics:empty { display: none; }
 .widget-tab-diagnostics .error { color: var(--danger); }
 
-/* Mode pack, à gauche : deux sections repliables. Layouts prend la place et défile seule ;
-   Widgets reste ancrée en bas, et défile à son tour si sa liste est longue. */
+/* The left column of a pack or theme tab: a layout pack's and a theme tab's foldable thumbnails,
+   or a widget pack's pile, which takes the whole column. */
 .pile-column { grid-area: pile; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-top: var(--space-4); }
 .pile-section { display: flex; flex-direction: column; min-height: 0; }
 .pile-section-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 28px 0 var(--space-6); }
@@ -94,40 +90,30 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .pile-section-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .pile-thumbs[data-open="true"] { flex: 1 1 0; }
 .pile-thumbs .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-6); }
-.pile-widgets { flex: 0 1 auto; max-height: 45%; border-top: 1px solid var(--rule); padding-top: var(--space-2); }
-/* Layouts repliée : Widgets peut prendre toute la hauteur. */
-.pile-thumbs[data-open="false"] + .pile-widgets { max-height: none; }
-/* Pack de widgets : pas de miniatures, Widgets prend toute la colonne. */
-.pile-column > .pile-widgets:first-child { max-height: none; border-top: 0; }
-/* 4 px en haut : l'anneau de focus (3 px) du champ de nom, en tête de liste, n'est pas rogné par le défilement. */
-.pile-widgets .pile-section-body { overflow-y: auto; padding: 4px 28px var(--space-6) var(--space-6); }
 @media (prefers-reduced-motion: reduce) { .pile-section-chevron svg { transition: none; } }
-.pile-widgets ul { list-style: none; margin: 0; padding: 0; }
-.pile-widgets-row { display: flex; align-items: center; }
-.pile-widgets-file { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
-.pile-widgets-file[aria-current="true"] { background: var(--accent-soft); }
-.pile-widgets-remove { opacity: 0; }
-.pile-widgets-row:hover .pile-widgets-remove, .pile-widgets-row:focus-within .pile-widgets-remove { opacity: 1; }
-/* Champ texte : la largeur de la colonne, sans le chevron ni le curseur d'une liste déroulante. */
-.pile-widgets-name input { width: 100%; min-width: 0; box-sizing: border-box; padding-inline: 10px; background-image: none; cursor: text; }
-.pile-widgets-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
-.pile-widgets-issue { margin: var(--space-1) 0 0; font-size: 12px; line-height: 16px; color: var(--danger); }
+/* A pack tab's pile: the shared file, the item thumbnails, the add button and its name field. */
+.pack-pile { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.pile-column > .pack-pile { padding: 0 28px var(--space-6) var(--space-6); }
+/* In a layout pack's section the thumbnails carry their own padding; the rows around them take the same
+   inset, so the name field's focus ring stays inside the column (it clips). */
+.pile-section-body > .pack-pile > :is(.pack-pile-common, .pack-pile-name, .pack-pile-empty) { margin-inline: var(--space-6) 28px; }
+.pack-pile .pile { flex: 1 1 auto; min-height: 0; }
+.pack-pile-common { display: flex; align-items: center; }
+.pack-pile-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
+.pack-pile-item[aria-current="true"] { background: var(--accent-soft); }
+.pack-pile-remove { opacity: 0; }
+.pack-pile-common:hover .pack-pile-remove, .pack-pile-common:focus-within .pack-pile-remove { opacity: 1; }
+/* A text field: the column's width, without a select's chevron or cursor. */
+.pack-pile-name input { width: 100%; min-width: 0; box-sizing: border-box; padding-inline: 10px; background-image: none; cursor: text; }
+.pack-pile-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
+.pack-pile-issue { margin: var(--space-1) 0 0; font-size: 12px; line-height: 16px; color: var(--danger); }
+.pack-pile-empty { margin: 0; }
+.pack-pile-add { align-self: center; flex: none; }
+/* The shared delete confirmation, on the import dialog's frame. */
+.confirm-message { margin: 0 0 var(--space-4); }
 .unsaved-dot { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }
 
-.pack-tabs { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; }
-.pack-tab-slot { display: inline-flex; align-items: center; }
-.pack-tab { padding: 4px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: inherit; font: 500 13px/20px var(--sans); display: inline-flex; align-items: center; gap: var(--space-2); }
-.pack-tab[aria-selected="true"] { border-bottom-color: var(--accent); }
-.pack-tab-slot .token { width: 20px; height: 20px; }
-.pack-tab:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: -2px; border-radius: var(--radius-sm); }
-
-/* Mode pack : la barre des sous-onglets prend une rangée au-dessus de la feuille. */
-.table:has(> .pack-tabs) {
-  grid-template-rows: 104px auto minmax(0, 1fr) 104px;
-  grid-template-areas: "pile label notes" "pile subtabs notes" "pile sheet notes" "pile tools device";
-}
-.pack-tabs { grid-area: subtabs; position: relative; z-index: 2; min-width: 0; padding: 0 40px; }
-/* Dans la feuille : la scène (gardée montée) ou le sous-onglet widget actif. */
+/* In the sheet: a deck's stage, or a pack tab's item view. */
 .stage-panel, .widget-pane { flex: 1; min-width: 0; min-height: 0; display: flex; }
 /* La scène prend la place ; dessous, hors mode pack, la bande des miniatures : défilant à
    l'horizontale, à la hauteur de ses miniatures ; cachée (barre d'outils), elle n'occupe rien.
@@ -154,7 +140,7 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 /* Sous l'aperçu, la fiche prend la largeur de sa zone (le code est à côté). */
 .widget-tab-side > .host-settings { flex: none; width: auto; margin: var(--space-2) calc(10px * var(--elev-sheet)); }
 .widget-pane > .widget-tab { flex: 1; }
-.stage-panel[hidden], .widget-pane[hidden], .add-button[hidden], .tools-sep[hidden] { display: none; }
+.add-button[hidden], .tools-sep[hidden] { display: none; }
 
 /* A theme tab: the tokens in the right column; the agent thread stays mounted there, hidden. */
 .notes.theme-active > :not(.theme-panel) { display: none; }

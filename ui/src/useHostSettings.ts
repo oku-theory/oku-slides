@@ -1,7 +1,7 @@
-// Réglages de l'hôte en mode pack : ceux du widget du sous-onglet actif, à ses valeurs
-// d'exemple, en une surface construite par la session. Chaque champ porte sa clé ; une
-// action part avec le widget de la surface affichée. Un réglage refusé relit la surface :
-// le champ reprend la valeur de la session, celle que dessine l'aperçu.
+// The host's settings in a pack tab: those of the selected item, at its example values, in a
+// surface the session builds. Each field carries its key; an action goes with the widget of the
+// surface shown. A refused setting rereads the surface: the field takes back the session's
+// value, the one the preview draws.
 
 import { useEffect, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
@@ -11,7 +11,7 @@ import type { ActionOutcome } from "./a2ui/actionOutcome";
 import type { ListChange } from "./a2ui/ListTable";
 import { fromA2ui, type QuickAction } from "./agent/quick";
 
-/** Surface des réglages du widget du sous-onglet actif. */
+/** Surface of the settings of a pack tab's selected item. */
 export const HOST_WIDGET = "host-widget";
 /** Surface of the edited theme's tokens (a theme tab, routed by `useThemeSettings`). */
 export const HOST_THEME = "host-theme";

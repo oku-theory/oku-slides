@@ -3,7 +3,7 @@
 // à la main. Elles ne posent que les classes et attributs communs ; l'apparence reste dans
 // styles.css et a2ui.css.
 
-import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref, SelectHTMLAttributes } from "react";
 
 /** Les classes non vides, séparées par une espace. */
 const classes = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(" ");
@@ -33,6 +33,8 @@ export function IconButton({ label, icon, className, ...rest }: Omit<ButtonHTMLA
   label: string;
   /** Le pictogramme, seul contenu du bouton. */
   icon: ReactNode;
+  /** The button element, to give it the focus. */
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button type="button" aria-label={label} title={label} className={className} {...rest}>

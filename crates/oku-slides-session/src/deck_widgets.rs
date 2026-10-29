@@ -316,6 +316,29 @@ impl Session {
         self.apply_ops(label, ops, None)
     }
 
+    /// Applies `ops` to the working deck without an undo step, a dirty mark or a pins refresh.
+    ///
+    /// For a pack tab's preview theme (`set_preview_theme`): rendered first,
+    /// then written with the `SILENT` origin, then persisted. The caller took the lease.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the session is not editable, if a theme closure cannot be embedded, if the
+    /// core rejects an op or if rendering fails: nothing changes then.
+    pub(crate) fn apply_silent_ops(&mut self, mut ops: Vec<Op>) -> Result<()> {
+        self.end_widget_session();
+        self.ensure_document_editable()?;
+        self.embed_op_themes(&mut ops)?;
+        let mut next = self.doc.sources.deck().clone();
+        let registry = self.registry.clone();
+        oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
+        let compiled = self.render_deck(&next)?;
+        self.doc.sources.apply_silent(next).context(SourcesSnafu)?;
+        self.install(compiled);
+        self.persist(true);
+        Ok(())
+    }
+
     /// `apply` once its ops passed the callers' filter.
     fn apply_ops(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.

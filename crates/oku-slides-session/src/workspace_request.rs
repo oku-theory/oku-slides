@@ -156,7 +156,7 @@ pub enum WorkspaceRequest {
         tab: String,
         /// The pack to open.
         pack: Uuid,
-        /// A widget whose sub-tab opens too.
+        /// An item selected in the pack tab too.
         #[serde(default)]
         widget: Option<String>,
     },
@@ -166,6 +166,22 @@ pub enum WorkspaceRequest {
         tab: String,
         /// The theme to edit.
         theme: Uuid,
+    },
+    /// Creates an empty library pack of `kind` and opens it in its own tab beside `tab`.
+    ///
+    /// Answers the view, like `OpenPack`. The draft is deleted if its tab leaves untouched.
+    NewPack {
+        /// The requesting tab.
+        tab: String,
+        /// Widgets or layouts.
+        kind: oku_slides_core::PackKind,
+    },
+    /// Creates an empty library theme and opens it in its own tab beside `tab`.
+    ///
+    /// Answers the view, like `OpenTheme`. The draft is deleted if its tab leaves untouched.
+    NewTheme {
+        /// The requesting tab.
+        tab: String,
     },
     /// The deck that opened pack tab `tab`, if offered an update.
     ///

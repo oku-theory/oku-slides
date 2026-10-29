@@ -5,9 +5,9 @@
 //! Each pinned pack is a card: name, short version, namespace, relation to
 //! my version, then its actions, or its removal refusal in place of the
 //! button. Each event names its action (`add_pack`, `remove_pack`,
-//! `use_mine`, `make_current`, `theme`, `theme_update`, `open_theme`); its
+//! `use_mine`, `make_current`, `theme`, `theme_update`, `open_pack`, `open_theme`); its
 //! context carries the kind and namespace, which the session checks again.
-//! `open_theme` is no session action: the interface opens the theme's tab.
+//! `open_pack` and `open_theme` are no session actions: the interface opens the tab.
 
 use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
 use oku_slides_core::{Namespace, PackKind};
@@ -100,6 +100,11 @@ fn pack_action(name: &str, p: &PinnedPackView) -> Action {
     Action::event(name, [("kind", lit(json!(kind_name(p.kind)))), ("namespace", lit(json!(p.namespace.as_str())))])
 }
 
+/// The `open_pack` event for pack `p`.
+fn open_action(p: &PinnedPackView) -> Action {
+    Action::event("open_pack", [("pack", lit(json!(p.id.to_string())))])
+}
+
 /// Les composants d'une surface en construction.
 #[derive(Default)]
 struct Builder {
@@ -138,7 +143,8 @@ impl Builder {
             };
             body.push(self.push(Component::text(sub("relation"), l.tr(key), Some(TextVariant::Note))));
         }
-        let mut actions = Vec::new();
+        let open = Component::button(sub("open"), l.tr("packs-pack-open"), false, open_action(p));
+        let mut actions = vec![self.push(open)];
         if drift.is_some() {
             let action = pack_action("use_mine", p);
             actions.push(self.push(Component::button(sub("use-mine"), l.tr("packs-use-mine"), true, action)));

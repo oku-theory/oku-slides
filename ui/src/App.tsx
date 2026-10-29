@@ -4,7 +4,7 @@ import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { ImportTarget, InterfaceChange, SlideView, Snapshot, Surface } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { bumpVoiceSeq } from "./voiceSeq";
-import { packGestures, showFinish, widgetGesture } from "./packGestures";
+import { packGestures, widgetGesture } from "./packGestures";
 import { appearanceLook } from "./appearance";
 import { useAppearance } from "./useAppearance";
 import { AttachButton } from "./agent/AttachButton";
@@ -30,9 +30,8 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
 import { useDictation } from "./useDictation";
-import { Icon } from "./icons";
 import { canAdd } from "./slideTools";
-import { themeToOpen } from "./themeToOpen";
+import { panelOpen } from "./panelOpen";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
 import { SlotView } from "./agent/slot";
@@ -40,21 +39,16 @@ import type { QuickTarget } from "./agent/useQuickKeys";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
-import { usePackWidgetEditor } from "./usePackWidgetEditor";
-import { COMMON } from "./widgetList";
-import { activeWidget } from "./widgetTabs";
-import ThemePanel from "./ThemePanel";
-import ThemeTabHeader from "./ThemeTabHeader";
+import { usePackItem } from "./usePackItem";
+import { tabKind } from "./tabKind";
+import type { PackKind } from "./packTypes";
+import PackPanels from "./PackPanels";
+import ThemePanels from "./ThemePanels";
 import HostSettings from "./HostSettings";
 import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { useDataSettings } from "./useDataSettings";
-import WidgetPane from "./WidgetPane";
-import PackTabs from "./PackTabs";
-import { PackBrand } from "./PackBrand";
 import Presenter from "./Presenter";
 import type { PresentMode } from "./present";
-import PileWidgets from "./PileWidgets";
-import PileColumn from "./PileColumn";
 import SlideNav from "./SlideNav";
 import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
@@ -74,7 +68,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
-  onHelp, onAbout, aboutOpen = false, updates, onClose, onOpenPack, onOpenTheme, onChange,
+  onHelp, onAbout, aboutOpen = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange,
 }: {
   tab: string;
   /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
@@ -110,9 +104,13 @@ export default function App({
   /** Closes this tab (help bar, a pack tab's finish button); absent: the last tab stays. */
   onClose?: () => void;
   /** Opens pack `pack` on widget `widget`; true when this tab is still the active one after. */
-  onOpenPack: (pack: string, widget: string) => Promise<boolean>;
+  onOpenPack: (pack: string, widget: string | null) => Promise<boolean>;
   /** Opens theme `theme` in its own tab (the theme row's "Open" in the deck's packs panel). */
   onOpenTheme: (theme: string) => void;
+  /** Creates an empty pack of `kind` in its own tab (the app menu). */
+  onNewPack: (kind: PackKind) => void;
+  /** Creates an empty theme in its own tab (the app menu). */
+  onNewTheme: () => void;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
   onChange?: () => void;
 }) {
@@ -168,14 +166,15 @@ export default function App({
     if (notice) say(notice, true);
   }, [notice]);
 
-  // --- Sous-onglets de widgets du mode pack --------------------------------
-  const widgets = usePackWidgetEditor(api, snap, {
+  // --- A pack tab's selected item --------------------------------------------
+  const item = usePackItem(api, snap, {
     changed: () => void run(api.snapshot()),
     error: (m) => say(m, true),
     notice: (m) => say(m),
     blocked: () => agentStatus.modal || editing !== null || dialogOpen || !!snapRef.current?.history || !!snapRef.current?.read_only,
   });
-  const widgetActive = !!snap?.editing && activeWidget(widgets.tabs) !== null;
+  // A pack tab lists its items and shows one; no stage, no slide keys, no clipboard.
+  const packTab = !!snap && tabKind(snap) === "pack";
   // A theme tab, known by its live snapshot: the specimens at the centre, the tokens on the right.
   const themeTab = !!snap?.theming;
 
@@ -194,7 +193,8 @@ export default function App({
   const deckLook = useMemo(() => (snap ? appearanceLook(snap.appearance) : ""), [snap?.appearance]);
 
   // --- Grille, fantômes et colonnes : repris et gardés par l'hôte ----------
-  const keptUi = useKeptUi(snap?.ui ?? null, current, api.ui, widgets.kept);
+  // A pack tab's current slide is its selected item's (none for `_commun`), for the host and the agent.
+  const keptUi = useKeptUi(snap?.ui ?? null, packTab ? item.kept.slide : current, api.ui, item.kept);
   // Style du deck vu par les aperçus de widgets : un changement de thème ou du brouillon les relance.
   const look = snap ? previewLook(snap) : "";
 
@@ -207,7 +207,8 @@ export default function App({
   }, [snap, current]);
 
   // Jamais la vue d'une slide que le snapshot n'a plus (elle vient d'être supprimée).
-  const fetchId = snap ? slideToFetch(snap.slides, current) : null;
+  // A pack tab shows no stage: no slide view is fetched.
+  const fetchId = snap && !packTab ? slideToFetch(snap.slides, current) : null;
   const currentHash = snap?.slides.find((s) => s.id === fetchId)?.hash;
   useEffect(() => {
     if (!fetchId) return;
@@ -217,13 +218,15 @@ export default function App({
   const { clip, cutMark, setCutMark, dropCut } = useClipboard(windowClip, clipGen, snap, view);
   const { apply, addElement, moveSlide, removeSlide, goToSlide } = useSlideOps({
     api, snap, view, current, run, dropCut, setCurrent, setSelected, setEditing, editWhenShown,
-    showSlide, widgetActive, widgets,
+    showSlide,
   });
 
   const [picking, setPicking] = useState(false);
   const [adding, setAdding] = useState(false);
-  // Une fenêtre de l'app (layouts, ajout, import, à propos) est ouverte : rien derrière elle ne réagit.
-  const dialogOpen = picking || adding || importJob !== null || aboutOpen;
+  // A pack tab's delete confirmation (`PackPanels`).
+  const [confirming, setConfirming] = useState(false);
+  // An app dialog (layouts, add, import, about, a confirmation) is open: nothing behind it reacts.
+  const dialogOpen = picking || adding || importJob !== null || aboutOpen || confirming;
   /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
     setAdding(false);
@@ -231,39 +234,40 @@ export default function App({
   };
   const addSlide = () => setPicking(true);
   useClipboardEvents({
-    tab, api, snap, snapRef, view, selected, editing, dialogOpen, widgetActive, themeTab, apply, addElement,
+    tab, api, snap, snapRef, view, selected, editing, dialogOpen, packTab, themeTab, apply, addElement,
     setSelected, say, share: onCopy, clip, setCutMark, dropCut,
   });
 
   const { open, autosave, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });
 
-  // Réglages du widget du sous-onglet actif, à ses valeurs d'exemple.
-  const host = useHostSettings(api, snap, widgets.activeName, run, say);
-  // The selected chart's or table's data (resolved in the view), at the agent's dock; not on a
-  // widget sub-tab, where the stage is not shown, nor in a theme tab (useDataSettings).
+  // The settings of a pack tab's selected item, at its example values.
+  const host = useHostSettings(api, snap, item.selected, run, say);
+  // The selected chart's or table's data (resolved in the view), at the agent's dock; not in a
+  // pack tab, where no stage shows, nor in a theme tab (useDataSettings).
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
-  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, widgetActive, run, say);
+  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab, run, say);
   const dataSurfaces = useMemo(() => (data.surface ? [data.surface] : []), [data.surface]);
 
   const {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
     agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
   } = useAgentWiring({
-    tab, snap, view, current, selected, editing, editField, widgets, widgetActive, importJob, showSlide,
+    tab, snap, view, current: packTab ? item.slide : current, selected, editing, editField, packItem: item.selected, packTab, importJob, showSlide,
     setSelected,
   });
 
-  /** The packs panel's "Open" on the theme row: this tab asks the workspace for the theme's tab. */
-  const openTheme = (s: Surface, a: A2uiClientAction): boolean => {
-    const theme = themeToOpen(s, a);
-    if (theme !== null) onOpenTheme(theme);
-    return theme !== null;
+  /** The packs panel's "Open" on a theme or pack row: this tab asks the workspace for its tab. */
+  const openRow = (s: Surface, a: A2uiClientAction): boolean => {
+    const open = panelOpen(s, a);
+    if (open?.kind === "theme") onOpenTheme(open.id);
+    else if (open) void onOpenPack(open.id, null);
+    return open !== null;
   };
 
   const { insertLayout } = useLayoutInsert({ snap, current, apply, setCurrent, setSelected, setPicking });
   const { packWidgets, addSections } = usePackWidgets(snap);
-  const { editPack, finishPack } = packGestures({ onOpenPack, onClose });
-  useCloseGuard(tab, async () => { await widgets.files.settle(); await autosave.flush(); });
+  const { editPack } = packGestures({ onOpenPack, onClose });
+  useCloseGuard(tab, async () => { await item.files.settle(); await autosave.flush(); });
 
   // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----
   const [presenting, setPresenting] = useState<PresentMode | null>(null);
@@ -309,7 +313,7 @@ export default function App({
 
   // Raccourcis clavier.
   useAppKeys({
-    api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, widgetActive, themeTab,
+    api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, packTab, themeTab,
     cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
     saveCopy, cancelAgent, setEditing, setSelected,
   });
@@ -319,15 +323,17 @@ export default function App({
   const pasted = usePastedImages(dictation.draft.state.images, agent.pasteImage, (m) => say(m, true));
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
-  useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, widgetActive, deckLook });
+  useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab, deckLook });
 
   const [previewStore] = useState(createStagePreviewStore);
+  // The notes column, where a theme tab's panel goes (`ThemePanels`).
+  const [notes, setNotes] = useState<HTMLElement | null>(null);
 
   if (!snap) return <div className="table"><p className="empty" style={{ padding: 40 }}>{t("ui-loading")}</p></div>;
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu packMode={!!snap.editing} themeTab={themeTab} present={present} open={open} onHelp={onHelp} onAbout={onAbout} onCheckUpdates={checkUpdates} />
+    <AppMenu kind={tabKind(snap)} onNewPack={onNewPack} onNewTheme={onNewTheme} present={present} open={open} onHelp={onHelp} onAbout={onAbout} onCheckUpdates={checkUpdates} />
   );
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).
@@ -340,21 +346,10 @@ export default function App({
   const locked = readOnly || themeTab;
   const noop = () => {};
 
-  // Section des miniatures (repliée à part en mode pack) ; aucune pour un pack de widgets.
-  const thumbsSection = pileSection(snap, themeTab);
-  const thumbsOpen = thumbsSection === null || !keptUi.folded.includes(thumbsSection);
-  const thumbsTitle = t(thumbsSection === "layouts" ? "ui-pile-layouts" : "ui-pile-slides");
-  const toggleThumbs = () => thumbsSection && keptUi.setFolded(thumbsSection, thumbsOpen);
-  const deckPile = (axis: "x" | "y") => (
-    <DeckPile snap={snap} themeTab={themeTab} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} axis={axis} />
-  );
-  // The left column in pack mode and theme tabs only; elsewhere, the thumbnails in a strip under the stage.
-  const packColumn = (!!snap.editing || themeTab) && !history;
-  // A widget pack has no slides to show: its empty stage invites to open a widget.
-  const widgetPack = snap.editing?.kind === "widgets";
-  const layoutPackStage = snap.editing?.kind === "layouts";
-  // Légende du pack édité : ses layouts, ou ses widgets (sans le fichier commun).
-  const packCount = widgetPack ? (widgets.files.statuses ?? []).filter((w) => w.name !== COMMON).length : snap.slides.length;
+  // The foldable thumbnails: the deck's strip under the stage (a theme tab has its own column).
+  const thumbsSection = pileSection(themeTab);
+  const thumbsOpen = !keptUi.folded.includes(thumbsSection);
+  const toggleThumbs = () => keptUi.setFolded(thumbsSection, thumbsOpen);
 
   return (
     <NumberLangContext.Provider value={snap.lang ?? null}>
@@ -370,79 +365,45 @@ export default function App({
         />
       ) : snap.read_only ? (
         <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} search={api.search} onClose={onClose} />
-      ) : snap.theming ? (<>
-      <ThemeTabHeader theming={snap.theming} dirty={snap.dirty} onFinish={onClose} />
-      <ToolsTray
-        api={api} snap={snap} view={view} widgetActive={false} widgets={widgets}
-        keptUi={keptUi} mainMenu={mainMenu} themeTab
-        run={run} onAdd={noop} onPacks={noop} thumbs={null}
-      />
-      </>) : (<>
-      {/* Titre du document, discret, centré en haut ; la marque ne signale que l'édition d'un pack. */}
-      <header className={`label${snap.editing ? " editing-pack" : ""}`}>
-        {snap.editing && <PackBrand name={snap.editing.name} kind={snap.editing.kind} deckOnly={snap.editing.deck_only} />}
+      ) : themeTab ? (
+        <ThemePanels
+          api={api} snap={snap} keptUi={keptUi} current={current} run={run} say={say} svg={svgs.svg}
+          mainMenu={mainMenu} notes={notes} onSelect={goToSlide} onClose={onClose}
+        />
+      ) : packTab ? (
+        <PackPanels
+          api={api} snap={snap} item={item} keptUi={keptUi} look={look} run={run} svg={svgs.svg} mainMenu={mainMenu}
+          settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} /> : null}
+          drawer={<SlotView slot={agentSlots.drawer} />} onClose={onClose} onDialog={setConfirming}
+        />
+      ) : (<>
+      {/* The document's title, discreet, centred at the top. */}
+      <header className="label">
         <TitleField
           value={snap.title_source ?? ""}
           display={snap.title ?? snap.name}
-          onCommit={(v) => apply(t(snap.editing ? "ui-undo-rename-pack" : "ui-undo-rename-deck"), [{ op: "set_deck_param", key: "title", value: v }])}
+          onCommit={(v) => apply(t("ui-undo-rename-deck"), [{ op: "set_deck_param", key: "title", value: v }])}
         />
         <span className="caption" role="status">
-          {snap.editing
-            ? t("ui-caption-pack", {
-                kind: snap.editing.kind,
-                count: packCount,
-                status: t(snap.dirty ? "ui-status-unsaved" : "ui-status-saved"),
-              })
-            : <>{snap.path ? `${snap.name}.oku-slides.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}</>}
+          {snap.path ? `${snap.name}.oku-slides.pdf · ` : ""}{t("ui-caption-slides", { count: snap.slides.length, status })}
         </span>
       </header>
-      {snap.editing && <PackTabs kind={snap.editing.kind} tabs={widgets.tabs.tabs} active={widgets.tabs.active} unsaved={widgets.files.unsaved} onActivate={widgets.activate} onClose={widgets.close} />}
 
       <ToolsTray
-        api={api} snap={snap} view={view} widgetActive={widgetActive} widgets={widgets}
+        api={api} snap={snap} view={view} item={null}
         keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
         run={run} onAdd={() => setAdding(true)}
         onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
-        thumbs={!packColumn && thumbsSection ? { open: thumbsOpen, onToggle: toggleThumbs } : null}
+        thumbs={{ open: thumbsOpen, onToggle: toggleThumbs }}
       />
-
-      {/* Top right, in pack mode: finish (a lone pack tab that cannot close has none). */}
-      {showFinish(snap, onClose !== undefined) && (
-        <div className="tray">
-          <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={finishPack}>{Icon.check}</button>
-        </div>
-      )}
       </>)}
 
-      {/* En mode pack, à gauche : sections Layouts (pack de layouts) et Widgets. */}
-      {packColumn && (
-        <PileColumn
-          title={thumbsTitle}
-          open={thumbsOpen}
-          onToggle={toggleThumbs}
-          slides={thumbsSection && deckPile("y")}
-          widgets={themeTab ? null : (
-            <PileWidgets
-              files={widgets.files}
-              open={!keptUi.folded.includes("widgets")}
-              onOpenChange={(open) => keptUi.setFolded("widgets", !open)}
-              current={widgets.activeName}
-              onOpen={widgets.open}
-              onRemoved={widgets.removed}
-            />
-          )}
-        />
-      )}
-
-      {/* La feuille, posée au centre. */}
+      {/* The sheet, at the centre; a pack tab has its own (`PackPanels`). */}
+      {!packTab && (
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
-        {/* Sous-onglet widget actif : la scène reste montée (sélection, défilement), cachée. */}
-        {/* The stage: the panel of a layout pack's "Layouts" sub-tab. */}
-        <div id="stage-panel" className="stage-panel" role={layoutPackStage ? "tabpanel" : undefined} aria-labelledby={layoutPackStage ? "widget-tab-0" : undefined} hidden={widgetActive}>
+        <div className="stage-panel">
         <div className="stage-box">
-        {widgetPack ? (
-          <div className="stage-wrap empty">{t("ui-stage-widget-pack")}</div>
-        ) : view && view.slide.id === current ? (
+        {view && view.slide.id === current ? (
           <Stage
             ref={stage}
             view={view}
@@ -454,14 +415,12 @@ export default function App({
             onEdit={locked ? noop : setEditing}
             onApply={locked ? noop : apply}
             readOnly={locked}
-            packMode={!!snap.editing}
             packWidgets={packWidgets}
             hoverPreview={previewStore}
             onOpenWidget={(kind) => {
-              // A qualified kind (`namespace/name`): its sub-tab here, or the pack pinned under that namespace.
+              // A qualified kind (`namespace/name`): the pack pinned under that namespace opens.
               const gesture = widgetGesture(snap, kind);
-              if (gesture.kind === "local") widgets.open(gesture.name);
-              else if (gesture.kind === "open") void editPack(gesture.pack, gesture.name);
+              if (gesture.kind === "open") void editPack(gesture.pack, gesture.name);
             }}
             onNotice={(m) => say(m, true)}
             dictated={dictation.dictated}
@@ -474,34 +433,35 @@ export default function App({
         ) : (
           <div className="stage-wrap empty">{t("ui-stage-rendering")}</div>
         )}
-        {!readOnly && !widgetPack && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
+        {!readOnly && <SlideNav slides={snap.slides} current={current} onShow={goToSlide} />}
         </div>
-        {/* Hors mode pack, les miniatures en bande sous la scène ; cachées depuis la barre d'outils, elles rendent
-            toute leur place à la slide. L'aide et l'historique, sans barre d'outils, les montrent toujours. */}
-        {!packColumn && thumbsSection && (thumbsOpen || readOnly) && <div className="slide-strip">{deckPile("x")}</div>}
+        {/* The thumbnails in a strip under the stage; hidden from the toolbar, they give the slide all their
+            room. Help and history, without a toolbar, always show them. A theme tab has its column. */}
+        {!themeTab && (thumbsOpen || readOnly) && (
+          <div className="slide-strip">
+            <DeckPile snap={snap} themeTab={false} current={current} svg={svgs.svg} onSelect={goToSlide} onMove={moveSlide} onAdd={addSlide} onRemove={removeSlide} axis="x" />
+          </div>
+        )}
         </div>
-        {snap.editing && !history && <WidgetPane api={api} widgets={widgets} trials={snap.widget_trials} look={look} code={keptUi.code} codeWidth={keptUi.codeWidth} onCodeWidth={keptUi.setCodeWidth}
-          run={run} palette={snap.appearance.chart_palette}
-          settings={host.surface?.id === HOST_WIDGET ? <HostSettings surface={host.surface} onAction={onSurfaceAction} outcome={host.outcome} onError={(m) => say(m, true)} /> : null} />}
         <SlotView slot={agentSlots.drawer} />
       </main>
+      )}
 
       {/* Cartes à droite de la feuille. */}
-      <aside className={`notes${themeTab ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
-        {/* A theme tab: the tokens first; the agent thread stays mounted, hidden (workshop.css). */}
-        {themeTab && <ThemePanel api={api} snap={snap} run={run} say={say} />}
+      {/* A theme tab: its panel comes in (ThemePanels); the agent thread stays mounted, hidden (pack.css). */}
+      <aside ref={setNotes} className={`notes${themeTab ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
         {/* Agent détaché : pas de dock ici, les données sélectionnées se montrent seules. */}
         {agentDetached && data.surface && (
           <HostSettings surface={data.surface} onAction={onSurfaceAction} outcome={data.outcome} onError={(m) => say(m, true)} />
         )}
         <AgentPanel
           tab={tab} agent={agent} mode={agentMode} route={route} ui={agentUiNow}
-          keysOff={!!editing || dialogOpen || widgetActive} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
+          keysOff={!!editing || dialogOpen || packTab} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
-          hostSurfaces={dataSurfaces} onHostAction={(s, a) => openTheme(s, a) || host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
+          hostSurfaces={dataSurfaces} onHostAction={(s, a) => openRow(s, a) || host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
           onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
-          onWidgetTouched={(name, removed) => widgets.touched(name, removed)} say={say}
+          onWidgetTouched={item.touched} say={say}
           onDraft={dictation.draft.onHost}
           onVoice={bumpVoiceSeq} onAvailability={agentAvailability.onAvailability}
           undoTurn={snap.undo_turn} onUndoTurn={(turn) => void run(api.undoTurn(turn))}

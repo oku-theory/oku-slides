@@ -212,7 +212,7 @@ impl Session {
         let manifest = if child {
             ThemeManifest {
                 id: Uuid::new_v4(),
-                namespace: library_namespace(&self.library, &name)?,
+                namespace: library_namespace(&self.library, &name, "pack")?,
                 extends: vec![base.namespace.clone()],
                 name,
                 description: base.description,

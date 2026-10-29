@@ -8,18 +8,18 @@ const sheet = {
   id: "q", place: "sheet", live: false, question: true, messages: [], anchor: { slide: "s-1", owner: "e-1" },
 } as const;
 
-describe("fiches ancrées de l'agent", () => {
-  test("stageAnchors : sous un widget de l'atelier, la scène est cachée et aucune fiche n'y est posée", () => {
+describe("the agent's anchored cards", () => {
+  test("stageAnchors in a pack tab places no card on the stage", () => {
     const shown = stageAnchors(view, "s-1", true);
     expect(shown).toBeNull();
     expect(routeSurfaces([{ ...sheet }], shown).loose.map((x) => x.id)).toEqual(["q"]);
   });
 
-  test("stageAnchors : scène visible sur la slide affichée, les fiches s'y posent", () => {
+  test("stageAnchors on the slide shown places the cards there", () => {
     expect(stageAnchors(view, "s-1", false)?.slide).toBe("s-1");
   });
 
-  test("stageAnchors : sur une autre slide que la vue, rien n'est posé", () => {
+  test("stageAnchors on another slide than the view places nothing", () => {
     expect(stageAnchors(view, "s-2", false)).toBeNull();
   });
 });

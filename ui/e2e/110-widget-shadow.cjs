@@ -1,8 +1,8 @@
-// Aperçu d'un widget : centré quand le code est masqué, son ombre tient dans le panneau qui défile.
-// Deux formes : l'image seule (aperçu sans champs) et la scène de l'aperçu (champs éditables),
-// cadrée comme la scène le fait (au plus grand qui tient dans sa place).
-// Sans serveur : la feuille de styles réelle sur un sous-onglet de widget reconstitué.
-// Lancer : bun e2e/110-widget-shadow.cjs.
+// A widget's preview: centred when the code is hidden, its shadow fits in the scrolling panel.
+// Two forms: the image alone (a preview without fields) and the preview's stage (editable fields),
+// framed as the stage frames it (the largest that fits its room).
+// No server: the real style sheets on a rebuilt pack tab item view.
+// Run: bun e2e/110-widget-shadow.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { APP_SHEETS, sheets } = require('./lib/css.cjs');

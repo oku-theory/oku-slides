@@ -1,4 +1,4 @@
-// Sous-onglet d'un fichier de widget : source, diagnostics, aperçu, Commun.
+// The view of a pack item: source, diagnostics, preview, shared file.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -23,7 +23,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; active?: boolean; revision?: string; trials?: number; code?: boolean; codeWidth?: number | null; look?: string; settings?: boolean }
+interface Shown { name: string; shown?: boolean; revision?: string; trials?: number; code?: boolean; codeWidth?: number | null; look?: string; settings?: boolean }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -33,11 +33,12 @@ async function mount(fake: TabApi, first: Shown) {
   const opened: string[] = [];
   const widths: (number | null)[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, active = true, revision = "r", trials = 0, code = true, codeWidth = null, look = "clair", settings = false }: Shown) {
+  function Probe({ name, shown = true, revision = "r", trials = 0, code = true, codeWidth = null, look = "clair", settings = false }: Shown) {
     const f = useWidgetFiles(fake, "p", "widgets", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
+    if (!shown) return null;
     return createElement(WidgetTab, {
-      api: fake, files: f, id: 1, name, revision, active, trials, code, codeWidth, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
+      key: name, api: fake, files: f, name, revision, trials, code, codeWidth, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -158,44 +159,44 @@ describe("WidgetTab, source", () => {
     expect(m.text()).toBe("k2");
   });
 
-  test("désactivé pendant une relecture : la lecture reprend à l'activation", async () => {
-    const files = { kpi: "k" };
-    const { fake } = memory(files);
-    const m = await mount(fake, { name: "kpi" });
-    const slow = deferred<string>();
-    stub(fake, "widgetSource", () => slow.promise);
-    files.kpi = "agent";
-    await m.render({ name: "kpi", revision: "r1" });
-    await m.render({ name: "kpi", revision: "r1", active: false });
-    await act(async () => slow.resolve("agent"));
-    stub(fake, "widgetSource", async () => files.kpi);
-    await m.render({ name: "kpi", revision: "r1", active: true });
-    await wait(10);
-    expect(m.text()).toBe("agent");
-  });
-
-  test("le panneau porte les attributs ARIA du sous-onglet", async () => {
+  test("WidgetTab is a region labelled by the item", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
-    const panel = m.host.querySelector("#widget-panel-1");
-    expect(panel?.getAttribute("role")).toBe("tabpanel");
-    expect(panel?.getAttribute("aria-labelledby")).toBe("widget-tab-1");
+    const panel = m.host.querySelector("#widget-panel");
+    expect([panel?.getAttribute("role"), panel?.getAttribute("aria-label")]).toEqual(["region", "kpi"]);
   });
 
-  test("nom changé (renommage) : même vue CodeMirror, remplacement appliqué, pas de relecture", async () => {
-    const { fake, calls } = memory({ kpi: 'widget("kpi", a)' });
-    const m = await mount(fake, { name: "kpi" });
-    const before = m.view();
-    await m.typeText('widget("kpi", b)');
-    const sources = calls.filter((c) => c === "source").length;
-    await act(async () => {
-      await m.files.current!.rename("kpi", "kpi2");
+  test("WidgetTab mounting with a write in flight shows the typed text", async () => {
+    const mem = memory({ kpi: "k" });
+    const real = mem.fake.setWidget;
+    const gate = deferred<void>();
+    stub(mem.fake, "setWidget", async (name: string, text: string) => {
+      await gate.promise;
+      return real(name, text);
     });
-    await m.render({ name: "kpi2" });
+    const m = await mount(mem.fake, { name: "kpi", shown: false });
+    await act(async () => {
+      m.files.current!.edit("kpi", "tapé");
+      m.files.current!.flush("kpi");
+    });
+    await m.render({ name: "kpi" });
     await wait(10);
-    expect(m.view()).toBe(before);
-    expect(m.text()).toContain('widget("kpi2"');
-    expect(calls.filter((c) => c === "source").length).toBe(sources);
+    expect(m.text()).toBeUndefined();
+    await act(async () => gate.resolve());
+    await wait(10);
+    expect(m.text()).toBe("tapé");
+  });
+
+  test("WidgetTab switching back to an item whose last write was refused shows the refused text", async () => {
+    const { fake } = memory({ kpi: "k" });
+    stub(fake, "setWidget", async (name: string) => ({ status: { name, schema: null, diagnostics: [] }, broken: [], saved: false }));
+    const m = await mount(fake, { name: "kpi" });
+    await m.typeText("refusé");
+    await later();
+    await m.render({ name: "kpi", shown: false });
+    await m.render({ name: "kpi" });
+    await wait(10);
+    expect(m.text()).toBe("refusé");
   });
 });
 
@@ -255,20 +256,13 @@ describe("WidgetTab, aperçu", () => {
     expect(calls.filter((c) => c === "status").length).toBe(statusBefore + 1);
   });
 
-  test("inactif : ni aperçu, ni relecture ; activé : relecture puis aperçu", async () => {
+  test("l'aperçu actif est redemandé quand la révision des essais change", async () => {
     const { fake, calls } = memory({ kpi: "k" });
-    const m = await mount(fake, { name: "kpi", active: false });
-    expect(calls).not.toContain("preview");
-    const count = (c: string) => calls.filter((x) => x === c).length;
-    const sources = count("source");
-    await m.render({ name: "kpi", active: false, revision: "r1" });
+    const m = await mount(fake, { name: "kpi" });
+    const before = calls.filter((c) => c === "preview").length;
+    await m.render({ name: "kpi", trials: 1 });
     await wait(10);
-    expect(count("source")).toBe(sources);
-    expect(count("preview")).toBe(0);
-    await m.render({ name: "kpi", active: true, revision: "r1" });
-    await wait(10);
-    expect(count("source")).toBe(sources + 1);
-    expect(count("preview")).toBe(1);
+    expect(calls.filter((c) => c === "preview").length).toBe(before + 1);
   });
 });
 
@@ -327,13 +321,13 @@ describe("WidgetTab, disposition", () => {
     expect(m.host.querySelector(".code-divider")!.getAttribute("aria-orientation")).toBe("vertical");
   });
 
-  test("la largeur choisie est posée en piste bornée sur le sous-onglet", async () => {
+  test("WidgetTab with a chosen code width sets it as a bounded track on the item view", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi", codeWidth: 300 });
     expect(m.host.querySelector<HTMLElement>(".widget-tab")!.style.getPropertyValue("--code-w")).toBe(codeTrack(300)!);
   });
 
-  /** Sous-onglet de 1000 px dont 400 au code (happy-dom ne mesure rien), et un geste de pointeur sur le séparateur. */
+  /** An item view 1000 px wide, 400 of them code (happy-dom measures nothing), and a pointer gesture on the divider. */
   function measured(host: HTMLElement) {
     const tab = host.querySelector<HTMLElement>(".widget-tab")!;
     Object.defineProperty(tab, "clientWidth", { configurable: true, value: 1000 });
@@ -347,7 +341,7 @@ describe("WidgetTab, disposition", () => {
     return { tab, pointer };
   }
 
-  test("pendant le glisser, la largeur n'est posée que sur le sous-onglet, sans être retenue", async () => {
+  test("WidgetTab while dragging sets the width on the item view only, without keeping it", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
     const { tab, pointer } = measured(m.host);
@@ -407,7 +401,7 @@ describe("WidgetTab, code source masquable", () => {
   test("l'éditeur porte l'id que l'interrupteur de la barre désigne", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi" });
-    expect(editor(m.host).id).toBe("widget-code-1");
+    expect(editor(m.host).id).toBe("widget-code");
   });
 });
 

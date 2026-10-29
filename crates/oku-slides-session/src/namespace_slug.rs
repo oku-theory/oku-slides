@@ -1,11 +1,11 @@
-//! L'espace de noms d'un nouveau pack de la bibliothèque, tiré de son nom.
+//! The namespace of a new library pack or theme, drawn from its name.
 //!
-//! Minuscules ASCII, chiffres et `-` ; les lettres accentuées latines
-//! courantes perdent leur accent, tout autre signe devient `-`. Une lettre en
-//! tête (sinon `pack-` devant), 64 octets au plus. Pris par un pack ou un thème de la
-//! bibliothèque, ou `deck` (réservé) : `-2`, `-3`… s'y ajoutent, si bien
-//! que `NamespaceTaken` ne survient jamais à l'enregistrement. Les modèles
-//! d'une copie renommée suivent ses widgets (`rename_namespace`).
+//! Lowercase ASCII, digits and `-`; common accented Latin letters lose their
+//! accent, any other sign becomes `-`. A letter first (else the caller's
+//! prefix, `pack-` or `theme-`, goes in front), 64 bytes at most. Taken by a
+//! pack or theme of the library, or `deck` (reserved): `-2`, `-3`… are added,
+//! so `NamespaceTaken` never happens on save. The templates of a renamed
+//! copy follow its widgets (`rename_namespace`).
 
 use snafu::OptionExt;
 
@@ -36,8 +36,10 @@ fn fold(c: char) -> Option<&'static str> {
     })
 }
 
-/// Le nom `name` en segment d'espace de noms : `[a-z][a-z0-9-]*`, au plus `max` octets.
-pub(crate) fn slug(name: &str, max: usize) -> String {
+/// The name `name` as a namespace segment: `[a-z][a-z0-9-]*`, at most `max` bytes.
+///
+/// A name that does not start with a letter gets `<prefix>-` in front.
+pub(crate) fn slug(name: &str, max: usize, prefix: &str) -> String {
     let mut out = String::new();
     for c in name.chars().flat_map(char::to_lowercase) {
         match fold(c) {
@@ -49,25 +51,26 @@ pub(crate) fn slug(name: &str, max: usize) -> String {
         }
     }
     if !out.starts_with(|c: char| c.is_ascii_lowercase()) {
-        out.insert_str(0, "pack-");
+        out.insert_str(0, &format!("{prefix}-"));
     }
     out.truncate(max);
     out.trim_end_matches('-').to_owned()
 }
 
-/// L'espace de noms libre d'un nouveau pack ou thème nommé `name` dans `library`, toutes sortes confondues.
+/// The free namespace of a new pack or theme named `name` in `library`, all kinds included.
 ///
-/// Ni `deck` ni `deck-layouts`, réservés. Le slug de `name`, sinon suivi de `-2`, `-3`… : parmi autant de candidats
-/// que d'espaces de noms pris (plus deux), l'un est libre.
-pub(crate) fn library_namespace(library: &PackLibrary, name: &str) -> Result<Namespace> {
+/// Neither `deck` nor `deck-layouts`, reserved. The slug of `name` (`fallback`
+/// in front when it does not start with a letter), else followed by `-2`,
+/// `-3`…: among as many candidates as taken namespaces (plus two), one is free.
+pub(crate) fn library_namespace(library: &PackLibrary, name: &str, fallback: &str) -> Result<Namespace> {
     let taken = library.namespaces();
     let free = |ns: &Namespace| !ns.is_deck() && !ns.is_deck_layouts() && !taken.contains(ns);
-    let base = slug(name, MAX);
+    let base = slug(name, MAX, fallback);
     let candidates = (1..=taken.len() + 2).map(|n| match n {
         1 => base.clone(),
         n => {
             let suffix = format!("-{n}");
-            format!("{}{suffix}", slug(name, MAX - suffix.len()))
+            format!("{}{suffix}", slug(name, MAX - suffix.len(), fallback))
         }
     });
     let found = candidates.filter_map(|c| Namespace::parse(&c)).find(|ns| free(ns));

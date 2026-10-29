@@ -626,6 +626,7 @@ fn packs_view() -> crate::DeckPacksView {
         deck_only: false,
         library_has_pinned: true,
         remove_refusal: None,
+        id: uuid::Uuid::from_u128(0xac3e),
     });
     view.addable.insert(oku_slides_core::PackKind::Widgets, vec![(crate::test_support::ns("hifi"), "Hi-fi".into())]);
     view.theme.outdated = true;

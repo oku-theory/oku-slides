@@ -122,7 +122,8 @@ fn broadcast_scheme_read_stays_with_its_window() {
     assert_that!(broadcast(&req(serde_json::json!({"cmd": "scheme"})))).is_none();
 }
 
-/// `open_pack` and `open_theme` change the windows and focus like `open_tab`; `pack_opener` answers like `messages`.
+/// `open_pack`, `open_theme`, `new_pack` and `new_theme` change the windows and focus like `open_tab`;
+/// `pack_opener` answers like `messages`.
 #[rstest]
 #[case::open_pack(
     serde_json::json!({"cmd": "open_pack", "tab": "t-1", "pack": "6f9619ff-8b86-4011-b42d-00c04fc964ff"}),
@@ -132,6 +133,8 @@ fn broadcast_scheme_read_stays_with_its_window() {
     serde_json::json!({"cmd": "open_theme", "tab": "t-1", "theme": "6f9619ff-8b86-4011-b42d-00c04fc964ff"}),
     (true, true)
 )]
+#[case::new_pack(serde_json::json!({"cmd": "new_pack", "tab": "t-1", "kind": "layouts"}), (true, true))]
+#[case::new_theme(serde_json::json!({"cmd": "new_theme", "tab": "t-1"}), (true, true))]
 #[case::pack_opener(serde_json::json!({"cmd": "pack_opener", "tab": "t-2"}), (false, false))]
 fn classify_pack_requests(#[case] v: serde_json::Value, #[case] expected: (bool, bool)) {
     let r = req(v);

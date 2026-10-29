@@ -5,7 +5,6 @@ import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import type { KeptUi } from "./useKeptUi";
-import type { PackWidgetEditor } from "./usePackWidgetEditor";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -43,7 +42,7 @@ async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = f
   await act(async () =>
     root.render(
       createElement(ToolsTray, {
-        api: {} as TabApi, snap, view, widgetActive: false, widgets: {} as PackWidgetEditor,
+        api: {} as TabApi, snap, view, item: null,
         keptUi: {} as KeptUi, mainMenu: null, run: async () => null,
         onAdd: () => {}, onPacks: () => void opened++, thumbs: null, themeTab,
       }),
@@ -109,7 +108,7 @@ async function mountThumbs(thumbs: { open: boolean; onToggle: () => void } | nul
   mounted = { root, host };
   await act(async () => {
     root.render(createElement(ToolsTray, {
-      api: {} as TabApi, snap: thumbsSnap, view: null, widgetActive: false, widgets: {} as never, keptUi: {} as never,
+      api: {} as TabApi, snap: thumbsSnap, view: null, item: null, keptUi: {} as never,
       mainMenu: null, run: async () => null, onAdd: () => {}, onPacks: () => {}, thumbs,
     }));
   });

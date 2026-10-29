@@ -24,7 +24,7 @@ const SNAP = {
   appearance: { scheme: "light", slide: {}, app: {}, variants: {}, metrics: {}, font_display: [], font_body: [], chart_palette: [] },
   widgets: {}, layouts: {}, editing: null, deck_pack: false, pack_updates: 0, pack_widgets: [], add_packs: [],
   free_slots: { "essentiel/content": null }, widget_trials: 0, history: null, read_only: false, host_params: {},
-  ui: { slide: null, grid: false, ghosts: false, pile: null, notes: null, widgets: [], widget: null, code: false, code_width: null, folded: [] },
+  ui: { slide: null, grid: false, ghosts: false, pile: null, notes: null, widget: null, code: false, code_width: null, folded: [] },
   theming: {
     theme: { base: { id: "t", version: "v1" }, namespace: "papier", name: "Papier", child: true, extends: [], dirty: false, revision: "r1" },
     session_version: null, read_only: false, leased: true, display_name: "Papier",
@@ -107,7 +107,7 @@ describe("App in a theme tab", () => {
     expect([...pile!.querySelectorAll(".thumb")].length).toBe(2);
     expect([...pile!.querySelectorAll("button")].some((b) => /New slide/.test(b.textContent ?? ""))).toBe(false);
     expect(pile!.querySelectorAll(".thumb-remove").length).toBe(0);
-    expect(host.querySelector(".pile-widgets")).toBeNull();
+    expect(host.querySelector(".pack-pile")).toBeNull();
   });
 
   test("App theme tab mounts the theme panel in the notes column", async () => {
@@ -115,9 +115,9 @@ describe("App in a theme tab", () => {
     expect(host.querySelector("aside.notes.theme-active #theme-panel")).not.toBeNull();
   });
 
-  test("App theme tab has no pack sub-tabs nor packs button", async () => {
+  test("App theme tab has no packs button", async () => {
     const host = await mountThemeTab(() => {});
-    expect([host.querySelector('[role="tablist"].pack-tabs'), host.querySelector(".packs-button")]).toEqual([null, null]);
+    expect(host.querySelector(".packs-button")).toBeNull();
   });
 
   test("App theme tab Finish calls the close", async () => {

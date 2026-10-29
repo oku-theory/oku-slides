@@ -763,3 +763,26 @@ describe("useWidgetFiles, l'agent écrit", () => {
     expect(out.files!.pending("kpi")).toBe(true);
   });
 });
+
+describe("useWidgetFiles, attempted", () => {
+  test("attempted after a refused write returns the refused text", async () => {
+    const { fake } = memory({ kpi: "k" });
+    stub(fake, "setWidget", async (name: string): Promise<WidgetChange> => ({
+      status: { name, schema: null, diagnostics: [] },
+      broken: [],
+      saved: false,
+    }));
+    const { out } = await mount(fake);
+    await typed(out, "kpi", "refusé");
+    await later();
+    expect(out.files!.attempted("kpi")).toBe("refusé");
+  });
+
+  test("attempted after a saved write is undefined", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { out } = await mount(fake);
+    await typed(out, "kpi", "écrit");
+    await later();
+    expect(out.files!.attempted("kpi")).toBeUndefined();
+  });
+});

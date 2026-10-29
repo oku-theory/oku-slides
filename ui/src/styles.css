@@ -6,6 +6,9 @@
 :root {
   /* Couleurs des slides, posées par l'app (voir applyAppearance). Défauts : Papier. */
   --t-bg: #fffdf9;
+  /* Top border of pack and theme tabs; 3:1 against the default tab backgrounds (styles.test.ts). */
+  --tab-pack: #2f6fa0;
+  --tab-theme: #8a4f9e;
   --t-ink: #2e2b26;
   --t-ink-muted: #686258;
   --t-accent: #3f6b5e;
@@ -116,6 +119,8 @@
 }
 /* Sur une table sombre, une ombre légère ne se voit plus : plus dense, vers le noir. */
 :root[data-scheme="dark"] {
+  --tab-pack: #5aa0d8;
+  --tab-theme: #c58ae0;
   --shade: color-mix(in oklab, var(--app-shadow, black) 34%, transparent);
   --shade-strong: color-mix(in oklab, var(--app-shadow, black) 50%, transparent);
   --shade-soft: color-mix(in oklab, var(--app-shadow, black) 22%, transparent);
@@ -259,8 +264,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .add-slide { margin-inline-start: 26px; color: var(--accent); }
 
 /* ---- La feuille ---- */
-/* Une rangée : la scène (et le sous-onglet widget à côté) ; dessous, le tiroir des variantes quand il est
-   ouvert : la scène rétrécit d'autant au lieu d'être recouverte. */
+/* One row: the stage, or a pack tab's selected item view; below it, the variants drawer when it is
+   open: the stage shrinks by as much instead of being covered. */
 .sheet-area {
   grid-area: sheet; position: relative; min-width: 0; min-height: 0; padding: var(--space-4) var(--space-6);
   display: grid; grid-template-rows: minmax(0, 1fr) auto; grid-auto-columns: minmax(0, 1fr);
@@ -785,7 +790,9 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .tab.drop-before::before { left: -2px; }
 .tabbar.drop-end::after { right: var(--space-2); }
 .tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tab-badge { font-size: 11px; color: var(--accent); }
+.tab[data-kind="pack"] { border-top: 3px solid var(--tab-pack); }
+.tab[data-kind="theme"] { border-top: 3px solid var(--tab-theme); }
+.tab-kind-icon { width: 14px; height: 14px; flex: none; }
 .tab-dirty { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
 .tab-close, .tab-new {
   border: 0; background: none; color: inherit; width: 22px; height: 22px; flex: none;

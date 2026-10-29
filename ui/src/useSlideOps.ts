@@ -10,7 +10,6 @@ import { BASE } from "./builtinKinds";
 import { newElement } from "./newElement";
 import { canRemoveSlide } from "./slideTools";
 import type { FieldKey } from "./stageFields";
-import type { PackWidgetEditor } from "./usePackWidgetEditor";
 
 /** Ce dont les gestes sur les slides ont besoin de l'onglet. */
 interface SlideOpsContext {
@@ -25,14 +24,12 @@ interface SlideOpsContext {
   setEditing: (key: FieldKey | null) => void;
   editWhenShown: (owner: string) => void;
   showSlide: (id: string) => void;
-  widgetActive: boolean;
-  widgets: PackWidgetEditor;
 }
 
 /** `apply` et les gestes sur les slides et leurs éléments. */
 export function useSlideOps({
   api, snap, view, current, run, dropCut, setCurrent, setSelected, setEditing, editWhenShown,
-  showSlide, widgetActive, widgets,
+  showSlide,
 }: SlideOpsContext) {
   const apply = useCallback(
     /** Vrai si l'hôte a appliqué les ops. */
@@ -85,12 +82,11 @@ export function useSlideOps({
     });
   };
 
-  /** Shows a slide, unselected; an open widget sub-tab gives way to the stage. */
+  /** Shows a slide, unselected. */
   const goToSlide = (id: string) => {
     showSlide(id);
     setSelected(null);
     setEditing(null);
-    if (widgetActive) widgets.activate(null);
   };
 
   return { apply, addElement, moveSlide, removeSlide, goToSlide };

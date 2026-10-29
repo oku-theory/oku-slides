@@ -6,7 +6,7 @@
 - Do not end text editing on blur when document.hasFocus() is false; another window or app took focus. (spec:2026-10-09-agent-detachable-design)
 - Route every visible UI string and ARIA label through t() with Fluent keys; never hardcode text. (t-44)
 - Ignore quick keys on editable targets, with modifiers, on repeat, during IME composition, or when already handled. (plan:2026-09-26-agent-vocal)
-- Build modals on useModalFrame (sole FOCUSABLE, ARMING_MS); confirmations take no Enter or digits and ignore input for 500 ms; window.confirm stays only in Workspace's closeFlowDeps input (ui-confirm-close-writes-pending and its -linked variant, ui-confirm-quit-pack, ui-confirm-quit-theme, ui-confirm-quit-read-only-pack, ui-confirm-quit-read-only-theme, ui-confirm-update-opener), which skip the 500 ms arming, PileWidgets' ui-widgets-confirm-delete and merge.ts's browser fallbacks, until t-1157. (plan:2026-09-26-agent-vocal, t-692, t-1157, t-1156)
+- Build modals on useModalFrame (sole FOCUSABLE, ARMING_MS), confirmations on the shared ConfirmDialog; confirmations take no Enter or digits and ignore input for 500 ms; window.confirm stays only in Workspace's closeFlowDeps input (ui-confirm-close-writes-pending and its -linked variant, ui-confirm-quit-pack, ui-confirm-quit-theme, ui-confirm-quit-read-only-pack, ui-confirm-quit-read-only-theme, ui-confirm-update-opener), which skip the 500 ms arming, and merge.ts's browser fallbacks, until t-1254. (plan:2026-09-26-agent-vocal, t-692, t-1157, t-1156)
 - Route every agent surface somewhere visible; anything that cannot be placed falls back to the thread. (plan:2026-09-26-agent-vocal)
 - Validate every agent-link message with zod and drop invalid ones without logging; they may hold dictated text. (spec:2026-10-09-agent-detachable-design)
 - Send draft updates one at a time tagged with the view origin, and ignore echoes of the view's own sends. (spec:2026-10-09-agent-detachable-design)
@@ -36,8 +36,8 @@
 - Make every UI effect survive mount, unmount, then mount again, because main.tsx enables React StrictMode. (spec:2026-09-26-editeur-markdown-design)
 - Send Content-Type application/json with every POST to oku-slides serve; its anti-CSRF guard rejects others. (plan:2026-09-26-agent-vocal)
 - Do not capture Escape in Dictation for the agent; App decides via escapeAction, deselecting before cancelling a turn. (plan:2026-09-26-agent-vocal)
-- Prune widget sub-tabs only against statuses of the current revision, never stale or other-pack statuses. (plan:2026-10-03-widgets-onglets)
-- In CodeMirror, call EditorView.requestMeasure when a hidden sub-tab shows again, and set the cursor colour explicitly (black is invisible on dark themes). (plan:2026-10-03-widgets-onglets, t-460)
+- Fall back from `ui.widget` only against statuses of the current revision; a just-created or agent-written item waits for them. (plan:2026-10-03-widgets-onglets)
+- In CodeMirror, call EditorView.requestMeasure when the hidden code editor shows again, and set the cursor colour explicitly (black is invisible on dark themes). (plan:2026-10-03-widgets-onglets, t-460, t-1157)
 - Do not rely on tsc -b to typecheck test files; ui/tsconfig.json excludes them and bun test only strips types, so they are never typechecked. (plan:2026-10-08-widget-tableau)
 - Never free an A2UI surface in an effect cleanup; it cannot know whether the next message list extends the old one. (plan:2026-10-03-agent-a2ui, t-291)
 - Implement drags with pointer events and draggable={false} images; the Tauri webview reserves HTML5 drag-and-drop for file drops. (t-819)
@@ -50,7 +50,7 @@
 ## Settled decisions
 
 - Parse rewrite text with textToParagraphs and external paste or dictation with literalToParagraphs, never on the server. (spec:2026-09-27-agent-onglets-design, t-162)
-- Keep the main menu to present, open, check for updates (app only), help and About (version and changelog), with no save action (changes autosave after 1.5 s, new decks to a default folder); every other app action goes through an agent tool. (t-988, t-257, t-1170, t-1236)
+- Keep the main menu to present, open, check for updates (app only), help, About (version and changelog) and new widget pack, layout pack and theme (decks and packs; themes only the theme), with no save action (changes autosave after 1.5 s, new decks to a default folder); every other app action goes through an agent tool. (t-988, t-257, t-1170, t-1236, t-1157)
 - Show shortcuts as Cmd on macOS and as Ctrl, Shift, Alt elsewhere, in help and menus. (t-493)
 - Use CodeMirror standardKeymap, never defaultKeymap, whose commands are meant for code editors. (spec:2026-09-26-editeur-markdown-design)
 - Keep ListTable fully controlled: hold no local data except the draft of the cell being edited. (spec:2026-10-04-parametre-liste-design)

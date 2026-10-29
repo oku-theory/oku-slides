@@ -10,7 +10,9 @@
 //! pack of a deck opens its deck-pack tab, linked to that deck
 //! (`open_deck_pack`, `workspace_deck_packs.rs`). An agent's gate is asked before any change, with only the
 //! opening lock held; the user's open asks nothing and makes the requesting
-//! deck the tab's opener, which a close hands the focus back to.
+//! deck the tab's opener, which a close hands the focus back to. A new pack
+//! (`new_pack`) is created empty through the requesting tab's library, then
+//! opened like any other; its draft goes if that open fails.
 
 use std::sync::{Mutex, TryLockError};
 
@@ -18,18 +20,22 @@ use serde::Serialize;
 use snafu::OptionExt;
 use uuid::Uuid;
 
-use oku_slides_core::PackVersion;
+use oku_slides_core::{PackKind, PackVersion};
 
 use crate::SessionErrorKind;
 use crate::agent::{PackGate, PackOpen};
 use crate::deck_offer::DeckOffer;
+use crate::error::SingleDocumentSnafu;
+use crate::library_packs::{DraftKind, PackLibrary};
 use crate::pack_lease::PackLease;
 use crate::pack_tab::{PackRoute, PackWrite};
 
 use super::opening::with_opening;
 #[cfg(test)]
 use super::opening::{opening_entry, opening_waiters};
-use super::{Opening, Result, Slot, TabPlace, UnknownTabSnafu, Workspace, WorkspaceOutcome};
+#[cfg(test)]
+use super::tabs::open_failpoint;
+use super::{Created, Opening, Result, Slot, TabPlace, UnknownTabSnafu, Workspace, WorkspaceOutcome};
 use crate::TabDocument;
 
 /// Dormant candidates woken at most by one open (O10): past them, the live re-scan decides.
@@ -59,7 +65,7 @@ pub(crate) enum PackOpened {
     Focused(String),
     /// A new pack tab opened.
     Opened(String),
-    /// The requesting tab edits it; its sub-tab opened, if one was named.
+    /// The requesting tab edits it; its item selected, if one was named.
     Here,
     /// The gate refused.
     Refused,
@@ -89,10 +95,12 @@ pub(super) struct OpenCtx<'a> {
     pub(super) tab: &'a str,
     /// The pack to open.
     pub(super) pack: Uuid,
-    /// A widget whose sub-tab opens.
+    /// An item selected in the pack tab.
     pub(super) widget: Option<&'a str>,
     /// The user's open: the requesting deck becomes the focused tab's opener.
     pub(super) retarget: bool,
+    /// The pack was created empty for this open.
+    pub(super) created: Created,
 }
 
 /// The gate of one open, asked at most once per kind.
@@ -115,7 +123,7 @@ impl Workspace {
         widget: Option<&str>,
         gate: &mut dyn FnMut(PackGate) -> bool,
     ) -> Result<PackOpen> {
-        Ok(match Self::open_pack_with(ws, tab, pack, widget, Opener::Agent(gate))? {
+        Ok(match Self::open_pack_with(ws, tab, pack, widget, Opener::Agent(gate), Created::No)? {
             PackOpened::Here => PackOpen::Here,
             PackOpened::Focused(t) | PackOpened::Opened(t) => PackOpen::Tab(t),
             PackOpened::Refused => PackOpen::Refused,
@@ -129,8 +137,45 @@ impl Workspace {
         pack: Uuid,
         widget: Option<&str>,
     ) -> Result<WorkspaceOutcome> {
-        Self::open_pack_with(ws, tab, pack, widget, Opener::Ui)?;
+        Self::open_pack_with(ws, tab, pack, widget, Opener::Ui, Created::No)?;
         Ok(WorkspaceOutcome::Applied(Self::lock(ws).view_json()?))
+    }
+
+    /// `apply` on `NewPack`: an empty library pack of `kind`, opened in its own tab after `tab`.
+    ///
+    /// The requesting tab checks it may open a pack and has a lease scope,
+    /// then creates the pack through its library, in its language; the open
+    /// runs outside any lock. An open that fails deletes the draft again.
+    ///
+    /// # Errors
+    ///
+    /// `UnknownTab`, `ReadOnly`, `InHistory`, `WrongDocument` (a theme tab),
+    /// `SingleDocument` without a lease scope, the creation's and the open's errors.
+    ///
+    /// # Blocking
+    ///
+    /// Writes the library, then builds and renders the new tab's session.
+    pub(super) fn new_pack(ws: &Mutex<Self>, tab: &str, kind: PackKind) -> Result<WorkspaceOutcome> {
+        let (created, _changed) = Self::with_quiet(ws, tab, |s| {
+            s.can_open_pack()?;
+            snafu::ensure!(s.library.lease_scope().is_some(), SingleDocumentSnafu);
+            let name = s.localizer.tr("pack-default-name");
+            Ok::<_, crate::SessionError>((s.library.create_empty_pack(kind, &name)?, s.library.clone()))
+        });
+        let (id, library) = created??;
+        let opened = Self::open_pack_with(ws, tab, id, None, Opener::Ui, Created::Yes);
+        if !matches!(opened, Ok(PackOpened::Opened(_))) {
+            Self::roll_back(&library, DraftKind::Pack, id);
+        }
+        opened?;
+        Ok(WorkspaceOutcome::Applied(Self::lock(ws).view_json()?))
+    }
+
+    /// Deletes draft `id` again after its open failed, logging a failure.
+    pub(super) fn roll_back(library: &PackLibrary, kind: DraftKind, id: Uuid) {
+        if let Err(e) = library.discard_untouched(kind, id) {
+            tracing::warn!(draft = %id, error = %e.one_line(), "draft of a failed open not deleted");
+        }
     }
 
     /// Opens `pack` from `tab`, saying how; holds the pack's opening lock.
@@ -142,20 +187,23 @@ impl Workspace {
     /// # Blocking
     ///
     /// As [`crate::agent::Sessions::open_pack`].
-    pub(crate) fn open_pack_with(
+    pub(super) fn open_pack_with(
         ws: &Mutex<Self>,
         tab: &str,
         pack: Uuid,
         widget: Option<&str>,
         opener: Opener<'_>,
+        created: Created,
     ) -> Result<PackOpened> {
+        #[cfg(test)]
+        open_failpoint()?;
         with_opening(pack, || {
             let (retarget, mut gate) = match opener {
                 Opener::Ui => (true, None),
                 Opener::Agent(gate) => (false, Some(gate)),
             };
             let mut ask = |g: PackGate| gate.as_mut().is_none_or(|gate| gate(g));
-            let ctx = OpenCtx { ws, tab, pack, widget, retarget };
+            let ctx = OpenCtx { ws, tab, pack, widget, retarget, created };
             let (window, candidates) = {
                 let w = Self::lock(ws);
                 let wanted = w.pack_documents(tab, pack);
@@ -234,7 +282,7 @@ impl Workspace {
                 return Ok(false);
             }
             if let Some(w) = ctx.widget {
-                s.open_widget_tab(w)?;
+                s.select_item(w)?;
             }
             Ok(true)
         });
@@ -293,7 +341,7 @@ impl Workspace {
         let seed = seed??;
         let pending = {
             let mut w = Self::lock(ctx.ws);
-            let opening = Opening::Pack { pack: ctx.pack, widget: ctx.widget.map(str::to_owned) };
+            let opening = Opening::Pack { pack: ctx.pack, widget: ctx.widget.map(str::to_owned), created: ctx.created };
             // The requesting tab closed meanwhile: its window, at the end and without opener.
             let place =
                 if w.tab_window(ctx.tab).is_some() { TabPlace::After(ctx.tab.to_owned()) } else { TabPlace::End };
@@ -394,3 +442,7 @@ mod workspace_packs_race_tests;
 #[cfg(test)]
 #[path = "workspace_packs_close_tests.rs"]
 mod workspace_packs_close_tests;
+
+#[cfg(test)]
+#[path = "workspace_packs_new_tests.rs"]
+mod workspace_packs_new_tests;

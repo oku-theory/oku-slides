@@ -56,6 +56,9 @@ ui-toolbar-finish = Klaar
 ui-pack-deck-only = Alleen in deze presentatie opgeslagen
 ui-toolbar-open = Openen
 ui-menu = Menu
+ui-menu-new-widget-pack = Nieuw widgetpakket
+ui-menu-new-layout-pack = Nieuw lay-outpakket
+ui-menu-new-theme = Nieuw thema
 ui-toolbar-add-label = Toevoegen aan de dia
 ui-toolbar-packs = Pakketten van de presentatie
 ui-toolbar-packs-update = Pakketten van de presentatie — updates beschikbaar
@@ -93,7 +96,6 @@ ui-slide-alt = Dia { $n }
 ## Podium
 
 ui-stage-rendering = Weergeven…
-ui-stage-widget-pack = Open een widget uit de stapel of maak er een.
 ui-stage-elements = Dia-elementen
 ui-stage-fields = Diavelden
 ui-stage-edit-text = Tekst bewerken
@@ -274,8 +276,10 @@ ui-tabs = Geopende presentaties
 ui-tab-new = Nieuw tabblad
 ui-tab-close = Tabblad sluiten
 ui-tab-unsaved = Niet-opgeslagen wijzigingen
-ui-tab-pack = Pakket
+ui-tab-kind-pack = { $title }, pakket
+ui-tab-kind-theme = { $title }, thema
 ui-tab-theme = Thema
+ui-preview-theme = Voorbeeldthema
 ui-tab-move-new-window = Naar nieuw venster verplaatsen
 ui-tab-move-to = Naar venster { $n } verplaatsen
 ui-tab-close-others = Andere tabbladen sluiten
@@ -310,15 +314,16 @@ ui-help-search-count = { $count ->
     [one] 1 resultaat
    *[other] { $count } resultaten
 }
-ui-widgets-files = Widgetbestanden
 ui-widgets-common = Gedeeld
 ui-widgets-new = Nieuwe widget
 ui-widgets-name = Widgetnaam (kleine letters, cijfers en koppeltekens)
+ui-layouts-name = Lay-outnaam (kleine letters, cijfers en koppeltekens)
 ui-widgets-name-taken = Deze naam is al in gebruik
 ui-widgets-name-letter = De naam moet met een letter beginnen
-ui-widgets-valid = Geldig
-ui-widgets-errors = Fouten
 ui-widgets-empty = Dit pakket heeft nog geen widget.
+ui-layouts-new = Nieuwe lay-out
+ui-layouts-empty = Dit pakket heeft nog geen lay-out.
+ui-confirm-delete-ok = Verwijderen
 ui-widgets-preview = Widgetvoorbeeld
 ui-widgets-no-preview = Geen voorbeeld
 ui-widgets-field-bound = Gekoppeld aan de presentatie: hier alleen-lezen
@@ -326,17 +331,15 @@ ui-widgets-source = Broncode
 ui-widgets-unsaved = Niet opgeslagen
 ui-widgets-in-error = Widgets met fouten
 ui-widgets-none-in-error = Geen enkele widget heeft fouten
-ui-widgets-section = Widgets
 ui-widgets-open = Widget { $name } openen
 ui-widgets-delete-named = { $name } verwijderen
 ui-widgets-confirm-delete = De widget “{ $name }” verwijderen?
+ui-layouts-confirm-delete = De lay-out “{ $name }” verwijderen?
 ui-widgets-rename-hint = Dubbelklik of F2 om te hernoemen
-ui-pack-tabs = Pakkettabbladen
-ui-pack-layouts-tab = Lay-outs
 ui-theme-name = Naam van het thema
 ui-theme-unsaved = Themawijzigingen niet opgeslagen
-ui-widgets-close-tab = { $name } sluiten
 ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.
+ui-layouts-removed-by-agent = De agent heeft lay-out { $name } verwijderd.
 
 ## Importeren
 

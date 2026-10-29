@@ -21,11 +21,11 @@ afterEach(async () => {
   m.host.remove();
 });
 
-type Tabs = Pick<UiState, "widgets" | "widget">;
+type Item = Pick<UiState, "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
-const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widgets: [], widget: null, code: true,
-  code_width: 640, folded: ["widgets"] };
+const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widget: null, code: true,
+  code_width: 640, folded: ["layouts"] };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
@@ -42,12 +42,12 @@ async function mount(first: UiState | null = kept, answer: () => Promise<unknown
     out.orders.push(order);
     return answer();
   };
-  function Probe({ ui, current, tabs }: { ui: UiState | null; current: string; tabs: Tabs }) {
-    out.hook = useKeptUi(ui, current, save, tabs, timers);
+  function Probe({ ui, current, item }: { ui: UiState | null; current: string; item: Item }) {
+    out.hook = useKeptUi(ui, current, save, item, timers);
     return null;
   }
-  const render = (ui: UiState | null, current = "s1", tabs: Tabs = { widgets: [], widget: null }) =>
-    act(async () => root.render(createElement(Probe, { ui, current, tabs })));
+  const render = (ui: UiState | null, current = "s1", item: Item = { widget: null }) =>
+    act(async () => root.render(createElement(Probe, { ui, current, item })));
   await render(first);
   return { out, render };
 }
@@ -114,8 +114,8 @@ test("useKeptUi first snapshot restores the column widths kept by the host", asy
 test("useKeptUi setColumns saves the new widths with the rest of the state", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
-  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widgets: [], widget: null, code: true,
-    code_width: 640, folded: ["widgets"] });
+  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widget: null, code: true,
+    code_width: 640, folded: ["layouts"] });
 });
 
 test("useKeptUi premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -148,39 +148,45 @@ test("useKeptUi setCodeWidth(null) sauve la proportion par défaut", async () =>
 
 test("useKeptUi premier snapshot reprend les sections repliées gardées par l'hôte", async () => {
   const { out } = await mount();
-  expect(out.hook!.folded).toEqual(["widgets"]);
+  expect(out.hook!.folded).toEqual(["layouts"]);
 });
 
 test("useKeptUi setFolded replie une section et la sauve avec le reste", async () => {
   const { out } = await mount();
-  await act(async () => { out.hook!.setFolded("layouts", true); });
-  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", folded: ["widgets", "layouts"] });
+  await act(async () => { out.hook!.setFolded("slides", true); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", folded: ["layouts", "slides"] });
 });
 
 test("useKeptUi setFolded rouvre une section repliée", async () => {
   const { out } = await mount();
-  await act(async () => { out.hook!.setFolded("widgets", false); });
+  await act(async () => { out.hook!.setFolded("layouts", false); });
   expect(out.kept.at(-1)).toMatchObject({ folded: [] });
 });
 
 test("useKeptUi setFolded sur l'état déjà en place ne sauve rien de plus", async () => {
   const { out } = await mount();
   const before = out.kept.length;
-  await act(async () => { out.hook!.setFolded("widgets", true); });
+  await act(async () => { out.hook!.setFolded("layouts", true); });
   expect(out.kept.length).toBe(before);
 });
 
-test("useKeptUi sauve les sous-onglets passés avec le reste", async () => {
+test("useKeptUi saves the selected item with the rest", async () => {
   const { out, render } = await mount();
-  await render(kept, "s1", { widgets: ["kpi"], widget: "kpi" });
-  expect(out.kept.at(-1)).toMatchObject({ widgets: ["kpi"], widget: "kpi" });
+  await render(kept, "s1", { widget: "kpi" });
+  expect(out.kept.at(-1)).toMatchObject({ widget: "kpi" });
 });
 
-test("useKeptUi avec une nouvelle liste de même contenu ne sauve pas de nouveau", async () => {
+test("useKeptUi no longer sends widgets", async () => {
   const { out, render } = await mount();
-  await render(kept, "s1", { widgets: ["kpi"], widget: null });
+  await render(kept, "s1", { widget: "kpi" });
+  expect(out.kept.at(-1)).not.toHaveProperty("widgets");
+});
+
+test("useKeptUi with a new item object of equal value saves nothing more", async () => {
+  const { out, render } = await mount();
+  await render(kept, "s1", { widget: "kpi" });
   const n = out.saved.length;
-  await render(kept, "s1", { widgets: ["kpi"], widget: null });
+  await render(kept, "s1", { widget: "kpi" });
   expect(out.saved.length).toBe(n);
 });
 

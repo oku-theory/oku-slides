@@ -4,10 +4,11 @@
 // Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
+const { closePackTabs, openEssentiel, packTabShown } = require('./lib/atelier.cjs');
 const { untilValue } = require('./lib/until.cjs');
+const { newPackItem, pileThumb } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const TAB = '.widget-tab:not([hidden])';
+const TAB = '.widget-tab';
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -18,12 +19,8 @@ const TAB = '.widget-tab:not([hidden])';
   await closePackTabs(p);
   await p.waitForSelector('.stage img');
   await openEssentiel(p);
-  await p.getByRole('button', { name: 'Nouveau widget' }).click();
-  const name = p.getByRole('textbox', { name: /Nom du widget/ });
-  await name.fill('fiche');
-  await name.press('Enter');
-  // Le sous-onglet s'ouvre après la création : on attend qu'il soit l'actif.
-  await p.getByRole('tab', { name: 'fiche', selected: true }).waitFor();
+  // The item is selected once created (newPackItem waits for its thumbnail, current).
+  await newPackItem(p, 'fiche');
 
   // Le réglage du titre sous l'aperçu (libellé : le nom du paramètre), relu jusqu'à ce que `ok` le prenne :
   // la surface des réglages est reconstruite à chaque relecture.
@@ -50,9 +47,10 @@ const TAB = '.widget-tab:not([hidden])';
   // Le champ vidé le reste dans les réglages (pas de texte d'exemple).
   await titleUntil((v) => v === '', 'vide');
 
-  // Rechargé : le sous-onglet revient, le titre toujours vidé.
+  // Rechargé : l'élément reste choisi, le titre toujours vidé.
   await p.reload();
-  await p.getByRole('tab', { name: 'fiche', selected: true }).waitFor();
+  await packTabShown(p);
+  await pileThumb(p, 'fiche', true).waitFor();
   await titleUntil((v) => v === '', 'vide');
 
   await closePackTabs(p);

@@ -1,47 +1,37 @@
+use rstest::rstest;
 use speculoos::prelude::*;
 
-use super::{MAX_WIDGET_TABS, PileSection, UiState};
-
-fn tabs(widgets: &[&str], widget: Option<&str>) -> UiState {
-    UiState {
-        widgets: widgets.iter().map(|s| (*s).to_owned()).collect(),
-        widget: widget.map(str::to_owned),
-        ..UiState::default()
-    }
-}
+use super::{PileSection, UiState};
 
 #[test]
-fn sanitized_outside_pack_clears_the_tabs() {
-    let ui = tabs(&["kpi"], Some("kpi")).sanitized(false);
-    assert_that!(ui.widgets).is_empty();
+fn sanitized_outside_pack_clears_the_selected_item() {
+    let ui = UiState { widget: Some("kpi".to_owned()), ..UiState::default() }.sanitized(false);
+    assert_that!(ui.widget).is_none();
+}
+
+#[rstest]
+#[case::widget("kpi")]
+#[case::common("_commun")]
+fn sanitized_in_pack_mode_keeps_a_valid_widget(#[case] name: &str) {
+    let ui = UiState { widget: Some(name.to_owned()), ..UiState::default() }.sanitized(true);
+    assert_that!(ui.widget).is_equal_to(Some(name.to_owned()));
+}
+
+#[rstest]
+#[case::empty("")]
+#[case::traversal("../x")]
+#[case::nul("a\0b")]
+#[case::long("a".repeat(300))]
+fn sanitized_in_pack_mode_clears_an_invalid_widget(#[case] name: String) {
+    let ui = UiState { widget: Some(name), ..UiState::default() }.sanitized(true);
     assert_that!(ui.widget).is_none();
 }
 
 #[test]
-fn sanitized_in_pack_mode_drops_invalid_and_duplicate_names() {
-    let ui = tabs(&["kpi", "../x", "Kpi", "kpi", "_commun"], Some("kpi")).sanitized(true);
-    assert_that!(ui.widgets).is_equal_to(vec!["kpi".to_owned(), "_commun".to_owned()]);
-}
-
-#[test]
-fn sanitized_in_pack_mode_caps_the_list() {
-    let names: Vec<String> = (0..MAX_WIDGET_TABS + 10).map(|i| format!("w{i}")).collect();
-    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-    assert_that!(tabs(&refs, None).sanitized(true).widgets).has_length(MAX_WIDGET_TABS);
-}
-
-#[test]
-fn sanitized_with_an_active_tab_not_open_drops_it() {
-    assert_that!(tabs(&["kpi"], Some("quote")).sanitized(true).widget).is_none();
-}
-
-#[test]
 fn sanitized_drops_duplicate_folded_sections() {
-    let ui = UiState {
-        folded: vec![PileSection::Widgets, PileSection::Layouts, PileSection::Widgets],
-        ..UiState::default()
-    };
-    assert_that!(ui.sanitized(true).folded).is_equal_to(vec![PileSection::Widgets, PileSection::Layouts]);
+    let ui =
+        UiState { folded: vec![PileSection::Layouts, PileSection::Slides, PileSection::Layouts], ..UiState::default() };
+    assert_that!(ui.sanitized(true).folded).is_equal_to(vec![PileSection::Layouts, PileSection::Slides]);
 }
 
 #[test]
@@ -66,17 +56,19 @@ fn ui_state_with_the_removed_board_and_code_place_still_reads() {
     assert_that!(ui).is_equal_to(UiState { code: true, code_width: Some(640), ..UiState::default() });
 }
 
-/// Couche serde : un `UiState` écrit avant t-541 (cas d'exemple courant de chaque widget)
-/// se relit, `case` ignoré ; les autres champs sont gardés.
+/// Serde layer: a `UiState` written before t-541 (each widget's current example case)
+/// reads back, `case` ignored; the other fields are kept.
 #[test]
 fn ui_state_with_the_removed_current_cases_still_reads() {
-    let ui: UiState =
-        serde_json::from_str(r#"{"slide":null,"widgets":["kpi"],"widget":"kpi","case":{"kpi":"Long"}}"#).unwrap();
-    assert_that!(ui).is_equal_to(UiState {
-        widgets: vec!["kpi".to_owned()],
-        widget: Some("kpi".to_owned()),
-        ..UiState::default()
-    });
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"widget":"kpi","case":{"kpi":"Long"}}"#).unwrap();
+    assert_that!(ui).is_equal_to(UiState { widget: Some("kpi".to_owned()), ..UiState::default() });
+}
+
+/// Serde layer: a `UiState` written with the widget sub-tabs (before t-1244) reads back without them.
+#[test]
+fn ui_state_with_legacy_widgets_key_reads() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"widgets":["kpi","_commun"],"widget":"kpi"}"#).unwrap();
+    assert_that!(ui).is_equal_to(UiState { widget: Some("kpi".to_owned()), ..UiState::default() });
 }
 
 /// La pile des slides, repliée hors mode pack, se garde comme les sections du mode pack.
@@ -86,16 +78,25 @@ fn ui_state_with_the_slides_section_folded_reads() {
     assert_that!(ui.folded).is_equal_to(vec![PileSection::Slides]);
 }
 
-/// L'état gardé d'avant le retrait de la carte des paramètres se relit sans elle.
+/// The kept state's reader, as `state.json` uses it.
+#[derive(serde::Deserialize)]
+struct Kept {
+    #[serde(deserialize_with = "crate::views::kept_ui")]
+    ui: UiState,
+}
+
+/// A kept state from before the parameters card was removed reads back without it.
 #[test]
 fn kept_ui_with_a_retired_section_folded_drops_it() {
-    #[derive(serde::Deserialize)]
-    struct Kept {
-        #[serde(deserialize_with = "crate::views::kept_ui")]
-        ui: UiState,
-    }
     let kept: Kept = serde_json::from_str(r#"{"ui":{"slide":null,"folded":["params","widgets"]}}"#).unwrap();
-    assert_that!(kept.ui.folded).is_equal_to(vec![PileSection::Widgets]);
+    assert_that!(kept.ui.folded).is_empty();
+}
+
+/// A kept state from before t-1244 folds the widgets section: only that section goes.
+#[test]
+fn kept_ui_with_legacy_widgets_section_drops_it_only() {
+    let kept: Kept = serde_json::from_str(r#"{"ui":{"slide":null,"folded":["widgets","layouts"]}}"#).unwrap();
+    assert_that!(kept.ui.folded).is_equal_to(vec![PileSection::Layouts]);
 }
 
 /// Hors de l'état gardé, une section inconnue est refusée.

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Deck, PackFiles, PackVersion, SourceBundle};
+use oku_slides_core::{Deck, PackFiles, PackKind, PackVersion, SourceBundle};
 
 use crate::agent::bounds::label;
 use crate::deck_closure::{combined_pins, pinned_versions};
@@ -23,8 +23,9 @@ use crate::error::{
     SingleDocumentSnafu, SourcesSnafu, UnknownWidgetSnafu,
 };
 use crate::pack_lease::{LeaseScope, PackLease};
+use crate::pack_mode::layout_slide_id;
+use crate::pack_mode_preview::preview_slide_id;
 use crate::pack_receive::is_library_pack;
-use crate::views::MAX_WIDGET_TABS;
 use crate::widgets_edit::parse_name;
 use crate::{Document, Mode, Result, Session, TabDocument, TabInfo};
 
@@ -54,7 +55,7 @@ impl std::fmt::Debug for PreviewSeed {
 /// Where opening a pack from this tab goes.
 #[derive(Debug)]
 pub(crate) enum PackRoute {
-    /// Done here: this tab edits the pack; its sub-tab opened, if one was named.
+    /// Done here: this tab edits the pack; its item selected, if one was named.
     Here,
     /// A library pack: open a pack tab; nothing changed here yet.
     Tab {
@@ -81,22 +82,12 @@ pub(crate) struct PackWrite {
     pub version: PackVersion,
 }
 
-/// True if `files` hold the widget `name` (a bare name; a layout pack's layouts are its widgets).
+/// True if `files` hold the item `name` (a bare name; a layout pack's layouts are its widgets).
 ///
-/// `_commun` is never a widget one opens.
+/// `_commun` is an item whether or not the file exists.
 fn has_widget(files: &PackFiles, name: &str) -> Result<bool> {
     let file = parse_name(name)?;
-    Ok(!file.is_common() && files.widget(&file).is_some())
-}
-
-/// Makes room for one more sub-tab in `widgets`, capped at `cap`.
-///
-/// The oldest sub-tab other than `active` goes; the active one only when it is the last.
-fn make_room(widgets: &mut Vec<String>, active: Option<&str>, cap: usize) {
-    while !widgets.is_empty() && widgets.len() >= cap {
-        let oldest = widgets.iter().position(|w| Some(w.as_str()) != active).unwrap_or(0);
-        widgets.remove(oldest);
-    }
+    Ok(file.is_common() || files.widget(&file).is_some())
 }
 
 impl Session {
@@ -114,13 +105,28 @@ impl Session {
         matches!(self.mode, Mode::Deck) && self.doc.path.is_none() && self.tab_info().pristine
     }
 
+    /// Refuses opening any pack from this tab: help, history, a theme tab.
+    ///
+    /// The check every pack open shares, before its own (`route_pack`, a new pack).
+    ///
+    /// # Errors
+    ///
+    /// `ReadOnly`, `InHistory`, `WrongDocument { kind: Theme }`.
+    pub(crate) fn can_open_pack(&self) -> Result<()> {
+        self.ensure_editable()?;
+        match self.mode {
+            Mode::Theme { .. } => crate::document_kind::refused_in_theme_tab(),
+            Mode::Deck | Mode::Help { .. } | Mode::Pack { .. } | Mode::History { .. } => Ok(()),
+        }
+    }
+
     /// Routes opening `pack` from this tab (decision 10's table).
     ///
     /// A deck tab opens a library pack in a pack tab, and a deck-only pack it
     /// pins in a deck-pack tab; a pack tab opens its own pack's widget here,
     /// another library pack in a pack tab, and refuses another deck-only one.
     /// Without a lease scope (single-document host) a pack opens nowhere but in
-    /// the tab already editing it. Changes nothing unless it opens a sub-tab of
+    /// the tab already editing it. Changes nothing unless it selects an item of
     /// the pack this tab edits.
     ///
     /// # Errors
@@ -130,9 +136,9 @@ impl Session {
     ///
     /// # Blocking
     ///
-    /// Reads the library index; persists when it opens a sub-tab.
+    /// Reads the library index; persists when it selects an item.
     pub(crate) fn route_pack(&mut self, pack: Uuid, widget: Option<&str>) -> Result<PackRoute> {
-        self.ensure_editable()?;
+        self.can_open_pack()?;
         let stored = self.pack_base(pack)?;
         if let Some(w) = widget {
             ensure!(has_widget(&stored.files, w)?, UnknownWidgetSnafu { name: label(w) });
@@ -150,7 +156,7 @@ impl Session {
         match (edited, tab) {
             (Some(true), _) => {
                 if let Some(w) = widget {
-                    self.open_widget_tab(w)?;
+                    self.select_item(w)?;
                 }
                 Ok(PackRoute::Here)
             }
@@ -230,9 +236,20 @@ impl Session {
         self.install_preview(seed)?;
         self.enter_pack(pack, Some(lease), None)?;
         if let Some(w) = widget {
-            self.open_widget_tab(w)?;
+            self.select_item(w)?;
         }
         Ok(())
+    }
+
+    /// Records that this pack or theme tab created its document empty, as `id`.
+    ///
+    /// Set once, before resume is armed; never cleared (a copy saved since keeps it).
+    pub(crate) fn mark_created_empty(&mut self, id: Uuid) {
+        match &mut self.mode {
+            Mode::Pack { edit, .. } => edit.created_empty = Some(id),
+            Mode::Theme { edit, .. } => edit.created_empty = Some(id),
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => {}
+        }
     }
 
     /// Installs `seed` as the document of this fresh session, never adopting.
@@ -278,7 +295,10 @@ impl Session {
         self.init_pack_tab(*seed, lease, pack, widget)
     }
 
-    /// Opens `widget`'s sub-tab in the pack this tab edits, then persists.
+    /// Selects `widget`, the one item of the pack this tab edits, then persists.
+    ///
+    /// Sets `ui.widget`, and `ui.slide` to the item's slide when the working
+    /// deck has it (not for `_commun`).
     ///
     /// # Errors
     ///
@@ -287,17 +307,22 @@ impl Session {
     /// # Blocking
     ///
     /// Persists the UI state (writes `state.json`).
-    pub(crate) fn open_widget_tab(&mut self, widget: &str) -> Result<()> {
+    pub(crate) fn select_item(&mut self, widget: &str) -> Result<()> {
         let Mode::Pack { edit, .. } = &self.mode else { return NotEditingPackSnafu.fail()? };
         let files = self.doc.sources.packs.get(&edit.base);
         let files = files.context(PackVersionMissingSnafu { id: edit.pack, version: edit.base.clone() })?;
         ensure!(has_widget(files, widget)?, UnknownWidgetSnafu { name: label(widget) });
+        let file = parse_name(widget)?;
+        let slide = match files.kind() {
+            PackKind::Layouts => layout_slide_id(&file),
+            PackKind::Widgets => preview_slide_id(&file),
+        };
+        let slide = (!file.is_common() && self.deck().slides.iter().any(|s| s.id == slide)).then_some(slide);
         let mut ui = std::mem::take(&mut self.ui);
-        if !ui.widgets.iter().any(|w| w == widget) {
-            make_room(&mut ui.widgets, ui.widget.as_deref(), MAX_WIDGET_TABS);
-            ui.widgets.push(widget.to_owned());
-        }
         ui.widget = Some(widget.to_owned());
+        if slide.is_some() {
+            ui.slide = slide;
+        }
         self.ui = ui.sanitized(true);
         self.persist(false);
         Ok(())
@@ -321,6 +346,7 @@ impl Session {
             pristine: false,
             theme: preview.theme.as_ref().and_then(|ns| preview.themes.get(ns)).map(|pin| pin.id),
             document,
+            created: edit.created_empty,
         })
     }
 

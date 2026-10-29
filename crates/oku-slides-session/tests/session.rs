@@ -300,7 +300,7 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_width": null, "folded": []}));
+        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "folded": []}));
 }
 
 #[test]
@@ -328,12 +328,12 @@ fn ui_request_with_code_width_keeps_it_in_snapshot() {
     assert_that!(snapshot_json(&mut s)["ui"]["code_width"]).is_equal_to(json!(640));
 }
 
-/// Les sections repliées de la pile sont gardées.
+/// The pile's folded sections are kept.
 #[test]
 fn ui_request_with_folded_sections_keeps_them_in_snapshot() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "folded": ["widgets"]}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]["folded"]).is_equal_to(json!(["widgets"]));
+    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "folded": ["layouts"]}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["ui"]["folded"]).is_equal_to(json!(["layouts"]));
 }
 
 /// Une section inconnue est refusée à la frontière.
@@ -355,7 +355,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widgets": [], "widget": null, "code": false, "code_width": null, "folded": []}));
+        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "folded": []}));
 }
 
 #[test]
@@ -365,7 +365,7 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
         .unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widgets": [], "widget": null, "code": false, "code_width": null, "folded": []}),
+        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "code_width": null, "folded": []}),
     );
 }
 

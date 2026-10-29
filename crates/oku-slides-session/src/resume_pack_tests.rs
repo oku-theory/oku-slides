@@ -146,7 +146,7 @@ fn resume_pack_tab_reopens_as_a_pack_tab() {
 fn resume_pack_tab_restores_its_ui() {
     let data = fresh_dir("oku-slides-resume-pack-");
     let mut live = live_editor(data.path());
-    live.editor.open_widget_tab("card").unwrap();
+    live.editor.select_item("card").unwrap();
     let dormant = park(live);
     let (back, _) = resumed(data.path(), dormant.dir.path());
     assert_that!(back.ui.widget.as_deref()).is_equal_to(Some("card"));

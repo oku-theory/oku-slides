@@ -1,11 +1,10 @@
-// L'état d'interface gardé par l'hôte pour la reprise : slide courante, grille et fantômes de la scène,
-// largeurs des colonnes, code des widgets (affiché, largeur), sections repliées, sous-onglets.
+// The interface state the host keeps for the resume: current slide, the stage's grid and ghosts,
+// column widths, widget code (shown, width), folded sections, a pack tab's selected item.
 
 import { useEffect, useState } from "react";
 import type { PileSectionName, UiOrder, UiState } from "./api";
 import { REAL_TIMERS, type Timers } from "./debounce";
 import { randomId } from "./randomId";
-import type { KeptTabs } from "./widgetTabs";
 
 // Ordre des sauvegardes : chacune part tout de suite (rien n'attend côté page), et l'hôte ignore celle
 // qui arrive après une plus récente. À la fermeture (⌘Q, dernière fenêtre), l'hôte attend les requêtes
@@ -66,7 +65,7 @@ export interface KeptUi {
   codeWidth: number | null;
   /** Retient une nouvelle largeur du code (et la fait garder par l'hôte). */
   setCodeWidth: (width: number | null) => void;
-  /** Sections repliées (miniatures, widgets). */
+  /** Folded sections (thumbnails). */
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;
@@ -82,7 +81,7 @@ export interface KeptUi {
  * Grille, fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
  * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement, tout de suite, numérotés
  * (`UiOrder`) pour que l'hôte garde la dernière quel que soit l'ordre d'arrivée.
- * `tabs` : sous-onglets à garder avec le reste. Une sauvegarde échouée est renvoyée une fois (`timers` : tests).
+ * `item`: a pack tab's selected item, kept with the rest. Une sauvegarde échouée est renvoyée une fois (`timers` : tests).
  * `save` doit rester la même fonction (`api.ui`) : un changement de sa seule
  * référence ne relance pas la sauvegarde.
  */
@@ -90,7 +89,7 @@ export function useKeptUi(
   kept: UiState | null,
   current: string | null,
   save: (ui: UiState, order: UiOrder) => Promise<unknown>,
-  tabs: KeptTabs,
+  item: Pick<UiState, "widget">,
   timers: Timers = REAL_TIMERS,
 ): KeptUi {
   const [grid, setGrid] = useState(true);
@@ -115,9 +114,9 @@ export function useKeptUi(
 
   useEffect(() => {
     if (!restored) return;
-    send(save, { slide: current, grid, ghosts, ...columns, ...tabs, code, code_width: codeWidth, folded }, timers);
+    send(save, { slide: current, grid, ghosts, ...columns, widget: item.widget, code, code_width: codeWidth, folded }, timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
-  }, [restored, current, grid, ghosts, columns, tabs.widgets.join("\n"), tabs.widget, code, codeWidth, folded]);
+  }, [restored, current, grid, ghosts, columns, item.widget, code, codeWidth, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>

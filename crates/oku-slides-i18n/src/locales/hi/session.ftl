@@ -122,6 +122,7 @@ deck-new-title = नया प्रेज़ेंटेशन
 deck-new-slide-title = स्लाइड का शीर्षक
 deck-new-slide-text = बताइए कि आप क्या दिखाना चाहते हैं।
 pack-default-name = मेरा पैक
+theme-default-name = मेरी थीम
 pack-copy-name = { $name } (कॉपी)
 theme-copy-name = { $name } (वैरिएंट)
 theme-copy-of = { $name } (कॉपी)
@@ -155,6 +156,7 @@ packs-relation-parallel = यह प्रेज़ेंटेशन आपक�
 packs-use-mine = मेरा संस्करण उपयोग करें
 packs-make-current = उनके संस्करण को मेरा संस्करण बनाएँ
 packs-remove = हटाएँ
+packs-pack-open = खोलें
 packs-add = लाइब्रेरी से जोड़ें
 packs-theme-overrides = { $count ->
     [one] प्रस्तुति का { $count } बदलाव

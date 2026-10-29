@@ -8,31 +8,47 @@ use std::sync::{Mutex, MutexGuard};
 
 use oku_slides_platform::storage::Storage;
 use snafu::{OptionExt, ResultExt, ensure};
+use uuid::Uuid;
 
 use crate::error::{ImportSnafu, PackTabNotFreshSnafu};
 use crate::import::{ImportRequest, ImportTarget, PackLookup, import};
+use crate::library_packs::{DraftKind, PackLibrary};
 use crate::pack_lease::PackLease;
 use crate::pack_tab::PreviewSeed;
+use crate::{TabDocument, TabInfo};
 
 use super::{
     Fonts, Platform, Result, Session, Slot, TABS_DIR, Tab, TabPlace, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu,
     Workspace, WorkspaceOutcome, WorkspaceRequest, is_tab_id, relock, resolve, tab_session,
 };
 
-/// De quoi supprimer les dossiers d'onglets fermés, verrou rendu.
+/// What deletes the closed tabs' folders and untouched drafts, once the lock is released.
 pub(super) struct Trash {
     pub(super) storage: Storage,
     pub(super) dir: Option<PathBuf>,
+    /// The workspace's library, where the drafts gone tabs created empty are collected.
+    pub(super) library: PackLibrary,
+    /// The packs and themes the remaining tabs show, read under the lock: never collected.
+    pub(super) shown: Vec<Uuid>,
 }
 
 impl Trash {
-    /// Chaque session n'écrit plus rien, puis son dossier est supprimé.
+    /// Each session stops writing and goes; its untouched draft, then its folder, are deleted.
     ///
-    /// Toujours après l'écriture de `workspace.json` : jamais d'onglet cité
-    /// sans dossier.
+    /// Always after `workspace.json` is written: never a tab cited without
+    /// its folder. A draft the tab created empty is collected once its
+    /// session (and lease) is gone, unless a remaining tab shows it
+    /// ([`PackLibrary::discard_untouched`]); a failure is logged, never returned.
     pub(super) fn empty(&self, gone: Vec<(String, Tab)>) {
         for (id, tab) in gone {
             relock(&tab.session).stop_resume(&id);
+            let created = self.created_draft(&tab.info);
+            drop(tab);
+            if let Some((kind, draft)) = created
+                && let Err(e) = self.library.discard_untouched(kind, draft)
+            {
+                tracing::warn!(tab = %id, draft = %draft, error = %e.one_line(), "untouched draft not deleted");
+            }
             let Some(dir) = &self.dir else { continue };
             // Double contrôle : jamais de suppression hors de `tabs/`.
             if !is_tab_id(&id) {
@@ -45,6 +61,36 @@ impl Trash {
             }
         }
     }
+
+    /// The draft a gone tab created empty, with its kind, unless a remaining tab shows it.
+    fn created_draft(&self, info: &TabInfo) -> Option<(DraftKind, Uuid)> {
+        let created = info.created.filter(|id| !self.shown.contains(id))?;
+        match info.document {
+            TabDocument::Pack { .. } => Some((DraftKind::Pack, created)),
+            TabDocument::Theme { .. } => Some((DraftKind::Theme, created)),
+            TabDocument::Deck { .. } | TabDocument::Help { .. } | TabDocument::DeckPack { .. } => None,
+        }
+    }
+}
+
+/// The library packs and themes the tabs `infos` show: their drafts stay.
+pub(super) fn shown_drafts<'a>(infos: impl Iterator<Item = &'a TabInfo>) -> Vec<Uuid> {
+    infos
+        .filter_map(|info| match info.document {
+            TabDocument::Pack { pack } => Some(pack),
+            TabDocument::Theme { theme } => Some(theme),
+            TabDocument::Deck { .. } | TabDocument::Help { .. } | TabDocument::DeckPack { .. } => None,
+        })
+        .collect()
+}
+
+/// Whether an open created its document empty: it then records the id, for collection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Created {
+    /// An existing pack or theme.
+    No,
+    /// A pack or theme created empty for this open.
+    Yes,
 }
 
 /// Ce que devient une requête d'onglet sous le verrou.
@@ -69,13 +115,17 @@ pub(super) enum Opening {
     Pack {
         /// The pack the new tab edits.
         pack: uuid::Uuid,
-        /// A widget whose sub-tab opens.
+        /// An item selected in the pack tab.
         widget: Option<String>,
+        /// The pack was created empty for this tab.
+        created: Created,
     },
     /// A theme tab; its lease is passed to [`Pending::build_theme`].
     Theme {
         /// The theme the new tab edits.
         theme: uuid::Uuid,
+        /// The theme was created empty for this tab.
+        created: Created,
     },
     /// A deck-only pack's tab, linked to its owner deck.
     DeckPack {
@@ -100,6 +150,25 @@ pub(super) static FAIL_DECK_PACK_BUILD: std::sync::atomic::AtomicBool = std::syn
 #[cfg(test)]
 pub(super) static DURING_DECK_PACK_BUILD: std::sync::Mutex<Option<Box<dyn FnOnce() + Send>>> =
     std::sync::Mutex::new(None);
+
+/// Makes the next pack or theme open fail before anything, once (tests only).
+///
+/// Nextest only: one process per test, so no other test sees it set.
+#[cfg(test)]
+pub(super) static FAIL_NEXT_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Fails once after `FAIL_NEXT_OPEN` is set (tests only); otherwise does nothing.
+///
+/// # Errors
+///
+/// `PackTabNotFresh`, once, while armed.
+#[cfg(test)]
+pub(super) fn open_failpoint() -> Result<()> {
+    if FAIL_NEXT_OPEN.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        return PackTabNotFreshSnafu.fail()?;
+    }
+    Ok(())
+}
 
 /// L'import qu'un onglet à créer montrera.
 pub(super) struct ImportOpening {
@@ -174,9 +243,13 @@ impl Pending {
     ///
     /// Builds and renders a session.
     pub(super) fn build_pack(&self, seed: PreviewSeed, lease: PackLease) -> Result<Session> {
-        let Opening::Pack { pack, widget } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
+        let Opening::Pack { pack, widget, created } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
         let mut session = tab_session(&self.fonts, &self.platform)?;
         session.init_pack_tab(seed, lease, *pack, widget.as_deref())?;
+        // Before resume is armed: `state.json` and `workspace.json` carry it from the first write.
+        if *created == Created::Yes {
+            session.mark_created_empty(*pack);
+        }
         self.arm_resume(&mut session);
         Ok(session)
     }
@@ -220,9 +293,12 @@ impl Pending {
     ///
     /// Builds a session, renders the specimen deck and freezes the theme's base.
     pub(super) fn build_theme(&self, lease: Option<PackLease>) -> Result<Session> {
-        let Opening::Theme { theme } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
+        let Opening::Theme { theme, created } = &self.opening else { return PackTabNotFreshSnafu.fail()? };
         let mut session = tab_session(&self.fonts, &self.platform)?;
         session.init_theme_tab(lease, *theme)?;
+        if *created == Created::Yes {
+            session.mark_created_empty(*theme);
+        }
         self.arm_resume(&mut session);
         Ok(session)
     }
@@ -463,6 +539,8 @@ impl Workspace {
             | WorkspaceRequest::ImportPicked { .. }
             | WorkspaceRequest::OpenPack { .. }
             | WorkspaceRequest::OpenTheme { .. }
+            | WorkspaceRequest::NewPack { .. }
+            | WorkspaceRequest::NewTheme { .. }
             | WorkspaceRequest::PackOpener { .. }
             // Handled in `apply` itself (flushed outside the lock first, the last
             // window decided under the same lock as the close): never reached here.

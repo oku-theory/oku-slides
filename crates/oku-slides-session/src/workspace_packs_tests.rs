@@ -14,7 +14,7 @@ use crate::library::DraftWrite;
 use crate::pack_lease::{PackLease, pack_leased};
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, rename_title, workspace_on};
 use crate::test_support_packs::{CARD_V2, as_workshop, assert_unleased, draft_of, editing, pack_tab_of};
-use crate::workspace::{Opening, TABS_DIR, TabPlace};
+use crate::workspace::{Created, Opening, TABS_DIR, TabPlace};
 use crate::{BASE_PACK, Request, SessionErrorKind, TabDocument, Workspace, WorkspaceOutcome};
 
 /// `tab`'s deck in a widget session on `acme`: whether it is one, and its draft's library write.
@@ -139,7 +139,7 @@ fn open_pack_asks_the_gate_once_with_no_other_lock() {
             calls.push((g, free, answered.recv_timeout(Duration::from_secs(10)).ok()));
             true
         };
-        Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate)).unwrap();
+        Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate), Created::No).unwrap();
         calls
     });
     assert_that!(calls).is_equal_to(vec![(PackGate::NewTab, true, Some(true))]);
@@ -280,7 +280,7 @@ fn open_pack_never_replaces_a_pristine_tab() {
     let data = fresh_dir("oku-slides-ws-packs-");
     let ws = workspace_on(data.path());
     assert_that!(Workspace::lock(&ws).tabs["t-1"].info.pristine).is_true();
-    Workspace::open_pack_with(&ws, "t-1", BASE_PACK, None, Opener::Ui).unwrap();
+    Workspace::open_pack_with(&ws, "t-1", BASE_PACK, None, Opener::Ui, Created::No).unwrap();
     assert_that!(Workspace::lock(&ws).layout.windows[0].tabs.clone())
         .is_equal_to(vec!["t-1".to_owned(), "t-2".to_owned()]);
 }
@@ -305,7 +305,11 @@ fn open_pack_whose_build_fails_leaves_no_lease() {
     let seed = f.with("t-1", |s| s.take_preview(f.acme)).unwrap();
     let lease = PackLease::acquire(&f.scope, d, "d", "d").unwrap();
     let place = TabPlace::After("t-1".into());
-    let pending = Workspace::lock(&f.ws).pending(Some("w-1".into()), Opening::Pack { pack: d, widget: None }, place);
+    let pending = Workspace::lock(&f.ws).pending(
+        Some("w-1".into()),
+        Opening::Pack { pack: d, widget: None, created: Created::No },
+        place,
+    );
     let err = pending.build_pack(*seed, lease).unwrap_err();
     let folder = f.resume.as_ref().unwrap().join(TABS_DIR).join(&pending.id);
     assert_unleased(&f.scope, d);

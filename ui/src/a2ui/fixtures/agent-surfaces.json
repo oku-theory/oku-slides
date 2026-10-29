@@ -1598,10 +1598,30 @@
               "variant": "caption"
             },
             {
+              "id": "layouts/essentiel/open",
+              "component": "Button",
+              "label": "Ouvrir",
+              "action": {
+                "event": {
+                  "name": "open_pack",
+                  "context": {
+                    "pack": "d5eb8a57-07b4-47f7-a818-dde5347160cf"
+                  }
+                }
+              }
+            },
+            {
               "id": "layouts/essentiel/refusal",
               "component": "Text",
               "text": "Le pack essentiel est encore utilisé par 8 éléments.",
               "variant": "caption"
+            },
+            {
+              "id": "layouts/essentiel/actions",
+              "component": "Row",
+              "children": [
+                "layouts/essentiel/open"
+              ]
             },
             {
               "id": "layouts/essentiel/body",
@@ -1609,7 +1629,8 @@
               "children": [
                 "layouts/essentiel/head",
                 "layouts/essentiel/ns",
-                "layouts/essentiel/refusal"
+                "layouts/essentiel/refusal",
+                "layouts/essentiel/actions"
               ]
             },
             {
@@ -1657,10 +1678,30 @@
               "variant": "caption"
             },
             {
+              "id": "widgets/base/open",
+              "component": "Button",
+              "label": "Ouvrir",
+              "action": {
+                "event": {
+                  "name": "open_pack",
+                  "context": {
+                    "pack": "3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13"
+                  }
+                }
+              }
+            },
+            {
               "id": "widgets/base/refusal",
               "component": "Text",
               "text": "Chaque deck garde le pack de widgets de base.",
               "variant": "caption"
+            },
+            {
+              "id": "widgets/base/actions",
+              "component": "Row",
+              "children": [
+                "widgets/base/open"
+              ]
             },
             {
               "id": "widgets/base/body",
@@ -1668,7 +1709,8 @@
               "children": [
                 "widgets/base/head",
                 "widgets/base/ns",
-                "widgets/base/refusal"
+                "widgets/base/refusal",
+                "widgets/base/actions"
               ]
             },
             {
@@ -1706,6 +1748,19 @@
               "component": "Text",
               "text": "Ce deck utilise une version plus récente que la vôtre.",
               "variant": "note"
+            },
+            {
+              "id": "widgets/acme/open",
+              "component": "Button",
+              "label": "Ouvrir",
+              "action": {
+                "event": {
+                  "name": "open_pack",
+                  "context": {
+                    "pack": "00000000-0000-0000-0000-00000000ac3e"
+                  }
+                }
+              }
             },
             {
               "id": "widgets/acme/use-mine",
@@ -1755,6 +1810,7 @@
               "id": "widgets/acme/actions",
               "component": "Row",
               "children": [
+                "widgets/acme/open",
                 "widgets/acme/use-mine",
                 "widgets/acme/make-current",
                 "widgets/acme/remove"

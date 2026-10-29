@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
-use super::{Opener, PackOpened};
+use super::{Created, Opener, PackOpened};
 use crate::agent::PackGate;
 use crate::pack_lease::LeaseScope;
 use crate::test_support::{adopt_deck_only_pack, apply_ws, fresh_dir, rename_title, resumed_on, workspace_on};
@@ -70,7 +70,7 @@ impl Packs {
 
     /// Opens `pack` from `tab` as the user.
     pub(in crate::workspace) fn open(&self, tab: &str, pack: Uuid, widget: Option<&str>) -> Result<PackOpened> {
-        Workspace::open_pack_with(&self.ws, tab, pack, widget, Opener::Ui)
+        Workspace::open_pack_with(&self.ws, tab, pack, widget, Opener::Ui, Created::No)
     }
 
     /// Opens `pack` from `tab` for an agent whose gate is `gate`.
@@ -80,7 +80,7 @@ impl Packs {
         pack: Uuid,
         gate: &mut dyn FnMut(PackGate) -> bool,
     ) -> Result<PackOpened> {
-        Workspace::open_pack_with(&self.ws, tab, pack, None, Opener::Agent(gate))
+        Workspace::open_pack_with(&self.ws, tab, pack, None, Opener::Agent(gate), Created::No)
     }
 
     /// Opens `acme` from `t-1` as the user: the new pack tab.

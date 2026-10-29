@@ -72,6 +72,8 @@ impl Drift {
 /// Un pack épinglé : identité, relation à la bibliothèque, refus de retrait.
 #[derive(Debug)]
 pub struct PinnedPackView {
+    /// The pack's id, as the deck's pin names it.
+    pub id: Uuid,
     /// La sorte du pack.
     pub kind: PackKind,
     /// Son espace de noms dans le deck.
@@ -375,6 +377,7 @@ impl Session {
     fn pinned_view(&self, kind: PackKind, ns: &Namespace, pin: &PackPin) -> PinnedPackView {
         let deck_only = self.embeds_deck_only(pin);
         PinnedPackView {
+            id: pin.id,
             kind,
             namespace: ns.clone(),
             name: self.pack_name(ns, pin),

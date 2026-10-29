@@ -1,11 +1,11 @@
 /**
- * Fichiers de widgets du pack édité : statuts, frappes, une file d'opérations.
+ * The edited pack's item files: statuses, typing, one queue of operations.
  *
- * Partagé par la pile et les sous-onglets. Chaque fichier a son délai de
- * frappe (400 ms) ; toutes les opérations passent l'une après l'autre, dans
- * l'ordre. Règles de t-390 conservées : essai refusé (`saved: false`),
- * diagnostics du rendu gardés à la première relecture, frappe pendant un
- * renommage redirigée vers le nouveau nom.
+ * Shared by the pile and the selected item's view. Each file has its typing
+ * delay (400 ms); every operation runs after the previous one, in order.
+ * Rules of t-390 kept: a refused trial (`saved: false`), the render's
+ * diagnostics kept at the first reread, typing during a rename redirected
+ * to the new name.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { errorText, type TabApi, type WidgetStatus } from "./api";
@@ -50,6 +50,8 @@ export interface WidgetFiles {
   fail(e: unknown): void;
   /** Frappes non envoyées, écriture en cours, ou dernière écriture non enregistrée. */
   pending(name: string): boolean;
+  /** The last text tried for `name` while that write stands refused; else `undefined`. */
+  attempted(name: string): string | undefined;
   /** Les frappes de `name` gagnent : envoyées tout de suite, ou le dernier texte tenté renvoyé. */
   keep(name: string): void;
   /** Abandonne les frappes de `name` et ses écritures en file (fichier supprimé ailleurs). */
@@ -184,8 +186,8 @@ export function useWidgetFiles(api: TabApi, pack: string | null, kind: PackKind,
       });
   }, [fail]);
   /**
-   * Un changement local vient d'arriver : une relecture en vol rendrait la liste
-   * d'avant (un sous-onglet renommé élagué, un widget supprimé revenu), on la relance.
+   * A local change just arrived: a reread in flight would give the list from
+   * before (a renamed item falling back, a deleted widget back), so it is run again.
    */
   const invalidate = useCallback(() => {
     if (reading.current) refresh();
@@ -400,7 +402,7 @@ export function useWidgetFiles(api: TabApi, pack: string | null, kind: PackKind,
               setRewrites((r) => withEntry(r, to, { find, replace, silent: true }));
             }
             edits.current.set(to, (edits.current.get(from) ?? 0) + 1);
-            // Le sous-onglet suit avant les statuts sans `from` : il n'est pas élagué.
+            // The selection follows before the statuses without `from`: it does not fall back.
             onRef.current.renamed(from, to);
             setStatuses(ordered(list));
             invalidate();
@@ -468,12 +470,17 @@ export function useWidgetFiles(api: TabApi, pack: string | null, kind: PackKind,
   );
 
   const editsOf = useCallback((name: string) => edits.current.get(name) ?? 0, []);
+  const attemptedOf = useCallback(
+    (name: string) => (unsavedNow.current.has(name) ? attempted.current.get(name) : undefined),
+    [],
+  );
 
   return useMemo(
     () => ({
       statuses, statusesFor, unsaved, checked, writes, rewrites,
-      edit, edits: editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending, keep, forget,
+      edit, edits: editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending,
+      attempted: attemptedOf, keep, forget,
     }),
-    [statuses, statusesFor, unsaved, checked, writes, rewrites, edit, editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending, keep, forget],
+    [statuses, statusesFor, unsaved, checked, writes, rewrites, edit, editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending, attemptedOf, keep, forget],
   );
 }

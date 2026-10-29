@@ -78,7 +78,8 @@ impl Session {
         let kind = self.document_kind();
         let fits = match kind {
             DocumentKind::Theme => req.theme_tab_allows(),
-            DocumentKind::Deck | DocumentKind::Help | DocumentKind::Pack => !req.drafts_theme(),
+            DocumentKind::Deck | DocumentKind::Help => !req.drafts_theme() && !req.pack_only(),
+            DocumentKind::Pack => !req.drafts_theme(),
         };
         ensure!(fits, WrongDocumentSnafu { kind });
         // Before any lease is taken: a refused op takes nothing and freezes nothing.
@@ -90,8 +91,8 @@ impl Session {
 
     /// Refuses caller ops that do not fit this session's kind (`WrongDocument`).
     ///
-    /// A theme tab takes only token ops; a pack tab neither token ops
-    /// nor a theme choice, its theme being the deck's. No caller writes the
+    /// A theme tab takes only token ops; a pack tab neither token ops nor a theme
+    /// choice: its preview theme goes through `apply_silent_ops`. No caller writes the
     /// draft's rank ([`DRAFT_SWITCH_VAR`]): only the theme tab's rank steps do.
     pub(crate) fn ensure_caller_ops(&self, ops: &[Op]) -> Result<()> {
         let kind = self.document_kind();

@@ -11,9 +11,10 @@ export const SIDE_MIN = 240;
 export const SPLIT = 12;
 
 /**
- * Bornes de la largeur du code dans un sous-onglet de `total` px (séparateur compris) :
- * au moins `CODE_MIN` au code et `SIDE_MIN` aux réglages ; trop étroit pour les deux,
- * moitié / moitié ; sans place du tout (rien de mesuré), zéro.
+ * Bounds of the code's width in an item view `total` px wide (divider included).
+ *
+ * At least `CODE_MIN` for the code and `SIDE_MIN` for the settings; too narrow for both, half
+ * and half; with no room at all (nothing measured), zero.
  */
 export function codeBounds(total: number): Bounds {
   const room = total - SPLIT;

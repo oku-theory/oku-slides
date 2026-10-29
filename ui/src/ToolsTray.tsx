@@ -1,6 +1,6 @@
-// La barre d'outils sous la feuille. On y ouvre la grille d'ajout et le panneau des packs du deck,
-// montre ou cache les miniatures, ouvre le menu, annule et rétablit ; sur un sous-onglet widget,
-// elle porte ses propres outils.
+// The toolbar under the sheet. It opens the add grid and the deck's packs panel, shows or hides
+// the thumbnails, opens the menu, undoes and redoes; in a pack tab, it carries the selected
+// item's editor tools instead.
 
 import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
@@ -9,8 +9,7 @@ import { Icon } from "./icons";
 import { IconToggle } from "./primitives";
 import { acceptsElements } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
-import type { PackWidgetEditor } from "./usePackWidgetEditor";
-import { activeWidget } from "./widgetTabs";
+import type { PackItem } from "./usePackItem";
 import WidgetTools from "./WidgetTools";
 
 /** Ce que la barre d'outils montre et ce qu'elle déclenche. */
@@ -21,10 +20,8 @@ interface Props {
   snap: Snapshot;
   /** La slide montrée, qui dit ce qu'on peut y ajouter. */
   view: SlideView | null;
-  /** Un sous-onglet widget est actif : la barre montre ses outils. */
-  widgetActive: boolean;
-  /** Les sous-onglets widget du mode pack. */
-  widgets: PackWidgetEditor;
+  /** A pack tab's selected item: the bar shows its editor tools; `null` elsewhere. */
+  item: PackItem | null;
   /** Les réglages d'interface gardés par l'hôte. */
   keptUi: KeptUi;
   /** Le menu principal, posé dans la barre. */
@@ -46,8 +43,7 @@ export function ToolsTray({
   api,
   snap,
   view,
-  widgetActive,
-  widgets,
+  item,
   keptUi,
   mainMenu,
   run,
@@ -79,7 +75,7 @@ export function ToolsTray({
         aria-label={t("ui-toolbar-add-label")}
         title={t("ui-toolbar-add-label")}
         aria-haspopup="dialog"
-        hidden={widgetActive || themeTab}
+        hidden={item !== null || themeTab}
         disabled={!acceptsElements(view?.slide.kind, snap.free_slots)}
         onClick={onAdd}
       >
@@ -95,16 +91,16 @@ export function ToolsTray({
           {Icon.packs}
         </button>
       )}
-      <span className="tools-sep" aria-hidden hidden={widgetActive} />
-      {widgetActive ? (
+      <span className="tools-sep" aria-hidden hidden={item !== null} />
+      {item ? (
         <>
           {mainMenu}
           <span className="tools-sep" aria-hidden />
           <WidgetTools
-            tab={activeWidget(widgets.tabs)}
-            history={widgets.history}
-            onUndo={widgets.undo}
-            onRedo={widgets.redo}
+            selected={item.selected !== null}
+            history={item.history}
+            onUndo={item.undo}
+            onRedo={item.redo}
             options={keptUi}
           />
         </>

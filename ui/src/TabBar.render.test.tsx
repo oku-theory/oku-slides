@@ -7,8 +7,11 @@ import type { TabDocument, TabInfo, WindowView, WorkspaceView } from "./api";
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const TabBar = (await import("./TabBar")).default;
+const { setMessages, t } = await import("./i18n");
+const { resetMessages } = await import("./test/messages");
 
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
+afterEach(resetMessages);
 afterEach(async () => {
   const m = mounted;
   mounted = null;
@@ -27,8 +30,8 @@ const tab = (id: string, document: TabDocument = { kind: "deck", path: null, dec
   document,
 });
 
-/** Each tab's badge text, or null. */
-const badges = (host: HTMLElement) => [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-badge")?.textContent ?? null);
+/** Each tab's `data-kind`. */
+const kinds = (host: HTMLElement) => [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("data-kind"));
 
 async function mount(packTab = false, tabs: TabInfo[] = [tab("a", packTab ? { kind: "pack", pack: PACK } : undefined), tab("b")]) {
   const win: WindowView = { label: "main", active: "a", tabs };
@@ -70,9 +73,26 @@ test("TabBar context menu renders outside the glass tab bar", async () => {
   expect(document.querySelector(".tab-menu")?.parentElement).toBe(document.body);
 });
 
-test("TabBar tab in pack mode shows the pack badge", async () => {
+test("TabBar tab in pack mode is of the pack kind", async () => {
   const host = await mount(true);
-  expect(badges(host)).toEqual(["ui-tab-pack", null]);
+  expect(kinds(host)).toEqual(["pack", "deck"]);
+});
+
+test("TabBar pack tab names its kind", async () => {
+  setMessages("en", ["ui-tab-kind-pack = { $title }, pack\nui-tab-kind-theme = { $title }, theme\n"]);
+  const host = await mount(false, [tab("Mine", { kind: "pack", pack: PACK }), tab("Look", { kind: "theme", theme: PACK }), tab("Plain")]);
+  const names = [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("aria-label"));
+  expect(names).toEqual([t("ui-tab-kind-pack", { title: "Mine" }), t("ui-tab-kind-theme", { title: "Look" }), null]);
+  expect(names[0]).toBe("Mine, pack");
+});
+
+test("TabBar has no tab badge and its kind icon is aria-hidden", async () => {
+  const host = await mount(false, [tab("p", { kind: "pack", pack: PACK }), tab("t", { kind: "theme", theme: PACK }), tab("d")]);
+  expect(host.querySelector(".tab-badge")).toBeNull();
+  const icons = [...host.querySelectorAll('[role="tab"]')].map((e) => e.querySelector(".tab-kind-icon"));
+  expect(icons[0]?.getAttribute("aria-hidden")).toBe("true");
+  expect(icons[1]?.getAttribute("aria-hidden")).toBe("true");
+  expect(icons[2]).toBeNull();
 });
 
 // One tab per document kind: the tooltip is the deck's file, else the title.
@@ -87,14 +107,14 @@ test("TabBar tooltip is the deck's file, else the title, whatever the kind", asy
   expect(titles).toEqual(["/d/a.oku-slides.pdf", "new", "help", "pack"]);
 });
 
-test("TabBar badge follows the document kind, pack or deck_pack", async () => {
+test("TabBar kind follows the document kind, pack or deck_pack", async () => {
   const host = await mount(false, [
     tab("pack", { kind: "pack", pack: PACK }),
     tab("deck", { kind: "deck", path: null, deck_uid: null }),
     tab("deck-pack", { kind: "deck_pack", deck_tab: "deck", pack: PACK }),
     tab("help", { kind: "help", locale: "fr" }),
   ]);
-  expect(badges(host)).toEqual(["ui-tab-pack", null, "ui-tab-pack", null]);
+  expect(kinds(host)).toEqual(["pack", "deck", "pack", "help"]);
 });
 
 test("TabBar of a deck tab whose linked tab is the only other tab keeps its close disabled", async () => {
@@ -114,10 +134,10 @@ test("TabBar close others is disabled on a deck-pack tab whose only other tab is
   expect(others?.disabled).toBe(true);
 });
 
-test("TabBar theme tab shows the theme badge, a pack tab still the pack badge", async () => {
+test("TabBar theme tab is of the theme kind, a pack tab still of the pack kind", async () => {
   const host = await mount(false, [
     tab("theme", { kind: "theme", theme: "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31" }),
     tab("pack", { kind: "pack", pack: PACK }),
   ]);
-  expect(badges(host)).toEqual(["ui-tab-theme", "ui-tab-pack"]);
+  expect(kinds(host)).toEqual(["theme", "pack"]);
 });

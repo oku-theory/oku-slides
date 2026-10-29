@@ -91,6 +91,14 @@ pub enum Request {
         /// Targeted theme: namespace, id or name.
         theme: String,
     },
+    /// In a pack tab, previews the working deck in theme `theme`, silently.
+    ///
+    /// `theme`: its namespace, id or name, as for [`Request::SetTheme`]. No undo step,
+    /// not unsaved work; refused outside a pack tab.
+    SetPreviewTheme {
+        /// Targeted theme: namespace, id or name.
+        theme: String,
+    },
     /// Undoes the deck's last step.
     Undo,
     /// Redoes the last undone step.
@@ -407,6 +415,7 @@ impl Session {
                 Request::Snapshot
                     | Request::Apply { .. }
                     | Request::SetTheme { .. }
+                    | Request::SetPreviewTheme { .. }
                     | Request::SetEditedThemeExtends { .. }
                     | Request::EditThemeExtends { .. }
                     | Request::HostToken { .. }
@@ -429,7 +438,7 @@ impl Session {
             self.end_widget_session();
         }
         // Un thème a pu être enregistré ailleurs (autre onglet) : relu au snapshot demandé.
-        if matches!(req, Request::Snapshot | Request::SetTheme { .. }) {
+        if matches!(req, Request::Snapshot | Request::SetTheme { .. } | Request::SetPreviewTheme { .. }) {
             self.theme_list = self.themes.themes();
         }
         match req {
@@ -484,6 +493,7 @@ impl Session {
                     .context(crate::error::UnknownThemeSnafu { theme: theme.as_str() })?;
                 self.set_theme(&ns)?;
             }
+            Request::SetPreviewTheme { theme } => self.set_preview_theme(&theme)?,
             Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
             Request::SetExampleValue { name, param, value } => {
                 self.set_example_values(&name, serde_json::Map::from_iter([(param, value)]))?;

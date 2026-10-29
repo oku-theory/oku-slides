@@ -134,11 +134,11 @@ impl Session {
     ///
     /// The preview is installed from `seed` (never adopting), then pack mode
     /// entered with no lease and the link to `owner`;
-    /// `widget` opens that widget's sub-tab. Resume is turned on by the caller.
+    /// `widget` is selected. Resume is turned on by the caller.
     ///
     /// # Errors
     ///
-    /// `PackTabNotFresh`, `Sources`, and the `enter_pack` and `open_widget_tab` errors.
+    /// `PackTabNotFresh`, `Sources`, and the `enter_pack` and `select_item` errors.
     ///
     /// # Blocking
     ///
@@ -154,7 +154,7 @@ impl Session {
         let link = Box::new(TabLink::new(owner));
         self.enter_pack(pack, None, Some(link))?;
         if let Some(w) = widget {
-            self.open_widget_tab(w)?;
+            self.select_item(w)?;
         }
         Ok(())
     }

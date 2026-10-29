@@ -158,17 +158,10 @@ test("Stage empty field of an unselected element shows no placeholder", async ()
   expect(host.querySelector(".field-placeholder")).toBeNull();
 });
 
-test("Stage empty field in pack mode shows its placeholder", async () => {
-  const empty = { ...fv("c1", "kicker", "", 60), empty: true, side: "before" as const, h: 0, w: 0 };
-  const v = { ...view, fields: [empty, fv("c1", "title", "Titre", 60)] } as SlideView;
-  const { host } = await mount({ view: v, packMode: true });
-  expect(host.querySelector(".field-placeholder")?.textContent).toBe("Surtitre");
-});
-
 test("Stage empty field that keeps a text shows that text ghosted", async () => {
   const hidden = { ...fv("s", "kicker", "Chapitre 2", 60), owner_kind: "slide" as const, empty: true, side: "before" as const, h: 0, w: 0 };
   const v = { ...view, fields: [hidden] } as SlideView;
-  const { host } = await mount({ view: v, packMode: true });
+  const { host } = await mount({ view: v, showGhosts: true });
   expect(host.querySelector(".field-placeholder")?.textContent).toBe("Chapitre 2");
 });
 
@@ -621,7 +614,7 @@ test("Stage Cmd/Ctrl+Alt+arrow in the only item of a list moves nothing", async 
   expect(calls.apply).toEqual([]);
 });
 
-// --- Mode aperçu (sous-onglet d'un widget) -----------------------------------
+// --- Preview mode (a pack tab's selected widget item) ------------------------
 
 /** Slide d'aperçu d'un widget « kpi », recadrée : titre, corps riche, source liée au deck. */
 const pv = (field: string, kind: "plain" | "rich", text: string, y: number, extra: Partial<FieldView> = {}) =>

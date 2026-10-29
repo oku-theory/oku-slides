@@ -3,8 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { closeStays, listenTauri, type TabAt, type TabInfo, tabPath, type WindowView, type WorkspaceView } from "./api";
+import { closeStays, listenTauri, type TabAt, tabPath, type WindowView, type WorkspaceView } from "./api";
+import { Icon } from "./icons";
 import { t } from "./i18n";
+import { documentKind } from "./tabKind";
 import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, othersToClose, outside, slotAt } from "./tabs";
 
 interface Props {
@@ -39,11 +41,10 @@ interface Drag {
   out: boolean;
 }
 
-/** A tab's badge, from its document kind: a pack (library or deck-only) or a theme. */
-function TabBadge({ tab }: { tab: TabInfo }) {
-  const kind = tab.document?.kind;
-  const key = kind === "pack" || kind === "deck_pack" ? "ui-tab-pack" : kind === "theme" ? "ui-tab-theme" : null;
-  return key && <span className="tab-badge">{t(key)}</span>;
+/** A tab's accessible name: its title, with the kind spelled out for a pack or a theme. */
+function tabName(title: string, kind: ReturnType<typeof documentKind>): string | undefined {
+  if (kind === "pack") return t("ui-tab-kind-pack", { title });
+  return kind === "theme" ? t("ui-tab-kind-theme", { title }) : undefined;
 }
 
 /** Barre d'onglets d'une fenêtre. */
@@ -188,7 +189,9 @@ export default function TabBar(props: Props) {
   return (
     <div className={`tabbar${slot === win.tabs.length ? " drop-end" : ""}${incoming ? " drop-target" : ""}`}>
       <div className="tabs" role="tablist" aria-label={t("ui-tabs")}>
-        {win.tabs.map((tab, i) => (
+        {win.tabs.map((tab, i) => {
+          const kind = documentKind(tab.document);
+          return (
           <div
             key={tab.id}
             ref={(el) => {
@@ -198,6 +201,8 @@ export default function TabBar(props: Props) {
             role="tab"
             tabIndex={tab.id === win.active ? 0 : -1}
             aria-selected={tab.id === win.active}
+            aria-label={tabName(tab.title, kind)}
+            data-kind={kind}
             className={`tab${tab.id === win.active ? " active" : ""}${drag?.id === tab.id ? " dragging" : ""}${slot === i ? " drop-before" : ""}`}
             title={tabPath(tab) ?? tab.title}
             onPointerDown={(e) => onPointerDown(e, tab.id)}
@@ -221,8 +226,11 @@ export default function TabBar(props: Props) {
               setMenu({ id: tab.id, x: e.clientX, y: e.clientY });
             }}
           >
-            {/* Pack (of the library or of one deck) or theme, until lot 6's borders. */}
-            <TabBadge tab={tab} />
+            {(kind === "pack" || kind === "theme") && (
+              <span className="tab-kind-icon" aria-hidden="true">
+                {kind === "pack" ? Icon.packs : Icon.palette}
+              </span>
+            )}
             <span className="tab-title">{tab.title}</span>
             {tab.dirty && <span className="tab-dirty" role="img" aria-label={t("ui-tab-unsaved")} />}
             <button
@@ -236,7 +244,8 @@ export default function TabBar(props: Props) {
               ×
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
       <button className="tab-new" aria-label={t("ui-tab-new")} title={t("ui-tab-new")} onClick={onNew}>
         +

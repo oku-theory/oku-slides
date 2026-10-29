@@ -111,7 +111,7 @@ describe("useClipboardEvents", () => {
       const board = useClipboard({ current: null }, 0, s, view);
       useClipboardEvents({
         tab: "t", api: {} as TabApi, snap: s, snapRef: { current: s }, view, selected: null, editing: null,
-        dialogOpen: false, widgetActive: false, themeTab, apply: async () => true, addElement: (w) => void added.push(w),
+        dialogOpen: false, packTab: false, themeTab, apply: async () => true, addElement: (w) => void added.push(w),
         setSelected: () => {}, say: () => {}, share: () => {}, clip: board.clip, setCutMark: board.setCutMark, dropCut: board.dropCut,
       });
       return null;

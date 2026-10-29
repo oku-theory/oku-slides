@@ -49,16 +49,6 @@ describe("widgetGesture", () => {
     expect(widgetGesture(snap({ widgets: { acme: pin("a") } }), "card")).toEqual({ kind: "none" });
   });
 
-  test("widgetGesture in pack mode of the edited pack's widget opens it here", () => {
-    const s = snap({ editing: editing({ pack: "a" }), widgets: { acme: pin("a") } });
-    expect(widgetGesture(s, "acme/card")).toEqual({ kind: "local", name: "card" });
-  });
-
-  test("widgetGesture in pack mode of another pack's widget is none", () => {
-    const s = snap({ editing: editing({ pack: "a" }), widgets: { acme: pin("a"), base: pin("b") } });
-    expect(widgetGesture(s, "base/card")).toEqual({ kind: "none" });
-  });
-
   test("widgetGesture in deck mode with a library pack opens it", () => {
     expect(widgetGesture(snap({ widgets: { acme: pin("a") } }), "acme/card")).toEqual({ kind: "open", pack: "a", name: "card" });
   });

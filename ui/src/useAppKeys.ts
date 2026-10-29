@@ -28,7 +28,8 @@ interface AppKeysContext {
   presenting: PresentMode | null;
   agentStatus: AgentStatusView;
   dialogOpen: boolean;
-  widgetActive: boolean;
+  /** A pack tab: no stage keys; ⌘Z undoes the session unless the item editor has the focus. */
+  packTab: boolean;
   /** A theme tab: no save keys, no slide or element keys. */
   themeTab: boolean;
   cutMark: { slide: string; element: string } | null;
@@ -50,13 +51,13 @@ interface AppKeysContext {
 
 /** Les raccourcis de l'onglet, sauf ceux qu'un composant a déjà pris. */
 export function useAppKeys({
-  api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, widgetActive, themeTab,
+  api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, packTab, themeTab,
   cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
   saveCopy, cancelAgent, setEditing, setSelected,
 }: AppKeysContext) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Déjà prise par un composant (barre des sous-onglets, pile…) : pas deux actions pour une touche.
+      // Already taken by a component (the pile…): never two actions for one key.
       if (e.defaultPrevented) return;
       // La présentation prend ses touches (`Presenter`) ; derrière elle, rien ne réagit.
       if (presenting) return;
@@ -90,7 +91,7 @@ export function useAppKeys({
         return;
       }
       // Slide précédente / suivante : ← → ↑ ↓ sans sélection (sinon elles déplacent l'élément), Page↑ Page↓, Début, Fin.
-      if (snap && !widgetActive) {
+      if (snap && !packTab) {
         const at = snap.slides.findIndex((s) => s.id === current);
         const to = slideTarget(e, at, snap.slides.length, { space: false, arrows: selected === null });
         if (to !== null) {
@@ -99,9 +100,9 @@ export function useAppKeys({
           return;
         }
       }
-      // Sous-onglet widget : ⌘Z va à son éditeur (`usePackWidgetEditor`), jamais au deck de travail.
+      // In a pack tab, ⌘Z inside the item editor is CodeMirror's (its toolbar included); elsewhere, the session's.
       if (mod && e.key.toLowerCase() === "z") {
-        if (widgetActive) return;
+        if (packTab && (e.target as HTMLElement | null)?.closest?.(".typst-editor")) return;
         e.preventDefault();
         dropCut();
         run(e.shiftKey ? api.redo() : api.undo());
@@ -113,7 +114,7 @@ export function useAppKeys({
       } else if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         open();
-      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && snap && current && !widgetActive) {
+      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && snap && current && !packTab) {
         e.preventDefault();
         const i = snap.slides.findIndex((s) => s.id === current);
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
@@ -128,8 +129,8 @@ export function useAppKeys({
           e.preventDefault();
           cancelAgent();
         }
-      } else if (!view || !selected || widgetActive) {
-        // Sous-onglet widget actif : la scène est cachée, ses raccourcis (Entrée, Suppr, flèches) aussi.
+      } else if (!view || !selected || packTab) {
+        // A pack tab shows no stage: no stage keys (Enter, Delete, arrows).
         return;
       } else if (e.key === "Enter") {
         const f = primaryFieldOf(view, selected);

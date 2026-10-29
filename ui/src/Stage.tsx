@@ -1,8 +1,7 @@
-// La scène : le SVG rendu par Typst, et par-dessus la couche des objets
-// (sélection, glisser) et celle des champs (édition en place).
-// En aperçu (sous-onglet d'un widget) : l'image du widget à ses valeurs d'exemple,
-// ses champs et ses listes, sans objets, glisser ni grille ;
-// un champ lié au deck reste en lecture.
+// The stage: the SVG Typst rendered, under the elements layer (selection, drag) and the
+// fields layer (in-place editing).
+// As a preview (a pack tab's selected widget item): the widget's image at its example values,
+// its fields and lists, with no elements, drag or grid; a field bound to the deck stays read-only.
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -96,8 +95,6 @@ interface DeckProps extends CommonProps {
   overlay?: { anchor: { owner: string; field?: string }; node: ReactNode };
   /** Lecture seule (historique) : pas de couche des champs. */
   readOnly?: boolean;
-  /** Mode pack : les placeholders de tous les champs vides se voient. */
-  packMode?: boolean;
   /** Fantômes : zone, objets et champs annotés ; placeholders de tous les champs vides. */
   showGhosts?: boolean;
   /** Widgets du pack, en genres qualifiés : leur étiquette ouvre le widget. */
@@ -168,7 +165,7 @@ export default function Stage(props: Props) {
   const preview = deck === null;
   const {
     selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
-    packMode = false, showGhosts = false, packWidgets, onOpenWidget, hoverPreview,
+    showGhosts = false, packWidgets, onOpenWidget, hoverPreview,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
   const editable = preview ? { ...view, fields: view.fields.filter((f) => !f.bound) } : view;
@@ -438,9 +435,9 @@ export default function Stage(props: Props) {
               {view.fields.map((f) => {
                 const key = fieldKey(f);
                 const bound = preview && f.bound;
-                // On écrit dans les champs de l'objet sélectionné ou en édition ; partout en mode pack,
-                // fantômes ou aperçu (sauf un champ lié au deck).
-                const hot = !bound && (preview || packMode || showGhosts || f.owner === selected || editField?.owner === f.owner);
+                // Writable fields: the selected or edited element's; all of them with ghosts or in a
+                // preview (except a field bound to the deck).
+                const hot = !bound && (preview || showGhosts || f.owner === selected || editField?.owner === f.owner);
                 const ghost = f.empty && key !== editing && hot;
                 return (
                   <div
@@ -501,7 +498,7 @@ export default function Stage(props: Props) {
             );
           })()}
           {hoverPreview && (
-            <PreviewLayer store={hoverPreview} slide={view.slide.id} hold={editing !== null || readOnly || packMode} />
+            <PreviewLayer store={hoverPreview} slide={view.slide.id} hold={editing !== null || readOnly} />
           )}
         </div>
         {overlay && <SheetOverlay view={view} scale={scale} overlay={overlay} />}

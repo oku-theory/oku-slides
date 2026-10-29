@@ -1,11 +1,12 @@
-//! Réglages de l'hôte en mode pack : le widget du sous-onglet actif, adressé
-//! par clé (`host_settings`). L'interface les rend sous l'aperçu du widget.
+//! Host settings in pack mode, addressed by key (`host_settings`).
+//!
+//! They are those of the selected item's widget; the interface renders them under its preview.
 
 use crate::Session;
 use crate::agent::forms::{FormExtras, params_with};
 use crate::agent::{ShowParams, Surface};
 
-/// Surface des réglages du widget du sous-onglet actif.
+/// Surface of the selected item's widget settings.
 pub(crate) const HOST_WIDGET: &str = "host-widget";
 
 /// Réglages de l'hôte : champs, leurs clés et des lignes en lecture seule.
@@ -31,9 +32,9 @@ impl Session {
         self.appearance.slide.values().cloned().collect()
     }
 
-    /// Réglages de l'hôte : ceux du widget `widget` en mode pack ; `None` sans lui ou ailleurs.
+    /// Host settings: those of `widget` in pack mode; `None` without it or elsewhere.
     ///
-    /// Un sous-onglet périmé (widget supprimé, renommé) n'a pas de réglages.
+    /// A stale selected item (widget deleted or renamed) has no settings.
     pub(crate) fn host_settings(&self, widget: Option<&str>) -> Option<Surface> {
         if !self.in_pack_mode() {
             return None;

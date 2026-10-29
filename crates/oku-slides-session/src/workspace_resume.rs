@@ -128,6 +128,9 @@ fn read_info(id: &str, mut raw: Value) -> Option<TabInfo> {
         other => other,
     };
     info.title = label(&info.title);
+    // Only a pack or theme tab names a draft it created: anything else would delete a pack at close.
+    info.created =
+        info.created.filter(|_| matches!(info.document, TabDocument::Pack { .. } | TabDocument::Theme { .. }));
     Some(info)
 }
 

@@ -12,45 +12,54 @@ use crate::test_support::{add_version, library_with, manifest_ns};
 #[case::nothing_usable("!!!", "pack")]
 #[case::non_latin("報告", "pack")]
 fn slug_name_gives_a_valid_segment(#[case] name: &str, #[case] expected: &str) {
-    assert_that!(slug(name, MAX).as_str()).is_equal_to(expected);
+    assert_that!(slug(name, MAX, "pack").as_str()).is_equal_to(expected);
     assert_that!(Namespace::parse(expected)).is_some();
+}
+
+#[rstest]
+#[case::non_latin("テーマ", "theme")]
+#[case::leading_digit("2026", "theme-2026")]
+fn slug_with_theme_prefix_puts_it_in_front(#[case] name: &str, #[case] expected: &str) {
+    assert_that!(slug(name, MAX, "theme")).is_equal_to(expected.to_owned());
 }
 
 #[test]
 fn slug_long_name_is_cut_without_trailing_dash() {
     let name = format!("{} fin", "a".repeat(62));
-    let out = slug(&name, MAX);
+    let out = slug(&name, MAX, "pack");
     assert_that!(out.len() <= MAX && !out.ends_with('-')).is_true();
 }
 
 #[test]
 fn library_namespace_free_name_is_the_slug() {
     let lib = library_with(&[]);
-    assert_that!(library_namespace(&lib, "Mes cartes").unwrap().to_string()).is_equal_to("mes-cartes".to_owned());
+    assert_that!(library_namespace(&lib, "Mes cartes", "pack").unwrap().to_string())
+        .is_equal_to("mes-cartes".to_owned());
 }
 
 #[test]
 fn library_namespace_taken_name_gets_a_suffix() {
     let lib = library_with(&[("cartes", &[]), ("cartes-2", &[])]);
-    assert_that!(library_namespace(&lib, "Cartes").unwrap().to_string()).is_equal_to("cartes-3".to_owned());
+    assert_that!(library_namespace(&lib, "Cartes", "pack").unwrap().to_string()).is_equal_to("cartes-3".to_owned());
 }
 
 #[test]
 fn library_namespace_of_a_builtin_name_is_deduplicated() {
     let lib = library_with(&[]);
-    assert_that!(library_namespace(&lib, "Essentiel").unwrap().to_string()).is_equal_to("essentiel-2".to_owned());
+    assert_that!(library_namespace(&lib, "Essentiel", "pack").unwrap().to_string())
+        .is_equal_to("essentiel-2".to_owned());
 }
 
 #[test]
 fn library_namespace_reserved_deck_is_never_given() {
     let lib = library_with(&[]);
-    assert_that!(library_namespace(&lib, "Deck").unwrap().to_string()).is_equal_to("deck-2".to_owned());
+    assert_that!(library_namespace(&lib, "Deck", "pack").unwrap().to_string()).is_equal_to("deck-2".to_owned());
 }
 
 #[test]
 fn library_namespace_new_pack_saves_without_namespace_taken() {
     let lib = library_with(&[("cartes", &[])]);
-    let ns = library_namespace(&lib, "Cartes").unwrap();
+    let ns = library_namespace(&lib, "Cartes", "pack").unwrap();
     add_version(&lib, &manifest_ns(uuid::Uuid::new_v4(), ns.as_str(), &[]), &[]);
     assert_that!(lib.by_namespace(&ns)).is_some();
 }

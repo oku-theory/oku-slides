@@ -1,54 +1,54 @@
-/** Les sous-onglets ouverts, montés ; seul l'actif est visible. */
+/** The sheet area of a pack tab: the selected item's view, alone, or nothing when none is. */
 import type { ReactNode } from "react";
 import type { Snapshot, TabApi } from "./api";
-import type { PackWidgetEditor } from "./usePackWidgetEditor";
+import type { PackItem } from "./usePackItem";
 import WidgetTab from "./WidgetTab";
 
+/** What the pane shows of the selected item, and its shared settings. */
 interface Props {
   api: TabApi;
-  widgets: PackWidgetEditor;
-  /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
+  item: PackItem;
+  /** The pack's trial revision: the preview is asked again when it changes. */
   trials: number;
-  /** Empreinte du style du deck : les aperçus se relancent quand elle change. */
+  /** The deck style's fingerprint: the preview is asked again when it changes. */
   look: string;
-  /** Code source affiché, commun à tous les sous-onglets. */
+  /** Source code shown, shared by every item. */
   code: boolean;
-  /** Largeur du code choisie au séparateur, commune à tous les sous-onglets ; `null` : proportion par défaut. */
+  /** The code width chosen at the divider, shared by every item; `null`: the default share. */
   codeWidth: number | null;
   onCodeWidth: (width: number | null) => void;
-  /** Réglages de l'hôte du widget actif, posés sous son aperçu. */
+  /** The host's settings of the selected item, under its preview. */
   settings?: ReactNode;
-  /** Écritures des valeurs d'exemple : refus en toast, snapshot mis à jour. */
+  /** Example value writes: refusals toasted, snapshot updated. */
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
-  /** Couleurs des pastilles dans l'éditeur d'un champ de l'aperçu (palette des graphiques du thème). */
+  /** Swatch colours in a field's editor (the theme's chart palette). */
   palette: string[];
 }
 
-export default function WidgetPane({ api, widgets, trials, look, code, codeWidth, onCodeWidth, settings = null, run, palette }: Props) {
+/** One `WidgetTab`, mounted again for each item selected (its pending write settled first). */
+export default function WidgetPane({ api, item, trials, look, code, codeWidth, onCodeWidth, settings = null, run, palette }: Props) {
   return (
-    <div className="widget-pane" hidden={widgets.tabs.active === null}>
-      {widgets.tabs.tabs.map((tab) => (
+    <div className="widget-pane">
+      {item.selected !== null && (
         <WidgetTab
-          key={tab.id}
+          key={item.selected}
           api={api}
-          files={widgets.files}
-          id={tab.id}
-          name={tab.name}
-          revision={widgets.revision}
+          files={item.files}
+          name={item.selected}
+          revision={item.revision}
           trials={trials}
           look={look}
           code={code}
           codeWidth={codeWidth}
           onCodeWidth={onCodeWidth}
-          settings={tab.id === widgets.tabs.active ? settings : null}
+          settings={settings}
           run={run}
           palette={palette}
-          active={tab.id === widgets.tabs.active}
-          onOpen={widgets.open}
-          onCommands={widgets.commandsOf(tab.id)}
-          onHistory={widgets.historyOf(tab.id)}
+          onOpen={item.select}
+          onCommands={item.onCommands}
+          onHistory={item.onHistory}
         />
-      ))}
+      )}
     </div>
   );
 }

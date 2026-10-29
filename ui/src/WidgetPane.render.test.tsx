@@ -1,4 +1,4 @@
-// Volet des sous-onglets de widgets : tous montés, seul l'actif visible.
+// The sheet area of a pack tab: the selected item's view alone, or nothing.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -6,12 +6,9 @@ import type { Snapshot, TabApi } from "./api";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { usePackWidgetEditor } = await import("./usePackWidgetEditor");
+const { usePackItem } = await import("./usePackItem");
 const WidgetPane = (await import("./WidgetPane")).default;
 const { memory, wait } = await import("./test/widgetApi");
-
-/** Le dernier état des sous-onglets rendu par `mount`. */
-let latest: ReturnType<typeof usePackWidgetEditor> | null = null;
 
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
 afterEach(async () => {
@@ -22,21 +19,21 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(fake: TabApi, widgets: string[], widget: string | null) {
+async function mount(fake: TabApi, widget: string | null) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   const snap = {
-    editing: { pack: "p", base: "b" },
+    editing: { pack: "p", base: "b", kind: "widgets" },
     widgets: { deck: { id: "p", version: "v" } },
     history: null,
-    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widgets, widget },
+    slides: [],
+    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widget },
   } as unknown as Snapshot;
   function Probe() {
-    const w = usePackWidgetEditor(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    latest = w;
-    return createElement(WidgetPane, { api: fake, widgets: w, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {},
+    const item = usePackItem(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
+    return createElement(WidgetPane, { api: fake, item, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {},
       run: async () => null, palette: [] });
   }
   await act(async () => root.render(createElement(Probe)));
@@ -45,20 +42,15 @@ async function mount(fake: TabApi, widgets: string[], widget: string | null) {
 }
 
 describe("WidgetPane", () => {
-  test("tous les sous-onglets sont montés ; seul l'actif est visible", async () => {
+  test("WidgetPane with a selected item mounts its view alone", async () => {
     const { fake } = memory({ kpi: "k", chart: "c" });
-    const host = await mount(fake, ["kpi", "chart"], "chart");
-    const tabs = [...host.querySelectorAll<HTMLElement>(".widget-tab")];
-    expect(tabs.length).toBe(2);
-    expect(tabs.map((t) => t.hidden)).toEqual([true, false]);
-    expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(false);
-    expect([...host.querySelectorAll(".widget-tab .cm-content")].map((c) => c.textContent)).toEqual(["k", "c"]);
+    const host = await mount(fake, "chart");
+    expect([...host.querySelectorAll(".widget-tab .cm-content")].map((c) => c.textContent)).toEqual(["c"]);
   });
 
-  test("sur la scène, le volet entier est caché", async () => {
-    const { fake } = memory({ kpi: "k" });
-    const host = await mount(fake, ["kpi"], null);
-    expect(host.querySelectorAll(".widget-tab").length).toBe(1);
-    expect(host.querySelector<HTMLElement>(".widget-pane")!.hidden).toBe(true);
+  test("WidgetPane with no item selected shows nothing", async () => {
+    const { fake } = memory({});
+    const host = await mount(fake, null);
+    expect([host.querySelectorAll(".widget-tab").length, host.querySelector(".widget-pane")?.textContent]).toEqual([0, ""]);
   });
 });

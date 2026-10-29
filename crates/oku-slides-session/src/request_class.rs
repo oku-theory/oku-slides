@@ -5,12 +5,18 @@
 use super::Request;
 
 impl Request {
+    /// True for a request only a pack tab takes (`Session::ensure_fits`).
+    pub(crate) fn pack_only(&self) -> bool {
+        matches!(self, Self::SetPreviewTheme { .. })
+    }
+
     /// True if the request may change the deck (slides added or removed).
     ///
     /// `Save` too: a file changed on disk is merged first. History (except
     /// the version list): the deck shown changes. `SavePack` and `SaveTheme`
     /// too: the library changes, the packs panel rereads it (`prune`).
     /// Exhaustive on purpose: a new request must say whether it changes the deck.
+    /// `SetPreviewTheme` does not: the slides are unchanged (`apply_silent_ops` persists).
     #[must_use]
     pub fn changes_deck(&self) -> bool {
         match self {
@@ -59,6 +65,7 @@ impl Request {
             | Self::HistoryVersions
             | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
+            | Self::SetPreviewTheme { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }
@@ -69,6 +76,7 @@ impl Request {
             self,
             Self::Apply { .. }
                 | Self::SetTheme { .. }
+                | Self::SetPreviewTheme { .. }
                 | Self::EditTheme { .. }
                 | Self::Undo
                 | Self::Redo
@@ -124,7 +132,8 @@ impl Request {
 
     /// True for a request that writes the edited pack or theme, or a draft of it.
     ///
-    /// Such a request first takes the lease (`Session::ensure_pack_lease` in
+    /// `SetPreviewTheme` too: it writes no library version, but takes a free lease and
+    /// freezes the base like any edit. Such a request first takes the lease (`Session::ensure_pack_lease` in
     /// pack mode, `Session::ensure_theme_lease` in a theme tab). A copy
     /// (`as_new`) takes its own. Exhaustive on purpose: a new request must
     /// say whether it writes.
@@ -132,6 +141,7 @@ impl Request {
         match self {
             Self::Apply { .. }
             | Self::SetTheme { .. }
+            | Self::SetPreviewTheme { .. }
             | Self::EditTheme { .. }
             | Self::Undo
             | Self::Redo
@@ -206,6 +216,7 @@ impl Request {
             | Self::SaveTheme { .. } => true,
             Self::Save { .. }
             | Self::SetTheme { .. }
+            | Self::SetPreviewTheme { .. }
             | Self::EditTheme { .. }
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }

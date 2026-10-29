@@ -4,7 +4,8 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import { memoryTransport } from "./test/link";
 import type { Snapshot, Surface, SttStatus } from "./api";
-import { stt } from "./api";
+import { stt, workspace } from "./api";
+import { CATALOG_ID } from "./a2ui/catalog";
 import type { HostHandlers } from "./agent/events";
 import type { LinkContext } from "./agent/link";
 import type { AgentWindowHost } from "./AgentWindow";
@@ -244,5 +245,28 @@ describe("AgentWindow", () => {
   test("AgentWindowView sans onglet suivi : bouton rattacher présent", async () => {
     const m = await mountView({ generation: 1, focused: "w-9", agent_detached: true, import_pick: null, windows: [] });
     expectIconOnly(m.el.querySelector(".agent-attach"));
+  });
+
+  test("AgentWindow an open_pack action on the packs panel opens the pack in its tab", async () => {
+    const id = "2a7d4c91-5e3b-4f08-b6a1-8c9e0d1f2a31";
+    const open = spyOn(workspace, "openPack").mockResolvedValue({} as never);
+    try {
+      const m = await mountWindow();
+      await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx() });
+      const packs: Surface = {
+        id: "host-packs", place: "thread", live: true, question: false,
+        messages: [
+          { version: "v0.9", createSurface: { surfaceId: "host-packs", catalogId: CATALOG_ID } },
+          { version: "v0.9", updateComponents: { surfaceId: "host-packs", components: [
+            { id: "root", component: "Button", label: "Ouvrir", action: { event: { name: "open_pack", context: { pack: id } } } },
+          ] } },
+        ] as unknown as Surface["messages"],
+      };
+      await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [packs] }));
+      await act(async () => m.el.querySelector<HTMLButtonElement>('[data-surface-id="host-packs"] button')?.click());
+      expect(open.mock.calls).toEqual([["t-1", id, null]]);
+    } finally {
+      open.mockRestore();
+    }
   });
 });

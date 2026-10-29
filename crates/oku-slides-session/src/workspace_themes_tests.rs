@@ -244,3 +244,129 @@ fn workspace_layout_saves_a_theme_entry_with_null_legacy_keys() {
         .collect();
     assert_that!(present).is_equal_to(vec![true, true, true]);
 }
+
+impl Themes {
+    /// Asks `tab` for a new theme, which must open: its tab and its id.
+    fn created(&self, tab: &str) -> (String, Uuid) {
+        self.send(json!({"cmd": "new_theme", "tab": tab})).unwrap_or_else(|e| panic!("new theme: {}", e.one_line()));
+        let window = self.window();
+        let at = window.iter().position(|t| t == tab).unwrap_or_else(|| panic!("{tab} in w-1"));
+        let new = window.get(at + 1).cloned().unwrap_or_else(|| panic!("a tab after {tab}"));
+        match self.document(&new) {
+            Some(TabDocument::Theme { theme }) => (new, theme),
+            other => panic!("a theme tab after {tab}: {other:?}"),
+        }
+    }
+
+    /// Whether the library still has theme `id`.
+    fn has_theme(&self, id: Uuid) -> bool {
+        Workspace::lock(&self.ws).library.themes().current(id).is_some()
+    }
+
+    /// The user's themes in the library.
+    fn theme_count(&self) -> usize {
+        Workspace::lock(&self.ws).library.themes().entries().len()
+    }
+
+    /// Closes `tab`, discarding its work.
+    fn close(&self, tab: &str) {
+        self.send(json!({"cmd": "close", "tab": tab, "discard": true})).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    }
+
+    /// Sets a token in theme tab `tab`, then saves it (as a new theme with `as_new`): its document.
+    fn saved(&self, tab: &str, as_new: bool) -> TabDocument {
+        Workspace::with_session(&self.ws, tab, |s| {
+            s.handle(crate::Request::Apply {
+                label: "token".into(),
+                ops: vec![oku_slides_core::Op::SetToken {
+                    path: vec!["color".into(), "accent".into()],
+                    value: json!("#ff0000"),
+                }],
+                merge: None,
+            })
+            .unwrap_or_else(|e| panic!("token: {}", e.one_line()));
+            s.handle(crate::Request::SaveTheme { as_new }).unwrap_or_else(|e| panic!("save: {}", e.one_line()));
+            s.tab_info().document
+        })
+        .0
+        .unwrap_or_else(|e| panic!("{}", e.one_line()))
+    }
+}
+
+#[rstest::rstest]
+#[case::deck(false)]
+#[case::help(true)]
+fn new_theme_opens_created_theme_tab_after_requester(#[case] help: bool) {
+    let f = themes();
+    let tab = if help {
+        f.send(json!({"cmd": "open_help", "window": "w-1"})).unwrap_or_else(|e| panic!("{}", e.one_line()));
+        f.window().last().cloned().unwrap_or_else(|| panic!("a help tab"))
+    } else {
+        "t-1".to_owned()
+    };
+    let (new, id) = f.created(&tab);
+    let created = Workspace::lock(&f.ws).tabs.get(&new).and_then(|t| t.info.created);
+    assert_that!((f.active(), created, f.has_theme(id))).is_equal_to((new, Some(id), true));
+}
+
+#[test]
+fn new_theme_closed_unsaved_is_deleted_from_library() {
+    let f = themes();
+    let (new, id) = f.created("t-1");
+    f.close(&new);
+    assert_that!(f.has_theme(id)).is_false();
+}
+
+#[test]
+fn new_theme_closed_with_its_window_unsaved_is_deleted() {
+    let f = themes();
+    let (new, id) = f.created("t-1");
+    f.send(json!({"cmd": "move_tab", "tab": new})).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let window = Workspace::lock(&f.ws).layout.windows.iter().find(|w| w.tabs.contains(&new)).map(|w| w.label.clone());
+    let window = window.unwrap_or_else(|| panic!("{new} in a window"));
+    f.send(json!({"cmd": "close_window", "window": window})).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    assert_that!(f.has_theme(id)).is_false();
+}
+
+#[test]
+fn new_theme_closed_after_save_stays_in_library() {
+    let f = themes();
+    let (new, id) = f.created("t-1");
+    f.saved(&new, false);
+    f.send(json!({"cmd": "close", "tab": new})).unwrap_or_else(|e| panic!("close: {}", e.one_line()));
+    let open = Workspace::lock(&f.ws).tabs.contains_key(new.as_str());
+    assert_that!((open, f.has_theme(id))).is_equal_to((false, true));
+}
+
+#[test]
+fn new_theme_saved_then_undone_closed_stays_in_library() {
+    let f = themes();
+    let (new, id) = f.created("t-1");
+    f.saved(&new, false);
+    Workspace::with_session(&f.ws, &new, |s| s.handle(crate::Request::Undo))
+        .0
+        .unwrap_or_else(|e| panic!("{}", e.one_line()))
+        .unwrap_or_else(|e| panic!("undo: {}", e.one_line()));
+    f.close(&new);
+    assert_that!(f.has_theme(id)).is_true();
+}
+
+#[test]
+fn new_theme_saved_as_copy_closed_deletes_only_the_original() {
+    let f = themes();
+    let (new, id) = f.created("t-1");
+    let copy = f.saved(&new, true);
+    let TabDocument::Theme { theme: copy } = copy else { panic!("a theme tab: {copy:?}") };
+    f.close(&new);
+    assert_that!((copy != id, f.has_theme(id), f.has_theme(copy))).is_equal_to((true, false, true));
+}
+
+#[test]
+fn new_theme_failed_open_deletes_the_draft() {
+    let f = themes();
+    let (before, tabs) = (f.theme_count(), f.window().len());
+    super::super::tabs::FAIL_NEXT_OPEN.store(true, std::sync::atomic::Ordering::SeqCst);
+    let r = f.send(json!({"cmd": "new_theme", "tab": "t-1"})).map(|_| ()).map_err(|e| e.kind());
+    let expected = (Err(SessionErrorKind::PackTabNotFresh), before, tabs);
+    assert_that!((r, f.theme_count(), f.window().len())).is_equal_to(expected);
+}

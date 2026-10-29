@@ -78,6 +78,8 @@ export interface PackMode {
   session_version: string | null;
   /** Pack du deck seul (celui d'un import) : ses enregistrements restent dans le deck, jamais dans la bibliothèque. */
   deck_only: boolean;
+  /** The pack this tab created empty; collected when the tab leaves untouched. */
+  created_empty: string | null;
   /** True when this tab cannot save its pack now: held elsewhere, or gone. */
   read_only: boolean;
   /** True when this tab may write without first taking the lease (autosave needs it). */

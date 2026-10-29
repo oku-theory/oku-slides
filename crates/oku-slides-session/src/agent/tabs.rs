@@ -11,7 +11,7 @@ use crate::pack_tab::PackRoute;
 /// What opening a pack asks an agent's gate before acting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PackGate {
-    /// Focusing, or opening a sub-tab in, another tab's open pack.
+    /// Focusing, or selecting an item in, another tab's open pack.
     Focus,
     /// Opening a new pack tab.
     NewTab,
@@ -20,7 +20,7 @@ pub enum PackGate {
 /// Where an agent's pack open landed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PackOpen {
-    /// The requesting tab edits it (its sub-tab opened, if one was named).
+    /// The requesting tab edits it (its item selected, if one was named).
     Here,
     /// Another tab edits it and now has the focus.
     Tab(String),

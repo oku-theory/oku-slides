@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { closeStays, linkedTabs, type TabDocument, type TabInfo, tabPath, type WindowView, type WorkspaceView } from "./workspaceApi";
+import { afterEach, describe, expect, test } from "bun:test";
+import { closeStays, linkedTabs, type TabDocument, type TabInfo, tabPath, type WindowView, type WorkspaceView, workspace } from "./workspaceApi";
 
 const tab = (document: TabDocument): TabInfo => ({
   id: "t-1",
@@ -70,5 +70,39 @@ describe("closeStays", () => {
 
   test("closeStays of an owner with another plain tab is false", () => {
     expect(closeStays(viewOf(win("w-1", [tabIn("t-1"), linked("t-2", "t-1"), tabIn("t-3")])), "w-1", "t-1", false)).toBe(false);
+  });
+});
+
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+/** Replaces fetch with a recorder answering `status` and `reply`; returns the sent bodies. */
+function recordFetch(status: number, reply: unknown): unknown[] {
+  const sent: unknown[] = [];
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify(reply), { status });
+  }) as unknown as typeof fetch;
+  return sent;
+}
+
+describe("new pack and new theme requests", () => {
+  test("newPack sends new_pack with the active tab and the kind", async () => {
+    const sent = recordFetch(200, viewOf());
+    await workspace.newPack("t-9", "layouts");
+    expect(sent).toEqual([{ cmd: "new_pack", tab: "t-9", kind: "layouts" }]);
+  });
+
+  test("newTheme sends new_theme with the active tab", async () => {
+    const sent = recordFetch(200, viewOf());
+    await workspace.newTheme("t-9");
+    expect(sent).toEqual([{ cmd: "new_theme", tab: "t-9" }]);
+  });
+
+  test("newPack refused by the host rejects with its error", async () => {
+    recordFetch(400, { error: "read only" });
+    await expect(workspace.newPack("t-9", "widgets")).rejects.toThrow("read only");
   });
 });

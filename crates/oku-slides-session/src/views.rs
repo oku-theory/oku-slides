@@ -145,12 +145,12 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// Ce que l'interface fait garder à l'hôte : slide courante, grille, fantômes, largeurs des colonnes,
-/// sous-onglets de widgets, code source des widgets déplié et sa largeur, hauteur de la bande sous la
-/// scène, sections repliées de la pile.
+/// What the interface has the host keep: slide, grid, ghosts, columns, item and code.
 ///
-/// Les champs inconnus d'un `state.json` plus ancien (`board`, `code_place`,
-/// `code_height`, retirés par t-526 ; `case`, retiré par t-541) sont ignorés à la lecture.
+/// The current slide, grid, ghosts, column widths, a pack tab's selected item, the widget source
+/// code shown and its width, and the pile's folded sections. Unknown fields of an older
+/// `state.json` (`board`, `code_place`, `code_height`, removed by t-526; `case`, removed by t-541;
+/// `widgets`, the widget sub-tabs removed by t-1244) are ignored when read.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     /// Id of the current slide; none if the deck is empty.
@@ -168,10 +168,7 @@ pub struct UiState {
     /// Largeur du fil de l'agent en px, choisie au séparateur ; `None` : largeur par défaut.
     #[serde(default)]
     pub notes: Option<u32>,
-    /// Sous-onglets de widgets ouverts en mode pack, dans l'ordre d'ouverture.
-    #[serde(default)]
-    pub widgets: Vec<String>,
-    /// Sous-onglet actif ; `None` : « Layouts ».
+    /// The selected item of the edited pack in pack mode, `_commun` included; `None`: none.
     #[serde(default)]
     pub widget: Option<String>,
     /// Code source des widgets déplié à droite de l'aperçu ; replié par défaut.
@@ -180,26 +177,26 @@ pub struct UiState {
     /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
     #[serde(default)]
     pub code_width: Option<u32>,
-    /// Sections repliées (miniatures, widgets) ; toutes ouvertes par défaut.
+    /// Folded sections of the pile (thumbnails); all open by default.
     #[serde(default)]
     pub folded: Vec<PileSection>,
 }
 
-/// Section repliable de l'interface : les miniatures ou les widgets.
+/// A foldable section of the interface: the slide or layout thumbnails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PileSection {
-    /// Les miniatures des slides, hors mode pack.
+    /// The slide thumbnails, outside pack mode.
     Slides,
-    /// Les miniatures des layouts, en mode pack.
+    /// The layout thumbnails, in a layout pack or theme tab.
     Layouts,
-    /// Les fichiers de widgets du pack.
-    Widgets,
 }
 
-/// L'état d'interface d'un `state.json` gardé : une section repliée retirée depuis de l'interface
-/// (la carte des paramètres) est oubliée au lieu de rendre l'état illisible. Une requête `ui`,
-/// elle, refuse toute section inconnue.
+/// The interface state of a kept `state.json`; folded sections removed since are dropped.
+///
+/// A section the interface no longer has (the parameters card, the widgets section of
+/// t-1244) is forgotten instead of making the state unreadable. A `ui` request, for its
+/// part, refuses any unknown section.
 pub(crate) fn kept_ui<'de, D: serde::Deserializer<'de>>(d: D) -> Result<UiState, D::Error> {
     let mut value = serde_json::Value::deserialize(d)?;
     if let Some(folded) = value.get_mut("folded").and_then(serde_json::Value::as_array_mut) {
@@ -220,7 +217,6 @@ impl Default for UiState {
             ghosts: false,
             pile: None,
             notes: None,
-            widgets: Vec::new(),
             widget: None,
             code: false,
             code_width: None,
@@ -229,26 +225,16 @@ impl Default for UiState {
     }
 }
 
-/// Nombre maximal de sous-onglets gardés.
-pub const MAX_WIDGET_TABS: usize = 64;
-
 impl UiState {
-    /// L'état admis : sections repliées sans doublon ; sous-onglets vidés hors
-    /// du mode pack, sinon noms valides, sans doublon, au plus
-    /// `MAX_WIDGET_TABS`, actif parmi eux.
+    /// The admitted state: folded sections without duplicates, a valid selected item.
+    ///
+    /// Outside pack mode the selected item is cleared; in pack mode it is kept only when it
+    /// is a valid file name, `_commun` included.
     #[must_use]
     pub fn sanitized(mut self, pack_mode: bool) -> Self {
         let mut folded = std::collections::BTreeSet::new();
         self.folded.retain(|s| folded.insert(*s));
-        if !pack_mode {
-            self.widgets.clear();
-            self.widget = None;
-            return self;
-        }
-        let mut seen = std::collections::BTreeSet::new();
-        self.widgets.retain(|n| WidgetFile::parse(n).is_some() && seen.insert(n.clone()));
-        self.widgets.truncate(MAX_WIDGET_TABS);
-        if self.widget.as_ref().is_some_and(|w| !self.widgets.contains(w)) {
+        if !pack_mode || self.widget.as_ref().is_some_and(|w| WidgetFile::parse(w).is_none()) {
             self.widget = None;
         }
         self
@@ -277,6 +263,9 @@ pub struct TabInfo {
     pub theme: Option<uuid::Uuid>,
     /// What the tab edits: a deck, a pack or a theme, read from its mode.
     pub document: TabDocument,
+    /// The pack or theme this tab created empty; collected when the tab leaves untouched.
+    #[serde(default)]
+    pub created: Option<uuid::Uuid>,
 }
 
 /// A pack being edited: a layout pack has one slide per layout, at its example value.
@@ -304,6 +293,9 @@ pub struct PackMode {
     ///
     /// Its versions stay in the deck, never in the library.
     pub deck_only: bool,
+    /// The pack or theme this tab created empty; collected when the tab leaves untouched.
+    #[serde(default)]
+    pub created_empty: Option<uuid::Uuid>,
 }
 
 /// Pack mode as the interface sees it: the edited pack and its lease flags.

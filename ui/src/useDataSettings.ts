@@ -19,7 +19,7 @@ const isEdit = (v: unknown): v is DataEdit =>
 /**
  * The `host-data` surface of `selected` on `slide`, read for a chart or a table
  * (`ownPanel`, from `host_params`) outside read-only, history and theme tabs; `off`
- * removes it (a widget sub-tab). Reread when the element, the render or undo change.
+ * removes it (a pack tab, which shows no stage). Reread when the element, the render or undo change.
  */
 export function useDataSettings(
   api: TabApi,

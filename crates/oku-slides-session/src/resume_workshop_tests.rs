@@ -274,22 +274,18 @@ fn resume_with_unreadable_pack_returns_to_the_deck_without_loss() {
     });
 }
 
-/// t-394: an older workshop whose `pack/` is unreadable reopens on its deck without sub-tabs.
+/// t-394: an older workshop whose `pack/` is unreadable reopens on its deck without a selected item.
 #[test]
-fn resume_with_unreadable_pack_returns_no_widget_tabs() {
+fn resume_with_unreadable_pack_returns_no_selected_item() {
     within(|| {
         let data = fresh_dir("oku-slides-workshop-");
         let mut live = live_workshop(data.path());
-        let ui = crate::views::UiState {
-            widgets: vec!["_commun".into()],
-            widget: Some("_commun".into()),
-            ..crate::views::UiState::default()
-        };
+        let ui = crate::views::UiState { widget: Some("_commun".into()), ..crate::views::UiState::default() };
         ok(live.editor.handle(crate::Request::Ui { ui, order: None }), "ui");
         let dormant = park(live);
-        edit_state(dormant.dir.path(), |state| assert_that!(state["ui"]["widgets"]).is_equal_to(json!(["_commun"])));
+        edit_state(dormant.dir.path(), |state| assert_that!(state["ui"]["widget"]).is_equal_to(json!("_commun")));
         std::fs::write(dormant.dir.path().join("pack").join("document.json"), b"pas du json").unwrap();
         let (back, _) = resumed(data.path(), dormant.dir.path());
-        assert_that!(back.ui.widgets.is_empty()).is_true();
+        assert_that!(back.ui.widget).is_none();
     });
 }

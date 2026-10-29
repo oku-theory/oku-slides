@@ -122,6 +122,7 @@ deck-new-title = عرض تقديمي جديد
 deck-new-slide-title = عنوان الشريحة
 deck-new-slide-text = قل ما تريد عرضه.
 pack-default-name = حزمتي
+theme-default-name = سمتي
 pack-copy-name = { $name } (نسخة)
 theme-copy-name = { $name } (متغيّر)
 theme-copy-of = { $name } (نسخة)
@@ -155,6 +156,7 @@ packs-relation-parallel = يستخدم هذا العرض التقديمي إصد
 packs-use-mine = استخدام إصداري
 packs-make-current = اجعل إصداره إصداري
 packs-remove = إزالة
+packs-pack-open = فتح
 packs-add = إضافة من المكتبة
 packs-theme-overrides = { $count ->
     [one] تخصيص واحد للعرض التقديمي ({ $count })

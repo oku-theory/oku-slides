@@ -11,7 +11,7 @@ use crate::agent::PackGate;
 use crate::pack_lease::PackLease;
 use crate::test_support::{apply_ws, fresh_dir, settings_on};
 use crate::test_support_packs::assert_unleased;
-use crate::workspace::{Opening, Pending, TabPlace};
+use crate::workspace::{Created, Opening, Pending, TabPlace};
 use crate::{BASE_PACK, Fonts, Platform, Session, SessionErrorKind, TabDocument, Workspace};
 
 const WAIT: Duration = Duration::from_secs(10);
@@ -37,7 +37,7 @@ fn held_open(f: &Packs) -> (mpsc::Receiver<()>, mpsc::Sender<()>, mpsc::Receiver
             let _ = release_rx.recv_timeout(WAIT);
             true
         };
-        let r = outcome(Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate)));
+        let r = outcome(Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate), Created::No));
         let _ = done.send((r, asked));
     });
     (entered, release, finished)
@@ -48,7 +48,7 @@ fn open_on_a_thread(f: &Packs, tab: &str, pack: uuid::Uuid) -> mpsc::Receiver<St
     let (ws, tab) = (Arc::clone(&f.ws), tab.to_owned());
     let (done, finished) = mpsc::channel();
     std::thread::spawn(move || {
-        let _ = done.send(outcome(Workspace::open_pack_with(&ws, &tab, pack, None, Opener::Ui)));
+        let _ = done.send(outcome(Workspace::open_pack_with(&ws, &tab, pack, None, Opener::Ui, Created::No)));
     });
     finished
 }
@@ -58,7 +58,7 @@ fn open_pack_twice_with_a_widget_on_one_thread_never_deadlocks() {
     let f = packs();
     let (ws, acme) = (Arc::clone(&f.ws), f.acme);
     let outcomes = within(move || {
-        let open = || outcome(Workspace::open_pack_with(&ws, "t-1", acme, Some("card"), Opener::Ui));
+        let open = || outcome(Workspace::open_pack_with(&ws, "t-1", acme, Some("card"), Opener::Ui, Created::No));
         (open(), open())
     });
     assert_that!(outcomes).is_equal_to(("Opened(\"t-2\")".to_owned(), "Focused(\"t-2\")".to_owned()));
@@ -71,7 +71,8 @@ fn open_pack_twice_with_a_widget_on_two_threads_never_deadlocks() {
     for _ in 0..2 {
         let (ws, acme, done) = (Arc::clone(&f.ws), f.acme, done.clone());
         std::thread::spawn(move || {
-            let _ = done.send(outcome(Workspace::open_pack_with(&ws, "t-1", acme, Some("card"), Opener::Ui)));
+            let _ =
+                done.send(outcome(Workspace::open_pack_with(&ws, "t-1", acme, Some("card"), Opener::Ui, Created::No)));
         });
     }
     let mut got: Vec<String> = (0..2).map(|_| finished.recv_timeout(WAIT).expect("deadlock")).collect();
@@ -142,7 +143,7 @@ fn open_pack_refused_by_another_workspace_reports_the_holder() {
     settings.paths.themes = Some(f.data.path().join("themes"));
     let platform = Platform::with_settings(settings).unwrap();
     let other = Mutex::new(Workspace::new(Fonts::default(), &platform, None).unwrap());
-    Workspace::open_pack_with(&other, "t-1", f.acme, None, Opener::Ui).unwrap();
+    Workspace::open_pack_with(&other, "t-1", f.acme, None, Opener::Ui, Created::No).unwrap();
     let held = TabDocument::Pack { pack: f.acme };
     let holder = Workspace::lock(&other).tabs.values().find(|t| t.info.document == held).map(|t| t.info.title.clone());
     let holder = holder.unwrap_or_else(|| panic!("the other workspace's pack tab"));
@@ -155,7 +156,7 @@ fn open_pack_refused_by_another_workspace_reports_the_holder() {
 fn built(f: &Packs, window: &str, anchor: &str) -> (Pending, Session) {
     let seed = f.with("t-1", |s| s.take_preview(f.acme)).unwrap();
     let lease = PackLease::acquire(&f.scope, f.acme, "acme", "acme").unwrap();
-    let opening = Opening::Pack { pack: f.acme, widget: None };
+    let opening = Opening::Pack { pack: f.acme, widget: None, created: Created::No };
     let pending = Workspace::lock(&f.ws).pending(Some(window.into()), opening, TabPlace::After(anchor.into()));
     let session = pending.build_pack(*seed, lease).unwrap();
     (pending, session)
@@ -220,7 +221,7 @@ fn open_pack_whose_requesting_tab_closed_during_the_gate_is_refused() {
                 std::thread::spawn(move || apply_ws(&ws, json!({"cmd": "close", "tab": "t-1", "discard": true})));
             closed.join().is_ok_and(|r| r.is_ok())
         };
-        outcome(Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate)))
+        outcome(Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate), Created::No))
     });
     assert_unleased(&f.scope, f.acme);
     assert_that!((r, pack_tabs(&f), opening_entry(f.acme))).is_equal_to(("UnknownTab".to_owned(), 0, false));

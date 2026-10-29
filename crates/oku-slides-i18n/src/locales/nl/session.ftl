@@ -122,6 +122,7 @@ deck-new-title = Nieuwe presentatie
 deck-new-slide-title = Diatitel
 deck-new-slide-text = Zeg wat je wilt laten zien.
 pack-default-name = Mijn pakket
+theme-default-name = Mijn thema
 pack-copy-name = { $name } (kopie)
 theme-copy-name = { $name } (variant)
 theme-copy-of = { $name } (kopie)
@@ -155,6 +156,7 @@ packs-relation-parallel = Deze presentatie gebruikt een versie die parallel aan 
 packs-use-mine = Mijn versie gebruiken
 packs-make-current = Die versie mijn versie maken
 packs-remove = Verwijderen
+packs-pack-open = Openen
 packs-add = Toevoegen uit de bibliotheek
 packs-theme-overrides = { $count ->
     [one] { $count } aanpassing van de presentatie

@@ -90,6 +90,7 @@ mod pack_tab;
 mod panel;
 mod param_fields;
 mod preview_crop;
+mod preview_theme;
 mod probed_widgets;
 mod render_fonts;
 mod request;
@@ -635,6 +636,7 @@ impl Session {
                 user.theme.as_ref().and_then(|ns| user.themes.get(ns)).map(|pin| pin.id)
             },
             document,
+            created: None,
         }
     }
 

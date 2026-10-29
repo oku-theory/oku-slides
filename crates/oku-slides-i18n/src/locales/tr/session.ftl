@@ -122,6 +122,7 @@ deck-new-title = Yeni sunu
 deck-new-slide-title = Slayt başlığı
 deck-new-slide-text = Ne göstermek istediğinizi anlatın.
 pack-default-name = Paketim
+theme-default-name = Temam
 pack-copy-name = { $name } (kopya)
 theme-copy-name = { $name } (varyant)
 theme-copy-of = { $name } (kopya)
@@ -155,6 +156,7 @@ packs-relation-parallel = Bu sunu sizinkiyle paralel yapılmış bir sürüm kul
 packs-use-mine = Benim sürümümü kullan
 packs-make-current = Onunkini benim sürümüm yap
 packs-remove = Kaldır
+packs-pack-open = Aç
 packs-add = Kitaplıktan ekle
 packs-theme-overrides = { $count ->
     [one] { $count } sunu geçersiz kılması

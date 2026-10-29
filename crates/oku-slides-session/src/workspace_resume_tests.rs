@@ -35,7 +35,7 @@ fn deck(path: Option<&str>, uid: Option<&str>) -> TabDocument {
 }
 
 fn info_of(document: TabDocument) -> TabInfo {
-    TabInfo { title: "t".to_owned(), dirty: false, pristine: false, theme: None, document }
+    TabInfo { title: "t".to_owned(), dirty: false, pristine: false, theme: None, document, created: None }
 }
 
 #[test]
@@ -43,6 +43,19 @@ fn layout_entry_without_document_becomes_a_help_document() {
     let mut file = layout_of(&[legacy(Value::Null, json!("u-1"), json!("fr"))]);
     let info = file.take_info("t-1");
     assert_that!(info.map(|i| i.document)).is_equal_to(Some(TabDocument::Help { locale: "fr".to_owned() }));
+}
+
+/// `workspace.json` is not trusted: only a pack or theme tab may name a draft it created.
+#[rstest]
+#[case::deck(json!({"kind": "deck", "path": null, "deck_uid": null}), false)]
+#[case::help(json!({"kind": "help", "locale": "fr"}), false)]
+#[case::deck_pack(json!({"kind": "deck_pack", "deck_tab": "t-2", "pack": PACK}), false)]
+#[case::pack(json!({"kind": "pack", "pack": PACK}), true)]
+#[case::theme(json!({"kind": "theme", "theme": PACK}), true)]
+fn layout_entry_created_is_kept_only_for_pack_and_theme_tabs(#[case] document: Value, #[case] kept: bool) {
+    let entry = json!({"title": "t", "dirty": false, "pristine": false, "document": document, "created": PACK});
+    let info = layout_of(&[entry]).take_info("t-1");
+    assert_that!(info.map(|i| i.created)).is_equal_to(Some(kept.then_some(PACK)));
 }
 
 #[test]
@@ -161,7 +174,7 @@ fn saved_layout_entry_carries_the_legacy_keys(
 ) {
     let expected = json!({
         "title": "t", "dirty": false, "pristine": false, "theme": null,
-        "document": written, "path": path, "deck_uid": deck_uid, "help": help,
+        "document": written, "created": null, "path": path, "deck_uid": deck_uid, "help": help,
     });
     assert_that!(saved_entry(document)).is_equal_to(expected);
 }

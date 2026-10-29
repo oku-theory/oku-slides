@@ -1,7 +1,7 @@
 /**
- * La pile des miniatures d'un onglet : les slides du deck, ou, en mode pack, les slides du deck
- * de travail d'un pack de layouts (une par layout, nommée d'après lui), or a theme tab's
- * specimens (likewise). In pack mode and in a theme tab, no add, move or delete: the host
+ * A deck tab's thumbnail pile, or a theme tab's specimens (one per layout, named after it).
+ *
+ * A pack tab has its own pile (`PackPile`). In a theme tab, no add, move or delete: the host
  * refuses them, the pile does not offer them.
  */
 import type { PileSectionName, SlideSummary, Snapshot } from "./api";
@@ -12,9 +12,9 @@ import { splitKind } from "./packOps";
 import SlidePile from "./SlidePile";
 import { canRemoveSlide } from "./slideTools";
 
-/** L'onglet dont la pile montre les slides, et les gestes qu'elle offre hors mode pack. */
+/** The tab whose pile shows the slides, and the gestures it offers on a deck. */
 interface Props {
-  /** Instantané de l'onglet : slides, mode pack, historique, aide. */
+  /** The tab's snapshot: slides, history, help. */
   snap: Snapshot;
   /** A theme tab: the specimen deck, named after its layouts and fixed. */
   themeTab: boolean;
@@ -30,26 +30,24 @@ interface Props {
   onAdd: () => void;
   /** Supprime une slide. */
   onRemove: (id: string) => void;
-  /** Colonne du mode pack (`y`) ou bande sous la scène (`x`). */
+  /** The theme tab's column (`y`) or the strip under the stage (`x`). */
   axis: PileAxis;
 }
 
-/** The thumbnails' foldable section: slides, layouts (layout pack, theme tab), none for a widget pack. */
-export function pileSection(snap: Snapshot, themeTab: boolean): PileSectionName | null {
-  if (themeTab) return "layouts";
-  if (!snap.editing) return "slides";
-  return snap.editing.kind === "layouts" ? "layouts" : null;
+/** The thumbnails' foldable section: layouts in a theme tab, else slides. */
+export function pileSection(themeTab: boolean): PileSectionName {
+  return themeTab ? "layouts" : "slides";
 }
 
-/** Le nom du layout de chaque slide du deck de travail (genre `espace/nom`). */
+/** The layout name of each specimen slide (kind `namespace/name`). */
 function layoutNames(slides: SlideSummary[]): Record<string, string> {
   return Object.fromEntries(slides.map((s) => [s.id, splitKind(s.kind)?.name ?? s.id]));
 }
 
 export default function DeckPile({ snap, themeTab, current, svg, onSelect, onMove, onAdd, onRemove, axis }: Props) {
-  // History or help: the pile reads, it does not change; neither pack mode nor a theme tab changes the slides.
-  const fixed = !!snap.history || snap.read_only || !!snap.editing || themeTab;
-  const layouts = !!snap.editing || themeTab;
+  // History or help: the pile reads, it does not change; nor does a theme tab change the slides.
+  const fixed = !!snap.history || snap.read_only || themeTab;
+  const layouts = themeTab;
   return (
     <SlidePile
       slides={snap.slides}

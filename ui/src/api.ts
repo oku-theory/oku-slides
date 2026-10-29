@@ -146,7 +146,7 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Slide courante, grille, fantômes, colonnes, sous-onglets, code des widgets et sections repliées, gardés par l'hôte d'un lancement à l'autre. */
+/** Current slide, grid, ghosts, columns, selected item, code and folded sections, kept across launches. */
 export interface UiState {
   slide: string | null;
   grid: boolean;
@@ -156,15 +156,13 @@ export interface UiState {
   pile: number | null;
   /** Largeur du fil de l'agent en px, choisie au séparateur ; `null` : largeur par défaut. */
   notes: number | null;
-  /** Sous-onglets de widgets ouverts en mode pack, dans l'ordre d'ouverture. */
-  widgets: string[];
-  /** Sous-onglet actif ; `null` : la scène. */
+  /** A pack tab's selected item (widget or layout file); `null`: none. */
   widget: string | null;
   /** Code source des widgets déplié à droite de l'aperçu ; replié par défaut. */
   code: boolean;
   /** Largeur du code en px, choisie au séparateur ; `null` : proportion par défaut. */
   code_width: number | null;
-  /** Sections repliées (miniatures, widgets) ; toutes ouvertes par défaut. */
+  /** Folded sections (thumbnails); all open by default. */
   folded: PileSectionName[];
 }
 
@@ -175,8 +173,8 @@ export interface UiOrder {
   seq: number;
 }
 
-/** Section repliable : slides hors mode pack, layouts et widgets en mode pack. */
-export type PileSectionName = "slides" | "layouts" | "widgets";
+/** A foldable section: a deck's slides, or the layouts of a layout pack or theme tab. */
+export type PileSectionName = "slides" | "layouts";
 
 /** Un message de Typst (ou du contrôle) sur un fichier de widget ; ligne et colonne à partir de 1. */
 export interface WidgetDiagnostic {
@@ -499,6 +497,7 @@ type Request =
   | { cmd: "slide"; id: string }
   | { cmd: "svg"; id: string }
   | { cmd: "apply"; label: string; ops: Op[]; merge: string | null }
+  | { cmd: "set_preview_theme"; theme: string }
   | { cmd: "undo" }
   | { cmd: "redo" }
   | { cmd: "undo_turn"; turn: number }
@@ -709,6 +708,8 @@ export function tabApi(tab: string) {
       call<Snapshot>({ cmd: "edit_example_list", name, param, change }),
     apply: (label: string, ops: Op[], merge?: string) =>
       call<Snapshot>({ cmd: "apply", label, ops, merge: merge ?? null }),
+    /** Previews a pack tab's working deck in theme `theme` (a namespace), silently: no undo step. */
+    setPreviewTheme: (theme: string) => call<Snapshot>({ cmd: "set_preview_theme", theme }),
     undo: () => call<Snapshot>({ cmd: "undo" }),
     redo: () => call<Snapshot>({ cmd: "redo" }),
     /** Annule le tour `turn` de l'agent, refusé s'il n'est plus la dernière modification. */

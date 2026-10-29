@@ -18,6 +18,7 @@ use crate::test_support::{ns, session};
 #[case("theme", json!({"theme": "pro"}), Some(PacksEvent::Theme { theme: ns("pro") }))]
 #[case("theme_update", json!({}), Some(PacksEvent::ThemeUpdate))]
 #[case("open_theme", json!({"theme": "00000000-0000-0000-0000-000000000000"}), None)]
+#[case("open_pack", json!({"pack": "00000000-0000-0000-0000-000000000000"}), None)]
 #[case("add_pack", json!({"kind": "themes", "namespace": "acme"}), None)]
 #[case("add_pack", json!({"kind": "widgets"}), None)]
 #[case("add_pack", json!({"kind": "widgets", "namespace": "Not Valid"}), None)]
@@ -139,6 +140,7 @@ fn deck_packs_panel_ids_stay_unique_for_namespaces_like_fixed_ids() {
         deck_only: false,
         library_has_pinned: true,
         remove_refusal: None,
+        id: uuid::Uuid::from_u128(1),
     };
     view.widgets.extend(["title", "add", "acme", "acme-body"].map(card));
     view.addable.insert(PackKind::Widgets, vec![(ns("other"), "Other".to_owned())]);
@@ -175,4 +177,25 @@ fn theme_row_places_open_after_the_theme_pick() {
     let children: Vec<&str> = theme["children"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
     let at = |id: &str| children.iter().position(|c| *c == id);
     assert_that!(at("theme-open")).is_equal_to(at("theme-pick").map(|i| i + 1));
+}
+
+#[test]
+fn pack_row_has_an_open_button_carrying_the_pack_id() {
+    let view = session().deck_packs().unwrap();
+    let base = view.widgets.iter().find(|p| p.namespace == ns("base")).unwrap();
+    let surface = deck_packs_panel(&view, &Localizer::new(Some("fr")));
+    let open = component(&surface, "widgets/base/open");
+    let event = &open["action"]["event"];
+    assert_that!(event["name"].as_str()).is_equal_to(Some("open_pack"));
+    assert_that!(event["context"].clone()).is_equal_to(json!({"pack": base.id.to_string()}));
+    assert_that!(open["label"].as_str()).is_equal_to(Some("Ouvrir"));
+}
+
+#[test]
+fn pack_row_open_comes_first_in_actions() {
+    let view = session().deck_packs().unwrap();
+    let surface = deck_packs_panel(&view, &Localizer::new(Some("en")));
+    let actions = component(&surface, "widgets/base/actions");
+    let first = actions["children"].as_array().and_then(|c| c.first()).and_then(Value::as_str);
+    assert_that!(first).is_equal_to(Some("widgets/base/open"));
 }

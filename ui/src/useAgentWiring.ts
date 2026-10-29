@@ -17,7 +17,6 @@ import type { ImportJob } from "./useImportJob";
 import { anchorBox } from "./stageFields";
 import type { useDictation } from "./useDictation";
 import type { useFieldEditing } from "./useFieldEditing";
-import type { PackWidgetEditor } from "./usePackWidgetEditor";
 
 /** Ce que l'agent lit de l'onglet. */
 interface AgentWiringContext {
@@ -28,24 +27,25 @@ interface AgentWiringContext {
   selected: string | null;
   editing: ReturnType<typeof useFieldEditing>["editing"];
   editField: ReturnType<typeof useFieldEditing>["editField"];
-  widgets: PackWidgetEditor;
-  /** Un widget de l'atelier est ouvert : la scène est cachée. */
-  widgetActive: boolean;
+  /** A pack tab's selected item; `null` elsewhere or when none is selected. */
+  packItem: string | null;
+  /** A pack tab: no stage is shown. */
+  packTab: boolean;
   importJob: ImportJob | null;
   showSlide: (id: string) => void;
   setSelected: (id: string | null) => void;
 }
 
-/** Où les fiches ancrées se posent : sur la slide affichée, nulle part si la scène est cachée. */
-export function stageAnchors(view: SlideView | null, current: string | null, widgetActive: boolean) {
-  return view && view.slide.id === current && !widgetActive
+/** Where anchored cards land: on the slide shown, nowhere in a pack tab (no stage). */
+export function stageAnchors(view: SlideView | null, current: string | null, packTab: boolean) {
+  return view && view.slide.id === current && !packTab
     ? { slide: view.slide.id, has: (a: Anchor) => anchorBox(view, a) !== null }
     : null;
 }
 
 /** L'état de l'agent pour cet onglet, et la poignée vers son panneau. */
 export function useAgentWiring({
-  tab, snap, view, current, selected, editing, editField, widgets, widgetActive, importJob, showSlide,
+  tab, snap, view, current, selected, editing, editField, packItem, packTab, importJob, showSlide,
   setSelected,
 }: AgentWiringContext) {
   // --- Agent ------------------------------------------------------------------
@@ -56,12 +56,12 @@ export function useAgentWiring({
   const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
   const agentAvailability = useAgentAvailability(agent, importJob !== null);
   // Les fiches ancrées se posent sous leur élément, sur la slide affichée.
-  // Sous un widget de l'atelier la scène est cachée : les fiches vont alors au fil.
-  const shown = useMemo(() => stageAnchors(view, current, widgetActive), [view, current, widgetActive]);
+  // A pack tab shows no stage: the cards go to the thread.
+  const shown = useMemo(() => stageAnchors(view, current, packTab), [view, current, packTab]);
   const route = useCallback((list: Surface[]) => routeSurfaces(list, shown), [shown]);
   const agentUiNow = useMemo(
-    () => agentUi(current, selected, editField, widgets.activeName),
-    [current, selected, editField, widgets.activeName],
+    () => agentUi(current, selected, editField, packItem),
+    [current, selected, editField, packItem],
   );
   const loaded = snap !== null;
   const agentMode = useMemo<ThreadMode>(() => ({ kind: "drive", loaded }), [loaded]);
@@ -86,13 +86,14 @@ interface AgentLinkContext {
   agentUiNow: ReturnType<typeof agentUi>;
   agentStatus: AgentStatusView;
   dialogOpen: boolean;
-  widgetActive: boolean;
+  /** A pack tab: its editor takes the keys, the agent's quick keys stay off. */
+  packTab: boolean;
   deckLook: string;
 }
 
 /** Le lien avec la fenêtre détachée de l'agent. Elle apprend d'ici l'onglet, et y écrit. */
 export function useAgentLink({
-  tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, widgetActive,
+  tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab,
   deckLook,
 }: AgentLinkContext) {
   const [transport] = useState(() => linkTransport());
@@ -101,12 +102,12 @@ export function useAgentLink({
       editing: editing !== null,
       ui: agentUiNow,
       staged: agentStatus.sheet ? agentStatus.sheetId : null,
-      keysOff: !!editing || dialogOpen || widgetActive,
+      keysOff: !!editing || dialogOpen || packTab,
       look: deckLook,
     }),
     [
       editing, agentUiNow, agentStatus.sheet, agentStatus.sheetId, dialogOpen,
-      widgetActive, deckLook,
+      packTab, deckLook,
     ],
   );
   useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport });

@@ -73,7 +73,7 @@ fn library_add_another_pack_claiming_a_builtin_namespace_is_refused(#[case] name
 fn library_namespace_of_a_pack_named_base_skips_the_builtin() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let slug = crate::namespace_slug::library_namespace(&lib, "Base").unwrap();
+    let slug = crate::namespace_slug::library_namespace(&lib, "Base", "pack").unwrap();
     assert_that!(slug.as_str()).is_not_equal_to("base");
 }
 
@@ -174,7 +174,7 @@ fn pack_with_a_theme_namespace_is_refused(#[case] taken: &str) {
 fn library_namespace_skips_theme_namespaces() {
     let dir = fresh_dir("oku-slides-library-");
     let lib = library(dir.path());
-    let slug = crate::namespace_slug::library_namespace(&lib, "Papier").unwrap();
+    let slug = crate::namespace_slug::library_namespace(&lib, "Papier", "pack").unwrap();
     assert_that!(slug.as_str()).is_equal_to("papier-2");
 }
 

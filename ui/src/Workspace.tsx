@@ -308,6 +308,8 @@ export default function Workspace() {
             return v?.windows.find((w) => w.label === label)?.active === win.active;
           }}
           onOpenTheme={(theme) => void run(workspace.openTheme(win.active, theme))}
+          onNewPack={(kind) => void run(workspace.newPack(win.active, kind))}
+          onNewTheme={() => void run(workspace.newTheme(win.active))}
           onChange={inTauri ? undefined : reread}
         />
       </div>

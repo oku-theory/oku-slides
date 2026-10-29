@@ -122,6 +122,7 @@ deck-new-title = Nuova presentazione
 deck-new-slide-title = Titolo della diapositiva
 deck-new-slide-text = Di’ cosa vuoi mostrare.
 pack-default-name = Il mio pacchetto
+theme-default-name = Il mio tema
 pack-copy-name = { $name } (copia)
 theme-copy-name = { $name } (variante)
 theme-copy-of = { $name } (copia)
@@ -155,6 +156,7 @@ packs-relation-parallel = Questa presentazione usa una versione creata in parall
 packs-use-mine = Usa la mia versione
 packs-make-current = Rendi la sua la mia versione
 packs-remove = Rimuovi
+packs-pack-open = Apri
 packs-add = Aggiungi dalla libreria
 packs-theme-overrides = { $count ->
     [one] { $count } modifica della presentazione

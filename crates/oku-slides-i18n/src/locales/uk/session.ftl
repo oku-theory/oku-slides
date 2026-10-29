@@ -122,6 +122,7 @@ deck-new-title = Нова презентація
 deck-new-slide-title = Заголовок слайда
 deck-new-slide-text = Розкажіть, що хочете показати.
 pack-default-name = Мій пакет
+theme-default-name = Моя тема
 pack-copy-name = { $name } (копія)
 theme-copy-name = { $name } (варіант)
 theme-copy-of = { $name } (копія)
@@ -155,6 +156,7 @@ packs-relation-parallel = У цій презентації використан�
 packs-use-mine = Використати мою версію
 packs-make-current = Зробити ту версію моєю
 packs-remove = Вилучити
+packs-pack-open = Відкрити
 packs-add = Додати з бібліотеки
 packs-theme-overrides = { $count ->
     [one] { $count } перевизначення презентації

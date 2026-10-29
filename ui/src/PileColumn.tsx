@@ -1,23 +1,24 @@
 /**
- * Colonne de gauche du mode pack : section repliable des miniatures (qui défile, layouts d'un
- * pack de layouts ; aucune pour un pack de widgets), puis la section Widgets (ancrée). Hors mode
- * pack, les miniatures sont en bande sous la scène (`App`), sans colonne.
+ * The left column of a pack or theme tab: a foldable thumbnails section (a layout pack's pile,
+ * a theme tab's specimens), or a widget pack's pile alone. A deck shows its thumbnails in a
+ * strip under the stage (`App`), with no column.
  */
 import type { ReactNode } from "react";
 import PileSection from "./PileSection";
 
 export interface PileColumnProps {
-  /** Titre de la section des miniatures (Layouts), nom du bouton de repli. */
+  /** The thumbnails section's title (Layouts), the name of its fold button. */
   title: string;
-  /** Miniatures montrées (gardé par l'hôte). */
+  /** Thumbnails shown (kept by the host). */
   open: boolean;
   onToggle: () => void;
-  /** La pile des miniatures (`DeckPile`), qui défile seule ; nulle pour un pack de widgets. */
+  /** The foldable thumbnails (`DeckPile`, `PackPile`), which scroll alone; `null`: no section. */
   slides: ReactNode | null;
-  /** La section Widgets (`PileWidgets`), repliable de son côté. */
+  /** A widget pack's pile (`PackPile`), the whole column; `null` elsewhere. */
   widgets: ReactNode;
 }
 
+/** The left column: a foldable thumbnails section, then a widget pack's pile. */
 export default function PileColumn({ title, open, onToggle, slides, widgets }: PileColumnProps) {
   return (
     <div className="pile-column">

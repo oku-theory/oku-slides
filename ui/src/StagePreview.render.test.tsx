@@ -89,13 +89,6 @@ describe("aperçu sur la scène", () => {
     expect(host.querySelector(".stage-hover-preview")).toBeNull();
   });
 
-  test("en mode pack, l'aperçu d'un thème n'est pas montré", async () => {
-    const store = createStagePreviewStore();
-    store.show({ slide: "s", url: "data:a" });
-    const host = await mount({ hoverPreview: store, packMode: true });
-    expect(host.querySelector(".stage-hover-preview")).toBeNull();
-  });
-
   test("pendant l'édition d'un texte, l'aperçu d'une variante reste montré", async () => {
     const store = createStagePreviewStore();
     store.show({ url: "data:v" });
@@ -107,13 +100,6 @@ describe("aperçu sur la scène", () => {
     const store = createStagePreviewStore();
     store.show({ url: "data:v" });
     const host = await mount({ hoverPreview: store, readOnly: true });
-    expect(host.querySelector(".stage-hover-preview")?.getAttribute("src")).toBe("data:v");
-  });
-
-  test("en mode pack, l'aperçu d'une variante reste montré", async () => {
-    const store = createStagePreviewStore();
-    store.show({ url: "data:v" });
-    const host = await mount({ hoverPreview: store, packMode: true });
     expect(host.querySelector(".stage-hover-preview")?.getAttribute("src")).toBe("data:v");
   });
 });

@@ -23,12 +23,14 @@ async function openMenu(extra: Record<string, unknown> = {}) {
   mounted = { root, host };
   const noop = () => {};
   await act(async () =>
-    root.render(createElement(AppMenu, { packMode: false, themeTab: false, present: noop, open: noop, onHelp: noop, onAbout: noop, ...extra })),
+    root.render(createElement(AppMenu, { kind: "deck", present: noop, open: noop, onHelp: noop, onAbout: noop, onNewPack: noop, onNewTheme: noop, ...extra })),
   );
   await act(async () => (host.querySelector(".action-menu-trigger") as HTMLButtonElement).click());
   return [...host.querySelectorAll('[role="menuitem"]')] as HTMLButtonElement[];
 }
 
+/** The entries' key ids, without shortcut hints. */
+const names = (items: HTMLButtonElement[]) => items.map((b) => b.textContent?.replace(/(Ctrl|Cmd|⌘).*$/, ""));
 const labelled = (items: HTMLButtonElement[], key: string) => items.find((b) => b.textContent?.includes(key));
 
 describe("AppMenu", () => {
@@ -45,7 +47,7 @@ describe("AppMenu", () => {
   });
 
   test("AppMenu in a theme tab offers neither present nor open", async () => {
-    const items = await openMenu({ themeTab: true });
+    const items = await openMenu({ kind: "theme" });
     expect([labelled(items, "ui-present-screen"), labelled(items, "ui-toolbar-open"), !!labelled(items, "ui-help")]).toEqual([undefined, undefined, true]);
   });
 
@@ -57,12 +59,47 @@ describe("AppMenu", () => {
   });
 
   test("AppMenu theme tab keeps the about entry", async () => {
-    const items = await openMenu({ themeTab: true });
+    const items = await openMenu({ kind: "theme" });
     expect(labelled(items, "ui-about")).toBeDefined();
   });
 
   test("AppMenu pack mode keeps the update entry", async () => {
-    const items = await openMenu({ packMode: true, onCheckUpdates: () => {} });
+    const items = await openMenu({ kind: "pack", onCheckUpdates: () => {} });
     expect(labelled(items, "ui-update-check")).toBeDefined();
+  });
+
+  test("AppMenu in a deck tab lists present, open, the three new entries, then the app entries", async () => {
+    const items = await openMenu({ onCheckUpdates: () => {} });
+    expect(names(items)).toEqual([
+      "ui-present-screen", "ui-toolbar-open", "ui-menu-new-widget-pack", "ui-menu-new-layout-pack", "ui-menu-new-theme", "ui-update-check", "ui-help", "ui-about",
+    ]);
+  });
+
+  test("AppMenu in a pack tab lists the three new entries and the app entries", async () => {
+    const items = await openMenu({ kind: "pack" });
+    expect(names(items)).toEqual(["ui-menu-new-widget-pack", "ui-menu-new-layout-pack", "ui-menu-new-theme", "ui-help", "ui-about"]);
+  });
+
+  test("AppMenu in a theme tab lists only the new theme entry and the app entries", async () => {
+    const items = await openMenu({ kind: "theme" });
+    expect(names(items)).toEqual(["ui-menu-new-theme", "ui-help", "ui-about"]);
+  });
+
+  test.each(["help", "history"])("AppMenu in a %s tab lists the app entries only", async (kind) => {
+    const items = await openMenu({ kind });
+    expect(names(items)).toEqual(["ui-help", "ui-about"]);
+  });
+
+  test("AppMenu new entries call their handlers with their kind", async () => {
+    const calls: string[] = [];
+    const handlers = { onNewPack: (k: string) => calls.push(k), onNewTheme: () => calls.push("theme") };
+    for (const key of ["ui-menu-new-widget-pack", "ui-menu-new-layout-pack", "ui-menu-new-theme"]) {
+      const items = await openMenu(handlers);
+      await act(async () => labelled(items, key)?.click());
+      await act(async () => mounted?.root.unmount());
+      mounted?.host.remove();
+      mounted = null;
+    }
+    expect(calls).toEqual(["widgets", "layouts", "theme"]);
   });
 });

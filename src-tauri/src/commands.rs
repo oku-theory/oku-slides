@@ -67,7 +67,9 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::NewWindow
         | WorkspaceRequest::MoveTab { .. }
         | WorkspaceRequest::OpenPack { .. }
-        | WorkspaceRequest::OpenTheme { .. } => (true, true),
+        | WorkspaceRequest::OpenTheme { .. }
+        | WorkspaceRequest::NewPack { .. }
+        | WorkspaceRequest::NewTheme { .. } => (true, true),
     }
 }
 
@@ -106,6 +108,8 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::ImportPicked { .. }
         | WorkspaceRequest::OpenPack { .. }
         | WorkspaceRequest::OpenTheme { .. }
+        | WorkspaceRequest::NewPack { .. }
+        | WorkspaceRequest::NewTheme { .. }
         | WorkspaceRequest::PackOpener { .. } => None,
     }
 }

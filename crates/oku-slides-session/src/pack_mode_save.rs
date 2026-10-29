@@ -83,7 +83,7 @@ impl Session {
         let namespace = match kept.as_ref().map(|m| m.namespace.clone()) {
             Some(ns) if !fresh || !scope.is_library() => ns,
             None if !scope.is_library() => Namespace::deck(),
-            _ => library_namespace(&self.library, &name)?,
+            _ => library_namespace(&self.library, &name, "pack")?,
         };
         let source = kept.as_ref().map(|m| m.id);
         // Ses jetons de composant suivent la version d'où il part.
@@ -279,6 +279,7 @@ impl Session {
                 parent,
                 session_version: Some(version.clone()),
                 deck_only,
+                created_empty: edit.created_empty,
             };
             // A copy is another pack: it holds its own lease (none for a deck-only
             // one), the original's drops here, and a library copy is never orphaned.

@@ -26,7 +26,7 @@ use snafu::ResultExt;
 use oku_slides_platform::storage::resolve;
 
 use crate::error::{ResponseSnafu, Result, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu};
-use crate::{Fonts, Platform, Session};
+use crate::{Fonts, PackLibrary, Platform, Session};
 
 /// Sous-dossier des onglets, dans le dossier de reprise.
 const TABS_DIR: &str = "tabs";
@@ -66,6 +66,8 @@ pub struct Workspace {
     layout_generation: u64,
     /// Deck-pack tabs whose work a refused close discarded: a quit never flushes them.
     discard_at_quit: HashSet<String>,
+    /// The user's library, where the drafts closed tabs created empty are collected.
+    library: PackLibrary,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -109,6 +111,7 @@ impl Workspace {
             touched: Vec::new(),
             layout_generation: 0,
             discard_at_quit: HashSet::new(),
+            library: PackLibrary::user(platform),
         }
     }
 
@@ -198,6 +201,12 @@ impl Workspace {
         }
         if let WorkspaceRequest::OpenTheme { tab, theme } = &req {
             return Self::open_theme_ui(ws, tab, *theme);
+        }
+        if let WorkspaceRequest::NewPack { tab, kind } = &req {
+            return Self::new_pack(ws, tab, *kind);
+        }
+        if let WorkspaceRequest::NewTheme { tab } = &req {
+            return Self::new_theme(ws, tab);
         }
         if let WorkspaceRequest::PackOpener { tab } = &req {
             let offer = Self::pack_opener(ws, tab)?;
@@ -305,9 +314,10 @@ impl Workspace {
         self.tabs.remove(id).map(|t| (id.to_owned(), t))
     }
 
-    /// De quoi supprimer des onglets fermés une fois le verrou rendu.
+    /// What deletes closed tabs once the lock is released; read after they left `tabs`.
     fn trash(&self) -> Trash {
-        Trash { storage: self.platform.storage.clone(), dir: self.dir.clone() }
+        let shown = tabs::shown_drafts(self.tabs.values().map(|t| &t.info));
+        Trash { storage: self.platform.storage.clone(), dir: self.dir.clone(), library: self.library.clone(), shown }
     }
 
     fn view_json(&self) -> Result<String> {
@@ -403,7 +413,7 @@ use ids::{MAX_NUMBER, is_tab_id, number};
 use layout::{LAYOUT_VERSION, Layout, TabPlace, WindowLayout};
 use session::relock;
 use slot::{Dormant, Slot, Tab};
-use tabs::{Opening, Pending, Step, Trash};
+use tabs::{Created, Opening, Pending, Step, Trash};
 
 /// La session d'un onglet : un deck sans fichier s'enregistre de lui-même
 /// dans le dossier des decks (`paths.decks`).

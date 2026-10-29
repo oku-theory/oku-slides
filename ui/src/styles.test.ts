@@ -3,10 +3,11 @@
 import { expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { contrast, luminance } from "./color";
 
 const own = (f: string) => readFileSync(join(import.meta.dir, f), "utf8");
-/** Les feuilles de l'app, chargées à la suite par main.tsx (styles.css continué par import.css et workshop.css). */
-const APP = ["styles.css", "import.css", "workshop.css"].map(own).join("\n");
+/** The app's sheets, loaded in turn by main.tsx (styles.css continued by import.css and pack.css). */
+const APP = ["styles.css", "import.css", "pack.css"].map(own).join("\n");
 const css = [APP, ...["glass.css", "a2ui/a2ui.css"].map(own)].join("\n");
 
 test("aucun style post-it ne reste dans les feuilles de style", () => {
@@ -117,4 +118,33 @@ test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu
   // La scène prend ce qui reste ; le tiroir, sa hauteur.
   expect(area).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/);
   expect(ruleOf(APP, ".sheet-area > .stage-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
+});
+
+/** The `color.bg`-style token values of the built-in default theme (Papier), the source of the app's defaults. */
+const papier = JSON.parse(readFileSync(join(import.meta.dir, "../../typst/oku-slides/themes/papier.json"), "utf8")).tokens as {
+  app: { desk: string; piece: string };
+  "app-dark": { desk: string; piece: string };
+};
+
+/** The hex a custom property is set to in `block` of styles.css. */
+const hexIn = (block: string, name: string) => block.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{3,6})\\b`))?.[1];
+
+// Covers the built-in light and dark defaults only: a theme's `--app-*` overrides set by
+// `applyAppearance` are not checked, and the bar's translucent `--shade` is not a hex.
+test("tab kind borders reach 3:1 against the default tab backgrounds in light and dark", () => {
+  const root = css.match(/(?:^|\n):root\s*\{([^}]*)\}/)?.[1] ?? "";
+  const dark = css.match(/:root\[data-scheme="dark"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  const schemes = [
+    { name: "light", block: root, backgrounds: [papier.app.piece, papier.app.desk] },
+    { name: "dark", block: dark, backgrounds: [papier["app-dark"].piece, papier["app-dark"].desk] },
+  ];
+  for (const { name, block, backgrounds } of schemes) {
+    for (const token of ["--tab-pack", "--tab-theme"]) {
+      const hex = hexIn(block, token);
+      expect(hex, `${token} in ${name}`).toBeDefined();
+      for (const bg of backgrounds) {
+        expect(contrast(luminance(hex!)!, luminance(bg)!), `${token} on ${bg} in ${name}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  }
 });

@@ -40,6 +40,9 @@ pub struct ThemeTab {
     pub parent: Option<PackVersion>,
     /// The version this tab wrote last, if it wrote one.
     pub session_version: Option<PackVersion>,
+    /// The pack or theme this tab created empty; collected when the tab leaves untouched.
+    #[serde(default)]
+    pub created_empty: Option<Uuid>,
 }
 
 /// A theme tab as the interface sees it: the draft and its flags.
@@ -134,7 +137,7 @@ impl Session {
         }
         let (draft, tokens) = self.initial_theme_edit(theme)?;
         let parent = (!draft.child()).then(|| draft.base.version.clone());
-        self.install_theme_tab(ThemeTab { draft, parent, session_version: None }, tokens, lease)?;
+        self.install_theme_tab(ThemeTab { draft, parent, session_version: None, created_empty: None }, tokens, lease)?;
         // Frozen last: a tab that fails to open leaves the library as it was.
         if let Err(e) = self.rerender().and_then(|()| self.freeze_opened_theme()) {
             self.back_to_blank();
@@ -217,6 +220,7 @@ impl Session {
             pristine: false,
             theme: Some(edit.draft.base.id),
             document: TabDocument::Theme { theme: edit.draft.base.id },
+            created: edit.created_empty,
         })
     }
 

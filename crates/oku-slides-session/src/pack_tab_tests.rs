@@ -214,3 +214,47 @@ fn open_pack_tab_here_of_a_deck_only_pack_is_refused() {
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::DeckOnly);
     assert_that!(editing(&s)).is_none();
 }
+
+#[test]
+fn select_item_on_widget_sets_its_slide() {
+    let (_data, _deck, _s, mut t, _) = acme_tab();
+    t.select_item("card").unwrap();
+    assert_that!((t.ui.widget.clone(), t.ui.slide.clone()))
+        .is_equal_to((Some("card".to_owned()), Some("widget-card".to_owned())));
+}
+
+#[test]
+fn select_item_on_layout_sets_its_slide() {
+    let data = fresh_dir("oku-slides-pack-tab-");
+    let (mut t, _) = crate::test_support::layout_pack_tab(data.path(), "acme", &["one"]);
+    t.select_item("one").unwrap();
+    assert_that!((t.ui.widget.clone(), t.ui.slide.clone()))
+        .is_equal_to((Some("one".to_owned()), Some("layout-one".to_owned())));
+}
+
+#[test]
+fn select_item_on_common_sets_no_slide() {
+    let data = fresh_dir("oku-slides-pack-tab-");
+    let (mut t, _) = crate::test_support::layout_pack_tab(data.path(), "acme", &["one"]);
+    let Mode::Pack { edit, .. } = &t.mode else { panic!("a pack tab") };
+    let common = oku_slides_core::WidgetFile::parse("_commun").unwrap();
+    assert_that!(t.doc.sources.packs[&edit.base].widget(&common).is_none()).is_true();
+    let slide = t.ui.slide.clone();
+    t.select_item("_commun").unwrap();
+    assert_that!((t.ui.widget.clone(), t.ui.slide.clone())).is_equal_to((Some("_commun".to_owned()), slide));
+}
+
+#[test]
+fn select_item_on_an_existing_common_sets_no_slide() {
+    let (_data, _deck, _s, mut t, _) = acme_tab();
+    let slide = t.ui.slide.clone();
+    t.select_item("_commun").unwrap();
+    assert_that!((t.ui.widget.clone(), t.ui.slide.clone())).is_equal_to((Some("_commun".to_owned()), slide));
+}
+
+#[test]
+fn select_item_on_unknown_widget_is_refused() {
+    let (_data, _deck, _s, mut t, _) = acme_tab();
+    assert_that!(t.select_item("nope").unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownWidget);
+    assert_that!(t.ui.widget.clone()).is_none();
+}

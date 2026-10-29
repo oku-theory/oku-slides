@@ -1,21 +1,20 @@
 /**
- * Sous-onglet d'un fichier de widget : l'aperçu en haut, sur toute la largeur ;
- * dessous, réglages et diagnostics à gauche, éditeur à droite.
+ * The view of a pack tab's selected item: its preview on top, across the whole width; below,
+ * settings and diagnostics on the left, the Typst editor on the right.
  *
- * L'interrupteur de la barre d'outils affiche le code (masqué par défaut, choix
- * commun gardé par l'hôte) : masqué, les réglages prennent toute la largeur
- * sous l'aperçu ; affiché, le code se place à leur droite, à la largeur réglée
- * au séparateur. Masqué, l'éditeur reste monté (inerte) : frappes et
- * historique demeurent.
- * L'aperçu montre le widget à ses valeurs d'exemple, gardées dans le pack.
- * Avec sa vue, l'aperçu est une scène (`Stage` en aperçu) : ses champs texte
- * s'éditent sur place, comme sur la slide, et s'écrivent dans ces valeurs
- * (un champ lié au deck reste en lecture) ; ses listes se changent
- * dans ces valeurs (Cmd/Ctrl+Alt+flèche sur un item), jamais dans le deck.
- * Sans vue (échec), l'image seule.
- * Pour Commun, les widgets en erreur à la place de l'aperçu. Caché quand il
- * n'est pas actif, il reste monté : l'éditeur garde son historique.
- * L'aperçu reste dans un `<img>` : un SVG de widget ne s'y exécute pas.
+ * The toolbar switch shows the code (hidden by default, a choice the host keeps for every item):
+ * hidden, the settings take the whole width under the preview; shown, the code sits on their
+ * right, at the width set at the divider. Hidden, the editor stays mounted (inert): typing and
+ * history remain while the item stays selected.
+ * The preview shows the widget at its example values, kept in the pack. With its view, the
+ * preview is a stage (`Stage` in preview mode): its text fields are edited in place, as on a
+ * slide, and written to those values (a field bound to the deck stays read-only); its lists
+ * change in those values (Cmd/Ctrl+Alt+arrow on an item), never in the deck. Without a view
+ * (failure), the image alone. For Commun, the widgets in error instead of the preview.
+ * The preview stays in an `<img>`: a widget SVG never runs there.
+ *
+ * Mounted once per selected item (keyed by name): a mount whose file still has a write pending
+ * waits for the queue, then starts from the text last refused, if any, else the saved source.
  */
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
@@ -34,33 +33,30 @@ import { type FieldKey, fieldKey } from "./stageFields";
 import { croppedSvg, croppedView } from "./widgetPreview";
 import { COMMON, diagnosticPlace, fileDiagnostics, listedDiagnostics, stateOf, widgetLabel } from "./widgetList";
 
+/** What the selected item's view shows and writes. */
 export interface WidgetTabProps {
   api: TabApi;
   files: WidgetFiles;
-  /** Id stable du sous-onglet (`OpenWidget.id`), pour les ids ARIA. */
-  id: number;
-  /** Nom courant du fichier ; un renommage le change sans remonter le composant. */
+  /** The item's file name; a rename mounts the view again under the new name. */
   name: string;
   revision: string;
-  /** Révision des essais (commune au pack) : l'aperçu se relance quand elle change. */
+  /** The pack's trial revision: the preview is asked again when it changes. */
   trials: number;
-  /** Empreinte du style du deck (thème, couleurs) : l'aperçu, rendu à ce style, se relance quand elle change. */
+  /** The deck style's fingerprint (theme, colours): the preview, rendered in it, follows it. */
   look: string;
-  /** Seul l'actif est visible, relit sa source et demande un aperçu. */
-  active: boolean;
-  /** Code source affiché ; masqué, l'éditeur reste monté mais inerte. */
+  /** Source code shown; hidden, the editor stays mounted but inert. */
   code: boolean;
-  /** Largeur du code choisie, commune à tous les sous-onglets ; `null` : proportion par défaut. */
+  /** The code width chosen, shared by every item; `null`: the default share. */
   codeWidth: number | null;
-  /** Retient une nouvelle largeur réglée au séparateur. */
+  /** Keeps a new width set at the divider. */
   onCodeWidth: (width: number | null) => void;
-  /** Réglages de l'hôte (valeurs d'exemple du widget), sous l'aperçu à gauche du code ; `null` : aucun. */
+  /** The host's settings (the widget's example values), under the preview left of the code. */
   settings?: ReactNode;
-  /** Envoie une écriture des valeurs d'exemple (refus en toast) ; défaut : le refus passe par les fichiers. */
+  /** Sends an example value write (refusal toasted); default: the refusal goes through the files. */
   run?: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
-  /** Couleurs des pastilles dans l'éditeur d'un champ (palette des graphiques du thème). */
+  /** Swatch colours in a field's editor (the theme's chart palette). */
   palette?: string[];
-  /** Commun : ouvre le widget cliqué. */
+  /** Commun: selects the widget clicked in its list of widgets in error. */
   onOpen: (name: string) => void;
   onCommands: (c: EditorCommands | null) => void;
   onHistory: (h: EditorHistory) => void;
@@ -77,8 +73,9 @@ interface Committed {
   acked: number | null;
 }
 
+/** The selected item's preview, settings, diagnostics and editor. */
 export default function WidgetTab({
-  api, files, id, name, revision, trials, look, active, code, codeWidth, onCodeWidth, settings = null,
+  api, files, name, revision, trials, look, code, codeWidth, onCodeWidth, settings = null,
   run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
@@ -96,38 +93,48 @@ export default function WidgetTab({
   const shown = useRef(false);
   const previewSeq = useRef(0);
 
-  // Source : au montage, puis à chaque revision quand actif (un caché la lit en devenant actif).
+  // Source: on mount, then at each revision. A mount whose file still has a write pending (unsent,
+  // in flight or refused) waits for the queue, then shows the text last refused, else the saved source.
   useEffect(() => {
-    if (readFor.current === revision || (!active && shown.current)) return;
+    if (readFor.current === revision) return;
     readFor.current = revision;
     let alive = true;
     let arrived = false;
     const file = nameRef.current;
-    const asked = filesRef.current.edits(file);
-    api
-      .widgetSource(file)
-      .then((s) => {
+    const first = !shown.current;
+    const settled = first && filesRef.current.pending(file) ? filesRef.current.settle() : Promise.resolve();
+    settled
+      .then(async () => {
+        if (!alive) return null;
+        const tried = first ? filesRef.current.attempted(file) : undefined;
+        if (tried !== undefined) return { text: tried, asked: null };
+        const asked = filesRef.current.edits(file);
+        return { text: await api.widgetSource(file), asked };
+      })
+      .then((got) => {
         arrived = true;
-        if (!alive || (shown.current && filesRef.current.stale(file, asked, s))) return;
+        if (!alive || !got) return;
+        const { text, asked } = got;
+        if (asked !== null && shown.current && filesRef.current.stale(file, asked, text)) return;
         shown.current = true;
-        filesRef.current.loaded(file, s);
-        setSource(s);
+        if (asked !== null) filesRef.current.loaded(file, text);
+        setSource(text);
         setEditorKey((k) => k + 1);
       })
       .catch((e: unknown) => alive && filesRef.current.fail(e));
     return () => {
       alive = false;
-      // Réponse perdue (onglet caché entre-temps) : la lecture reste due.
+      // Answer lost (unmounted meanwhile): the read stays due.
       if (!arrived) readFor.current = null;
     };
-  }, [api, revision, active]);
+  }, [api, revision]);
 
-  // Aperçu : actif seulement, après la source puis chaque écriture enregistrée. Sans pack, comme
-  // les statuts et les sources : l'onglet n'existe qu'en mode pack, où l'hôte prend le pack édité.
+  // Preview: after the source, then after each saved write. Without a pack, as the statuses and
+  // sources: the view exists only in a pack tab, where the host takes the edited pack.
   const written = files.writes.get(name) ?? 0;
   const ready = source !== null;
   useEffect(() => {
-    if (!active || name === COMMON || !ready) return;
+    if (name === COMMON || !ready) return;
     const seq = ++previewSeq.current;
     api
       .previewWidget(name)
@@ -142,14 +149,14 @@ export default function WidgetTab({
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
     // `trials` et `look` ne sont pas lus : ils relancent l'aperçu quand les essais ou le style du deck changent.
-  }, [api, active, name, written, ready, editorKey, trials, look]);
+  }, [api, name, written, ready, editorKey, trials, look]);
 
-  // Redevenu visible (onglet actif, code déplié) : l'éditeur caché se remesure.
+  // The code shown again: the editor, measured while hidden, measures again.
   useEffect(() => {
-    if (!active || !code) return;
+    if (!code) return;
     const el = host.current?.querySelector(".cm-content");
     if (el) EditorView.findFromDOM(el as HTMLElement)?.requestMeasure();
-  }, [active, code]);
+  }, [code]);
 
   const status = files.statuses?.find((s) => s.name === name);
   const diagnostics = useMemo(() => fileDiagnostics(status, name), [status, name]);
@@ -214,7 +221,7 @@ export default function WidgetTab({
   /** Un changement de liste de l'aperçu : le changement, dans la liste des valeurs d'exemple. */
   const onListOp: OnListOp = (_owner, list, change) => void write(api.editExampleList(name, list, change));
 
-  /** Largeurs du sous-onglet (la rangée du bas en prend toute la largeur) et du code, au début d'un geste. */
+  /** Widths of the view (its bottom row takes all of it) and of the code, at a gesture's start. */
   const measure = () => {
     const el = host.current;
     const codeEl = el?.querySelector<HTMLElement>(".widget-tab-code");
@@ -230,10 +237,9 @@ export default function WidgetTab({
     <section
       ref={host}
       className="widget-tab"
-      hidden={!active}
-      role="tabpanel"
-      id={`widget-panel-${id}`}
-      aria-labelledby={`widget-tab-${id}`}
+      role="region"
+      id="widget-panel"
+      aria-label={widgetLabel(name)}
       data-code={code ? "shown" : "folded"}
       style={tracks as React.CSSProperties}
     >
@@ -294,7 +300,7 @@ export default function WidgetTab({
           onReset={() => onCodeWidth(null)}
         />
       )}
-      <div className="widget-tab-code" id={`widget-code-${id}`} inert={!code}>
+      <div className="widget-tab-code" id="widget-code" inert={!code}>
         {source !== null && (
           <TypstEditor
             key={editorKey}

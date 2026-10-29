@@ -2,6 +2,7 @@
 
 import type { Element, Messages, SchemeSetting } from "./api";
 import { host } from "./hostCall";
+import type { PackKind } from "./packTypes";
 
 /** What a tab edits. */
 export type TabDocument =
@@ -22,6 +23,8 @@ export interface TabInfo {
   theme: string | null;
   /** What the tab edits. */
   document: TabDocument;
+  /** The pack or theme this tab created empty; collected when the tab leaves untouched. */
+  created: string | null;
 }
 
 /** A deck tab's file, or null for any other or unknown kind. */
@@ -154,6 +157,8 @@ type WorkspaceRequest =
   | { cmd: "import_picked"; id: number }
   | { cmd: "open_pack"; tab: string; pack: string; widget: string | null }
   | { cmd: "open_theme"; tab: string; theme: string }
+  | { cmd: "new_pack"; tab: string; kind: PackKind }
+  | { cmd: "new_theme"; tab: string }
   | { cmd: "pack_opener"; tab: string };
 
 const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
@@ -202,6 +207,10 @@ export const workspace = {
   openPack: (tab: string, pack: string, widget: string | null) => ws<WorkspaceView>({ cmd: "open_pack", tab, pack, widget }),
   /** Opens theme `theme` in its own tab, after `tab`, or focuses the tab that has it. */
   openTheme: (tab: string, theme: string) => ws<WorkspaceView>({ cmd: "open_theme", tab, theme }),
+  /** Creates an empty library pack of `kind` and opens it in its own tab, after `tab`. */
+  newPack: (tab: string, kind: PackKind) => ws<WorkspaceView>({ cmd: "new_pack", tab, kind }),
+  /** Creates an empty library theme and opens it in its own tab, after `tab`. */
+  newTheme: (tab: string) => ws<WorkspaceView>({ cmd: "new_theme", tab }),
   /** The deck a pack tab may update, if any. */
   packOpener: (tab: string) => ws<OpenerOffer | null>({ cmd: "pack_opener", tab }),
 };

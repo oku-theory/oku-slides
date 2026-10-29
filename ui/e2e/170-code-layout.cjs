@@ -5,10 +5,11 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
 const { untilValue } = require('./lib/until.cjs');
+const { newPackItem } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const TAB = '.widget-tab:not([hidden])';
+const TAB = '.widget-tab';
 
-/** Boîtes de l'aperçu, des réglages et du code du sous-onglet visible. */
+/** Boîtes de l'aperçu, des réglages et du code de l'élément choisi. */
 const boxes = (p) => p.evaluate((sel) => {
   const tab = document.querySelector(sel);
   const r = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
@@ -47,10 +48,7 @@ const saved = (p, ok) =>
   await closePackTabs(p);
   await p.waitForSelector('.stage img');
   await openEssentiel(p);
-  await p.getByRole('button', { name: 'Nouveau widget' }).click();
-  const name = p.getByRole('textbox', { name: /Nom du widget/ });
-  await name.fill('cadran');
-  await name.press('Enter');
+  await newPackItem(p, 'cadran');
   await p.waitForSelector(`${TAB} .widget-tab-preview`);
 
   // Code affiché : l'aperçu en haut sur toute la largeur ; dessous, les réglages puis le code à leur droite.
@@ -90,7 +88,7 @@ const saved = (p, ok) =>
   await p.mouse.up();
   r = await boxes(p);
   assert.ok(r.side.width >= 240 - 1, `réglages trop étroits : ${r.side.width}`);
-  assert.ok(r.overflow <= 0, `le sous-onglet déborde de ${r.overflow} px`);
+  assert.ok(r.overflow <= 0, `la vue de l'élément déborde de ${r.overflow} px`);
   // Retour à la proportion par défaut, pour les tests suivants.
   const reset = saved(p, (w) => w === null);
   await p.locator(`${TAB} .code-divider`).dblclick();

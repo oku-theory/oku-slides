@@ -29,14 +29,22 @@ interface Props {
   onMove?: (id: string, slot: number) => void;
   /** Absent : pas de bouton d'ajout (lecture seule). */
   onAdd?: () => void;
-  /** Nom du bouton de suppression d'une miniature. */
-  removeLabel: string;
+  /** The name of a thumbnail's delete button, the same for all or each its own. */
+  removeLabel: string | ((id: string) => string);
   /** Faux s'il ne reste qu'une slide : on ne la supprime pas. */
   canRemove: boolean;
   /** Absent : pas de bouton de suppression (lecture seule). */
   onRemove?: (id: string) => void;
   /** Colonne (`y`, défaut) ou bande horizontale (`x`) : le sens du glisser et du défilement. */
   axis?: PileAxis;
+  /** The title of every thumbnail of a pile that does not move (a pack's rename hint). */
+  hint?: string;
+  /** A key on a thumbnail, before the pile's own (Enter, Space); it may prevent them. */
+  onThumbKey?: (id: string, e: React.KeyboardEvent<HTMLButtonElement>) => void;
+  /** A double-click on a thumbnail. */
+  onThumbDoubleClick?: (id: string) => void;
+  /** Slides whose item has typing not yet saved: they carry a dot. */
+  unsaved?: ReadonlySet<string>;
 }
 
 const MARK_TITLE = { removed: "ui-history-removed-since", changed: "ui-history-changed-since" } as const;
@@ -72,6 +80,7 @@ const THRESHOLD = 5;
 
 export default function SlidePile({
   slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove, axis = "y",
+  hint, onThumbKey, onThumbDoubleClick, unsaved,
 }: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -177,12 +186,15 @@ export default function SlidePile({
             <button
               className={`thumb${lifted ? " lifted" : ""}`}
               aria-current={s.id === current}
-              title={onMove ? t("ui-pile-drag-hint") : undefined}
+              title={onMove ? t("ui-pile-drag-hint") : hint}
               onPointerDown={(e) => down(e, s.id)}
               onPointerMove={move}
               onPointerUp={up}
               onPointerCancel={() => setDrag(null)}
+              onDoubleClick={onThumbDoubleClick && (() => onThumbDoubleClick(s.id))}
               onKeyDown={(e) => {
+                onThumbKey?.(s.id, e);
+                if (e.defaultPrevented) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   onSelect(s.id);
@@ -191,8 +203,9 @@ export default function SlidePile({
             >
               <span className="thumb-n">{i + 1}</span>
               <span className="thumb-body">
-                {url ? <img className="thumb-img" src={url} alt={s.title ?? t("ui-slide-alt", { n: i + 1 })} draggable={false} /> : <span className="thumb-img" />}
+                {url ? <img className="thumb-img" src={url} alt={name ?? s.title ?? t("ui-slide-alt", { n: i + 1 })} draggable={false} /> : <span className="thumb-img" />}
                 {name && <span className="thumb-name">{name}</span>}
+                {unsaved?.has(s.id) && <span className="unsaved-dot" role="img" aria-label={t("ui-widgets-unsaved")} title={t("ui-widgets-unsaved")} />}
                 {mark && <span className={`thumb-mark ${mark}`} role="img" title={t(MARK_TITLE[mark])} aria-label={t(MARK_TITLE[mark])} />}
               </span>
             </button>
@@ -200,8 +213,8 @@ export default function SlidePile({
             {onRemove && !drag?.moved && (
               <button
                 className="object token thumb-remove"
-                aria-label={removeLabel}
-                title={t("ui-toolbar-remove-hint", { n: i + 1 })}
+                aria-label={typeof removeLabel === "string" ? removeLabel : removeLabel(s.id)}
+                title={typeof removeLabel === "string" ? t("ui-toolbar-remove-hint", { n: i + 1 }) : removeLabel(s.id)}
                 disabled={!canRemove}
                 onClick={() => onRemove(s.id)}
               >

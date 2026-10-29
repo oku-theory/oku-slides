@@ -7,21 +7,27 @@
 //! celle des thèmes (même index) pour le vérifier. Une version d'un pack connu
 //! sous l'autre sorte est refusée (`PackKindChanged`).
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use snafu::ensure;
+use snafu::{ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, PackKind, PackVersion};
+use oku_slides_core::{Namespace, PackFiles, PackKind, PackScope, PackVersion, ThemeManifest, now_created};
 use oku_slides_platform::storage::Storage;
 
 use crate::Result;
-use crate::error::{NamespaceReservedSnafu, NamespaceTakenSnafu, PackKindChangedSnafu};
-use crate::library::{DraftLock, DraftWrite, Library, builtin_owner, may_own};
+use crate::agent::bounds::label;
+use crate::error::{
+    LeaseMissingSnafu, NamespaceReservedSnafu, NamespaceTakenSnafu, PackJsonSnafu, PackKindChangedSnafu, ThemeJsonSnafu,
+};
+use crate::library::{DraftLock, DraftWrite, Library, builtin_owner, draft_lock, may_own};
 use crate::library_kind::{Layouts, StoredVersion, Widgets};
+use crate::namespace_slug::library_namespace;
 use crate::pack::{PackInfo, PackManifest, Relation};
-use crate::pack_lease::LeaseScope;
-use crate::theme::ThemeLibrary;
+use crate::pack_lease::{LeaseScope, PackLease, covers};
+use crate::pack_library::write_session_version;
+use crate::theme::{ThemeLibrary, default_namespace};
 
 /// Appelle `$body` avec `$l`, la bibliothèque de la sorte `$kind`.
 macro_rules! by_kind {
@@ -50,6 +56,21 @@ pub struct PackLibrary {
     lease_scope: Option<LeaseScope>,
     /// The lease key of its theme library; `None` without its directory.
     theme_scope: Option<LeaseScope>,
+}
+
+/// What a draft created empty is: a library pack or a library theme.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DraftKind {
+    /// A widget or layout pack, leased in the pack scope.
+    Pack,
+    /// A theme, leased in the theme scope.
+    Theme,
+}
+
+/// The lease of the new pack or theme `id` in `scope`, under `lock`; `None` without a scope.
+fn created_lease(lock: &DraftLock, scope: Option<&LeaseScope>, id: Uuid, name: &str) -> Result<Option<PackLease>> {
+    let name = label(name);
+    scope.map(|scope| PackLease::try_take(lock, scope, id, &name, &name)).transpose()
 }
 
 /// L'autre sorte que `kind`.
@@ -265,6 +286,129 @@ impl PackLibrary {
     /// Fails like [`Library::delete`]: missing folder or failed deletion.
     pub fn delete(&self, id: Uuid) -> Result<()> {
         by_kind!(self, self.kind_of(id), l => l.delete(id))
+    }
+
+    /// Creates an empty library pack of `kind` named `name`: its new id.
+    ///
+    /// Under one `draft_lock`: a free namespace drawn from `name` (`pack` when
+    /// it has no letter), a manifest with no widget, the new pack's lease
+    /// (with a lease scope) as the write's witness, then the write; the lease
+    /// drops with the lock. `draft_lock` is per process: two processes sharing
+    /// the library may still race for one namespace (ticketed).
+    ///
+    /// # Errors
+    ///
+    /// The namespace, manifest and library write errors.
+    ///
+    /// # Blocking
+    ///
+    /// Takes `DRAFTS` and writes the library.
+    pub(crate) fn create_empty_pack(&self, kind: PackKind, name: &str) -> Result<Uuid> {
+        let id = Uuid::new_v4();
+        let lock = draft_lock();
+        let manifest = PackManifest {
+            id,
+            name: name.to_owned(),
+            namespace: library_namespace(self, name, "pack")?,
+            requires: Vec::new(),
+            description: String::new(),
+            parent: None,
+            created: now_created(),
+            scope: PackScope::Library,
+            profiles: Vec::new(),
+            examples: BTreeMap::new(),
+            styles: BTreeMap::new(),
+            tokens: Vec::new(),
+        };
+        let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
+        let write = self.draft_write(&lock, id, None);
+        debug_assert!(matches!(write, DraftWrite::New), "a new id is never in the library");
+        let lease = created_lease(&lock, self.lease_scope(), id, name)?;
+        write_session_version(self, &lock, id, &write, &files, lease.as_ref())?;
+        drop(lease);
+        drop(lock);
+        Ok(id)
+    }
+
+    /// Creates an empty library theme named `name`, extending the default theme: its new id.
+    ///
+    /// Under one `draft_lock`, as [`Self::create_empty_pack`]: a free
+    /// namespace (`theme` when the name has no letter), no token, the new
+    /// theme's lease checked with `covers`, then the theme library's
+    /// `save_draft`. `draft_lock` is per process (the cross-process race is ticketed).
+    ///
+    /// # Errors
+    ///
+    /// The namespace, manifest and library write errors.
+    ///
+    /// # Blocking
+    ///
+    /// Takes `DRAFTS` and writes the theme library.
+    pub(crate) fn create_empty_theme(&self, name: &str) -> Result<Uuid> {
+        let id = Uuid::new_v4();
+        let lock = draft_lock();
+        let manifest = ThemeManifest {
+            id,
+            name: name.to_owned(),
+            namespace: library_namespace(self, name, "theme")?,
+            extends: vec![default_namespace()?],
+            description: String::new(),
+            parent: None,
+            created: now_created(),
+            tokens: serde_json::Map::new(),
+        };
+        self.check_theme(id, &manifest.namespace)?;
+        let files = manifest.to_files().context(ThemeJsonSnafu { id })?;
+        let write = self.themes.draft_write(&lock, id, None);
+        debug_assert!(matches!(write, DraftWrite::New), "a new id is never in the library");
+        let lease = created_lease(&lock, self.theme_scope(), id, name)?;
+        ensure!(covers(lease.as_ref(), self.theme_scope(), id), LeaseMissingSnafu);
+        self.themes.save_draft(&lock, id, &write, &files)?;
+        drop(lease);
+        drop(lock);
+        Ok(id)
+    }
+
+    /// Deletes the draft `id` created empty if nobody touched it: true when deleted.
+    ///
+    /// Under `draft_lock`, its lease taken with `try_take` (refused: kept, another
+    /// tab holds it); deleted only while the library holds exactly one version
+    /// of `id`, the creation one (a version saved since keeps it, even undone).
+    /// A missing `id` is `Ok(false)`.
+    ///
+    /// # Errors
+    ///
+    /// The deletion's errors.
+    ///
+    /// # Blocking
+    ///
+    /// Takes `DRAFTS`, reads and may delete in the library.
+    pub(crate) fn discard_untouched(&self, kind: DraftKind, id: Uuid) -> Result<bool> {
+        let lock = draft_lock();
+        let scope = match kind {
+            DraftKind::Pack => self.lease_scope(),
+            DraftKind::Theme => self.theme_scope(),
+        };
+        let held = id.to_string();
+        // Refused: another tab holds it, kept.
+        let Ok(lease) = scope.map(|scope| PackLease::try_take(&lock, scope, id, &held, &held)).transpose() else {
+            return Ok(false);
+        };
+        // A built-in is never a draft created empty (`workspace.json` is not trusted).
+        let (versions, builtin) = match kind {
+            DraftKind::Pack => (self.versions(id).len(), Self::is_builtin(id)),
+            DraftKind::Theme => (self.themes.versions(id).len(), ThemeLibrary::is_builtin(id)),
+        };
+        if versions != 1 || builtin {
+            return Ok(false);
+        }
+        match kind {
+            DraftKind::Pack => self.delete(id)?,
+            DraftKind::Theme => self.themes.delete(id)?,
+        }
+        drop(lease);
+        drop(lock);
+        Ok(true)
     }
 
     /// Les packs de la sorte `kind` dans leur version courante : intégrés d'abord, puis ceux de l'utilisateur, par nom.

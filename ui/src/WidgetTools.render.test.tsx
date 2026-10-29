@@ -1,4 +1,4 @@
-// Barre d'outils d'un sous-onglet de widget : historique de l'éditeur et code.
+// The toolbar of a pack item: the editor's history and the code.
 
 import { afterEach, expect, test } from "bun:test";
 import "./test/dom";
@@ -20,7 +20,7 @@ afterEach(async () => {
 
 type Options = Pick<KeptUi, "code" | "setCode">;
 
-async function mount(code: boolean, history = { undo: 1, redo: 0 }) {
+async function mount(code: boolean, history = { undo: 1, redo: 0 }, selected = true) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -33,7 +33,7 @@ async function mount(code: boolean, history = { undo: 1, redo: 0 }) {
   await act(async () =>
     root.render(
       createElement(WidgetTools, {
-        tab: 3,
+        selected,
         history,
         onUndo: () => calls.push("undo"),
         onRedo: () => calls.push("redo"),
@@ -62,4 +62,14 @@ test("WidgetTools chaque bouton appelle son action", async () => {
   const { calls, press } = await mount(true);
   for (const l of ["ui-toolbar-undo", "ui-widgets-source"]) await press(l);
   expect(calls).toEqual(["undo", "code false"]);
+});
+
+test("WidgetTools with an item selected controls its editor", async () => {
+  const { host } = await mount(false);
+  expect(host.querySelector(".code-switch")?.getAttribute("aria-controls")).toBe("widget-code");
+});
+
+test("WidgetTools without a selected item controls nothing", async () => {
+  const { host } = await mount(false, { undo: 0, redo: 0 }, false);
+  expect(host.querySelector(".code-switch")?.hasAttribute("aria-controls")).toBe(false);
 });

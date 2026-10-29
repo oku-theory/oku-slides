@@ -109,7 +109,7 @@ impl Session {
             } else {
                 edit.name.clone()
             };
-            let namespace = library_namespace(&self.library, &name)?;
+            let namespace = library_namespace(&self.library, &name, "pack")?;
             let (id, extends) = (Uuid::new_v4(), edit.extends.clone());
             let created = now_created();
             ThemeManifest { id, name, namespace, extends, description: base.description, parent: None, created, tokens }

@@ -14,8 +14,8 @@
 //! pack (its host slides), nothing else. A deck-only pack (import) starts from
 //! the version the deck embeds; its versions, copy included, stay in the deck
 //! (`pack_library`). The working deck keeps the deck's theme, pinned themes
-//! and token overrides, which are not edited there: a theme is edited in its
-//! own tab (`theme_tab`).
+//! and token overrides, which are not edited there, until a preview theme is
+//! chosen (`preview_theme`); a theme is edited in its own tab (`theme_tab`).
 
 use std::collections::BTreeMap;
 
@@ -265,6 +265,7 @@ impl Session {
             parent: Some(version),
             session_version: None,
             deck_only,
+            created_empty: None,
         };
         // Les widgets du pack s'installent avant de changer de document : en
         // cas d'échec, rien ne change.

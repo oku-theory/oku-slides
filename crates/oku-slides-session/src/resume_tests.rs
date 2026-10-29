@@ -162,6 +162,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         parent: Some(v),
         session_version: None,
         deck_only: false,
+        created_empty: None,
     };
     let ui = UiState {
         slide: Some("s-1".into()),
@@ -169,11 +170,10 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         ghosts: true,
         pile: Some(200),
         notes: Some(520),
-        widgets: vec!["_commun".into(), "kpi".into()],
         widget: Some("kpi".into()),
         code: true,
         code_width: Some(640),
-        folded: vec![PileSection::Widgets],
+        folded: vec![PileSection::Layouts],
     };
     r.write_state(&State {
         version: VERSION,
@@ -204,7 +204,6 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         ghosts: false,
         pile: None,
         notes: None,
-        widgets: Vec::new(),
         widget: None,
         code: false,
         code_width: None,
@@ -243,7 +242,6 @@ fn read_state_with_the_removed_current_cases_keeps_the_rest() {
     let back = r.read_state().unwrap().unwrap();
     assert_that!(back.ui).is_equal_to(UiState {
         slide: Some("s-1".into()),
-        widgets: vec!["kpi".into()],
         widget: Some("kpi".into()),
         ..UiState::default()
     });

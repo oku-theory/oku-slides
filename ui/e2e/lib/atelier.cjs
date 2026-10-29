@@ -8,6 +8,13 @@ const { logOffset, mcpResults } = require('./agentLog.cjs');
 const { SLOW, until, untilValue } = require('./until.cjs');
 
 const view = (p) => post(p, '/api/workspace', { cmd: 'view' });
+
+/** Waits for the active tab to be a pack tab (`data-kind="pack"`) showing its pile and "Terminer". */
+async function packTabShown(p) {
+  await p.locator('.tab.active[data-kind="pack"]').waitFor();
+  await p.locator('.pile-column .pack-pile').waitFor();
+  await p.getByRole('button', { name: 'Terminer' }).waitFor();
+}
 const snapshot = (p, tab) => post(p, '/api', { tab, req: { cmd: 'snapshot' } });
 
 /**
@@ -31,7 +38,7 @@ async function openAtelier(p, tab) {
     return editing !== null;
   }, `l'atelier ne s'ouvre pas depuis ${before}`, SLOW);
   await p.reload();
-  await p.getByRole('button', { name: 'Terminer' }).waitFor();
+  await packTabShown(p);
   return editing;
 }
 
@@ -69,7 +76,7 @@ async function openThemeTab(p, tab, theme = null) {
     await post(p, '/api/workspace', { cmd: 'activate', tab });
     await p.reload();
     await p.getByRole('button', { name: /^Packs du deck/ }).click();
-    await p.locator('[data-surface-id="host-packs"]').getByRole('button', { name: 'Ouvrir', exact: true }).click();
+    await p.locator('[data-surface-id="host-packs"] [data-component-id="theme-open"]').getByRole('button', { name: 'Ouvrir', exact: true }).click();
   }
   let opened = null;
   await until(p, async () => {
@@ -79,6 +86,8 @@ async function openThemeTab(p, tab, theme = null) {
     return opened !== null;
   }, `aucun onglet de thème ne s'ouvre depuis ${tab}`, SLOW);
   await p.reload();
+  await p.locator('.tab.active[data-kind="theme"]').waitFor();
+  await p.locator('.pile-column .pile').waitFor();
   await p.waitForSelector('#theme-panel [data-surface-id="host-theme"]');
   return opened;
 }
@@ -98,7 +107,7 @@ async function openPackTab(p, from, pack, widget = null) {
 async function openEssentiel(p) {
   const tab = await openPackTab(p, 't-1', (await snapshot(p, 't-1')).layouts.essentiel.id);
   await p.reload();
-  await p.getByRole('button', { name: 'Terminer' }).waitFor();
+  await packTabShown(p);
   return tab;
 }
 
@@ -113,4 +122,4 @@ async function closePacksPanel(p) {
   await panel.waitFor({ state: 'detached' });
 }
 
-module.exports = { openAtelier, closePackTabs, openPackTab, openEssentiel, openThemeTab, closePacksPanel };
+module.exports = { packTabShown, openAtelier, closePackTabs, openPackTab, openEssentiel, openThemeTab, closePacksPanel };

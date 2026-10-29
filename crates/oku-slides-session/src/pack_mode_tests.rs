@@ -159,22 +159,18 @@ fn layouts_view_of_the_deck_pack_shows_the_embedded_version() {
     assert_that!(shown).is_equal_to(Some(kinds::essentiel::ALL.len()));
 }
 
-fn open_tabs(s: &mut crate::Session) {
-    let ui = crate::views::UiState {
-        widgets: vec!["_commun".into()],
-        widget: Some("_commun".into()),
-        ..crate::views::UiState::default()
-    };
+fn select_common(s: &mut crate::Session) {
+    let ui = crate::views::UiState { widget: Some("_commun".into()), ..crate::views::UiState::default() };
     s.handle(crate::Request::Ui { ui, order: None }).unwrap();
 }
 
-/// En mode deck, l'interface ne peut pas poser de sous-onglets.
+/// In deck mode, the interface cannot select a pack item.
 #[test]
-fn ui_request_in_deck_mode_keeps_no_widget_tabs() {
+fn ui_request_in_deck_mode_keeps_no_selected_item() {
     let data = fresh_dir("oku-slides-pack-mode-");
     let mut s = session_on(data.path());
-    open_tabs(&mut s);
-    assert_that!(s.ui.widgets).is_empty();
+    select_common(&mut s);
+    assert_that!(s.ui.widget).is_none();
 }
 
 /// Un widget minimal pour les écritures en mode pack.

@@ -1,9 +1,11 @@
 // Theme editor (t-554, t-1156): "Ouvrir" on the theme row of `t-1`'s "Packs du deck" opens Papier in its own
-// theme tab, right after `t-1`, with the "Thème" badge and Essentiel's specimens in its pile; its parents are
+// theme tab, right after `t-1`, marked `data-kind="theme"`, with Essentiel's specimens in its pile; its parents are
 // added, moved and removed (⌘Z included), a changed token shows on the `title` specimen, and "Terminer" closes the
 // tab without a dialog, back on `t-1`, after saving the draft as a variant that extends Papier, without
-// switching the deck's theme. Opening Papier again gives a new theme tab. Writes: a new library theme
-// "Papier (variante)" extending Papier. Leaves: no pack or theme tab, `t-1`'s theme and pins unchanged.
+// switching the deck's theme. Opening Papier again gives a new theme tab. "Nouveau thème" in the main menu opens
+// an empty theme in a theme tab (`data-kind="theme"`), dropped from the library when closed untouched.
+// Writes: a new library theme "Papier (variante)" extending Papier. Leaves: no pack or theme tab, `t-1`'s theme
+// and pins unchanged.
 // Contre `oku-slides serve fixtures/roadmap.json` (thème Papier). Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -35,11 +37,12 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   const deckBefore = await api(p, 't-1', { cmd: 'snapshot' });
   assert.equal(deckBefore.theme, 'papier', 't-1 ne commence pas sur Papier');
 
-  // "Ouvrir" on the theme row: a theme tab right after t-1, with its badge.
+  // "Ouvrir" on the theme row: a theme tab right after t-1, of kind theme, named "…, thème".
   const themeTab = await openThemeTab(p, 't-1');
   const ids = await tabIds(p);
   assert.equal(ids.indexOf(themeTab), ids.indexOf('t-1') + 1, `l'onglet de thème n'est pas juste après t-1 : ${ids}`);
-  assert.equal(await p.locator('.tab.active .tab-badge').innerText(), 'Thème', "l'onglet de thème n'a pas son badge");
+  assert.equal(await p.locator('.tab.active').getAttribute('data-kind'), 'theme', "l'onglet de thème n'a pas data-kind=theme");
+  assert.match(await p.locator('.tab.active').getAttribute('aria-label'), /, thème$/, "l'onglet de thème n'est pas nommé « …, thème »");
   const opened = await api(p, themeTab, { cmd: 'snapshot' });
   assert.equal(opened.editing, null, "l'onglet de thème édite un pack");
   assert.equal(opened.theming?.theme.base.id, deckBefore.theme_pins.papier.id, "l'onglet de thème n'édite pas Papier");
@@ -127,6 +130,22 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   await p.getByRole('button', { name: 'Terminer' }).click();
   await untilValue(p, () => view(p), (v) => !v.windows[0].tabs.some((t) => t.id === again) && v.windows[0].active === 't-1', "le second onglet de thème ne se ferme pas");
   await closePacksPanel(p);
+
+  // "Nouveau thème" from `t-1`'s main menu: an empty theme in a new theme tab. Closed untouched, it leaves the
+  // library (read once back on `t-1`, whose next snapshot rereads the library index).
+  const themesBefore = (await api(p, 't-1', { cmd: 'snapshot' })).themes.map((th) => th.namespace).sort();
+  const count = (await tabIds(p)).length;
+  await p.getByRole('button', { name: 'Menu' }).click();
+  await p.getByRole('menuitem', { name: 'Nouveau thème' }).click();
+  await p.locator('.tab.active[data-kind="theme"]').waitFor();
+  await p.waitForSelector('#theme-panel [data-surface-id="host-theme"]');
+  const fresh = (await view(p)).windows[0].active;
+  assert.notEqual(fresh, 't-1', "« Nouveau thème » n'ouvre pas d'onglet");
+  assert.equal((await tabIds(p)).length, count + 1, '« Nouveau thème » n\'ouvre pas un seul onglet');
+  await p.getByRole('button', { name: 'Terminer' }).click();
+  await untilValue(p, () => view(p), (v) => !v.windows[0].tabs.some((t) => t.id === fresh) && v.windows[0].active === 't-1', "le nouveau thème ne se ferme pas");
+  await untilValue(p, async () => (await api(p, 't-1', { cmd: 'snapshot' })).themes.map((th) => th.namespace).sort(),
+    (l) => JSON.stringify(l) === JSON.stringify(themesBefore), 'le thème neuf fermé intact reste dans la bibliothèque');
   assert.deepEqual(errors, []);
   console.log('éditeur de thème ok');
   await b.close();
