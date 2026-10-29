@@ -24,6 +24,7 @@ rust-mcp-sdk.workspace = true
 async-trait.workspace = true
 tokio = { workspace = true, features = ["process", "sync", "macros", "rt", "time", "io-util", "io-std"] }
 tokio-util.workspace = true
+futures.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
@@ -38,6 +39,7 @@ oku-slides-mcp = { workspace = true, features = ["test-support"] }
 # `examples/smoke.rs` : le binaire sert aussi de processus de rendu.
 oku-slides-render-worker.workspace = true
 speculoos.workspace = true
+tracing-subscriber.workspace = true
 rstest.workspace = true
 insta.workspace = true
 color-eyre.workspace = true

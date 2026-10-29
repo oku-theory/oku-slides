@@ -19,9 +19,9 @@ with the UI context; agent updates become A2UI turn surfaces.
   then, and holds the draft (`TabLink`: text and pasted images, `session`). Closing it closes its `SurfaceHub`.
 - `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes.
 - `paste` : `paste_image` (base64, `[paste] max_draft_images`, `Session::paste_image`), the draft's images, `resolve_images` (ids of a prompt).
-- `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission
-  requests routed by launch epoch and `SessionId`; `Link::switch` changes agent; `failure`: last
-  launch failure of this epoch (`Unusable`), cleared by success or switch, stale after 30 s.
+- `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission requests routed
+  by epoch and `SessionId`; `Link::switch` changes agent; `failure`: last launch failure of this epoch (`Unusable`),
+  cleared by success or switch, stale after 30 s. `wire`: its stdio, logged on `ACP_TARGET` (`OKU_SLIDES_DEBUG_ACP`).
 - `keeper` : `Keeper`, the per-tab queue that alone reads and writes the conversation (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`).
 - `turns` : `Turns`, reducer from events to A2UI turn surfaces (`TurnOut`), emitted by the hub.

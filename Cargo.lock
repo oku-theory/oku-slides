@@ -5878,6 +5878,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "color-eyre",
+ "futures",
  "hex",
  "insta",
  "oku-slides-core",
@@ -5900,6 +5901,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "tracing-subscriber",
  "unicode-normalization",
  "uuid",
 ]

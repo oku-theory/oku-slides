@@ -31,6 +31,7 @@ rust-mcp-sdk = "=1.1.0"
 rust-mcp-axum = "=1.0.2"
 agent-client-protocol = "=2.2.0"
 tokio-util = { version = "0.7", features = ["compat", "rt"] }
+futures = "0.3"
 async-trait = "0.1"
 base64 = "0.22"
 getrandom = { version = "0.3", features = ["std"] }

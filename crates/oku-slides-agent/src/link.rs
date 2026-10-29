@@ -15,7 +15,7 @@ use agent_client_protocol::schema::v1::{
     ClientCapabilities, FileSystemCapabilities, InitializeRequest, RequestPermissionOutcome, RequestPermissionRequest,
     RequestPermissionResponse, SelectedPermissionOutcome, SessionId, SessionNotification, SessionUpdate,
 };
-use agent_client_protocol::{Agent, ByteStreams, Client, ConnectionTo};
+use agent_client_protocol::{Agent, Client, ConnectionTo};
 use oku_slides_mcp::SurfaceHub;
 use sha2::{Digest, Sha256};
 use snafu::IntoError;
@@ -347,7 +347,7 @@ impl Link {
             return Err(StoppedSnafu { message: "no stdio".to_owned() }.build().into());
         };
         tracing::info!(command = %command, generation, "agent lancé");
-        let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
+        let transport = crate::wire::transport(stdin.compat_write(), stdout.compat(), generation);
         let (ready_tx, ready_rx) = oneshot::channel();
         let serving =
             Serving { routes: self.inner.routes.clone(), stop, closed: CancellationToken::new(), generation, epoch };

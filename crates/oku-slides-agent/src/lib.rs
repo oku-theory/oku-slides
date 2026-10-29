@@ -38,6 +38,7 @@ mod turn;
 mod turns;
 mod voice_port;
 mod voice_refresh;
+mod wire;
 
 pub use command_error::CommandError;
 pub use config::{Launch, READY_WITHIN};

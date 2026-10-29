@@ -11,7 +11,7 @@ the CLI, the session, the agent and dictation.
   `RENDER_WORKER_ENV` marks a render worker process, which never launches another one.
   `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent.
 - `telemetry`: `init` installs the `tracing` subscriber; call it first; `NETWORK_DEBUG_ENV`
-  adds HTTP/TLS `debug` logs. `errors`: `one_line` prints an error and its causes on one line.
+  adds HTTP/TLS `debug` logs, `ACP_DEBUG_ENV` the ACP messages (`ACP_TARGET`). `errors`: `one_line` prints an error and its causes on one line.
 - `config`: `Settings`, its sections (`PathSettings`, `RenderSettings`, `SttSettings`, …), `APP_ID`.
   `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (a `command` xor a
   `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
