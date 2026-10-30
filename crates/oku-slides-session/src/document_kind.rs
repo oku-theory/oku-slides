@@ -91,8 +91,9 @@ impl Session {
 
     /// Refuses caller ops that do not fit this session's kind (`WrongDocument`).
     ///
-    /// A theme tab takes only token ops; a pack tab neither token ops nor a theme
-    /// choice: its preview theme goes through `apply_silent_ops`. No caller writes the
+    /// A theme tab takes only token ops; a pack tab neither token ops, a theme
+    /// choice (its preview theme goes through `apply_silent_ops`) nor a pin
+    /// change: pins are deck-only, as the `add_pack` tool is. No caller writes the
     /// draft's rank ([`DRAFT_SWITCH_VAR`]): only the theme tab's rank steps do.
     pub(crate) fn ensure_caller_ops(&self, ops: &[Op]) -> Result<()> {
         let kind = self.document_kind();
@@ -100,7 +101,9 @@ impl Session {
             Op::SetVar { key, .. } if key == DRAFT_SWITCH_VAR => false,
             _ => match kind {
                 DocumentKind::Theme => is_token_op(op),
-                DocumentKind::Pack => !is_token_op(op) && !matches!(op, Op::SetTheme { .. }),
+                DocumentKind::Pack => {
+                    !is_token_op(op) && !matches!(op, Op::SetTheme { .. } | Op::AddPack { .. } | Op::RemovePack { .. })
+                }
                 DocumentKind::Deck | DocumentKind::Help => true,
             },
         };

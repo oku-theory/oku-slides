@@ -82,6 +82,7 @@ session-token-reason-bad-rule = يحتاج الخط الفاصل إلى عرض �
 session-undo-theme = تغيير السمة
 session-undo-edited-theme = تغيير السمة: { $name }
 session-undo-theme-extends = تغيير السمات الموسَّعة
+session-undo-theme-rename = إعادة تسمية السمة
 session-help-deck = تعذّرت قراءة عرض التعليمات
 session-agent-form = طلب الوكيل غير صالح: { $reason }
 session-agent-form-too-long = { $at }: { $count } حرفًا، والحد الأقصى { $max }

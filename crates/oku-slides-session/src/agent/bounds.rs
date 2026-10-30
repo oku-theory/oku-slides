@@ -85,7 +85,7 @@ fn is_quote(c: char) -> bool {
 /// with, so a translation cannot be closed early by the text it quotes; the result is cut to
 /// [`LABEL_MAX`] characters ([`clip`]). An empty result is `"…"`.
 #[must_use]
-pub(crate) fn label(text: &str) -> String {
+pub fn label(text: &str) -> String {
     let cleaned: String = text
         .chars()
         .filter_map(|c| {

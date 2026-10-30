@@ -27,7 +27,8 @@ agent-confirm-open = 要打开{ $path }吗？
 agent-open-elsewhere = 此文件已在另一个标签页中打开。
 agent-confirm-new = 要新建一个演示文稿吗？
 agent-confirm-new-dirty = 要新建一个演示文稿吗？未保存的更改将丢失。
-agent-confirm-save-pack = 要保存包“{ $name }”吗？
+agent-confirm-copy-pack = 要保存包“{ $name }”的副本吗？包本身保持不变。
+agent-confirm-copy-edited-theme = 要保存主题“{ $name }”的副本吗？主题本身保持不变。
 agent-confirm-delete-pack = 要删除包“{ $name }”吗？此操作无法撤销。
 agent-confirm-edit-theme = 要保存主题“{ $name }”的新版本吗？
 agent-confirm-copy-theme = 要创建内置主题“{ $name }”的变体吗？内置主题保持不变。
@@ -92,11 +93,18 @@ agent-error-pack-id = 这不是包的 id：请调用 packs 列出包及其 id。
 agent-error-asset-unknown = 该图片既不在演示文稿中，也不在已粘贴的图片中：请使用已粘贴图片的 ID。
 agent-error-denied = 用户已拒绝。
 agent-error-no-turn = 没有正在进行的轮次：{ $tool } 只在轮次中显示。
-agent-error-pack-tab-no-turn = 只有在回复用户时，才可打开包标签页或切换到它。
-agent-error-pack-tab-limit = 本轮次已打开过一个包标签页：请在那里完成，或先询问用户再打开另一个。
-agent-error-continue-in-pack-tab = 此请求将在该包自己的标签页中继续：请让用户在那里继续；此标签页暂时不会修改任何小组件。
+agent-error-tab-no-turn = 只有在回复用户时，才可打开或显示包标签页或主题标签页。
+agent-error-tab-limit = 本轮次已打开或显示过一个包或主题标签页：请在那里完成，或先询问用户再换另一个。
+agent-error-continue-in-other-tab = 此请求将在你已打开或显示的标签页中继续：请让用户在那里继续；此标签页暂时不会修改任何小组件。
 agent-error-pack-open-in-tab = 此包正在另一个标签页中编辑：请让用户先在那里完成。
-agent-pack-opened-in-tab = 该包已在标签页 { $tab } 中打开，焦点现在在它上面。请让用户在那里继续：该标签页的智能体不知道此请求。此标签页仍停留在它的演示文稿上。
+agent-pack-opened-in-tab = { $shown ->
+   [yes] 该包已在标签页 { $tab } 中打开，现在正在显示。
+  *[no] 该包已在标签页 { $tab } 中于后台打开：用户的窗口正显示另一个标签页。
+} 请让用户在那里继续：该标签页的智能体不知道此请求。此标签页保持不变。
+agent-theme-opened-in-tab = { $shown ->
+   [yes] 该主题已在标签页 { $tab } 中打开，现在正在显示。
+  *[no] 该主题已在标签页 { $tab } 中于后台打开：用户的窗口正显示另一个标签页。
+} 请让用户在那里继续：该标签页的智能体不知道此请求。此标签页保持不变。
 agent-error-turn-over = 此调用所在的轮次已结束：未显示任何内容。
 agent-error-no-file = 演示文稿还没有文件：请提供绝对路径。
 agent-error-path-relative = 路径必须是绝对路径。

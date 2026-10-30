@@ -82,6 +82,7 @@ session-token-reason-bad-rule = una línea necesita ancho, alto y color
 session-undo-theme = Cambiar el tema
 session-undo-edited-theme = Cambiar el tema: { $name }
 session-undo-theme-extends = Cambiar los temas extendidos
+session-undo-theme-rename = Cambiar el nombre del tema
 session-help-deck = No se puede leer la presentación de ayuda
 session-agent-form = La solicitud del agente no es válida: { $reason }
 session-agent-form-too-long = { $at }: { $count } caracteres, como máximo { $max }

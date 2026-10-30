@@ -82,6 +82,7 @@ session-token-reason-bad-rule = bir çizgi için genişlik, yükseklik ve renk g
 session-undo-theme = Temayı değiştir
 session-undo-edited-theme = Temayı değiştir: { $name }
 session-undo-theme-extends = Genişletilen temaları değiştir
+session-undo-theme-rename = Temayı yeniden adlandır
 session-help-deck = Yardım sunumu okunamıyor
 session-agent-form = Ajanın isteği geçersiz: { $reason }
 session-agent-form-too-long = { $at }: { $count } karakter, en fazla { $max }

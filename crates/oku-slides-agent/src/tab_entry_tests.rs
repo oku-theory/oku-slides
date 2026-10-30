@@ -1,10 +1,11 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use oku_slides_mcp::{McpEvent, Tools};
+use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_mcp::McpEvent;
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::agent::{AgentUi, TabSession};
-use oku_slides_session::{Fonts, Platform, Session, Settings};
+use oku_slides_session::agent::{AgentUi, Sessions, TabSession};
+use oku_slides_session::{Fonts, Platform, Session, Settings, Workspace};
 use serde::ser::{Error as _, Serialize, Serializer};
 use speculoos::prelude::*;
 use tokio::runtime::Handle;
@@ -90,7 +91,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     });
     let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
-    let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(AppSettings::new(&platform, None)), &platform);
+    let settings = Arc::new(AppSettings::new(&platform, None));
     let mut mcp = hub.subscribe();
     let keeper = Keeper::spawn(tab.clone(), hub.clone());
     let localizer = platform.live_localizer.clone();
@@ -119,12 +120,99 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     cancel.cancel();
     let (cmds, rx) = mpsc::unbounded_channel();
     cmds.send(prompt()).unwrap();
-    agent.run(tools, cancel, rx, relay).await;
+    agent.run(settings, platform.clone(), cancel, rx, relay).await;
     tokio::time::sleep(Duration::from_millis(300)).await;
     let surfaces = std::iter::from_fn(|| mcp.try_recv().ok()).filter(|e| matches!(e, McpEvent::Surface { .. })).count();
     assert_that!(surfaces).is_equal_to(0);
     assert_that!(sent.try_recv().is_err()).is_true();
     assert_that!(launched.exists()).is_false();
     // Le stockage tient un runtime bloquant : le lâcher hors du fil du runtime de test.
+    tokio::task::spawn_blocking(move || drop((platform, hub))).await.unwrap();
+}
+
+/// A platform in French and a tab `t-1` of a workspace that has no such tab (closed on the host side).
+async fn closed_tab(data: std::path::PathBuf) -> (Platform, TabSession) {
+    // Storage blocks: off the runtime's thread.
+    tokio::task::spawn_blocking(move || {
+        let mut settings = Settings::defaults().unwrap();
+        settings.paths.decks = Some(data.join("decks"));
+        settings.paths.data = Some(data);
+        settings.i18n.locale = Some("fr".into());
+        let platform = Platform::with_settings(settings).unwrap();
+        let workspace: Arc<dyn Sessions> =
+            Arc::new(Mutex::new(Workspace::new(Fonts::default(), &platform, None).unwrap()));
+        (platform, TabSession::new("t-404", workspace))
+    })
+    .await
+    .unwrap()
+}
+
+/// A tab gone before its agent starts has no kind: each prompt answers that, and no agent launches.
+#[tokio::test]
+async fn agent_run_on_a_closed_tab_answers_tools_unavailable() {
+    let dir = tempfile::Builder::new().prefix("oku-slides-tab-entry-").tempdir().unwrap();
+    let (platform, tab) = closed_tab(dir.path().to_owned()).await;
+    let expected = {
+        let tab = tab.clone();
+        tokio::task::spawn_blocking(move || tab.document_kind().unwrap_err()).await.unwrap()
+    };
+    let launched = dir.path().join("launched");
+    let link = Link::new(Launch {
+        command: "sh".into(),
+        args: vec!["-c".into(), format!("touch '{}'", launched.display())],
+        env: Vec::new(),
+        fallback_cwd: dir.path().to_owned(),
+        ready_within: Duration::from_secs(5),
+    });
+    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
+    let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
+    let mut mcp = hub.subscribe();
+    let keeper = Keeper::spawn(tab.clone(), hub.clone());
+    let localizer = platform.live_localizer.clone();
+    let agent = Agent {
+        session: tab,
+        hub: hub.clone(),
+        link,
+        localizer: localizer.clone(),
+        keeper: keeper.clone(),
+        voice,
+        prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
+    };
+    let (out, _sent) = mpsc::unbounded_channel();
+    let relay = Relay {
+        tab: "t-404".into(),
+        hub: hub.clone(),
+        keeper,
+        localizer,
+        turns: Turns::default(),
+        status: Arc::new(Mutex::new(AgentState::Idle)),
+        out,
+        closed: CancellationToken::new(),
+    };
+    let (cmds, rx) = mpsc::unbounded_channel();
+    cmds.send(prompt()).unwrap();
+    // The queue ends after the prompt: `run` returns once it has answered it.
+    drop(cmds);
+    let settings = Arc::new(AppSettings::new(&platform, None));
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        agent.run(settings, platform.clone(), CancellationToken::new(), rx, relay),
+    )
+    .await
+    .unwrap();
+    let shown: Vec<String> = std::iter::from_fn(|| mcp.try_recv().ok())
+        .filter_map(|e| match e {
+            McpEvent::Surface { surface } => Some(serde_json::to_string(&surface).unwrap()),
+            McpEvent::SurfacePatch { messages, .. } => Some(serde_json::to_string(&messages).unwrap()),
+            _ => None,
+        })
+        .collect();
+    // The French message, as the surface's JSON writes it (quotes stripped).
+    let fr = serde_json::to_string(&expected.localize(&Localizer::new(Some("fr")))).unwrap();
+    let fr = &fr[1..fr.len() - 1];
+    assert_that!(expected.kind()).is_equal_to(oku_slides_session::SessionErrorKind::UnknownTab);
+    assert_that!(shown.iter().any(|s| s.contains(fr))).named("the error in the thread").is_true();
+    assert_that!(launched.exists()).is_false();
+    // Storage holds a blocking runtime: drop it off the test runtime's thread.
     tokio::task::spawn_blocking(move || drop((platform, hub))).await.unwrap();
 }

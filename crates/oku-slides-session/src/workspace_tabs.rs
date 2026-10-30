@@ -157,6 +157,12 @@ pub(super) static DURING_DECK_PACK_BUILD: std::sync::Mutex<Option<Box<dyn FnOnce
 #[cfg(test)]
 pub(super) static FAIL_NEXT_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Makes the next tab insertion fail once its tab is in, as a failed view would (tests only).
+///
+/// Nextest only: one process per test, so no other test sees it set.
+#[cfg(test)]
+pub(super) static FAIL_FINISH_VIEW: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Fails once after `FAIL_NEXT_OPEN` is set (tests only); otherwise does nothing.
 ///
 /// # Errors
@@ -179,14 +185,25 @@ pub(super) struct ImportOpening {
     pub(super) tune: bool,
 }
 
-/// Un onglet à créer hors du verrou : tout ce qu'il faut pour sa session.
+/// Whether a built tab becomes its window's active tab once inserted.
+#[derive(Debug, Clone)]
+pub(super) enum Activate {
+    /// Always: the user's opens and every non-agent tab.
+    Always,
+    /// Only if this tab, an agent's requester, is its window's active tab then (decision 20).
+    IfShown(String),
+}
+
+/// A tab to build outside the lock: everything its session needs.
 pub(super) struct Pending {
     pub(super) id: String,
-    /// Fenêtre d'arrivée ; `None` : une nouvelle fenêtre.
+    /// The window it lands in; `None`: a new window.
     pub(super) window: Option<String>,
     pub(super) opening: Opening,
     /// Where the tab goes; a `Replace` tab is closed once the new one is ready.
     pub(super) place: TabPlace,
+    /// Whether the tab becomes its window's active tab once inserted, decided under that guard.
+    pub(super) activate: Activate,
     pub(super) fonts: Fonts,
     pub(super) platform: Platform,
     pub(super) dir: Option<PathBuf>,
@@ -383,13 +400,25 @@ impl Workspace {
         Ok(Step::Build(Box::new(w.help_pending(window, locale, theme))))
     }
 
-    /// Insère un onglet construit hors du verrou (seconde moitié d'`apply`) ;
-    /// rend aussi l'onglet du fichier (le nouveau, ou celui qui l'avait déjà).
+    /// Inserts a tab built outside the lock (the second half of `apply`);
+    /// also gives the file's tab (the new one, or the one that already had it).
     pub(super) fn finish(ws: &Mutex<Self>, pending: Pending, session: Session) -> Result<(WorkspaceOutcome, String)> {
-        let Pending { id, window, opening, place, .. } = pending;
+        Self::finish_shown(ws, pending, session).map(|(outcome, id, _)| (outcome, id))
+    }
+
+    /// [`Self::finish`], also saying whether the tab became its window's active tab.
+    ///
+    /// An [`Activate::IfShown`] tab is activated only if its requester is its
+    /// window's active tab under this guard, not when the open began.
+    pub(super) fn finish_shown(
+        ws: &Mutex<Self>,
+        pending: Pending,
+        session: Session,
+    ) -> Result<(WorkspaceOutcome, String, bool)> {
+        let Pending { id, window, opening, place, activate, .. } = pending;
         let mut w = Self::lock(ws);
-        // `settle` passé pendant la construction : refusé comme avant elle ;
-        // la session construite pour rien part à la corbeille.
+        // `settle` ran during the build: refused as before it; the session
+        // built for nothing goes to the trash.
         if w.is_closed() {
             let trash = w.trash();
             drop(w);
@@ -406,9 +435,9 @@ impl Workspace {
             trash.empty(vec![(id, Tab::new(session))]);
             return Err(UnknownTabSnafu { id: deck_tab }.build().into());
         }
-        // Le même fichier a pu être ouvert pendant la construction (Finder et
-        // seconde instance, double clic) : le premier onglet reste, seul.
-        // De même pour l'aide : deux demandes rapprochées (menu et ⌘?) n'ouvrent qu'un onglet.
+        // The same file may have opened during the build (Finder and a second
+        // instance, a double click): the first tab stays, alone. Likewise for
+        // help: two close requests (menu and ⌘?) open one tab.
         // A pack or theme has no dedupe here: its opening lock and single lease forbid a second tab.
         let existing = match &opening {
             Opening::Blank
@@ -424,20 +453,24 @@ impl Workspace {
             w.save_layout();
             let (json, trash) = (w.view_json(), w.trash());
             drop(w);
-            // La session construite pour rien part à la corbeille, même en cas d'erreur.
+            // The session built for nothing goes to the trash, even on an error.
             trash.empty(vec![(id, Tab::new(session))]);
             activated?;
-            return json.map(|json| (WorkspaceOutcome::Applied(json), existing));
+            return json.map(|json| (WorkspaceOutcome::Applied(json), existing, true));
         }
         let (window, place, opener) = w.resolve_place(window, place);
-        w.insert_tab(window.as_deref(), id.clone(), session, &place);
+        let shown = match &activate {
+            Activate::Always => true,
+            Activate::IfShown(requester) => w.tab_shown(requester),
+        };
+        w.insert_tab(window.as_deref(), id.clone(), session, &place, shown);
         if let Some(tab) = w.tabs.get_mut(&id) {
             tab.opener = opener;
         }
         let mut gone = Vec::new();
         if let TabPlace::Replace(r) = place {
             if let Err(e) = w.detach(&r) {
-                tracing::warn!(tab = %r, error = %e.one_line(), "onglet vierge non retiré");
+                tracing::warn!(tab = %r, error = %e.one_line(), "blank tab not removed");
             }
             gone.extend(w.remove_tab(&r));
         }
@@ -445,7 +478,13 @@ impl Workspace {
         let (json, trash) = (w.view_json(), w.trash());
         drop(w);
         trash.empty(gone);
-        json.map(|json| (WorkspaceOutcome::Applied(json), id))
+        #[cfg(test)]
+        let json = if FAIL_FINISH_VIEW.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            PackTabNotFreshSnafu.fail().map_err(Into::into)
+        } else {
+            json
+        };
+        json.map(|json| (WorkspaceOutcome::Applied(json), id, shown))
     }
 
     /// Where a built tab lands now: its window, its place and its opener.
@@ -493,13 +532,14 @@ impl Workspace {
         })
     }
 
-    /// Réserve un numéro d'onglet et prépare sa construction hors du verrou.
+    /// Reserves a tab number and prepares the tab's build outside the lock; it is activated once in.
     pub(super) fn pending(&mut self, window: Option<String>, opening: Opening, place: TabPlace) -> Pending {
         Pending {
             id: self.next_tab_id(),
             window,
             opening,
             place,
+            activate: Activate::Always,
             fonts: self.fonts.clone(),
             platform: self.platform.clone(),
             dir: self.dir.clone(),

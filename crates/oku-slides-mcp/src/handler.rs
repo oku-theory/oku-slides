@@ -1,4 +1,4 @@
-//! Le serveur MCP : liste des outils et appel, journalisé (nom et durée).
+//! The MCP server: the tab kind's tool list and calls, logged (name and duration).
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -13,7 +13,7 @@ use rust_mcp_sdk::schema::{
 use serde_json::Value;
 
 use crate::tool_error::UnknownToolSnafu;
-use crate::tools::{Tools, list};
+use crate::tools::{Tools, kinds_of, list_for};
 
 #[async_trait]
 impl ServerHandler for Tools {
@@ -22,7 +22,7 @@ impl ServerHandler for Tools {
         _params: Option<PaginatedRequestParams>,
         _runtime: Arc<dyn McpServer>,
     ) -> std::result::Result<ListToolsResult, RpcError> {
-        Ok(ListToolsResult { tools: list(), meta: None, next_cursor: None })
+        Ok(ListToolsResult { tools: list_for(self.kind), meta: None, next_cursor: None })
     }
 
     async fn handle_call_tool_request(
@@ -40,11 +40,15 @@ impl ServerHandler for Tools {
 }
 
 impl Tools {
-    /// Un appel d'outil ; une erreur revient à l'agent en `isError`.
+    /// A tool call; an error goes back to the agent as `isError`.
     ///
-    /// Le tour de l'appel est lu ici, avant tout travail : les surfaces du fil qu'il crée y sont
-    /// rangées, même si un autre tour s'est ouvert entre-temps (voir `SurfaceHub::turn`).
+    /// A tool the tab's kind does not list is `UnknownTool`, as the agent never saw it.
+    /// The call's turn is read here, before any work: the thread surfaces it creates are
+    /// filed in it, even if another turn opened since (see `SurfaceHub::turn`).
     pub(crate) async fn call(&self, name: &str, args: Value) -> CallToolResult {
+        if !kinds_of(name).is_some_and(|k| k.has(self.kind)) {
+            return self.fail_with(&UnknownToolSnafu { name }.build());
+        }
         let turn = self.hub.turn();
         match name {
             "deck_outline" => self.deck_outline().await,
@@ -58,7 +62,8 @@ impl Tools {
             "apply" => self.apply(args).await,
             "chart_kind" => self.chart_kind(args).await,
             "show_as" => self.show_as(args).await,
-            "edit_pack" => self.edit_pack(turn, args).await,
+            "open_pack" => self.open_pack(turn, args).await,
+            "open_theme" => self.open_theme(turn, args).await,
             "add_pack" => self.add_pack(args).await,
             "remove_pack" => self.remove_pack(args).await,
             "set_theme_extends" => self.set_theme_extends(args).await,
@@ -83,7 +88,11 @@ impl Tools {
             "save" => self.save(args).await,
             "open" => self.open(args).await,
             "new" => self.new_deck().await,
-            "save_pack" => self.save_pack(args).await,
+            "save_pack" => self.save_pack().await,
+            "select_item" => self.select_item(args).await,
+            "set_preview_theme" => self.set_preview_theme(args).await,
+            "rename_theme" => self.rename_theme(args).await,
+            "save_theme" => self.save_theme().await,
             "delete_pack" => self.delete_pack(args).await,
             "edit_theme" => self.edit_theme(args).await,
             "set_setting" => self.set_setting(args).await,

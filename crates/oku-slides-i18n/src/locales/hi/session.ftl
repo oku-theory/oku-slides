@@ -82,6 +82,7 @@ session-token-reason-bad-rule = रेखा के लिए चौड़ाई
 session-undo-theme = थीम बदलें
 session-undo-edited-theme = थीम बदलें: { $name }
 session-undo-theme-extends = विस्तारित थीम बदलें
+session-undo-theme-rename = थीम का नाम बदलें
 session-help-deck = सहायता प्रस्तुति पढ़ी नहीं जा सकी
 session-agent-form = एजेंट का अनुरोध अमान्य है: { $reason }
 session-agent-form-too-long = { $at }: { $count } वर्ण, अधिकतम { $max }

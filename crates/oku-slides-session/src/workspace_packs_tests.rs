@@ -9,7 +9,7 @@ use super::workspace_packs_fixtures::{
     Packs, assert_outcome, copy_dir, duplicate_tab, forge_pack_entry, outcome, packs, packs_resumed, within,
 };
 use super::{Opener, PackOpened, opening_entry};
-use crate::agent::PackGate;
+use crate::agent::TabGate;
 use crate::library::DraftWrite;
 use crate::pack_lease::{PackLease, pack_leased};
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, rename_title, workspace_on};
@@ -104,8 +104,46 @@ fn agent_open_pack_never_retargets_the_opener() {
     let b = f.new_tab();
     f.send(json!({"cmd": "reorder", "tab": b, "index": 0}));
     let p = f.pack_tab();
+    f.activate(&b);
     assert_outcome(f.open_by_agent(&b, f.acme, &mut |_| true), &format!("Focused({p:?})"));
     assert_that!(f.opener_of(&p)).is_equal_to(Some("t-1".to_owned()));
+}
+
+/// Decision 20: a requester that is not its window's active tab opens behind.
+#[test]
+fn open_pack_by_agent_from_a_background_tab_opens_it_without_activating_it() {
+    let f = packs();
+    let other = f.new_tab();
+    f.activate(&other);
+    let r = f.open_by_agent("t-1", f.acme, &mut |_| true);
+    assert_that!((outcome(r), f.active(0))).is_equal_to(("Opened(\"t-3\", hidden)".to_owned(), other));
+}
+
+/// Decision 20: the requester leaves the front after the ask, so the new pack tab opens behind.
+#[test]
+fn open_pack_by_agent_requester_hidden_after_the_ask_opens_it_behind() {
+    let f = packs();
+    let other = f.new_tab();
+    f.activate("t-1");
+    let r = f.open_by_agent("t-1", f.acme, &mut |_| {
+        f.activate(&other);
+        true
+    });
+    assert_that!((outcome(r), f.active(0))).is_equal_to(("Opened(\"t-3\", hidden)".to_owned(), other));
+}
+
+/// Decision 20: the requester leaves the front after the ask, so the pack tab stays where it is.
+#[test]
+fn open_pack_by_agent_requester_hidden_after_the_ask_focuses_it_behind() {
+    let f = packs();
+    let p = f.pack_tab();
+    let other = f.new_tab();
+    f.activate("t-1");
+    let r = f.open_by_agent("t-1", f.acme, &mut |_| {
+        f.activate(&other);
+        true
+    });
+    assert_that!((outcome(r), f.active(0))).is_equal_to((format!("Focused({p:?}, hidden)"), other));
 }
 
 /// The only candidate is a dormant entry cached as a pack tab of P whose state is a deck.
@@ -120,7 +158,7 @@ fn open_pack_asks_focus_then_new_tab_when_no_candidate_holds_it() {
         true
     })
     .unwrap();
-    assert_that!(asked).is_equal_to(vec![PackGate::Focus, PackGate::NewTab]);
+    assert_that!(asked).is_equal_to(vec![TabGate::Focus, TabGate::NewTab]);
 }
 
 #[test]
@@ -129,7 +167,7 @@ fn open_pack_asks_the_gate_once_with_no_other_lock() {
     let (ws, acme) = (Arc::clone(&f.ws), f.acme);
     let calls = within(move || {
         let mut calls = Vec::new();
-        let mut gate = |g: PackGate| {
+        let mut gate = |g: TabGate| {
             let free = ws.try_lock().is_ok();
             let other = Arc::clone(&ws);
             let (done, answered) = std::sync::mpsc::channel();
@@ -142,7 +180,7 @@ fn open_pack_asks_the_gate_once_with_no_other_lock() {
         Workspace::open_pack_with(&ws, "t-1", acme, None, Opener::Agent(&mut gate), Created::No).unwrap();
         calls
     });
-    assert_that!(calls).is_equal_to(vec![(PackGate::NewTab, true, Some(true))]);
+    assert_that!(calls).is_equal_to(vec![(TabGate::NewTab, true, Some(true))]);
 }
 
 #[test]
@@ -155,7 +193,7 @@ fn open_pack_asks_focus_before_focusing_another_tab() {
         asked.push(g);
         true
     });
-    assert_that!((outcome(r), asked)).is_equal_to((format!("Focused({p:?})"), vec![PackGate::Focus]));
+    assert_that!((outcome(r), asked)).is_equal_to((format!("Focused({p:?})"), vec![TabGate::Focus]));
 }
 
 #[rstest]
@@ -180,7 +218,7 @@ fn open_pack_refused_by_focus_activates_nothing() {
     f.activate("t-1");
     let f = f.restart(|_, _| {});
     assert_that!(f.is_dormant(&p)).is_true();
-    let r = f.open_by_agent("t-1", f.acme, &mut |g| g != PackGate::Focus);
+    let r = f.open_by_agent("t-1", f.acme, &mut |g| g != TabGate::Focus);
     assert_that!((outcome(r), f.active(0), f.opener_of(&p), f.is_dormant(&p))).is_equal_to((
         "Refused".to_owned(),
         "t-1".to_owned(),
@@ -239,7 +277,7 @@ fn open_pack_of_the_pack_the_tab_edits_is_applied() {
 fn open_pack_from_a_pack_tab_of_another_library_pack_opens_a_second_pack_tab() {
     let f = packs();
     let p = f.pack_tab();
-    let PackOpened::Opened(q) = f.open(&p, BASE_PACK, None).unwrap() else { panic!("a second pack tab") };
+    let PackOpened::Opened { tab: q, .. } = f.open(&p, BASE_PACK, None).unwrap() else { panic!("a second pack tab") };
     assert_that!((f.window(0), f.document(&q)))
         .is_equal_to((vec!["t-1".to_owned(), p, q.clone()], Some(TabDocument::Pack { pack: BASE_PACK })));
 }

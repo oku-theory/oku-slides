@@ -1,9 +1,12 @@
 //! Serveur de test : une session isolée, des réglages en mémoire, un client MCP.
-#![allow(dead_code, reason = "chaque fichier de test n'utilise qu'une partie de l'outillage")]
+#![allow(dead_code, reason = "each test file uses only part of the harness")]
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
+pub mod kinds;
+pub mod other_tabs;
+pub mod refusals;
 pub mod workspace_harness;
 
 use async_trait::async_trait;
@@ -11,7 +14,7 @@ use oku_slides_mcp::{
     Applied, Checked, McpEvent, Origin, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools, VoiceApplied,
     VoiceError, VoiceErrorKind, VoicePort,
 };
-use oku_slides_session::agent::{PackGate, PackOpen, Sessions, Surface, TabSession};
+use oku_slides_session::agent::{Sessions, Surface, TabGate, TabOpen, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use oku_slides_session::{VoiceEvent, VoiceView};
 use rust_mcp_sdk::mcp_client::{ClientHandler, ClientRuntime, client_runtime};
@@ -192,7 +195,9 @@ pub async fn start_pack_tab(pack: uuid::Uuid) -> Harness {
     start_with((platform, data), session.clone(), session, "t-1").await
 }
 
-/// Démarre le serveur pour un onglet dont les sessions sont fournies par `sessions`.
+/// Starts the server for a tab whose sessions `sessions` provides.
+///
+/// The tools are those of the tab's kind ([`kinds::kind_of`]).
 async fn start_with(
     (platform, data): (Platform, tempfile::TempDir),
     sessions: Arc<dyn Sessions>,
@@ -205,7 +210,8 @@ async fn start_with(
     let voice = Arc::new(FakeVoice::new());
     let hub = SurfaceHub::new(tab.clone(), live.clone(), voice.clone());
     let settings = Arc::new(MemorySettings::default());
-    let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), &platform);
+    let kind = kinds::kind_of(&tab, &session).await;
+    let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), &platform, kind);
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
     Harness { server, hub, voice, session, tab, settings, cancel, localizer, live, data }
@@ -291,119 +297,42 @@ pub async fn start_imported(
     start_with((platform, data), session.clone(), session, "t-1").await
 }
 
-/// Un `Sessions` qui refuse toujours l'onglet : un vrai espace de travail,
-/// interrogé sur un onglet qu'il n'a pas (fermé côté hôte).
+/// A `Sessions` that always refuses the tab: a real workspace, asked about
+/// a tab it does not have (closed on the host side).
 #[derive(Debug)]
 pub struct ClosedTabs(Mutex<oku_slides_session::Workspace>);
 
 impl Sessions for ClosedTabs {
-    /// Onglet toujours fermé : `f` n'est jamais appelée.
+    /// Always-closed tab: `f` is never called.
     fn with(&self, _tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
         self.0.with("onglet-ferme", f)
     }
 
-    /// Onglet toujours fermé : refusé (`UnknownTab`).
+    /// Always-closed tab: refused (`UnknownTab`).
     fn open_pack(
         &self,
         _tab: &str,
         pack: uuid::Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> oku_slides_session::Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
         self.0.open_pack("onglet-ferme", pack, widget, gate)
     }
-}
 
-/// Un `Sessions` à plusieurs onglets : tout fichier est déjà ouvert dans un
-/// autre onglet, et `open_tab` note l'ouverture puis rend `t-7`.
-#[derive(Debug)]
-pub struct OtherTabs {
-    session: Arc<Mutex<Session>>,
-    /// `(onglet, fichier)` de chaque `open_tab`.
-    pub opened: Mutex<Vec<(String, std::path::PathBuf)>>,
-    /// `(tab, pack, widget)` of each `open_pack` whose gate allowed a new tab.
-    pub opened_packs: Mutex<Vec<(String, uuid::Uuid, Option<String>)>>,
-    /// Every answer of the gate to `NewTab`, `false` ones included.
-    pub gate_answers: Mutex<Vec<bool>>,
-    /// The next allowed `open_pack` fails after its gate (`UnknownTab`).
-    pub fail_next: std::sync::atomic::AtomicBool,
-    /// The next allowed `open_pack` waits here, after its gate, for a message or a drop.
-    pub hold: Mutex<Option<std::sync::mpsc::Receiver<()>>>,
-    /// A workspace without the tab the pack is opened from: the source of the failure.
-    closed: Mutex<oku_slides_session::Workspace>,
-}
-
-impl OtherTabs {
-    /// Holds the next allowed `open_pack` after its gate; send on, or drop, the sender to release it.
-    pub fn hold_next(&self) -> std::sync::mpsc::Sender<()> {
-        let (release, held) = std::sync::mpsc::channel();
-        *lock(&self.hold) = Some(held);
-        release
-    }
-}
-
-impl Sessions for OtherTabs {
-    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        self.session.with(tab, f)
-    }
-
-    fn open_elsewhere(&self, _tab: &str, _path: &std::path::Path) -> bool {
-        true
-    }
-
-    fn open_tab(&self, tab: &str, path: &std::path::Path) -> oku_slides_session::Result<String> {
-        self.opened.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((tab.to_owned(), path.to_owned()));
-        Ok("t-7".to_owned())
-    }
-
-    /// A new pack tab `t-7`, if the gate allows it: the gate, the record, the hold, then the result.
-    fn open_pack(
+    /// Always-closed tab: refused (`UnknownTab`).
+    fn open_theme(
         &self,
-        tab: &str,
-        pack: uuid::Uuid,
-        widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> oku_slides_session::Result<PackOpen> {
-        let allowed = gate(PackGate::NewTab);
-        lock(&self.gate_answers).push(allowed);
-        if !allowed {
-            return Ok(PackOpen::Refused);
-        }
-        lock(&self.opened_packs).push((tab.to_owned(), pack, widget.map(str::to_owned)));
-        // Taken out of its mutex: the wait holds no lock.
-        let held = lock(&self.hold).take();
-        if let Some(held) = held {
-            let _ = held.recv_timeout(std::time::Duration::from_secs(10));
-        }
-        if self.fail_next.swap(false, std::sync::atomic::Ordering::SeqCst) {
-            return self.closed.open_pack("onglet-ferme", pack, widget, &mut |_| false);
-        }
-        Ok(PackOpen::Tab("t-7".to_owned()))
+        _tab: &str,
+        theme: uuid::Uuid,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
+        self.0.open_theme("onglet-ferme", theme, gate)
     }
-}
 
-/// Un serveur parmi d'autres onglets (voir [`OtherTabs`]).
-pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
-    let (platform, session, data) = prepared().await;
-    let (platform, closed) = tokio::task::spawn_blocking(move || {
-        let closed = oku_slides_session::Workspace::new(Fonts::default(), &platform, None)
-            .unwrap_or_else(|e| panic!("espace de travail de test : {e}"));
-        (platform, closed)
-    })
-    .await
-    .unwrap_or_else(|e| panic!("tâche bloquante de l'espace de travail : {e}"));
-    let session = Arc::new(Mutex::new(session));
-    let tabs = Arc::new(OtherTabs {
-        session: session.clone(),
-        opened: Mutex::default(),
-        opened_packs: Mutex::default(),
-        gate_answers: Mutex::default(),
-        fail_next: std::sync::atomic::AtomicBool::new(false),
-        hold: Mutex::default(),
-        closed: Mutex::new(closed),
-    });
-    let h = start_with((platform, data), tabs.clone(), session, "t-1").await;
-    (h, tabs)
+    /// Always-closed tab: refused (`UnknownTab`).
+    fn document_kind(&self, _tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        self.0.document_kind("onglet-ferme")
+    }
 }
 
 /// Un `Sessions` où un seul fichier, `open`, est ouvert dans un autre onglet.
@@ -427,9 +356,22 @@ impl Sessions for OneFileElsewhere {
         tab: &str,
         pack: uuid::Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> oku_slides_session::Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
         self.session.open_pack(tab, pack, widget, gate)
+    }
+
+    fn open_theme(
+        &self,
+        tab: &str,
+        theme: uuid::Uuid,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
+        self.session.open_theme(tab, theme, gate)
+    }
+
+    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        self.session.document_kind(tab)
     }
 }
 
@@ -458,9 +400,22 @@ impl Sessions for HiddenTab {
         tab: &str,
         pack: uuid::Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> oku_slides_session::Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
         self.0.open_pack(tab, pack, widget, gate)
+    }
+
+    fn open_theme(
+        &self,
+        tab: &str,
+        theme: uuid::Uuid,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
+        self.0.open_theme(tab, theme, gate)
+    }
+
+    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        self.0.document_kind(tab)
     }
 }
 
@@ -534,14 +489,27 @@ impl Sessions for GatedTabs {
         tab: &str,
         pack: uuid::Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> oku_slides_session::Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
         let hold = self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
         if let Some(hold) = hold {
             let _ = hold.entered.send(());
             let _ = hold.release.recv();
         }
         self.session.open_pack(tab, pack, widget, gate)
+    }
+
+    fn open_theme(
+        &self,
+        tab: &str,
+        theme: uuid::Uuid,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
+        self.session.open_theme(tab, theme, gate)
+    }
+
+    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        self.session.document_kind(tab)
     }
 }
 
@@ -759,14 +727,14 @@ pub fn render_args() -> Value {
 }
 
 /// L'espace de noms du thème intégré nommé `name` (sans casse).
-#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+#[allow(dead_code, reason = "not used by every test binary")]
 pub fn theme_ref(name: &str) -> Option<oku_slides_core::Namespace> {
     use oku_slides_session::{LibraryKind, Themes};
     Themes::builtins().iter().find(|b| b.manifest.name.eq_ignore_ascii_case(name)).map(|b| b.manifest.namespace.clone())
 }
 
 /// Le nom court (`papier`, `pro`) du thème intégré d'espace de noms `ns`.
-#[allow(dead_code, reason = "pas utilisée par tous les binaires de test")]
+#[allow(dead_code, reason = "not used by every test binary")]
 pub fn theme_name(ns: &oku_slides_core::Namespace) -> Option<&'static str> {
     use oku_slides_session::{PAPIER_NAMESPACE, PRO_NAMESPACE};
     [PAPIER_NAMESPACE, PRO_NAMESPACE].into_iter().find(|n| ns.as_str() == *n)

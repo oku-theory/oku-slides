@@ -27,7 +27,8 @@ agent-confirm-open = { $path } açılsın mı?
 agent-open-elsewhere = Bu dosya zaten başka bir sekmede açık.
 agent-confirm-new = Yeni bir sunum başlatılsın mı?
 agent-confirm-new-dirty = Yeni bir sunum başlatılsın mı? Kaydedilmemiş değişiklikler kaybolacak.
-agent-confirm-save-pack = “{ $name }” paketi kaydedilsin mi?
+agent-confirm-copy-pack = “{ $name }” paketinin bir kopyası kaydedilsin mi? Paketin kendisi olduğu gibi kalır.
+agent-confirm-copy-edited-theme = “{ $name }” temasının bir kopyası kaydedilsin mi? Temanın kendisi olduğu gibi kalır.
 agent-confirm-delete-pack = “{ $name }” paketi silinsin mi? Bu geri alınamaz.
 agent-confirm-edit-theme = “{ $name }” temasının yeni bir sürümü kaydedilsin mi?
 agent-confirm-copy-theme = Yerleşik “{ $name }” temasının bir varyantı oluşturulsun mu? Yerleşik tema değişmeden kalır.
@@ -92,11 +93,18 @@ agent-error-pack-id = Bu bir paketin kimliği değil: paketleri ve kimliklerini 
 agent-error-asset-unknown = Bu görsel ne sunumda ne de yapıştırılan görseller arasında: yapıştırılmış bir görselin kimliğini kullanın.
 agent-error-denied = Kullanıcı reddetti.
 agent-error-no-turn = Devam eden bir tur yok: { $tool } yalnızca bir tur sırasında gösterilir.
-agent-error-pack-tab-no-turn = Paket sekmesini yalnızca kullanıcıyı yanıtlarken açın veya ona geçin.
-agent-error-pack-tab-limit = Bu turda zaten bir paket sekmesi açıldı; orada bitirin ya da başka birini açmadan önce kullanıcıya sorun.
-agent-error-continue-in-pack-tab = Bu istek paketin kendi sekmesinde sürüyor: kullanıcıdan orada devam etmesini isteyin; bu sekme şimdilik hiçbir widget'ı değiştirmez.
+agent-error-tab-no-turn = Paket veya tema sekmesini yalnızca kullanıcıyı yanıtlarken açın veya gösterin.
+agent-error-tab-limit = Bu turda zaten bir paket veya tema sekmesi açtınız ya da gösterdiniz; orada bitirin ya da başka birine geçmeden önce kullanıcıya sorun.
+agent-error-continue-in-other-tab = Bu istek açtığınız veya gösterdiğiniz sekmede sürüyor: kullanıcıdan orada devam etmesini isteyin; bu sekme şimdilik hiçbir widget'ı değiştirmez.
 agent-error-pack-open-in-tab = Bu paket başka bir sekmede düzenleniyor: kullanıcıdan önce orada bitirmesini isteyin.
-agent-pack-opened-in-tab = Paket { $tab } sekmesinde açıldı ve odak artık onda. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor. Bu sekme kendi sunumunda kalır.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Paket { $tab } sekmesinde açıldı ve şimdi gösteriliyor.
+  *[no] Paket { $tab } sekmesinde arka planda açıldı: kullanıcının penceresi başka bir sekme gösteriyor.
+} Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor. Bu sekme olduğu gibi kalır.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Tema { $tab } sekmesinde açıldı ve şimdi gösteriliyor.
+  *[no] Tema { $tab } sekmesinde arka planda açıldı: kullanıcının penceresi başka bir sekme gösteriyor.
+} Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor. Bu sekme olduğu gibi kalır.
 agent-error-turn-over = Bu çağrının turu bitti: hiçbir şey gösterilmedi.
 agent-error-no-file = Sunumun henüz bir dosyası yok: mutlak bir yol verin.
 agent-error-path-relative = Yol mutlak olmalıdır.

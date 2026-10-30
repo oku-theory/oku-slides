@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::DocumentKind;
+
 /// What a tab edits; its kind decides the pile, the tools and the border.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -41,6 +43,17 @@ pub enum TabDocument {
 }
 
 impl TabDocument {
+    /// The kind of session this document opens in.
+    #[must_use]
+    pub fn kind(&self) -> DocumentKind {
+        match self {
+            Self::Deck { .. } => DocumentKind::Deck,
+            Self::Help { .. } => DocumentKind::Help,
+            Self::Pack { .. } | Self::DeckPack { .. } => DocumentKind::Pack,
+            Self::Theme { .. } => DocumentKind::Theme,
+        }
+    }
+
     /// The deck's file, for a deck tab that has one.
     #[must_use]
     pub fn path(&self) -> Option<&Path> {

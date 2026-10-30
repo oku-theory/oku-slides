@@ -8,12 +8,12 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - `server` : `ToolServer`, the HTTP server (system-chosen port, token compared by SHA-256 in
   `token_matches`, bounded by `[serve]` limits and `SHUTDOWN_GRACE`).
 - `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
-- `tools` : `Tools`, the tool list (`list`) and input schemas (`nest_schema` adapts JSON Schema
-  to MCP 1.x); helpers `parse`, `with_session`, `json_result`, `reply`.
+- `tools` : `Tools`, `list_for(kind)`: the tab's kind, read once when its agent starts; an unlisted tool is
+  `UnknownTool` (`tool_kinds`: `Kinds`); input schemas (`nest_schema`: MCP 1.x); `parse`, `with_session`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
-  settings), `edit_tools` (undoable edits, `edit_pack`: a pack tab per turn, a deck-only pack's tab linked to its deck, `add_pack`/`remove_pack`, `set_theme_extends`), `widget_tools` (no `pack`: `deck`, so
-  `deck-layouts` is named; writes refused in a turn that opened a pack tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
-  `save_pack`, `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
+  settings), `edit_tools` (undoable edits, `add_pack`/`remove_pack`, `set_theme_extends`), `open_tools` (`open_pack`, `open_theme`: one tab move per turn, a deck-only pack's tab linked to its deck), `tab_tools` (pack tab: `select_item`, `set_preview_theme`; theme tab: `rename_theme`, `save_theme`), `widget_tools` (no `pack`: `deck`, so
+  `deck-layouts` is named; writes refused in a turn that moved to another tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
+  `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
   tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument).
@@ -25,7 +25,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `hub/actions` (`SurfaceAction`, `act`, `prune`); the hub builds two boxes itself: `hub/themes`
   (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
   `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).
-- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`, `reserve_pack_tab`: one new pack tab per turn),
+- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`, `reserve_tab`: one pack or theme tab move per turn; `tab_gate`: its verdict),
   freezing answered questions, eviction past `KEPT_TURNS` in the tab's thread.
 - `hub_thread` : the tab's one thread (`in_thread`), shown surfaces, `restore` and `thread_snapshot`; the agent's tab keeper persists it.
 
@@ -39,7 +39,7 @@ because the agent does not know turn numbers; ACP events carry theirs (`oku-slid
 ## Extension points
 
 - New settings host: implement `SettingsPort` and `VoicePort`.
-- New tool: an entry in `tools::list` (`tool_names`), an arm in `Tools::call`, a family in the
+- New tool: an entry `(Tool, Kinds)` in `list_all`, an arm in `Tools::call`, a family in the
   local agent's `families_of`; its errors are `ToolError` variants with a Fluent key.
 
 ## Dependencies

@@ -266,7 +266,9 @@ fn pack_opener_is_null(#[case] why: Null) {
             newer_elsewhere(&f, &v);
         }
         Null::OpenerIsPackTab => {
-            let Ok(PackOpened::Opened(q)) = f.open(&p, BASE_PACK, None) else { panic!("a pack tab of Base") };
+            let Ok(PackOpened::Opened { tab: q, .. }) = f.open(&p, BASE_PACK, None) else {
+                panic!("a pack tab of Base")
+            };
             f.write_in(&q);
             p = q;
         }

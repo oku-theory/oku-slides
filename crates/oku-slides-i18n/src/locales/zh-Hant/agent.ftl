@@ -27,7 +27,8 @@ agent-confirm-open = 要開啟{ $path }嗎？
 agent-open-elsewhere = 此檔案已在另一個分頁中開啟。
 agent-confirm-new = 要開始新的簡報嗎？
 agent-confirm-new-dirty = 要開始新的簡報嗎？未儲存的變更將遺失。
-agent-confirm-save-pack = 要儲存套件「{ $name }」嗎？
+agent-confirm-copy-pack = 要儲存套件「{ $name }」的副本嗎？套件本身保持不變。
+agent-confirm-copy-edited-theme = 要儲存主題「{ $name }」的副本嗎？主題本身保持不變。
 agent-confirm-delete-pack = 要刪除套件「{ $name }」嗎？此操作無法復原。
 agent-confirm-edit-theme = 要儲存主題「{ $name }」的新版本嗎？
 agent-confirm-copy-theme = 要建立內建主題「{ $name }」的變體嗎？內建主題保持不變。
@@ -92,11 +93,18 @@ agent-error-pack-id = 這不是套件的 id：請呼叫 packs 列出套件及其
 agent-error-asset-unknown = 此圖片既不在簡報中，也不在已貼上的圖片中：請使用已貼上圖片的 ID。
 agent-error-denied = 使用者已拒絕。
 agent-error-no-turn = 目前沒有進行中的回合：{ $tool } 只會在回合中顯示。
-agent-error-pack-tab-no-turn = 只有在回覆使用者時，才可開啟套件分頁或切換到它。
-agent-error-pack-tab-limit = 本回合已開啟過一個套件分頁：請在那裡完成，或先詢問使用者再開啟另一個。
-agent-error-continue-in-pack-tab = 此請求會在該套件自己的分頁中繼續：請讓使用者在那裡繼續；此分頁暫時不會修改任何小工具。
+agent-error-tab-no-turn = 只有在回覆使用者時，才可開啟或顯示套件分頁或主題分頁。
+agent-error-tab-limit = 本回合已開啟或顯示過一個套件或主題分頁：請在那裡完成，或先詢問使用者再換另一個。
+agent-error-continue-in-other-tab = 此請求會在你已開啟或顯示的分頁中繼續：請讓使用者在那裡繼續；此分頁暫時不會修改任何小工具。
 agent-error-pack-open-in-tab = 此套件正在另一個分頁中編輯：請讓使用者先在那裡完成。
-agent-pack-opened-in-tab = 該套件已在分頁 { $tab } 中開啟，焦點現在在它上面。請讓使用者在那裡繼續：該分頁的代理不知道此請求。此分頁仍停留在它的簡報上。
+agent-pack-opened-in-tab = { $shown ->
+   [yes] 該套件已在分頁 { $tab } 中開啟，現在正在顯示。
+  *[no] 該套件已在分頁 { $tab } 中於背景開啟：使用者的視窗正顯示另一個分頁。
+} 請讓使用者在那裡繼續：該分頁的代理不知道此請求。此分頁保持不變。
+agent-theme-opened-in-tab = { $shown ->
+   [yes] 該主題已在分頁 { $tab } 中開啟，現在正在顯示。
+  *[no] 該主題已在分頁 { $tab } 中於背景開啟：使用者的視窗正顯示另一個分頁。
+} 請讓使用者在那裡繼續：該分頁的代理不知道此請求。此分頁保持不變。
 agent-error-turn-over = 此呼叫所屬的回合已結束：未顯示任何內容。
 agent-error-no-file = 簡報還沒有檔案：請提供絕對路徑。
 agent-error-path-relative = 路徑必須是絕對路徑。

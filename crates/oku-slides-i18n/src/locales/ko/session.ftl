@@ -82,6 +82,7 @@ session-token-reason-bad-rule = 선에는 너비, 높이, 색이 필요합니다
 session-undo-theme = 테마 변경
 session-undo-edited-theme = 테마 변경: { $name }
 session-undo-theme-extends = 확장 대상 테마 변경
+session-undo-theme-rename = 테마 이름 변경
 session-help-deck = 도움말 프레젠테이션을 읽을 수 없습니다
 session-agent-form = 에이전트의 요청이 잘못되었습니다: { $reason }
 session-agent-form-too-long = { $at }: { $count }자, 최대 { $max }자

@@ -195,7 +195,7 @@ impl Workspace {
         if ws.layout.windows.is_empty() {
             let pending = ws.pending(None, Opening::Blank, TabPlace::End);
             let session = pending.build()?;
-            ws.insert_tab(None, pending.id, session, &TabPlace::End);
+            ws.insert_tab(None, pending.id, session, &TabPlace::End, true);
         }
         ws.save_layout();
         Ok(ws)

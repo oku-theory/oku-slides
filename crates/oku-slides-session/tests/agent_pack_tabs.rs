@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use common::data_dir;
 use oku_slides_core::{Namespace, PackKind, PackScope};
-use oku_slides_session::agent::{PackGate, PackOpen, TabSession};
+use oku_slides_session::agent::{TabGate, TabOpen, TabSession};
 use oku_slides_session::{
     Fonts, PackLibrary, PackManifest, Platform, SessionErrorKind, Settings, Workspace, WorkspaceRequest,
 };
@@ -72,7 +72,7 @@ fn deck() -> Deck {
 
 impl Deck {
     /// The agent opens `acme`; the questions its gate was asked, and the answer.
-    fn open(&self) -> (Vec<PackGate>, PackOpen) {
+    fn open(&self) -> (Vec<TabGate>, TabOpen) {
         let mut asked = Vec::new();
         let opened = self
             .agent
@@ -96,11 +96,11 @@ impl Deck {
 }
 
 #[test]
-fn deck_agent_edit_pack_opens_a_pack_tab_beside_its_deck() {
+fn deck_agent_open_pack_opens_a_pack_tab_beside_its_deck() {
     let d = deck();
     let (asked, opened) = d.open();
-    assert_that!(opened).is_equal_to(PackOpen::Tab("t-2".to_owned()));
-    assert_that!(asked).is_equal_to(vec![PackGate::NewTab]);
+    assert_that!(opened).is_equal_to(TabOpen::Opened { tab: "t-2".to_owned(), shown: true });
+    assert_that!(asked).is_equal_to(vec![TabGate::NewTab]);
     assert_that!(d.tabs()).is_equal_to(vec!["t-1".to_owned(), "t-2".to_owned()]);
 }
 

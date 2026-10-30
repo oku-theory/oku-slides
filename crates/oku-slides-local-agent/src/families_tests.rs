@@ -38,7 +38,8 @@ fn route_grammar_names_every_routable_family() {
 
 #[rstest]
 #[case("packs")]
-#[case("edit_pack")]
+#[case("open_pack")]
+#[case("open_theme")]
 #[case("save_pack")]
 #[case("delete_pack")]
 fn families_of_a_pack_tool_is_packs(#[case] tool: &str) {

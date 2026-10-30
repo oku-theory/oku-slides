@@ -27,7 +27,8 @@ agent-confirm-open = { $path }を開きますか？
 agent-open-elsewhere = このファイルは別のタブですでに開かれています。
 agent-confirm-new = 新しいプレゼンテーションを開始しますか？
 agent-confirm-new-dirty = 新しいプレゼンテーションを開始しますか？保存されていない変更は失われます。
-agent-confirm-save-pack = パック「{ $name }」を保存しますか？
+agent-confirm-copy-pack = パック「{ $name }」のコピーを保存しますか？パック自体は変更されません。
+agent-confirm-copy-edited-theme = テーマ「{ $name }」のコピーを保存しますか？テーマ自体は変更されません。
 agent-confirm-delete-pack = パック「{ $name }」を削除しますか？元に戻せません。
 agent-confirm-edit-theme = テーマ「{ $name }」の新しいバージョンを保存しますか？
 agent-confirm-copy-theme = 組み込みテーマ「{ $name }」のバリエーションを作成しますか？組み込みテーマは変更されません。
@@ -92,11 +93,18 @@ agent-error-pack-id = これはパックの id ではありません。packs を
 agent-error-asset-unknown = この画像はプレゼンテーションにも貼り付けた画像にもありません。貼り付けた画像の ID を指定してください。
 agent-error-denied = ユーザーが拒否しました。
 agent-error-no-turn = 進行中のターンがありません。{ $tool } はターン中にのみ表示されます。
-agent-error-pack-tab-no-turn = パックのタブを開いたり切り替えたりするのは、ユーザーに応答している間だけにしてください。
-agent-error-pack-tab-limit = このターンではすでにパックのタブを開いています。そこで続けるか、別のタブを開く前にユーザーに確認してください。
-agent-error-continue-in-pack-tab = この依頼はパック専用のタブで続きます。ユーザーにそのタブで続けるよう伝えてください。このタブは当面ウィジェットを変更しません。
+agent-error-tab-no-turn = パックやテーマのタブを開いたり表示したりするのは、ユーザーに応答している間だけにしてください。
+agent-error-tab-limit = このターンではすでにパックまたはテーマのタブを開くか表示しています。そこで続けるか、別のタブに移る前にユーザーに確認してください。
+agent-error-continue-in-other-tab = この依頼は、開いたか表示したタブで続きます。ユーザーにそのタブで続けるよう伝えてください。このタブは当面ウィジェットを変更しません。
 agent-error-pack-open-in-tab = このパックは別のタブで編集中です。先にそこで終えるようユーザーに伝えてください。
-agent-pack-opened-in-tab = パックはタブ { $tab } で開き、フォーカスが移りました。ユーザーにそこで続けるよう伝えてください。そのタブのエージェントはこの依頼を知りません。このタブは元のプレゼンテーションのままです。
+agent-pack-opened-in-tab = { $shown ->
+   [yes] パックはタブ { $tab } で開き、現在表示されています。
+  *[no] パックはタブ { $tab } で背後に開きました。ユーザーのウィンドウには別のタブが表示されています。
+} ユーザーにそこで続けるよう伝えてください。そのタブのエージェントはこの依頼を知りません。このタブはそのままです。
+agent-theme-opened-in-tab = { $shown ->
+   [yes] テーマはタブ { $tab } で開き、現在表示されています。
+  *[no] テーマはタブ { $tab } で背後に開きました。ユーザーのウィンドウには別のタブが表示されています。
+} ユーザーにそこで続けるよう伝えてください。そのタブのエージェントはこの依頼を知りません。このタブはそのままです。
 agent-error-turn-over = この呼び出しのターンは終了しました。何も表示されていません。
 agent-error-no-file = プレゼンテーションにはまだファイルがありません。絶対パスを指定してください。
 agent-error-path-relative = パスは絶対パスである必要があります。

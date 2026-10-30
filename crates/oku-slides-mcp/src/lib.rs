@@ -17,12 +17,16 @@ mod guarded_tools;
 mod handler;
 mod hub;
 mod import_tools;
+mod open_tools;
 mod paths;
 mod read_tools;
 mod server;
 mod settings;
 mod surface_tools;
+mod tab_gate;
+mod tab_tools;
 mod tool_error;
+mod tool_kinds;
 mod tools;
 mod voice;
 mod voice_tools;
@@ -35,7 +39,7 @@ pub use hub::{
 };
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};
-pub use tools::{Tools, tool_names};
+pub use tools::{Tools, tool_descriptions_for, tool_names, tool_names_for};
 #[cfg(any(test, feature = "test-support"))]
 pub use voice::NoVoice;
 pub use voice::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};

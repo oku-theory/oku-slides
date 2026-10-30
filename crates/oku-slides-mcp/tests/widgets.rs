@@ -24,7 +24,7 @@ fn json_of(r: &rust_mcp_sdk::schema::CallToolResult) -> Value {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_six_widget_tools_are_listed() {
-    let h = start().await;
+    let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
     for tool in ["widget_sources", "widget_source", "set_widget", "remove_widget", "preview_widget", "set_widget_trial"]
@@ -253,13 +253,11 @@ async fn set_widget_trial_twice_in_a_pack_mode_turn_is_one_undo_step() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn set_widget_trial_in_deck_mode_is_refused() {
+async fn set_widget_trial_in_a_deck_tab_is_an_unknown_tool() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
-    call(&c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
     let msg = error_text(&c, "set_widget_trial", json!({ "name": "kpi", "values": { "value": "12" } })).await;
-    assert_that!(msg).is_equal_to(h.localizer.tr("session-not-editing-pack"));
+    assert_that!(msg).is_equal_to(common::kinds::unknown_tool(&h, "set_widget_trial"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

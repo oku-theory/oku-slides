@@ -3,14 +3,22 @@ use speculoos::prelude::*;
 
 use oku_slides_core::kinds;
 
-use super::{list, nest_schema};
+use oku_slides_session::DocumentKind;
+use rstest::rstest;
 
-/// La description de l'outil `name`.
+use super::{kinds_of, list_all, list_for, nest_schema};
+
+/// Every tool, whatever the kinds that list it.
+fn list() -> Vec<rust_mcp_sdk::schema::Tool> {
+    list_all().iter().map(|(t, _)| t.clone()).collect()
+}
+
+/// The description of tool `name`.
 fn tool_description(name: &str) -> String {
     list().into_iter().find(|t| t.name == name).and_then(|t| t.description).unwrap_or_default()
 }
 
-/// Chaque `$ref` du schéma désigne un chemin qui existe.
+/// Every `$ref` of the schema points to a path that exists.
 fn refs_resolve(root: &Value, node: &Value) -> bool {
     match node {
         Value::Object(map) => map.iter().all(|(k, v)| {
@@ -98,7 +106,7 @@ fn widgets_description_names_every_builtin_kind() {
     assert_that!(missing).is_empty();
 }
 
-/// `op_template`, un champ de `show_params`, n'est pas un modèle de slides.
+/// `op_template`, a field of `show_params`, is not a slide template.
 #[test]
 fn no_tool_description_mentions_templates() {
     let offenders: Vec<String> = list()
@@ -112,7 +120,7 @@ fn no_tool_description_mentions_templates() {
     assert_that!(offenders).is_empty();
 }
 
-#[rstest::rstest]
+#[rstest]
 #[case("widget_sources")]
 #[case("widget_source")]
 #[case("set_widget")]
@@ -123,10 +131,190 @@ fn widget_tool_description_says_how_to_reach_deck_layouts(#[case] name: &str) {
 }
 
 #[test]
-fn edit_pack_description_says_a_library_pack_opens_in_its_own_tab() {
-    let d = tool_description("edit_pack");
-    assert_that!(d.as_str()).contains("A library pack opens in its own tab beside this one");
-    assert_that!(d.as_str()).contains("one new tab per turn");
-    assert_that!(d.as_str()).does_not_contain("Switch to pack mode");
-    assert_that!(d.as_str()).does_not_contain("close_pack");
+fn open_pack_description_says_one_tab_move_per_turn_and_stop_here() {
+    let d = tool_description("open_pack");
+    assert_that!(d.as_str()).contains("Open a pack in its own tab to edit it there");
+    assert_that!(d.as_str()).contains("One tab move (opening or showing a pack or theme tab) per turn");
+    assert_that!(d.as_str()).contains("this request stops here");
+    assert_that!(d.as_str()).does_not_contain("In a pack's own tab");
+    assert_that!(d.as_str()).does_not_contain("save_pack");
+}
+
+#[test]
+fn open_theme_description_shares_open_pack_limit() {
+    let d = tool_description("open_theme");
+    assert_that!(d.as_str()).contains("Same limit as `open_pack`: one tab move per turn");
+    assert_that!(d.as_str()).contains("`edit_theme`");
+}
+
+#[test]
+fn packs_description_names_no_tool_a_pack_or_theme_tab_lacks() {
+    let d = tool_description("packs");
+    assert_that!(d.as_str()).contains("A deck tab opens one in its own tab.");
+    assert_that!(d.as_str()).does_not_contain("open_pack");
+    assert_that!(d.as_str()).does_not_contain("edit_pack");
+}
+
+#[test]
+fn present_description_names_no_pack_mode() {
+    assert_that!(tool_description("present").as_str()).does_not_contain("pack mode");
+}
+
+/// The tools of a deck tab, and of a help tab (a read-only deck), sorted.
+const DECK_TOOLS: &[&str] = &[
+    "add_pack",
+    "apply",
+    "ask_choice",
+    "ask_confirm",
+    "ask_rewrite",
+    "cancel_agent_model_download",
+    "cancel_dictation_download",
+    "chart_kind",
+    "deck_outline",
+    "delete_pack",
+    "download_agent_model",
+    "download_dictation_model",
+    "edit_theme",
+    "focus",
+    "history",
+    "import_diff",
+    "import_report",
+    "layouts",
+    "merge",
+    "move",
+    "new",
+    "open",
+    "open_pack",
+    "open_theme",
+    "packs",
+    "present",
+    "preview_widget",
+    "remove_pack",
+    "remove_widget",
+    "render",
+    "render_slide",
+    "report",
+    "save",
+    "save_copy",
+    "select_agent",
+    "set_dictation",
+    "set_interface",
+    "set_setting",
+    "set_widget",
+    "settings",
+    "show_as",
+    "show_dictation",
+    "show_packs",
+    "show_params",
+    "show_themes",
+    "show_variants",
+    "slide",
+    "theme_tokens",
+    "widget_source",
+    "widget_sources",
+    "widgets",
+];
+
+/// The tools of a pack tab, sorted.
+const PACK_TOOLS: &[&str] = &[
+    "apply",
+    "ask_choice",
+    "ask_confirm",
+    "ask_rewrite",
+    "cancel_agent_model_download",
+    "cancel_dictation_download",
+    "deck_outline",
+    "download_agent_model",
+    "download_dictation_model",
+    "focus",
+    "layouts",
+    "packs",
+    "preview_widget",
+    "remove_widget",
+    "render",
+    "render_slide",
+    "report",
+    "save_pack",
+    "select_agent",
+    "select_item",
+    "set_dictation",
+    "set_interface",
+    "set_preview_theme",
+    "set_setting",
+    "set_widget",
+    "set_widget_trial",
+    "settings",
+    "show_dictation",
+    "show_params",
+    "show_variants",
+    "slide",
+    "theme_tokens",
+    "widget_source",
+    "widget_sources",
+    "widgets",
+];
+
+/// The tools of a theme tab, sorted.
+const THEME_TOOLS: &[&str] = &[
+    "apply",
+    "ask_choice",
+    "ask_confirm",
+    "ask_rewrite",
+    "cancel_agent_model_download",
+    "cancel_dictation_download",
+    "deck_outline",
+    "download_agent_model",
+    "download_dictation_model",
+    "focus",
+    "packs",
+    "rename_theme",
+    "render",
+    "render_slide",
+    "report",
+    "save_theme",
+    "select_agent",
+    "set_dictation",
+    "set_interface",
+    "set_setting",
+    "set_theme_extends",
+    "settings",
+    "show_dictation",
+    "show_params",
+    "show_variants",
+    "slide",
+    "theme_tokens",
+    "widgets",
+];
+
+#[rstest]
+#[case::deck(DocumentKind::Deck, DECK_TOOLS)]
+#[case::help(DocumentKind::Help, DECK_TOOLS)]
+#[case::pack(DocumentKind::Pack, PACK_TOOLS)]
+#[case::theme(DocumentKind::Theme, THEME_TOOLS)]
+fn list_for_a_kind_is_exactly_its_tools(#[case] kind: DocumentKind, #[case] expected: &[&str]) {
+    let mut names: Vec<String> = list_for(kind).into_iter().map(|t| t.name).collect();
+    names.sort();
+    assert_that!(names).is_equal_to(expected.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>());
+}
+
+/// Every tool is listed somewhere: no table entry is dead.
+#[test]
+fn list_all_every_tool_is_listed_for_some_kind() {
+    for (tool, _) in list_all() {
+        let somewhere = [DocumentKind::Deck, DocumentKind::Pack, DocumentKind::Theme]
+            .into_iter()
+            .any(|k| list_for(k).iter().any(|t| t.name == tool.name));
+        assert_that!(somewhere).named(&tool.name).is_true();
+    }
+}
+
+#[test]
+fn kinds_of_an_unknown_name_is_none() {
+    assert_that!(kinds_of("nope")).is_none();
+}
+
+#[test]
+fn apply_description_names_the_add_pack_and_remove_pack_ops() {
+    let d = tool_description("apply");
+    assert_that!(d.as_str()).contains("the pack ops (add_pack, remove_pack)");
 }

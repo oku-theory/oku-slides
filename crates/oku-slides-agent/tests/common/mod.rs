@@ -138,7 +138,8 @@ async fn start_tabs_ready_within(
         let session = Arc::new(Mutex::new(session));
         let tab = TabSession::new(*name, session.clone());
         let hub = SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), Arc::new(oku_slides_mcp::NoVoice));
-        let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(NoSettings), &platform);
+        let kind = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).document_kind();
+        let tools = Tools::new(tab.clone(), hub.clone(), Arc::new(NoSettings), &platform, kind);
         let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur MCP : {e}"));
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
         let keeper = Keeper::spawn(tab.clone(), hub.clone());
@@ -151,6 +152,7 @@ async fn start_tabs_ready_within(
             platform.live_localizer.clone(),
             keeper.clone(),
             platform.settings.paste.prompt_limits(),
+            kind,
         );
         let events = tokio::sync::Mutex::new(agent.subscribe());
         started.push(Tab { name: (*name).to_owned(), agent, hub, session, server, keeper, events });
@@ -317,8 +319,8 @@ impl oku_slides_session::agent::Sessions for TabSessions {
         tab: &str,
         pack: uuid::Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(oku_slides_session::agent::PackGate) -> bool,
-    ) -> oku_slides_session::Result<oku_slides_session::agent::PackOpen> {
+        gate: &mut dyn FnMut(oku_slides_session::agent::TabGate) -> bool,
+    ) -> oku_slides_session::Result<oku_slides_session::agent::TabOpen> {
         // The map stays locked while its session is out: no other call finds the tab missing.
         let mut sessions = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(s) = sessions.remove(tab) {
@@ -329,6 +331,33 @@ impl oku_slides_session::agent::Sessions for TabSessions {
         }
         drop(sessions);
         oku_slides_session::Workspace::open_pack(&self.1, "onglet-ferme", pack, widget, gate)
+    }
+
+    /// As `open_pack`: a known tab answers as a single-document host, an unknown one `UnknownTab`.
+    fn open_theme(
+        &self,
+        tab: &str,
+        theme: uuid::Uuid,
+        gate: &mut dyn FnMut(oku_slides_session::agent::TabGate) -> bool,
+    ) -> oku_slides_session::Result<oku_slides_session::agent::TabOpen> {
+        // The map stays locked while its session is out: no other call finds the tab missing.
+        let mut sessions = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(s) = sessions.remove(tab) {
+            let single = Mutex::new(s);
+            let opened = oku_slides_session::agent::Sessions::open_theme(&single, tab, theme, gate);
+            sessions.insert(tab.to_owned(), single.into_inner().unwrap_or_else(std::sync::PoisonError::into_inner));
+            return opened;
+        }
+        drop(sessions);
+        oku_slides_session::Workspace::open_theme_for_agent(&self.1, "onglet-ferme", theme, gate)
+    }
+
+    /// A known tab answers with its session's kind; an unknown one is refused by the closed workspace.
+    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        if let Some(s) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(tab) {
+            return Ok(s.document_kind());
+        }
+        oku_slides_session::Workspace::document_kind(&self.1, "onglet-ferme")
     }
 }
 

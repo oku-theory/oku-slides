@@ -27,7 +27,8 @@ agent-confirm-open = Aprire { $path }?
 agent-open-elsewhere = Questo file è già aperto in un’altra scheda.
 agent-confirm-new = Iniziare una nuova presentazione?
 agent-confirm-new-dirty = Iniziare una nuova presentazione? Le modifiche non salvate andranno perse.
-agent-confirm-save-pack = Salvare il pacchetto «{ $name }»?
+agent-confirm-copy-pack = Salvare una copia del pacchetto «{ $name }»? Il pacchetto stesso resta invariato.
+agent-confirm-copy-edited-theme = Salvare una copia del tema «{ $name }»? Il tema stesso resta invariato.
 agent-confirm-delete-pack = Eliminare il pacchetto «{ $name }»? Non si può annullare.
 agent-confirm-edit-theme = Salvare una nuova versione del tema «{ $name }»?
 agent-confirm-copy-theme = Creare una variante del tema integrato «{ $name }»? Il tema integrato resta invariato.
@@ -98,11 +99,18 @@ agent-error-pack-id = Questo non è l'id di un pacchetto: chiama packs per elenc
 agent-error-asset-unknown = Questa immagine non è né nella presentazione né tra le immagini incollate: usa l'identificatore di un'immagine incollata.
 agent-error-denied = L'utente ha rifiutato.
 agent-error-no-turn = Nessun turno in corso: { $tool } viene mostrato solo durante un turno.
-agent-error-pack-tab-no-turn = Apri una scheda di pacchetto, o passa a una, solo mentre rispondi all'utente.
-agent-error-pack-tab-limit = In questo turno hai già aperto una scheda di pacchetto; termina lì, oppure chiedi all'utente prima di aprirne un'altra.
-agent-error-continue-in-pack-tab = Questa richiesta prosegue nella scheda del pacchetto: chiedi all'utente di continuare lì; per ora questa scheda non modifica alcun widget.
+agent-error-tab-no-turn = Apri una scheda di pacchetto o di tema, o mostrala, solo mentre rispondi all'utente.
+agent-error-tab-limit = In questo turno hai già aperto o mostrato una scheda di pacchetto o di tema; termina lì, oppure chiedi all'utente prima di usarne un'altra.
+agent-error-continue-in-other-tab = Questa richiesta prosegue nella scheda che hai aperto o mostrato: chiedi all'utente di continuare lì; per ora questa scheda non modifica alcun widget.
 agent-error-pack-open-in-tab = Questo pacchetto è in modifica in un'altra scheda: chiedi all'utente di terminare prima lì.
-agent-pack-opened-in-tab = Il pacchetto si è aperto nella scheda { $tab }, che ora ha il focus. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta. Questa scheda resta sulla sua presentazione.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Il pacchetto si è aperto nella scheda { $tab }, ora mostrata.
+  *[no] Il pacchetto si è aperto nella scheda { $tab }, in secondo piano: la finestra dell'utente mostra un'altra scheda.
+} Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta. Questa scheda resta com'è.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Il tema si è aperto nella scheda { $tab }, ora mostrata.
+  *[no] Il tema si è aperto nella scheda { $tab }, in secondo piano: la finestra dell'utente mostra un'altra scheda.
+} Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta. Questa scheda resta com'è.
 agent-error-turn-over = Il turno di questa chiamata è terminato: non è stato mostrato nulla.
 agent-error-no-file = La presentazione non ha ancora un file: indica un percorso assoluto.
 agent-error-path-relative = Il percorso deve essere assoluto.

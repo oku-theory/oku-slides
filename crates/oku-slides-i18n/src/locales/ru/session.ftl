@@ -82,6 +82,7 @@ session-token-reason-bad-rule = для линии нужны ширина, вы�
 session-undo-theme = Сменить тему
 session-undo-edited-theme = Сменить тему: { $name }
 session-undo-theme-extends = Изменить расширяемые темы
+session-undo-theme-rename = Переименовать тему
 session-help-deck = Не удаётся прочитать презентацию справки
 session-agent-form = Запрос агента недопустим: { $reason }
 session-agent-form-too-long = { $at }: символов: { $count }, не больше { $max }

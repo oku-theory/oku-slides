@@ -1,14 +1,14 @@
-//! Un onglet de la pile : son hub de surfaces, ses outils MCP, son agent et
-//! ses tours, avec les relais de ses évènements vers l'interface.
+//! A tab of the stack: its surface hub, its MCP tools, its agent and its
+//! turns, with the relays of its events to the interface.
 
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Instant;
 
-use oku_slides_i18n::Localize;
-use oku_slides_mcp::{McpEvent, SurfaceHub, ToolServer, Tools};
+use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_mcp::{McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools};
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::Platform;
 use oku_slides_session::agent::{AttachmentRef, TabSession};
+use oku_slides_session::{DocumentKind, Platform};
 use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
@@ -134,7 +134,7 @@ pub(crate) struct TabPorts {
     pub voice: Arc<AppVoice>,
 }
 
-/// Un onglet démarré ; le lâcher arrête son agent et ses outils.
+/// A started tab; dropping it stops its agent and its tools.
 #[derive(Debug)]
 pub(crate) struct TabEntry {
     pub link: TabLink,
@@ -142,8 +142,11 @@ pub(crate) struct TabEntry {
 }
 
 impl TabEntry {
-    /// Démarre, dans `rt`, le gardien, les relais, puis les outils et l'agent ;
-    /// les commandes attendent en file que l'agent soit là.
+    /// Starts, in `rt`, the keeper, the relays, then the tools and the agent;
+    /// commands wait in a queue until the agent is there.
+    ///
+    /// The tools are built later, in [`Agent::run`]: they need the tab's kind, read off
+    /// this thread, which holds the stack's table lock.
     pub fn start(
         session: TabSession,
         platform: &Platform,
@@ -154,7 +157,6 @@ impl TabEntry {
     ) -> Self {
         let tab = session.tab().to_owned();
         let hub = SurfaceHub::new(session.clone(), platform.live_localizer.clone(), ports.voice.clone());
-        let tools = Tools::new(session.clone(), hub.clone(), ports.settings, platform);
         let cancel = CancellationToken::new();
         let (cmds, rx) = mpsc::unbounded_channel();
         let status = Arc::new(Mutex::new(AgentState::Idle));
@@ -186,7 +188,7 @@ impl TabEntry {
             out,
             closed,
         };
-        rt.spawn(agent.run(tools, cancel.clone(), rx, relay));
+        rt.spawn(agent.run(ports.settings, platform.clone(), cancel.clone(), rx, relay));
         let draft = Arc::new(Mutex::new(Draft::default()));
         Self {
             link: TabLink { tab, hub, keeper, cmds, status, draft, session: tab_session, paste: Arc::default() },
@@ -301,55 +303,116 @@ impl Relay {
     }
 }
 
-/// De quoi démarrer l'agent de l'onglet une fois ses outils prêts.
+/// What starts the tab's agent once its tools are ready.
 struct Agent {
     session: TabSession,
     hub: Arc<SurfaceHub>,
     link: Link,
     localizer: oku_slides_i18n::LiveLocalizer,
     keeper: Keeper,
-    /// Compte les requêtes de l'onglet pour la boîte des réglages.
+    /// Counts the tab's requests for the settings box.
     voice: Arc<AppVoice>,
-    /// Bornes des images envoyées en bloc image à l'agent.
+    /// Bounds of the images sent to the agent as image blocks.
     prompt_limits: PromptImageLimits,
 }
 
 impl Agent {
-    /// Démarre les outils puis l'agent, et lui relaie les commandes jusqu'à
-    /// la fermeture de l'onglet (l'agent est alors lâché, donc arrêté).
+    /// Reads the tab's kind, starts its tools then its agent, and relays the commands to it
+    /// until the tab closes (the agent is then dropped, so stopped).
+    ///
+    /// Without the kind (tab gone, task lost) or a tool server, each prompt gets the
+    /// tools-unavailable error instead ([`Agent::serve_without_tools`]).
     async fn run(
         self,
-        tools: Tools,
+        settings: Arc<dyn SettingsPort>,
+        platform: Platform,
+        cancel: CancellationToken,
+        rx: mpsc::UnboundedReceiver<Command>,
+        relay: Relay,
+    ) {
+        let (server, kind) = match self.start_tools(settings, &platform, &cancel).await {
+            Ok(started) => started,
+            Err(say) => return self.serve_without_tools(say, cancel, rx, relay).await,
+        };
+        // Tab closed while starting: the queued commands are moot.
+        if cancel.is_cancelled() {
+            return;
+        }
+        self.serve(&server, kind, cancel, rx, relay).await;
+    }
+
+    /// The tab's kind, read once off the async thread, and a tool server for that kind.
+    ///
+    /// # Errors
+    ///
+    /// The localized message of the failure, in the language of each use: the session's
+    /// error for a gone tab, `agent-tools-unavailable` for a lost task or a server that
+    /// did not start (the details go to the log).
+    async fn start_tools(
+        &self,
+        settings: Arc<dyn SettingsPort>,
+        platform: &Platform,
+        cancel: &CancellationToken,
+    ) -> Result<(ToolServer, DocumentKind), Say> {
+        let read = {
+            let session = self.session.clone();
+            tokio::task::spawn_blocking(move || session.document_kind()).await
+        };
+        let kind = match read {
+            Ok(Ok(kind)) => kind,
+            Ok(Err(e)) => {
+                tracing::warn!(tab = %self.session.tab(), error = %e.one_line(), "tab document kind unreadable");
+                return Err(Box::new(move |l: &Localizer| e.localize(l)));
+            }
+            Err(e) => {
+                tracing::warn!(tab = %self.session.tab(), error = %e, "tab document kind read: task lost");
+                return Err(Box::new(|l: &Localizer| l.tr("agent-tools-unavailable")));
+            }
+        };
+        let tools = Tools::new(self.session.clone(), self.hub.clone(), settings, platform, kind);
+        match ToolServer::start(tools, cancel.clone()).await {
+            Ok(server) => Ok((server, kind)),
+            Err(e) => {
+                tracing::warn!(tab = %self.session.tab(), error = %e, "tab tools unavailable");
+                Err(Box::new(move |l: &Localizer| e.localize(l)))
+            }
+        }
+    }
+
+    /// Without tools: each prompt gets `say`'s error in the thread, the rest is moot.
+    async fn serve_without_tools(
+        self,
+        say: Say,
         cancel: CancellationToken,
         mut rx: mpsc::UnboundedReceiver<Command>,
         mut relay: Relay,
     ) {
-        let server = match ToolServer::start(tools, cancel.clone()).await {
-            Ok(server) => server,
-            Err(e) => {
-                tracing::warn!(tab = %self.session.tab(), error = %e, "outils de l'onglet indisponibles");
-                // Le fil relu d'abord : les tours de l'erreur sont numérotés après les leurs.
-                self.keeper.restored().await;
-                // Chaque consigne reçoit l'erreur dans le fil, dans la langue du moment ; le reste est sans objet.
-                while let Some(cmd) = next(&cancel, &mut rx).await {
-                    if let Command::Prompt(Instruction { text, images, .. }) = cmd {
-                        let n = self.hub.begin_turn();
-                        relay.emit(&AgentEvent::UserText {
-                            turn: n,
-                            text,
-                            images: images.iter().map(AttachmentRef::shown).collect(),
-                        });
-                        let message = e.localize(&self.localizer.current());
-                        relay.emit(&AgentEvent::Error { turn: n, message });
-                    }
-                }
-                return;
+        // The thread read first: the error's turns are numbered after its own.
+        self.keeper.restored().await;
+        // Each prompt gets the error in the thread, in the language of the moment.
+        while let Some(cmd) = next(&cancel, &mut rx).await {
+            if let Command::Prompt(Instruction { text, images, .. }) = cmd {
+                let n = self.hub.begin_turn();
+                relay.emit(&AgentEvent::UserText {
+                    turn: n,
+                    text,
+                    images: images.iter().map(AttachmentRef::shown).collect(),
+                });
+                let message = say(&self.localizer.current());
+                relay.emit(&AgentEvent::Error { turn: n, message });
             }
-        };
-        // Onglet fermé pendant le démarrage : les commandes en file sont sans objet.
-        if cancel.is_cancelled() {
-            return;
         }
+    }
+
+    /// Starts the agent on `server`'s tools, for a tab of `kind`, and relays the commands to it.
+    async fn serve(
+        self,
+        server: &ToolServer,
+        kind: DocumentKind,
+        cancel: CancellationToken,
+        mut rx: mpsc::UnboundedReceiver<Command>,
+        relay: Relay,
+    ) {
         let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
         let parts = ActorParts {
             tab: self.session,
@@ -359,9 +422,10 @@ impl Agent {
             localizer: self.localizer,
             keeper: self.keeper,
             prompt_limits: self.prompt_limits,
+            kind,
         };
         let agent = AgentHandle::spawn_counted(parts, self.voice);
-        // Abonné avant la première commande : aucun évènement de l'agent n'est perdu.
+        // Subscribed before the first command: no event of the agent is lost.
         tokio::spawn(relay.run(agent.subscribe()));
         while let Some(cmd) = next(&cancel, &mut rx).await {
             match cmd {
@@ -373,8 +437,11 @@ impl Agent {
     }
 }
 
-/// La commande suivante ; `None` une fois l'onglet fermé, même s'il en reste
-/// en file (l'émetteur lâché ne fait rendre `None` qu'après la file).
+/// A failure's message, worded in the language current at each use.
+type Say = Box<dyn Fn(&Localizer) -> String + Send>;
+
+/// The next command; `None` once the tab closed, even with commands still
+/// queued (a dropped sender gives `None` only after the queue).
 async fn next(closed: &CancellationToken, rx: &mut mpsc::UnboundedReceiver<Command>) -> Option<Command> {
     tokio::select! {
         biased;

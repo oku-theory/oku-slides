@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use super::super::opening::{opening_waiters, with_opening};
 use super::super::packs::workspace_packs_fixtures::within;
+use crate::agent::{TabGate, TabOpen};
 use crate::pack_lease::pack_leased;
 use crate::test_support::{add_user_theme, apply_ws, fresh_dir, resumed_on, workspace_on};
 use crate::test_support_packs::{assert_unleased, theme_scope_of};
@@ -39,6 +40,11 @@ impl Themes {
     /// Opens `theme` from `tab`.
     fn open(&self, tab: &str, theme: Uuid) -> Result<WorkspaceOutcome> {
         self.send(json!({"cmd": "open_theme", "tab": tab, "theme": theme}))
+    }
+
+    /// Opens `theme` from `tab` for an agent whose gate is `gate`.
+    fn open_by_agent(&self, tab: &str, theme: Uuid, gate: &mut dyn FnMut(TabGate) -> bool) -> Result<TabOpen> {
+        Workspace::open_theme_for_agent(&self.ws, tab, theme, gate)
     }
 
     /// Opens `theme` from `tab`, which must work.
@@ -369,4 +375,195 @@ fn new_theme_failed_open_deletes_the_draft() {
     let r = f.send(json!({"cmd": "new_theme", "tab": "t-1"})).map(|_| ()).map_err(|e| e.kind());
     let expected = (Err(SessionErrorKind::PackTabNotFresh), before, tabs);
     assert_that!((r, f.theme_count(), f.window().len())).is_equal_to(expected);
+}
+
+#[test]
+fn open_theme_for_agent_asks_new_tab_then_opens_it_after_the_requester() {
+    let f = themes();
+    let mut asked = Vec::new();
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |g| {
+        asked.push(g);
+        true
+    });
+    let tab = match opened {
+        Ok(TabOpen::Opened { tab, shown: true }) => tab,
+        other => panic!("{other:?}"),
+    };
+    assert_that!((asked, f.window(), f.active())).is_equal_to((
+        vec![TabGate::NewTab],
+        vec!["t-1".to_owned(), tab.clone()],
+        tab,
+    ));
+}
+
+#[test]
+fn open_theme_for_agent_refused_by_new_tab_opens_nothing() {
+    let f = themes();
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| false);
+    assert_that!((opened.ok(), f.window())).is_equal_to((Some(TabOpen::Refused), vec!["t-1".to_owned()]));
+}
+
+#[test]
+fn open_theme_for_agent_of_an_open_theme_asks_focus_and_focuses_it() {
+    let f = themes();
+    f.opened("t-1", PAPIER_THEME);
+    let tab = f.theme_tabs()[0].clone();
+    f.activate("t-1");
+    let mut asked = Vec::new();
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |g| {
+        asked.push(g);
+        true
+    });
+    assert_that!((asked, opened.ok(), f.active())).is_equal_to((
+        vec![TabGate::Focus],
+        Some(TabOpen::Focused { tab: tab.clone(), shown: true }),
+        tab,
+    ));
+}
+
+#[test]
+fn open_theme_for_agent_refused_by_focus_activates_nothing() {
+    let f = themes();
+    f.opened("t-1", PAPIER_THEME);
+    f.activate("t-1");
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| false);
+    assert_that!((opened.ok(), f.active())).is_equal_to((Some(TabOpen::Refused), "t-1".to_owned()));
+}
+
+#[test]
+fn open_theme_for_agent_from_a_help_tab_opens_a_theme_tab() {
+    let f = themes();
+    f.send(json!({"cmd": "open_help", "window": "w-1"})).unwrap();
+    let help = f.active();
+    let tab = match f.open_by_agent(&help, PAPIER_THEME, &mut |_| true) {
+        Ok(TabOpen::Opened { tab, shown: true }) => tab,
+        other => panic!("{other:?}"),
+    };
+    let found = (f.document(&tab), f.opener_of(&tab));
+    assert_that!(found).is_equal_to((Some(TabDocument::Theme { theme: PAPIER_THEME }), Some(help)));
+}
+
+/// Decision 20: a requester that is not its window's active tab opens behind.
+#[test]
+fn open_theme_for_agent_from_a_background_tab_opens_it_without_activating_it() {
+    let f = themes();
+    let other = f.new_tab();
+    f.activate(&other);
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| true);
+    assert_that!((matches!(opened, Ok(TabOpen::Opened { shown: false, .. })), f.active())).is_equal_to((true, other));
+}
+
+#[test]
+fn open_theme_for_agent_from_a_background_tab_focuses_nothing() {
+    let f = themes();
+    f.opened("t-1", PAPIER_THEME);
+    let other = f.new_tab();
+    f.activate(&other);
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| true);
+    assert_that!((matches!(opened, Ok(TabOpen::Focused { shown: false, .. })), f.active())).is_equal_to((true, other));
+}
+
+/// A Papier theme tab whose cached document lags (forged to a deck): the holder, `t-1` left active.
+///
+/// The candidates miss it while its session still holds the lease. The blank tab opened first
+/// gives the window of `open_theme_twice_focuses_existing_tab`, `[t-1, theme tab, t-2]`, so the
+/// theme tab sits between two other tabs, as when a second tab opens it.
+fn lagging_theme_tab(f: &Themes) -> String {
+    // A second tab, at the end: the theme tab then opens between `t-1` and it.
+    f.new_tab();
+    f.activate("t-1");
+    f.opened("t-1", PAPIER_THEME);
+    let holder = f.active();
+    Workspace::lock(&f.ws).tabs.get_mut(&holder).unwrap().info.document =
+        TabDocument::Deck { path: None, deck_uid: None };
+    f.activate("t-1");
+    holder
+}
+
+#[test]
+fn open_theme_for_agent_with_a_refused_lease_asks_focus_first() {
+    let f = themes();
+    lagging_theme_tab(&f);
+    let mut asked = Vec::new();
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |g| {
+        asked.push(g);
+        g == TabGate::NewTab
+    });
+    assert_that!((asked, opened.ok(), f.active())).is_equal_to((
+        vec![TabGate::NewTab, TabGate::Focus],
+        Some(TabOpen::Refused),
+        "t-1".to_owned(),
+    ));
+}
+
+#[test]
+fn open_theme_for_agent_with_a_refused_lease_reports_focused_not_opened() {
+    let f = themes();
+    let holder = lagging_theme_tab(&f);
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| true);
+    assert_that!((opened.ok(), f.active()))
+        .is_equal_to((Some(TabOpen::Focused { tab: holder.clone(), shown: true }), holder));
+}
+
+#[test]
+fn open_theme_ui_asks_no_gate_and_still_activates() {
+    let f = themes();
+    let other = f.new_tab();
+    f.activate(&other);
+    f.opened("t-1", PAPIER_THEME);
+    let tab = f.theme_tabs()[0].clone();
+    assert_that!((f.active(), f.window())).is_equal_to((tab.clone(), vec!["t-1".to_owned(), tab, other]));
+}
+
+/// As for packs, an agent's focus never makes the requester the theme tab's opener.
+#[test]
+fn open_theme_for_agent_focus_never_retargets_the_opener() {
+    let f = themes();
+    let other = f.new_tab();
+    f.activate("t-1");
+    f.opened("t-1", PAPIER_THEME);
+    let tab = f.active();
+    f.activate(&other);
+    f.open_by_agent(&other, PAPIER_THEME, &mut |_| true).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    assert_that!((f.active(), f.opener_of(&tab))).is_equal_to((tab.clone(), Some("t-1".to_owned())));
+}
+
+/// Decision 20: the requester leaves the front after the ask, so the new tab opens behind.
+#[test]
+fn open_theme_for_agent_requester_hidden_after_the_ask_opens_it_behind() {
+    let f = themes();
+    let other = f.new_tab();
+    f.activate("t-1");
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| {
+        f.activate(&other);
+        true
+    });
+    assert_that!((matches!(opened, Ok(TabOpen::Opened { shown: false, .. })), f.active())).is_equal_to((true, other));
+}
+
+/// Decision 20: the requester leaves the front after the ask, so the theme tab stays where it is.
+#[test]
+fn open_theme_for_agent_requester_hidden_after_the_ask_focuses_it_behind() {
+    let f = themes();
+    f.opened("t-1", PAPIER_THEME);
+    let other = f.new_tab();
+    f.activate("t-1");
+    let opened = f.open_by_agent("t-1", PAPIER_THEME, &mut |_| {
+        f.activate(&other);
+        true
+    });
+    assert_that!((matches!(opened, Ok(TabOpen::Focused { shown: false, .. })), f.active())).is_equal_to((true, other));
+}
+
+/// Once inserted the tab exists: a failed view still reports it opened, as for packs.
+#[test]
+fn open_theme_for_agent_whose_view_fails_after_insert_reports_opened() {
+    let f = themes();
+    super::super::tabs::FAIL_FINISH_VIEW.store(true, std::sync::atomic::Ordering::SeqCst);
+    let opened = match f.open_by_agent("t-1", PAPIER_THEME, &mut |_| true) {
+        Ok(TabOpen::Opened { tab, shown }) => Some((tab, shown)),
+        _ => None,
+    };
+    let tabs = f.theme_tabs();
+    assert_that!(opened).is_equal_to(tabs.first().map(|t| (t.clone(), true)));
 }

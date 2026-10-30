@@ -2,47 +2,152 @@ use speculoos::prelude::*;
 
 use rstest::rstest;
 
-use super::{IMPORT, INSTRUCTIONS, WIDGETS};
+use oku_slides_session::DocumentKind;
 
-/// Le paragraphe de la règle des langues, seul : le reste des consignes cite aussi les outils.
+use super::{IMPORT, INSTRUCTIONS, WIDGETS, for_kind};
+
+/// Backticked words that name a tool: `open_pack`, `apply` …
+fn backticked_tools(text: &str) -> Vec<String> {
+    let all = oku_slides_mcp::tool_names();
+    text.split('`').skip(1).step_by(2).filter(|w| all.iter().any(|t| t == w)).map(str::to_owned).collect()
+}
+
+/// Every tool a kind's texts name in backticks is a tool that kind lists.
+#[rstest]
+#[case::deck(DocumentKind::Deck)]
+#[case::help(DocumentKind::Help)]
+#[case::pack(DocumentKind::Pack)]
+#[case::theme(DocumentKind::Theme)]
+fn instructions_for_a_kind_name_only_its_tools(#[case] kind: DocumentKind) {
+    let listed = oku_slides_mcp::tool_names_for(kind);
+    let mut text = format!("{INSTRUCTIONS}\n{}", for_kind(kind));
+    if kind != DocumentKind::Theme {
+        text.push_str(WIDGETS);
+    }
+    if matches!(kind, DocumentKind::Deck | DocumentKind::Help) {
+        text.push_str(IMPORT);
+    }
+    for (_, description) in oku_slides_mcp::tool_descriptions_for(kind) {
+        text.push_str(&description);
+    }
+    for tool in backticked_tools(&text) {
+        assert_that!(listed.contains(&tool)).named(&tool).is_true();
+    }
+}
+
+#[rstest]
+#[case::deck(DocumentKind::Deck, &["open_pack", "open_theme", "edit_theme", "history"][..])]
+#[case::pack(DocumentKind::Pack, &["select_item", "set_widget_trial", "set_preview_theme", "save_pack"][..])]
+#[case::theme(DocumentKind::Theme, &["set_theme_extends", "rename_theme", "save_theme", "theme_tokens"][..])]
+fn instructions_for_a_kind_name_its_own_tools(#[case] kind: DocumentKind, #[case] tools: &[&str]) {
+    let named = backticked_tools(for_kind(kind));
+    for t in tools {
+        assert_that!(named).named(t).contains((*t).to_owned());
+    }
+}
+
+#[test]
+fn instructions_for_help_are_the_deck_ones() {
+    assert_that!(for_kind(DocumentKind::Help)).is_equal_to(for_kind(DocumentKind::Deck));
+}
+
+/// The language rule's paragraph alone: the rest of the instructions names tools too.
 fn languages() -> &'static str {
     INSTRUCTIONS.find("Languages:").map_or("", |at| &INSTRUCTIONS[at..])
 }
 
 #[test]
 fn instructions_ask_for_report_not_suggest_next() {
-    assert_that!(INSTRUCTIONS).contains("End every turn with report");
-    assert_that!(INSTRUCTIONS).contains("Use render only");
+    assert_that!(INSTRUCTIONS).contains("End every turn with `report`");
+    assert_that!(INSTRUCTIONS).contains("Use `render` only");
     assert_that!(INSTRUCTIONS).does_not_contain("suggest_next");
 }
 
-/// Le menu ne garde que présenter, ouvrir et l'aide : l'agent connaît les outils du reste (t-988).
+/// The menu only keeps presenting, opening and help: the agent knows the other tools (t-988).
 #[rstest]
-#[case("save_copy, move, merge")]
-#[case("History: history")]
-#[case("Presenting: present")]
-#[case("set_interface (scheme, locale, grid, guides)")]
-#[case("show_dictation")]
-#[case("set_dictation")]
-#[case("select_agent")]
-#[case("download_dictation_model")]
-#[case("edit_pack (a library pack opens in its own tab")]
+#[case("`save_copy`, `move`, `merge`")]
+#[case("History: `history`")]
+#[case("Presenting: `present`")]
+#[case("`open_pack` (a library pack opens in its own tab")]
+#[case("`open_theme` opens a library theme in its own tab")]
 #[case("the set_theme op with a namespace")]
 #[case("set_token ops on deck.tokens")]
 #[case("component.base.card")]
-fn instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
+#[case("one tab move per turn, shared with `open_pack`")]
+#[case("a deck-only pack in its own tab linked to this deck")]
+fn deck_instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
+    assert_that!(for_kind(DocumentKind::Deck)).contains(listed);
+}
+
+/// The interface and dictation tools are in every kind's core.
+#[rstest]
+#[case("`set_interface` (scheme, locale, grid, guides)")]
+#[case("`show_dictation`")]
+#[case("`set_dictation`")]
+#[case("`select_agent`")]
+#[case("`download_dictation_model`")]
+fn core_instructions_name_the_interface_and_dictation_tools(#[case] listed: &str) {
     let at = INSTRUCTIONS.find("You also run the app");
     assert_that!(at).is_some();
-    let app = at.map_or("", |at| &INSTRUCTIONS[at..]);
-    assert_that!(app).contains(listed);
+    assert_that!(at.map_or("", |at| &INSTRUCTIONS[at..])).contains(listed);
 }
 
 #[test]
-fn instructions_mention_pack_tabs() {
-    assert_that!(INSTRUCTIONS).contains("a library pack opens in its own tab, once per turn");
-    assert_that!(INSTRUCTIONS).contains("a deck-only pack in its own tab linked to this deck");
-    assert_that!(INSTRUCTIONS).does_not_contain("close_pack");
-    assert_that!(INSTRUCTIONS).does_not_contain("the deck's own pack when pack is omitted");
+fn deck_instructions_mention_open_pack_and_open_theme() {
+    let deck = for_kind(DocumentKind::Deck);
+    assert_that!(deck).contains("a library pack opens in its own tab, one tab move per turn");
+    assert_that!(deck).contains("a deck-only pack in its own tab linked to this deck");
+    assert_that!(deck).contains("`open_theme`");
+    assert_that!(deck).does_not_contain("close_pack");
+    assert_that!(deck).does_not_contain("the deck's own pack when pack is omitted");
+}
+
+#[test]
+fn core_instructions_name_no_deck_only_files_history_or_theme_tools() {
+    for part in ["history", "open_pack", "open_theme", "edit_theme", "show_packs", "save_copy"] {
+        asserting(part).that(&INSTRUCTIONS.contains(part)).is_false();
+    }
+}
+
+/// The core goes to every kind: what only fits decks and packs lives in their paragraphs.
+#[rstest]
+#[case::widgets("Before adding an element")]
+#[case::grid("set_grid")]
+#[case::pasted("Pasted images")]
+#[case::add_element("add_element")]
+#[case::trial("set_widget_trial")]
+fn core_instructions_hold_no_deck_or_pack_only_text(#[case] part: &str) {
+    assert_that!(INSTRUCTIONS).does_not_contain(part);
+}
+
+#[rstest]
+#[case::deck_widgets(DocumentKind::Deck, "Before adding an element, read the `widgets` tool")]
+#[case::deck_grid(DocumentKind::Deck, "use the set_grid op: placed elements follow")]
+#[case::deck_pasted(DocumentKind::Deck, "Pasted images: a prompt may list")]
+#[case::pack_widgets(DocumentKind::Pack, "Before adding an element, read the `widgets` tool")]
+#[case::pack_pasted(DocumentKind::Pack, "Pasted images: a prompt may list")]
+#[case::pack_trial(DocumentKind::Pack, "write the `set_widget_trial` values in the deck language")]
+fn kind_instructions_hold_the_text_that_fits_them(#[case] kind: DocumentKind, #[case] part: &str) {
+    assert_that!(for_kind(kind)).contains(part);
+}
+
+#[test]
+fn theme_instructions_hold_no_element_or_pasted_image_text() {
+    for part in ["Before adding an element", "Pasted images", "set_grid"] {
+        asserting(part).that(&for_kind(DocumentKind::Theme).contains(part)).is_false();
+    }
+}
+
+#[test]
+fn deck_instructions_say_a_help_tab_cannot_open_a_pack() {
+    assert_that!(for_kind(DocumentKind::Deck)).contains("from a deck tab, not a help tab");
+}
+
+#[rstest]
+#[case::pack(DocumentKind::Pack)]
+#[case::theme(DocumentKind::Theme)]
+fn tab_kind_instructions_open_no_other_tab_file_or_history(#[case] kind: DocumentKind) {
+    assert_that!(for_kind(kind)).contains("This tab opens no other tab, file or history.");
 }
 
 #[test]
@@ -71,9 +176,8 @@ const USER_FACING: [&str; 6] = [
     "labels of show_variants",
 ];
 
-const DECK_CONTENT: [&str; 6] = [
+const DECK_CONTENT: [&str; 5] = [
     "set_param values",
-    "set_widget_trial values",
     "the rewordings of ask_rewrite",
     "ask_choice options that are candidate deck text",
     "the values a show_params field writes",
@@ -226,11 +330,14 @@ fn import_stops_a_slide_on_done_exhausted_or_stalled() {
 
 #[test]
 fn import_keeps_pack_mode_away_from_an_imported_deck() {
-    assert_that!(IMPORT).contains("Never use edit_pack on an imported deck");
+    assert_that!(IMPORT).contains("Never use open_pack on an imported deck");
 }
 
 #[rstest]
 #[case::agent(INSTRUCTIONS)]
+#[case::deck(for_kind(DocumentKind::Deck))]
+#[case::pack(for_kind(DocumentKind::Pack))]
+#[case::theme(for_kind(DocumentKind::Theme))]
 #[case::widgets(WIDGETS)]
 #[case::import(IMPORT)]
 fn instructions_mention_neither_edit_templates_nor_templates_mode(#[case] text: &str) {
@@ -246,7 +353,7 @@ fn widgets_names_the_deck_own_layout_pack() {
 
 #[test]
 fn instructions_name_the_essentiel_content_layout_for_slides() {
-    assert_that!(INSTRUCTIONS).contains(oku_slides_core::kinds::essentiel::CONTENT);
+    assert_that!(for_kind(DocumentKind::Deck)).contains(oku_slides_core::kinds::essentiel::CONTENT);
 }
 
 #[test]

@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 
 use uuid::Uuid;
 
-use crate::agent::PackGate;
+use crate::agent::TabGate;
 use crate::deck_pack_link::LinkSpec;
 use crate::deck_pack_receive::{Received, settle_answer};
 use crate::deck_pack_tab::DeckPackSend;
@@ -223,7 +223,7 @@ impl Workspace {
         name: &str,
         ask: &mut Ask<'_>,
     ) -> Result<PackOpened> {
-        if !ask(PackGate::NewTab) {
+        if !ask(TabGate::NewTab) {
             return Ok(PackOpened::Refused);
         }
         let pending = {
@@ -236,7 +236,9 @@ impl Workspace {
             let place =
                 if w.tab_window(ctx.tab).is_some() { TabPlace::After(ctx.tab.to_owned()) } else { TabPlace::End };
             let window = w.tab_window(ctx.tab).map_or(window, str::to_owned);
-            w.pending(Some(window), opening, place)
+            let mut pending = w.pending(Some(window), opening, place);
+            pending.activate = ctx.activation();
+            pending
         };
         let (seed, _changed) = Self::with_quiet(ctx.ws, ctx.tab, |s| s.link_deck_pack(&pending.id, name, ctx.pack));
         let seed = seed??;
@@ -249,25 +251,14 @@ impl Workspace {
                 return Err(e);
             }
         };
-        let id = pending.id.clone();
-        let finished = Self::finish(ctx.ws, pending, session);
-        let inserted = Self::lock(ctx.ws).tabs.contains_key(&id);
-        match finished {
-            Ok((_, id)) => {
-                link.disarm();
-                Ok(PackOpened::Opened(id))
-            }
-            // Once inserted, the tab exists: its link stays.
-            Err(e) if inserted => {
-                link.disarm();
-                tracing::warn!(tab = %id, error = %e.one_line(), "deck-pack tab opened, its view not built");
-                Ok(PackOpened::Opened(id))
-            }
-            Err(e) => {
-                link.cancel();
-                Err(e)
-            }
+        // Once inserted, the tab exists (`Opened`, even if its view failed): its link stays.
+        let opened = Self::finish_opened(ctx.ws, pending, session);
+        if opened.is_ok() {
+            link.disarm();
+        } else {
+            link.cancel();
         }
+        opened
     }
 
     /// Points a deck-pack tab's cached document at the accepted copy, then saves the layout.

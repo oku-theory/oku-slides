@@ -7,6 +7,7 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::sync::PoisonError;
 
+use common::other_tabs::start_other_tabs;
 use common::*;
 use oku_slides_mcp::{InterfaceChange, McpEvent, PresentMode, SchemeChoice, SurfaceAction};
 use oku_slides_session::Request;
@@ -270,7 +271,7 @@ async fn merge_in_pack_mode_is_refused_without_asking() {
     let h = start_pack_tab(oku_slides_session::ESSENTIEL_PACK).await;
     let dir = temp_dir("oku-slides-merge-tpl-");
     let r = direct(&h, "merge", json!({ "path": dir.path().join("x.oku-slides.pdf").to_string_lossy() })).await;
-    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(common::kinds::unknown_tool(&h, "merge"));
     assert_that!(h.hub.has_pending_ask()).is_false();
 }
 
@@ -396,25 +397,25 @@ async fn present_without_mode_presents_on_screen() {
     assert_that!(next_present(&mut rx).await).is_equal_to(PresentMode::Screen);
 }
 
-/// Un mode où la page ne présente pas.
+/// A mode where the page does not present.
 #[derive(Debug, Clone, Copy)]
 enum NoPresent {
     History,
-    Pack,
+    Help,
     NoSlide,
 }
 
-/// A harness whose session is in `mode`; pack mode is a pack tab of Essentiel.
+/// A harness whose session is in `mode`; help is a help tab (read-only).
 async fn start_in(mode: NoPresent) -> Harness {
-    if let NoPresent::Pack = mode {
-        return start_pack_tab(oku_slides_session::ESSENTIEL_PACK).await;
+    if let NoPresent::Help = mode {
+        return common::kinds::start_help_tab().await;
     }
     let h = start().await;
     match mode {
         NoPresent::History => {
             handle(&h, Request::HistoryOpen);
         }
-        NoPresent::Pack => {}
+        NoPresent::Help => {}
         NoPresent::NoSlide => {
             let ids: Vec<String> = snapshot(&h, |s| s.slides.iter().map(|s| s.id.to_owned()).collect());
             let ops: Vec<Value> = ids.iter().map(|id| json!({ "op": "remove_slide", "slide": id })).collect();
@@ -426,7 +427,7 @@ async fn start_in(mode: NoPresent) -> Harness {
 
 #[rstest]
 #[case::history(NoPresent::History)]
-#[case::pack(NoPresent::Pack)]
+#[case::help(NoPresent::Help)]
 #[case::no_slide(NoPresent::NoSlide)]
 #[tokio::test(flavor = "multi_thread")]
 async fn present_where_the_page_cannot_present_is_refused_and_emits_nothing(#[case] mode: NoPresent) {
@@ -517,12 +518,12 @@ async fn set_setting_no_longer_writes_the_locale() {
     assert_that!(text_of(&r)).is_equal_to(refused);
 }
 
-// --- edit_pack --------------------------------------------------------------
+// --- open_pack --------------------------------------------------------------
 
 /// Review t-988: without `pack`, the deck's main pack (the one the interface opens too): a
 /// non-built-in pack, layouts first, else Essentiel; never `base`.
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_without_pack_opens_the_deck_pack_not_base() {
+async fn open_pack_without_pack_opens_the_deck_pack_not_base() {
     use oku_slides_session::{BASE_PACK, ESSENTIEL_PACK};
     let (h, tabs) = start_other_tabs().await;
     h.hub.begin_turn();
@@ -534,16 +535,16 @@ async fn edit_pack_without_pack_opens_the_deck_pack_not_base() {
         (own(s.layouts), own(s.widgets))
     });
     let expected = layouts.first().or(widgets.first()).copied().unwrap_or(ESSENTIEL_PACK);
-    direct(&h, "edit_pack", json!({})).await;
+    direct(&h, "open_pack", json!({})).await;
     let opened: Vec<uuid::Uuid> = lock(&tabs.opened_packs).iter().map(|(_, pack, _)| *pack).collect();
     assert_that!(opened).is_equal_to(vec![expected]);
 }
 
-/// A single-document host opens no pack tab: `edit_pack` there is refused, the deck unchanged.
+/// A single-document host opens no pack tab: `open_pack` there is refused, the deck unchanged.
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_on_a_single_document_host_is_refused_as_single_document() {
+async fn open_pack_on_a_single_document_host_is_refused_as_single_document() {
     let h = start().await;
-    let r = direct(&h, "edit_pack", json!({})).await;
+    let r = direct(&h, "open_pack", json!({})).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     let refused = snapshot(&h, |s| s.editing.is_none());
     assert_that!(refused).is_true();

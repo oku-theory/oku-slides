@@ -148,7 +148,7 @@ async fn handle_passes_the_ui_context_with_the_prompt() {
         .unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
     let prompt = &common::logged(&log, "session/prompt")[0]["prompt"];
-    assert_that!(prompt[2]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
+    assert_that!(prompt[3]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
 }
 
 /// La clé `locale` que l'UI envoie (`AgentUiSent`, ui/src/api.ts) arrive au contexte de l'agent.
@@ -536,12 +536,14 @@ async fn tune_sends_the_import_instructions_before_the_context_and_its_text_last
     tokio::task::block_in_place(|| stack.tune("t-1"));
     wait_turn_done(&rx, "t-1", 1).await;
     let blocks = common::logged(&log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
-    assert_that!(blocks.len()).is_equal_to(5);
-    let import = blocks[2]["text"].as_str().unwrap();
+    // Core, the deck's paragraph, widgets, import, context, text.
+    assert_that!(blocks.len()).is_equal_to(6);
+    assert_that!(blocks[1]["text"].as_str().unwrap()).starts_with("This tab edits a deck.");
+    let import = blocks[3]["text"].as_str().unwrap();
     assert_that!(import).starts_with("Fine-tuning an imported deck");
-    assert_that!(blocks[3]["text"].as_str().unwrap()).starts_with("<oku-slides-context>");
+    assert_that!(blocks[4]["text"].as_str().unwrap()).starts_with("<oku-slides-context>");
     // La langue de l'interface (`fr` dans la pile de test), lue au lancement du tour.
-    assert_that!(blocks[4]["text"].as_str().map(str::to_owned)).is_equal_to(Some(tune_text("fr")));
+    assert_that!(blocks[5]["text"].as_str().map(str::to_owned)).is_equal_to(Some(tune_text("fr")));
 }
 
 #[tokio::test(flavor = "multi_thread")]

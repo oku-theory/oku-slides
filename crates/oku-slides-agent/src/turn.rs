@@ -1,12 +1,13 @@
-//! Un tour : groupe d'annulation, contexte, `session/prompt`, et ce qui
-//! arrive pendant qu'il tourne (annulation, nouvelle consigne).
+//! One turn: its undo group, context, `session/prompt`, and what arrives
+//! while it runs (a cancel, a new instruction).
 
 use agent_client_protocol::schema::v1::{CancelNotification, ContentBlock, PromptRequest, SessionId, TextContent};
 use agent_client_protocol::{Agent, ConnectionTo};
+use oku_slides_session::DocumentKind;
 use tokio::sync::mpsc;
 
 use crate::events::as_text;
-use crate::instructions::{IMPORT, INSTRUCTIONS, WIDGETS};
+use crate::instructions::{IMPORT, INSTRUCTIONS, WIDGETS, for_kind};
 use crate::tab_agent::{Command, Ctx, Instruction};
 use crate::{AgentEvent, AgentState};
 
@@ -17,22 +18,23 @@ use crate::{AgentEvent, AgentState};
 /// conversation).
 #[derive(Debug, Default)]
 pub(crate) struct Pending {
-    /// La conversation repart de zéro après le tour.
+    /// The conversation starts over after the turn.
     pub new_conversation: bool,
-    /// La dernière consigne reçue pendant le tour, à jouer ensuite.
+    /// The last instruction received during the turn, played next.
     pub prompt: Option<Instruction>,
 }
 
-/// Joue le tour `turn` de `instruction`.
+/// Plays turn `turn` of `instruction`.
 ///
-/// Renvoie ce qui est arrivé pendant le tour (à traiter ensuite).
+/// Returns what happened during the turn (handled next).
 ///
-/// Le prompt : les consignes (premier tour de la session), celles de l'import (tour de
-/// fine-tuning), le contexte, les images collées, puis le texte de la consigne, toujours en dernier.
-/// `see_images` : l'agent reçoit des blocs image. `prompting` est appelé juste avant l'envoi de `session/prompt`.
+/// The prompt: the instructions (the session's first turn: the core, the tab kind's
+/// paragraph, then the widget text outside a theme tab), the import's (a fine-tuning
+/// turn), the context, the pasted images, then the instruction's text, always last.
+/// `see_images`: the agent gets image blocks. `prompting` is called just before `session/prompt` is sent.
 #[expect(
     clippy::too_many_arguments,
-    reason = "les paramètres viennent de la connexion ACP ; les regrouper ajouterait un type sans autre usage"
+    reason = "the parameters come from the ACP connection; grouping them would add a type with no other use"
 )]
 pub(crate) async fn run(
     ctx: &Ctx,
@@ -62,23 +64,28 @@ pub(crate) async fn run(
         })
     })
     .await;
-    // Sans session, le tour n'a ni contexte ni images : il n'y a rien où les lire.
+    // Without a session the turn has no context and no images: there is nothing to read them from.
     let (context, pasted) = match blocking {
         Ok(Ok(x)) => x,
         Ok(Err(e)) => {
-            tracing::warn!(error = %e.one_line(), "contexte de l'agent : session de l'onglet introuvable, contexte vide");
+            tracing::warn!(error = %e.one_line(), "agent context: tab session not found, empty context");
             (String::new(), Vec::new())
         }
         Err(e) => {
-            tracing::warn!(error = %e, "contexte de l'agent : tâche bloquante perdue, contexte vide");
+            tracing::warn!(error = %e, "agent context: blocking task lost, empty context");
             (String::new(), Vec::new())
         }
     };
     ctx.emit(AgentEvent::Status { state: AgentState::Working });
+    tracing::debug!(tab = %ctx.tab.tab(), kind = ctx.kind.as_str(), turn, "agent turn starts");
     let mut blocks = Vec::with_capacity(5);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
-        blocks.push(ContentBlock::Text(TextContent::new(WIDGETS)));
+        blocks.push(ContentBlock::Text(TextContent::new(for_kind(ctx.kind))));
+        // A theme tab writes no widget.
+        if ctx.kind != DocumentKind::Theme {
+            blocks.push(ContentBlock::Text(TextContent::new(WIDGETS)));
+        }
     }
     if tune {
         blocks.push(ContentBlock::Text(TextContent::new(IMPORT)));
@@ -96,13 +103,13 @@ pub(crate) async fn run(
         tokio::select! {
             r = &mut request => break r,
             cmd = rx.recv(), if open => {
-                // Toute commande pendant un tour l'arrête, une seule fois. Une consigne ou
-                // une nouvelle conversation est appliquée ensuite.
+                // Any command during a turn stops it, once. An instruction or a new
+                // conversation is applied afterwards.
                 if !cancel_sent {
                     ctx.hub.cancel_asks();
-                    // Connexion finie : le tour échouera de lui-même.
+                    // Connection over: the turn will fail on its own.
                     if let Err(e) = cx.send_notification(CancelNotification::new(session.clone())) {
-                        tracing::debug!(error = %e, "session/cancel non envoyé");
+                        tracing::debug!(error = %e, "session/cancel not sent");
                     }
                     cancel_sent = true;
                 }

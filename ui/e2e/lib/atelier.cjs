@@ -1,10 +1,10 @@
-// The workshop no longer opens from the menu: the agent opens it (tool `edit_pack`, t-988), in a
+// The workshop no longer opens from the menu: the agent opens it (tool `open_pack`, t-988), in a
 // tab of its own: a pack tab for a library pack, a deck-pack tab for a deck-only one. The fake
 // agent plays the `ouvre l'atelier` turn of fixtures/agent/e2e.json.
 // A theme opens in its own tab, from the theme row of "Packs du deck" (openThemeTab).
 const assert = require('node:assert/strict');
 const { post, activeTab } = require('./http.cjs');
-const { logOffset, mcpResults } = require('./agentLog.cjs');
+const { logOffset, waitForTool } = require('./agentLog.cjs');
 const { SLOW, until, untilValue } = require('./until.cjs');
 
 const view = (p) => post(p, '/api/workspace', { cmd: 'view' });
@@ -29,9 +29,9 @@ async function openAtelier(p, tab) {
   const from = logOffset(LOG);
   const reply = await post(p, '/api/agent', { cmd: 'prompt', tab: before, text: "ouvre l'atelier", ui: {} });
   assert.equal(reply.error, undefined, `consigne « ouvre l'atelier » refusée : ${reply.error}`);
+  await waitForTool(p, from, 'open_pack');
   let editing = null;
   await until(p, async () => {
-    if (mcpResults(LOG, from, 'edit_pack').length === 0) return false;
     const win = (await view(p)).windows[0];
     const active = win.tabs.find((x) => x.id === win.active);
     if (active && active.id !== before && ['pack', 'deck_pack'].includes(active.document.kind)) editing = active.id;

@@ -82,6 +82,7 @@ session-token-reason-bad-rule = 罫線には幅・高さ・色が必要です
 session-undo-theme = テーマを変更
 session-undo-edited-theme = テーマを変更：{ $name }
 session-undo-theme-extends = 継承元テーマを変更
+session-undo-theme-rename = テーマの名前を変更
 session-help-deck = ヘルプのプレゼンテーションを読み込めません
 session-agent-form = エージェントのリクエストが無効です：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }文字（最大 { $max }文字）

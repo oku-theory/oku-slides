@@ -82,6 +82,7 @@ session-token-reason-bad-rule = একটি রেখার জন্য প্
 session-undo-theme = থিম বদলান
 session-undo-edited-theme = থিম বদলান: { $name }
 session-undo-theme-extends = প্রসারিত থিম বদলান
+session-undo-theme-rename = থিমের নাম বদলান
 session-help-deck = সহায়িকার উপস্থাপনা পড়া যায়নি
 session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
 session-agent-form-too-long = { $at }: { $count }টি অক্ষর, সর্বোচ্চ { $max }

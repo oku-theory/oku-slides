@@ -2,7 +2,10 @@ use oku_slides_i18n::{Localize, Localizer, available, english};
 use snafu::IntoError;
 use speculoos::prelude::*;
 
-use super::{EmptyDictationChangeSnafu, HubSnafu, TaskSnafu, ToolError, VoiceSnafu};
+use super::{
+    ContinueInOtherTabSnafu, EmptyDictationChangeSnafu, HubSnafu, TabLimitSnafu, TabNoTurnSnafu, TaskSnafu, ToolError,
+    VoiceSnafu,
+};
 
 /// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
 const KEYS: &[&str] = &[
@@ -10,9 +13,9 @@ const KEYS: &[&str] = &[
     "agent-error-unknown-tool",
     "agent-error-denied",
     "agent-error-no-turn",
-    "agent-error-pack-tab-no-turn",
-    "agent-error-pack-tab-limit",
-    "agent-error-continue-in-pack-tab",
+    "agent-error-tab-no-turn",
+    "agent-error-tab-limit",
+    "agent-error-continue-in-other-tab",
     "agent-error-pack-open-in-tab",
     "agent-error-turn-over",
     "agent-error-no-file",
@@ -128,4 +131,14 @@ fn hub_error_of_another_family_keeps_its_text() {
     let l = Localizer::new(Some("fr"));
     let e: ToolError = HubSnafu.into_error(Box::new(crate::HubError::unknown_surface("ask-1")));
     assert_that!(e.localize(&l)).is_equal_to(l.tr("agent-error-unknown-surface"));
+}
+
+#[rstest::rstest]
+#[case(TabNoTurnSnafu.build(), "agent-error-tab-no-turn")]
+#[case(TabLimitSnafu.build(), "agent-error-tab-limit")]
+#[case(ContinueInOtherTabSnafu.build(), "agent-error-continue-in-other-tab")]
+fn tab_gate_errors_say_their_key(#[case] e: ToolError, #[case] key: &str) {
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.localize(&fr)).is_equal_to(fr.tr(key));
+    assert_that!(fr.tr(key)).is_not_equal_to(Localizer::new(Some("en")).tr(key));
 }

@@ -5,7 +5,6 @@ mod common;
 use common::*;
 use oku_slides_core::kinds;
 use oku_slides_mcp::McpEvent;
-use oku_slides_session::pack::ESSENTIEL_PACK;
 use rust_mcp_sdk::McpClient;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -217,8 +216,8 @@ async fn show_packs_tool_shows_the_panel() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_packs_tool_in_pack_mode_is_refused() {
-    let h = start_pack_tab(ESSENTIEL_PACK).await;
+async fn show_packs_tool_outside_deck_mode_is_refused() {
+    let h = common::kinds::start_help_tab().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "show_packs", json!({})).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
@@ -228,13 +227,13 @@ async fn show_packs_tool_in_pack_mode_is_refused() {
     assert_that!(text_of(&english)).is_not_equal_to(text_of(&r));
 }
 
-/// `edit_pack` sur `pack` : refusé par le message qui renvoie vers
-/// `packs`, sans passer en mode pack (t-355).
+/// `open_pack` of `pack`: refused by the message that points to `packs`,
+/// without entering pack mode (t-355).
 async fn assert_wrong_pack_points_to_packs(pack: &str) {
     let h = start().await;
     let c =
         client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"));
-    let r = call(&c, "edit_pack", json!({ "pack": pack })).await;
+    let r = call(&c, "open_pack", json!({ "pack": pack })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-pack-id"));
     let editing = h.session.lock().unwrap_or_else(|e| panic!("session : {e}")).snapshot().editing.is_none();
@@ -242,12 +241,12 @@ async fn assert_wrong_pack_points_to_packs(pack: &str) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_with_a_slug_points_to_packs() {
+async fn open_pack_with_a_slug_points_to_packs() {
     assert_wrong_pack_points_to_packs("essentiel").await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_with_an_unknown_id_points_to_packs() {
+async fn open_pack_with_an_unknown_id_points_to_packs() {
     assert_wrong_pack_points_to_packs("00000000-0000-4000-8000-000000000001").await;
 }
 

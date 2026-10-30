@@ -82,6 +82,7 @@ session-token-reason-bad-rule = đường kẻ cần chiều rộng, chiều cao
 session-undo-theme = Đổi chủ đề
 session-undo-edited-theme = Đổi chủ đề: { $name }
 session-undo-theme-extends = Đổi các chủ đề được mở rộng
+session-undo-theme-rename = Đổi tên chủ đề
 session-help-deck = Không đọc được bản trình bày trợ giúp
 session-agent-form = Yêu cầu của tác nhân AI không hợp lệ: { $reason }
 session-agent-form-too-long = { $at }: { $count } ký tự, tối đa { $max }

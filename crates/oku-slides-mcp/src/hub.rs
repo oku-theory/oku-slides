@@ -165,9 +165,9 @@ struct HubState {
     live_turns: BTreeSet<u32>,
     /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
     reported: HashSet<u32>,
-    /// The one new pack tab a turn may open, once claimed (`reserve_pack_tab`).
-    pack_tab: Option<turns::PackTabClaim>,
-    /// The turn whose `edit_pack` focused another tab (`note_elsewhere`).
+    /// The one tab move a turn may make, once claimed (`reserve_tab`).
+    tab_claim: Option<turns::TabClaim>,
+    /// The turn that moved to another tab (`note_elsewhere`).
     elsewhere: Option<u32>,
 }
 
@@ -345,8 +345,8 @@ pub use error::{HubError, HubErrorKind};
 
 #[path = "hub_turns.rs"]
 mod turns;
-pub(crate) use turns::Reserve;
 pub use turns::{Freeze, STATIC_PER_TURN};
+pub(crate) use turns::{Reserve, TabTarget};
 
 #[path = "hub_thread.rs"]
 mod thread;
@@ -354,4 +354,4 @@ pub use thread::THREAD_BYTES;
 
 #[cfg(test)]
 #[path = "hub_tests.rs"]
-mod tests;
+pub(crate) mod tests;

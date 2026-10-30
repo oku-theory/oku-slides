@@ -23,7 +23,7 @@ use uuid::Uuid;
 use oku_slides_core::{PackKind, PackVersion};
 
 use crate::SessionErrorKind;
-use crate::agent::{PackGate, PackOpen};
+use crate::agent::{TabGate, TabOpen};
 use crate::deck_offer::DeckOffer;
 use crate::error::SingleDocumentSnafu;
 use crate::library_packs::{DraftKind, PackLibrary};
@@ -35,18 +35,21 @@ use super::opening::with_opening;
 use super::opening::{opening_entry, opening_waiters};
 #[cfg(test)]
 use super::tabs::open_failpoint;
-use super::{Created, Opening, Result, Slot, TabPlace, UnknownTabSnafu, Workspace, WorkspaceOutcome};
+use super::{
+    Activate, Created, Opening, Pending, Result, Slot, TabPlace, UnknownTabSnafu, Workspace, WorkspaceOutcome,
+};
 use crate::TabDocument;
 
 /// Dormant candidates woken at most by one open (O10): past them, the live re-scan decides.
 const MAX_DORMANT_CANDIDATES: usize = 4;
 
-/// Who opens a pack: the user (no limit, retargets) or an agent's gate.
+/// Who opens a pack or theme tab: the user (no limit, retargets, always shown) or an agent's gate.
 pub(crate) enum Opener<'a> {
     /// The user, through `Workspace::apply`.
     Ui,
-    /// An agent: its gate, asked before any change (one `Focus`, then one `NewTab`).
-    Agent(&'a mut dyn FnMut(PackGate) -> bool),
+    /// An agent: its gate, asked before any change (one `Focus`, then one
+    /// `NewTab`, then one `Focus` after a lease refusal), never under the workspace guard.
+    Agent(&'a mut dyn FnMut(TabGate) -> bool),
 }
 
 impl std::fmt::Debug for Opener<'_> {
@@ -58,17 +61,30 @@ impl std::fmt::Debug for Opener<'_> {
     }
 }
 
-/// How opening a pack went, for `apply`.
+/// How opening a pack or theme tab went, for `apply`.
+///
+/// `shown`: the tab became its window's active tab (always for the user).
 #[derive(Debug)]
 pub(crate) enum PackOpened {
-    /// An open pack tab took focus.
-    Focused(String),
-    /// A new pack tab opened.
-    Opened(String),
+    /// An open pack or theme tab was focused.
+    Focused { tab: String, shown: bool },
+    /// A new pack or theme tab opened.
+    Opened { tab: String, shown: bool },
     /// The requesting tab edits it; its item selected, if one was named.
     Here,
     /// The gate refused.
     Refused,
+}
+
+impl From<PackOpened> for TabOpen {
+    fn from(opened: PackOpened) -> Self {
+        match opened {
+            PackOpened::Here => Self::Here,
+            PackOpened::Focused { tab, shown } => Self::Focused { tab, shown },
+            PackOpened::Opened { tab, shown } => Self::Opened { tab, shown },
+            PackOpened::Refused => Self::Refused,
+        }
+    }
 }
 
 /// The deck offered to take the version a pack tab wrote.
@@ -97,14 +113,21 @@ pub(super) struct OpenCtx<'a> {
     pub(super) pack: Uuid,
     /// An item selected in the pack tab.
     pub(super) widget: Option<&'a str>,
-    /// The user's open: the requesting deck becomes the focused tab's opener.
+    /// The user's open: always shown, and the requesting deck becomes the focused tab's opener.
     pub(super) retarget: bool,
     /// The pack was created empty for this open.
     pub(super) created: Created,
 }
 
-/// The gate of one open, asked at most once per kind.
-pub(super) type Ask<'a> = dyn FnMut(PackGate) -> bool + 'a;
+impl OpenCtx<'_> {
+    /// How the tab this open builds is activated: an agent's only while its requester is shown.
+    pub(super) fn activation(&self) -> Activate {
+        if self.retarget { Activate::Always } else { Activate::IfShown(self.tab.to_owned()) }
+    }
+}
+
+/// The gate of one open: one `Focus`, one `NewTab`, one `Focus` after a lease refusal.
+pub(super) type Ask<'a> = dyn FnMut(TabGate) -> bool + 'a;
 
 impl Workspace {
     /// Opens `pack` from `tab` for an agent; says where it landed.
@@ -121,13 +144,9 @@ impl Workspace {
         tab: &str,
         pack: Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> Result<PackOpen> {
-        Ok(match Self::open_pack_with(ws, tab, pack, widget, Opener::Agent(gate), Created::No)? {
-            PackOpened::Here => PackOpen::Here,
-            PackOpened::Focused(t) | PackOpened::Opened(t) => PackOpen::Tab(t),
-            PackOpened::Refused => PackOpen::Refused,
-        })
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> Result<TabOpen> {
+        Ok(Self::open_pack_with(ws, tab, pack, widget, Opener::Agent(gate), Created::No)?.into())
     }
 
     /// `apply` on `OpenPack`: the view.
@@ -164,7 +183,7 @@ impl Workspace {
         });
         let (id, library) = created??;
         let opened = Self::open_pack_with(ws, tab, id, None, Opener::Ui, Created::Yes);
-        if !matches!(opened, Ok(PackOpened::Opened(_))) {
+        if !matches!(opened, Ok(PackOpened::Opened { .. })) {
             Self::roll_back(&library, DraftKind::Pack, id);
         }
         opened?;
@@ -202,13 +221,13 @@ impl Workspace {
                 Opener::Ui => (true, None),
                 Opener::Agent(gate) => (false, Some(gate)),
             };
-            let mut ask = |g: PackGate| gate.as_mut().is_none_or(|gate| gate(g));
-            let ctx = OpenCtx { ws, tab, pack, widget, retarget, created };
             let (window, candidates) = {
                 let w = Self::lock(ws);
                 let wanted = w.pack_documents(tab, pack);
                 w.candidates(tab, &wanted)?
             };
+            let mut ask = |g: TabGate| gate.as_mut().is_none_or(|gate| gate(g));
+            let ctx = OpenCtx { ws, tab, pack, widget, retarget, created };
             if let Some(done) = Self::focus_existing(&ctx, &candidates, &mut ask)? {
                 return Ok(done);
             }
@@ -254,7 +273,7 @@ impl Workspace {
         let mut asked = false;
         for candidate in candidates {
             if candidate != ctx.tab && !asked {
-                if !ask(PackGate::Focus) {
+                if !ask(TabGate::Focus) {
                     return Ok(Some(PackOpened::Refused));
                 }
                 asked = true;
@@ -268,7 +287,9 @@ impl Workspace {
 
     /// Focuses `candidate` if its live session is `pack`'s pack or deck-pack tab; `None`: skipped.
     ///
-    /// A deck-pack tab counts when linked to the requesting tab, or when it is that tab.
+    /// A deck-pack tab counts when linked to the requesting tab, or when it is
+    /// that tab. It becomes its window's active tab for the user, or when the
+    /// requesting tab is its window's active tab under the activating guard.
     fn focus_candidate(ctx: &OpenCtx<'_>, candidate: &str) -> Result<Option<PackOpened>> {
         let edits = |document: TabDocument| match document {
             TabDocument::Pack { pack } => pack == ctx.pack,
@@ -299,7 +320,10 @@ impl Workspace {
         if w.window_of(candidate).is_err() {
             return Ok(None);
         }
-        w.activate(candidate)?;
+        let shown = ctx.retarget || w.tab_shown(ctx.tab);
+        if shown {
+            w.activate(candidate)?;
+        }
         let from_deck = w.tabs.get(ctx.tab).is_some_and(|t| matches!(t.info.document, TabDocument::Deck { .. }));
         if ctx.retarget
             && from_deck
@@ -309,7 +333,11 @@ impl Workspace {
             t.opener = Some(ctx.tab.to_owned());
         }
         w.save_layout();
-        Ok(Some(if candidate == ctx.tab { PackOpened::Here } else { PackOpened::Focused(candidate.to_owned()) }))
+        Ok(Some(if candidate == ctx.tab {
+            PackOpened::Here
+        } else {
+            PackOpened::Focused { tab: candidate.to_owned(), shown }
+        }))
     }
 
     /// Steps 3-5: routes the pack from `tab`; a library pack opens a new pack tab after it.
@@ -322,19 +350,20 @@ impl Workspace {
             PackRoute::Tab { scope, name } => (scope, name),
             PackRoute::DeckTab { name } => return Self::open_deck_pack(ctx, window, &name, ask),
         };
-        if !ask(PackGate::NewTab) {
+        if !ask(TabGate::NewTab) {
             return Ok(PackOpened::Refused);
         }
         // Before any change to the opener (J7): a refusal leaves its widget session as it was.
         let lease = match PackLease::acquire(&scope, ctx.pack, &name, &name) {
             Ok(lease) => lease,
             Err(refused) => {
+                // Read in its own statement: the gate is never asked under the workspace guard.
                 let lagging = Self::lock(ctx.ws).live_tab(&TabDocument::Pack { pack: ctx.pack });
-                let focused = match lagging {
-                    Some(tab) => Self::focus_candidate(ctx, &tab)?,
-                    None => None,
-                };
-                return focused.ok_or(refused);
+                let Some(holder) = lagging else { return Err(refused) };
+                if !ask(TabGate::Focus) {
+                    return Ok(PackOpened::Refused);
+                }
+                return Self::focus_candidate(ctx, &holder)?.ok_or(refused);
             }
         };
         let (seed, _changed) = Self::with_quiet(ctx.ws, ctx.tab, |s| s.take_preview(ctx.pack));
@@ -346,19 +375,32 @@ impl Workspace {
             let place =
                 if w.tab_window(ctx.tab).is_some() { TabPlace::After(ctx.tab.to_owned()) } else { TabPlace::End };
             let window = w.tab_window(ctx.tab).map_or(window, str::to_owned);
-            w.pending(Some(window), opening, place)
+            let mut pending = w.pending(Some(window), opening, place);
+            pending.activate = ctx.activation();
+            pending
         };
         let session = pending.build_pack(*seed, lease)?;
+        Self::finish_opened(ctx.ws, pending, session)
+    }
+
+    /// Inserts a built pack, deck-pack or theme tab: `Opened` once it is in, even if its view failed.
+    ///
+    /// Once inserted, the tab exists: an agent's claim is never released for
+    /// it. `shown` is the activation `finish` decided, or, after a failed
+    /// view, whether the tab is its window's active tab.
+    pub(super) fn finish_opened(ws: &Mutex<Self>, pending: Pending, session: crate::Session) -> Result<PackOpened> {
         let id = pending.id.clone();
-        match Self::finish(ctx.ws, pending, session) {
-            Ok((_, id)) => Ok(PackOpened::Opened(id)),
-            // Once inserted, the tab exists: an agent's claim is never released for it.
-            Err(e) if Self::lock(ctx.ws).tabs.contains_key(&id) => {
-                tracing::warn!(tab = %id, error = %e.one_line(), "pack tab opened, its view not built");
-                Ok(PackOpened::Opened(id))
-            }
-            Err(e) => Err(e),
-        }
+        let e = match Self::finish_shown(ws, pending, session) {
+            Ok((_, tab, shown)) => return Ok(PackOpened::Opened { tab, shown }),
+            Err(e) => e,
+        };
+        let inserted = {
+            let w = Self::lock(ws);
+            w.tabs.contains_key(&id).then(|| w.tab_shown(&id))
+        };
+        let Some(shown) = inserted else { return Err(e) };
+        tracing::warn!(tab = %id, error = %e.one_line(), "tab opened, its view not built");
+        Ok(PackOpened::Opened { tab: id, shown })
     }
 
     /// The first tab, in window order, whose live session edits `wanted` (a pack or a theme).

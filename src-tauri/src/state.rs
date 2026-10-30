@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 
 use oku_slides_agent::Stack;
-use oku_slides_session::agent::{PackGate, PackOpen, Sessions};
+use oku_slides_session::agent::{Sessions, TabGate, TabOpen};
 use oku_slides_session::{Localize, Localizer, Session, SessionError, Workspace};
 use tauri::{AppHandle, Manager};
 
@@ -79,10 +79,11 @@ impl AppState {
     }
 }
 
-/// Les sessions des onglets, pour l'agent : par l'espace de travail
-/// ([`Workspace::with_session`]) ; la barre d'onglets est redessinée dans
-/// toutes les fenêtres quand un outil l'a changée (titre, modifié), et les
-/// fenêtres suivent un fichier que l'agent ouvre à côté (`open_tab`).
+/// The tabs' sessions, for the agent, through the workspace ([`Workspace::with_session`]).
+///
+/// The tab bar is redrawn in every window when a tool changed it (title,
+/// modified), and the windows follow a file the agent opens beside its tab
+/// (`open_tab`) and a pack or theme tab it opens or focuses.
 pub struct AppSessions {
     app: AppHandle,
     workspace: Arc<Mutex<Workspace>>,
@@ -91,6 +92,17 @@ pub struct AppSessions {
 impl AppSessions {
     pub fn new(app: AppHandle, workspace: Arc<Mutex<Workspace>>) -> Self {
         Self { app, workspace }
+    }
+
+    /// The windows follow an agent's open: a shown tab comes forward, a tab opened here re-reads its view.
+    fn follow(&self, opened: &TabOpen) {
+        match opened {
+            TabOpen::Opened { shown, .. } | TabOpen::Focused { shown, .. } => {
+                crate::windows::sync(&self.app, None, *shown);
+            }
+            TabOpen::Here => crate::windows::emit_view(&self.app),
+            TabOpen::Refused => {}
+        }
     }
 }
 
@@ -135,8 +147,8 @@ impl Sessions for AppSessions {
         Workspace::lock(&self.workspace).tab_shown(tab)
     }
 
-    /// Le fichier dans un nouvel onglet de la fenêtre de `tab` ; les fenêtres
-    /// suivent, l'onglet ouvert passe devant (hors du fil principal : un outil).
+    /// The file in a new tab of `tab`'s window; the windows follow and the
+    /// opened tab comes forward (off the main thread: a tool).
     fn open_tab(&self, tab: &str, path: &std::path::Path) -> oku_slides_session::Result<String> {
         let opened = Workspace::open_beside(&self.workspace, tab, path)?;
         crate::windows::sync(&self.app, None, true);
@@ -149,17 +161,28 @@ impl Sessions for AppSessions {
         tab: &str,
         pack: uuid::Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> oku_slides_session::Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
         let opened = Workspace::open_pack(&self.workspace, tab, pack, widget, gate)?;
-        match &opened {
-            PackOpen::Tab(_) => {
-                crate::windows::sync(&self.app, None, true);
-            }
-            PackOpen::Here => crate::windows::emit_view(&self.app),
-            PackOpen::Refused => {}
-        }
+        self.follow(&opened);
         Ok(opened)
+    }
+
+    /// Opens a theme for the agent; the windows follow a theme tab, the view one opened here.
+    fn open_theme(
+        &self,
+        tab: &str,
+        theme: uuid::Uuid,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> oku_slides_session::Result<TabOpen> {
+        let opened = Workspace::open_theme_for_agent(&self.workspace, tab, theme, gate)?;
+        self.follow(&opened);
+        Ok(opened)
+    }
+
+    /// Read from the workspace's cached tab: wakes nothing.
+    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        Workspace::document_kind(&self.workspace, tab)
     }
 }
 

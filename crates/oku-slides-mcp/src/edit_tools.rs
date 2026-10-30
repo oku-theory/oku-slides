@@ -1,25 +1,17 @@
-//! Outils qui modifient le deck ; tout s'annule (dans le groupe du tour s'il est ouvert).
+//! Tools that change the deck; everything undoes (in the turn's group when one is open).
 
 use oku_slides_chart::SeriesType;
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
-use oku_slides_core::{Namespace, Op, PackKind, PackPin};
+use oku_slides_core::{Namespace, Op, PackKind};
 use oku_slides_session::Request;
-use oku_slides_session::agent::{PackGate, PackOpen};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::{IntoError, ResultExt};
 
-use crate::hub::Reserve;
-use crate::tool_error::{
-    NoPackSnafu, PackChangeSnafu, PackIdSnafu, PackTabLimitSnafu, PackTabNoTurnSnafu, SessionSnafu, TaskSnafu,
-    ToolError,
-};
+use crate::McpEvent;
+use crate::tool_error::{PackChangeSnafu, PackIdSnafu, ToolError};
 use crate::tools::Tools;
-use crate::{McpEvent, SurfaceHub};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ApplyArgs {
@@ -57,21 +49,11 @@ pub(crate) struct PackIdArgs {
 }
 
 impl PackIdArgs {
-    /// L'id du pack ; un texte qui n'est pas un UUID est refusé par un
-    /// message qui renvoie l'agent vers `packs`.
+    /// The pack's id; a text that is not a UUID is refused by a message
+    /// that points the agent to `packs`.
     pub(crate) fn id(&self) -> Result<uuid::Uuid, ToolError> {
         uuid::Uuid::parse_str(&self.pack).context(PackIdSnafu)
     }
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct EditPackArgs {
-    /// Id of a pack (UUID, see `packs`); absent: the deck's main pack.
-    ///
-    /// The main pack is the deck's own layout pack, otherwise its own widget
-    /// pack, otherwise a non-built-in pack, otherwise Essentiel.
-    #[serde(default)]
-    pub pack: Option<String>,
 }
 
 /// `add_pack` and `remove_pack`: the targeted pack.
@@ -100,8 +82,8 @@ pub(crate) struct FocusArgs {
 }
 
 impl Tools {
-    /// Une requête qui change la session ; `Changed` si elle aboutit.
-    async fn change(&self, req: Request) -> CallToolResult {
+    /// A request that changes the session; `Changed` if it succeeds.
+    pub(crate) async fn change(&self, req: Request) -> CallToolResult {
         let done = self.with_session(move |s| s.handle(req).map(|_| ())).await;
         let ok = done.is_ok();
         let result = self.reply(done, |()| {
@@ -114,13 +96,13 @@ impl Tools {
         result
     }
 
-    /// Élague et rafraîchit les surfaces du hub après un changement du deck.
+    /// Prunes and refreshes the hub's surfaces after a change of the deck.
     ///
-    /// `SurfaceHub::prune` verrouille la session : il tourne hors du fil async.
+    /// `SurfaceHub::prune` locks the session: it runs off the async thread.
     pub(crate) async fn prune_surfaces(&self) {
         let hub = self.hub.clone();
         if let Err(e) = tokio::task::spawn_blocking(move || hub.prune()).await {
-            tracing::warn!(error = %e, "surfaces non élaguées");
+            tracing::warn!(error = %e, "surfaces not pruned");
         }
     }
 
@@ -151,75 +133,7 @@ impl Tools {
         self.change(Request::ShowAs { label, slide, element, view }).await
     }
 
-    /// Opens a pack for editing in its own tab, a deck-only one linked to this deck.
-    ///
-    /// `turn` is the turn the call arrived in. The agent's gate lets at most one new pack tab open
-    /// per turn, and no tab open or take the focus outside a turn.
-    pub(crate) async fn edit_pack(&self, turn: Option<u32>, args: Value) -> CallToolResult {
-        let args = match self.parse::<EditPackArgs>(args) {
-            Ok(args) => args,
-            Err(r) => return r,
-        };
-        let pack = match args.pack {
-            Some(pack) => PackIdArgs { pack }.id(),
-            None => self.default_pack().await,
-        };
-        let pack = match pack {
-            Ok(pack) => pack,
-            Err(e) => return self.fail_with(&e),
-        };
-        // The gate, its verdict and the hub it asks are built here, in the blocking task: the open
-        // holds the pack's opening lock, so the hub lock it takes is a leaf.
-        let (tab, hub) = (self.session.clone(), Arc::clone(&self.hub));
-        let opened = tokio::task::spawn_blocking(move || {
-            let mut verdict = Verdict::default();
-            let result = tab.open_pack(pack, None, &mut |gate| verdict.ask(&hub, turn, pack, gate));
-            (result, verdict)
-        })
-        .await;
-        let (result, verdict) = match opened {
-            Ok(done) => done,
-            Err(e) => return self.fail_with(&TaskSnafu.into_error(e)),
-        };
-        let tab = match result {
-            Ok(PackOpen::Refused) => return self.fail_with(&verdict.refusal()),
-            // This tab already edits the pack: nothing changed.
-            Ok(PackOpen::Here) => return self.json_result(&json!({ "ok": true })),
-            Ok(PackOpen::Tab(tab)) => tab,
-            Err(e) => {
-                if let (true, Some(turn)) = (verdict.claimed, turn) {
-                    self.hub.release_pack_tab(turn, pack);
-                }
-                return self.fail_with(&SessionSnafu.into_error(e));
-            }
-        };
-        if let (true, Some(turn)) = (verdict.focused, turn) {
-            self.hub.note_elsewhere(turn);
-        }
-        self.hub.emit(McpEvent::Changed);
-        self.prune_surfaces().await;
-        let note = self.localizer.current().tr_with("agent-pack-opened-in-tab", &[("tab", tab.as_str().into())]);
-        self.json_result(&json!({ "ok": true, "tab": tab, "note": note }))
-    }
-
-    /// The pack `edit_pack` opens without an argument.
-    ///
-    /// In a pack's own tab, the pack that tab edits; otherwise the deck's main pack. Both are read
-    /// from one snapshot, in one session access.
-    async fn default_pack(&self) -> Result<uuid::Uuid, ToolError> {
-        let found = self
-            .with_session(|s| {
-                let snap = s.snapshot();
-                Ok(match &snap.editing {
-                    Some(editing) => Some(editing.pack),
-                    None => main_pack(snap.widgets, snap.layouts),
-                })
-            })
-            .await?;
-        found.ok_or_else(|| NoPackSnafu.build())
-    }
-
-    /// Ajoute au deck la version courante d'un pack de la bibliothèque (mode deck).
+    /// Adds a library pack's current version to the deck (deck mode).
     pub(crate) async fn add_pack(&self, args: Value) -> CallToolResult {
         let PackRefArgs { kind, namespace } = match self.parse(args) {
             Ok(a) => a,
@@ -228,7 +142,7 @@ impl Tools {
         self.change_packs(move |s| s.add_library_pack(kind, &namespace)).await
     }
 
-    /// Retire un pack du deck (mode deck) ; un refus dit pourquoi.
+    /// Removes a pack from the deck (deck mode); a refusal says why.
     pub(crate) async fn remove_pack(&self, args: Value) -> CallToolResult {
         let PackRefArgs { kind, namespace } = match self.parse(args) {
             Ok(a) => a,
@@ -237,9 +151,9 @@ impl Tools {
         self.change_packs(move |s| s.remove_deck_pack(kind, &namespace)).await
     }
 
-    /// Un changement des packs du deck ; `Changed` et élagage s'il aboutit.
+    /// A change of the deck's packs; `Changed` and a prune if it succeeds.
     ///
-    /// Un refus du cœur se dit par l'op refusée elle-même (`PackChange`), sans le rang de la transaction.
+    /// A core refusal is told by the refused op itself (`PackChange`), without the transaction's rank.
     async fn change_packs(
         &self,
         f: impl FnOnce(&mut oku_slides_session::Session) -> oku_slides_session::Result<()> + Send + 'static,
@@ -260,7 +174,7 @@ impl Tools {
         result
     }
 
-    /// Les parents du thème édité (mode pack), en une étape d'annulation.
+    /// The edited theme's parents (theme tab), in one undo step.
     pub(crate) async fn set_theme_extends(&self, args: Value) -> CallToolResult {
         let ThemeExtendsArgs { extends } = match self.parse(args) {
             Ok(a) => a,
@@ -279,98 +193,3 @@ impl Tools {
         }
     }
 }
-
-/// The pack to edit when the agent names none: the deck's main pack, in the interface's order.
-///
-/// The deck's own layout pack, else its own widget pack, else the first non-built-in pack (layouts
-/// first), else Essentiel, else `base`.
-pub(crate) fn main_pack(
-    widgets: &BTreeMap<Namespace, PackPin>,
-    layouts: &BTreeMap<Namespace, PackPin>,
-) -> Option<uuid::Uuid> {
-    use oku_slides_core::kinds::{base, essentiel};
-    let builtin = |ns: &Namespace| ns.as_str() == base::NAMESPACE || ns.as_str() == essentiel::NAMESPACE;
-    let own = |(ns, _): &(&Namespace, &PackPin)| !ns.is_deck() && !ns.is_deck_layouts() && !builtin(ns);
-    let named = |name: &'static str| move |(ns, _): &(&Namespace, &PackPin)| ns.as_str() == name;
-    layouts
-        .iter()
-        .find(|(ns, _)| ns.is_deck_layouts())
-        .or_else(|| widgets.iter().find(|(ns, _)| ns.is_deck()))
-        .or_else(|| layouts.iter().find(own))
-        .or_else(|| widgets.iter().find(own))
-        .or_else(|| layouts.iter().find(named(essentiel::NAMESPACE)))
-        .or_else(|| widgets.iter().find(named(base::NAMESPACE)))
-        .map(|(_, pin)| pin.id)
-}
-
-/// Why the agent's gate refused a pack open.
-#[derive(Debug, Clone, Copy)]
-enum Refusal {
-    /// No open turn: the call arrived outside one, or its turn is over.
-    NoTurn,
-    /// The turn already claimed another pack tab.
-    Limit,
-}
-
-/// What the agent's gate answered while a pack opened.
-#[derive(Debug, Default)]
-struct Verdict {
-    /// Why the gate refused, if it did.
-    refusal: Option<Refusal>,
-    /// A claim on a new pack tab was granted (and must be given back if the open fails).
-    claimed: bool,
-    /// Taking the focus of another tab was allowed.
-    focused: bool,
-}
-
-impl Verdict {
-    /// The gate: answers `gate` for `pack` in the call's `turn`, and records the answer.
-    ///
-    /// It never blocks; the hub lock it takes is a leaf.
-    fn ask(&mut self, hub: &SurfaceHub, turn: Option<u32>, pack: uuid::Uuid, gate: PackGate) -> bool {
-        let Some(turn) = turn else {
-            self.refusal = Some(Refusal::NoTurn);
-            return false;
-        };
-        match gate {
-            PackGate::Focus => {
-                let open = hub.turn_is_open(turn);
-                self.focused |= open;
-                if !open {
-                    self.refusal = Some(Refusal::NoTurn);
-                }
-                open
-            }
-            PackGate::NewTab => match hub.reserve_pack_tab(turn, pack) {
-                Reserve::Granted => {
-                    self.claimed = true;
-                    true
-                }
-                Reserve::NotThisTurn => {
-                    self.refusal = Some(Refusal::NoTurn);
-                    false
-                }
-                Reserve::Taken => {
-                    self.refusal = Some(Refusal::Limit);
-                    false
-                }
-            },
-        }
-    }
-
-    /// The error that tells the agent why the gate refused.
-    fn refusal(&self) -> ToolError {
-        match self.refusal {
-            Some(Refusal::Limit) => PackTabLimitSnafu.build(),
-            Some(Refusal::NoTurn) => PackTabNoTurnSnafu.build(),
-            None => {
-                tracing::error!("pack open refused without a gate verdict");
-                PackTabNoTurnSnafu.build()
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-#[path = "edit_tools_tests.rs"]
-mod edit_tools_tests;

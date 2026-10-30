@@ -1,29 +1,44 @@
-//! L'agent et les onglets : la session d'un onglet, fournie par l'hôte.
+//! The agent and the tabs: a tab's session, provided by the host.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use uuid::Uuid;
 
-use crate::Session;
 use crate::pack_tab::PackRoute;
+use crate::{DocumentKind, Session, TabDocument};
 
-/// What opening a pack asks an agent's gate before acting.
+/// What opening a pack or theme tab asks an agent's gate before acting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PackGate {
-    /// Focusing, or selecting an item in, another tab's open pack.
+pub enum TabGate {
+    /// Focusing, or selecting an item in, another tab that edits the pack or theme.
     Focus,
-    /// Opening a new pack tab.
+    /// Opening a new pack or theme tab.
     NewTab,
 }
 
-/// Where an agent's pack open landed.
+/// Where an agent's open of a pack or theme tab landed.
+///
+/// `shown` is true when the tab became its window's active tab: only when
+/// the requesting tab was its window's active tab at that moment.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PackOpen {
+pub enum TabOpen {
     /// The requesting tab edits it (its item selected, if one was named).
     Here,
-    /// Another tab edits it and now has the focus.
-    Tab(String),
+    /// A new tab opened for it.
+    Opened {
+        /// The new tab.
+        tab: String,
+        /// Whether it became its window's active tab.
+        shown: bool,
+    },
+    /// Another tab already edited it and was focused.
+    Focused {
+        /// That tab.
+        tab: String,
+        /// Whether it became its window's active tab.
+        shown: bool,
+    },
     /// The gate refused; nothing changed.
     Refused,
 }
@@ -42,18 +57,18 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
     /// Fails if tab `tab` is unknown to the host.
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> crate::Result<()>;
 
-    /// Vrai si `path` est déjà ouvert dans un autre onglet que `tab`.
+    /// True if `path` is already open in a tab other than `tab`.
     ///
-    /// Par défaut `false` : un hôte à un seul document n'a pas d'autre onglet.
+    /// Defaults to `false`: a single-document host has no other tab.
     fn open_elsewhere(&self, _tab: &str, _path: &Path) -> bool {
         false
     }
 
-    /// Vrai si `tab` est l'onglet affiché de sa fenêtre : seul il applique les
-    /// évènements de l'agent (présenter, interface, historique).
+    /// True if `tab` is its window's shown tab: only it applies the agent's
+    /// events (present, interface, history).
     ///
-    /// Par défaut `true` : un hôte à un seul document affiche toujours le sien. Tout hôte à
-    /// plusieurs onglets la remplace (l'app, `serve`), sans quoi un onglet caché les recevrait.
+    /// Defaults to `true`: a single-document host always shows its own. Any
+    /// multi-tab host overrides it (the app, `serve`), or a hidden tab would receive them.
     fn shown(&self, _tab: &str) -> bool {
         true
     }
@@ -75,9 +90,12 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
 
     /// Opens `pack` from `tab` for an agent; says where it landed.
     ///
-    /// `gate` is asked at most one `Focus`, then at most one `NewTab` (see
-    /// [`PackGate`]), with only the pack's opening lock held, and must never
-    /// block (no user prompt, no wait).
+    /// `gate` is asked at most one `Focus` (another tab edits the pack), then
+    /// at most one `NewTab`, then possibly one `Focus` again when the new
+    /// tab's lease is refused by a live holder (see [`TabGate`]). It is asked
+    /// with only the pack's opening lock held and must never block (no user
+    /// prompt, no wait). The tab is shown (made active) only if `tab` is its
+    /// window's active tab (see [`TabOpen`]).
     ///
     /// # Errors
     ///
@@ -91,11 +109,38 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
         tab: &str,
         pack: Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> crate::Result<PackOpen>;
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> crate::Result<TabOpen>;
+
+    /// Opens `theme` from `tab` for an agent; says where it landed.
+    ///
+    /// The gate order and the `shown` rule are those of [`Self::open_pack`]:
+    /// at most one `Focus`, then at most one `NewTab`, then possibly one
+    /// `Focus` after a lease refusal; never asked when `tab` edits `theme`.
+    ///
+    /// # Errors
+    ///
+    /// `UnknownTab`, `UnknownTheme`, `ThemeOpenInTab`, `SingleDocument` for a
+    /// host without tabs, a session build failure.
+    ///
+    /// # Blocking
+    ///
+    /// Wakes, builds and renders sessions.
+    fn open_theme(&self, tab: &str, theme: Uuid, gate: &mut dyn FnMut(TabGate) -> bool) -> crate::Result<TabOpen>;
+
+    /// The kind of `tab`'s document; wakes no dormant tab.
+    ///
+    /// # Errors
+    ///
+    /// Fails if tab `tab` is unknown to the host or the host is closing.
+    ///
+    /// # Blocking
+    ///
+    /// Takes the host's lock.
+    fn document_kind(&self, tab: &str) -> crate::Result<DocumentKind>;
 }
 
-/// Une seule session, quel que soit l'onglet (tests, hôtes à un document).
+/// A single session, whatever the tab (tests, single-document hosts).
 impl Sessions for Mutex<Session> {
     fn with(&self, _tab: &str, f: &mut dyn FnMut(&mut Session)) -> crate::Result<()> {
         f(&mut self.lock().unwrap_or_else(PoisonError::into_inner));
@@ -112,16 +157,32 @@ impl Sessions for Mutex<Session> {
         _tab: &str,
         pack: Uuid,
         widget: Option<&str>,
-        _gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> crate::Result<PackOpen> {
+        _gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> crate::Result<TabOpen> {
         match self.lock().unwrap_or_else(PoisonError::into_inner).route_pack(pack, widget)? {
-            PackRoute::Here => Ok(PackOpen::Here),
+            PackRoute::Here => Ok(TabOpen::Here),
             PackRoute::Tab { .. } | PackRoute::DeckTab { .. } => Err(crate::error::SingleDocumentSnafu.build().into()),
         }
     }
+
+    /// A host without tabs opens only the theme its session edits.
+    ///
+    /// No gate is asked. Any other theme would need a tab of its own: `SingleDocument`.
+    fn open_theme(&self, _tab: &str, theme: Uuid, _gate: &mut dyn FnMut(TabGate) -> bool) -> crate::Result<TabOpen> {
+        let document = self.lock().unwrap_or_else(PoisonError::into_inner).tab_info().document;
+        if document == (TabDocument::Theme { theme }) {
+            Ok(TabOpen::Here)
+        } else {
+            Err(crate::error::SingleDocumentSnafu.build().into())
+        }
+    }
+
+    fn document_kind(&self, _tab: &str) -> crate::Result<DocumentKind> {
+        Ok(self.lock().unwrap_or_else(PoisonError::into_inner).document_kind())
+    }
 }
 
-/// Un onglet et l'accès à sa session.
+/// A tab and the access to its session.
 #[derive(Clone, Debug)]
 pub struct TabSession {
     tab: String,
@@ -129,24 +190,24 @@ pub struct TabSession {
 }
 
 impl TabSession {
-    /// Un onglet `tab`, dont les sessions sont fournies par `sessions`.
+    /// A tab `tab`, whose sessions `sessions` provides.
     pub fn new(tab: impl Into<String>, sessions: Arc<dyn Sessions>) -> Self {
         Self { tab: tab.into(), sessions }
     }
 
-    /// Identifiant de l'onglet.
+    /// The tab's id.
     #[must_use]
     pub fn tab(&self) -> &str {
         &self.tab
     }
 
-    /// Vrai si `path` est déjà ouvert dans un autre onglet ; bloquant (verrou).
+    /// True if `path` is already open in another tab; blocking (lock).
     #[must_use]
     pub fn open_elsewhere(&self, path: &Path) -> bool {
         self.sessions.open_elsewhere(&self.tab, path)
     }
 
-    /// L'onglet est-il affiché (voir [`Sessions::shown`]) ? Bloquant (verrou).
+    /// Whether the tab is shown (see [`Sessions::shown`]); blocking (lock).
     #[must_use]
     pub fn shown(&self) -> bool {
         self.sessions.shown(&self.tab)
@@ -174,9 +235,31 @@ impl TabSession {
         &self,
         pack: Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> crate::Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> crate::Result<TabOpen> {
         self.sessions.open_pack(&self.tab, pack, widget, gate)
+    }
+
+    /// Opens `theme` from this tab for an agent (see [`Sessions::open_theme`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Sessions::open_theme`].
+    ///
+    /// # Blocking
+    ///
+    /// As [`Sessions::open_theme`].
+    pub fn open_theme(&self, theme: Uuid, gate: &mut dyn FnMut(TabGate) -> bool) -> crate::Result<TabOpen> {
+        self.sessions.open_theme(&self.tab, theme, gate)
+    }
+
+    /// The kind of this tab's document (see [`Sessions::document_kind`]); blocking.
+    ///
+    /// # Errors
+    ///
+    /// As [`Sessions::document_kind`].
+    pub fn document_kind(&self) -> crate::Result<DocumentKind> {
+        self.sessions.document_kind(&self.tab)
     }
 
     /// Runs `f` on the tab's session; blocking (lock), so off the async thread.
@@ -192,8 +275,8 @@ impl TabSession {
                 out = Some(f(s));
             }
         })?;
-        // `Sessions::with` appelle `f` au plus une fois ; `Ok` sans appel est
-        // une faute de l'implémentation.
+        // `Sessions::with` calls `f` at most once; `Ok` without a call is
+        // an implementation bug.
         out.ok_or_else(|| {
             crate::error::AgentFormSnafu { reason: super::AgentFormReason::SessionNotCalled { tab: self.tab.clone() } }
                 .build()

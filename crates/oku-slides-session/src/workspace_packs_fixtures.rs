@@ -10,7 +10,7 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::{Created, Opener, PackOpened};
-use crate::agent::PackGate;
+use crate::agent::{TabGate, TabOpen};
 use crate::pack_lease::LeaseScope;
 use crate::test_support::{adopt_deck_only_pack, apply_ws, fresh_dir, rename_title, resumed_on, workspace_on};
 use crate::test_support_packs::{acme_of, assert_unleased, opener_deck, scope_of};
@@ -78,15 +78,15 @@ impl Packs {
         &self,
         tab: &str,
         pack: Uuid,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> Result<PackOpened> {
-        Workspace::open_pack_with(&self.ws, tab, pack, None, Opener::Agent(gate), Created::No)
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> Result<TabOpen> {
+        Workspace::open_pack(&self.ws, tab, pack, None, gate)
     }
 
     /// Opens `acme` from `t-1` as the user: the new pack tab.
     pub(in crate::workspace) fn pack_tab(&self) -> String {
         match self.open("t-1", self.acme, None) {
-            Ok(PackOpened::Opened(id)) => id,
+            Ok(PackOpened::Opened { tab, .. }) => tab,
             other => panic!("a new pack tab: {other:?}"),
         }
     }
@@ -212,16 +212,21 @@ pub(in crate::workspace) fn within_secs<R: Send + 'static>(secs: u64, f: impl Fn
     finished.recv_timeout(Duration::from_secs(secs)).unwrap_or_else(|_| panic!("deadlock: no answer within {secs} s"))
 }
 
-/// The kind of `r`'s error, or its outcome's name.
-pub(in crate::workspace) fn outcome(r: Result<PackOpened>) -> String {
-    match r {
-        Ok(o) => format!("{o:?}"),
+/// The kind of `r`'s error, or its outcome as a [`TabOpen`]: `Focused("t-2")`, `Opened("t-2", hidden)`.
+pub(in crate::workspace) fn outcome(r: Result<impl Into<TabOpen>>) -> String {
+    let moved = |name: &str, tab: &str, shown: bool| {
+        if shown { format!("{name}({tab:?})") } else { format!("{name}({tab:?}, hidden)") }
+    };
+    match r.map(Into::into) {
+        Ok(TabOpen::Opened { tab, shown }) => moved("Opened", &tab, shown),
+        Ok(TabOpen::Focused { tab, shown }) => moved("Focused", &tab, shown),
+        Ok(o @ (TabOpen::Here | TabOpen::Refused)) => format!("{o:?}"),
         Err(e) => format!("{:?}", e.kind()),
     }
 }
 
 /// Asserts the outcome of an open, by name.
-pub(in crate::workspace) fn assert_outcome(r: Result<PackOpened>, expected: &str) {
+pub(in crate::workspace) fn assert_outcome(r: Result<impl Into<TabOpen>>, expected: &str) {
     assert_that!(outcome(r)).is_equal_to(expected.to_owned());
 }
 
@@ -254,7 +259,7 @@ impl Packs {
     /// Opens deck-only `pack` from `t-1` as the user: the new deck-pack tab.
     pub(in crate::workspace) fn deck_pack_tab(&self, pack: Uuid) -> String {
         match self.open("t-1", pack, None) {
-            Ok(PackOpened::Opened(id)) => id,
+            Ok(PackOpened::Opened { tab, .. }) => tab,
             other => panic!("a new deck-pack tab: {other:?}"),
         }
     }

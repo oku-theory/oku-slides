@@ -15,7 +15,7 @@ use serde_json::{Map, Value};
 use snafu::ResultExt;
 
 use crate::McpEvent;
-use crate::tool_error::{ContinueInPackTabSnafu, ResponseSnafu};
+use crate::tool_error::{ContinueInOtherTabSnafu, ResponseSnafu};
 use crate::tools::{Tools, png, text};
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -92,12 +92,12 @@ impl Tools {
         }
     }
 
-    /// The refusal of a deck-mode widget write in a turn that went on in a pack tab, if it applies.
+    /// The refusal of a widget write in a turn that went on in another tab, if it applies.
     ///
-    /// Once `edit_pack` opened or focused a pack's tab in `turn` (its claim counts as soon as it is
-    /// granted), this tab leaves its widgets alone: the request continues in the pack's tab.
-    fn continues_in_pack_tab(&self, turn: Option<u32>) -> Option<CallToolResult> {
-        turn.filter(|turn| self.hub.writes_elsewhere(*turn)).map(|_| self.fail_with(&ContinueInPackTabSnafu.build()))
+    /// Once `open_pack` or `open_theme` opened or focused a pack or theme tab in `turn` (its claim
+    /// counts as soon as it is granted), this tab leaves its widgets alone: the request continues there.
+    fn continues_elsewhere(&self, turn: Option<u32>) -> Option<CallToolResult> {
+        turn.filter(|turn| self.hub.writes_elsewhere(*turn)).map(|_| self.fail_with(&ContinueInOtherTabSnafu.build()))
     }
 
     pub(crate) async fn set_widget(&self, turn: Option<u32>, args: Value) -> CallToolResult {
@@ -105,7 +105,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        if let Some(refused) = self.continues_in_pack_tab(turn) {
+        if let Some(refused) = self.continues_elsewhere(turn) {
             return refused;
         }
         let removing = source.is_empty();
@@ -128,17 +128,18 @@ impl Tools {
         self.json_result(&change)
     }
 
+    /// `remove_widget`: deletes a widget file; in pack mode the pile hears it went.
     pub(crate) async fn remove_widget(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let WidgetName { pack, name } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        if let Some(refused) = self.continues_in_pack_tab(turn) {
+        if let Some(refused) = self.continues_elsewhere(turn) {
             return refused;
         }
         let done = {
             let name = name.clone();
-            // Le mode est lu sous le même verrou que la suppression.
+            // The mode is read under the same lock as the removal.
             self.with_session(move |s| {
                 let pack_mode = s.in_pack_mode();
                 s.handle(Request::RemoveWidget { pack, name }).map(|json| (json, pack_mode))

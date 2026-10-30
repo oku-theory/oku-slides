@@ -5,12 +5,12 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use oku_slides_platform::storage::resolve;
-use snafu::OptionExt;
+use snafu::{OptionExt, ensure};
 use uuid::Uuid;
 
-use crate::Session;
-use crate::agent::{PackGate, PackOpen, Sessions};
-use crate::error::{Result, UnknownTabSnafu};
+use crate::agent::{Sessions, TabGate, TabOpen};
+use crate::error::{Result, UnknownTabSnafu, UnknownWindowSnafu};
+use crate::{DocumentKind, Session};
 
 use super::{Opening, TabPlace, Workspace};
 
@@ -51,6 +51,21 @@ impl Workspace {
         let session = pending.build()?;
         Self::finish(ws, pending, session).map(|(_, id)| id)
     }
+
+    /// The kind of `tab`'s document, read from its cached info: a dormant tab stays asleep.
+    ///
+    /// # Errors
+    ///
+    /// `UnknownTab`, or `UnknownWindow` once the workspace is closed.
+    ///
+    /// # Blocking
+    ///
+    /// Takes the workspace lock alone.
+    pub fn document_kind(ws: &Mutex<Self>, tab: &str) -> Result<DocumentKind> {
+        let w = Self::lock(ws);
+        ensure!(!w.is_closed(), UnknownWindowSnafu { label: tab });
+        Ok(w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?.info.document.kind())
+    }
 }
 
 /// The agent reaches tab sessions through the workspace, deck-pack forwards included.
@@ -78,8 +93,20 @@ impl Sessions for Mutex<Workspace> {
         tab: &str,
         pack: Uuid,
         widget: Option<&str>,
-        gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> Result<PackOpen> {
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> Result<TabOpen> {
         Workspace::open_pack(self, tab, pack, widget, gate)
     }
+
+    fn open_theme(&self, tab: &str, theme: Uuid, gate: &mut dyn FnMut(TabGate) -> bool) -> Result<TabOpen> {
+        Workspace::open_theme_for_agent(self, tab, theme, gate)
+    }
+
+    fn document_kind(&self, tab: &str) -> Result<DocumentKind> {
+        Workspace::document_kind(self, tab)
+    }
 }
+
+#[cfg(test)]
+#[path = "workspace_agent_tests.rs"]
+mod workspace_agent_tests;

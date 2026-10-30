@@ -296,7 +296,7 @@ async fn show_themes_tool_pick_is_noted_for_the_agent() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_outside_deck_mode_says_so_in_french() {
-    let h = start_pack_tab(oku_slides_session::pack::ESSENTIEL_PACK).await;
+    let h = common::kinds::start_help_tab().await;
     let r = call_show_themes(&h, json!({})).await;
     let said = (r.is_error, common::text_of(&r), open(&h));
     let want = (Some(true), h.localizer.tr("agent-error-themes-deck-mode"), false);

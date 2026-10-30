@@ -27,7 +27,8 @@ agent-confirm-open = { $path }을(를) 열까요?
 agent-open-elsewhere = 이 파일은 이미 다른 탭에서 열려 있습니다.
 agent-confirm-new = 새 프레젠테이션을 시작할까요?
 agent-confirm-new-dirty = 새 프레젠테이션을 시작할까요? 저장하지 않은 변경 사항이 사라집니다.
-agent-confirm-save-pack = 팩 “{ $name }”을(를) 저장할까요?
+agent-confirm-copy-pack = 팩 “{ $name }”의 사본을 저장할까요? 팩 자체는 그대로 유지됩니다.
+agent-confirm-copy-edited-theme = 테마 “{ $name }”의 사본을 저장할까요? 테마 자체는 그대로 유지됩니다.
 agent-confirm-delete-pack = 팩 “{ $name }”을(를) 삭제할까요? 되돌릴 수 없습니다.
 agent-confirm-edit-theme = 테마 “{ $name }”의 새 버전을 저장할까요?
 agent-confirm-copy-theme = 기본 제공 테마 “{ $name }”의 변형을 만들까요? 기본 제공 테마는 바뀌지 않습니다.
@@ -92,11 +93,18 @@ agent-error-pack-id = 팩의 id가 아닙니다. packs를 호출해 팩과 그 i
 agent-error-asset-unknown = 이 이미지는 프레젠테이션에도 붙여넣은 이미지에도 없습니다. 붙여넣은 이미지의 ID를 사용하세요.
 agent-error-denied = 사용자가 거절했습니다.
 agent-error-no-turn = 진행 중인 턴이 없습니다. { $tool }은(는) 턴 중에만 표시됩니다.
-agent-error-pack-tab-no-turn = 팩 탭은 사용자에게 응답하는 동안에만 열거나 전환하세요.
-agent-error-pack-tab-limit = 이 턴에서 이미 팩 탭을 열었습니다. 그곳에서 마치거나, 다른 탭을 열기 전에 사용자에게 물어보세요.
-agent-error-continue-in-pack-tab = 이 요청은 팩 자체 탭에서 이어집니다. 사용자에게 그곳에서 계속하도록 안내하세요. 이 탭은 당분간 위젯을 변경하지 않습니다.
+agent-error-tab-no-turn = 팩 또는 테마 탭은 사용자에게 응답하는 동안에만 열거나 표시하세요.
+agent-error-tab-limit = 이 턴에서 이미 팩 또는 테마 탭을 열었거나 표시했습니다. 그곳에서 마치거나, 다른 탭으로 옮기기 전에 사용자에게 물어보세요.
+agent-error-continue-in-other-tab = 이 요청은 열었거나 표시한 탭에서 이어집니다. 사용자에게 그곳에서 계속하도록 안내하세요. 이 탭은 당분간 위젯을 변경하지 않습니다.
 agent-error-pack-open-in-tab = 이 팩은 다른 탭에서 편집 중입니다. 사용자에게 먼저 그곳에서 마치도록 안내하세요.
-agent-pack-opened-in-tab = 팩이 { $tab } 탭에서 열렸으며 이제 그 탭에 포커스가 있습니다. 사용자에게 그곳에서 계속하도록 안내하세요. 그 탭의 에이전트는 이 요청을 모릅니다. 이 탭은 기존 프레젠테이션에 그대로 머뭅니다.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] 팩이 { $tab } 탭에서 열렸으며 지금 표시되어 있습니다.
+  *[no] 팩이 { $tab } 탭에서 뒤쪽에 열렸습니다. 사용자의 창에는 다른 탭이 표시되어 있습니다.
+} 사용자에게 그곳에서 계속하도록 안내하세요. 그 탭의 에이전트는 이 요청을 모릅니다. 이 탭은 그대로 유지됩니다.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] 테마가 { $tab } 탭에서 열렸으며 지금 표시되어 있습니다.
+  *[no] 테마가 { $tab } 탭에서 뒤쪽에 열렸습니다. 사용자의 창에는 다른 탭이 표시되어 있습니다.
+} 사용자에게 그곳에서 계속하도록 안내하세요. 그 탭의 에이전트는 이 요청을 모릅니다. 이 탭은 그대로 유지됩니다.
 agent-error-turn-over = 이 호출의 턴이 끝났습니다. 아무것도 표시되지 않았습니다.
 agent-error-no-file = 프레젠테이션에 아직 파일이 없습니다. 절대 경로를 지정하세요.
 agent-error-path-relative = 경로는 절대 경로여야 합니다.

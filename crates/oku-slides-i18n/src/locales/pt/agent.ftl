@@ -27,7 +27,8 @@ agent-confirm-open = Abrir { $path }?
 agent-open-elsewhere = Este arquivo já está aberto em outra aba.
 agent-confirm-new = Começar uma nova apresentação?
 agent-confirm-new-dirty = Começar uma nova apresentação? As alterações não salvas serão perdidas.
-agent-confirm-save-pack = Salvar o pacote “{ $name }”?
+agent-confirm-copy-pack = Salvar uma cópia do pacote “{ $name }”? O próprio pacote não muda.
+agent-confirm-copy-edited-theme = Salvar uma cópia do tema “{ $name }”? O próprio tema não muda.
 agent-confirm-delete-pack = Excluir o pacote “{ $name }”? Isso não pode ser desfeito.
 agent-confirm-edit-theme = Salvar uma nova versão do tema “{ $name }”?
 agent-confirm-copy-theme = Criar uma variante do tema integrado “{ $name }”? O tema integrado não muda.
@@ -98,11 +99,18 @@ agent-error-pack-id = Isto não é o id de um pacote: chame packs para listar os
 agent-error-asset-unknown = Esta imagem não está na apresentação nem entre as imagens coladas: use o identificador de uma imagem colada.
 agent-error-denied = O usuário recusou.
 agent-error-no-turn = Nenhum turno em andamento: { $tool } só é mostrado durante um turno.
-agent-error-pack-tab-no-turn = Abra uma aba de pacote, ou mude para ela, somente enquanto responde ao usuário.
-agent-error-pack-tab-limit = Você já abriu uma aba de pacote neste turno; termine nela ou pergunte ao usuário antes de abrir outra.
-agent-error-continue-in-pack-tab = Este pedido continua na aba do próprio pacote: peça ao usuário que continue lá; esta aba não altera nenhum widget por enquanto.
+agent-error-tab-no-turn = Abra uma aba de pacote ou de tema, ou mostre-a, somente enquanto responde ao usuário.
+agent-error-tab-limit = Você já abriu ou mostrou uma aba de pacote ou de tema neste turno; termine nela ou pergunte ao usuário antes de usar outra.
+agent-error-continue-in-other-tab = Este pedido continua na aba que você abriu ou mostrou: peça ao usuário que continue lá; esta aba não altera nenhum widget por enquanto.
 agent-error-pack-open-in-tab = Este pacote está sendo editado em outra aba: peça ao usuário que termine lá primeiro.
-agent-pack-opened-in-tab = O pacote foi aberto na aba { $tab }, que agora tem o foco. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido. Esta aba continua na sua apresentação.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] O pacote foi aberto na aba { $tab }, agora exibida.
+  *[no] O pacote foi aberto na aba { $tab }, em segundo plano: a janela do usuário mostra outra aba.
+} Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido. Esta aba continua como está.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] O tema foi aberto na aba { $tab }, agora exibida.
+  *[no] O tema foi aberto na aba { $tab }, em segundo plano: a janela do usuário mostra outra aba.
+} Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido. Esta aba continua como está.
 agent-error-turn-over = O turno desta chamada terminou: nada foi mostrado.
 agent-error-no-file = A apresentação ainda não tem arquivo: indique um caminho absoluto.
 agent-error-path-relative = O caminho deve ser absoluto.

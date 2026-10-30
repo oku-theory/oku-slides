@@ -27,7 +27,8 @@ agent-confirm-open = { $path } öffnen?
 agent-open-elsewhere = Diese Datei ist bereits in einem anderen Tab geöffnet.
 agent-confirm-new = Neue Präsentation beginnen?
 agent-confirm-new-dirty = Neue Präsentation beginnen? Nicht gespeicherte Änderungen gehen verloren.
-agent-confirm-save-pack = Paket „{ $name }“ speichern?
+agent-confirm-copy-pack = Eine Kopie des Pakets „{ $name }“ speichern? Das Paket selbst bleibt unverändert.
+agent-confirm-copy-edited-theme = Eine Kopie des Designs „{ $name }“ speichern? Das Design selbst bleibt unverändert.
 agent-confirm-delete-pack = Paket „{ $name }“ löschen? Das kann nicht rückgängig gemacht werden.
 agent-confirm-edit-theme = Eine neue Version des Designs „{ $name }“ speichern?
 agent-confirm-copy-theme = Eine Variante des integrierten Designs „{ $name }“ erstellen? Das integrierte Design bleibt unverändert.
@@ -98,11 +99,18 @@ agent-error-pack-id = Das ist nicht die ID eines Pakets: Rufe packs auf, um die 
 agent-error-asset-unknown = Dieses Bild ist weder in der Präsentation noch unter den eingefügten Bildern: Verwende die Kennung eines eingefügten Bildes.
 agent-error-denied = Der Benutzer hat abgelehnt.
 agent-error-no-turn = Kein Durchgang läuft: { $tool } wird nur während eines Durchgangs angezeigt.
-agent-error-pack-tab-no-turn = Öffne einen Paket-Tab oder wechsle zu ihm nur, während du dem Nutzer antwortest.
-agent-error-pack-tab-limit = Du hast in diesem Durchgang bereits einen Paket-Tab geöffnet; mach dort weiter oder frag den Nutzer, bevor du einen weiteren öffnest.
-agent-error-continue-in-pack-tab = Diese Anfrage geht im eigenen Tab des Pakets weiter: Bitte den Nutzer, dort fortzufahren; dieser Tab ändert vorerst kein Widget.
+agent-error-tab-no-turn = Öffne einen Paket- oder Design-Tab oder zeige ihn nur, während du dem Nutzer antwortest.
+agent-error-tab-limit = Du hast in diesem Durchgang bereits einen Paket- oder Design-Tab geöffnet oder gezeigt; mach dort weiter oder frag den Nutzer, bevor du einen anderen nimmst.
+agent-error-continue-in-other-tab = Diese Anfrage geht in dem Tab weiter, den du geöffnet oder gezeigt hast: Bitte den Nutzer, dort fortzufahren; dieser Tab ändert vorerst kein Widget.
 agent-error-pack-open-in-tab = Dieses Paket wird in einem anderen Tab bearbeitet: Bitte den Nutzer, zuerst dort fertig zu werden.
-agent-pack-opened-in-tab = Das Paket hat sich im Tab { $tab } geöffnet, der jetzt den Fokus hat. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht. Dieser Tab bleibt bei seinem Deck.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Das Paket hat sich im Tab { $tab } geöffnet, der jetzt angezeigt wird.
+  *[no] Das Paket hat sich im Tab { $tab } im Hintergrund geöffnet: Das Fenster des Nutzers zeigt einen anderen Tab.
+} Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht. Dieser Tab bleibt, wie er ist.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Das Design hat sich im Tab { $tab } geöffnet, der jetzt angezeigt wird.
+  *[no] Das Design hat sich im Tab { $tab } im Hintergrund geöffnet: Das Fenster des Nutzers zeigt einen anderen Tab.
+} Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht. Dieser Tab bleibt, wie er ist.
 agent-error-turn-over = Der Durchgang dieses Aufrufs ist vorbei: Es wurde nichts angezeigt.
 agent-error-no-file = Die Präsentation hat noch keine Datei: Gib einen absoluten Pfad an.
 agent-error-path-relative = Der Pfad muss absolut sein.

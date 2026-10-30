@@ -11,7 +11,8 @@
       ],
       "chunks": ["Image posée."]
     },
-    "ouvre l'atelier": { "mcp": [{ "tool": "edit_pack", "args": {} }], "chunks": ["Atelier ouvert."] },
+    "ouvre l'atelier": { "mcp": [{ "tool": "open_pack", "args": {} }], "chunks": ["Atelier ouvert."] },
+    "ouvre le thème": { "mcp": [{ "tool": "open_theme", "args": { "theme": "papier" } }], "chunks": ["Thème ouvert."] },
     "portée slides": { "chunks": ["Réponse des slides."] },
     "propose les thèmes": {
       "mcp": [

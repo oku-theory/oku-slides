@@ -27,7 +27,8 @@ agent-confirm-open = ¿Abrir { $path }?
 agent-open-elsewhere = Este archivo ya está abierto en otra pestaña.
 agent-confirm-new = ¿Empezar una nueva presentación?
 agent-confirm-new-dirty = ¿Empezar una nueva presentación? Se perderán los cambios sin guardar.
-agent-confirm-save-pack = ¿Guardar el paquete «{ $name }»?
+agent-confirm-copy-pack = ¿Guardar una copia del paquete «{ $name }»? El paquete en sí no cambia.
+agent-confirm-copy-edited-theme = ¿Guardar una copia del tema «{ $name }»? El tema en sí no cambia.
 agent-confirm-delete-pack = ¿Eliminar el paquete «{ $name }»? Esto no se puede deshacer.
 agent-confirm-edit-theme = ¿Guardar una nueva versión del tema «{ $name }»?
 agent-confirm-copy-theme = ¿Crear una variante del tema integrado «{ $name }»? El tema integrado no cambia.
@@ -98,11 +99,18 @@ agent-error-pack-id = Esto no es el id de un paquete: llama a packs para listar 
 agent-error-asset-unknown = Esta imagen no está ni en la presentación ni entre las imágenes pegadas: usa el identificador de una imagen pegada.
 agent-error-denied = El usuario lo rechazó.
 agent-error-no-turn = No hay ningún turno en curso: { $tool } solo se muestra durante un turno.
-agent-error-pack-tab-no-turn = Abre una pestaña de paquete, o cambia a ella, solo mientras respondes al usuario.
-agent-error-pack-tab-limit = Ya abriste una pestaña de paquete en este turno; termina allí, o pregunta al usuario antes de abrir otra.
-agent-error-continue-in-pack-tab = Esta petición continúa en la pestaña del propio paquete: pide al usuario que siga allí; esta pestaña no modifica ningún widget por ahora.
+agent-error-tab-no-turn = Abre una pestaña de paquete o de tema, o muéstrala, solo mientras respondes al usuario.
+agent-error-tab-limit = Ya abriste o mostraste una pestaña de paquete o de tema en este turno; termina allí, o pregunta al usuario antes de usar otra.
+agent-error-continue-in-other-tab = Esta petición continúa en la pestaña que abriste o mostraste: pide al usuario que siga allí; esta pestaña no modifica ningún widget por ahora.
 agent-error-pack-open-in-tab = Este paquete se está editando en otra pestaña: pide al usuario que termine allí primero.
-agent-pack-opened-in-tab = El paquete se abrió en la pestaña { $tab }, que ahora tiene el foco. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición. Esta pestaña se queda en su presentación.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] El paquete se abrió en la pestaña { $tab }, que ahora se muestra.
+  *[no] El paquete se abrió en la pestaña { $tab }, en segundo plano: la ventana del usuario muestra otra pestaña.
+} Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición. Esta pestaña se queda como está.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] El tema se abrió en la pestaña { $tab }, que ahora se muestra.
+  *[no] El tema se abrió en la pestaña { $tab }, en segundo plano: la ventana del usuario muestra otra pestaña.
+} Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición. Esta pestaña se queda como está.
 agent-error-turn-over = El turno de esta llamada ha terminado: no se mostró nada.
 agent-error-no-file = La presentación aún no tiene archivo: indica una ruta absoluta.
 agent-error-path-relative = La ruta debe ser absoluta.

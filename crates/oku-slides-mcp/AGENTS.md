@@ -4,7 +4,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
-- Limit agent set_setting to its whitelist; refuse agent set_dictation on API address, variables, query or headers. (spec:2026-09-26-agent-vocal-design, t-1144, t-1213)
+- Limit agent set_setting to its whitelist, never agent settings; refuse agent set_dictation on API address, variables, query or headers. (spec:2026-09-26-agent-vocal-design, t-1144, t-1213, t-786)
 - Never let agent open replace a tab, and refuse any save to a file already open in another tab. (spec:2026-09-27-agent-onglets-design, t-255)
 - Keep Connection: close on the MCP 401 response so unauthenticated clients never hold a connection slot. (plan:2026-10-09-petits-tickets-t678)
 - Route every MCP tool error through Tools::fail_with; never return hardcoded English text. (plan:2026-10-09-tickets-debloques-t598)
@@ -24,16 +24,16 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never hold the shared Session mutex across an await in MCP tools; lock only for one Session::handle call. (spec:2026-09-26-agent-vocal-design)
 - Reject MCP tool paths that are not absolute, normalized and free of .. segments. (spec:2026-09-26-agent-vocal-design)
 - Do not give ask_* surfaces a timeout; Escape, a new turn or conversation end must return cancelled. (spec:2026-09-26-agent-vocal-design)
-- Scope SurfaceHub, Tools and ToolServer to one tab; their tools must only see that tab's document, and only edit_pack may open or focus a pack tab, through Sessions::open_pack. (spec:2026-09-27-agent-onglets-design, plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs)
+- Scope SurfaceHub, Tools and ToolServer to one tab; their tools must only see that tab's document, and only open_pack and open_theme may open or focus a pack or theme tab, through Sessions::open_pack / Sessions::open_theme. (spec:2026-09-27-agent-onglets-design, plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs, t-1191)
 - Answer ask or permission requests on a closed tab with Cancelled; the SurfaceHub closes when the tab entry drops. (t-249)
 - On resync emit the full open surface list, and have the UI replace its surfaces rather than merge them. (t-182)
-- Make the set_setting tool refuse agent settings. (t-786)
 - Never let an agent set the dictation API address or key variable; refuse before parsing, with ApiReservedToUser. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Check every voice tool request through VoicePort before confirming; a refusal opens no dialog. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Rebuild the settings box only from the VoicePort view through its one send path, never from prune. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Call prune after every surface action that changes the deck, so the theme picker and packs panel re-read it. (t-1133)
-- Let edit_pack open at most one new pack tab per agent turn through SurfaceHub::reserve_pack_tab, and none or no focus change outside a turn; refuse that turn's widget writes in the requesting tab once it opened one; never show the agent another tab's title, hub errors included. (plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs)
+- Let open_pack and open_theme make at most one tab move (new or focused) per agent turn through SurfaceHub::reserve_tab, and give the claim back when no tab moved (Here, Refused, error); none outside a turn; refuse that turn's widget writes in the requesting tab once it moved; never show the agent another tab's title, hub errors included. (plan:2026-10-25-onglets-pack-theme-lot3-pack-tabs, t-1191)
 - Push every resync and follow to all views of a tab, not only to the view that asked. (t-670)
+- List and serve only the tools of the tab's document kind, read once when its agent starts; refuse any other with UnknownTool. (spec:2026-10-24-onglets-pack-theme-design, t-1191)
 - Emit page events (Present, OpenHistory, Interface) only after ensure_shown, and open history through the tab so its pending edit and save go first. (t-988, t-991, t-992)
 
 ## Pitfalls
@@ -51,7 +51,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Word a session error for the agent in say_to_agent (tool replies), never in the session; hub cards keep say_session. (t-1171)
 - Stay on rust-mcp-sdk 1.x until agents embed MCP 2026-07-28 clients; the 2.0 server speaks only that version. (plan:2026-09-26-agent-vocal)
 - Change dictation only through VoicePort (set_dictation, the box); set_setting keeps no dictation key. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1144)
-- Confirm non-undoable MCP tools through SurfaceHub::confirm before executing; add no host-side permission trait. (spec:2026-09-26-agent-vocal-design)
+- Confirm non-undoable MCP tools through SurfaceHub::confirm before executing; add no host-side permission trait. A pack or theme tab saves through its autosave; the agent's save_pack and save_theme only save confirmed copies. (spec:2026-09-26-agent-vocal-design, t-1191)
 - Confirm every edit_theme, a built-in theme included (saved as a variant extending it); a change to this deck only goes through set_token ops on deck.tokens. (t-692, t-1100)
 - Emit widget_touched only in pack mode. (plan:2026-10-03-widgets-agent-a2ui, t-1065)
 - Return invalid render or report input to the agent as a readable tool-result error, and display nothing. (spec:2026-10-03-agent-a2ui-design)

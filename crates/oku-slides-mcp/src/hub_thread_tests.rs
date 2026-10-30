@@ -20,9 +20,22 @@ impl Sessions for NoSession {
         _tab: &str,
         _pack: uuid::Uuid,
         _widget: Option<&str>,
-        _gate: &mut dyn FnMut(oku_slides_session::agent::PackGate) -> bool,
-    ) -> oku_slides_session::Result<oku_slides_session::agent::PackOpen> {
+        _gate: &mut dyn FnMut(oku_slides_session::agent::TabGate) -> bool,
+    ) -> oku_slides_session::Result<oku_slides_session::agent::TabOpen> {
         unreachable!("NoSession is never asked to open a pack")
+    }
+
+    fn open_theme(
+        &self,
+        _tab: &str,
+        _theme: uuid::Uuid,
+        _gate: &mut dyn FnMut(oku_slides_session::agent::TabGate) -> bool,
+    ) -> oku_slides_session::Result<oku_slides_session::agent::TabOpen> {
+        unreachable!("NoSession is never asked to open a theme")
+    }
+
+    fn document_kind(&self, _tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
+        unreachable!("NoSession is never asked its kind")
     }
 }
 

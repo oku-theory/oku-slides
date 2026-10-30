@@ -27,7 +27,8 @@ agent-confirm-open = Open { $path }?
 agent-open-elsewhere = This file is already open in another tab.
 agent-confirm-new = Start a new presentation?
 agent-confirm-new-dirty = Start a new presentation? Unsaved changes will be lost.
-agent-confirm-save-pack = Save the pack “{ $name }”?
+agent-confirm-copy-pack = Save a copy of the pack “{ $name }”? The pack itself stays as it is.
+agent-confirm-copy-edited-theme = Save a copy of the theme “{ $name }”? The theme itself stays as it is.
 agent-confirm-delete-pack = Delete the pack “{ $name }”? This cannot be undone.
 agent-confirm-edit-theme = Save a new version of the theme “{ $name }”?
 agent-confirm-copy-theme = Create a variant of the built-in theme “{ $name }”? The built-in theme stays unchanged.
@@ -99,11 +100,18 @@ agent-error-pack-id = This is not the id of a pack: call packs to list the packs
 agent-error-asset-unknown = This image is neither in the deck nor among the pasted images: use the id of a pasted image.
 agent-error-denied = The user declined.
 agent-error-no-turn = No turn in progress: { $tool } is only shown during a turn.
-agent-error-pack-tab-no-turn = Open or switch to a pack tab only while answering the user.
-agent-error-pack-tab-limit = You already opened a pack tab in this turn; finish there, or ask the user before opening another.
-agent-error-continue-in-pack-tab = This request continues in the pack's own tab: ask the user to go on there; this tab changes no widget for now.
+agent-error-tab-no-turn = Open or show a pack or theme tab only while answering the user.
+agent-error-tab-limit = You already opened or showed a pack or theme tab in this turn; finish there, or ask the user before another.
+agent-error-continue-in-other-tab = This request continues in the tab you opened or showed: ask the user to go on there; this tab changes no widget for now.
 agent-error-pack-open-in-tab = This pack is being edited in another tab: ask the user to finish there first.
-agent-pack-opened-in-tab = The pack opened in tab { $tab }, which now has the focus. Tell the user to continue there: that tab's agent does not know this request. This tab stays on its deck.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] The pack opened in tab { $tab }, now shown.
+  *[no] The pack opened in tab { $tab }, behind: the user's window shows another tab.
+} Tell the user to continue there: that tab's agent does not know this request. This tab stays as it is.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] The theme opened in tab { $tab }, now shown.
+  *[no] The theme opened in tab { $tab }, behind: the user's window shows another tab.
+} Tell the user to continue there: that tab's agent does not know this request. This tab stays as it is.
 agent-error-turn-over = The turn of this call is over: nothing was shown.
 agent-error-no-file = The presentation has no file yet: give an absolute path.
 agent-error-path-relative = The path must be absolute.

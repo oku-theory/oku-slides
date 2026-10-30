@@ -27,7 +27,8 @@ agent-confirm-open = Ouvrir { $path } ?
 agent-open-elsewhere = Ce fichier est déjà ouvert dans un autre onglet.
 agent-confirm-new = Commencer une nouvelle présentation ?
 agent-confirm-new-dirty = Commencer une nouvelle présentation ? Les modifications non enregistrées seront perdues.
-agent-confirm-save-pack = Enregistrer le pack « { $name } » ?
+agent-confirm-copy-pack = Enregistrer une copie du pack « { $name } » ? Le pack lui-même reste tel quel.
+agent-confirm-copy-edited-theme = Enregistrer une copie du thème « { $name } » ? Le thème lui-même reste tel quel.
 agent-confirm-delete-pack = Supprimer le pack « { $name } » ? C'est définitif.
 agent-confirm-edit-theme = Enregistrer une nouvelle version du thème « { $name } » ?
 agent-confirm-copy-theme = Créer une variante du thème intégré « { $name } » ? Le thème intégré reste inchangé.
@@ -98,11 +99,18 @@ agent-error-pack-id = Ce n'est pas l'id d'un pack : appelez packs pour lister le
 agent-error-asset-unknown = Cette image n'est ni dans le deck ni parmi les images collées : donnez l'identifiant d'une image collée.
 agent-error-denied = L'utilisateur a refusé.
 agent-error-no-turn = Aucun tour en cours : { $tool } ne s'affiche que pendant un tour.
-agent-error-pack-tab-no-turn = N'ouvrez un onglet de pack ou n'y passez qu'en répondant à l'utilisateur.
-agent-error-pack-tab-limit = Vous avez déjà ouvert un onglet de pack dans ce tour ; terminez-y, ou demandez à l'utilisateur avant d'en ouvrir un autre.
-agent-error-continue-in-pack-tab = Cette demande se poursuit dans l'onglet du pack : demandez à l'utilisateur d'y continuer ; cet onglet ne modifie plus de widget pour l'instant.
+agent-error-tab-no-turn = N'ouvrez ou n'affichez un onglet de pack ou de thème qu'en répondant à l'utilisateur.
+agent-error-tab-limit = Vous avez déjà ouvert ou affiché un onglet de pack ou de thème dans ce tour ; terminez-y, ou demandez à l'utilisateur avant d'en changer.
+agent-error-continue-in-other-tab = Cette demande se poursuit dans l'onglet que vous avez ouvert ou affiché : demandez à l'utilisateur d'y continuer ; cet onglet ne modifie plus de widget pour l'instant.
 agent-error-pack-open-in-tab = Ce pack est en cours d'édition dans un autre onglet : demandez à l'utilisateur d'y terminer d'abord.
-agent-pack-opened-in-tab = Le pack s'est ouvert dans l'onglet { $tab }, qui a maintenant le focus. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande. Cet onglet reste sur son deck.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Le pack s'est ouvert dans l'onglet { $tab }, maintenant affiché.
+  *[no] Le pack s'est ouvert dans l'onglet { $tab }, en arrière-plan : la fenêtre de l'utilisateur affiche un autre onglet.
+} Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande. Cet onglet reste tel quel.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Le thème s'est ouvert dans l'onglet { $tab }, maintenant affiché.
+  *[no] Le thème s'est ouvert dans l'onglet { $tab }, en arrière-plan : la fenêtre de l'utilisateur affiche un autre onglet.
+} Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande. Cet onglet reste tel quel.
 agent-error-turn-over = Le tour de cet appel est terminé : rien n'a été affiché.
 agent-error-no-file = La présentation n'a pas encore de fichier : donnez un chemin absolu.
 agent-error-path-relative = Le chemin doit être absolu.

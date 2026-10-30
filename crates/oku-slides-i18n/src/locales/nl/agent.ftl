@@ -27,7 +27,8 @@ agent-confirm-open = { $path } openen?
 agent-open-elsewhere = Dit bestand is al geopend in een ander tabblad.
 agent-confirm-new = Nieuwe presentatie beginnen?
 agent-confirm-new-dirty = Nieuwe presentatie beginnen? Niet-opgeslagen wijzigingen gaan verloren.
-agent-confirm-save-pack = Pakket “{ $name }” opslaan?
+agent-confirm-copy-pack = Een kopie van pakket “{ $name }” opslaan? Het pakket zelf blijft ongewijzigd.
+agent-confirm-copy-edited-theme = Een kopie van thema “{ $name }” opslaan? Het thema zelf blijft ongewijzigd.
 agent-confirm-delete-pack = Pakket “{ $name }” verwijderen? Dit kan niet ongedaan worden gemaakt.
 agent-confirm-edit-theme = Een nieuwe versie van het thema ‘{ $name }’ opslaan?
 agent-confirm-copy-theme = Een variant van het ingebouwde thema ‘{ $name }’ maken? Het ingebouwde thema blijft ongewijzigd.
@@ -98,11 +99,18 @@ agent-error-pack-id = Dit is geen id van een pakket: roep packs aan om de pakket
 agent-error-asset-unknown = Deze afbeelding zit niet in de presentatie en staat ook niet bij de geplakte afbeeldingen: gebruik de id van een geplakte afbeelding.
 agent-error-denied = De gebruiker heeft geweigerd.
 agent-error-no-turn = Geen beurt bezig: { $tool } wordt alleen tijdens een beurt getoond.
-agent-error-pack-tab-no-turn = Open of wissel naar een pakkettabblad alleen terwijl je de gebruiker antwoordt.
-agent-error-pack-tab-limit = Je hebt in deze beurt al een pakkettabblad geopend; rond daar af, of vraag het de gebruiker voordat je er nog een opent.
-agent-error-continue-in-pack-tab = Dit verzoek gaat verder in het eigen tabblad van het pakket: vraag de gebruiker daar verder te gaan; dit tabblad wijzigt voorlopig geen widget.
+agent-error-tab-no-turn = Open of toon een pakket- of thematabblad alleen terwijl je de gebruiker antwoordt.
+agent-error-tab-limit = Je hebt in deze beurt al een pakket- of thematabblad geopend of getoond; rond daar af, of vraag het de gebruiker voordat je naar een ander gaat.
+agent-error-continue-in-other-tab = Dit verzoek gaat verder in het tabblad dat je opende of toonde: vraag de gebruiker daar verder te gaan; dit tabblad wijzigt voorlopig geen widget.
 agent-error-pack-open-in-tab = Dit pakket wordt in een ander tabblad bewerkt: vraag de gebruiker eerst daar af te ronden.
-agent-pack-opened-in-tab = Het pakket is geopend in tabblad { $tab }, dat nu de focus heeft. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet. Dit tabblad blijft bij zijn presentatie.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Het pakket is geopend in tabblad { $tab }, dat nu wordt getoond.
+  *[no] Het pakket is geopend in tabblad { $tab }, op de achtergrond: het venster van de gebruiker toont een ander tabblad.
+} Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet. Dit tabblad blijft zoals het is.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Het thema is geopend in tabblad { $tab }, dat nu wordt getoond.
+  *[no] Het thema is geopend in tabblad { $tab }, op de achtergrond: het venster van de gebruiker toont een ander tabblad.
+} Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet. Dit tabblad blijft zoals het is.
 agent-error-turn-over = De beurt van deze aanroep is voorbij: er is niets getoond.
 agent-error-no-file = De presentatie heeft nog geen bestand: geef een absoluut pad op.
 agent-error-path-relative = Het pad moet absoluut zijn.

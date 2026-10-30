@@ -295,7 +295,7 @@ impl Session {
         self.init_pack_tab(*seed, lease, pack, widget)
     }
 
-    /// Selects `widget`, the one item of the pack this tab edits, then persists.
+    /// Selects `widget` in this pack tab and persists it; the host's view follows.
     ///
     /// Sets `ui.widget`, and `ui.slide` to the item's slide when the working
     /// deck has it (not for `_commun`).
@@ -307,7 +307,7 @@ impl Session {
     /// # Blocking
     ///
     /// Persists the UI state (writes `state.json`).
-    pub(crate) fn select_item(&mut self, widget: &str) -> Result<()> {
+    pub fn select_item(&mut self, widget: &str) -> Result<()> {
         let Mode::Pack { edit, .. } = &self.mode else { return NotEditingPackSnafu.fail()? };
         let files = self.doc.sources.packs.get(&edit.base);
         let files = files.context(PackVersionMissingSnafu { id: edit.pack, version: edit.base.clone() })?;
@@ -326,6 +326,16 @@ impl Session {
         self.ui = ui.sanitized(true);
         self.persist(false);
         Ok(())
+    }
+
+    /// The name of the pack this tab edits.
+    ///
+    /// # Errors
+    ///
+    /// `NotEditingPack` outside a pack tab.
+    pub fn edited_pack_name(&self) -> Result<String> {
+        let Mode::Pack { edit, .. } = &self.mode else { return NotEditingPackSnafu.fail()? };
+        Ok(edit.name.clone())
     }
 
     /// This pack tab's info: its pack, label and preview theme; `None` outside a pack tab.

@@ -18,7 +18,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
   clone; namespace unique across packs and themes, `deck`/`deck-layouts` reserved, built-ins never owned by a user copy (`owned_current`); `namespace_slug.rs`, `library.rs` (`library_draft.rs`: drafts replaced in place until a deck adopts them, `adopted`), `library_index.rs`; `deck_adopt.rs` freezes a deck's pins).
 - Themes (`theme.rs`: Papier, Pro, Neutre; namespace, `extends`; unreadable user ones `skipped`, `notice-themes-skipped`): a deck pins its theme's
   closure (`theme_closure.rs`); `deck_theme.rs` renders with `theme_layer` (pack defaults, then the linearized chain), repairs a merge-broken closure.
-  Editing: `theme_edit.rs` + `theme_draft.rs` (draft over its own `extends` list, a child of a built-in under a synthetic root), `theme_extends.rs` (list edits, one undo step each), `deck_theme_edit.rs`, `theme_schema.rs` + `theme_composed.rs` (plus packs' tokens), `theme_panel.rs` + `theme_controls.rs`, `theme_picker.rs`, `appearance.rs`.
+  Editing: `theme_edit.rs` (rename), `theme_draft.rs` (draft over its own `extends` list, a child of a built-in under a synthetic root), `theme_extends.rs` (list edits; rename and extends are draft steps, one undo step each), `deck_theme_edit.rs`, `theme_schema.rs` and `theme_composed.rs` (plus packs' tokens), `theme_panel.rs` and `theme_controls.rs`, `theme_picker.rs`, `appearance.rs`.
 - Widget editing: `widgets_edit.rs`, `widget_preview.rs` (working deck's packs), `widget_examples.rs` (built-ins' `ftl:` markers: `example_text.rs`), `widget_params.rs`, `param_fields.rs`
   (Fluent names of built-in kinds), `items.rs`, `widgets_deck.rs` (`deck`/`deck-layouts` by category); `panel.rs`; `data_panel.rs` + `data_edit.rs` (the `host-data` surface of a selected chart or table and its edits, one undo step each).
 - Views: `SlideView.fields` (`fields.rs`), markdown (`text.rs`, `inline.rs`), `search.rs`, `tables.rs`; `Snapshot.host_params`; add grid (`add_grid.rs`: `add_packs` with seeds, `free_slots`); `carried_assets.rs`: an element's assets pasted from another tab, kept until an op cites them or the next carry. App-wide box `host-voice`: `voice_view.rs` (text-free `VoiceView`, `voice_event`), `voice_panel.rs` (`VoicePanel`, data-only refresh), `voice_fixture.rs` (`test-support`).
@@ -26,10 +26,10 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 - `import/`: PowerPoint import, CLI and app (one history step; a retrofit pins `base` and its layout packs, scored by their
   profiles; hi-fi makes a deck-only `deck-layouts` and pins Neutre, its tokens in `deck.tokens`), `render`, `note_overflows`, `reference`, `state` (`ImportState`, tab memory),
   `score`, `geometry`, tuning (`queue`, `sample`, `diff`, `tune`). Also for the CLI: `library_lookup`, `probed_widgets`.
-- `agent/`: what the session offers the agent. `tabs` (`Sessions`, `TabSession`), turns as undo
-  groups (`begin_turn`; `turn_undo` names the turn atop the deck undo stack for its receipt), A2UI
+- `agent/`: what the session offers the agent. `tabs` (`Sessions`, `TabSession`; `document_kind` wakes nothing), turns as undo
+  groups (`begin_turn`; `turn_undo` names the deck's atop undo turn), A2UI
   surfaces (`forms`, `turn_view`, `receipt`, `render`, `surface_ops`), `address`, `variants`,
-  `context`, `conversation` (one thread and ACP session per tab, `agent/conversation.json`),
+  `context` (the turn's block: kind, edited pack or theme, preview theme), `conversation` (one thread and ACP session per tab, `agent/conversation.json`),
   `reason` (`AgentFormReason`); `attachments` (pasted images: in-memory per tab, `[paste]` bounds, `AttachmentRef`).
 
 ## Workspace
@@ -37,7 +37,7 @@ Editing session of one deck, its workspace (windows, tabs, resume), the PowerPoi
 `Workspace` (`workspace.rs`), `WorkspaceRequest` / `WorkspaceView` (`workspace_request.rs`): windows `w-<n>`, tabs `t-<n>` (`_ids`),
 detached agent, `carry` (`CarryAssets`: source then target, outside the lock), `clip` (the copied element for every window: `SetClip`, `Clip`, never saved). `Slot` (`workspace_slot.rs`: `Ready`, `Dormant`, `Closed`) holds a tab's session (`Tab`); other `workspace_*.rs`: `session`
 (locking path, `relock`), `locale`, `scheme`, tabs (`Opening`; `ImportTab` builds an imported tab, outcome `Tune` names it for the agent), windows, layout
-(`Layout`, `Rect`), resume, same deck, agent, help, packs (`OpenPack`: a pack tab after its opener; `PackOpener`), themes (`OpenTheme`); `NewPack`/`NewTheme` open an empty draft, which `Trash` deletes if its tab leaves untouched; `opening` (one per id), `import_pick` (a `.pptx` given to `open_files` becomes the focused window's
+(`Layout`, `Rect`), resume, same deck, agent, help, packs (`OpenPack`: a pack tab after its opener; `PackOpener`), themes (`OpenTheme`; agents open through the tab gate); `NewPack`/`NewTheme` open an empty draft, which `Trash` deletes if its tab leaves untouched; `opening` (one per id), `import_pick` (a `.pptx` given to `open_files` becomes the focused window's
 `WorkspaceView.import_pick`, its import dialog, not a tab, until `ImportPicked`). Lock order: a pack's or theme's opening lock, `Mutex<Workspace>`, then a tab's `Arc<Mutex<Slot>>` (never the reverse; only `try_lock` a session under it), then `DRAFTS`, then `PACK_TABS`.
 `apply`, `with_session` and `with_quiet` (both share `acquire`), `open_files`, `settle`, `post_notice`, `open_pack_with`, `open_theme_ui`, `pack_opener` take both in sequence, never nested; slow work outside.
 

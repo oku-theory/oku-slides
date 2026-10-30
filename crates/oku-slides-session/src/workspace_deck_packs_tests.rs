@@ -12,7 +12,7 @@ use super::super::packs::workspace_packs_fixtures::{
 };
 use super::super::{Slot, relock};
 use super::BEFORE_OWNER_LOCK;
-use crate::agent::PackGate;
+use crate::agent::TabGate;
 use crate::deck_pack_receive::Received;
 use crate::test_support::session_on;
 use crate::test_support_packs::{CARD_SRC, ok};
@@ -231,7 +231,7 @@ fn agent_open_pack_of_a_deck_only_pack_counts_as_a_new_tab() {
             false
         });
         assert_outcome(r, "Refused");
-        assert_that!((asked, f.tab_count())).is_equal_to((vec![PackGate::NewTab], count));
+        assert_that!((asked, f.tab_count())).is_equal_to((vec![TabGate::NewTab], count));
         assert_that!(f.owner_write("t-1")).is_ok();
     });
 }
@@ -275,7 +275,7 @@ fn two_owners_of_one_pack_get_two_tabs() {
         let second = Workspace::open_beside(&f.ws, "t-1", &copy).unwrap_or_else(|e| panic!("{}", e.one_line()));
         let first_tab = f.deck_pack_tab(pin.id);
         let second_tab = match f.open(&second, pin.id, None) {
-            Ok(super::PackOpened::Opened(id)) => id,
+            Ok(super::PackOpened::Opened { tab: id, .. }) => id,
             other => panic!("a second deck-pack tab: {other:?}"),
         };
         assert_that!(second_tab).is_not_equal_to(&first_tab);

@@ -88,7 +88,7 @@ impl Workspace {
         let mut ws = Self::empty(fonts, platform, None);
         let pending = ws.pending(None, file.map_or(Opening::Blank, |f| Opening::File(resolve(f))), TabPlace::End);
         let session = pending.build()?;
-        ws.insert_tab(None, pending.id, session, &TabPlace::End);
+        ws.insert_tab(None, pending.id, session, &TabPlace::End, true);
         Ok(ws)
     }
 
@@ -413,7 +413,7 @@ use ids::{MAX_NUMBER, is_tab_id, number};
 use layout::{LAYOUT_VERSION, Layout, TabPlace, WindowLayout};
 use session::relock;
 use slot::{Dormant, Slot, Tab};
-use tabs::{Created, Opening, Pending, Step, Trash};
+use tabs::{Activate, Created, Opening, Pending, Step, Trash};
 
 /// La session d'un onglet : un deck sans fichier s'enregistre de lui-même
 /// dans le dossier des decks (`paths.decks`).

@@ -361,6 +361,27 @@ visible session undo in a pack tab, and a blank sheet while items exist but none
 left for the final review); the layout pile's name field focus ring, clipped by `.pile-column`
 overflow, is fixed in `pack.css`.
 
+**Implementation note (lot 7).** Decisions of the lot-7 plan (2026-10-29, v2) that amend this spec.
+The kind comes from `Sessions::document_kind` (required), which both workspace hosts answer from
+the tab's cached `TabDocument` without waking it; the agent stack reads it once per tab, builds the
+tab's `Tools` with it and carries it into the turns. A tool another kind lists is answered
+`UnknownTool`. Help tabs list the deck's tools. `edit_pack` is renamed `open_pack { pack?, widget? }`
+and `open_theme { theme }` (namespace, id or name) is added; both are listed for deck and help tabs
+only and open or focus a tab without confirmation. The tab is shown only if the requesting tab is
+its window's active tab; otherwise it opens behind and the result says so. A turn has one tab move:
+a new tab or a focus spends it, only inside a turn (`SurfaceHub::reserve_tab`). The open ends that
+request: the other tab's thread starts empty (a hand-off is a follow-up). The gate types are
+`TabGate` and `TabOpen { Here, Opened, Focused, Refused }`; a claim is given back when no tab
+moved, and a refused lease asks `Focus` before focusing its holder. A pack tab adds `select_item`
+(the session selects, the view follows through the existing host path), `set_preview_theme` and
+`show_params` / `show_variants`; a theme tab adds `rename_theme`, `save_theme` and `show_params` /
+`show_variants`. Renaming the edited theme is an undo step, from the agent and from the UI alike.
+`save_pack` and `save_theme` only save confirmed copies (the tabs autosave). Decks keep
+`edit_theme`. The spec's `edit_theme_extends` is `set_theme_extends`. The agent's context states the
+tab's kind, the edited pack's or theme's name and a pack tab's preview theme; its instructions are a
+shared core, then one paragraph per kind, then the widget and import texts where they apply. Agent
+guides carried by packs and themes are t-1267.
+
 ## Out of scope
 
 - Splitting `Session` into one type per kind (a possible later refactor).

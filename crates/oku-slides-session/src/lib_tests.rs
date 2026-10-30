@@ -168,6 +168,7 @@ fn changes_deck_edit_requests_return_true() {
         json!({ "cmd": "redo" }),
         json!({ "cmd": "save", "path": null }),
         json!({ "cmd": "save_pack" }),
+        json!({ "cmd": "rename_edited_theme", "name": "x" }),
         json!({ "cmd": "merge", "path": "/tmp/x.oku-slides.pdf" }),
         json!({ "cmd": "history_open" }),
         json!({ "cmd": "history_seek", "index": 0 }),

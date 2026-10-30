@@ -1,6 +1,6 @@
 //! What the session offers the agent: slide images, undo turns, surfaces
 //! (forms, variants), context and a tab's session (`Sessions`, `TabSession`,
-//! `PackGate`, `PackOpen`). The MCP tools (`oku-slides-mcp`) and the ACP
+//! `TabGate`, `TabOpen`). The MCP tools (`oku-slides-mcp`) and the ACP
 //! client (`oku-slides-agent`) go through here.
 //! Pasted images: `attachments` (`AttachmentRef`).
 
@@ -32,7 +32,7 @@ pub use oku_slides_a2ui::{PromptImage, ServerMessage, StepStatus, TimelineStep, 
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
-pub use tabs::{PackGate, PackOpen, Sessions, TabSession};
+pub use tabs::{Sessions, TabGate, TabOpen, TabSession};
 pub use turn_view::{TurnState, TurnView};
 
 /// Tours gardés au plus par fil (réducteur des tours, hub, reprise).

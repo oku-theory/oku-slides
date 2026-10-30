@@ -191,7 +191,7 @@ pub enum Request {
         #[serde(default)]
         as_new: bool,
     },
-    /// In a theme tab, renames the edited theme (no undo step).
+    /// In a theme tab, renames the edited theme in one undo step; an empty name takes back the base's name.
     RenameEditedTheme {
         /// New name of the edited theme.
         name: String,
@@ -418,6 +418,7 @@ impl Session {
                     | Request::SetPreviewTheme { .. }
                     | Request::SetEditedThemeExtends { .. }
                     | Request::EditThemeExtends { .. }
+                    | Request::RenameEditedTheme { .. }
                     | Request::HostToken { .. }
                     | Request::DataEdit { .. }
                     | Request::UsePackVersion { .. }
@@ -430,7 +431,6 @@ impl Session {
                     | Request::HistoryOpen
                     | Request::HistorySeek { .. }
                     | Request::HistoryClose
-                    | Request::RenameEditedTheme { .. }
             ),
         );
         // La séance des widgets du mode deck finit à la première autre modification.

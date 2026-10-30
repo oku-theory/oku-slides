@@ -14,8 +14,8 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `choice` : `AgentChoice` (an `Arc`): active agent, `availability` (no program on `PATH`; built-in:
   no app binary, else `local_engine` states; else the link's recent failure), `check`, `switch_to`, `persist`,
   `check_model`/`choose_model` (per preset), `agents_view`, `local_panel`, `start_download` (`model_download`).
-- `tab_entry` : one tab; starts its tools then its agent on the runtime, queues commands until
-  then, and holds the draft (`TabLink`: text and pasted images, `session`). Closing it closes its `SurfaceHub`.
+- `tab_entry` : one tab; `Agent::run` reads its kind, builds that kind's tools then starts its agent, queueing
+  commands until then; holds the draft (`TabLink`: text, pasted images, `session`). Closing it closes its `SurfaceHub`.
 - `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes.
 - `paste` : `paste_image` (base64, `[paste] max_draft_images`, `Session::paste_image`), the draft's images, `resolve_images` (ids of a prompt).
 - `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission requests routed
@@ -32,7 +32,7 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `voice_port` : `AppVoice`, the one writer of dictation and agent choice (`VoicePort`); `agent_switch`
   (`PromptGuard` per prompting tab, deferred switch by epoch); `stt_watch` (400 ms `Stt` fingerprint);
   `voice_refresh` (one panel per revision for every tab's box, `Voice` and `Availability` on change).
-- `instructions` : `instructions/*.md` (English): agent, widgets on a first turn; import on `Tune`.
+- `instructions` : `instructions/*.md` (English): a shared core and one paragraph per tab kind (`for_kind`), then widgets (not in a theme tab), on a first turn; import on `Tune`.
 - `error` (`AgentError`, `Unusable`), `command_error` (`CommandError`): localized; `bin/fake_agent`: scripted ACP agent (`--script`, `--log`), tests only.
 
 ## Flow

@@ -122,12 +122,20 @@ impl Workspace {
         label
     }
 
-    /// Inserts an active tab into a window, at `place`.
+    /// Inserts a tab, made active when `activate` is set, into a window at `place`.
     ///
     /// In `window` (in place of a `Replace` tab or after an `After` one when it
-    /// is there, else at the end), or in a new window if `window` is absent or unknown.
-    pub(super) fn insert_tab(&mut self, window: Option<&str>, id: String, session: Session, place: &TabPlace) {
-        // La fenêtre d'abord : un onglet n'existe jamais sans fenêtre.
+    /// is there, else at the end), or in a new window if `window` is absent or
+    /// unknown. A window without a valid active tab (a new one) always activates it.
+    pub(super) fn insert_tab(
+        &mut self,
+        window: Option<&str>,
+        id: String,
+        session: Session,
+        place: &TabPlace,
+        activate: bool,
+    ) {
+        // The window first: a tab never exists without a window.
         let label = match window.filter(|l| self.window_index(l).is_ok()) {
             Some(label) => label.to_owned(),
             None => self.add_window(),
@@ -135,7 +143,7 @@ impl Workspace {
         self.tabs.insert(id.clone(), Tab::new(session));
         self.bump_layout();
         let win = self.layout.windows.iter_mut().find(|w| w.label == label);
-        debug_assert!(win.is_some(), "la fenêtre vient d'être trouvée ou créée : elle existe toujours ici");
+        debug_assert!(win.is_some(), "the window was just found or created: it always exists here");
         if let Some(win) = win {
             let at = match place {
                 TabPlace::Replace(r) => win.tabs.iter().position(|t| t == r),
@@ -143,8 +151,10 @@ impl Workspace {
                 TabPlace::End => None,
             };
             let at = at.unwrap_or(win.tabs.len());
-            win.tabs.insert(at, id.clone());
-            win.active = id;
+            if activate || !win.tabs.contains(&win.active) {
+                win.active.clone_from(&id);
+            }
+            win.tabs.insert(at, id);
         }
         self.touch(&label);
     }

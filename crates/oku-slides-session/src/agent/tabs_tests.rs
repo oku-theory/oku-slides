@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use rstest::rstest;
 use speculoos::prelude::*;
 
-use super::{PackGate, PackOpen, Sessions, TabSession};
+use super::{Sessions, TabGate, TabOpen, TabSession};
 use crate::test_support::{fresh_dir, session, session_on};
 use crate::test_support_packs::pack_tab_of;
 
@@ -20,8 +20,21 @@ impl Sessions for Closed {
         tab: &str,
         _pack: uuid::Uuid,
         _widget: Option<&str>,
-        _gate: &mut dyn FnMut(PackGate) -> bool,
-    ) -> crate::Result<PackOpen> {
+        _gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> crate::Result<TabOpen> {
+        Err(crate::error::UnknownTabSnafu { id: tab }.build().into())
+    }
+
+    fn open_theme(
+        &self,
+        tab: &str,
+        _theme: uuid::Uuid,
+        _gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> crate::Result<TabOpen> {
+        Err(crate::error::UnknownTabSnafu { id: tab }.build().into())
+    }
+
+    fn document_kind(&self, tab: &str) -> crate::Result<crate::DocumentKind> {
         Err(crate::error::UnknownTabSnafu { id: tab }.build().into())
     }
 }
@@ -65,7 +78,7 @@ fn single_document_host_opens_its_own_pack_widget_here() {
     let s = host.lock().unwrap();
     let here = (s.editing_view().map(|e| e.pack), s.ui.widget.clone());
     assert_that!((opened.map_err(|e| e.kind()), here))
-        .is_equal_to((Ok(PackOpen::Here), (Some(crate::BASE_PACK), Some("card".to_owned()))));
+        .is_equal_to((Ok(TabOpen::Here), (Some(crate::BASE_PACK), Some("card".to_owned()))));
 }
 
 /// A deck session, or a pack tab of another pack, opens no pack tab of its own.
@@ -80,4 +93,21 @@ fn single_document_host_refuses_another_pack(#[case] edited: Option<uuid::Uuid>)
     let editing = host.lock().unwrap().editing_view().map(|e| e.pack);
     assert_that!((opened.map_err(|e| e.kind()), editing))
         .is_equal_to((Err(crate::SessionErrorKind::SingleDocument), edited));
+}
+
+#[test]
+fn single_document_host_refuses_to_open_a_theme() {
+    let host = Mutex::new(session());
+    let opened =
+        host.open_theme("t-1", crate::theme::PAPIER_THEME, &mut |_| panic!("no gate in a single-document host"));
+    assert_that!(opened.map_err(|e| e.kind())).is_equal_to(Err(crate::SessionErrorKind::SingleDocument));
+}
+
+#[test]
+fn single_document_host_opens_its_own_theme_here() {
+    let data = fresh_dir("oku-slides-tabs-");
+    let host = Mutex::new(crate::theme_tab::theme_tab_tests::theme_tab(data.path(), crate::theme::PAPIER_THEME));
+    let opened =
+        host.open_theme("t-1", crate::theme::PAPIER_THEME, &mut |_| panic!("no gate in a single-document host"));
+    assert_that!(opened.map_err(|e| e.kind())).is_equal_to(Ok(TabOpen::Here));
 }

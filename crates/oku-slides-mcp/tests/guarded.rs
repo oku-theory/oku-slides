@@ -2,6 +2,7 @@
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
+use common::other_tabs::start_other_tabs;
 use common::*;
 use oku_slides_mcp::SettingsPort;
 use serde_json::{Value, json};

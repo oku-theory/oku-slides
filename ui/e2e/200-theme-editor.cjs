@@ -1,5 +1,6 @@
-// Theme editor (t-554, t-1156): "Ouvrir" on the theme row of `t-1`'s "Packs du deck" opens Papier in its own
-// theme tab, right after `t-1`, marked `data-kind="theme"`, with Essentiel's specimens in its pile; its parents are
+// Theme editor (t-554, t-1156): first the deck's agent opens Papier in its own tab (`open_theme`, the fake
+// agent's `ouvre le thème` turn, t-1191), an active theme tab, closed again. Then "Ouvrir" on the theme
+// row of `t-1`'s "Packs du deck" opens Papier in its own theme tab, right after `t-1`, marked `data-kind="theme"`, with Essentiel's specimens in its pile; its parents are
 // added, moved and removed (⌘Z included), a changed token shows on the `title` specimen, and "Terminer" closes the
 // tab without a dialog, back on `t-1`, after saving the draft as a variant that extends Papier, without
 // switching the deck's theme. Opening Papier again gives a new theme tab. "Nouveau thème" in the main menu opens
@@ -10,9 +11,10 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, closePacksPanel, openThemeTab } = require('./lib/atelier.cjs');
+const { logOffset, waitForTool } = require('./lib/agentLog.cjs');
 const { post } = require('./lib/http.cjs');
 const { stageSvg } = require('./lib/stage.cjs');
-const { untilValue } = require('./lib/until.cjs');
+const { SLOW, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const SURFACE = '#theme-panel [data-surface-id="host-theme"]';
 // La ligne d'un jeton : le composant qui la porte a pour id le chemin du jeton suivi de `:row`.
@@ -36,6 +38,29 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   await closePackTabs(p);
   const deckBefore = await api(p, 't-1', { cmd: 'snapshot' });
   assert.equal(deckBefore.theme, 'papier', 't-1 ne commence pas sur Papier');
+
+  // The deck's agent opens the theme (open_theme): an active theme tab on Papier, closed before the UI steps.
+  const LOG = process.env.E2E_AGENT_LOG;
+  assert.ok(LOG, 'E2E_AGENT_LOG manquant : lancer par just e2e');
+  const from = logOffset(LOG);
+  const asked = await post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text: 'ouvre le thème', ui: {} });
+  assert.equal(asked.error, undefined, `consigne « ouvre le thème » refusée : ${asked.error}`);
+  await waitForTool(p, from, 'open_theme');
+  const activeThemeTab = async () => {
+    const win = (await view(p)).windows[0];
+    const active = win.tabs.find((t) => t.id === win.active);
+    return active && active.id !== 't-1' && active.document.kind === 'theme' ? active.id : null;
+  };
+  const agentTab = await untilValue(p, activeThemeTab, (t) => t !== null, "l'agent n'ouvre pas d'onglet de thème actif", SLOW);
+  const agentTheme = await api(p, agentTab, { cmd: 'snapshot' });
+  assert.equal(agentTheme.theming?.theme.base.id, deckBefore.theme_pins.papier.id, "l'onglet ouvert par l'agent n'édite pas Papier");
+  // The turn may still stream: wait for its end (the fallback receipt end_turn puts in t-1's thread) before closing.
+  await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
+  await p.reload();
+  const agentTurn = p.locator('.agent-turn', { hasText: 'ouvre le thème' }).last();
+  await agentTurn.locator('.a2ui-receipt .a2ui-title').waitFor({ timeout: SLOW });
+  assert.equal(await agentTurn.locator('.a2ui-receipt .a2ui-title').innerText(), 'Thème ouvert.', "le tour « ouvre le thème » ne finit pas sur son reçu");
+  await closePackTabs(p);
 
   // "Ouvrir" on the theme row: a theme tab right after t-1, of kind theme, named "…, thème".
   const themeTab = await openThemeTab(p, 't-1');

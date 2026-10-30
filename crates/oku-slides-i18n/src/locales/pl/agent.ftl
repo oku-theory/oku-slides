@@ -27,7 +27,8 @@ agent-confirm-open = Otworzyć { $path }?
 agent-open-elsewhere = Ten plik jest już otwarty w innej karcie.
 agent-confirm-new = Rozpocząć nową prezentację?
 agent-confirm-new-dirty = Rozpocząć nową prezentację? Niezapisane zmiany zostaną utracone.
-agent-confirm-save-pack = Zapisać pakiet „{ $name }”?
+agent-confirm-copy-pack = Zapisać kopię pakietu „{ $name }”? Sam pakiet pozostanie bez zmian.
+agent-confirm-copy-edited-theme = Zapisać kopię motywu „{ $name }”? Sam motyw pozostanie bez zmian.
 agent-confirm-delete-pack = Usunąć pakiet „{ $name }”? Tej operacji nie można cofnąć.
 agent-confirm-edit-theme = Zapisać nową wersję motywu „{ $name }”?
 agent-confirm-copy-theme = Utworzyć wariant wbudowanego motywu „{ $name }”? Wbudowany motyw pozostanie bez zmian.
@@ -102,11 +103,18 @@ agent-error-pack-id = To nie jest id pakietu: wywołaj packs, aby wypisać pakie
 agent-error-asset-unknown = Tego obrazu nie ma ani w prezentacji, ani wśród wklejonych obrazów: użyj identyfikatora wklejonego obrazu.
 agent-error-denied = Użytkownik odmówił.
 agent-error-no-turn = Żadna tura nie trwa: { $tool } jest wyświetlany tylko podczas tury.
-agent-error-pack-tab-no-turn = Otwieraj kartę pakietu lub przełączaj się na nią tylko wtedy, gdy odpowiadasz użytkownikowi.
-agent-error-pack-tab-limit = W tej turze karta pakietu została już otwarta; skończ tam albo zapytaj użytkownika, zanim otworzysz kolejną.
-agent-error-continue-in-pack-tab = To żądanie jest kontynuowane w osobnej karcie pakietu: poproś użytkownika, aby tam kontynuował; ta karta na razie nie zmienia żadnego widżetu.
+agent-error-tab-no-turn = Otwieraj kartę pakietu lub motywu i pokazuj ją tylko wtedy, gdy odpowiadasz użytkownikowi.
+agent-error-tab-limit = W tej turze karta pakietu lub motywu została już otwarta lub pokazana; skończ tam albo zapytaj użytkownika, zanim przejdziesz do innej.
+agent-error-continue-in-other-tab = To żądanie jest kontynuowane w karcie, którą otwarto lub pokazano: poproś użytkownika, aby tam kontynuował; ta karta na razie nie zmienia żadnego widżetu.
 agent-error-pack-open-in-tab = Ten pakiet jest edytowany w innej karcie: poproś użytkownika, aby najpierw skończył tam.
-agent-pack-opened-in-tab = Pakiet otworzył się w karcie { $tab }, która ma teraz fokus. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania. Ta karta pozostaje przy swojej prezentacji.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Pakiet otworzył się w karcie { $tab }, która jest teraz wyświetlana.
+  *[no] Pakiet otworzył się w karcie { $tab } w tle: okno użytkownika pokazuje inną kartę.
+} Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania. Ta karta pozostaje bez zmian.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Motyw otworzył się w karcie { $tab }, która jest teraz wyświetlana.
+  *[no] Motyw otworzył się w karcie { $tab } w tle: okno użytkownika pokazuje inną kartę.
+} Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania. Ta karta pozostaje bez zmian.
 agent-error-turn-over = Tura tego wywołania dobiegła końca: nic nie zostało wyświetlone.
 agent-error-no-file = Prezentacja nie ma jeszcze pliku: podaj ścieżkę bezwzględną.
 agent-error-path-relative = Ścieżka musi być bezwzględna.

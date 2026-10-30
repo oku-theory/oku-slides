@@ -57,12 +57,12 @@ pub(crate) enum ToolError {
     HistoryNotOpened { backtrace: Backtrace },
     #[snafu(display("the deck pins no pack"))]
     NoPack { backtrace: Backtrace },
-    #[snafu(display("the turn already opened a pack tab"))]
-    PackTabLimit { backtrace: Backtrace },
-    #[snafu(display("a pack tab opens or takes the focus only during a turn"))]
-    PackTabNoTurn { backtrace: Backtrace },
-    #[snafu(display("this turn continues in the pack's own tab"))]
-    ContinueInPackTab { backtrace: Backtrace },
+    #[snafu(display("the turn already moved to a pack or theme tab"))]
+    TabLimit { backtrace: Backtrace },
+    #[snafu(display("a pack or theme tab opens or takes the focus only during a turn"))]
+    TabNoTurn { backtrace: Backtrace },
+    #[snafu(display("this turn continues in the tab it opened or showed"))]
+    ContinueInOtherTab { backtrace: Backtrace },
     #[snafu(display("history seek needs an index"))]
     HistoryIndex { backtrace: Backtrace },
     #[snafu(display("nothing to present in this mode"))]
@@ -95,11 +95,11 @@ pub(crate) enum ToolError {
 impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
-            Arguments, ContinueInPackTab, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex, HistoryNotOpened,
-            Hub, NoFile, NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange, PackId, PackTabLimit,
-            PackTabNoTurn, PacksDeckMode, Paragraphs, PathParent, PathRelative, Response, RewriteText, Session,
-            Setting, SettingLocked, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale, UnknownTool,
-            Voice,
+            Arguments, ContinueInOtherTab, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex,
+            HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange,
+            PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Response, RewriteText, Session, Setting,
+            SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale,
+            UnknownTool, Voice,
         };
         match self {
             Arguments { source, .. } => {
@@ -125,9 +125,9 @@ impl Localize for ToolError {
             }
             HistoryNotOpened { .. } => l.tr("agent-error-history-not-opened"),
             NoPack { .. } => l.tr("agent-error-no-pack"),
-            PackTabLimit { .. } => l.tr("agent-error-pack-tab-limit"),
-            PackTabNoTurn { .. } => l.tr("agent-error-pack-tab-no-turn"),
-            ContinueInPackTab { .. } => l.tr("agent-error-continue-in-pack-tab"),
+            TabLimit { .. } => l.tr("agent-error-tab-limit"),
+            TabNoTurn { .. } => l.tr("agent-error-tab-no-turn"),
+            ContinueInOtherTab { .. } => l.tr("agent-error-continue-in-other-tab"),
             HistoryIndex { .. } => l.tr("agent-error-history-index"),
             NothingToPresent { .. } => l.tr("agent-error-present"),
             UnknownLocale { .. } => l.tr("agent-error-locale"),

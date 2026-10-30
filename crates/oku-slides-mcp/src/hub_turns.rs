@@ -1,4 +1,4 @@
-//! Tours du fil : numéros, rangement (dans le tour de l'appel), gel, éviction, expiration des suites.
+//! Thread turns: numbers, filing (in the call's turn), freezing, eviction, expiry of follow-ups.
 
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
 use oku_slides_session::agent::{KEPT_TURNS, Surface};
@@ -7,37 +7,57 @@ use uuid::Uuid;
 
 use super::{HubState, McpEvent, Shown, SurfaceHub};
 
-/// What a pack-tab claim answered.
+/// What a tab-move claim answered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Reserve {
     /// The claim is held for this turn.
     Granted,
     /// The call's turn is not the open one, or the hub closed.
     NotThisTurn,
-    /// This turn already claimed another pack.
+    /// This turn already claimed another tab.
     Taken,
 }
 
-/// This turn's claim of one new pack tab.
+/// The tab a turn's one move is about.
+///
+/// A pack and a theme never share a claim, even under one UUID.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PackTabClaim {
+pub(crate) enum TabTarget {
+    /// A pack's tab.
+    Pack(Uuid),
+    /// A theme's tab.
+    Theme(Uuid),
+}
+
+impl std::fmt::Display for TabTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pack(id) => write!(f, "pack {id}"),
+            Self::Theme(id) => write!(f, "theme {id}"),
+        }
+    }
+}
+
+/// This turn's claim of its one tab move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TabClaim {
     /// The turn that claimed it.
     pub(super) turn: u32,
-    /// The pack it opens.
-    pub(super) pack: Uuid,
+    /// The tab it moves to.
+    pub(super) target: TabTarget,
     /// The claims granted on it and not given back.
     pub(super) claims: u32,
 }
 
-/// Ce qui remplace une question du fil une fois répondue (ou annulée).
+/// What replaces a thread question once answered (or cancelled).
 pub type Freeze = Box<dyn FnOnce(&super::Answer) -> Surface + Send>;
 
-/// Quels tours peuvent encore recevoir une surface figée.
+/// Which turns may still receive a frozen surface.
 #[derive(Debug, Clone, Copy)]
 enum Admit {
-    /// Le tour ouvert seulement : surfaces des outils (`render`, `report`).
+    /// The open turn only: the tools' surfaces (`render`, `report`).
     Open,
-    /// Tout tour encore dans le fil : question figée, reçu de repli (le tour vient de finir).
+    /// Any turn still in the thread: a frozen question, a fallback receipt (the turn just ended).
     InThread,
 }
 
@@ -68,11 +88,11 @@ impl SurfaceHub {
         n
     }
 
-    /// Le tour ouvert, `None` entre deux tours : le jeton qu'un appel d'outil prend en arrivant.
+    /// The open turn, `None` between turns: the token a tool call takes when it arrives.
     ///
-    /// Une surface du fil créée par un outil est rangée dans le tour de son appel, jamais dans
-    /// celui qui est ouvert quand elle arrive : `Tools::call` lit ce tour avant tout travail et
-    /// le passe à `show_static`, `show_report`, `ask_then` ou `show_params`.
+    /// A thread surface a tool creates is filed in its call's turn, never in the one open
+    /// when it shows: `Tools::call` reads this turn before any work and passes it to
+    /// `show_static`, `show_report`, `ask_then` or `show_params`.
     pub fn turn(&self) -> Option<u32> {
         self.state().turn
     }
@@ -83,21 +103,21 @@ impl SurfaceHub {
         Self::admits(&self.state(), turn, Admit::Open)
     }
 
-    /// Claims this turn's one new pack tab for `pack`.
+    /// Claims this turn's one tab move, to `target`.
     ///
     /// The decision and the claim are one step under the state lock, so of many concurrent
-    /// claims on distinct packs in one turn exactly one is granted. A claim of a later turn is
-    /// never overwritten; claims on the same pack are counted, so each failed open gives back
+    /// claims on distinct targets in one turn exactly one is granted. A claim of a later turn is
+    /// never overwritten; claims on the same target are counted, so each failed open gives back
     /// its own.
     #[must_use]
-    pub(crate) fn reserve_pack_tab(&self, turn: u32, pack: Uuid) -> Reserve {
+    pub(crate) fn reserve_tab(&self, turn: u32, target: TabTarget) -> Reserve {
         let mut state = self.state();
         if !Self::admits(&state, turn, Admit::Open) {
             return Reserve::NotThisTurn;
         }
-        match &mut state.pack_tab {
+        match &mut state.tab_claim {
             Some(claim) if claim.turn >= turn => {
-                if claim.turn != turn || claim.pack != pack {
+                if claim.turn != turn || claim.target != target {
                     return Reserve::Taken;
                 }
                 match claim.claims.checked_add(1) {
@@ -109,29 +129,29 @@ impl SurfaceHub {
                 }
             }
             slot => {
-                *slot = Some(PackTabClaim { turn, pack, claims: 1 });
+                *slot = Some(TabClaim { turn, target, claims: 1 });
                 Reserve::Granted
             }
         }
     }
 
-    /// Gives back one claim of `pack` in `turn`, if still held.
-    pub(crate) fn release_pack_tab(&self, turn: u32, pack: Uuid) {
+    /// Gives back one claim of `target` in `turn`, if still held.
+    pub(crate) fn release_tab(&self, turn: u32, target: TabTarget) {
         let mut state = self.state();
-        let Some(claim) = state.pack_tab.as_mut().filter(|c| c.turn == turn && c.pack == pack) else {
+        let Some(claim) = state.tab_claim.as_mut().filter(|c| c.turn == turn && c.target == target) else {
             return;
         };
         match claim.claims.checked_sub(1) {
             Some(left) if left > 0 => claim.claims = left,
-            Some(_) => state.pack_tab = None,
+            Some(_) => state.tab_claim = None,
             None => {
-                tracing::warn!(turn, %pack, "pack tab claim released more often than granted");
-                state.pack_tab = None;
+                tracing::warn!(turn, %target, "tab claim released more often than granted");
+                state.tab_claim = None;
             }
         }
     }
 
-    /// Records that `turn`'s `edit_pack` focused another tab.
+    /// Records that `turn` moved to another tab.
     ///
     /// An older turn never replaces a newer one.
     pub(crate) fn note_elsewhere(&self, turn: u32) {
@@ -143,15 +163,15 @@ impl SurfaceHub {
 
     /// True while `turn` must leave its own tab's widgets alone.
     ///
-    /// That is, for the open turn, once it holds a pack tab claim or focused another tab.
+    /// That is, for the open turn, once it holds a tab claim or moved to another tab.
     #[must_use]
     pub(crate) fn writes_elsewhere(&self, turn: u32) -> bool {
         let state = self.state();
         Self::admits(&state, turn, Admit::Open)
-            && (state.pack_tab.is_some_and(|claim| claim.turn == turn) || state.elsewhere == Some(turn))
+            && (state.tab_claim.is_some_and(|claim| claim.turn == turn) || state.elsewhere == Some(turn))
     }
 
-    /// Le tour `turn` peut-il encore recevoir une surface (verrou déjà pris) ?
+    /// Whether turn `turn` may still receive a surface (the lock already taken).
     fn admits(state: &HubState, turn: u32, admit: Admit) -> bool {
         let open = match admit {
             Admit::Open => state.turn == Some(turn),

@@ -249,29 +249,6 @@ async fn theme_tokens_of_an_unknown_theme_says_so_in_the_user_language() {
     assert_that!(text_of(&r)).is_equal_to(expected);
 }
 
-/// Les fichiers de la bibliothèque de packs (les deux sortes) sous `data`, avec leurs octets, triés.
-fn library_files(data: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
-    use oku_slides_session::{Layouts, LibraryKind, Widgets};
-    fn walk(dir: &std::path::Path, out: &mut Vec<(std::path::PathBuf, Vec<u8>)>) {
-        let Ok(entries) = std::fs::read_dir(dir) else { return };
-        for e in entries {
-            let p = e.unwrap_or_else(|e| panic!("{e}")).path();
-            if p.is_dir() {
-                walk(&p, out);
-            } else {
-                let bytes = std::fs::read(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()));
-                out.push((p, bytes));
-            }
-        }
-    }
-    let mut out = Vec::new();
-    for dir in [Widgets::DIR, Layouts::DIR] {
-        walk(&data.join(dir), &mut out);
-    }
-    out.sort();
-    out
-}
-
 /// Un layout minimal, écrit dans le pack de layouts édité.
 const COVER: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("cover", category: "slide", params: (title: p.plain()),
@@ -282,18 +259,18 @@ const COVER: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 async fn deck_pack_tab_of_the_hifi_pack_edits_it_and_never_writes_the_library() {
     let (h, ws, tab, pack) = common::workspace_harness::start_in_deck_pack_tab(ALTO).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let before = library_files(h.data());
+    let before = common::workspace_harness::library_files(h.data());
     let r = call(&c, "set_widget", json!({ "name": "cover", "source": COVER })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     let edit = Workspace::with_session(&ws, &tab, |s| s.snapshot().editing.map(|e| e.mode.clone())).0;
     let edit = edit.unwrap_or_else(|e| panic!("onglet {tab} : {e}")).unwrap_or_else(|| panic!("mode pack attendu"));
     assert_that!((edit.pack, edit.deck_only)).is_equal_to((pack, true));
     assert_that!(edit.session_version.is_some()).is_true();
-    assert_that!(library_files(h.data())).is_equal_to(before);
+    assert_that!(common::workspace_harness::library_files(h.data())).is_equal_to(before);
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn edit_pack_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
+async fn open_pack_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
     let (h, ws) = common::workspace_harness::start_on_imported_workspace(ALTO).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     // Le deck quitte le pack de l'import (hors du runtime : le stockage bloque) : celui de l'import ne
@@ -318,7 +295,7 @@ async fn edit_pack_of_a_hifi_pack_left_in_history_is_refused_as_deck_only() {
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
     h.hub.begin_turn();
-    let r = call(&c, "edit_pack", json!({ "pack": pack.id })).await;
+    let r = call(&c, "open_pack", json!({ "pack": pack.id })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     let expected = h.localizer.tr_with("session-deck-only", &[("id", pack.id.to_string().into())]);
     assert_that!(text_of(&r)).is_equal_to(expected);

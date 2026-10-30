@@ -1,6 +1,6 @@
-//! Ce que l'agent sait à chaque tour : le bloc `<oku-slides-context>`
-//! (mode, langues de l'interface et du deck, thème, slide, sélection, actions
-//! faites sans lui), et les tours d'annulation (un tour = une entrée ⌘Z).
+//! What the agent knows at each turn: the `<oku-slides-context>` block
+//! (kind, interface and deck languages, theme, slide, selection, actions done
+//! without it), and the undo turns (one turn = one ⌘Z entry).
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -11,14 +11,14 @@ use serde_json::Value;
 
 use oku_slides_core::{Namespace, PackPin};
 
-use super::bounds::clip;
+use super::bounds::{clip, label};
 use crate::widgets_edit::parse_name;
 use crate::{Mode, Session};
 
-/// Longueur du début de consigne dans le libellé d'annulation.
+/// Length of the instruction's start in the undo label.
 const LABEL_CHARS: usize = 40;
 
-/// Ce que l'interface montre au moment de la consigne.
+/// What the interface shows when the instruction is given.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct AgentUi {
     /// Id of the displayed slide.
@@ -33,25 +33,25 @@ pub struct AgentUi {
     /// The selected field is being edited in place.
     #[serde(default)]
     pub editing: bool,
-    /// Sous-onglet de widget actif (mode pack).
+    /// The active widget sub-tab (pack mode).
     #[serde(default)]
     pub widget: Option<String>,
-    /// Langue que l'interface affiche : elle change à chaud, la session garde celle du lancement.
+    /// The language the interface shows: it changes live, the session keeps the one it started with.
     #[serde(default)]
     pub locale: Option<String>,
 }
 
-/// Début de la consigne, coupé à 40 caractères (« … » compris), sans caractères invisibles.
+/// The instruction's start, cut at 40 characters ("…" included), without invisible characters.
 pub(crate) fn turn_label(prompt: &str) -> String {
     clip(prompt.trim(), LABEL_CHARS)
 }
 
-/// Longueur d'une étiquette de langue BCP 47, au plus.
+/// The longest BCP 47 language tag quoted.
 const LANG_TAG_MAX: usize = 35;
 
-/// La langue déclarée du deck pour le contexte : entre guillemets, `unset`, ou
-/// `invalid` si ce n'est pas une étiquette de langue (un deck reçu peut porter
-/// n'importe quel texte).
+/// The deck's declared language for the context: quoted, `unset`, or
+/// `invalid` when it is not a language tag (a received deck may carry any
+/// text).
 pub(crate) fn declared_language(lang: Option<&str>) -> String {
     match lang {
         None => "unset".to_owned(),
@@ -64,7 +64,7 @@ pub(crate) fn declared_language(lang: Option<&str>) -> String {
     }
 }
 
-/// Les packs épinglés pour le contexte : `<namespace>=<id>`, séparés par des virgules ; `none` sans pack.
+/// The pinned packs for the context: `<namespace>=<id>`, comma separated; `none` without packs.
 pub(crate) fn widget_packs(pins: &BTreeMap<Namespace, PackPin>) -> String {
     if pins.is_empty() {
         return "none".to_owned();
@@ -73,12 +73,12 @@ pub(crate) fn widget_packs(pins: &BTreeMap<Namespace, PackPin>) -> String {
     packs.join(", ")
 }
 
-/// Essais cités au contexte, au plus.
+/// The most trial values quoted in the context.
 const TRIALS_SHOWN: usize = 10;
-/// Longueur d'une valeur d'essai citée au contexte.
+/// Length of a trial value quoted in the context.
 const TRIAL_CHARS: usize = 80;
 
-/// « (extends A, B) » après le nom d'un thème qui en étend d'autres ; rien sinon.
+/// " (extends A, B)" after the name of a theme that extends others; nothing otherwise.
 fn extends_note(names: &[String]) -> String {
     match names {
         [] => String::new(),
@@ -87,16 +87,32 @@ fn extends_note(names: &[String]) -> String {
 }
 
 impl Session {
-    /// Le nom du thème `ns` que `deck` épingle ; son espace de noms s'il ne se lit pas.
+    /// The name of theme `ns` that `deck` pins; its namespace when it cannot be read.
     fn pinned_theme_name(&self, deck: &oku_slides_core::Deck, ns: &Namespace) -> String {
         let manifest = deck.themes.get(ns).and_then(|pin| self.theme_manifest(pin));
         manifest.map_or_else(|| ns.as_str().to_owned(), |m| m.name)
     }
 
-    /// Ouvre le groupe d'annulation du tour `turn` de l'agent (son numéro dans le fil).
+    /// The `kind` line, then the edited pack's or theme's name and a pack tab's preview theme.
+    fn write_kind_lines(&self, out: &mut String) {
+        let _ = writeln!(out, "kind: {}", self.document_kind().as_str());
+        match &self.mode {
+            Mode::Pack { edit, .. } => {
+                let _ = writeln!(out, "pack: {}", label(&edit.name));
+                let preview = self.doc.sources.deck().theme.as_ref().map_or("none", Namespace::as_str);
+                let _ = writeln!(out, "preview theme: {preview}");
+            }
+            Mode::Theme { edit, .. } => {
+                let _ = writeln!(out, "theme: {}", label(&edit.draft.name));
+            }
+            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => {}
+        }
+    }
+
+    /// Opens the undo group of the agent's turn `turn` (its number in the thread).
     ///
-    /// La séance de widgets du mode deck finit ici et à la fin du tour : une
-    /// séance ne chevauche jamais l'étape d'un tour.
+    /// The deck-mode widget session ends here and at the turn's end: a
+    /// session never straddles a turn's step.
     pub fn begin_turn(&mut self, turn: u32, prompt: &str) {
         self.end_widget_session();
         let label = self.localizer.tr_with("agent-undo-turn", &[("text", turn_label(prompt).into())]);
@@ -120,17 +136,17 @@ impl Session {
         self.pull_links();
     }
 
-    /// Une action faite sans l'agent, qu'il apprendra au prochain tour.
+    /// An action done without the agent, which it learns at the next turn.
     pub fn note(&mut self, text: impl Into<String>) {
         self.agent_notes.push(text.into());
     }
 
-    /// Dossier du document (le `cwd` de la session ACP) ; `None` s'il n'est pas enregistré.
+    /// The document's folder (the ACP session's `cwd`); `None` when it is not saved.
     pub fn document_dir(&self) -> Option<PathBuf> {
         self.doc.path.as_ref().and_then(|p| p.parent()).map(ToOwned::to_owned)
     }
 
-    /// Bloc de contexte joint à la consigne ; vide les notes.
+    /// The context block sent with the instruction; empties the notes.
     pub fn agent_context(&mut self, ui: &AgentUi) -> String {
         let deck = self.doc.sources.deck();
         let mut out = String::from("<oku-slides-context>\n");
@@ -144,6 +160,7 @@ impl Session {
             Mode::Theme { edit, .. } => format!("theme_tab(id={})", edit.draft.base.id),
         };
         let _ = writeln!(out, "mode: {mode}");
+        self.write_kind_lines(&mut out);
         // A theme tab's specimen deck has no theme: the draft stands for it.
         let theme = match &self.mode {
             Mode::Theme { edit, .. } => {
@@ -161,12 +178,12 @@ impl Session {
                 }
             }
         };
-        // La langue affichée par l'interface ; sans elle (ou inconnue), celle de la session.
+        // The language the interface shows; without it (or unknown), the session's.
         let locale = ui.locale.as_deref().and_then(oku_slides_i18n::shipped).unwrap_or(self.localizer.locale());
         let _ = writeln!(
             out,
             "interface language: {} ({locale}) · deck language: {} · {theme} · widget_packs: {}",
-            // `locale` est livrée : son nom existe (`locales!`), le code n'est qu'un secours.
+            // `locale` is shipped: its name exists (`locales!`), the code is only a fallback.
             oku_slides_i18n::english_name(locale).unwrap_or(locale),
             declared_language(deck.params.lang.as_deref()),
             widget_packs(self.deck_pins())
@@ -193,9 +210,9 @@ impl Session {
                 ui.editing
             );
         }
-        // Un nom invalide n'est pas cité : il vient tel quel de l'interface.
+        // An invalid name is not quoted: it comes as is from the interface.
         if let Some(w) = ui.widget.as_deref().and_then(|w| parse_name(w).ok()) {
-            // Ses valeurs d'exemple, celles de `set_widget_trial`.
+            // Its trial values, those of `set_widget_trial`.
             match self.example_values(None, &w).ok().filter(|m| !m.is_empty()) {
                 Some(m) => {
                     let mut shown: Vec<String> = m

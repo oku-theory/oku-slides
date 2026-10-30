@@ -7,21 +7,21 @@ use uuid::Uuid;
 
 use super::main_pack;
 
-/// Des épingles `espace de noms → pack`, l'id du pack tiré de son rang plus `first`.
+/// Pins `namespace → pack`, each pack id its rank plus `first`.
 fn pins(namespaces: &[&str], first: u128) -> BTreeMap<Namespace, PackPin> {
     namespaces
         .iter()
         .enumerate()
         .map(|(i, ns)| {
-            let ns = Namespace::parse(ns).unwrap_or_else(|| panic!("espace de noms : {ns}"));
-            let version = PackVersion::from_hex(&"0".repeat(64)).unwrap_or_else(|| panic!("version de test"));
+            let ns = Namespace::parse(ns).unwrap_or_else(|| panic!("namespace: {ns}"));
+            let version = PackVersion::from_hex(&"0".repeat(64)).unwrap_or_else(|| panic!("test version"));
             (ns, PackPin { id: Uuid::from_u128(first + i as u128), version, requires: Vec::new() })
         })
         .collect()
 }
 
-/// In the interface's order: layouts propres, widgets propres, packs non intégrés (layouts d'abord),
-/// Essentiel, puis `base`. Les ids des widgets partent de 1, ceux des layouts de 11.
+/// In the interface's order: own layouts, own widgets, non-built-in packs (layouts first),
+/// Essentiel, then `base`. Widget ids start at 1, layout ids at 11.
 #[rstest]
 #[case::deck_layouts_first(&["base", "deck", "acme"], &["deck-layouts", "essentiel"], Some(11))]
 #[case::deck_widgets_next(&["acme", "base", "deck"], &["essentiel"], Some(3))]

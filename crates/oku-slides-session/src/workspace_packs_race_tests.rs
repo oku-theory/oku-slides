@@ -7,7 +7,7 @@ use speculoos::prelude::*;
 
 use super::workspace_packs_fixtures::{Packs, outcome, packs, within};
 use super::{Opener, opening_entry, opening_waiters};
-use crate::agent::PackGate;
+use crate::agent::TabGate;
 use crate::pack_lease::PackLease;
 use crate::test_support::{apply_ws, fresh_dir, settings_on};
 use crate::test_support_packs::assert_unleased;
@@ -31,7 +31,7 @@ fn held_open(f: &Packs) -> (mpsc::Receiver<()>, mpsc::Sender<()>, mpsc::Receiver
     let (done, finished) = mpsc::channel();
     std::thread::spawn(move || {
         let mut asked = 0;
-        let mut gate = |_: PackGate| {
+        let mut gate = |_: TabGate| {
             asked += 1;
             let _ = entered_tx.send(());
             let _ = release_rx.recv_timeout(WAIT);
@@ -85,6 +85,8 @@ fn open_pack_twice_with_a_widget_on_two_threads_never_deadlocks() {
 fn open_pack_from_two_decks_at_once_opens_one_pack_tab() {
     let f = packs();
     let b = f.new_tab();
+    // A asks from the shown tab: its new tab is shown (Decision 20).
+    f.activate("t-1");
     let (entered, release, a_done) = held_open(&f);
     entered.recv_timeout(WAIT).expect("A's gate entered");
     let b_done = open_on_a_thread(&f, &b, f.acme);
@@ -130,7 +132,26 @@ fn open_pack_refused_by_a_lagging_pack_tab_focuses_it() {
         asked.push(g);
         true
     });
-    assert_that!((outcome(r), asked)).is_equal_to((format!("Focused({p:?})"), vec![PackGate::NewTab]));
+    assert_that!((outcome(r), asked)).is_equal_to((format!("Focused({p:?})"), vec![TabGate::NewTab, TabGate::Focus]));
+}
+
+/// t-1191 (lot 3 review, bug 1): a granted `NewTab` whose lease is refused asks `Focus` before focusing the holder.
+#[test]
+fn issue_1191_refused_lease_with_focus_refused_activates_nothing() {
+    let f = packs();
+    let p = f.pack_tab();
+    f.activate("t-1");
+    Workspace::lock(&f.ws).tabs.get_mut(&p).unwrap().info.document = TabDocument::Deck { path: None, deck_uid: None };
+    let mut asked = Vec::new();
+    let r = f.open_by_agent("t-1", f.acme, &mut |g| {
+        asked.push(g);
+        g == TabGate::NewTab
+    });
+    assert_that!((outcome(r), asked, f.active(0))).is_equal_to((
+        "Refused".to_owned(),
+        vec![TabGate::NewTab, TabGate::Focus],
+        "t-1".to_owned(),
+    ));
 }
 
 #[test]
@@ -215,7 +236,7 @@ fn open_pack_whose_requesting_tab_closed_during_the_gate_is_refused() {
     f.new_tab();
     let (ws, closing_ws, acme) = (Arc::clone(&f.ws), Arc::clone(&f.ws), f.acme);
     let r = within(move || {
-        let mut gate = |_: PackGate| {
+        let mut gate = |_: TabGate| {
             let ws = Arc::clone(&closing_ws);
             let closed =
                 std::thread::spawn(move || apply_ws(&ws, json!({"cmd": "close", "tab": "t-1", "discard": true})));

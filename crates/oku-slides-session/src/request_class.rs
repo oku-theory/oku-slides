@@ -14,7 +14,8 @@ impl Request {
     ///
     /// `Save` too: a file changed on disk is merged first. History (except
     /// the version list): the deck shown changes. `SavePack` and `SaveTheme`
-    /// too: the library changes, the packs panel rereads it (`prune`).
+    /// too: the library changes, the packs panel rereads it (`prune`). A theme
+    /// tab's draft steps too (extends, rename): the specimen deck takes a step.
     /// Exhaustive on purpose: a new request must say whether it changes the deck.
     /// `SetPreviewTheme` does not: the slides are unchanged (`apply_silent_ops` persists).
     #[must_use]
@@ -31,6 +32,7 @@ impl Request {
             | Self::ShowAs { .. }
             | Self::SetEditedThemeExtends { .. }
             | Self::EditThemeExtends { .. }
+            | Self::RenameEditedTheme { .. }
             | Self::SavePack { .. }
             | Self::SaveTheme { .. }
             | Self::Merge { .. }
@@ -58,7 +60,6 @@ impl Request {
             | Self::DataPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
-            | Self::RenameEditedTheme { .. }
             | Self::DeletePack { .. }
             | Self::SaveCopy { .. }
             | Self::Ui { .. }

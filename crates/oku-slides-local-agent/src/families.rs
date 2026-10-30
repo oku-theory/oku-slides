@@ -63,9 +63,10 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         "present" => &[Present],
         "open" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
         "layouts" => &[Edit, Packs],
-        "packs" | "edit_pack" | "save_pack" | "delete_pack" | "edit_theme" | "theme_tokens" | "widget_source"
-        | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial" | "preview_widget"
-        | "set_theme_extends" => &[Packs],
+        "packs" | "open_pack" | "open_theme" | "save_pack" | "delete_pack" | "edit_theme" | "theme_tokens"
+        | "widget_source" | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial"
+        | "preview_widget" | "set_theme_extends" | "select_item" | "set_preview_theme" | "rename_theme"
+        | "save_theme" => &[Packs],
         "settings" => &[Configure, Troubleshoot],
         "set_setting"
         | "set_interface"

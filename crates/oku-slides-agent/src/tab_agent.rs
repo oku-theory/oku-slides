@@ -16,8 +16,8 @@ use agent_client_protocol::schema::v1::{
 use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::Session;
 use oku_slides_session::agent::{AgentUi, AttachmentRef, TabSession};
+use oku_slides_session::{DocumentKind, Session};
 use tokio::sync::{broadcast, mpsc};
 
 use crate::agent_switch::PromptGuard;
@@ -71,37 +71,41 @@ impl std::fmt::Debug for ToolsAccess {
     }
 }
 
-/// Ce que l'onglet et ses tours partagent.
+/// What a tab and its turns share.
 #[derive(Debug, Clone)]
 pub(crate) struct Ctx {
     pub tab: TabSession,
     pub hub: Arc<SurfaceHub>,
-    /// Langue courante de l'interface, relue à chaque texte.
+    /// The interface's current language, read again for each text.
     pub localizer: LiveLocalizer,
     pub events: broadcast::Sender<AgentEvent>,
     pub keeper: Keeper,
-    /// Compte les requêtes en cours pour la boîte des réglages ; `None` hors de la pile.
+    /// Counts the requests in progress for the settings box; `None` outside the stack.
     pub voice: Option<Arc<AppVoice>>,
-    /// Bornes des images envoyées en blocs image (`[paste] prompt_*`).
+    /// Bounds of the images sent as image blocks (`[paste] prompt_*`).
     pub prompt_limits: PromptImageLimits,
+    /// The tab's document kind, read once when its agent started (its tools are that kind's).
+    pub kind: DocumentKind,
 }
 
-/// De quoi démarrer l'acteur d'un onglet.
+/// What a tab's actor starts from.
 pub(crate) struct ActorParts {
-    /// L'onglet.
+    /// The tab.
     pub tab: TabSession,
-    /// Ses surfaces.
+    /// Its surfaces.
     pub hub: Arc<SurfaceHub>,
-    /// Où joindre ses outils MCP.
+    /// Where to reach its MCP tools.
     pub tools: ToolsAccess,
-    /// La connexion ACP partagée.
+    /// The shared ACP connection.
     pub link: Link,
-    /// La langue courante de l'interface.
+    /// The interface's current language.
     pub localizer: LiveLocalizer,
-    /// Le gardien de ses conversations.
+    /// The keeper of its conversations.
     pub keeper: Keeper,
-    /// Bornes des images envoyées en blocs image.
+    /// Bounds of the images sent as image blocks.
     pub prompt_limits: PromptImageLimits,
+    /// The tab's document kind, the one its tools were built for.
+    pub kind: DocumentKind,
 }
 
 impl Ctx {
@@ -127,7 +131,7 @@ pub struct AgentHandle {
 }
 
 impl AgentHandle {
-    /// Starts the agent of tab `tab` in the current tokio runtime.
+    /// Starts the agent of tab `tab`, a tab of `kind`, in the current tokio runtime.
     ///
     /// The shared agent (`link`) is started on the first prompt. Its conversation
     /// goes through `keeper`. Dropping every clone stops the actor (current turn
@@ -144,20 +148,21 @@ impl AgentHandle {
         localizer: LiveLocalizer,
         keeper: Keeper,
         prompt_limits: PromptImageLimits,
+        kind: DocumentKind,
     ) -> Self {
-        Self::start(ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits }, None)
+        Self::start(ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits, kind }, None)
     }
 
-    /// Comme [`AgentHandle::spawn`] ; chaque requête à l'agent tient une garde de `voice`.
+    /// As [`AgentHandle::spawn`]; each request to the agent holds a guard of `voice`.
     pub(crate) fn spawn_counted(parts: ActorParts, voice: Arc<AppVoice>) -> Self {
         Self::start(parts, Some(voice))
     }
 
     fn start(parts: ActorParts, voice: Option<Arc<AppVoice>>) -> Self {
-        let ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits } = parts;
+        let ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits, kind } = parts;
         let (tx, rx) = mpsc::unbounded_channel();
         let (events, _) = broadcast::channel(256);
-        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, voice, prompt_limits };
+        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, voice, prompt_limits, kind };
         tokio::spawn(TabAgent { ctx, tools, link, live: HashSet::new() }.run(rx));
         Self { tx, events }
     }

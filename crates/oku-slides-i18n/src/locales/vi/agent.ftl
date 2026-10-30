@@ -27,7 +27,8 @@ agent-confirm-open = Mở { $path }?
 agent-open-elsewhere = Tệp này đã được mở trong một thẻ khác.
 agent-confirm-new = Bắt đầu bài trình bày mới?
 agent-confirm-new-dirty = Bắt đầu bài trình bày mới? Các thay đổi chưa lưu sẽ bị mất.
-agent-confirm-save-pack = Lưu gói “{ $name }”?
+agent-confirm-copy-pack = Lưu một bản sao của gói “{ $name }”? Bản thân gói vẫn giữ nguyên.
+agent-confirm-copy-edited-theme = Lưu một bản sao của chủ đề “{ $name }”? Bản thân chủ đề vẫn giữ nguyên.
 agent-confirm-delete-pack = Xóa gói “{ $name }”? Không thể hoàn tác thao tác này.
 agent-confirm-edit-theme = Lưu phiên bản mới của chủ đề “{ $name }”?
 agent-confirm-copy-theme = Tạo một biến thể của chủ đề tích hợp “{ $name }”? Chủ đề tích hợp vẫn giữ nguyên.
@@ -92,11 +93,18 @@ agent-error-pack-id = Đây không phải id của một gói: hãy gọi packs 
 agent-error-asset-unknown = Hình ảnh này không có trong bản trình bày cũng như trong các hình ảnh đã dán: hãy dùng mã định danh của một hình ảnh đã dán.
 agent-error-denied = Người dùng đã từ chối.
 agent-error-no-turn = Không có lượt nào đang diễn ra: { $tool } chỉ được hiển thị trong một lượt.
-agent-error-pack-tab-no-turn = Chỉ mở thẻ gói hoặc chuyển sang thẻ đó khi đang trả lời người dùng.
-agent-error-pack-tab-limit = Bạn đã mở một thẻ gói trong lượt này; hãy hoàn tất ở đó, hoặc hỏi người dùng trước khi mở thẻ khác.
-agent-error-continue-in-pack-tab = Yêu cầu này tiếp tục trong thẻ riêng của gói: hãy bảo người dùng tiếp tục ở đó; thẻ này tạm thời không thay đổi widget nào.
+agent-error-tab-no-turn = Chỉ mở hoặc hiển thị thẻ gói hay thẻ chủ đề khi đang trả lời người dùng.
+agent-error-tab-limit = Bạn đã mở hoặc hiển thị một thẻ gói hay thẻ chủ đề trong lượt này; hãy hoàn tất ở đó, hoặc hỏi người dùng trước khi dùng thẻ khác.
+agent-error-continue-in-other-tab = Yêu cầu này tiếp tục trong thẻ bạn đã mở hoặc hiển thị: hãy bảo người dùng tiếp tục ở đó; thẻ này tạm thời không thay đổi widget nào.
 agent-error-pack-open-in-tab = Gói này đang được chỉnh sửa trong một thẻ khác: hãy bảo người dùng hoàn tất ở đó trước.
-agent-pack-opened-in-tab = Gói đã mở trong thẻ { $tab }, thẻ này giờ đang giữ tiêu điểm. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này. Thẻ này vẫn ở bản trình bày của nó.
+agent-pack-opened-in-tab = { $shown ->
+   [yes] Gói đã mở trong thẻ { $tab }, hiện đang được hiển thị.
+  *[no] Gói đã mở trong thẻ { $tab } ở phía sau: cửa sổ của người dùng đang hiển thị một thẻ khác.
+} Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này. Thẻ này vẫn giữ nguyên.
+agent-theme-opened-in-tab = { $shown ->
+   [yes] Chủ đề đã mở trong thẻ { $tab }, hiện đang được hiển thị.
+  *[no] Chủ đề đã mở trong thẻ { $tab } ở phía sau: cửa sổ của người dùng đang hiển thị một thẻ khác.
+} Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này. Thẻ này vẫn giữ nguyên.
 agent-error-turn-over = Lượt của lệnh gọi này đã kết thúc: không có gì được hiển thị.
 agent-error-no-file = Bản trình bày chưa có tệp: hãy cung cấp đường dẫn tuyệt đối.
 agent-error-path-relative = Đường dẫn phải là đường dẫn tuyệt đối.

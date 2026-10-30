@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use oku_slides_session::agent::bounds::clip;
+use oku_slides_session::agent::bounds::{clip, label};
 use oku_slides_session::{Request, Session, TokenOp, deck_path};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
@@ -33,13 +33,6 @@ pub(crate) struct OpenArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct SavePackArgs {
-    /// Save as a new pack (a copy, with a new id).
-    #[serde(default)]
-    pub as_new: bool,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct EditThemeArgs {
     /// Namespace of the theme (see `deck_outline`), edited in its current version.
     ///
@@ -62,8 +55,8 @@ pub(crate) struct SetSettingArgs {
 }
 
 impl Tools {
-    /// Demande à l'utilisateur, puis exécute `req` ; `Changed` si elle aboutit.
-    async fn guarded(&self, message: String, danger: bool, req: Request) -> CallToolResult {
+    /// Asks the user, then runs `req`; `Changed` if it succeeds.
+    pub(crate) async fn guarded(&self, message: String, danger: bool, req: Request) -> CallToolResult {
         self.guarded_with(message, danger, move |s| s.handle(req).map(|_| ())).await
     }
 
@@ -260,19 +253,14 @@ impl Tools {
         result
     }
 
-    pub(crate) async fn save_pack(&self, args: Value) -> CallToolResult {
-        let SavePackArgs { as_new } = match self.parse(args) {
-            Ok(a) => a,
-            Err(r) => return r,
+    /// Saves a copy of the pack this tab edits, under a new id; the user confirms first.
+    pub(crate) async fn save_pack(&self) -> CallToolResult {
+        let name = match self.with_session(|s| s.edited_pack_name()).await {
+            Ok(name) => name,
+            Err(e) => return self.fail_with(&e),
         };
-        let name = self
-            .with_session(|s| Ok(s.snapshot().editing.map(|e| e.name.clone())))
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-        let message = self.localizer.current().tr_with("agent-confirm-save-pack", &[("name", name.into())]);
-        self.guarded(message, false, Request::SavePack { as_new }).await
+        let message = self.localizer.current().tr_with("agent-confirm-copy-pack", &[("name", label(&name).into())]);
+        self.guarded(message, false, Request::SavePack { as_new: true }).await
     }
 
     pub(crate) async fn delete_pack(&self, args: Value) -> CallToolResult {

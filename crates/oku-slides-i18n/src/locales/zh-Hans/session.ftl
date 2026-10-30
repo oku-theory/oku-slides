@@ -82,6 +82,7 @@ session-token-reason-bad-rule = 分隔线需要宽度、高度和颜色
 session-undo-theme = 更改主题
 session-undo-edited-theme = 更改主题：{ $name }
 session-undo-theme-extends = 更改继承的主题
+session-undo-theme-rename = 重命名主题
 session-help-deck = 无法读取帮助演示文稿
 session-agent-form = 智能体的请求无效：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }个字符，最多 { $max }个

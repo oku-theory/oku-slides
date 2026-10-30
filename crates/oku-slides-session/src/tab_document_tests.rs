@@ -6,6 +6,7 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::TabDocument;
+use crate::DocumentKind;
 
 const PACK: Uuid = Uuid::from_u128(0xa7e11e40_0000_4000_8000_000000000001);
 
@@ -63,4 +64,14 @@ fn deck_pack_tab_document_names_only_its_owner() {
 fn tab_document_unknown_kind_is_an_error() {
     let parsed = serde_json::from_value::<TabDocument>(json!({"kind": "slides", "path": "/x"}));
     assert_that!(parsed).is_err();
+}
+
+#[rstest]
+#[case::deck(TabDocument::Deck { path: None, deck_uid: None }, DocumentKind::Deck)]
+#[case::help(TabDocument::Help { locale: "fr".to_owned() }, DocumentKind::Help)]
+#[case::pack(TabDocument::Pack { pack: Uuid::nil() }, DocumentKind::Pack)]
+#[case::deck_pack(TabDocument::DeckPack { deck_tab: "t-1".to_owned(), pack: Uuid::nil() }, DocumentKind::Pack)]
+#[case::theme(TabDocument::Theme { theme: Uuid::nil() }, DocumentKind::Theme)]
+fn kind_of_each_document_is_its_session_kind(#[case] document: TabDocument, #[case] kind: DocumentKind) {
+    assert_that!(document.kind()).is_equal_to(kind);
 }

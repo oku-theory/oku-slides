@@ -23,7 +23,7 @@ use oku_slides_core::{Deck, Namespace, Op, ThemePin};
 use uuid::Uuid;
 
 use crate::deck_theme_edit::token_deck;
-use crate::error::UnknownThemeSnafu;
+use crate::error::{ThemeVersionMissingSnafu, UnknownThemeSnafu, WrongDocumentSnafu};
 use crate::theme::{ThemeLibrary, ThemeManifest};
 use crate::theme_closure::pin_of;
 use crate::theme_composed::without_unpinned_components;
@@ -261,23 +261,56 @@ impl Session {
         }
     }
 
-    /// Renames the edited theme; an empty name takes back its base's name.
-    ///
-    /// A state change, with no undo step: the name is not in the deck.
+    /// The name of the theme this tab edits, as it will save.
     ///
     /// # Errors
     ///
-    /// Fails outside a theme tab (`WrongDocument`).
+    /// `WrongDocument` outside a theme tab.
+    pub fn edited_theme_name(&self) -> Result<String> {
+        let Mode::Theme { edit, .. } = &self.mode else {
+            return WrongDocumentSnafu { kind: self.document_kind() }.fail()?;
+        };
+        Ok(edit.draft.name.clone())
+    }
+
+    /// Renames the edited theme in one undo step; an empty name takes back its base's name.
+    ///
+    /// Like `set_edited_theme_extends`: the name is not in the deck, so the
+    /// step writes a new rank ([`DRAFT_SWITCH_VAR`]) that undo and redo follow
+    /// (`realign_theme_edit`).
+    ///
+    /// # Errors
+    ///
+    /// Fails outside a theme tab (`WrongDocument`), on an empty name if the base version cannot
+    /// be read (`ThemeVersionMissing`), or if the draft step is refused.
     pub fn rename_edited_theme(&mut self, name: &str) -> Result<()> {
-        self.ensure_theme_tab()?;
+        // Outside a theme tab, `ensure_theme_tab` says why.
+        let Mode::Theme { edit, switches, .. } = &self.mode else { return self.ensure_theme_tab() };
+        let from = edit.draft.clone();
+        let rank = next_switch_rank(self.doc.sources.deck(), switches);
         let name = match name.trim() {
-            "" => self.base_manifest().map(|m| m.name).unwrap_or_default(),
+            "" => {
+                let base = &from.base;
+                let missing = || ThemeVersionMissingSnafu { id: base.id, version: base.version.clone() };
+                self.base_manifest().map(|m| m.name).with_context(missing)?
+            }
             trimmed => trimmed.to_owned(),
         };
-        if let Mode::Theme { edit, .. } = &mut self.mode {
-            edit.draft.name = name;
+        if from.name == name {
+            return Ok(());
         }
-        self.doc.dirty = true;
+        let to = ThemeEdit { name, ..from.clone() };
+        let label = self.localizer.tr("session-undo-theme-rename");
+        // The name changes before the step, which writes the resume state; a failure puts it back.
+        self.set_theme_edit(to.clone());
+        let ops = vec![Op::SetVar { key: DRAFT_SWITCH_VAR.to_owned(), value: Value::from(rank) }];
+        if let Err(e) = self.apply_draft_step(&label, ops) {
+            self.set_theme_edit(from);
+            return Err(e);
+        }
+        if let Mode::Theme { switches, .. } = &mut self.mode {
+            switches.push(ThemeSwitch { rank, from, to });
+        }
         Ok(())
     }
 

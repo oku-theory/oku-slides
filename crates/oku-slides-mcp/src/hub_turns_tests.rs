@@ -5,13 +5,13 @@ use speculoos::prelude::*;
 use uuid::Uuid;
 
 use super::super::tests::hub;
-use super::{PackTabClaim, Reserve};
+use super::{Reserve, TabClaim, TabTarget};
 
 const A: Uuid = Uuid::from_u128(0xa);
 const B: Uuid = Uuid::from_u128(0xb);
 
 #[test]
-fn reserve_pack_tab_grants_one_of_many_concurrent_claims() {
+fn reserve_tab_grants_one_of_many_concurrent_claims() {
     let hub = hub();
     let turn = hub.begin_turn();
     let start = Arc::new(Barrier::new(8));
@@ -20,7 +20,7 @@ fn reserve_pack_tab_grants_one_of_many_concurrent_claims() {
             let (hub, start) = (Arc::clone(&hub), Arc::clone(&start));
             std::thread::spawn(move || {
                 start.wait();
-                hub.reserve_pack_tab(turn, Uuid::from_u128(100 + i))
+                hub.reserve_tab(turn, TabTarget::Pack(Uuid::from_u128(100 + i)))
             })
         })
         .collect::<Vec<_>>()
@@ -32,102 +32,136 @@ fn reserve_pack_tab_grants_one_of_many_concurrent_claims() {
 }
 
 #[test]
-fn reserve_pack_tab_refuses_a_turn_that_is_not_open() {
+fn reserve_tab_refuses_a_turn_that_is_not_open() {
     let hub = hub();
     let open = hub.begin_turn();
-    assert_that!(hub.reserve_pack_tab(open + 1, A)).is_equal_to(Reserve::NotThisTurn);
-    assert_that!(hub.state().pack_tab).is_none();
+    assert_that!(hub.reserve_tab(open + 1, TabTarget::Pack(A))).is_equal_to(Reserve::NotThisTurn);
+    assert_that!(hub.state().tab_claim).is_none();
 }
 
 #[test]
-fn reserve_pack_tab_refuses_a_turn_that_ended() {
+fn reserve_tab_refuses_a_turn_that_ended() {
     let hub = hub();
     let turn = hub.begin_turn();
     hub.end_turn(turn, "");
-    assert_that!(hub.reserve_pack_tab(turn, A)).is_equal_to(Reserve::NotThisTurn);
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::NotThisTurn);
 }
 
 #[test]
-fn reserve_pack_tab_refuses_a_closed_hub() {
+fn reserve_tab_refuses_a_closed_hub() {
     let hub = hub();
     let turn = hub.begin_turn();
     hub.close();
-    assert_that!(hub.reserve_pack_tab(turn, A)).is_equal_to(Reserve::NotThisTurn);
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::NotThisTurn);
 }
 
 #[test]
-fn reserve_pack_tab_grants_the_open_turn_once_per_pack() {
+fn reserve_tab_grants_the_open_turn_once_per_pack() {
     let hub = hub();
     let turn = hub.begin_turn();
-    assert_that!(hub.reserve_pack_tab(turn, A)).is_equal_to(Reserve::Granted);
-    assert_that!(hub.reserve_pack_tab(turn, A)).is_equal_to(Reserve::Granted);
-    assert_that!(hub.reserve_pack_tab(turn, B)).is_equal_to(Reserve::Taken);
-    assert_that!(hub.state().pack_tab).is_equal_to(Some(PackTabClaim { turn, pack: A, claims: 2 }));
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::Granted);
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::Granted);
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(B))).is_equal_to(Reserve::Taken);
+    assert_that!(hub.state().tab_claim).is_equal_to(Some(TabClaim { turn, target: TabTarget::Pack(A), claims: 2 }));
 }
 
 #[test]
-fn reserve_pack_tab_replaces_the_claim_of_an_earlier_turn() {
+fn reserve_tab_replaces_the_claim_of_an_earlier_turn() {
     let hub = hub();
     let first = hub.begin_turn();
-    assert_that!(hub.reserve_pack_tab(first, A)).is_equal_to(Reserve::Granted);
+    assert_that!(hub.reserve_tab(first, TabTarget::Pack(A))).is_equal_to(Reserve::Granted);
     let second = hub.begin_turn();
-    assert_that!(hub.reserve_pack_tab(second, B)).is_equal_to(Reserve::Granted);
-    assert_that!(hub.state().pack_tab).is_equal_to(Some(PackTabClaim { turn: second, pack: B, claims: 1 }));
+    assert_that!(hub.reserve_tab(second, TabTarget::Pack(B))).is_equal_to(Reserve::Granted);
+    assert_that!(hub.state().tab_claim).is_equal_to(Some(TabClaim {
+        turn: second,
+        target: TabTarget::Pack(B),
+        claims: 1,
+    }));
 }
 
 #[test]
-fn reserve_pack_tab_never_overwrites_a_later_turn() {
+fn reserve_tab_never_overwrites_a_later_turn() {
     let hub = hub();
     hub.begin_turn();
     hub.begin_turn();
     let open = hub.begin_turn();
-    let later = PackTabClaim { turn: open + 2, pack: A, claims: 1 };
-    hub.state().pack_tab = Some(later);
-    assert_that!(hub.reserve_pack_tab(open, B)).is_equal_to(Reserve::Taken);
-    assert_that!(hub.reserve_pack_tab(open, A)).is_equal_to(Reserve::Taken);
-    assert_that!(hub.state().pack_tab).is_equal_to(Some(later));
+    let later = TabClaim { turn: open + 2, target: TabTarget::Pack(A), claims: 1 };
+    hub.state().tab_claim = Some(later);
+    assert_that!(hub.reserve_tab(open, TabTarget::Pack(B))).is_equal_to(Reserve::Taken);
+    assert_that!(hub.reserve_tab(open, TabTarget::Pack(A))).is_equal_to(Reserve::Taken);
+    assert_that!(hub.state().tab_claim).is_equal_to(Some(later));
 }
 
 #[test]
-fn reserve_pack_tab_counts_claims_without_overflow() {
+fn reserve_tab_counts_claims_without_overflow() {
     let hub = hub();
     let turn = hub.begin_turn();
-    let full = PackTabClaim { turn, pack: A, claims: u32::MAX };
-    hub.state().pack_tab = Some(full);
-    assert_that!(hub.reserve_pack_tab(turn, A)).is_equal_to(Reserve::Taken);
-    assert_that!(hub.state().pack_tab).is_equal_to(Some(full));
+    let full = TabClaim { turn, target: TabTarget::Pack(A), claims: u32::MAX };
+    hub.state().tab_claim = Some(full);
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::Taken);
+    assert_that!(hub.state().tab_claim).is_equal_to(Some(full));
 }
 
 #[test]
-fn release_pack_tab_keeps_a_claim_still_held() {
+fn release_tab_keeps_a_claim_still_held() {
     let hub = hub();
     let turn = hub.begin_turn();
-    let _ = hub.reserve_pack_tab(turn, A);
-    let _ = hub.reserve_pack_tab(turn, A);
-    hub.release_pack_tab(turn, A);
-    assert_that!(hub.state().pack_tab).is_equal_to(Some(PackTabClaim { turn, pack: A, claims: 1 }));
-    assert_that!(hub.reserve_pack_tab(turn, B)).is_equal_to(Reserve::Taken);
+    let _ = hub.reserve_tab(turn, TabTarget::Pack(A));
+    let _ = hub.reserve_tab(turn, TabTarget::Pack(A));
+    hub.release_tab(turn, TabTarget::Pack(A));
+    assert_that!(hub.state().tab_claim).is_equal_to(Some(TabClaim { turn, target: TabTarget::Pack(A), claims: 1 }));
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(B))).is_equal_to(Reserve::Taken);
 }
 
 #[test]
-fn release_pack_tab_frees_the_turn_once_every_claim_is_given_back() {
+fn release_tab_frees_the_turn_once_every_claim_is_given_back() {
     let hub = hub();
     let turn = hub.begin_turn();
-    let _ = hub.reserve_pack_tab(turn, A);
-    hub.release_pack_tab(turn, A);
-    assert_that!(hub.state().pack_tab).is_none();
-    assert_that!(hub.reserve_pack_tab(turn, B)).is_equal_to(Reserve::Granted);
+    let _ = hub.reserve_tab(turn, TabTarget::Pack(A));
+    hub.release_tab(turn, TabTarget::Pack(A));
+    assert_that!(hub.state().tab_claim).is_none();
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(B))).is_equal_to(Reserve::Granted);
 }
 
 #[rstest]
-#[case::another_pack(1, B)]
-#[case::another_turn(2, A)]
-fn release_pack_tab_ignores_a_claim_that_is_not_the_callers(#[case] turn: u32, #[case] pack: Uuid) {
+#[case::another_pack(1, TabTarget::Pack(B))]
+#[case::another_turn(2, TabTarget::Pack(A))]
+fn release_tab_ignores_a_claim_that_is_not_the_callers(#[case] turn: u32, #[case] target: TabTarget) {
     let hub = hub();
     let _ = hub.begin_turn();
-    let _ = hub.reserve_pack_tab(1, A);
-    hub.release_pack_tab(turn, pack);
-    assert_that!(hub.state().pack_tab).is_equal_to(Some(PackTabClaim { turn: 1, pack: A, claims: 1 }));
+    let _ = hub.reserve_tab(1, TabTarget::Pack(A));
+    hub.release_tab(turn, target);
+    assert_that!(hub.state().tab_claim).is_equal_to(Some(TabClaim { turn: 1, target: TabTarget::Pack(A), claims: 1 }));
+}
+
+const PAPIER: Uuid = Uuid::from_u128(0xfa);
+
+#[test]
+fn reserve_tab_of_a_theme_after_a_pack_in_one_turn_is_taken() {
+    let hub = hub();
+    let turn = hub.begin_turn();
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::Granted);
+    assert_that!(hub.reserve_tab(turn, TabTarget::Theme(PAPIER))).is_equal_to(Reserve::Taken);
+}
+
+#[test]
+fn reserve_tab_of_the_same_target_twice_needs_two_releases() {
+    let hub = hub();
+    let turn = hub.begin_turn();
+    let _ = hub.reserve_tab(turn, TabTarget::Theme(PAPIER));
+    let _ = hub.reserve_tab(turn, TabTarget::Theme(PAPIER));
+    hub.release_tab(turn, TabTarget::Theme(PAPIER));
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::Taken);
+}
+
+#[test]
+fn release_tab_of_a_pack_never_releases_a_theme_claim_of_the_same_uuid() {
+    let hub = hub();
+    let turn = hub.begin_turn();
+    let id = Uuid::from_u128(7);
+    let _ = hub.reserve_tab(turn, TabTarget::Theme(id));
+    hub.release_tab(turn, TabTarget::Pack(id));
+    assert_that!(hub.reserve_tab(turn, TabTarget::Pack(A))).is_equal_to(Reserve::Taken);
 }
 
 #[test]
@@ -157,7 +191,7 @@ fn writes_elsewhere_follows_a_claim_of_the_open_turn() {
     let hub = hub();
     let turn = hub.begin_turn();
     assert_that!(hub.writes_elsewhere(turn)).is_false();
-    let _ = hub.reserve_pack_tab(turn, A);
+    let _ = hub.reserve_tab(turn, TabTarget::Pack(A));
     assert_that!(hub.writes_elsewhere(turn)).is_true();
 }
 
@@ -173,7 +207,7 @@ fn writes_elsewhere_follows_a_focus_of_the_open_turn() {
 fn writes_elsewhere_is_false_for_the_next_turn() {
     let hub = hub();
     let first = hub.begin_turn();
-    let _ = hub.reserve_pack_tab(first, A);
+    let _ = hub.reserve_tab(first, TabTarget::Pack(A));
     hub.note_elsewhere(first);
     let second = hub.begin_turn();
     assert_that!(hub.writes_elsewhere(first)).is_false();
@@ -184,8 +218,8 @@ fn writes_elsewhere_is_false_for_the_next_turn() {
 fn writes_elsewhere_ends_with_the_claim_given_back() {
     let hub = hub();
     let turn = hub.begin_turn();
-    let _ = hub.reserve_pack_tab(turn, A);
-    hub.release_pack_tab(turn, A);
+    let _ = hub.reserve_tab(turn, TabTarget::Pack(A));
+    hub.release_tab(turn, TabTarget::Pack(A));
     assert_that!(hub.writes_elsewhere(turn)).is_false();
 }
 
