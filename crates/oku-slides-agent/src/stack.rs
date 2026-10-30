@@ -8,18 +8,19 @@ use std::time::Duration;
 use oku_slides_i18n::Localize;
 use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{AgentUi, AttachmentRef, Sessions, TabSession};
+use oku_slides_session::agent::{AgentUi, AttachmentRef, Sessions};
 use oku_slides_stt::Stt;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
 use crate::choice::AgentChoice;
 use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu};
+use crate::drafts_port::{Starter, StarterParts};
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
 use crate::shortcut::{THEME_SHORTCUT, matches_shortcut};
 use crate::tab_agent::{Command, Instruction};
-use crate::tab_entry::{Out, TabEntry, TabLink, TabPorts, emit};
+use crate::tab_entry::{Out, TabLink, emit};
 use crate::table::Table;
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, Link};
@@ -178,9 +179,9 @@ const SHUTDOWN_WITHIN: Duration = Duration::from_secs(2);
 #[derive(Debug)]
 pub struct Stack {
     link: Link,
-    sessions: Arc<dyn Sessions>,
+    /// Starts the tabs' entries; its drafts port reaches back to it weakly.
+    starter: Arc<Starter>,
     platform: Platform,
-    settings: Arc<AppSettings>,
     rt: Handle,
     table: Arc<Mutex<Table>>,
     out_tx: mpsc::UnboundedSender<Out>,
@@ -205,13 +206,22 @@ impl Stack {
         let voice = AppVoice::new(stt.clone(), choice.clone(), rt.clone());
         let table = Arc::new(Mutex::new(Table::default()));
         crate::voice_refresh::spawn(&rt, Arc::downgrade(&voice), Arc::downgrade(&table), out_tx.clone());
+        let starter = Starter::new(StarterParts {
+            sessions,
+            platform: platform.clone(),
+            settings: Arc::new(AppSettings::new(platform, stt)),
+            voice: voice.clone(),
+            link: link.clone(),
+            rt: rt.clone(),
+            out_tx: out_tx.clone(),
+            table: table.clone(),
+        });
         Self {
             choice,
             voice,
             link,
-            sessions,
+            starter,
             platform: platform.clone(),
-            settings: Arc::new(AppSettings::new(platform, stt)),
             rt,
             table,
             out_tx,
@@ -283,11 +293,19 @@ impl Stack {
                 }
             }
             AgentCommand::Follow { tab } => {
-                if let Some(t) = self.tab(&tab) {
+                // The lookup and the empty replay share one table lock: a prefill inserts its entry
+                // under it, so its draft event cannot land between them and be overwritten.
+                let link = {
+                    let table = self.table();
+                    let link = table.tabs.get(&tab).map(|e| e.link.clone());
+                    if link.is_none() {
+                        self.replay_closed(&tab);
+                    }
+                    link
+                };
+                if let Some(t) = link {
                     t.replay(&self.out_tx);
                     t.keeper.send(Keep::Show);
-                } else {
-                    self.replay_closed(&tab);
                 }
             }
             AgentCommand::SetDraft { tab, text, origin } => return self.set_draft(&tab, text, origin),
@@ -517,21 +535,10 @@ impl Stack {
         self.table().tabs.get(tab).map(|e| e.link.clone())
     }
 
-    /// L'onglet, démarré s'il n'a pas encore d'agent ; `None` s'il est fermé
-    /// (ou l'app finie), vérifié sous le verrou où il serait inséré.
+    /// The tab, with its entry started if it has none; `None` if closed (or the app over).
+    ///
+    /// Checked under the lock the entry would be inserted under.
     fn open(&self, tab: &str) -> Option<TabLink> {
-        let mut table = self.table();
-        if table.refuses(tab) {
-            return None;
-        }
-        if let Some(e) = table.tabs.get(tab) {
-            return Some(e.link.clone());
-        }
-        let session = TabSession::new(tab, self.sessions.clone());
-        let ports = TabPorts { settings: self.settings.clone(), voice: self.voice.clone() };
-        let entry = TabEntry::start(session, &self.platform, ports, self.link.clone(), &self.rt, self.out_tx.clone());
-        let link = entry.link.clone();
-        table.tabs.insert(tab.to_owned(), entry);
-        Some(link)
+        self.starter.open(tab)
     }
 }

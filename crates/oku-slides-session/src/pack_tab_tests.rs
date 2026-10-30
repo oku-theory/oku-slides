@@ -258,3 +258,17 @@ fn select_item_on_unknown_widget_is_refused() {
     assert_that!(t.select_item("nope").unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownWidget);
     assert_that!(t.ui.widget.clone()).is_none();
 }
+
+#[test]
+fn edited_pack_name_in_a_pack_tab_is_the_pack_name() {
+    let (_data, _deck, _s, t, _) = acme_tab();
+    let snapshot = t.snapshot();
+    let shown = snapshot.editing.as_ref().map(|e| e.mode.name.clone());
+    assert_that!(t.edited_pack_name().ok()).is_equal_to(shown);
+}
+
+#[test]
+fn edited_pack_name_in_a_deck_tab_is_refused() {
+    let (_data, _deck, s, _t, _) = acme_tab();
+    assert_that!(s.edited_pack_name().unwrap_err().kind()).is_equal_to(SessionErrorKind::NotEditingPack);
+}

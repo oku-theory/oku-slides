@@ -6,7 +6,7 @@ use super::*;
 use crate::library::DraftWrite;
 use crate::test_support::{adopt_deck_only_pack, fresh_dir, session_on};
 use crate::test_support_packs::{CARD_V2, draft_of, opener_on, pack_tab_from, scope_of, snapshot_json};
-use crate::{BASE_PACK, Request, SessionErrorKind};
+use crate::{BASE_PACK, ESSENTIEL_PACK, Request, SessionErrorKind};
 
 /// The deck of `s` in a widget session on `acme`: its unfrozen draft.
 fn in_widget_session(s: &mut Session, acme: Uuid) -> PackVersion {
@@ -111,17 +111,118 @@ fn route_pack_of_another_deck_only_pack_from_a_pack_tab_is_in_pack_tab() {
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::InPackTab);
 }
 
+/// A help session on `data` whose deck pins a deck-only pack, as no help deck does: its pin.
+fn help_pinning_a_deck_only_pack(data: &std::path::Path) -> (Session, oku_slides_core::PackPin) {
+    let mut s = session_on(data);
+    let pin = adopt_deck_only_pack(&mut s);
+    let files = s.doc.sources.packs[&pin.version].clone();
+    s.open_help("fr", None).unwrap();
+    s.doc.sources.add_pack(files);
+    let mut deck = s.doc.sources.deck().clone();
+    deck.pins_mut(oku_slides_core::PackKind::Widgets).insert(oku_slides_core::Namespace::deck(), pin.clone());
+    s.doc.sources.apply_silent(deck).unwrap();
+    (s, pin)
+}
+
+/// A help session on `data`.
+fn help_on(data: &std::path::Path) -> Session {
+    let mut s = session_on(data);
+    s.open_help("fr", None).unwrap();
+    s
+}
+
+#[test]
+fn route_pack_of_a_library_pack_from_help_is_tab() {
+    let data = fresh_dir("oku-slides-route-");
+    let mut s = help_on(data.path());
+    let route = s.route_pack(ESSENTIEL_PACK, None).unwrap();
+    assert_that!(matches!(&route, PackRoute::Tab { scope, .. } if *scope == scope_of(&s))).is_true();
+}
+
+#[test]
+fn take_preview_from_help_seeds_a_pack_tab_whose_preview_renders() {
+    let data = fresh_dir("oku-slides-route-");
+    let mut s = help_on(data.path());
+    let seed = s.take_preview(ESSENTIEL_PACK).unwrap();
+    let lease = PackLease::acquire(&scope_of(&s), ESSENTIEL_PACK, "essentiel", "essentiel").unwrap();
+    let mut t = session_on(data.path());
+    t.init_pack_tab(*seed, lease, ESSENTIEL_PACK, None).unwrap();
+    let preview = crate::test_support::preview_of(&t).sources.deck().slides.len();
+    let first = t.deck().slides[0].id.clone();
+    let rendered = !t.svg(&first).unwrap().is_empty();
+    assert_that!((t.is_pack_tab(), preview, rendered)).is_equal_to((true, s.deck().slides.len(), true));
+}
+
+#[test]
+fn take_preview_from_help_changes_nothing_in_help() {
+    let data = fresh_dir("oku-slides-route-");
+    let dir = fresh_dir("oku-slides-route-tab-");
+    let mut s = help_on(data.path());
+    assert_that!(s.resume_fresh(dir.path().to_path_buf())).is_true();
+    s.flush_resume();
+    let (before, state) = (snapshot_json(&s), std::fs::read(dir.path().join("state.json")).unwrap());
+    s.take_preview(ESSENTIEL_PACK).unwrap();
+    s.flush_resume();
+    let after = (snapshot_json(&s), std::fs::read(dir.path().join("state.json")).unwrap());
+    assert_that!(after).is_equal_to((before, state));
+}
+
+/// A pack open `open_pack_from_a_tab_that_opens_none_is_refused` tries.
+#[derive(Debug, Clone, Copy)]
+enum Refused {
+    /// `new_pack`'s check, from help.
+    HelpNewPack,
+    /// A deck-only pack the help deck pins.
+    HelpDeckOnly,
+    /// The preview of that deck-only pack.
+    HelpDeckOnlyPreview,
+    /// A pack the help deck does not pin, nor the library holds.
+    HelpUnknown,
+    /// A library pack, from history.
+    History,
+    /// A library pack, from a theme tab.
+    ThemeTab,
+}
+
 #[rstest]
-#[case::help(true, SessionErrorKind::ReadOnly)]
-#[case::history(false, SessionErrorKind::InHistory)]
-fn route_pack_from_help_or_history_is_refused(#[case] help: bool, #[case] kind: SessionErrorKind) {
-    let mut s = crate::test_support::session();
-    if help {
-        s.open_help("fr", None).unwrap();
-    } else {
-        s.handle(Request::HistoryOpen).unwrap();
-    }
-    assert_that!(s.route_pack(BASE_PACK, None).unwrap_err().kind()).is_equal_to(kind);
+#[case::help_new_pack(Refused::HelpNewPack, SessionErrorKind::ReadOnly)]
+#[case::help_deck_only(Refused::HelpDeckOnly, SessionErrorKind::DeckOnly)]
+#[case::help_deck_only_preview(Refused::HelpDeckOnlyPreview, SessionErrorKind::DeckOnly)]
+#[case::help_unknown(Refused::HelpUnknown, SessionErrorKind::UnknownPack)]
+#[case::history(Refused::History, SessionErrorKind::InHistory)]
+#[case::theme_tab(Refused::ThemeTab, SessionErrorKind::WrongDocument)]
+fn open_pack_from_a_tab_that_opens_none_is_refused(#[case] open: Refused, #[case] kind: SessionErrorKind) {
+    let data = fresh_dir("oku-slides-route-");
+    let err = match open {
+        Refused::HelpNewPack => help_on(data.path()).can_open_pack().unwrap_err(),
+        Refused::HelpDeckOnly => {
+            let (mut s, pin) = help_pinning_a_deck_only_pack(data.path());
+            s.route_pack(pin.id, None).unwrap_err()
+        }
+        Refused::HelpDeckOnlyPreview => {
+            let (mut s, pin) = help_pinning_a_deck_only_pack(data.path());
+            s.take_preview(pin.id).unwrap_err()
+        }
+        Refused::HelpUnknown => help_on(data.path()).route_pack(Uuid::new_v4(), None).unwrap_err(),
+        Refused::History => {
+            let mut s = session_on(data.path());
+            s.handle(Request::HistoryOpen).unwrap();
+            s.route_pack(BASE_PACK, None).unwrap_err()
+        }
+        Refused::ThemeTab => crate::theme_tab::theme_tab_tests::theme_tab(data.path(), crate::theme::PAPIER_THEME)
+            .route_pack(BASE_PACK, None)
+            .unwrap_err(),
+    };
+    assert_that!(err.kind()).is_equal_to(kind);
+}
+
+#[test]
+fn route_pack_of_a_deck_only_pack_from_help_is_refused_in_fr() {
+    let data = fresh_dir("oku-slides-route-");
+    let (mut s, pin) = help_pinning_a_deck_only_pack(data.path());
+    let err = s.route_pack(pin.id, None).unwrap_err();
+    let shown = oku_slides_i18n::Localize::localize(&err, &oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(shown.as_str()).contains("n'appartient qu'à son deck");
 }
 
 /// What `route_pack_of_an_unknown_pack_or_widget_is_refused` opens.

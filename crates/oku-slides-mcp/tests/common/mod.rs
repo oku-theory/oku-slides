@@ -11,8 +11,8 @@ pub mod workspace_harness;
 
 use async_trait::async_trait;
 use oku_slides_mcp::{
-    Applied, Checked, McpEvent, Origin, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools, VoiceApplied,
-    VoiceError, VoiceErrorKind, VoicePort,
+    Applied, Checked, DraftPort, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools,
+    VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
 };
 use oku_slides_session::agent::{Sessions, Surface, TabGate, TabOpen, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
@@ -115,6 +115,29 @@ impl VoicePort for FakeVoice {
     }
 }
 
+/// Draft port of the tests: records each prefill and answers `answer` (`Set` by default).
+#[derive(Debug, Default)]
+pub struct RecordingDrafts {
+    /// `(tab, text)` of each prefill, in order.
+    pub calls: Mutex<Vec<(String, String)>>,
+    /// The answer to the next prefills; `None`: `Set`.
+    pub answer: Mutex<Option<Prefill>>,
+}
+
+impl RecordingDrafts {
+    /// The prefills so far.
+    pub fn calls(&self) -> Vec<(String, String)> {
+        lock(&self.calls).clone()
+    }
+}
+
+impl DraftPort for RecordingDrafts {
+    fn prefill(&self, tab: &str, text: String) -> Prefill {
+        lock(&self.calls).push((tab.to_owned(), text));
+        lock(&self.answer).unwrap_or(Prefill::Set)
+    }
+}
+
 pub struct Harness {
     pub server: ToolServer,
     pub hub: Arc<SurfaceHub>,
@@ -125,6 +148,8 @@ pub struct Harness {
     /// Le même onglet, tel que le voient les outils et le hub.
     pub tab: TabSession,
     pub settings: Arc<MemorySettings>,
+    /// The draft port `open_pack` and `open_theme` pass the request to.
+    pub drafts: Arc<RecordingDrafts>,
     pub cancel: CancellationToken,
     pub localizer: Arc<oku_slides_i18n::Localizer>,
     /// La langue courante de l'interface, à changer à chaud.
@@ -210,11 +235,12 @@ async fn start_with(
     let voice = Arc::new(FakeVoice::new());
     let hub = SurfaceHub::new(tab.clone(), live.clone(), voice.clone());
     let settings = Arc::new(MemorySettings::default());
+    let drafts = Arc::new(RecordingDrafts::default());
     let kind = kinds::kind_of(&tab, &session).await;
-    let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), &platform, kind);
+    let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), drafts.clone(), &platform, kind);
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
-    Harness { server, hub, voice, session, tab, settings, cancel, localizer, live, data }
+    Harness { server, hub, voice, session, tab, settings, drafts, cancel, localizer, live, data }
 }
 
 pub async fn start() -> Harness {

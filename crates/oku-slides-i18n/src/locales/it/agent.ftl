@@ -106,11 +106,23 @@ agent-error-pack-open-in-tab = Questo pacchetto è in modifica in un'altra sched
 agent-pack-opened-in-tab = { $shown ->
    [yes] Il pacchetto si è aperto nella scheda { $tab }, ora mostrata.
   *[no] Il pacchetto si è aperto nella scheda { $tab }, in secondo piano: la finestra dell'utente mostra un'altra scheda.
-} Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta. Questa scheda resta com'è.
+} { $draft ->
+   [set] La richiesta attende nella bozza di quella scheda: di' all'utente di rileggerla lì e poi di inviarla.
+   [kept] La bozza di quella scheda conteneva già qualcosa ed è rimasta invariata. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+   [too_long] La richiesta era troppo lunga per la bozza di quella scheda. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+   [unavailable] La richiesta non ha potuto raggiungere la bozza di quella scheda. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+  *[none] Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+} Questa scheda resta com'è.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Il tema si è aperto nella scheda { $tab }, ora mostrata.
   *[no] Il tema si è aperto nella scheda { $tab }, in secondo piano: la finestra dell'utente mostra un'altra scheda.
-} Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta. Questa scheda resta com'è.
+} { $draft ->
+   [set] La richiesta attende nella bozza di quella scheda: di' all'utente di rileggerla lì e poi di inviarla.
+   [kept] La bozza di quella scheda conteneva già qualcosa ed è rimasta invariata. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+   [too_long] La richiesta era troppo lunga per la bozza di quella scheda. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+   [unavailable] La richiesta non ha potuto raggiungere la bozza di quella scheda. Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+  *[none] Di' all'utente di continuare lì: l'agente di quella scheda non conosce questa richiesta.
+} Questa scheda resta com'è.
 agent-error-turn-over = Il turno di questa chiamata è terminato: non è stato mostrato nulla.
 agent-error-no-file = La presentazione non ha ancora un file: indica un percorso assoluto.
 agent-error-path-relative = Il percorso deve essere assoluto.

@@ -13,7 +13,9 @@ use serde_json::{Value, json};
 use snafu::{OptionExt, ResultExt};
 use tokio_util::sync::CancellationToken;
 
-use crate::engine::{CancelledSnafu, Completion, Engine, EngineError, FailedSnafu, Reply, ScriptExhaustedSnafu, Step};
+use crate::engine::{
+    CancelledSnafu, Completion, Engine, EngineError, FailedSnafu, Message, Reply, ScriptExhaustedSnafu, Step,
+};
 use crate::error::{LocalAgentError, ScriptFormatSnafu, ScriptSnafu};
 
 #[derive(Debug, Deserialize)]
@@ -84,9 +86,14 @@ impl FakeEngine {
     }
 
     /// Prochaine réponse du script et indicateur `hang` du tour, sans verrou conservé ensuite.
-    fn next(&self, step: Step) -> Result<(Reply, bool), EngineError> {
+    fn next(&self, c: &Completion) -> Result<(Reply, bool), EngineError> {
         let mut cur = self.cursor.lock().unwrap_or_else(PoisonError::into_inner);
-        match step {
+        // A turn that skipped the Route step starts at its first Act, whose last message is the request.
+        if c.step == Step::Act && c.offered.len() < 2 && matches!(c.messages.last(), Some(Message::User(_))) {
+            cur.routed += 1;
+            cur.replied = 0;
+        }
+        match c.step {
             Step::Route => {
                 let turn = self.script.turns.get(cur.routed).context(ScriptExhaustedSnafu)?;
                 cur.routed += 1;
@@ -112,7 +119,7 @@ impl FakeEngine {
 impl Engine for FakeEngine {
     async fn complete(&self, c: &Completion, cancel: &CancellationToken) -> Result<Reply, EngineError> {
         self.write_log(c)?;
-        let (reply, hang) = self.next(c.step)?;
+        let (reply, hang) = self.next(c)?;
         if hang {
             cancel.cancelled().await;
             return CancelledSnafu.fail().map_err(Into::into);

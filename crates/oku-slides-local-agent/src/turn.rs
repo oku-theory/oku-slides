@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::compact::{ToolSpec, exposed};
 use crate::engine::{Completion, Engine, EngineError, Message, Reply, Step};
-use crate::families::{Family, parse_route};
+use crate::families::{Family, offered_families, parse_route};
 use crate::prompt::{INSTRUCTIONS, Prompt};
 use crate::tool_error::ToolError;
 
@@ -141,8 +141,10 @@ impl Turn<'_> {
             Some(context) => format!("{context}\n\n{}", self.prompt.request),
             None => self.prompt.request.clone(),
         }));
-        let route = self.route(&messages).await?;
-        self.act(exposed(&all, &route), messages).await
+        let offered = offered_families(all.iter().map(|s| s.name.as_str()));
+        // One family leaves nothing to choose, and an empty grammar rule would not parse.
+        let route = if offered.len() > 1 { self.route(&messages, &offered).await? } else { offered.clone() };
+        self.act(exposed(&all, &route), messages, offered).await
     }
 
     fn check_cancel(&self) -> Result<(), Stop> {
@@ -150,18 +152,19 @@ impl Turn<'_> {
     }
 
     /// Demande une ou deux familles au moteur ; un essai de plus si la réponse n'en nomme aucune.
-    async fn route(&self, messages: &[Message]) -> Result<Vec<Family>, Stop> {
-        let families: Vec<String> = Family::ROUTABLE.iter().map(|f| format!("{}: {}", f.key(), f.summary())).collect();
+    async fn route(&self, messages: &[Message], offered: &[Family]) -> Result<Vec<Family>, Stop> {
+        let families: Vec<String> = offered.iter().map(|f| format!("{}: {}", f.key(), f.summary())).collect();
         let completion = Completion {
             step: Step::Route,
             system: format!("{INSTRUCTIONS}\n{}", families.join("\n")),
             messages: messages.to_vec(),
             tools: vec![],
+            offered: offered.to_vec(),
         };
         for _ in 0..2 {
             self.check_cancel()?;
             if let Reply::Text(text) = self.engine.complete(&completion, self.cancel).await? {
-                let route = parse_route(&text);
+                let route = parse_route(&text, offered);
                 if !route.is_empty() {
                     return Ok(route);
                 }
@@ -171,7 +174,12 @@ impl Turn<'_> {
     }
 
     /// Boucle d'outils : au plus `MAX_CALLS` étapes, finie par un `report` réussi.
-    async fn act(&mut self, tools: Vec<ToolSpec>, mut messages: Vec<Message>) -> Result<(), Stop> {
+    async fn act(
+        &mut self,
+        tools: Vec<ToolSpec>,
+        mut messages: Vec<Message>,
+        offered: Vec<Family>,
+    ) -> Result<(), Stop> {
         let mut repairs = 0;
         for _ in 0..MAX_CALLS {
             self.check_cancel()?;
@@ -180,6 +188,7 @@ impl Turn<'_> {
                 system: INSTRUCTIONS.to_owned(),
                 messages: messages.clone(),
                 tools: tools.clone(),
+                offered: offered.clone(),
             };
             let (name, result) = match self.engine.complete(&completion, self.cancel).await? {
                 Reply::Text(text) => {

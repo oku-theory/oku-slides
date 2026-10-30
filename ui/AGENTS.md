@@ -7,7 +7,7 @@
 - Route every visible UI string and ARIA label through t() with Fluent keys; never hardcode text. (t-44)
 - Ignore quick keys on editable targets, with modifiers, on repeat, during IME composition, or when already handled. (plan:2026-09-26-agent-vocal)
 - Build modals on useModalFrame (sole FOCUSABLE, ARMING_MS), confirmations on the shared ConfirmDialog; confirmations take no Enter or digits and ignore input for 500 ms; window.confirm stays only in Workspace's closeFlowDeps input (ui-confirm-close-writes-pending and its -linked variant, ui-confirm-quit-pack, ui-confirm-quit-theme, ui-confirm-quit-read-only-pack, ui-confirm-quit-read-only-theme, ui-confirm-update-opener), which skip the 500 ms arming, and merge.ts's browser fallbacks, until t-1254. (plan:2026-09-26-agent-vocal, t-692, t-1157, t-1156)
-- Route every agent surface somewhere visible; anything that cannot be placed falls back to the thread. (plan:2026-09-26-agent-vocal)
+- Route every agent surface somewhere visible; anything that cannot be placed falls back to the thread. A theme tab shows its thread and composer below its theme panel, so a host-prefilled draft and its turn's questions show. (plan:2026-09-26-agent-vocal, t-1277)
 - Validate every agent-link message with zod and drop invalid ones without logging; they may hold dictated text. (spec:2026-10-09-agent-detachable-design)
 - Send draft updates one at a time tagged with the view origin, and ignore echoes of the view's own sends. (spec:2026-10-09-agent-detachable-design)
 - Debounce draft typing by 300 ms but send dictation, Send, Discard and open at once; flush it before attaching or closing the agent window. (plan:2026-10-09-agent-detachable, t-701)

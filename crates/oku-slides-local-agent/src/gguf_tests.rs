@@ -64,11 +64,12 @@ async fn gguf_real_model_routes_and_acts() {
         system: route_prompt(),
         messages: vec![Message::User("Make the title bigger".into())],
         tools: vec![],
+        offered: Family::ROUTABLE.to_vec(),
     };
     let reply = engine.complete(&route, &cancel).await.expect("routage");
     eprintln!("route: {reply:?}");
     let Reply::Text(text) = reply else { panic!("le routage rend du texte") };
-    assert_that!(parse_route(&text)).is_not_empty();
+    assert_that!(parse_route(&text, &Family::ROUTABLE)).is_not_empty();
     assert_that!(text.split(", ").all(|k| Family::ROUTABLE.iter().any(|f| f.key() == k))).is_true();
 
     let report = ToolSpec {
@@ -81,6 +82,7 @@ async fn gguf_real_model_routes_and_acts() {
         system: "You are a slide editing assistant. Call the report tool to answer.".into(),
         messages: vec![Message::User("Say hello to the user.".into())],
         tools: vec![report],
+        offered: vec![],
     };
     let reply = engine.complete(&act, &cancel).await.expect("action");
     eprintln!("act: {reply:?}");

@@ -3,7 +3,8 @@
  * panel.
  *
  * The theme panel goes into the notes column (`notes`, App's `aside`), where the tokens replace
- * the agent thread while the tab shows.
+ * the agent thread while the tab shows; the composer (`DictationDraft`) stays below them, so a
+ * request a deck's agent passed here waits in its draft (pack.css).
  */
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";

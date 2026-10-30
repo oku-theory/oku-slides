@@ -29,9 +29,9 @@ no network, and acts only through the MCP tools of the tab (no `fs`, no `termina
 - `mcp` : `McpTools`, the `ToolPort` over one `rust-mcp-sdk` client per session.
 - `tool_error` : `ToolError`: `Rejected` (repairable), `Transport`, `Schema`.
 - `families` : `Family` (edit, present, files, packs, configure, troubleshoot, plus the
-  always-exposed `AskReport`), `families_of(tool)` (the static table; a test checks that every MCP
-  tool has a family), `parse_route` (first two family keys in the reply), `route_grammar` (GBNF
-  for the route step).
+  always-exposed `AskReport`), `families_of(tool)` (static table, every MCP tool has one), `offered_families` (the families the tab's own tools give: tools shared by
+  every kind and spanning several families are ignored; `Configure` always), `parse_route` (first
+  two offered family keys in the reply), `route_grammar` (GBNF over the offered keys).
 - `chatml` : `render`, the hand-written Qwen3 ChatML prompt with its `<tools>` block (llama.cpp
   skips the GGUF template). `reply` : `parse`, model text into `Text`, `Call` or `Invalid`.
 - `compact` : `ToolSpec`, `compact` (first sentence, schema without descriptions), `exposed`
@@ -41,10 +41,10 @@ no network, and acts only through the MCP tools of the tab (no `fs`, no `termina
 ## Flow
 
 Host launches `<app exe> --local-agent` → ACP handshake → one session per tab with its MCP server
-→ prompt → engine routes to 1-2 families → acts with only their compact tools → `report`.
+→ prompt → engine routes to 1-2 offered families (no route step when one or none) → acts with only their compact tools → `report`.
 
 ## Dependencies
 
 `oku-slides-platform` (flag, telemetry), `oku-slides-i18n` (failure titles), `rust-mcp-sdk`, `agent-client-protocol`, `tokio`, `snafu`, `serde`, `serde_json`, `async-trait`, `tokio-util`, `llama-cpp-2` (Apple silicon);
-`oku-slides-mcp` in tests only (tool names).
+`oku-slides-mcp` and `oku-slides-session` (the shared tool set per `DocumentKind`).
 Stdout is the ACP pipe: logs go to stderr.

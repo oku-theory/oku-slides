@@ -199,6 +199,17 @@ fn open_theme_from_a_help_tab_opens_a_theme_tab() {
 }
 
 #[test]
+fn open_theme_unknown_from_a_help_tab_is_refused_and_opens_nothing() {
+    let f = themes();
+    f.send(json!({"cmd": "open_help", "window": "w-1"})).unwrap();
+    let help = f.active();
+    let before = (f.window(), Workspace::lock(&f.ws).layout.next_tab);
+    let err = f.open(&help, Uuid::new_v4()).err().map(|e| e.kind());
+    let after = (f.window(), Workspace::lock(&f.ws).layout.next_tab);
+    assert_that!((err, after)).is_equal_to((Some(SessionErrorKind::UnknownTheme), before));
+}
+
+#[test]
 fn open_theme_of_a_user_theme_names_its_tab_after_it() {
     let f = themes();
     let maison = Uuid::new_v4();
@@ -566,4 +577,6 @@ fn open_theme_for_agent_whose_view_fails_after_insert_reports_opened() {
     };
     let tabs = f.theme_tabs();
     assert_that!(opened).is_equal_to(tabs.first().map(|t| (t.clone(), true)));
+    // The failpoint was hit: a test that never reached it proves nothing.
+    assert_that!(super::super::tabs::FAIL_FINISH_VIEW.load(std::sync::atomic::Ordering::SeqCst)).is_false();
 }

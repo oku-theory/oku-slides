@@ -106,11 +106,23 @@ agent-error-pack-open-in-tab = Dit pakket wordt in een ander tabblad bewerkt: vr
 agent-pack-opened-in-tab = { $shown ->
    [yes] Het pakket is geopend in tabblad { $tab }, dat nu wordt getoond.
   *[no] Het pakket is geopend in tabblad { $tab }, op de achtergrond: het venster van de gebruiker toont een ander tabblad.
-} Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet. Dit tabblad blijft zoals het is.
+} { $draft ->
+   [set] Het verzoek wacht in het concept van dat tabblad: zeg de gebruiker het daar na te lezen en dan te versturen.
+   [kept] Het concept van dat tabblad bevatte al iets en blijft zoals het is. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+   [too_long] Het verzoek was te lang voor het concept van dat tabblad. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+   [unavailable] Het verzoek kon het concept van dat tabblad niet bereiken. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+  *[none] Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+} Dit tabblad blijft zoals het is.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Het thema is geopend in tabblad { $tab }, dat nu wordt getoond.
   *[no] Het thema is geopend in tabblad { $tab }, op de achtergrond: het venster van de gebruiker toont een ander tabblad.
-} Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet. Dit tabblad blijft zoals het is.
+} { $draft ->
+   [set] Het verzoek wacht in het concept van dat tabblad: zeg de gebruiker het daar na te lezen en dan te versturen.
+   [kept] Het concept van dat tabblad bevatte al iets en blijft zoals het is. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+   [too_long] Het verzoek was te lang voor het concept van dat tabblad. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+   [unavailable] Het verzoek kon het concept van dat tabblad niet bereiken. Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+  *[none] Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
+} Dit tabblad blijft zoals het is.
 agent-error-turn-over = De beurt van deze aanroep is voorbij: er is niets getoond.
 agent-error-no-file = De presentatie heeft nog geen bestand: geef een absoluut pad op.
 agent-error-path-relative = Het pad moet absoluut zijn.

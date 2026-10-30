@@ -8,7 +8,7 @@ use super::FakeEngine;
 use crate::engine::{Completion, Engine, Reply, Step};
 
 fn completion(step: Step) -> Completion {
-    Completion { step, system: String::new(), messages: vec![], tools: vec![] }
+    Completion { step, system: String::new(), messages: vec![], tools: vec![], offered: vec![] }
 }
 
 fn engine(script: &serde_json::Value, log: Option<PathBuf>) -> (tempfile::TempDir, FakeEngine) {

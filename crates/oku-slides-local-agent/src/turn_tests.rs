@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use oku_slides_i18n::Localizer;
+use oku_slides_session::DocumentKind;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 use tokio_util::sync::CancellationToken;
@@ -15,6 +16,7 @@ use super::{FailKind, MAX_CALLS, ToolPort, TurnEnd, Updates, run_turn};
 use crate::compact::ToolSpec;
 use crate::engine::{Completion, Engine, EngineError, FailedSnafu, Message, Reply, Step};
 use crate::fake::FakeEngine;
+use crate::families::{Family, families_of};
 use crate::prompt::Prompt;
 use crate::tool_error::ToolError;
 
@@ -28,6 +30,8 @@ struct FakeTools {
     transport_on: Option<String>,
     /// Annule ce jeton pendant le deuxième appel de cet outil.
     cancel_on_fail: Option<(String, CancellationToken)>,
+    /// The listed tools, in place of the default three.
+    listed: Option<Vec<String>>,
     calls: Mutex<Vec<(String, Value)>>,
 }
 
@@ -55,9 +59,10 @@ impl ToolPort for FakeTools {
         if self.list_fails {
             return Err(ToolError::transport_for_test());
         }
-        Ok(["apply", "save", "report"]
-            .iter()
-            .map(|n| ToolSpec { name: (*n).to_owned(), description: format!("{n} tool."), schema: json!({}) })
+        let names = self.listed.clone().unwrap_or_else(|| ["apply", "save", "report"].map(str::to_owned).to_vec());
+        Ok(names
+            .into_iter()
+            .map(|n| ToolSpec { description: format!("{n} tool."), name: n, schema: json!({}) })
             .collect())
     }
 
@@ -182,6 +187,53 @@ async fn run_turn_act_exposes_only_routed_families() {
         std::fs::read_to_string(&log).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
     let act = lines.iter().find(|l| l["step"] == "act").unwrap();
     assert_that!(act["tools"]).is_equal_to(json!(["apply", "report"]));
+}
+
+fn act_tools_of(log: &std::path::Path) -> Vec<Value> {
+    let lines: Vec<Value> =
+        std::fs::read_to_string(log).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    lines.iter().filter(|l| l["step"] == "act").map(|l| l["tools"].clone()).collect()
+}
+
+#[tokio::test]
+async fn run_turn_theme_tab_list_exposes_no_files_tools() {
+    let dir = tempfile::tempdir().unwrap();
+    let log = dir.path().join("engine.log");
+    let engine = engine_with_log(
+        &json!({"turns":[{"route":"files, edit","replies":[{"call":"report","args":{"title":"ok","facts":["f"]}}]}]}),
+        Some(log.clone()),
+    );
+    let tools = FakeTools { listed: Some(oku_slides_mcp::tool_names_for(DocumentKind::Theme)), ..FakeTools::default() };
+    let end = run_turn(&engine, &tools, &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Reported);
+    let exposed: Vec<String> =
+        act_tools_of(&log)[0].as_array().unwrap().iter().map(|t| t.as_str().unwrap().to_owned()).collect();
+    assert_that!(exposed.iter().any(|t| t == "apply")).is_true();
+    let files: Vec<&String> = exposed.iter().filter(|t| families_of(t) == [Family::Files]).collect();
+    assert_that!(files).is_empty();
+}
+
+#[tokio::test]
+async fn run_turn_ends_on_no_route_when_the_reply_names_no_offered_family() {
+    let engine = engine(&json!({"turns":[{"route":"present","replies":[]},{"route":"present","replies":[]}]}));
+    let tools = FakeTools { listed: Some(oku_slides_mcp::tool_names_for(DocumentKind::Pack)), ..FakeTools::default() };
+    let end = run_turn(&engine, &tools, &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Failed(FailKind::NoRoute));
+}
+
+#[tokio::test]
+async fn run_turn_with_one_offered_family_skips_the_route_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let log = dir.path().join("engine.log");
+    let engine = engine_with_log(
+        &json!({"turns":[{"route":"","replies":[{"call":"report","args":{"title":"ok","facts":["f"]}}]}]}),
+        Some(log.clone()),
+    );
+    let tools = FakeTools { listed: Some(vec!["report".to_owned()]), ..FakeTools::default() };
+    let end = run_turn(&engine, &tools, &NoUpdates, &prompt("x"), &[], &CancellationToken::new()).await;
+    assert_that!(end).is_equal_to(TurnEnd::Reported);
+    let text = std::fs::read_to_string(&log).unwrap();
+    assert_that!(text.contains("\"step\":\"route\"")).is_false();
 }
 
 #[tokio::test]

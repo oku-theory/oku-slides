@@ -100,11 +100,23 @@ agent-error-pack-open-in-tab = Bu paket başka bir sekmede düzenleniyor: kullan
 agent-pack-opened-in-tab = { $shown ->
    [yes] Paket { $tab } sekmesinde açıldı ve şimdi gösteriliyor.
   *[no] Paket { $tab } sekmesinde arka planda açıldı: kullanıcının penceresi başka bir sekme gösteriyor.
-} Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor. Bu sekme olduğu gibi kalır.
+} { $draft ->
+   [set] İstek o sekmenin taslağında bekliyor: kullanıcıya orada gözden geçirip sonra göndermesini söyleyin.
+   [kept] O sekmenin taslağında zaten bir şey vardı, olduğu gibi bırakıldı. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+   [too_long] İstek o sekmenin taslağı için fazla uzundu. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+   [unavailable] İstek o sekmenin taslağına ulaştırılamadı. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+  *[none] Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+} Bu sekme olduğu gibi kalır.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Tema { $tab } sekmesinde açıldı ve şimdi gösteriliyor.
   *[no] Tema { $tab } sekmesinde arka planda açıldı: kullanıcının penceresi başka bir sekme gösteriyor.
-} Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor. Bu sekme olduğu gibi kalır.
+} { $draft ->
+   [set] İstek o sekmenin taslağında bekliyor: kullanıcıya orada gözden geçirip sonra göndermesini söyleyin.
+   [kept] O sekmenin taslağında zaten bir şey vardı, olduğu gibi bırakıldı. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+   [too_long] İstek o sekmenin taslağı için fazla uzundu. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+   [unavailable] İstek o sekmenin taslağına ulaştırılamadı. Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+  *[none] Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
+} Bu sekme olduğu gibi kalır.
 agent-error-turn-over = Bu çağrının turu bitti: hiçbir şey gösterilmedi.
 agent-error-no-file = Sunumun henüz bir dosyası yok: mutlak bir yol verin.
 agent-error-path-relative = Yol mutlak olmalıdır.

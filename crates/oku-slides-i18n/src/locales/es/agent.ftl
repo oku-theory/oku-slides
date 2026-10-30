@@ -106,11 +106,23 @@ agent-error-pack-open-in-tab = Este paquete se está editando en otra pestaña: 
 agent-pack-opened-in-tab = { $shown ->
    [yes] El paquete se abrió en la pestaña { $tab }, que ahora se muestra.
   *[no] El paquete se abrió en la pestaña { $tab }, en segundo plano: la ventana del usuario muestra otra pestaña.
-} Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición. Esta pestaña se queda como está.
+} { $draft ->
+   [set] La petición espera en el borrador de esa pestaña: dile al usuario que la revise allí y luego la envíe.
+   [kept] El borrador de esa pestaña ya tenía algo y se conserva tal cual. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+   [too_long] La petición era demasiado larga para el borrador de esa pestaña. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+   [unavailable] La petición no pudo llegar al borrador de esa pestaña. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+  *[none] Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+} Esta pestaña se queda como está.
 agent-theme-opened-in-tab = { $shown ->
    [yes] El tema se abrió en la pestaña { $tab }, que ahora se muestra.
   *[no] El tema se abrió en la pestaña { $tab }, en segundo plano: la ventana del usuario muestra otra pestaña.
-} Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición. Esta pestaña se queda como está.
+} { $draft ->
+   [set] La petición espera en el borrador de esa pestaña: dile al usuario que la revise allí y luego la envíe.
+   [kept] El borrador de esa pestaña ya tenía algo y se conserva tal cual. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+   [too_long] La petición era demasiado larga para el borrador de esa pestaña. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+   [unavailable] La petición no pudo llegar al borrador de esa pestaña. Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+  *[none] Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
+} Esta pestaña se queda como está.
 agent-error-turn-over = El turno de esta llamada ha terminado: no se mostró nada.
 agent-error-no-file = La presentación aún no tiene archivo: indica una ruta absoluta.
 agent-error-path-relative = La ruta debe ser absoluta.

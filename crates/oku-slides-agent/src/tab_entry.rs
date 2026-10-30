@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Instant;
 
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_mcp::{McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools};
+use oku_slides_mcp::{DraftPort, McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools};
 use oku_slides_platform::config::PromptImageLimits;
 use oku_slides_session::agent::{AttachmentRef, TabSession};
 use oku_slides_session::{DocumentKind, Platform};
@@ -90,6 +90,22 @@ impl TabLink {
         emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin, images });
     }
 
+    /// Puts `text` in an empty draft and broadcasts it; returns whether it was set.
+    ///
+    /// A draft holding non-blank text or images is kept as is; a closed one (`None`) counts as
+    /// empty and opens. Takes only the draft lock, once, so the check and the write are one step.
+    pub fn prefill_draft(&self, out: &mpsc::UnboundedSender<Out>, text: String) -> bool {
+        let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        let held = draft.text.as_deref().is_some_and(|t| !t.trim().is_empty()) || !draft.images.is_empty();
+        if held {
+            return false;
+        }
+        draft.text = Some(text.clone());
+        let event = AgentEvent::Draft { text: Some(text), origin: None, images: draft.images.clone() };
+        emit(out, "agent", &self.tab, &event);
+        true
+    }
+
     /// Ajoute une image au brouillon (une fois), en l'ouvrant vide s'il était fermé.
     pub fn add_image(&self, out: &mpsc::UnboundedSender<Out>, image: AttachmentRef) {
         let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
@@ -125,13 +141,15 @@ impl TabLink {
     }
 }
 
-/// Ce que la pile partage avec chaque onglet : réglages, dictée et choix de l'agent.
+/// What the stack shares with each tab: settings, voice and agent choice, and the drafts port.
 #[derive(Debug, Clone)]
 pub(crate) struct TabPorts {
-    /// Les réglages lus et écrits par l'outil `set_setting`.
+    /// The settings `set_setting` reads and writes.
     pub settings: Arc<AppSettings>,
-    /// La dictée et l'agent de l'app : la boîte des réglages et ses gardes.
+    /// The app's dictation and agent: the settings box and its guards.
     pub voice: Arc<AppVoice>,
+    /// Where `open_pack` and `open_theme` pass the user's request: another tab's draft.
+    pub drafts: Arc<dyn DraftPort>,
 }
 
 /// A started tab; dropping it stops its agent and its tools.
@@ -176,6 +194,7 @@ impl TabEntry {
             localizer: platform.live_localizer.clone(),
             keeper: keeper.clone(),
             voice: ports.voice,
+            drafts: ports.drafts,
             prompt_limits: platform.settings.paste.prompt_limits(),
         };
         let relay = Relay {
@@ -312,6 +331,8 @@ struct Agent {
     keeper: Keeper,
     /// Counts the tab's requests for the settings box.
     voice: Arc<AppVoice>,
+    /// The other tabs' drafts, for the tools' `open_pack` and `open_theme`.
+    drafts: Arc<dyn DraftPort>,
     /// Bounds of the images sent to the agent as image blocks.
     prompt_limits: PromptImageLimits,
 }
@@ -369,7 +390,7 @@ impl Agent {
                 return Err(Box::new(|l: &Localizer| l.tr("agent-tools-unavailable")));
             }
         };
-        let tools = Tools::new(self.session.clone(), self.hub.clone(), settings, platform, kind);
+        let tools = Tools::new(self.session.clone(), self.hub.clone(), settings, self.drafts.clone(), platform, kind);
         match ToolServer::start(tools, cancel.clone()).await {
             Ok(server) => Ok((server, kind)),
             Err(e) => {

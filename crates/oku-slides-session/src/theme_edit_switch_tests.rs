@@ -2,6 +2,7 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 use super::theme_edit_tests::{theme_edit, theme_tab_on};
+use crate::test_support::undo_label;
 use crate::theme::{PAPIER_THEME, PRO_THEME};
 
 #[test]
@@ -33,11 +34,6 @@ fn theme_tab_embeds_the_base_version_in_its_sources() {
 fn snapshot_name(s: &crate::Session) -> Option<Value> {
     let snap = serde_json::to_value(s.snapshot()).unwrap();
     snap.pointer("/theming/theme/name").cloned()
-}
-
-/// The label of the step undo would take back.
-fn undo_label(s: &crate::Session) -> Option<String> {
-    s.sources_for_tests().replica().undo_label()
 }
 
 #[test]

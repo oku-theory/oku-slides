@@ -225,3 +225,18 @@ async fn show_params_in_a_theme_tab_is_listed() {
     let names = list_tool_names(&c).await;
     assert_that!(names.contains(&"show_params".to_owned()) && names.contains(&"show_variants".to_owned())).is_true();
 }
+
+/// A theme tab neither lists nor serves the tools that need a deck's widgets or its text (t-1278).
+#[rstest::rstest]
+#[case::widgets("widgets", json!({}))]
+#[case::packs("packs", json!({}))]
+#[case::ask_rewrite("ask_rewrite", json!({ "slide": "s1", "owner": "s1", "field": "title" }))]
+#[tokio::test(flavor = "multi_thread")]
+async fn theme_tab_does_not_serve_the_deck_only_shared_tools(#[case] tool: &str, #[case] args: serde_json::Value) {
+    let h = start_theme_tab(PRO_THEME).await;
+    let c = server(&h).await;
+    assert_that!(list_tool_names(&c).await.contains(&tool.to_owned())).named(tool).is_false();
+    let r = call(&c, tool, args).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(unknown_tool(&h, tool));
+}

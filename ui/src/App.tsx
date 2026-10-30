@@ -447,7 +447,7 @@ export default function App({
       )}
 
       {/* Cartes à droite de la feuille. */}
-      {/* A theme tab: its panel comes in (ThemePanels); the agent thread stays mounted, hidden (pack.css). */}
+      {/* A theme tab: its panel comes in (ThemePanels), then the agent thread, then the composer (pack.css). */}
       <aside ref={setNotes} className={`notes${themeTab ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
         {/* Agent détaché : pas de dock ici, les données sélectionnées se montrent seules. */}
         {agentDetached && data.surface && (

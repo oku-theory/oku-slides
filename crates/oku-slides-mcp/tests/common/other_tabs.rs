@@ -13,7 +13,7 @@ use super::{Harness, lock, prepared, start_with};
 /// `open_tab` records the open, then returns `t-7`.
 ///
 /// An allowed `open_pack` opens `t-7` (or lands `Here` for [`OtherTabs::HERE_PACK`]); an allowed
-/// `open_theme` opens `t-9`.
+/// `open_theme` opens `t-9` (or lands `Here` once [`OtherTabs::theme_here_next`] is set).
 #[derive(Debug)]
 pub struct OtherTabs {
     session: Arc<Mutex<Session>>,
@@ -27,6 +27,8 @@ pub struct OtherTabs {
     pub gate_answers: Mutex<Vec<bool>>,
     /// The next allowed `open_pack` fails after its gate (`UnknownTab`).
     pub fail_next: std::sync::atomic::AtomicBool,
+    /// The next allowed `open_theme` lands `Here`, as an open that found the theme in the requesting tab.
+    pub theme_here_next: std::sync::atomic::AtomicBool,
     /// The next allowed `open_pack` waits here, after its gate, for a message or a drop.
     pub hold: Mutex<Option<std::sync::mpsc::Receiver<()>>>,
     /// A workspace without the tab the pack is opened from: the source of the failure.
@@ -107,6 +109,9 @@ impl Sessions for OtherTabs {
         if !allowed {
             return Ok(TabOpen::Refused);
         }
+        if self.theme_here_next.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            return Ok(TabOpen::Here);
+        }
         lock(&self.opened_themes).push(theme);
         Ok(TabOpen::Opened { tab: "t-9".to_owned(), shown: true })
     }
@@ -134,6 +139,7 @@ pub async fn start_other_tabs() -> (Harness, Arc<OtherTabs>) {
         opened_themes: Mutex::default(),
         gate_answers: Mutex::default(),
         fail_next: std::sync::atomic::AtomicBool::new(false),
+        theme_here_next: std::sync::atomic::AtomicBool::new(false),
         hold: Mutex::default(),
         closed: Mutex::new(closed),
     });

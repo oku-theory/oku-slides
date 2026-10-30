@@ -930,3 +930,17 @@ fn tab_shown_tab_behind_a_newer_one_returns_false() {
     apply_ws(&ws, json!({"cmd": "new_tab", "window": "w-1"})).unwrap();
     assert_that!(Workspace::lock(&ws).tab_shown(&first)).is_false();
 }
+
+/// A tab built for a requester that is gone lands in a fresh window, where it is the active tab.
+#[test]
+fn finish_shown_in_a_fallback_window_reports_the_tab_shown() {
+    use super::tabs::{Activate, Opening};
+    let data = Data::new();
+    let ws = workspace_on(&data.0);
+    let mut pending = Workspace::lock(&ws).pending(None, Opening::Blank, TabPlace::End);
+    pending.activate = Activate::IfShown("t-404".into());
+    let session = pending.build().unwrap();
+    let (_, id, shown) = Workspace::finish_shown(&ws, pending, session).unwrap();
+    assert_that!(Workspace::lock(&ws).tab_shown(&id)).is_true();
+    assert_that!(shown).is_true();
+}

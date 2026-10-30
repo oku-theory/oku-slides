@@ -79,6 +79,13 @@ fn deck_instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &s
     assert_that!(for_kind(DocumentKind::Deck)).contains(listed);
 }
 
+/// A deck's agent passes the user's request to the opened tab, where it waits as a draft (t-1277).
+#[test]
+fn deck_instructions_pass_the_request_to_the_opened_tab_draft() {
+    assert_that!(for_kind(DocumentKind::Deck))
+        .contains("as their request argument: it waits in that tab's draft for the user to review and send");
+}
+
 /// The interface and dictation tools are in every kind's core.
 #[rstest]
 #[case("`set_interface` (scheme, locale, guides)")]
@@ -139,8 +146,10 @@ fn theme_instructions_hold_no_element_or_pasted_image_text() {
 }
 
 #[test]
-fn deck_instructions_say_a_help_tab_cannot_open_a_pack() {
-    assert_that!(for_kind(DocumentKind::Deck)).contains("from a deck tab, not a help tab");
+fn deck_instructions_say_a_help_tab_opens_library_packs_only() {
+    let deck = for_kind(DocumentKind::Deck);
+    assert_that!(deck).contains("A help tab is read-only: its `open_pack` opens a library pack");
+    assert_that!(deck).does_not_contain("not a help tab");
 }
 
 #[rstest]
@@ -176,9 +185,8 @@ const USER_FACING: [&str; 6] = [
     "labels of show_variants",
 ];
 
-const DECK_CONTENT: [&str; 5] = [
+const DECK_CONTENT: [&str; 4] = [
     "set_param values",
-    "the rewordings of ask_rewrite",
     "ask_choice options that are candidate deck text",
     "the values a show_params field writes",
     "new slides",
@@ -202,6 +210,21 @@ fn languages_rule_puts_deck_content_in_the_deck_language_sentence_only() {
         asserting(part).that(&deck.contains(part)).is_true();
         asserting(part).that(&interface.contains(part)).is_false();
     }
+}
+
+/// `ask_rewrite` is not listed for a theme tab: the deck and pack texts carry its language rule (t-1278).
+#[rstest]
+#[case::deck(DocumentKind::Deck)]
+#[case::help(DocumentKind::Help)]
+#[case::pack(DocumentKind::Pack)]
+fn ask_rewrite_rule_is_in_the_kind_text_and_not_in_the_shared_core(#[case] kind: DocumentKind) {
+    assert_that!(for_kind(kind)).contains("`ask_rewrite` proposes 2-3 rewordings in the deck language");
+    assert_that!(INSTRUCTIONS).does_not_contain("ask_rewrite");
+}
+
+#[test]
+fn ask_rewrite_is_absent_from_the_theme_text() {
+    assert_that!(for_kind(DocumentKind::Theme)).does_not_contain("ask_rewrite");
 }
 
 #[test]

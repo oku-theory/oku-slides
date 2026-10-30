@@ -142,8 +142,12 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .widget-pane > .widget-tab { flex: 1; }
 .add-button[hidden], .tools-sep[hidden] { display: none; }
 
-/* A theme tab: the tokens in the right column; the agent thread stays mounted there, hidden. */
-.notes.theme-active > :not(.theme-panel) { display: none; }
+/* A theme tab: the tokens in the right column, then the agent thread (receipt, progress, live
+   questions of a turn sent from the composer), then the composer (its draft), kept in view. */
+.notes.theme-active > :not(.theme-panel):not(.draft):not(.agent-thread) { display: none; }
+.notes.theme-active > .theme-panel { flex: none; }
+.notes.theme-active > .agent-thread { order: 1; flex: none; }
+.notes.theme-active > .draft { order: 2; position: sticky; bottom: 0; }
 .theme-panel { display: flex; flex-direction: column; gap: var(--space-4); min-height: 0; padding-bottom: var(--space-6); }
 .theme-panel-head {
   display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4);

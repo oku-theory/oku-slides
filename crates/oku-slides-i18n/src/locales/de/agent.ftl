@@ -106,11 +106,23 @@ agent-error-pack-open-in-tab = Dieses Paket wird in einem anderen Tab bearbeitet
 agent-pack-opened-in-tab = { $shown ->
    [yes] Das Paket hat sich im Tab { $tab } geöffnet, der jetzt angezeigt wird.
   *[no] Das Paket hat sich im Tab { $tab } im Hintergrund geöffnet: Das Fenster des Nutzers zeigt einen anderen Tab.
-} Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht. Dieser Tab bleibt, wie er ist.
+} { $draft ->
+   [set] Die Anfrage wartet im Entwurf dieses Tabs: Sag dem Nutzer, sie dort zu prüfen und dann zu senden.
+   [kept] Der Entwurf dieses Tabs enthielt schon etwas und bleibt unverändert. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+   [too_long] Die Anfrage war zu lang für den Entwurf dieses Tabs. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+   [unavailable] Die Anfrage konnte den Entwurf dieses Tabs nicht erreichen. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+  *[none] Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+} Dieser Tab bleibt, wie er ist.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Das Design hat sich im Tab { $tab } geöffnet, der jetzt angezeigt wird.
   *[no] Das Design hat sich im Tab { $tab } im Hintergrund geöffnet: Das Fenster des Nutzers zeigt einen anderen Tab.
-} Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht. Dieser Tab bleibt, wie er ist.
+} { $draft ->
+   [set] Die Anfrage wartet im Entwurf dieses Tabs: Sag dem Nutzer, sie dort zu prüfen und dann zu senden.
+   [kept] Der Entwurf dieses Tabs enthielt schon etwas und bleibt unverändert. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+   [too_long] Die Anfrage war zu lang für den Entwurf dieses Tabs. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+   [unavailable] Die Anfrage konnte den Entwurf dieses Tabs nicht erreichen. Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+  *[none] Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
+} Dieser Tab bleibt, wie er ist.
 agent-error-turn-over = Der Durchgang dieses Aufrufs ist vorbei: Es wurde nichts angezeigt.
 agent-error-no-file = Die Präsentation hat noch keine Datei: Gib einen absoluten Pfad an.
 agent-error-path-relative = Der Pfad muss absolut sein.

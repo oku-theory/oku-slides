@@ -100,11 +100,23 @@ agent-error-pack-open-in-tab = Gói này đang được chỉnh sửa trong mộ
 agent-pack-opened-in-tab = { $shown ->
    [yes] Gói đã mở trong thẻ { $tab }, hiện đang được hiển thị.
   *[no] Gói đã mở trong thẻ { $tab } ở phía sau: cửa sổ của người dùng đang hiển thị một thẻ khác.
-} Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này. Thẻ này vẫn giữ nguyên.
+} { $draft ->
+   [set] Yêu cầu đang chờ trong bản nháp của thẻ đó: hãy bảo người dùng xem lại ở đó rồi gửi đi.
+   [kept] Bản nháp của thẻ đó đã có nội dung nên được giữ nguyên. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+   [too_long] Yêu cầu quá dài so với bản nháp của thẻ đó. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+   [unavailable] Không thể chuyển yêu cầu vào bản nháp của thẻ đó. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+  *[none] Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+} Thẻ này vẫn giữ nguyên.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Chủ đề đã mở trong thẻ { $tab }, hiện đang được hiển thị.
   *[no] Chủ đề đã mở trong thẻ { $tab } ở phía sau: cửa sổ của người dùng đang hiển thị một thẻ khác.
-} Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này. Thẻ này vẫn giữ nguyên.
+} { $draft ->
+   [set] Yêu cầu đang chờ trong bản nháp của thẻ đó: hãy bảo người dùng xem lại ở đó rồi gửi đi.
+   [kept] Bản nháp của thẻ đó đã có nội dung nên được giữ nguyên. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+   [too_long] Yêu cầu quá dài so với bản nháp của thẻ đó. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+   [unavailable] Không thể chuyển yêu cầu vào bản nháp của thẻ đó. Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+  *[none] Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
+} Thẻ này vẫn giữ nguyên.
 agent-error-turn-over = Lượt của lệnh gọi này đã kết thúc: không có gì được hiển thị.
 agent-error-no-file = Bản trình bày chưa có tệp: hãy cung cấp đường dẫn tuyệt đối.
 agent-error-path-relative = Đường dẫn phải là đường dẫn tuyệt đối.

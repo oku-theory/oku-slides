@@ -284,7 +284,7 @@ impl Session {
                 self.mode = pack_mode;
                 return InPackTabSnafu.fail()?;
             }
-            // L'aide est en lecture seule (`ensure_editable` refuse avant d'arriver ici).
+            // Help is read-only: `ensure_editable` refuses before here; its packs open in their own tab.
             help @ Mode::Help { .. } => {
                 self.mode = help;
                 return ReadOnlySnafu.fail()?;

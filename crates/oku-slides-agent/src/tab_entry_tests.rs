@@ -4,7 +4,7 @@ use std::time::Duration;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_mcp::McpEvent;
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::agent::{AgentUi, Sessions, TabSession};
+use oku_slides_session::agent::{AgentUi, AttachmentRef, Sessions, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings, Workspace};
 use serde::ser::{Error as _, Serialize, Serializer};
 use speculoos::prelude::*;
@@ -102,6 +102,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         localizer: localizer.clone(),
         keeper: keeper.clone(),
         voice,
+        drafts: Arc::new(oku_slides_mcp::NoDrafts),
         prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
     };
     let (out, mut sent) = mpsc::unbounded_channel();
@@ -130,7 +131,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     tokio::task::spawn_blocking(move || drop((platform, hub))).await.unwrap();
 }
 
-/// A platform in French and a tab `t-1` of a workspace that has no such tab (closed on the host side).
+/// A platform in French and a tab `t-404` of a workspace that has no such tab (closed on the host side).
 async fn closed_tab(data: std::path::PathBuf) -> (Platform, TabSession) {
     // Storage blocks: off the runtime's thread.
     tokio::task::spawn_blocking(move || {
@@ -149,7 +150,7 @@ async fn closed_tab(data: std::path::PathBuf) -> (Platform, TabSession) {
 
 /// A tab gone before its agent starts has no kind: each prompt answers that, and no agent launches.
 #[tokio::test]
-async fn agent_run_on_a_closed_tab_answers_tools_unavailable() {
+async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
     let dir = tempfile::Builder::new().prefix("oku-slides-tab-entry-").tempdir().unwrap();
     let (platform, tab) = closed_tab(dir.path().to_owned()).await;
     let expected = {
@@ -176,6 +177,7 @@ async fn agent_run_on_a_closed_tab_answers_tools_unavailable() {
         localizer: localizer.clone(),
         keeper: keeper.clone(),
         voice,
+        drafts: Arc::new(oku_slides_mcp::NoDrafts),
         prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
     };
     let (out, _sent) = mpsc::unbounded_channel();
@@ -215,4 +217,114 @@ async fn agent_run_on_a_closed_tab_answers_tools_unavailable() {
     assert_that!(launched.exists()).is_false();
     // Storage holds a blocking runtime: drop it off the test runtime's thread.
     tokio::task::spawn_blocking(move || drop((platform, hub))).await.unwrap();
+}
+
+// --- the host's prefill of a draft (t-1277) ----------------------------------------------------
+
+/// A tab link of a closed tab `t-404`, with `draft` as its draft, and its data dir.
+async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::TempDir) {
+    let dir = tempfile::Builder::new().prefix("oku-slides-tab-entry-").tempdir().unwrap();
+    let (platform, tab) = closed_tab(dir.path().to_owned()).await;
+    let link = Link::new(Launch {
+        command: "true".into(),
+        args: Vec::new(),
+        env: Vec::new(),
+        fallback_cwd: dir.path().to_owned(),
+        ready_within: Duration::from_secs(5),
+    });
+    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link)), Handle::current());
+    let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice);
+    let keeper = Keeper::spawn(tab.clone(), hub.clone());
+    let (cmds, _rx) = mpsc::unbounded_channel();
+    let link = super::TabLink {
+        tab: "t-404".into(),
+        hub,
+        keeper,
+        cmds,
+        status: Arc::new(Mutex::new(AgentState::Idle)),
+        draft: Arc::new(Mutex::new(draft)),
+        session: tab,
+        paste: Arc::default(),
+    };
+    (link, platform, dir)
+}
+
+fn text_draft(text: Option<&str>) -> super::Draft {
+    super::Draft { text: text.map(str::to_owned), images: Vec::new() }
+}
+
+/// The draft events sent on `rx` so far, as JSON.
+fn drafts_sent(rx: &mut mpsc::UnboundedReceiver<super::Out>) -> Vec<serde_json::Value> {
+    std::iter::from_fn(|| rx.try_recv().ok())
+        .map(|(_, json)| serde_json::from_str::<serde_json::Value>(&json).unwrap()["event"].clone())
+        .filter(|e| e["kind"] == "draft")
+        .collect()
+}
+
+/// Drops what holds the storage's blocking runtime off the test runtime's thread.
+async fn drop_off_runtime(link: super::TabLink, platform: Platform) {
+    tokio::task::spawn_blocking(move || drop((link, platform))).await.unwrap();
+}
+
+#[rstest::rstest]
+#[case::closed(None)]
+#[case::empty(Some(""))]
+#[case::blank(Some(" \n "))]
+#[tokio::test(flavor = "multi_thread")]
+async fn prefill_draft_on_an_empty_draft_sets_it_and_emits_it_without_origin(#[case] text: Option<&str>) {
+    let (link, platform, _dir) = link_with(text_draft(text)).await;
+    let (out, mut rx) = mpsc::unbounded_channel();
+    assert_that!(link.prefill_draft(&out, "Passe les titres en bleu.".into())).is_true();
+    let expected =
+        serde_json::json!({ "kind": "draft", "text": "Passe les titres en bleu.", "origin": null, "images": [] });
+    assert_that!(drafts_sent(&mut rx)).is_equal_to(vec![expected]);
+    drop_off_runtime(link, platform).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prefill_draft_on_a_non_blank_draft_keeps_it_and_emits_nothing() {
+    let (link, platform, _dir) = link_with(text_draft(Some("à moi"))).await;
+    let (out, mut rx) = mpsc::unbounded_channel();
+    assert_that!(link.prefill_draft(&out, "écrasé ?".into())).is_false();
+    assert_that!(drafts_sent(&mut rx)).is_empty();
+    assert_that!(link.draft.lock().unwrap().text.clone()).is_equal_to(Some("à moi".to_owned()));
+    drop_off_runtime(link, platform).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prefill_draft_on_a_draft_holding_only_images_keeps_it() {
+    let image = AttachmentRef { id: "sha256:00".into(), mime: "image/png".into(), width: 1, height: 1 };
+    let (link, platform, _dir) = link_with(super::Draft { text: Some(String::new()), images: vec![image] }).await;
+    let (out, mut rx) = mpsc::unbounded_channel();
+    assert_that!(link.prefill_draft(&out, "écrasé ?".into())).is_false();
+    assert_that!(drafts_sent(&mut rx)).is_empty();
+    drop_off_runtime(link, platform).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prefill_draft_twice_at_once_leaves_exactly_one_winner() {
+    let (link, platform, _dir) = link_with(text_draft(None)).await;
+    let (out, mut rx) = mpsc::unbounded_channel();
+    let won = tokio::task::block_in_place(|| {
+        std::thread::scope(|s| {
+            let a = s.spawn(|| link.prefill_draft(&out, "a".into()));
+            let b = s.spawn(|| link.prefill_draft(&out, "b".into()));
+            [a.join().unwrap(), b.join().unwrap()]
+        })
+    });
+    assert_that!(won.iter().filter(|w| **w).count()).is_equal_to(1);
+    assert_that!(drafts_sent(&mut rx).len()).is_equal_to(1);
+    drop_off_runtime(link, platform).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_draft_after_a_prefill_wins() {
+    let (link, platform, _dir) = link_with(text_draft(None)).await;
+    let (out, mut rx) = mpsc::unbounded_channel();
+    link.prefill_draft(&out, "de l'agent".into());
+    link.set_draft(&out, Some("de l'utilisateur".into()), Some("v-1".into()));
+    link.replay(&out);
+    let last = drafts_sent(&mut rx).pop().unwrap();
+    assert_that!(last["text"].clone()).is_equal_to(serde_json::json!("de l'utilisateur"));
+    drop_off_runtime(link, platform).await;
 }

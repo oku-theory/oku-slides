@@ -1,5 +1,6 @@
 // Theme editor (t-554, t-1156): first the deck's agent opens Papier in its own tab (`open_theme`, the fake
-// agent's `ouvre le thème` turn, t-1191), an active theme tab, closed again. Then "Ouvrir" on the theme
+// agent's `ouvre le thème avec une demande` turn, t-1191), an active theme tab whose composer holds the passed
+// request as a draft after a reload, and no prompt was sent for it (t-1277); closed again. Then "Ouvrir" on the theme
 // row of `t-1`'s "Packs du deck" opens Papier in its own theme tab, right after `t-1`, marked `data-kind="theme"`, with Essentiel's specimens in its pile; its parents are
 // added, moved and removed (⌘Z included), a changed token shows on the `title` specimen, and "Terminer" closes the
 // tab without a dialog, back on `t-1`, after saving the draft as a variant that extends Papier, without
@@ -11,7 +12,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, closePacksPanel, openThemeTab } = require('./lib/atelier.cjs');
-const { logOffset, waitForTool } = require('./lib/agentLog.cjs');
+const { logOffset, logSince, waitForTool } = require('./lib/agentLog.cjs');
 const { post } = require('./lib/http.cjs');
 const { stageSvg } = require('./lib/stage.cjs');
 const { SLOW, untilValue } = require('./lib/until.cjs');
@@ -43,8 +44,8 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   const LOG = process.env.E2E_AGENT_LOG;
   assert.ok(LOG, 'E2E_AGENT_LOG manquant : lancer par just e2e');
   const from = logOffset(LOG);
-  const asked = await post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text: 'ouvre le thème', ui: {} });
-  assert.equal(asked.error, undefined, `consigne « ouvre le thème » refusée : ${asked.error}`);
+  const asked = await post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text: 'ouvre le thème avec une demande', ui: {} });
+  assert.equal(asked.error, undefined, `consigne « ouvre le thème avec une demande » refusée : ${asked.error}`);
   await waitForTool(p, from, 'open_theme');
   const activeThemeTab = async () => {
     const win = (await view(p)).windows[0];
@@ -54,6 +55,15 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   const agentTab = await untilValue(p, activeThemeTab, (t) => t !== null, "l'agent n'ouvre pas d'onglet de thème actif", SLOW);
   const agentTheme = await api(p, agentTab, { cmd: 'snapshot' });
   assert.equal(agentTheme.theming?.theme.base.id, deckBefore.theme_pins.papier.id, "l'onglet ouvert par l'agent n'édite pas Papier");
+  // The request waits in the theme tab's composer, replayed after a reload; nothing was prompted for it (t-1277).
+  const REQUEST = 'Passe les titres en bleu.';
+  await p.reload();
+  const draft = p.locator('.notes .draft .draft-note');
+  await draft.waitFor({ state: 'visible', timeout: SLOW });
+  await untilValue(p, () => draft.innerText(), (t) => t === REQUEST, "le brouillon de l'onglet de thème ne porte pas la demande");
+  const prompts = logSince(LOG, from).filter((m) => m.method === 'session/prompt');
+  assert.equal(prompts.length, 1, `seule la consigne du deck devait partir : ${prompts.length} prompts`);
+  assert.ok(!JSON.stringify(prompts).includes(REQUEST), "la demande est partie à l'agent sans que l'utilisateur l'envoie");
   // The turn may still stream: wait for its end (the fallback receipt end_turn puts in t-1's thread) before closing.
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();

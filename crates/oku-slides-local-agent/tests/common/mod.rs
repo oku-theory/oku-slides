@@ -103,7 +103,14 @@ pub async fn start(script: Value) -> Harness {
     let tab_session = TabSession::new("t-1", session.clone());
     let hub = SurfaceHub::new(tab_session.clone(), platform.live_localizer.clone(), Arc::new(oku_slides_mcp::NoVoice));
     let kind = session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).document_kind();
-    let tools = Tools::new(tab_session.clone(), hub.clone(), Arc::new(NoSettings), &platform, kind);
+    let tools = Tools::new(
+        tab_session.clone(),
+        hub.clone(),
+        Arc::new(NoSettings),
+        Arc::new(oku_slides_mcp::NoDrafts),
+        &platform,
+        kind,
+    );
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur MCP : {e}"));
     let access = ToolsAccess { url: server.url().to_owned(), authorization: server.authorization() };
     let keeper = Keeper::spawn(tab_session.clone(), hub.clone());

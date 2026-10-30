@@ -6,7 +6,7 @@ use crate::compact::ToolSpec;
 use crate::engine::{Completion, Message, Step};
 
 fn completion(messages: Vec<Message>, tools: Vec<ToolSpec>) -> Completion {
-    Completion { step: Step::Act, system: "Be brief.".into(), messages, tools }
+    Completion { step: Step::Act, system: "Be brief.".into(), messages, tools, offered: vec![] }
 }
 
 #[test]

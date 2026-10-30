@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex};
 
 use oku_slides_session::agent::TabSession;
-use oku_slides_session::{DocumentKind, Fonts, PAPIER_THEME, Session};
+use oku_slides_session::{DocumentKind, Fonts, PAPIER_THEME, Session, SessionErrorKind};
 use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::mcp_client::ClientRuntime;
 
@@ -59,12 +59,17 @@ pub async fn list_tool_names(c: &Arc<ClientRuntime>) -> Vec<String> {
 
 /// The kind of `tab`, as its host reads it.
 ///
-/// A closed tab has none: the harness session's kind stands in for it (`start_closed`).
+/// A closed tab has none (`UnknownTab`): the harness session's kind stands in for it (`start_closed`).
+/// Any other host error is a harness bug and panics.
 pub(super) async fn kind_of(tab: &TabSession, session: &Arc<Mutex<Session>>) -> DocumentKind {
     let (tab, session) = (tab.clone(), session.clone());
-    tokio::task::spawn_blocking(move || tab.document_kind().unwrap_or_else(|_| lock(&session).document_kind()))
-        .await
-        .unwrap_or_else(|e| panic!("blocking kind read: {e}"))
+    tokio::task::spawn_blocking(move || match tab.document_kind() {
+        Ok(kind) => kind,
+        Err(e) if e.kind() == SessionErrorKind::UnknownTab => lock(&session).document_kind(),
+        Err(e) => panic!("tab kind read: {}", e.one_line()),
+    })
+    .await
+    .unwrap_or_else(|e| panic!("blocking kind read: {e}"))
 }
 
 /// The `UnknownTool` reply to a call of `name`, as the harness's localizer says it.

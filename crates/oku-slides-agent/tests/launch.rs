@@ -232,3 +232,14 @@ async fn shutdown_after_switch_is_still_final() {
     let message = wait_error(&mut rx).await;
     assert_that!(message).contains("L'agent s'est arrêté");
 }
+
+/// The e2e `waitForTool` fails fast on this line when a turn ends without calling its tool.
+#[tokio::test(flavor = "multi_thread")]
+async fn fake_agent_logs_turn_end_when_it_answers_a_prompt() {
+    let h = start(json!({ "turns": [{ "chunks": ["salut"] }] })).await;
+    let t = h.tab("t-1");
+    let mut rx = t.agent.subscribe();
+    t.agent.prompt("bonjour".into(), AgentUi::default());
+    until(&mut rx, |e| matches!(e, AgentEvent::TurnEnded { .. })).await;
+    assert_that!(logged(&h.log, "turn/end").len()).is_equal_to(1);
+}

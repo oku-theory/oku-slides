@@ -409,7 +409,8 @@ impl Workspace {
     /// [`Self::finish`], also saying whether the tab became its window's active tab.
     ///
     /// An [`Activate::IfShown`] tab is activated only if its requester is its
-    /// window's active tab under this guard, not when the open began.
+    /// window's active tab under this guard, not when the open began. The flag
+    /// is whether the tab ends up active, a fallback new window included.
     pub(super) fn finish_shown(
         ws: &Mutex<Self>,
         pending: Pending,
@@ -449,6 +450,8 @@ impl Workspace {
             Opening::Help { locale, .. } => w.tab_with_help(locale),
         };
         if let Some(existing) = existing {
+            // Always activated, whatever `activate` says: only file and help openings reach this
+            // branch, and they use `Activate::Always`; `Activate::IfShown` is for pack and theme tabs.
             let activated = w.activate(&existing);
             w.save_layout();
             let (json, trash) = (w.view_json(), w.trash());
@@ -459,11 +462,11 @@ impl Workspace {
             return json.map(|json| (WorkspaceOutcome::Applied(json), existing, true));
         }
         let (window, place, opener) = w.resolve_place(window, place);
-        let shown = match &activate {
+        let activated = match &activate {
             Activate::Always => true,
             Activate::IfShown(requester) => w.tab_shown(requester),
         };
-        w.insert_tab(window.as_deref(), id.clone(), session, &place, shown);
+        w.insert_tab(window.as_deref(), id.clone(), session, &place, activated);
         if let Some(tab) = w.tabs.get_mut(&id) {
             tab.opener = opener;
         }
@@ -474,6 +477,8 @@ impl Workspace {
             }
             gone.extend(w.remove_tab(&r));
         }
+        // Whether it ended up its window's active tab: a fallback new window activates it unasked.
+        let shown = w.tab_shown(&id);
         w.save_layout();
         let (json, trash) = (w.view_json(), w.trash());
         drop(w);

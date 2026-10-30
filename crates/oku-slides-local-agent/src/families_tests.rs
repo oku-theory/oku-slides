@@ -1,7 +1,9 @@
 use rstest::rstest;
 use speculoos::prelude::*;
 
-use super::{Family, families_of, parse_route, route_grammar};
+use oku_slides_session::DocumentKind;
+
+use super::{Family, families_of, offered_families, parse_route, route_grammar};
 
 #[test]
 fn families_every_mcp_tool_has_a_family() {
@@ -17,7 +19,7 @@ fn families_every_mcp_tool_has_a_family() {
 #[case("ask_report edit", vec![Family::Edit])]
 #[case("nothing useful", vec![])]
 fn parse_route_keeps_two_known_families(#[case] reply: &str, #[case] expected: Vec<Family>) {
-    assert_that!(parse_route(reply)).is_equal_to(expected);
+    assert_that!(parse_route(reply, &Family::ROUTABLE)).is_equal_to(expected);
 }
 
 #[test]
@@ -29,7 +31,7 @@ fn families_summaries_stay_under_fifteen_words() {
 
 #[test]
 fn route_grammar_names_every_routable_family() {
-    let grammar = route_grammar();
+    let grammar = route_grammar(&Family::ROUTABLE);
     assert_that!(grammar.as_str()).starts_with("root ::=");
     for f in Family::ROUTABLE {
         assert_that!(grammar.as_str()).contains(format!("\"{}\"", f.key()).as_str());
@@ -77,4 +79,36 @@ fn families_no_mcp_tool_name_contains_template() {
 #[case("cancel_agent_model_download")]
 fn families_of_a_dictation_or_agent_tool_is_configure(#[case] tool: &str) {
     assert_that!(families_of(tool)).is_equal_to(&[Family::Configure][..]);
+}
+
+use Family::{Configure, Edit, Files, Packs, Present, Troubleshoot};
+
+#[rstest]
+#[case(DocumentKind::Deck, Family::ROUTABLE.to_vec())]
+#[case(DocumentKind::Help, Family::ROUTABLE.to_vec())]
+#[case(DocumentKind::Pack, vec![Edit, Packs, Configure])]
+#[case(DocumentKind::Theme, vec![Edit, Packs, Configure])]
+fn offered_families_follow_the_tab_kind_tools(#[case] kind: DocumentKind, #[case] expected: Vec<Family>) {
+    let names = oku_slides_mcp::tool_names_for(kind);
+    assert_that!(offered_families(names.iter().map(String::as_str))).is_equal_to(expected);
+}
+
+#[test]
+fn offered_families_of_no_tools_is_configure_only() {
+    assert_that!(offered_families(std::iter::empty())).is_equal_to(vec![Configure]);
+}
+
+#[test]
+fn route_grammar_for_a_pack_set_lists_exactly_its_keys() {
+    let grammar = route_grammar(&[Edit, Packs, Configure]);
+    assert_that!(grammar.as_str()).contains("family ::= \"edit\" | \"packs\" | \"configure\"\n");
+    for f in [Present, Files, Troubleshoot] {
+        assert_that!(grammar.as_str()).does_not_contain(format!("\"{}\"", f.key()).as_str());
+    }
+}
+
+#[test]
+fn parse_route_ignores_a_family_that_is_not_offered() {
+    assert_that!(parse_route("present, edit", &[Edit, Packs])).is_equal_to(vec![Edit]);
+    assert_that!(parse_route("present", &[Edit, Packs])).is_empty();
 }

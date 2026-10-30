@@ -1,6 +1,6 @@
-//! Faux agent ACP : suit un scénario JSON (`--script <fichier>`), note chaque
-//! message reçu (`--log <fichier>`, une ligne JSON par message) et peut
-//! appeler les outils MCP que le client lui injecte.
+//! Fake ACP agent: follows a JSON script (`--script <file>`), logs every message it receives
+//! (`--log <file>`, one JSON line per message, `turn/end` once a prompt is answered) and can call
+//! the MCP tools the client injects.
 //!
 //! Scénario : `{ "http": true, "turns": [ { "plan": [{"content","status"}],
 //! "tool_calls": [{"id","title","input","output","status","before"}], "mcp": [{"tool","args"}], "chunks": ["…"],
@@ -376,6 +376,11 @@ impl State {
         }
     }
 
+    /// Notes that the prompt of `session` was answered (`stop`): what the e2e `waitForTool` waits on.
+    fn log_turn_end(&self, session: &SessionId, stop: &str) {
+        self.log("turn/end", &serde_json::json!({ "session": session.0.as_ref(), "stop": stop }));
+    }
+
     /// Le résultat d'un appel d'outil MCP du script (`mcp/result`).
     fn log_result(&self, session: &str, step: &McpStep, out: &str) {
         self.log("mcp/result", &serde_json::json!({ "session": session, "tool": step.tool, "out": out }));
@@ -557,6 +562,7 @@ async fn main() -> agent_client_protocol::Result<()> {
                 s3.log("session/prompt", &serde_json::to_value(&req).unwrap_or_default());
                 let turn = s3.pick_turn(&req);
                 if let Some(message) = &turn.error {
+                    s3.log_turn_end(&req.session_id, "error");
                     return responder.respond_with_internal_error(message);
                 }
                 if turn.crash && turn.mcp.is_empty() {
@@ -570,6 +576,7 @@ async fn main() -> agent_client_protocol::Result<()> {
                         if turn.crash {
                             std::process::exit(3);
                         }
+                        state.log_turn_end(&req.session_id, &format!("{stop:?}"));
                         responder.respond(PromptResponse::new(stop))
                     }
                 })

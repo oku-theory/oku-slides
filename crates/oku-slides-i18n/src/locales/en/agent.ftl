@@ -107,11 +107,23 @@ agent-error-pack-open-in-tab = This pack is being edited in another tab: ask the
 agent-pack-opened-in-tab = { $shown ->
    [yes] The pack opened in tab { $tab }, now shown.
   *[no] The pack opened in tab { $tab }, behind: the user's window shows another tab.
-} Tell the user to continue there: that tab's agent does not know this request. This tab stays as it is.
+} { $draft ->
+   [set] The request waits in that tab's draft: tell the user to review it there, then send it.
+   [kept] That tab's draft already held something, kept as is. Tell the user to continue there: that tab's agent does not know this request.
+   [too_long] The request was too long for that tab's draft. Tell the user to continue there: that tab's agent does not know this request.
+   [unavailable] The request could not reach that tab's draft. Tell the user to continue there: that tab's agent does not know this request.
+  *[none] Tell the user to continue there: that tab's agent does not know this request.
+} This tab stays as it is.
 agent-theme-opened-in-tab = { $shown ->
    [yes] The theme opened in tab { $tab }, now shown.
   *[no] The theme opened in tab { $tab }, behind: the user's window shows another tab.
-} Tell the user to continue there: that tab's agent does not know this request. This tab stays as it is.
+} { $draft ->
+   [set] The request waits in that tab's draft: tell the user to review it there, then send it.
+   [kept] That tab's draft already held something, kept as is. Tell the user to continue there: that tab's agent does not know this request.
+   [too_long] The request was too long for that tab's draft. Tell the user to continue there: that tab's agent does not know this request.
+   [unavailable] The request could not reach that tab's draft. Tell the user to continue there: that tab's agent does not know this request.
+  *[none] Tell the user to continue there: that tab's agent does not know this request.
+} This tab stays as it is.
 agent-error-turn-over = The turn of this call is over: nothing was shown.
 agent-error-no-file = The presentation has no file yet: give an absolute path.
 agent-error-path-relative = The path must be absolute.

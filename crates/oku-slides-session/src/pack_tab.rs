@@ -3,7 +3,8 @@
 //! Opening a pack from a tab is routed first (`route_pack`): a library pack
 //! opens a pack tab, whose session is built fresh and turned into one
 //! (`init_pack_tab`) from a copy of the opener's deck (`take_preview`); a
-//! deck-only pack of a deck opens a deck-pack tab linked to it (`DeckTab`). The preview carries the
+//! deck-only pack of a deck opens a deck-pack tab linked to it (`DeckTab`). A help
+//! tab opens library packs only, and its copy ends nothing and writes nothing. The preview carries the
 //! deck's value, the pack and theme versions its pins reach and its fonts —
 //! no file, no identity, no assets — and never adopts anything. The pack
 //! tab's `Mode::Pack` holds the pack's lease.
@@ -107,7 +108,7 @@ impl Session {
 
     /// Refuses opening any pack from this tab: help, history, a theme tab.
     ///
-    /// The check every pack open shares, before its own (`route_pack`, a new pack).
+    /// A new pack's check; `route_pack` and `take_preview` let help through (`can_open_library_pack`).
     ///
     /// # Errors
     ///
@@ -120,25 +121,41 @@ impl Session {
         }
     }
 
+    /// Refuses opening a library pack in its own tab from history or a theme tab.
+    ///
+    /// Help, read-only, opens library packs: their tab edits the library, never
+    /// the help deck. Every other pack open keeps `can_open_pack`.
+    ///
+    /// # Errors
+    ///
+    /// `InHistory`, `WrongDocument { kind: Theme }`.
+    fn can_open_library_pack(&self) -> Result<()> {
+        match self.mode {
+            Mode::Help { .. } => Ok(()),
+            Mode::Deck | Mode::Pack { .. } | Mode::History { .. } | Mode::Theme { .. } => self.can_open_pack(),
+        }
+    }
+
     /// Routes opening `pack` from this tab (decision 10's table).
     ///
     /// A deck tab opens a library pack in a pack tab, and a deck-only pack it
     /// pins in a deck-pack tab; a pack tab opens its own pack's widget here,
     /// another library pack in a pack tab, and refuses another deck-only one.
+    /// A help tab opens a library pack in a pack tab only, never a deck-pack tab.
     /// Without a lease scope (single-document host) a pack opens nowhere but in
     /// the tab already editing it. Changes nothing unless it selects an item of
     /// the pack this tab edits.
     ///
     /// # Errors
     ///
-    /// `ReadOnly`, `InHistory`, `UnknownPack`, `DeckOnly`, `UnknownWidget`,
+    /// `InHistory`, `WrongDocument`, `UnknownPack`, `DeckOnly`, `UnknownWidget`,
     /// `InPackTab`, `SingleDocument` for a library pack without a lease scope.
     ///
     /// # Blocking
     ///
     /// Reads the library index; persists when it selects an item.
     pub(crate) fn route_pack(&mut self, pack: Uuid, widget: Option<&str>) -> Result<PackRoute> {
-        self.can_open_pack()?;
+        self.can_open_library_pack()?;
         let stored = self.pack_base(pack)?;
         if let Some(w) = widget {
             ensure!(has_widget(&stored.files, w)?, UnknownWidgetSnafu { name: label(w) });
@@ -151,7 +168,15 @@ impl Session {
             Mode::Pack { edit, .. } => Some(edit.pack == pack),
             // A theme tab opens no pack in place.
             Mode::Theme { .. } => return crate::document_kind::refused_in_theme_tab(),
-            Mode::Deck | Mode::Help { .. } | Mode::History { .. } => None,
+            // A read-only help deck links no deck-pack tab: a library pack's tab, or nothing.
+            Mode::Help { .. } => {
+                return match tab {
+                    Some(route) => Ok(route),
+                    None if deck_only => DeckOnlySnafu { id: pack }.fail()?,
+                    None => SingleDocumentSnafu.fail()?,
+                };
+            }
+            Mode::Deck | Mode::History { .. } => None,
         };
         match (edited, tab) {
             (Some(true), _) => {
@@ -172,6 +197,8 @@ impl Session {
 
     /// Ends the deck's widget session and copies it for `pack`'s new tab.
     ///
+    /// From help, the copy ends no widget session and writes nothing.
+    ///
     /// # Errors
     ///
     /// The `route_pack` refusals when `pack` no longer routes to a tab (`DeckOnly`).
@@ -180,10 +207,13 @@ impl Session {
     ///
     /// Freezes the widget draft in the library.
     pub(crate) fn take_preview(&mut self, pack: Uuid) -> Result<Box<PreviewSeed>> {
-        self.ensure_editable()?;
+        self.can_open_library_pack()?;
         let stored = self.pack_base(pack)?;
         let routes_to_tab = self.library.lease_scope().is_some() && is_library_pack(&stored.files);
         ensure!(routes_to_tab, DeckOnlySnafu { id: pack });
+        if self.help().is_some() {
+            return Ok(self.copy_seed());
+        }
         self.preview_seed()
     }
 
@@ -204,6 +234,11 @@ impl Session {
             // The deck's draft is frozen before it is copied.
             self.end_widget_session();
         }
+        Ok(self.copy_seed())
+    }
+
+    /// A preview seed copied from the user deck, changing nothing.
+    fn copy_seed(&self) -> Box<PreviewSeed> {
         let deck = self.user_deck().clone();
         let reach = pinned_versions(&deck);
         let blobs = self.user_blobs();
@@ -211,7 +246,7 @@ impl Session {
             all.iter().filter(|(v, _)| reach.contains(*v)).map(|(v, f)| (v.clone(), f.clone())).collect()
         };
         let (packs, themes) = (reached(&blobs.packs), reached(&blobs.themes));
-        Ok(Box::new(PreviewSeed { deck, packs, themes, fonts: blobs.fonts.clone() }))
+        Box::new(PreviewSeed { deck, packs, themes, fonts: blobs.fonts.clone() })
     }
 
     /// Turns this freshly built session into a pack tab on `pack`.

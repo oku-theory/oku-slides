@@ -106,11 +106,23 @@ agent-error-pack-open-in-tab = Ce pack est en cours d'édition dans un autre ong
 agent-pack-opened-in-tab = { $shown ->
    [yes] Le pack s'est ouvert dans l'onglet { $tab }, maintenant affiché.
   *[no] Le pack s'est ouvert dans l'onglet { $tab }, en arrière-plan : la fenêtre de l'utilisateur affiche un autre onglet.
-} Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande. Cet onglet reste tel quel.
+} { $draft ->
+   [set] La demande attend dans le brouillon de cet onglet : dites à l'utilisateur de la relire là, puis de l'envoyer.
+   [kept] Le brouillon de cet onglet contenait déjà quelque chose, gardé tel quel. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+   [too_long] La demande était trop longue pour le brouillon de cet onglet. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+   [unavailable] La demande n'a pas pu atteindre le brouillon de cet onglet. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+  *[none] Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+} Cet onglet reste tel quel.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Le thème s'est ouvert dans l'onglet { $tab }, maintenant affiché.
   *[no] Le thème s'est ouvert dans l'onglet { $tab }, en arrière-plan : la fenêtre de l'utilisateur affiche un autre onglet.
-} Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande. Cet onglet reste tel quel.
+} { $draft ->
+   [set] La demande attend dans le brouillon de cet onglet : dites à l'utilisateur de la relire là, puis de l'envoyer.
+   [kept] Le brouillon de cet onglet contenait déjà quelque chose, gardé tel quel. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+   [too_long] La demande était trop longue pour le brouillon de cet onglet. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+   [unavailable] La demande n'a pas pu atteindre le brouillon de cet onglet. Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+  *[none] Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
+} Cet onglet reste tel quel.
 agent-error-turn-over = Le tour de cet appel est terminé : rien n'a été affiché.
 agent-error-no-file = La présentation n'a pas encore de fichier : donnez un chemin absolu.
 agent-error-path-relative = Le chemin doit être absolu.

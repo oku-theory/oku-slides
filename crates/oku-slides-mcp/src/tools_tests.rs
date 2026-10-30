@@ -150,9 +150,17 @@ fn open_theme_description_shares_open_pack_limit() {
 #[test]
 fn packs_description_names_no_tool_a_pack_or_theme_tab_lacks() {
     let d = tool_description("packs");
-    assert_that!(d.as_str()).contains("A deck tab opens one in its own tab.");
+    assert_that!(d.as_str()).contains("A deck or help tab opens one in its own tab.");
     assert_that!(d.as_str()).does_not_contain("open_pack");
     assert_that!(d.as_str()).does_not_contain("edit_pack");
+}
+
+/// A theme tab lists no `widgets`, so `apply` does not send it there (t-1278).
+#[test]
+fn apply_description_names_widgets_only_for_a_deck_or_pack_tab() {
+    let d = tool_description("apply");
+    assert_that!(d.as_str()).contains("(a deck or pack tab reads its schema with widgets)");
+    assert_that!(d.as_str()).does_not_contain("see widgets");
 }
 
 #[test]
@@ -259,14 +267,12 @@ const THEME_TOOLS: &[&str] = &[
     "apply",
     "ask_choice",
     "ask_confirm",
-    "ask_rewrite",
     "cancel_agent_model_download",
     "cancel_dictation_download",
     "deck_outline",
     "download_agent_model",
     "download_dictation_model",
     "focus",
-    "packs",
     "rename_theme",
     "render",
     "render_slide",
@@ -283,7 +289,6 @@ const THEME_TOOLS: &[&str] = &[
     "show_variants",
     "slide",
     "theme_tokens",
-    "widgets",
 ];
 
 #[rstest]

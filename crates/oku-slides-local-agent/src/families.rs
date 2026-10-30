@@ -1,30 +1,35 @@
-//! Familles d'outils : le modèle en choisit une ou deux, puis ne voit que leurs outils.
+//! Tool families: the model picks one or two, then sees only their tools.
 
-/// Famille d'outils MCP, choisie par le modèle avant de voir les schémas.
+use std::collections::HashSet;
+use std::sync::OnceLock;
+
+use oku_slides_session::DocumentKind;
+
+/// An MCP tool family, picked by the model before it sees any schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Family {
-    /// Contenu des diapositives, éléments, graphiques et tableaux.
+    /// Slide content, elements, charts and tables.
     Edit,
-    /// Lancer, piloter et arrêter une présentation.
+    /// Start, steer and stop a presentation.
     Present,
-    /// Ouvrir, créer, enregistrer, fusionner, historique.
+    /// Open, create, save, merge, history.
     Files,
-    /// Packs (widgets et layouts) et thèmes.
+    /// Packs (widgets and layouts) and themes.
     Packs,
-    /// Réglages de l'app.
+    /// App settings.
     Configure,
-    /// Expliquer ou diagnostiquer un échec.
+    /// Explain or diagnose a failure.
     Troubleshoot,
-    /// Questions et rapports : toujours exposée, jamais routable.
+    /// Questions and reports: always exposed, never routable.
     AskReport,
 }
 
 impl Family {
-    /// Les familles que le modèle peut choisir.
+    /// The families the model can pick.
     pub(crate) const ROUTABLE: [Family; 6] =
         [Family::Edit, Family::Present, Family::Files, Family::Packs, Family::Configure, Family::Troubleshoot];
 
-    /// Clé écrite par le modèle dans sa réponse de routage.
+    /// The key the model writes in its routing reply.
     pub(crate) fn key(self) -> &'static str {
         match self {
             Family::Edit => "edit",
@@ -37,7 +42,7 @@ impl Family {
         }
     }
 
-    /// Une ligne d'anglais pour l'invite de routage.
+    /// One line of English for the routing prompt.
     pub(crate) fn summary(self) -> &'static str {
         match self {
             Family::Edit => "change slide content, elements, charts and tables, or move between slides",
@@ -51,7 +56,7 @@ impl Family {
     }
 }
 
-/// Familles d'un outil MCP ; vide si l'outil est inconnu.
+/// The families of an MCP tool; empty when the tool is unknown.
 pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     use Family::{AskReport, Configure, Edit, Files, Packs, Present, Troubleshoot};
     match tool {
@@ -83,22 +88,22 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     }
 }
 
-/// Grammaire GBNF de l'étape de routage : une ou deux clés de famille, séparées par une virgule.
+/// The GBNF grammar of the routing step: one or two keys of `offered`, comma-separated.
 #[cfg_attr(
     all(not(test), not(all(target_os = "macos", target_arch = "aarch64"))),
-    expect(dead_code, reason = "lu par le moteur Gguf, sur Apple silicon seulement")
+    expect(dead_code, reason = "read by the Gguf engine, on Apple silicon only")
 )]
-pub(crate) fn route_grammar() -> String {
-    let keys: Vec<String> = Family::ROUTABLE.iter().map(|f| format!("\"{}\"", f.key())).collect();
+pub(crate) fn route_grammar(offered: &[Family]) -> String {
+    let keys: Vec<String> = offered.iter().map(|f| format!("\"{}\"", f.key())).collect();
     format!("root ::= family (\", \" family)?\nfamily ::= {}\n", keys.join(" | "))
 }
 
-/// Les deux premières familles routables nommées dans la réponse, sans doublon.
-pub(crate) fn parse_route(reply: &str) -> Vec<Family> {
+/// The first two families of `offered` that the reply names, without duplicates.
+pub(crate) fn parse_route(reply: &str, offered: &[Family]) -> Vec<Family> {
     let lower = reply.to_lowercase();
     let mut found = Vec::new();
     for token in lower.split(|c: char| !(c.is_ascii_lowercase() || c == '_')) {
-        if let Some(f) = Family::ROUTABLE.into_iter().find(|f| f.key() == token)
+        if let Some(f) = offered.iter().copied().find(|f| f.key() == token)
             && !found.contains(&f)
         {
             found.push(f);
@@ -108,6 +113,33 @@ pub(crate) fn parse_route(reply: &str) -> Vec<Family> {
         }
     }
     found
+}
+
+/// The tools every kind of tab lists, computed once from `oku_slides_mcp::tool_names_for`.
+fn shared_tools() -> &'static HashSet<String> {
+    static SHARED: OnceLock<HashSet<String>> = OnceLock::new();
+    SHARED.get_or_init(|| {
+        let mut kinds = [DocumentKind::Deck, DocumentKind::Help, DocumentKind::Pack, DocumentKind::Theme]
+            .map(|k| oku_slides_mcp::tool_names_for(k).into_iter().collect::<HashSet<String>>())
+            .into_iter();
+        let first = kinds.next().unwrap_or_default();
+        kinds.fold(first, |acc, k| acc.intersection(&k).cloned().collect())
+    })
+}
+
+/// The routable families a tab offers, in `ROUTABLE` order, given the tools it lists.
+///
+/// A listed tool counts for its families unless every kind lists it and it spans several
+/// families (`focus`, `deck_outline`, `settings`): such a tool says nothing about the tab.
+/// A shared tool of one family (`apply`, `set_setting`) still counts, so every tab keeps
+/// `edit`; `configure` is always offered, all its tools being shared.
+pub(crate) fn offered_families<'a>(listed: impl IntoIterator<Item = &'a str>) -> Vec<Family> {
+    let shared = shared_tools();
+    let own: Vec<&str> = listed.into_iter().filter(|t| !shared.contains(*t) || families_of(t).len() == 1).collect();
+    Family::ROUTABLE
+        .into_iter()
+        .filter(|f| *f == Family::Configure || own.iter().any(|t| families_of(t).contains(f)))
+        .collect()
 }
 
 #[cfg(test)]

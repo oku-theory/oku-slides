@@ -7,10 +7,12 @@
 //!   vers l'interface ([`McpEvent`]).
 //! - [`SettingsPort`] : réglages lus et écrits, fournis par l'hôte.
 //! - [`VoicePort`] : la dictée et l'agent de l'app, pour la boîte des réglages.
+//! - [`DraftPort`]: the opened tab's draft, prefilled with the user's request.
 //!
 //! Dépend de `oku-slides-session` ; utilisé par `oku-slides-agent`.
 
 mod app_tools;
+mod draft;
 mod edit_tools;
 mod error;
 mod guarded_tools;
@@ -33,6 +35,9 @@ mod voice_tools;
 mod widget_tools;
 
 pub use app_tools::{InterfaceChange, PresentMode, SchemeChoice};
+#[cfg(any(test, feature = "test-support"))]
+pub use draft::NoDrafts;
+pub use draft::{DraftPort, MAX_REQUEST_BYTES, Prefill};
 pub use error::McpError;
 pub use hub::{
     Answer, Freeze, HubError, HubErrorKind, McpEvent, STATIC_PER_TURN, SurfaceAction, SurfaceHub, THREAD_BYTES,

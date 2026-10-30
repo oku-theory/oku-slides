@@ -110,11 +110,23 @@ agent-error-pack-open-in-tab = Ten pakiet jest edytowany w innej karcie: poproś
 agent-pack-opened-in-tab = { $shown ->
    [yes] Pakiet otworzył się w karcie { $tab }, która jest teraz wyświetlana.
   *[no] Pakiet otworzył się w karcie { $tab } w tle: okno użytkownika pokazuje inną kartę.
-} Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania. Ta karta pozostaje bez zmian.
+} { $draft ->
+   [set] Żądanie czeka w szkicu tej karty: powiedz użytkownikowi, aby je tam przejrzał, a potem wysłał.
+   [kept] Szkic tej karty zawierał już coś i pozostaje bez zmian. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+   [too_long] Żądanie było za długie dla szkicu tej karty. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+   [unavailable] Żądanie nie mogło trafić do szkicu tej karty. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+  *[none] Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+} Ta karta pozostaje bez zmian.
 agent-theme-opened-in-tab = { $shown ->
    [yes] Motyw otworzył się w karcie { $tab }, która jest teraz wyświetlana.
   *[no] Motyw otworzył się w karcie { $tab } w tle: okno użytkownika pokazuje inną kartę.
-} Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania. Ta karta pozostaje bez zmian.
+} { $draft ->
+   [set] Żądanie czeka w szkicu tej karty: powiedz użytkownikowi, aby je tam przejrzał, a potem wysłał.
+   [kept] Szkic tej karty zawierał już coś i pozostaje bez zmian. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+   [too_long] Żądanie było za długie dla szkicu tej karty. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+   [unavailable] Żądanie nie mogło trafić do szkicu tej karty. Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+  *[none] Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
+} Ta karta pozostaje bez zmian.
 agent-error-turn-over = Tura tego wywołania dobiegła końca: nic nie zostało wyświetlone.
 agent-error-no-file = Prezentacja nie ma jeszcze pliku: podaj ścieżkę bezwzględną.
 agent-error-path-relative = Ścieżka musi być bezwzględna.

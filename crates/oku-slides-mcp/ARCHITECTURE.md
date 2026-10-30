@@ -9,7 +9,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `token_matches`, bounded by `[serve]` limits and `SHUTDOWN_GRACE`).
 - `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
 - `tools` : `Tools`, `list_for(kind)`: the tab's kind, read once when its agent starts; an unlisted tool is
-  `UnknownTool` (`tool_kinds`: `Kinds`); input schemas (`nest_schema`: MCP 1.x); `parse`, `with_session`, `reply`.
+  `UnknownTool` (`tool_kinds`: `Kinds`; a theme tab lists no `widgets`, `packs` or `ask_rewrite`); input schemas (`nest_schema`: MCP 1.x); `parse`, `with_session`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
   settings), `edit_tools` (undoable edits, `add_pack`/`remove_pack`, `set_theme_extends`), `open_tools` (`open_pack`, `open_theme`: one tab move per turn, a deck-only pack's tab linked to its deck), `tab_tools` (pack tab: `select_item`, `set_preview_theme`; theme tab: `rename_theme`, `save_theme`), `widget_tools` (no `pack`: `deck`, so
   `deck-layouts` is named; writes refused in a turn that moved to another tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
@@ -19,14 +19,14 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument).
 - `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized message in
   the current interface language (`LiveLocalizer`, also read by the hub). `error` : `McpError`, `say_session`; `paths` (agent-given paths).
-- Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, in the hub, which builds the box).
+- Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, in the hub, which builds the box);
+  `draft` (`DraftPort` in `Tools`: `open_*`'s `request`, cleaned, at most `MAX_REQUEST_BYTES`, to a moved tab's draft; `Prefill`).
 - `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
   the open list; `resync` resends it whole. `hub/asks` (questions, confirmations, permissions),
   `hub/actions` (`SurfaceAction`, `act`, `prune`); the hub builds two boxes itself: `hub/themes`
   (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
   `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).
-- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`, `reserve_tab`: one pack or theme tab move per turn; `tab_gate`: its verdict),
-  freezing answered questions, eviction past `KEPT_TURNS` in the tab's thread.
+- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`, `reserve_tab`: one pack or theme tab move per turn; `tab_gate`: its verdict), freezing answered questions, eviction past `KEPT_TURNS`.
 - `hub_thread` : the tab's one thread (`in_thread`), shown surfaces, `restore` and `thread_snapshot`; the agent's tab keeper persists it.
 
 ## Turn of a tool call

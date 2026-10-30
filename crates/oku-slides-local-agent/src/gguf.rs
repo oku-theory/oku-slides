@@ -248,7 +248,7 @@ fn stopped() -> EngineError {
 #[async_trait]
 impl Engine for GgufEngine {
     async fn complete(&self, c: &Completion, cancel: &CancellationToken) -> Result<Reply, EngineError> {
-        let grammar = (c.step == Step::Route).then(crate::families::route_grammar);
+        let grammar = (c.step == Step::Route).then(|| crate::families::route_grammar(&c.offered));
         let (tx, rx) = oneshot::channel();
         let job = Job { prompt: crate::chatml::render(c), grammar, cancel: cancel.clone(), reply: tx };
         self.jobs.as_ref().ok_or_else(stopped)?.send(job).map_err(|_| stopped())?;

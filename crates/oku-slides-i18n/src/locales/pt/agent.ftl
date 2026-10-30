@@ -106,11 +106,23 @@ agent-error-pack-open-in-tab = Este pacote está sendo editado em outra aba: pe�
 agent-pack-opened-in-tab = { $shown ->
    [yes] O pacote foi aberto na aba { $tab }, agora exibida.
   *[no] O pacote foi aberto na aba { $tab }, em segundo plano: a janela do usuário mostra outra aba.
-} Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido. Esta aba continua como está.
+} { $draft ->
+   [set] O pedido aguarda no rascunho dessa aba: diga ao usuário que o revise lá e depois o envie.
+   [kept] O rascunho dessa aba já tinha algo e foi mantido como está. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+   [too_long] O pedido era longo demais para o rascunho dessa aba. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+   [unavailable] O pedido não pôde chegar ao rascunho dessa aba. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+  *[none] Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+} Esta aba continua como está.
 agent-theme-opened-in-tab = { $shown ->
    [yes] O tema foi aberto na aba { $tab }, agora exibida.
   *[no] O tema foi aberto na aba { $tab }, em segundo plano: a janela do usuário mostra outra aba.
-} Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido. Esta aba continua como está.
+} { $draft ->
+   [set] O pedido aguarda no rascunho dessa aba: diga ao usuário que o revise lá e depois o envie.
+   [kept] O rascunho dessa aba já tinha algo e foi mantido como está. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+   [too_long] O pedido era longo demais para o rascunho dessa aba. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+   [unavailable] O pedido não pôde chegar ao rascunho dessa aba. Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+  *[none] Diga ao usuário que continue lá: o agente dessa aba não conhece este pedido.
+} Esta aba continua como está.
 agent-error-turn-over = O turno desta chamada terminou: nada foi mostrado.
 agent-error-no-file = A apresentação ainda não tem arquivo: indique um caminho absoluto.
 agent-error-path-relative = O caminho deve ser absoluto.

@@ -111,12 +111,12 @@ fn tab_document_kind_matches_session_document_kind(#[case] mode: Mode) {
 /// `handle` refuses them before `ensure_fits`, with the pack tab's own refusal `EditingPack`
 /// (as `pack_tab_tests` pins for the file writes).
 #[rstest]
-#[case::history(crate::Request::HistoryOpen)]
-#[case::save(crate::Request::Save { path: None, overwrite: false })]
-#[case::move_(crate::Request::Move { path: std::env::temp_dir().join("moved.oku-slides.pdf") })]
-fn pack_tab_refuses_a_deck_request_itself(#[case] req: crate::Request) {
-    let (_data, mut s) = session_in(Mode::Pack);
-    let err = s.handle(req).unwrap_err();
+#[case::history(|_: &std::path::Path| crate::Request::HistoryOpen)]
+#[case::save(|_: &std::path::Path| crate::Request::Save { path: None, overwrite: false })]
+#[case::move_(|dir: &std::path::Path| crate::Request::Move { path: dir.join("moved.oku-slides.pdf") })]
+fn pack_tab_refuses_a_deck_request_itself(#[case] req: fn(&std::path::Path) -> crate::Request) {
+    let (data, mut s) = session_in(Mode::Pack);
+    let err = s.handle(req(data.path())).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::EditingPack);
 }
 

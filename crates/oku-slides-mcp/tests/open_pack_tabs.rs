@@ -35,7 +35,7 @@ async fn edit_main(c: &Arc<ClientRuntime>) -> CallToolResult {
 
 /// The note the agent reads when the pack opened in tab `tab`, now shown.
 fn note(l: &Localizer, tab: &str) -> String {
-    l.tr_with("agent-pack-opened-in-tab", &[("tab", tab.into()), ("shown", "yes".into())])
+    l.tr_with("agent-pack-opened-in-tab", &[("tab", tab.into()), ("shown", "yes".into()), ("draft", "none".into())])
 }
 
 fn opened(tabs: &OtherTabs) -> usize {
@@ -388,18 +388,38 @@ async fn open_pack_of_an_open_pack_tab_focuses_it_and_spends_the_turn() {
     assert_that!(tab_ids(&ws).len()).is_equal_to(2);
 }
 
-/// A help tab lists `open_pack` (it shares the deck's tools), but the session keeps the help
-/// read-only: no pack preview is seeded from it, and no tab opens.
+/// The help tab `help`'s snapshot, as the interface reads it.
+fn help_snapshot(ws: &Arc<std::sync::Mutex<Workspace>>, help: &str) -> String {
+    tokio::task::block_in_place(|| {
+        Workspace::with_session(ws, help, |s| serde_json::to_string(&s.snapshot()))
+            .0
+            .unwrap_or_else(|e| panic!("help tab: {e}"))
+            .unwrap_or_else(|e| panic!("help snapshot: {e}"))
+    })
+}
+
+/// A help tab's agent opens a library pack in its own tab; the read-only help deck is unchanged.
 #[tokio::test(flavor = "multi_thread")]
-async fn open_pack_from_a_help_tab_is_refused_as_read_only() {
+async fn open_pack_from_a_help_tab_opens_a_pack_tab_and_leaves_the_help_unchanged() {
+    let (h, ws, help) = start_in_help_tab().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    let before = help_snapshot(&ws, &help);
+    let r = edit(&c, ACME).await;
+    let tab = json_of(&r)["tab"].as_str().unwrap_or_else(|| panic!("a tab: {r:?}")).to_owned();
+    assert_that!(document_of(&ws, &tab)).is_equal_to(Some(TabDocument::Pack { pack: ACME }));
+    assert_that!(help_snapshot(&ws, &help)).is_equal_to(before);
+}
+
+/// Without a pack, a help tab's agent opens the help deck's main pack, Essentiel.
+#[tokio::test(flavor = "multi_thread")]
+async fn open_pack_without_a_pack_from_a_help_tab_opens_essentiel() {
     let (h, ws, _help) = start_in_help_tab().await;
     let c = server(&h).await;
     h.hub.begin_turn();
-    let before = tab_ids(&ws);
-    let r = edit(&c, ACME).await;
-    assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-read-only"));
-    assert_that!(tab_ids(&ws)).is_equal_to(before);
+    let r = edit_main(&c).await;
+    let tab = json_of(&r)["tab"].as_str().unwrap_or_else(|| panic!("a tab: {r:?}")).to_owned();
+    assert_that!(document_of(&ws, &tab)).is_equal_to(Some(TabDocument::Pack { pack: ESSENTIEL_PACK }));
 }
 
 /// A help tab's agent opens a library theme in its own tab, as a deck's does.
@@ -412,4 +432,66 @@ async fn open_theme_from_a_help_tab_opens_a_theme_tab() {
     let tab = json_of(&r)["tab"].as_str().unwrap_or_else(|| panic!("a tab: {r:?}")).to_owned();
     assert_that!(document_of(&ws, &tab))
         .is_equal_to(Some(TabDocument::Theme { theme: oku_slides_session::PAPIER_THEME }));
+}
+
+// --- the user's request, passed to the moved tab's draft (t-1277) ----------------------------
+
+const REQUEST: &str = "Agrandis la carte.";
+
+async fn edit_with_request(c: &Arc<ClientRuntime>, pack: Uuid) -> CallToolResult {
+    call(c, "open_pack", json!({ "pack": pack.to_string(), "request": REQUEST })).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn open_pack_with_a_request_that_opened_a_tab_prefills_its_draft() {
+    let (h, _tabs) = start_other_tabs().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    let r = edit_with_request(&c, ACME).await;
+    assert_that!(h.drafts.calls()).is_equal_to(vec![("t-7".to_owned(), REQUEST.to_owned())]);
+    assert_that!(json_of(&r)["draft"].as_str()).is_equal_to(Some("set"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn open_pack_with_a_request_that_focused_a_tab_prefills_its_draft() {
+    let (h, ws) = start_on_workspace().await;
+    let acme_tab = open_pack_tab(&ws, "t-1", ACME).await;
+    activate(&ws, "t-1").await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    edit_with_request(&c, ACME).await;
+    assert_that!(h.drafts.calls()).is_equal_to(vec![(acme_tab, REQUEST.to_owned())]);
+}
+
+/// A help tab's agent passes its request to the draft of the pack tab it opened.
+#[tokio::test(flavor = "multi_thread")]
+async fn open_pack_from_a_help_tab_with_a_request_prefills_the_new_pack_tab() {
+    let (h, _ws, help) = start_in_help_tab().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    let r = edit_with_request(&c, ACME).await;
+    let tab = json_of(&r)["tab"].as_str().unwrap_or_else(|| panic!("a tab: {r:?}")).to_owned();
+    assert_that!(tab.as_str()).is_not_equal_to(help.as_str());
+    assert_that!(h.drafts.calls()).is_equal_to(vec![(tab, REQUEST.to_owned())]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn open_pack_with_a_request_landing_here_never_calls_the_port() {
+    let (h, _tabs) = start_other_tabs().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    let r = edit_with_request(&c, OtherTabs::HERE_PACK).await;
+    assert_that!(json_of(&r)).is_equal_to(json!({ "ok": true }));
+    assert_that!(h.drafts.calls()).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn open_pack_with_a_request_refused_by_the_limit_never_calls_the_port() {
+    let (h, _tabs) = start_other_tabs().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    edit(&c, ACME).await;
+    let r = edit_with_request(&c, BETA).await;
+    assert_refused(&h, &r, "agent-error-tab-limit", LIMIT_FR);
+    assert_that!(h.drafts.calls()).is_empty();
 }

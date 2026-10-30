@@ -687,3 +687,8 @@ pub(crate) fn edit_state(dir: &std::path::Path, edit: impl FnOnce(&mut serde_jso
     edit(&mut state);
     std::fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
 }
+
+/// The label of the step undo would take back in `s`'s deck.
+pub(crate) fn undo_label(s: &Session) -> Option<String> {
+    s.sources_for_tests().replica().undo_label()
+}

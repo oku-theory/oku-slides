@@ -13,6 +13,10 @@
     },
     "ouvre l'atelier": { "mcp": [{ "tool": "open_pack", "args": {} }], "chunks": ["Atelier ouvert."] },
     "ouvre le thème": { "mcp": [{ "tool": "open_theme", "args": { "theme": "papier" } }], "chunks": ["Thème ouvert."] },
+    "ouvre le thème avec une demande": {
+      "mcp": [{ "tool": "open_theme", "args": { "theme": "papier", "request": "Passe les titres en bleu." } }],
+      "chunks": ["Thème ouvert."]
+    },
     "portée slides": { "chunks": ["Réponse des slides."] },
     "propose les thèmes": {
       "mcp": [

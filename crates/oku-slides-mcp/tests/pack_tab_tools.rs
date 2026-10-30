@@ -3,6 +3,7 @@
 
 mod common;
 
+use common::kinds::unknown_tool;
 use common::workspace_harness::{
     ACME, ACME_WIDGET, edited_pack, library_files, next_event, preview_theme_and_dirty, selected_item,
     start_in_deck_pack_tab, start_in_pack_tab,
@@ -11,6 +12,7 @@ use common::*;
 use oku_slides_core::Namespace;
 use oku_slides_mcp::McpEvent;
 use oku_slides_session::Workspace;
+use oku_slides_session::agent::AgentUi;
 use oku_slides_session::agent::bounds::label;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -31,6 +33,38 @@ async fn select_item_of_an_item_selects_it_and_emits_changed() {
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     assert_that!(selected_item(&ws, &tab)).is_equal_to(Some(ACME_WIDGET.to_owned()));
     assert_that!(matches!(next_event(&mut events).await, McpEvent::Changed)).is_true();
+}
+
+/// The tab's agent context as the interface sends it: the selected item is the open widget.
+fn context_of(ws: &std::sync::Arc<std::sync::Mutex<Workspace>>, tab: &str) -> String {
+    let widget = selected_item(ws, tab);
+    tokio::task::block_in_place(|| {
+        Workspace::with_session(ws, tab, |s| s.agent_context(&AgentUi { widget: widget.clone(), ..AgentUi::default() }))
+            .0
+            .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn select_item_of_an_item_with_trial_values_puts_them_in_the_context() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let trial = call(&c, "set_widget_trial", json!({ "name": ACME_WIDGET, "values": { "label": "Essai" } })).await;
+    assert_that!(trial.is_error).is_not_equal_to(Some(true));
+    assert_that!(context_of(&ws, &tab).contains("trial:")).is_false();
+    let r = call(&c, "select_item", json!({ "name": ACME_WIDGET })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(context_of(&ws, &tab).as_str())
+        .contains(format!("widget: {ACME_WIDGET} · trial: \"label\" = \"Essai\"\n"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn save_pack_outside_a_pack_tab_is_refused_as_an_unknown_tool() {
+    let h = start().await;
+    let c = server(&h).await;
+    let r = call(&c, "save_pack", json!({})).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(unknown_tool(&h, "save_pack"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -23,23 +23,27 @@ const logSince = (log, from) => {
   });
 };
 
+/** The MCP results (`mcp/result`) for `tool` among the messages `since`, in order. */
+const resultsOf = (since, tool) =>
+  since.filter((m) => m.method === 'mcp/result' && m.params.tool === tool).map((m) => m.params.out);
+
 /** The MCP results (`mcp/result`) noted in `log` for `tool` since `from`, in order. */
-const mcpResults = (log, from, tool) =>
-  logSince(log, from)
-    .filter((m) => m.method === 'mcp/result' && m.params.tool === tool)
-    .map((m) => m.params.out);
+const mcpResults = (log, from, tool) => resultsOf(logSince(log, from), tool);
 
 /**
  * Waits for the first MCP result of `tool` noted in E2E_AGENT_LOG since `from` (bytes) and returns it,
  * decoded (CallToolResult). Throws at once with the result's text when it is an error (`isError`)
- * or unreadable, and after `timeout` ms when none comes.
+ * or unreadable, as soon as the turn of the prompt received since `from` ends (`turn/end`) without
+ * the tool, and after `timeout` ms when none comes.
  */
 const waitForTool = async (p, from, tool, timeout = SLOW) => {
   const log = process.env.E2E_AGENT_LOG;
   assert.ok(log, 'E2E_AGENT_LOG manquant : lancer par just e2e');
   const t0 = Date.now();
   while (Date.now() - t0 < timeout) {
-    const [out] = mcpResults(log, from, tool);
+    // One read per iteration: the result and the turn end come from the same snapshot of the log.
+    const since = logSince(log, from);
+    const [out] = resultsOf(since, tool);
     if (out !== undefined) {
       let result;
       try {
@@ -50,6 +54,11 @@ const waitForTool = async (p, from, tool, timeout = SLOW) => {
       const text = (result.content ?? []).map((c) => c.text ?? '').join('\n');
       if (result.isError === true || result.is_error === true) assert.fail(`${tool} refusé : ${text}`);
       return result;
+    }
+    // The first prompt received since `from` is the action's; its turn ending without the tool is final.
+    const prompted = since.findIndex((m) => m.method === 'session/prompt');
+    if (prompted >= 0 && since.slice(prompted).some((m) => m.method === 'turn/end')) {
+      assert.fail(`${tool} : le tour de l'agent s'est terminé sans l'appeler`);
     }
     await p.waitForTimeout(100);
   }

@@ -7,6 +7,7 @@ use snafu::{Backtrace, Snafu};
 use tokio_util::sync::CancellationToken;
 
 use crate::compact::ToolSpec;
+use crate::families::Family;
 
 /// Étape de la boucle de tour que la complétion sert.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,6 +60,8 @@ pub(crate) struct Completion {
     pub messages: Vec<Message>,
     /// Outils que le modèle peut appeler à cette étape.
     pub tools: Vec<ToolSpec>,
+    /// Routable families the tab offers, in `Family::ROUTABLE` order.
+    pub offered: Vec<Family>,
 }
 
 /// Réponse du modèle.

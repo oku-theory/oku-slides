@@ -15,7 +15,7 @@ use crate::lib_tests_support::session_with_fixture;
 use crate::pack::PackManifest;
 use crate::test_support::{
     add_user_theme, add_version, adopt_deck_only_pack, fresh_dir, manifest, manifest_ns, namespace_of, ns, opened_on,
-    session, session_on,
+    session, session_on, undo_label,
 };
 use crate::{Request, Session, SessionErrorKind};
 
@@ -92,11 +92,6 @@ fn session_with_library_widget_packs(packs: &[(&str, &[&str])]) -> (tempfile::Te
         add_version(&s.library, &manifest_ns(Uuid::new_v4(), namespace, requires), &[]);
     }
     (data, s)
-}
-
-/// Le libellé de l'étape à annuler du deck de `s`.
-fn undo_label(s: &Session) -> Option<String> {
-    s.sources_for_tests().replica().undo_label()
 }
 
 /// Les composants de la surface `surface`, en JSON.
