@@ -1,6 +1,6 @@
-// Bandeau de l'historique : la version montrée, le curseur des versions (repères
-// de session et de fusion), Restaurer et Revenir. Le curseur est un crochet à
-// part : la barre et les raccourcis clavier de l'onglet le partagent.
+// The history bar: the version shown, the versions slider (session and merge
+// marks), Restore and Close. The cursor is a hook of its own: the bar and the
+// tab's keyboard shortcuts share it.
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,6 +8,7 @@ import type { HistoryView, Snapshot, TabApi, Version } from "./api";
 import { markers, RENDER_WHILE_DRAGGING, Seeker, step } from "./history";
 import { locale, t } from "./i18n";
 import { Icon } from "./icons";
+import { IconButton } from "./primitives";
 
 export interface HistoryCursor {
   /** Toutes les versions, lues une fois à l'ouverture (vide avant). */
@@ -104,11 +105,11 @@ function versionDate(timestamp: number): string {
   return new Intl.DateTimeFormat(locale(), { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp * 1000));
 }
 
-export default function HistoryBar({ history, cursor, onRestore, onBack }: {
+export default function HistoryBar({ history, cursor, onRestore, onClose }: {
   history: HistoryView;
   cursor: HistoryCursor;
   onRestore: () => void;
-  onBack: () => void;
+  onClose: () => void;
 }) {
   const range = useRef<HTMLInputElement>(null);
   const max = Math.max(0, history.count - 1);
@@ -164,8 +165,8 @@ export default function HistoryBar({ history, cursor, onRestore, onBack }: {
         />
       </div>
       <div className="history-actions">
-        <button className="object token primary" aria-label={t("ui-history-restore")} title={t("ui-history-restore")} onClick={onRestore}>{Icon.restore}</button>
-        <button className="object token history-back" aria-label={t("ui-history-back")} title={t("ui-history-back")} onClick={onBack}>{Icon.back}</button>
+        <IconButton className="object token primary" label={t("ui-history-restore")} icon={Icon.restore} onClick={onRestore} />
+        <IconButton className="object token" label={t("ui-history-close")} icon={Icon.close} onClick={onClose} />
       </div>
     </section>
   );

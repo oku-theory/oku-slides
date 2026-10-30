@@ -39,7 +39,6 @@ export const Icon = {
   history: stroke(<><circle cx="12" cy="12" r="8" /><path d="M12 7.5V12l3 2" /></>),
   restore: stroke(<><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4.5h4.5" /><path d="M12 8v4l3 2" /></>),
   code: stroke(<><path d="M8.5 7.5L4 12l4.5 4.5" /><path d="M15.5 7.5L20 12l-4.5 4.5" /><path d="M13.5 5l-3 14" /></>),
-  back: stroke(<><path d="M10 6l-6 6 6 6" /><path d="M4 12h16" /></>),
   // Slide précédente, suivante (aide en lecture seule).
   previous: stroke(<path d="M14.5 6l-6 6 6 6" />),
   next: stroke(<path d="M9.5 6l6 6-6 6" />),

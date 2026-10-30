@@ -179,7 +179,7 @@ export default function App({
   const themeTab = !!snap?.theming;
 
   // --- Historique (lecture seule) -------------------------------------------
-  // `run` numérote la réponse d'un cran à son arrivée, pas à l'envoi : sans effet, car sortir (Revenir, Restaurer) annule d'abord le Seeker.
+  // `run` numbers a step's reply when it arrives, not when sent: harmless, since leaving (Close, Restore) cancels the Seeker first.
   const cursor = useHistoryCursor(api, snap?.history ?? null, (s) => run(Promise.resolve(s)), (e) => say(errorText(e), true));
 
   // Au montage, puis à chaque vue diffusée : un avis posé hors de cet onglet
@@ -361,7 +361,7 @@ export default function App({
           history={history}
           cursor={cursor}
           onRestore={() => { cursor.cancel(); run(api.historyRestore()); }}
-          onBack={() => { cursor.cancel(); run(api.historyClose()); }}
+          onClose={() => { cursor.cancel(); run(api.historyClose()); }}
         />
       ) : snap.read_only ? (
         <HelpBar title={snap.title ?? snap.name} slides={snap.slides} current={current} onShow={showSlide} search={api.search} onClose={onClose} />

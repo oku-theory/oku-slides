@@ -9,6 +9,7 @@ import { slideStep, slideTarget } from "./slideKeys";
 import HelpSearch, { type HelpSearchHandle } from "./HelpSearch";
 import { t } from "./i18n";
 import { Icon } from "./icons";
+import { IconButton } from "./primitives";
 
 const TEXT_ENTRY = "input, textarea, select, [contenteditable]";
 
@@ -63,7 +64,7 @@ export default function HelpBar({ title, slides, current, onShow, search, onClos
       <div className="history-actions">
         <button className="object token" aria-label={t("ui-slide-previous")} title={t("ui-slide-previous")} disabled={slideStep(index, -1, slides.length) === null} onClick={() => go(slideStep(index, -1, slides.length))}>{Icon.previous}</button>
         <button className="object token" aria-label={t("ui-slide-next")} title={t("ui-slide-next")} disabled={slideStep(index, 1, slides.length) === null} onClick={() => go(slideStep(index, 1, slides.length))}>{Icon.next}</button>
-        {onClose && <button className="object token history-back" aria-label={t("ui-help-close")} title={t("ui-help-close")} onClick={onClose}>{Icon.close}</button>}
+        {onClose && <IconButton className="object token" label={t("ui-help-close")} icon={Icon.close} onClick={onClose} />}
       </div>
     </section>
   );

@@ -67,7 +67,7 @@ describe("Seeker", () => {
       (s: number) => shown.push(s),
     );
     const seek = seeker.go(3);
-    // Revenir ou Restaurer part : la réponse du cran, arrivée ensuite, ne s'affiche pas.
+    // Close or Restore goes first: the step's reply, arriving later, does not show.
     seeker.cancel();
     answer(3);
     await seek;

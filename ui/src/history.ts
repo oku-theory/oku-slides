@@ -54,7 +54,7 @@ export class Seeker<T> {
     if (this.latest.accept(n)) this.show(answer);
   }
 
-  /** Les crans encore en vol ne s'afficheront pas (avant Revenir ou Restaurer). */
+  /** Steps still in flight will not show (before Close or Restore). */
   cancel(): void {
     this.latest.accept(this.latest.begin());
   }
