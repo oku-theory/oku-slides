@@ -62,6 +62,7 @@ ui-menu-new-theme = Nuovo tema
 ui-toolbar-add-label = Aggiungi alla diapositiva
 ui-toolbar-packs = Pacchetti della presentazione
 ui-toolbar-packs-update = Pacchetti della presentazione — aggiornamenti disponibili
+ui-toolbar-history = Mostra la cronologia
 ui-toolbar-thumbs-show = Mostra miniature
 ui-toolbar-thumbs-hide = Nascondi miniature
 ui-toolbar-remove-slide = Elimina la diapositiva

@@ -282,9 +282,9 @@ export default function App({
     setPresenting(mode);
   };
 
-  /** Ouvre l'historique demandé par l'agent (outil `history`), une ouverture à la fois.
-   *  La saisie ouverte s'enregistre d'abord, puis ce qui attend part au fichier : l'historique
-   *  refuse d'écrire, le deck mis de côté ne repart au fichier qu'à sa fermeture. */
+  /** Opens the history (toolbar button or the agent's `history` tool), one opening at a time.
+   *  The open text edit is committed first, then pending changes go to the file: the history
+   *  refuses writes, and the deck set aside goes back to the file only when it closes. */
   const openingHistory = useRef(false);
   const openHistory = async () => {
     if (openingHistory.current) return;
@@ -394,6 +394,7 @@ export default function App({
         keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
         run={run} onAdd={() => setAdding(true)}
         onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
+        onHistory={() => void openHistory()}
         thumbs={{ open: thumbsOpen, onToggle: toggleThumbs }}
       />
       </>)}

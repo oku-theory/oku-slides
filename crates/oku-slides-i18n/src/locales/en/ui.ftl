@@ -62,6 +62,7 @@ ui-menu-new-theme = New theme
 ui-toolbar-add-label = Add to the slide
 ui-toolbar-packs = Deck packs
 ui-toolbar-packs-update = Deck packs — updates available
+ui-toolbar-history = Show the history
 ui-toolbar-thumbs-show = Show thumbnails
 ui-toolbar-thumbs-hide = Hide thumbnails
 ui-toolbar-remove-slide = Delete the slide

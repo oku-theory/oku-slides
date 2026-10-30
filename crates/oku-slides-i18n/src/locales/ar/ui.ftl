@@ -74,6 +74,7 @@ ui-menu-new-theme = سمة جديدة
 ui-toolbar-add-label = إضافة إلى الشريحة
 ui-toolbar-packs = حزم العرض التقديمي
 ui-toolbar-packs-update = حزم العرض التقديمي — تتوفر تحديثات
+ui-toolbar-history = إظهار السجل
 ui-toolbar-thumbs-show = إظهار المصغرات
 ui-toolbar-thumbs-hide = إخفاء المصغرات
 ui-toolbar-remove-slide = حذف الشريحة

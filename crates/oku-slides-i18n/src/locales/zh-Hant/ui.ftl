@@ -62,6 +62,7 @@ ui-menu-new-theme = 新增主題
 ui-toolbar-add-label = 新增至投影片
 ui-toolbar-packs = 簡報的套件
 ui-toolbar-packs-update = 簡報的套件（有可用的更新）
+ui-toolbar-history = 顯示歷程記錄
 ui-toolbar-thumbs-show = 顯示縮圖
 ui-toolbar-thumbs-hide = 隱藏縮圖
 ui-toolbar-remove-slide = 刪除投影片

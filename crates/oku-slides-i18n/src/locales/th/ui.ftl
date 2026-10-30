@@ -59,6 +59,7 @@ ui-menu-new-theme = ธีมใหม่
 ui-toolbar-add-label = เพิ่มลงในสไลด์
 ui-toolbar-packs = แพ็กของงานนำเสนอ
 ui-toolbar-packs-update = แพ็กของงานนำเสนอ — มีการอัปเดต
+ui-toolbar-history = แสดงประวัติ
 ui-toolbar-thumbs-show = แสดงภาพย่อ
 ui-toolbar-thumbs-hide = ซ่อนภาพย่อ
 ui-toolbar-remove-slide = ลบสไลด์

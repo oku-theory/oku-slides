@@ -62,6 +62,7 @@ ui-menu-new-theme = 新しいテーマ
 ui-toolbar-add-label = スライドに追加
 ui-toolbar-packs = プレゼンテーションのパック
 ui-toolbar-packs-update = プレゼンテーションのパック（更新があります）
+ui-toolbar-history = 履歴を表示
 ui-toolbar-thumbs-show = サムネイルを表示
 ui-toolbar-thumbs-hide = サムネイルを隠す
 ui-toolbar-remove-slide = スライドを削除

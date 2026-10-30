@@ -59,6 +59,7 @@ ui-menu-new-theme = 새 테마
 ui-toolbar-add-label = 슬라이드에 추가
 ui-toolbar-packs = 프레젠테이션 팩
 ui-toolbar-packs-update = 프레젠테이션 팩 (업데이트 있음)
+ui-toolbar-history = 기록 표시
 ui-toolbar-thumbs-show = 미리보기 표시
 ui-toolbar-thumbs-hide = 미리보기 숨기기
 ui-toolbar-remove-slide = 슬라이드 삭제

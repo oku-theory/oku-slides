@@ -68,6 +68,7 @@ ui-menu-new-theme = Нова тема
 ui-toolbar-add-label = Додати на слайд
 ui-toolbar-packs = Пакети презентації
 ui-toolbar-packs-update = Пакети презентації — доступні оновлення
+ui-toolbar-history = Показати історію
 ui-toolbar-thumbs-show = Показати мініатюри
 ui-toolbar-thumbs-hide = Сховати мініатюри
 ui-toolbar-remove-slide = Видалити слайд

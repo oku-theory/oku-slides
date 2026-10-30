@@ -62,6 +62,7 @@ ui-menu-new-theme = 新建主题
 ui-toolbar-add-label = 添加到幻灯片
 ui-toolbar-packs = 演示文稿的包
 ui-toolbar-packs-update = 演示文稿的包（有可用更新）
+ui-toolbar-history = 显示历史记录
 ui-toolbar-thumbs-show = 显示缩略图
 ui-toolbar-thumbs-hide = 隐藏缩略图
 ui-toolbar-remove-slide = 删除幻灯片

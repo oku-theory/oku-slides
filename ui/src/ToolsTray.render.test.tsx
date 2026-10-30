@@ -1,5 +1,5 @@
-// Rendu de la barre d'outils sous la feuille dans un DOM happy-dom : le bouton des packs du deck,
-// la bascule de la bande des miniatures.
+// Renders the toolbar under the sheet in a happy-dom DOM: the deck packs button, the history
+// button and the thumbnails strip toggle.
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -15,7 +15,10 @@ const { setMessages } = await import("./i18n");
 const { resetMessages } = await import("./test/messages");
 
 afterAll(resetMessages);
-setMessages("fr", ["ui-toolbar-packs = Packs du deck\nui-toolbar-packs-update = Packs du deck — mises à jour disponibles\n"]);
+setMessages("fr", [
+  "ui-toolbar-packs = Packs du deck\nui-toolbar-packs-update = Packs du deck — mises à jour disponibles\n"
+  + "ui-toolbar-history = Afficher l'historique\n",
+]);
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -39,17 +42,19 @@ async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = f
   const root = createRoot(host);
   mounted = { root, host };
   let opened = 0;
+  let histories = 0;
   await act(async () =>
     root.render(
       createElement(ToolsTray, {
         api: {} as TabApi, snap, view, item: null,
         keptUi: {} as KeptUi, mainMenu: null, run: async () => null,
-        onAdd: () => {}, onPacks: () => void opened++, thumbs: null, themeTab,
+        onAdd: () => {}, onPacks: () => void opened++, onHistory: () => void histories++, thumbs: null, themeTab,
       }),
     ),
   );
   const packs = () => host.querySelector<HTMLButtonElement>(".packs-button");
-  return { host, packs, opened: () => opened };
+  const history = () => host.querySelector<HTMLButtonElement>(".history-button");
+  return { host, packs, opened: () => opened, history, histories: () => histories };
 }
 
 test("ToolsTray in deck mode shows the packs button, which opens the panel", async () => {
@@ -86,6 +91,27 @@ test("ToolsTray in pack mode or history hides the packs button", async () => {
   expect([...shown, history.packs()]).toEqual([null, null]);
 });
 
+test("ToolsTray in deck mode shows the history button, which opens the history", async () => {
+  const { history, histories } = await mount(snapshot());
+  await act(async () => history()!.click());
+  expect([history()!.title, histories()]).toEqual(["Afficher l'historique", 1]);
+});
+
+test("ToolsTray history button shows an icon, no text", async () => {
+  const { history } = await mount(snapshot());
+  expectIconOnly(history(), "Afficher l'historique");
+});
+
+test.each([
+  ["help", { read_only: true }, false],
+  ["a theme tab", { theming: {} as Snapshot["theming"] }, true],
+  ["pack mode", { editing: {} as Snapshot["editing"] }, false],
+  ["history", { history: {} as Snapshot["history"] }, false],
+] as const)("ToolsTray in %s hides the history button", async (_, o, themeTab) => {
+  const { history } = await mount(snapshot(o), null, themeTab);
+  expect(history()).toBeNull();
+});
+
 /** La slide montrée, de kind `kind`. */
 const shown = (kind: string) => ({ slide: { id: "s", kind, params: {} } }) as unknown as SlideView;
 
@@ -109,7 +135,7 @@ async function mountThumbs(thumbs: { open: boolean; onToggle: () => void } | nul
   await act(async () => {
     root.render(createElement(ToolsTray, {
       api: {} as TabApi, snap: thumbsSnap, view: null, item: null, keptUi: {} as never,
-      mainMenu: null, run: async () => null, onAdd: () => {}, onPacks: () => {}, thumbs,
+      mainMenu: null, run: async () => null, onAdd: () => {}, onPacks: () => {}, onHistory: () => {}, thumbs,
     }));
   });
   return host;

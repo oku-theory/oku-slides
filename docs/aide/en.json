@@ -558,7 +558,7 @@
            "bold": true
           },
           {
-           "t": ": ask the agent for the history. A slider walks every version in the file; Restore makes one current again."
+           "t": ": the clock button in the toolbar, or ask the agent. A slider walks every version in the file; Restore makes one current again."
           }
          ],
          "list": "bullet"

@@ -62,6 +62,7 @@ ui-menu-new-theme = Nieuw thema
 ui-toolbar-add-label = Toevoegen aan de dia
 ui-toolbar-packs = Pakketten van de presentatie
 ui-toolbar-packs-update = Pakketten van de presentatie — updates beschikbaar
+ui-toolbar-history = Geschiedenis tonen
 ui-toolbar-thumbs-show = Miniaturen tonen
 ui-toolbar-thumbs-hide = Miniaturen verbergen
 ui-toolbar-remove-slide = Dia verwijderen

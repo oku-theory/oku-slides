@@ -62,6 +62,7 @@ ui-menu-new-theme = নতুন থিম
 ui-toolbar-add-label = স্লাইডে যোগ করুন
 ui-toolbar-packs = উপস্থাপনার প্যাক
 ui-toolbar-packs-update = উপস্থাপনার প্যাক — আপডেট উপলব্ধ
+ui-toolbar-history = ইতিহাস দেখান
 ui-toolbar-thumbs-show = থাম্বনেইল দেখান
 ui-toolbar-thumbs-hide = থাম্বনেইল লুকান
 ui-toolbar-remove-slide = স্লাইড মুছুন

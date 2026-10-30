@@ -59,6 +59,7 @@ ui-menu-new-theme = Giao diện mới
 ui-toolbar-add-label = Thêm vào trang chiếu
 ui-toolbar-packs = Gói của bản trình bày
 ui-toolbar-packs-update = Gói của bản trình bày — có bản cập nhật
+ui-toolbar-history = Hiện lịch sử
 ui-toolbar-thumbs-show = Hiện hình thu nhỏ
 ui-toolbar-thumbs-hide = Ẩn hình thu nhỏ
 ui-toolbar-remove-slide = Xóa trang chiếu

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { IconToggle } from "./primitives";
+import { IconButton, IconToggle } from "./primitives";
 import { acceptsElements } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { PackItem } from "./usePackItem";
@@ -32,6 +32,8 @@ interface Props {
   onAdd: () => void;
   /** Ouvre le panneau des packs du deck (surface `host-packs` de l'agent). */
   onPacks: () => void;
+  /** Opens the deck's history, as the agent's `history` tool does. */
+  onHistory: () => void;
   /** La bande des miniatures sous la scène (montrée, et sa bascule) ; `null` : pas de bande (mode pack). */
   thumbs: { open: boolean; onToggle: () => void } | null;
   /** A theme tab: nothing to add, no deck packs. */
@@ -49,6 +51,7 @@ export function ToolsTray({
   run,
   onAdd,
   onPacks,
+  onHistory,
   thumbs,
   themeTab,
 }: Props) {
@@ -58,9 +61,9 @@ export function ToolsTray({
   const redoLabel = snap.redo_label
     ? t("ui-toolbar-redo-label", { label: snap.redo_label })
     : t("ui-toolbar-redo");
-  // The packs button: in deck mode only, neither in help, history nor a theme tab. A dot
-  // says a pin is older than my current version.
-  const packsShown = !snap.editing && !themeTab && !snap.read_only && !snap.history;
+  // The packs and history buttons: in deck mode only, not in pack mode, help, history or a
+  // theme tab. A dot on packs says a pin is older than my current version.
+  const deckMode = !snap.editing && !themeTab && !snap.read_only && !snap.history;
   const packsUpdate = snap.pack_updates > 0;
   // Avec une mise à jour, le nom accessible et l'infobulle la disent aussi (une seule phrase Fluent).
   const packsLabel = t(packsUpdate ? "ui-toolbar-packs-update" : "ui-toolbar-packs");
@@ -81,7 +84,7 @@ export function ToolsTray({
       >
         {Icon.widget}
       </button>
-      {packsShown && (
+      {deckMode && (
         <button
           className={`token ghost packs-button${packsUpdate ? " has-update" : ""}`}
           aria-label={packsLabel}
@@ -118,6 +121,14 @@ export function ToolsTray({
           )}
           {mainMenu}
           <span className="tools-sep" aria-hidden />
+          {deckMode && (
+            <IconButton
+              className="token ghost history-button"
+              label={t("ui-toolbar-history")}
+              icon={Icon.history}
+              onClick={onHistory}
+            />
+          )}
           <button
             className="token ghost"
             aria-label={undoLabel}

@@ -62,6 +62,7 @@ ui-menu-new-theme = Yeni tema
 ui-toolbar-add-label = Slayta ekle
 ui-toolbar-packs = Sununun paketleri
 ui-toolbar-packs-update = Sununun paketleri — güncellemeler var
+ui-toolbar-history = Geçmişi göster
 ui-toolbar-thumbs-show = Küçük resimleri göster
 ui-toolbar-thumbs-hide = Küçük resimleri gizle
 ui-toolbar-remove-slide = Slaytı sil

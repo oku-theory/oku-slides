@@ -68,6 +68,7 @@ ui-menu-new-theme = Nowy motyw
 ui-toolbar-add-label = Dodaj do slajdu
 ui-toolbar-packs = Pakiety prezentacji
 ui-toolbar-packs-update = Pakiety prezentacji — dostępne aktualizacje
+ui-toolbar-history = Pokaż historię
 ui-toolbar-thumbs-show = Pokaż miniatury
 ui-toolbar-thumbs-hide = Ukryj miniatury
 ui-toolbar-remove-slide = Usuń slajd

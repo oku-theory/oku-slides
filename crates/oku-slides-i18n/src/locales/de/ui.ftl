@@ -62,6 +62,7 @@ ui-menu-new-theme = Neues Theme
 ui-toolbar-add-label = Zur Folie hinzufügen
 ui-toolbar-packs = Pakete der Präsentation
 ui-toolbar-packs-update = Pakete der Präsentation — Aktualisierungen verfügbar
+ui-toolbar-history = Verlauf anzeigen
 ui-toolbar-thumbs-show = Miniaturen anzeigen
 ui-toolbar-thumbs-hide = Miniaturen ausblenden
 ui-toolbar-remove-slide = Folie löschen

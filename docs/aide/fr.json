@@ -558,7 +558,7 @@
            "bold": true
           },
           {
-           "t": " : demandez l'historique à l'agent. Un curseur parcourt toutes les versions du fichier ; Restaurer en fait la version courante."
+           "t": " : le bouton horloge de la barre d'outils, ou demandez-le à l'agent. Un curseur parcourt toutes les versions du fichier ; Restaurer en fait la version courante."
           }
          ],
          "list": "bullet"
