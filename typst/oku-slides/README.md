@@ -333,7 +333,11 @@ Example: an indicator, `widgets/kpi.typ` and `widgets/_commun.typ`.
 
 For its colors and sizes, a widget reads the theme tokens
 (`color-of(ctx.tokens, "accent")`, `size-of(ctx.tokens, "body")`) rather than
-hard-coded values.
+hard-coded values. An unknown color name fails the render, so a typo in a
+pack or theme shows at once. Deck data alone (element styles, text runs) is
+resolved with `color-of(t, v, lenient: true)`: a name the theme lacks (a deck
+made under another theme) is drawn in `ink-muted`, and the app lists it among
+the deck warnings.
 
 `lib.typ` exports everything a pack needs: `widget`, `field`,
 `by-name`, `list-item`, the `params` module (to import `as p`), `free-area`,

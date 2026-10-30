@@ -15,6 +15,7 @@ diagnostic-warning = cảnh báo
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = gợi ý: { $hint }
+diagnostic-unknown-color = chủ đề không có màu “{ $name }”: màu này được vẽ bằng ink-muted
 render-chart-failed = không thể vẽ biểu đồ
 
 registry-bad-pack-id = Định danh gói không hợp lệ: { $id }

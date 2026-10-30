@@ -36,7 +36,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   (`sources_themes.rs`, pins checked against manifests and closure), all add-only, verified on read (a forged version is
   reported once, as is a namespace pinned under both kinds) and unioned on merge; reads bounded by `SourceLimits`.
 - `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s, cited assets (`asset_refs`, `element_asset_refs`);
-  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors. `media.rs`: `sniff`, `dimensions`.
+  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors (`color_names`: those a deck uses). `media.rs`: `sniff`, `dimensions`.
   `num.rs`: named float/int casts (import, session). `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons.
 
 ## Extension points

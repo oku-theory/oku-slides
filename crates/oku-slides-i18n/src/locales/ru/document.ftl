@@ -15,6 +15,7 @@ diagnostic-warning = предупреждение
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = подсказка: { $hint }
+diagnostic-unknown-color = в теме нет цвета «{ $name }»: он рисуется как ink-muted
 render-chart-failed = не удалось построить диаграмму
 
 registry-bad-pack-id = Недопустимый идентификатор пакета: { $id }

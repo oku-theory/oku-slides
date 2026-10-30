@@ -15,6 +15,7 @@ diagnostic-warning = चेतावनी
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = संकेत: { $hint }
+diagnostic-unknown-color = थीम में “{ $name }” रंग नहीं है: इसे ink-muted में बनाया गया है
 render-chart-failed = चार्ट बनाया नहीं जा सका
 
 registry-bad-pack-id = अमान्य पैक पहचानकर्ता: { $id }

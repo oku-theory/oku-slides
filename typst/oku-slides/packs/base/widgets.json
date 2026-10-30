@@ -4,7 +4,7 @@
   "namespace": "base",
   "requires": [],
   "description": "Les widgets de base : texte, carte, image, forme, graphique, tableau, pile.",
-  "parent": "sha256:2ed60d1ea6f5a2f3155dcdb9fa9832a31f4491ef560ced09252a445e2a22f1fc",
+  "parent": "sha256:626985fbdf5ef9d6c75301e9f557febaada7bf576530c8938f1879f01a7c2f57",
   "created": "2026-10-23T00:00:00Z",
   "tokens": [
     {"path": ["card", "bg"], "default": "bg", "control": "color"},

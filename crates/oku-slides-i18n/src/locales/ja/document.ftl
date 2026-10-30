@@ -14,6 +14,7 @@ diagnostic-warning = 警告
 diagnostic = { $level }（{ $place }）：{ $message }
 diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = ヒント：{ $hint }
+diagnostic-unknown-color = テーマに色「{ $name }」がありません：ink-muted で描画されます
 render-chart-failed = グラフを描画できませんでした
 
 registry-bad-pack-id = パックの識別子が無効です: { $id }

@@ -215,10 +215,10 @@ fn default_tokens_have_no_component_and_the_four_frame_families() {
 }
 
 #[rstest]
-#[case(BuiltinPack::Base)]
-#[case(BuiltinPack::Essentiel)]
-fn builtin_pack_has_three_shipped_versions(#[case] pack: BuiltinPack) {
-    assert_that!(pack.shipped_versions().count()).is_equal_to(3);
+#[case(BuiltinPack::Base, 4)]
+#[case(BuiltinPack::Essentiel, 3)]
+fn builtin_pack_shipped_versions_counts_each_line(#[case] pack: BuiltinPack, #[case] count: usize) {
+    assert_that!(pack.shipped_versions().count()).is_equal_to(count);
 }
 
 #[test]

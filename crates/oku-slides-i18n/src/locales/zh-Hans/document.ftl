@@ -15,6 +15,7 @@ diagnostic-warning = 警告
 diagnostic = { $level }（{ $place }）：{ $message }
 diagnostic-unplaced = { $level }：{ $message }
 diagnostic-hint = 提示：{ $hint }
+diagnostic-unknown-color = 主题中没有颜色“{ $name }”：改用 ink-muted 绘制
 render-chart-failed = 无法绘制图表
 
 registry-bad-pack-id = 包标识符无效: { $id }

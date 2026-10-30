@@ -15,6 +15,7 @@ diagnostic-warning = uyarı
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = ipucu: { $hint }
+diagnostic-unknown-color = temada “{ $name }” rengi yok: ink-muted ile çiziliyor
 render-chart-failed = grafik çizilemedi
 
 registry-bad-pack-id = Geçersiz paket tanımlayıcısı: { $id }

@@ -21,7 +21,7 @@
 //! - [`token_spec`]: component tokens declared by packs ([`ComponentToken`]) and editor control ([`Control`]).
 //! - [`Slide::text_fields`]: the text fields of a slide in reading
 //!   order ([`TextField`], [`FieldOwner`]), the editor's Tab order.
-//! - [`is_hex_color`]: hexadecimal form of token colors.
+//! - [`is_hex_color`]: hexadecimal form of token colors; [`color_names`]: the color names a deck uses.
 //! - [`WidgetRegistry`]: schema of the widgets declared in Typst, read from the render probe (hosts: [`WidgetRegistry::host_params`]; block height: [`Grow`]).
 //! - [`PackKind`]: the kind of a pack (element `widgets`, slide `layouts`); [`LayoutProfile`]: preset of a layout for import.
 //! - [`kinds`]: the kinds of the built-in `base` and `essentiel` packs, the only place they are written.
@@ -57,7 +57,7 @@ pub mod validate;
 pub mod widget;
 
 pub use canonical::canonicalize;
-pub use color::is_hex_color;
+pub use color::{color_names, is_hex_color};
 pub use error::{
     ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind, PackVersionError,
     ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError, TokenEntryErrorKind,

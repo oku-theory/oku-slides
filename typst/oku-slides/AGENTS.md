@@ -31,6 +31,7 @@
 
 - Take chart colors from the theme chart.palette token, overridable by the deck, never from hardcoded palettes. (t-77)
 - Make widgets read colors and sizes from theme tokens via color-of and size-of, never hard-coded values. (plan:2026-10-02-creation-widgets)
+- Pass lenient: true to color-of only for deck style and run colors; elsewhere an unknown color name must still panic. (t-1293)
 - Model repeated widget items with p.list; never simulate a list with numbered params like date1, date2. (plan:2026-10-04-parametre-liste)
 - Do not wrap the cover author and date in field(); they share one line and field() renders a block. (plan:2026-09-28-champs-editables)
 - Declare each widget's params in its own .typ file as the single source of truth; add no JSON manifest. (spec:2026-09-27-widgets-typst-design, t-270)

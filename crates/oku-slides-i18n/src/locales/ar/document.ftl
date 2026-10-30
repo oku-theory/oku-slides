@@ -15,6 +15,7 @@ diagnostic-warning = تحذير
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = تلميح: { $hint }
+diagnostic-unknown-color = لا تحتوي السمة على اللون «{ $name }»: يُرسم بلون ink-muted
 render-chart-failed = تعذّر رسم المخطط
 
 registry-bad-pack-id = معرّف الحزمة غير صالح: { $id }

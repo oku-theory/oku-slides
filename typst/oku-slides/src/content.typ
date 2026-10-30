@@ -11,7 +11,7 @@
 #let _text-args(t, style) = {
   let a = (:)
   if "size" in style { a.insert("size", size-of(t, style.size)) }
-  if "color" in style { a.insert("fill", color-of(t, style.color)) }
+  if "color" in style { a.insert("fill", color-of(t, style.color, lenient: true)) }
   if "weight" in style { a.insert("weight", weight-of(t, style.weight)) }
   if "font" in style { a.insert("font", font-of(t, style.font)) }
   if style.at("italic", default: false) { a.insert("style", "italic") }

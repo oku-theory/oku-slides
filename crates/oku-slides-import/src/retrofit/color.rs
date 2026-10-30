@@ -1,8 +1,8 @@
 //! Couleurs source projetées sur les jetons `color` du thème cible.
 //!
 //! Le retrofit garde le style du thème cible : il n'émet jamais de `#rrggbb`,
-//! seulement le nom d'une couleur existante du thème (le rendu Typst panique
-//! sur un nom inconnu). Une couleur source devient, dans l'ordre :
+//! seulement le nom d'une couleur existante du thème (un nom inconnu serait
+//! dessiné en `ink-muted` avec un avertissement du deck). Une couleur source devient, dans l'ordre :
 //!
 //! 1. rien, si elle est la valeur par défaut du lecteur (`Origin::Default`) :
 //!    le thème cible décide ;

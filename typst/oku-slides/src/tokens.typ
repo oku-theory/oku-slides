@@ -109,12 +109,18 @@
 
 // ---- Résolution des jetons -------------------------------------------------
 
-#let color-of(t, v) = {
+// Resolves a color: hex, or a theme color name followed through references.
+// An unknown name panics, so a theme or pack typo fails loudly. `lenient`
+// is for deck data only (element styles and text runs, made under another
+// theme): an unknown name is drawn in `ink-muted`, and the session lists it
+// in the deck warnings (t-1293).
+#let color-of(t, v, lenient: false) = {
   if v == none { return none }
   if type(v) == color { return v }
   if type(v) == str {
     if v.starts-with("#") { return rgb(v) }
-    if v in t.color { return color-of(t, t.color.at(v)) }
+    if v in t.color { return color-of(t, t.color.at(v), lenient: lenient) }
+    if lenient and "ink-muted" in t.color { return color-of(t, "ink-muted") }
   }
   panic("oku-slides : couleur inconnue : " + repr(v))
 }

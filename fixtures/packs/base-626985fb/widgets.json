@@ -4,8 +4,8 @@
   "namespace": "base",
   "requires": [],
   "description": "Les widgets de base : texte, carte, image, forme, graphique, tableau, pile.",
-  "parent": null,
-  "created": "2026-10-18T00:00:00Z",
+  "parent": "sha256:2ed60d1ea6f5a2f3155dcdb9fa9832a31f4491ef560ced09252a445e2a22f1fc",
+  "created": "2026-10-23T00:00:00Z",
   "tokens": [
     {"path": ["card", "bg"], "default": "bg", "control": "color"},
     {"path": ["card", "border-color"], "default": "rule", "control": "color"},
@@ -34,5 +34,31 @@
     {"path": ["table", "rule-width"], "default": "hairline", "control": "pt", "min": 0, "max": 400, "refs": "stroke"},
     {"path": ["table", "padding-x"], "default": "sm", "control": "pt", "min": 0, "max": 400, "refs": "space"},
     {"path": ["table", "padding-y"], "default": "xs", "control": "pt", "min": 0, "max": 400, "refs": "space"}
-  ]
+  ],
+  "examples": {
+    "text": {
+      "body": [{"runs": [{"t": "ftl:session-example-base-text-body"}]}]
+    },
+    "card": {
+      "title": "ftl:session-example-base-card-title",
+      "body": [{"runs": [{"t": "ftl:session-example-base-card-body"}]}]
+    },
+    "chart": {
+      "option": {"xAxis": {"type": "category", "data": ["1", "2", "3"]}, "series": [{"type": "bar", "data": [3, 5, 2]}]}
+    },
+    "table": {
+      "data": {
+        "dataset": {
+          "source": [
+            ["ftl:session-example-base-table-column-1", "ftl:session-example-base-table-column-2", "ftl:session-example-base-table-column-3"],
+            ["", 0, 0],
+            ["", 0, 0]
+          ]
+        }
+      }
+    }
+  },
+  "styles": {
+    "shape": {"fill": "surface", "radius": "md"}
+  }
 }

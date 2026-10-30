@@ -15,6 +15,7 @@ diagnostic-warning = คำเตือน
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = คำแนะนำ: { $hint }
+diagnostic-unknown-color = ธีมไม่มีสี “{ $name }”: จึงวาดด้วย ink-muted แทน
 render-chart-failed = วาดแผนภูมิไม่ได้
 
 registry-bad-pack-id = รหัสแพ็กไม่ถูกต้อง: { $id }

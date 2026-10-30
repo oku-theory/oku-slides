@@ -15,6 +15,7 @@ diagnostic-warning = 경고
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = 힌트: { $hint }
+diagnostic-unknown-color = 테마에 “{ $name }” 색이 없습니다: ink-muted로 그려집니다
 render-chart-failed = 차트를 그릴 수 없음
 
 registry-bad-pack-id = 잘못된 팩 식별자: { $id }

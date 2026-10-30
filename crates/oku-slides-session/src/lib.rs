@@ -40,6 +40,7 @@ pub mod agent;
 mod appearance;
 mod carried_assets;
 mod charts;
+mod color_warnings;
 mod data_edit;
 mod data_panel;
 mod deck_adopt;
@@ -761,7 +762,11 @@ impl Session {
             redo_label: doc.sources.replica().redo_label(),
             undo_turn: self.undo_turn(),
             warnings: compiled
-                .map(|c| c.warnings.iter().map(|w| w.localize(&self.localizer)).collect())
+                .map(|c| {
+                    let typst = c.warnings.iter().map(|w| w.localize(&self.localizer));
+                    let tokens = c.layout().tokens.as_ref();
+                    typst.chain(color_warnings::unknown_color_warnings(deck, tokens, &self.localizer)).collect()
+                })
                 .unwrap_or_default(),
             notice: doc.notice.as_deref(),
             disk_replaced: doc.disk_replaced,

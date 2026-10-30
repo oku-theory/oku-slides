@@ -14,6 +14,7 @@ diagnostic-warning = avviso
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = suggerimento: { $hint }
+diagnostic-unknown-color = il tema non ha il colore «{ $name }»: viene disegnato in ink-muted
 render-chart-failed = impossibile disegnare il grafico
 
 registry-bad-pack-id = Identificatore del pacchetto non valido: { $id }

@@ -15,6 +15,7 @@ diagnostic-warning = waarschuwing
 diagnostic = { $level } ({ $place }): { $message }
 diagnostic-unplaced = { $level }: { $message }
 diagnostic-hint = tip: { $hint }
+diagnostic-unknown-color = het thema heeft geen kleur ‘{ $name }’: die wordt in ink-muted getekend
 render-chart-failed = grafiek kon niet worden getekend
 
 registry-bad-pack-id = Ongeldige id van pakket: { $id }
