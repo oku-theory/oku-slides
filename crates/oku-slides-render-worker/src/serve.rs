@@ -13,10 +13,10 @@
 //! - `ProbeFile` sonde un fichier seul, dans le dossier de la sorte de son pack
 //!   (`Registries::probe_file`, mémoïsé).
 //! - Un nom de fichier de widget invalide répond `Error Setup`.
-//! - `Render` rend le deck sous une nouvelle génération (compteur global,
-//!   croissant), rangée dans l'emplacement. Ensuite, les assets qui ne sont
-//!   dans aucun des `assets` du dernier `Render` de chaque emplacement sont
-//!   retirés (l'hôte applique la même règle).
+//! - `Render` answers `MissingAssets` with the listed `assets` it lacks, rendering nothing.
+//!   Otherwise it renders the deck under a new generation (global, increasing counter),
+//!   kept in the slot. Then the assets in none of the `assets` of each slot's last
+//!   `Render` are dropped (the host applies the same rule).
 //! - `Svg`, `Png` et `Pdf` d'une génération absente répondent `Error Stale`.
 //! - `Release` retire les générations nommées ; `CloseSlot` l'emplacement.
 //! - `Reference` rend la charge (un `.pptx`) par le témoin nommé (`Office2Pdf`
@@ -337,6 +337,11 @@ impl Worker {
 
     fn render(&mut self, slot: SlotId, deck: &oku_slides_core::Deck, assets: Vec<String>) -> Result<Reply, WireError> {
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
+        // Rendering without them would draw missing-image frames: the host sends them again.
+        let missing: Vec<String> = assets.iter().filter(|id| !self.assets.contains_key(*id)).cloned().collect();
+        if !missing.is_empty() {
+            return Ok((Response::MissingAssets { ids: missing }, Vec::new()));
+        }
         let compiled = s.renderer.render(deck, &self.assets).map_err(|e| render_error(&e))?;
         self.next_generation += 1;
         let generation = self.next_generation;

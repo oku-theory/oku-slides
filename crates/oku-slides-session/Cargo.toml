@@ -55,3 +55,9 @@ workspace = true
 name = "issue_0327_pack_qui_boucle"
 path = "tests/regressions/issue_0327_pack_qui_boucle.rs"
 harness = false
+
+[[test]]
+# Own main: it is also the render process (`--render-worker`), as in the app.
+name = "issue_1295_imported_images_survive_reopening"
+path = "tests/regressions/issue_1295_imported_images_survive_reopening.rs"
+harness = false

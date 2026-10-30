@@ -143,6 +143,21 @@ fn serve_truncated_frame_returns_frame_error() {
     assert_that!(result.is_err()).is_true();
 }
 
+/// t-1295: a render listing an asset the worker never received answers its id, renders
+/// nothing and keeps the others, instead of drawing a missing-image frame.
+#[test]
+fn worker_render_without_a_listed_asset_answers_missing_assets() {
+    let mut w = Worker::default();
+    w.handle(Request::PutAsset { id: "a".into() }, vec![1]);
+    w.handle(Request::OpenSlot { slot: 1, fonts: vec![] }, Vec::new());
+    let assets = vec!["a".into(), "b".into()];
+    let (resp, _) = w.handle(Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets }, Vec::new());
+    let Response::MissingAssets { ids } = resp else { panic!("{resp:?}") };
+    assert_that!(ids).is_equal_to(vec!["b".to_string()]);
+    assert_that!(w.next_generation).is_equal_to(0);
+    assert_that!(w.assets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec!["a".to_string()]);
+}
+
 #[test]
 fn worker_render_evicts_assets_outside_the_union_of_last_assets() {
     let mut w = Worker::default();

@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use oku_slides_session::import::{ImportRequest, ImportTarget, PackLookup, import};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 
-/// Le `.pptx` de `fixtures/import/minimal`, zippé dans `dir`.
-pub(crate) fn minimal_pptx(dir: &Path) -> PathBuf {
+/// The `.pptx` of `fixtures/import/<name>`, zipped into `dir`.
+pub(crate) fn fixture_pptx(dir: &Path, name: &str) -> PathBuf {
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display())) {
             let p = e.unwrap_or_else(|e| panic!("{e}")).path();
@@ -17,7 +17,7 @@ pub(crate) fn minimal_pptx(dir: &Path) -> PathBuf {
             if p.is_dir() { walk(&p, out) } else { out.push(p) }
         }
     }
-    let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import/minimal"));
+    let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import")).join(name);
     let mut paths = Vec::new();
     walk(&root, &mut paths);
     paths.sort_by_key(|p| (p.file_name() != Some("[Content_Types].xml".as_ref()), p.clone()));
@@ -28,7 +28,7 @@ pub(crate) fn minimal_pptx(dir: &Path) -> PathBuf {
         w.write_all(&std::fs::read(&p).unwrap_or_else(|e| panic!("{e}"))).unwrap_or_else(|e| panic!("zip : {e}"));
     }
     let bytes = w.finish().unwrap_or_else(|e| panic!("zip : {e}")).into_inner();
-    let path = dir.join("minimal.pptx");
+    let path = dir.join(format!("{name}.pptx"));
     std::fs::write(&path, bytes).unwrap_or_else(|e| panic!("{e}"));
     path
 }
@@ -61,7 +61,7 @@ pub(crate) fn imported_hifi(data: &Path) -> Session {
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     let request = ImportRequest {
-        pptx: minimal_pptx(data),
+        pptx: fixture_pptx(data, "minimal"),
         target: ImportTarget::Hifi { witness: Some(oku_slides_platform::config::ImportWitness::Office2pdf) },
         system_fonts: false,
         packs: PackLookup::Library,

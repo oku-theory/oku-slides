@@ -11,6 +11,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do not retry a faulty pack in the same session until its source fingerprint changes. (spec:2026-09-29-compilation-bornee-design)
 - Apply the watchdog memory limit only during a request; detect parent loss by a PPID change, not PPID 1. (t-340)
 - Bump PROTOCOL_VERSION on any change to Request, Response or frames; the host refuses a worker of another version. (t-341)
+- Refuse a Render that lists an asset the worker lacks with MissingAssets; the host resends once, never draws its missing frame. (t-1295)
+- Clear every slot's last_assets on reconnect, as the replayed worker has none, so host and worker evict alike. (t-1295)
 - Drop fonts that no open slot uses from the replay state and from the worker with DropFonts. (t-341)
 - Spawn a macOS worker only through sandbox-exec with worker.sb, and refuse it unless its Hello canary is denied. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 - Never hardlink a file into the worker's work dir; Seatbelt checks the path, so copy it. (spec:2026-10-17-render-worker-sandbox-design, t-912)

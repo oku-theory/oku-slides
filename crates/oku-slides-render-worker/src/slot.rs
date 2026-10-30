@@ -126,6 +126,7 @@ impl RenderSlot {
     ///
     /// Fails (`pack_disabled`) if a pack of the slot is at fault, if the
     /// compilation fails, or if the worker does not start, dies or exceeds its bounds.
+    /// Fails (`frame`) if the worker still lacks assets after resending them once.
     pub fn render(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<RemoteCompiled, RenderError> {
         let mut link = self.worker.link();
         if self.accuse
@@ -142,21 +143,35 @@ impl RenderSlot {
         {
             return Err(RenderError::pack_disabled(pack));
         }
-        for (id, bytes) in assets {
-            if !link.sent_assets.contains(id) {
-                expect_ok(&mut link, &Request::PutAsset { id: id.clone() }, bytes)?;
-                link.sent_assets.insert(id.clone());
-            }
-        }
         let ids: Vec<String> = assets.keys().cloned().collect();
         let req = Request::Render { slot: self.id, deck: Box::new(deck.clone()), assets: ids.clone() };
-        let header = match link.call(&req, &[]) {
-            Ok((Response::Compiled(header), _)) => header,
-            Ok((Response::Error { error }, _)) => return Err(error.into_render()),
-            Ok((other, _)) => return Err(unexpected(&other)),
-            Err(e) => {
-                blame(&mut link, &packs, &e);
-                return Err(e);
+        let mut resent = false;
+        let header = loop {
+            send_assets(&mut link, assets)?;
+            match link.call(&req, &[]) {
+                Ok((Response::Compiled(header), _)) => break header,
+                // The worker lacks assets of this render: sent to a worker that restarted
+                // since (inside the `PutAsset` loop or `call`), or wrongly listed as sent. They
+                // go again, once; a second refusal is an error, never a fallback frame (t-1295).
+                Ok((Response::MissingAssets { ids: lost }, _)) => {
+                    if lost.is_empty() || !lost.iter().all(|id| assets.contains_key(id)) {
+                        return Err(RenderError::frame("missing assets outside the render"));
+                    }
+                    if resent {
+                        return Err(RenderError::frame(format!("{} assets still missing after a resend", lost.len())));
+                    }
+                    tracing::warn!(count = lost.len(), "processus de rendu : assets manquants renvoyés");
+                    for id in &lost {
+                        link.sent_assets.remove(id);
+                    }
+                    resent = true;
+                }
+                Ok((Response::Error { error }, _)) => return Err(error.into_render()),
+                Ok((other, _)) => return Err(unexpected(&other)),
+                Err(e) => {
+                    blame(&mut link, &packs, &e);
+                    return Err(e);
+                }
             }
         };
         // L'époque du travailleur qui a répondu : `call` ne relance pas une connexion ouverte.
@@ -183,4 +198,15 @@ impl Drop for RenderSlot {
     fn drop(&mut self) {
         self.worker.1.defer(Deferred::Close { slot: self.id });
     }
+}
+
+/// Sends the worker every asset of `assets` it is not known to have.
+fn send_assets(link: &mut Link, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
+    for (id, bytes) in assets {
+        if !link.sent_assets.contains(id) {
+            expect_ok(link, &Request::PutAsset { id: id.clone() }, bytes)?;
+            link.sent_assets.insert(id.clone());
+        }
+    }
+    Ok(())
 }

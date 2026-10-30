@@ -31,8 +31,8 @@
 //!   d'écriture) n'accuse aucun pack et pose même un pack fautif. Après une
 //!   relance, le rejeu a écarté ce pack fautif : son rendu répond alors
 //!   `PackDisabled` plutôt que de rendre sans le widget.
-//! - Assets : l'hôte ne garde, parmi ceux envoyés, que ceux du dernier rendu
-//!   de chaque emplacement (même règle que le travailleur).
+//! - Assets: of those sent, the host keeps only each slot's last render's, as the worker
+//!   does; a restart forgets them on both sides. A `MissingAssets` reply resends them once.
 //! - Polices : avant chaque requête (`prepare`), celles qu'aucun emplacement
 //!   ouvert n'utilise sont oubliées de l'état de rejeu, et du travailleur par
 //!   `DropFonts` : sa mémoire ne grandit pas au fil des polices des decks.

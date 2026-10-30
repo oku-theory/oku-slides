@@ -8,7 +8,7 @@ use oku_slides_render::{BuiltinPack, Fonts, PackSet, PackWidgets, RenderErrorKin
 use speculoos::prelude::*;
 
 use super::*;
-use crate::test_packs::{LOOP_ON_IMPORT, QUOTE, files, looping_deck, looping_layouts, ns, tiny_deck};
+use crate::test_packs::{LOOP_ON_IMPORT, QUOTE, deck_of, files, looping_deck, looping_layouts, ns, tiny_deck};
 use crate::{PackProbe, RemoteCompiled};
 
 fn worker(timeout_ms: u64) -> RenderWorker {
@@ -543,4 +543,64 @@ fn compiled_header_with_a_malformed_page_hash_is_a_frame_error_and_releases_its_
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Frame);
     let deferred = w.1.deferred.lock().unwrap();
     assert_that!(matches!(deferred.as_slice(), [Deferred::Release { slot: 1, generation: 7, epoch: 0 }])).is_true();
+}
+
+/// An SVG image of 100 × 100.
+const SQUARE_SVG: &[u8] =
+    br#"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100"/></svg>"#;
+
+/// The fill of the fallback frame (`luma(230)` in the render crate's `main_source`).
+const MISSING_FILL: &str = "#e6e6e6";
+
+/// A slot with the built-in packs and their default theme layer: it draws images.
+fn image_slot(w: &RenderWorker) -> RenderSlot {
+    let mut s = slot(w);
+    let set = oku_slides_render::builtin_pack_set().unwrap();
+    s.set_widgets(&set, w.registry_of(&set).unwrap()).unwrap();
+    let defaults = oku_slides_render::builtin_component_defaults().unwrap();
+    let layer = oku_slides_core::tokens::theme_layer(defaults.iter().map(|(ns, d)| (ns, d.clone())), []);
+    s.set_theme(Some(&layer)).unwrap();
+    s
+}
+
+/// A one-slide deck showing the image `asset`.
+fn image_deck(asset: &str) -> oku_slides_core::Deck {
+    deck_of(&serde_json::json!({ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT,
+        "params": { "title": "T", "blocks": [{ "id": "i", "kind": oku_slides_core::kinds::base::IMAGE,
+            "params": { "asset": asset, "fit": "contain" } }] } }))
+}
+
+/// `asset` alone, as the bytes of [`SQUARE_SVG`].
+fn square(asset: &str) -> BTreeMap<String, Vec<u8>> {
+    BTreeMap::from([(asset.to_owned(), SQUARE_SVG.to_vec())])
+}
+
+/// t-1295: an asset listed as sent that the worker lacks is sent again, not drawn as a
+/// fallback frame. The listing is forged: no hook can kill the worker inside `render`.
+#[test]
+fn slot_render_of_an_asset_the_worker_lost_sends_it_again() {
+    let w = worker(10_000);
+    let mut s = image_slot(&w);
+    let asset = "sha256:1295";
+    w.link().sent_assets.insert(asset.to_owned());
+    let svg = s.render(&image_deck(asset), &square(asset)).unwrap().svg(0).unwrap();
+    assert_that!(svg).does_not_contain(MISSING_FILL);
+    assert_that!(svg).contains("<image");
+}
+
+/// t-1295: a restart forgets each slot's last assets on the host as on the fresh worker,
+/// so both evict the same ones and the host never lists an asset the worker dropped.
+#[test]
+fn restart_forgets_the_last_assets_so_host_and_worker_evict_alike() {
+    let w = worker(3_000);
+    let (mut first, mut second) = (image_slot(&w), image_slot(&w));
+    let (shared, other) = ("sha256:aa", "sha256:bb");
+    drop(first.render(&image_deck(shared), &square(shared)).unwrap());
+    force_restart(&w, "boucle-1295");
+    drop(second.render(&image_deck(shared), &square(shared)).unwrap());
+    drop(second.render(&image_deck(other), &square(other)).unwrap());
+    // No slot of the fresh worker rendered `shared` last: it evicted it.
+    assert_that!(w.link().sent_assets.contains(shared)).is_false();
+    let svg = first.render(&image_deck(shared), &square(shared)).unwrap().svg(0).unwrap();
+    assert_that!(svg).does_not_contain(MISSING_FILL);
 }

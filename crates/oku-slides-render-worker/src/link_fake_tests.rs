@@ -35,12 +35,19 @@ struct Fake {
 
 impl Fake {
     fn new(reply: &Response, then: &str) -> Self {
+        Self::replying(std::slice::from_ref(reply), then)
+    }
+
+    /// Reads the `Hello` request, writes every one of `replies` at once, then runs `then`.
+    fn replying(replies: &[Response], then: &str) -> Self {
         let dir = tempfile::Builder::new().prefix("oku-slides-fake-worker-").tempdir().unwrap();
         let mut hello = Vec::new();
         let req = Request::Hello { version: PROTOCOL_VERSION, canary: None };
         write_frame(&mut hello, &req, &[], FrameLimits::uniform(usize::MAX)).unwrap();
         let mut answer = Vec::new();
-        write_frame(&mut answer, reply, &[], FrameLimits::uniform(usize::MAX)).unwrap();
+        for reply in replies {
+            write_frame(&mut answer, reply, &[], FrameLimits::uniform(usize::MAX)).unwrap();
+        }
         let answer_path = dir.path().join("reply.bin");
         std::fs::write(&answer_path, answer).unwrap();
         let program = dir.path().join("worker.sh");
@@ -109,4 +116,25 @@ fn bounded_failure_while_flushing_the_deferred_queue_blames_the_pack() {
     let e = w.prepare_for(&mut link, std::slice::from_ref(&pack)).unwrap_err();
     assert_that!(e.kind()).is_equal_to(RenderErrorKind::WorkerLost);
     assert_that!(link.faulty_packs.contains(&fingerprint_hex(&pack))).is_true();
+}
+
+/// t-1295: a worker still lacking an asset after the one resend fails the render
+/// (`Frame`, which blames no pack), never a loop nor a fallback frame.
+#[test]
+fn render_refused_again_after_the_resend_is_a_frame_error() {
+    let fonts = oku_slides_render::Fonts::default();
+    let asset = "sha256:aa".to_owned();
+    let missing = Response::MissingAssets { ids: vec![asset.clone()] };
+    let mut replies = vec![Response::Hello { version: PROTOCOL_VERSION, canary: None }];
+    // `PutFont` of each font, `SetLanguage`, `OpenSlot`, then `PutAsset`, `Render`, twice.
+    replies.extend(std::iter::repeat_n(Response::Ok, fonts.files().count() + 3));
+    replies.extend([missing.clone(), Response::Ok, missing]);
+    let fake = Fake::replying(&replies, "cat >/dev/null");
+    let w = RenderWorker::new(fake.launch(), settings());
+    w.link().unsandboxed = true;
+    let registry = std::sync::Arc::new(oku_slides_core::WidgetRegistry::default());
+    let mut s = w.slot(&fonts, &Localizer::new(Some("fr")), registry).unwrap();
+    let e = s.render(&crate::test_packs::tiny_deck(), &BTreeMap::from([(asset, vec![1])])).unwrap_err();
+    assert_that!(e.kind()).is_equal_to(RenderErrorKind::Frame);
+    assert_that!(e.to_string()).contains("after a resend");
 }

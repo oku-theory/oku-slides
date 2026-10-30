@@ -76,7 +76,7 @@ pub fn open_pack(ws: &Mutex<Workspace>, tab: &str, pack: uuid::Uuid) -> String {
 
 /// Imports `fixtures/import/minimal` in hi-fi into a new tab of `w-1`: its id.
 pub fn import_hifi(ws: &Mutex<Workspace>, data: &Data) -> String {
-    let path = crate::hifi_import::minimal_pptx(data);
+    let path = crate::hifi_import::fixture_pptx(data, "minimal");
     let target = oku_slides_session::import::ImportTarget::Hifi {
         witness: Some(oku_slides_platform::config::ImportWitness::Office2pdf),
     };

@@ -292,6 +292,11 @@ impl Link {
         self.started = true;
         self.sent_fonts.clear();
         self.sent_assets.clear();
+        // The replay reopens each slot without its last assets: forgetting them here too keeps
+        // both evictions alike, or the host would list assets the worker dropped (t-1295).
+        for slot in self.state.slots.values_mut() {
+            slot.last_assets.clear();
+        }
         let ready = self.hello().and_then(|()| self.replay());
         if let Err(e) = &ready {
             // Un travailleur d'un autre protocole, ou à moitié rejoué : abandonné.

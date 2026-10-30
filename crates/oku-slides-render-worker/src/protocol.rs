@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 5;
+pub(crate) const PROTOCOL_VERSION: u32 = 6;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
@@ -73,6 +73,7 @@ pub(crate) enum Request {
         slot: SlotId,
         tokens: Option<serde_json::Map<String, serde_json::Value>>,
     },
+    /// Renders `deck` in `slot`; every id of `assets` must have been sent (`PutAsset`).
     Render {
         slot: SlotId,
         deck: Box<oku_slides_core::Deck>,
@@ -166,5 +167,9 @@ pub(crate) enum Response {
     },
     Error {
         error: oku_slides_render::WireError,
+    },
+    /// A `Render` refused: these listed assets were never received (t-1295).
+    MissingAssets {
+        ids: Vec<String>,
     },
 }
