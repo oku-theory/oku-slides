@@ -1,4 +1,4 @@
-use oku_slides_core::{ParamType, ParamValue, text_fits};
+use oku_slides_core::{HeadingLevel, ParamType, ParamValue, text_fits};
 use rstest::rstest;
 use speculoos::prelude::*;
 
@@ -239,4 +239,13 @@ fn plain_cuts_to_the_byte_bound_on_a_character_boundary() {
     assert_that!(s.len()).is_equal_to(PLAIN_MAX);
     assert_that!(s.chars().count()).is_equal_to(2048);
     assert_that!(losses).is_equal_to(vec![LossKind::TextTruncated]);
+}
+
+#[test]
+fn cut_of_a_heading_paragraph_keeps_its_heading() {
+    let heading = HeadingLevel::new(2);
+    let p = Paragraph { runs: vec![Run { t: "a".repeat(100), ..Run::default() }], list: None, heading };
+    let cut = cut(&p, 60).expect("a prefix fits the budget");
+    assert_that!(cut.heading).is_equal_to(heading);
+    assert_that!(cut.runs[0].t.len()).is_less_than(100);
 }

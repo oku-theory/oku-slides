@@ -99,7 +99,7 @@ fn compile_run_with_link_exports_a_clickable_link_in_the_pdf() {
     let run =
         oku_slides_core::Run { link: Some("https://example.com/oku".into()), ..oku_slides_core::Run::plain("site") };
     let mut r = common::renderer();
-    set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None }]);
+    set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None, heading: None }]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
     let url = b"https://example.com/oku";
@@ -111,7 +111,7 @@ fn compile_run_with_a_non_web_link_renders_plain_text_without_a_pdf_link() {
     let mut deck = fixture();
     let run = oku_slides_core::Run { link: Some("javascript:alert(1)".into()), ..oku_slides_core::Run::plain("site") };
     let mut r = common::renderer();
-    set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None }]);
+    set_points(&mut deck, &r, vec![Paragraph { runs: vec![run], list: None, heading: None }]);
     r.set_deck(&deck, &BTreeMap::new()).unwrap();
     let pdf = r.compile().unwrap().pdf().unwrap();
     let scheme = b"javascript:";
@@ -124,7 +124,7 @@ fn compile_highlighted_run_draws_its_palette_color_behind_the_text() {
     let constat_svg = |runs: Vec<oku_slides_core::Run>| {
         let mut deck = fixture();
         let mut r = common::renderer();
-        set_points(&mut deck, &r, vec![Paragraph { runs, list: None }]);
+        set_points(&mut deck, &r, vec![Paragraph { runs, list: None, heading: None }]);
         r.set_deck(&deck, &BTreeMap::new()).unwrap();
         let doc = r.compile().unwrap();
         let page = doc.layout().page_of("s-constat").unwrap();

@@ -101,7 +101,7 @@ ui-stage-elements = স্লাইডের উপাদান
 ui-stage-fields = স্লাইডের ঘর
 ui-stage-edit-text = টেক্সট সম্পাদনা করুন
 ui-stage-hint-plain = পরেরটিতে যেতে Enter বা Tab · বাতিল করতে Esc
-ui-stage-hint-rich = পরেরটিতে যেতে Tab · নিশ্চিত করতে ⌘ Enter · বুলেটের জন্য “- ” · ⌘B বোল্ড, ⌘I ইটালিক, ⌘K লিঙ্ক
+ui-stage-hint-rich = পরেরটিতে যেতে Tab · নিশ্চিত করতে ⌘ Enter · বুলেটের জন্য “- ” · শিরোনামের জন্য “# ” · ⌘B বোল্ড, ⌘I ইটালিক, ⌘K লিঙ্ক
 ui-field = { $kind ->
     [title] শিরোনাম
     [subtitle] উপশিরোনাম

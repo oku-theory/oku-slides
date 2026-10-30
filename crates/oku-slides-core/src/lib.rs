@@ -2,7 +2,7 @@
 //! validation and source zip. No dependency on Typst or Tauri.
 //!
 //! - [`Deck`] and its JSON schema: slides and generic elements
-//!   (`{id, kind, params}`, [`Params`]), ops ([`Op`],
+//!   (`{id, kind, params}`, [`Params`]), the [`HeadingLevel`] of a paragraph, ops ([`Op`],
 //!   [`apply_all`]), validation ([`validate`], cited assets: [`asset_refs`],
 //!   [`element_asset_refs`]).
 //! - [`DeckReplica`]: the deck in a Loro document (CRDT), reconciled by
@@ -33,6 +33,7 @@ mod canonical;
 mod color;
 pub mod error;
 mod fields;
+mod heading_level;
 pub mod kinds;
 mod layout_profile;
 pub mod locate;
@@ -59,11 +60,12 @@ pub mod widget;
 pub use canonical::canonicalize;
 pub use color::{color_names, is_hex_color};
 pub use error::{
-    ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind, PackVersionError,
-    ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError, TokenEntryErrorKind,
-    TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
+    HeadingLevelError, ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind,
+    PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError,
+    TokenEntryErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
+pub use heading_level::HeadingLevel;
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;

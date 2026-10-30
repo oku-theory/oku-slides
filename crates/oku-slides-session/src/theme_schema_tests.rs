@@ -355,11 +355,18 @@ fn users_follows_palettes_colors_and_rules() {
 #[test]
 fn users_lists_tokens_referencing_a_size_or_weight() {
     let tokens = defaults_map();
-    assert_that!(users(full(), &p(&["size", "caption"]), &tokens))
-        .is_equal_to(vec!["footer.size".to_owned(), "header.size".to_owned()]);
+    assert_that!(users(full(), &p(&["size", "caption"]), &tokens)).is_equal_to(vec![
+        "footer.size".to_owned(),
+        "header.size".to_owned(),
+        "heading.h6.size".to_owned(),
+    ]);
     assert_that!(users(full(), &p(&["weight", "strong"]), &tokens)).is_equal_to(vec![
         "component.base.card.title-weight".to_owned(),
         "component.base.table.header-weight".to_owned(),
+        "heading.h3.weight".to_owned(),
+        "heading.h4.weight".to_owned(),
+        "heading.h5.weight".to_owned(),
+        "heading.h6.weight".to_owned(),
     ]);
     // Même nom, autre catégorie : `space.lg` n'est pas `size.lg`.
     assert_that!(users(full(), &p(&["radius", "lg"]), &tokens)).is_empty();
@@ -460,4 +467,17 @@ fn token_paths_stop_at_schema_values() {
     });
     assert_that!(token_paths(full(), tokens.as_object().unwrap()))
         .is_equal_to(vec!["color.accent".to_owned(), "component.essentiel.title.rule".to_owned()]);
+}
+
+#[rstest]
+#[case("size", |c: &Control| matches!(c, Control::Pt { .. }))]
+#[case("weight", |c: &Control| matches!(c, Control::Weight))]
+#[case("color", |c: &Control| matches!(c, Control::Color))]
+fn schema_heading_levels_are_in_the_headings_section(#[case] key: &str, #[case] is: fn(&Control) -> bool) {
+    for level in ["h1", "h2", "h3", "h4", "h5", "h6"] {
+        let s = spec(full(), &p(&["heading", level, key])).unwrap_or_else(|| panic!("heading.{level}.{key} absent"));
+        asserting(&format!("heading.{level}.{key}"))
+            .that(&(s.section.clone(), is(&s.control)))
+            .is_equal_to((Section::Headings, true));
+    }
 }

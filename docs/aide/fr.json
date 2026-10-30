@@ -119,7 +119,7 @@
            "bold": true
           },
           {
-           "t": " : modifie le texte. Une ligne par paragraphe ; « - » en tête fait une puce."
+           "t": " : modifie le texte. Une ligne par paragraphe ; « - » en tête fait une puce, « # » à « ###### » un titre."
           }
          ],
          "list": "bullet"
@@ -3077,7 +3077,7 @@
            "bold": true
           },
           {
-           "t": " : listes ordonnées à id (items, données), prose, prose riche à marques, et le reste en dernier écrivain gagne. Les slides et leurs éléments forment un seul arbre : déplacer un élément d'un slot ou d'une slide à l'autre garde les éditions concurrentes, et annuler un retrait rend le même élément."
+           "t": " : listes ordonnées à id (items, données), prose, prose riche à marques (un paragraphe peut porter `list` ou `heading`, de 1 à 6), et le reste en dernier écrivain gagne. Les slides et leurs éléments forment un seul arbre : déplacer un élément d'un slot ou d'une slide à l'autre garde les éditions concurrentes, et annuler un retrait rend le même élément."
           }
          ],
          "list": "bullet"

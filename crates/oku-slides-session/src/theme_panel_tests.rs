@@ -304,6 +304,7 @@ fn host_theme_sections_are_global_then_one_per_pack_then_interface() {
     let want = [
         "s-colors",
         "s-typography",
+        "s-headings",
         "s-scripts",
         "s-spacing",
         "s-shapes",

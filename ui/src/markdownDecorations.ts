@@ -1,19 +1,20 @@
 /**
- * Quasi-rendu CodeMirror du markdown d'édition (t-272).
+ * CodeMirror near-rendering of the editing markdown (t-272).
  *
- * Gras, italique, liens et pastilles s'affichent ; les marques d'une
- * construction se cachent tant que la sélection ne la touche pas, et se
- * montrent atténuées sinon. Un préfixe de liste devient sa puce ou son rang.
- * Le document reste le markdown source : seules les décorations changent.
- * Les plages viennent de `markdownLayout` et `listPrefix` : l'éditeur suit
- * les règles de la slide.
+ * Bold, italic, links and highlights are displayed; the marks of a
+ * construct are hidden while the selection does not touch it, and shown
+ * dimmed otherwise. A list prefix becomes its bullet or its rank;
+ * a heading keeps its hashes, dimmed, and grows.
+ * The document stays the source markdown: only the decorations change.
+ * The ranges come from `markdownLayout` and `blockPrefix`: the editor follows
+ * the slide's rules.
  */
 import type { Extension, Range } from "@codemirror/state";
 import type { DecorationSet, EditorView, ViewUpdate } from "@codemirror/view";
 import { Decoration, ViewPlugin, WidgetType } from "@codemirror/view";
 import { LIGHT_BACKGROUND, luminance } from "./color";
 import type { Construct } from "./markdown";
-import { listPrefix, markdownLayout } from "./markdown";
+import { blockPrefix, markdownLayout } from "./markdown";
 
 /** Décoration d'une plage de ligne : classe CSS, style en ligne pour une pastille. */
 export interface LineDecoration {
@@ -41,13 +42,15 @@ function highlightStyle(palette: string[], n: number): string | undefined {
 interface LineParts {
   decorations: LineDecoration[];
   constructs: Construct[];
-  prefix: ReturnType<typeof listPrefix>;
+  prefix: ReturnType<typeof blockPrefix>;
 }
 
 function lineParts(line: string, palette: string[]): LineParts {
-  const prefix = listPrefix(line);
+  const prefix = blockPrefix(line);
   const { length } = prefix;
-  const out: LineDecoration[] = length > 0 ? [{ from: 0, to: length, className: "cm-md-mark" }] : [];
+  const out: LineDecoration[] = [];
+  if (prefix.heading) out.push({ from: 0, to: line.length, className: `cm-md-h${prefix.heading}` });
+  if (length > 0) out.push({ from: 0, to: length, className: "cm-md-mark" });
   const layout = markdownLayout(line.slice(length));
   for (const s of layout.spans) {
     const from = s.from + length;
@@ -107,6 +110,11 @@ function preview({ decorations, constructs, prefix }: LineParts, selection: read
       continue;
     }
     if (prefix.length > 0 && d.from === 0 && d.to === prefix.length) {
+      // The heading hashes stay visible: the level is information.
+      if (prefix.heading) {
+        out.push(d);
+        continue;
+      }
       const shown = touches(selection, d);
       out.push(shown ? d : { from: d.from, to: d.to, marker: prefix.list === "bullet" ? "• " : `${ordinal}. ` });
       continue;
@@ -129,13 +137,13 @@ function preview({ decorations, constructs, prefix }: LineParts, selection: read
  */
 export function listOrdinal(line: (k: number) => string, n: number): number {
   let k = n;
-  while (k > 1 && listPrefix(line(k - 1)).list === "number") k--;
+  while (k > 1 && blockPrefix(line(k - 1)).list === "number") k--;
   return n - k + 1;
 }
 
 /** Décorations sans style en ligne, une par classe. */
 const PLAIN = new Map(
-  ["mark", "url", "bold", "italic", "link", "highlight"].map((kind) => {
+  ["mark", "url", "bold", "italic", "link", "highlight", "h1", "h2", "h3", "h4", "h5", "h6"].map((kind) => {
     const className = `cm-md-${kind}`;
     return [className, Decoration.mark({ class: className })] as const;
   }),
@@ -179,7 +187,7 @@ function build(view: EditorView, palette: string[], cache: Map<string, LineParts
     const first = doc.lineAt(from).number;
     const last = doc.lineAt(to).number;
     // Rang de l'item précédant la plage, puis compté ligne à ligne.
-    let ordinal = first > 1 && listPrefix(text(first - 1)).list === "number" ? listOrdinal(text, first - 1) : 0;
+    let ordinal = first > 1 && blockPrefix(text(first - 1)).list === "number" ? listOrdinal(text, first - 1) : 0;
     for (let n = first; n <= last; n++) {
       const line = doc.line(n);
       let parts = cache.get(line.text);

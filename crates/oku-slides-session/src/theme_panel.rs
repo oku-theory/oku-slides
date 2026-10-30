@@ -52,9 +52,10 @@ const EXTENDS_BUTTONS: [(&str, &str, ButtonIcon); 3] = [
 ];
 
 /// Sections globales d'avant les packs, dans l'ordre, et leur nom (clés Fluent `theme-section-*`).
-const SECTIONS_BEFORE: [(Section, &str); 8] = [
+const SECTIONS_BEFORE: [(Section, &str); 9] = [
     (Section::Colors, "colors"),
     (Section::Typography, "typography"),
+    (Section::Headings, "headings"),
     (Section::Scripts, "scripts"),
     (Section::Spacing, "spacing"),
     (Section::Shapes, "shapes"),

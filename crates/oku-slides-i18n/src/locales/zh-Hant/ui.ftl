@@ -101,7 +101,7 @@ ui-stage-elements = 投影片元素
 ui-stage-fields = 投影片欄位
 ui-stage-edit-text = 編輯文字
 ui-stage-hint-plain = Enter 或 Tab 前往下一個 · Esc 取消
-ui-stage-hint-rich = Tab 前往下一個 · ⌘ Enter 確認 · 「- 」表示項目符號 · ⌘B 粗體，⌘I 斜體，⌘K 連結
+ui-stage-hint-rich = Tab 前往下一個 · ⌘ Enter 確認 · 「- 」表示項目符號 · 「# 」表示標題 · ⌘B 粗體，⌘I 斜體，⌘K 連結
 ui-field = { $kind ->
     [title] 標題
     [subtitle] 副標題

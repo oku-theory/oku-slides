@@ -148,3 +148,24 @@ describe("listOrdinal", () => {
     expect([listOrdinal(line, 4), listOrdinal(line, 6), listOrdinal(line, 7)]).toEqual([1, 1, 2]);
   });
 });
+
+describe("headings", () => {
+  test("heading line: level class on the whole line, prefix dimmed", () => {
+    expect(lineDecorations("## Plan", [])).toEqual([
+      { from: 0, to: 7, className: "cm-md-h2" },
+      { from: 0, to: 3, className: "cm-md-mark" },
+    ]);
+  });
+
+  test("heading prefix stays visible outside the selection", () => {
+    expect(linePreview("# Plan", [], [], 0)).toEqual([
+      { from: 0, to: 6, className: "cm-md-h1" },
+      { from: 0, to: 2, className: "cm-md-mark" },
+    ]);
+  });
+
+  test("a heading ends the numbered list", () => {
+    const lines = ["1. a", "# T", "1. b"];
+    expect(listOrdinal((k) => lines[k - 1], 3)).toBe(1);
+  });
+});

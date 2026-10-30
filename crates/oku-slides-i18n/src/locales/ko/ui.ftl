@@ -98,7 +98,7 @@ ui-stage-elements = 슬라이드 요소
 ui-stage-fields = 슬라이드 필드
 ui-stage-edit-text = 텍스트 편집
 ui-stage-hint-plain = Enter 또는 Tab으로 다음 · Esc로 취소
-ui-stage-hint-rich = Tab으로 다음 · ⌘ Enter로 확인 · 글머리 기호는 “- ” · ⌘B 굵게, ⌘I 기울임, ⌘K 링크
+ui-stage-hint-rich = Tab으로 다음 · ⌘ Enter로 확인 · 글머리 기호는 “- ” · 제목은 “# ” · ⌘B 굵게, ⌘I 기울임, ⌘K 링크
 ui-field = { $kind ->
     [title] 제목
     [subtitle] 부제목

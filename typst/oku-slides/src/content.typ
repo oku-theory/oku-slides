@@ -30,10 +30,12 @@
   o
 }
 
-#let _runs(t, runs, vars) = runs.map(r => {
+#let _runs(t, runs, vars, strong: auto) = runs.map(r => {
   let body = [#interp(r.at("t", default: ""), vars)]
   let a = _text-args(t, r)
-  if r.at("bold", default: false) { a.insert("weight", weight-of(t, "strong")) }
+  if r.at("bold", default: false) {
+    a.insert("weight", if strong == auto { weight-of(t, "strong") } else { strong })
+  }
   let n = r.at("highlight", default: none)
   let fill = if n != none { highlight-of(t, n) }
   if fill != none and "fill" not in a { a.insert("fill", ink-on(t, fill)) }
@@ -48,12 +50,27 @@
   if web { link(r.link, body) } else { body }
 }).join()
 
-// Des éléments (`list.item`, `enum.item`), pas des listes : Typst regroupe
-// les éléments voisins en une seule liste, numérotée 1, 2, 3.
+// Style of a level-`h` heading (1 to 6, `heading.hN` tokens), or none outside that domain.
+#let _heading-style(t, h) = if type(h) == int and h >= 1 and h <= 6 { t.heading.at("h" + str(h)) }
+
+// Items (`list.item`, `enum.item`), not lists: Typst groups neighbouring items
+// into a single list, numbered 1, 2, 3. A heading is a styled paragraph, never a
+// Typst `heading`: it would end up in the TOC and the PDF bookmarks. It wins over `list`.
 #let _paragraphs(t, paras, vars) = {
   let out = ()
   for p in paras {
-    let body = _runs(t, p.at("runs", default: ()), vars)
+    let runs = p.at("runs", default: ())
+    let h = _heading-style(t, p.at("heading", default: none))
+    if h != none {
+      let style = text-style(t, h)
+      // A bold run never makes the heading lighter.
+      let strong = weight-of(t, "strong")
+      let w = style.at("weight", default: none)
+      let strong = if type(w) == int and type(strong) == int { calc.max(w, strong) } else { strong }
+      out.push(par(text(..style, _runs(t, runs, vars, strong: strong))))
+      continue
+    }
+    let body = _runs(t, runs, vars)
     let kind = p.at("list", default: none)
     if kind == "bullet" { out.push(list.item(body)) }
     else if kind == "number" { out.push(enum.item(body)) }

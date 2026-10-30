@@ -90,7 +90,8 @@ fn paragraphs_of_two_lines_take_two_cap_heights_and_one_leading() {
 fn paragraphs_list_items_are_spaced_by_the_list_spacing() {
     let t = papier();
     let aspects = BTreeMap::new();
-    let item = || Paragraph { runs: vec![Run::plain("a")], list: Some(oku_slides_core::ListKind::Bullet) };
+    let item =
+        || Paragraph { runs: vec![Run::plain("a")], list: Some(oku_slides_core::ListKind::Bullet), heading: None };
     let h = measure(&t, &aspects).paragraphs(&[item(), item(), Paragraph::plain("b")], 1680.0, 32.0);
     assert_that!(h).is_close_to(3.0 * 0.72 * 32.0 + 16.0 + 24.0, 1e-9);
 }
@@ -101,7 +102,7 @@ fn paragraphs_of_reduced_runs_keep_the_leading_of_the_body() {
     let t = papier();
     let aspects = BTreeMap::new();
     let run = Run { size: Some(TokenValue::Name("small".into())), ..Run::plain("x".repeat(150)) };
-    let h = measure(&t, &aspects).paragraphs(&[Paragraph { runs: vec![run], list: None }], 1680.0, 32.0);
+    let h = measure(&t, &aspects).paragraphs(&[Paragraph { runs: vec![run], list: None, heading: None }], 1680.0, 32.0);
     assert_that!(h).is_close_to(2.0 * 0.72 * 26.0 + 0.6 * 32.0, 1e-9);
 }
 

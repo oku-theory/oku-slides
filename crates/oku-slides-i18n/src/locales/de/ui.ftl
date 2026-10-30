@@ -101,7 +101,7 @@ ui-stage-elements = Folienelemente
 ui-stage-fields = Folienfelder
 ui-stage-edit-text = Text bearbeiten
 ui-stage-hint-plain = Enter oder Tab zum nächsten · Esc zum Abbrechen
-ui-stage-hint-rich = Tab zum nächsten · ⌘ Enter zum Bestätigen · „- “ für einen Aufzählungspunkt · ⌘B fett, ⌘I kursiv, ⌘K Link
+ui-stage-hint-rich = Tab zum nächsten · ⌘ Enter zum Bestätigen · „- “ für einen Aufzählungspunkt · „# “ für eine Überschrift · ⌘B fett, ⌘I kursiv, ⌘K Link
 ui-field = { $kind ->
     [title] Titel
     [subtitle] Untertitel

@@ -360,6 +360,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .editor .cm-md-bold { font-weight: bolder; }
 .editor .cm-md-italic { font-style: italic; }
 .editor .cm-md-link { color: var(--t-accent); text-decoration: underline; }
+.editor .cm-md-h1, .editor .cm-md-h2, .editor .cm-md-h3,
+.editor .cm-md-h4, .editor .cm-md-h5, .editor .cm-md-h6 { font-weight: bolder; }
+.editor .cm-md-h1 { font-size: 1.6em; }
+.editor .cm-md-h2 { font-size: 1.45em; }
+.editor .cm-md-h3 { font-size: 1.3em; }
+.editor .cm-md-h4 { font-size: 1.2em; }
+.editor .cm-md-h5 { font-size: 1.1em; }
 .editor-hint {
   position: absolute; z-index: 5; left: 50%; top: calc(100% + 14px); transform: translateX(-50%); animation: fade-in 160ms ease-out; font-size: 12px; line-height: 16px; white-space: nowrap; color: var(--ink-muted);
   background: var(--paper-200); padding: 4px 10px; border-radius: 999px; box-shadow: var(--edge-light), var(--shadow-rest); pointer-events: none;

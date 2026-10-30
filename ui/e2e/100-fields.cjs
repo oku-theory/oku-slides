@@ -195,7 +195,8 @@ const editorLines = (p) => p.evaluate(() => {
     "s-title/s-title.subtitle : variable (la source n'a pas la largeur du rendu)",
     's-toc/s-toc.title : source vide (texte par défaut du rendu)',
     "s-ch1/s-ch1.subtitle : variable (la source n'a pas la largeur du rendu)",
-    "s-constat/b-points.body : puces de liste dessinées par l'éditeur (1)",
+    // 010-editor leaves a "##" heading there: its prefix is a displayed mark (t-1284).
+    "s-constat/b-points.body : marques markdown affichées dans l'éditeur (1)",
     "s-priorites/c1.body : puces de liste dessinées par l'éditeur (1)",
     "s-priorites/c2.body : puces de liste dessinées par l'éditeur (1)",
     "s-priorites/c3.body : variable (la source n'a pas la largeur du rendu)",

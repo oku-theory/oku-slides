@@ -140,5 +140,13 @@
     "marker-color": "accent",
     "indent": "md",
     "spacing": "sm"
+  },
+  "heading": {
+    "h1": { "size": "title", "weight": "title", "font": "display", "color": "ink" },
+    "h2": { "size": "subtitle", "weight": "title", "font": "display", "color": "ink" },
+    "h3": { "size": "lead", "weight": "strong", "font": "body", "color": "ink" },
+    "h4": { "size": "body", "weight": "strong", "font": "body", "color": "ink" },
+    "h5": { "size": "small", "weight": "strong", "font": "body", "color": "ink" },
+    "h6": { "size": "caption", "weight": "strong", "font": "body", "color": "ink" }
   }
 }

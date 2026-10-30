@@ -321,8 +321,10 @@ fn apply_same_deck_with_marked_runs_adds_no_op() {
             ..Default::default()
         },
     ];
-    *slot_mut(&mut deck.slides[idx], "elements") =
-        vec![crate::Element::text("e-riche", vec![crate::Paragraph { runs, list: Some(crate::ListKind::Number) }])];
+    *slot_mut(&mut deck.slides[idx], "elements") = vec![crate::Element::text(
+        "e-riche",
+        vec![crate::Paragraph { runs, list: Some(crate::ListKind::Number), heading: None }],
+    )];
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     assert_that!(r.deck().0).is_equal_to(&deck);
     let before = r.len_ops();

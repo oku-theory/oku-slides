@@ -101,7 +101,7 @@ ui-stage-elements = Elementos do slide
 ui-stage-fields = Campos do slide
 ui-stage-edit-text = Editar o texto
 ui-stage-hint-plain = Enter ou Tab para o próximo · Esc para cancelar
-ui-stage-hint-rich = Tab para o próximo · ⌘ Enter para confirmar · “- ” para um marcador · ⌘B negrito, ⌘I itálico, ⌘K link
+ui-stage-hint-rich = Tab para o próximo · ⌘ Enter para confirmar · “- ” para um marcador · “# ” para um título · ⌘B negrito, ⌘I itálico, ⌘K link
 ui-field = { $kind ->
     [title] Título
     [subtitle] Subtítulo

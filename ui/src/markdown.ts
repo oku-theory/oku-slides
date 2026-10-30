@@ -1,18 +1,18 @@
 /**
- * Markdown inline d'édition → runs : l'inverse de `runs_to_markdown` côté Rust.
+ * Inline editing markdown → runs: the inverse of `runs_to_markdown` on the Rust side.
  *
- * Analyse CommonMark de `@lezer/markdown`, blocs désactivés (une ligne de
- * l'éditeur est un paragraphe) : `**gras**`, `*italique*` ou `_italique_`,
- * `[texte](url)`, `\` devant une ponctuation, plus les pastilles
- * `==texte==` / `==texte=={n}` (n-ième couleur de la palette du thème, voir
- * `markdownHighlight.ts`). Le même parcours de l'arbre donne les plages
- * positionnées que l'éditeur met en forme (`markdownSpans`) ; `listPrefix`
- * est la règle unique des préfixes de liste ; `escapeInline` écrit du texte brut
- * pour qu'il se relise tel quel.
+ * CommonMark parsing by `@lezer/markdown`, blocks disabled (an editor line
+ * is a paragraph): `**bold**`, `*italic*` or `_italic_`,
+ * `[text](url)`, `\` before punctuation, plus the highlights
+ * `==text==` / `==text=={n}` (n-th color of the theme palette, see
+ * `markdownHighlight.ts`). The same tree walk gives the positioned
+ * ranges that the editor styles (`markdownSpans`); `blockPrefix`
+ * is the single rule for line prefixes (heading, list); `escapeInline` writes plain text
+ * so that it reads back as is.
  */
 import type { SyntaxNode } from "@lezer/common";
 import { parser as commonmark } from "@lezer/markdown";
-import type { Paragraph, Run } from "./api";
+import type { HeadingLevel, Paragraph, Run } from "./api";
 import { Highlight } from "./markdownHighlight";
 
 interface Format {
@@ -202,8 +202,10 @@ export function markdownLayout(line: string): { spans: Span[]; constructs: Const
   };
 }
 
-/** Préfixe de liste d'une ligne : `- ` (puce), `1. ` (numéro), sinon rien. */
-export function listPrefix(line: string): { list?: NonNullable<Paragraph["list"]>; length: number } {
+/** Prefix of a line: `#` to `######` and a space (heading), `- ` (bullet), `1. ` (number), otherwise none. */
+export function blockPrefix(line: string): { list?: NonNullable<Paragraph["list"]>; heading?: HeadingLevel; length: number } {
+  const heading = /^(#{1,6}) /.exec(line);
+  if (heading) return { heading: heading[1].length as HeadingLevel, length: heading[0].length };
   if (line.startsWith("- ")) return { list: "bullet", length: 2 };
   const num = /^\d+\. /.exec(line);
   return num ? { list: "number", length: num[0].length } : { length: 0 };

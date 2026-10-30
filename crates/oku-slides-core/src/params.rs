@@ -60,9 +60,9 @@ impl<'de> Deserialize<'de> for ParamValue {
     }
 }
 
-/// Champs d'un [`Paragraph`] et d'un [`Run`](crate::Run) : un objet qui en a
-/// d'autres n'est pas un paragraphe (rien ne se perd).
-const PARAGRAPH_KEYS: [&str; 2] = ["runs", "list"];
+/// Fields of a [`Paragraph`] and of a [`Run`](crate::Run): an object that has
+/// others is not a paragraph (nothing is lost).
+const PARAGRAPH_KEYS: [&str; 3] = ["runs", "list", "heading"];
 const RUN_KEYS: [&str; 7] = ["t", "bold", "italic", "color", "size", "link", "highlight"];
 
 /// Liste d'éléments : non vide, chacun avec `id` et `kind` en chaîne.

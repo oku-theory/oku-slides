@@ -39,7 +39,7 @@ fn deck_with(elements: Vec<Element>) -> Deck {
 }
 
 fn text(runs: Vec<Run>) -> Deck {
-    deck_with(vec![Element::text("e", vec![Paragraph { runs, list: None }])])
+    deck_with(vec![Element::text("e", vec![Paragraph { runs, list: None, heading: None }])])
 }
 
 fn blocks(deck: &Deck) -> &[Element] {
@@ -162,7 +162,7 @@ fn canonicalize_empty_tokens_object_becomes_null() {
 
 #[test]
 fn canonicalize_slot_children_are_canonicalized() {
-    let child = Element::text("t", vec![Paragraph { runs: vec![run("a"), run("b")], list: None }]);
+    let child = Element::text("t", vec![Paragraph { runs: vec![run("a"), run("b")], list: None, heading: None }]);
     let mut group = Element::new("g", base::STACK);
     group.params.set("children", ParamValue::Slot(vec![child]));
     let d = canonical(deck_with(vec![group]));
@@ -183,7 +183,8 @@ fn canonicalize_list_item_values_are_canonicalized() {
     let mut values = Params::default();
     values.set("date", ParamValue::Text("  2019 ".into()));
     values.set("vide", ParamValue::Text("  ".into()));
-    values.set("texte", ParamValue::Rich(vec![Paragraph { runs: vec![run("a"), run("b")], list: None }]));
+    values
+        .set("texte", ParamValue::Rich(vec![Paragraph { runs: vec![run("a"), run("b")], list: None, heading: None }]));
     let mut d = deck_with(vec![]);
     d.slides[0].params.set("l", ParamValue::List(vec![ListItem { id: "a".into(), values }]));
     let d = canonical(d);
@@ -231,7 +232,11 @@ fn a_run() -> impl Strategy<Value = Run> {
 fn paragraphs() -> impl Strategy<Value = Vec<Paragraph>> {
     let list = proptest::option::of(prop_oneof![Just(ListKind::Bullet), Just(ListKind::Number)]);
     proptest::collection::vec(
-        (proptest::collection::vec(a_run(), 0..4), list).prop_map(|(runs, list)| Paragraph { runs, list }),
+        (proptest::collection::vec(a_run(), 0..4), list).prop_map(|(runs, list)| Paragraph {
+            runs,
+            list,
+            heading: None,
+        }),
         0..3,
     )
 }
@@ -534,7 +539,7 @@ fn unique_ids_after_a_taken_suffix_keeps_the_same_names() {
     let blocks = ["x", "x", "x-2", "x"]
         .into_iter()
         .zip(["a", "b", "c", "d"])
-        .map(|(id, text)| Element::text(id, vec![Paragraph { runs: vec![run(text)], list: None }]))
+        .map(|(id, text)| Element::text(id, vec![Paragraph { runs: vec![run(text)], list: None, heading: None }]))
         .collect();
     let mut deck = deck_with(blocks);
     unique_ids(&mut deck.slides);

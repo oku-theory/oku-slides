@@ -60,6 +60,8 @@ pub enum Section {
     Colors,
     /// Fonts and text sizes: `font.*`, `size.*`.
     Typography,
+    /// Heading styles of a text, levels 1 to 6: `heading.*`.
+    Headings,
     /// Spacing: `space.*`.
     Spacing,
     /// Radii and strokes: `radius.*`, `stroke.*`.

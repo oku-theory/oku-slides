@@ -100,6 +100,7 @@ the linearized theme chain as one layer (`render-deck(…, theme:)`).
 | `header`, `footer` | `left: "{n} · {title}"` | page chrome: templates and text style |
 | `list` | `marker: "–"` | bullet, its color, indent and spacing |
 | `kicker` | `case: "upper"` | the kicker text style, shared by slides and cards |
+| `heading` | `h2: (size: "subtitle", …)` | style of body headings h1 to h6, by token references |
 | `component.<namespace>.*` | `essentiel: (chapter: (bg: "accent"))` | style of each pack component, by references |
 
 Pack components: `base` has `card` and `table`; `essentiel` has `title`,

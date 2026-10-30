@@ -14,7 +14,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 
 - `model.rs`: `Deck` (slides, generic elements `{id, kind, params}`, `theme` (a `Namespace`) and `themes` (its `extends`
   closure: a `ThemePin` per namespace), `vars`, `widgets` and `layouts`: a `PackPin` per `Namespace`, unique across both),
-  `Style`, JSON schema via `schemars`. `params.rs`: `Params`, `ParamValue`, `ListItem`. `shape_path.rs`: `ShapePath`.
+  `Style`, JSON schema via `schemars`. `params.rs`: `Params`, `ParamValue`, `ListItem`. `heading_level.rs`: `HeadingLevel`. `shape_path.rs`: `ShapePath`.
 - `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind` (every kind is `ns/name`). `kinds.rs`: `kinds::base`,
   `kinds::essentiel`, `is_builtin_kind`. `pack_kind.rs`: `PackKind` (`widgets`: elements, `layouts`: slides).
 - `widget.rs`: `WidgetRegistry`, `WidgetSchema` and its param types, declared in Typst; ops and `validate` ask it. Probe

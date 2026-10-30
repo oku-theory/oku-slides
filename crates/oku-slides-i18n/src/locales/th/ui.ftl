@@ -98,7 +98,7 @@ ui-stage-elements = องค์ประกอบของสไลด์
 ui-stage-fields = ช่องของสไลด์
 ui-stage-edit-text = แก้ไขข้อความ
 ui-stage-hint-plain = Enter หรือ Tab เพื่อไปช่องถัดไป · Esc เพื่อยกเลิก
-ui-stage-hint-rich = Tab เพื่อไปช่องถัดไป · ⌘ Enter เพื่อยืนยัน · ใช้ “- ” สำหรับหัวข้อย่อย · ⌘B ตัวหนา ⌘I ตัวเอียง ⌘K ลิงก์
+ui-stage-hint-rich = Tab เพื่อไปช่องถัดไป · ⌘ Enter เพื่อยืนยัน · ใช้ “- ” สำหรับหัวข้อย่อย · ใช้ “# ” สำหรับหัวเรื่อง · ⌘B ตัวหนา ⌘I ตัวเอียง ⌘K ลิงก์
 ui-field = { $kind ->
     [title] ชื่อเรื่อง
     [subtitle] ชื่อรอง

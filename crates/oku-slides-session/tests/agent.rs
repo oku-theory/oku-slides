@@ -170,7 +170,7 @@ fn rewrite_ops_of_element_with_paragraphs_carries_their_runs() {
     let mut s = session();
     s.open(&fixture_path()).unwrap();
     let spec = rewrite("s-libre", "e-texte", None, &["a", "b"]);
-    let bold = Paragraph { runs: vec![Run { bold: true, ..Run::plain("Gras") }], list: None };
+    let bold = Paragraph { runs: vec![Run { bold: true, ..Run::plain("Gras") }], list: None, heading: None };
     let ops = s.rewrite_ops(&spec, "**Gras**", Some(vec![bold])).unwrap();
     s.apply("Reformulation", ops, None).unwrap();
     let deck = s.deck();

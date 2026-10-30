@@ -237,6 +237,21 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await p.keyboard.press('Escape');
   await closed(p);
 
+  // 7b. A heading: "##" makes the line a heading, the host keeps it and writes it back (t-1284).
+  await open(p, 'Corps');
+  await p.keyboard.press('ControlOrMeta+End');
+  await p.keyboard.press('Enter');
+  await p.keyboard.type('## Titre');
+  assert.equal(await p.locator('.editor .cm-line:has(.cm-md-h2)').count(), 1);
+  await commitWith(p, () => p.locator('.editor .cm-content').evaluate((el) => el.blur()));
+  assert.deepEqual(await points(p), [
+    { runs: RUNS }, { runs: [{ t: 'deux' }], list: 'bullet' }, { runs: [{ t: 'Titre' }], heading: 2 },
+  ]);
+  await open(p, 'Corps');
+  assert.equal(await text(p), `${BASE}\n- deux\n## Titre`);
+  await p.keyboard.press('Escape');
+  await closed(p);
+
   // 8. Champ : texte brut sur une ligne ; collage multiligne aplati ; Maj+Entrée et Entrée
   //    valident et passent au champ suivant (l'éditeur reste ouvert, Échap le ferme).
   const title = (await slide(p)).params.title;

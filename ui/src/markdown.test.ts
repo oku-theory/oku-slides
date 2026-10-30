@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { Paragraph, Run } from "./api";
-import { encodeLink, escapeInline, listPrefix, markdownSpans, markdownToRuns } from "./markdown";
-import { textToParagraphs } from "./deck";
+import { blockPrefix, encodeLink, escapeInline, markdownSpans, markdownToRuns } from "./markdown";
+import { literalToParagraphs, textToParagraphs } from "./deck";
 
 interface Case {
   name: string;
@@ -27,13 +27,13 @@ describe("textToParagraphs sur la fixture partagée avec Rust", () => {
 });
 
 /** Un cas dont chaque paragraphe est un seul run sans format ni liste : du texte brut. */
-const plain = (c: Case) => c.paragraphs.every((p) => !p.list && p.runs.length === 1 && Object.keys(p.runs[0]).length === 1);
+const plain = (c: Case) => c.paragraphs.every((p) => !p.list && !p.heading && p.runs.length === 1 && Object.keys(p.runs[0]).length === 1);
 
 describe("escapeInline sur la fixture partagée avec Rust (escape_inline)", () => {
   for (const c of cases.filter(plain)) {
     test(`${c.name} s'échappe comme côté Rust`, () => {
       // `paragraphs_to_text` échappe aussi un préfixe de liste : la ligne d'escape_inline seule, sans lui.
-      const lines = c.markdown.split("\n").map((l) => l.replace(/^\\- /, "- ").replace(/^(\d+)\\\. /, "$1. "));
+      const lines = c.markdown.split("\n").map((l) => l.replace(/^\\- /, "- ").replace(/^(\d+)\\\. /, "$1. ").replace(/^\\(#{1,6} )/, "$1"));
       expect(c.paragraphs.map((p) => escapeInline(p.runs[0].t))).toEqual(lines);
     });
   }
@@ -275,19 +275,40 @@ describe("markdownSpans", () => {
   });
 });
 
-describe("listPrefix", () => {
+describe("blockPrefix", () => {
   test("puce : deux caractères", () => {
-    expect(listPrefix("- a")).toEqual({ list: "bullet", length: 2 });
+    expect(blockPrefix("- a")).toEqual({ list: "bullet", length: 2 });
   });
 
   test("numéro à deux chiffres : quatre caractères", () => {
-    expect(listPrefix("12. a")).toEqual({ list: "number", length: 4 });
+    expect(blockPrefix("12. a")).toEqual({ list: "number", length: 4 });
   });
 
   test("sans espace, tiret collé ou marqueur échappé : pas de liste", () => {
     for (const line of ["1.x", "-x", "\\- x", "1\\. x", ""]) {
-      expect(listPrefix(line)).toEqual({ length: 0 });
+      expect(blockPrefix(line)).toEqual({ length: 0 });
     }
+  });
+
+  test("heading: hashes and a space", () => {
+    expect(blockPrefix("## a")).toEqual({ heading: 2, length: 3 });
+    expect(blockPrefix("###### a")).toEqual({ heading: 6, length: 7 });
+  });
+
+  test("lone, glued, escaped or seven hashes: no heading", () => {
+    for (const line of ["#", "#a", "\\# a", "####### a"]) {
+      expect(blockPrefix(line)).toEqual({ length: 0 });
+    }
+  });
+
+  test("one prefix only: a heading whose text starts with a dash", () => {
+    expect(blockPrefix("# - x")).toEqual({ heading: 1, length: 2 });
+  });
+});
+
+describe("literalToParagraphs", () => {
+  test("a pasted heading stays a heading, its inline literal", () => {
+    expect(literalToParagraphs("# 2 * 3 * 4")).toEqual([{ runs: [{ t: "2 * 3 * 4" }], heading: 1 }]);
   });
 });
 

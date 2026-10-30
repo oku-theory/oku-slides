@@ -119,7 +119,7 @@
            "bold": true
           },
           {
-           "t": ": edits the text. One line per paragraph; a leading “- ” makes a bullet."
+           "t": ": edits the text. One line per paragraph; a leading “- ” makes a bullet, “# ” to “###### ” a heading."
           }
          ],
          "list": "bullet"
@@ -3077,7 +3077,7 @@
            "bold": true
           },
           {
-           "t": ": ordered lists with ids (items, data), prose, rich prose with marks, and the rest last-writer-wins. Slides and their elements form a single tree: moving an element between slots or slides keeps concurrent edits, and undoing a removal brings back the same element."
+           "t": ": ordered lists with ids (items, data), prose, rich prose with marks (a paragraph can carry `list` or `heading`, 1 to 6), and the rest last-writer-wins. Slides and their elements form a single tree: moving an element between slots or slides keeps concurrent edits, and undoing a removal brings back the same element."
           }
          ],
          "list": "bullet"

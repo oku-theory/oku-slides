@@ -9,7 +9,7 @@ use speculoos::prelude::*;
 
 fn linked(url: &str) -> String {
     let run = Run { link: Some(url.into()), ..Run::plain("a") };
-    paragraphs_to_text(&[Paragraph { runs: vec![run], list: None }])
+    paragraphs_to_text(&[Paragraph { runs: vec![run], list: None, heading: None }])
 }
 
 #[test]

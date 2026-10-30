@@ -8,15 +8,16 @@
 // - Polices : nom d'un rôle ("display", "body", "mono"), une chaîne ou un
 //   tableau de familles (solutions de repli).
 
-// Les valeurs par défaut vivent dans `default-tokens.json`, source unique :
-// côté Rust, la session l'embarque pour les défauts de l'éditeur de thème et
-// son schéma (`theme_schema.rs`), et le rendu l'expose à Typst
-// (`oku-slides-render/src/world.rs`). Groupes : color, font, script-style, size, weight,
-// leading, space, page, radius, stroke, chart (palette des séries), app
-// (interface : none = dérivé du fond et de l'encre ; rayons en px, élévations),
-// header, footer, list, kicker (cadre et textes partagés, qui référencent les
-// jetons par nom). Les jetons d'un composant de pack vivent dans le manifeste
-// du pack, sous component.<espace de noms> (voir `pack-tokens`).
+// The default values live in `default-tokens.json`, the single source:
+// on the Rust side, the session embeds it for the theme editor defaults and
+// its schema (`theme_schema.rs`), and the renderer exposes it to Typst
+// (`oku-slides-render/src/world.rs`). Groups: color, font, script-style, size, weight,
+// leading, space, page, radius, stroke, chart (series palette), app
+// (interface: none = derived from background and ink; radii in px, elevations),
+// header, footer, list, kicker (shared frame and texts, which reference
+// tokens by name), heading (styles of a text's headings, h1 to h6, which
+// reference tokens by name). The tokens of a pack component live in the pack
+// manifest, under component.<namespace> (see `pack-tokens`).
 // En-têtes et pieds : gabarits avec {champs} (title, subtitle, author, date,
 // organization, chapter, chapter-number, chapter-label, n, total, page-label,
 // et toute variable du deck) ; les segments séparés par " · " dont un champ

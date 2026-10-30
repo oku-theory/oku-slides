@@ -175,3 +175,31 @@ pub fn theme_name(theme: Option<&Namespace>) -> Option<&'static str> {
     let theme = theme?;
     BUILTIN_THEMES.into_iter().find(|n| *n == theme.as_str())
 }
+
+/// Page `page` as RGBA, 1 px per pt: (pixels, width).
+pub fn pixels_of(c: &Compiled, page: usize) -> (Vec<[u8; 4]>, usize) {
+    let png = c.png(page, 1.0).unwrap_or_else(|e| panic!("{e}"));
+    let mut reader = png::Decoder::new(std::io::Cursor::new(png)).read_info().unwrap_or_else(|e| panic!("{e}"));
+    let mut buf = vec![0; reader.output_buffer_size().unwrap_or_else(|| panic!("unknown PNG size"))];
+    let info = reader.next_frame(&mut buf).unwrap_or_else(|e| panic!("{e}"));
+    let channels = info.line_size / info.width as usize;
+    let px = buf[..info.line_size * info.height as usize]
+        .chunks(channels)
+        .map(|p| {
+            let mut out = [255; 4];
+            out[..channels.min(4)].copy_from_slice(&p[..channels.min(4)]);
+            out
+        })
+        .collect();
+    (px, info.width as usize)
+}
+
+/// Page 1 as RGBA, 1 px per pt: (pixels, width).
+pub fn pixels(c: &Compiled) -> (Vec<[u8; 4]>, usize) {
+    pixels_of(c, 0)
+}
+
+/// The pixel is a clear red.
+pub fn is_red(p: [u8; 4]) -> bool {
+    p[0] > 200 && p[1] < 80 && p[2] < 80
+}

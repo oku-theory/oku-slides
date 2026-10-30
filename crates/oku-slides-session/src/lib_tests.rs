@@ -76,8 +76,8 @@ fn apply_non_canonical_text_then_undo_view_matches_replica_read() {
     use oku_slides_core::{Paragraph, Run};
     let mut s = session_with_fixture();
     let text = vec![
-        Paragraph { runs: vec![Run::plain("")], list: None },
-        Paragraph { runs: vec![Run::plain("ab"), Run::plain("cd\u{2029}e")], list: None },
+        Paragraph { runs: vec![Run::plain("")], list: None, heading: None },
+        Paragraph { runs: vec![Run::plain("ab"), Run::plain("cd\u{2029}e")], list: None, heading: None },
     ];
     let target = OpTarget { slide: "s-constat".into(), element: Some("b-points".into()) };
     let op = Op::SetParam { target, param: "body".into(), value: serde_json::to_value(text).unwrap() };

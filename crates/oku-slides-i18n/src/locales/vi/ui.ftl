@@ -98,7 +98,7 @@ ui-stage-elements = Các phần tử của trang chiếu
 ui-stage-fields = Các trường của trang chiếu
 ui-stage-edit-text = Sửa văn bản
 ui-stage-hint-plain = Enter hoặc Tab để sang mục tiếp · Esc để hủy
-ui-stage-hint-rich = Tab để sang mục tiếp · ⌘ Enter để xác nhận · “- ” cho gạch đầu dòng · ⌘B đậm, ⌘I nghiêng, ⌘K liên kết
+ui-stage-hint-rich = Tab để sang mục tiếp · ⌘ Enter để xác nhận · “- ” cho gạch đầu dòng · “# ” cho tiêu đề · ⌘B đậm, ⌘I nghiêng, ⌘K liên kết
 ui-field = { $kind ->
     [title] Tiêu đề
     [subtitle] Phụ đề

@@ -133,8 +133,13 @@ fn paragraphs_to_text_bold_run_and_bullet_gives_markdown_lines() {
         Paragraph {
             runs: vec![oku_slides_core::Run { t: "Gras".into(), bold: true, ..Default::default() }],
             list: None,
+            heading: None,
         },
-        Paragraph { runs: vec![oku_slides_core::Run::plain("Point")], list: Some(oku_slides_core::ListKind::Bullet) },
+        Paragraph {
+            runs: vec![oku_slides_core::Run::plain("Point")],
+            list: Some(oku_slides_core::ListKind::Bullet),
+            heading: None,
+        },
     ];
     assert_that!(paragraphs_to_text(&paras)).is_equal_to("**Gras**\n- Point".to_owned());
 }

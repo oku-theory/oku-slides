@@ -101,7 +101,7 @@ ui-stage-elements = 幻灯片元素
 ui-stage-fields = 幻灯片字段
 ui-stage-edit-text = 编辑文本
 ui-stage-hint-plain = Enter 或 Tab 转到下一个 · Esc 取消
-ui-stage-hint-rich = Tab 转到下一个 · ⌘ Enter 确认 · “- ” 表示项目符号 · ⌘B 粗体，⌘I 斜体，⌘K 链接
+ui-stage-hint-rich = Tab 转到下一个 · ⌘ Enter 确认 · “- ” 表示项目符号 · “# ” 表示标题 · ⌘B 粗体，⌘I 斜体，⌘K 链接
 ui-field = { $kind ->
     [title] 标题
     [subtitle] 副标题

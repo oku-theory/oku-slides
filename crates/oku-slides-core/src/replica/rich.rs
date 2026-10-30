@@ -18,13 +18,13 @@ use crate::error::{LoroSnafu, ReplicaInner};
 pub(crate) const SEP: char = '\u{2029}';
 /// Champs d'un `Run`, hors `t`.
 pub(super) const RUN_MARKS: &[&str] = &["bold", "italic", "color", "size", "link", "highlight"];
-/// Champs d'un `Paragraph`, hors `runs`.
-pub(super) const PARA_MARKS: &[&str] = &["list"];
+/// Fields of a `Paragraph`, except `runs`.
+pub(super) const PARA_MARKS: &[&str] = &["list", "heading"];
 
 type Attrs = BTreeMap<String, LoroValue>;
 
-/// Marques qui ne s'étendent pas à la frappe qui les suit.
-const NOT_EXPANDING: &[&str] = &["link", "list"];
+/// Marks that do not extend to the typing that follows them.
+const NOT_EXPANDING: &[&str] = &["link", "list", "heading"];
 
 /// Une configuration par marque, ni plus ni moins : la frappe au bout d'un
 /// gras reste grasse, pas au bout d'un lien.

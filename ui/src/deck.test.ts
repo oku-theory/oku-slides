@@ -43,7 +43,7 @@ describe("literalToParagraphs", () => {
   });
 
   test("literalToParagraphs round trip keeps the text", () => {
-    const texts = ["a_b _c_ **d** \\e", "x = y == z =", "<b>&amp; `code` ~~s~~", "[a]: b\n\n# t", "Ⓐ_Ⓑ {1} \\*"];
+    const texts = ["a_b _c_ **d** \\e", "x = y == z =", "<b>&amp; `code` ~~s~~", "[a]: b\n\n#t", "Ⓐ_Ⓑ {1} \\*"];
     for (const text of texts) {
       const back = literalToParagraphs(text).map((p) => p.runs.map((r) => r.t).join("")).join("\n");
       expect(back).toBe(text);

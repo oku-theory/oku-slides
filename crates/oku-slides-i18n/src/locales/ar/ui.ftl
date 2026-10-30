@@ -113,7 +113,7 @@ ui-stage-elements = عناصر الشريحة
 ui-stage-fields = حقول الشريحة
 ui-stage-edit-text = تعديل النص
 ui-stage-hint-plain = Enter أو Tab للانتقال إلى التالي · Esc للإلغاء
-ui-stage-hint-rich = Tab للانتقال إلى التالي · ⌘ Enter للتأكيد · «- » لنقطة تعداد · ⌘B عريض، ⌘I مائل، ⌘K رابط
+ui-stage-hint-rich = Tab للانتقال إلى التالي · ⌘ Enter للتأكيد · «- » لنقطة تعداد · «# » لعنوان · ⌘B عريض، ⌘I مائل، ⌘K رابط
 ui-field = { $kind ->
     [title] العنوان
     [subtitle] العنوان الفرعي

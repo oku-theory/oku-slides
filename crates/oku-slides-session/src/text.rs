@@ -8,8 +8,8 @@ use serde_json::Value;
 
 use crate::inline::runs_to_markdown;
 
-/// Texte éditable en markdown : un paragraphe par ligne, `- ` pour une puce,
-/// `1. ` pour une liste numérotée, le reste en markdown inline (`inline.rs`).
+/// Editable markdown text: one paragraph per line, `#` to `######` for a heading,
+/// `- ` for a bullet, `1. ` for a numbered list, the rest as inline markdown (`inline.rs`).
 #[must_use]
 pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
     let mut out = String::new();
@@ -18,7 +18,13 @@ pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
         if i > 0 {
             out.push('\n');
         }
-        match p.list {
+        // A heading wins over a list (concurrent merge of the two marks).
+        let list = if p.heading.is_some() { None } else { p.list };
+        if let Some(h) = p.heading {
+            out.push_str(&"#".repeat(usize::from(h.get())));
+            out.push(' ');
+        }
+        match list {
             Some(ListKind::Bullet) => out.push_str("- "),
             Some(ListKind::Number) => {
                 n += 1;
@@ -28,16 +34,20 @@ pub fn paragraphs_to_text(paras: &[Paragraph]) -> String {
             None => {}
         }
         // Comme au rendu : tout autre paragraphe clôt la liste numérotée.
-        if p.list != Some(ListKind::Number) {
+        if list != Some(ListKind::Number) {
             n = 0;
         }
-        out.push_str(&escape_list_marker(&runs_to_markdown(&p.runs)));
+        out.push_str(&escape_block_marker(&runs_to_markdown(&p.runs)));
     }
     out
 }
 
-/// Un texte qui commence comme une liste (`- `, `1. `) ne doit pas en devenir une.
-fn escape_list_marker(line: &str) -> String {
+/// Text that starts like a prefix (`# `, `- `, `1. `) must not become one.
+fn escape_block_marker(line: &str) -> String {
+    let hashes = line.bytes().take_while(|b| *b == b'#').count();
+    if (1..=6).contains(&hashes) && line[hashes..].starts_with(' ') {
+        return format!("\\{line}");
+    }
     if line.starts_with("- ") {
         return format!("\\{line}");
     }

@@ -56,7 +56,10 @@ fn deck(title: Option<&str>, blocks: Vec<Element>) -> Deck {
 }
 
 fn text(id: &str, t: &str) -> Element {
-    Element::text(id, vec![Paragraph { runs: vec![OkuRun { t: t.into(), ..OkuRun::default() }], list: None }])
+    Element::text(
+        id,
+        vec![Paragraph { runs: vec![OkuRun { t: t.into(), ..OkuRun::default() }], list: None, heading: None }],
+    )
 }
 
 fn image(id: &str, asset: &str) -> Element {

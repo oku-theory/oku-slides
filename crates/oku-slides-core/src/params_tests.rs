@@ -123,3 +123,9 @@ fn serialize_list_round_trips() {
     let v = json!({ "l": [{ "id": "a", "date": "2019", "on": true }] });
     assert_that!(serde_json::to_value(params(v.clone())).unwrap()).is_equal_to(v);
 }
+
+#[test]
+fn deserialize_paragraphs_with_heading_gives_rich() {
+    let p = params(json!({ "body": [{ "runs": [{ "t": "Plan" }], "heading": 1 }] }));
+    assert_that!(matches!(p.get("body"), Some(ParamValue::Rich(_)))).is_true();
+}

@@ -101,7 +101,7 @@ ui-stage-elements = Dia-elementen
 ui-stage-fields = Diavelden
 ui-stage-edit-text = Tekst bewerken
 ui-stage-hint-plain = Enter of Tab voor het volgende · Esc om te annuleren
-ui-stage-hint-rich = Tab voor het volgende · ⌘ Enter om te bevestigen · ‘- ’ voor een opsommingsteken · ⌘B vet, ⌘I cursief, ⌘K link
+ui-stage-hint-rich = Tab voor het volgende · ⌘ Enter om te bevestigen · ‘- ’ voor een opsommingsteken · ‘# ’ voor een kop · ⌘B vet, ⌘I cursief, ⌘K link
 ui-field = { $kind ->
     [title] Titel
     [subtitle] Ondertitel

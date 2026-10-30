@@ -101,7 +101,7 @@ ui-stage-elements = Elementi della diapositiva
 ui-stage-fields = Campi della diapositiva
 ui-stage-edit-text = Modifica il testo
 ui-stage-hint-plain = Invio o Tab per passare al successivo · Esc per annullare
-ui-stage-hint-rich = Tab per passare al successivo · ⌘ Invio per confermare · «- » per un punto elenco · ⌘B grassetto, ⌘I corsivo, ⌘K link
+ui-stage-hint-rich = Tab per passare al successivo · ⌘ Invio per confermare · «- » per un punto elenco · «# » per un titolo · ⌘B grassetto, ⌘I corsivo, ⌘K link
 ui-field = { $kind ->
     [title] Titolo
     [subtitle] Sottotitolo

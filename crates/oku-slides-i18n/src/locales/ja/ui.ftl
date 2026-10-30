@@ -101,7 +101,7 @@ ui-stage-elements = スライドの要素
 ui-stage-fields = スライドのフィールド
 ui-stage-edit-text = テキストを編集
 ui-stage-hint-plain = Enter または Tab で次へ · Esc でキャンセル
-ui-stage-hint-rich = Tab で次へ · ⌘ Enter で確定 · 「- 」で箇条書き · ⌘B 太字、⌘I 斜体、⌘K リンク
+ui-stage-hint-rich = Tab で次へ · ⌘ Enter で確定 · 「- 」で箇条書き · 「# 」で見出し · ⌘B 太字、⌘I 斜体、⌘K リンク
 ui-field = { $kind ->
     [title] タイトル
     [subtitle] サブタイトル

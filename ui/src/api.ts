@@ -233,9 +233,14 @@ export interface Run {
   highlight?: number;
 }
 
+/** Heading level of a paragraph: 1 (largest) to 6. */
+export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
 export interface Paragraph {
   runs: Run[];
   list?: "bullet" | "number";
+  /** Heading; wins over `list` when both are set. */
+  heading?: HeadingLevel;
 }
 
 /** Paramètres d'une slide ou d'un élément : texte, slots d'éléments, valeurs, selon le widget. */

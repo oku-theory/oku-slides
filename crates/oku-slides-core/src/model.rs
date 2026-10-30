@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::HeadingLevel;
 use crate::error::ValueReason;
 use crate::namespace::Namespace;
 use crate::pack::PackPin;
@@ -411,7 +412,7 @@ pub enum ListKind {
     Number,
 }
 
-/// A paragraph: a sequence of runs, possibly in a list.
+/// A paragraph: a sequence of runs, possibly a list item or a heading.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Paragraph {
     /// Runs of the paragraph, in text order.
@@ -420,13 +421,16 @@ pub struct Paragraph {
     /// List the paragraph is an item of; absent: plain paragraph.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub list: Option<ListKind>,
+    /// Heading level; absent: body text. Wins over `list` when both are set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heading: Option<HeadingLevel>,
 }
 
 impl Paragraph {
     /// Paragraph of a single run, with no formatting or list.
     #[must_use]
     pub fn plain(t: impl Into<String>) -> Self {
-        Self { runs: vec![Run::plain(t)], list: None }
+        Self { runs: vec![Run::plain(t)], list: None, heading: None }
     }
 }
 

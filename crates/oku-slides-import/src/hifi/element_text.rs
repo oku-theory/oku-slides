@@ -296,7 +296,7 @@ fn rich_paragraphs(tb: &TextBox, base: &Base, ctx: &ElementCtx<'_>, losses: &mut
         if sp.style.rtl != ctx.base.deck_rtl() {
             note(losses, LossKind::ParagraphStyle);
         }
-        paragraphs.push(Paragraph { runs: out, list: list_kind(&sp.style.bullet) });
+        paragraphs.push(Paragraph { runs: out, list: list_kind(&sp.style.bullet), heading: None });
     }
     let (paragraphs, truncated) = bound(paragraphs);
     if truncated {

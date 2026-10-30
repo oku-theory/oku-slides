@@ -107,7 +107,7 @@ ui-stage-elements = Elementy slajdu
 ui-stage-fields = Pola slajdu
 ui-stage-edit-text = Edytuj tekst
 ui-stage-hint-plain = Enter lub Tab, aby przejść dalej · Esc, aby anulować
-ui-stage-hint-rich = Tab, aby przejść dalej · ⌘ Enter, aby zatwierdzić · „- ” dla punktu listy · ⌘B pogrubienie, ⌘I kursywa, ⌘K link
+ui-stage-hint-rich = Tab, aby przejść dalej · ⌘ Enter, aby zatwierdzić · „- ” dla punktu listy · „# ” dla nagłówka · ⌘B pogrubienie, ⌘I kursywa, ⌘K link
 ui-field = { $kind ->
     [title] Tytuł
     [subtitle] Podtytuł

@@ -77,10 +77,10 @@ fn json_len(p: &Paragraph) -> usize {
     serde_json::to_vec(p).map_or(usize::MAX, |b| b.len())
 }
 
-/// Le plus long début de `p` dont la forme JSON tient en `budget` octets ;
-/// `None` si même un caractère ne tient pas.
+/// The longest start of `p` whose JSON form fits in `budget` bytes;
+/// `None` if even one character does not fit.
 fn cut(p: &Paragraph, budget: usize) -> Option<Paragraph> {
-    let mut out = Paragraph { runs: Vec::new(), list: p.list };
+    let mut out = Paragraph { runs: Vec::new(), list: p.list, heading: p.heading };
     for run in &p.runs {
         out.runs.push(run.clone());
         if json_len(&out) <= budget {
@@ -175,7 +175,7 @@ pub(crate) fn rich<'t>(boxes: impl IntoIterator<Item = &'t TextBox>, tokens: &Co
         if sp.level > 0 {
             note(&mut losses, LossKind::ListLevels);
         }
-        paragraphs.push(Paragraph { runs: out, list: list_kind(&sp.style.bullet) });
+        paragraphs.push(Paragraph { runs: out, list: list_kind(&sp.style.bullet), heading: None });
     }
     let (paragraphs, truncated) = bound(paragraphs);
     if truncated {

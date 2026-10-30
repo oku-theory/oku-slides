@@ -786,6 +786,14 @@ pub struct NamespaceError {
     backtrace: Backtrace,
 }
 
+/// A paragraph heading level outside 1 to 6.
+#[derive(Debug, Snafu)]
+#[snafu(display("invalid heading level: {value}"), context(suffix(Snafu)), visibility(pub(crate)))]
+pub struct HeadingLevelError {
+    value: u8,
+    backtrace: Backtrace,
+}
+
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

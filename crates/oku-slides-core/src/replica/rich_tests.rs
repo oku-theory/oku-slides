@@ -24,7 +24,12 @@ fn every_run_and_paragraph_field_has_a_mark() {
     .unwrap();
     let keys: Vec<&str> = run.as_object().unwrap().keys().map(String::as_str).filter(|k| *k != "t").collect();
     assert_that!(keys.iter().all(|k| RUN_MARKS.contains(k))).is_true();
-    let p = serde_json::to_value(crate::Paragraph { runs: vec![], list: Some(crate::ListKind::Bullet) }).unwrap();
+    let p = serde_json::to_value(crate::Paragraph {
+        runs: vec![],
+        list: Some(crate::ListKind::Bullet),
+        heading: crate::HeadingLevel::new(2),
+    })
+    .unwrap();
     let keys: Vec<&str> = p.as_object().unwrap().keys().map(String::as_str).filter(|k| *k != "runs").collect();
     assert_that!(keys.iter().all(|k| PARA_MARKS.contains(k))).is_true();
 }
@@ -131,4 +136,37 @@ fn sync_without_bold_removes_bold_and_list() {
     let plain = json!([{ "runs": [{ "t": "ab" }] }]);
     sync(&t, &plain).unwrap();
     assert_that!(Value::Array(read(&t))).is_equal_to(&plain);
+}
+
+#[test]
+fn sync_heading_then_read_returns_same_paragraphs() {
+    let d = doc();
+    let t = d.get_text("t");
+    let v = json!([{ "runs": [{ "t": "Plan" }], "heading": 2 }, { "runs": [{ "t": "corps" }] }]);
+    sync(&t, &v).unwrap();
+    d.commit();
+    assert_that!(Value::Array(read(&t))).is_equal_to(&v);
+}
+
+#[test]
+fn styles_heading_does_not_expand() {
+    assert_that!(styles().get(&"heading".into()).map(|c| c.expand)).is_equal_to(Some(ExpandType::None));
+}
+
+#[test]
+fn concurrent_heading_and_list_keep_both_marks() {
+    let base = doc();
+    base.set_peer_id(0).unwrap();
+    sync(&base.get_text("t"), &json!([{ "runs": [{ "t": "Plan" }] }])).unwrap();
+    base.commit();
+    let (a, b) = (base.fork(), base.fork());
+    a.config_text_style(styles());
+    b.config_text_style(styles());
+    sync(&a.get_text("t"), &json!([{ "runs": [{ "t": "Plan" }], "heading": 1 }])).unwrap();
+    a.commit();
+    sync(&b.get_text("t"), &json!([{ "runs": [{ "t": "Plan" }], "list": "bullet" }])).unwrap();
+    b.commit();
+    a.import(&b.export(loro::ExportMode::all_updates()).unwrap()).unwrap();
+    assert_that!(Value::Array(read(&a.get_text("t"))))
+        .is_equal_to(json!([{ "runs": [{ "t": "Plan" }], "list": "bullet", "heading": 1 }]));
 }

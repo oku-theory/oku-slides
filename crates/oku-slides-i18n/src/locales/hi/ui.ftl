@@ -101,7 +101,7 @@ ui-stage-elements = स्लाइड के एलिमेंट
 ui-stage-fields = स्लाइड के फ़ील्ड
 ui-stage-edit-text = टेक्स्ट संपादित करें
 ui-stage-hint-plain = अगले पर जाने के लिए Enter या Tab · रद्द करने के लिए Esc
-ui-stage-hint-rich = अगले पर जाने के लिए Tab · पुष्टि के लिए ⌘ Enter · बुलेट के लिए “- ” · ⌘B बोल्ड, ⌘I इटैलिक, ⌘K लिंक
+ui-stage-hint-rich = अगले पर जाने के लिए Tab · पुष्टि के लिए ⌘ Enter · बुलेट के लिए “- ” · शीर्षक के लिए “# ” · ⌘B बोल्ड, ⌘I इटैलिक, ⌘K लिंक
 ui-field = { $kind ->
     [title] शीर्षक
     [subtitle] उपशीर्षक

@@ -107,7 +107,7 @@ ui-stage-elements = Елементи слайда
 ui-stage-fields = Поля слайда
 ui-stage-edit-text = Змінити текст
 ui-stage-hint-plain = Enter або Tab — до наступного · Esc — скасувати
-ui-stage-hint-rich = Tab — до наступного · ⌘ Enter — підтвердити · «- » для пункту списку · ⌘B жирний, ⌘I курсив, ⌘K посилання
+ui-stage-hint-rich = Tab — до наступного · ⌘ Enter — підтвердити · «- » для пункту списку · «# » для заголовка · ⌘B жирний, ⌘I курсив, ⌘K посилання
 ui-field = { $kind ->
     [title] Заголовок
     [subtitle] Підзаголовок

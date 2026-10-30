@@ -302,9 +302,9 @@
       "paragraphs": [{ "runs": [{ "t": "2 * 3 * 4, [1](x), ==x==, x = y, Ⓐ_Ⓑ, snake_case, C:\\dir" }] }, { "runs": [{ "t": "fin =" }] }]
     },
     {
-      "name": "titre et citation en début de ligne",
-      "markdown": "# pas un titre\n> pas une citation",
-      "paragraphs": [{ "runs": [{ "t": "# pas un titre" }] }, { "runs": [{ "t": "> pas une citation" }] }]
+      "name": "citation en début de ligne",
+      "markdown": "> pas une citation",
+      "paragraphs": [{ "runs": [{ "t": "> pas une citation" }] }]
     },
     {
       "name": "ponctuation française",
@@ -335,7 +335,19 @@
       "name": "pastille en gras collée à du japonais",
       "markdown": "上==**a**=={2}です",
       "paragraphs": [{ "runs": [{ "t": "上" }, { "t": "a", "bold": true, "highlight": 2 }, { "t": "です" }] }]
-    }
+    },
+    { "name": "titres de niveaux 1 à 6", "markdown": "# Un\n## Deux\n### Trois\n#### Quatre\n##### Cinq\n###### Six",
+      "paragraphs": [{ "runs": [{ "t": "Un" }], "heading": 1 }, { "runs": [{ "t": "Deux" }], "heading": 2 },
+        { "runs": [{ "t": "Trois" }], "heading": 3 }, { "runs": [{ "t": "Quatre" }], "heading": 4 },
+        { "runs": [{ "t": "Cinq" }], "heading": 5 }, { "runs": [{ "t": "Six" }], "heading": 6 }] },
+    { "name": "titre en gras, puis un titre qui reprend la liste numérotée à 1", "markdown": "## **Plan**\n1. un\n# Fin\n1. deux",
+      "paragraphs": [{ "runs": [{ "t": "Plan", "bold": true }], "heading": 2 }, { "runs": [{ "t": "un" }], "list": "number" },
+        { "runs": [{ "t": "Fin" }], "heading": 1 }, { "runs": [{ "t": "deux" }], "list": "number" }] },
+    { "name": "texte qui ressemble à un titre", "markdown": "\\# pas un titre\n\\###### pas non plus\n#mot\n####### sept",
+      "paragraphs": [{ "runs": [{ "t": "# pas un titre" }] }, { "runs": [{ "t": "###### pas non plus" }] },
+        { "runs": [{ "t": "#mot" }] }, { "runs": [{ "t": "####### sept" }] }] },
+    { "name": "titre dont le texte commence comme une puce", "markdown": "# \\- x",
+      "paragraphs": [{ "runs": [{ "t": "- x" }], "heading": 1 }] }
   ],
   "lossy": [
     {

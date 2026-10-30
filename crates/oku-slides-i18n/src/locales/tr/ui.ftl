@@ -101,7 +101,7 @@ ui-stage-elements = Slayt öğeleri
 ui-stage-fields = Slayt alanları
 ui-stage-edit-text = Metni düzenle
 ui-stage-hint-plain = Sonrakine geçmek için Enter veya Tab · iptal için Esc
-ui-stage-hint-rich = Sonrakine geçmek için Tab · onaylamak için ⌘ Enter · madde işareti için “- ” · ⌘B kalın, ⌘I italik, ⌘K bağlantı
+ui-stage-hint-rich = Sonrakine geçmek için Tab · onaylamak için ⌘ Enter · madde işareti için “- ” · başlık için “# ” · ⌘B kalın, ⌘I italik, ⌘K bağlantı
 ui-field = { $kind ->
     [title] Başlık
     [subtitle] Alt başlık

@@ -70,11 +70,11 @@
 // (crates/oku-slides-core/src/params.rs).
 #let _is-run(r) = type(r) == dictionary and (r.at("t", default: none) == none or type(r.at("t", default: none)) == str)
 
-// Paragraphes (côté Typst) : chaque objet n'a que des clés `runs`/`list`, et
-// ses `runs`, quand présents, sont un tableau de runs valides. Mirroir de
-// `is_paragraphs` côté Rust.
+// Paragraphs (Typst side): each object only has `runs`/`list`/`heading` keys, and
+// its `runs`, when present, are an array of valid runs. Mirror of `is_paragraphs`
+// on the Rust side.
 #let _is-paragraphs(v) = type(v) == array and v.all(x => {
-  type(x) == dictionary and x.keys().all(k => k in ("runs", "list")) and {
+  type(x) == dictionary and x.keys().all(k => k in ("runs", "list", "heading")) and {
     let runs = x.at("runs", default: none)
     runs == none or (type(runs) == array and runs.all(_is-run))
   }

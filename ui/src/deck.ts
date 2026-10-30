@@ -4,7 +4,7 @@
 import type { Element, FieldView, Op, Params, Paragraph, Slide, SlideView, Snapshot } from "./api";
 import type { Cell, GridSpec, Rect, ZoneView } from "./grid";
 import { cellRect, snapRect } from "./grid";
-import { escapeInline, listPrefix, markdownToRuns } from "./markdown";
+import { blockPrefix, escapeInline, markdownToRuns } from "./markdown";
 
 /** Identifiant court et unique pour un nouvel élément ou une nouvelle slide. */
 export function newId(prefix: string): string {
@@ -53,13 +53,13 @@ export function findElement(slide: Slide, id: string): Element | undefined {
 }
 
 /**
- * Texte éditable → paragraphes : l'inverse de `paragraphs_to_text` côté Rust
- * (une ligne par paragraphe, `- ` pour une puce, `1. ` pour une liste
- * numérotée, markdown inline pour le reste). Une ligne identique à une ligne
- * de `previous.text` (écrit par Rust pour `previous.paragraphs`) garde ce
- * paragraphe tel quel : couleur, taille et bords perdus à l'écriture compris.
- * Cette réutilisation suppose une ligne par paragraphe ; si un run contient
- * `\n`, les indices se décalent et on relit tout depuis le texte.
+ * Editable text → paragraphs: the inverse of `paragraphs_to_text` on the Rust side
+ * (one line per paragraph, `#` to `######` for a heading, `- ` for a bullet, `1. ` for a numbered
+ * list, inline markdown for the rest). A line identical to a line
+ * of `previous.text` (written by Rust for `previous.paragraphs`) keeps that
+ * paragraph as is: color, size and edges lost on writing included.
+ * This reuse assumes one line per paragraph; if a run contains
+ * `\n`, the indices shift and everything is read again from the text.
  */
 export function textToParagraphs(text: string, previous?: { paragraphs: Paragraph[]; text: string }): Paragraph[] {
   const before = previous ? previous.text.split("\n") : [];
@@ -67,26 +67,26 @@ export function textToParagraphs(text: string, previous?: { paragraphs: Paragrap
   return text.split("\n").map((line) => {
     const same = alignable ? previous?.paragraphs[before.indexOf(line)] : undefined;
     if (same) return same;
-    const { list, length } = listPrefix(line);
+    const { list, heading, length } = blockPrefix(line);
     const runs = markdownToRuns(line.slice(length));
-    return list ? { runs, list } : { runs };
+    return heading ? { runs, heading } : list ? { runs, list } : { runs };
   });
 }
 
 /**
- * Texte brut venu d'ailleurs (collage externe, dictée) → paragraphes : son markdown inline reste
- * littéral (`2 * 3 * 4` n'est pas de l'italique), seuls les préfixes `- ` et `1. ` font des listes.
+ * Plain text from elsewhere (external paste, dictation) → paragraphs: its inline markdown stays
+ * literal (`2 * 3 * 4` is not italic), only the `#`, `- ` and `1. ` prefixes make headings or lists.
  */
 export function literalToParagraphs(text: string): Paragraph[] {
   return textToParagraphs(literalText(text));
 }
 
-/** Texte brut échappé ligne à ligne, préfixe de liste gardé, pour que `textToParagraphs` le relise tel quel. */
+/** Plain text escaped line by line, line prefix kept, so that `textToParagraphs` reads it back as is. */
 function literalText(text: string): string {
   return text
     .split("\n")
     .map((line) => {
-      const { length } = listPrefix(line);
+      const { length } = blockPrefix(line);
       return line.slice(0, length) + escapeInline(line.slice(length));
     })
     .join("\n");
