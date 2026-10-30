@@ -221,7 +221,7 @@ test("AgentPanel transmet la présentation demandée par l'agent", async () => {
 
 test("AgentPanel transmet les changements d'interface demandés par l'agent", async () => {
   const p = await mount();
-  const change: InterfaceChange = { scheme: "dark", locale: null, grid: null, guides: true };
+  const change: InterfaceChange = { scheme: "dark", locale: null, guides: true };
   await p.mcp({ kind: "interface", change });
   expect(p.interfaces).toEqual([change]);
 });

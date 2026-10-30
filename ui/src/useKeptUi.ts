@@ -1,4 +1,4 @@
-// The interface state the host keeps for the resume: current slide, the stage's grid and ghosts,
+// The interface state the host keeps for the resume: current slide, the stage's ghosts,
 // column widths, widget code (shown, width), folded sections, a pack tab's selected item.
 
 import { useEffect, useState } from "react";
@@ -38,11 +38,9 @@ function send(save: (ui: UiState, order: UiOrder) => Promise<unknown>, ui: UiSta
   });
 }
 
-/** Option d'affichage qu'une touche bascule : ⌘' la grille, ⌘⇧G les fantômes. */
-export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): "grid" | "ghosts" | null {
-  if (!e.metaKey && !e.ctrlKey) return null;
-  if (e.key === "'") return "grid";
-  return e.shiftKey && e.key.toLowerCase() === "g" ? "ghosts" : null;
+/** Whether the key is ⌘⇧G, which toggles the ghosts; the grid shows only while dragging (t-1283). */
+export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): boolean {
+  return (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "g";
 }
 
 type KeyLike = Parameters<typeof viewToggle>[0] & { preventDefault(): void };
@@ -50,9 +48,8 @@ type KeyLike = Parameters<typeof viewToggle>[0] & { preventDefault(): void };
 /** Largeurs choisies aux séparateurs, en px ; `null` : largeur par défaut. */
 export type ColumnWidths = Pick<UiState, "pile" | "notes">;
 
-/** L'état d'interface gardé : grille et fantômes (raccourcis, agent), colonnes, code des widgets, sections repliées. */
+/** L'état d'interface gardé : fantômes (raccourci, agent), colonnes, code des widgets, sections repliées. */
 export interface KeptUi {
-  grid: boolean;
   ghosts: boolean;
   columns: ColumnWidths;
   /** Retient de nouvelles largeurs (et les fait garder par l'hôte). */
@@ -69,16 +66,14 @@ export interface KeptUi {
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;
-  /** Montre ou cache la grille (demandé par l'agent). */
-  setGrid: (on: boolean) => void;
   /** Montre ou cache les repères des champs vides (demandé par l'agent). */
   setGhosts: (on: boolean) => void;
-  /** Prend ⌘' / ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
+  /** Prend ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
   handleKey: (e: KeyLike) => boolean;
 }
 
 /**
- * Grille, fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
+ * Fantômes, colonnes, code des widgets et sections repliées, repris de l'état gardé `kept` au premier
  * snapshot, puis sauvés par `save` avec la slide `current` à chaque changement, tout de suite, numérotés
  * (`UiOrder`) pour que l'hôte garde la dernière quel que soit l'ordre d'arrivée.
  * `item`: a pack tab's selected item, kept with the rest. Une sauvegarde échouée est renvoyée une fois (`timers` : tests).
@@ -92,7 +87,6 @@ export function useKeptUi(
   item: Pick<UiState, "widget">,
   timers: Timers = REAL_TIMERS,
 ): KeptUi {
-  const [grid, setGrid] = useState(true);
   const [ghosts, setGhosts] = useState(false);
   const [columns, setColumns] = useState<ColumnWidths>({ pile: null, notes: null });
   const [code, setCode] = useState(false);
@@ -103,7 +97,6 @@ export function useKeptUi(
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     if (!kept || restored) return;
-    setGrid(kept.grid);
     setGhosts(kept.ghosts);
     setColumns({ pile: kept.pile, notes: kept.notes });
     setCode(kept.code);
@@ -114,20 +107,18 @@ export function useKeptUi(
 
   useEffect(() => {
     if (!restored) return;
-    send(save, { slide: current, grid, ghosts, ...columns, widget: item.widget, code, code_width: codeWidth, folded }, timers);
+    send(save, { slide: current, ghosts, ...columns, widget: item.widget, code, code_width: codeWidth, folded }, timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
-  }, [restored, current, grid, ghosts, columns, item.widget, code, codeWidth, folded]);
+  }, [restored, current, ghosts, columns, item.widget, code, codeWidth, folded]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
     setFoldedList((list) => (list.includes(section) === fold ? list : fold ? [...list, section] : list.filter((s) => s !== section)));
-  const flip = (which: "grid" | "ghosts") => (which === "grid" ? setGrid : setGhosts)((v) => !v);
   const handleKey = (e: KeyLike) => {
-    const which = viewToggle(e);
-    if (!which) return false;
+    if (!viewToggle(e)) return false;
     e.preventDefault();
-    flip(which);
+    setGhosts((v) => !v);
     return true;
   };
-  return { grid, ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, folded, setFolded, setGrid, setGhosts, handleKey };
+  return { ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, folded, setFolded, setGhosts, handleKey };
 }

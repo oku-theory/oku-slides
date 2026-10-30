@@ -146,10 +146,9 @@ export interface HistoryView {
   changes: SlideChanges;
 }
 
-/** Current slide, grid, ghosts, columns, selected item, code and folded sections, kept across launches. */
+/** Current slide, ghosts, columns, selected item, code and folded sections, kept across launches. */
 export interface UiState {
   slide: string | null;
-  grid: boolean;
   /** Fantômes visibles : zone, objets et champs annotés. */
   ghosts: boolean;
   /** Largeur de la pile en px, choisie au séparateur ; `null` : largeur par défaut. */
@@ -629,7 +628,6 @@ export interface InterfaceChange {
   scheme: "light" | "dark" | "system" | null;
   /** Code d'une langue livrée, ou `system`. */
   locale: string | null;
-  grid: boolean | null;
   guides: boolean | null;
 }
 

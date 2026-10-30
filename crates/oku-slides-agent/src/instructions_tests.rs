@@ -81,7 +81,7 @@ fn deck_instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &s
 
 /// The interface and dictation tools are in every kind's core.
 #[rstest]
-#[case("`set_interface` (scheme, locale, grid, guides)")]
+#[case("`set_interface` (scheme, locale, guides)")]
 #[case("`show_dictation`")]
 #[case("`set_dictation`")]
 #[case("`select_agent`")]

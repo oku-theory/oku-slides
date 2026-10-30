@@ -62,9 +62,6 @@ pub struct InterfaceChange {
     /// Language: a shipped code (`en`, `fr`…) or `system`.
     #[serde(default)]
     pub locale: Option<String>,
-    /// Grid of the shown slide.
-    #[serde(default)]
-    pub grid: Option<bool>,
     /// Guides of the empty fields.
     #[serde(default)]
     pub guides: Option<bool>,
@@ -73,7 +70,7 @@ pub struct InterfaceChange {
 impl InterfaceChange {
     /// Aucun changement demandé.
     fn is_empty(&self) -> bool {
-        self.scheme.is_none() && self.locale.is_none() && self.grid.is_none() && self.guides.is_none()
+        self.scheme.is_none() && self.locale.is_none() && self.guides.is_none()
     }
 }
 
@@ -199,7 +196,7 @@ impl Tools {
         }
     }
 
-    /// Change le schéma, la langue, la grille ou les repères de l'interface.
+    /// Changes the interface's scheme, language or guides.
     pub(crate) async fn set_interface(&self, args: Value) -> CallToolResult {
         let mut change: InterfaceChange = match self.parse(args) {
             Ok(a) => a,

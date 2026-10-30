@@ -29,7 +29,7 @@ async function mount(fake: TabApi, widget: string | null) {
     widgets: { deck: { id: "p", version: "v" } },
     history: null,
     slides: [],
-    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widget },
+    ui: { slide: null, ghosts: false, pile: null, notes: null, widget },
   } as unknown as Snapshot;
   function Probe() {
     const item = usePackItem(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });

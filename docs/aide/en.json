@@ -210,7 +210,7 @@
            "bold": true
           },
           {
-           "t": ": 12 × 6 cells by default, set in the layout. Snapping is always on; ⌘' shows the nodes."
+           "t": ": 12 × 6 cells by default, set in the layout. Snapping is always on; the nodes show while you drag."
           }
          ],
          "list": "bullet"
@@ -1022,17 +1022,6 @@
           },
           {
            "t": "  Move the slide up, down"
-          }
-         ]
-        },
-        {
-         "runs": [
-          {
-           "t": "⌘'",
-           "highlight": 1
-          },
-          {
-           "t": "  Show the grid"
           }
          ]
         },

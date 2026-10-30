@@ -166,7 +166,6 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
     };
     let ui = UiState {
         slide: Some("s-1".into()),
-        grid: false,
         ghosts: true,
         pile: Some(200),
         notes: Some(520),
@@ -190,7 +189,8 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
-/// Un `state.json` écrit avant les fantômes et les colonnes se relit, fantômes masqués, largeurs par défaut.
+/// A `state.json` written before the ghosts and columns, with the `grid` removed by t-1283, reads back
+/// with ghosts hidden and default widths.
 #[test]
 fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
     let r = resume();
@@ -200,7 +200,6 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
     let back = r.read_state().unwrap().unwrap();
     assert_that!(back.ui).is_equal_to(UiState {
         slide: Some("s-1".into()),
-        grid: false,
         ghosts: false,
         pile: None,
         notes: None,

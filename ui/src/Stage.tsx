@@ -89,8 +89,6 @@ interface DeckProps extends CommonProps {
    * Rend éventuellement une promesse : `false` si l'hôte a refusé les ops.
    */
   onApply: (label: string, ops: Op[], merge?: string) => void | Promise<boolean>;
-  /** Grille affichée (sinon : seulement pendant un glisser). */
-  showGridAlways?: boolean;
   /** Posé sous l'ancre (fiche d'une question de l'agent) : l'élément `owner` ou son champ `field`, s'il est sur la slide. */
   overlay?: { anchor: { owner: string; field?: string }; node: ReactNode };
   /** Lecture seule (historique) : pas de couche des champs. */
@@ -164,7 +162,7 @@ export default function Stage(props: Props) {
   const deck = props.mode === "preview" ? null : props;
   const preview = deck === null;
   const {
-    selected = null, cut = null, onSelect = ignore, onApply = ignore, showGridAlways = false, overlay, readOnly = false,
+    selected = null, cut = null, onSelect = ignore, onApply = ignore, overlay, readOnly = false,
     showGhosts = false, packWidgets, onOpenWidget, hoverPreview,
   } = deck ?? ({} as Partial<DeckProps>);
   // En aperçu, un champ lié au deck se montre mais ne s'édite pas : ni Tab ni double-clic n'y mènent.
@@ -355,12 +353,10 @@ export default function Stage(props: Props) {
     return { left: x * scale, top: y * scale, width: Math.max(w * scale, 8), height: Math.max(h * scale, 8) };
   };
 
-  // La grille se montre quand on travaille avec : élément accroché choisi, ou glisser en cours.
+  // The grid shows only once a drag on it moved, to see where the element lands (t-1283).
   const zone = view.zone;
   const grid = zone?.grid ?? null;
   const liveCell = drag ? draggedCell(drag) : null;
-  // Affichée à la demande ; pendant un glisser sur la grille, toujours (on voit où l'on pose).
-  const showGrid = !!grid && (showGridAlways || !!liveCell);
   const tagFor = (t: ObjectTarget) => {
     const cell = drag?.id === t.id && liveCell ? liveCell : findElement(view.slide, t.id)?.cell;
     return elementTag(t.kind, grid ? cell : null);
@@ -382,7 +378,7 @@ export default function Stage(props: Props) {
           onPointerCancel={() => setDrag(null)}
         >
           {svgUrl && <img src={svgUrl} alt={preview ? t("ui-widgets-preview") : t("ui-slide-alt", { n: view.page })} draggable={false} />}
-          {showGrid && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell} />}
+          {liveCell && drag && hasMoved(drag) && zone && grid && <GridLayer zone={zone} grid={grid} scale={scale} target={liveCell} />}
           {showGhosts && <GhostLayer view={view} scale={scale} hidden={drag?.id ?? null} />}
           {deck && <div className="overlay" role="group" aria-label={t("ui-stage-elements")}>
             {carried && <DragOrigin target={carried} scale={scale} />}

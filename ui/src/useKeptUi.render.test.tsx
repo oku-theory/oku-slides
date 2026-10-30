@@ -1,4 +1,4 @@
-// Options d'affichage (grille, fantômes, colonnes) : reprise, bascule, raccourcis, sauvegarde chez l'hôte.
+// Options d'affichage (fantômes, colonnes) : reprise, bascule, raccourcis, sauvegarde chez l'hôte.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -24,7 +24,7 @@ afterEach(async () => {
 type Item = Pick<UiState, "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
-const kept: UiState = { slide: "s0", grid: false, ghosts: true, pile: 200, notes: null, widget: null, code: true,
+const kept: UiState = { slide: "s0", ghosts: true, pile: 200, notes: null, widget: null, code: true,
   code_width: 640, folded: ["layouts"] };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
@@ -34,10 +34,10 @@ async function mount(first: UiState | null = kept, answer: () => Promise<unknown
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  const out: { hook: Hook | null; saved: [string | null, boolean, boolean][]; kept: UiState[]; orders: UiOrder[] } =
+  const out: { hook: Hook | null; saved: [string | null, boolean][]; kept: UiState[]; orders: UiOrder[] } =
     { hook: null, saved: [], kept: [], orders: [] };
   const save = (ui: UiState, order: UiOrder) => {
-    out.saved.push([ui.slide, ui.grid, ui.ghosts]);
+    out.saved.push([ui.slide, ui.ghosts]);
     out.kept.push(ui);
     out.orders.push(order);
     return answer();
@@ -59,14 +59,14 @@ const key = (k: string, more: { meta?: boolean; ctrl?: boolean; shift?: boolean 
 
 test("useKeptUi first snapshot restores the choices kept by the host", async () => {
   const { out } = await mount();
-  expect([out.hook!.grid, out.hook!.ghosts]).toEqual([false, true]);
+  expect(out.hook!.ghosts).toBe(true);
 });
 
 test("useKeptUi later snapshot keeps the user's choice", async () => {
   const { out, render } = await mount();
-  await act(async () => { out.hook!.handleKey(key("'", { meta: true })); });
-  await render({ ...kept, grid: false });
-  expect(out.hook!.grid).toBe(true);
+  await act(async () => { out.hook!.handleKey(key("g", { meta: true, shift: true })); });
+  await render({ ...kept, ghosts: true });
+  expect(out.hook!.ghosts).toBe(false);
 });
 
 test("useKeptUi saves nothing before the first snapshot", async () => {
@@ -77,25 +77,25 @@ test("useKeptUi saves nothing before the first snapshot", async () => {
 test("useKeptUi first snapshot after an empty mount restores the kept choices and saves them once", async () => {
   const { out, render } = await mount(null);
   await render(kept);
-  expect([out.hook!.grid, out.hook!.ghosts, out.saved]).toEqual([false, true, [["s1", false, true]]]);
+  expect([out.hook!.ghosts, out.saved]).toEqual([true, [["s1", true]]]);
 });
 
 test("useKeptUi saves again when the current slide changes", async () => {
   const { out, render } = await mount();
   await render(kept, "s2");
-  expect(out.saved.at(-1)).toEqual(["s2", false, true]);
+  expect(out.saved.at(-1)).toEqual(["s2", true]);
 });
 
 test("useKeptUi saves the current slide and choices once restored and on each toggle", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.handleKey(key("g", { meta: true, shift: true })); });
-  expect(out.saved).toEqual([["s1", false, true], ["s1", false, false]]);
+  expect(out.saved).toEqual([["s1", true], ["s1", false]]);
 });
 
-test("useKeptUi setGrid and setGhosts show or hide and are saved", async () => {
+test("useKeptUi setGhosts shows or hides the ghosts and is saved", async () => {
   const { out } = await mount();
-  await act(async () => { out.hook!.setGrid(true); out.hook!.setGhosts(false); });
-  expect(out.saved.at(-1)).toEqual(["s1", true, false]);
+  await act(async () => { out.hook!.setGhosts(false); });
+  expect(out.saved.at(-1)).toEqual(["s1", false]);
 });
 
 test("useKeptUi handleKey takes its shortcut and prevents the default", async () => {
@@ -114,7 +114,7 @@ test("useKeptUi first snapshot restores the column widths kept by the host", asy
 test("useKeptUi setColumns saves the new widths with the rest of the state", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
-  expect(out.kept.at(-1)).toEqual({ slide: "s1", grid: false, ghosts: true, pile: null, notes: 540, widget: null, code: true,
+  expect(out.kept.at(-1)).toEqual({ slide: "s1", ghosts: true, pile: null, notes: 540, widget: null, code: true,
     code_width: 640, folded: ["layouts"] });
 });
 
@@ -297,15 +297,15 @@ test("useKeptUi handleKey leaves other keys alone", async () => {
 });
 
 describe("viewToggle", () => {
-  test("viewToggle cmd quote toggles the grid", () => {
-    expect(viewToggle(key("'", { meta: true }))).toBe("grid");
+  test("viewToggle cmd quote toggles nothing, the grid shows only while dragging", () => {
+    expect(viewToggle(key("'", { meta: true }))).toBe(false);
   });
 
   test("viewToggle cmd shift G toggles the ghosts, whatever the case WebKit reports", () => {
-    expect([viewToggle(key("G", { meta: true, shift: true })), viewToggle(key("g", { ctrl: true, shift: true }))]).toEqual(["ghosts", "ghosts"]);
+    expect([viewToggle(key("G", { meta: true, shift: true })), viewToggle(key("g", { ctrl: true, shift: true }))]).toEqual([true, true]);
   });
 
   test("viewToggle G without shift or without modifier toggles nothing", () => {
-    expect([viewToggle(key("g", { meta: true })), viewToggle(key("G", { shift: true }))]).toEqual([null, null]);
+    expect([viewToggle(key("g", { meta: true })), viewToggle(key("G", { shift: true }))]).toEqual([false, false]);
   });
 });

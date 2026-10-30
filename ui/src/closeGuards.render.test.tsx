@@ -213,7 +213,7 @@ test("real editor hooks: the guard waits for the typed write and sends it once",
     dirty: false, path: null, name: "p", history: null, read_only: false,
     editing: { pack: "p", base: "b", kind: "widgets", leased: true },
     widgets: { deck: { id: "p", version: "v" } }, layouts: {},
-    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widget: "kpi" },
+    ui: { slide: null, ghosts: false, pile: null, notes: null, widget: "kpi" },
   } as unknown as Snapshot;
   // App's declaration order: the pack item, the file actions, then the close guard.
   function Tab({ api }: { api: TabApi }) {

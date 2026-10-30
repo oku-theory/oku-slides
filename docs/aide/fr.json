@@ -210,7 +210,7 @@
            "bold": true
           },
           {
-           "t": " : 12 × 6 cases par défaut, réglée dans le layout. L'accrochage ne se désactive pas ; ⌘' montre les nœuds."
+           "t": " : 12 × 6 cases par défaut, réglée dans le layout. L'accrochage ne se désactive pas ; les nœuds se montrent pendant un glisser."
           }
          ],
          "list": "bullet"
@@ -1022,17 +1022,6 @@
           },
           {
            "t": "  Monter, descendre la slide"
-          }
-         ]
-        },
-        {
-         "runs": [
-          {
-           "t": "⌘'",
-           "highlight": 1
-          },
-          {
-           "t": "  Montrer la grille"
           }
          ]
         },

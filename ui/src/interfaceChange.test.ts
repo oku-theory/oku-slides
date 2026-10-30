@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { InterfaceChange } from "./api";
 import { applyInterface } from "./interfaceChange";
 
-const NONE: InterfaceChange = { scheme: null, locale: null, grid: null, guides: null };
+const NONE: InterfaceChange = { scheme: null, locale: null, guides: null };
 
 /** Les commandes appelées, dans l'ordre ; `failing` : changeLocale refuse. */
 function record(failing = false) {
@@ -13,7 +13,6 @@ function record(failing = false) {
       if (failing) throw new Error("refusée");
       calls.push(`locale:${c}`);
     },
-    setGrid: (on: boolean) => void calls.push(`grid:${on}`),
     setGhosts: (on: boolean) => void calls.push(`guides:${on}`),
     fail: (e: unknown) => void calls.push(`fail:${(e as Error).message}`),
   };
@@ -26,7 +25,6 @@ describe("applyInterface", () => {
     [{ ...NONE, scheme: "system" }, ["scheme:null"]],
     [{ ...NONE, locale: "de" }, ["locale:de"]],
     [{ ...NONE, locale: "system" }, ["locale:null"]],
-    [{ ...NONE, grid: false }, ["grid:false"]],
     [{ ...NONE, guides: true }, ["guides:true"]],
     [NONE, []],
   ] as [InterfaceChange, string[]][])("applyInterface %o appelle %o", async (change, expected) => {

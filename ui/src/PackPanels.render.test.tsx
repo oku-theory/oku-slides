@@ -35,16 +35,16 @@ function snapOf(kind: PackKind, items: string[], widget: string | null): Snapsho
     widgets: {}, layouts: {}, widget_trials: 0, free_slots: {}, pack_updates: 0, can_undo: false, can_redo: false,
     undo_label: null, redo_label: null, appearance: { chart_palette: [] },
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
-    ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [] },
+    ui: { slide: null, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [] },
   } as unknown as Snapshot;
 }
 
 function keptUi(): KeptUi & { foldedNow: string[] } {
   const k = {
-    grid: true, ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
+    ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
     codeWidth: null, setCodeWidth: () => {}, folded: [] as string[], foldedNow: [] as string[],
     setFolded: (s: string, fold: boolean) => { k.foldedNow = fold ? [...k.foldedNow, s] : k.foldedNow.filter((x) => x !== s); },
-    setGrid: () => {}, setGhosts: () => {}, handleKey: () => false,
+    setGhosts: () => {}, handleKey: () => false,
   };
   return k as unknown as KeptUi & { foldedNow: string[] };
 }

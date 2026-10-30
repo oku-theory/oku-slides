@@ -123,7 +123,7 @@ fn help_resume_file_written_before_mode_help_still_loads_and_keeps_its_form() {
     let state = json!({
         "version": crate::resume::VERSION,
         "mode": {"help": "fr"},
-        "ui": {"slide": "s-sommaire", "grid": false},
+        "ui": {"slide": "s-sommaire"},
         "help_theme": crate::PRO_THEME,
     });
     std::fs::write(dir.join("state.json"), state.to_string()).unwrap();

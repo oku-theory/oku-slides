@@ -306,7 +306,6 @@ export default function App({
     applyInterface(c, {
       changeScheme,
       changeLocale,
-      setGrid: keptUi.setGrid,
       setGhosts: keptUi.setGhosts,
       fail: (err) => say(errorText(err), true),
     });
@@ -425,8 +424,7 @@ export default function App({
             }}
             onNotice={(m) => say(m, true)}
             dictated={dictation.dictated}
-            // L'aide se lit comme une présentation : sans grille ni fantômes.
-            showGridAlways={keptUi.grid && !snap.read_only}
+            // L'aide se lit comme une présentation : sans fantômes.
             showGhosts={keptUi.ghosts && !snap.read_only}
             overlay={agentStatus.sheet ? { anchor: agentStatus.sheet, node: <SlotView slot={agentSlots.sheet} /> } : undefined}
             palette={snap.appearance.chart_palette}

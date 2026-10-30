@@ -79,7 +79,7 @@ pub enum McpEvent {
     },
     /// Open the history as its own command would: input committed, save sent first.
     OpenHistory,
-    /// Change the interface (scheme, language, grid, guides) as its own commands would.
+    /// Change the interface (scheme, language, guides) as its own commands would.
     Interface {
         /// The requested changes; absent means unchanged.
         change: crate::InterfaceChange,

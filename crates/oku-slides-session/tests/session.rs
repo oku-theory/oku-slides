@@ -298,16 +298,15 @@ fn edit_records_the_configured_author() {
 #[test]
 fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "grid": false, "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "folded": []}));
+        .is_equal_to(json!({"slide": "s-1", "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "folded": []}));
 }
 
 #[test]
 fn ui_request_with_column_widths_keeps_them_in_snapshot() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "ghosts": false, "pile": 200, "notes": 520})))
-        .unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "ghosts": false, "pile": 200, "notes": 520}))).unwrap();
     let ui = snapshot_json(&mut s)["ui"].clone();
     assert_that!((ui["pile"].clone(), ui["notes"].clone())).is_equal_to((json!(200), json!(520)));
 }
@@ -316,7 +315,7 @@ fn ui_request_with_column_widths_keeps_them_in_snapshot() {
 #[test]
 fn ui_request_with_code_shown_keeps_it_in_snapshot() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "code": true}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "code": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["code"]).is_equal_to(json!(true));
 }
 
@@ -324,7 +323,7 @@ fn ui_request_with_code_shown_keeps_it_in_snapshot() {
 #[test]
 fn ui_request_with_code_width_keeps_it_in_snapshot() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "code_width": 640}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "code_width": 640}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["code_width"]).is_equal_to(json!(640));
 }
 
@@ -332,7 +331,7 @@ fn ui_request_with_code_width_keeps_it_in_snapshot() {
 #[test]
 fn ui_request_with_folded_sections_keeps_them_in_snapshot() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "grid": true, "folded": ["layouts"]}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "folded": ["layouts"]}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["folded"]).is_equal_to(json!(["layouts"]));
 }
 
@@ -347,25 +346,24 @@ fn ui_request_with_unknown_folded_section_is_refused() {
 #[test]
 fn ui_request_without_ghosts_keeps_them_hidden() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false}))).unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1"}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["ghosts"]).is_equal_to(json!(false));
 }
 
 #[test]
-fn snapshot_ui_defaults_to_grid_shown_ghosts_hidden_and_no_slide() {
+fn snapshot_ui_defaults_to_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "grid": true, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "folded": []}));
+        .is_equal_to(json!({"slide": null, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "folded": []}));
 }
 
 #[test]
-fn new_deck_forgets_the_remembered_slide_but_keeps_grid_ghosts_and_columns() {
+fn new_deck_forgets_the_remembered_slide_but_keeps_ghosts_and_columns() {
     let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true, "pile": 200, "notes": 520})))
-        .unwrap();
+    s.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true, "pile": 200, "notes": 520}))).unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "grid": false, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "code_width": null, "folded": []}),
+        json!({"slide": null, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "code_width": null, "folded": []}),
     );
 }
 
@@ -374,8 +372,7 @@ fn resume_after_edits_restores_deck_and_ui_but_not_undo() {
     let data = data_dir();
     let mut a = resumed(&data);
     a.handle(set_theme("pro")).unwrap();
-    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "grid": false, "ghosts": true, "pile": 200, "notes": 520})))
-        .unwrap();
+    a.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true, "pile": 200, "notes": 520}))).unwrap();
     let mut before = snapshot_json(&mut a);
     drop(a);
     let mut b = resumed(&data);

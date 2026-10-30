@@ -30,15 +30,15 @@ const SNAP = {
     theme: { base: { id: "t", version: "v1" }, namespace: "papier", name: "Papier", child: true, extends: [], dirty: false, revision: "r1" },
     session_version: null, read_only: false, leased: true, display_name: "Papier",
   },
-  ui: { slide: null, grid: true, ghosts: false, pile: null, notes: null, widget: null, code: false, code_width: null, folded: [] },
+  ui: { slide: null, ghosts: false, pile: null, notes: null, widget: null, code: false, code_width: null, folded: [] },
 } as unknown as Snapshot;
 
 /** Any request answers nothing. */
 const api = new Proxy({}, { get: () => async () => null }) as TabApi;
 
 const keptUi = {
-  grid: true, ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
-  codeWidth: null, setCodeWidth: () => {}, folded: [], setFolded: () => {}, setGrid: () => {}, setGhosts: () => {},
+  ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
+  codeWidth: null, setCodeWidth: () => {}, folded: [], setFolded: () => {}, setGhosts: () => {},
   handleKey: () => false,
 } as unknown as KeptUi;
 

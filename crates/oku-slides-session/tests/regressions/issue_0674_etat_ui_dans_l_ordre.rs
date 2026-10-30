@@ -12,7 +12,7 @@ use speculoos::prelude::*;
 use crate::common::{req, session, snapshot_json};
 
 fn ui(slide: &str, order: Value) -> Value {
-    let mut request = json!({"cmd": "ui", "slide": slide, "grid": true});
+    let mut request = json!({"cmd": "ui", "slide": slide});
     request["order"] = order;
     request
 }

@@ -189,8 +189,8 @@ deck's widget packs.
 - **Grid**: every slide has a grid (12 × 6 by default), set in its layout (pack mode,
   the slide's settings); slides created from the layout inherit it.
   Snapping is always on: an element covers a block of cells, moves cell by cell
-  (mouse or arrows), and each corner snaps to the nodes. ⌘' (or ask the agent)
-  shows the nodes; during a drag they show anyway. The geometry is computed
+  (mouse or arrows), and each corner snaps to the nodes. The nodes show only
+  during a drag, with the targeted cell. The geometry is computed
   identically by `ui/src/grid.ts` (editing) and `grid-frame` in `typst/oku-slides/src/zone.typ`
   (rendering).
 - **Layout packs**: “New slide” lists the layouts of the layout packs the deck pins

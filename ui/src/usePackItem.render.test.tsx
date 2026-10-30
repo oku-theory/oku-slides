@@ -39,7 +39,7 @@ function snapOf(o: {
     widgets: { deck: { id: "p", version } },
     history: history ? {} : null,
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
-    ui: { slide, grid: true, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [] },
+    ui: { slide, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [] },
   } as unknown as Snapshot;
 }
 

@@ -455,7 +455,6 @@ async fn set_interface_emits_the_requested_changes_only() {
     assert_that!(next_interface(&mut rx).await).is_equal_to(InterfaceChange {
         scheme: Some(SchemeChoice::Dark),
         locale: None,
-        grid: None,
         guides: Some(true),
     });
 }
@@ -491,12 +490,16 @@ async fn set_interface_with_nothing_to_change_is_refused() {
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-empty-interface"));
 }
 
-/// Revue t-988 : un champ inconnu (`language` au lieu de `locale`) est refusé, pas ignoré.
+/// An unknown field is refused, not ignored: `language` for `locale` (t-988 review), and
+/// `grid`, removed since the grid shows only while dragging (t-1283).
+#[rstest]
+#[case::language(json!({ "language": "fr" }))]
+#[case::retired_grid(json!({ "grid": true }))]
 #[tokio::test(flavor = "multi_thread")]
-async fn set_interface_with_an_unknown_field_is_refused_and_emits_nothing() {
+async fn set_interface_with_an_unknown_field_is_refused_and_emits_nothing(#[case] args: Value) {
     let h = start().await;
     let mut rx = h.hub.subscribe();
-    let r = direct(&h, "set_interface", json!({ "language": "fr" })).await;
+    let r = direct(&h, "set_interface", args).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(no_page_event(&mut rx)).is_true();
 }
@@ -504,7 +507,7 @@ async fn set_interface_with_an_unknown_field_is_refused_and_emits_nothing() {
 #[tokio::test(flavor = "multi_thread")]
 async fn set_interface_on_a_hidden_tab_is_refused() {
     let h = start_hidden().await;
-    let r = direct(&h, "set_interface", json!({ "grid": true })).await;
+    let r = direct(&h, "set_interface", json!({ "guides": true })).await;
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-not-shown"));
 }
 
@@ -562,7 +565,7 @@ fn mcp_event_page_events_serialize_as_the_ui_reads_them() {
     let json: Vec<Value> = events.iter().map(|e| serde_json::to_value(e).unwrap_or(Value::Null)).collect();
     assert_that!(json).is_equal_to(vec![
         json!({ "kind": "present", "mode": "window" }),
-        json!({ "kind": "interface", "change": { "scheme": null, "locale": null, "grid": null, "guides": true } }),
+        json!({ "kind": "interface", "change": { "scheme": null, "locale": null, "guides": true } }),
         json!({ "kind": "open_history" }),
     ]);
 }

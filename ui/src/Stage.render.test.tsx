@@ -286,6 +286,41 @@ test("Stage pressing an element without moving it shows no content ghost", async
   expect(host.querySelector(".drag-ghost, .drag-origin")).toBeNull();
 });
 
+test("Stage gridded slide without a drag shows no grid, even with its element selected", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1" });
+  expect(host.querySelector(".grid-layer")).toBeNull();
+});
+
+test("Stage moving a gridded element shows the grid and the targeted cell", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1" });
+  await dragBy(host, ".target", 30);
+  expect([!!host.querySelector(".grid-layer"), !!host.querySelector(".grid-layer .grid-hot")]).toEqual([true, true]);
+});
+
+test("Stage drag released hides the grid again", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1" });
+  await dragBy(host, ".target", 30);
+  await act(async () => {
+    host.querySelector(".stage")!.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: 40, clientY: 10 }));
+  });
+  expect(host.querySelector(".grid-layer")).toBeNull();
+});
+
+test("Stage pressing a gridded element without moving it shows no grid", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1" });
+  await dragBy(host, ".target", 0);
+  expect(host.querySelector(".grid-layer")).toBeNull();
+});
+
+test("Stage drag cancelled hides the grid again", async () => {
+  const { host } = await mount({ view: gridded, selected: "t1" });
+  await dragBy(host, ".target", 30);
+  await act(async () => {
+    host.querySelector(".stage")!.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true }));
+  });
+  expect(host.querySelector(".grid-layer")).toBeNull();
+});
+
 test.each(["nw", "ne", "sw", "se"])("Stage resizing an element from %s shows no content ghost", async (corner) => {
   const { host } = await mount({ view: gridded, svgUrl: "slide.svg", selected: "t1" });
   await dragBy(host, `.handle.${corner}`, 30);

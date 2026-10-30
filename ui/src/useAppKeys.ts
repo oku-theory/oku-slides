@@ -62,7 +62,7 @@ export function useAppKeys({
       // La présentation prend ses touches (`Presenter`) ; derrière elle, rien ne réagit.
       if (presenting) return;
       // Dans une saisie de texte, ou (touches seules) une surface A2UI ou le dock, les touches sont les leurs ; ⌘Z passe depuis un bouton.
-      // Seuls ⌘' et ⌘⇧G, qu'aucun éditeur ne lie, y passent (t-364). Une fenêtre de l'agent ou de l'app ouverte : rien derrière elle ne réagit.
+      // Seul ⌘⇧G, qu'aucun éditeur ne lie, y passe (t-364). Une fenêtre de l'agent ou de l'app ouverte : rien derrière elle ne réagit.
       const scope = appKeyScope({ modal: agentStatus.modal, dialog: dialogOpen, editing: !!editing }, e);
       if (scope === "none") return;
       // L'aide : `HelpBar` a ses touches ; rien ne s'édite ni ne se bascule.
@@ -79,7 +79,7 @@ export function useAppKeys({
         present(presentMode);
         return;
       }
-      // Grille et fantômes se basculent partout, historique compris.
+      // The ghosts toggle everywhere, history included.
       if (keptUi.handleKey(e)) return;
       if (snap?.history) {
         // Lecture seule : ← / → (⇧ : par session) parcourent les versions ;

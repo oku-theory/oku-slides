@@ -145,20 +145,18 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// What the interface has the host keep: slide, grid, ghosts, columns, item and code.
+/// What the interface has the host keep: slide, ghosts, columns, item and code.
 ///
-/// The current slide, grid, ghosts, column widths, a pack tab's selected item, the widget source
+/// The current slide, ghosts, column widths, a pack tab's selected item, the widget source
 /// code shown and its width, and the pile's folded sections. Unknown fields of an older
 /// `state.json` (`board`, `code_place`, `code_height`, removed by t-526; `case`, removed by t-541;
-/// `widgets`, the widget sub-tabs removed by t-1244) are ignored when read.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// `widgets`, the widget sub-tabs removed by t-1244; `grid`, shown only while dragging since
+/// t-1283) are ignored when read.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     /// Id of the current slide; none if the deck is empty.
     #[serde(default)]
     pub slide: Option<String>,
-    /// Grille de la slide toujours visible.
-    #[serde(default = "shown")]
-    pub grid: bool,
     /// Fantômes visibles : zone, widgets et champs annotés.
     #[serde(default)]
     pub ghosts: bool,
@@ -203,26 +201,6 @@ pub(crate) fn kept_ui<'de, D: serde::Deserializer<'de>>(d: D) -> Result<UiState,
         folded.retain(|s| serde_json::from_value::<PileSection>(s.clone()).is_ok());
     }
     serde_json::from_value(value).map_err(serde::de::Error::custom)
-}
-
-fn shown() -> bool {
-    true
-}
-
-impl Default for UiState {
-    fn default() -> Self {
-        Self {
-            slide: None,
-            grid: true,
-            ghosts: false,
-            pile: None,
-            notes: None,
-            widget: None,
-            code: false,
-            code_width: None,
-            folded: Vec::new(),
-        }
-    }
 }
 
 impl UiState {

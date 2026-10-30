@@ -1,4 +1,4 @@
-// Portée des raccourcis d'App : pendant l'édition d'un texte, seuls ⌘' et ⌘⇧G passent (t-364).
+// Portée des raccourcis d'App : pendant l'édition d'un texte, seul ⌘⇧G passe (t-364, t-1283).
 
 import { describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -33,9 +33,8 @@ async function keyInEditor(init: KeyboardEventInit): Promise<KeyboardEvent | nul
 }
 
 describe("appKeyScope", () => {
-  test("appKeyScope cmd quote in the text editor reaches App as a display shortcut", async () => {
-    const e = await keyInEditor({ key: "'", code: "Quote", metaKey: true });
-    expect([e?.defaultPrevented, e && appKeyScope({ ...FREE, editing: true }, e)]).toEqual([false, "display"]);
+  test("appKeyScope cmd quote in the text editor never reaches the window", async () => {
+    expect(await keyInEditor({ key: "'", code: "Quote", metaKey: true })).toBeNull();
   });
 
   test("appKeyScope cmd shift G in the text editor reaches App as a display shortcut", async () => {
@@ -52,17 +51,17 @@ describe("appKeyScope", () => {
     expect(appKeyScope({ ...FREE, editing: true }, e)).toBe("none");
   });
 
-  test("appKeyScope cmd quote in a plain input is a display shortcut", () => {
+  test("appKeyScope cmd shift G in a plain input is a display shortcut", () => {
     const input = document.createElement("input");
-    const e = { key: "'", metaKey: true, ctrlKey: false, shiftKey: false, target: input };
+    const e = { key: "G", metaKey: true, ctrlKey: false, shiftKey: true, target: input };
     expect(appKeyScope(FREE, e)).toBe("display");
   });
 
   test.each([
     ["modal", { ...FREE, modal: true }],
     ["dialog", { ...FREE, dialog: true }],
-  ])("appKeyScope cmd quote with a %s open is ignored", (_name, state) => {
-    expect(appKeyScope(state, { key: "'", metaKey: true, ctrlKey: false, shiftKey: false, target: document.body })).toBe("none");
+  ])("appKeyScope cmd shift G with a %s open is ignored", (_name, state) => {
+    expect(appKeyScope(state, { key: "G", metaKey: true, ctrlKey: false, shiftKey: true, target: document.body })).toBe("none");
   });
 
   test("appKeyScope any key outside text entry is App's", () => {

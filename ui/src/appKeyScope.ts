@@ -18,9 +18,9 @@ export interface KeyHolds {
 export type ScopedKey = Parameters<typeof viewToggle>[0] & { target: EventTarget | null };
 
 /**
- * Ce qu'App peut faire d'une touche : `all`, `display` (⌘' et ⌘⇧G seulement) ou `none`.
- * Une saisie de texte (éditeur CodeMirror compris) garde ses touches, sauf ces deux raccourcis
- * d'affichage, qu'aucun éditeur ne lie ; une fenêtre de l'agent ou de l'app (choix d'un layout, import) les garde toutes.
+ * Ce qu'App peut faire d'une touche : `all`, `display` (⌘⇧G seulement) ou `none`.
+ * Une saisie de texte (éditeur CodeMirror compris) garde ses touches, sauf ce raccourci
+ * d'affichage (⌘⇧G), qu'aucun éditeur ne lie ; une fenêtre de l'agent ou de l'app (choix d'un layout, import) les garde toutes.
  */
 export function appKeyScope(holds: KeyHolds, e: ScopedKey): "all" | "display" | "none" {
   if (holds.modal || holds.dialog) return "none";

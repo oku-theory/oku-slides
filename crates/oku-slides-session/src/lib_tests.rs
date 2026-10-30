@@ -143,7 +143,7 @@ fn changes_deck_read_requests_return_false() {
         json!({ "cmd": "widgets" }),
         json!({ "cmd": "layouts" }),
         json!({ "cmd": "packs", "kind": "layouts" }),
-        json!({ "cmd": "ui", "slide": null, "grid": false, "ghosts": true }),
+        json!({ "cmd": "ui", "slide": null, "ghosts": true }),
         json!({ "cmd": "delete_pack", "pack": uuid::Uuid::new_v4() }),
         json!({ "cmd": "history_versions" }),
         json!({ "cmd": "widget_status" }),

@@ -40,7 +40,7 @@ fn state(slide: &str) -> State {
     State {
         version: VERSION,
         mode: SavedMode::Deck,
-        ui: UiState { slide: Some(slide.into()), grid: true, ghosts: false, ..UiState::default() },
+        ui: UiState { slide: Some(slide.into()), ghosts: false, ..UiState::default() },
         help_theme: None,
         theme_edit: None,
         draft_tokens: None,

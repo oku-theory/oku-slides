@@ -123,11 +123,11 @@ fn snapshot_request_changes_nothing_persisted() {
     assert_that!(a.resume_fresh(dir.path().to_path_buf())).is_true();
     let (acme, _) = acme_pack(&mut a, data.path());
     a.flush_resume();
-    edit_state(dir.path(), |state| state["ui"]["grid"] = json!(false));
+    edit_state(dir.path(), |state| state["ui"]["ghosts"] = json!(true));
     newer_elsewhere(data.path(), acme);
     a.handle(Request::Snapshot).unwrap();
     a.flush_resume();
     let state: serde_json::Value =
         serde_json::from_slice(&std::fs::read(dir.path().join("state.json")).unwrap()).unwrap();
-    assert_that!(state["ui"]["grid"]).is_equal_to(json!(false));
+    assert_that!(state["ui"]["ghosts"]).is_equal_to(json!(true));
 }

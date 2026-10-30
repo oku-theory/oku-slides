@@ -24,7 +24,7 @@ const SNAP = {
   appearance: { scheme: "light", slide: {}, app: {}, variants: {}, metrics: {}, font_display: [], font_body: [], chart_palette: [] },
   widgets: {}, layouts: {}, editing: null, deck_pack: false, pack_updates: 0, pack_widgets: [], add_packs: [],
   free_slots: { "essentiel/content": null }, widget_trials: 0, history: null, read_only: false, host_params: {},
-  ui: { slide: null, grid: false, ghosts: false, pile: null, notes: null, widget: null, code: false, code_width: null, folded: [] },
+  ui: { slide: null, ghosts: false, pile: null, notes: null, widget: null, code: false, code_width: null, folded: [] },
   theming: {
     theme: { base: { id: "t", version: "v1" }, namespace: "papier", name: "Papier", child: true, extends: [], dirty: false, revision: "r1" },
     session_version: null, read_only: false, leased: true, display_name: "Papier",

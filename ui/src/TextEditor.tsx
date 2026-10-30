@@ -242,7 +242,7 @@ export default function TextEditor({ ref, ...props }: TextEditorProps) {
           viewRef.current?.focus();
         }
       }}
-      // Les touches restent à l'éditeur, sauf ⌘' et ⌘⇧G, qu'il ne lie pas : l'affichage se bascule aussi en édition (t-364).
+      // Les touches restent à l'éditeur, sauf ⌘⇧G, qu'il ne lie pas : l'affichage se bascule aussi en édition (t-364).
       onKeyDown={(e) => {
         if (!viewToggle(e)) e.stopPropagation();
       }}

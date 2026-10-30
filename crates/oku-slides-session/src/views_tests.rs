@@ -64,6 +64,13 @@ fn ui_state_with_the_removed_current_cases_still_reads() {
     assert_that!(ui).is_equal_to(UiState { widget: Some("kpi".to_owned()), ..UiState::default() });
 }
 
+/// Serde layer: a `UiState` written with the grid toggle (before t-1283) reads back without it.
+#[test]
+fn ui_state_with_the_removed_grid_still_reads() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"grid":false,"ghosts":true}"#).unwrap();
+    assert_that!(ui).is_equal_to(UiState { ghosts: true, ..UiState::default() });
+}
+
 /// Serde layer: a `UiState` written with the widget sub-tabs (before t-1244) reads back without them.
 #[test]
 fn ui_state_with_legacy_widgets_key_reads() {
