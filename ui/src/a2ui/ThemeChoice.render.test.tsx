@@ -179,6 +179,14 @@ describe("ThemeChoice", () => {
     expect(digits(buttons)).toEqual(["2", "3"]);
   });
 
+  test("ThemeChoice digit follows a button before it that later gains an action", async () => {
+    const x = { id: "x", component: "Button", label: "X", action: { event: { name: "dismiss" } } };
+    const mounted = await row(["a", "b"], [x]);
+    const go = { ...x, action: { event: { name: "go" } } };
+    await mounted.extend([{ version: "v0.9", updateComponents: { surfaceId: "s", components: [go] } }] as never);
+    expect(digits(mounted.buttons)).toEqual(["2", "3"]);
+  });
+
   test("ThemeChoice digit is hidden from screen readers", async () => {
     const { buttons } = await row(["a"]);
     expect(buttons[0].querySelector(".chip-key")?.getAttribute("aria-hidden")).toBe("true");

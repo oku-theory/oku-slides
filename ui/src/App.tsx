@@ -288,13 +288,15 @@ export default function App({
       fail: (err) => say(errorText(err), true),
     });
 
+  // The add grid's opener, shared by the A key and the add button: a deck tab's slide that
+  // accepts elements (t-1390).
+  const openAdd = !packTab && !themeTab && snap && acceptsElements(view?.slide.kind, snap.free_slots) ? () => setAdding(true) : null;
+
   // Raccourcis clavier.
   useAppKeys({
     api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, packTab, themeTab,
     cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
-    saveCopy, cancelAgent, setEditing, setSelected,
-    // As the add button of a deck tab: a slide that accepts elements.
-    openAdd: !packTab && !themeTab && snap && acceptsElements(view?.slide.kind, snap.free_slots) ? () => setAdding(true) : null,
+    saveCopy, cancelAgent, setEditing, setSelected, openAdd,
   });
 
   // --- Dictée : où va le texte ----------------------------------------------
@@ -369,9 +371,9 @@ export default function App({
       </header>
 
       <ToolsTray
-        api={api} snap={snap} view={view} item={null}
+        api={api} snap={snap} item={null}
         keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
-        run={run} onAdd={() => setAdding(true)}
+        run={run} onAdd={openAdd}
         onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
         onHistory={() => void openHistory()}
         thumbs={{ open: thumbsOpen, onToggle: toggleThumbs }}

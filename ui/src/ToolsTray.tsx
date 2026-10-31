@@ -3,11 +3,10 @@
 // item's tools instead, the session's undo among them while no code editor shows.
 
 import type { ReactNode } from "react";
-import type { SlideView, Snapshot, TabApi } from "./api";
+import type { Snapshot, TabApi } from "./api";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { IconButton, IconToggle } from "./primitives";
-import { acceptsElements } from "./slideTools";
 import type { KeptUi } from "./useKeptUi";
 import type { PackItem } from "./usePackItem";
 import WidgetTools from "./WidgetTools";
@@ -18,8 +17,6 @@ interface Props {
   api: TabApi;
   /** Le snapshot, pour l'état d'annulation. */
   snap: Snapshot;
-  /** La slide montrée, qui dit ce qu'on peut y ajouter. */
-  view: SlideView | null;
   /** A pack tab's selected item: the bar shows its editor tools; `null` elsewhere. */
   item: PackItem | null;
   /** Les réglages d'interface gardés par l'hôte. */
@@ -28,8 +25,8 @@ interface Props {
   mainMenu: ReactNode;
   /** Applique une requête qui rend un snapshot. */
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
-  /** Ouvre la grille d'ajout. */
-  onAdd: () => void;
+  /** Opens the add grid; `null` when the slide takes no element: the button is then disabled. */
+  onAdd: (() => void) | null;
   /** Ouvre le panneau des packs du deck (surface `host-packs` de l'agent). */
   onPacks: () => void;
   /** Opens the deck's history, as the agent's `history` tool does. */
@@ -44,7 +41,6 @@ interface Props {
 export function ToolsTray({
   api,
   snap,
-  view,
   item,
   keptUi,
   mainMenu,
@@ -93,16 +89,16 @@ export function ToolsTray({
   // annuler / rétablir : posés sous la feuille.
   return (
     <div className="object theme-card tools-tray">
-      {/* Un seul bouton d'ajout : il ouvre la grille des widgets des packs. Actif dès que la slide
-          a un slot libre ; chaque carte dit ensuite si ce slot l'accepte. */}
+      {/* One add button: it opens the grid of the packs' widgets. Enabled when App gives an opener
+          (the slide has a free slot); each card then says whether that slot takes it. */}
       <button
         className="token ghost add-button"
         aria-label={t("ui-toolbar-add-label")}
         title={t("ui-toolbar-add-label")}
         aria-haspopup="dialog"
         hidden={item !== null || themeTab}
-        disabled={!acceptsElements(view?.slide.kind, snap.free_slots)}
-        onClick={onAdd}
+        disabled={onAdd === null}
+        onClick={onAdd ?? undefined}
       >
         {Icon.widget}
       </button>

@@ -136,7 +136,7 @@ impl SourceBundle {
             zw.start_file(DECK_LORO, deflate).context(ZipSnafu)?;
             zw.write_all(&self.replica.snapshot().context(ReplicaSnafu)?).context(IoSnafu)?;
 
-            for (id, bytes) in &self.assets {
+            for (id, bytes) in self.assets.iter() {
                 zw.start_file(format!("assets/{}", asset_name(id)?), stored).context(ZipSnafu)?;
                 zw.write_all(bytes).context(IoSnafu)?;
             }

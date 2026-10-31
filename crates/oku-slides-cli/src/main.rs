@@ -422,7 +422,7 @@ fn render(
 fn extract_bundle(storage: &Storage, out: &mut Out<'_>, bundle: &SourceBundle, dir: &Path) -> Result<()> {
     let deck = bundle.deck();
     storage.write(&dir.join("deck.json"), deck.to_json()?)?;
-    for (id, bytes) in &bundle.assets {
+    for (id, bytes) in bundle.assets.iter() {
         storage.write(&dir.join("assets").join(id.trim_start_matches("sha256:")), bytes.as_slice())?;
     }
     for (name, bytes) in &bundle.fonts {

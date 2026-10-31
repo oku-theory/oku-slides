@@ -93,3 +93,11 @@ fn theme_job_on_an_empty_deck_lends_no_slot() {
     let (choices, slot) = s.theme_job_within(None, WIDE).unwrap().unwrap().run();
     assert_that!((slot.is_none(), choices.cards.iter().all(|c| c.svg.is_none()))).is_equal_to((true, true));
 }
+
+/// The job shares the session's assets: taking them under the lock copies no byte (t-1388).
+#[test]
+fn theme_job_shares_the_session_assets() {
+    let mut s = session();
+    let job = s.theme_job_within(None, WIDE).unwrap().unwrap();
+    assert_that!(std::sync::Arc::ptr_eq(job.assets(), &s.doc.sources.assets)).is_true();
+}

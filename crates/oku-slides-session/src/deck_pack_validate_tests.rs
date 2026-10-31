@@ -156,7 +156,7 @@ type Embedded = BTreeMap<PackVersion, PackFiles>;
 /// The owner's [`SourceContent`], to compare byte for byte.
 fn source_content(owner: &Session) -> SourceContent {
     let s = &owner.doc.sources;
-    (s.replica().snapshot().unwrap(), s.assets.clone(), s.fonts.clone(), s.packs.clone(), s.themes.clone())
+    (s.replica().snapshot().unwrap(), BTreeMap::clone(&s.assets), s.fonts.clone(), s.packs.clone(), s.themes.clone())
 }
 
 /// The send of case `case`, the owner changed first when the case is an owner fact.

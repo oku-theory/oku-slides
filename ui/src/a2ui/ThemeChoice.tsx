@@ -1,11 +1,12 @@
 // Carte d'un thème du sélecteur de l'hôte : la slide rendue dans ce thème (image), ses pastilles,
 // son nom. Survol ou focus : aperçu sur la scène ; clic : l'action `theme`.
-// With quick hints on, its digit 1–4, the one `quickAction` reads.
+// With quick hints on, its digit 1–4, the one `quickAction` reads, kept current as the surface changes.
 
-import { useCallback, useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useReducer } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
+import type { ComponentModel, Subscription, SurfaceComponentsModel } from "@a2ui/web_core/v0_9";
 import type { Component } from "../agent/a2uiModel";
 import { quickDigit } from "../agent/quick";
 import { QuickHintsContext } from "./quickHints";
@@ -35,6 +36,7 @@ export const ThemeChoiceApi = {
 export const ThemeChoice = createComponentImplementation(ThemeChoiceApi, ({ props, context }) => {
   const store = useContext(StagePreviewContext);
   const hints = useContext(QuickHintsContext);
+  useSurfaceChanges(context.surfaceComponents, hints);
   const digit = hints ? quickDigit(surfaceComponents(context.surfaceComponents.values), context.componentModel.id) : null;
   const src = useMemo(() => (props.svg ? svgSrc(props.svg) : null), [props.svg]);
   const preview = useMemo(() => (src ? { slide: props.slide, url: src } : null), [props.slide, src]);
@@ -70,6 +72,38 @@ export const ThemeChoice = createComponentImplementation(ThemeChoiceApi, ({ prop
     </button>
   );
 });
+
+/**
+ * Re-renders the card whenever the surface gains, loses or updates a component, while `on`.
+ *
+ * Another component's change can shift the card's digit (t-1389).
+ */
+function useSurfaceChanges(model: SurfaceComponentsModel, on: boolean): void {
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (!on) return;
+    const updates = new Map<string, Subscription>();
+    const watch = (c: ComponentModel) => {
+      updates.get(c.id)?.unsubscribe();
+      updates.set(c.id, c.onUpdated.subscribe(bump));
+    };
+    for (const c of model.values) watch(c);
+    const created = model.onCreated.subscribe((c) => {
+      watch(c);
+      bump();
+    });
+    const deleted = model.onDeleted.subscribe((id) => {
+      updates.get(id)?.unsubscribe();
+      updates.delete(id);
+      bump();
+    });
+    return () => {
+      created.unsubscribe();
+      deleted.unsubscribe();
+      for (const u of updates.values()) u.unsubscribe();
+    };
+  }, [model, on]);
+}
 
 /** The surface's components in `quickDigit`'s shape: `component` is the type. */
 function surfaceComponents(models: Iterable<{ id: string; type: string; properties: Record<string, unknown> }>): Component[] {

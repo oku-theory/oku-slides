@@ -7,7 +7,7 @@ use speculoos::prelude::*;
 fn bundle_with_asset(id: &str) -> SourceBundle {
     let deck = Deck::from_json(r#"{"slides":[]}"#).unwrap_or_else(|e| panic!("deck vide invalide : {e}"));
     let mut b = SourceBundle::new(deck, crate::common::shared()).unwrap_or_else(|e| panic!("bundle : {e}"));
-    b.assets.insert(id.to_owned(), vec![1, 2, 3]);
+    std::sync::Arc::make_mut(&mut b.assets).insert(id.to_owned(), vec![1, 2, 3]);
     b
 }
 

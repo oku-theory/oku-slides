@@ -29,9 +29,9 @@ export const messagesOf = (components: unknown[], data: unknown = {}) =>
   ] as unknown as A2uiMessage[];
 
 /**
- * Monte la surface `s` ; renvoie son hôte, les actions et les erreurs reçues.
- * `wrap` l'entoure (un fournisseur de contexte, par exemple) ; `respond` voit chaque action
- * pendant son envoi, comme le routeur de l'app.
+ * Mounts surface `s`; returns its host, the actions and errors received, and `extend`.
+ * `wrap` surrounds it (a context provider, for instance); `respond` sees each action as it is
+ * sent, like the app's router. `extend` sends more messages to the mounted surface.
  */
 export async function mountSurface(
   messages: A2uiMessage[],
@@ -44,20 +44,18 @@ export async function mountSurface(
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
-  await act(async () => {
-    root.render(
-      wrap(
-        createElement(SurfaceView, {
-          messages,
-          surfaceId: "s",
-          onAction: (a: A2uiClientAction) => {
-            actions.push(a);
-            respond(a);
-          },
-          onError: (m: string) => errors.push(m),
-        }),
-      ),
-    );
-  });
-  return { host, actions, errors };
+  const onAction = (a: A2uiClientAction) => {
+    actions.push(a);
+    respond(a);
+  };
+  const onError = (m: string) => errors.push(m);
+  let sent = messages;
+  const render = () =>
+    act(async () => root.render(wrap(createElement(SurfaceView, { messages: sent, surfaceId: "s", onAction, onError }))));
+  await render();
+  const extend = async (more: A2uiMessage[]) => {
+    sent = [...sent, ...more];
+    await render();
+  };
+  return { host, actions, errors, extend };
 }

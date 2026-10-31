@@ -83,8 +83,8 @@ pub struct SourceBundle {
     /// Vue matérialisée du replica, égale à sa relecture : jamais modifiée hors
     /// de `apply`, `apply_silent`, `undo`, `redo`, `restore`, `merge`.
     deck: Deck,
-    /// Assets par identifiant (`sha256:…`), en ajout seul.
-    pub assets: BTreeMap<String, Vec<u8>>,
+    /// Assets by id (`sha256:…`), add-only; shared: a clone takes no copy, an insert copies on write.
+    pub assets: Arc<BTreeMap<String, Vec<u8>>>,
     /// Polices par nom de fichier, en ajout seul.
     pub fonts: BTreeMap<String, Vec<u8>>,
     /// Versions de packs de modèles par empreinte, en ajout seul : celle du
@@ -153,6 +153,7 @@ impl SourceBundle {
         packs: BTreeMap<PackVersion, PackFiles>,
         themes: BTreeMap<PackVersion, PackFiles>,
     ) -> (Self, Vec<Issue>) {
+        let assets = Arc::new(assets);
         let bundle = Self { replica, deck, assets, fonts, packs, themes, usage: UsageLedger::default() };
         issues.extend(bundle.embedded_issues());
         (bundle, issues)
@@ -404,8 +405,11 @@ impl SourceBundle {
     /// Those of [`DeckReplica::merge`]: unrelated deck, or malformed changes.
     pub fn merge(&mut self, other: SourceBundle) -> Result<(crate::MergeReport, Vec<Issue>), SourcesError> {
         let report = self.replica.merge(&other.replica).context(ReplicaSnafu)?;
-        for (id, bytes) in other.assets {
-            self.assets.entry(id).or_insert(bytes);
+        // Only new assets copy a map that is still shared (a theme job holds it).
+        let mut new = Arc::unwrap_or_clone(other.assets);
+        new.retain(|id, _| !self.assets.contains_key(id));
+        if !new.is_empty() {
+            Arc::make_mut(&mut self.assets).append(&mut new);
         }
         for (name, bytes) in other.fonts {
             self.fonts.entry(name).or_insert(bytes);
@@ -444,10 +448,14 @@ impl SourceBundle {
         issues
     }
 
-    /// Ajoute un asset et renvoie son identifiant.
+    /// Adds an asset and returns its id.
+    ///
+    /// An asset already there changes nothing: a shared map is not copied.
     pub fn add_asset(&mut self, bytes: Vec<u8>) -> String {
         let id = asset_id(&bytes);
-        self.assets.insert(id.clone(), bytes);
+        if !self.assets.contains_key(&id) {
+            Arc::make_mut(&mut self.assets).insert(id.clone(), bytes);
+        }
         id
     }
 

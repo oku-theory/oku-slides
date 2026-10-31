@@ -222,7 +222,7 @@ impl DocSnapshot {
             Arc::clone(b)
         } else {
             let b = Arc::new(Blobs {
-                assets: sources.assets.clone(),
+                assets: BTreeMap::clone(&sources.assets),
                 fonts: sources.fonts.clone(),
                 packs: sources.packs.clone(),
                 themes: sources.themes.clone(),

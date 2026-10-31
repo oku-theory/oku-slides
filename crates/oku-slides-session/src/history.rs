@@ -8,6 +8,7 @@
 //! toute version référencée) ; le deck les retrouve en sortant.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use snafu::ResultExt;
 use time::macros::format_description;
@@ -43,7 +44,7 @@ impl HistoryMode {
 type Versions = BTreeMap<PackVersion, PackFiles>;
 
 /// Images, polices, packs et thèmes d'un document.
-type Blobs = (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<u8>>, Versions, Versions);
+type Blobs = (Arc<BTreeMap<String, Vec<u8>>>, BTreeMap<String, Vec<u8>>, Versions, Versions);
 
 fn take_blobs(from: &mut Document) -> Blobs {
     let s = &mut from.sources;

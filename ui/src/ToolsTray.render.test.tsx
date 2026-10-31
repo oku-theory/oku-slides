@@ -3,7 +3,7 @@
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { SlideView, Snapshot, TabApi } from "./api";
+import type { Snapshot, TabApi } from "./api";
 import type { KeptUi } from "./useKeptUi";
 import type { PackItem } from "./usePackItem";
 
@@ -38,7 +38,10 @@ const snapshot = (o: Partial<Snapshot> = {}): Snapshot =>
     can_undo: false, can_redo: false, undo_label: null, redo_label: null, ...o,
   }) as unknown as Snapshot;
 
-async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = false, item: PackItem | null = null, keptUi = {} as KeptUi) {
+async function mount(
+  snap: Snapshot, themeTab = false, item: PackItem | null = null, keptUi = {} as KeptUi,
+  onAdd: (() => void) | null = () => {},
+) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -47,9 +50,9 @@ async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = f
   await act(async () =>
     root.render(
       createElement(ToolsTray, {
-        api: {} as TabApi, snap, view, item,
+        api: {} as TabApi, snap, item,
         keptUi, mainMenu: null, run: async () => null,
-        onAdd: () => {}, onPacks: () => void opened++, onHistory: () => void histories++, thumbs: null, themeTab,
+        onAdd, onPacks: () => void opened++, onHistory: () => void histories++, thumbs: null, themeTab,
       }),
     ),
   );
@@ -78,7 +81,7 @@ test("ToolsTray in help mode hides the packs button", async () => {
 });
 
 test("ToolsTray in a theme tab hides the packs button", async () => {
-  const { packs } = await mount(snapshot({ theming: {} as Snapshot["theming"] }), null, true);
+  const { packs } = await mount(snapshot({ theming: {} as Snapshot["theming"] }), true);
   expect(packs()).toBeNull();
 });
 
@@ -109,20 +112,18 @@ test.each([
   ["pack mode", { editing: {} as Snapshot["editing"] }, false],
   ["history", { history: {} as Snapshot["history"] }, false],
 ] as const)("ToolsTray in %s hides the history button", async (_, o, themeTab) => {
-  const { history } = await mount(snapshot(o), null, themeTab);
+  const { history } = await mount(snapshot(o), themeTab);
   expect(history()).toBeNull();
 });
 
-/** La slide montrée, de kind `kind`. */
-const shown = (kind: string) => ({ slide: { id: "s", kind, params: {} } }) as unknown as SlideView;
-
-test("ToolsTray on a slide without free slot disables the add button", async () => {
-  const host = (await mount(snapshot({ free_slots: { "essentiel/content": null } }), shown("essentiel/title"))).host;
+/** The add button: the opener App passes decides it; `null` disables it (t-1390). */
+test("ToolsTray without an add opener disables the add button", async () => {
+  const host = (await mount(snapshot(), false, null, {} as KeptUi, null)).host;
   expect(host.querySelector<HTMLButtonElement>(".add-button")!.disabled).toBe(true);
 });
 
-test("ToolsTray on a slide with a free slot enables the add button", async () => {
-  const host = (await mount(snapshot({ free_slots: { "essentiel/content": null } }), shown("essentiel/content"))).host;
+test("ToolsTray with an add opener enables the add button", async () => {
+  const host = (await mount(snapshot())).host;
   expect(host.querySelector<HTMLButtonElement>(".add-button")!.disabled).toBe(false);
 });
 
@@ -135,7 +136,7 @@ async function mountThumbs(thumbs: { open: boolean; onToggle: () => void } | nul
   mounted = { root, host };
   await act(async () => {
     root.render(createElement(ToolsTray, {
-      api: {} as TabApi, snap: thumbsSnap, view: null, item: null, keptUi: {} as never,
+      api: {} as TabApi, snap: thumbsSnap, item: null, keptUi: {} as never,
       mainMenu: null, run: async () => null, onAdd: () => {}, onPacks: () => {}, onHistory: () => {}, thumbs,
     }));
   });
@@ -177,7 +178,7 @@ test("ToolsTray in a pack tab with the code folded shows the session's labelled 
   const item = { selected: "kpi", history: { undo: 0, redo: 0 }, undo: () => {}, redo: () => {} } as unknown as PackItem;
   const keptUi = { code: false, setCode: () => {} } as unknown as KeptUi;
   const snap = snapshot({ editing: {} as Snapshot["editing"], can_undo: true, undo_label: "Delete kpi" });
-  const { host } = await mount(snap, null, false, item, keptUi);
+  const { host } = await mount(snap, false, item, keptUi);
   const undo = host.querySelector<HTMLButtonElement>('button[aria-label="ui-toolbar-undo-label"]');
   expect([undo?.title, undo?.disabled]).toEqual(["Delete kpi", false]);
 });

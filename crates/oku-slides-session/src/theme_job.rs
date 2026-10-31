@@ -1,7 +1,7 @@
 //! Theme picker thumbnails, rendered with no session lock held.
 //!
 //! [`Session::theme_job`] copies, under the lock, what the thumbnails need (the whole deck, each
-//! theme's layer, the assets) and lends the preview render slot. [`ThemeJob::run`] renders with
+//! theme's layer), shares the assets and lends the preview render slot. [`ThemeJob::run`] renders with
 //! no lock; [`Session::restore_preview_slot`] takes the slot back. Each card renders the whole
 //! deck and shows the page of its slide: page number, outline and links are the deck's own.
 
@@ -37,7 +37,8 @@ pub struct ThemeJob {
     shown: String,
     active: Namespace,
     offered: Vec<Offered>,
-    assets: BTreeMap<String, Vec<u8>>,
+    /// The session's assets, shared: taking them copies no byte.
+    assets: Arc<BTreeMap<String, Vec<u8>>>,
     /// The session's preview slot, lent; `None` for an empty deck (nothing to render).
     slot: Option<PreviewSlot>,
     bounds: Bounds,
@@ -49,6 +50,14 @@ pub struct PreviewSlot {
     slot: RenderSlot,
     /// The session's preview epoch when lent: a later reset makes the slot stale.
     epoch: u64,
+}
+
+#[cfg(test)]
+impl ThemeJob {
+    /// The assets the job renders with, to check they are the session's own.
+    pub(crate) fn assets(&self) -> &Arc<BTreeMap<String, Vec<u8>>> {
+        &self.assets
+    }
 }
 
 impl ThemeJob {
@@ -134,7 +143,7 @@ fn thumbnail_svg(slot: &mut RenderSlot, scene: &Scene<'_>, layer: &Map<String, V
 impl Session {
     /// The picker's thumbnails on `slide`, rendered later with no lock held.
     ///
-    /// `None` outside deck mode. `slide` absent or unknown: the first one. Copies the assets
+    /// `None` outside deck mode. `slide` absent or unknown: the first one. Shares the assets
     /// (the worker only receives those it lacks). Lends the preview slot (opened if needed): give
     /// it back with [`restore_preview_slot`](Self::restore_preview_slot) once the job has run.
     ///
@@ -166,7 +175,7 @@ impl Session {
             Some(_) => Some(self.lend_preview_slot()?),
             None => None,
         };
-        let assets = self.doc.sources.assets.clone();
+        let assets = Arc::clone(&self.doc.sources.assets);
         Ok(Some(ThemeJob { deck, shown: shown.unwrap_or_default(), active, offered, assets, slot, bounds }))
     }
 

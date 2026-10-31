@@ -89,8 +89,8 @@ export default function PackPanels({
         <PreviewThemeMenu themes={snap.themes} theme={snap.theme} onPick={(ns) => void run(api.setPreviewTheme(ns))} />
       </header>
       <ToolsTray
-        api={api} snap={snap} view={null} item={item} keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
-        run={run} onAdd={() => {}} onPacks={() => {}} onHistory={() => {}} thumbs={null}
+        api={api} snap={snap} item={item} keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
+        run={run} onAdd={null} onPacks={() => {}} onHistory={() => {}} thumbs={null}
       />
       {/* Top right: finish (a lone pack tab that cannot close has none). */}
       {showFinish(snap, onClose !== undefined) && (

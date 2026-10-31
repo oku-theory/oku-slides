@@ -569,3 +569,24 @@ fn from_zip_with_a_zero_delay_compacts_nothing() {
 mod packs;
 #[path = "sources_themes_tests.rs"]
 mod themes;
+
+/// A known asset changes nothing: a map shared with a theme job is not copied (t-1388).
+#[test]
+fn add_asset_already_there_keeps_the_shared_map() {
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    b.add_asset(b"png".to_vec());
+    let shared = Arc::clone(&b.assets);
+    b.add_asset(b"png".to_vec());
+    assert_that!(Arc::ptr_eq(&shared, &b.assets)).is_true();
+}
+
+/// A merge that brings no new asset keeps the shared map (t-1388).
+#[test]
+fn merge_without_new_assets_keeps_the_shared_map() {
+    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    b.add_asset(b"png".to_vec());
+    let other = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap().0;
+    let shared = Arc::clone(&b.assets);
+    b.merge(other).unwrap();
+    assert_that!(Arc::ptr_eq(&shared, &b.assets)).is_true();
+}

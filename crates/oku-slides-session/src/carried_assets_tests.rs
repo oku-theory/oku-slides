@@ -84,7 +84,7 @@ fn carry_assets_keys_bytes_by_their_own_id_not_the_bundle_key() {
     let mut a = session();
     let bytes = png(4, 4, 29);
     let forged = format!("sha256:{}", "0".repeat(64));
-    a.doc.sources.assets.insert(forged.clone(), bytes.clone());
+    std::sync::Arc::make_mut(&mut a.doc.sources.assets).insert(forged.clone(), bytes.clone());
     let mut element = image_element(&a);
     element.params = serde_json::from_value(json!({ "asset": forged })).unwrap();
     let mut b = session();

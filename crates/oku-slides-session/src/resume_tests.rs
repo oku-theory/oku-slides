@@ -64,7 +64,7 @@ fn write_snapshot_removes_orphan_assets() {
     let r = resume();
     let mut doc = document();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    doc.sources.assets.clear();
+    std::sync::Arc::make_mut(&mut doc.sources.assets).clear();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap().sources.assets.len())
         .is_equal_to(0);
@@ -369,7 +369,7 @@ fn write_snapshot_unsafe_names_writes_nothing_outside_dir() {
     let parent = crate::test_support::fresh_dir("oku-slides-resume-parent-");
     let r = Resume::new(Storage::local().unwrap(), parent.path().join("resume"));
     let mut doc = document();
-    doc.sources.assets.insert("sha256:../x".into(), b"evil".to_vec());
+    std::sync::Arc::make_mut(&mut doc.sources.assets).insert("sha256:../x".into(), b"evil".to_vec());
     doc.sources.fonts.insert("../evil.ttf".into(), b"evil".to_vec());
     doc.sources.fonts.insert(".hidden.ttf".into(), b"evil".to_vec());
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
