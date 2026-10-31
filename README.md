@@ -129,7 +129,7 @@ The `typst` CLI is optional (`just typst`). `just doctor` checks everything.
 ```sh
 just dev      # desktop app in development (installs the interface dependencies)
 just build    # .app / .dmg bundle
-just web      # interface in the browser with hot reload (localhost:5173)
+just web      # interface in the browser with hot reload (localhost:5174)
 just serve    # built interface in the browser (127.0.0.1:4870)
 just test     # Rust and interface tests
 just e2e      # end-to-end tests (Playwright) against a fresh server, port 4872

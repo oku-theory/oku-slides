@@ -5,6 +5,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 fonts := "assets/fonts"
 deck := "fixtures/roadmap.json"
+# Vite port of `just web`; 5173 belongs to `just dev` (Tauri devUrl), so both can run at once
+web_port := "5174"
 
 # Affiche les commandes disponibles
 default:
@@ -28,14 +30,14 @@ serve file=deck: install
     cd ui && bun run build
     cargo run -q -p oku-slides-cli -- --fonts {{fonts}} serve "{{file}}"
 
-# UI with hot reload (http://localhost:5173) and the Rust API; extra arguments go to Vite
+# UI with hot reload (http://localhost:5174) and the Rust API; extra arguments go to Vite
 web file=deck *vite_args="": install
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build -q -p oku-slides-cli
     ./target/debug/oku-slides --fonts {{fonts}} serve "{{file}}" --ui ui/dist &
     trap "kill $! 2>/dev/null" EXIT
-    cd ui && bun run dev {{vite_args}}
+    cd ui && bun run dev --port {{web_port}} {{vite_args}}
 
 # `just web`, opening the browser on the A2UI playbook (every component, dev only)
 playbook file=deck: (web file "--open" "/playbook.html")

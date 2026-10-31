@@ -66,7 +66,7 @@ l'appel : il devient une note). Le n-ième prompt joue le tour n (modulo) : un s
 ## Run (human path)
 
 Même lanceur, puis ouvrir `http://127.0.0.1:4991/` dans un navigateur. `just web` (HMR sur
-:5173) utilise les données réelles de l'utilisateur et son agent configuré : pas pour un essai.
+:5174) utilise les données réelles de l'utilisateur et son agent configuré : pas pour un essai.
 
 ## Test
 
