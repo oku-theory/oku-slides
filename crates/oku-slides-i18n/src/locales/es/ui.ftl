@@ -375,6 +375,7 @@ ui-update-available = Oku Slides { $version } está disponible.
 ui-update-install = Instalar y reiniciar
 ui-update-see-release = Ver la versión
 ui-update-later = Más tarde
+ui-update-notice-close = Cerrar
 ui-update-installing = Descargando la actualización… { $percent } %
 ui-update-downloading = Descargando la actualización…
 ui-update-up-to-date = Oku Slides está actualizado.

@@ -372,6 +372,7 @@ ui-update-available = Oku Slides { $version } kullanıma hazır.
 ui-update-install = Yükle ve yeniden başlat
 ui-update-see-release = Sürümü gör
 ui-update-later = Daha sonra
+ui-update-notice-close = Kapat
 ui-update-installing = Güncelleme indiriliyor… %{ $percent }
 ui-update-downloading = Güncelleme indiriliyor…
 ui-update-up-to-date = Oku Slides güncel.

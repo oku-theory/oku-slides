@@ -197,8 +197,9 @@ post_roll = 0.25
 max_phrase = 25.0
 
 [models]
-# Dépôt des modèles téléchargés (dictée, agent local), tentatives et attente
-# entre deux tentatives (s).
+# Hub of downloaded models (dictation, local agent); retries in a row of a cut, stalled or
+# refused download (the count starts over once 1 MiB more arrived; the .part is resumed),
+# and wait before the first retry (s), multiplied at each next one.
 hub_url = "https://huggingface.co"
 download_retries = 5
 download_backoff_secs = 4

@@ -45,11 +45,16 @@ cannot help, since the proxy judges the host that serves the bytes. GitHub Pages
 - Scaleway becomes a dependency of updates (Edge Services Starter plan, about €1 a month, plus
   storage); GitHub still serves them if the mirror is down. Objects are public-read, as Edge
   Services requires; they are public on GitHub anyway.
-- **Downgrade risk.** `latest.json` is unsigned and the minisign signature does not cover the
-  version: whoever can write the bucket can announce a fake version pointing to an older signed
-  bundle kept in the bucket, and every app installs it. This widens who can do so from GitHub
-  maintainers to holders of the Scaleway key or account, or of the Gandi DNS zone. Binding the version to the
-  signature in the host is t-1210; until then, guard the token and the account.
+- **Downgrade risk.** `latest.json` is unsigned, which widens who can tamper with it from GitHub
+  maintainers to holders of the Scaleway key or account, or of the Gandi DNS zone. Announcing a
+  fake version that points to an older signed bundle is closed for apps from the release that
+  turns `plugins.updater.requireSignedVersion` on (t-1210): each signature's trusted comment
+  carries `version:<v>`, and the app refuses a bundle whose signed version is not the one offered.
+  Residuals: the trusted comment's `file:` is not checked, so a bundle is not bound to its
+  platform; whoever writes the bucket can still freeze updates by serving an old but genuine
+  `latest.json`, since the GitHub endpoint is not tried after a valid answer; and a leaked
+  signing key defeats the check ([ADR-0014](0014-updater-signing-key-backup-and-rotation.md)).
+  Guard the token and the account.
 
 ## Setup runbook
 

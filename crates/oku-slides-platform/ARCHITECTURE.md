@@ -11,19 +11,20 @@ the CLI, the session, the agent and dictation.
   `RENDER_WORKER_ENV` marks a render worker process, which never launches another one.
   `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent;
   `program_path` (`ProgramPath`, `login_path.rs`: the app's `with_login_path` reads the login shell's `PATH` on a thread).
-- `telemetry`: `init` installs the `tracing` subscriber; call it first; `NETWORK_DEBUG_ENV`
-  adds HTTP/TLS `debug` logs, `ACP_DEBUG_ENV` the ACP messages (`ACP_TARGET`). `errors`: `one_line` prints an error and its causes on one line.
+- `telemetry`: `init` installs the `tracing` subscriber, first; `NETWORK_DEBUG_ENV` adds HTTP/TLS logs, `ACP_DEBUG_ENV` ACP messages (`ACP_TARGET`). `errors`: `one_line`.
 - `config`: `Settings`, its sections (`PathSettings`, `RenderSettings`, `SttSettings`, `UsageSettings`, …), `APP_ID`.
   `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (a `command` xor a
   `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
-- `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus`, `Progress`
-  (1 % steps, 512 MiB cap), `download_source` (trusted `UpdateSource`: GitHub or the mirror), `UpdateStage`.
+- `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus` (with "Later"), `Progress`
+  (1 % steps, 512 MiB cap), `download_source` (trusted `UpdateSource`), `UpdateStage`, `InstallFailure`,
+  `check_due` on an hourly `CHECK_TICK`, `UpdateMarks` (failed version, notice, "Later" on disk).
 - `config_write`: `write_value` sets one `config.toml` key, keeping comments. `program`: `find_program`.
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime
-  (`read_limited`, `write_atomic`, `delete_dir`, `writer`, `read_fonts`, …); call it outside
+  (`read_limited`, `write_atomic`, `delete_dir`, `writer`, `appender`, `reader`, `read_fonts`, …); call it outside
   async contexts only. `StorageError::kind` gives a `StorageErrorKind`.
-- `models`: `PinnedFile`, `is_complete` and (feature `download`) `download`: hashed `.part`
-  files renamed once verified, `.complete` last; waits cancellable, bounded by `read_timeout_secs`; `DownloadError::kind`.
+- `models`: `PinnedFile`, `is_complete`, (feature `download`) `download`: hashed `.part`s renamed
+  once verified, `.complete` last, a pinned `.part` resumed by `Range` (`resume.rs` decides,
+  `download/transport.rs` fetches); retries capped per file; waits cancellable; `DownloadError::kind`.
 - `http` (feature `download`): `system_tls`, TLS on the system certificate store, for every ureq agent.
 - `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve`, `local_engine` → `ReadyEngine` or `Unavailable`.
 - `listen` (feature `listen`): `serve_connections`, bounded by `Limits`, replaces `axum::serve`.
@@ -37,8 +38,7 @@ the CLI, the session, the agent and dictation.
 Three layers, the last wins: embedded `src/config.default.toml`, then `config.toml` in
 the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD__PAUSE`).
 `OKU_SLIDES_PATHS__DATA` also moves where `config.toml` is read. `PathSettings` puts the data dir at `~/Library/Application Support/me.dartiguenave.oku-slides` on macOS (XDG or
-`APPDATA` elsewhere), with `models/`, `widgets/`, `layouts/`, `themes/` and `config.toml` under it;
-decks default to `~/Documents/Oku Slides`.
+`APPDATA` elsewhere), with `models/`, `widgets/`, `layouts/`, `themes/`, `config.toml`; decks in `~/Documents/Oku Slides`.
 
 ## Extension points
 

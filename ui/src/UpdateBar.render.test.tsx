@@ -6,7 +6,7 @@ import type { UpdateOffer } from "./api";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const UpdateBar = (await import("./UpdateBar")).default;
+const { default: UpdateBar, UpdateNoticeBar } = await import("./UpdateBar");
 
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
 afterEach(async () => {
@@ -81,5 +81,22 @@ describe("UpdateBar", () => {
   test("UpdateBar unknown size shows an indeterminate bar", async () => {
     const host = await mount([], { installing: true, percent: null });
     expect([host.querySelector(".update-bar-text")?.textContent, host.querySelector("progress")?.hasAttribute("value")]).toEqual(["ui-update-downloading", false]);
+  });
+});
+
+describe("UpdateNoticeBar", () => {
+  test("UpdateNoticeBar shows the text and its close button dismisses", async () => {
+    const calls: string[] = [];
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    await act(async () => {
+      root.render(createElement(UpdateNoticeBar, { text: "échec de 2.2.0", onDismiss: () => calls.push("dismiss") }));
+    });
+    expect(host.textContent).toContain("échec de 2.2.0");
+    expect(host.querySelector('[role="alert"]')).not.toBeNull();
+    await act(async () => buttons(host)[0]!.click());
+    expect(calls).toEqual(["dismiss"]);
   });
 });

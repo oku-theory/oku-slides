@@ -8,6 +8,7 @@
 - Give each agent preset exactly one of command or builtin, and fail config loading otherwise. (t-1020, spec:2026-10-18-agent-local-repli-design)
 - Build every outgoing ureq agent with http::system_tls; bundled roots reject corporate TLS-inspection CAs. (t-1211)
 - Download model files only through models::download, which checks pinned SHA-256 and writes .complete last. (plan:2026-10-18-agent-local-repli-lot3)
+- Resume only a pinned file's .part, re-hashing its prefix, and accept a 206 only when its Content-Range starts at the .part length. (t-1052)
 - Build a shipped binary's Platform only with Platform::load; with_settings renders InProcess, unbounded and unsandboxed. (spec:2026-10-17-render-worker-sandbox-design, plan:2026-09-29-compilation-bornee)
 - Find and launch external programs (agent, soffice) on Platform.program_path, never the process's PATH; only the app takes the login shell's. (t-956)
 

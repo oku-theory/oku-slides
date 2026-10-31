@@ -14,6 +14,7 @@ fn temp_dir(name: &str) -> tempfile::TempDir {
 
 mod issue_0163_symlinked_dir_or_oversized_read;
 mod issue_0273_stale_test_dirs;
+mod issue_0976_check_after_sleep;
 mod issue_1202_agent_selected_invariant;
 // ureq, and so `http`, only exist with the `download` feature.
 #[cfg(feature = "download")]

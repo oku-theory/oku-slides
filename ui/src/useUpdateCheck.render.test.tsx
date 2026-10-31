@@ -38,14 +38,14 @@ async function mount(check: () => Promise<UpdateStatus | null>, requested = 0) {
 
 describe("useUpdateCheck", () => {
   test("useUpdateCheck menu request when up to date says so", async () => {
-    const m = await mount(async () => ({ offer: null, installing: false }));
+    const m = await mount(async () => ({ offer: null, installing: false, dismissed: false }));
     await m.rerender(1);
     expect(said).toEqual([["ui-update-up-to-date", false]]);
   });
 
   test("useUpdateCheck offer checks once and says nothing", async () => {
     let checks = 0;
-    const m = await mount(async () => (checks++, { offer: { version: "2.2.0", mode: "install" }, installing: false }));
+    const m = await mount(async () => (checks++, { offer: { version: "2.2.0", mode: "install" }, installing: false, dismissed: false }));
     await m.rerender(1);
     expect([checks, said]).toEqual([1, []]);
   });
@@ -57,12 +57,12 @@ describe("useUpdateCheck", () => {
   });
 
   test("useUpdateCheck mount does not check", async () => {
-    await mount(async () => ({ offer: null, installing: false }), 3);
+    await mount(async () => ({ offer: null, installing: false, dismissed: false }), 3);
     expect(said).toEqual([]);
   });
 
   test("useUpdateCheck returned check from the main menu says up to date", async () => {
-    await mount(async () => ({ offer: null, installing: false }));
+    await mount(async () => ({ offer: null, installing: false, dismissed: false }));
     await act(async () => run?.());
     expect(said).toEqual([["ui-update-up-to-date", false]]);
   });

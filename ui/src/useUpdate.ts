@@ -1,36 +1,64 @@
-// Mise à jour de l'app dans une fenêtre : état de l'hôte, « Plus tard », installation.
+// App update in a window: the host's state ("Later" included), install, failed-install notice.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText, subscribeUpdates, type UpdateApi, type UpdateOffer, type UpdateStatus } from "./api";
 
-/** Ce qu'une fenêtre montre et peut faire d'une mise à jour. */
+/** What a window shows and can do about an update. */
 export interface UpdateState {
-  /** Offre à montrer (masquée par « Plus tard », sauf pendant l'installation). */
+  /** Offer to show (hidden once put off with "Later", except while installing). */
   offer: UpdateOffer | null;
   installing: boolean;
-  /** Avancée du téléchargement, `null` si inconnue. */
+  /** Download progress, `null` if unknown. */
   percent: number | null;
-  /** Recherches demandées par le menu de l'app, comptées. */
+  /** Checks asked by the app menu, counted. */
   requested: number;
-  /** Recherche ; `null` sans hôte, rejet sur une erreur de l'hôte. */
+  /** A failed install told after the restart, until dismissed. */
+  notice: string | null;
+  /** Check; `null` without a host, rejects on a host error. */
   check(): Promise<UpdateStatus | null>;
   install(): void;
   later(): void;
   openRelease(): void;
+  dismissNotice(): void;
 }
 
-/** État de la mise à jour pour une fenêtre ; `api` absent : rien à montrer. */
+/**
+ * One notice request per host: a StrictMode remount reads the same answer. A failed request
+ * is forgotten, so the next mount asks again.
+ */
+const notices = new WeakMap<UpdateApi, Promise<string | null>>();
+
+function noticeOnce(api: UpdateApi): Promise<string | null> {
+  let asked = notices.get(api);
+  if (!asked) {
+    asked = api.takeNotice();
+    notices.set(api, asked);
+    asked.catch(() => notices.delete(api));
+  }
+  return asked;
+}
+
+/** Update state for a window; no `api`: nothing to show. */
 export function useUpdate(api: UpdateApi | null, onError: (text: string) => void): UpdateState {
-  const [status, setStatus] = useState<UpdateStatus>({ offer: null, installing: false });
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [status, setStatus] = useState<UpdateStatus>({ offer: null, installing: false, dismissed: false });
   const [percent, setPercent] = useState<number | null>(null);
   const [requested, setRequested] = useState(0);
   const [pending, setPending] = useState(false);
-  // Toujours le dernier rappel, sans réabonner l'effet quand il change.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Always the latest callback, without resubscribing the effect when it changes.
   const report = useRef(onError);
   report.current = onError;
-  // Seule la dernière lecture demandée compte (réponses dans le désordre).
+  // Only the latest read asked for counts (replies out of order).
   const seq = useRef(0);
+
+  // A status the host returns, numbered when asked: a read asked later wins.
+  const settle = useCallback((request: Promise<UpdateStatus>) => {
+    const n = ++seq.current;
+    return request.then((s) => {
+      if (n === seq.current) setStatus(s);
+      return s;
+    });
+  }, []);
 
   const reread = useCallback(() => {
     if (!api) return;
@@ -39,10 +67,10 @@ export function useUpdate(api: UpdateApi | null, onError: (text: string) => void
       (s) => {
         if (n !== seq.current) return;
         setStatus(s);
-        // L'hôte a fini (ou n'a jamais commencé) : le clic en attente est retombé.
+        // The host finished (or never started): the pending click is over.
         if (!s.installing) setPending(false);
       },
-      (e) => console.error("mise à jour", e),
+      (e) => console.error("update", e),
     );
   }, [api]);
 
@@ -59,19 +87,25 @@ export function useUpdate(api: UpdateApi | null, onError: (text: string) => void
     );
   }, [api, reread]);
 
+  useEffect(() => {
+    if (!api) return;
+    noticeOnce(api).then(
+      (text) => {
+        if (text) setNotice(text);
+      },
+      (e) => console.error("update", e),
+    );
+  }, [api]);
+
   const check = useCallback(async () => {
     if (!api) return null;
-    const s = await api.check();
-    seq.current++;
-    setDismissed(null);
-    setStatus(s);
-    return s;
-  }, [api]);
+    return settle(api.check());
+  }, [api, settle]);
 
   const install = useCallback(() => {
     if (!api) return;
     setPending(true);
-    // Le pourcentage d'un essai précédent ne doit pas rester affiché.
+    // A previous attempt's percent must not stay on screen.
     setPercent(null);
     api.install().catch((e) => {
       setPending(false);
@@ -79,13 +113,19 @@ export function useUpdate(api: UpdateApi | null, onError: (text: string) => void
     });
   }, [api]);
 
-  const later = useCallback(() => setDismissed(status.offer?.version ?? null), [status.offer]);
+  const version = status.offer?.version;
+  const later = useCallback(() => {
+    if (!api || !version) return;
+    settle(api.later(version)).catch((e) => report.current(errorText(e)));
+  }, [api, version, settle]);
 
   const openRelease = useCallback(() => {
     api?.openRelease().catch((e) => report.current(errorText(e)));
   }, [api]);
 
+  const dismissNotice = useCallback(() => setNotice(null), []);
+
   const installing = status.installing || pending;
-  const offer = status.offer && (installing || status.offer.version !== dismissed) ? status.offer : null;
-  return { offer, installing, percent, requested, check, install, later, openRelease };
+  const offer = status.offer && (installing || !status.dismissed) ? status.offer : null;
+  return { offer, installing, percent, requested, notice, check, install, later, openRelease, dismissNotice };
 }

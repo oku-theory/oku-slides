@@ -372,6 +372,7 @@ ui-update-available = Oku Slides { $version } এখন উপলব্ধ।
 ui-update-install = ইনস্টল করে পুনরায় চালু করুন
 ui-update-see-release = রিলিজ দেখুন
 ui-update-later = পরে
+ui-update-notice-close = বন্ধ করুন
 ui-update-installing = আপডেট ডাউনলোড হচ্ছে… { $percent }%
 ui-update-downloading = আপডেট ডাউনলোড হচ্ছে…
 ui-update-up-to-date = Oku Slides সর্বশেষ সংস্করণে আছে।

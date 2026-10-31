@@ -1,4 +1,4 @@
-// Mise à jour : état relu à l'abonnement et à chaque signal, « Plus tard », installation.
+// Update hook: state read on subscribe and on each signal, "Later" on the host, install, notice.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -18,10 +18,18 @@ afterEach(async () => {
 });
 
 const offer: UpdateOffer = { version: "2.2.0", mode: "install" };
-const status = (o: Partial<UpdateStatus> = {}): UpdateStatus => ({ offer: null, installing: false, ...o });
+const status = (o: Partial<UpdateStatus> = {}): UpdateStatus => ({ offer: null, installing: false, dismissed: false, ...o });
 
-/** Un hôte factice : `state` est ce que `status()` rend, `fire` déclenche ses événements. */
-function fakeApi(o: { check?: () => Promise<UpdateStatus>; install?: () => Promise<void>; openRelease?: () => Promise<void> } = {}) {
+/** A fake host: `state` is what `status()` returns; `later` dismisses the offer it names. */
+function fakeApi(
+  o: {
+    check?: () => Promise<UpdateStatus>;
+    install?: () => Promise<void>;
+    openRelease?: () => Promise<void>;
+    later?: (version: string) => Promise<UpdateStatus>;
+    takeNotice?: () => Promise<string | null>;
+  } = {},
+) {
   const calls: string[] = [];
   const live = new Set<UpdateEvents>();
   const fake = {
@@ -33,6 +41,12 @@ function fakeApi(o: { check?: () => Promise<UpdateStatus>; install?: () => Promi
       check: o.check ?? (async () => fake.state),
       install: o.install ?? (async () => void calls.push("install")),
       openRelease: o.openRelease ?? (async () => void calls.push("open")),
+      later: o.later ?? (async (version: string) => {
+        calls.push(`later ${version}`);
+        fake.state = { ...fake.state, dismissed: fake.state.offer?.version === version };
+        return fake.state;
+      }),
+      takeNotice: o.takeNotice ?? (async () => (calls.push("notice"), null)),
       subscribe: async (h: UpdateEvents) => {
         calls.push("subscribe");
         live.add(h);
@@ -81,7 +95,7 @@ describe("useUpdate", () => {
     const f = fakeApi();
     f.state = status({ offer });
     const m = await mount(f.api);
-    expect([m.hook().offer, f.calls]).toEqual([offer, ["subscribe", "status"]]);
+    expect([m.hook().offer, f.calls.filter((c) => c !== "notice")]).toEqual([offer, ["subscribe", "status"]]);
   });
 
   test("useUpdate rerender keeps a single subscription", async () => {
@@ -124,33 +138,90 @@ describe("useUpdate", () => {
     expect(m.hook().offer).toEqual(offer);
   });
 
-  test("useUpdate later hides this version", async () => {
+  test("useUpdate later asks the host for the shown version and hides it", async () => {
     const f = fakeApi();
     f.state = status({ offer });
     const m = await mount(f.api);
     await act(async () => m.hook().later());
-    await act(async () => f.changed());
+    expect([f.calls.at(-1), m.hook().offer]).toEqual(["later 2.2.0", null]);
+  });
+
+  test("useUpdate dismissed status from the host hides the offer", async () => {
+    const f = fakeApi();
+    f.state = status({ offer, dismissed: true });
+    const m = await mount(f.api);
     expect(m.hook().offer).toBeNull();
   });
 
-  test("useUpdate later still shows a newer version", async () => {
+  test("useUpdate installing shows a dismissed offer", async () => {
     const f = fakeApi();
-    f.state = status({ offer });
+    f.state = status({ offer, installing: true, dismissed: true });
     const m = await mount(f.api);
-    await act(async () => m.hook().later());
-    f.state = status({ offer: { ...offer, version: "2.3.0" } });
-    await act(async () => f.changed());
-    expect(m.hook().offer?.version).toBe("2.3.0");
+    expect([m.hook().offer, m.hook().installing]).toEqual([offer, true]);
   });
 
-  test("useUpdate installing shows the offer even after later", async () => {
-    const f = fakeApi();
+  test("useUpdate later failure reports it", async () => {
+    const f = fakeApi({ later: async () => { throw new Error("refusé"); } });
     f.state = status({ offer });
     const m = await mount(f.api);
     await act(async () => m.hook().later());
-    f.state = status({ offer, installing: true });
+    expect([m.hook().offer, errors]).toEqual([offer, ["refusé"]]);
+  });
+
+  test("useUpdate notice from the host is shown until dismissed", async () => {
+    const f = fakeApi({ takeNotice: async () => "échec de 2.2.0" });
+    const m = await mount(f.api);
+    expect(m.hook().notice).toBe("échec de 2.2.0");
+    await act(async () => m.hook().dismissNotice());
+    expect(m.hook().notice).toBeNull();
+  });
+
+  test("useUpdate no notice shows nothing", async () => {
+    const f = fakeApi();
+    const m = await mount(f.api);
+    expect([m.hook().notice, errors]).toEqual([null, []]);
+  });
+
+  test("useUpdate strict mode asks the notice once and still shows it", async () => {
+    let asked = 0;
+    const f = fakeApi({ takeNotice: async () => (asked++ === 0 ? "échec" : null) });
+    const m = await mount(f.api, true);
+    expect([asked, m.hook().notice]).toEqual([1, "échec"]);
+  });
+
+  test("useUpdate notice failure is asked again on the next mount", async () => {
+    let asked = 0;
+    const f = fakeApi({
+      takeNotice: async () => {
+        if (asked++ === 0) throw new Error("hôte");
+        return "échec de 2.2.0";
+      },
+    });
+    await mount(f.api);
+    await act(async () => mounted!.root.unmount());
+    mounted!.host.remove();
+    mounted = null;
+    const m = await mount(f.api);
+    expect([asked, m.hook().notice]).toEqual([2, "échec de 2.2.0"]);
+  });
+
+  test("useUpdate later reply arriving after a newer read is ignored", async () => {
+    let reply: (s: UpdateStatus) => void = () => {};
+    const f = fakeApi({ later: () => new Promise((resolve) => (reply = resolve)) });
+    f.state = status({ offer });
+    const m = await mount(f.api);
+    await act(async () => m.hook().later());
+    const newer: UpdateOffer = { version: "2.3.0", mode: "install" };
+    f.state = status({ offer: newer });
     await act(async () => f.changed());
-    expect([m.hook().offer, m.hook().installing]).toEqual([offer, true]);
+    await act(async () => reply(status({ offer, dismissed: true })));
+    expect(m.hook().offer).toEqual(newer);
+  });
+
+  test("useUpdate notice failure only logs", async () => {
+    const f = fakeApi({ takeNotice: async () => { throw new Error("hôte"); } });
+    const m = await mount(f.api);
+    expect([m.hook().notice, errors]).toEqual([null, []]);
   });
 
   test("useUpdate install ending rereads installing false", async () => {
@@ -222,11 +293,10 @@ describe("useUpdate", () => {
     expect(errors).toEqual(["refusé"]);
   });
 
-  test("useUpdate check after later shows the offer again", async () => {
+  test("useUpdate check applies the host's status, later forgotten", async () => {
     const f = fakeApi({ check: async () => status({ offer }) });
-    f.state = status({ offer });
+    f.state = status({ offer, dismissed: true });
     const m = await mount(f.api);
-    await act(async () => m.hook().later());
     await act(async () => void (await m.hook().check()));
     expect(m.hook().offer).toEqual(offer);
   });

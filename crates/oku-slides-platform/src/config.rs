@@ -416,9 +416,9 @@ pub struct AppearanceSettings {
 pub struct ModelsSettings {
     /// Dépôt des modèles, sans barre finale.
     pub hub_url: String,
-    /// Tentatives de plus quand le dépôt est occupé (429, 5xx).
+    /// Retries in a row of a busy hub, a cut, a stall or a short body; reset by 1 MiB of progress.
     pub download_retries: u32,
-    /// Attente avant la première nouvelle tentative (s), multipliée à chaque suivante.
+    /// Wait before the first retry (s), multiplied by the retry's rank for the next ones.
     pub download_backoff_secs: u64,
     /// Attente maximale (s) d'une réponse ou d'octets du dépôt avant d'abandonner.
     pub read_timeout_secs: u64,

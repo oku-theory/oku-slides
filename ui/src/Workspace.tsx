@@ -5,7 +5,7 @@ import AboutDialog from "./AboutDialog";
 import App from "./App";
 import { APP_VERSION, RELEASES } from "./appInfo";
 import TabBar from "./TabBar";
-import UpdateBar from "./UpdateBar";
+import UpdateBar, { UpdateNoticeBar } from "./UpdateBar";
 import { closeStays, errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
 import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
 import { runCloseGuard } from "./closeGuards";
@@ -281,6 +281,7 @@ export default function Workspace() {
       {/* Barre de titre intégrée (macOS) : de quoi déplacer la fenêtre, et ses boutons. */}
       {inTauri && isMac && <div className="titlebar" data-tauri-drag-region />}
       {error && <p className="workspace-error" role="alert">{error}</p>}
+      {update.notice && <UpdateNoticeBar text={update.notice} onDismiss={update.dismissNotice} />}
       {update.offer && (
         <UpdateBar
           offer={update.offer}

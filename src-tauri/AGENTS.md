@@ -10,6 +10,7 @@
 - Throttle saves of window state and ignore windows that are already closed. (t-169)
 - Install an update only after state::settle in the same blocking job, then request_restart; never restart from the webview. (spec:2026-10-18-auto-update-design)
 - Grant no updater or opener permission in any capability, and refuse update commands from the agent window. (spec:2026-10-18-auto-update-design)
+- Keep plugins.updater.requireSignedVersion true; every updater signature must carry version:<v> in its trusted comment. (t-1210)
 
 ## Pitfalls
 
@@ -20,10 +21,10 @@
 - Expect no cursor or window positions on Wayland; a tab dropped there must open a new window. (t-160, t-179)
 - Structure-changing workspace requests return the synced view, not their reply; query via read-only requests. (plan:2026-09-27-sources-loro-fusion)
 - The updater installs ring as the global rustls provider on first check; keep every rustls user on ring. (spec:2026-10-18-auto-update-design)
-- Never change plugins.updater.pubkey without the key rotation plan (t-978); installed apps reject bundles signed by another key. (spec:2026-10-18-auto-update-design)
+- Never change plugins.updater.pubkey outside the ADR-0014 procedures; installed apps reject bundles signed by another key. (ADR-0014, spec:2026-10-18-auto-update-design)
 - Keep the update mirror first in updater endpoints; its host is also in MIRROR_DOWNLOAD_PREFIX and update-mirror.yml. (spec:2026-10-25-update-mirror-design, t-1209)
 - Repair a failed mirror job with a manual Update mirror run; apps read the mirror first, so a stale one hides releases. (spec:2026-10-25-update-mirror-design, t-1209)
-- When adding a release platform, add its updater key to the release.yml matrix and to the publish gate's list, or no release goes latest. (spec:2026-10-18-auto-update-design, t-973)
+- When adding a release platform, add its updater key to the release.yml matrix, the publish job's count and PLATFORMS in release-gate.sh, or no release goes latest. (spec:2026-10-18-auto-update-design, t-973)
 
 ## Testing
 
@@ -33,3 +34,4 @@
 ## Settled decisions
 
 - Set bundle.createUpdaterArtifacts only in release.yml via --config, never in tauri.conf.json, so just build needs no signing key. (spec:2026-10-18-auto-update-design, t-973)
+- Sign update bundles only in release.yml's sign job, with scripts from main, never the tag; build jobs hold no signing secret. (ADR-0014, t-977)

@@ -11,12 +11,14 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use opendal::{ErrorKind, blocking, services};
 use snafu::{Backtrace, OptionExt, ResultExt, Snafu, ensure};
+
+mod stream;
+pub use stream::{StreamReader, StreamWriter};
 
 /// Accès aux fichiers impossible.
 #[derive(Debug, Snafu)]
@@ -50,8 +52,8 @@ enum StorageInner {
     Access { action: &'static str, path: PathBuf, source: opendal::Error, backtrace: Backtrace },
     #[snafu(display("{} is larger than {max} bytes", path.display()))]
     TooLarge { path: PathBuf, max: u64, backtrace: Backtrace },
-    #[snafu(display("cannot write {}", path.display()))]
-    Stream { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
+    #[snafu(display("cannot {action} {}", path.display()))]
+    Stream { action: &'static str, path: PathBuf, source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("cannot resolve {}", path.display()))]
     Canonical { path: PathBuf, source: std::io::Error, backtrace: Backtrace },
 }
@@ -439,40 +441,34 @@ impl Storage {
     pub fn writer(&self, path: &Path) -> Result<StreamWriter, StorageError> {
         let (op, key) = self.at(path)?;
         let writer = op.writer(&key).context(AccessSnafu { action: "write", path })?;
-        Ok(StreamWriter { inner: writer.into_std_write(), path: path.to_path_buf() })
+        Ok(StreamWriter::new(writer.into_std_write(), path))
     }
-}
 
-/// Écriture en flux d'un fichier. Sans [`close`](Self::close), le fichier
-/// peut rester incomplet.
-pub struct StreamWriter {
-    inner: blocking::StdWriter,
-    path: PathBuf,
-}
-
-impl std::fmt::Debug for StreamWriter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("StreamWriter").field("path", &self.path).finish_non_exhaustive()
-    }
-}
-
-impl StreamWriter {
-    /// Appends `bytes` to the file.
+    /// Streaming write after the file's current end; creates a missing file.
     ///
     /// # Errors
     ///
-    /// If the write fails.
-    pub fn write_all(&mut self, bytes: &[u8]) -> Result<(), StorageError> {
-        Ok(self.inner.write_all(bytes).context(StreamSnafu { path: &self.path })?)
+    /// If the path is unusable or opening for appending is refused.
+    pub fn appender(&self, path: &Path) -> Result<StreamWriter, StorageError> {
+        let (op, key) = self.at(path)?;
+        let opts = opendal::options::WriteOptions { append: true, ..Default::default() };
+        let writer = op.writer_options(&key, opts).context(AccessSnafu { action: "append to", path })?;
+        Ok(StreamWriter::new(writer.into_std_write(), path))
     }
 
-    /// Finishes the write: the file is complete on disk.
+    /// Streaming read from the start, a bounded chunk at a time.
+    ///
+    /// Reads the length seen when opening, even if the file grows meanwhile.
     ///
     /// # Errors
     ///
-    /// If finishing the write fails: the file may stay incomplete.
-    pub fn close(mut self) -> Result<(), StorageError> {
-        Ok(self.inner.close().context(StreamSnafu { path: &self.path })?)
+    /// If the path is unusable or the file missing or unreadable.
+    pub fn reader(&self, path: &Path) -> Result<StreamReader, StorageError> {
+        let (op, key) = self.at(path)?;
+        let len = op.stat(&key).context(AccessSnafu { action: "read", path })?.content_length();
+        let reader = op.reader(&key).context(AccessSnafu { action: "read", path })?;
+        let inner = reader.into_std_read(0..len).context(AccessSnafu { action: "read", path })?;
+        Ok(StreamReader::new(inner, path))
     }
 }
 

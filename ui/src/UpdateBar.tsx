@@ -1,16 +1,15 @@
-// Bandeau de mise à jour, en haut de la fenêtre : une version plus récente,
-// l'installer (ou voir la release), ou plus tard ; pendant le téléchargement,
-// son avancée, boutons désactivés.
+// Update bars at the top of the window: a newer version to install (or see the release) or
+// put off, its download progress with the buttons disabled; a failed install after restart.
 
 import type { UpdateOffer } from "./api";
 import { t } from "./i18n";
 import { Button } from "./primitives";
 
-/** Bandeau proposant une version plus récente de l'app. */
+/** Bar offering a newer version of the app. */
 export default function UpdateBar({ offer, installing, percent, onInstall, onLater, onOpenRelease }: {
   offer: UpdateOffer;
   installing: boolean;
-  /** Avancée du téléchargement, `null` si la taille est inconnue. */
+  /** Download progress, `null` if the size is unknown. */
   percent: number | null;
   onInstall: () => void;
   onLater: () => void;
@@ -32,6 +31,18 @@ export default function UpdateBar({ offer, installing, percent, onInstall, onLat
           <Button primary disabled={installing} onClick={onOpenRelease}>{t("ui-update-see-release")}</Button>
         )}
         <Button ghost disabled={installing} onClick={onLater}>{t("ui-update-later")}</Button>
+      </span>
+    </div>
+  );
+}
+
+/** Bar telling, after the restart, that an update could not be installed. */
+export function UpdateNoticeBar({ text, onDismiss }: { text: string; onDismiss: () => void }) {
+  return (
+    <div className="notice-bar update-bar" role="alert">
+      <span className="notice-bar-text update-bar-text">{text}</span>
+      <span className="notice-bar-actions">
+        <Button ghost onClick={onDismiss}>{t("ui-update-notice-close")}</Button>
       </span>
     </div>
   );

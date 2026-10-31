@@ -372,6 +372,7 @@ ui-update-available = Oku Slides { $version } 現已推出。
 ui-update-install = 安裝並重新啟動
 ui-update-see-release = 查看發行版
 ui-update-later = 稍後
+ui-update-notice-close = 關閉
 ui-update-installing = 正在下載更新… { $percent }%
 ui-update-downloading = 正在下載更新…
 ui-update-up-to-date = Oku Slides 已是最新版本。

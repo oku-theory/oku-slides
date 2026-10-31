@@ -441,9 +441,15 @@ watch cmd="test":
     cargo watch -s "just {{cmd}}"
 
 # Tout ce que vérifie l'intégration continue, en local
-ci: check agents-lint-test commit-lint-test test audit
+ci: check agents-lint-test commit-lint-test release-sign-test test audit
+
+# Update bundle signing and the publish gate of release.yml on a fake release (t-977, t-1210).
+# Needs minisign (`brew install minisign`, apt `minisign`), jq and cargo-tauri (`just setup`).
+release-sign-test:
+    .github/scripts/release-sign-test.sh
 
 # Installe les outils de développement
+# Not installed here: minisign, for `just release-sign-test` (`brew install minisign`).
 setup: hooks
     cargo install --locked cargo-nextest cargo-deny cargo-audit cargo-machete rust-code-analysis-cli cargo-llvm-cov cargo-watch tauri-cli
 

@@ -15,3 +15,4 @@
 | [0011](0011-tab-document-kinds-and-preview-decks.md) | Tab document kinds, pack tabs beside a preview deck, pack leases | accepted, amended by 0012 and 0013 |
 | [0012](0012-theme-tabs.md) | Theme tabs on a specimen deck, the theme draft out of pack mode | accepted, amended by 0013 |
 | [0013](0013-deck-pack-tabs.md) | Deck-only pack tabs linked to their owner deck | accepted |
+| [0014](0014-updater-signing-key-backup-and-rotation.md) | Updater signing key, backup and rotation | accepted |

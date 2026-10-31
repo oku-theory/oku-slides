@@ -42,14 +42,55 @@ fn install_mode_detect_by_host(#[case] h: Host<'_>, #[case] expected: InstallMod
 
 #[test]
 fn update_status_serializes_snake_case() {
-    let status = UpdateStatus {
-        offer: Some(UpdateOffer { version: "2.2.0".into(), mode: InstallMode::NotifyOnly }),
-        installing: false,
-    };
+    let status =
+        UpdateStatus::new(Some(UpdateOffer { version: "2.2.0".into(), mode: InstallMode::NotifyOnly }), false, None);
     assert_that!(serde_json::to_value(&status).unwrap()).is_equal_to(serde_json::json!({
         "offer": { "version": "2.2.0", "mode": "notify_only" },
-        "installing": false
+        "installing": false,
+        "dismissed": false
     }));
+}
+
+fn offer(version: &str) -> UpdateOffer {
+    UpdateOffer { version: version.into(), mode: InstallMode::Install }
+}
+
+#[rstest]
+#[case(Some(offer("8.1.0")), false, Some("8.1.0"), true)]
+#[case(Some(offer("8.1.0")), true, Some("8.1.0"), true)]
+#[case(Some(offer("8.2.0")), false, Some("8.1.0"), false)]
+#[case(Some(offer("8.1.0")), false, None, false)]
+#[case(None, false, Some("8.1.0"), false)]
+fn update_status_new_dismissed_only_for_the_version_put_off(
+    #[case] offer: Option<UpdateOffer>,
+    #[case] installing: bool,
+    #[case] later: Option<&str>,
+    #[case] dismissed: bool,
+) {
+    let status = UpdateStatus::new(offer, installing, later);
+    assert_that!((status.dismissed, status.installing)).is_equal_to((dismissed, installing));
+}
+
+const HOUR: Duration = Duration::from_secs(3600);
+
+fn at(secs: u64) -> std::time::SystemTime {
+    std::time::UNIX_EPOCH + Duration::from_secs(secs)
+}
+
+#[rstest]
+#[case(None, at(0), 6 * HOUR, true)]
+#[case(Some(at(1_000_000)), at(1_000_000 + 6 * 3600 - 1), 6 * HOUR, false)]
+#[case(Some(at(1_000_000)), at(1_000_000 + 6 * 3600), 6 * HOUR, true)]
+#[case(Some(at(1_000_000)), at(1_000_000 + 30 * 3600), 6 * HOUR, true)]
+#[case(Some(at(1_000_000)), at(999_000), 6 * HOUR, true)]
+#[case(Some(at(1_000_000)), at(2_000_000), Duration::from_secs(u64::MAX), false)]
+fn check_due_by_wall_clock(
+    #[case] last: Option<std::time::SystemTime>,
+    #[case] now: std::time::SystemTime,
+    #[case] interval: Duration,
+    #[case] due: bool,
+) {
+    assert_that!(check_due(last, now, interval)).is_equal_to(due);
 }
 
 #[test]
@@ -146,6 +187,7 @@ fn download_source_accepts_only_our_release_assets(#[case] url: &str, #[case] ex
 #[case(UpdateStage::Open, "update-error-open")]
 #[case(UpdateStage::Unavailable, "update-error-unavailable")]
 #[case(UpdateStage::Refused, "update-error-refused")]
+#[case(UpdateStage::Busy, "update-error-busy")]
 fn update_stage_key_exists_in_english_and_french(#[case] stage: UpdateStage, #[case] key: &str) {
     assert_that!(stage.key()).is_equal_to(key);
     assert_that!(Localizer::new(Some("en")).has(key)).is_true();
@@ -158,6 +200,31 @@ fn update_stage_localize_speaks_french() {
     assert_that!(fr).is_not_equal_to(UpdateStage::Check.localize(&Localizer::new(Some("en"))));
 }
 
+#[rstest]
+#[case("en", "8.1.0")]
+#[case("fr", "8.1.0")]
+fn install_failure_localized_names_the_version(#[case] locale: &str, #[case] version: &str) {
+    let l = Localizer::new(Some(locale));
+    assert_that!(l.has("update-error-install")).is_true();
+    let text = InstallFailure { version: version.into() }.localize(&l);
+    assert_that!(text.contains(version)).is_true();
+    // Its own key, not another one that also names the version.
+    assert_that!(text).is_not_equal_to(UpdateStage::Busy.localize(&l));
+}
+
+#[test]
+fn install_failure_speaks_french() {
+    let failure = InstallFailure { version: "8.1.0".into() };
+    let fr = failure.localize(&Localizer::new(Some("fr")));
+    assert_that!(fr).is_not_equal_to(failure.localize(&Localizer::new(Some("en"))));
+}
+
+#[test]
+fn update_stage_busy_speaks_french() {
+    let fr = UpdateStage::Busy.localize(&Localizer::new(Some("fr")));
+    assert_that!(fr).is_not_equal_to(UpdateStage::Busy.localize(&Localizer::new(Some("en"))));
+}
+
 #[test]
 fn mirror_prefix_matches_tauri_endpoint_and_workflow() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -168,6 +235,8 @@ fn mirror_prefix_matches_tauri_endpoint_and_workflow() {
     assert_that!(conf["plugins"]["updater"]["endpoints"][0].as_str())
         .is_equal_to(Some(format!("{host}/latest.json").as_str()));
     assert_that!(workflow.contains(&format!("MIRROR_URL: {host}\n"))).is_true();
+    // t-1210: the signature must bind the version latest.json announces.
+    assert_that!(conf["plugins"]["updater"]["requireSignedVersion"].as_bool()).is_equal_to(Some(true));
 }
 
 #[rstest]

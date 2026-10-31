@@ -136,3 +136,33 @@ fn api_config_kind_is_model_and_french_text_is_the_literal() {
         "Les réglages de l'API de dictée sont invalides : corrigez-les dans la boîte des réglages.".to_owned(),
     );
 }
+
+/// A hub that announces 10 bytes, sends 1, then closes: a cut download (t-1052).
+fn incomplete_download() -> SttError {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap_or_else(|e| panic!("dépôt de test : {e}"));
+    let url = format!("http://{}", listener.local_addr().unwrap_or_else(|e| panic!("adresse : {e}")));
+    std::thread::spawn(move || {
+        for mut stream in listener.incoming().flatten() {
+            let mut head = [0u8; 4096];
+            let _ = stream.read(&mut head);
+            let _ = stream.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 10\r\nconnection: close\r\n\r\nx");
+        }
+    });
+    let dir = crate::test_support::fresh_dir("error-incomplete");
+    let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}")).models;
+    settings.hub_url = url;
+    settings.download_retries = 0;
+    match crate::models::download(crate::Model::Base, dir.path(), &settings, &storage, |_, _| true) {
+        Ok(_) => panic!("le téléchargement devait échouer"),
+        Err(e) => e,
+    }
+}
+
+#[test]
+fn incomplete_download_localized_in_french_gives_both_sizes() {
+    let error = incomplete_download();
+    assert_that!(error.kind()).is_equal_to(SttErrorKind::Download);
+    assert_that!(fr(&error)).is_equal_to("Téléchargement incomplet : 1 octets sur 10".to_owned());
+}

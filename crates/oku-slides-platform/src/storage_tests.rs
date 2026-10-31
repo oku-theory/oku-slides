@@ -299,3 +299,63 @@ fn write_into_a_read_only_dir_is_permission_denied() {
     std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
     assert_that!(err.kind()).is_equal_to(StorageErrorKind::PermissionDenied);
 }
+
+#[test]
+fn appender_missing_file_creates_it() {
+    let s = Storage::local().unwrap();
+    let tmp = temp_dir("append-new");
+    let file = tmp.path().join("a.part");
+    let mut out = s.appender(&file).unwrap();
+    out.write_all(b"abc").unwrap();
+    out.close().unwrap();
+    assert_that!(s.read(&file).unwrap()).is_equal_to(b"abc".to_vec());
+}
+
+#[test]
+fn appender_existing_file_extends_it() {
+    let s = Storage::local().unwrap();
+    let tmp = temp_dir("append-old");
+    let file = tmp.path().join("a.part");
+    s.write(&file, b"abc".to_vec()).unwrap();
+    let mut out = s.appender(&file).unwrap();
+    out.write_all(b"def").unwrap();
+    out.close().unwrap();
+    assert_that!(s.read(&file).unwrap()).is_equal_to(b"abcdef".to_vec());
+}
+
+#[test]
+fn writer_existing_file_truncates_it() {
+    let s = Storage::local().unwrap();
+    let tmp = temp_dir("writer-trunc");
+    let file = tmp.path().join("a.part");
+    s.write(&file, b"abcdef".to_vec()).unwrap();
+    let mut out = s.writer(&file).unwrap();
+    out.write_all(b"xy").unwrap();
+    out.close().unwrap();
+    assert_that!(s.read(&file).unwrap()).is_equal_to(b"xy".to_vec());
+}
+
+#[test]
+fn reader_read_chunk_returns_every_byte_then_zero() {
+    let s = Storage::local().unwrap();
+    let tmp = temp_dir("reader");
+    let file = tmp.path().join("a.bin");
+    s.write(&file, (0u8..10).collect::<Vec<u8>>()).unwrap();
+    let mut reader = s.reader(&file).unwrap();
+    let (mut got, mut buf) = (Vec::new(), [0u8; 4]);
+    loop {
+        let n = reader.read_chunk(&mut buf).unwrap();
+        if n == 0 {
+            break;
+        }
+        got.extend_from_slice(&buf[..n]);
+    }
+    assert_that!(got).is_equal_to((0u8..10).collect::<Vec<_>>());
+}
+
+#[test]
+fn reader_missing_file_returns_not_found() {
+    let tmp = temp_dir("reader-missing");
+    let err = Storage::local().unwrap().reader(&tmp.path().join("nope")).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(StorageErrorKind::NotFound);
+}

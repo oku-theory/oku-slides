@@ -1,8 +1,8 @@
-//! Fichiers de modèles épinglés (dépôt, révision, SHA-256), téléchargés à la demande.
+//! Pinned model files (repository, revision, SHA-256), downloaded on demand.
 //!
-//! Chaque fichier arrive en `.part`, haché au fil de l'eau, puis renommé ; le marqueur
-//! [`COMPLETE`] n'est écrit qu'une fois tous les fichiers vérifiés. Octets non fiables :
-//! un SHA-256 différent supprime le fichier.
+//! Each file arrives as `.part`, hashed on the fly, then renamed; the [`COMPLETE`] marker
+//! is written only once every file is verified. A cut `.part` of a pinned file is resumed
+//! with `Range` (t-1052). Untrusted bytes: a different SHA-256 deletes the file.
 
 use std::path::Path;
 
@@ -10,6 +10,8 @@ use crate::storage::Storage;
 
 #[cfg(feature = "download")]
 mod download;
+#[cfg(feature = "download")]
+mod resume;
 #[cfg(feature = "download")]
 pub use download::{DownloadError, download};
 

@@ -5,11 +5,15 @@
 //! module says whether it can install ([`InstallMode`]), what it shows
 //! ([`UpdateStatus`], [`UpdateProgress`]), when to report progress or stop
 //! ([`Progress`]), where it accepts a bundle from and which endpoint that is
-//! ([`download_source`], [`UpdateSource`]) and in which words to report a failure
-//! ([`UpdateStage`]).
+//! ([`download_source`], [`UpdateSource`]), in which words to report a failure
+//! ([`UpdateStage`], [`InstallFailure`]), when the next automatic check is due
+//! ([`check_due`], [`CHECK_TICK`]) and what it keeps on disk ([`UpdateMarks`]).
 
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
+mod marks;
+pub use marks::UpdateMarks;
 
 use oku_slides_i18n::{Localize, Localizer};
 use serde::Serialize;
@@ -34,8 +38,26 @@ pub const CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Longest silence on an updater response, check or download, before giving up.
 pub const READ_TIMEOUT: Duration = Duration::from_secs(20);
-/// Fichier (sous le dossier de données) de la dernière version qui n'a pas pu s'installer.
-pub const FAILED_VERSION_FILE: &str = "updates/failed-version";
+/// File (under the data folder) of the last version that could not be installed.
+pub(crate) const FAILED_VERSION_FILE: &str = "updates/failed-version";
+/// File of a failed install not yet told to the user, told at the next launch (t-985).
+pub(crate) const FAILED_NOTICE_FILE: &str = "updates/failed-notice";
+/// File of the version the user put off with "Later" (t-979).
+pub(crate) const LATER_VERSION_FILE: &str = "updates/later-version";
+/// Wake-up period of the automatic check; each wake checks whether one is due (t-976).
+///
+/// Short, because a sleeping Mac pauses the monotonic clock behind timers: the wall clock
+/// ([`check_due`]) decides, and a wake waits at most one tick.
+pub const CHECK_TICK: Duration = Duration::from_secs(3600);
+
+/// Is an automatic check due, `interval` after the `last` one?
+///
+/// Due without a last check, once `interval` has passed on the wall clock, and when the
+/// clock went back before `last`.
+#[must_use]
+pub fn check_due(last: Option<SystemTime>, now: SystemTime, interval: Duration) -> bool {
+    last.is_none_or(|last| !now.duration_since(last).is_ok_and(|elapsed| elapsed < interval))
+}
 
 /// Ce que l'app peut faire d'une nouvelle version sur ce système.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -93,13 +115,24 @@ pub struct UpdateOffer {
     pub mode: InstallMode,
 }
 
-/// État partagé par les fenêtres : l'offre gardée, et une installation en cours.
+/// State shared by the windows: the kept offer, an install under way, "Later".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UpdateStatus {
-    /// Offre trouvée ; `None` : l'app est à jour (ou rien n'a encore été cherché).
+    /// Offer found; `None`: the app is up to date (or nothing was checked yet).
     pub offer: Option<UpdateOffer>,
-    /// Un téléchargement ou une installation a commencé.
+    /// A download or an install has started.
     pub installing: bool,
+    /// The user put this offer's version off with "Later".
+    pub dismissed: bool,
+}
+
+impl UpdateStatus {
+    /// The status of `offer`, dismissed when its version is the one put off (`later`).
+    #[must_use]
+    pub fn new(offer: Option<UpdateOffer>, installing: bool, later: Option<&str>) -> Self {
+        let dismissed = offer.as_ref().is_some_and(|o| later == Some(o.version.as_str()));
+        Self { offer, installing, dismissed }
+    }
 }
 
 /// Avancée d'un téléchargement, diffusée aux fenêtres.
@@ -234,6 +267,8 @@ pub enum UpdateStage {
     Unavailable,
     /// Demande venue d'une fenêtre qui n'y a pas droit, ou app en train de quitter.
     Refused,
+    /// Another window already started the install (t-986).
+    Busy,
 }
 
 impl UpdateStage {
@@ -246,6 +281,7 @@ impl UpdateStage {
             Self::Open => "update-error-open",
             Self::Unavailable => "update-error-unavailable",
             Self::Refused => "update-error-refused",
+            Self::Busy => "update-error-busy",
         }
     }
 }
@@ -253,6 +289,19 @@ impl UpdateStage {
 impl Localize for UpdateStage {
     fn localize(&self, l: &Localizer) -> String {
         l.tr(self.key())
+    }
+}
+
+/// An install that failed before the restart, told once at the next launch (t-985).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallFailure {
+    /// The version that could not be installed.
+    pub version: String,
+}
+
+impl Localize for InstallFailure {
+    fn localize(&self, l: &Localizer) -> String {
+        l.tr_with("update-error-install", &[("version", self.version.as_str().into())])
     }
 }
 

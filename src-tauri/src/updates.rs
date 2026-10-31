@@ -1,23 +1,24 @@
-//! Mises à jour depuis les releases GitHub : recherche, téléchargement, installation.
+//! Updates from the GitHub releases: check, download, install.
 //!
-//! Une tâche cherche au lancement puis à intervalle (`[updates]`) ; l'offre est
-//! gardée dans [`Updates`] et chaque changement est signalé (`update-changed`,
-//! sans contenu) : les fenêtres relisent `update_status`. Seules les fenêtres de
-//! l'espace de travail peuvent chercher, installer ou ouvrir la page des
-//! releases. Installer : télécharger (origine vérifiée, taille plafonnée,
-//! signature vérifiée par le greffon), puis, dans un même travail bloquant,
-//! `state::settle` et l'installation, puis `request_restart` (qui repasse par
-//! `RunEvent::Exit`). Sous Windows, l'installeur ferme lui-même le processus.
+//! A task checks at launch, then whenever `check_due` says so on an hourly tick
+//! (`[updates]`); the offer is kept in [`Updates`] with "Later" and a failed-install
+//! notice ([`UpdateMarks`]), and each change is signalled (`update-changed`, without
+//! content): windows read `update_status` again. Only workspace windows may check, install
+//! or open the releases page. Install: download (origin checked, size capped, signature
+//! checked by the plugin), then, in one blocking job, `state::settle` and the install, then
+//! `request_restart` (back through `RunEvent::Exit`). On Windows the installer ends the
+//! process itself.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::SystemTime;
 
 use oku_slides_platform::config::UpdateSettings;
 use oku_slides_platform::errors::one_line;
 use oku_slides_platform::updates::{
-    Advance, CHECK_TIMEOUT, CONNECT_TIMEOUT, FAILED_VERSION_FILE, Host, InstallMode, Progress, READ_TIMEOUT,
-    RELEASES_URL, UpdateOffer, UpdateSource, UpdateStage, UpdateStatus, download_source,
+    Advance, CHECK_TICK, CHECK_TIMEOUT, CONNECT_TIMEOUT, Host, InstallFailure, InstallMode, Progress, READ_TIMEOUT,
+    RELEASES_URL, UpdateMarks, UpdateOffer, UpdateSource, UpdateStage, UpdateStatus, check_due, download_source,
 };
 use oku_slides_session::{Localize, Localizer, Storage};
 use snafu::{Backtrace, ResultExt, Snafu};
@@ -53,6 +54,8 @@ enum Inner {
     Unavailable { backtrace: Backtrace },
     #[snafu(display("update request refused: {why}"))]
     Refused { why: &'static str, backtrace: Backtrace },
+    #[snafu(display("an update is already being installed"))]
+    AlreadyInstalling { backtrace: Backtrace },
 }
 
 fn stage_of(inner: &Inner) -> UpdateStage {
@@ -62,6 +65,7 @@ fn stage_of(inner: &Inner) -> UpdateStage {
         Inner::Open { .. } => UpdateStage::Open,
         Inner::Unavailable { .. } => UpdateStage::Unavailable,
         Inner::Refused { .. } => UpdateStage::Refused,
+        Inner::AlreadyInstalling { .. } => UpdateStage::Busy,
     }
 }
 
@@ -71,13 +75,18 @@ impl Localize for UpdateError {
     }
 }
 
-/// Offre trouvée et installation en cours, partagées par les fenêtres.
+/// Offer found, install under way, "Later" and the last check, shared by the windows.
 pub struct Updates {
     found: Mutex<Option<(Update, UpdateOffer)>>,
     installing: AtomicBool,
-    /// Pour lire et écrire [`FAILED_VERSION_FILE`] (hors contexte async seulement).
-    storage: Storage,
-    failed_file: PathBuf,
+    /// Marks on disk; blocking calls, outside async contexts only (`spawn_blocking`).
+    marks: UpdateMarks,
+    /// The version put off with "Later", as on disk.
+    later: Mutex<Option<String>>,
+    /// A failed install not yet told, read at startup; handed to one window, then forgotten.
+    notice: Mutex<Option<String>>,
+    /// Wall-clock time of the last successful check.
+    last_check: Mutex<Option<SystemTime>>,
 }
 
 impl std::fmt::Debug for Updates {
@@ -87,29 +96,39 @@ impl std::fmt::Debug for Updates {
 }
 
 impl Updates {
-    /// État vide ; `data` : dossier de données de l'app.
+    /// Reads "Later" and the failed-install notice; `data`: the app data folder.
+    ///
+    /// Blocking: called from the synchronous Tauri setup.
     pub fn new(storage: Storage, data: &Path) -> Self {
+        let marks = UpdateMarks::new(storage, data);
         Self {
             found: Mutex::new(None),
             installing: AtomicBool::new(false),
-            storage,
-            failed_file: data.join(FAILED_VERSION_FILE),
+            later: Mutex::new(marks.later()),
+            notice: Mutex::new(marks.notice()),
+            last_check: Mutex::new(None),
+            marks,
         }
     }
 
     fn status(&self) -> UpdateStatus {
         let offer = self.found.lock().unwrap_or_else(PoisonError::into_inner).as_ref().map(|(_, o)| o.clone());
-        UpdateStatus { offer, installing: self.installing.load(Ordering::SeqCst) }
+        let later = self.later.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        UpdateStatus::new(offer, self.installing.load(Ordering::SeqCst), later.as_deref())
     }
+}
 
-    /// Version dont l'installation a échoué (absente : aucune) ; travail bloquant.
-    fn failed_version(&self) -> Option<String> {
-        match self.storage.read_limited(&self.failed_file, 64) {
-            Ok(bytes) => String::from_utf8(bytes).ok().map(|v| v.trim().to_owned()),
-            Err(e) => {
-                tracing::debug!(error = %one_line(&e), "aucune version en échec lue");
-                None
-            }
+/// Runs `job` on the marks on a blocking thread (they touch the disk); `None` if it failed.
+async fn with_marks<R: Send + 'static>(
+    marks: &UpdateMarks,
+    job: impl FnOnce(&UpdateMarks) -> R + Send + 'static,
+) -> Option<R> {
+    let marks = marks.clone();
+    match tauri::async_runtime::spawn_blocking(move || job(&marks)).await {
+        Ok(result) => Some(result),
+        Err(e) => {
+            tracing::warn!(error = %e, "marque de mise à jour non traitée");
+            None
         }
     }
 }
@@ -148,6 +167,7 @@ async fn check(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
         .await
         .map_err(|_| UpdateError::from(CheckTimeoutSnafu.build()))?
         .context(CheckSnafu)?;
+    *updates.last_check.lock().unwrap_or_else(PoisonError::into_inner) = Some(SystemTime::now());
     if updates.installing.load(Ordering::SeqCst) {
         return Ok(updates.status());
     }
@@ -165,21 +185,10 @@ async fn check(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
                 tracing::warn!(error = %e, "exécutable courant inconnu");
                 PathBuf::new()
             });
-            let failed_before = {
-                let app = app.clone();
-                let version = update.version.clone();
-                match tauri::async_runtime::spawn_blocking(move || {
-                    app.try_state::<Updates>().and_then(|u| u.failed_version()).is_some_and(|v| v == version)
-                })
+            let version = update.version.clone();
+            let failed_before = with_marks(&updates.marks, move |m| m.failed_version().is_some_and(|v| v == version))
                 .await
-                {
-                    Ok(failed) => failed,
-                    Err(e) => {
-                        tracing::warn!(error = %e, "version en échec non lue");
-                        false
-                    }
-                }
-            };
+                == Some(true);
             let host = Host {
                 os: std::env::consts::OS,
                 appimage: std::env::var_os("APPIMAGE").is_some(),
@@ -196,10 +205,12 @@ async fn check(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
     Ok(updates.status())
 }
 
-/// Recherche automatique : au lancement, puis à chaque intervalle ; un échec est seulement journalisé.
+/// Automatic check: at launch, then on each tick when one is due; a failure is only logged.
 ///
-/// L'horloge de `tokio::time::sleep` est monotone : un Mac en veille repousse la
-/// recherche suivante d'autant (accepté, t-976).
+/// Timers follow a monotonic clock that a sleeping Mac pauses, so the wall clock decides
+/// (`check_due`) and the tick is short ([`CHECK_TICK`], never above the interval, which
+/// counts whole hours): after a wake, the check comes within one tick (t-976). A failed
+/// check is tried again next tick.
 pub fn spawn_checks(app: &AppHandle, settings: &UpdateSettings) {
     if !settings.auto_check(cfg!(debug_assertions)) {
         tracing::debug!("recherche automatique des mises à jour désactivée");
@@ -209,13 +220,17 @@ pub fn spawn_checks(app: &AppHandle, settings: &UpdateSettings) {
     let interval = settings.interval();
     tauri::async_runtime::spawn(async move {
         while !closing(&app) {
-            match check(&app).await {
-                // An offer is logged by `check`, with its url and endpoint.
-                Ok(UpdateStatus { offer: Some(_), .. }) => {}
-                Ok(UpdateStatus { offer: None, .. }) => tracing::debug!("aucune mise à jour"),
-                Err(e) => tracing::warn!(error = %one_line(&e), "recherche de mise à jour"),
+            let last =
+                app.try_state::<Updates>().and_then(|u| *u.last_check.lock().unwrap_or_else(PoisonError::into_inner));
+            if check_due(last, SystemTime::now(), interval) {
+                match check(&app).await {
+                    // An offer is logged by `check`, with its url and endpoint.
+                    Ok(UpdateStatus { offer: Some(_), .. }) => {}
+                    Ok(UpdateStatus { offer: None, .. }) => tracing::debug!("aucune mise à jour"),
+                    Err(e) => tracing::warn!(error = %one_line(&e), "recherche de mise à jour"),
+                }
             }
-            tokio::time::sleep(interval).await;
+            tokio::time::sleep(CHECK_TICK).await;
         }
     });
 }
@@ -236,15 +251,79 @@ pub async fn update_status(
     Ok(updates.status())
 }
 
-/// Recherche demandée (menu) ; `offer` absente : l'app est à jour.
+/// Check asked by the user (menu); forgets "Later" first. No `offer`: the app is up to date.
 #[tauri::command]
 pub async fn check_update(
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, AppState>,
+    updates: State<'_, Updates>,
 ) -> Result<UpdateStatus, String> {
     workspace_window(&window).map_err(|e| refuse(&state, &e))?;
+    *updates.later.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    // Shown again even if the check below fails.
+    changed(&app);
+    with_marks(&updates.marks, |m| {
+        if let Err(e) = m.clear_later() {
+            tracing::warn!(error = %one_line(&e), "« Plus tard » non oublié sur le disque");
+        }
+    })
+    .await;
     check(&app).await.map_err(|e| refuse(&state, &e))
+}
+
+/// "Later": puts `version` off, if it is still the offer; the status that follows.
+#[tauri::command]
+pub async fn later_update(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    updates: State<'_, Updates>,
+    version: String,
+) -> Result<UpdateStatus, String> {
+    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
+    // Decided under the offer's lock: a newer offer found meanwhile was never shown, so it is
+    // not put off, and a check cannot replace the offer between the test and the mark.
+    let accepted = {
+        let found = updates.found.lock().unwrap_or_else(PoisonError::into_inner);
+        let current = found.as_ref().is_some_and(|(_, offer)| offer.version == version);
+        if current {
+            *updates.later.lock().unwrap_or_else(PoisonError::into_inner) = Some(version.clone());
+        }
+        current
+    };
+    if accepted {
+        changed(&app);
+        with_marks(&updates.marks, move |m| {
+            if let Err(e) = m.set_later(&version) {
+                tracing::warn!(error = %one_line(&e), "« Plus tard » gardé pour cette session seulement");
+            }
+        })
+        .await;
+    }
+    Ok(updates.status())
+}
+
+/// The failed-install notice, localized, for the first window that asks; then `None`.
+///
+/// Removed from disk only now: a launch that never shows a window tells it next time.
+#[tauri::command]
+pub async fn take_update_notice(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    updates: State<'_, Updates>,
+) -> Result<Option<String>, String> {
+    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
+    let version = updates.notice.lock().unwrap_or_else(PoisonError::into_inner).take();
+    if version.is_some() {
+        with_marks(&updates.marks, |m| {
+            if let Err(e) = m.clear_notice() {
+                tracing::warn!(error = %one_line(&e), "notice d'échec de mise à jour non retirée");
+            }
+        })
+        .await;
+    }
+    Ok(version.map(|version| InstallFailure { version }.localize(&state.localizer)))
 }
 
 /// Télécharge, puis enregistre l'espace de travail, installe et redémarre.
@@ -270,7 +349,7 @@ async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     };
     // Une autre fenêtre installe déjà : rien à refaire, mais elle le sait (`update-changed`).
     if updates.installing.swap(true, Ordering::SeqCst) {
-        return Err(RefusedSnafu { why: "already installing" }.build().into());
+        return Err(AlreadyInstallingSnafu.build().into());
     }
     changed(app);
     let bytes = match download(app, &update, endpoint).await {
@@ -288,12 +367,12 @@ async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     tracing::info!(version = %offer.version, "mise à jour téléchargée : enregistrement puis installation");
     let job = app.clone();
     let version = offer.version.clone();
+    let marks = updates.marks.clone();
     let done = tauri::async_runtime::spawn_blocking(move || {
         crate::state::settle(&job);
         let installed = update.install(bytes);
         if let Err(e) = &installed
-            && let Some(updates) = job.try_state::<Updates>()
-            && let Err(w) = updates.storage.write_atomic(&updates.failed_file, version.into_bytes())
+            && let Err(w) = marks.record_failure(&version)
         {
             tracing::error!(error = %e, write = %one_line(&w), "version en échec non gardée");
         }

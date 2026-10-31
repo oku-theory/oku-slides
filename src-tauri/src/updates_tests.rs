@@ -10,6 +10,7 @@ use super::*;
 #[case(UntrustedSnafu { url: "x".to_owned() }.build(), UpdateStage::Download)]
 #[case(UnavailableSnafu.build(), UpdateStage::Unavailable)]
 #[case(RefusedSnafu { why: "agent window" }.build(), UpdateStage::Refused)]
+#[case(AlreadyInstallingSnafu.build(), UpdateStage::Busy)]
 #[case(
     DownloadSnafu { url: "x", endpoint: UpdateSource::GitHub }
         .into_error(tauri_plugin_updater::Error::Network("403".to_owned())),

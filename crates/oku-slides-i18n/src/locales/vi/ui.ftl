@@ -369,6 +369,7 @@ ui-update-available = Oku Slides { $version } đã có sẵn.
 ui-update-install = Cài đặt và khởi động lại
 ui-update-see-release = Xem bản phát hành
 ui-update-later = Để sau
+ui-update-notice-close = Đóng
 ui-update-installing = Đang tải bản cập nhật… { $percent }%
 ui-update-downloading = Đang tải bản cập nhật…
 ui-update-up-to-date = Oku Slides đã là bản mới nhất.

@@ -169,6 +169,26 @@ fn menu_event(app: &tauri::AppHandle, event: &tauri::menu::MenuEvent) {
     }
 }
 
+/// Adds the single-instance plugin where it can work.
+///
+/// On Linux, `tauri-plugin-single-instance` 2.4.5 unwraps the D-Bus session bus in its
+/// plugin (`linux.rs`) and panics without one (headless CI, a container without D-Bus); it
+/// would be useless anyway without a bus, since it talks to the other instance through it.
+/// Enabled only when a bus is there.
+fn with_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    let available = cfg!(not(target_os = "linux"))
+        || session_bus(
+            std::env::var_os("DBUS_SESSION_BUS_ADDRESS").as_deref(),
+            std::env::var_os("XDG_RUNTIME_DIR").as_deref(),
+        );
+    if available {
+        builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| second_instance(app, argv, &cwd)))
+    } else {
+        tracing::warn!("pas de bus D-Bus détecté : instance unique désactivée");
+        builder
+    }
+}
+
 fn main() -> color_eyre::Result<()> {
     // Relancé en processus de rendu (`--render-worker`) : sert le tube, puis termine.
     oku_slides_render_worker::exit_if_worker();
@@ -179,23 +199,7 @@ fn main() -> color_eyre::Result<()> {
     // Launched from the Finder, the app has launchd's `PATH`: the login shell's leads (t-956).
     let platform = Platform::load()?.with_login_path();
     let builder = tauri::Builder::default().manage(Pending::default()).manage(tab_drag::Hover::default());
-    // Linux : `tauri-plugin-single-instance` 2.4.5 fait un `unwrap()` sur le
-    // bus de session D-Bus dans son greffon (`linux.rs`), et panique s'il n'y
-    // en a pas (CI headless, conteneur sans D-Bus) ; il ne servirait de toute
-    // façon à rien sans bus, puisque c'est par lui qu'il parle à l'autre
-    // instance. Activé seulement si un bus est présent.
-    let single_instance_available = cfg!(not(target_os = "linux"))
-        || session_bus(
-            std::env::var_os("DBUS_SESSION_BUS_ADDRESS").as_deref(),
-            std::env::var_os("XDG_RUNTIME_DIR").as_deref(),
-        );
-    let builder = if single_instance_available {
-        builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| second_instance(app, argv, &cwd)))
-    } else {
-        tracing::warn!("pas de bus D-Bus détecté : instance unique désactivée");
-        builder
-    };
-    let builder = builder
+    let builder = with_single_instance(builder)
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -277,7 +281,9 @@ fn main() -> color_eyre::Result<()> {
             updates::update_status,
             updates::check_update,
             updates::install_update,
-            updates::open_release_page
+            updates::open_release_page,
+            updates::later_update,
+            updates::take_update_notice
         ])
         .build(tauri::generate_context!())?;
     app.run(|app_handle, event| {

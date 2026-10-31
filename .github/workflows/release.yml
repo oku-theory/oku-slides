@@ -7,8 +7,11 @@
 # hence the draft while one is missing. Run again by hand, the workflow completes that draft
 # (platforms left out, or failed and fixed since).
 # The release also carries the signed update bundles and `latest.json`, read by installed apps once
-# the release is published as "latest". The signing secrets live in the `release` environment;
-# a local `just build` produces no update bundle and needs no key.
+# the release is published as "latest". Build jobs sign them with a throwaway key; the `sign` job
+# alone, in the `release` environment that holds the updater key, re-signs them with the trusted
+# comment `version:<version>` (t-977, t-1210, ADR-0014), and the publish gate verifies them
+# against the pubkey of tauri.conf.json. A local `just build` produces no update bundle and needs
+# no key.
 # Once published, the `mirror` job copies the update files to updates.okutheory.com, read first by
 # installed apps (update-mirror.yml, ADR-0010).
 name: Release
@@ -99,6 +102,10 @@ jobs:
           # Release-plz creates the tag: without it, the release PR is not merged.
           sha=$(git rev-parse -q --verify "refs/tags/v$version^{commit}") \
             || { echo "::error::tag v$version absent : fusionnez la PR de release"; exit 1; }
+          # Build jobs hold a write token: a tag they could plant elsewhere must not be built,
+          # nor reach the sign job (t-977, ADR-0014).
+          git merge-base --is-ancestor "$sha" HEAD \
+            || { echo "::error::v$version ($sha) n'est pas sur main"; exit 1; }
           # A published release is immutable: every build would fail on upload.
           # Only a missing release lets the run through: any other gh error stops it.
           if draft=$(gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>err); then
@@ -121,8 +128,8 @@ jobs:
       # Plateformes cochées au lancement (job version).
       matrix: ${{ fromJSON(needs.version.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
-    # Les secrets d'environnement n'atteignent que les jobs qui nomment leur environnement.
-    environment: release
+    # No `environment: release`: this job runs the build (npm, build.rs, actions) and must hold no
+    # signing secret (t-977, ADR-0014).
     env:
       TAURI_CLI_VERSION: 2.11.5
     # CTranslate2 (dictée) se compile en C++ : long sans cache.
@@ -213,14 +220,22 @@ jobs:
         working-directory: ui
         run: bun install --frozen-lockfile
 
+      # tauri-action builds the update bundles only with a signing key: a throwaway one, made per
+      # job, whose signatures the sign job replaces and the publish gate would refuse (t-977).
+      - name: Throwaway updater key
+        shell: bash
+        run: |
+          cargo tauri signer generate --ci -p "" -w "$RUNNER_TEMP/throwaway.key" -f > /dev/null
+          key=$(tr -d '\r\n' < "$RUNNER_TEMP/throwaway.key")
+          [[ "$key" =~ ^[A-Za-z0-9+/=]+$ ]] || { echo "::error::throwaway key unreadable"; exit 1; }
+          echo "TAURI_SIGNING_PRIVATE_KEY=$key" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Signature des paquets de mise à jour (minisign, t-967) : secrets de l'environnement
-          # `release`, réservé à main. Ce pas exécute aussi le build (npm, build.rs) : d'où les
-          # actions figées par SHA ; signer dans un job séparé est t-977.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # TAURI_SIGNING_PRIVATE_KEY comes from the previous step (throwaway, no password). This
+          # step runs the build (npm, build.rs): hence actions pinned by SHA.
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
           # Signature ad hoc des deux jobs macOS (Apple Silicon et Intel), ignorée ailleurs : sans
           # certificat Apple, l'app Apple Silicon doit au moins être signée pour se lancer.
           APPLE_SIGNING_IDENTITY: "-"
@@ -240,33 +255,119 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-  # The chosen platforms have uploaded their packages: at four out of four, the draft is published
-  # as "latest" on the version's commit. A failed build skips this job (needs) and leaves the draft
-  # as it is. `complete` tells the mirror job whether the release went out.
+  # Re-signs every update bundle of the draft with the updater key, the only job holding it
+  # (t-977, ADR-0014): one signature per bundle URL, trusted comment `version:<version>` (t-1210).
+  # No Rust or Node tooling here. Scripts come from this run's commit on main (`github.sha`, the
+  # `release` environment only runs on main), never from the tag, which a build job could move.
+  sign:
+    name: Signature
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    # Environment secrets reach only the jobs that name their environment.
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: minisign
+        run: sudo apt-get update && sudo apt-get install -y minisign && minisign -v
+
+      # URL rule of release-lib.sh; release-sign.sh checks it again before signing.
+      - name: Bundles downloaded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: .github/scripts/release-fetch.sh "$VERSION" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/draft"
+
+      - name: Bundles signed
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          d="$RUNNER_TEMP/draft"
+          .github/scripts/release-sign.sh "$d/latest.json" "$d/bundles" "$VERSION" \
+            "$GITHUB_REPOSITORY" "$d/signed" > "$d/produced"
+          cat "$d/produced"
+
+      # Signatures first, latest.json last; then the `.sig` assets left by the throwaway keys of
+      # bundles no longer listed go, so the draft only carries signatures of the real key. Every
+      # `.sig` asset of a release is an updater signature: another kind would need another suffix.
+      - name: Signatures uploaded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.version.outputs.version }}
+        run: |
+          d="$RUNNER_TEMP/draft"
+          cd "$d/signed"
+          while read -r sig; do
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$sig"
+          done < "$d/produced"
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber latest.json
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' > "$d/assets"
+          while read -r asset; do
+            if [[ "$asset" == *.sig ]] && ! grep -qxF "$asset" "$d/produced"; then
+              echo "Removing stale signature $asset"
+              gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+          done < "$d/assets"
+
+  # The chosen platforms have uploaded their packages and the sign job re-signed them: at four out
+  # of four, the draft is published as "latest" on the version's commit. A failed build or sign
+  # skips this job (needs) and leaves the draft as it is. `complete` tells the mirror job whether
+  # the release went out.
   publish:
     name: Publication
-    needs: [version, build]
+    needs: [version, build, sign]
     runs-on: ubuntu-24.04
     outputs:
       complete: ${{ steps.gate.outputs.complete }}
     steps:
-      # Chaque plateforme construite doit figurer, signée, dans `latest.json`. Une release partielle
-      # reste un brouillon : publiée, elle serait immuable et ne pourrait plus être complétée.
-      - name: latest.json vérifié
+      # The gate script and the pubkey come from this run's commit on main, like the sign job's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: minisign
+        run: sudo apt-get update && sudo apt-get install -y minisign && minisign -v
+
+      # Every key of `latest.json` must point into this release and carry a signature of the
+      # updater key bound to this version; a bad one fails the job (release-gate.sh). The platforms
+      # built in this run must be there. A partial release stays a draft: published, it would be
+      # immutable and could no longer be completed.
+      - name: latest.json verified
         id: gate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
           TAG: v${{ needs.version.outputs.version }}
           WANT: ${{ needs.version.outputs.updaters }}
+          # Set only during a key rotation: the old pubkey, the one installed apps trust while
+          # tauri.conf.json already carries the new one (ADR-0014).
+          ROTATION_PUBKEY: ${{ vars.UPDATER_ROTATION_PUBKEY }}
         run: |
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p latest.json -O latest.json
-          jq -e --argjson want "$WANT" '
-            . as $r | all($want[]; . as $k | $r.platforms[$k] | (.url // "") != "" and (.signature // "") != "")
-          ' latest.json > /dev/null || { echo "::error::latest.json incomplet"; jq . latest.json; exit 1; }
-          # Les quatre plateformes, celles des runs précédents comprises, chacune avec URL et signature.
+          d="$RUNNER_TEMP/draft"
+          .github/scripts/release-fetch.sh "$VERSION" "$GITHUB_REPOSITORY" "$d"
+          if [ -n "$ROTATION_PUBKEY" ]; then
+            echo "::warning::key rotation: gate verifies against UPDATER_ROTATION_PUBKEY"
+            pubkey=$ROTATION_PUBKEY
+          else
+            pubkey=$(jq -er '.plugins.updater.pubkey | strings' src-tauri/tauri.conf.json) \
+              || { echo "::error::no plugins.updater.pubkey in tauri.conf.json"; exit 1; }
+          fi
+          .github/scripts/release-gate.sh "$d/latest.json" "$d/bundles" "$VERSION" \
+            "$GITHUB_REPOSITORY" "$pubkey" "$(jq -r 'join(",")' <<<"$WANT")"
+          latest="$d/latest.json"
+          # The four platforms, those of earlier runs included, each with URL and signature (all
+          # verified above). Keep this list in step with PLATFORMS in release-gate.sh.
           n=$(jq '[.platforms | to_entries[]
                    | select(.key | IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))
-                   | select((.value.url // "") != "" and (.value.signature // "") != "")] | length' latest.json)
+                   | select((.value.url // "") != "" and (.value.signature // "") != "")] | length' "$latest")
           if [ "$n" -eq 4 ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; else
             echo "::warning::$n plateformes sur 4 : $TAG reste un brouillon, à compléter en relançant Release"
             echo "complete=false" >> "$GITHUB_OUTPUT"; fi

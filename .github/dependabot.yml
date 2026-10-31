@@ -1,0 +1,17 @@
+# Bumps the GitHub actions of .github/workflows (t-984): those pinned by SHA keep the pin form
+# with an updated trailing `# vN` comment, the others (audit.yml) their tag. Cargo and Bun
+# dependencies stay manual.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
+    ignore:
+      # Its ref is the frozen Rust version of release builds, raised with the local toolchain.
+      - dependency-name: dtolnay/rust-toolchain
