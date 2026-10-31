@@ -5,6 +5,37 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.0.0] - 2026-10-31
+
+### Added
+
+- *(ui)* About entry with the version and changelog (t-1236)
+- *(session,ui)* [**breaking**] deck-only packs open in their own tab linked to their deck (t-1200, t-1224, t-1226, t-1227, t-1228, t-1229, t-1230, t-1232, t-1234, t-1235)
+- *(agent,platform)* OKU_SLIDES_DEBUG_ACP logs ACP messages both ways (t-1256)
+- *(ui,session)* [**breaking**] pack and theme tabs, the interface (t-1157)
+- *(agent)* choose the ACP agent model per preset (t-1257, t-1258, t-1259, t-1260, t-1261, t-1262, t-1263, t-1264)
+- *(mcp,session,agent)* [**breaking**] each tab kind gets its own agent tools, instructions and context; a deck's agent opens pack and theme tabs (t-1191)
+- *(ui)* a toolbar button opens the deck's history (t-1292)
+- *(ui)* the history bar's Back button becomes Close the history (t-1294)
+- *(ui,session,mcp)* [**breaking**] the stage grid shows only while dragging (t-1283)
+- *(core,session,ui,typst)* # to ###### headings in editing markdown (t-1284)
+- *(mcp,agent,session,local-agent,ui)* [**breaking**] lot 7 follow-ups (t-1152, t-1277, t-1278, t-1279, t-1280, t-1281, t-1282)
+- *(ui,session,i18n)* t-1152 small UI batch (t-1254, t-1266, t-1252, t-1250, t-1265, t-1311)
+- *(core,session,agent,mcp,cli,platform,ui)* [**breaking**] token usage ledger in each deck (t-1296)
+
+### Fixed
+
+- *(render,session)* a deck color the theme lacks draws in ink-muted with a deck warning instead of failing the render (t-1293)
+- *(render-worker)* images no longer draw as fallback frames after a worker restart (t-1295)
+- *(ui)* history slider keeps its width whatever the caption or theme (t-1375)
+- *(ui)* history bar gives the slider 65% of the free width (t-1375)
+- *(ui)* history bar gives the slider 75% of the free width (t-1375)
+
+### Documentation
+
+- *(session,ui)* AGENTS.md rules for the agent-surfaces fixture and ContextMenu (t-1252, t-1250)
+- *(agents)* re-check main right before squashing a worktree branch (t-1296)
+
 ## [8.0.0] - 2026-10-28
 
 ### Added
