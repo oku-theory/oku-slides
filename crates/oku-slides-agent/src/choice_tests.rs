@@ -31,6 +31,7 @@ fn choice(platform: &Platform) -> AgentChoice {
         command: String::new(),
         args: Vec::new(),
         env: Vec::new(),
+        path: None,
         fallback_cwd: platform.settings.paths.data(),
         ready_within: std::time::Duration::from_secs(1),
     };
@@ -339,4 +340,48 @@ fn switch_to_asks_the_chosen_model_of_the_new_agent() {
     let choice = choice(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")));
     choice.switch_to("bis");
     assert_that!(choice.link.wanted_model()).is_equal_to(Some("deep".to_owned()));
+}
+
+/// A platform whose active agent runs the bare command `agent-acp`, looked up on `path`.
+fn bare_command_platform(data: &std::path::Path, path: Option<std::ffi::OsString>) -> Platform {
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("settings: {e}"));
+    settings.paths.data = Some(data.to_path_buf());
+    settings.paths.decks = Some(data.join("decks"));
+    settings
+        .agent
+        .insert_preset("bare", AgentPreset::new("Bare", "agent-acp", Vec::new()))
+        .unwrap_or_else(|e| panic!("preset: {e}"));
+    settings.agent.select("bare").unwrap_or_else(|e| panic!("agent: {e}"));
+    settings.i18n.locale = Some("fr".into());
+    let mut platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}"));
+    platform.program_path = oku_slides_platform::ProgramPath::fixed(path);
+    platform
+}
+
+#[test]
+fn availability_finds_a_bare_command_on_the_program_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::write(bin.join("agent-acp"), b"#!/bin/sh\n").unwrap();
+    let platform = bare_command_platform(dir.path(), Some(bin.into_os_string()));
+    assert_that!(choice(&platform).availability()).is_none();
+}
+
+#[test]
+fn availability_of_a_command_off_the_program_path_says_where_to_fix_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let platform = bare_command_platform(dir.path(), Some(dir.path().as_os_str().to_owned()));
+    let expected = fr().tr_with("agent-not-found", &[("command", "agent-acp".into())]);
+    assert_that!(choice(&platform).availability()).is_equal_to(Some(expected));
+    assert_that!(fr().tr("agent-not-found")).contains("PATH");
+}
+
+#[test]
+fn launch_of_carries_the_program_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let platform = bare_command_platform(dir.path(), Some("/login/bin".into()));
+    let launch = AgentChoice::launch_of(&AgentPreset::new("Bare", "agent-acp", Vec::new()), &platform);
+    let path = launch.path.as_ref().and_then(|p| p.get()).map(std::ffi::OsStr::to_owned);
+    assert_that!(path).is_equal_to(Some("/login/bin".into()));
 }

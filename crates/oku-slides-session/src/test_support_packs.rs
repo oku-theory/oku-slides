@@ -94,7 +94,7 @@ pub(crate) fn opener_deck(s: &mut Session, data: &Path) -> tempfile::TempDir {
     let (_, acme_ns) = acme_pack(s, data);
     ok(s.set_widget(Some(&acme_ns), "card", CARD_SRC.into()), "card");
     s.end_widget_session();
-    ok(s.handle(Request::SetTheme { theme: "pro".into() }), "pro");
+    ok(s.set_theme(&crate::test_support::ns(crate::theme::PRO_NAMESPACE)), "pro");
     let token = Op::SetToken { path: vec!["color".into(), "accent".into()], value: json!("#ff0000") };
     ok(s.handle(Request::Apply { label: "token".into(), ops: vec![token], merge: None }), "token");
     let chart: Op = serde_json::from_value(json!({

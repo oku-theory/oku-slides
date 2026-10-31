@@ -324,7 +324,7 @@ fn pin_all_namespace_pinned_under_the_other_kind_is_refused_and_pins_nothing() {
 fn pack_working_deck_keeps_the_deck_theme_and_overrides() {
     let data = fresh_dir("oku-slides-pack-style-");
     let mut s = session_on(data.path());
-    s.handle(crate::Request::SetTheme { theme: "pro".into() }).unwrap();
+    s.set_theme(&crate::test_support::ns(crate::theme::PRO_NAMESPACE)).unwrap();
     let ink = Op::SetToken { path: vec!["color".into(), "ink".into()], value: serde_json::json!("#101010") };
     s.apply("ink", vec![ink], None).unwrap();
     let accent = crate::theme_edit::theme_edit_tests::rendered_token(&s, "/color/accent");

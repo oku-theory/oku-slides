@@ -341,6 +341,12 @@ impl AppVoice {
         self.switch.lock().shutdown();
     }
 
+    /// The dictation's shipped locale (chosen, else detected); `None` without dictation.
+    pub(crate) fn dictation_locale(&self) -> Option<&'static str> {
+        let (chosen, detected) = self.stt.as_ref()?.languages();
+        crate::shortcut::dictation_locale(chosen.as_deref(), detected.as_deref())
+    }
+
     /// La langue courante de l'interface.
     pub(crate) fn localizer(&self) -> Arc<Localizer> {
         self.choice.localizer()

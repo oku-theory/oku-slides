@@ -23,7 +23,6 @@ impl Request {
         match self {
             Self::Save { .. }
             | Self::Apply { .. }
-            | Self::SetTheme { .. }
             | Self::EditTheme { .. }
             | Self::Undo
             | Self::Redo
@@ -76,7 +75,6 @@ impl Request {
         matches!(
             self,
             Self::Apply { .. }
-                | Self::SetTheme { .. }
                 | Self::SetPreviewTheme { .. }
                 | Self::EditTheme { .. }
                 | Self::Undo
@@ -141,7 +139,6 @@ impl Request {
     pub(crate) fn writes_edited_draft(&self) -> bool {
         match self {
             Self::Apply { .. }
-            | Self::SetTheme { .. }
             | Self::SetPreviewTheme { .. }
             | Self::EditTheme { .. }
             | Self::Undo
@@ -216,7 +213,6 @@ impl Request {
             | Self::EditThemeExtends { .. }
             | Self::SaveTheme { .. } => true,
             Self::Save { .. }
-            | Self::SetTheme { .. }
             | Self::SetPreviewTheme { .. }
             | Self::EditTheme { .. }
             | Self::ChartKind { .. }

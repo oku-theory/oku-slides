@@ -43,7 +43,7 @@ agent-confirm-agent = 要在没有回复运行时将应用智能体切换为 { $
 agent-confirm-agent-builtin = 要在没有回复运行时将应用智能体切换为 { $name } 吗？
 agent-confirm-agent-model = 要下载本地智能体模型吗（{ $size }）？
 
-agent-not-found = 未找到智能体：{ $command }。设置 [agent.presets]。
+agent-not-found = 未找到智能体：{ $command } 不在该路径，也不在应用的 PATH 中。请在 [agent.presets] 中填写完整路径。
 agent-spawn-failed = 无法启动智能体：{ $command }。设置 [agent.presets]。
 agent-no-http = 此智能体无法连接到 Oku Slides 的工具。
 agent-local-no-program = 本地智能体只能在 Oku Slides 应用内运行。
@@ -126,7 +126,6 @@ agent-error-setting = 无法更改设置 { $key }：请检查其值。
 agent-error-history-index = 浏览历史记录需要版本的序号。
 agent-error-no-pack = 此演示文稿未固定任何包：请提供 pack（参见 packs）。
 agent-error-history-not-opened = 标签页未能及时打开历史记录：请重新请求。
-agent-error-present = 此处没有可演示的内容：没有幻灯片，或标签页处于包、历史记录或只读模式。
 agent-error-locale = 未知的语言代码。请提供内置语言代码或 system。
 agent-error-empty-interface = 没有要更改的内容：请提供 scheme、locale 或 guides。
 agent-error-empty-dictation = 没有要更改的内容：请至少提供一项听写设置。

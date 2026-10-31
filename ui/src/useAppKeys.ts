@@ -74,7 +74,7 @@ export function useAppKeys({
       if (themeTab && themeTabIgnores(e)) return;
       const mod = e.metaKey || e.ctrlKey;
       const presentMode = presentShortcut(e);
-      if (presentMode && !snap?.editing && !themeTab && !snap?.history) {
+      if (presentMode && !snap?.editing && snap?.can_present) {
         e.preventDefault();
         present(presentMode);
         return;

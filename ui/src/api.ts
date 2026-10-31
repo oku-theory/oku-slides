@@ -106,6 +106,8 @@ export interface Snapshot {
   history: HistoryView | null;
   /** L'aide de l'app : le deck se lit, il ne se modifie pas. */
   read_only: boolean;
+  /** The tab can present its deck (`Session::can_present`): Present follows it. */
+  can_present: boolean;
   ui: UiState;
   /** Paramètres d'hôte des widgets d'élément du deck, par kind et type d'hôte. */
   host_params: HostParams;
@@ -550,6 +552,8 @@ export interface Messages {
   resources: string[];
   /** Langue choisie ; `null` : celle du système. */
   chosen: string | null;
+  /** The theme shortcut's comma-separated words, by shipped locale (`ui-shortcut-theme`). */
+  shortcuts: Record<string, string>;
 }
 
 // --- Agent -----------------------------------------------------------------

@@ -127,6 +127,7 @@ async fn start_tabs_ready_within(
             log.to_string_lossy().into_owned(),
         ],
         env: Vec::new(),
+        path: None,
         fallback_cwd: dir.path().to_owned(),
         ready_within,
     };

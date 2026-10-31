@@ -43,7 +43,7 @@ agent-confirm-agent = 실행 중인 응답이 없을 때 앱 에이전트를 { $
 agent-confirm-agent-builtin = 실행 중인 응답이 없을 때 앱 에이전트를 { $name }(으)로 바꿀까요?
 agent-confirm-agent-model = 로컬 에이전트 모델을 다운로드할까요({ $size })?
 
-agent-not-found = 에이전트를 찾을 수 없습니다: { $command }. 설정 [agent.presets].
+agent-not-found = 에이전트를 찾을 수 없습니다: { $command }이(가) 해당 경로에도, 앱의 PATH에도 없습니다. [agent.presets]에 전체 경로를 지정하세요.
 agent-spawn-failed = 에이전트를 시작할 수 없습니다: { $command }. 설정 [agent.presets].
 agent-no-http = 이 에이전트는 Oku Slides의 도구에 연결할 수 없습니다.
 agent-local-no-program = 로컬 에이전트는 Oku Slides 앱 안에서만 실행됩니다.
@@ -126,7 +126,6 @@ agent-error-setting = { $key } 설정을 변경할 수 없습니다. 값을 확�
 agent-error-history-index = 기록을 탐색하려면 버전 번호가 필요합니다.
 agent-error-no-pack = 이 프레젠테이션은 팩을 고정하지 않습니다. pack을 지정하세요(packs 참고).
 agent-error-history-not-opened = 탭이 제때 기록을 열지 못했습니다. 다시 요청하세요.
-agent-error-present = 여기서는 발표할 것이 없습니다. 슬라이드가 없거나 탭이 팩, 기록 또는 읽기 전용 모드입니다.
 agent-error-locale = 알 수 없는 언어 코드입니다. 제공되는 언어 코드나 system을 지정하세요.
 agent-error-empty-interface = 바꿀 내용이 없습니다. scheme, locale 또는 guides를 지정하세요.
 agent-error-empty-dictation = 바꿀 내용이 없습니다. 받아쓰기 설정을 하나 이상 지정하세요.

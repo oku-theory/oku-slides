@@ -43,7 +43,7 @@ agent-confirm-agent = Trocar o agente do app para { $name } ({ $command }) quand
 agent-confirm-agent-builtin = Trocar o agente do app para { $name } quando nenhuma resposta estiver em andamento?
 agent-confirm-agent-model = Baixar o modelo do agente local ({ $size })?
 
-agent-not-found = Agente não encontrado: { $command }. Configuração [agent.presets].
+agent-not-found = Agente não encontrado: { $command } não existe nesse caminho nem no PATH do app. Informe o caminho completo em [agent.presets].
 agent-spawn-failed = Não foi possível iniciar o agente: { $command }. Configuração [agent.presets].
 agent-no-http = Este agente não consegue se conectar às ferramentas do Oku Slides.
 agent-local-no-program = O agente local só funciona dentro do app Oku Slides.
@@ -132,7 +132,6 @@ agent-error-setting = Não foi possível alterar a configuração { $key }: veri
 agent-error-history-index = Para percorrer o histórico, é preciso o índice de uma versão.
 agent-error-no-pack = Esta apresentação não fixa nenhum pacote: informe pack (veja packs).
 agent-error-history-not-opened = A aba não abriu o histórico a tempo: peça de novo.
-agent-error-present = Nada para apresentar aqui: nenhum slide, ou a aba está no modo de pacote, histórico ou somente leitura.
 agent-error-locale = Código de idioma desconhecido. Informe o código de um idioma incluído ou system.
 agent-error-empty-interface = Nada para mudar: informe scheme, locale ou guides.
 agent-error-empty-dictation = Nada para mudar: informe pelo menos um ajuste do ditado.

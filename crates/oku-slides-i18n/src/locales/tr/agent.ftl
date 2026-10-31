@@ -43,7 +43,7 @@ agent-confirm-agent = Hiçbir yanıt çalışmadığında uygulama ajanı { $nam
 agent-confirm-agent-builtin = Hiçbir yanıt çalışmadığında uygulama ajanı { $name } olarak değiştirilsin mi?
 agent-confirm-agent-model = Yerel ajan modeli indirilsin mi ({ $size })?
 
-agent-not-found = Ajan bulunamadı: { $command }. Ayar [agent.presets].
+agent-not-found = Ajan bulunamadı: { $command } ne o yolda ne de uygulamanın PATH'inde var. Tam yolunu [agent.presets] içinde belirtin.
 agent-spawn-failed = Ajan başlatılamadı: { $command }. Ayar [agent.presets].
 agent-no-http = Bu ajan Oku Slides'ın araçlarına bağlanamıyor.
 agent-local-no-program = Yerel ajan yalnızca Oku Slides uygulamasının içinde çalışır.
@@ -126,7 +126,6 @@ agent-error-setting = { $key } ayarı değiştirilemedi: değerini kontrol edin.
 agent-error-history-index = Geçmişte gezinmek için bir sürümün sırası gerekir.
 agent-error-no-pack = Bu sunum hiçbir paketi sabitlemiyor: pack verin (bkz. packs).
 agent-error-history-not-opened = Sekme geçmişi zamanında açmadı: yeniden isteyin.
-agent-error-present = Burada sunulacak bir şey yok: slayt yok ya da sekme paket, geçmiş veya salt okunur modunda.
 agent-error-locale = Bilinmeyen dil kodu. Sunulan bir dilin kodunu ya da system verin.
 agent-error-empty-interface = Değiştirilecek bir şey yok: scheme, locale ya da guides verin.
 agent-error-empty-dictation = Değiştirilecek bir şey yok: dikte ayarlarından en az birini verin.

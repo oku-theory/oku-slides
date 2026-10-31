@@ -9,7 +9,8 @@ the CLI, the session, the agent and dictation.
   `LiveLocalizer` (language switched hot, shared by clones) and a `RenderLaunch`
   (`InProcess` or `Process`). `Platform::load` builds it once at startup; it clones cheaply.
   `RENDER_WORKER_ENV` marks a render worker process, which never launches another one.
-  `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent.
+  `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent;
+  `program_path` (`ProgramPath`, `login_path.rs`: the app's `with_login_path` reads the login shell's `PATH` on a thread).
 - `telemetry`: `init` installs the `tracing` subscriber; call it first; `NETWORK_DEBUG_ENV`
   adds HTTP/TLS `debug` logs, `ACP_DEBUG_ENV` the ACP messages (`ACP_TARGET`). `errors`: `one_line` prints an error and its causes on one line.
 - `config`: `Settings`, its sections (`PathSettings`, `RenderSettings`, `SttSettings`, `UsageSettings`, …), `APP_ID`.
@@ -17,8 +18,7 @@ the CLI, the session, the agent and dictation.
   `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
 - `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus`, `Progress`
   (1 % steps, 512 MiB cap), `download_source` (trusted `UpdateSource`: GitHub or the mirror), `UpdateStage`.
-- `config_write`: `write_value` sets one `config.toml` key, keeping comments. `program`:
-  `find_program`, an external program by path or on `PATH`.
+- `config_write`: `write_value` sets one `config.toml` key, keeping comments. `program`: `find_program`.
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime
   (`read_limited`, `write_atomic`, `delete_dir`, `writer`, `read_fonts`, …); call it outside
   async contexts only. `StorageError::kind` gives a `StorageErrorKind`.

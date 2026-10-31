@@ -5,6 +5,7 @@
 //! correspond viennent d'abord ; chacune rend la ligne trouvée, raccourcie
 //! autour de la correspondance.
 
+use oku_slides_i18n::fold;
 use serde::Serialize;
 
 use oku_slides_core::{FieldOwner, ParamType};
@@ -74,39 +75,25 @@ impl Session {
 }
 
 /// `line` raccourcie autour de `needle` (déjà replié), s'il y apparaît.
+///
+/// The line matches as a title does (`fold` of the whole line); the excerpt's position folds
+/// char by char, so a context-dependent fold (Greek final sigma) may start it at the line's head.
 fn excerpt(line: &str, needle: &str) -> Option<String> {
+    if !fold(line).contains(needle) {
+        return None;
+    }
     let chars: Vec<char> = line.chars().collect();
-    let folded: Vec<String> = chars.iter().map(|c| fold(&c.to_string())).collect();
-    // Position en caractères de `line` : le repli peut changer la longueur d'un caractère (œ).
-    let start = (0..chars.len()).find(|&i| folded[i..].concat().starts_with(needle))?;
     if chars.len() <= SEARCH_EXCERPT {
         return Some(line.to_owned());
     }
+    let folded: Vec<String> = chars.iter().map(|c| fold(&c.to_string())).collect();
+    let char_needle: String = needle.chars().map(|c| fold(&c.to_string())).collect();
+    // Position en caractères de `line` : le repli peut changer la longueur d'un caractère (œ).
+    let start = (0..chars.len()).find(|&i| folded[i..].concat().starts_with(&char_needle)).unwrap_or(0);
     let from = start.saturating_sub(SEARCH_EXCERPT / 3).min(chars.len() - SEARCH_EXCERPT);
     let to = from + SEARCH_EXCERPT;
     let body: String = chars[from..to].iter().collect();
     Some(format!("{}{}{}", if from > 0 { "…" } else { "" }, body.trim(), if to < chars.len() { "…" } else { "" }))
-}
-
-/// `s` sans casse ni accents (lettres latines), pour comparer.
-pub(crate) fn fold(s: &str) -> String {
-    s.chars()
-        .flat_map(char::to_lowercase)
-        .map(|c| match c {
-            'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' => "a".to_owned(),
-            'ç' => "c".to_owned(),
-            'è' | 'é' | 'ê' | 'ë' => "e".to_owned(),
-            'ì' | 'í' | 'î' | 'ï' => "i".to_owned(),
-            'ñ' => "n".to_owned(),
-            'ò' | 'ó' | 'ô' | 'õ' | 'ö' => "o".to_owned(),
-            'ù' | 'ú' | 'û' | 'ü' => "u".to_owned(),
-            'ý' | 'ÿ' => "y".to_owned(),
-            'œ' => "oe".to_owned(),
-            'æ' => "ae".to_owned(),
-            '’' => "'".to_owned(),
-            c => c.to_string(),
-        })
-        .collect()
 }
 
 #[cfg(test)]

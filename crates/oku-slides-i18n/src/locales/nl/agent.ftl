@@ -43,7 +43,7 @@ agent-confirm-agent = De app-agent wijzigen naar { $name } ({ $command }) zodra 
 agent-confirm-agent-builtin = De app-agent wijzigen naar { $name } zodra er geen antwoord loopt?
 agent-confirm-agent-model = Het model van de lokale agent downloaden ({ $size })?
 
-agent-not-found = Agent niet gevonden: { $command }. Instelling [agent.presets].
+agent-not-found = Agent niet gevonden: { $command } bestaat niet op dat pad en staat niet in het PATH van de app. Geef het volledige pad op in [agent.presets].
 agent-spawn-failed = Agent kon niet starten: { $command }. Instelling [agent.presets].
 agent-no-http = Deze agent kan geen verbinding maken met de tools van Oku Slides.
 agent-local-no-program = De lokale agent werkt alleen binnen de Oku Slides-app.
@@ -132,7 +132,6 @@ agent-error-setting = De instelling { $key } kon niet worden gewijzigd: controle
 agent-error-history-index = Om door de geschiedenis te bladeren is de index van een versie nodig.
 agent-error-no-pack = Deze presentatie pint geen pakket vast: geef pack (zie packs).
 agent-error-history-not-opened = Het tabblad heeft de geschiedenis niet op tijd geopend: vraag het opnieuw.
-agent-error-present = Hier valt niets te presenteren: geen dia, of het tabblad staat in pakket-, geschiedenis- of alleen-lezenmodus.
 agent-error-locale = Onbekende taalcode. Geef de code van een meegeleverde taal of system.
 agent-error-empty-interface = Niets te wijzigen: geef scheme, locale of guides.
 agent-error-empty-dictation = Niets te wijzigen: geef minstens één dicteerinstelling.

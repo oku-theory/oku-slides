@@ -18,6 +18,8 @@ impl Workspace {
             // Les raccourcis des messages dans la notation de la plateforme (`⌘Z` ou `Ctrl+Z`).
             "resources": l.ui_messages().into_iter().map(oku_slides_i18n::platform_keys).collect::<Vec<_>>(),
             "chosen": self.chosen_locale,
+            // Every language's shortcut words: the draft also knows those of the dictation language.
+            "shortcuts": oku_slides_i18n::theme_shortcuts(),
         });
         Ok(serde_json::to_string(&messages).context(ResponseSnafu)?)
     }

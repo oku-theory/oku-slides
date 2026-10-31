@@ -91,6 +91,7 @@ mod pack_scratch;
 mod pack_tab;
 mod panel;
 mod param_fields;
+mod present;
 mod preview_crop;
 mod preview_theme;
 mod probed_widgets;
@@ -155,6 +156,7 @@ pub use library_packs::PackLibrary;
 pub use merge::{Saved, deck_path};
 pub use pack::{BASE_PACK, ESSENTIEL_PACK, PackInfo, PackManifest, PackScope, Relation};
 use pack_scratch::PackScratch;
+pub use present::PresentRefusal;
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
@@ -820,6 +822,7 @@ impl Session {
                 _ => None,
             },
             read_only: self.help().is_some(),
+            can_present: self.can_present().is_ok(),
             host_params: self.registry.host_params(),
         }
     }

@@ -176,7 +176,8 @@ fn main() -> color_eyre::Result<()> {
     oku_slides_local_agent::exit_if_local_agent();
     color_eyre::install()?;
     oku_slides_platform::telemetry::init();
-    let platform = Platform::load()?;
+    // Launched from the Finder, the app has launchd's `PATH`: the login shell's leads (t-956).
+    let platform = Platform::load()?.with_login_path();
     let builder = tauri::Builder::default().manage(Pending::default()).manage(tab_drag::Hover::default());
     // Linux : `tauri-plugin-single-instance` 2.4.5 fait un `unwrap()` sur le
     // bus de session D-Bus dans son greffon (`linux.rs`), et panique s'il n'y

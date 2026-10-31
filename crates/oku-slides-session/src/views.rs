@@ -128,6 +128,8 @@ pub struct Snapshot<'a> {
     pub history: Option<HistoryView<'a>>,
     /// L'aide de l'app : le deck se lit, il ne se modifie pas.
     pub read_only: bool,
+    /// The tab can present its deck (`Session::can_present`): the page's Present follows it.
+    pub can_present: bool,
     /// Paramètres d'hôte des widgets d'élément du deck, par kind et type d'hôte.
     pub host_params: BTreeMap<String, BTreeMap<oku_slides_core::HostType, String>>,
 }

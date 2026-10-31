@@ -43,7 +43,7 @@ agent-confirm-agent = Passare all'agente { $name } ({ $command }) dell'app quand
 agent-confirm-agent-builtin = Passare all'agente { $name } dell'app quando non è in corso nessuna risposta?
 agent-confirm-agent-model = Scaricare il modello dell'agente locale ({ $size })?
 
-agent-not-found = Agente non trovato: { $command }. Impostazione [agent.presets].
+agent-not-found = Agente non trovato: { $command } non esiste né in quel percorso né nel PATH dell'app. Indica il percorso completo in [agent.presets].
 agent-spawn-failed = Impossibile avviare l'agente: { $command }. Impostazione [agent.presets].
 agent-no-http = Questo agente non riesce a connettersi agli strumenti di Oku Slides.
 agent-local-no-program = L'agente locale funziona solo all'interno dell'app Oku Slides.
@@ -132,7 +132,6 @@ agent-error-setting = Impossibile modificare l'impostazione { $key }: controllan
 agent-error-history-index = Per scorrere la cronologia serve l'indice di una versione.
 agent-error-no-pack = Questa presentazione non fissa alcun pacchetto: indica pack (vedi packs).
 agent-error-history-not-opened = La scheda non ha aperto la cronologia in tempo: richiedi.
-agent-error-present = Niente da presentare qui: nessuna slide, oppure la scheda è in modalità pacchetto, cronologia o sola lettura.
 agent-error-locale = Codice lingua sconosciuto. Indica il codice di una lingua inclusa o system.
 agent-error-empty-interface = Niente da cambiare: indica scheme, locale o guides.
 agent-error-empty-dictation = Niente da cambiare: indica almeno un'impostazione della dettatura.

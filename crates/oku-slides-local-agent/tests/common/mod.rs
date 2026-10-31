@@ -93,6 +93,7 @@ pub async fn start(script: Value) -> Harness {
             ("OKU_SLIDES_PATHS__DATA".into(), dir.path().to_string_lossy().into_owned()),
             ("OKU_SLIDES_PATHS__DECKS".into(), dir.path().join("decks").to_string_lossy().into_owned()),
         ],
+        path: None,
         fallback_cwd: dir.path().to_owned(),
         ready_within: oku_slides_agent::READY_WITHIN,
     };

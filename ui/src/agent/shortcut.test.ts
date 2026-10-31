@@ -1,17 +1,20 @@
 // Reconnaissance du raccourci « thème » par l'interface : mêmes cas que shortcut_tests.rs.
 
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { applyMessages } from "../i18n";
 import { resetMessages } from "../test/messages";
-import { isShortcut, normalizeShortcut } from "./shortcut";
+import { isShortcut, normalizeShortcut, setDictationLanguage, shippedLocale } from "./shortcut";
 
 /** Charge `ui.ftl` de `locale` (anglais d'abord, comme le cœur). */
 const load = (locale: string) => {
   const ftl = (l: string) => readFileSync(`${import.meta.dir}/../../../crates/oku-slides-i18n/src/locales/${l}/ui.ftl`, "utf8");
-  applyMessages({ locale, resources: locale === "en" ? [ftl("en")] : [ftl("en"), ftl(locale)], chosen: null });
+  const words = (l: string) => /^ui-shortcut-theme = (.*)$/m.exec(ftl(l))?.[1] ?? "";
+  const shortcuts = Object.fromEntries(["en", "fr", "de", "ja", "zh-Hant"].map((l) => [l, words(l)]));
+  applyMessages({ locale, resources: locale === "en" ? [ftl("en")] : [ftl("en"), ftl(locale)], chosen: null, shortcuts });
 };
 afterAll(resetMessages);
+afterEach(() => setDictationLanguage(null, null));
 
 describe("normalizeShortcut", () => {
   test.each([
@@ -20,6 +23,7 @@ describe("normalizeShortcut", () => {
     ["«thème»", "theme"],
     ["thema’s", "thema's"],
     ["chủ   đề", "chu đe"],
+    ["Œuvre Straße", "oeuvre strasse"],
     ["थीम।", "थीम"],
   ])("normalizeShortcut(%p) gives %p", (text, expected) => {
     expect(normalizeShortcut(text)).toBe(expected);
@@ -50,5 +54,29 @@ describe("isShortcut", () => {
   test("a prompt over 64 bytes is never a shortcut", () => {
     load("en");
     expect(isShortcut(`theme${" ".repeat(100)}`)).toBe(false);
+  });
+});
+
+describe("isShortcut in the dictation language", () => {
+  test.each([
+    ["de", null, "Themen", true],
+    [null, "de-DE", "Themen", true],
+    [null, null, "Themen", false],
+    ["sv", "de", "Themen", false],
+    ["de", null, "thème", true],
+    ["de", null, "テーマ", false],
+  ])("chosen %p, detected %p: isShortcut(%p) is %p", (chosen, detected, text, expected) => {
+    load("fr");
+    setDictationLanguage(chosen, detected);
+    expect(isShortcut(text as string)).toBe(expected as boolean);
+  });
+
+  test.each([
+    ["fr-CA", "fr"],
+    ["zh-TW", "zh-Hant"],
+    ["sv", null],
+  ])("shippedLocale(%p) is %p", (tag, expected) => {
+    load("fr");
+    expect(shippedLocale(tag)).toBe(expected);
   });
 });

@@ -6018,9 +6018,11 @@ name = "oku-slides-i18n"
 version = "8.0.0"
 dependencies = [
  "fluent-bundle",
+ "rstest",
  "speculoos",
  "sys-locale",
  "unic-langid",
+ "unicode-normalization",
 ]
 
 [[package]]

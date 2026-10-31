@@ -25,6 +25,7 @@ pub mod http;
 #[cfg(feature = "listen")]
 mod listen;
 pub mod local_agent;
+mod login_path;
 pub mod models;
 mod program;
 pub mod storage;
@@ -43,6 +44,7 @@ use crate::storage::{Storage, StorageError};
 
 #[cfg(feature = "listen")]
 pub use crate::listen::{Limits, serve_connections};
+pub use crate::login_path::ProgramPath;
 pub use crate::program::find_program;
 
 /// Où tourne le rendu Typst.
@@ -95,6 +97,10 @@ pub struct Platform {
     pub render_launch: RenderLaunch,
     /// Ce binaire, relancé pour l'agent local ; `None` hors de l'app (tests).
     pub program: Option<PathBuf>,
+    /// The `PATH` where external programs (agent, soffice) are found and launched.
+    ///
+    /// The process's own, unless [`Platform::with_login_path`] put the login shell's first.
+    pub program_path: ProgramPath,
 }
 
 /// Démarrage impossible : réglages ou fichiers.
@@ -157,6 +163,7 @@ impl Platform {
             localizer,
             render_launch: RenderLaunch::InProcess,
             program: None,
+            program_path: ProgramPath::fixed(std::env::var_os("PATH")),
         })
     }
 
@@ -164,6 +171,16 @@ impl Platform {
     #[must_use]
     pub fn with_program(mut self, program: PathBuf) -> Self {
         self.program = Some(program);
+        self
+    }
+
+    /// This platform, its `path` led by the login shell's `PATH` (app launched from the Finder).
+    ///
+    /// Runs the user's shell once on a thread (3 s at most); without one, the process's `PATH`
+    /// stays. For the app only: a terminal already gives the CLI the user's `PATH`.
+    #[must_use]
+    pub fn with_login_path(mut self) -> Self {
+        self.program_path = ProgramPath::from_login_shell(std::env::var_os("PATH"));
         self
     }
 

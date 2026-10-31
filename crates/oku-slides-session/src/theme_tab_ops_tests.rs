@@ -73,13 +73,11 @@ fn wrong_document_request_is_said_in_french() {
     );
 }
 
-#[rstest]
-#[case::op_alone(apply(vec![set_theme_op()]))]
-#[case::request(Request::SetTheme { theme: "pro".into() })]
-fn theme_tab_refuses_a_base_change(#[case] request: Request) {
+#[test]
+fn theme_tab_refuses_a_base_change() {
     let data = fresh_dir("oku-slides-theme-tab-ops-");
     let mut s = theme_tab(data.path(), PAPIER_THEME);
-    let e = s.handle(request).unwrap_err();
+    let e = s.handle(apply(vec![set_theme_op()])).unwrap_err();
     assert_wrong_document(&s, &e, DocumentKind::Theme);
     assert_that!(draft_of(&s).base.id).is_equal_to(PAPIER_THEME);
     assert_that!(s.tab_info().document).is_equal_to(TabDocument::Theme { theme: PAPIER_THEME });

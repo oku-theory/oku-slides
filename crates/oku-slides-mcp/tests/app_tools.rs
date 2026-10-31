@@ -296,7 +296,7 @@ async fn history_open_waits_for_the_tab_and_returns_the_versions() {
     let tab = tab_opens_history(&h);
     let r = direct(&h, "history", json!({ "action": "open" })).await;
     tab.await.unwrap_or_else(|e| panic!("onglet : {e}"));
-    let versions = json_of(&r).as_array().map_or(0, Vec::len);
+    let versions = json_of(&r)["versions"].as_array().map_or(0, Vec::len);
     assert_that!(versions).is_greater_than_or_equal_to(2);
 }
 
@@ -325,15 +325,32 @@ async fn history_open_on_a_hidden_tab_is_refused() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn history_list_returns_every_version_oldest_first() {
+async fn history_list_returns_the_latest_versions_oldest_first_with_their_index() {
     let h = start().await;
     retitle(&h);
     handle(&h, Request::HistoryOpen);
-    let expected: Value =
+    let all: Value =
         serde_json::from_str(&handle(&h, Request::HistoryVersions)).unwrap_or_else(|e| panic!("versions : {e}"));
+    let total = all.as_array().map_or(0, Vec::len);
     let r = direct(&h, "history", json!({ "action": "list" })).await;
-    assert_that!(expected.as_array().map_or(0, Vec::len)).is_greater_than_or_equal_to(2);
-    assert_that!(json_of(&r)).is_equal_to(expected);
+    let page = json_of(&r);
+    assert_that!(total).is_greater_than_or_equal_to(2);
+    assert_that!(page["total"].as_u64()).is_equal_to(u64::try_from(total).ok());
+    let last = &page["versions"][total - 1];
+    assert_that!(last["index"].as_u64()).is_equal_to(u64::try_from(total - 1).ok());
+    assert_that!(&last["label"]).is_equal_to(&all[total - 1]["label"]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn history_list_with_before_and_count_returns_that_page() {
+    let h = start().await;
+    retitle(&h);
+    handle(&h, Request::HistoryOpen);
+    let r = direct(&h, "history", json!({ "action": "list", "before": 1, "count": 1 })).await;
+    let page = json_of(&r);
+    assert_that!(page["versions"].as_array().map_or(0, Vec::len)).is_equal_to(1);
+    assert_that!(page["versions"][0]["index"].as_u64()).is_equal_to(Some(0));
+    assert_that!(page.get("next_before")).is_none();
 }
 
 #[rstest]
@@ -426,15 +443,15 @@ async fn start_in(mode: NoPresent) -> Harness {
 }
 
 #[rstest]
-#[case::history(NoPresent::History)]
-#[case::help(NoPresent::Help)]
-#[case::no_slide(NoPresent::NoSlide)]
+#[case::history(NoPresent::History, "session-present-history")]
+#[case::help(NoPresent::Help, "session-present-help")]
+#[case::no_slide(NoPresent::NoSlide, "session-present-no-slide")]
 #[tokio::test(flavor = "multi_thread")]
-async fn present_where_the_page_cannot_present_is_refused_and_emits_nothing(#[case] mode: NoPresent) {
+async fn present_where_the_page_cannot_present_is_refused_with_its_reason(#[case] mode: NoPresent, #[case] key: &str) {
     let h = start_in(mode).await;
     let mut rx = h.hub.subscribe();
     let r = direct(&h, "present", json!({})).await;
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-present"));
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr(key));
     assert_that!(no_page_event(&mut rx)).is_true();
 }
 

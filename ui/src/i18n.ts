@@ -49,6 +49,12 @@ export function isolate(s: string): string {
 }
 
 let chosen: string | null = null;
+let shortcuts: Record<string, string> = {};
+
+/** The theme shortcut's words in shipped locale `code` (`ui-shortcut-theme`), if it ships. */
+export function shortcutWords(code: string): string | undefined {
+  return Object.hasOwn(shortcuts, code) ? shortcuts[code] : undefined;
+}
 const listeners = new Set<() => void>();
 
 /** Prévient quand la langue change ; rend de quoi se désabonner. */
@@ -61,6 +67,7 @@ export function onLocaleChange(listener: () => void): () => void {
 export function applyMessages(m: Messages): void {
   setMessages(m.locale, m.resources);
   chosen = m.chosen ?? null;
+  shortcuts = m.shortcuts ?? {};
   for (const listener of listeners) listener();
 }
 

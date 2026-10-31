@@ -43,7 +43,7 @@ agent-confirm-agent = 返信が実行されていない時点で、アプリの�
 agent-confirm-agent-builtin = 返信が実行されていない時点で、アプリのエージェントを { $name } に切り替えますか？
 agent-confirm-agent-model = ローカルエージェントのモデルをダウンロードしますか（{ $size }）？
 
-agent-not-found = エージェントが見つかりません：{ $command }。設定 [agent.presets]。
+agent-not-found = エージェントが見つかりません：{ $command } はそのパスにもアプリの PATH にもありません。[agent.presets] にフルパスを指定してください。
 agent-spawn-failed = エージェントを起動できません：{ $command }。設定 [agent.presets]。
 agent-no-http = このエージェントはOku Slidesのツールに接続できません。
 agent-local-no-program = ローカルのエージェントはOku Slidesアプリの中でしか動作しません。
@@ -126,7 +126,6 @@ agent-error-setting = 設定 { $key } を変更できませんでした。値を
 agent-error-history-index = 履歴をたどるにはバージョンの番号が必要です。
 agent-error-no-pack = このプレゼンテーションはパックを固定していません。pack を指定してください（packs を参照）。
 agent-error-history-not-opened = タブが時間内に履歴を開きませんでした。もう一度依頼してください。
-agent-error-present = ここで発表できるものはありません。スライドがないか、タブがパック、履歴、読み取り専用のいずれかのモードです。
 agent-error-locale = 不明な言語コードです。同梱の言語コードか system を指定してください。
 agent-error-empty-interface = 変更する内容がありません。scheme、locale、guides のいずれかを指定してください。
 agent-error-empty-dictation = 変更する内容がありません。音声入力の設定を1つ以上指定してください。

@@ -43,7 +43,7 @@ agent-confirm-agent = Переключить агента приложения �
 agent-confirm-agent-builtin = Переключить агента приложения на { $name }, когда не будет идти ни один ответ?
 agent-confirm-agent-model = Скачать модель локального агента ({ $size })?
 
-agent-not-found = Агент не найден: { $command }. Настройка [agent.presets].
+agent-not-found = Агент не найден: { $command } нет ни по этому пути, ни в PATH приложения. Укажите полный путь в [agent.presets].
 agent-spawn-failed = Не удалось запустить агента: { $command }. Настройка [agent.presets].
 agent-no-http = Этот агент не может подключиться к инструментам Oku Slides.
 agent-local-no-program = Локальный агент работает только внутри приложения Oku Slides.
@@ -136,7 +136,6 @@ agent-error-setting = Не удалось изменить настройку { 
 agent-error-history-index = Чтобы листать историю, нужен номер версии.
 agent-error-no-pack = Эта презентация не закрепляет ни одного пакета: укажите pack (см. packs).
 agent-error-history-not-opened = Вкладка не успела открыть историю: повторите запрос.
-agent-error-present = Здесь нечего показывать: нет слайдов, или вкладка в режиме пакета, истории или только для чтения.
 agent-error-locale = Неизвестный код языка. Укажите код поставляемого языка или system.
 agent-error-empty-interface = Нечего менять: укажите scheme, locale или guides.
 agent-error-empty-dictation = Нечего менять: укажите хотя бы один параметр диктовки.

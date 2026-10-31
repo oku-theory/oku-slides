@@ -1,4 +1,5 @@
-// A tab's window keys in a pack tab: ⌘Z undoes the session outside the item editor, no stage keys.
+// A tab's window keys: in a pack tab ⌘Z undoes the session outside the item editor, no stage
+// keys; ⌘↩ presents only when the snapshot says the tab can.
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import "./test/dom";
@@ -31,18 +32,19 @@ const SNAP = {
 
 const noop = () => {};
 
-/** Mounts the keys of a pack tab; returns the session undo and the slide moves they made. */
-async function mount() {
+/** Mounts the keys of a pack tab (or of `snap`); returns the undo, slide moves and presents made. */
+async function mount(snap: Snapshot = SNAP, packTab = true) {
   const undo = mock(async () => null);
+  const present = mock((_mode: string) => {});
   const goToSlide = mock((_id: string) => {});
   const api = { undo, redo: undo } as unknown as TabApi;
   const keptUi = { handleKey: () => false } as unknown as KeptUi;
   function Probe() {
     useAppKeys({
-      api, snap: SNAP, view: null, current: "layout-a", selected: null, editing: null, presenting: null,
-      agentStatus: IDLE_AGENT, dialogOpen: false, packTab: true, themeTab: false, cutMark: null, keptUi,
+      api, snap, view: null, current: "layout-a", selected: null, editing: null, presenting: null,
+      agentStatus: IDLE_AGENT, dialogOpen: false, packTab, themeTab: false, cutMark: null, keptUi,
       cursor: {} as HistoryCursor, autosave: { flush: async () => {} } as never, run: (p) => p,
-      apply: async () => true, present: noop, goToSlide, moveSlide: noop, dropCut: noop, open: noop,
+      apply: async () => true, present, goToSlide, moveSlide: noop, dropCut: noop, open: noop,
       saveCopy: noop, cancelAgent: noop, setEditing: noop, setSelected: noop,
     });
     return createElement("div", { className: "typst-editor" }, createElement("button", { type: "button" }, "tool"));
@@ -51,7 +53,7 @@ async function mount() {
   const root = createRoot(host);
   mounted = { root, host };
   await act(async () => root.render(createElement(Probe)));
-  return { host, undo, goToSlide };
+  return { host, undo, goToSlide, present };
 }
 
 const press = (target: EventTarget, init: KeyboardEventInit) =>
@@ -75,5 +77,21 @@ describe("useAppKeys in a pack tab", () => {
     await press(document.body, { key: "ArrowRight" });
     await press(document.body, { key: "PageDown" });
     expect(goToSlide).not.toHaveBeenCalled();
+  });
+});
+
+describe("useAppKeys present", () => {
+  const deck = (canPresent: boolean) => ({ ...SNAP, editing: null, can_present: canPresent }) as Snapshot;
+
+  test("useAppKeys present when the snapshot can present presents", async () => {
+    const { present } = await mount(deck(true), false);
+    await press(document.body, { key: "Enter", metaKey: true });
+    expect(present).toHaveBeenCalledWith("screen");
+  });
+
+  test("useAppKeys present when the snapshot cannot present does nothing", async () => {
+    const { present } = await mount(deck(false), false);
+    await press(document.body, { key: "Enter", metaKey: true });
+    expect(present).not.toHaveBeenCalled();
   });
 });

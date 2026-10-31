@@ -126,8 +126,7 @@ pub(crate) fn witness_worker(platform: &Platform, witness: ReferenceWitness) -> 
 /// Le programme trouvé est refusé : un script, sur macOS (le bac à sable ne lance que le binaire).
 pub(crate) fn soffice(platform: &Platform) -> Result<Option<ReferenceWitness>, ReferenceError> {
     let import = &platform.settings.import;
-    let path = std::env::var_os("PATH");
-    let found = find_soffice(&platform.storage, &import.soffice, path.as_deref())?;
+    let found = find_soffice(&platform.storage, &import.soffice, platform.program_path.get())?;
     Ok(found.map(|program| ReferenceWitness::Soffice { program, timeout_ms: import.soffice_timeout_ms }))
 }
 

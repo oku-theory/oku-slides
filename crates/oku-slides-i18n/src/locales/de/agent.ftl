@@ -43,7 +43,7 @@ agent-confirm-agent = Den App-Agent auf { $name } ({ $command }) umstellen, soba
 agent-confirm-agent-builtin = Den App-Agent auf { $name } umstellen, sobald keine Antwort läuft?
 agent-confirm-agent-model = Das Modell des lokalen Agents herunterladen ({ $size })?
 
-agent-not-found = Agent nicht gefunden: { $command }. Einstellung [agent.presets].
+agent-not-found = Agent nicht gefunden: { $command } existiert weder unter diesem Pfad noch im PATH der App. Geben Sie in [agent.presets] den vollständigen Pfad an.
 agent-spawn-failed = Agent konnte nicht gestartet werden: { $command }. Einstellung [agent.presets].
 agent-no-http = Dieser Agent kann sich nicht mit den Werkzeugen von Oku Slides verbinden.
 agent-local-no-program = Der lokale Agent läuft nur innerhalb der App Oku Slides.
@@ -132,7 +132,6 @@ agent-error-setting = Die Einstellung { $key } konnte nicht geändert werden: Pr
 agent-error-history-index = Zum Blättern im Verlauf wird der Index einer Version benötigt.
 agent-error-no-pack = Dieses Deck heftet kein Paket an: Gib pack an (siehe packs).
 agent-error-history-not-opened = Der Tab hat den Verlauf nicht rechtzeitig geöffnet: Frag erneut.
-agent-error-present = Hier gibt es nichts zu präsentieren: keine Folie, oder der Tab ist im Paket-, Verlaufs- oder Nur-Lesen-Modus.
 agent-error-locale = Unbekannter Sprachcode. Gib den Code einer mitgelieferten Sprache oder system an.
 agent-error-empty-interface = Nichts zu ändern: Gib scheme, locale oder guides an.
 agent-error-empty-dictation = Nichts zu ändern: Gib mindestens eine Diktier-Einstellung an.

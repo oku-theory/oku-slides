@@ -76,13 +76,15 @@ impl AgentChoice {
     /// un prompt échoue au lancement comme un programme absent, et `availability` en donne la raison.
     pub(crate) fn launch_of(preset: &oku_slides_platform::config::AgentPreset, platform: &Platform) -> Launch {
         let cwd = platform.settings.paths.data();
-        Launch::for_preset(preset, platform.program.as_deref(), cwd.clone()).unwrap_or(Launch {
+        let launch = Launch::for_preset(preset, platform.program.as_deref(), cwd.clone()).unwrap_or(Launch {
             command: String::new(),
             args: Vec::new(),
             env: Vec::new(),
+            path: None,
             fallback_cwd: cwd,
             ready_within: crate::READY_WITHIN,
-        })
+        });
+        Launch { path: Some(platform.program_path.clone()), ..launch }
     }
 
     /// L'agent choisi (clé de `[agent.presets]`).
@@ -112,8 +114,8 @@ impl AgentChoice {
                 Ok(_) => self.link.failure().map(|u| u.localize(&l)),
             };
         }
-        let path = std::env::var_os("PATH");
-        if find_program(&self.platform.storage, Path::new(&preset.command), path.as_deref()).is_none() {
+        let path = self.platform.program_path.get();
+        if find_program(&self.platform.storage, Path::new(&preset.command), path).is_none() {
             return Some(Unusable::NotFound { command: preset.command.clone() }.localize(&l));
         }
         self.link.failure().map(|u| u.localize(&l))

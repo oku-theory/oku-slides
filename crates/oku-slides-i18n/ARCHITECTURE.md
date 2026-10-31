@@ -18,8 +18,9 @@ so every crate can use it.
   hot (`set`); texts shown after a switch read `current` at each use.
 - `message.rs`: `Message` (Fluent id plus `Arg` values), built without a locale inside
   an error and spoken later in the user's language or in English.
-- `keys.rs`: `platform_keys` and `pc_keys` rewrite macOS shortcuts (`⌘⇧S`) as
-  `Ctrl+Shift+S` off macOS.
+- `keys.rs`: `platform_keys` and `pc_keys` rewrite macOS shortcuts (`⌘⇧S`) as `Ctrl+Shift+S` off macOS.
+- `fold.rs`: `fold`, the one case and accent fold (shortcuts, help search, namespaces); `shortcut.rs`:
+  `THEME_SHORTCUT`, `theme_shortcuts` (its words in every locale, for the UI).
 
 ## Locale choice
 
@@ -46,4 +47,4 @@ user-facing text: English only, never translated; each turn passes the interface
 
 ## Dependencies
 
-No oku-slides crate. External: `fluent-bundle`, `unic-langid`, `sys-locale`.
+No oku-slides crate. External: `fluent-bundle`, `unic-langid`, `sys-locale`, `unicode-normalization`.

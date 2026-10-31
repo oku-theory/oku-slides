@@ -11,8 +11,10 @@ publish.workspace = true
 fluent-bundle.workspace = true
 unic-langid.workspace = true
 sys-locale.workspace = true
+unicode-normalization.workspace = true
 
 [dev-dependencies]
+rstest.workspace = true
 speculoos.workspace = true
 
 [lints]

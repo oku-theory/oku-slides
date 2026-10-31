@@ -77,6 +77,7 @@ async fn fixture(known: bool) -> Fixture {
         command: "sh".into(),
         args: vec!["-c".into(), format!("touch '{}'", launched.display())],
         env: Vec::new(),
+        path: None,
         fallback_cwd: dir.path().to_owned(),
         ready_within: Duration::from_secs(5),
     });

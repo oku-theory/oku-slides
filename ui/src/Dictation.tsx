@@ -8,6 +8,7 @@ import { useVoiceSeq } from "./voiceSeq";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
 import type { LinkShortcut } from "./agent/link";
+import { setDictationLanguage } from "./agent/shortcut";
 
 const secs = (s: number) => t("ui-seconds", { value: s });
 
@@ -93,6 +94,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
 
   const receive = useCallback((s: SttStatus) => {
     setStatus(s);
+    setDictationLanguage(s.config.language, s.detected);
     if (lastSeq.current === null) lastSeq.current = s.seq;
     else if (s.seq !== lastSeq.current) {
       lastSeq.current = s.seq;

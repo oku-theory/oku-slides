@@ -43,7 +43,7 @@ agent-confirm-agent = कोई उत्तर न चल रहा हो त�
 agent-confirm-agent-builtin = कोई उत्तर न चल रहा हो तब ऐप का एजेंट { $name } पर बदलें?
 agent-confirm-agent-model = स्थानीय एजेंट का मॉडल डाउनलोड करें ({ $size })?
 
-agent-not-found = एजेंट नहीं मिला: { $command }। सेटिंग [agent.presets]।
+agent-not-found = एजेंट नहीं मिला: { $command } न उस पाथ पर है, न ऐप के PATH में। [agent.presets] में इसका पूरा पाथ दें।
 agent-spawn-failed = एजेंट शुरू नहीं हो सका: { $command }। सेटिंग [agent.presets]।
 agent-no-http = यह एजेंट Oku Slides के टूल से कनेक्ट नहीं हो सकता।
 agent-local-no-program = लोकल एजेंट केवल Oku Slides ऐप के अंदर ही चल सकता है।
@@ -132,7 +132,6 @@ agent-error-setting = सेटिंग { $key } नहीं बदली ज�
 agent-error-history-index = इतिहास में आगे-पीछे जाने के लिए किसी संस्करण का क्रमांक चाहिए।
 agent-error-no-pack = यह प्रस्तुति कोई पैक पिन नहीं करती: pack दें (packs देखें)।
 agent-error-history-not-opened = टैब ने समय पर इतिहास नहीं खोला: फिर से कहें।
-agent-error-present = यहाँ प्रस्तुत करने को कुछ नहीं है: कोई स्लाइड नहीं, या टैब पैक, इतिहास या केवल-पढ़ने के मोड में है।
 agent-error-locale = अज्ञात भाषा कोड। उपलब्ध भाषा का कोड या system दें।
 agent-error-empty-interface = बदलने को कुछ नहीं: scheme, locale या guides दें।
 agent-error-empty-dictation = बदलने को कुछ नहीं: डिक्टेशन की कम से कम एक सेटिंग दें।

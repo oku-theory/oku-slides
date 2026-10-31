@@ -43,7 +43,7 @@ agent-confirm-agent = สลับเอเจนต์ของแอปเป�
 agent-confirm-agent-builtin = สลับเอเจนต์ของแอปเป็น { $name } เมื่อไม่มีคำตอบที่กำลังทำงานอยู่หรือไม่?
 agent-confirm-agent-model = ดาวน์โหลดโมเดลของเอเจนต์ในเครื่อง ({ $size }) หรือไม่?
 
-agent-not-found = ไม่พบเอเจนต์: { $command } การตั้งค่า [agent.presets]
+agent-not-found = ไม่พบเอเจนต์: { $command } ไม่มีทั้งที่พาธนั้นและใน PATH ของแอป ระบุพาธเต็มใน [agent.presets]
 agent-spawn-failed = เริ่มเอเจนต์ไม่ได้: { $command } การตั้งค่า [agent.presets]
 agent-no-http = เอเจนต์นี้ไม่สามารถเชื่อมต่อกับเครื่องมือของ Oku Slides ได้
 agent-local-no-program = เอเจนต์ในเครื่องทำงานได้เฉพาะภายในแอป Oku Slides เท่านั้น
@@ -126,7 +126,6 @@ agent-error-setting = ไม่สามารถเปลี่ยนการ�
 agent-error-history-index = การเลื่อนดูประวัติต้องระบุลำดับของเวอร์ชัน
 agent-error-no-pack = งานนำเสนอนี้ไม่ได้ปักหมุดแพ็กใด โปรดระบุ pack (ดู packs)
 agent-error-history-not-opened = แท็บไม่ได้เปิดประวัติทันเวลา โปรดขอใหม่
-agent-error-present = ไม่มีอะไรให้นำเสนอที่นี่: ไม่มีสไลด์ หรือแท็บอยู่ในโหมดแพ็ก ประวัติ หรืออ่านอย่างเดียว
 agent-error-locale = ไม่รู้จักรหัสภาษา โปรดระบุรหัสภาษาที่มีให้หรือ system
 agent-error-empty-interface = ไม่มีอะไรให้เปลี่ยน โปรดระบุ scheme, locale หรือ guides
 agent-error-empty-dictation = ไม่มีอะไรให้เปลี่ยน: โปรดระบุการตั้งค่าการเขียนตามคำบอกอย่างน้อยหนึ่งอย่าง

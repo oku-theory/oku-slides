@@ -7,11 +7,11 @@ with the UI context; agent updates become A2UI turn surfaces.
 ## Modules
 
 - `stack` : `Stack`, the entry point over `table` (tabs started and closed); `handle` takes an `AgentCommand`; a
-  `Prompt` that is a shortcut word (`shortcut`: `matches_shortcut` on a `ui.ftl` key, mirrored by
-  the UI) shows the hub's theme picker instead of a turn in deck mode. `tune` starts an
+  `Prompt` that is a shortcut word (`shortcut`: `is_spoken_theme_shortcut`, interface then dictation
+  language, mirrored by the UI) shows the hub's theme picker instead of a turn in deck mode. `tune` starts an
   import's fine-tuning turn for the host (never deserialized; refused, the tab told why, while
   `availability` gives a reason), `forward` relays `{tab, event}`, `shutdown` kills it.
-- `choice` : `AgentChoice` (an `Arc`): active agent, `availability` (no program on `PATH`; built-in:
+- `choice` : `AgentChoice` (an `Arc`): active agent, `availability` (no program on `Platform.program_path`; built-in:
   no app binary, else `local_engine` states; else the link's recent failure), `check`, `switch_to`, `persist`,
   `check_model`/`choose_model` (per preset), `agents_view`, `local_panel`, `start_download` (`model_download`).
 - `tab_entry` : one tab; `Agent::run` reads its kind, builds that kind's tools then starts its agent, queueing
@@ -26,8 +26,8 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `keeper` : `Keeper`, the per-tab queue that alone reads and writes the conversation (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`); `turns` : `Turns`, reducer to A2UI turn surfaces (`TurnOut`).
 - `turn` (returns the reply's `Usage`; `prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
-  `[paste] prompt_*` limits), `permission` (ACP option to `PermissionChoice`), `config` (`Launch`,
-  `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`:
+  `[paste] prompt_*` limits), `permission` (ACP option to `PermissionChoice`), `config` (`Launch`, its `path`
+  the child's `PATH` and lookup, `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`:
   tests only), `settings_port` (`AppSettings`).
 - `voice_port` : `AppVoice`, the one writer of dictation and agent choice (`VoicePort`); `agent_switch`
   (`PromptGuard` per prompting tab, deferred switch by epoch); `stt_watch` (400 ms `Stt` fingerprint);

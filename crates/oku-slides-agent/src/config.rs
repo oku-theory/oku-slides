@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use oku_slides_platform::ProgramPath;
 use oku_slides_platform::config::{AgentPreset, Builtin};
 
 /// Délai pour qu'un agent lancé soit prêt : large, `npx` peut d'abord le télécharger.
@@ -18,6 +19,8 @@ pub struct Launch {
     pub args: Vec<String>,
     /// Variables ajoutées à l'environnement de l'agent (tests : moteur factice de l'agent local).
     pub env: Vec<(String, String)>,
+    /// The `PATH` where `command` is looked up, also the agent's own; `None`: the process's.
+    pub path: Option<ProgramPath>,
     /// Dossier de travail d'une session quand son document n'est pas enregistré.
     pub fallback_cwd: PathBuf,
     /// Au-delà, le lancement est abandonné (sous-processus tué) : l'agent est arrêté.
@@ -36,7 +39,7 @@ impl Launch {
                 (program?.to_string_lossy().into_owned(), vec![oku_slides_platform::LOCAL_AGENT_FLAG.to_owned()])
             }
         };
-        Some(Self { command, args, env: Vec::new(), fallback_cwd, ready_within: READY_WITHIN })
+        Some(Self { command, args, env: Vec::new(), path: None, fallback_cwd, ready_within: READY_WITHIN })
     }
 }
 

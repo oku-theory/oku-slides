@@ -4,6 +4,7 @@
 //! demandes de permission routées vers l'onglet de leur `SessionId`.
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -403,8 +404,24 @@ impl Link {
         epoch: u64,
         stop: CancellationToken,
     ) -> Result<Live, AgentError> {
-        let Launch { command, args, env, ready_within, .. } = launch;
-        let mut child = tokio::process::Command::new(&command)
+        let Launch { command, args, env, ready_within, path, .. } = launch;
+        let path = match path {
+            // The login shell's `PATH` may still be resolving (a few seconds at most).
+            Some(path) => match tokio::task::spawn_blocking(move || path.get().map(OsStr::to_owned)).await {
+                Ok(path) => path,
+                Err(e) => {
+                    tracing::warn!(error = %e, "PATH de l'agent non lu : celui du processus");
+                    None
+                }
+            },
+            None => None,
+        };
+        let mut command_line = tokio::process::Command::new(&command);
+        // With `PATH` set, the program is looked up in it too, not in the process's.
+        if let Some(path) = &path {
+            command_line.env("PATH", path);
+        }
+        let mut child = command_line
             .args(&args)
             .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())

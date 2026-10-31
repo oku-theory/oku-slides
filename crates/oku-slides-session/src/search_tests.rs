@@ -30,3 +30,9 @@ fn excerpt_of_a_long_line_keeps_the_match_with_ellipses() {
     assert_that!(out.starts_with('…') && out.ends_with('…')).is_true();
     assert_that!(out.chars().count()).is_less_than_or_equal_to(SEARCH_EXCERPT + 2);
 }
+
+#[test]
+fn excerpt_matches_as_the_title_does_with_a_greek_final_sigma() {
+    let needle = oku_slides_i18n::fold("οδός");
+    assert_that!(excerpt("Le mot ΟΔΟΣ est grec", &needle)).is_equal_to(Some("Le mot ΟΔΟΣ est grec".to_owned()));
+}

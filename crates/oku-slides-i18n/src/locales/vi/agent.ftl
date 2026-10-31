@@ -43,7 +43,7 @@ agent-confirm-agent = Chuyển tác nhân của ứng dụng sang { $name } ({ $
 agent-confirm-agent-builtin = Chuyển tác nhân của ứng dụng sang { $name } khi không còn phản hồi nào đang chạy?
 agent-confirm-agent-model = Tải xuống mô hình của tác nhân cục bộ ({ $size })?
 
-agent-not-found = Không tìm thấy tác nhân AI: { $command }. Cài đặt [agent.presets].
+agent-not-found = Không tìm thấy tác nhân AI: { $command } không có ở đường dẫn đó và cũng không có trong PATH của ứng dụng. Hãy ghi đường dẫn đầy đủ trong [agent.presets].
 agent-spawn-failed = Không thể khởi động tác nhân AI: { $command }. Cài đặt [agent.presets].
 agent-no-http = Tác nhân AI này không thể kết nối với các công cụ của Oku Slides.
 agent-local-no-program = Tác nhân AI cục bộ chỉ chạy được bên trong ứng dụng Oku Slides.
@@ -126,7 +126,6 @@ agent-error-setting = Không thể thay đổi cài đặt { $key }: hãy kiểm
 agent-error-history-index = Cần chỉ số của một phiên bản để duyệt lịch sử.
 agent-error-no-pack = Bản trình bày này không ghim gói nào: hãy cho pack (xem packs).
 agent-error-history-not-opened = Thẻ đã không mở lịch sử kịp thời: hãy yêu cầu lại.
-agent-error-present = Không có gì để trình chiếu ở đây: không có trang chiếu nào, hoặc thẻ đang ở chế độ gói, lịch sử hay chỉ đọc.
 agent-error-locale = Mã ngôn ngữ không xác định. Hãy cho mã một ngôn ngữ có sẵn hoặc system.
 agent-error-empty-interface = Không có gì để thay đổi: hãy cho scheme, locale hoặc guides.
 agent-error-empty-dictation = Không có gì để thay đổi: hãy cho ít nhất một cài đặt đọc chính tả.

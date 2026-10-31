@@ -18,7 +18,7 @@ use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, Origin
 use crate::drafts_port::{Starter, StarterParts};
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
-use crate::shortcut::{THEME_SHORTCUT, matches_shortcut};
+use crate::shortcut::is_spoken_theme_shortcut;
 use crate::tab_agent::{Command, Instruction};
 use crate::tab_entry::{Out, TabLink, emit};
 use crate::table::Table;
@@ -361,9 +361,11 @@ impl Stack {
         if images.is_empty() && answer.is_some_and(|id| t.hub.answer(&id, text)) {
             return Ok(None);
         }
-        // "Theme" shortcut: the host's picker, with no turn nor agent; a running turn goes on.
+        // "Theme" shortcut, in the interface or the dictation language: the host's picker, with
+        // no turn nor agent; a running turn goes on.
         // Outside deck mode, or if it fails (logged), the instruction goes to the agent.
-        if images.is_empty() && matches_shortcut(text, THEME_SHORTCUT, &self.platform.live_localizer.current()) {
+        let ui = self.platform.live_localizer.current();
+        if images.is_empty() && is_spoken_theme_shortcut(text, &ui, || self.voice.dictation_locale()) {
             match t.hub.show_themes(slide) {
                 Ok(true) => return Ok(None),
                 Ok(false) => {}

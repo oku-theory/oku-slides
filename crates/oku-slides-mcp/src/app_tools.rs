@@ -14,9 +14,10 @@ use serde_json::{Value, json};
 use snafu::{OptionExt, ResultExt, ensure};
 
 use crate::McpEvent;
+use crate::history_page::history_page;
 use crate::tool_error::{
-    EmptyInterfaceSnafu, HistoryIndexSnafu, HistoryNotOpenedSnafu, NotShownSnafu, NothingToPresentSnafu, TaskSnafu,
-    ToolError, UnknownLocaleSnafu,
+    EmptyInterfaceSnafu, HistoryIndexSnafu, HistoryNotOpenedSnafu, NotShownSnafu, ResponseSnafu, TaskSnafu, ToolError,
+    UnknownLocaleSnafu,
 };
 use crate::tools::{Tools, text};
 
@@ -88,7 +89,7 @@ pub(crate) struct PresentArgs {
 pub(crate) enum HistoryAction {
     /// Opens the history in the tab, on the latest version.
     Open,
-    /// Lists the versions, oldest to newest, with the history open.
+    /// Lists a page of the versions, oldest to newest, with the history open.
     List,
     /// Shows the version `index`.
     Seek,
@@ -106,6 +107,12 @@ pub(crate) struct HistoryArgs {
     /// For `seek`: rank of the version (0: the oldest).
     #[serde(default)]
     pub index: Option<usize>,
+    /// For `open` and `list`: the page ends before this rank (default: after the latest version).
+    #[serde(default)]
+    pub before: Option<usize>,
+    /// For `open` and `list`: versions in the page (default 20, at most 100).
+    #[serde(default)]
+    pub count: Option<usize>,
 }
 
 impl Tools {
@@ -120,15 +127,13 @@ impl Tools {
 
     /// Ouvre (par l'onglet), liste, parcourt, restaure ou ferme l'historique.
     pub(crate) async fn history(&self, args: Value) -> CallToolResult {
-        let HistoryArgs { action, index } = match self.parse(args) {
+        let HistoryArgs { action, index, before, count } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
         let req = match action {
-            HistoryAction::Open => return self.history_open().await,
-            HistoryAction::List => {
-                return self.reply(self.with_session(|s| s.handle(Request::HistoryVersions)).await, text);
-            }
+            HistoryAction::Open => return self.history_open(before, count).await,
+            HistoryAction::List => return self.history_list(before, count).await,
             HistoryAction::Seek => match index.context(HistoryIndexSnafu) {
                 Ok(index) => Request::HistorySeek { index },
                 Err(e) => return self.fail_with(&e),
@@ -152,7 +157,7 @@ impl Tools {
     /// Demande à l'onglet d'ouvrir l'historique (sa saisie validée et son enregistrement parti
     /// d'abord, comme par ses propres commandes), attend qu'il soit ouvert et rend les versions.
     /// Refusé là où l'historique ne s'ouvre pas ; pas ouvert à temps : dit à l'agent.
-    async fn history_open(&self) -> CallToolResult {
+    async fn history_open(&self, before: Option<usize>, count: Option<usize>) -> CallToolResult {
         if let Err(e) = self.ensure_shown().await {
             return self.fail_with(&e);
         }
@@ -163,7 +168,7 @@ impl Tools {
         let deadline = tokio::time::Instant::now() + HISTORY_OPEN_WAIT;
         loop {
             match self.with_session(|s| Ok(s.snapshot().history.is_some())).await {
-                Ok(true) => return self.reply(self.with_session(|s| s.handle(Request::HistoryVersions)).await, text),
+                Ok(true) => return self.history_list(before, count).await,
                 Ok(false) if tokio::time::Instant::now() < deadline => tokio::time::sleep(HISTORY_OPEN_POLL).await,
                 Ok(false) => return self.fail_with(&HistoryNotOpenedSnafu.build()),
                 Err(e) => return self.fail_with(&e),
@@ -171,7 +176,20 @@ impl Tools {
         }
     }
 
-    /// Lance la présentation dans l'onglet ; refusée là où la page ne présente pas.
+    /// A page of the versions (`history_page`), with the history open.
+    ///
+    /// Serialized under the session lock: only the page is copied, not the whole list.
+    async fn history_list(&self, before: Option<usize>, count: Option<usize>) -> CallToolResult {
+        let page = self
+            .with_session(move |s| Ok(serde_json::to_string(&history_page(s.history_versions()?, before, count))))
+            .await;
+        self.reply(page, |page| match page.context(ResponseSnafu) {
+            Ok(page) => text(page),
+            Err(e) => self.fail_with(&e),
+        })
+    }
+
+    /// Starts the presentation in the tab; refused where `Session::can_present` refuses.
     pub(crate) async fn present(&self, args: Value) -> CallToolResult {
         let PresentArgs { mode } = match self.parse(args) {
             Ok(a) => a,
@@ -180,18 +198,12 @@ impl Tools {
         if let Err(e) = self.ensure_shown().await {
             return self.fail_with(&e);
         }
-        let can = self
-            .with_session(|s| {
-                let snap = s.snapshot();
-                Ok(!snap.slides.is_empty() && snap.editing.is_none() && snap.history.is_none() && !snap.read_only)
-            })
-            .await;
-        match can {
-            Ok(true) => {
+        // The session's rule, as the page's own Present: each refusal says why.
+        match self.with_session(|s| s.can_present()).await {
+            Ok(()) => {
                 self.hub.emit(McpEvent::Present { mode });
                 self.json_result(&json!({ "ok": true }))
             }
-            Ok(false) => self.fail_with(&NothingToPresentSnafu.build()),
             Err(e) => self.fail_with(&e),
         }
     }

@@ -65,8 +65,6 @@ pub(crate) enum ToolError {
     ContinueInOtherTab { backtrace: Backtrace },
     #[snafu(display("history seek needs an index"))]
     HistoryIndex { backtrace: Backtrace },
-    #[snafu(display("nothing to present in this mode"))]
-    NothingToPresent { backtrace: Backtrace },
     #[snafu(display("unknown locale"))]
     UnknownLocale { backtrace: Backtrace },
     #[snafu(display("empty interface change"))]
@@ -100,10 +98,10 @@ impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
             Arguments, ContinueInOtherTab, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex,
-            HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange,
-            PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Response, RewriteText, Session, Setting,
-            SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale,
-            UnknownTool, UsageBadRange, UsageNoDeck, Voice,
+            HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, OpenElsewhere, PackChange, PackId, PacksDeckMode,
+            Paragraphs, PathParent, PathRelative, Response, RewriteText, Session, Setting, SettingLocked, TabLimit,
+            TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale, UnknownTool, UsageBadRange,
+            UsageNoDeck, Voice,
         };
         match self {
             Arguments { source, .. } => {
@@ -133,7 +131,6 @@ impl Localize for ToolError {
             TabNoTurn { .. } => l.tr("agent-error-tab-no-turn"),
             ContinueInOtherTab { .. } => l.tr("agent-error-continue-in-other-tab"),
             HistoryIndex { .. } => l.tr("agent-error-history-index"),
-            NothingToPresent { .. } => l.tr("agent-error-present"),
             UnknownLocale { .. } => l.tr("agent-error-locale"),
             EmptyInterface { .. } => l.tr("agent-error-empty-interface"),
             NotShown { .. } => l.tr("agent-error-not-shown"),

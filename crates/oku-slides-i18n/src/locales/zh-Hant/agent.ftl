@@ -43,7 +43,7 @@ agent-confirm-agent = 要在沒有回覆執行時將應用程式代理切換為 
 agent-confirm-agent-builtin = 要在沒有回覆執行時將應用程式代理切換為 { $name } 嗎？
 agent-confirm-agent-model = 要下載本機代理模型嗎（{ $size }）？
 
-agent-not-found = 找不到 AI 代理：{ $command }。設定 [agent.presets]。
+agent-not-found = 找不到 AI 代理：{ $command } 不在該路徑，也不在應用程式的 PATH 中。請在 [agent.presets] 中填寫完整路徑。
 agent-spawn-failed = 無法啟動 AI 代理：{ $command }。設定 [agent.presets]。
 agent-no-http = 此 AI 代理無法連線到 Oku Slides 的工具。
 agent-local-no-program = 本機 AI 代理只能在 Oku Slides 應用程式內執行。
@@ -126,7 +126,6 @@ agent-error-setting = 無法變更設定 { $key }：請檢查其值。
 agent-error-history-index = 瀏覽歷史記錄需要版本的序號。
 agent-error-no-pack = 此簡報未固定任何套件：請提供 pack（參見 packs）。
 agent-error-history-not-opened = 分頁未能及時開啟歷史記錄：請重新請求。
-agent-error-present = 這裡沒有可簡報的內容：沒有投影片，或分頁處於套件、歷史記錄或唯讀模式。
 agent-error-locale = 未知的語言代碼。請提供內建語言代碼或 system。
 agent-error-empty-interface = 沒有要變更的內容：請提供 scheme、locale 或 guides。
 agent-error-empty-dictation = 沒有要變更的內容：請至少提供一項聽寫設定。

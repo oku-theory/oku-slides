@@ -9,19 +9,25 @@
 //! - [`english`] : l'anglais de référence, pour les journaux et `Display`.
 //! - [`Message`] : un message à dire plus tard (dans une erreur).
 //! - [`platform_keys`], [`pc_keys`] : les raccourcis dans la notation de la plateforme.
+//! - [`fold`]: case and accent folding, to compare spoken or typed text.
+//! - [`theme_shortcuts`]: the theme shortcut's words in every shipped language.
 //!
 //! Les fichiers `.ftl` sont dans `src/locales/<langue>/`, un par domaine ;
 //! `en` est la référence, chaque autre langue en reprend toutes les clés.
 
+mod fold;
 mod keys;
 mod live;
 mod message;
+mod shortcut;
 
 use std::sync::LazyLock;
 
+pub use fold::fold;
 pub use keys::{pc_keys, platform_keys};
 pub use live::LiveLocalizer;
 pub use message::{Arg, Message};
+pub use shortcut::{THEME_SHORTCUT, theme_shortcuts};
 
 use fluent_bundle::FluentResource;
 use fluent_bundle::concurrent::FluentBundle;

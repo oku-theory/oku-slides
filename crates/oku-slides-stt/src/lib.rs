@@ -446,6 +446,13 @@ impl Stt {
         self.status()
     }
 
+    /// The chosen dictation language, then the one detected in the current dictation.
+    #[must_use]
+    pub fn languages(&self) -> (Option<String>, Option<String>) {
+        let g = self.state();
+        (g.config.language.clone(), g.detected.clone())
+    }
+
     /// The state to display: engines, sentences, microphone level, error.
     #[must_use]
     pub fn status(&self) -> Status {

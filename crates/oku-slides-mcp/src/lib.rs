@@ -17,6 +17,7 @@ mod edit_tools;
 mod error;
 mod guarded_tools;
 mod handler;
+mod history_page;
 mod hub;
 mod import_tools;
 mod open_tools;

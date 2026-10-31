@@ -43,7 +43,7 @@ agent-confirm-agent = هل تريد تبديل وكيل التطبيق إلى { 
 agent-confirm-agent-builtin = هل تريد تبديل وكيل التطبيق إلى { $name } عندما لا يكون أي رد قيد التشغيل؟
 agent-confirm-agent-model = هل تريد تنزيل نموذج الوكيل المحلي ({ $size })؟
 
-agent-not-found = لم يتم العثور على الوكيل: { $command }. إعداد [agent.presets].
+agent-not-found = لم يتم العثور على الوكيل: { $command } غير موجود في هذا المسار ولا في PATH الخاص بالتطبيق. اكتب مساره الكامل في [agent.presets].
 agent-spawn-failed = تعذّر تشغيل الوكيل: { $command }. إعداد [agent.presets].
 agent-no-http = هذا الوكيل لا يستطيع الاتصال بأدوات Oku Slides.
 agent-local-no-program = لا يعمل الوكيل المحلي إلا داخل تطبيق Oku Slides.
@@ -140,7 +140,6 @@ agent-error-setting = تعذّر تغيير الإعداد { $key }: تحقّق 
 agent-error-history-index = يلزم رقم إصدار للتنقل في السجل.
 agent-error-no-pack = لا يثبّت هذا العرض أي حزمة: أعطِ pack (راجع packs).
 agent-error-history-not-opened = لم تفتح علامة التبويب السجل في الوقت المناسب: اطلب مجددًا.
-agent-error-present = لا شيء لعرضه هنا: لا توجد شرائح، أو أن علامة التبويب في وضع الحزمة أو السجل أو القراءة فقط.
 agent-error-locale = رمز لغة غير معروف. أعطِ رمز لغة متاحة أو system.
 agent-error-empty-interface = لا شيء لتغييره: أعطِ scheme أو locale أو guides.
 agent-error-empty-dictation = لا شيء لتغييره: أعطِ إعدادًا واحدًا على الأقل للإملاء.

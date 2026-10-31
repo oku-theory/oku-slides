@@ -15,7 +15,6 @@ fn version() -> oku_slides_core::PackVersion {
 
 #[rstest]
 #[case::apply(Request::Apply { label: "x".into(), ops: Vec::new(), merge: None }, true)]
-#[case::set_theme(Request::SetTheme { theme: "pro".into() }, true)]
 #[case::edit_theme(Request::EditTheme { id: Uuid::nil(), name: None, ops: Vec::new() }, true)]
 #[case::undo(Request::Undo, true)]
 #[case::redo(Request::Redo, true)]
@@ -88,7 +87,6 @@ fn writes_edited_draft_classifies_every_request(#[case] request: Request, #[case
 #[case::save(Request::Save { path: None, overwrite: false }, false)]
 #[case::save_pack(Request::SavePack { as_new: false }, false)]
 #[case::edit_theme(Request::EditTheme { id: Uuid::nil(), name: None, ops: Vec::new() }, false)]
-#[case::set_theme(Request::SetTheme { theme: "pro".into() }, false)]
 #[case::host_settings(Request::HostSettings { widget: None }, false)]
 #[case::layouts(Request::Layouts, false)]
 #[case::packs(Request::Packs { kind: oku_slides_core::PackKind::Widgets }, false)]

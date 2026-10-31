@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 use uuid::Uuid;
 
 use oku_slides_core::{Namespace, Op, PackKind};
@@ -84,16 +84,9 @@ pub enum Request {
         #[serde(default)]
         merge: Option<String>,
     },
-    /// Le deck prend le thème `theme` et sa fermeture, versions courantes embarquées. Annulable.
-    ///
-    /// `theme` : son espace de noms, son id ou son nom (sans casse), comme [`crate::embed_theme`].
-    SetTheme {
-        /// Targeted theme: namespace, id or name.
-        theme: String,
-    },
     /// In a pack tab, previews the working deck in theme `theme`, silently.
     ///
-    /// `theme`: its namespace, id or name, as for [`Request::SetTheme`]. No undo step,
+    /// `theme`: its namespace, id or name, case-insensitive, as for [`crate::embed_theme`]. No undo step,
     /// not unsaved work; refused outside a pack tab.
     SetPreviewTheme {
         /// Targeted theme: namespace, id or name.
@@ -414,7 +407,6 @@ impl Session {
                 req,
                 Request::Snapshot
                     | Request::Apply { .. }
-                    | Request::SetTheme { .. }
                     | Request::SetPreviewTheme { .. }
                     | Request::SetEditedThemeExtends { .. }
                     | Request::EditThemeExtends { .. }
@@ -438,7 +430,7 @@ impl Session {
             self.end_widget_session();
         }
         // Un thème a pu être enregistré ailleurs (autre onglet) : relu au snapshot demandé.
-        if matches!(req, Request::Snapshot | Request::SetTheme { .. } | Request::SetPreviewTheme { .. }) {
+        if matches!(req, Request::Snapshot | Request::SetPreviewTheme { .. }) {
             self.theme_list = self.themes.themes();
         }
         match req {
@@ -488,11 +480,6 @@ impl Session {
                 self.merge_file(&path)?;
             }
             Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
-            Request::SetTheme { theme } => {
-                let ns = crate::library_lookup::find_theme(&self.themes, &theme)
-                    .context(crate::error::UnknownThemeSnafu { theme: theme.as_str() })?;
-                self.set_theme(&ns)?;
-            }
             Request::SetPreviewTheme { theme } => self.set_preview_theme(&theme)?,
             Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
             Request::SetExampleValue { name, param, value } => {

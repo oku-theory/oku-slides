@@ -9,6 +9,7 @@
 - Build every outgoing ureq agent with http::system_tls; bundled roots reject corporate TLS-inspection CAs. (t-1211)
 - Download model files only through models::download, which checks pinned SHA-256 and writes .complete last. (plan:2026-10-18-agent-local-repli-lot3)
 - Build a shipped binary's Platform only with Platform::load; with_settings renders InProcess, unbounded and unsandboxed. (spec:2026-10-17-render-worker-sandbox-design, plan:2026-09-29-compilation-bornee)
+- Find and launch external programs (agent, soffice) on Platform.program_path, never the process's PATH; only the app takes the login shell's. (t-956)
 
 ## Pitfalls
 

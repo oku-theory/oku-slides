@@ -74,13 +74,11 @@ fn set_theme_changes_the_rendered_accent() {
     assert_that!(accent(&s)).is_equal_to(before);
 }
 
-#[rstest::rstest]
-#[case::namespace("pro")]
-#[case::name("Pro")]
-#[case::id("7e1b9c3d-2f4a-4d6e-a8b0-5c7d9e1f3b42")]
-fn set_theme_request_takes_a_namespace_an_id_or_a_name(#[case] theme: &str) {
+#[test]
+fn set_theme_shows_the_pin_and_the_theme_list_in_the_snapshot() {
     let mut s = session();
-    let snap: Value = serde_json::from_str(&s.handle(Request::SetTheme { theme: theme.into() }).unwrap()).unwrap();
+    s.set_theme(&ns(PRO_NAMESPACE)).unwrap();
+    let snap: Value = serde_json::from_str(&s.handle(Request::Snapshot).unwrap()).unwrap();
     assert_that!(snap["theme"].as_str()).is_equal_to(Some("pro"));
     assert_that!(snap["theme_pins"]["pro"]["id"].as_str()).is_equal_to(Some(PRO_THEME.to_string().as_str()));
     let listed: Vec<&str> = snap["themes"].as_array().unwrap().iter().filter_map(|t| t["namespace"].as_str()).collect();

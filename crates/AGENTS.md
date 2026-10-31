@@ -15,6 +15,7 @@
 - Add or remove a Rust advisory exception in deny.toml and .cargo/audit.toml together, with its reason in deny.toml. (t-890, t-897)
 - Fix clippy pedantic lints instead of lifting them per crate or workspace; expect one at the site with a reason. (t-1186)
 - Keep unsafe_code at deny, not forbid: FFI modules lift it with #[expect(unsafe_code, reason)]. (t-1186)
+- Fold case and accents only with oku_slides_i18n::fold, mirrored by normalizeShortcut in ui/src/agent/shortcut.ts. (t-1072)
 - Route lossy numeric casts through oku_slides_core::num; crates below core keep a local num.rs with the same names. (t-1186)
 
 ## Pitfalls

@@ -43,7 +43,7 @@ agent-confirm-agent = Switch the app agent to { $name } ({ $command }) once no r
 agent-confirm-agent-builtin = Switch the app agent to { $name } once no reply is running?
 agent-confirm-agent-model = Download the local agent model ({ $size })?
 
-agent-not-found = Agent not found: { $command }. Setting [agent.presets].
+agent-not-found = Agent not found: { $command } exists neither at that path nor in the app's PATH. Give its full path in [agent.presets].
 agent-spawn-failed = The agent could not start: { $command }. Setting [agent.presets].
 agent-no-http = This agent cannot connect to Oku Slides' tools.
 agent-local-no-program = The local agent can only run inside the Oku Slides app.
@@ -133,7 +133,6 @@ agent-error-setting = The setting { $key } could not be changed: check its value
 agent-error-history-index = Moving through the history needs the index of a version.
 agent-error-no-pack = This deck pins no pack: give pack (see packs).
 agent-error-history-not-opened = The tab did not open the history in time: ask again.
-agent-error-present = Nothing to present here: no slide, or the tab is in pack, history or read-only mode.
 agent-error-locale = Unknown language code. Give a shipped language code or system.
 agent-error-empty-interface = Nothing to change: give scheme, locale or guides.
 agent-error-empty-dictation = Nothing to change: give at least one dictation setting.

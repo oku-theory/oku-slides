@@ -1,7 +1,7 @@
 //! The namespace of a new library pack or theme, drawn from its name.
 //!
-//! Lowercase ASCII, digits and `-`; common accented Latin letters lose their
-//! accent, any other sign becomes `-`. A letter first (else the caller's
+//! Lowercase ASCII, digits and `-`; accented letters lose their accent
+//! (`oku_slides_i18n::fold`), any other sign becomes `-`. A letter first (else the caller's
 //! prefix, `pack-` or `theme-`, goes in front), 64 bytes at most. Taken by a
 //! pack or theme of the library, or `deck` (reserved): `-2`, `-3`… are added,
 //! so `NamespaceTaken` never happens on save. The templates of a renamed
@@ -18,36 +18,17 @@ use crate::library_packs::PackLibrary;
 /// Longueur maximale d'un espace de noms, en octets (celle du cœur).
 const MAX: usize = 64;
 
-/// La lettre ASCII de `c` sans son accent, pour les lettres latines courantes.
-fn fold(c: char) -> Option<&'static str> {
-    Some(match c {
-        'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' => "a",
-        'æ' => "ae",
-        'ç' => "c",
-        'è' | 'é' | 'ê' | 'ë' => "e",
-        'ì' | 'í' | 'î' | 'ï' => "i",
-        'ñ' => "n",
-        'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' => "o",
-        'œ' => "oe",
-        'ù' | 'ú' | 'û' | 'ü' => "u",
-        'ý' | 'ÿ' => "y",
-        'ß' => "ss",
-        _ => return None,
-    })
-}
-
 /// The name `name` as a namespace segment: `[a-z][a-z0-9-]*`, at most `max` bytes.
 ///
 /// A name that does not start with a letter gets `<prefix>-` in front.
 pub(crate) fn slug(name: &str, max: usize, prefix: &str) -> String {
     let mut out = String::new();
-    for c in name.chars().flat_map(char::to_lowercase) {
-        match fold(c) {
-            Some(folded) => out.push_str(folded),
-            None if c.is_ascii_alphanumeric() => out.push(c),
+    for c in oku_slides_i18n::fold(name).chars() {
+        match c {
+            c if c.is_ascii_alphanumeric() => out.push(c),
             // Un séparateur seul entre deux mots, jamais en tête.
-            None if !out.is_empty() && !out.ends_with('-') => out.push('-'),
-            None => {}
+            _ if !out.is_empty() && !out.ends_with('-') => out.push('-'),
+            _ => {}
         }
     }
     if !out.starts_with(|c: char| c.is_ascii_lowercase()) {

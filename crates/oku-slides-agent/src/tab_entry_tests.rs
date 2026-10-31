@@ -86,6 +86,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         command: "sh".into(),
         args: vec!["-c".into(), format!("touch '{}'", launched.display())],
         env: Vec::new(),
+        path: None,
         fallback_cwd: dir.path().to_owned(),
         ready_within: Duration::from_secs(5),
     });
@@ -162,6 +163,7 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
         command: "sh".into(),
         args: vec!["-c".into(), format!("touch '{}'", launched.display())],
         env: Vec::new(),
+        path: None,
         fallback_cwd: dir.path().to_owned(),
         ready_within: Duration::from_secs(5),
     });
@@ -229,6 +231,7 @@ async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::
         command: "true".into(),
         args: Vec::new(),
         env: Vec::new(),
+        path: None,
         fallback_cwd: dir.path().to_owned(),
         ready_within: Duration::from_secs(5),
     });

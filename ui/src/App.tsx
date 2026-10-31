@@ -48,7 +48,7 @@ import HostSettings from "./HostSettings";
 import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { useDataSettings } from "./useDataSettings";
 import Presenter from "./Presenter";
-import type { PresentMode } from "./present";
+import { usePageEvents } from "./usePageEvents";
 import SlideNav from "./SlideNav";
 import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
@@ -269,37 +269,9 @@ export default function App({
   const { editPack } = packGestures({ onOpenPack, onClose });
   useCloseGuard(tab, async () => { await item.files.settle(); await autosave.flush(); });
 
-  // --- Présentation : la slide seule, sur tout l'écran ou toute la fenêtre ----
-  const [presenting, setPresenting] = useState<PresentMode | null>(null);
-  /** Présente le deck depuis la slide montrée ; la saisie ouverte s'enregistre d'abord. Lit le
-   *  dernier instantané, pas celui du rendu : l'agent peut présenter juste après une modification. */
-  const present = (mode: PresentMode) => {
-    const s = snapRef.current;
-    if (!s?.slides.length || s.editing || s.theming || s.history || s.read_only) return;
-    stage.current?.commitEditing();
-    setSelected(null);
-    setEditing(null);
-    setPresenting(mode);
-  };
-
-  /** Opens the history (toolbar button or the agent's `history` tool), one opening at a time.
-   *  The open text edit is committed first, then pending changes go to the file: the history
-   *  refuses writes, and the deck set aside goes back to the file only when it closes. */
-  const openingHistory = useRef(false);
-  const openHistory = async () => {
-    if (openingHistory.current) return;
-    openingHistory.current = true;
-    try {
-      stage.current?.commitEditing();
-      await autosave.flush();
-      if (await run(api.historyOpen())) {
-        setSelected(null);
-        setEditing(null);
-      }
-    } finally {
-      openingHistory.current = false;
-    }
-  };
+  const { presenting, setPresenting, present, openHistory } = usePageEvents({
+    api, snapRef, stage, autosave, run, setSelected, setEditing,
+  });
 
   /** Ce que l'agent change dans l'interface (`set_interface`), par le chemin des commandes de l'app. */
   const onInterface = (c: InterfaceChange) =>
