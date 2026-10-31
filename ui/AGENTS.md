@@ -6,7 +6,7 @@
 - Do not end text editing on blur when document.hasFocus() is false; another window or app took focus. (spec:2026-10-09-agent-detachable-design)
 - Route every visible UI string and ARIA label through t() with Fluent keys; never hardcode text. (t-44)
 - Ignore quick keys on editable targets, with modifiers, on repeat, during IME composition, or when already handled. (plan:2026-09-26-agent-vocal)
-- Build modals on useModalFrame (sole FOCUSABLE, ARMING_MS), confirmations on useConfirm and its ConfirmDialog; confirmations take no Enter or digits and ignore input for 500 ms; window.confirm stays only in merge.ts's browser fallbacks for Tauri's three-button dialogs. (plan:2026-09-26-agent-vocal, t-692, t-1157, t-1254)
+- Build modals on useModalFrame (sole FOCUSABLE, ARMING_MS), confirmations on useConfirm and its ConfirmDialog, right-click menus on ContextMenu (it takes the focus itself when every entry is disabled, so Escape still closes it); confirmations take no Enter or digits and ignore input for 500 ms; window.confirm stays only in merge.ts's browser fallbacks for Tauri's three-button dialogs. (plan:2026-09-26-agent-vocal, t-692, t-1157, t-1254, t-1250)
 - Route every agent surface somewhere visible; anything that cannot be placed falls back to the thread. A theme tab shows its thread and composer below its theme panel, so a host-prefilled draft and its turn's questions show. (plan:2026-09-26-agent-vocal, t-1277)
 - Validate every agent-link message with zod and drop invalid ones without logging; they may hold dictated text. (spec:2026-10-09-agent-detachable-design)
 - Send draft updates one at a time tagged with the view origin, and ignore echoes of the view's own sends. (spec:2026-10-09-agent-detachable-design)

@@ -53,7 +53,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Undo only through the Loro UndoManager, rebuilt empty on open or resume; never persist it or bring back History. (ADR-0002)
 - Never change the built-in theme and pack UUIDs or reintroduce slugs; decks reference them by id. (plan:2026-10-05-themes-packs-editeur)
 - Track agent provenance via set_widget_by_agent in the session; never add an origin flag to requests. (spec:2026-10-03-widgets-agent-a2ui-design)
-- Build settings forms only through forms::params and params_with; never add a second A2UI builder. (spec:2026-10-03-widgets-agent-a2ui-design)
+- Build settings forms only through forms::params and params_with; never add a second A2UI builder. When a panel's text changes, regenerate ui/src/a2ui/fixtures/agent-surfaces.json with OKU_UPDATE_FIXTURES=1 and check its diff holds only that text. (spec:2026-10-03-widgets-agent-a2ui-design, t-1252)
 - Put new impl Session code, agent code included in src/agent, in its own module; add only match arms to lib.rs. (plan:2026-10-08-widget-tableau)
 - Expose UI-actionable states such as disk_replaced as snapshot flags, never as session errors. (spec:2026-09-27-sources-loro-design)
 - Model help as Mode::Help, exclusive of pack mode and history, and add no request whitelist to it. (plan:2026-10-09-tickets-debloques-t598, t-489)
