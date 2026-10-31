@@ -32,8 +32,7 @@ async function render() {
   await act(async () =>
     root.render(
       createElement(ConfirmDialog, {
-        message: "Delete kpi?",
-        confirmLabel: "Delete",
+        question: { message: "Delete kpi?", ok: "Delete", danger: true },
         onConfirm: () => calls.confirm++,
         onCancel: () => calls.cancel++,
       }),

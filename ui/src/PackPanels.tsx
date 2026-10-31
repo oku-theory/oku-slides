@@ -2,12 +2,11 @@
  * The panels of a pack tab: the header (brand, title, caption, preview theme), the toolbar, the finish button,
  * the pile of items in the left column, and the selected item's view in the sheet area.
  *
- * A delete in the pile asks in a `ConfirmDialog`, reported open through `onDialog` so that
+ * A delete in the pile asks in a `ConfirmDialog` (useConfirm), reported open through `onDialog` so that
  * nothing behind it reacts.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { Snapshot, TabApi } from "./api";
-import ConfirmDialog from "./ConfirmDialog";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { PackBrand } from "./PackBrand";
@@ -18,6 +17,7 @@ import { showFinish } from "./packGestures";
 import PileColumn from "./PileColumn";
 import TitleField from "./TitleField";
 import { ToolsTray } from "./ToolsTray";
+import { useConfirm } from "./useConfirm";
 import type { KeptUi } from "./useKeptUi";
 import type { PackItem } from "./usePackItem";
 import WidgetPane from "./WidgetPane";
@@ -48,22 +48,11 @@ export interface PackPanelsProps {
   onDialog(open: boolean): void;
 }
 
-/** A question waiting for its answer. */
-interface Asking {
-  message: string;
-  answer(yes: boolean): void;
-}
-
-/** A pack tab's header, tools, pile and selected item. */
 export default function PackPanels({
   api, snap, item, keptUi, look, run, settings, svg, mainMenu, drawer, onClose, onDialog,
 }: PackPanelsProps) {
-  const [asking, setAsking] = useState<Asking | null>(null);
-  const askingRef = useRef(asking);
-  useLayoutEffect(() => {
-    askingRef.current = asking;
-  });
-  const open = asking !== null;
+  // A question left open when the tab goes is answered no (useConfirm).
+  const { confirm, asking: open, dialog } = useConfirm();
   // Reported open, then closed when it closes or the panels go with it open.
   useEffect(() => {
     onDialog(open);
@@ -71,21 +60,10 @@ export default function PackPanels({
       if (open) onDialog(false);
     };
   }, [open]);
-  // A question left open when the tab goes is answered no.
-  useEffect(() => () => askingRef.current?.answer(false), []);
-  const confirm = (message: string) =>
-    new Promise<boolean>((resolve) =>
-      setAsking({
-        message,
-        answer: (yes) => {
-          setAsking(null);
-          resolve(yes);
-        },
-      }),
-    );
 
   const editing = snap.editing;
-  if (!editing) return null;
+  // A delete question asked as the tab leaves pack mode still shows.
+  if (!editing) return <>{dialog}</>;
   const kind = editing.kind;
   const items = pileItems(snap);
   const layouts = kind === "layouts";
@@ -134,14 +112,7 @@ export default function PackPanels({
         />
         {drawer}
       </main>
-      {asking && (
-        <ConfirmDialog
-          message={asking.message}
-          confirmLabel={t("ui-confirm-delete-ok")}
-          onConfirm={() => asking.answer(true)}
-          onCancel={() => asking.answer(false)}
-        />
-      )}
+      {dialog}
     </>
   );
 }

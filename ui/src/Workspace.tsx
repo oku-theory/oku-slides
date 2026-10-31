@@ -18,6 +18,7 @@ import { useImportPick } from "./useImportPick";
 import { useSharedClip } from "./useSharedClip";
 import { useTabShortcuts } from "./useTabShortcuts";
 import { ERROR_MS } from "./useToast";
+import { useConfirm } from "./useConfirm";
 import { useTransient } from "./useTransient";
 import { useUpdate } from "./useUpdate";
 import { showBroadcast } from "./workspaceBroadcast";
@@ -60,6 +61,8 @@ export default function Workspace() {
   const bump = useCallback(() => setNonce((n) => n + 1), []);
   // The About dialog, one per window (main menu of any tab).
   const [about, setAbout] = useState(false);
+  // The close flows' questions, one at a time over the active tab (t-1254).
+  const asker = useConfirm();
   // L'avis d'une fusion faite à l'ouverture : seule la réponse de la fusion
   // le porte, l'`App` de son onglet le montre (voir `openGuarded`).
   const [merged, setMerged] = useState<{ tab: string; text: string } | null>(null);
@@ -150,7 +153,7 @@ export default function Workspace() {
   /** The close flows' deps, built from this render's values for window `l`. */
   const flowDeps = (l: string) =>
     closeFlowDeps({
-      tabApi, confirm: (m) => window.confirm(m), runGuard: (x) => runCloseGuard(x), closing: closingRef.current,
+      tabApi, confirm: asker.confirm, runGuard: (x) => runCloseGuard(x), closing: closingRef.current,
       stalls: stallsRef.current, refresh, freshView, now: Date.now, ws: workspace, label: l, alive, run, setError,
     });
 
@@ -209,11 +212,11 @@ export default function Workspace() {
       .catch((e) => alive.current && setError(errorText(e)));
   });
 
-  // Raccourcis des onglets, retenus pendant que le dialogue d'import ou « À propos » est ouvert.
+  // Tab shortcuts, held while the import dialog, About or a close question is open.
   useTabShortcuts(label !== null, {
     mac: isMac,
     windows: inTauri,
-    held: () => imports.holdsKeys() || about,
+    held: () => imports.holdsKeys() || about || asker.asking,
     onAction: (action) => {
       const w = winRef.current;
       if (!w || label === null) return;
@@ -232,7 +235,13 @@ export default function Workspace() {
   });
 
   if (!view || label === null || !win) {
-    return <div className="table"><p className="empty" style={{ padding: 40 }}>{error ?? t("ui-loading")}</p></div>;
+    // A close question asked meanwhile still shows (and can be answered).
+    return (
+      <div className="table">
+        <p className="empty" style={{ padding: 40 }}>{error ?? t("ui-loading")}</p>
+        {asker.dialog}
+      </div>
+    );
   }
 
   // Un fichier ouvert devient l'onglet actif (nouveau, ou déjà ouvert
@@ -300,7 +309,7 @@ export default function Workspace() {
           onImportClose={imports.close}
           onHelp={() => run(workspace.openHelp(label))}
           onAbout={() => setAbout(true)}
-          aboutOpen={about}
+          windowDialog={about || asker.asking}
           updates={appUpdates}
           onClose={closeStays(view, label, win.active, inTauri) ? undefined : () => void closeTab(win.active)}
           onOpenPack={async (pack, widget) => {
@@ -328,6 +337,7 @@ export default function Workspace() {
         onDropOutside={dropOutside}
       />
       {about && <AboutDialog version={APP_VERSION} releases={RELEASES} onClose={() => setAbout(false)} />}
+      {asker.dialog}
     </div>
   );
 }

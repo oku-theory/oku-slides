@@ -158,6 +158,7 @@ packs-use-mine = मेरा संस्करण उपयोग करें
 packs-make-current = उनके संस्करण को मेरा संस्करण बनाएँ
 packs-remove = हटाएँ
 packs-pack-open = खोलें
+packs-pack-open-mine = मेरा संस्करण खोलें
 packs-add = लाइब्रेरी से जोड़ें
 packs-theme-overrides = { $count ->
     [one] प्रस्तुति का { $count } बदलाव

@@ -35,6 +35,9 @@ ui-close-writes-pending = このタブはまだ保存中です。少ししてか
 ui-confirm-close-writes-pending = このタブはまだ保存中です。それでも閉じて、保存されていない内容を失いますか？
 ui-confirm-close-writes-pending-linked = このタブはまだ保存中です。次のパックのタブも保存されないまま一緒に閉じます: { $tabs }。それでも閉じて、保存されていない内容を失いますか？
 ui-confirm-quit-read-only-pack = { $pack } はここでは保存できません。このタブを閉じて変更を失いますか？変更を残すには、エージェントに新しいパックとして保存するよう依頼してください。
+ui-confirm-discard-ok = 保存せずに閉じる
+ui-confirm-update-ok = 更新
+ui-confirm-update-later = 後で
 
 ## トースト
 
@@ -277,8 +280,14 @@ ui-tabs = 開いているプレゼンテーション
 ui-tab-new = 新しいタブ
 ui-tab-close = タブを閉じる
 ui-tab-unsaved = 未保存の変更
-ui-tab-kind-pack = { $title }, パック
-ui-tab-kind-theme = { $title }, テーマ
+ui-tab-kind-pack = { $title }, パック{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, テーマ{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = テーマ
 ui-preview-theme = プレビューのテーマ
 ui-tab-move-new-window = 新しいウィンドウに移動
@@ -334,6 +343,9 @@ ui-widgets-delete-named = { $name } を削除
 ui-widgets-confirm-delete = ウィジェット「{ $name }」を削除しますか?
 ui-layouts-confirm-delete = レイアウト「{ $name }」を削除しますか?
 ui-widgets-rename-hint = ダブルクリックまたは F2 で名前を変更
+ui-pile-menu = { $name } の操作
+ui-pile-menu-rename = 名前を変更
+ui-pile-menu-delete = 削除
 ui-theme-name = テーマ名
 ui-theme-unsaved = テーマの変更は未保存
 ui-widgets-removed-by-agent = エージェントがウィジェット { $name } を削除しました。

@@ -68,7 +68,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
-  onHelp, onAbout, aboutOpen = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange,
+  onHelp, onAbout, windowDialog = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange,
 }: {
   tab: string;
   /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
@@ -97,8 +97,8 @@ export default function App({
   onHelp: () => void;
   /** Opens the window's About dialog (version and changelog). */
   onAbout: () => void;
-  /** The window's About dialog is open: nothing behind it reacts. */
-  aboutOpen?: boolean;
+  /** A window dialog (About, a close question) is open: nothing behind it reacts. */
+  windowDialog?: boolean;
   /** Recherche de mise à jour de la fenêtre ; absente hors de l'app (pas d'entrée). */
   updates?: AppUpdates;
   /** Closes this tab (help bar, a pack tab's finish button); absent: the last tab stays. */
@@ -225,8 +225,8 @@ export default function App({
   const [adding, setAdding] = useState(false);
   // A pack tab's delete confirmation (`PackPanels`).
   const [confirming, setConfirming] = useState(false);
-  // An app dialog (layouts, add, import, about, a confirmation) is open: nothing behind it reacts.
-  const dialogOpen = picking || adding || importJob !== null || aboutOpen || confirming;
+  // An app dialog (layouts, add, import, a confirmation) or a window one is open: nothing behind it reacts.
+  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming;
   /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
     setAdding(false);

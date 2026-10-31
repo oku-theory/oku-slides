@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { closePackTabs, closePacksPanel, packTabShown } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
+const { answerQuestion } = require('./lib/question.cjs');
 const { until, untilValue, settled } = require('./lib/until.cjs');
 const { PREVIEW, newPackItem, pileThumb, selectPackItem, widgetPreviewSvg } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -43,16 +44,10 @@ const adopted = (id, version) => {
   const errors = [];
   const dialogs = [];
   p.on('pageerror', (e) => errors.push(e.message));
-  // The only dialog: the update offer naming `t-1`'s deck and Base, accepted.
+  // No browser dialog; the only question is the in-page update offer naming `t-1`'s deck and Base.
   p.on('dialog', (d) => {
-    const offer = /^Mettre à jour « ⁨(.+)⁩ » avec cette version du pack « ⁨Base⁩ » \?$/.exec(d.message());
-    if (offer) {
-      dialogs.push(`offer ${offer[1]}`);
-      void d.accept();
-    } else {
-      errors.push(`dialogue inattendu : ${d.message()}`);
-      void d.dismiss();
-    }
+    errors.push(`dialogue inattendu : ${d.message()}`);
+    void d.dismiss();
   });
   await p.goto(URL);
   await closePackTabs(p);
@@ -153,6 +148,8 @@ const adopted = (id, version) => {
   const written = await settled(p, async () => (await api(p, packTab, { cmd: 'snapshot' })).editing?.session_version ?? null, "la version de l'onglet ne se stabilise pas", 15000, 1000);
   assert.ok(written, "l'onglet de Base n'a pas écrit de version");
   await p.locator('.tab.active .tab-close').click();
+  const offer = await answerQuestion(p, /^Mettre à jour « ⁨(.+)⁩ » avec cette version du pack « ⁨Base⁩ » \?$/, 'Mettre à jour');
+  dialogs.push(`offer ${offer[1]}`);
   await untilValue(p, () => view(p), (v) => !v.windows[0].tabs.some((t) => t.id === packTab) && v.windows[0].active === 't-1', "l'onglet de pack ne se ferme pas");
   const title = (await view(p)).windows[0].tabs.find((t) => t.id === 't-1').title;
   await untilValue(p, () => base(p), (e) => e.pinned === e.current && e.pinned !== older.pinned, "t-1 n'épingle pas la version offerte");

@@ -158,6 +158,7 @@ packs-use-mine = 使用我的版本
 packs-make-current = 將對方的版本設為我的版本
 packs-remove = 移除
 packs-pack-open = 開啟
+packs-pack-open-mine = 開啟我的版本
 packs-add = 從資料庫加入
 packs-theme-overrides = 簡報覆寫：{ $count }
 packs-theme-pick = 簡報主題

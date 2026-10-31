@@ -70,7 +70,7 @@ test("TabBar context menu renders outside the glass tab bar", async () => {
   await act(async () => {
     first.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 880 }));
   });
-  expect(document.querySelector(".tab-menu")?.parentElement).toBe(document.body);
+  expect(document.querySelector(".context-menu")?.parentElement).toBe(document.body);
 });
 
 test("TabBar tab in pack mode is of the pack kind", async () => {
@@ -84,6 +84,27 @@ test("TabBar pack tab names its kind", async () => {
   const names = [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("aria-label"));
   expect(names).toEqual([t("ui-tab-kind-pack", { title: "Mine" }), t("ui-tab-kind-theme", { title: "Look" }), null]);
   expect(names[0]).toBe("Mine, pack");
+});
+
+const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
+/** Each tab's accessible name, from the real `lang` messages over English. */
+async function names(lang: string, tabs: TabInfo[]) {
+  setMessages(lang, lang === "en" ? [await ftl("en")] : [await ftl("en"), await ftl(lang)]);
+  const host = await mount(false, tabs);
+  return [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("aria-label"));
+}
+const dirty = (x: TabInfo): TabInfo => ({ ...x, dirty: true, pristine: false });
+
+test.each([
+  ["en", ["Mine, pack, Unsaved changes", "Look, theme, Unsaved changes"]],
+  ["fr", ["Mine, pack, Modifications non enregistrées", "Look, thème, Modifications non enregistrées"]],
+])("TabBar a dirty pack or theme tab names its unsaved state (%s)", async (lang, expected) => {
+  const tabs = [dirty(tab("Mine", { kind: "pack", pack: PACK })), dirty(tab("Look", { kind: "theme", theme: PACK }))];
+  expect(await names(lang, tabs)).toEqual(expected);
+});
+
+test("TabBar a clean pack tab's name says nothing of unsaved changes", async () => {
+  expect(await names("en", [tab("Mine", { kind: "pack", pack: PACK })])).toEqual(["Mine, pack"]);
 });
 
 test("TabBar has no tab badge and its kind icon is aria-hidden", async () => {
@@ -129,7 +150,7 @@ test("TabBar close others is disabled on a deck-pack tab whose only other tab is
   await act(async () => {
     linked.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
   });
-  const items = [...document.querySelectorAll<HTMLButtonElement>('.tab-menu [role="menuitem"]')];
+  const items = [...document.querySelectorAll<HTMLButtonElement>('.context-menu [role="menuitem"]')];
   const others = items.find((b) => b.textContent === "ui-tab-close-others");
   expect(others?.disabled).toBe(true);
 });

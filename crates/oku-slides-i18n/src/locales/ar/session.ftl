@@ -158,6 +158,7 @@ packs-use-mine = استخدام إصداري
 packs-make-current = اجعل إصداره إصداري
 packs-remove = إزالة
 packs-pack-open = فتح
+packs-pack-open-mine = فتح نسختي
 packs-add = إضافة من المكتبة
 packs-theme-overrides = { $count ->
     [one] تخصيص واحد للعرض التقديمي ({ $count })

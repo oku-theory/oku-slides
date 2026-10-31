@@ -158,6 +158,7 @@ packs-use-mine = Użyj mojej wersji
 packs-make-current = Ustaw tamtą wersję jako moją
 packs-remove = Usuń
 packs-pack-open = Otwórz
+packs-pack-open-mine = Otwórz moją wersję
 packs-add = Dodaj z biblioteki
 packs-theme-overrides = { $count ->
     [one] { $count } nadpisanie prezentacji

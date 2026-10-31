@@ -4,6 +4,7 @@ import type { Snapshot, TabApi, TabDocument, TabInfo } from "./api";
 import { mayClose, saveForClose } from "./close";
 import { setMessages } from "./i18n";
 import type { PackMode, ThemeTabView } from "./packTypes";
+import type { Question } from "./useConfirm";
 import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -17,7 +18,9 @@ const snap = (s: Partial<Snapshot>) => ({ dirty: false, path: null, name: "essai
 /** A pack tab's editing view. */
 const editing = (o: Partial<PackMode> = {}) =>
   ({ pack: "s", name: "S", kind: "layouts", builtin: false, read_only: false, leased: true, display_name: "S", ...o }) as PackMode;
-const yes = () => true;
+const yes = async () => true;
+/** A question that closes without saving, as close.ts asks it. */
+const discard = (message: string) => ({ message, ok: "Close without saving", danger: true });
 
 describe("saveForClose", () => {
   test("saveForClose of a clean deck saves nothing", async () => {
@@ -145,21 +148,21 @@ describe("mayClose", () => {
 
   test("pack tab still dirty after savePack asks then discards", async () => {
     const { api, calls } = packApi(async () => packSnap());
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm })).toBe("discard");
     expect(calls).toEqual(["savePack", "snapshot"]);
-    expect(confirm).toHaveBeenCalledWith("Quit without saving the modified pack?");
+    expect(confirm).toHaveBeenCalledWith(discard("Quit without saving the modified pack?"));
   });
 
   test("pack tab still dirty with confirm declined stays", async () => {
     const { api, calls } = packApi(async () => packSnap());
-    expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm: () => false })).toBeNull();
+    expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm: async () => false })).toBeNull();
     expect(calls).toEqual(["savePack", "snapshot"]);
   });
 
   test("pack tab saves then keeps", async () => {
     const { api, calls } = packApi(async () => packSnap({}, false));
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, packDoc), packSnap(), api, { confirm })).toBe("keep");
     expect(calls).toEqual(["savePack", "snapshot"]);
     expect(confirm).not.toHaveBeenCalled();
@@ -167,10 +170,10 @@ describe("mayClose", () => {
 
   test("packTabVerdict of an unsent clean pack tab asks ui-confirm-quit-pack", async () => {
     const { api, calls } = packApi(async () => packSnap({ deck_only: true, unsent: true }, false));
-    const confirm = mock(() => false);
+    const confirm = mock(async (_q: Question) => false);
     expect(await mayClose(tab(true, packDoc), packSnap({ deck_only: true, unsent: true }, false), api, { confirm })).toBeNull();
     expect(calls).toEqual(["savePack", "snapshot"]);
-    expect(confirm).toHaveBeenCalledWith("Quit without saving the modified pack?");
+    expect(confirm).toHaveBeenCalledWith(discard("Quit without saving the modified pack?"));
   });
 
   test("packTabVerdict re-reads the snapshot after savePack", async () => {
@@ -181,7 +184,7 @@ describe("mayClose", () => {
       // The save's answer predates the forward: still unsent.
       savePack: async () => (calls.push("savePack"), (forwarded = true), packSnap({ deck_only: true, unsent: true }, false)),
     } as unknown as TabApi;
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, packDoc), packSnap({ deck_only: true, unsent: true }), api, { confirm })).toBe("keep");
     expect(calls).toEqual(["savePack", "snapshot"]);
     expect(confirm).not.toHaveBeenCalled();
@@ -189,30 +192,28 @@ describe("mayClose", () => {
 
   test("pack tab savePack rejection stays open", async () => {
     const { api } = packApi(async () => Promise.reject(new Error("disque plein")));
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     await expect(mayClose(tab(true, packDoc), packSnap(), api, { confirm })).rejects.toThrow("disque plein");
     expect(confirm).not.toHaveBeenCalled();
   });
 
   test("read-only dirty pack tab asks without saving then discards", async () => {
     const { api, calls } = packApi(async () => snap({}));
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, packDoc), packSnap({ read_only: true, leased: false }), api, { confirm })).toBe("discard");
     expect(calls).toEqual([]);
-    expect(confirm).toHaveBeenCalledWith(
-      "⁨Acme⁩ cannot be saved here. Close this tab and lose its changes? To keep them, ask the agent to save it as a new pack.",
-    );
+    expect(confirm).toHaveBeenCalledWith(discard("⁨Acme⁩ cannot be saved here. Close this tab and lose its changes? To keep them, ask the agent to save it as a new pack."));
   });
 
   test("read-only dirty pack tab declined stays without saving", async () => {
     const { api, calls } = packApi(async () => snap({}));
-    expect(await mayClose(tab(true, packDoc), packSnap({ read_only: true, leased: false }), api, { confirm: () => false })).toBeNull();
+    expect(await mayClose(tab(true, packDoc), packSnap({ read_only: true, leased: false }), api, { confirm: async () => false })).toBeNull();
     expect(calls).toEqual([]);
   });
 
   test("a free unleased dirty pack tab saves", async () => {
     const { api, calls } = packApi(async () => packSnap({ leased: true }, false));
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, packDoc), packSnap({ read_only: false, leased: false }), api, { confirm })).toBe("keep");
     expect(calls).toEqual(["savePack", "snapshot"]);
     expect(confirm).not.toHaveBeenCalled();
@@ -258,7 +259,7 @@ describe("mayClose", () => {
 
   test("mayClose of a dirty theme tab saves its theme then keeps", async () => {
     const { api, calls } = themeApi(() => themeSnap({}, false));
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm })).toBe("keep");
     expect(calls).toEqual(["saveTheme", "snapshot"]);
     expect(confirm).not.toHaveBeenCalled();
@@ -266,23 +267,23 @@ describe("mayClose", () => {
 
   test("mayClose of a read-only dirty theme tab asks without saving then discards", async () => {
     const { api, calls } = themeApi(() => themeSnap());
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, themeDoc), themeSnap({ read_only: true, leased: false }), api, { confirm })).toBe("discard");
     expect(calls).toEqual([]);
-    expect(confirm).toHaveBeenCalledWith("⁨Maison⁩ cannot be saved here. Close this tab and lose its changes?");
+    expect(confirm).toHaveBeenCalledWith(discard("⁨Maison⁩ cannot be saved here. Close this tab and lose its changes?"));
   });
 
   test("mayClose of a theme tab still dirty after its save asks then discards", async () => {
     const { api, calls } = themeApi(() => themeSnap());
-    const confirm = mock(() => true);
+    const confirm = mock(async (_q: Question) => true);
     expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm })).toBe("discard");
     expect(calls).toEqual(["saveTheme", "snapshot"]);
-    expect(confirm).toHaveBeenCalledWith("Quit without saving the modified theme?");
+    expect(confirm).toHaveBeenCalledWith(discard("Quit without saving the modified theme?"));
   });
 
   test("mayClose of a theme tab still dirty with confirm declined stays", async () => {
     const { api } = themeApi(() => themeSnap());
-    expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm: () => false })).toBeNull();
+    expect(await mayClose(tab(true, themeDoc), themeSnap(), api, { confirm: async () => false })).toBeNull();
   });
 
   test("unknown document kind takes the deck path", async () => {

@@ -43,6 +43,8 @@ interface Props {
   onThumbKey?: (id: string, e: React.KeyboardEvent<HTMLButtonElement>) => void;
   /** A double-click on a thumbnail. */
   onThumbDoubleClick?: (id: string) => void;
+  /** A context menu asked on a thumbnail (right-click, menu key); absent: the browser's own. */
+  onThumbContextMenu?: (id: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   /** Slides whose item has typing not yet saved: they carry a dot. */
   unsaved?: ReadonlySet<string>;
 }
@@ -80,7 +82,7 @@ const THRESHOLD = 5;
 
 export default function SlidePile({
   slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove, axis = "y",
-  hint, onThumbKey, onThumbDoubleClick, unsaved,
+  hint, onThumbKey, onThumbDoubleClick, onThumbContextMenu, unsaved,
 }: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -192,6 +194,7 @@ export default function SlidePile({
               onPointerUp={up}
               onPointerCancel={() => setDrag(null)}
               onDoubleClick={onThumbDoubleClick && (() => onThumbDoubleClick(s.id))}
+              onContextMenu={onThumbContextMenu && ((e) => onThumbContextMenu(s.id, e))}
               onKeyDown={(e) => {
                 onThumbKey?.(s.id, e);
                 if (e.defaultPrevented) return;

@@ -158,6 +158,7 @@ packs-use-mine = Dùng phiên bản của tôi
 packs-make-current = Đặt phiên bản đó làm phiên bản của tôi
 packs-remove = Gỡ bỏ
 packs-pack-open = Mở
+packs-pack-open-mine = Mở phiên bản của tôi
 packs-add = Thêm từ thư viện
 packs-theme-overrides = Tùy chỉnh của bản trình bày: { $count }
 packs-theme-pick = Chủ đề của bản trình bày

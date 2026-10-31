@@ -1,4 +1,4 @@
-// The toolbar of a pack item: the editor's history and the code.
+// The toolbar of a pack item: the editor's history while its code shows, else the session's; the code switch.
 
 import { afterEach, expect, test } from "bun:test";
 import "./test/dom";
@@ -37,6 +37,7 @@ async function mount(code: boolean, history = { undo: 1, redo: 0 }, selected = t
         history,
         onUndo: () => calls.push("undo"),
         onRedo: () => calls.push("redo"),
+        session: createElement("button", { "aria-label": "session-undo", onClick: () => calls.push("session undo") }),
         options,
       }),
     ),
@@ -46,15 +47,29 @@ async function mount(code: boolean, history = { undo: 1, redo: 0 }, selected = t
   return { host, calls, labels, press };
 }
 
-for (const code of [false, true]) {
-  test(`WidgetTools code ${code ? "déplié" : "replié"} : affiche l'historique et le code seulement`, async () => {
-    const { labels } = await mount(code);
-    expect(labels()).toEqual(["ui-toolbar-undo", "ui-toolbar-redo", "ui-widgets-source"]);
-  });
-}
+test("WidgetTools with the code shown drives the editor's history", async () => {
+  const { labels } = await mount(true);
+  expect(labels()).toEqual(["ui-toolbar-undo", "ui-toolbar-redo", "ui-widgets-source"]);
+});
+
+test("WidgetTools with the code folded shows the session's history", async () => {
+  const { labels } = await mount(false);
+  expect(labels()).toEqual(["session-undo", "ui-widgets-source"]);
+});
+
+test("WidgetTools without a selected item shows the session's history, code shown or not", async () => {
+  const { labels } = await mount(true, { undo: 1, redo: 0 }, false);
+  expect(labels()).toEqual(["session-undo", "ui-widgets-source"]);
+});
+
+test("WidgetTools the session's undo is pressable with the code folded", async () => {
+  const { calls, press } = await mount(false);
+  await press("session-undo");
+  expect(calls).toEqual(["session undo"]);
+});
 
 test("WidgetTools rétablir désactivé sans pas à rétablir", async () => {
-  const { host } = await mount(false);
+  const { host } = await mount(true);
   expect(host.querySelector<HTMLButtonElement>('button[aria-label="ui-toolbar-redo"]')!.disabled).toBe(true);
 });
 

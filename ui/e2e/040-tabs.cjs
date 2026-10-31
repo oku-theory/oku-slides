@@ -7,6 +7,7 @@
 // tout juste démarré.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const { assertNoQuestion } = require('./lib/question.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -49,6 +50,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
   await tabs.nth(1).locator('.tab-close').click();
   await count(1);
   assert.deepEqual(asked, []);
+  await assertNoQuestion(p);
   // Clic droit : le menu s'ouvre dans la fenêtre, pas sous la barre en verre (t-812).
   await tabs.nth(0).click({ button: 'right' });
   const box = await p.getByRole('menu').boundingBox();

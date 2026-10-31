@@ -32,6 +32,9 @@ ui-close-writes-pending = แท็บนี้ยังบันทึกอย
 ui-confirm-close-writes-pending = แท็บนี้ยังบันทึกอยู่ ปิดต่อไปและทิ้งสิ่งที่ยังไม่ได้บันทึกหรือไม่
 ui-confirm-close-writes-pending-linked = แท็บนี้ยังบันทึกอยู่ และแท็บชุดเหล่านี้จะปิดไปพร้อมกันโดยไม่ได้บันทึก: { $tabs } ปิดต่อไปและทิ้งสิ่งที่ยังไม่ได้บันทึกหรือไม่
 ui-confirm-quit-read-only-pack = ไม่สามารถบันทึก { $pack } ที่นี่ได้ ปิดแท็บนี้และทิ้งการแก้ไขหรือไม่ หากต้องการเก็บไว้ โปรดขอให้เอเจนต์บันทึกเป็นชุดใหม่
+ui-confirm-discard-ok = ปิดโดยไม่บันทึก
+ui-confirm-update-ok = อัปเดต
+ui-confirm-update-later = ไว้ทีหลัง
 
 ## การแจ้งเตือน
 
@@ -274,8 +277,14 @@ ui-tabs = งานนำเสนอที่เปิดอยู่
 ui-tab-new = แท็บใหม่
 ui-tab-close = ปิดแท็บ
 ui-tab-unsaved = การเปลี่ยนแปลงที่ยังไม่บันทึก
-ui-tab-kind-pack = { $title }, ชุด
-ui-tab-kind-theme = { $title }, ธีม
+ui-tab-kind-pack = { $title }, ชุด{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, ธีม{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = ธีม
 ui-preview-theme = ธีมตัวอย่าง
 ui-tab-move-new-window = ย้ายไปหน้าต่างใหม่
@@ -331,6 +340,9 @@ ui-widgets-delete-named = ลบ { $name }
 ui-widgets-confirm-delete = ลบวิดเจ็ต “{ $name }” หรือไม่?
 ui-layouts-confirm-delete = ลบเลย์เอาต์ “{ $name }” หรือไม่?
 ui-widgets-rename-hint = ดับเบิลคลิกหรือกด F2 เพื่อเปลี่ยนชื่อ
+ui-pile-menu = การทำงานสำหรับ { $name }
+ui-pile-menu-rename = เปลี่ยนชื่อ
+ui-pile-menu-delete = ลบ
 ui-theme-name = ชื่อธีม
 ui-theme-unsaved = ยังไม่ได้บันทึกการเปลี่ยนแปลงธีม
 ui-widgets-removed-by-agent = เอเจนต์ลบวิดเจ็ต { $name } แล้ว

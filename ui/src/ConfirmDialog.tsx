@@ -7,13 +7,11 @@ import { useId, useRef, type KeyboardEvent } from "react";
 import { t } from "./i18n";
 import { useModalFrame } from "./modalFrame";
 import { Button } from "./primitives";
+import type { Question } from "./useConfirm";
 
 /** The question asked and its two answers. */
 export interface ConfirmDialogProps {
-  /** The question, already localized. */
-  message: string;
-  /** The confirming button's label, already localized. */
-  confirmLabel: string;
+  question: Question;
   onConfirm(): void;
   onCancel(): void;
 }
@@ -25,8 +23,8 @@ function swallow(e: KeyboardEvent) {
   e.stopPropagation();
 }
 
-/** Asks `message`; confirming and cancelling are both armed after `ARMING_MS`. */
-export default function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+/** Asks `question`; confirming and cancelling are both armed after `ARMING_MS`. */
+export default function ConfirmDialog({ question, onConfirm, onCancel }: ConfirmDialogProps) {
   const ref = useRef<HTMLDivElement>(null);
   const messageId = useId();
   const { onClickCapture, armed } = useModalFrame(ref, { onEscape: onCancel });
@@ -45,10 +43,10 @@ export default function ConfirmDialog({ message, confirmLabel, onConfirm, onCanc
         onClickCapture={onClickCapture}
         onKeyDown={swallow}
       >
-        <p id={messageId} className="confirm-message">{message}</p>
+        <p id={messageId} className="confirm-message">{question.message}</p>
         <div className="import-actions">
-          <Button ghost className="confirm-cancel" onClick={onCancel}>{t("ui-close-cancel")}</Button>
-          <Button danger className="confirm-ok" onClick={onConfirm}>{confirmLabel}</Button>
+          <Button ghost className="confirm-cancel" onClick={onCancel}>{question.cancel ?? t("ui-close-cancel")}</Button>
+          <Button danger={question.danger} primary={!question.danger} className="confirm-ok" onClick={onConfirm}>{question.ok}</Button>
         </div>
       </div>
     </div>

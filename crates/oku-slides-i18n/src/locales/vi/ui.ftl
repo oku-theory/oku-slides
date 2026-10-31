@@ -32,6 +32,9 @@ ui-close-writes-pending = Thẻ này vẫn đang lưu: hãy đóng lại sau gi�
 ui-confirm-close-writes-pending = Thẻ này vẫn đang lưu. Vẫn đóng và mất những gì chưa được lưu?
 ui-confirm-close-writes-pending-linked = Thẻ này vẫn đang lưu, và các thẻ gói này sẽ đóng cùng nó mà chưa được lưu: { $tabs }. Vẫn đóng chúng và mất những gì chưa được lưu?
 ui-confirm-quit-read-only-pack = Không thể lưu { $pack } ở đây. Đóng thẻ này và mất các thay đổi của nó? Để giữ lại, hãy nhờ tác nhân AI lưu nó thành một gói mới.
+ui-confirm-discard-ok = Đóng mà không lưu
+ui-confirm-update-ok = Cập nhật
+ui-confirm-update-later = Để sau
 
 ## Thông báo
 
@@ -274,8 +277,14 @@ ui-tabs = Bản trình bày đang mở
 ui-tab-new = Thẻ mới
 ui-tab-close = Đóng thẻ
 ui-tab-unsaved = Thay đổi chưa lưu
-ui-tab-kind-pack = { $title }, gói
-ui-tab-kind-theme = { $title }, chủ đề
+ui-tab-kind-pack = { $title }, gói{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, chủ đề{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Chủ đề
 ui-preview-theme = Chủ đề xem trước
 ui-tab-move-new-window = Chuyển sang cửa sổ mới
@@ -331,6 +340,9 @@ ui-widgets-delete-named = Xóa { $name }
 ui-widgets-confirm-delete = Xóa widget “{ $name }”?
 ui-layouts-confirm-delete = Xóa bố cục “{ $name }”?
 ui-widgets-rename-hint = Nhấp đúp hoặc nhấn F2 để đổi tên
+ui-pile-menu = Thao tác cho { $name }
+ui-pile-menu-rename = Đổi tên
+ui-pile-menu-delete = Xóa
 ui-theme-name = Tên chủ đề
 ui-theme-unsaved = Thay đổi chủ đề chưa lưu
 ui-widgets-removed-by-agent = Tác nhân AI đã xóa widget { $name }.

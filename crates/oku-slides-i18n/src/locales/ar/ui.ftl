@@ -47,6 +47,9 @@ ui-close-writes-pending = لا يزال هذا التبويب يحفظ: أغلق
 ui-confirm-close-writes-pending = لا يزال هذا التبويب يحفظ. هل تريد إغلاقه على أي حال وفقدان ما لم يُحفظ؟
 ui-confirm-close-writes-pending-linked = لا يزال هذا التبويب يحفظ، وتبويبات الحزم هذه تُغلق معه دون حفظ: { $tabs }. هل تريد إغلاقها على أي حال وفقدان ما لم يُحفظ؟
 ui-confirm-quit-read-only-pack = لا يمكن حفظ { $pack } هنا. هل تريد إغلاق هذا التبويب وفقدان تعديلاته؟ للاحتفاظ بها، اطلب من الوكيل حفظها كحزمة جديدة.
+ui-confirm-discard-ok = إغلاق دون حفظ
+ui-confirm-update-ok = تحديث
+ui-confirm-update-later = ليس الآن
 
 ## الإشعارات
 
@@ -289,8 +292,14 @@ ui-tabs = العروض المفتوحة
 ui-tab-new = علامة تبويب جديدة
 ui-tab-close = إغلاق علامة التبويب
 ui-tab-unsaved = تغييرات غير محفوظة
-ui-tab-kind-pack = { $title }, الحزمة
-ui-tab-kind-theme = { $title }, السمة
+ui-tab-kind-pack = { $title }, الحزمة{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, السمة{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = السمة
 ui-preview-theme = سمة المعاينة
 ui-tab-move-new-window = نقل إلى نافذة جديدة
@@ -346,6 +355,9 @@ ui-widgets-delete-named = حذف { $name }
 ui-widgets-confirm-delete = هل تريد حذف الودجة «{ $name }»؟
 ui-layouts-confirm-delete = هل تريد حذف التخطيط «{ $name }»؟
 ui-widgets-rename-hint = انقر نقرًا مزدوجًا أو اضغط F2 لإعادة التسمية
+ui-pile-menu = إجراءات { $name }
+ui-pile-menu-rename = إعادة التسمية
+ui-pile-menu-delete = حذف
 ui-theme-name = اسم السمة
 ui-theme-unsaved = تغييرات السمة غير محفوظة
 ui-widgets-removed-by-agent = حذف الوكيل الودجة { $name }.

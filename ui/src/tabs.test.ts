@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, nth, othersToClose, outside, slotAt, tabShortcut } from "./tabs";
+import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, menuBelow, nth, othersToClose, outside, slotAt, tabShortcut } from "./tabs";
 import type { TabDocument, TabInfo } from "./workspaceApi";
 
 const key = (code: string, key: string, mods: Partial<{ metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; repeat: boolean }> = {}) => ({
@@ -107,6 +107,14 @@ describe("barre d'onglets", () => {
 
   test("menuAbove pose le menu au-dessus du pointeur", () => {
     expect(menuAbove(100, 700, 240, 160, 1440, 900)).toEqual({ x: 100, y: 540 });
+  });
+
+  test("menuBelow puts the menu under the pointer", () => {
+    expect(menuBelow(100, 200, 240, 160, 1440, 900)).toEqual({ x: 100, y: 200 });
+  });
+
+  test("menuBelow keeps a menu near the bottom inside the window", () => {
+    expect(menuBelow(1400, 850, 240, 160, 1440, 900)).toEqual({ x: 1192, y: 732 });
   });
 
   test("menuAbove garde le menu dans la fenêtre à droite et en haut", () => {

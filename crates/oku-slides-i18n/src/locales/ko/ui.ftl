@@ -32,6 +32,9 @@ ui-close-writes-pending = 이 탭은 아직 저장 중입니다. 잠시 후 다�
 ui-confirm-close-writes-pending = 이 탭은 아직 저장 중입니다. 그래도 닫고 저장되지 않은 내용을 잃을까요?
 ui-confirm-close-writes-pending-linked = 이 탭은 아직 저장 중이며, 다음 팩 탭도 저장되지 않은 채 함께 닫힙니다: { $tabs }. 그래도 닫고 저장되지 않은 내용을 잃을까요?
 ui-confirm-quit-read-only-pack = { $pack }은(는) 여기서 저장할 수 없습니다. 이 탭을 닫고 변경 사항을 잃을까요? 유지하려면 에이전트에게 새 팩으로 저장해 달라고 요청하세요.
+ui-confirm-discard-ok = 저장하지 않고 닫기
+ui-confirm-update-ok = 업데이트
+ui-confirm-update-later = 나중에
 
 ## 알림
 
@@ -274,8 +277,14 @@ ui-tabs = 열린 프레젠테이션
 ui-tab-new = 새 탭
 ui-tab-close = 탭 닫기
 ui-tab-unsaved = 저장하지 않은 변경 사항
-ui-tab-kind-pack = { $title }, 팩
-ui-tab-kind-theme = { $title }, 테마
+ui-tab-kind-pack = { $title }, 팩{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, 테마{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = 테마
 ui-preview-theme = 미리보기 테마
 ui-tab-move-new-window = 새 창으로 이동
@@ -331,6 +340,9 @@ ui-widgets-delete-named = { $name } 삭제
 ui-widgets-confirm-delete = 위젯 “{ $name }”을(를) 삭제할까요?
 ui-layouts-confirm-delete = 레이아웃 “{ $name }”을(를) 삭제할까요?
 ui-widgets-rename-hint = 이름을 바꾸려면 두 번 클릭하거나 F2를 누르세요
+ui-pile-menu = { $name } 작업
+ui-pile-menu-rename = 이름 바꾸기
+ui-pile-menu-delete = 삭제
 ui-theme-name = 테마 이름
 ui-theme-unsaved = 테마 변경 사항 저장 안 됨
 ui-widgets-removed-by-agent = 에이전트가 위젯 { $name }을(를) 삭제했습니다.

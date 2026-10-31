@@ -1752,7 +1752,7 @@
             {
               "id": "widgets/acme/open",
               "component": "Button",
-              "label": "Ouvrir",
+              "label": "Ouvrir ma version",
               "action": {
                 "event": {
                   "name": "open_pack",

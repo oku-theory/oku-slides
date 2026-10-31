@@ -158,6 +158,7 @@ packs-use-mine = Benim sürümümü kullan
 packs-make-current = Onunkini benim sürümüm yap
 packs-remove = Kaldır
 packs-pack-open = Aç
+packs-pack-open-mine = Benim sürümümü aç
 packs-add = Kitaplıktan ekle
 packs-theme-overrides = { $count ->
     [one] { $count } sunu geçersiz kılması

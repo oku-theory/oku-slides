@@ -41,6 +41,9 @@ ui-close-writes-pending = Ta karta wciąż zapisuje: zamknij ją ponownie za chw
 ui-confirm-close-writes-pending = Ta karta wciąż zapisuje. Zamknąć ją mimo to i utracić to, co nie zostało zapisane?
 ui-confirm-close-writes-pending-linked = Ta karta wciąż zapisuje, a te karty pakietów zamkną się razem z nią bez zapisu: { $tabs }. Zamknąć je mimo to i utracić to, co nie zostało zapisane?
 ui-confirm-quit-read-only-pack = Nie można tu zapisać { $pack }. Zamknąć tę kartę i utracić jej zmiany? Aby je zachować, poproś agenta o zapisanie go jako nowego pakietu.
+ui-confirm-discard-ok = Zamknij bez zapisywania
+ui-confirm-update-ok = Aktualizuj
+ui-confirm-update-later = Nie teraz
 
 ## Powiadomienia
 
@@ -283,8 +286,14 @@ ui-tabs = Otwarte prezentacje
 ui-tab-new = Nowa karta
 ui-tab-close = Zamknij kartę
 ui-tab-unsaved = Niezapisane zmiany
-ui-tab-kind-pack = { $title }, pakiet
-ui-tab-kind-theme = { $title }, motyw
+ui-tab-kind-pack = { $title }, pakiet{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, motyw{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Motyw
 ui-preview-theme = Motyw podglądu
 ui-tab-move-new-window = Przenieś do nowego okna
@@ -340,6 +349,9 @@ ui-widgets-delete-named = Usuń { $name }
 ui-widgets-confirm-delete = Usunąć widget „{ $name }”?
 ui-layouts-confirm-delete = Usunąć układ „{ $name }”?
 ui-widgets-rename-hint = Kliknij dwukrotnie lub naciśnij F2, aby zmienić nazwę
+ui-pile-menu = Działania dla { $name }
+ui-pile-menu-rename = Zmień nazwę
+ui-pile-menu-delete = Usuń
 ui-theme-name = Nazwa motywu
 ui-theme-unsaved = Niezapisane zmiany motywu
 ui-widgets-removed-by-agent = Agent usunął widżet { $name }.

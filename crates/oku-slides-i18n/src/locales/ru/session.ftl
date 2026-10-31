@@ -158,6 +158,7 @@ packs-use-mine = Использовать мою версию
 packs-make-current = Сделать ту версию моей
 packs-remove = Удалить
 packs-pack-open = Открыть
+packs-pack-open-mine = Открыть мою версию
 packs-add = Добавить из библиотеки
 packs-theme-overrides = { $count ->
     [one] { $count } переопределение презентации

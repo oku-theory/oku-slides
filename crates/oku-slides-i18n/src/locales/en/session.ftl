@@ -158,6 +158,7 @@ packs-use-mine = Use my version
 packs-make-current = Make theirs my version
 packs-remove = Remove
 packs-pack-open = Open
+packs-pack-open-mine = Open my version
 packs-add = Add from the library
 packs-theme-overrides = { $count ->
     [one] { $count } deck override

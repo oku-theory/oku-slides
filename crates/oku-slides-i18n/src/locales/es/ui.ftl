@@ -35,6 +35,9 @@ ui-close-writes-pending = Esta pestaña aún está guardando: ciérrala de nuevo
 ui-confirm-close-writes-pending = Esta pestaña aún está guardando. ¿Cerrarla de todos modos y perder lo que no se ha guardado?
 ui-confirm-close-writes-pending-linked = Esta pestaña aún está guardando, y estas pestañas de paquete se cierran con ella sin guardar: { $tabs }. ¿Cerrarlas de todos modos y perder lo que no se ha guardado?
 ui-confirm-quit-read-only-pack = { $pack } no se puede guardar aquí. ¿Cerrar esta pestaña y perder sus cambios? Para conservarlos, pide al agente que lo guarde como un paquete nuevo.
+ui-confirm-discard-ok = Cerrar sin guardar
+ui-confirm-update-ok = Actualizar
+ui-confirm-update-later = Ahora no
 
 ## Avisos
 
@@ -277,8 +280,14 @@ ui-tabs = Presentaciones abiertas
 ui-tab-new = Nueva pestaña
 ui-tab-close = Cerrar pestaña
 ui-tab-unsaved = Cambios sin guardar
-ui-tab-kind-pack = { $title }, paquete
-ui-tab-kind-theme = { $title }, tema
+ui-tab-kind-pack = { $title }, paquete{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, tema{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Tema
 ui-preview-theme = Tema de vista previa
 ui-tab-move-new-window = Mover a una ventana nueva
@@ -337,6 +346,9 @@ ui-widgets-delete-named = Eliminar { $name }
 ui-widgets-confirm-delete = ¿Eliminar el widget «{ $name }»?
 ui-layouts-confirm-delete = ¿Eliminar el diseño «{ $name }»?
 ui-widgets-rename-hint = Doble clic o F2 para renombrar
+ui-pile-menu = Acciones para { $name }
+ui-pile-menu-rename = Cambiar nombre
+ui-pile-menu-delete = Eliminar
 ui-theme-name = Nombre del tema
 ui-theme-unsaved = Cambios del tema sin guardar
 ui-widgets-removed-by-agent = El agente eliminó el widget { $name }.

@@ -69,7 +69,7 @@
 :root[data-scheme="dark"] .ghost:hover:not(:disabled) { background: color-mix(in oklab, white 9%, transparent); }
 
 /* ---- Ce qui flotte : verre épais, lisible sur n'importe quel fond ---- */
-.tab-menu, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
+.context-menu, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
 .help-search-results, .help-search-status.empty {
   background: var(--glass-tint-thick);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
@@ -110,7 +110,7 @@
   -webkit-backdrop-filter: var(--glass-lens);
   backdrop-filter: var(--glass-lens);
 }
-:root[data-lens] :is(.tab-menu, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
+:root[data-lens] :is(.context-menu, .agent-sheet-box, .agent-dock, .variant-drawer, .agent-modal, .import-dialog, .picker, .toast,
   .help-search-results, .help-search-status.empty) {
   -webkit-backdrop-filter: var(--glass-lens-thick);
   backdrop-filter: var(--glass-lens-thick);

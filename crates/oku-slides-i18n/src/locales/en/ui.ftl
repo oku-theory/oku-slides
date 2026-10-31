@@ -35,6 +35,9 @@ ui-close-writes-pending = This tab is still saving: close it again in a moment.
 ui-confirm-close-writes-pending = This tab is still saving. Close it anyway and lose what has not been saved?
 ui-confirm-close-writes-pending-linked = This tab is still saving, and these pack tabs close with it, unsaved: { $tabs }. Close them anyway and lose what has not been saved?
 ui-confirm-quit-read-only-pack = { $pack } cannot be saved here. Close this tab and lose its changes? To keep them, ask the agent to save it as a new pack.
+ui-confirm-discard-ok = Close without saving
+ui-confirm-update-ok = Update
+ui-confirm-update-later = Not now
 
 ## Toasts
 
@@ -277,8 +280,14 @@ ui-tabs = Open presentations
 ui-tab-new = New tab
 ui-tab-close = Close tab
 ui-tab-unsaved = Unsaved changes
-ui-tab-kind-pack = { $title }, pack
-ui-tab-kind-theme = { $title }, theme
+ui-tab-kind-pack = { $title }, pack{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, theme{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Theme
 ui-preview-theme = Preview theme
 ui-tab-move-new-window = Move to new window
@@ -337,6 +346,9 @@ ui-widgets-delete-named = Delete { $name }
 ui-widgets-confirm-delete = Delete the widget “{ $name }”?
 ui-layouts-confirm-delete = Delete the layout “{ $name }”?
 ui-widgets-rename-hint = Double-click or F2 to rename
+ui-pile-menu = Actions for { $name }
+ui-pile-menu-rename = Rename
+ui-pile-menu-delete = Delete
 ui-theme-name = Theme name
 ui-theme-unsaved = Unsaved theme changes
 ui-widgets-removed-by-agent = The agent deleted widget { $name }.

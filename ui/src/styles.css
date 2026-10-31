@@ -833,10 +833,10 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .tools-tray .action-menu-trigger { opacity: 1; }
 .tools-tray .action-menu-list { top: auto; bottom: calc(100% + 8px); inset-inline-start: 0; inset-inline-end: auto; }
 .menu-theme { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.tab-menu { position: fixed; z-index: 20; display: flex; flex-direction: column; padding: 4px; min-width: 240px; }
-.tab-menu button { border: 0; background: none; color: var(--ink); text-align: start; padding: 6px 10px; border-radius: var(--radius-sm); }
-.tab-menu button:hover:not(:disabled) { background: var(--shade); }
-.tab-menu button:disabled { color: var(--ink-muted); }
+.context-menu { position: fixed; z-index: 20; display: flex; flex-direction: column; padding: 4px; min-width: 240px; }
+.context-menu button { border: 0; background: none; color: var(--ink); text-align: start; padding: 6px 10px; border-radius: var(--radius-sm); }
+.context-menu button:hover:not(:disabled) { background: var(--shade); }
+.context-menu button:disabled { color: var(--ink-muted); }
 
 /* ---- Historique : bandeau, curseur des versions, marques de la pile ---- */
 .history-bar {

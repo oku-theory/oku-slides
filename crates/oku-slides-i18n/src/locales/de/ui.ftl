@@ -35,6 +35,9 @@ ui-close-writes-pending = Dieser Tab speichert noch: Schließen Sie ihn gleich n
 ui-confirm-close-writes-pending = Dieser Tab speichert noch. Trotzdem schließen und verlieren, was nicht gespeichert ist?
 ui-confirm-close-writes-pending-linked = Dieser Tab speichert noch, und diese Paket-Tabs werden ungespeichert mit ihm geschlossen: { $tabs }. Trotzdem schließen und verlieren, was nicht gespeichert ist?
 ui-confirm-quit-read-only-pack = { $pack } kann hier nicht gespeichert werden. Diesen Tab schließen und seine Änderungen verlieren? Um sie zu behalten, bitten Sie den Agenten, es als neues Paket zu speichern.
+ui-confirm-discard-ok = Ohne Speichern schließen
+ui-confirm-update-ok = Aktualisieren
+ui-confirm-update-later = Nicht jetzt
 
 ## Meldungen
 
@@ -277,8 +280,14 @@ ui-tabs = Geöffnete Präsentationen
 ui-tab-new = Neuer Tab
 ui-tab-close = Tab schließen
 ui-tab-unsaved = Nicht gespeicherte Änderungen
-ui-tab-kind-pack = { $title }, Paket
-ui-tab-kind-theme = { $title }, Design
+ui-tab-kind-pack = { $title }, Paket{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, Design{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Design
 ui-preview-theme = Vorschau-Thema
 ui-tab-move-new-window = In neues Fenster verschieben
@@ -334,6 +343,9 @@ ui-widgets-delete-named = { $name } löschen
 ui-widgets-confirm-delete = Widget „{ $name }“ löschen?
 ui-layouts-confirm-delete = Layout „{ $name }“ löschen?
 ui-widgets-rename-hint = Doppelklick oder F2 zum Umbenennen
+ui-pile-menu = Aktionen für { $name }
+ui-pile-menu-rename = Umbenennen
+ui-pile-menu-delete = Löschen
 ui-theme-name = Name des Designs
 ui-theme-unsaved = Designänderungen nicht gespeichert
 ui-widgets-removed-by-agent = Der Agent hat das Widget { $name } gelöscht.

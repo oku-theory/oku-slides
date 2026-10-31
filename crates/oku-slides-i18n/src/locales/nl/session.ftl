@@ -158,6 +158,7 @@ packs-use-mine = Mijn versie gebruiken
 packs-make-current = Die versie mijn versie maken
 packs-remove = Verwijderen
 packs-pack-open = Openen
+packs-pack-open-mine = Mijn versie openen
 packs-add = Toevoegen uit de bibliotheek
 packs-theme-overrides = { $count ->
     [one] { $count } aanpassing van de presentatie

@@ -35,6 +35,9 @@ ui-close-writes-pending = Esta aba ainda está salvando: feche-a de novo em um i
 ui-confirm-close-writes-pending = Esta aba ainda está salvando. Fechar mesmo assim e perder o que não foi salvo?
 ui-confirm-close-writes-pending-linked = Esta aba ainda está salvando, e estas abas de pacote fecham com ela sem salvar: { $tabs }. Fechar mesmo assim e perder o que não foi salvo?
 ui-confirm-quit-read-only-pack = Não é possível salvar { $pack } aqui. Fechar esta aba e perder suas alterações? Para mantê-las, peça ao agente que o salve como um novo pacote.
+ui-confirm-discard-ok = Fechar sem salvar
+ui-confirm-update-ok = Atualizar
+ui-confirm-update-later = Agora não
 
 ## Notificações
 
@@ -277,8 +280,14 @@ ui-tabs = Apresentações abertas
 ui-tab-new = Nova aba
 ui-tab-close = Fechar aba
 ui-tab-unsaved = Alterações não salvas
-ui-tab-kind-pack = { $title }, pacote
-ui-tab-kind-theme = { $title }, tema
+ui-tab-kind-pack = { $title }, pacote{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, tema{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Tema
 ui-preview-theme = Tema de pré-visualização
 ui-tab-move-new-window = Mover para uma nova janela
@@ -337,6 +346,9 @@ ui-widgets-delete-named = Excluir { $name }
 ui-widgets-confirm-delete = Excluir o widget “{ $name }”?
 ui-layouts-confirm-delete = Excluir o layout “{ $name }”?
 ui-widgets-rename-hint = Clique duas vezes ou F2 para renomear
+ui-pile-menu = Ações para { $name }
+ui-pile-menu-rename = Renomear
+ui-pile-menu-delete = Excluir
 ui-theme-name = Nome do tema
 ui-theme-unsaved = Alterações do tema não salvas
 ui-widgets-removed-by-agent = O agente excluiu o widget { $name }.

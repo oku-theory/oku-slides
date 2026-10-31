@@ -1,6 +1,6 @@
 // The toolbar under the sheet. It opens the add grid and the deck's packs panel, shows or hides
 // the thumbnails, opens the menu, undoes and redoes; in a pack tab, it carries the selected
-// item's editor tools instead.
+// item's tools instead, the session's undo among them while no code editor shows.
 
 import type { ReactNode } from "react";
 import type { SlideView, Snapshot, TabApi } from "./api";
@@ -67,6 +67,28 @@ export function ToolsTray({
   const packsUpdate = snap.pack_updates > 0;
   // Avec une mise à jour, le nom accessible et l'infobulle la disent aussi (une seule phrase Fluent).
   const packsLabel = t(packsUpdate ? "ui-toolbar-packs-update" : "ui-toolbar-packs");
+  const sessionHistory = (
+    <>
+      <button
+        className="token ghost"
+        aria-label={undoLabel}
+        title={snap.undo_label ?? t("ui-toolbar-undo")}
+        disabled={!snap.can_undo}
+        onClick={() => run(api.undo())}
+      >
+        {Icon.undo}
+      </button>
+      <button
+        className="token ghost"
+        aria-label={redoLabel}
+        title={snap.redo_label ?? t("ui-toolbar-redo")}
+        disabled={!snap.can_redo}
+        onClick={() => run(api.redo())}
+      >
+        {Icon.redo}
+      </button>
+    </>
+  );
   // Ce qu'on ajoute à la slide, le menu de ce qui sert rarement, puis
   // annuler / rétablir : posés sous la feuille.
   return (
@@ -104,6 +126,7 @@ export function ToolsTray({
             history={item.history}
             onUndo={item.undo}
             onRedo={item.redo}
+            session={sessionHistory}
             options={keptUi}
           />
         </>
@@ -129,24 +152,7 @@ export function ToolsTray({
               onClick={onHistory}
             />
           )}
-          <button
-            className="token ghost"
-            aria-label={undoLabel}
-            title={snap.undo_label ?? t("ui-toolbar-undo")}
-            disabled={!snap.can_undo}
-            onClick={() => run(api.undo())}
-          >
-            {Icon.undo}
-          </button>
-          <button
-            className="token ghost"
-            aria-label={redoLabel}
-            title={snap.redo_label ?? t("ui-toolbar-redo")}
-            disabled={!snap.can_redo}
-            onClick={() => run(api.redo())}
-          >
-            {Icon.redo}
-          </button>
+          {sessionHistory}
         </>
       )}
     </div>

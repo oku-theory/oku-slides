@@ -87,6 +87,11 @@ export function menuAbove(x: number, y: number, w: number, h: number, width: num
   };
 }
 
+/** A `w`×`h` menu opened under the pointer (`x`, `y`), kept in the window as menuAbove does. */
+export function menuBelow(x: number, y: number, w: number, h: number, width: number, height: number): { x: number; y: number } {
+  return menuAbove(x, y + h, w, h, width, height);
+}
+
 /**
  * Appels regroupés : un seul en cours ; ceux arrivés entre-temps n'en font qu'un.
  *

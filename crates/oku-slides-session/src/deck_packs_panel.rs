@@ -143,7 +143,9 @@ impl Builder {
             };
             body.push(self.push(Component::text(sub("relation"), l.tr(key), Some(TextVariant::Note))));
         }
-        let open = Component::button(sub("open"), l.tr("packs-pack-open"), false, open_action(p));
+        // A drifted pack opens the library's current version, not the pin: the button says so (t-1252).
+        let open_key = if drift.is_some() { "packs-pack-open-mine" } else { "packs-pack-open" };
+        let open = Component::button(sub("open"), l.tr(open_key), false, open_action(p));
         let mut actions = vec![self.push(open)];
         if drift.is_some() {
             let action = pack_action("use_mine", p);

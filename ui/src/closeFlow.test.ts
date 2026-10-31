@@ -72,6 +72,15 @@ describe("closeTabFlow, guards", () => {
     expect(f.log).toEqual(["guard a", "fresh", ASK_STUCK]);
   });
 
+  test("the stalled close confirms with Close without saving, a danger", async () => {
+    const f = fake([tabOf("a", true)]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    f.state.answers = [false];
+    await closeTabFlow("a", f.deps());
+    expect(f.questions.map(({ ok, cancel, danger }) => ({ ok, cancel, danger }))).toEqual([{ ok: "Close without saving", cancel: undefined, danger: true }]);
+  });
+
   test("yes on a clean tab closes without discard", async () => {
     const f = fake([tabOf("a")]);
     f.state.guard = timeout;
@@ -262,6 +271,13 @@ describe("closeTabFlow, the opener offer", () => {
     f.state.offer = { ...OFFER, title: "Feuille de route", pack_name: "Maison" };
     await closeTabFlow("a", f.deps());
     expect(f.log).toContain("confirm Update “⁨Feuille de route⁩” to this version of the pack “⁨Maison⁩”?");
+  });
+
+  test("the offer confirm updates with Update, its cancel is Not now, not a danger", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = OFFER;
+    await closeTabFlow("a", f.deps());
+    expect(f.questions.map(({ ok, cancel, danger }) => ({ ok, cancel, danger }))).toEqual([{ ok: "Update", cancel: "Not now", danger: false }]);
   });
 
   test("a declined offer closes without updating", async () => {

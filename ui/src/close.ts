@@ -5,9 +5,10 @@ import { pickSavePath, type Snapshot, type TabApi, type TabInfo } from "./api";
 import { isolate, t } from "./i18n";
 import { type AskReplaced, type PickSavePath, saveGuarded } from "./merge";
 import type { PackMode, ThemeTabView } from "./packTypes";
+import type { Confirm, Question } from "./useConfirm";
 
-/** Asks a yes/no question; window.confirm in the app. */
-export type Confirm = (message: string) => boolean;
+/** A question whose yes closes without saving: its confirming button says so. */
+export const discardQuestion = (message: string): Question => ({ message, ok: t("ui-confirm-discard-ok"), danger: true });
 
 /** What saveForClose needs besides the tab's API. */
 interface SaveForCloseOptions {
@@ -58,11 +59,11 @@ interface CloseDeps {
  */
 async function packTabVerdict(snap: Snapshot, editing: PackMode, api: TabApi, confirm: Confirm): Promise<"keep" | "discard" | null> {
   if (!snap.dirty && !editing.unsent) return "keep";
-  if (editing.read_only) return confirm(readOnlyQuestion(editing)) ? "discard" : null;
+  if (editing.read_only) return (await confirm(discardQuestion(readOnlyQuestion(editing)))) ? "discard" : null;
   await api.savePack();
   const after = await api.snapshot();
   if (!after.dirty && !after.editing?.unsent) return "keep";
-  return confirm(t("ui-confirm-quit-pack")) ? "discard" : null;
+  return (await confirm(discardQuestion(t("ui-confirm-quit-pack")))) ? "discard" : null;
 }
 
 /**
@@ -73,11 +74,12 @@ async function packTabVerdict(snap: Snapshot, editing: PackMode, api: TabApi, co
 async function themeTabVerdict(snap: Snapshot, theming: ThemeTabView, api: TabApi, confirm: Confirm): Promise<"keep" | "discard" | null> {
   if (!snap.dirty) return "keep";
   if (theming.read_only) {
-    return confirm(t("ui-confirm-quit-read-only-theme", { theme: isolate(theming.display_name) })) ? "discard" : null;
+    const question = discardQuestion(t("ui-confirm-quit-read-only-theme", { theme: isolate(theming.display_name) }));
+    return (await confirm(question)) ? "discard" : null;
   }
   await api.saveTheme();
   if (!(await api.snapshot()).dirty) return "keep";
-  return confirm(t("ui-confirm-quit-theme")) ? "discard" : null;
+  return (await confirm(discardQuestion(t("ui-confirm-quit-theme")))) ? "discard" : null;
 }
 
 /**

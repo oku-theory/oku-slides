@@ -1,13 +1,14 @@
 // Barre d'onglets d'une fenêtre : cliquer, glisser, menu contextuel.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { closeStays, listenTauri, type TabAt, tabPath, type WindowView, type WorkspaceView } from "./api";
+import ContextMenu from "./ContextMenu";
+import { closeStays, listenTauri, type TabAt, type TabInfo, tabPath, type WindowView, type WorkspaceView } from "./api";
 import { Icon } from "./icons";
 import { t } from "./i18n";
 import { documentKind } from "./tabKind";
-import { arrivalIndex, coalesce, cycle, finalIndex, menuAbove, othersToClose, outside, slotAt } from "./tabs";
+import { arrivalIndex, coalesce, cycle, finalIndex, othersToClose, outside, slotAt } from "./tabs";
 
 interface Props {
   view: WorkspaceView;
@@ -41,10 +42,15 @@ interface Drag {
   out: boolean;
 }
 
-/** A tab's accessible name: its title, with the kind spelled out for a pack or a theme. */
-function tabName(title: string, kind: ReturnType<typeof documentKind>): string | undefined {
-  if (kind === "pack") return t("ui-tab-kind-pack", { title });
-  return kind === "theme" ? t("ui-tab-kind-theme", { title }) : undefined;
+/**
+ * A tab's accessible name: its title, with the kind spelled out for a pack or a theme.
+ *
+ * The name replaces the content's, so it says the unsaved state too (the dot's label).
+ */
+function tabName(tab: TabInfo, kind: ReturnType<typeof documentKind>): string | undefined {
+  const args = { title: tab.title, dirty: tab.dirty ? "yes" : "no" };
+  if (kind === "pack") return t("ui-tab-kind-pack", args);
+  return kind === "theme" ? t("ui-tab-kind-theme", args) : undefined;
 }
 
 /** Barre d'onglets d'une fenêtre. */
@@ -58,39 +64,16 @@ export default function TabBar(props: Props) {
   const [drag, setDrag] = useState<Drag | null>(null);
   // Onglet d'une autre fenêtre sous le pointeur (prévenu par l'hôte).
   const [incoming, setIncoming] = useState<TabAt | null>(null);
-  // `placed` : position corrigée après mesure du menu rendu.
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number; placed?: boolean } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // The context menu of a tab, at the pointer (ContextMenu places it upward, in the window).
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   // Repère de droite à gauche (arabe) : la place de dépôt s'y compte à l'envers.
   const rtl = typeof document !== "undefined" && document.dir === "rtl";
-
-  // Le menu se ferme au premier clic ailleurs, ou avec Échap.
-  useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(null);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [menu]);
 
   // Trop d'onglets pour la largeur : l'onglet actif reste visible, même hors champ.
   useEffect(() => {
     els.current.get(win.active)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [win.active]);
-
-  // Le menu mesuré une fois affiché, avant d'être peint : ouvert vers le haut
-  // (la barre est en bas) et gardé dans la fenêtre, plutôt qu'estimé à l'avance.
-  useLayoutEffect(() => {
-    if (!menu || menu.placed || !menuRef.current) return;
-    const rect = menuRef.current.getBoundingClientRect();
-    const at = menuAbove(menu.x, menu.y, rect.width, rect.height, window.innerWidth, window.innerHeight);
-    setMenu({ id: menu.id, ...at, placed: true });
-  }, [menu]);
 
   /** Milieu de chaque onglet (sauf `except`), à l'instant (les onglets ont pu changer). */
   const mids = (except?: string) =>
@@ -201,7 +184,7 @@ export default function TabBar(props: Props) {
             role="tab"
             tabIndex={tab.id === win.active ? 0 : -1}
             aria-selected={tab.id === win.active}
-            aria-label={tabName(tab.title, kind)}
+            aria-label={tabName(tab, kind)}
             data-kind={kind}
             className={`tab${tab.id === win.active ? " active" : ""}${drag?.id === tab.id ? " dragging" : ""}${slot === i ? " drop-before" : ""}`}
             title={tabPath(tab) ?? tab.title}
@@ -222,7 +205,6 @@ export default function TabBar(props: Props) {
             }}
             onContextMenu={(e) => {
               e.preventDefault();
-              // Position du pointeur : placée après mesure du menu rendu (voir l'effet ci-dessus).
               setMenu({ id: tab.id, x: e.clientX, y: e.clientY });
             }}
           >
@@ -250,8 +232,8 @@ export default function TabBar(props: Props) {
       <button className="tab-new" aria-label={t("ui-tab-new")} title={t("ui-tab-new")} onClick={onNew}>
         +
       </button>
-      {/* Fantôme et menu dans `body` : la vitre de la barre (`backdrop-filter`)
-          deviendrait leur bloc conteneur, et leur `position: fixed` y serait relative. */}
+      {/* The ghost and the menu go in `body`: the bar's glass (`backdrop-filter`) would become
+          their containing block, and their `position: fixed` would be relative to it. */}
       {ghost &&
         createPortal(
           <div className="tab active tab-ghost" aria-hidden style={{ left: ghost.left, top: ghost.top }}>
@@ -259,29 +241,21 @@ export default function TabBar(props: Props) {
           </div>,
           document.body,
         )}
-      {menu &&
-        createPortal(
-          <div
-            ref={menuRef}
-            className="tab-menu object"
-            role="menu"
-            style={{ left: menu.x, top: menu.y }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            {windows && <button role="menuitem" onClick={pick(() => onMove(menu.id, null))}>{t("ui-tab-move-new-window")}</button>}
-            {windows &&
-              view.windows.map((w, i) =>
-                w.label === win.label ? null : (
-                  <button key={w.label} role="menuitem" onClick={pick(() => onMove(menu.id, w.label))}>
-                    {t("ui-tab-move-to", { n: i + 1 })}
-                  </button>
-                ),
-              )}
-            <button role="menuitem" disabled={othersToClose(win.tabs, menu.id).length === 0} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
-            <button role="menuitem" disabled={stays(menu.id)} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
-          </div>,
-          document.body,
-        )}
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} above onClose={() => setMenu(null)}>
+          {windows && <button role="menuitem" onClick={pick(() => onMove(menu.id, null))}>{t("ui-tab-move-new-window")}</button>}
+          {windows &&
+            view.windows.map((w, i) =>
+              w.label === win.label ? null : (
+                <button key={w.label} role="menuitem" onClick={pick(() => onMove(menu.id, w.label))}>
+                  {t("ui-tab-move-to", { n: i + 1 })}
+                </button>
+              ),
+            )}
+          <button role="menuitem" disabled={othersToClose(win.tabs, menu.id).length === 0} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
+          <button role="menuitem" disabled={stays(menu.id)} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
+        </ContextMenu>
+      )}
     </div>
   );
 }

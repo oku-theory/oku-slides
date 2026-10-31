@@ -3,18 +3,21 @@
  * add button with its name field.
  *
  * F2 or a double-click renames an item; its trash button, Delete or Backspace delete it after
- * the shared confirmation (`confirm`, a `ConfirmDialog`). After a delete, the focus goes to the
+ * the shared confirmation (`confirm`, a `ConfirmDialog`). Its context menu offers both (the
+ * shared file: delete only). After a delete, the focus goes to the
  * neighbour thumbnail, else the shared row, else the add button. Thumbnails stay `<img>` (via
  * `SlidePile`); no id or selector is built from an item name.
  */
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import type { Snapshot } from "./api";
+import ContextMenu from "./ContextMenu";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { itemSlide, neighbour, pileItems, slideItem } from "./packItems";
 import type { PackKind } from "./packTypes";
 import { IconButton } from "./primitives";
 import SlidePile from "./SlidePile";
+import type { Confirm } from "./useConfirm";
 import type { WidgetFiles } from "./useWidgetFiles";
 import { COMMON, nameAvailable, nameIssue, widgetLabel, widgetSlug } from "./widgetList";
 
@@ -30,7 +33,7 @@ export interface PackPileProps {
   /** After a delete the session accepted. */
   onRemoved(name: string): void;
   /** Asks a question in a `ConfirmDialog`; true when confirmed. */
-  confirm(message: string): Promise<boolean>;
+  confirm: Confirm;
 }
 
 /** Where the focus goes once the pile shows a change. */
@@ -42,9 +45,17 @@ interface Naming {
   value: string;
 }
 
+/** An item's context menu, at the pointer. */
+interface ItemMenu {
+  name: string;
+  x: number;
+  y: number;
+}
+
 /** The pile of a pack tab: shared file, item thumbnails, add, rename, delete. */
 export default function PackPile({ snap, kind, files, selected, svg, onSelect, onRemoved, confirm }: PackPileProps) {
   const [naming, setNaming] = useState<Naming | null>(null);
+  const [menu, setMenu] = useState<ItemMenu | null>(null);
   const [refocus, setRefocus] = useState<Focus | null>(null);
   const issueId = useId();
   const box = useRef<HTMLDivElement>(null);
@@ -92,7 +103,7 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
     const question = kind === "layouts"
       ? t("ui-layouts-confirm-delete", { name: widgetLabel(name) })
       : t("ui-widgets-confirm-delete", { name: widgetLabel(name) });
-    if (!(await confirm(question))) return;
+    if (!(await confirm({ message: question, ok: t("ui-confirm-delete-ok"), danger: true }))) return;
     const next = neighbour(order, name, () => true);
     if (!(await files.remove(name))) return;
     setRefocus(next !== null ? { item: next } : name !== COMMON && hasCommon ? "common" : "add");
@@ -100,6 +111,13 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
   };
   const startRename = (name: string) => {
     if (name !== COMMON) setNaming({ from: name, value: name });
+  };
+  /** Opens `name`'s menu at the pointer, or at the element's corner from the keyboard. */
+  const openMenu = (name: string, e: MouseEvent<HTMLElement>) => {
+    e.preventDefault();
+    const box = e.currentTarget.getBoundingClientRect();
+    const keyboard = e.clientX === 0 && e.clientY === 0;
+    setMenu({ name, x: keyboard ? box.left : e.clientX, y: keyboard ? box.bottom : e.clientY });
   };
   /** F2 renames; Delete or Backspace deletes, the window's keys never seeing them. */
   const onItemKey = (name: string, e: KeyboardEvent<HTMLButtonElement>) => {
@@ -126,6 +144,7 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
             aria-current={selected === COMMON}
             onClick={() => onSelect(COMMON)}
             onKeyDown={(e) => onItemKey(COMMON, e)}
+            onContextMenu={(e) => openMenu(COMMON, e)}
           >
             {commonLabel}
             {files.unsaved.has(COMMON) && <span className="unsaved-dot" role="img" aria-label={t("ui-widgets-unsaved")} title={t("ui-widgets-unsaved")} />}
@@ -174,6 +193,10 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
           const name = slideItem(id);
           if (name !== null) startRename(name);
         }}
+        onThumbContextMenu={(id, e) => {
+          const name = slideItem(id);
+          if (name !== null) openMenu(name, e);
+        }}
         removeLabel={(id) => deleteLabel(slideItem(id) ?? id)}
         canRemove
         onRemove={(id) => {
@@ -190,6 +213,14 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
         disabled={files.statuses === null}
         onClick={() => setNaming({ from: null, value: "" })}
       />
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} above={false} label={t("ui-pile-menu", { name: widgetLabel(menu.name) })} onClose={() => setMenu(null)}>
+          {menu.name !== COMMON && (
+            <button role="menuitem" onClick={() => { setMenu(null); startRename(menu.name); }}>{t("ui-pile-menu-rename")}</button>
+          )}
+          <button role="menuitem" onClick={() => { setMenu(null); void remove(menu.name); }}>{t("ui-pile-menu-delete")}</button>
+        </ContextMenu>
+      )}
     </div>
   );
 }

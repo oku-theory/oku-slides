@@ -35,6 +35,9 @@ ui-close-writes-pending = 此标签页仍在保存：请稍后再次关闭。
 ui-confirm-close-writes-pending = 此标签页仍在保存。仍要关闭并丢失尚未保存的内容吗？
 ui-confirm-close-writes-pending-linked = 此标签页仍在保存，以下包标签页将随之关闭且不会保存：{ $tabs }。仍要关闭并丢失尚未保存的内容吗？
 ui-confirm-quit-read-only-pack = 无法在此保存 { $pack }。要关闭此标签页并丢失其更改吗？若要保留，请让智能体将其另存为新包。
+ui-confirm-discard-ok = 不保存并关闭
+ui-confirm-update-ok = 更新
+ui-confirm-update-later = 以后再说
 
 ## 提示消息
 
@@ -277,8 +280,14 @@ ui-tabs = 已打开的演示文稿
 ui-tab-new = 新建标签页
 ui-tab-close = 关闭标签页
 ui-tab-unsaved = 未保存的更改
-ui-tab-kind-pack = { $title }, 包
-ui-tab-kind-theme = { $title }, 主题
+ui-tab-kind-pack = { $title }, 包{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, 主题{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = 主题
 ui-preview-theme = 预览主题
 ui-tab-move-new-window = 移到新窗口
@@ -334,6 +343,9 @@ ui-widgets-delete-named = 删除 { $name }
 ui-widgets-confirm-delete = 删除小组件“{ $name }”?
 ui-layouts-confirm-delete = 删除版式“{ $name }”?
 ui-widgets-rename-hint = 双击或按 F2 重命名
+ui-pile-menu = { $name } 的操作
+ui-pile-menu-rename = 重命名
+ui-pile-menu-delete = 删除
 ui-theme-name = 主题名称
 ui-theme-unsaved = 主题更改未保存
 ui-widgets-removed-by-agent = 智能体删除了小组件 { $name }。

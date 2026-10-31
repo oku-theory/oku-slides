@@ -158,6 +158,7 @@ packs-use-mine = ใช้เวอร์ชันของฉัน
 packs-make-current = ตั้งเวอร์ชันของเขาเป็นเวอร์ชันของฉัน
 packs-remove = นำออก
 packs-pack-open = เปิด
+packs-pack-open-mine = เปิดเวอร์ชันของฉัน
 packs-add = เพิ่มจากคลัง
 packs-theme-overrides = การปรับแต่งของงานนำเสนอ: { $count }
 packs-theme-pick = ธีมของงานนำเสนอ

@@ -35,6 +35,9 @@ ui-close-writes-pending = Questa scheda sta ancora salvando: chiudila di nuovo t
 ui-confirm-close-writes-pending = Questa scheda sta ancora salvando. Chiuderla comunque e perdere ciò che non è stato salvato?
 ui-confirm-close-writes-pending-linked = Questa scheda sta ancora salvando, e queste schede di pacchetto si chiudono con lei senza essere salvate: { $tabs }. Chiuderle comunque e perdere ciò che non è stato salvato?
 ui-confirm-quit-read-only-pack = { $pack } non può essere salvato qui. Chiudere questa scheda e perdere le sue modifiche? Per conservarle, chiedi all'agente di salvarlo come nuovo pacchetto.
+ui-confirm-discard-ok = Chiudi senza salvare
+ui-confirm-update-ok = Aggiorna
+ui-confirm-update-later = Non ora
 
 ## Notifiche
 
@@ -277,8 +280,14 @@ ui-tabs = Presentazioni aperte
 ui-tab-new = Nuova scheda
 ui-tab-close = Chiudi scheda
 ui-tab-unsaved = Modifiche non salvate
-ui-tab-kind-pack = { $title }, pacchetto
-ui-tab-kind-theme = { $title }, tema
+ui-tab-kind-pack = { $title }, pacchetto{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, tema{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Tema
 ui-preview-theme = Tema di anteprima
 ui-tab-move-new-window = Sposta in una nuova finestra
@@ -337,6 +346,9 @@ ui-widgets-delete-named = Elimina { $name }
 ui-widgets-confirm-delete = Eliminare il widget «{ $name }»?
 ui-layouts-confirm-delete = Eliminare il layout «{ $name }»?
 ui-widgets-rename-hint = Doppio clic o F2 per rinominare
+ui-pile-menu = Azioni per { $name }
+ui-pile-menu-rename = Rinomina
+ui-pile-menu-delete = Elimina
 ui-theme-name = Nome del tema
 ui-theme-unsaved = Modifiche al tema non salvate
 ui-widgets-removed-by-agent = L'agente ha eliminato il widget { $name }.

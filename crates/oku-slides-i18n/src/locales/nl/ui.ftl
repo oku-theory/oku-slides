@@ -35,6 +35,9 @@ ui-close-writes-pending = Dit tabblad slaat nog op: sluit het zo meteen opnieuw.
 ui-confirm-close-writes-pending = Dit tabblad slaat nog op. Toch sluiten en verliezen wat niet is opgeslagen?
 ui-confirm-close-writes-pending-linked = Dit tabblad slaat nog op, en deze pakkettabbladen sluiten mee zonder te zijn opgeslagen: { $tabs }. Toch sluiten en verliezen wat niet is opgeslagen?
 ui-confirm-quit-read-only-pack = { $pack } kan hier niet worden opgeslagen. Dit tabblad sluiten en de wijzigingen verliezen? Vraag de agent om het als nieuw pakket op te slaan om ze te bewaren.
+ui-confirm-discard-ok = Sluiten zonder opslaan
+ui-confirm-update-ok = Bijwerken
+ui-confirm-update-later = Niet nu
 
 ## Meldingen
 
@@ -277,8 +280,14 @@ ui-tabs = Geopende presentaties
 ui-tab-new = Nieuw tabblad
 ui-tab-close = Tabblad sluiten
 ui-tab-unsaved = Niet-opgeslagen wijzigingen
-ui-tab-kind-pack = { $title }, pakket
-ui-tab-kind-theme = { $title }, thema
+ui-tab-kind-pack = { $title }, pakket{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, thema{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Thema
 ui-preview-theme = Voorbeeldthema
 ui-tab-move-new-window = Naar nieuw venster verplaatsen
@@ -337,6 +346,9 @@ ui-widgets-delete-named = { $name } verwijderen
 ui-widgets-confirm-delete = De widget “{ $name }” verwijderen?
 ui-layouts-confirm-delete = De lay-out “{ $name }” verwijderen?
 ui-widgets-rename-hint = Dubbelklik of F2 om te hernoemen
+ui-pile-menu = Acties voor { $name }
+ui-pile-menu-rename = Naam wijzigen
+ui-pile-menu-delete = Verwijderen
 ui-theme-name = Naam van het thema
 ui-theme-unsaved = Themawijzigingen niet opgeslagen
 ui-widgets-removed-by-agent = De agent heeft widget { $name } verwijderd.

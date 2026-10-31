@@ -35,6 +35,9 @@ ui-close-writes-pending = Cet onglet enregistre encore : fermez-le de nouveau da
 ui-confirm-close-writes-pending = Cet onglet enregistre encore. Le fermer quand même et perdre ce qui n'est pas enregistré ?
 ui-confirm-close-writes-pending-linked = Cet onglet enregistre encore, et ces onglets de pack se ferment avec lui sans être enregistrés : { $tabs }. Les fermer quand même et perdre ce qui n'est pas enregistré ?
 ui-confirm-quit-read-only-pack = { $pack } ne peut pas être enregistré ici. Fermer cet onglet et perdre ses modifications ? Pour les garder, demandez à l'agent de l'enregistrer comme nouveau pack.
+ui-confirm-discard-ok = Fermer sans enregistrer
+ui-confirm-update-ok = Mettre à jour
+ui-confirm-update-later = Plus tard
 
 ## Toasts
 
@@ -277,8 +280,14 @@ ui-tabs = Présentations ouvertes
 ui-tab-new = Nouvel onglet
 ui-tab-close = Fermer l'onglet
 ui-tab-unsaved = Modifications non enregistrées
-ui-tab-kind-pack = { $title }, pack
-ui-tab-kind-theme = { $title }, thème
+ui-tab-kind-pack = { $title }, pack{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, thème{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Thème
 ui-preview-theme = Thème d’aperçu
 ui-tab-move-new-window = Déplacer vers une nouvelle fenêtre
@@ -337,6 +346,9 @@ ui-widgets-delete-named = Supprimer { $name }
 ui-widgets-confirm-delete = Supprimer le widget « { $name } » ?
 ui-layouts-confirm-delete = Supprimer le layout « { $name } » ?
 ui-widgets-rename-hint = Double-clic ou F2 pour renommer
+ui-pile-menu = Actions pour { $name }
+ui-pile-menu-rename = Renommer
+ui-pile-menu-delete = Supprimer
 ui-theme-name = Nom du thème
 ui-theme-unsaved = Thème non enregistré
 ui-widgets-removed-by-agent = L'agent a supprimé le widget { $name }.

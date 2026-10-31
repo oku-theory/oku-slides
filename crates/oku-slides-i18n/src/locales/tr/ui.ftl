@@ -35,6 +35,9 @@ ui-close-writes-pending = Bu sekme hâlâ kaydediyor: birazdan yeniden kapatın.
 ui-confirm-close-writes-pending = Bu sekme hâlâ kaydediyor. Yine de kapatılıp kaydedilmeyenler kaybedilsin mi?
 ui-confirm-close-writes-pending-linked = Bu sekme hâlâ kaydediyor ve şu paket sekmeleri kaydedilmeden onunla birlikte kapanacak: { $tabs }. Yine de kapatılıp kaydedilmeyenler kaybedilsin mi?
 ui-confirm-quit-read-only-pack = { $pack } burada kaydedilemez. Bu sekme kapatılıp değişiklikleri kaybedilsin mi? Korumak için ajandan onu yeni bir paket olarak kaydetmesini isteyin.
+ui-confirm-discard-ok = Kaydetmeden kapat
+ui-confirm-update-ok = Güncelle
+ui-confirm-update-later = Şimdi değil
 
 ## Bildirimler
 
@@ -277,8 +280,14 @@ ui-tabs = Açık sunumlar
 ui-tab-new = Yeni sekme
 ui-tab-close = Sekmeyi kapat
 ui-tab-unsaved = Kaydedilmemiş değişiklikler
-ui-tab-kind-pack = { $title }, paket
-ui-tab-kind-theme = { $title }, tema
+ui-tab-kind-pack = { $title }, paket{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, tema{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Tema
 ui-preview-theme = Önizleme teması
 ui-tab-move-new-window = Yeni pencereye taşı
@@ -334,6 +343,9 @@ ui-widgets-delete-named = { $name } öğesini sil
 ui-widgets-confirm-delete = “{ $name }” widget'ı silinsin mi?
 ui-layouts-confirm-delete = “{ $name }” düzeni silinsin mi?
 ui-widgets-rename-hint = Yeniden adlandırmak için çift tıklayın veya F2'ye basın
+ui-pile-menu = { $name } için işlemler
+ui-pile-menu-rename = Yeniden adlandır
+ui-pile-menu-delete = Sil
 ui-theme-name = Tema adı
 ui-theme-unsaved = Tema değişiklikleri kaydedilmedi
 ui-widgets-removed-by-agent = Ajan { $name } widget'ını sildi.

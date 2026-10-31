@@ -12,6 +12,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, openAtelier, openPackTab: openFrom, openThemeTab, closePacksPanel, packTabShown } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
+const { assertNoQuestion } = require('./lib/question.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const { newPackItem, pileThumb, selectPackItem } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -176,6 +177,7 @@ const backToOpener = (p, tab, why) =>
 
   assert.equal((await view(p)).windows[0].active, 't-1');
   assert.deepEqual(dialogs, []);
+  await assertNoQuestion(p);
   assert.deepEqual(errors, []);
   console.log('atelier de layouts ok');
   await b.close();

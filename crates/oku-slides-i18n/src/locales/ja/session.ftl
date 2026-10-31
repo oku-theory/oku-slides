@@ -158,6 +158,7 @@ packs-use-mine = 自分のバージョンを使う
 packs-make-current = 相手のバージョンを自分のバージョンにする
 packs-remove = 削除
 packs-pack-open = 開く
+packs-pack-open-mine = 自分のバージョンを開く
 packs-add = ライブラリから追加
 packs-theme-overrides = プレゼンテーションの上書き：{ $count }
 packs-theme-pick = プレゼンテーションのテーマ

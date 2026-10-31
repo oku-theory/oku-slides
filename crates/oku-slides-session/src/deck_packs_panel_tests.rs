@@ -97,6 +97,26 @@ fn deck_packs_panel_newer_deck_pack_offers_both_version_buttons() {
     assert_that!(text_of(&surface, &format!("{prefix}/relation"))).is_equal_to(relation);
 }
 
+#[rstest]
+#[case("en")]
+#[case("fr")]
+fn deck_packs_panel_drifted_pack_open_names_my_version(#[case] lang: &str) {
+    let (_me, _them, s, _theirs, _mine) = opened_on_newer();
+    let view = s.deck_packs().unwrap();
+    let pack = view.widgets.iter().find(|p| p.drift.is_some()).unwrap();
+    let l = Localizer::new(Some(lang));
+    let open = component(&deck_packs_panel(&view, &l), &format!("widgets/{}/open", pack.namespace))["label"].clone();
+    assert_that!(open).is_equal_to(json!(l.tr("packs-pack-open-mine")));
+}
+
+#[test]
+fn deck_packs_panel_current_pack_open_is_plain_open() {
+    let view = session().deck_packs().unwrap();
+    let l = Localizer::new(Some("fr"));
+    let open = component(&deck_packs_panel(&view, &l), "widgets/base/open")["label"].clone();
+    assert_that!(open).is_equal_to(json!(l.tr("packs-pack-open")));
+}
+
 #[test]
 fn deck_packs_panel_add_select_is_absent_without_addable_packs() {
     let view = session().deck_packs().unwrap();

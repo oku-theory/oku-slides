@@ -35,6 +35,9 @@ ui-close-writes-pending = यह टैब अभी भी सहेज रह�
 ui-confirm-close-writes-pending = यह टैब अभी भी सहेज रहा है। फिर भी इसे बंद करें और जो सहेजा नहीं गया है उसे खो दें?
 ui-confirm-close-writes-pending-linked = यह टैब अभी भी सहेज रहा है, और ये पैक टैब बिना सहेजे इसके साथ बंद होंगे: { $tabs }। फिर भी इन्हें बंद करें और जो सहेजा नहीं गया है उसे खो दें?
 ui-confirm-quit-read-only-pack = { $pack } को यहाँ सहेजा नहीं जा सकता। यह टैब बंद करें और इसके बदलाव खो दें? उन्हें रखने के लिए, एजेंट से इसे नए पैक के रूप में सहेजने को कहें।
+ui-confirm-discard-ok = सहेजे बिना बंद करें
+ui-confirm-update-ok = अपडेट करें
+ui-confirm-update-later = अभी नहीं
 
 ## सूचनाएँ
 
@@ -277,8 +280,14 @@ ui-tabs = खुली प्रस्तुतियाँ
 ui-tab-new = नया टैब
 ui-tab-close = टैब बंद करें
 ui-tab-unsaved = बिना सहेजे बदलाव
-ui-tab-kind-pack = { $title }, पैक
-ui-tab-kind-theme = { $title }, थीम
+ui-tab-kind-pack = { $title }, पैक{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, थीम{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = थीम
 ui-preview-theme = पूर्वावलोकन थीम
 ui-tab-move-new-window = नई विंडो में ले जाएँ
@@ -334,6 +343,9 @@ ui-widgets-delete-named = { $name } हटाएँ
 ui-widgets-confirm-delete = विजेट “{ $name }” हटाएँ?
 ui-layouts-confirm-delete = लेआउट “{ $name }” हटाएँ?
 ui-widgets-rename-hint = नाम बदलने के लिए डबल-क्लिक करें या F2 दबाएँ
+ui-pile-menu = { $name } के लिए क्रियाएँ
+ui-pile-menu-rename = नाम बदलें
+ui-pile-menu-delete = हटाएँ
 ui-theme-name = थीम का नाम
 ui-theme-unsaved = थीम के बदलाव सहेजे नहीं गए
 ui-widgets-removed-by-agent = एजेंट ने विजेट { $name } हटा दिया।

@@ -158,6 +158,7 @@ packs-use-mine = 使用我的版本
 packs-make-current = 将对方的版本设为我的版本
 packs-remove = 移除
 packs-pack-open = 打开
+packs-pack-open-mine = 打开我的版本
 packs-add = 从库中添加
 packs-theme-overrides = 演示文稿覆盖：{ $count }
 packs-theme-pick = 演示文稿主题

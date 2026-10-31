@@ -158,6 +158,7 @@ packs-use-mine = Usar a minha versão
 packs-make-current = Tornar a dela a minha versão
 packs-remove = Remover
 packs-pack-open = Abrir
+packs-pack-open-mine = Abrir minha versão
 packs-add = Adicionar da biblioteca
 packs-theme-overrides = { $count ->
     [one] { $count } ajuste da apresentação

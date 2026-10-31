@@ -4,6 +4,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import type { Snapshot, TabApi, WidgetChange } from "./api";
 import type { PackKind } from "./packTypes";
+import type { Confirm, Question } from "./useConfirm";
 
 const { act, createElement, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -25,7 +26,7 @@ afterEach(async () => {
 
 interface Over {
   kind?: PackKind;
-  confirm?: (m: string) => Promise<boolean>;
+  confirm?: Confirm;
   selected?: string | null;
 }
 
@@ -37,7 +38,7 @@ async function mount(fake: TabApi, over: Over = {}) {
   const errors: string[] = [];
   const asked: string[] = [];
   const box: { files: Files | null } = { files: null };
-  const confirm = over.confirm ?? (async (m: string) => (asked.push(m), true));
+  const confirm = over.confirm ?? (async (q: Question) => (asked.push(q.message), true));
   const Probe = () => {
     const files = useWidgetFiles(fake, "p", kind, "r", { changed: () => {}, error: (m) => errors.push(m), renamed: () => {} });
     box.files = files;
@@ -312,5 +313,49 @@ describe("PackPile, deleting", () => {
     await press(thumb(host, "kpi"), "Delete");
     await wait(10);
     expect(document.activeElement).toBe(add(host));
+  });
+});
+
+describe("PackPile, context menu", () => {
+  /** Right-clicks `target` and answers the menu's entry labels. */
+  const openMenu = async (target: HTMLElement) => {
+    await act(async () => void target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 40 })));
+    return [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] [role="menuitem"]')];
+  };
+
+  test("PackPile a thumbnail's context menu offers rename and delete", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    expect((await openMenu(thumb(host, "kpi"))).map((b) => b.textContent)).toEqual(["ui-pile-menu-rename", "ui-pile-menu-delete"]);
+  });
+
+  test("PackPile the shared row's context menu offers only delete", async () => {
+    const { fake } = memory({ _commun: "c", kpi: "k" });
+    const { host } = await mount(fake);
+    expect((await openMenu(common(host) as HTMLButtonElement)).map((b) => b.textContent)).toEqual(["ui-pile-menu-delete"]);
+  });
+
+  test("PackPile the menu's rename starts naming the item", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    const [rename] = await openMenu(thumb(host, "kpi"));
+    await act(async () => rename.click());
+    expect([nameInput(host)?.value, document.querySelector('[role="menu"]')]).toEqual(["kpi", null]);
+  });
+
+  test("PackPile the menu's delete asks through confirm, then deletes", async () => {
+    const { fake, log } = memory({ kpi: "k" });
+    const { host, asked } = await mount(fake);
+    const [, remove] = await openMenu(thumb(host, "kpi"));
+    await act(async () => remove.click());
+    await wait(10);
+    expect([asked, log]).toEqual([["ui-widgets-confirm-delete"], ["remove kpi"]]);
+  });
+
+  test("PackPile the menu is named after its item", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake);
+    await openMenu(thumb(host, "kpi"));
+    expect(document.querySelector('[role="menu"]')?.getAttribute("aria-label")).toBe("ui-pile-menu");
   });
 });

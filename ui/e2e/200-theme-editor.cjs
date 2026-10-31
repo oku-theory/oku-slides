@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
 const { closePackTabs, closePacksPanel, openThemeTab } = require('./lib/atelier.cjs');
 const { logOffset, logSince, waitForTool } = require('./lib/agentLog.cjs');
 const { post } = require('./lib/http.cjs');
+const { assertNoQuestion } = require('./lib/question.cjs');
 const { stageSvg } = require('./lib/stage.cjs');
 const { SLOW, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -30,7 +31,7 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   const errors = [];
   p.on('pageerror', (e) => errors.push(e.message));
-  // A theme tab closes without any dialog: no "quit without saving", no opener offer.
+  // A theme tab closes without any question: no "quit without saving", no opener offer.
   p.on('dialog', (d) => {
     errors.push(`dialogue inattendu : ${d.message()}`);
     void d.dismiss();
@@ -181,6 +182,7 @@ const tabIds = async (p) => (await view(p)).windows[0].tabs.map((t) => t.id);
   await untilValue(p, () => view(p), (v) => !v.windows[0].tabs.some((t) => t.id === fresh) && v.windows[0].active === 't-1', "le nouveau thème ne se ferme pas");
   await untilValue(p, async () => (await api(p, 't-1', { cmd: 'snapshot' })).themes.map((th) => th.namespace).sort(),
     (l) => JSON.stringify(l) === JSON.stringify(themesBefore), 'le thème neuf fermé intact reste dans la bibliothèque');
+  await assertNoQuestion(p);
   assert.deepEqual(errors, []);
   console.log('éditeur de thème ok');
   await b.close();

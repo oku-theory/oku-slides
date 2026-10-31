@@ -158,6 +158,7 @@ packs-use-mine = আমার সংস্করণ ব্যবহার কর
 packs-make-current = ওনারটিকে আমার সংস্করণ করুন
 packs-remove = সরান
 packs-pack-open = খুলুন
+packs-pack-open-mine = আমার সংস্করণ খুলুন
 packs-add = লাইব্রেরি থেকে যোগ করুন
 packs-theme-overrides = উপস্থাপনার পরিবর্তন: { $count }
 packs-theme-pick = উপস্থাপনার থিম

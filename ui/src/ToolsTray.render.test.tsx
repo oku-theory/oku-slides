@@ -5,6 +5,7 @@ import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import type { SlideView, Snapshot, TabApi } from "./api";
 import type { KeptUi } from "./useKeptUi";
+import type { PackItem } from "./usePackItem";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
@@ -37,7 +38,7 @@ const snapshot = (o: Partial<Snapshot> = {}): Snapshot =>
     can_undo: false, can_redo: false, undo_label: null, redo_label: null, ...o,
   }) as unknown as Snapshot;
 
-async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = false) {
+async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = false, item: PackItem | null = null, keptUi = {} as KeptUi) {
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
@@ -46,8 +47,8 @@ async function mount(snap: Snapshot, view: SlideView | null = null, themeTab = f
   await act(async () =>
     root.render(
       createElement(ToolsTray, {
-        api: {} as TabApi, snap, view, item: null,
-        keptUi: {} as KeptUi, mainMenu: null, run: async () => null,
+        api: {} as TabApi, snap, view, item,
+        keptUi, mainMenu: null, run: async () => null,
         onAdd: () => {}, onPacks: () => void opened++, onHistory: () => void histories++, thumbs: null, themeTab,
       }),
     ),
@@ -170,4 +171,13 @@ describe("ToolsTray", () => {
     const host = await mountThumbs(null);
     expect(toggle(host)).toBeNull();
   });
+});
+
+test("ToolsTray in a pack tab with the code folded shows the session's labelled undo", async () => {
+  const item = { selected: "kpi", history: { undo: 0, redo: 0 }, undo: () => {}, redo: () => {} } as unknown as PackItem;
+  const keptUi = { code: false, setCode: () => {} } as unknown as KeptUi;
+  const snap = snapshot({ editing: {} as Snapshot["editing"], can_undo: true, undo_label: "Delete kpi" });
+  const { host } = await mount(snap, null, false, item, keptUi);
+  const undo = host.querySelector<HTMLButtonElement>('button[aria-label="ui-toolbar-undo-label"]');
+  expect([undo?.title, undo?.disabled]).toEqual(["Delete kpi", false]);
 });

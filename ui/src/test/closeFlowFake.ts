@@ -3,6 +3,7 @@
 import { errorText, type OpenerOffer, type Snapshot, type TabApi, type TabDocument, type TabInfo, type WindowView, type WorkspaceView } from "../api";
 import { type CloseFlowInput, closeFlowDeps } from "../closeFlow";
 import type { PackMode, ThemePin, ThemeTabView } from "../packTypes";
+import type { Question } from "../useConfirm";
 
 /** A snapshot with what the close flows read. */
 export const snap = (s: Partial<Snapshot> = {}) => ({ dirty: false, path: null, name: "essai", editing: null, history: null, ...s }) as Snapshot;
@@ -48,6 +49,8 @@ const VIEW = { generation: 1, focused: "main", agent_detached: false, import_pic
 /** A fake workspace: `state` holds the answers, `log` every call, `input` builds deps. */
 export function fake(tabs: TabInfo[]) {
   const log: string[] = [];
+  /** Every question asked, in order. */
+  const questions: Question[] = [];
   const guardCalls = new Map<string, number>();
   const state = {
     tabs,
@@ -103,7 +106,11 @@ export function fake(tabs: TabInfo[]) {
     }) as unknown as TabApi;
   const input: CloseFlowInput = {
     tabApi: api,
-    confirm: (m) => (log.push(`confirm ${m}`), state.answers.shift() ?? true),
+    confirm: async (q) => {
+      questions.push(q);
+      log.push(`confirm ${q.message}`);
+      return state.answers.shift() ?? true;
+    },
     runGuard: (id) => {
       const n = (guardCalls.get(id) ?? 0) + 1;
       guardCalls.set(id, n);
@@ -146,7 +153,7 @@ export function fake(tabs: TabInfo[]) {
     },
     setError: (e) => log.push(`report ${e}`),
   };
-  return { log, state, input, deps: () => closeFlowDeps(input), guardCalls };
+  return { log, questions, state, input, deps: () => closeFlowDeps(input), guardCalls };
 }
 
 /** A promise resolved from outside. */

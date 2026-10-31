@@ -158,6 +158,7 @@ packs-use-mine = Utiliser ma version
 packs-make-current = Faire de la sienne ma version
 packs-remove = Retirer
 packs-pack-open = Ouvrir
+packs-pack-open-mine = Ouvrir ma version
 packs-add = Ajouter depuis la bibliothèque
 packs-theme-overrides = { $count ->
     [one] { $count } surcharge du deck

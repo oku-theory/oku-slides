@@ -41,6 +41,9 @@ ui-close-writes-pending = Ця вкладка ще зберігає: закри�
 ui-confirm-close-writes-pending = Ця вкладка ще зберігає. Усе одно закрити її і втратити те, що не збережено?
 ui-confirm-close-writes-pending-linked = Ця вкладка ще зберігає, і ці вкладки наборів закриються разом із нею без збереження: { $tabs }. Усе одно закрити їх і втратити те, що не збережено?
 ui-confirm-quit-read-only-pack = { $pack } не можна зберегти тут. Закрити цю вкладку і втратити її зміни? Щоб зберегти їх, попросіть агента зберегти його як новий набір.
+ui-confirm-discard-ok = Закрити без збереження
+ui-confirm-update-ok = Оновити
+ui-confirm-update-later = Не зараз
 
 ## Сповіщення
 
@@ -283,8 +286,14 @@ ui-tabs = Відкриті презентації
 ui-tab-new = Нова вкладка
 ui-tab-close = Закрити вкладку
 ui-tab-unsaved = Незбережені зміни
-ui-tab-kind-pack = { $title }, набір
-ui-tab-kind-theme = { $title }, тема
+ui-tab-kind-pack = { $title }, набір{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, тема{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = Тема
 ui-preview-theme = Тема попереднього перегляду
 ui-tab-move-new-window = Перемістити в нове вікно
@@ -340,6 +349,9 @@ ui-widgets-delete-named = Видалити { $name }
 ui-widgets-confirm-delete = Видалити віджет «{ $name }»?
 ui-layouts-confirm-delete = Видалити макет «{ $name }»?
 ui-widgets-rename-hint = Двічі клацніть або натисніть F2, щоб перейменувати
+ui-pile-menu = Дії для { $name }
+ui-pile-menu-rename = Перейменувати
+ui-pile-menu-delete = Видалити
 ui-theme-name = Назва теми
 ui-theme-unsaved = Зміни теми не збережено
 ui-widgets-removed-by-agent = Агент видалив віджет { $name }.

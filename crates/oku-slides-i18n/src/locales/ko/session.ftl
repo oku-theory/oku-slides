@@ -158,6 +158,7 @@ packs-use-mine = 내 버전 사용
 packs-make-current = 상대 버전을 내 버전으로 지정
 packs-remove = 제거
 packs-pack-open = 열기
+packs-pack-open-mine = 내 버전 열기
 packs-add = 라이브러리에서 추가
 packs-theme-overrides = 프레젠테이션 재정의: { $count }
 packs-theme-pick = 프레젠테이션 테마

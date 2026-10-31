@@ -35,6 +35,9 @@ ui-close-writes-pending = এই ট্যাবটি এখনও সংরক
 ui-confirm-close-writes-pending = এই ট্যাবটি এখনও সংরক্ষণ করছে। তবুও বন্ধ করে যা সংরক্ষিত হয়নি তা হারাবেন?
 ui-confirm-close-writes-pending-linked = এই ট্যাবটি এখনও সংরক্ষণ করছে, আর এই প্যাক ট্যাবগুলো সংরক্ষণ ছাড়াই এর সঙ্গে বন্ধ হবে: { $tabs }। তবুও এগুলো বন্ধ করে যা সংরক্ষিত হয়নি তা হারাবেন?
 ui-confirm-quit-read-only-pack = { $pack } এখানে সংরক্ষণ করা যাবে না। এই ট্যাবটি বন্ধ করে এর পরিবর্তনগুলো হারাবেন? সেগুলো রাখতে, এজেন্টকে এটি নতুন প্যাক হিসেবে সংরক্ষণ করতে বলুন।
+ui-confirm-discard-ok = সংরক্ষণ না করে বন্ধ করুন
+ui-confirm-update-ok = হালনাগাদ করুন
+ui-confirm-update-later = এখন নয়
 
 ## বিজ্ঞপ্তি
 
@@ -277,8 +280,14 @@ ui-tabs = খোলা উপস্থাপনা
 ui-tab-new = নতুন ট্যাব
 ui-tab-close = ট্যাব বন্ধ করুন
 ui-tab-unsaved = অসংরক্ষিত পরিবর্তন
-ui-tab-kind-pack = { $title }, প্যাক
-ui-tab-kind-theme = { $title }, থিম
+ui-tab-kind-pack = { $title }, প্যাক{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, থিম{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = থিম
 ui-preview-theme = প্রিভিউ থিম
 ui-tab-move-new-window = নতুন উইন্ডোতে সরান
@@ -334,6 +343,9 @@ ui-widgets-delete-named = { $name } মুছুন
 ui-widgets-confirm-delete = উইজেট “{ $name }” মুছবেন?
 ui-layouts-confirm-delete = লেআউট “{ $name }” মুছবেন?
 ui-widgets-rename-hint = নাম বদলাতে ডাবল-ক্লিক করুন বা F2 চাপুন
+ui-pile-menu = { $name }-এর জন্য কাজ
+ui-pile-menu-rename = নাম বদলান
+ui-pile-menu-delete = মুছুন
 ui-theme-name = থিমের নাম
 ui-theme-unsaved = থিমের পরিবর্তন সংরক্ষিত হয়নি
 ui-widgets-removed-by-agent = এজেন্ট উইজেট { $name } মুছে ফেলেছে।

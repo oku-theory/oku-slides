@@ -9,8 +9,9 @@
 
 import { errorText, linkedTabs, type OpenerOffer, type Snapshot, type TabApi, type TabInfo, type WorkspaceView } from "./api";
 import type { workspace } from "./api";
-import { type Confirm, mayClose } from "./close";
+import { discardQuestion, mayClose } from "./close";
 import { isolate, t } from "./i18n";
+import type { Confirm } from "./useConfirm";
 
 /** How long a stall counts: a second one within this many milliseconds asks to close anyway. */
 const STALL_MS = 30_000;
@@ -143,7 +144,7 @@ async function stalledClose(id: string, deps: CloseFlowDeps): Promise<boolean> {
     unsaved.length > 0
       ? t("ui-confirm-close-writes-pending-linked", { tabs: unsaved.map((x) => isolate(x.title)).join(", ") })
       : t("ui-confirm-close-writes-pending");
-  if (!deps.confirm(question)) return false;
+  if (!(await deps.confirm(discardQuestion(question)))) return false;
   // A busy session refuses a plain close (a plain close would also flush the linked tabs into the
   // stuck owner): the question already said unsaved work is lost.
   if (!tab.dirty && unsaved.length === 0 && (await deps.close(id, false))) return true;
@@ -176,7 +177,7 @@ async function unreadVerdict(id: string, error: unknown, deps: CloseFlowDeps): P
     else await deps.tabApi(id).saveTheme();
     return "keep";
   } catch {
-    return deps.confirm(t(pack ? "ui-confirm-quit-pack" : "ui-confirm-quit-theme")) ? "discard" : null;
+    return (await deps.confirm(discardQuestion(t(pack ? "ui-confirm-quit-pack" : "ui-confirm-quit-theme")))) ? "discard" : null;
   }
 }
 
@@ -214,7 +215,7 @@ async function flushLinked(id: string, view: WorkspaceView, tabs: TabInfo[], add
     }
     const after = await api.snapshot();
     if (!after.dirty && !after.editing?.unsent) continue;
-    if (!deps.confirm(t("ui-confirm-quit-pack"))) return null;
+    if (!(await deps.confirm(discardQuestion(t("ui-confirm-quit-pack"))))) return null;
     verdict = "discard";
   }
   return verdict;
@@ -250,9 +251,11 @@ async function askOffer(id: string, deps: CloseFlowDeps): Promise<OpenerOffer | 
   } catch (e) {
     deps.report(e);
   }
+  if (!offer) return null;
   // Title and name are labels already: isolated at display only.
-  const question = offer && t("ui-confirm-update-opener", { deck: isolate(offer.title), pack: isolate(offer.pack_name) });
-  return offer && question && deps.confirm(question) ? offer : null;
+  const message = t("ui-confirm-update-opener", { deck: isolate(offer.title), pack: isolate(offer.pack_name) });
+  const question = { message, ok: t("ui-confirm-update-ok"), cancel: t("ui-confirm-update-later"), danger: false };
+  return (await deps.confirm(question)) ? offer : null;
 }
 
 /**
@@ -324,10 +327,10 @@ function sortStalls(stalled: string[], deps: CloseFlowDeps): string[] | false {
 }
 
 /** Asks about each second stall; false on a no, else true with the ids collected. */
-function askStuck(seconds: string[], discarded: string[], deps: CloseFlowDeps): boolean {
+async function askStuck(seconds: string[], discarded: string[], deps: CloseFlowDeps): Promise<boolean> {
   for (const id of seconds) {
     deps.stalls.delete(id);
-    if (!deps.confirm(t("ui-confirm-close-writes-pending"))) return false;
+    if (!(await deps.confirm(discardQuestion(t("ui-confirm-close-writes-pending"))))) return false;
     discarded.push(id);
   }
   return true;
@@ -350,7 +353,7 @@ export async function closeWindowFlow(active: string | null, deps: CloseWindowDe
   };
   try {
     const firstRound = sortStalls(await stalledOf((await freshRead(deps)).tabs.map((x) => x.id), deps), deps);
-    if (firstRound === false || !askStuck(firstRound, discarded, deps)) return await stay();
+    if (firstRound === false || !(await askStuck(firstRound, discarded, deps))) return await stay();
     for (const id of discarded) {
       deps.closing.add(id);
       visited.push(id);
@@ -389,7 +392,7 @@ export async function closeWindowFlow(active: string | null, deps: CloseWindowDe
     // and other windows' linked tabs (their own autosave).
     const here = (id: string) => tabs.some((x) => x.id === id);
     const lastRound = sortStalls(await stalledOf(visited.filter((id) => !discarded.includes(id) && here(id)), deps), deps);
-    if (lastRound === false || !askStuck(lastRound, discarded, deps)) return await stay();
+    if (lastRound === false || !(await askStuck(lastRound, discarded, deps))) return await stay();
     return await deps.closeWindow(discarded);
   } catch (e) {
     deps.report(e);

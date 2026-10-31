@@ -35,6 +35,9 @@ ui-close-writes-pending = 此分頁仍在儲存：請稍後再次關閉。
 ui-confirm-close-writes-pending = 此分頁仍在儲存。仍要關閉並遺失尚未儲存的內容嗎？
 ui-confirm-close-writes-pending-linked = 此分頁仍在儲存，以下套件分頁將隨之關閉且不會儲存：{ $tabs }。仍要關閉並遺失尚未儲存的內容嗎？
 ui-confirm-quit-read-only-pack = 無法在此儲存 { $pack }。要關閉此分頁並遺失其變更嗎？若要保留，請讓 AI 代理將其另存為新套件。
+ui-confirm-discard-ok = 不儲存並關閉
+ui-confirm-update-ok = 更新
+ui-confirm-update-later = 以後再說
 
 ## 通知
 
@@ -277,8 +280,14 @@ ui-tabs = 已開啟的簡報
 ui-tab-new = 新增分頁
 ui-tab-close = 關閉分頁
 ui-tab-unsaved = 未儲存的變更
-ui-tab-kind-pack = { $title }, 套件
-ui-tab-kind-theme = { $title }, 主題
+ui-tab-kind-pack = { $title }, 套件{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
+ui-tab-kind-theme = { $title }, 主題{ $dirty ->
+    [yes] , { ui-tab-unsaved }
+   *[no] { "" }
+}
 ui-tab-theme = 主題
 ui-preview-theme = 預覽主題
 ui-tab-move-new-window = 移至新視窗
@@ -334,6 +343,9 @@ ui-widgets-delete-named = 刪除 { $name }
 ui-widgets-confirm-delete = 刪除小工具「{ $name }」?
 ui-layouts-confirm-delete = 刪除版面配置「{ $name }」?
 ui-widgets-rename-hint = 按兩下或按 F2 重新命名
+ui-pile-menu = { $name } 的操作
+ui-pile-menu-rename = 重新命名
+ui-pile-menu-delete = 刪除
 ui-theme-name = 主題名稱
 ui-theme-unsaved = 主題變更未儲存
 ui-widgets-removed-by-agent = AI 代理刪除了小工具 { $name }。
