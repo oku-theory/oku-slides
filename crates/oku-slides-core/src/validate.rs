@@ -116,6 +116,36 @@ impl Issue {
         let message = Message::new("issue-theme-version-missing").arg("version", version.as_str());
         Self { slide: None, element: None, message }
     }
+
+    /// A `usage.jsonl` line dropped: unreadable or failing the record checks.
+    #[must_use]
+    pub fn usage_line_invalid(line: usize) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-usage-line-invalid").arg("line", line) }
+    }
+
+    /// A usage turn held twice with different content: one of them is kept.
+    #[must_use]
+    pub fn usage_line_forged(turn: &str) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-usage-line-forged").arg("turn", turn) }
+    }
+
+    /// The usage ledger exceeds what may still be read: dropped whole.
+    #[must_use]
+    pub fn usage_too_large() -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-usage-too-large") }
+    }
+
+    /// The usage ledger entry cannot be read (corrupt zip data): dropped whole.
+    #[must_use]
+    pub fn usage_unreadable() -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-usage-unreadable") }
+    }
+
+    /// More usage lines were dropped than reported one by one.
+    #[must_use]
+    pub fn usage_lines_dropped(count: usize) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-usage-lines-dropped").arg("count", count) }
+    }
 }
 
 /// Les valeurs des paramètres `asset` de `params` selon `schema`, listes comprises.

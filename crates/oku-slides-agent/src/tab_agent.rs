@@ -28,10 +28,8 @@ use crate::session_model::{Offered, model_options};
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, AgentState};
 
-/// Attente de la fin de la connexion après l'échec d'une requête : la
-/// bibliothèque ACP fait échouer les requêtes en cours avant de signaler la
-/// fin, et le prompt suivant doit relancer l'agent plutôt que reprendre
-/// l'ancienne connexion.
+/// Wait for the connection's end after a failed request: ACP fails pending requests before
+/// signalling the end, and the next prompt must relaunch the agent, not reuse the old connection.
 const CLOSE_GRACE: Duration = Duration::from_secs(1);
 
 /// Beyond this, a model request goes unanswered: the turn goes on with the session's model.
@@ -318,7 +316,8 @@ impl TabAgent {
         match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, live.caps.image, prompting)
             .await
         {
-            Ok(pending) => {
+            Ok((pending, usage)) => {
+                crate::usage_board::record_turn(&self.ctx, &self.link, live.generation, &id, usage.as_ref()).await;
                 if pending.new_conversation {
                     self.new_conversation().await;
                 }
@@ -421,6 +420,7 @@ impl TabAgent {
             Ok(options) => {
                 // Un rejeu tardif (agent non conforme) reste hors du tour jusqu'au premier prompt (t-612).
                 self.adopt(live, turn, &id, !live.caps.resume, options.as_deref());
+                self.link.usage().resumed(live.generation, &id);
                 Ok(Reopened::Resumed(id))
             }
             Err(e) if agent_client_protocol::is_incoming_transport_closed(&e) || live.closed.is_cancelled() => Err(e),

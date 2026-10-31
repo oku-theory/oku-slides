@@ -119,11 +119,14 @@ function element(node: SyntaxNode, text: string, key: number): ReactNode {
     case "Table": {
       const head = node.getChild("TableHeader");
       const rows = node.getChildren("TableRow");
+      // A wide table scrolls in its own box; `tabIndex` lets the keyboard scroll it too.
       return (
-        <table key={key}>
-          {head && <thead>{row(head, text, "th", 0)}</thead>}
-          {rows.length > 0 && <tbody>{rows.map((r, i) => row(r, text, "td", i))}</tbody>}
-        </table>
+        <div key={key} className="md-table" tabIndex={0}>
+          <table>
+            {head && <thead>{row(head, text, "th", 0)}</thead>}
+            {rows.length > 0 && <tbody>{rows.map((r, i) => row(r, text, "td", i))}</tbody>}
+          </table>
+        </div>
       );
     }
     default:

@@ -18,6 +18,8 @@ interface SaveForCloseOptions {
   ask?: AskReplaced;
   /** The snapshot the flow already read. */
   first?: Snapshot;
+  /** The tab's own unsaved flag, which counts agent usage the snapshot's does not show. */
+  tabDirty?: boolean;
 }
 
 /** The read-only question: the pack cannot be saved here, close and lose its changes? */
@@ -26,14 +28,15 @@ const readOnlyQuestion = (editing: PackMode) => t("ui-confirm-quit-read-only-pac
 /**
  * Saves a tab before it closes; false: given up.
  *
- * History closes first (the version shown is never written), then the deck is saved. Only a
+ * History closes first (the version shown is never written), also when only the tab is dirty
+ * (agent usage, written by the close once back in the deck), then the deck is saved. Only a
  * file replaced by another deck asks a question. A pack tab (`editing` set) has no deck to save:
  * it answers whether it is clean, and mayClose saves its pack (packTabVerdict).
  */
 export async function saveForClose(api: TabApi, opts: SaveForCloseOptions = {}): Promise<boolean> {
   let s = opts.first ?? (await api.snapshot());
   const pick = opts.pick ?? pickSavePath;
-  if (s.history && s.dirty) s = await api.historyClose();
+  if (s.history && (s.dirty || opts.tabDirty)) s = await api.historyClose();
   if (s.editing) return !s.dirty;
   if (!s.dirty) return true;
   return (await saveGuarded(api, s, opts.ask, pick)) !== null;
@@ -93,6 +96,6 @@ export async function mayClose(tab: TabInfo, snap: Snapshot | null, api: TabApi,
   if (snap?.editing) return packTabVerdict(snap, snap.editing, api, deps.confirm);
   if (snap?.theming) return themeTabVerdict(snap, snap.theming, api, deps.confirm);
   if (!tab.dirty) return "keep";
-  const saved = await saveForClose(api, { pick: deps.pick, ask: deps.ask, first: snap ?? undefined });
+  const saved = await saveForClose(api, { pick: deps.pick, ask: deps.ask, first: snap ?? undefined, tabDirty: tab.dirty });
   return saved ? "keep" : null;
 }

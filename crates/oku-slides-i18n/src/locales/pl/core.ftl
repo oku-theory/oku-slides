@@ -163,6 +163,18 @@ issue-theme-version-mismatch = zmieniona wersja motywu odrzucona: { $version }
 issue-theme-version-missing = brak wersji motywu w źródłach: { $version }
 issue-theme-pin-mismatch = Osadzony motyw { $namespace } nie odpowiada temu, czego oczekuje prezentacja.
 issue-theme-closure = Motywy przypięte w tej prezentacji nie są dokładnie jej motywem i jego rodzicami ({ $namespace }).
+issue-usage-line-invalid = wiersz { $line } dziennika użycia nieczytelny, odrzucono
+issue-usage-line-forged = tura użycia { $turn } zapisana dwa razy z różną treścią, jedną odrzucono
+issue-usage-too-large = dziennik użycia jest za duży, odrzucono
+issue-usage-unreadable = dziennik użycia jest nieczytelny, odrzucono
+issue-usage-lines-dropped = { $count ->
+    [one] odrzucono jeszcze { $count } wiersz dziennika użycia
+    [few] odrzucono jeszcze { $count } wiersze dziennika użycia
+    [many] odrzucono jeszcze { $count } wierszy dziennika użycia
+   *[other] odrzucono jeszcze { $count } wiersza dziennika użycia
+}
+usage-range-bad-date = „{ $date }” nie jest datą: użyj RRRR-MM-DD.
+usage-range-reversed = Data początkowa { $since } jest późniejsza niż data końcowa { $until }.
 pack-token-entry-invalid = Nieprawidłowy token komponentu „{ $path }” w manifeście pakietu.
 pack-manifest-json = Nie można odczytać manifestu pakietu: { $reason }
 issue-unsupported-link = nieobsługiwany link: { $link }

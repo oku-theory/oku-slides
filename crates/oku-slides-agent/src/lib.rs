@@ -38,6 +38,7 @@ mod tab_entry;
 mod table;
 mod turn;
 mod turns;
+mod usage_board;
 mod voice_port;
 mod voice_refresh;
 mod wire;

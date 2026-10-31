@@ -139,6 +139,7 @@ agent-error-empty-dictation = Niente da cambiare: indica almeno un'impostazione 
 agent-error-not-shown = Questa scheda non è quella mostrata nella sua finestra: richiedi quando l'utente la mostra.
 agent-error-themes-deck-mode = Il selettore di temi si apre solo durante la modifica delle diapositive.
 agent-error-packs-deck-mode = Il pannello dei pacchetti della presentazione si apre solo durante la modifica delle diapositive.
+agent-error-usage-no-deck = L'utilizzo di questa scheda non appartiene a nessuna presentazione: conta per una presentazione solo una scheda di pacchetto o di tema aperta da essa (dall'utente o dall'agente), o il pacchetto proprio della presentazione.
 agent-error-rewrite-text = La riformulazione è tornata senza testo.
 agent-error-paragraphs = I paragrafi della riformulazione non sono validi.
 agent-error-draft-too-long = La bozza è troppo lunga.

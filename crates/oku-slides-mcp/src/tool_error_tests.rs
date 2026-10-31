@@ -4,7 +4,7 @@ use speculoos::prelude::*;
 
 use super::{
     ContinueInOtherTabSnafu, EmptyDictationChangeSnafu, HubSnafu, TabLimitSnafu, TabNoTurnSnafu, TaskSnafu, ToolError,
-    VoiceSnafu,
+    UsageNoDeckSnafu, VoiceSnafu,
 };
 
 /// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
@@ -41,6 +41,7 @@ const KEYS: &[&str] = &[
     "agent-error-empty-interface",
     "agent-error-not-shown",
     "agent-error-empty-dictation",
+    "agent-error-usage-no-deck",
     "agent-confirm-dictation-api",
     "agent-confirm-dictation-download",
     "agent-confirm-dictation-language",
@@ -141,4 +142,12 @@ fn tab_gate_errors_say_their_key(#[case] e: ToolError, #[case] key: &str) {
     let fr = Localizer::new(Some("fr"));
     assert_that!(e.localize(&fr)).is_equal_to(fr.tr(key));
     assert_that!(fr.tr(key)).is_not_equal_to(Localizer::new(Some("en")).tr(key));
+}
+
+#[test]
+fn usage_no_deck_localized_in_french_is_its_key() {
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(UsageNoDeckSnafu.build().localize(&fr)).is_equal_to(fr.tr("agent-error-usage-no-deck"));
+    assert_that!(fr.tr("agent-error-usage-no-deck"))
+        .is_not_equal_to(Localizer::new(Some("en")).tr("agent-error-usage-no-deck"));
 }

@@ -148,6 +148,42 @@ widgets-edit-label = Widgets: { $name }
 widget-preview-plain = Voorbeeldtekst
 widget-preview-rich = Een voorbeeldalinea, om de widget in context te zien.
 packs-title = Pakketten van de presentatie
+usage-title = Gebruik van de agent
+usage-badge-turns = { $count ->
+    [one] { $count } beurt
+   *[other] { $count } beurten
+}
+usage-badge-tokens = { $count ->
+    [one] { $count } token
+   *[other] { $count } tokens
+}
+usage-badge-no-tokens = { $count ->
+    [one] { $count } beurt zonder tokentelling
+   *[other] { $count } beurten zonder tokentelling
+}
+usage-badge-cost = { $amount } { $currency }
+usage-badge-cost-partial = { $amount } { $currency } (gedeeltelijk)
+usage-col-day = Dag
+usage-col-month = Maand
+usage-col-model = Model
+usage-col-agent = Agent
+usage-col-tab = Tabblad
+usage-col-deck = Presentatie
+usage-col-turns = Beurten
+usage-col-input = Invoer
+usage-col-output = Uitvoer
+usage-col-thought = Redeneren
+usage-col-cache-read = Cache gelezen
+usage-col-cache-write = Cache geschreven
+usage-col-total = Totaal
+usage-col-cost = Kosten
+usage-unknown = onbekend
+usage-row-total = Totaal
+usage-empty = Nog geen beurt van de agent vastgelegd.
+usage-rows-omitted = { $count ->
+    [one] Nog { $count } rij niet getoond.
+   *[other] Nog { $count } rijen niet getoond.
+}
 packs-section-layouts = Lay-outs
 packs-section-widgets = Widgets
 packs-section-theme = Thema

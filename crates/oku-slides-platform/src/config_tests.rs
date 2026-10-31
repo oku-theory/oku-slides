@@ -248,6 +248,17 @@ fn default_settings_have_no_author_name() {
 }
 
 #[test]
+fn defaults_usage_is_stored_in_the_deck() {
+    assert_that!(Settings::defaults().unwrap().usage.store_in_deck).is_true();
+}
+
+#[test]
+fn env_usage_store_in_deck_false_turns_it_off() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_USAGE__STORE_IN_DECK", "false")])).unwrap();
+    assert_that!(s.usage.store_in_deck).is_false();
+}
+
+#[test]
 fn settings_default_render_limits_match_config_defaults() {
     let s = Settings::defaults().unwrap();
     assert_that!((s.render.timeout_ms, s.render.memory_mib, s.render.max_frame_mib)).is_equal_to((10_000, 2048, 512));

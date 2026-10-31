@@ -35,6 +35,8 @@ impl Workspace {
             w.window_closing(window, discard)
         };
         Self::flush_closing(ws, &closing, &discarded);
+        let kept: Vec<String> = closing.iter().filter(|t| !discarded.contains(t)).cloned().collect();
+        Self::save_pending_usages(ws, &kept);
         let mut w = Self::lock(ws);
         let idx = w.window_index(window)?;
         if w.is_only_window(window) {

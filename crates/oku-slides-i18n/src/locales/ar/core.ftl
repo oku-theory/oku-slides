@@ -169,6 +169,20 @@ issue-theme-version-mismatch = أُهملت نسخة سمة معدَّلة: { $v
 issue-theme-version-missing = نسخة السمة مفقودة من المصادر: { $version }
 issue-theme-pin-mismatch = السمة المضمّنة { $namespace } لا تطابق ما يتوقعه العرض.
 issue-theme-closure = السمات المثبّتة في هذا العرض ليست سمته وآباءها بالضبط ({ $namespace }).
+issue-usage-line-invalid = السطر { $line } من سجل الاستخدام غير قابل للقراءة، تم تجاهله
+issue-usage-line-forged = دورة الاستخدام { $turn } سُجّلت مرتين بمحتوى مختلف، تم تجاهل إحداهما
+issue-usage-too-large = سجل الاستخدام كبير جدًا، تم تجاهله
+issue-usage-unreadable = سجل الاستخدام غير قابل للقراءة، تم تجاهله
+issue-usage-lines-dropped = { $count ->
+    [zero] لم يُتجاهل أي سطر آخر من سجل الاستخدام
+    [one] تم تجاهل { $count } سطر آخر من سجل الاستخدام
+    [two] تم تجاهل { $count } سطرين آخرين من سجل الاستخدام
+    [few] تم تجاهل { $count } أسطر أخرى من سجل الاستخدام
+    [many] تم تجاهل { $count } سطرًا آخر من سجل الاستخدام
+   *[other] تم تجاهل { $count } سطر آخر من سجل الاستخدام
+}
+usage-range-bad-date = «{ $date }» ليس تاريخًا: استخدم YYYY-MM-DD.
+usage-range-reversed = تاريخ البداية { $since } بعد تاريخ النهاية { $until }.
 pack-token-entry-invalid = رمز مكوّن غير صالح «{ $path }» في بيان الحزمة.
 pack-manifest-json = تعذّرت قراءة بيان الحزمة: { $reason }
 issue-unsupported-link = رابط غير مدعوم: { $link }

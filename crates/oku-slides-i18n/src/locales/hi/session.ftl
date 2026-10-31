@@ -148,6 +148,42 @@ widgets-edit-label = विजेट: { $name }
 widget-preview-plain = नमूना पाठ
 widget-preview-rich = विजेट को संदर्भ में देखने के लिए एक नमूना अनुच्छेद।
 packs-title = प्रस्तुति के पैक
+usage-title = एजेंट का उपयोग
+usage-badge-turns = { $count ->
+    [one] { $count } बारी
+   *[other] { $count } बारियाँ
+}
+usage-badge-tokens = { $count ->
+    [one] { $count } टोकन
+   *[other] { $count } टोकन
+}
+usage-badge-no-tokens = { $count ->
+    [one] टोकन गिनती के बिना { $count } बारी
+   *[other] टोकन गिनती के बिना { $count } बारियाँ
+}
+usage-badge-cost = { $amount } { $currency }
+usage-badge-cost-partial = { $amount } { $currency } (आंशिक)
+usage-col-day = दिन
+usage-col-month = महीना
+usage-col-model = मॉडल
+usage-col-agent = एजेंट
+usage-col-tab = टैब
+usage-col-deck = प्रस्तुति
+usage-col-turns = बारियाँ
+usage-col-input = इनपुट
+usage-col-output = आउटपुट
+usage-col-thought = तर्क
+usage-col-cache-read = कैश पढ़ा
+usage-col-cache-write = कैश लिखा
+usage-col-total = कुल
+usage-col-cost = लागत
+usage-unknown = अज्ञात
+usage-row-total = कुल
+usage-empty = अभी तक एजेंट की कोई बारी दर्ज नहीं हुई।
+usage-rows-omitted = { $count ->
+    [one] { $count } और पंक्ति नहीं दिखाई गई।
+   *[other] { $count } और पंक्तियाँ नहीं दिखाई गईं।
+}
 packs-section-layouts = लेआउट
 packs-section-widgets = विजेट
 packs-section-theme = थीम

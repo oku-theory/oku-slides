@@ -31,9 +31,10 @@ pub(crate) struct ShowThemesArgs {
 }
 
 impl Tools {
-    /// Refus d'un `report` ou d'un `render` arrivé hors tour, ou dont le tour s'est clos avant
-    /// l'affichage.
-    fn no_turn(&self, tool: &'static str) -> CallToolResult {
+    /// Refuses a thread tool called outside a turn, or whose turn closed before showing.
+    ///
+    /// Used by `report`, `render` and `show_usage`.
+    pub(crate) fn no_turn(&self, tool: &'static str) -> CallToolResult {
         self.fail_with(&NoTurnSnafu { tool }.build())
     }
 

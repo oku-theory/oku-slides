@@ -20,12 +20,12 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes.
 - `paste` : `paste_image` (base64, `[paste] max_draft_images`, `Session::paste_image`), the draft's images, `resolve_images` (ids of a prompt).
 - `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission requests routed
-  by epoch and `SessionId`; `Link::switch` changes agent and its wanted model; `failure`: last launch failure of this epoch (`Unusable`),
+  by epoch and `SessionId`; `Link::switch` changes agent, its preset id and wanted model; `failure`: last launch failure of this epoch (`Unusable`),
   cleared by success or switch, stale after 30 s. `wire`: its stdio, logged on `ACP_TARGET` (`OKU_SLIDES_DEBUG_ACP`).
-  `session_model`: `ModelBoard`, sessions' `model` options; the actor asks the chosen one before a prompt if offered.
+  `session_model`: `ModelBoard`, sessions' `model` options; the actor asks the chosen one before a prompt if offered; `usage_board`: `UsageBoard`, each session's cumulative cost (replays and unknown sessions ignored, a reopened session's first one only the base), `record_turn` files the turn's `UsageRecord` in its deck (`TabSession::record_usage`), `tells` guards session-state updates.
 - `keeper` : `Keeper`, the per-tab queue that alone reads and writes the conversation (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`); `turns` : `Turns`, reducer to A2UI turn surfaces (`TurnOut`).
-- `turn` (`prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
+- `turn` (returns the reply's `Usage`; `prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
   `[paste] prompt_*` limits), `permission` (ACP option to `PermissionChoice`), `config` (`Launch`,
   `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`:
   tests only), `settings_port` (`AppSettings`).

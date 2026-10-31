@@ -157,6 +157,16 @@ issue-theme-version-mismatch = version de thème altérée, écartée : { $versi
 issue-theme-version-missing = version de thème absente des sources : { $version }
 issue-theme-pin-mismatch = Le thème embarqué { $namespace } ne correspond pas à ce que le deck attend.
 issue-theme-closure = Les thèmes épinglés par ce deck ne sont pas exactement son thème et ses parents ({ $namespace }).
+issue-usage-line-invalid = ligne { $line } du journal d'usage illisible, écartée
+issue-usage-line-forged = tour d'usage { $turn } inscrit deux fois avec un contenu différent, l'un écarté
+issue-usage-too-large = journal d'usage trop volumineux, écarté
+issue-usage-unreadable = journal d'usage illisible, écarté
+issue-usage-lines-dropped = { $count ->
+    [one] { $count } autre ligne du journal d'usage écartée
+   *[other] { $count } autres lignes du journal d'usage écartées
+}
+usage-range-bad-date = « { $date } » n'est pas une date : utilisez AAAA-MM-JJ.
+usage-range-reversed = La date de début { $since } est après la date de fin { $until }.
 pack-token-entry-invalid = Jeton de composant « { $path } » invalide dans le manifeste du pack.
 pack-manifest-json = Le manifeste du pack est illisible : { $reason }
 issue-unsupported-link = lien non pris en charge : { $link }

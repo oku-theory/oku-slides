@@ -53,7 +53,7 @@ async fn connect_unexecutable_command_records_spawn() {
 async fn switch_clears_the_recorded_failure() {
     let link = Link::new(launch("npx"));
     link.remember_at(0, Some(Unusable::NoHttp), Instant::now());
-    link.switch(launch("/nonexistent/oku-slides-agent-autre"), None);
+    link.switch("autre", launch("/nonexistent/oku-slides-agent-autre"), None);
     assert_that!(link.failure()).is_none();
 }
 

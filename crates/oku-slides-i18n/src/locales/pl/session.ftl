@@ -148,6 +148,50 @@ widgets-edit-label = Widżety: { $name }
 widget-preview-plain = Przykładowy tekst
 widget-preview-rich = Przykładowy akapit, aby zobaczyć widżet w kontekście.
 packs-title = Pakiety prezentacji
+usage-title = Użycie agenta
+usage-badge-turns = { $count ->
+    [one] { $count } tura
+    [few] { $count } tury
+    [many] { $count } tur
+   *[other] { $count } tury
+}
+usage-badge-tokens = { $count ->
+    [one] { $count } token
+    [few] { $count } tokeny
+    [many] { $count } tokenów
+   *[other] { $count } tokena
+}
+usage-badge-no-tokens = { $count ->
+    [one] { $count } tura bez liczby tokenów
+    [few] { $count } tury bez liczby tokenów
+    [many] { $count } tur bez liczby tokenów
+   *[other] { $count } tury bez liczby tokenów
+}
+usage-badge-cost = { $amount } { $currency }
+usage-badge-cost-partial = { $amount } { $currency } (częściowo)
+usage-col-day = Dzień
+usage-col-month = Miesiąc
+usage-col-model = Model
+usage-col-agent = Agent
+usage-col-tab = Karta
+usage-col-deck = Prezentacja
+usage-col-turns = Tury
+usage-col-input = Wejście
+usage-col-output = Wyjście
+usage-col-thought = Rozumowanie
+usage-col-cache-read = Odczyt cache
+usage-col-cache-write = Zapis cache
+usage-col-total = Suma
+usage-col-cost = Koszt
+usage-unknown = nieznany
+usage-row-total = Suma
+usage-empty = Nie zapisano jeszcze żadnej tury agenta.
+usage-rows-omitted = { $count ->
+    [one] Pominięto { $count } wiersz.
+    [few] Pominięto { $count } wiersze.
+    [many] Pominięto { $count } wierszy.
+   *[other] Pominięto { $count } wiersza.
+}
 packs-section-layouts = Układy
 packs-section-widgets = Widżety
 packs-section-theme = Motyw

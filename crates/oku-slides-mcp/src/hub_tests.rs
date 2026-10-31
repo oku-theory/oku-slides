@@ -40,6 +40,10 @@ impl Sessions for NoSession {
     fn document_kind(&self, _tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         unreachable!("NoSession is never asked its kind")
     }
+
+    fn usage_owner(&self, _tab: &str) -> Option<String> {
+        None
+    }
 }
 
 pub(crate) fn hub() -> Arc<SurfaceHub> {

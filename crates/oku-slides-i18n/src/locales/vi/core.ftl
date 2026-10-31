@@ -148,6 +148,15 @@ issue-theme-version-mismatch = đã loại bỏ phiên bản chủ đề bị th
 issue-theme-version-missing = thiếu phiên bản chủ đề trong nguồn: { $version }
 issue-theme-pin-mismatch = Chủ đề được nhúng { $namespace } không khớp với những gì bản trình bày mong đợi.
 issue-theme-closure = Các chủ đề được ghim trong bản trình bày này không đúng là chủ đề của nó và các chủ đề cha ({ $namespace }).
+issue-usage-line-invalid = dòng { $line } của nhật ký sử dụng không đọc được, đã bỏ
+issue-usage-line-forged = lượt sử dụng { $turn } được ghi hai lần với nội dung khác nhau, đã bỏ một bản
+issue-usage-too-large = nhật ký sử dụng quá lớn, đã bỏ
+issue-usage-unreadable = nhật ký sử dụng không đọc được, đã bỏ
+issue-usage-lines-dropped = { $count ->
+   *[other] đã bỏ thêm { $count } dòng của nhật ký sử dụng
+}
+usage-range-bad-date = “{ $date }” không phải là ngày: hãy dùng YYYY-MM-DD.
+usage-range-reversed = Ngày bắt đầu { $since } sau ngày kết thúc { $until }.
 pack-token-entry-invalid = Mã thông báo thành phần “{ $path }” không hợp lệ trong tệp kê khai của gói.
 pack-manifest-json = Không đọc được tệp kê khai của gói: { $reason }
 issue-unsupported-link = liên kết không được hỗ trợ: { $link }

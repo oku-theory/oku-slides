@@ -148,6 +148,50 @@ widgets-edit-label = Виджеты: { $name }
 widget-preview-plain = Пример текста
 widget-preview-rich = Пример абзаца, чтобы увидеть виджет в контексте.
 packs-title = Пакеты презентации
+usage-title = Использование агента
+usage-badge-turns = { $count ->
+    [one] { $count } ход
+    [few] { $count } хода
+    [many] { $count } ходов
+   *[other] { $count } хода
+}
+usage-badge-tokens = { $count ->
+    [one] { $count } токен
+    [few] { $count } токена
+    [many] { $count } токенов
+   *[other] { $count } токена
+}
+usage-badge-no-tokens = { $count ->
+    [one] { $count } ход без подсчёта токенов
+    [few] { $count } хода без подсчёта токенов
+    [many] { $count } ходов без подсчёта токенов
+   *[other] { $count } хода без подсчёта токенов
+}
+usage-badge-cost = { $amount } { $currency }
+usage-badge-cost-partial = { $amount } { $currency } (частично)
+usage-col-day = День
+usage-col-month = Месяц
+usage-col-model = Модель
+usage-col-agent = Агент
+usage-col-tab = Вкладка
+usage-col-deck = Презентация
+usage-col-turns = Ходы
+usage-col-input = Ввод
+usage-col-output = Вывод
+usage-col-thought = Рассуждение
+usage-col-cache-read = Чтение кэша
+usage-col-cache-write = Запись кэша
+usage-col-total = Итого
+usage-col-cost = Стоимость
+usage-unknown = неизвестно
+usage-row-total = Итого
+usage-empty = Ходы агента ещё не записаны.
+usage-rows-omitted = { $count ->
+    [one] Скрыта ещё { $count } строка.
+    [few] Скрыты ещё { $count } строки.
+    [many] Скрыто ещё { $count } строк.
+   *[other] Скрыто ещё { $count } строки.
+}
 packs-section-layouts = Макеты
 packs-section-widgets = Виджеты
 packs-section-theme = Тема

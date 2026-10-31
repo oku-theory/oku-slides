@@ -200,7 +200,7 @@ impl Stack {
     pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
         let a = platform.settings.agent.active();
         let model = a.builtin.is_none().then(|| a.model.clone()).flatten();
-        let link = Link::with_model(AgentChoice::launch_of(a, platform), model);
+        let link = Link::for_preset(platform.settings.agent.selected(), AgentChoice::launch_of(a, platform), model);
         let (out_tx, out_rx) = mpsc::unbounded_channel();
         let choice = Arc::new(AgentChoice::new(platform, link.clone()));
         let voice = AppVoice::new(stt.clone(), choice.clone(), rt.clone());

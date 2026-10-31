@@ -148,6 +148,16 @@ issue-theme-version-mismatch = পরিবর্তিত থিম সংস�
 issue-theme-version-missing = উৎসে থিম সংস্করণ অনুপস্থিত: { $version }
 issue-theme-pin-mismatch = এমবেড করা থিম { $namespace } ডেক যা আশা করে তার সাথে মেলে না।
 issue-theme-closure = এই ডেকে পিন করা থিমগুলো ঠিক এর থিম ও তার প্যারেন্ট নয় ({ $namespace })।
+issue-usage-line-invalid = ব্যবহার লগের { $line } নম্বর লাইন পড়া যায়নি, বাদ দেওয়া হয়েছে
+issue-usage-line-forged = ব্যবহারের টার্ন { $turn } ভিন্ন বিষয়বস্তু নিয়ে দুবার নথিভুক্ত হয়েছে, একটি বাদ দেওয়া হয়েছে
+issue-usage-too-large = ব্যবহার লগ খুব বড়, বাদ দেওয়া হয়েছে
+issue-usage-unreadable = ব্যবহার লগ পড়া যায়নি, বাদ দেওয়া হয়েছে
+issue-usage-lines-dropped = { $count ->
+    [one] ব্যবহার লগের আরও { $count }টি লাইন বাদ দেওয়া হয়েছে
+   *[other] ব্যবহার লগের আরও { $count }টি লাইন বাদ দেওয়া হয়েছে
+}
+usage-range-bad-date = “{ $date }” কোনো তারিখ নয়: YYYY-MM-DD ব্যবহার করুন।
+usage-range-reversed = শুরুর তারিখ { $since } শেষের তারিখ { $until } এর পরে।
 pack-token-entry-invalid = প্যাক ম্যানিফেস্টে অবৈধ কম্পোনেন্ট টোকেন “{ $path }”।
 pack-manifest-json = প্যাক ম্যানিফেস্ট পড়া যাচ্ছে না: { $reason }
 issue-unsupported-link = অসমর্থিত লিঙ্ক: { $link }

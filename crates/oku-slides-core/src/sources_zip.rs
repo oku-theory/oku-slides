@@ -1,9 +1,11 @@
-//! Écriture et relecture du zip des sources : manifeste, `deck.loro`, assets,
-//! polices, puis les versions de packs (`sources_packs.rs`) et de thèmes
-//! (`sources_themes.rs`). La relecture est bornée : ses octets ne sont pas fiables.
+//! Writes and reads back the sources zip: manifest, `deck.loro`, assets and fonts.
+//!
+//! Then come the pack versions (`sources_packs.rs`), the theme versions (`sources_themes.rs`)
+//! and the agent usage ledger, `usage.jsonl`, read last under its own cap. The read is
+//! bounded: its bytes are not trusted.
 
 use std::collections::BTreeMap;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read, Seek, Write};
 use std::sync::Arc;
 
 use snafu::{OptionExt, ResultExt, ensure};
@@ -19,6 +21,7 @@ use crate::error::{
 use crate::pack::PackVersion;
 use crate::pack_kind::PackKind;
 use crate::replica::DeckReplica;
+use crate::usage::{USAGE_FILE, USAGE_MAX_BYTES, UsageLedger};
 use crate::validate::Issue;
 use crate::widget::WidgetRegistry;
 
@@ -79,8 +82,43 @@ fn read_entry(
     Ok(data)
 }
 
+/// Reads `usage.jsonl`, last, under [`USAGE_MAX_BYTES`] only; never fails the deck.
+///
+/// Its cap is its own, outside `SourceLimits.total_bytes`: a deck whose assets fill the budget
+/// keeps its ledger, so its next save does not write it out empty.
+fn read_usage<R: Read + Seek>(za: &mut zip::ZipArchive<R>) -> (UsageLedger, Vec<Issue>) {
+    let dropped = |issue: Issue| (UsageLedger::default(), vec![issue]);
+    if za.index_for_name(USAGE_FILE).is_none() {
+        return (UsageLedger::default(), Vec::new());
+    }
+    // An encrypted entry or an unsupported compression method is refused here.
+    let f = match za.by_name(USAGE_FILE) {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::warn!(error = %e, "usage.jsonl unreadable");
+            return dropped(Issue::usage_unreadable());
+        }
+    };
+    if f.size() > USAGE_MAX_BYTES {
+        return dropped(Issue::usage_too_large());
+    }
+    let cap = usize::try_from(USAGE_MAX_BYTES).unwrap_or(usize::MAX);
+    let announced = usize::try_from(f.size()).unwrap_or(cap);
+    let mut data = Vec::with_capacity(announced.min(MAX_INITIAL_CAPACITY));
+    match f.take(USAGE_MAX_BYTES + 1).read_to_end(&mut data) {
+        // A size header that lied: more bytes than announced.
+        Ok(_) if data.len() > cap => dropped(Issue::usage_too_large()),
+        Ok(_) => UsageLedger::from_jsonl(&data),
+        // A CRC mismatch surfaces here, at the end of the entry.
+        Err(e) => {
+            tracing::warn!(error = %e, "usage.jsonl unreadable");
+            dropped(Issue::usage_unreadable())
+        }
+    }
+}
+
 impl SourceBundle {
-    pub(super) fn write_zip(&self) -> Result<Vec<u8>, SourcesInner> {
+    pub(super) fn write_zip(&self, usage: bool) -> Result<Vec<u8>, SourcesInner> {
         let mut buf = Cursor::new(Vec::new());
         {
             let mut zw = zip::ZipWriter::new(&mut buf);
@@ -108,6 +146,10 @@ impl SourceBundle {
             }
             write_packs(&mut zw, &self.packs, deflate)?;
             write_themes(&mut zw, &self.themes, deflate)?;
+            if usage && !self.usage.is_empty() {
+                zw.start_file(USAGE_FILE, deflate).context(ZipSnafu)?;
+                zw.write_all(&self.usage.to_jsonl()).context(IoSnafu)?;
+            }
             zw.finish().context(ZipSnafu)?;
         }
         Ok(buf.into_inner())
@@ -128,6 +170,11 @@ impl SourceBundle {
         // Octets décompressés encore permis (anti-bombe de décompression).
         let mut budget = limits.total_bytes;
         for i in 0..za.len() {
+            // `usage.jsonl` is read after the loop (`read_usage`): skipped by name before
+            // `by_index` opens it, since an entry it cannot open (encrypted) must not fail the deck.
+            if za.name_for_index(i).and_then(Result::ok).as_deref() == Some(USAGE_FILE) {
+                continue;
+            }
             let f = za.by_index(i).context(ZipSnafu)?;
             let name = f.name().context(ZipSnafu)?.into_owned();
             let size = usize::try_from(f.size()).unwrap_or(usize::MAX);
@@ -195,9 +242,12 @@ impl SourceBundle {
         };
         let (packs, discarded_packs) = verify_packs(raw_packs);
         let (themes, discarded_themes) = verify_themes(raw_themes);
-        let (bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes);
+        let (mut bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes);
         report_discarded(&mut issues, &discarded_packs);
         report_discarded_themes(&mut issues, &discarded_themes);
+        let (usage, usage_issues) = read_usage(&mut za);
+        bundle.usage = usage;
+        issues.extend(usage_issues);
         Ok((bundle, issues))
     }
 }

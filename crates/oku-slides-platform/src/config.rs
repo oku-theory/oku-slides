@@ -68,6 +68,8 @@ pub struct Settings {
     /// Author recorded in the deck history.
     #[serde(default)]
     pub author: AuthorSettings,
+    /// Agent token usage kept in each deck.
+    pub usage: UsageSettings,
 }
 
 /// Mises à jour de l'app depuis les releases GitHub.
@@ -355,6 +357,16 @@ impl AuthorSettings {
             .or_else(|| std::env::var("USERNAME").ok().filter(|n| !blank(n)))
             .map(|n| n.trim().to_owned())
     }
+}
+
+/// Agent token usage, recorded per turn in each deck file.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[non_exhaustive]
+pub struct UsageSettings {
+    /// Records each turn's tokens, model and cost in its deck.
+    ///
+    /// Off: none recorded nor saved.
+    pub store_in_deck: bool,
 }
 
 /// `oku-slides serve` development server, without authentication.

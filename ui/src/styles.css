@@ -700,7 +700,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .md blockquote { margin: 0 0 8px; padding-inline-start: 10px; border-inline-start: 2px solid color-mix(in oklab, var(--ink) 30%, transparent); color: var(--ink-muted); }
 .md hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--ink) 20%, transparent); margin: 10px 0; }
 .md a { color: var(--accent); text-underline-offset: 2px; }
-.md table { border-collapse: collapse; margin: 0 0 8px; font-size: 14px; }
+.md .md-table { max-width: 100%; overflow-x: auto; margin: 0 0 8px; }
+.md table { border-collapse: collapse; font-size: 14px; }
 .md th, .md td { padding: 3px 8px; border-bottom: 1px solid color-mix(in oklab, var(--ink) 15%, transparent); text-align: start; }
 .md th { font-weight: 650; }
 /* Brouillon des dictées : relu, retouché, puis inséré ou envoyé à l'agent. */

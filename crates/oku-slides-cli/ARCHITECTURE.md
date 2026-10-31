@@ -22,7 +22,8 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
   at once (the witness chosen by `session::import`, the app's `ReferenceJob::run`, then `score_deck`;
   `auto` = `[import] witness`, `office2pdf|soffice` override it, `none`; t-905); saved like `save`,
   report optional.
-- `bench.rs`: render, export and save latencies.
+- `bench.rs`: render, export and save latencies. `usage_cmd.rs`: `oku-slides usage`, decks' ledgers
+  (read without rendering, a turn counted once) summed by core `aggregate`, as a table or `--json`.
 
 ## Startup
 

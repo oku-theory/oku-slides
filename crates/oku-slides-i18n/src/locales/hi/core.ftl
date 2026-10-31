@@ -148,6 +148,16 @@ issue-theme-version-mismatch = बदला हुआ थीम संस्क�
 issue-theme-version-missing = थीम संस्करण स्रोतों में नहीं है: { $version }
 issue-theme-pin-mismatch = एम्बेड की गई थीम { $namespace } उससे मेल नहीं खाती जिसकी डेक को अपेक्षा है।
 issue-theme-closure = इस डेक में पिन की गई थीम ठीक-ठीक इसकी थीम और उसके पैरेंट नहीं हैं ({ $namespace })।
+issue-usage-line-invalid = उपयोग लॉग की पंक्ति { $line } पढ़ी नहीं जा सकी, हटा दी गई
+issue-usage-line-forged = उपयोग चरण { $turn } अलग-अलग सामग्री के साथ दो बार दर्ज हुआ, एक हटा दिया गया
+issue-usage-too-large = उपयोग लॉग बहुत बड़ा है, हटा दिया गया
+issue-usage-unreadable = उपयोग लॉग पढ़ा नहीं जा सका, हटा दिया गया
+issue-usage-lines-dropped = { $count ->
+    [one] उपयोग लॉग की { $count } और पंक्ति हटा दी गई
+   *[other] उपयोग लॉग की { $count } और पंक्तियाँ हटा दी गईं
+}
+usage-range-bad-date = “{ $date }” कोई तिथि नहीं है: YYYY-MM-DD का उपयोग करें।
+usage-range-reversed = आरंभ तिथि { $since } समाप्ति तिथि { $until } के बाद है।
 pack-token-entry-invalid = पैक मैनिफ़ेस्ट में अमान्य कंपोनेंट टोकन “{ $path }”।
 pack-manifest-json = पैक मैनिफ़ेस्ट पढ़ा नहीं जा सका: { $reason }
 issue-unsupported-link = असमर्थित लिंक: { $link }

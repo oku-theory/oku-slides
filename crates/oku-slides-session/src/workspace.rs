@@ -403,6 +403,9 @@ mod deck_packs;
 #[path = "workspace_deck_packs_close.rs"]
 mod deck_packs_close;
 
+#[path = "workspace_usage.rs"]
+mod usage;
+
 pub use clip::Clip;
 pub use ids::is_window_label;
 pub use import_pick::ImportPick;

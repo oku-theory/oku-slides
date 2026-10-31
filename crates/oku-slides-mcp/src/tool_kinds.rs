@@ -17,6 +17,8 @@ impl Kinds {
     pub(crate) const PACK: Self = Self(4);
     /// Theme tabs.
     pub(crate) const THEME: Self = Self(8);
+    /// Deck, pack and theme tabs: what belongs to a deck, never a help tab.
+    pub(crate) const DECK_PACK_OR_THEME: Self = Self::DECK.or(Self::PACK).or(Self::THEME);
     /// Every tab kind.
     pub(crate) const ALL: Self = Self::DECK_OR_HELP.or(Self::PACK).or(Self::THEME);
 

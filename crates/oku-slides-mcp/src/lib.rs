@@ -30,6 +30,7 @@ mod tab_tools;
 mod tool_error;
 mod tool_kinds;
 mod tools;
+mod usage_tools;
 mod voice;
 mod voice_tools;
 mod widget_tools;

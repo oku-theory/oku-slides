@@ -148,6 +148,42 @@ widgets-edit-label = Widgets : { $name }
 widget-preview-plain = Texte d'exemple
 widget-preview-rich = Un paragraphe d'exemple, pour voir le widget en situation.
 packs-title = Packs du deck
+usage-title = Usage de l'agent
+usage-badge-turns = { $count ->
+    [one] { $count } tour
+   *[other] { $count } tours
+}
+usage-badge-tokens = { $count ->
+    [one] { $count } token
+   *[other] { $count } tokens
+}
+usage-badge-no-tokens = { $count ->
+    [one] { $count } tour sans décompte de tokens
+   *[other] { $count } tours sans décompte de tokens
+}
+usage-badge-cost = { $amount } { $currency }
+usage-badge-cost-partial = { $amount } { $currency } (partiel)
+usage-col-day = Jour
+usage-col-month = Mois
+usage-col-model = Modèle
+usage-col-agent = Agent
+usage-col-tab = Onglet
+usage-col-deck = Présentation
+usage-col-turns = Tours
+usage-col-input = Entrée
+usage-col-output = Sortie
+usage-col-thought = Raisonnement
+usage-col-cache-read = Cache lu
+usage-col-cache-write = Cache écrit
+usage-col-total = Total
+usage-col-cost = Coût
+usage-unknown = inconnu
+usage-row-total = Total
+usage-empty = Aucun tour d'agent enregistré pour l'instant.
+usage-rows-omitted = { $count ->
+    [one] { $count } ligne de plus non affichée.
+   *[other] { $count } lignes de plus non affichées.
+}
 packs-section-layouts = Layouts
 packs-section-widgets = Widgets
 packs-section-theme = Thème

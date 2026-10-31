@@ -139,6 +139,7 @@ agent-error-empty-dictation = Rien à changer : donnez au moins un réglage de l
 agent-error-not-shown = Cet onglet n'est pas celui affiché dans sa fenêtre : redemandez une fois que l'utilisateur l'affiche.
 agent-error-themes-deck-mode = Le sélecteur de thème ne s'ouvre que pendant l'édition des slides du deck.
 agent-error-packs-deck-mode = Le panneau des packs ne s'ouvre que pendant l'édition des slides du deck.
+agent-error-usage-no-deck = L'usage de cet onglet n'appartient à aucune présentation : seul un onglet de pack ou de thème ouvert depuis une présentation (par l'utilisateur ou par l'agent), ou le pack propre d'une présentation, compte pour elle.
 agent-error-rewrite-text = La reformulation est revenue sans texte.
 agent-error-paragraphs = Les paragraphes de la reformulation sont invalides.
 agent-error-draft-too-long = Le brouillon est trop long.

@@ -52,10 +52,15 @@ just oku-slides import deck.pptx --pack essentiel --theme Pro -o deck.oku-slides
 just oku-slides import deck.pptx --mode hifi -o deck.oku-slides.pdf --report r.json                    # PPTX → deck (faithful copy)
 just bench                                                          # render and save latencies (release build)
 just oku-slides schema                                              # JSON schema of operations
+just oku-slides usage deck.oku-slides.pdf --by model --since 2026-10-01  # agent tokens and cost recorded in decks
 ```
 
 `--fonts <dir>` adds fonts (TTF/OTF); without it, Typst uses its built-in fonts
 (Libertinus Serif, New Computer Modern, DejaVu Sans Mono).
+
+`usage` sums the agent usage recorded in each deck (`--by day|month|model|agent|tab|deck`, UTC
+days, `--since` and `--until` inclusive, `--json` for the raw report); a turn found in several
+decks (a copy, a merge) counts once. Costs are the agent's own, never summed across currencies.
 
 `import` maps the content of a `.pptx` onto layout packs (`--pack`, repeatable: namespace, id,
 pack folder or name; default `essentiel`) and a theme (`--theme`: namespace, id or name; default: the default theme):
@@ -374,6 +379,10 @@ deck languages are passed in its context, and it answers in yours.
 - **Detached window**: ⧉ at the top of the thread (or Window ▸ Agent in a Separate Window, on macOS) opens
   the agent in its own window, for a second screen. It follows the active tab of the
   front window.
+- **Usage**: each turn's tokens, model, agent and cost (when the agent reports them) are
+  recorded in the deck file itself, never marking it modified; ask the agent what the deck
+  cost, or run `oku-slides usage`. `[usage] store_in_deck = false` records nothing and saves
+  decks without it.
 - **Dictation and agent settings**: the ⚙ of the dictation bar opens a box in the agent area,
   live until closed (model, language, auto stop, silence, API, and the agent from the
   configuration's `[agent.presets]`). The agent opens it on request and changes plain
@@ -451,6 +460,7 @@ args = ["--acp"]
 | `[stt]`, `[stt.vad]` | Dictation timing, Apple engine on or off, API timeout; voice detection thresholds and pauses |
 | `[models]` | Model download host, retries and timeouts |
 | `[agent]`, `[agent.presets.<id>]` | Active agent and the agents offered: `name`, then exactly one of `command` (with `args`) or `builtin` |
+| `[usage]` | `store_in_deck`: record agent usage in each deck (default `true`); `false` also drops it at the next save |
 | `[local_agent]` | Built-in fallback agent: engine, context, temperature, reply length |
 | `[updates]` | `check_automatically`, `check_interval_hours` |
 
@@ -481,6 +491,7 @@ the next change in the box. A file that does not parse is kept aside as
 | `OKU_SLIDES_I18N__LOCALE` | Interface language (`en`, `fr`, `de`, `ja`…); default: the system's |
 | `OKU_SLIDES_APPEARANCE__SCHEME` | `light` or `dark`; default: the system's |
 | `OKU_SLIDES_AUTHOR__NAME` | Name recorded in the history of decks you edit |
+| `OKU_SLIDES_USAGE__STORE_IN_DECK` | `false`: no agent usage recorded in decks, and none kept at the next save |
 | `OKU_SLIDES_UPDATES__CHECK_AUTOMATICALLY` | `false`: no automatic update check, only "Check for Updates…" |
 | `OKU_SLIDES_UPDATES__CHECK_INTERVAL_HOURS` | hours between automatic checks (default 6) |
 | `OKU_SLIDES_DEBUG_NETWORK` | `1`: `debug` logs of outgoing HTTP calls and TLS (dictation API, downloads, updater) on stderr, release builds included; secret headers and URL paths stay masked. Launch the app from a terminal to see them |

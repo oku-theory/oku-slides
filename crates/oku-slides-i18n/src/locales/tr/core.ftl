@@ -148,6 +148,16 @@ issue-theme-version-mismatch = değiştirilmiş tema sürümü atıldı: { $vers
 issue-theme-version-missing = tema sürümü kaynaklarda yok: { $version }
 issue-theme-pin-mismatch = Gömülü tema { $namespace }, sunumun beklediğiyle eşleşmiyor.
 issue-theme-closure = Bu sunuda sabitlenen temalar tam olarak sununun teması ve onun üst temaları değil ({ $namespace }).
+issue-usage-line-invalid = kullanım günlüğünün { $line }. satırı okunamadı, atıldı
+issue-usage-line-forged = { $turn } kullanım turu farklı içerikle iki kez kaydedildi, biri atıldı
+issue-usage-too-large = kullanım günlüğü çok büyük, atıldı
+issue-usage-unreadable = kullanım günlüğü okunamadı, atıldı
+issue-usage-lines-dropped = { $count ->
+    [one] kullanım günlüğünün { $count } satırı daha atıldı
+   *[other] kullanım günlüğünün { $count } satırı daha atıldı
+}
+usage-range-bad-date = “{ $date }” bir tarih değil: YYYY-AA-GG biçimini kullanın.
+usage-range-reversed = Başlangıç tarihi { $since }, bitiş tarihi { $until } tarihinden sonra.
 pack-token-entry-invalid = Paket bildiriminde geçersiz bileşen belirteci “{ $path }”.
 pack-manifest-json = Paket bildirimi okunamıyor: { $reason }
 issue-unsupported-link = desteklenmeyen bağlantı: { $link }

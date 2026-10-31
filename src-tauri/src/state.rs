@@ -184,6 +184,11 @@ impl Sessions for AppSessions {
     fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         Workspace::document_kind(&self.workspace, tab)
     }
+
+    /// Read from the workspace's cached tabs: wakes nothing.
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        Workspace::usage_owner(&self.workspace, tab)
+    }
 }
 
 /// Prépare la fin sans quitter : marque `closing`, garde les fenêtres, arrête

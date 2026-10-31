@@ -32,6 +32,7 @@ use crate::ops::Moved;
 use crate::pack::{PackFiles, PackManifest, PackVersion};
 use crate::pack_kind::PackKind;
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview, ReplicaLimits};
+use crate::usage::UsageLedger;
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
 
@@ -92,10 +93,13 @@ pub struct SourceBundle {
     /// Versions de thèmes par empreinte, en ajout seul : celle du deck et
     /// toutes celles que son historique a référencées.
     pub themes: BTreeMap<PackVersion, PackFiles>,
+    /// Agent usage by turn, add-only (`usage.jsonl`); never part of the deck or the replica.
+    pub usage: UsageLedger,
 }
 
-/// Deux bundles sont égaux s'ils montrent le même deck, les mêmes assets,
-/// polices, packs et thèmes ; l'historique du replica n'entre pas en compte.
+/// Two bundles are equal when they show the same deck, assets, fonts, packs, themes and usage.
+///
+/// The replica's history does not count.
 impl PartialEq for SourceBundle {
     fn eq(&self, other: &Self) -> bool {
         self.deck == other.deck
@@ -103,12 +107,14 @@ impl PartialEq for SourceBundle {
             && self.fonts == other.fonts
             && self.packs == other.packs
             && self.themes == other.themes
+            && self.usage == other.usage
     }
 }
 
 impl SourceBundle {
     /// A new bundle: new replica (new `deck_uid`), with no asset, font, pack or theme.
-    /// The deck is first put in canonical form (which repairs duplicate
+    ///
+    /// Its usage ledger (`usage.jsonl`) starts empty too. The deck is first put in canonical form (which repairs duplicate
     /// ids: an exact copy is dropped), then its host parameters are
     /// normalized as by the ops (row and column ids
     /// set: a JSON deck also merges cell by cell), then it is
@@ -128,14 +134,16 @@ impl SourceBundle {
         crate::ops::normalize_hosts(&registry, &mut deck);
         crate::canonicalize(&mut deck);
         let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
-        let (assets, fonts, packs, themes) = Default::default();
-        Ok(Self { replica, deck, assets, fonts, packs, themes })
+        let (assets, fonts, packs, themes, usage) = Default::default();
+        Ok(Self { replica, deck, assets, fonts, packs, themes, usage })
     }
 
-    /// Un bundle autour d'un replica relu par [`DeckReplica::from_snapshot`],
-    /// avec la première lecture qu'il a rendue (faite sous garde : elle n'est
-    /// pas refaite ici). Renvoie aussi ce que cette lecture n'a pas pu lire,
-    /// et les versions de pack et de thème du deck si elles manquent.
+    /// A bundle around a replica read back by [`DeckReplica::from_snapshot`].
+    ///
+    /// It takes the first read the replica gave (made under guard: it is not
+    /// redone here). Also returns what that read could not read, and the deck's
+    /// pack and theme versions when they are missing. The usage ledger starts
+    /// empty; `read_zip` sets it.
     #[must_use]
     pub fn from_replica(
         replica: DeckReplica,
@@ -145,7 +153,7 @@ impl SourceBundle {
         packs: BTreeMap<PackVersion, PackFiles>,
         themes: BTreeMap<PackVersion, PackFiles>,
     ) -> (Self, Vec<Issue>) {
-        let bundle = Self { replica, deck, assets, fonts, packs, themes };
+        let bundle = Self { replica, deck, assets, fonts, packs, themes, usage: UsageLedger::default() };
         issues.extend(bundle.embedded_issues());
         (bundle, issues)
     }
@@ -385,8 +393,9 @@ impl SourceBundle {
         Ok(self.with_validation(issues))
     }
 
-    /// Merges `other`: its history, then its assets, fonts, packs and themes.
+    /// Merges `other`: its history, then its assets, fonts, packs, themes and usage.
     ///
+    /// The usage ledgers are united by turn.
     /// On equal names, ours are kept. The view is read back; its unreadable parts are
     /// returned, followed by what `validate` reports (the bundle's registry).
     ///
@@ -407,9 +416,12 @@ impl SourceBundle {
         for (version, files) in other.themes {
             self.themes.entry(version).or_insert(files);
         }
+        let usage_issues = self.usage.union(other.usage);
         let (deck, issues) = self.replica.deck();
         self.deck = deck;
-        Ok((report, self.with_validation(issues)))
+        let mut issues = self.with_validation(issues);
+        issues.extend(usage_issues);
+        Ok((report, issues))
     }
 
     /// `issues` (ce que la relecture n'a pas pu lire), puis ce que
@@ -439,13 +451,22 @@ impl SourceBundle {
         id
     }
 
-    /// The source zip: replica, assets, fonts, packs and themes.
+    /// The sources zip, the usage ledger included.
     ///
     /// # Errors
     ///
     /// Tree too deep to be reopened, or zip write refused.
     pub fn to_zip(&self) -> Result<Vec<u8>, SourcesError> {
-        Ok(self.write_zip()?)
+        self.to_zip_with(true)
+    }
+
+    /// The sources zip; `usage: false` leaves `usage.jsonl` out (usage not stored in decks).
+    ///
+    /// # Errors
+    ///
+    /// Tree too deep to be reopened, or zip write refused.
+    pub fn to_zip_with(&self, usage: bool) -> Result<Vec<u8>, SourcesError> {
+        Ok(self.write_zip(usage)?)
     }
 
     /// Reads a source zip back. The bytes come from a file: untrusted;
@@ -453,6 +474,8 @@ impl SourceBundle {
     /// whole uncompressed in `limits.total_bytes`. Also returns what the
     /// replica read-back could not read, and the pack and
     /// theme versions dropped (content that does not yield its digest) or missing.
+    /// `usage.jsonl` is read last, under its own cap [`crate::USAGE_MAX_BYTES`]
+    /// outside `limits.total_bytes`; a ledger that cannot be read is reported, never an error.
     ///
     /// # Errors
     ///
@@ -477,3 +500,7 @@ fn add_versioned(map: &mut BTreeMap<PackVersion, PackFiles>, files: PackFiles) -
 #[cfg(test)]
 #[path = "sources_tests.rs"]
 mod sources_tests;
+
+#[cfg(test)]
+#[path = "sources_usage_tests.rs"]
+mod sources_usage_tests;

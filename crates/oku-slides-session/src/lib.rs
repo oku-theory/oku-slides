@@ -56,6 +56,7 @@ mod deck_packs;
 mod deck_packs_panel;
 mod deck_theme;
 mod deck_theme_edit;
+mod deck_usage;
 mod deck_widgets;
 mod document_kind;
 mod error;
@@ -133,6 +134,7 @@ mod widgets_edit;
 mod workspace;
 
 pub use add_grid::{AddPackView, AddWidget, ElementSeed};
+pub use agent::usage_table::{USAGE_COLUMNS, usage_cells, usage_headers, usage_total_cells};
 pub use appearance::{Appearance, appearance};
 pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
@@ -186,6 +188,7 @@ pub use workspace::{
 
 /// Un document ouvert : ses sources (deck et son historique, assets,
 /// polices) et son fichier.
+#[expect(clippy::struct_excessive_bools, reason = "independent flags of a document, each written to document.json")]
 struct Document {
     sources: SourceBundle,
     path: Option<PathBuf>,
@@ -201,6 +204,12 @@ struct Document {
     /// Le dernier enregistrement a été refusé : le fichier est devenu un
     /// autre deck. Signalé une fois, avec le prochain snapshot.
     disk_replaced: bool,
+    /// Agent usage recorded since the last save: the file does not hold it yet.
+    ///
+    /// Never makes the deck unsaved: a clean tab that closes writes it alone.
+    usage_unsaved: bool,
+    /// The full ledger's refusal is already logged: logged once per document.
+    usage_full_warned: bool,
 }
 
 impl Document {
@@ -209,7 +218,17 @@ impl Document {
     fn new(mut sources: SourceBundle, path: Option<PathBuf>, defaults: &DocDefaults) -> Self {
         sources.set_undo_limit(defaults.undo_limit);
         sources.set_author(defaults.author.clone());
-        Self { sources, path, dirty: false, notice: None, saved_hash: None, blank: false, disk_replaced: false }
+        Self {
+            sources,
+            path,
+            dirty: false,
+            notice: None,
+            saved_hash: None,
+            blank: false,
+            disk_replaced: false,
+            usage_unsaved: false,
+            usage_full_warned: false,
+        }
     }
 }
 
@@ -221,6 +240,8 @@ struct DocDefaults {
     undo_limit: usize,
     /// Auteur inscrit dans l'historique du deck ; absent = anonyme.
     author: Option<String>,
+    /// Agent usage is recorded and saved (`[usage] store_in_deck`).
+    store_usage: bool,
 }
 
 /// What the session edits: the deck, a pack (pack mode) while the deck
@@ -331,6 +352,9 @@ pub struct Session {
     /// Images et polices déjà envoyées au fil de reprise : partagées tant
     /// qu'elles ne changent pas (voir `resume::DocSnapshot`).
     sent_blobs: Vec<Arc<resume::Blobs>>,
+    /// Usage ledgers already sent to the resume thread: shared while unchanged,
+    /// so the thread rewrites `usage.jsonl` only for a new one.
+    sent_usage: Vec<Arc<oku_slides_core::UsageLedger>>,
     /// Ce que l'utilisateur a fait sans l'agent depuis son dernier tour.
     agent_notes: Vec<String>,
     /// Étapes d'annulation du deck prises par les derniers tours de l'agent (`agent::turn_undo`).
@@ -452,7 +476,11 @@ impl Session {
     /// `render_fonts`). Seule la sonde d'un pack par défaut de l'utilisateur le lance avant.
     pub(crate) fn unrendered(app_fonts: Fonts, platform: &Platform) -> Result<Self> {
         let (settings, storage, l) = (&platform.settings, platform.storage.clone(), &platform.localizer);
-        let doc_defaults = DocDefaults { undo_limit: settings.history.limit, author: settings.author.resolved() };
+        let doc_defaults = DocDefaults {
+            undo_limit: settings.history.limit,
+            author: settings.author.resolved(),
+            store_usage: settings.usage.store_in_deck,
+        };
         let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
         // Aucun pack installé encore : aucun widget, jusqu'à `sync_widgets`.
         let registry = deck_pack::empty_registry();
@@ -509,6 +537,7 @@ impl Session {
             widget_preview: None,
             import: None,
             sent_blobs: Vec::new(),
+            sent_usage: Vec::new(),
             deck_links: BTreeMap::new(),
             link_pull: false,
             links_generation: 0,
@@ -584,11 +613,14 @@ impl Session {
     }
 
     /// Unsaved work: the deck, or the pack a pack tab edits (not the history's preview).
+    ///
+    /// With history open, agent usage the file lacks counts too: no close
+    /// writes it silently there, and a close must not drop it.
     fn unsaved(&self) -> bool {
         match &self.mode {
             Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => self.doc.dirty,
             Mode::Pack { .. } => self.doc.dirty || self.unsent(),
-            Mode::History { stash, .. } => stash.dirty,
+            Mode::History { stash, .. } => stash.dirty || stash.usage_unsaved,
         }
     }
 
@@ -656,6 +688,7 @@ impl Session {
     pub(crate) fn stop_resume(&mut self) {
         self.resume = None;
         self.sent_blobs.clear();
+        self.sent_usage.clear();
     }
 
     /// Attend que l'état de reprise envoyé soit écrit (avant de quitter).

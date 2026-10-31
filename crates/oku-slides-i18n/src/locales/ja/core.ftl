@@ -148,6 +148,15 @@ issue-theme-version-mismatch = 改変されたテーマのバージョンを破�
 issue-theme-version-missing = テーマのバージョンがソースにありません：{ $version }
 issue-theme-pin-mismatch = 埋め込まれたテーマ { $namespace } は、デッキが想定する内容と一致しません。
 issue-theme-closure = このデッキに固定されたテーマが、そのテーマと親テーマに正確に一致しません（{ $namespace }）。
+issue-usage-line-invalid = 使用状況ログの{ $line }行目を読み取れないため破棄しました
+issue-usage-line-forged = 使用ターン { $turn } が異なる内容で2回記録されていたため、一方を破棄しました
+issue-usage-too-large = 使用状況ログが大きすぎるため破棄しました
+issue-usage-unreadable = 使用状況ログを読み取れないため破棄しました
+issue-usage-lines-dropped = { $count ->
+   *[other] 使用状況ログのさらに{ $count }行を破棄しました
+}
+usage-range-bad-date = 「{ $date }」は日付ではありません。YYYY-MM-DD 形式で指定してください。
+usage-range-reversed = 開始日 { $since } が終了日 { $until } より後になっています。
 pack-token-entry-invalid = パックのマニフェストにあるコンポーネントトークン「{ $path }」が無効です。
 pack-manifest-json = パックのマニフェストを読み込めません: { $reason }
 issue-unsupported-link = サポートされていないリンク：{ $link }

@@ -22,7 +22,7 @@ use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 use oku_slides_core::{
     DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, ReplicaLimits, SourceBundle,
-    WidgetFile, WidgetRegistry,
+    UsageLedger, WidgetFile, WidgetRegistry,
 };
 use oku_slides_platform::storage::{Storage, StorageError};
 
@@ -42,6 +42,9 @@ pub(crate) const DECK_DIR: &str = "deck";
 pub(crate) const PACK_DIR: &str = "pack";
 /// Taille maximale d'un JSON relu par [`Resume::read_json`] : au-delà, illisible.
 pub(crate) const MAX_JSON_BYTES: u64 = 1024 * 1024;
+
+#[path = "resume_usage.rs"]
+mod usage;
 
 #[path = "resume_versions.rs"]
 mod versions;
@@ -179,6 +182,10 @@ pub(crate) struct DocSnapshot {
     saved_hash: Option<String>,
     blank: bool,
     blobs: Arc<Blobs>,
+    /// The snapshotted document's own ledger (never the lending preview's),
+    /// shared with the previous snapshot while it is unchanged.
+    usage: Arc<UsageLedger>,
+    usage_unsaved: bool,
 }
 
 impl DocSnapshot {
@@ -187,20 +194,28 @@ impl DocSnapshot {
         &self.blobs
     }
 
+    /// The ledger to write, shared with the session's previous snapshots.
+    pub(crate) fn usage_arc(&self) -> &Arc<UsageLedger> {
+        &self.usage
+    }
+
     /// L'instantané de `doc` ; ses octets viennent de `cache` s'ils n'ont pas
     /// changé depuis un envoi précédent, sinon ils y entrent (copiés une fois).
     /// Échoue si le replica ne s'exporte pas : l'appelant n'écrit alors rien.
     #[cfg(test)]
     pub(crate) fn of(doc: &Document, cache: &mut Vec<Arc<Blobs>>) -> Result<Self, ReplicaError> {
-        Self::with_blobs(doc, &doc.sources, cache)
+        Self::with_blobs(doc, &doc.sources, cache, &mut Vec::new())
     }
 
-    /// Comme `of`, les images et polices prises à `sources` (celles du deck
-    /// prêtées à l'aperçu de l'historique).
+    /// As `of`, with images and fonts taken from `sources`.
+    ///
+    /// Those are the deck's, lent to the history preview. The usage ledger is
+    /// `doc`'s own, shared through `usage_cache` while it is unchanged.
     pub(crate) fn with_blobs(
         doc: &Document,
         sources: &SourceBundle,
         cache: &mut Vec<Arc<Blobs>>,
+        usage_cache: &mut Vec<Arc<UsageLedger>>,
     ) -> Result<Self, ReplicaError> {
         let replica = doc.sources.replica().snapshot()?;
         let blobs = if let Some(b) = cache.iter().find(|b| b.matches(sources)) {
@@ -219,6 +234,18 @@ impl DocSnapshot {
             cache.push(Arc::clone(&b));
             b
         };
+        // Compared, not cloned, while unchanged: a turn copies the ledger once.
+        let usage = if let Some(u) = usage_cache.iter().find(|u| ***u == doc.sources.usage) {
+            Arc::clone(u)
+        } else {
+            let u = Arc::new(doc.sources.usage.clone());
+            // Deck and edited pack: two documents at most.
+            if usage_cache.len() >= 2 {
+                usage_cache.remove(0);
+            }
+            usage_cache.push(Arc::clone(&u));
+            u
+        };
         Ok(Self {
             replica,
             path: doc.path.clone(),
@@ -226,6 +253,8 @@ impl DocSnapshot {
             saved_hash: doc.saved_hash.clone(),
             blank: doc.blank,
             blobs,
+            usage,
+            usage_unsaved: doc.usage_unsaved,
         })
     }
 }
@@ -244,6 +273,7 @@ struct DocOut<'a> {
     dirty: bool,
     saved_hash: Option<&'a str>,
     blank: bool,
+    usage_unsaved: bool,
 }
 
 #[derive(Deserialize)]
@@ -256,6 +286,8 @@ struct DocIn {
     saved_hash: Option<String>,
     #[serde(default)]
     blank: bool,
+    #[serde(default)]
+    usage_unsaved: bool,
 }
 
 /// Un nom de fichier sûr : un seul composant normal, ni vide ni caché (les
@@ -320,6 +352,7 @@ impl Resume {
             dirty: doc.dirty,
             saved_hash: doc.saved_hash.as_deref(),
             blank: doc.blank,
+            usage_unsaved: doc.usage_unsaved,
         };
         let (assets, fonts) = (&doc.blobs.assets, &doc.blobs.fonts);
         let dir = self.dir.join(sub);
@@ -577,14 +610,16 @@ impl Resume {
                 tracing::warn!(version = hex, "thème de reprise altéré ignoré");
             }
         }
-        let (sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs, themes);
+        let (mut sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs, themes);
         for issue in &issues {
             tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
         }
+        sources.usage = self.read_usage(&dir);
         let mut doc = Document::new(sources, path, defaults);
         doc.dirty = raw.dirty;
         doc.saved_hash = raw.saved_hash;
         doc.blank = raw.blank;
+        doc.usage_unsaved = raw.usage_unsaved;
         Ok(doc)
     }
 }
@@ -743,6 +778,12 @@ impl Session {
                 let mut doc = Document::new(opened.sources, Some(path.clone()), &self.doc_defaults);
                 doc.saved_hash = Some(opened.hash);
                 doc.notice = notice;
+                // The records not saved yet stay; the file's own come with it.
+                let held = doc.sources.usage.len();
+                for issue in doc.sources.usage.union(saved.sources.usage) {
+                    tracing::warn!(issue = %issue, "resume usage record not merged with the file's");
+                }
+                doc.usage_unsaved = doc.sources.usage.len() > held;
                 doc
             }
             Ok(_) => saved,
@@ -796,7 +837,7 @@ impl Session {
         if documents {
             let pack = matches!(self.mode, Mode::Pack { .. }).then_some((PACK_DIR, &self.doc, &self.doc));
             for (sub, doc, blobs) in std::iter::once((DECK_DIR, deck, blobs)).chain(pack) {
-                match DocSnapshot::with_blobs(doc, &blobs.sources, &mut self.sent_blobs) {
+                match DocSnapshot::with_blobs(doc, &blobs.sources, &mut self.sent_blobs, &mut self.sent_usage) {
                     Ok(snapshot) => docs.push((sub, snapshot)),
                     Err(e) => tracing::warn!(
                         sub,

@@ -578,6 +578,18 @@
         {
          "runs": [
           {
+           "t": "Agent usage",
+           "bold": true
+          },
+          {
+           "t": ": each turn's tokens, model and cost go into the deck file; ask the agent what the deck cost. OKU_SLIDES_USAGE__STORE_IN_DECK=false keeps none."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
            "t": "Help",
            "bold": true
           },
@@ -1517,6 +1529,18 @@
           },
           {
            "t": ": the name written in the history of decks you edit."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_USAGE__STORE_IN_DECK",
+           "bold": true
+          },
+          {
+           "t": ": false records no agent usage in decks, and saves none."
           }
          ],
          "list": "bullet"
@@ -2989,6 +3013,13 @@
          "runs": [
           {
            "t": "themes/<hex>/theme.json         one file per pinned theme version (the theme and its extends closure)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "usage.jsonl                     agent usage, one turn per line (absent when empty)"
           }
          ]
         }

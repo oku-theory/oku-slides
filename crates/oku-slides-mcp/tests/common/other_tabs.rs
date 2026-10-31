@@ -119,6 +119,10 @@ impl Sessions for OtherTabs {
     fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         self.session.document_kind(tab)
     }
+
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        self.session.usage_owner(tab)
+    }
 }
 
 /// A server among other tabs (see [`OtherTabs`]).

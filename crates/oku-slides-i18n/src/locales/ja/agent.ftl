@@ -133,6 +133,7 @@ agent-error-empty-dictation = 変更する内容がありません。音声入�
 agent-error-not-shown = このタブはウィンドウに表示中のタブではありません。ユーザーが表示してからもう一度依頼してください。
 agent-error-themes-deck-mode = テーマ選択はスライドの編集中にのみ開きます。
 agent-error-packs-deck-mode = プレゼンテーションのパックパネルはスライドの編集中にのみ開きます。
+agent-error-usage-no-deck = このタブの使用量はどのプレゼンテーションにも属しません。プレゼンテーションに計上されるのは、そのプレゼンテーションから（ユーザーまたはエージェントが）開いたパックまたはテーマのタブか、プレゼンテーション自身のパックだけです。
 agent-error-rewrite-text = 言い換えがテキストなしで返されました。
 agent-error-paragraphs = 言い換えの段落が無効です。
 agent-error-draft-too-long = 下書きが長すぎます。

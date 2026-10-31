@@ -12,10 +12,10 @@ use speculoos::prelude::*;
 
 /// The spec's test, on a real server per kind; the exact lists are `tools_tests.rs`'s.
 #[rstest]
-#[case::deck(Kind::Deck, &["apply", "save", "open_pack", "open_theme", "show_packs"][..], &["set_widget_trial", "set_theme_extends", "save_pack"][..])]
-#[case::help(Kind::Help, &["apply", "open_pack", "open_theme", "history"][..], &["set_widget_trial", "set_theme_extends"][..])]
-#[case::pack(Kind::Pack, &["set_widget", "set_widget_trial", "save_pack", "show_params"][..], &["save", "history", "open_pack", "open_theme", "set_theme_extends"][..])]
-#[case::theme(Kind::Theme, &["apply", "set_theme_extends", "theme_tokens", "show_variants"][..], &["set_widget", "save", "open_pack", "open_theme", "save_pack"][..])]
+#[case::deck(Kind::Deck, &["apply", "save", "open_pack", "open_theme", "show_packs", "usage", "show_usage"][..], &["set_widget_trial", "set_theme_extends", "save_pack"][..])]
+#[case::help(Kind::Help, &["apply", "open_pack", "open_theme", "history"][..], &["set_widget_trial", "set_theme_extends", "usage", "show_usage"][..])]
+#[case::pack(Kind::Pack, &["set_widget", "set_widget_trial", "save_pack", "show_params", "usage", "show_usage"][..], &["save", "history", "open_pack", "open_theme", "set_theme_extends"][..])]
+#[case::theme(Kind::Theme, &["apply", "set_theme_extends", "theme_tokens", "show_variants", "usage", "show_usage"][..], &["set_widget", "save", "open_pack", "open_theme", "save_pack"][..])]
 #[tokio::test(flavor = "multi_thread")]
 async fn tool_list_filtered_by_document_kind(#[case] kind: Kind, #[case] has: &[&str], #[case] lacks: &[&str]) {
     let h = kind.start().await;

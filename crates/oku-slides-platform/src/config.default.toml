@@ -153,6 +153,11 @@ max_connections = 64
 # l'utilisateur du système.
 # name = "Julie"
 
+[usage]
+# Each agent turn's tokens, model and cost are kept in its deck file (`usage.jsonl`), so a shared
+# deck shows them too. Off: nothing is recorded, and a saved deck carries no usage.
+store_in_deck = true
+
 [stt]
 # Rythme de la boucle d'écoute (ms).
 tick_ms = 50

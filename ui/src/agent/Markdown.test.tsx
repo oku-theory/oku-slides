@@ -54,9 +54,10 @@ describe("Markdown des réponses de l'agent", () => {
     expect(html("> ~~vieux~~ neuf")).toBe("<blockquote><p><del>vieux</del> neuf</p></blockquote>");
   });
 
-  test("Markdown tableau GFM devient un tableau", () => {
+  test("Markdown GFM table renders inside a focusable scrolling box", () => {
     expect(html("| a | b |\n|---|---|\n| 1 | 2 |")).toBe(
-      "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>",
+      '<div class="md-table" tabindex="0"><table><thead><tr><th>a</th><th>b</th></tr></thead>'
+        + "<tbody><tr><td>1</td><td>2</td></tr></tbody></table></div>",
     );
   });
 

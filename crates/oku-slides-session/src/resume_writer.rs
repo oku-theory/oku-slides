@@ -15,8 +15,13 @@
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 
+use oku_slides_core::UsageLedger;
+
 use crate::agent::SavedConversation;
 use crate::resume::{DocSnapshot, Resume, State};
+
+/// The usage ledger of each sub-folder as this writer last wrote it.
+type UsageOnDisk = Vec<(&'static str, Arc<UsageLedger>)>;
 
 /// Ce qu'il faut faire de la conversation de l'agent.
 #[derive(Debug, Clone)]
@@ -59,6 +64,8 @@ struct Slot {
 struct Shared {
     slot: Mutex<Slot>,
     changed: Condvar,
+    /// Locked only by `write`, never with `slot`.
+    usage_on_disk: Mutex<UsageOnDisk>,
 }
 
 impl Shared {
@@ -100,7 +107,7 @@ impl Writer {
     /// Dépose un état à écrire ; ne bloque pas (sauf repli sur place).
     pub(crate) fn send(&self, job: Job) {
         if let Some(resume) = &self.inline {
-            write(resume, &job);
+            write(resume, &job, &self.shared.usage_on_disk);
             return;
         }
         let mut slot = self.shared.lock();
@@ -154,7 +161,8 @@ fn run(resume: &Resume, shared: &Shared) {
         };
         // Une panique d'écriture ne tue pas le fil : `flush` n'attendrait
         // plus jamais.
-        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| write(resume, &job)));
+        let outcome =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| write(resume, &job, &shared.usage_on_disk)));
         if outcome.is_err() {
             tracing::warn!("écriture de reprise interrompue par une panique");
         }
@@ -163,11 +171,14 @@ fn run(resume: &Resume, shared: &Shared) {
     }
 }
 
-fn write(resume: &Resume, job: &Job) {
+fn write(resume: &Resume, job: &Job, usage_on_disk: &Mutex<UsageOnDisk>) {
     let written = job
         .docs
         .iter()
-        .try_for_each(|(sub, doc)| resume.write_snapshot(sub, doc))
+        .try_for_each(|(sub, doc)| {
+            resume.write_snapshot(sub, doc)?;
+            write_usage_once(resume, sub, doc.usage_arc(), usage_on_disk)
+        })
         .and_then(|()| resume.write_state(&job.state));
     if let Err(e) = written {
         tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "état de reprise non enregistré");
@@ -181,6 +192,23 @@ fn write(resume: &Resume, job: &Job) {
     if let Err(e) = done {
         tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "conversation de l'agent non enregistrée");
     }
+}
+
+/// Writes `sub`'s usage ledger unless this writer already wrote that very one.
+fn write_usage_once(
+    resume: &Resume,
+    sub: &'static str,
+    usage: &Arc<UsageLedger>,
+    on_disk: &Mutex<UsageOnDisk>,
+) -> crate::resume::Result<()> {
+    let mut on_disk = on_disk.lock().unwrap_or_else(PoisonError::into_inner);
+    if on_disk.iter().any(|(s, u)| *s == sub && Arc::ptr_eq(u, usage)) {
+        return Ok(());
+    }
+    resume.write_usage(sub, usage)?;
+    on_disk.retain(|(s, _)| *s != sub);
+    on_disk.push((sub, Arc::clone(usage)));
+    Ok(())
 }
 
 #[cfg(test)]

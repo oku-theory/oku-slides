@@ -215,9 +215,11 @@ const DECK_TOOLS: &[&str] = &[
     "show_packs",
     "show_params",
     "show_themes",
+    "show_usage",
     "show_variants",
     "slide",
     "theme_tokens",
+    "usage",
     "widget_source",
     "widget_sources",
     "widgets",
@@ -254,9 +256,11 @@ const PACK_TOOLS: &[&str] = &[
     "settings",
     "show_dictation",
     "show_params",
+    "show_usage",
     "show_variants",
     "slide",
     "theme_tokens",
+    "usage",
     "widget_source",
     "widget_sources",
     "widgets",
@@ -286,20 +290,31 @@ const THEME_TOOLS: &[&str] = &[
     "settings",
     "show_dictation",
     "show_params",
+    "show_usage",
     "show_variants",
     "slide",
     "theme_tokens",
+    "usage",
 ];
 
 #[rstest]
 #[case::deck(DocumentKind::Deck, DECK_TOOLS)]
-#[case::help(DocumentKind::Help, DECK_TOOLS)]
 #[case::pack(DocumentKind::Pack, PACK_TOOLS)]
 #[case::theme(DocumentKind::Theme, THEME_TOOLS)]
 fn list_for_a_kind_is_exactly_its_tools(#[case] kind: DocumentKind, #[case] expected: &[&str]) {
     let mut names: Vec<String> = list_for(kind).into_iter().map(|t| t.name).collect();
     names.sort();
     assert_that!(names).is_equal_to(expected.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>());
+}
+
+/// A help tab lists the deck's tools but the usage ones: it belongs to no deck.
+#[test]
+fn list_for_help_is_the_deck_tools_without_usage() {
+    let mut names: Vec<String> = list_for(DocumentKind::Help).into_iter().map(|t| t.name).collect();
+    names.sort();
+    let expected: Vec<String> =
+        DECK_TOOLS.iter().filter(|n| !matches!(**n, "usage" | "show_usage")).map(|n| (*n).to_owned()).collect();
+    assert_that!(names).is_equal_to(expected);
 }
 
 /// Every tool is listed somewhere: no table entry is dead.

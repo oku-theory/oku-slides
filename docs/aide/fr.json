@@ -578,6 +578,18 @@
         {
          "runs": [
           {
+           "t": "Usage de l'agent",
+           "bold": true
+          },
+          {
+           "t": " : les tokens, le modèle et le coût de chaque tour vont dans le fichier du deck ; demandez à l'agent ce qu'a coûté le deck. OKU_SLIDES_USAGE__STORE_IN_DECK=false n'en garde aucun."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
            "t": "Aide",
            "bold": true
           },
@@ -1517,6 +1529,18 @@
           },
           {
            "t": " : le nom inscrit dans l'historique des decks que vous modifiez."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "OKU_SLIDES_USAGE__STORE_IN_DECK",
+           "bold": true
+          },
+          {
+           "t": " : false n'inscrit aucun usage de l'agent dans les decks, et n'en enregistre aucun."
           }
          ],
          "list": "bullet"
@@ -2989,6 +3013,13 @@
          "runs": [
           {
            "t": "themes/<hex>/theme.json         une version de thème épinglée (le thème et la fermeture de ses extends)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
+           "t": "usage.jsonl                     usage de l'agent, un tour par ligne (absent s'il est vide)"
           }
          ]
         }

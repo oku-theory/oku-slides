@@ -140,6 +140,7 @@ agent-error-empty-dictation = Nothing to change: give at least one dictation set
 agent-error-not-shown = This tab is not the one shown in its window: ask again once the user shows it.
 agent-error-themes-deck-mode = The theme picker opens only while editing the deck's slides.
 agent-error-packs-deck-mode = The deck packs panel opens only while editing the deck's slides.
+agent-error-usage-no-deck = This tab's usage belongs to no deck: only a pack or theme tab opened from a deck (by the user or the agent), or a deck's own pack, counts toward that deck.
 agent-error-rewrite-text = The rewording came back without text.
 agent-error-paragraphs = The paragraphs of the rewording are invalid.
 agent-error-draft-too-long = The draft is too long.

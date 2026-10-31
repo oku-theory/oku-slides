@@ -133,6 +133,7 @@ agent-error-empty-dictation = 바꿀 내용이 없습니다. 받아쓰기 설정
 agent-error-not-shown = 이 탭은 창에 표시된 탭이 아닙니다. 사용자가 표시한 뒤 다시 요청하세요.
 agent-error-themes-deck-mode = 테마 선택기는 슬라이드를 편집하는 동안에만 열립니다.
 agent-error-packs-deck-mode = 프레젠테이션 팩 패널은 슬라이드를 편집하는 동안에만 열립니다.
+agent-error-usage-no-deck = 이 탭의 사용량은 어떤 프레젠테이션에도 속하지 않습니다. 프레젠테이션에서 (사용자나 에이전트가) 연 팩 또는 테마 탭, 또는 프레젠테이션 자체의 팩만 그 프레젠테이션에 집계됩니다.
 agent-error-rewrite-text = 다시 쓰기가 텍스트 없이 돌아왔습니다.
 agent-error-paragraphs = 다시 쓰기의 단락이 올바르지 않습니다.
 agent-error-draft-too-long = 초안이 너무 깁니다.

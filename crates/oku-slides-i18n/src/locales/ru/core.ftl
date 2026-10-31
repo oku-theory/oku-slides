@@ -163,6 +163,18 @@ issue-theme-version-mismatch = изменённая версия темы отб
 issue-theme-version-missing = версия темы отсутствует в исходниках: { $version }
 issue-theme-pin-mismatch = Встроенная тема { $namespace } не соответствует тому, что ожидает презентация.
 issue-theme-closure = Темы, закреплённые в этой презентации, не совпадают в точности с её темой и её родителями ({ $namespace }).
+issue-usage-line-invalid = строка { $line } журнала использования нечитаема, отброшена
+issue-usage-line-forged = ход использования { $turn } записан дважды с разным содержимым, один отброшен
+issue-usage-too-large = журнал использования слишком большой, отброшен
+issue-usage-unreadable = журнал использования нечитаем, отброшен
+issue-usage-lines-dropped = { $count ->
+    [one] отброшена ещё { $count } строка журнала использования
+    [few] отброшены ещё { $count } строки журнала использования
+    [many] отброшено ещё { $count } строк журнала использования
+   *[other] отброшено ещё { $count } строки журнала использования
+}
+usage-range-bad-date = «{ $date }» не является датой: используйте ГГГГ-ММ-ДД.
+usage-range-reversed = Начальная дата { $since } позже конечной даты { $until }.
 pack-token-entry-invalid = Недопустимый токен компонента «{ $path }» в манифесте пакета.
 pack-manifest-json = Не удаётся прочитать манифест пакета: { $reason }
 issue-unsupported-link = неподдерживаемая ссылка: { $link }

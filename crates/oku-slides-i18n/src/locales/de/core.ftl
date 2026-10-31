@@ -157,6 +157,16 @@ issue-theme-version-mismatch = veränderte Designversion verworfen: { $version }
 issue-theme-version-missing = Designversion fehlt in den Quellen: { $version }
 issue-theme-pin-mismatch = Das eingebettete Design { $namespace } entspricht nicht dem, was die Präsentation erwartet.
 issue-theme-closure = Die in diesem Deck angehefteten Designs sind nicht genau sein Design und dessen Eltern ({ $namespace }).
+issue-usage-line-invalid = Zeile { $line } des Nutzungsprotokolls unlesbar, verworfen
+issue-usage-line-forged = Nutzungsdurchlauf { $turn } zweimal mit unterschiedlichem Inhalt erfasst, einer verworfen
+issue-usage-too-large = Nutzungsprotokoll zu groß, verworfen
+issue-usage-unreadable = Nutzungsprotokoll unlesbar, verworfen
+issue-usage-lines-dropped = { $count ->
+    [one] { $count } weitere Zeile des Nutzungsprotokolls verworfen
+   *[other] { $count } weitere Zeilen des Nutzungsprotokolls verworfen
+}
+usage-range-bad-date = „{ $date }“ ist kein Datum: Verwenden Sie JJJJ-MM-TT.
+usage-range-reversed = Das Startdatum { $since } liegt nach dem Enddatum { $until }.
 pack-token-entry-invalid = Ungültiges Komponenten-Token „{ $path }“ im Paketmanifest.
 pack-manifest-json = Das Paketmanifest kann nicht gelesen werden: { $reason }
 issue-unsupported-link = nicht unterstützter Link: { $link }

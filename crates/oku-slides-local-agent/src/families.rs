@@ -81,7 +81,9 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         | "cancel_dictation_download"
         | "select_agent"
         | "download_agent_model"
-        | "cancel_agent_model_download" => &[Configure],
+        | "cancel_agent_model_download"
+        | "usage"
+        | "show_usage" => &[Configure],
         "import_report" | "import_diff" | "diagnose" => &[Troubleshoot],
         "ask_choice" | "ask_confirm" | "ask_rewrite" | "report" | "render" => &[AskReport],
         _ => &[],

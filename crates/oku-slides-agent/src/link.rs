@@ -28,6 +28,7 @@ use crate::error::{AgentError, NoHttpSnafu, NotFoundSnafu, SpawnSnafu, StoppedSn
 use crate::events::from_update;
 use crate::permission::choice;
 use crate::session_model::{ModelBoard, Offered, model_options};
+use crate::usage_board::{UsageBoard, tells};
 use crate::{AgentEvent, Launch};
 
 /// Nom du client annoncé à l'agent.
@@ -126,6 +127,8 @@ pub struct Link {
 struct Current {
     launch: Launch,
     epoch: u64,
+    /// The agent preset id (an `[agent.presets]` key); `None`: a link built for tests.
+    preset: Option<String>,
     /// The model value asked of each session (`session/set_config_option`); `None`: the agent's.
     model: Option<String>,
 }
@@ -144,6 +147,8 @@ struct Inner {
     routes: Routes,
     /// The models the sessions told, by launch and session.
     models: Arc<ModelBoard>,
+    /// The cost the sessions told, by launch and session.
+    usage: Arc<UsageBoard>,
     /// Arrête la connexion courante quand `Inner` est lâché.
     shutdown: CancellationToken,
 }
@@ -161,23 +166,32 @@ impl Drop for Inner {
 }
 
 impl Link {
-    /// Rien n'est lancé avant le premier [`Link::connect`] ; ses sessions gardent le modèle de l'agent.
+    /// A link that launches nothing before the first [`Link::connect`]; sessions keep the agent's model.
+    ///
+    /// Without a preset id, its turns record no usage (tests).
     #[must_use]
     pub fn new(launch: Launch) -> Self {
-        Self::with_model(launch, None)
+        Self::build(None, launch, None)
     }
 
-    /// Like [`Link::new`]; each session is asked to use `model` if the agent offers it.
+    /// The link of preset `preset`, asking each session for `model`.
+    ///
+    /// The model is used only if the agent offers it.
     #[must_use]
-    pub fn with_model(launch: Launch, model: Option<String>) -> Self {
+    pub fn for_preset(preset: &str, launch: Launch, model: Option<String>) -> Self {
+        Self::build(Some(preset.to_owned()), launch, model)
+    }
+
+    fn build(preset: Option<String>, launch: Launch, model: Option<String>) -> Self {
         Self {
             inner: Arc::new(Inner {
-                launch: StdMutex::new(Current { launch, epoch: 0, model }),
+                launch: StdMutex::new(Current { launch, epoch: 0, preset, model }),
                 current_stop: StdMutex::default(),
                 failure: StdMutex::default(),
                 state: Mutex::new(State::default()),
                 routes: Routes::default(),
                 models: Arc::default(),
+                usage: Arc::default(),
                 shutdown: CancellationToken::new(),
             }),
         }
@@ -216,6 +230,16 @@ impl Link {
         &self.inner.models
     }
 
+    /// The preset id of the current agent; `None`: a link built for tests.
+    pub(crate) fn preset(&self) -> Option<String> {
+        self.inner.launch.lock().unwrap_or_else(PoisonError::into_inner).preset.clone()
+    }
+
+    /// The cost told by the sessions, shared with the tab actors.
+    pub(crate) fn usage(&self) -> &UsageBoard {
+        &self.inner.usage
+    }
+
     /// Advances each time [`Link::offered_models`] may show something else.
     pub(crate) fn models_revision(&self) -> watch::Receiver<u64> {
         self.inner.models.subscribe()
@@ -227,16 +251,17 @@ impl Link {
         self.launch_now().1
     }
 
-    /// Change d'agent : le prochain [`Link::connect`] lance `launch`, dont les sessions utilisent `model`.
+    /// Switches agent: the next [`Link::connect`] launches `launch` of preset `preset`, using `model`.
     ///
-    /// La connexion vivante est arrêtée tout de suite (ses tours échouent comme pour tout arrêt) ;
-    /// un lancement en cours est interrompu, et `connect` relance aussitôt avec `launch`.
-    /// Aucun lancement après `shutdown`.
-    pub fn switch(&self, launch: Launch, model: Option<String>) {
+    /// The live connection stops at once (its turns fail as on any stop); a launch in progress is
+    /// interrupted, and `connect` relaunches right away with `launch`. Nothing launches after
+    /// `shutdown`.
+    pub fn switch(&self, preset: &str, launch: Launch, model: Option<String>) {
         {
             let mut current = self.inner.launch.lock().unwrap_or_else(PoisonError::into_inner);
             current.launch = launch;
             current.epoch += 1;
+            current.preset = Some(preset.to_owned());
             current.model = model;
         }
         // L'échec de l'agent précédent ne dit rien du nouveau.
@@ -365,6 +390,7 @@ impl Link {
     /// pour elle est ignoré ; la même session d'un autre lancement reste routée.
     pub(crate) fn forget(&self, generation: u64, id: SessionId) {
         self.inner.models.forget(generation, &id);
+        self.inner.usage.forget(generation, &id);
         self.inner.routes.lock().unwrap_or_else(PoisonError::into_inner).remove(&(generation, id));
     }
 
@@ -399,6 +425,7 @@ impl Link {
         let serving = Serving {
             routes: self.inner.routes.clone(),
             models: self.inner.models.clone(),
+            usage: self.inner.usage.clone(),
             stop,
             closed: CancellationToken::new(),
             generation,
@@ -423,22 +450,36 @@ impl Link {
 /// `n` comes from connection `generation` of launch epoch `epoch`. The agent sends a turn's
 /// updates before returning its response, on the same connection; outside a turn, or replayed
 /// after `session/load`, it is ignored. A routed session's new config options are told to
-/// `models`, in or out of a turn, unless replayed.
-fn on_notification(routes: &Routes, models: &ModelBoard, generation: u64, epoch: u64, n: SessionNotification) {
+/// `models`, and its cost to `usage`, in or out of a turn, unless replayed.
+fn on_notification(
+    routes: &Routes,
+    models: &ModelBoard,
+    usage: &UsageBoard,
+    generation: u64,
+    epoch: u64,
+    n: SessionNotification,
+) {
     tracing::trace!(?n, "acp");
     let route = routes
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .get(&(generation, n.session_id.clone()))
         .map(|r| (r.events.clone(), r.hub.clone(), r.replaying.load(Ordering::Acquire)));
-    if let SessionUpdate::ConfigOptionUpdate(update) = &n.update {
-        match route {
-            Some((_, _, false)) => models.told(generation, epoch, &n.session_id, model_options(&update.config_options)),
-            // A late replay of `session/load` tells past options (t-612).
-            Some((_, _, true)) => tracing::debug!(session = ?n.session_id, "options rejouées : ignorées"),
-            None => tracing::debug!(session = ?n.session_id, "options d'une session inconnue"),
+    let replaying = route.as_ref().map(|r| r.2);
+    match &n.update {
+        SessionUpdate::ConfigOptionUpdate(update) => {
+            if tells(replaying, &n.session_id, "options") {
+                models.told(generation, epoch, &n.session_id, model_options(&update.config_options));
+            }
+            return;
         }
-        return;
+        SessionUpdate::UsageUpdate(update) => {
+            if tells(replaying, &n.session_id, "cost") {
+                usage.told(generation, &n.session_id, update.cost.as_ref());
+            }
+            return;
+        }
+        _ => {}
     }
     match route {
         Some((_, _, true)) if is_replay(&n.update) => {
@@ -461,6 +502,7 @@ fn on_notification(routes: &Routes, models: &ModelBoard, generation: u64, epoch:
 struct Serving {
     routes: Routes,
     models: Arc<ModelBoard>,
+    usage: Arc<UsageBoard>,
     /// Arrête la connexion : fin de l'app ou agent changé.
     stop: CancellationToken,
     closed: CancellationToken,
@@ -477,15 +519,15 @@ impl Serving {
         mut child: Child,
         ready: oneshot::Sender<Result<Live, AgentError>>,
     ) {
-        let Self { routes, models, stop, closed, generation, epoch } = self;
+        let Self { routes, models, usage, stop, closed, generation, epoch } = self;
         let result = Client
             .builder()
             .name(CLIENT_NAME)
             .on_receive_notification(
                 {
-                    let (routes, models) = (routes.clone(), models.clone());
+                    let (routes, models, usage) = (routes.clone(), models.clone(), usage.clone());
                     async move |n: SessionNotification, _cx: ConnectionTo<Agent>| {
-                        on_notification(&routes, &models, generation, epoch, n);
+                        on_notification(&routes, &models, &usage, generation, epoch, n);
                         Ok(())
                     }
                 },
@@ -570,6 +612,7 @@ impl Serving {
         closed.cancel();
         routes.lock().unwrap_or_else(PoisonError::into_inner).retain(|(g, _), _| *g != generation);
         models.forget_generation(generation);
+        usage.forget_generation(generation);
     }
 }
 

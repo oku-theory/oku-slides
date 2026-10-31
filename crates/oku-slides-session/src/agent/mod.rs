@@ -18,6 +18,8 @@ mod surface_ops;
 mod tabs;
 pub(crate) mod turn_undo;
 pub mod turn_view;
+mod usage_panel;
+pub(crate) mod usage_table;
 pub mod variants;
 
 pub use attachments::{AttachmentRef, PasteReason};
@@ -34,6 +36,7 @@ pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
 pub use tabs::{Sessions, TabGate, TabOpen, TabSession};
 pub use turn_view::{TurnState, TurnView};
+pub use usage_panel::usage_panel;
 
 /// Tours gardés au plus par fil (réducteur des tours, hub, reprise).
 pub const KEPT_TURNS: usize = 50;

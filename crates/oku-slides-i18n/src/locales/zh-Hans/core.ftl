@@ -148,6 +148,15 @@ issue-theme-version-mismatch = 已丢弃被篡改的主题版本：{ $version }
 issue-theme-version-missing = 源文件中缺少主题版本：{ $version }
 issue-theme-pin-mismatch = 内嵌的主题 { $namespace } 与演示文稿所期望的不符。
 issue-theme-closure = 此演示文稿固定的主题并非恰好是其主题及其父主题（{ $namespace }）。
+issue-usage-line-invalid = 用量日志第 { $line } 行无法读取，已丢弃
+issue-usage-line-forged = 用量回合 { $turn } 以不同内容记录了两次，已丢弃其中一条
+issue-usage-too-large = 用量日志过大，已丢弃
+issue-usage-unreadable = 用量日志无法读取，已丢弃
+issue-usage-lines-dropped = { $count ->
+   *[other] 另有{ $count }行用量日志已丢弃
+}
+usage-range-bad-date = “{ $date }”不是日期：请使用 YYYY-MM-DD。
+usage-range-reversed = 开始日期 { $since } 晚于结束日期 { $until }。
 pack-token-entry-invalid = 包清单中的组件令牌“{ $path }”无效。
 pack-manifest-json = 无法读取包清单：{ $reason }
 issue-unsupported-link = 不支持的链接：{ $link }

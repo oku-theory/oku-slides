@@ -3,6 +3,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
+use oku_slides_core::{UsageLedger, UsageRecord};
 use uuid::Uuid;
 
 use crate::pack_tab::PackRoute;
@@ -138,6 +139,16 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
     ///
     /// Takes the host's lock.
     fn document_kind(&self, tab: &str) -> crate::Result<DocumentKind>;
+
+    /// The deck tab whose ledger takes `tab`'s agent usage; `None`: not counted.
+    ///
+    /// Required: a multi-tab host routes a pack or theme tab's turns to its
+    /// deck; a single-document host answers `tab` itself.
+    ///
+    /// # Blocking
+    ///
+    /// Takes the host's lock; wakes no dormant tab.
+    fn usage_owner(&self, tab: &str) -> Option<String>;
 }
 
 /// A single session, whatever the tab (tests, single-document hosts).
@@ -179,6 +190,11 @@ impl Sessions for Mutex<Session> {
 
     fn document_kind(&self, _tab: &str) -> crate::Result<DocumentKind> {
         Ok(self.lock().unwrap_or_else(PoisonError::into_inner).document_kind())
+    }
+
+    /// The session itself: `Session::record_usage` refuses outside a deck.
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        Some(tab.to_owned())
     }
 }
 
@@ -260,6 +276,43 @@ impl TabSession {
     /// As [`Sessions::document_kind`].
     pub fn document_kind(&self) -> crate::Result<DocumentKind> {
         self.sessions.document_kind(&self.tab)
+    }
+
+    /// Records a turn's usage in the deck that counts this tab's turns; blocking.
+    ///
+    /// Never fails the turn: a tab no deck counts records nothing, and an
+    /// owner tab that is gone is logged.
+    pub fn record_usage(&self, record: UsageRecord) {
+        let Some(owner) = self.sessions.usage_owner(&self.tab) else { return };
+        let mut record = Some(record);
+        let done = self.sessions.with(&owner, &mut |s| {
+            // An owner that is no deck (a host routing badly) loses the turn: logged.
+            if let Some(r) = record.take()
+                && !s.record_usage(r)
+                && s.usage_ledger().is_none()
+            {
+                tracing::warn!(owner = %owner, "agent usage owner holds no deck: turn not recorded");
+            }
+        });
+        if let Err(e) = done {
+            tracing::warn!(tab = %self.tab, owner = %owner, error = %e.one_line(), "agent usage not recorded");
+        }
+    }
+
+    /// A copy of the usage ledger of the deck counting this tab's turns.
+    ///
+    /// Blocking.
+    ///
+    /// `None`: no deck counts them (a help tab, a pack or theme tab without opener).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the owner tab is unknown to the host.
+    pub fn usage_ledger(&self) -> crate::Result<Option<UsageLedger>> {
+        let Some(owner) = self.sessions.usage_owner(&self.tab) else { return Ok(None) };
+        let mut out = None;
+        self.sessions.with(&owner, &mut |s| out = s.usage_ledger().cloned())?;
+        Ok(out)
     }
 
     /// Runs `f` on the tab's session; blocking (lock), so off the async thread.

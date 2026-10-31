@@ -213,6 +213,7 @@ impl Workspace {
             (Some(_), false) => Self::flush_deck_pack_tab(ws, tab),
             (None, false) => {
                 Self::flush_linked(ws, tab);
+                Self::save_pending_usages(ws, &[tab.to_owned()]);
                 false
             }
         };

@@ -37,6 +37,10 @@ impl Sessions for Closed {
     fn document_kind(&self, tab: &str) -> crate::Result<crate::DocumentKind> {
         Err(crate::error::UnknownTabSnafu { id: tab }.build().into())
     }
+
+    fn usage_owner(&self, _tab: &str) -> Option<String> {
+        None
+    }
 }
 
 #[test]

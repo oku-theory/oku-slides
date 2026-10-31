@@ -133,6 +133,7 @@ agent-error-empty-dictation = Không có gì để thay đổi: hãy cho ít nh�
 agent-error-not-shown = Thẻ này không phải thẻ đang hiển thị trong cửa sổ: hãy yêu cầu lại khi người dùng hiển thị nó.
 agent-error-themes-deck-mode = Bộ chọn chủ đề chỉ mở khi đang chỉnh sửa trang chiếu.
 agent-error-packs-deck-mode = Bảng gói của bản trình bày chỉ mở khi đang chỉnh sửa trang chiếu.
+agent-error-usage-no-deck = Mức sử dụng của thẻ này không thuộc bản trình bày nào: chỉ thẻ gói hay thẻ chủ đề được mở từ một bản trình bày (do người dùng hoặc tác nhân AI mở), hoặc gói riêng của bản trình bày, mới được tính cho bản trình bày đó.
 agent-error-rewrite-text = Bản viết lại trả về mà không có văn bản.
 agent-error-paragraphs = Các đoạn của bản viết lại không hợp lệ.
 agent-error-draft-too-long = Bản nháp quá dài.

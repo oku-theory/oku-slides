@@ -359,6 +359,10 @@ impl Sessions for ClosedTabs {
     fn document_kind(&self, _tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         self.0.document_kind("onglet-ferme")
     }
+
+    fn usage_owner(&self, _tab: &str) -> Option<String> {
+        self.0.usage_owner("onglet-ferme")
+    }
 }
 
 /// Un `Sessions` où un seul fichier, `open`, est ouvert dans un autre onglet.
@@ -398,6 +402,10 @@ impl Sessions for OneFileElsewhere {
 
     fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         self.session.document_kind(tab)
+    }
+
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        self.session.usage_owner(tab)
     }
 }
 
@@ -442,6 +450,10 @@ impl Sessions for HiddenTab {
 
     fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         self.0.document_kind(tab)
+    }
+
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        self.0.usage_owner(tab)
     }
 }
 
@@ -536,6 +548,10 @@ impl Sessions for GatedTabs {
 
     fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
         self.session.document_kind(tab)
+    }
+
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        self.session.usage_owner(tab)
     }
 }
 

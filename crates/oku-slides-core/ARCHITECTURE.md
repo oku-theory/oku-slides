@@ -31,13 +31,13 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   (`PackFiles::theme`, `verified_theme`). `PackScope`, packs only (`library` default, unwritten; `deck`: an import's).
 - `theme_chain.rs`: `ThemePin`, `linearize` (post-order, each theme once, the deck's last), `check_closure`.
   `token_spec.rs`: `Control` (an editor control), `ComponentToken` (a pack manifest `tokens` entry).
-- `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot, assets, fonts,
-  `<kind>/<hex>/{<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`), `themes/<hex>/theme.json`
-  (`sources_themes.rs`, pins checked against manifests and closure), all add-only, verified on read (a forged version is
-  reported once, as is a namespace pinned under both kinds) and unioned on merge; reads bounded by `SourceLimits`.
+- `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot, assets, fonts, `<kind>/<hex>/
+  {<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`), `themes/<hex>/theme.json` (`sources_themes.rs`, pins
+  checked against manifests and closure), `usage.jsonl` (read last, own cap, never fails), all add-only, verified on read
+  (a forged version reported once, as a namespace under both kinds), unioned on merge; reads bounded by `SourceLimits`.
 - `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s, cited assets (`asset_refs`, `element_asset_refs`);
   `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors (`color_names`: those a deck uses). `media.rs`: `sniff`, `dimensions`.
-  `num.rs`: named float/int casts (import, session). `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons.
+  `num.rs`: named float/int casts (import, session). `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons. `usage.rs`: `UsageLedger`; `usage_report.rs`: `aggregate`, `Range`.
 
 ## Extension points
 
@@ -47,4 +47,4 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 
 ## Dependencies
 
-`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`, `sha2` / `hex`, `uuid`, `schemars`.
+`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`, `sha2` / `hex`, `uuid`, `schemars`, `time` (usage dates).

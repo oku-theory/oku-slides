@@ -133,6 +133,7 @@ agent-error-empty-dictation = 没有要更改的内容：请至少提供一项�
 agent-error-not-shown = 此标签页不是其窗口中显示的标签页：请在用户显示它后再请求。
 agent-error-themes-deck-mode = 主题选择器只在编辑幻灯片时打开。
 agent-error-packs-deck-mode = 演示文稿的包面板只在编辑幻灯片时打开。
+agent-error-usage-no-deck = 此标签页的用量不属于任何演示文稿：只有从演示文稿打开的包标签页或主题标签页（无论由用户还是智能体打开），或演示文稿自己的包，才计入该演示文稿。
 agent-error-rewrite-text = 改写返回时没有文本。
 agent-error-paragraphs = 改写的段落无效。
 agent-error-draft-too-long = 草稿太长。

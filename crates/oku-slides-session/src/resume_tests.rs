@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use speculoos::prelude::*;
 
 use super::*;
@@ -8,7 +10,7 @@ use oku_slides_platform::storage::StorageErrorKind;
 
 /// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
 fn defaults() -> DocDefaults {
-    DocDefaults { undo_limit: 10, author: None }
+    DocDefaults { undo_limit: 10, author: None, store_usage: true }
 }
 
 fn temp_dir() -> PathBuf {
@@ -60,6 +62,67 @@ fn write_snapshot_removes_orphan_assets() {
     doc.sources.assets.clear();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     assert_that!(r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap().sources.assets.len()).is_equal_to(0);
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn with_blobs_new_usage_record_keeps_the_blobs_and_makes_a_new_ledger() {
+    let mut doc = document();
+    let (mut blobs, mut usage) = (Vec::new(), Vec::new());
+    let first = DocSnapshot::with_blobs(&doc, &doc.sources, &mut blobs, &mut usage).unwrap();
+    doc.sources.usage.insert(crate::deck_usage::deck_usage_tests::record(1));
+    let second = DocSnapshot::with_blobs(&doc, &doc.sources, &mut blobs, &mut usage).unwrap();
+    assert_that!(Arc::ptr_eq(first.blobs(), second.blobs())).is_true();
+    assert_that!(Arc::ptr_eq(first.usage_arc(), second.usage_arc())).is_false();
+    assert_that!(second.usage_arc().len()).is_equal_to(1);
+}
+
+#[test]
+fn with_blobs_same_ledger_reuses_its_arc() {
+    let mut doc = document();
+    doc.sources.usage.insert(crate::deck_usage::deck_usage_tests::record(1));
+    let (mut blobs, mut usage) = (Vec::new(), Vec::new());
+    let first = DocSnapshot::with_blobs(&doc, &doc.sources, &mut blobs, &mut usage).unwrap();
+    let second = DocSnapshot::with_blobs(&doc, &doc.sources, &mut blobs, &mut usage).unwrap();
+    assert_that!(Arc::ptr_eq(first.usage_arc(), second.usage_arc())).is_true();
+}
+
+#[test]
+fn write_usage_then_read_doc_keeps_usage_and_its_flag() {
+    let r = resume();
+    let mut doc = document();
+    doc.sources.usage.insert(crate::deck_usage::deck_usage_tests::record(1));
+    doc.usage_unsaved = true;
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    r.write_usage(DECK_DIR, &doc.sources.usage).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    assert_that!(back.sources.usage).is_equal_to(&doc.sources.usage);
+    assert_that!(back.usage_unsaved).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn write_usage_empty_ledger_removes_usage_file() {
+    let r = resume();
+    let mut doc = document();
+    doc.sources.usage.insert(crate::deck_usage::deck_usage_tests::record(1));
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    r.write_usage(DECK_DIR, &doc.sources.usage).unwrap();
+    let file = r.dir.join(DECK_DIR).join(oku_slides_core::USAGE_FILE);
+    assert_that!(file.exists()).is_true();
+    r.write_usage(DECK_DIR, &oku_slides_core::UsageLedger::default()).unwrap();
+    assert_that!(file.exists()).is_false();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+#[test]
+fn read_doc_bad_usage_line_is_set_aside_and_the_doc_opens() {
+    let r = resume();
+    let doc = document();
+    r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
+    std::fs::write(r.dir.join(DECK_DIR).join(oku_slides_core::USAGE_FILE), b"{not json}\n").unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    assert_that!(back.sources.usage.is_empty()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 

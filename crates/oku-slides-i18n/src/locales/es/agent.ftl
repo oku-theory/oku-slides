@@ -139,6 +139,7 @@ agent-error-empty-dictation = Nada que cambiar: indica al menos un ajuste del di
 agent-error-not-shown = Esta pestaña no es la que se muestra en su ventana: vuelve a pedirlo cuando el usuario la muestre.
 agent-error-themes-deck-mode = El selector de temas solo se abre al editar las diapositivas.
 agent-error-packs-deck-mode = El panel de paquetes de la presentación solo se abre al editar las diapositivas.
+agent-error-usage-no-deck = El uso de esta pestaña no pertenece a ninguna presentación: solo una pestaña de paquete o de tema abierta desde una presentación (por el usuario o por el agente), o el paquete propio de una presentación, cuenta para ella.
 agent-error-rewrite-text = La reformulación volvió sin texto.
 agent-error-paragraphs = Los párrafos de la reformulación no son válidos.
 agent-error-draft-too-long = El borrador es demasiado largo.

@@ -105,6 +105,10 @@ impl Sessions for Mutex<Workspace> {
     fn document_kind(&self, tab: &str) -> Result<DocumentKind> {
         Workspace::document_kind(self, tab)
     }
+
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        Workspace::usage_owner(self, tab)
+    }
 }
 
 #[cfg(test)]

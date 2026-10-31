@@ -157,6 +157,16 @@ issue-theme-version-mismatch = versione del tema alterata scartata: { $version }
 issue-theme-version-missing = versione del tema mancante dalle sorgenti: { $version }
 issue-theme-pin-mismatch = Il tema incorporato { $namespace } non corrisponde a ciò che la presentazione si aspetta.
 issue-theme-closure = I temi fissati in questa presentazione non sono esattamente il suo tema e i suoi genitori ({ $namespace }).
+issue-usage-line-invalid = riga { $line } del registro di utilizzo illeggibile, scartata
+issue-usage-line-forged = turno di utilizzo { $turn } registrato due volte con contenuto diverso, uno scartato
+issue-usage-too-large = registro di utilizzo troppo grande, scartato
+issue-usage-unreadable = registro di utilizzo illeggibile, scartato
+issue-usage-lines-dropped = { $count ->
+    [one] { $count } altra riga del registro di utilizzo scartata
+   *[other] { $count } altre righe del registro di utilizzo scartate
+}
+usage-range-bad-date = «{ $date }» non è una data: usa AAAA-MM-GG.
+usage-range-reversed = La data di inizio { $since } è successiva alla data di fine { $until }.
 pack-token-entry-invalid = Token di componente «{ $path }» non valido nel manifesto del pacchetto.
 pack-manifest-json = Impossibile leggere il manifesto del pacchetto: { $reason }
 issue-unsupported-link = link non supportato: { $link }

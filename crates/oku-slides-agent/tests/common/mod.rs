@@ -130,7 +130,7 @@ async fn start_tabs_ready_within(
         fallback_cwd: dir.path().to_owned(),
         ready_within,
     };
-    let link = Link::new(launch);
+    let link = Link::for_preset("fake", launch, None);
     let cancel = CancellationToken::new();
     let mut started = Vec::with_capacity(tabs.len());
     for name in tabs {
@@ -365,6 +365,13 @@ impl oku_slides_session::agent::Sessions for TabSessions {
             return Ok(s.document_kind());
         }
         oku_slides_session::Workspace::document_kind(&self.1, "onglet-ferme")
+    }
+
+    fn usage_owner(&self, tab: &str) -> Option<String> {
+        if self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).contains_key(tab) {
+            return Some(tab.to_owned());
+        }
+        oku_slides_session::Workspace::usage_owner(&self.1, tab)
     }
 }
 

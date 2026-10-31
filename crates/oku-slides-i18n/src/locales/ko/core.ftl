@@ -148,6 +148,15 @@ issue-theme-version-mismatch = 변경된 테마 버전을 버렸습니다: { $ve
 issue-theme-version-missing = 소스에 테마 버전이 없습니다: { $version }
 issue-theme-pin-mismatch = 포함된 테마 { $namespace }이(가) 덱이 기대하는 것과 일치하지 않습니다.
 issue-theme-closure = 이 덱에 고정된 테마가 정확히 덱의 테마와 그 상위 테마가 아닙니다({ $namespace }).
+issue-usage-line-invalid = 사용량 로그 { $line }번째 줄을 읽을 수 없어 버렸습니다
+issue-usage-line-forged = 사용 턴 { $turn }이(가) 서로 다른 내용으로 두 번 기록되어 하나를 버렸습니다
+issue-usage-too-large = 사용량 로그가 너무 커서 버렸습니다
+issue-usage-unreadable = 사용량 로그를 읽을 수 없어 버렸습니다
+issue-usage-lines-dropped = { $count ->
+   *[other] 사용량 로그 { $count }줄을 더 버렸습니다
+}
+usage-range-bad-date = “{ $date }”은(는) 날짜가 아닙니다. YYYY-MM-DD 형식을 사용하세요.
+usage-range-reversed = 시작일 { $since }이(가) 종료일 { $until }보다 늦습니다.
 pack-token-entry-invalid = 팩 매니페스트의 구성 요소 토큰 “{ $path }”이(가) 잘못되었습니다.
 pack-manifest-json = 팩 매니페스트를 읽을 수 없습니다: { $reason }
 issue-unsupported-link = 지원되지 않는 링크: { $link }

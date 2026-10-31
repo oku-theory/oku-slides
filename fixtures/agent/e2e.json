@@ -26,6 +26,9 @@
       "chunks": ["Voici les thèmes."]
     },
     "suite des thèmes": { "chunks": ["Thème noté."] },
+    "pose la base de coût": { "chunks": ["Base posée."], "usage": [12, 10, 2], "cost": { "amount": 0.1, "currency": "USD" } },
+    "compte les tokens": { "chunks": ["Compté."], "usage": [5432, 4321, 1111], "cost": { "amount": 0.4321, "currency": "USD" } },
+    "combien a coûté ce deck": { "mcp": [{ "tool": "show_usage", "args": { "by": "tab" } }], "chunks": ["Voici l'usage."] },
     "portée atelier": { "chunks": ["Réponse de l'atelier."] },
     "Peaufiner la présentation importée": {
       "tool_calls": [{ "id": "i1", "title": "Lire le rapport d'import" }, { "id": "i2", "title": "Comparer la slide 7" }],

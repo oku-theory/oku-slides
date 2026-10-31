@@ -148,3 +148,10 @@ test("tab kind borders reach 3:1 against the default tab backgrounds in light an
     }
   }
 });
+
+test("a wide Markdown table scrolls sideways in its box and keeps its table display", () => {
+  const box = ruleOf(APP, ".md .md-table");
+  expect(box).toMatch(/overflow-x:\s*auto/);
+  expect(box).toMatch(/max-width:\s*100%/);
+  expect(ruleOf(APP, ".md table")).not.toMatch(/display:/);
+});

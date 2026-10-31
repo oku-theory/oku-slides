@@ -157,6 +157,16 @@ issue-theme-version-mismatch = gewijzigde themaversie verworpen: { $version }
 issue-theme-version-missing = themaversie ontbreekt in de bronnen: { $version }
 issue-theme-pin-mismatch = Het ingebedde thema { $namespace } komt niet overeen met wat de presentatie verwacht.
 issue-theme-closure = De thema's die in deze presentatie zijn vastgezet, zijn niet precies het thema en zijn ouders ({ $namespace }).
+issue-usage-line-invalid = regel { $line } van het gebruikslogboek onleesbaar, genegeerd
+issue-usage-line-forged = gebruiksbeurt { $turn } tweemaal met verschillende inhoud vastgelegd, één genegeerd
+issue-usage-too-large = gebruikslogboek te groot, genegeerd
+issue-usage-unreadable = gebruikslogboek onleesbaar, genegeerd
+issue-usage-lines-dropped = { $count ->
+    [one] { $count } extra regel van het gebruikslogboek genegeerd
+   *[other] { $count } extra regels van het gebruikslogboek genegeerd
+}
+usage-range-bad-date = “{ $date }” is geen datum: gebruik JJJJ-MM-DD.
+usage-range-reversed = De begindatum { $since } valt na de einddatum { $until }.
 pack-token-entry-invalid = Ongeldig componenttoken “{ $path }” in het pakketmanifest.
 pack-manifest-json = Het pakketmanifest kan niet worden gelezen: { $reason }
 issue-unsupported-link = niet-ondersteunde link: { $link }

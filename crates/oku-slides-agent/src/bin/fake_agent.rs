@@ -34,6 +34,9 @@
 //! session reply (the first one in use); `session/set_config_option` is logged, switches the
 //! session's model and answers its options, or fails for a value not offered.
 //! `no_options_on_reopen` leaves the options out of the `session/load` and `session/resume` replies.
+//! A turn's `usage` (`[total, input, output]`) goes in its prompt reply; its `cost`
+//! (`{ "amount", "currency" }`) is sent as is, as the session's cumulative cost, in a
+//! `usage_update` after its chunks: the scenario writes the running total, never a turn's share.
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -42,12 +45,13 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
-    AgentCapabilities, CancelNotification, ContentBlock, ContentChunk, InitializeRequest, InitializeResponse,
+    AgentCapabilities, CancelNotification, ContentBlock, ContentChunk, Cost, InitializeRequest, InitializeResponse,
     LoadSessionRequest, LoadSessionResponse, McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse, Plan,
     PlanEntry, PlanEntryPriority, PlanEntryStatus, PromptCapabilities, PromptRequest, PromptResponse,
     ResumeSessionRequest, ResumeSessionResponse, SessionCapabilities, SessionConfigOption, SessionConfigOptionCategory,
     SessionConfigSelectOption, SessionId, SessionNotification, SessionResumeCapabilities, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionConfigOptionResponse, StopReason, TextContent, ToolCall, ToolCallStatus,
+    Usage, UsageUpdate,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Stdio};
 use async_trait::async_trait;
@@ -174,6 +178,19 @@ struct Turn {
     /// Lancer les appels MCP du tour en même temps (des questions parallèles), au lieu de l'un après l'autre.
     #[serde(default)]
     parallel: bool,
+    /// End-of-turn usage `[total, input, output]`, sent in the prompt reply.
+    #[serde(default)]
+    usage: Option<[u64; 3]>,
+    /// The session's cumulative cost, sent as `usage_update` after the chunks.
+    #[serde(default)]
+    cost: Option<FakeCost>,
+}
+
+/// A cumulative session cost of the scenario.
+#[derive(Debug, Clone, Deserialize)]
+struct FakeCost {
+    amount: f64,
+    currency: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -530,6 +547,10 @@ async fn play(
     for text in &turn.chunks {
         cx.send_notification(chunk(session, text.clone()))?;
     }
+    if let Some(c) = &turn.cost {
+        let update = UsageUpdate::new(0, 200_000).cost(Cost::new(c.amount, c.currency.clone()));
+        cx.send_notification(SessionNotification::new(session.clone(), SessionUpdate::UsageUpdate(update)))?;
+    }
     if turn.wait_cancel {
         state.notify_for(&session_key).notified().await;
         return Ok(StopReason::Cancelled);
@@ -577,7 +598,8 @@ async fn main() -> agent_client_protocol::Result<()> {
                             std::process::exit(3);
                         }
                         state.log_turn_end(&req.session_id, &format!("{stop:?}"));
-                        responder.respond(PromptResponse::new(stop))
+                        let usage = turn.usage.map(|[total, input, output]| Usage::new(total, input, output));
+                        responder.respond(PromptResponse::new(stop).usage(usage))
                     }
                 })
             },

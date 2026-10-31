@@ -157,6 +157,16 @@ issue-theme-version-mismatch = altered theme version discarded: { $version }
 issue-theme-version-missing = theme version missing from the sources: { $version }
 issue-theme-pin-mismatch = The embedded theme { $namespace } does not match what the deck expects.
 issue-theme-closure = The themes pinned by this deck are not exactly its theme and its parents ({ $namespace }).
+issue-usage-line-invalid = usage ledger line { $line } unreadable, discarded
+issue-usage-line-forged = usage turn { $turn } recorded twice with different content, one discarded
+issue-usage-too-large = usage ledger too large, discarded
+issue-usage-unreadable = usage ledger unreadable, discarded
+issue-usage-lines-dropped = { $count ->
+    [one] { $count } more usage ledger line discarded
+   *[other] { $count } more usage ledger lines discarded
+}
+usage-range-bad-date = “{ $date }” is not a date: use YYYY-MM-DD.
+usage-range-reversed = The start date { $since } is after the end date { $until }.
 pack-token-entry-invalid = Invalid component token “{ $path }” in the pack manifest.
 pack-manifest-json = The pack manifest cannot be read: { $reason }
 issue-unsupported-link = unsupported link: { $link }

@@ -12,6 +12,7 @@ mod out;
 mod pack_render;
 mod serve;
 mod sse;
+mod usage_cmd;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -34,6 +35,7 @@ use crate::bench::ms;
 use crate::import::{ImportArgs, ImportMode, ReferenceMode};
 use crate::library::deck_pack_versions;
 use crate::out::Out;
+use crate::usage_cmd::{CliBy, UsageArgs};
 
 // L'aide de chaque commande et option vient des messages Fluent
 // (`cli-cmd-…`, `cli-arg-…`) : voir `command`.
@@ -100,6 +102,18 @@ enum Cmd {
         iterations: usize,
     },
     Schema,
+    Usage {
+        #[arg(required = true)]
+        decks: Vec<PathBuf>,
+        #[arg(long, value_enum, default_value_t = CliBy::Day)]
+        by: CliBy,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long)]
+        until: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     Serve {
         input: Option<PathBuf>,
         #[arg(long)]
@@ -157,6 +171,14 @@ fn command(l: &Localizer) -> clap::Command {
                 .mut_arg("iterations", |a| a.help(help("cli-arg-iterations")))
         })
         .mut_subcommand("schema", |c| c.about(help("cli-cmd-schema")))
+        .mut_subcommand("usage", |c| {
+            c.about(help("cli-cmd-usage"))
+                .mut_arg("decks", |a| a.help(help("cli-arg-usage-decks")))
+                .mut_arg("by", |a| a.help(help("cli-arg-usage-by")))
+                .mut_arg("since", |a| a.help(help("cli-arg-usage-since")))
+                .mut_arg("until", |a| a.help(help("cli-arg-usage-until")))
+                .mut_arg("json", |a| a.help(help("cli-arg-usage-json")))
+        })
         .mut_subcommand("serve", |c| {
             c.about(help("cli-cmd-serve"))
                 .mut_arg("input", |a| a.help(help("cli-arg-serve-input")))
@@ -289,11 +311,18 @@ fn write_rendered(
     bundle: &SourceBundle,
     output: &Path,
 ) -> Result<Written> {
-    let zip = bundle.to_zip()?;
+    let zip = sources_zip(platform, bundle)?;
     let written = oku_slides_pdf::embed_sources(pdf, &zip)?;
     let pdf = written.len();
     platform.storage.write_atomic(output, written)?;
     Ok(Written { pages, pdf, sources: zip.len() })
+}
+
+/// The sources zip of `bundle`, written as an app save writes it.
+///
+/// `[usage] store_in_deck` off leaves the agent usage ledger out.
+fn sources_zip(platform: &Platform, bundle: &SourceBundle) -> Result<Vec<u8>> {
+    Ok(bundle.to_zip_with(platform.settings.usage.store_in_deck)?)
 }
 
 /// Registre de base des widgets, compilé depuis Typst une fois par processus
@@ -529,7 +558,14 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
         }
         Cmd::Bench { deck, iterations } => bench_cmd(platform, out, app_fonts, limits, &deck, iterations)?,
         Cmd::Schema => out.data(&serde_json::to_string_pretty(&oku_slides_core::ops_schema()?)?)?,
+        Cmd::Usage { decks, by, since, until, json } => {
+            usage_cmd::usage(platform, out, &app_fonts, limits, &UsageArgs { decks, by, since, until, json })?;
+        }
         Cmd::Serve { input, port, ui } => serve::serve(out, input.as_deref(), port, &ui, app_fonts, platform)?,
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "main_tests.rs"]
+mod main_tests;

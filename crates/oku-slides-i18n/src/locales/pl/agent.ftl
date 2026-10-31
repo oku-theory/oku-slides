@@ -143,6 +143,7 @@ agent-error-empty-dictation = Nic do zmiany: podaj co najmniej jedno ustawienie 
 agent-error-not-shown = Ta karta nie jest wyświetlana w swoim oknie: poproś ponownie, gdy użytkownik ją wyświetli.
 agent-error-themes-deck-mode = Wybór motywu otwiera się tylko podczas edycji slajdów.
 agent-error-packs-deck-mode = Panel pakietów prezentacji otwiera się tylko podczas edycji slajdów.
+agent-error-usage-no-deck = Użycie tej karty nie należy do żadnej prezentacji: do prezentacji liczy się tylko karta pakietu lub motywu otwarta z tej prezentacji (przez użytkownika lub agenta) albo własny pakiet prezentacji.
 agent-error-rewrite-text = Przeredagowanie wróciło bez tekstu.
 agent-error-paragraphs = Akapity przeredagowania są nieprawidłowe.
 agent-error-draft-too-long = Szkic jest za długi.

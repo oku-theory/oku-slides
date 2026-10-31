@@ -139,6 +139,7 @@ agent-error-empty-dictation = Niets te wijzigen: geef minstens één dicteerinst
 agent-error-not-shown = Dit tabblad is niet het getoonde in zijn venster: vraag het opnieuw zodra de gebruiker het toont.
 agent-error-themes-deck-mode = De themakiezer opent alleen tijdens het bewerken van de dia's.
 agent-error-packs-deck-mode = Het paneel met pakketten van de presentatie opent alleen tijdens het bewerken van de dia's.
+agent-error-usage-no-deck = Het gebruik van dit tabblad hoort bij geen enkele presentatie: alleen een pakket- of thematabblad dat vanuit een presentatie is geopend (door de gebruiker of de agent), of het eigen pakket van een presentatie, telt mee voor die presentatie.
 agent-error-rewrite-text = De herformulering kwam terug zonder tekst.
 agent-error-paragraphs = De alinea's van de herformulering zijn ongeldig.
 agent-error-draft-too-long = Het concept is te lang.

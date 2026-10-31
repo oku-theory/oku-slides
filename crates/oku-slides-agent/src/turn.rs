@@ -1,7 +1,9 @@
 //! One turn: its undo group, context, `session/prompt`, and what arrives
 //! while it runs (a cancel, a new instruction).
 
-use agent_client_protocol::schema::v1::{CancelNotification, ContentBlock, PromptRequest, SessionId, TextContent};
+use agent_client_protocol::schema::v1::{
+    CancelNotification, ContentBlock, PromptRequest, SessionId, TextContent, Usage,
+};
 use agent_client_protocol::{Agent, ConnectionTo};
 use oku_slides_session::DocumentKind;
 use tokio::sync::mpsc;
@@ -26,7 +28,8 @@ pub(crate) struct Pending {
 
 /// Plays turn `turn` of `instruction`.
 ///
-/// Returns what happened during the turn (handled next).
+/// Returns what happened during the turn (handled next) and the reply's token usage, `None` when
+/// the agent sent none.
 ///
 /// The prompt: the instructions (the session's first turn: the core, the tab kind's
 /// paragraph, then the widget text outside a theme tab), the import's (a fine-tuning
@@ -46,7 +49,7 @@ pub(crate) async fn run(
     first: bool,
     see_images: bool,
     prompting: impl FnOnce(),
-) -> agent_client_protocol::Result<Pending> {
+) -> agent_client_protocol::Result<(Pending, Option<Usage>)> {
     let Instruction { text, ui, tune, images } = instruction;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
@@ -123,8 +126,8 @@ pub(crate) async fn run(
         }
     };
     ctx.end_turn().await;
-    let stop = as_text(&response?.stop_reason);
-    ctx.emit(AgentEvent::TurnEnded { turn, stop });
+    let response = response?;
+    ctx.emit(AgentEvent::TurnEnded { turn, stop: as_text(&response.stop_reason) });
     ctx.emit(AgentEvent::idle());
-    Ok(pending)
+    Ok((pending, response.usage))
 }

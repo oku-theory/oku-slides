@@ -148,6 +148,15 @@ issue-theme-version-mismatch = ทิ้งเวอร์ชันธีมท�
 issue-theme-version-missing = ไม่มีเวอร์ชันธีมในแหล่งข้อมูล: { $version }
 issue-theme-pin-mismatch = ธีมที่ฝังไว้ { $namespace } ไม่ตรงกับที่เด็คคาดหวัง
 issue-theme-closure = ธีมที่ปักหมุดในเด็คนี้ไม่ใช่ธีมของเด็คและธีมแม่ของมันพอดี ({ $namespace })
+issue-usage-line-invalid = บรรทัดที่ { $line } ของบันทึกการใช้งานอ่านไม่ได้ จึงทิ้งไป
+issue-usage-line-forged = รอบการใช้งาน { $turn } ถูกบันทึกสองครั้งด้วยเนื้อหาต่างกัน จึงทิ้งไปหนึ่งรายการ
+issue-usage-too-large = บันทึกการใช้งานใหญ่เกินไป จึงทิ้งไป
+issue-usage-unreadable = บันทึกการใช้งานอ่านไม่ได้ จึงทิ้งไป
+issue-usage-lines-dropped = { $count ->
+   *[other] ทิ้งบันทึกการใช้งานอีก { $count } บรรทัด
+}
+usage-range-bad-date = “{ $date }” ไม่ใช่วันที่: ใช้รูปแบบ YYYY-MM-DD
+usage-range-reversed = วันที่เริ่มต้น { $since } อยู่หลังวันที่สิ้นสุด { $until }
 pack-token-entry-invalid = โทเค็นคอมโพเนนต์ “{ $path }” ในไฟล์กำกับแพ็กไม่ถูกต้อง
 pack-manifest-json = อ่านไฟล์กำกับแพ็กไม่ได้: { $reason }
 issue-unsupported-link = ลิงก์ที่ไม่รองรับ: { $link }

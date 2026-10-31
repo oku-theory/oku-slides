@@ -176,6 +176,7 @@ impl Session {
         let hash = self.write_file(&path)?;
         self.doc.path = Some(path);
         self.doc.dirty = false;
+        self.doc.usage_unsaved = false;
         self.doc.saved_hash = Some(hash);
         Ok(())
     }
@@ -183,8 +184,16 @@ impl Session {
     /// Écrit le document (PDF et sources) dans `path` ; son empreinte.
     pub(crate) fn write_file(&mut self, path: &Path) -> Result<String> {
         let pdf = self.with_compiled(RemoteCompiled::pdf)?;
-        let zip = self.doc.sources.to_zip().context(SourcesSnafu)?;
-        let out = oku_slides_pdf::embed_sources(&pdf, &zip).context(PdfSnafu)?;
+        self.write_pdf(path, &pdf)
+    }
+
+    /// Writes `pdf` with the document's sources embedded to `path`; its hash.
+    ///
+    /// `pdf` is a fresh render, or the file's own bytes when only the
+    /// sources changed. `[usage] store_in_deck` off writes no ledger.
+    pub(crate) fn write_pdf(&self, path: &Path, pdf: &[u8]) -> Result<String> {
+        let zip = self.doc.sources.to_zip_with(self.doc_defaults.store_usage).context(SourcesSnafu)?;
+        let out = oku_slides_pdf::embed_sources(pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
         let hash = oku_slides_core::asset_id(&out);
         self.storage.write_atomic(path, out).context(WriteSnafu { path })?;

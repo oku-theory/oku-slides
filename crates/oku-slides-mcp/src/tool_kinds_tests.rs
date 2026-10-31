@@ -10,6 +10,8 @@ use super::Kinds;
 #[case(Kinds::PACK.or(Kinds::THEME), DocumentKind::Theme, true)]
 #[case(Kinds::PACK.or(Kinds::THEME), DocumentKind::Deck, false)]
 #[case(Kinds::ALL, DocumentKind::Pack, true)]
+#[case(Kinds::DECK_PACK_OR_THEME, DocumentKind::Help, false)]
+#[case(Kinds::DECK_PACK_OR_THEME, DocumentKind::Theme, true)]
 fn kinds_has_exactly_its_kinds(#[case] k: Kinds, #[case] kind: DocumentKind, #[case] has: bool) {
     assert_that!(k.has(kind)).is_equal_to(has);
 }

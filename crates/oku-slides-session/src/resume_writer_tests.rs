@@ -1,9 +1,10 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::agent::SavedConversation;
 use crate::resume_writer::AgentWrite;
 
-use oku_slides_core::{Deck, SourceBundle};
+use oku_slides_core::{Deck, SourceBundle, USAGE_FILE, UsageLedger};
 use speculoos::prelude::*;
 
 use super::*;
@@ -15,7 +16,7 @@ use crate::views::UiState;
 
 /// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
 fn defaults() -> DocDefaults {
-    DocDefaults { undo_limit: 10, author: None }
+    DocDefaults { undo_limit: 10, author: None, store_usage: true }
 }
 
 fn temp_dir() -> PathBuf {
@@ -88,6 +89,37 @@ fn writer_merged_jobs_keep_the_latest_documents_and_state() {
     )
     .is_equal_to(Some("pro"));
     assert_that!(r.read_state().unwrap().unwrap().ui.slide.as_deref()).is_equal_to(Some("s-2"));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A deck job whose snapshot carries that very `usage` (its ledger equals it, the cache holds it).
+fn job_with_usage(usage: &Arc<UsageLedger>) -> Job {
+    let mut doc = document("pro");
+    doc.sources.usage = (**usage).clone();
+    let snapshot = DocSnapshot::with_blobs(&doc, &doc.sources, &mut Vec::new(), &mut vec![Arc::clone(usage)]).unwrap();
+    Job { docs: vec![(DECK_DIR, snapshot)], state: state("s-1"), agent: None }
+}
+
+/// The writer rewrites `usage.jsonl` only for a ledger it has not written yet.
+#[test]
+fn writer_same_usage_arc_is_written_once() {
+    let dir = temp_dir();
+    let w = Writer::new(resume(&dir));
+    let mut ledger = UsageLedger::default();
+    ledger.insert(crate::deck_usage::deck_usage_tests::record(1));
+    let usage = Arc::new(ledger);
+    w.send(job_with_usage(&usage));
+    w.flush();
+    let file = dir.join(DECK_DIR).join(USAGE_FILE);
+    std::fs::remove_file(&file).unwrap();
+    w.send(job_with_usage(&usage));
+    w.flush();
+    assert_that!(file.exists()).is_false();
+    let mut grown = (*usage).clone();
+    grown.insert(crate::deck_usage::deck_usage_tests::record(2));
+    w.send(job_with_usage(&Arc::new(grown)));
+    w.flush();
+    assert_that!(UsageLedger::from_jsonl(&std::fs::read(&file).unwrap()).0.len()).is_equal_to(2);
     std::fs::remove_dir_all(&dir).ok();
 }
 

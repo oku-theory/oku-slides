@@ -139,6 +139,7 @@ agent-error-empty-dictation = Nada para mudar: informe pelo menos um ajuste do d
 agent-error-not-shown = Esta aba não é a exibida na janela: peça de novo quando o usuário exibi-la.
 agent-error-themes-deck-mode = O seletor de temas só abre durante a edição dos diapositivos.
 agent-error-packs-deck-mode = O painel de pacotes da apresentação só abre durante a edição dos diapositivos.
+agent-error-usage-no-deck = O uso desta aba não pertence a nenhuma apresentação: só uma aba de pacote ou de tema aberta a partir de uma apresentação (pelo usuário ou pelo agente), ou o pacote próprio de uma apresentação, conta para ela.
 agent-error-rewrite-text = A reformulação voltou sem texto.
 agent-error-paragraphs = Os parágrafos da reformulação são inválidos.
 agent-error-draft-too-long = O rascunho é longo demais.

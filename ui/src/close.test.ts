@@ -49,6 +49,26 @@ describe("saveForClose", () => {
     expect(calls).toEqual(["historyClose", "save"]);
   });
 
+  test("saveForClose with history open and only the tab dirty closes history and saves nothing", async () => {
+    const calls: string[] = [];
+    const history = { index: 0 } as unknown as Snapshot["history"];
+    const api = {
+      snapshot: async () => snap({ path: "/x.oku-slides.pdf", history }),
+      historyClose: async () => (calls.push("historyClose"), snap({ path: "/x.oku-slides.pdf", history: null })),
+      save: async () => (calls.push("save"), snap({ path: "/x.oku-slides.pdf" })),
+    } as unknown as TabApi;
+    expect(await saveForClose(api, { tabDirty: true })).toBe(true);
+    expect(calls).toEqual(["historyClose"]);
+  });
+
+  test("saveForClose with history open on a clean tab leaves history open", async () => {
+    const historyClose = mock(async () => snap({}));
+    const history = { index: 0 } as unknown as Snapshot["history"];
+    const api = { snapshot: async () => snap({ history }), historyClose } as unknown as TabApi;
+    expect(await saveForClose(api)).toBe(true);
+    expect(historyClose).not.toHaveBeenCalled();
+  });
+
   test("saveForClose of a new deck saves to the default folder without a dialog", async () => {
     const save = mock(async () => snap({ path: "/Documents/Oku Slides/essai.oku-slides.pdf" }));
     const api = { snapshot: async () => snap({ dirty: true }), save } as unknown as TabApi;
@@ -132,6 +152,16 @@ describe("mayClose", () => {
     const api = { snapshot: async () => snap({ dirty: true, path: "/x.oku-slides.pdf" }), save } as unknown as TabApi;
     expect(await mayClose(tab(true), null, api, deps)).toBe("keep");
     expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  test("mayClose of a dirty tab with history open and a clean snapshot closes history and keeps", async () => {
+    const history = { index: 0 } as unknown as Snapshot["history"];
+    const historyClose = mock(async () => snap({ path: "/x.oku-slides.pdf", history: null }));
+    const save = mock(async () => snap({}));
+    const api = { historyClose, save } as unknown as TabApi;
+    expect(await mayClose(tab(true), snap({ path: "/x.oku-slides.pdf", history }), api, deps)).toBe("keep");
+    expect(historyClose).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
   });
 
   test("mayClose of a dirty tab whose save is refused (file replaced) stays", async () => {

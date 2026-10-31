@@ -77,6 +77,10 @@ pub(crate) enum ToolError {
     ThemesDeckMode { backtrace: Backtrace },
     #[snafu(display("the deck packs panel opens in deck mode only"))]
     PacksDeckMode { backtrace: Backtrace },
+    #[snafu(display("this tab's usage belongs to no deck"))]
+    UsageNoDeck { backtrace: Backtrace },
+    #[snafu(display("invalid usage date range"))]
+    UsageBadRange { source: oku_slides_core::UsageRangeError, backtrace: Backtrace },
     /// Refus d'un pack ajouté ou retiré : l'op refusée se dit elle-même, sans son rang.
     #[snafu(display("the session refused the pack change"))]
     PackChange { source: SessionError, backtrace: Backtrace },
@@ -99,7 +103,7 @@ impl Localize for ToolError {
             HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, NothingToPresent, OpenElsewhere, PackChange,
             PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Response, RewriteText, Session, Setting,
             SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale,
-            UnknownTool, Voice,
+            UnknownTool, UsageBadRange, UsageNoDeck, Voice,
         };
         match self {
             Arguments { source, .. } => {
@@ -135,6 +139,9 @@ impl Localize for ToolError {
             NotShown { .. } => l.tr("agent-error-not-shown"),
             ThemesDeckMode { .. } => l.tr("agent-error-themes-deck-mode"),
             PacksDeckMode { .. } => l.tr("agent-error-packs-deck-mode"),
+            UsageNoDeck { .. } => l.tr("agent-error-usage-no-deck"),
+            // The agent's own dates, told back by core in the user's language.
+            UsageBadRange { source, .. } => source.localize(l),
             PackChange { source, .. } => match source.transaction() {
                 Some(refused) => refused.op_error().localize(l),
                 None => say_to_agent(source, l),

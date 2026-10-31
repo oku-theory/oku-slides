@@ -133,6 +133,7 @@ agent-error-empty-dictation = Değiştirilecek bir şey yok: dikte ayarlarından
 agent-error-not-shown = Bu sekme penceresinde gösterilen sekme değil: kullanıcı onu gösterdiğinde yeniden isteyin.
 agent-error-themes-deck-mode = Tema seçici yalnızca slaytlar düzenlenirken açılır.
 agent-error-packs-deck-mode = Sununun paket paneli yalnızca slaytlar düzenlenirken açılır.
+agent-error-usage-no-deck = Bu sekmenin kullanımı hiçbir sunuya ait değil: bir sunuya yalnızca o sunudan (kullanıcı ya da ajan tarafından) açılan paket veya tema sekmesi ya da sununun kendi paketi sayılır.
 agent-error-rewrite-text = Yeniden yazım metin olmadan döndü.
 agent-error-paragraphs = Yeniden yazımın paragrafları geçersiz.
 agent-error-draft-too-long = Taslak çok uzun.

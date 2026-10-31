@@ -139,6 +139,7 @@ agent-error-empty-dictation = Nichts zu ändern: Gib mindestens eine Diktier-Ein
 agent-error-not-shown = Dieser Tab ist nicht der in seinem Fenster angezeigte: Frag erneut, sobald der Nutzer ihn anzeigt.
 agent-error-themes-deck-mode = Die Themenauswahl öffnet sich nur beim Bearbeiten der Folien.
 agent-error-packs-deck-mode = Der Bereich der Präsentationspakete öffnet sich nur beim Bearbeiten der Folien.
+agent-error-usage-no-deck = Die Nutzung dieses Tabs gehört zu keiner Präsentation: Nur ein Paket- oder Design-Tab, der aus einer Präsentation geöffnet wurde (vom Nutzer oder vom Agenten), oder das eigene Paket einer Präsentation zählt für diese Präsentation.
 agent-error-rewrite-text = Die Umformulierung kam ohne Text zurück.
 agent-error-paragraphs = Die Absätze der Umformulierung sind ungültig.
 agent-error-draft-too-long = Der Entwurf ist zu lang.

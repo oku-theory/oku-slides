@@ -16,7 +16,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
-  tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument).
+  tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument), `usage_tools` (`usage`, `show_usage`: the linked deck's ledger as JSON capped at 1000 rows, a thread box capped at 100; not in help tabs).
 - `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized message in
   the current interface language (`LiveLocalizer`, also read by the hub). `error` : `McpError`, `say_session`; `paths` (agent-given paths).
 - Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, in the hub, which builds the box);

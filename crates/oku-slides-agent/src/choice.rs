@@ -272,7 +272,7 @@ impl AgentChoice {
         };
         // The built-in agent offers no model choice: none is asked of it.
         let model = preset.builtin.is_none().then(|| self.chosen_model(id)).flatten();
-        self.link.switch(Self::launch_of(preset, &self.platform), model);
+        self.link.switch(id, Self::launch_of(preset, &self.platform), model);
         id.clone_into(&mut active);
     }
 

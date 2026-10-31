@@ -60,7 +60,7 @@ typst-pdf = "0.15.1"
 typst-svg = "0.15.1"
 typst-render = "0.15.1"
 typst-assets = { version = "0.15.1", features = ["fonts"] }
-time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 color-eyre = "0.6"

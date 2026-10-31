@@ -148,6 +148,15 @@ issue-theme-version-mismatch = 已捨棄遭竄改的主題版本：{ $version }
 issue-theme-version-missing = 原始檔中缺少主題版本：{ $version }
 issue-theme-pin-mismatch = 內嵌的主題 { $namespace } 與簡報所期望的不符。
 issue-theme-closure = 此簡報固定的主題並非恰好是其主題及其父主題（{ $namespace }）。
+issue-usage-line-invalid = 用量日誌第 { $line } 行無法讀取，已捨棄
+issue-usage-line-forged = 用量回合 { $turn } 以不同內容記錄了兩次，已捨棄其中一筆
+issue-usage-too-large = 用量日誌過大，已捨棄
+issue-usage-unreadable = 用量日誌無法讀取，已捨棄
+issue-usage-lines-dropped = { $count ->
+   *[other] 另有{ $count }行用量日誌已捨棄
+}
+usage-range-bad-date = 「{ $date }」不是日期：請使用 YYYY-MM-DD。
+usage-range-reversed = 開始日期 { $since } 晚於結束日期 { $until }。
 pack-token-entry-invalid = 套件資訊清單中的元件權杖「{ $path }」無效。
 pack-manifest-json = 無法讀取套件資訊清單：{ $reason }
 issue-unsupported-link = 不支援的連結：{ $link }

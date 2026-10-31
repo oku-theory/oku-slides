@@ -16,7 +16,7 @@
 //!   [`slide_changes`] compares a version with the current deck, as [`SlideChanges`].
 //! - [`SourceBundle`]: zip of the sources (deck, assets); its view of the deck is
 //!   the replica read back, in canonical form ([`canonicalize`]);
-//!   [`SourceBundle::merge`] adds the union of the assets and fonts to it.
+//!   [`SourceBundle::merge`] adds the union of the assets, fonts and usage ledger to it.
 //! - [`PackPin`], [`PackVersion`], [`PackFiles`], [`WidgetFile`]: widget pack pinned by a deck under a [`Namespace`], content-addressed version, widget files; [`ThemePin`]: theme pinned by a deck, versioned the same way, its `extends` chain in [`theme_chain`].
 //! - [`token_spec`]: component tokens declared by packs ([`ComponentToken`]) and editor control ([`Control`]).
 //! - [`Slide::text_fields`]: the text fields of a slide in reading
@@ -28,6 +28,7 @@
 //! - [`media`]: actual type of a media file ([`media::sniff`]) and raster dimensions read from its header.
 //! - [`num`]: bounded, named conversions between floats and integers ([`num::round_u32`]…).
 //! - [`tokens`]: effective tokens of a theme ([`tokens::effective_tokens`], merge [`tokens::merge`], theme layer [`tokens::theme_layer`]).
+//! - [`UsageLedger`]: the deck's agent usage, one [`UsageRecord`] per turn, add-only, checked on read; [`aggregate`] sums it into a [`UsageReport`].
 
 mod canonical;
 mod color;
@@ -54,6 +55,8 @@ pub(crate) mod test_registry;
 pub mod theme_chain;
 pub mod token_spec;
 pub mod tokens;
+pub mod usage;
+pub mod usage_report;
 pub mod validate;
 pub mod widget;
 
@@ -89,5 +92,12 @@ pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePat
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use theme_chain::{ThemeChainError, ThemePin, check_closure, linearize};
 pub use token_spec::{ComponentToken, Control, check_entries};
+pub use usage::{
+    Inserted, USAGE_FILE, USAGE_MAX_BYTES, USAGE_MAX_RECORDS, UsageCost, UsageLedger, UsageRecord, UsageTab,
+    UsageTokens, shown_char, shown_text,
+};
+pub use usage_report::{
+    By, CostTotal, Range, UsageRangeError, UsageRangeErrorKind, UsageReport, UsageRow, aggregate, parse_day,
+};
 pub use validate::{Issue, asset_refs, element_asset_refs, validate};
 pub use widget::{Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};

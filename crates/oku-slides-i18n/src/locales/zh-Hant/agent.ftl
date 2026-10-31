@@ -133,6 +133,7 @@ agent-error-empty-dictation = 沒有要變更的內容：請至少提供一項�
 agent-error-not-shown = 此分頁不是其視窗中顯示的分頁：請在使用者顯示它後再請求。
 agent-error-themes-deck-mode = 主題選擇器只在編輯投影片時開啟。
 agent-error-packs-deck-mode = 簡報的套件面板只在編輯投影片時開啟。
+agent-error-usage-no-deck = 此分頁的用量不屬於任何簡報：只有從簡報開啟的套件分頁或主題分頁（無論由使用者還是 AI 代理開啟），或簡報自己的套件，才計入該簡報。
 agent-error-rewrite-text = 改寫傳回時沒有文字。
 agent-error-paragraphs = 改寫的段落無效。
 agent-error-draft-too-long = 草稿太長。
