@@ -40,7 +40,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - `.cargo/config.toml` `MACOSX_DEPLOYMENT_TARGET` must equal `bundle.macOS.minimumSystemVersion`
   in `src-tauri/tauri.conf.json`, or typst rebuilds on every `just dev` / `just test` switch.
 - Git LFS holds `assets/fonts/*.{ttf,otf}` and `fixtures/import/*.pdf`: commit pointers, never binaries.
-- After merging `main` into a worktree, run `bun install` in `ui/` if its deps changed, or `tsc` fails.
+- After merging `main` into a worktree, run `bun install` in `ui/` if its deps changed, or `tsc` fails; right before squashing, `git fetch` and check `main` again (other sessions push often) and merge once more if it moved.
 
 ## Invariants
 
