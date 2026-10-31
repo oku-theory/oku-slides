@@ -1,5 +1,5 @@
-//! `render` : une composition libre du catalogue v3 par l'agent, validée
-//! ici. Une erreur revient à l'agent (`AgentForm`), lisible, pour qu'il corrige.
+//! `render`: a free composition of catalog v4 components by the agent, checked here.
+//! An error goes back to the agent (`AgentForm`), readable, so it can fix it.
 
 use std::collections::{HashMap, HashSet};
 
@@ -19,7 +19,7 @@ use crate::error::AgentFormSnafu;
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Render {
-    /// Components of the Oku Slides A2UI catalog v3; one has id "root".
+    /// Components of the Oku Slides A2UI catalog v4; one has id "root".
     ///
     /// A2UI v0.9 shape: {id, component, …}. Values are literal: no {path} bindings.
     pub components: Vec<serde_json::Value>,
@@ -114,21 +114,10 @@ fn check_content(i: usize, c: &Component, name: &str) -> Result<()> {
     }
 }
 
-/// `render` ne propose que les composants de sa description : les champs vont dans `show_params`.
+/// `render` offers only the components its description lists: fields go through `show_params`.
 fn check_available(i: usize, c: &Component, name: &str) -> Result<()> {
-    let field = matches!(
-        c.kind,
-        ComponentKind::TextField { .. }
-            | ComponentKind::RichTextField { .. }
-            | ComponentKind::Stepper { .. }
-            | ComponentKind::Slider { .. }
-            | ComponentKind::ColorField { .. }
-            | ComponentKind::Select { .. }
-            | ComponentKind::ListTable { .. }
-            | ComponentKind::ChoiceChips { .. }
-    );
     ensure!(
-        !field,
+        !c.kind.is_field(),
         AgentFormSnafu {
             reason: AgentFormReason::SettingInRender { at: format!("components[{i}]"), name: name.to_owned() }
         }

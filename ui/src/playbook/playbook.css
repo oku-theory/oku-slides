@@ -1,0 +1,13 @@
+/* The dev gallery's layout; components keep the app's own styles. */
+.playbook { height: 100vh; overflow-y: auto; user-select: text; box-sizing: border-box; padding: 0 max(16px, calc((100% - 1100px) / 2)) 32px; font-family: var(--sans); color: var(--ink); background: var(--paper-000); }
+.playbook-bar { position: sticky; top: 0; z-index: 1; display: flex; gap: 12px; align-items: center; padding: 8px 0; background: var(--paper-000); }
+.playbook-bar h1 { flex: 1; font-size: 18px; margin: 0; }
+.playbook-log { max-height: 120px; overflow: auto; font: 12px ui-monospace, monospace; }
+.playbook-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.playbook-group > h2 { grid-column: 1 / -1; margin: 8px 0 0; }
+.playbook-example { border: 1px solid color-mix(in oklab, var(--ink) 15%, transparent); border-radius: 8px; padding: 12px; }
+.playbook-example header { display: flex; gap: 8px; align-items: baseline; }
+.playbook-example h3 { margin: 0; }
+.playbook-agent { font-size: 11px; padding: 0 6px; border-radius: 4px; background: color-mix(in oklab, var(--ink) 12%, transparent); }
+.playbook-error { color: var(--danger); }
+.playbook-example pre { max-height: 240px; overflow: auto; font-size: 11px; }

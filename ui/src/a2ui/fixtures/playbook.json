@@ -1,0 +1,2099 @@
+[
+  {
+    "component": "Column",
+    "variant": "default",
+    "note": "Stacks children top to bottom: the usual root of a card's body.",
+    "group": "layout",
+    "agent": true,
+    "surface": "playbook-Column-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Column-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Column-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "title",
+                "body"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Three palettes",
+              "variant": "h4"
+            },
+            {
+              "id": "body",
+              "component": "Text",
+              "text": "Pick one to apply it to every slide."
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Column-default",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Card",
+    "variant": "default",
+    "note": "Frames one child; the neutral card of a thread.",
+    "group": "layout",
+    "agent": true,
+    "surface": "playbook-Card-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Card-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Card-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "t"
+            },
+            {
+              "id": "t",
+              "component": "Text",
+              "text": "A card groups related content."
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Card-default",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Card",
+    "variant": "accent",
+    "note": "Highlights a conclusion or a suggestion.",
+    "group": "layout",
+    "agent": true,
+    "surface": "playbook-Card-accent",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Card-accent",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Card-accent",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "t",
+              "tone": "accent"
+            },
+            {
+              "id": "t",
+              "component": "Text",
+              "text": "A card groups related content."
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Card-accent",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Card",
+    "variant": "danger",
+    "note": "Marks a host warning; render refuses the danger tone.",
+    "group": "layout",
+    "agent": false,
+    "surface": "playbook-Card-danger",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Card-danger",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Card-danger",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "t",
+              "tone": "danger"
+            },
+            {
+              "id": "t",
+              "component": "Text",
+              "text": "A card groups related content."
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Card-danger",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Text",
+    "variant": "h4",
+    "note": "A section heading inside a card.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Text-h4",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Text-h4",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Text-h4",
+          "components": [
+            {
+              "id": "root",
+              "component": "Text",
+              "text": "Palette",
+              "variant": "h4"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Text-h4",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Text",
+    "variant": "body",
+    "note": "Body text, the default style.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Text-body",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Text-body",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Text-body",
+          "components": [
+            {
+              "id": "root",
+              "component": "Text",
+              "text": "The title turns white on the dark background.",
+              "variant": "body"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Text-body",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Text",
+    "variant": "caption",
+    "note": "A smaller line under a heading or a figure.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Text-caption",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Text-caption",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Text-caption",
+          "components": [
+            {
+              "id": "root",
+              "component": "Text",
+              "text": "Source: Insee, 2024",
+              "variant": "caption"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Text-caption",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Text",
+    "variant": "note",
+    "note": "A dimmed line, truncated when too long.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Text-note",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Text-note",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Text-note",
+          "components": [
+            {
+              "id": "root",
+              "component": "Text",
+              "text": "Applied to slides 2 to 9",
+              "variant": "note"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Text-note",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Text",
+    "variant": "bound",
+    "note": "Reads its text from the data model; render accepts literals only.",
+    "group": "atom",
+    "agent": false,
+    "surface": "playbook-Text-bound",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Text-bound",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Text-bound",
+          "components": [
+            {
+              "id": "root",
+              "component": "Text",
+              "text": {
+                "path": "/title"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Text-bound",
+          "value": {
+            "title": "Quarterly review"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "TextField",
+    "variant": "bound",
+    "note": "Edits a model value; the action fires on Enter or blur.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-TextField-bound",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-TextField-bound",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-TextField-bound",
+          "components": [
+            {
+              "id": "root",
+              "component": "TextField",
+              "label": "Title",
+              "value": {
+                "path": "/title"
+              },
+              "action": {
+                "event": {
+                  "name": "commit"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-TextField-bound",
+          "value": {
+            "title": "Quarterly review"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "RichTextField",
+    "variant": "bound",
+    "note": "Edits paragraphs as markdown; writes the markdown and the paragraphs, then acts.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-RichTextField-bound",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-RichTextField-bound",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-RichTextField-bound",
+          "components": [
+            {
+              "id": "root",
+              "component": "RichTextField",
+              "label": "Body",
+              "value": {
+                "path": "/body"
+              },
+              "source": {
+                "path": "/body-source"
+              },
+              "palette": [
+                "#1f4e79",
+                "#c2573a",
+                "#2f855a"
+              ],
+              "action": {
+                "event": {
+                  "name": "commit"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-RichTextField-bound",
+          "value": {
+            "body": "**Bold** start",
+            "body-source": [
+              {
+                "runs": [
+                  {
+                    "t": "Bold",
+                    "bold": true
+                  },
+                  {
+                    "t": " start"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "Stepper",
+    "variant": "bounded",
+    "note": "A small integer with − and + buttons, between min and max.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-Stepper-bounded",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Stepper-bounded",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Stepper-bounded",
+          "components": [
+            {
+              "id": "root",
+              "component": "Stepper",
+              "label": "Columns",
+              "value": {
+                "path": "/columns"
+              },
+              "min": 1,
+              "max": 4,
+              "action": {
+                "event": {
+                  "name": "step"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Stepper-bounded",
+          "value": {
+            "columns": 2
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "Row",
+    "variant": "default",
+    "note": "Places children side by side, such as badges or buttons.",
+    "group": "layout",
+    "agent": true,
+    "surface": "playbook-Row-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Row-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Row-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "Row",
+              "children": [
+                "a",
+                "b"
+              ]
+            },
+            {
+              "id": "a",
+              "component": "Badge",
+              "text": "12 slides"
+            },
+            {
+              "id": "b",
+              "component": "Badge",
+              "text": "Saved",
+              "tone": "accent"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Row-default",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Button",
+    "variant": "suggest",
+    "note": "Sends its label as the user's next prompt: the only button render allows.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Button-suggest",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Button-suggest",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Button-suggest",
+          "components": [
+            {
+              "id": "root",
+              "component": "Button",
+              "label": "Make it shorter",
+              "action": {
+                "event": {
+                  "name": "suggest",
+                  "context": {
+                    "prompt": "Make it shorter"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Button-suggest",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Button",
+    "variant": "primary",
+    "note": "The surface's main action (host only).",
+    "group": "atom",
+    "agent": false,
+    "surface": "playbook-Button-primary",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Button-primary",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Button-primary",
+          "components": [
+            {
+              "id": "root",
+              "component": "Button",
+              "label": "Apply",
+              "primary": true,
+              "action": {
+                "event": {
+                  "name": "apply"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Button-primary",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Button",
+    "variant": "danger",
+    "note": "A committing action, not undoable (host only).",
+    "group": "atom",
+    "agent": false,
+    "surface": "playbook-Button-danger",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Button-danger",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Button-danger",
+          "components": [
+            {
+              "id": "root",
+              "component": "Button",
+              "label": "Delete the pack",
+              "danger": true,
+              "action": {
+                "event": {
+                  "name": "delete"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Button-danger",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Button",
+    "variant": "icon",
+    "note": "A pictogram; the label becomes its accessible name (host only).",
+    "group": "atom",
+    "agent": false,
+    "surface": "playbook-Button-icon",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Button-icon",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Button-icon",
+          "components": [
+            {
+              "id": "root",
+              "component": "Button",
+              "label": "Close",
+              "icon": "close",
+              "action": {
+                "event": {
+                  "name": "close"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Button-icon",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "ChoiceChips",
+    "variant": "default",
+    "note": "A few short choices as chips; the chosen id goes to the model.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-ChoiceChips-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ChoiceChips-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ChoiceChips-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "ChoiceChips",
+              "options": [
+                {
+                  "id": "a",
+                  "label": "Two columns"
+                },
+                {
+                  "id": "b",
+                  "label": "Quote"
+                },
+                {
+                  "id": "c",
+                  "label": "Full image"
+                }
+              ],
+              "value": {
+                "path": "/layout"
+              },
+              "action": {
+                "event": {
+                  "name": "choose"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ChoiceChips-default",
+          "value": {
+            "layout": "b"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "Slider",
+    "variant": "stepped",
+    "note": "A bounded number; the action fires on release.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-Slider-stepped",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Slider-stepped",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Slider-stepped",
+          "components": [
+            {
+              "id": "root",
+              "component": "Slider",
+              "label": "Opacity",
+              "value": {
+                "path": "/opacity"
+              },
+              "min": 0.0,
+              "max": 100.0,
+              "step": 5.0,
+              "action": {
+                "event": {
+                  "name": "slide"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Slider-stepped",
+          "value": {
+            "opacity": 60
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "ColorField",
+    "variant": "palette",
+    "note": "A hex color, picked from the palette or typed.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-ColorField-palette",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ColorField-palette",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ColorField-palette",
+          "components": [
+            {
+              "id": "root",
+              "component": "ColorField",
+              "label": "Accent",
+              "value": {
+                "path": "/color"
+              },
+              "palette": [
+                "#1f4e79",
+                "#c2573a",
+                "#2f855a"
+              ],
+              "action": {
+                "event": {
+                  "name": "color"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ColorField-palette",
+          "value": {
+            "color": "#1f4e79"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "Select",
+    "variant": "with-hints",
+    "note": "A dropdown for longer option lists; a hint shows next to a label.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-Select-with-hints",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Select-with-hints",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Select-with-hints",
+          "components": [
+            {
+              "id": "root",
+              "component": "Select",
+              "label": "Theme",
+              "value": {
+                "path": "/theme"
+              },
+              "options": [
+                {
+                  "id": "papier",
+                  "label": "Paper",
+                  "hint": "light"
+                },
+                {
+                  "id": "pro",
+                  "label": "Pro",
+                  "hint": "dark"
+                },
+                {
+                  "id": "neutre",
+                  "label": "Neutral"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "choose"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Select-with-hints",
+          "value": {
+            "theme": "papier"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "ListTable",
+    "variant": "flat",
+    "note": "A list of items edited in place: text, number and checkbox columns.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-ListTable-flat",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ListTable-flat",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ListTable-flat",
+          "components": [
+            {
+              "id": "root",
+              "component": "ListTable",
+              "label": "Steps",
+              "rows": {
+                "path": "/rows"
+              },
+              "change": {
+                "path": "/change"
+              },
+              "markdown": {
+                "path": "/markdown"
+              },
+              "columns": [
+                {
+                  "key": "name",
+                  "label": "Name",
+                  "kind": "text",
+                  "options": []
+                },
+                {
+                  "key": "count",
+                  "label": "Count",
+                  "kind": "number",
+                  "options": []
+                },
+                {
+                  "key": "done",
+                  "label": "Done",
+                  "kind": "flag",
+                  "options": []
+                }
+              ],
+              "min": 1,
+              "max": 10,
+              "item_label": "step",
+              "palette": [
+                "#1f4e79",
+                "#c2573a",
+                "#2f855a"
+              ],
+              "action": {
+                "event": {
+                  "name": "list"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ListTable-flat",
+          "value": {
+            "rows": [
+              {
+                "id": "r0",
+                "name": "Intro",
+                "count": 3,
+                "done": true
+              },
+              {
+                "id": "r1",
+                "name": "Plan",
+                "count": 5,
+                "done": false
+              }
+            ],
+            "change": null,
+            "markdown": {}
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "ListTable",
+    "variant": "nested",
+    "note": "Rich, select and a one-level nested list column.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-ListTable-nested",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ListTable-nested",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ListTable-nested",
+          "components": [
+            {
+              "id": "root",
+              "component": "ListTable",
+              "label": "Steps",
+              "rows": {
+                "path": "/rows"
+              },
+              "change": {
+                "path": "/change"
+              },
+              "markdown": {
+                "path": "/markdown"
+              },
+              "columns": [
+                {
+                  "key": "date",
+                  "label": "Date",
+                  "kind": "text",
+                  "options": []
+                },
+                {
+                  "key": "text",
+                  "label": "Text",
+                  "kind": "rich",
+                  "options": []
+                },
+                {
+                  "key": "tone",
+                  "label": "Tone",
+                  "kind": "select",
+                  "options": [
+                    {
+                      "id": "a",
+                      "label": "Two columns"
+                    },
+                    {
+                      "id": "b",
+                      "label": "Quote",
+                      "hint": "sober"
+                    }
+                  ]
+                },
+                {
+                  "key": "tasks",
+                  "label": "Tasks",
+                  "kind": "list",
+                  "options": [],
+                  "list": {
+                    "columns": [
+                      {
+                        "key": "done",
+                        "label": "Done",
+                        "kind": "flag",
+                        "options": []
+                      },
+                      {
+                        "key": "note",
+                        "label": "Note",
+                        "kind": "rich",
+                        "options": []
+                      }
+                    ],
+                    "min": 0,
+                    "max": 8,
+                    "item_label": "task"
+                  }
+                }
+              ],
+              "min": 1,
+              "max": 10,
+              "item_label": "step",
+              "palette": [
+                "#1f4e79",
+                "#c2573a",
+                "#2f855a"
+              ],
+              "action": {
+                "event": {
+                  "name": "list"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ListTable-nested",
+          "value": {
+            "rows": [
+              {
+                "id": "d0",
+                "date": "2019",
+                "text": [
+                  {
+                    "runs": [
+                      {
+                        "t": "Founded"
+                      }
+                    ]
+                  }
+                ],
+                "tone": "a",
+                "tasks": [
+                  {
+                    "id": "t1",
+                    "done": true,
+                    "note": [
+                      {
+                        "runs": [
+                          {
+                            "t": "Review"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "change": null,
+            "markdown": {
+              "d0": {
+                "text": "Founded"
+              },
+              "d0/tasks/t1": {
+                "note": "Review"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "SlideThumb",
+    "variant": "default",
+    "note": "A slide rendered by the host; a click sends the action.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-SlideThumb-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-SlideThumb-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-SlideThumb-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "SlideThumb",
+              "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 160 90\"><rect width=\"160\" height=\"90\" fill=\"#1f4e79\"/></svg>",
+              "label": "4 · Quarterly review",
+              "action": {
+                "event": {
+                  "name": "slide"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-SlideThumb-default",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "ThemeChoice",
+    "variant": "active",
+    "note": "The deck's current theme, with its thumbnail and swatches.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-ThemeChoice-active",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ThemeChoice-active",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ThemeChoice-active",
+          "components": [
+            {
+              "id": "root",
+              "component": "ThemeChoice",
+              "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 160 90\"><rect width=\"160\" height=\"90\" fill=\"#ffffff\"/><rect x=\"12\" y=\"12\" width=\"90\" height=\"10\" fill=\"#2f5fb3\"/></svg>",
+              "name": "Paper",
+              "slide": "s-4",
+              "swatches": [
+                "#ffffff",
+                "#2f5fb3"
+              ],
+              "active": true,
+              "action": {
+                "event": {
+                  "name": "theme",
+                  "context": {
+                    "theme": "papier"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ThemeChoice-active",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "ThemeChoice",
+    "variant": "no-thumbnail",
+    "note": "A theme whose render failed: still selectable.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-ThemeChoice-no-thumbnail",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ThemeChoice-no-thumbnail",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ThemeChoice-no-thumbnail",
+          "components": [
+            {
+              "id": "root",
+              "component": "ThemeChoice",
+              "name": "Paper",
+              "slide": "s-4",
+              "swatches": [
+                "#ffffff",
+                "#2f5fb3"
+              ],
+              "active": false,
+              "action": {
+                "event": {
+                  "name": "theme",
+                  "context": {
+                    "theme": "papier"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ThemeChoice-no-thumbnail",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "DiffText",
+    "variant": "default",
+    "note": "Shows a proposed rewrite word by word.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-DiffText-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-DiffText-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-DiffText-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "DiffText",
+              "segments": [
+                {
+                  "kind": "keep",
+                  "text": "Sales "
+                },
+                {
+                  "kind": "del",
+                  "text": "rose"
+                },
+                {
+                  "kind": "ins",
+                  "text": "grew"
+                },
+                {
+                  "kind": "keep",
+                  "text": " by 12%."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-DiffText-default",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Prompt",
+    "variant": "with-image",
+    "note": "The user's prompt opening a turn, with a pasted image chip.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-Prompt-with-image",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Prompt-with-image",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Prompt-with-image",
+          "components": [
+            {
+              "id": "root",
+              "component": "Prompt",
+              "text": "Use this photo as the background of slide four.",
+              "images": [
+                {
+                  "mime": "image/png",
+                  "width": 1280,
+                  "height": 720
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Prompt-with-image",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Timeline",
+    "variant": "expanded",
+    "note": "A turn's steps while it runs.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-Timeline-expanded",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Timeline-expanded",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Timeline-expanded",
+          "components": [
+            {
+              "id": "root",
+              "component": "Timeline",
+              "steps": [
+                {
+                  "label": "Night blue chosen.",
+                  "status": "completed",
+                  "detail": "The title turns white."
+                },
+                {
+                  "label": "apply",
+                  "status": "completed",
+                  "count": 2,
+                  "calls": [
+                    {
+                      "label": "apply",
+                      "status": "completed",
+                      "input": "{\n  \"slide\": 4\n}",
+                      "output": "background set"
+                    }
+                  ]
+                },
+                {
+                  "label": "render_slide",
+                  "status": "in_progress"
+                }
+              ],
+              "collapsed": false,
+              "summary": "3 tools · 1 note · 12 s"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Timeline-expanded",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Timeline",
+    "variant": "collapsed",
+    "note": "A finished turn folded into its summary line.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-Timeline-collapsed",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Timeline-collapsed",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Timeline-collapsed",
+          "components": [
+            {
+              "id": "root",
+              "component": "Timeline",
+              "steps": [
+                {
+                  "label": "Night blue chosen.",
+                  "status": "completed",
+                  "detail": "The title turns white."
+                },
+                {
+                  "label": "apply",
+                  "status": "completed",
+                  "count": 2,
+                  "calls": [
+                    {
+                      "label": "apply",
+                      "status": "completed",
+                      "input": "{\n  \"slide\": 4\n}",
+                      "output": "background set"
+                    }
+                  ]
+                },
+                {
+                  "label": "render_slide",
+                  "status": "in_progress"
+                }
+              ],
+              "collapsed": true,
+              "summary": "3 tools · 1 note · 12 s"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Timeline-collapsed",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Receipt",
+    "variant": "with-slide",
+    "note": "A turn's conclusion; with no deck its thumbnail shows as missing.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-Receipt-with-slide",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Receipt-with-slide",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Receipt-with-slide",
+          "components": [
+            {
+              "id": "root",
+              "component": "Receipt",
+              "title": "Slide 4: night blue background",
+              "facts": [
+                "title in white",
+                "light blue kicker"
+              ],
+              "slide": {
+                "id": "s-4",
+                "hash": "0123456789abcdef0123456789abcdef"
+              },
+              "swatch": "#00154e"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Receipt-with-slide",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Disclosure",
+    "variant": "collapsed",
+    "note": "Hides details behind a summary line.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Disclosure-collapsed",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Disclosure-collapsed",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Disclosure-collapsed",
+          "components": [
+            {
+              "id": "root",
+              "component": "Disclosure",
+              "summary": "3 slides changed",
+              "child": "d"
+            },
+            {
+              "id": "d",
+              "component": "Text",
+              "text": "Slides 2, 5 and 9 use the old title size."
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Disclosure-collapsed",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Disclosure",
+    "variant": "open",
+    "note": "Shown expanded on first render.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Disclosure-open",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Disclosure-open",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Disclosure-open",
+          "components": [
+            {
+              "id": "root",
+              "component": "Disclosure",
+              "summary": "3 slides changed",
+              "child": "d",
+              "open": true
+            },
+            {
+              "id": "d",
+              "component": "Text",
+              "text": "Slides 2, 5 and 9 use the old title size."
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Disclosure-open",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Badge",
+    "variant": "neutral",
+    "note": "A count or a status.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Badge-neutral",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Badge-neutral",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Badge-neutral",
+          "components": [
+            {
+              "id": "root",
+              "component": "Badge",
+              "text": "12 slides"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Badge-neutral",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Badge",
+    "variant": "accent",
+    "note": "A status worth noticing.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Badge-accent",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Badge-accent",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Badge-accent",
+          "components": [
+            {
+              "id": "root",
+              "component": "Badge",
+              "text": "12 slides",
+              "tone": "accent"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Badge-accent",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Badge",
+    "variant": "danger",
+    "note": "A host alert; render refuses the danger tone.",
+    "group": "atom",
+    "agent": false,
+    "surface": "playbook-Badge-danger",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Badge-danger",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Badge-danger",
+          "components": [
+            {
+              "id": "root",
+              "component": "Badge",
+              "text": "12 slides",
+              "tone": "danger"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Badge-danger",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Markdown",
+    "variant": "default",
+    "note": "Formatted text without raw HTML: bold, italic, lists, links.",
+    "group": "atom",
+    "agent": true,
+    "surface": "playbook-Markdown-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Markdown-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Markdown-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "Markdown",
+              "text": "**Bold**, *italic* and a list:\n\n- first\n- second"
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Markdown-default",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "Notice",
+    "variant": "with-button",
+    "note": "A host banner with its buttons and a close cross.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-Notice-with-button",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Notice-with-button",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Notice-with-button",
+          "components": [
+            {
+              "id": "root",
+              "component": "Notice",
+              "text": "A new version is ready.",
+              "children": [
+                "restart"
+              ],
+              "close": {
+                "event": {
+                  "name": "dismiss"
+                }
+              },
+              "close_label": "Dismiss"
+            },
+            {
+              "id": "restart",
+              "component": "Button",
+              "label": "Restart",
+              "action": {
+                "event": {
+                  "name": "restart"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Notice-with-button",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
+    "component": "ChartData",
+    "variant": "bar",
+    "note": "A chart's data table, series colors and stacking.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-ChartData-bar",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-ChartData-bar",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-ChartData-bar",
+          "components": [
+            {
+              "id": "root",
+              "component": "ChartData",
+              "kind": "bar",
+              "source": [
+                [
+                  "Month",
+                  "Sales",
+                  "Target"
+                ],
+                [
+                  "Jan",
+                  3,
+                  4
+                ],
+                [
+                  "Feb",
+                  5,
+                  4
+                ]
+              ],
+              "checkbox_columns": [],
+              "stacked": false,
+              "series": [
+                {
+                  "name": "Sales"
+                },
+                {
+                  "name": "Target",
+                  "color": "#1f4e79"
+                }
+              ],
+              "palette": [
+                "#1f4e79",
+                "#c2573a",
+                "#2f855a"
+              ],
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-ChartData-bar",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "TableData",
+    "variant": "default",
+    "note": "A table's cells and display options.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-TableData-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-TableData-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-TableData-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "TableData",
+              "source": [
+                [
+                  "A",
+                  "B"
+                ],
+                [
+                  1,
+                  null
+                ]
+              ],
+              "header_row": true,
+              "header_column": false,
+              "striped": true,
+              "align": [
+                "auto",
+                "end"
+              ],
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-TableData-default",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
+  }
+]

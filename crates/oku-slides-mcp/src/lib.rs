@@ -11,6 +11,7 @@
 //!
 //! Dépend de `oku-slides-session` ; utilisé par `oku-slides-agent`.
 
+mod a2ui_tools;
 mod app_tools;
 mod draft;
 mod edit_tools;

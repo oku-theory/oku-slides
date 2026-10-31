@@ -90,6 +90,14 @@ pub(crate) enum ToolError {
     /// Mis en boîte : un refus du port de la dictée ou de l'agent, dit par sa propre sorte.
     #[snafu(display("the voice port refused the call"))]
     Voice { source: Box<crate::VoiceError>, backtrace: Backtrace },
+    #[snafu(display("unknown catalog component {name}"))]
+    A2uiUnknown { name: String, known: String, backtrace: Backtrace },
+    #[snafu(display("{name} is shown by {tool}, not render"))]
+    A2uiElsewhere { name: String, tool: &'static str, backtrace: Backtrace },
+    #[snafu(display("{name} is reserved to the host"))]
+    A2uiHostOnly { name: String, backtrace: Backtrace },
+    #[snafu(display("the playbook reference could not be built"))]
+    Playbook { source: &'static oku_slides_a2ui::PlaybookError, backtrace: Backtrace },
     #[snafu(display("response not serializable"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
 }
@@ -97,11 +105,11 @@ pub(crate) enum ToolError {
 impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
-            Arguments, ContinueInOtherTab, Denied, EmptyDictationChange, EmptyInterface, HistoryIndex,
-            HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, OpenElsewhere, PackChange, PackId, PacksDeckMode,
-            Paragraphs, PathParent, PathRelative, Response, RewriteText, Session, Setting, SettingLocked, TabLimit,
-            TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction, UnknownLocale, UnknownTool, UsageBadRange,
-            UsageNoDeck, Voice,
+            A2uiElsewhere, A2uiHostOnly, A2uiUnknown, Arguments, ContinueInOtherTab, Denied, EmptyDictationChange,
+            EmptyInterface, HistoryIndex, HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, OpenElsewhere,
+            PackChange, PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Playbook, Response, RewriteText,
+            Session, Setting, SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction,
+            UnknownLocale, UnknownTool, UsageBadRange, UsageNoDeck, Voice,
         };
         match self {
             Arguments { source, .. } => {
@@ -110,7 +118,7 @@ impl Localize for ToolError {
             UnknownTool { name, .. } => l.tr_with("agent-error-unknown-tool", &[("name", name.as_str().into())]),
             PackId { .. } => l.tr("agent-error-pack-id"),
             Session { source, .. } => say_to_agent(source, l),
-            Task { .. } => l.tr("agent-tool-failed"),
+            Task { .. } | Playbook { .. } => l.tr("agent-tool-failed"),
             Denied { .. } => l.tr("agent-error-denied"),
             NoTurn { tool, .. } => l.tr_with("agent-error-no-turn", &[("tool", (*tool).into())]),
             TurnOver { .. } => l.tr("agent-error-turn-over"),
@@ -151,6 +159,14 @@ impl Localize for ToolError {
             },
             EmptyDictationChange { .. } => l.tr("agent-error-empty-dictation"),
             Voice { source, .. } => source.localize(l),
+            A2uiUnknown { name, known, .. } => l.tr_with(
+                "agent-error-a2ui-unknown",
+                &[("name", name.as_str().into()), ("known", known.as_str().into())],
+            ),
+            A2uiElsewhere { name, tool, .. } => {
+                l.tr_with("agent-error-a2ui-elsewhere", &[("name", name.as_str().into()), ("tool", (*tool).into())])
+            }
+            A2uiHostOnly { name, .. } => l.tr_with("agent-error-a2ui-host-only", &[("name", name.as_str().into())]),
             Response { .. } => l.tr("session-response"),
         }
     }

@@ -54,3 +54,15 @@ fn compact_keeps_property_named_description() {
     let c = compact(&s);
     assert_that!(c.schema).is_equal_to(json!({"type": "object", "properties": {"description": {"type": "string"}}}));
 }
+
+#[rstest::rstest]
+#[case::render("render", "Markdown{text}")]
+#[case::examples("a2ui_examples", "Props and full examples")]
+fn compact_of_an_a2ui_tool_keeps_what_the_agent_needs(#[case] name: &str, #[case] kept: &str) {
+    let (name, description) = oku_slides_mcp::tool_descriptions_for(oku_slides_session::DocumentKind::Deck)
+        .into_iter()
+        .find(|(n, _)| n == name)
+        .unwrap();
+    let spec = ToolSpec { name, description, schema: json!({ "type": "object" }) };
+    assert_that!(compact(&spec).description).contains(kept);
+}

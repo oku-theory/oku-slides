@@ -238,6 +238,33 @@ fn import_diff_description() -> String {
     )
 }
 
+/// The `a2ui_examples` description; its cap on names comes from `MAX_NAMES`.
+fn a2ui_examples_description() -> String {
+    let max = crate::a2ui_tools::MAX_NAMES;
+    format!(
+        "Props and full examples of the components render accepts. Output: [{{component, props [{{name, required, type, values?, description}}], examples [{{variant, note, surface}}]}}]; surface is a valid render input. components: the names to read (absent: all, at most {max}). A catalog component render refuses names the tool that shows it."
+    )
+}
+
+/// The description of `render`, its component list generated from the playbook.
+///
+/// The list is in the first sentence: the local agent keeps only that one. A playbook fault
+/// (a programming error, caught by the a2ui tests) is logged, and the description then
+/// leaves the list to `a2ui_examples`, which reports the fault to the agent.
+fn render_description() -> String {
+    use oku_slides_session::agent::render::{RENDER_DEPTH, RENDER_MAX};
+    let components = match oku_slides_a2ui::agent_reference() {
+        Ok(r) => format!("Show a card composed of these A2UI components: {}.", oku_slides_a2ui::render_components(r)),
+        Err(e) => {
+            tracing::error!(error = %e, "playbook reference unavailable for the render description");
+            "Show a card composed of A2UI components (call a2ui_examples for the list).".to_owned()
+        }
+    };
+    format!(
+        "{components} Call a2ui_examples for a component's props and full examples. Shape: v0.9 [{{id, component, …}}], one id \"root\". All values literal (no {{path}}). Only action, on a Button whose label is the prompt: {{event: {{name: \"suggest\", context: {{prompt: <the label>}}}}}}. No primary/danger/icon styles. For a turn's conclusion use report (Receipt and slide thumbnails are reserved to it). At most {RENDER_MAX} components forming a tree (each id used once), {RENDER_DEPTH} levels, 64 KiB. Use it only when report, ask_* and show_* do not fit. Errors say what to fix."
+    )
+}
+
 /// How a widget tool without `pack` finds a deck's own pack (`deck` or `deck-layouts`).
 const DECK_OWN_PACKS: &str = "the deck's own element pack `deck` (or its own layout pack `deck-layouts` when the deck has only that one); the deck's own slide widgets are in `deck-layouts`: pass pack `deck-layouts` for them";
 
@@ -315,7 +342,8 @@ pub(crate) fn list_all() -> &'static [(Tool, Kinds)] {
             (tool::<oku_slides_session::agent::AskConfirm>("ask_confirm", "Ask yes/no. Blocks; returns {confirmed} / {answer_text} / {cancelled}."), Kinds::ALL),
             (tool::<oku_slides_session::agent::AskRewrite>("ask_rewrite", "Propose 2-3 rewordings of a text field, addressed by {slide, owner, field}: owner is an element of the slide (field optional: its first rich text by default) or the slide itself (field required); field is a text parameter of the owner's widget (see widgets). Blocks; the chosen text is applied by Oku Slides; returns {kept, text}."), Kinds::DECK_OR_HELP.or(Kinds::PACK)),
             (tool::<oku_slides_session::agent::Report>("report", "End every turn with this: a receipt card under the user's request. title: one line saying what changed; facts: 1-4 short lines; slide: shows its thumbnail; swatch: a color worth showing; why: your explanation in Markdown, folded by default; actions: 0-4 next steps as buttons (a click sends prompt, or label, as the user's next message). A second call in the same turn replaces the first. Your free text is shown only as one-line progress notes."), Kinds::ALL),
-            (tool::<oku_slides_session::agent::Render>("render", "Show a card you compose from the A2UI catalog (v0.9 shape: [{id, component, …}], one id \"root\"). Components: Column{children}, Row{children}, Card{child, tone?}, Text{text, variant?: h4|body|caption|note}, Badge{text, tone?}, Markdown{text}, Disclosure{summary, child}, DiffText{segments}, Button{label, action}. All values literal (no {path}). Only action, on a Button whose label is the prompt: {event: {name: \"suggest\", context: {prompt: <the label>}}}. No primary/danger/icon styles. For a turn's conclusion use report (Receipt and slide thumbnails are reserved to it). At most 40 components forming a tree (each id used once), 6 levels, 64 KiB. Use it only when report, ask_* and show_* do not fit. Errors say what to fix."), Kinds::ALL),
+            (tool::<oku_slides_session::agent::Render>("render", &render_description()), Kinds::ALL),
+            (tool::<crate::a2ui_tools::A2uiExamplesArgs>("a2ui_examples", &a2ui_examples_description()), Kinds::ALL),
             (tool::<crate::usage_tools::UsageArgs>("usage", "Agent usage recorded in this deck (in a pack or theme tab: the deck it belongs to): tokens, turns and cost by day, month, model, agent or tab, plus totals. Costs are per currency, partial when some turns sent none. Returns the report as JSON: at most 1000 rows, then rows_omitted counts the rest (totals cover every row)."), Kinds::DECK_PACK_OR_THEME),
             (tool::<crate::usage_tools::UsageArgs>("show_usage", "Show the agent usage report in the thread: badges for the totals, then a table of at most 100 rows. Use it when the user asks what this deck cost or how many tokens it used; `usage` returns the same report as JSON. Returns {shown}."), Kinds::DECK_PACK_OR_THEME),
             (tool::<crate::app_tools::InterfaceChange>("set_interface", "Change the interface right away, as its own commands do; give at least one field, omitted ones stay as they are. scheme: light, dark or system; locale: a shipped language code (en, fr, de…) or system; guides: show the dashed outlines of empty fields. Refused unless this tab is the one shown in its window."), Kinds::ALL),

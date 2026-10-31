@@ -21,7 +21,7 @@ pub struct Component {
 /// Components of the [`CATALOG_ID`](crate::CATALOG_ID) catalog. Names and properties follow
 /// those of the v0.9 basic catalog; `Stepper`, `ChoiceChips`, `ColorField`,
 /// `SlideThumb`, `ThemeChoice`, `DiffText`, `Notice`, `ChartData`, `TableData` are specific to Oku Slides.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
     /// Children stacked vertically.
@@ -341,6 +341,22 @@ pub enum ComponentKind {
 }
 
 impl ComponentKind {
+    /// True for an input bound to the data model, shown by the agent through `show_params`.
+    #[must_use]
+    pub fn is_field(&self) -> bool {
+        matches!(
+            self,
+            Self::TextField { .. }
+                | Self::RichTextField { .. }
+                | Self::Stepper { .. }
+                | Self::Slider { .. }
+                | Self::ColorField { .. }
+                | Self::Select { .. }
+                | Self::ListTable { .. }
+                | Self::ChoiceChips { .. }
+        )
+    }
+
     /// The child identifiers, in order.
     pub fn children(&self) -> Vec<&str> {
         // No `_`: a new component must state here whether it has children (`render` validation depends on it).

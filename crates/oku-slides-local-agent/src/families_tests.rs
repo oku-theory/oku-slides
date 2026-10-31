@@ -114,3 +114,8 @@ fn parse_route_ignores_a_family_that_is_not_offered() {
     assert_that!(parse_route("present, edit", &[Edit, Packs])).is_equal_to(vec![Edit]);
     assert_that!(parse_route("present", &[Edit, Packs])).is_empty();
 }
+
+#[test]
+fn families_of_a2ui_examples_is_ask_report() {
+    assert_that!(families_of("a2ui_examples")).is_equal_to(&[Family::AskReport][..]);
+}

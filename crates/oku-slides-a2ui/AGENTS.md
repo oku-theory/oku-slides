@@ -6,6 +6,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Mark question surfaces with the typed Surface field, never by an ask- id prefix. (plan:2026-10-03-agent-thread-followups)
 - List every host-only component (Prompt, Timeline, Receipt, SlideThumb, Notice, ThemeChoice, ChartData, TableData) in Component::agent_allowed so the render tool refuses it. (spec:2026-10-03-agent-a2ui-design, t-966, t-1120)
+- Give every ComponentKind variant playbook examples, with agent true exactly when render accepts the example. (spec:2026-10-30-playbook-a2ui-design)
 
 ## Settled decisions
 

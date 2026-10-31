@@ -181,3 +181,17 @@ fn render_refusal_is_said_in_the_user_language() {
     assert_that!(err.localize(&Localizer::new(Some("fr"))))
         .is_equal_to("La demande de l'agent est invalide : enfant inconnu « nope »".to_owned());
 }
+
+/// What `a2ui_examples` shows, `render` accepts, and nothing else (spec:2026-10-30-playbook-a2ui-design).
+#[test]
+fn render_accepts_exactly_the_playbook_agent_examples() {
+    let wrong: Vec<String> = oku_slides_a2ui::examples()
+        .into_iter()
+        .filter(|e| {
+            let components = e.components.iter().map(|c| serde_json::to_value(c).unwrap()).collect();
+            render("render-1", &Render { components }).is_ok() != e.agent
+        })
+        .map(|e| format!("{}/{} (agent: {})", e.component, e.variant, e.agent))
+        .collect();
+    assert_that!(wrong).is_empty();
+}

@@ -28,14 +28,17 @@ serve file=deck: install
     cd ui && bun run build
     cargo run -q -p oku-slides-cli -- --fonts {{fonts}} serve "{{file}}"
 
-# Interface avec rechargement à chaud (http://localhost:5173) et API Rust
-web file=deck: install
+# UI with hot reload (http://localhost:5173) and the Rust API; extra arguments go to Vite
+web file=deck *vite_args="": install
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build -q -p oku-slides-cli
     ./target/debug/oku-slides --fonts {{fonts}} serve "{{file}}" --ui ui/dist &
     trap "kill $! 2>/dev/null" EXIT
-    cd ui && bun run dev
+    cd ui && bun run dev {{vite_args}}
+
+# `just web`, opening the browser on the A2UI playbook (every component, dev only)
+playbook file=deck: (web file "--open" "/playbook.html")
 
 # Tests Rust (hors app Tauri) et tests de l'interface
 test:

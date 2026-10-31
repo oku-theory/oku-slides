@@ -170,6 +170,7 @@ fn present_description_names_no_pack_mode() {
 
 /// The tools of a deck tab, and of a help tab (a read-only deck), sorted.
 const DECK_TOOLS: &[&str] = &[
+    "a2ui_examples",
     "add_pack",
     "apply",
     "ask_choice",
@@ -227,6 +228,7 @@ const DECK_TOOLS: &[&str] = &[
 
 /// The tools of a pack tab, sorted.
 const PACK_TOOLS: &[&str] = &[
+    "a2ui_examples",
     "apply",
     "ask_choice",
     "ask_confirm",
@@ -270,6 +272,7 @@ const PACK_TOOLS: &[&str] = &[
 
 /// The tools of a theme tab, sorted.
 const THEME_TOOLS: &[&str] = &[
+    "a2ui_examples",
     "apply",
     "ask_choice",
     "ask_confirm",
@@ -339,4 +342,18 @@ fn kinds_of_an_unknown_name_is_none() {
 fn apply_description_names_the_add_pack_and_remove_pack_ops() {
     let d = tool_description("apply");
     assert_that!(d.as_str()).contains("the pack ops (add_pack, remove_pack)");
+}
+
+#[test]
+fn tools_render_description_lists_the_playbook_components() {
+    let tool = list().into_iter().find(|t| t.name == "render").unwrap();
+    let components = oku_slides_a2ui::render_components(oku_slides_a2ui::agent_reference().unwrap());
+    assert_that!(tool.description.unwrap_or_default())
+        .contains(format!("Show a card composed of these A2UI components: {components}.").as_str());
+}
+
+#[test]
+fn tools_render_description_points_to_a2ui_examples() {
+    let tool = list().into_iter().find(|t| t.name == "render").unwrap();
+    assert_that!(tool.description.unwrap_or_default()).contains("Call a2ui_examples");
 }

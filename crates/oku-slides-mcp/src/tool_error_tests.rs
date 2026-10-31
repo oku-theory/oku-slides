@@ -10,6 +10,9 @@ use super::{
 /// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
 const KEYS: &[&str] = &[
     "agent-error-arguments",
+    "agent-error-a2ui-unknown",
+    "agent-error-a2ui-elsewhere",
+    "agent-error-a2ui-host-only",
     "agent-error-unknown-tool",
     "agent-error-denied",
     "agent-error-no-turn",

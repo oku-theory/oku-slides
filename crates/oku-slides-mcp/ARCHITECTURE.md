@@ -14,7 +14,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   settings), `edit_tools` (undoable edits, `add_pack`/`remove_pack`, `set_theme_extends`), `open_tools` (`open_pack`, `open_theme`: one tab move per turn, a deck-only pack's tab linked to its deck), `tab_tools` (pack tab: `select_item`, `set_preview_theme`; theme tab: `rename_theme`, `save_theme`), `widget_tools` (pack tab: `duplicate_widget`, `reorder_widgets`; no `pack`: `deck`, so
   `deck-layouts` is named; writes refused in a turn that moved to another tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
   `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`, its list paged by `history_page`; opening it,
-  `present` and `set_interface` emit an event the shown tab applies), `surface_tools` (`report`, `render`, `ask_*`,
+  `present` and `set_interface` emit an event the shown tab applies), `a2ui_tools` (`a2ui_examples`: the playbook's agent reference, cached), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
   tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument), `usage_tools` (`usage`, `show_usage`: the linked deck's ledger as JSON capped at 1000 rows, a thread box capped at 100; not in help tabs).
 - `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized message in

@@ -1,0 +1,418 @@
+---
+source: crates/oku-slides-a2ui/src/playbook/reference_tests.rs
+expression: agent_reference().unwrap()
+---
+[
+  {
+    "component": "Column",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "[string]",
+        "description": "Child identifiers, top to bottom."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "default",
+        "note": "Stacks children top to bottom: the usual root of a card's body.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Column",
+            "children": [
+              "title",
+              "body"
+            ]
+          },
+          {
+            "id": "title",
+            "component": "Text",
+            "text": "Three palettes",
+            "variant": "h4"
+          },
+          {
+            "id": "body",
+            "component": "Text",
+            "text": "Pick one to apply it to every slide."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Card",
+    "props": [
+      {
+        "name": "child",
+        "required": true,
+        "type": "string",
+        "description": "Child identifier."
+      },
+      {
+        "name": "tone",
+        "required": false,
+        "type": "string",
+        "values": [
+          "accent"
+        ],
+        "description": "Card tone; absent: neutral."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "default",
+        "note": "Frames one child; the neutral card of a thread.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Card",
+            "child": "t"
+          },
+          {
+            "id": "t",
+            "component": "Text",
+            "text": "A card groups related content."
+          }
+        ]
+      },
+      {
+        "variant": "accent",
+        "note": "Highlights a conclusion or a suggestion.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Card",
+            "child": "t",
+            "tone": "accent"
+          },
+          {
+            "id": "t",
+            "component": "Text",
+            "text": "A card groups related content."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Text",
+    "props": [
+      {
+        "name": "text",
+        "required": true,
+        "type": "string",
+        "description": "The text shown."
+      },
+      {
+        "name": "variant",
+        "required": false,
+        "type": "string",
+        "values": [
+          "h4",
+          "body",
+          "caption",
+          "note"
+        ],
+        "description": "Text style; absent: body text."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "h4",
+        "note": "A section heading inside a card.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Text",
+            "text": "Palette",
+            "variant": "h4"
+          }
+        ]
+      },
+      {
+        "variant": "body",
+        "note": "Body text, the default style.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Text",
+            "text": "The title turns white on the dark background.",
+            "variant": "body"
+          }
+        ]
+      },
+      {
+        "variant": "caption",
+        "note": "A smaller line under a heading or a figure.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Text",
+            "text": "Source: Insee, 2024",
+            "variant": "caption"
+          }
+        ]
+      },
+      {
+        "variant": "note",
+        "note": "A dimmed line, truncated when too long.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Text",
+            "text": "Applied to slides 2 to 9",
+            "variant": "note"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Row",
+    "props": [
+      {
+        "name": "children",
+        "required": true,
+        "type": "[string]",
+        "description": "Child identifiers, left to right."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "default",
+        "note": "Places children side by side, such as badges or buttons.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Row",
+            "children": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "a",
+            "component": "Badge",
+            "text": "12 slides"
+          },
+          {
+            "id": "b",
+            "component": "Badge",
+            "text": "Saved",
+            "tone": "accent"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Button",
+    "props": [
+      {
+        "name": "label",
+        "required": true,
+        "type": "string",
+        "description": "Button label."
+      },
+      {
+        "name": "action",
+        "required": true,
+        "type": "Action",
+        "description": "Sent on click."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "suggest",
+        "note": "Sends its label as the user's next prompt: the only button render allows.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Button",
+            "label": "Make it shorter",
+            "action": {
+              "event": {
+                "name": "suggest",
+                "context": {
+                  "prompt": "Make it shorter"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "DiffText",
+    "props": [
+      {
+        "name": "segments",
+        "required": true,
+        "type": "[DiffSegment]",
+        "description": "The text chunks, in order."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "default",
+        "note": "Shows a proposed rewrite word by word.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "DiffText",
+            "segments": [
+              {
+                "kind": "keep",
+                "text": "Sales "
+              },
+              {
+                "kind": "del",
+                "text": "rose"
+              },
+              {
+                "kind": "ins",
+                "text": "grew"
+              },
+              {
+                "kind": "keep",
+                "text": " by 12%."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Disclosure",
+    "props": [
+      {
+        "name": "summary",
+        "required": true,
+        "type": "string",
+        "description": "The always-visible line that expands the child."
+      },
+      {
+        "name": "child",
+        "required": true,
+        "type": "string",
+        "description": "Identifier of the collapsed child."
+      },
+      {
+        "name": "open",
+        "required": false,
+        "type": "boolean",
+        "description": "Expanded on first render; absent: collapsed."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "collapsed",
+        "note": "Hides details behind a summary line.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Disclosure",
+            "summary": "3 slides changed",
+            "child": "d"
+          },
+          {
+            "id": "d",
+            "component": "Text",
+            "text": "Slides 2, 5 and 9 use the old title size."
+          }
+        ]
+      },
+      {
+        "variant": "open",
+        "note": "Shown expanded on first render.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Disclosure",
+            "summary": "3 slides changed",
+            "child": "d",
+            "open": true
+          },
+          {
+            "id": "d",
+            "component": "Text",
+            "text": "Slides 2, 5 and 9 use the old title size."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Badge",
+    "props": [
+      {
+        "name": "text",
+        "required": true,
+        "type": "string",
+        "description": "The badge text."
+      },
+      {
+        "name": "tone",
+        "required": false,
+        "type": "string",
+        "values": [
+          "accent"
+        ],
+        "description": "Badge tone; absent: neutral."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "neutral",
+        "note": "A count or a status.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Badge",
+            "text": "12 slides"
+          }
+        ]
+      },
+      {
+        "variant": "accent",
+        "note": "A status worth noticing.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Badge",
+            "text": "12 slides",
+            "tone": "accent"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "component": "Markdown",
+    "props": [
+      {
+        "name": "text",
+        "required": true,
+        "type": "string",
+        "description": "The Markdown source."
+      }
+    ],
+    "examples": [
+      {
+        "variant": "default",
+        "note": "Formatted text without raw HTML: bold, italic, lists, links.",
+        "surface": [
+          {
+            "id": "root",
+            "component": "Markdown",
+            "text": "**Bold**, *italic* and a list:\n\n- first\n- second"
+          }
+        ]
+      }
+    ]
+  }
+]

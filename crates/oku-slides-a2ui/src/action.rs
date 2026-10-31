@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// A value written as is, or read from the data model.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum Dynamic<T> {
     /// JSON Pointer path (RFC 6901) into the surface's model.
@@ -26,7 +26,7 @@ impl<T> Dynamic<T> {
 }
 
 /// What a component sends when the user acts.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Action {
     /// The event sent to the host.
@@ -34,7 +34,7 @@ pub struct Action {
 }
 
 /// A named event; the UI reads the context paths when sending it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Event {
     /// Event name, routed by the host.

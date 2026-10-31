@@ -18,7 +18,7 @@ just test          # nextest (excludes oku-slides-app) + UI tests
 just check         # fmt --check, clippy -D warnings, tsc, fonts-lfs, agents-lint
 just ci            # check + test + audit — the full pre-merge gate
 just e2e 4999      # Playwright; default port 4872, refuses a port already taken
-just web           # UI with HMR on :5173 + Rust API
+just web           # UI with HMR on :5173 + Rust API; `just playbook` also opens /playbook.html (A2UI)
 just oku-slides …  # CLI, e.g. check, render, save, open, import, serve (see --help)
 ```
 

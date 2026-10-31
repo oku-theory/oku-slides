@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Tone of a card or a badge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Tone {
     /// No tone.
@@ -15,7 +15,7 @@ pub enum Tone {
 }
 
 /// Status of a step in a turn's timeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum StepStatus {
     /// Not started.
@@ -31,7 +31,7 @@ pub enum StepStatus {
 /// An image pasted with the prompt, shown as a chip.
 ///
 /// It carries its type and size, never its bytes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PromptImage {
     /// Its actual type (`image/png`…).
@@ -43,7 +43,7 @@ pub struct PromptImage {
 }
 
 /// A timeline step: grouped tools, an agent note or a plan entry.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TimelineStep {
     /// Title of the step's last tool, the agent note or the plan entry.
@@ -75,7 +75,7 @@ impl TimelineStep {
 /// A tool call of a step: its arguments and its result.
 ///
 /// The texts are already bounded and filtered by the host.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolCallDetail {
     /// Readable tool name.
@@ -91,7 +91,7 @@ pub struct ToolCallDetail {
 }
 
 /// Text style (a subset of the v0.9 variants).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TextVariant {
     /// A section heading.
@@ -105,7 +105,7 @@ pub enum TextVariant {
 }
 
 /// Button pictogram that replaces its label.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ButtonIcon {
     /// A cross: close.
@@ -137,7 +137,7 @@ pub struct ChoiceOption {
 /// A slide as rendered at one point: its identifier and its page fingerprint.
 /// The UI resolves its thumbnail (its cache is keyed by fingerprint): the message
 /// never carries the render itself, so its size does not depend on the slide content.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SlideRef {
     /// Slide identifier.
@@ -147,7 +147,7 @@ pub struct SlideRef {
 }
 
 /// A chunk of text kept, removed or added.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiffSegment {
     /// Kept, removed or added.
@@ -157,7 +157,7 @@ pub struct DiffSegment {
 }
 
 /// Fate of a text chunk in a [`DiffSegment`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum DiffKind {
     /// Unchanged.

@@ -12,6 +12,7 @@
 //! - [`Dynamic`]: a literal value or a path (JSON Pointer) into the
 //!   surface's data model.
 //! - [`Action`]: the event a component sends; the UI handles it.
+//! - [`examples`]: the playbook, every component in its variants (gallery, agent).
 //! - [`ButtonBuilder`]: a button with its flags (`primary`, `danger`, `icon`).
 //!
 //! This crate only produces: the UI (`@a2ui/web_core`) validates the
@@ -24,6 +25,7 @@ mod component;
 mod data;
 mod list;
 mod message;
+mod playbook;
 mod props;
 
 pub use action::{Action, Dynamic, Event};
@@ -34,7 +36,15 @@ pub use list::{ColumnKind, ListColumn, SubColumn, SubList, SubListFault};
 pub use message::{
     CATALOG_ID, CreateSurface, DeleteSurface, ServerBody, ServerMessage, UpdateComponents, UpdateDataModel, Version,
 };
+pub use playbook::{
+    ComponentReference, Example, ExampleReference, Group, PlaybookError, PropReference, agent_reference, examples,
+    render_components,
+};
 pub use props::{
     ButtonIcon, ChoiceOption, DiffKind, DiffSegment, PromptImage, SlideRef, StepStatus, TextVariant, TimelineStep,
     Tone, ToolCallDetail,
 };
+
+#[cfg(test)]
+#[path = "catalog_schema_tests.rs"]
+mod catalog_schema_tests;

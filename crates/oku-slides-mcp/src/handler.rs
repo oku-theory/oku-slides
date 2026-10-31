@@ -78,6 +78,7 @@ impl Tools {
             "import_report" => self.import_report().await,
             "import_diff" => self.import_diff(args).await,
             "focus" => self.focus(args),
+            "a2ui_examples" => self.a2ui_examples(args),
             "ask_choice" => self.ask_choice(turn, args).await,
             "ask_confirm" => self.ask_confirm(args).await,
             "ask_rewrite" => self.ask_rewrite(args).await,

@@ -85,7 +85,7 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         | "usage"
         | "show_usage" => &[Configure],
         "import_report" | "import_diff" | "diagnose" => &[Troubleshoot],
-        "ask_choice" | "ask_confirm" | "ask_rewrite" | "report" | "render" => &[AskReport],
+        "ask_choice" | "ask_confirm" | "ask_rewrite" | "report" | "render" | "a2ui_examples" => &[AskReport],
         _ => &[],
     }
 }

@@ -6,7 +6,7 @@ use crate::props::ChoiceOption;
 
 /// A column of a [`ComponentKind::ListTable`](crate::ComponentKind::ListTable): the item key, its
 /// label and its input.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ListColumn {
     /// Key of the item field shown in the column.
@@ -27,7 +27,7 @@ pub struct ListColumn {
 ///
 /// It holds its columns (never `list`: a single level), its bounds
 /// (`min` ≤ `max`) and the name of one of its items.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields, try_from = "SubListRaw")]
 pub struct SubList {
     /// The columns of the detail table, with no `list` column.
@@ -43,7 +43,7 @@ pub struct SubList {
 }
 
 /// A column of a nested list: like [`ListColumn`], without a nested list.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SubColumn {
     /// Key of the item field shown in the column.
@@ -57,14 +57,18 @@ pub struct SubColumn {
     pub options: Vec<ChoiceOption>,
 }
 
-/// [`SubList`] as read, before its checks.
-#[derive(Deserialize)]
+/// A nested list as it arrives, checked into a [`SubList`].
+#[derive(Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SubListRaw {
+    /// The columns of the detail table, with no `list` column.
     columns: Vec<SubColumn>,
+    /// Minimum number of items.
     min: u32,
+    /// Maximum number of items, at least `min`; absent: no limit.
     #[serde(default)]
     max: Option<u32>,
+    /// Name of one item, for the add and remove buttons.
     #[serde(default)]
     item_label: Option<String>,
 }
@@ -119,7 +123,7 @@ impl SubList {
 }
 
 /// Input of a list column.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ColumnKind {
     /// Single-line text.

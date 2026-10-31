@@ -5864,9 +5864,12 @@ dependencies = [
 name = "oku-slides-a2ui"
 version = "8.0.0"
 dependencies = [
+ "insta",
+ "rstest",
  "schemars 1.2.2",
  "serde",
  "serde_json",
+ "snafu",
  "speculoos",
 ]
 

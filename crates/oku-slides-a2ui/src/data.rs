@@ -1,17 +1,17 @@
-//! Composants de données d'un graphique ou d'un tableau (`ChartData`, `TableData`), hôte seul.
+//! Data components of a chart or a table (`ChartData`, `TableData`), host only.
 //!
-//! La session les construit depuis le deck ; l'interface écrit une modification au chemin
-//! `edit` du modèle, puis envoie l'action, que la session applique en une op annulable.
+//! The session builds them from the deck; the UI writes a change at the model's `edit` path,
+//! then sends the action, which the session applies as one undoable op.
 
 use serde::{Deserialize, Serialize};
 
-/// Une série qu'on peut colorer : son nom (en-tête de sa colonne) et sa couleur propre.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// A series that can be colored: its name (its column header) and its own color.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SeriesSwatch {
-    /// Le nom de la série, lu dans l'en-tête de sa colonne.
+    /// The series name, read in its column header.
     pub name: String,
-    /// Couleur `#rrggbb` propre à la série ; absente : la palette du thème.
+    /// Its own `#rrggbb` color; absent: the theme palette.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
 }
