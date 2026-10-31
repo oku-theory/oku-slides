@@ -842,8 +842,8 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 /* ---- Historique : bandeau, curseur des versions, marques de la pile ---- */
 .history-bar {
   grid-row: 1; grid-column: 1 / -1; align-self: center; position: relative; z-index: 2; margin-inline: var(--space-6);
-  /* Text and slider share the free width equally: the slider keeps its size whatever the caption or the theme font. */
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 1fr) auto; align-items: center; gap: var(--space-6);
+  /* Text and slider split the free width 35/65: the slider keeps its size whatever the caption or the theme font. */
+  display: grid; grid-template-columns: minmax(0, 35fr) minmax(200px, 65fr) auto; align-items: center; gap: var(--space-6);
   padding: 10px 18px; background: var(--paper-200); color: var(--ink); border-radius: var(--radius-md);
   box-shadow: var(--edge-light), var(--shadow-object); transition: var(--theme-fade);
 }

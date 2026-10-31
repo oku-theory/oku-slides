@@ -156,11 +156,11 @@ test("a wide Markdown table scrolls sideways in its box and keeps its table disp
   expect(ruleOf(APP, ".md table")).not.toMatch(/display:/);
 });
 
-test("history bar slider width ignores the version text and the theme font", () => {
+test("history bar splits text and slider 35/65, ignoring the version text and theme font", () => {
   // A content-sized text track (e.g. `minmax(180px, auto)`) lets each version's caption
   // and the theme's serif resize the slider while scrolling: both tracks need a fixed minimum.
   const columns = ruleOf(APP, ".history-bar")?.match(/grid-template-columns:\s*([^;]+);/)?.[1];
   const [version, track] = (columns ?? "").match(/minmax\([^)]*\)|\S+/g) ?? [];
-  expect(version).toMatch(/^minmax\((0|\d+px),\s*1fr\)$/);
-  expect(track).toMatch(/^minmax\(\d+px,\s*1fr\)$/);
+  expect(version).toMatch(/^minmax\((0|\d+px),\s*35fr\)$/);
+  expect(track).toMatch(/^minmax\(\d+px,\s*65fr\)$/);
 });
