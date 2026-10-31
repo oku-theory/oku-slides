@@ -327,7 +327,7 @@ Expected: PASS.
 ### Task 6: e2e, help, docs and gates
 
 **Files:**
-- Create: `ui/e2e/300-pile-ordre.cjs`
+- Create: `ui/e2e/310-pile-ordre.cjs`
 - Modify: `docs/aide/fr.json`, `docs/aide/en.json` (the "Éditer un pack" text, `s-grille`, l. 237 in `fr.json`: "on le duplique (menu ou ⌘D), on le déplace (glisser, ⌥↑ ⌥↓) : l'ordre vaut aussi pour les sélecteurs de layouts et de widgets"; read `docs/AGENTS.md` first), `docs/superpowers/plans/2026-10-28-onglets-pack-theme-lot6-ui.md` (decision 6: "Done in t-1249, `spec:2026-10-31-pile-duplicate-reorder-design`"), `ui/AGENTS.md` / crate `AGENTS.md` only if a task created or changed a rule (e.g. "Write a pack's item order through `PackManifest::to_files`, never by hand." in `crates/oku-slides-core/AGENTS.md`)
 - Test: the e2e spec
 
