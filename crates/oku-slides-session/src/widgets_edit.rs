@@ -368,13 +368,13 @@ impl Session {
         name: &str,
         source: String,
     ) -> Result<WidgetChange> {
-        let removing = source.is_empty();
+        let written = (!source.is_empty()).then(|| source.clone());
         let change = self.set_widget(pack, name, source)?;
         if change.saved
-            && !removing
+            && let Some(written) = written
             && let Some(scratch) = self.scratch_mut()
         {
-            scratch.mark_agent(&change.status.name);
+            scratch.mark_agent(&change.status.name, &written);
         }
         self.persist(true);
         Ok(change)

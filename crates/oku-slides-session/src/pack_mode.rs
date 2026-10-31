@@ -375,7 +375,8 @@ impl Session {
             .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
         restore_session_version(&self.library, pin.id, &files, lease.as_ref());
         edit.base = pin.version.clone();
-        // A widget the step took away loses the agent's mark: a later one of that name is not the agent's.
+        // The agent's marks follow the content: awake where a widget holds the agent's source, asleep
+        // elsewhere, gone with a widget the step took away (a later one of that name is not the agent's).
         // Pruned before the fallible steps below, since the document already moved.
         scratch.kept_in(&files);
         edit.session_version = (edit.parent.as_ref() != Some(&pin.version)).then(|| pin.version.clone());

@@ -41,16 +41,16 @@ impl Session {
         from: &str,
         to: Option<&str>,
     ) -> Result<WidgetDuplicate> {
-        self.copy_widget(pack, from, to).map(|(_, copy)| copy)
+        self.copy_widget(pack, from, to).map(|(_, _, copy)| copy)
     }
 
-    /// The duplicate itself, with the copy's file name for the agent's mark.
+    /// The duplicate itself, with the copy's file name and source for the agent's mark.
     fn copy_widget(
         &mut self,
         pack: Option<&Namespace>,
         from: &str,
         to: Option<&str>,
-    ) -> Result<(WidgetFile, WidgetDuplicate)> {
+    ) -> Result<(WidgetFile, String, WidgetDuplicate)> {
         let from = parse_name(from)?;
         ensure!(!from.is_common(), InvalidWidgetNameSnafu { name: from.as_str() });
         let t = self.widget_target(pack)?;
@@ -72,7 +72,7 @@ impl Session {
         let copy = renamed_source(source, from.as_str(), to.as_str());
         ensure!(copy.len() <= limits.bytes, WidgetTooLargeSnafu { name: to.as_str(), max: limits.kib });
         let mut widgets = t.files.widgets().clone();
-        widgets.insert(to.clone(), copy);
+        widgets.insert(to.clone(), copy.clone());
         let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         if let Some(examples) = manifest.examples.get(&from).cloned() {
             manifest.examples.insert(to.clone(), examples);
@@ -86,8 +86,8 @@ impl Session {
         order.insert(at, to.clone());
         manifest.order = order;
         let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &to))?;
-        let copy = WidgetDuplicate { name: to.as_str().to_owned(), statuses };
-        Ok((to, copy))
+        let duplicate = WidgetDuplicate { name: to.as_str().to_owned(), statuses };
+        Ok((to, copy, duplicate))
     }
 
     /// Agent duplicate (tool `duplicate_widget`): copied, persisted, the copy marked.
@@ -103,9 +103,9 @@ impl Session {
         from: &str,
         to: Option<&str>,
     ) -> Result<WidgetDuplicate> {
-        let (name, copy) = self.copy_widget(pack, from, to)?;
+        let (name, source, copy) = self.copy_widget(pack, from, to)?;
         if let Some(scratch) = self.scratch_mut() {
-            scratch.mark_agent(&name);
+            scratch.mark_agent(&name, &source);
         }
         self.persist(true);
         Ok(copy)
