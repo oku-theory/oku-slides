@@ -91,11 +91,11 @@ export interface WindowView {
   tabs: TabInfo[];
 }
 
-/** Un .pptx reçu de l'OS, pour le dialogue d'import de sa fenêtre. Il l'ouvre une fois par `id`. */
+/** A .pptx given by the OS, for its window's import dialog, opened once per `id`. */
 export interface ImportPick {
   window: string;
   path: string;
-  /** Numéro croissant : un choix plus récent a un numéro plus grand. */
+  /** Increasing number: a newer pick has a larger number. */
   id: number;
 }
 
@@ -106,8 +106,8 @@ export interface WorkspaceView {
   focused: string;
   /** L'agent est dans sa propre fenêtre. */
   agent_detached: boolean;
-  /** Le dernier .pptx reçu de l'OS (argument, seconde instance, macOS). */
-  import_pick: ImportPick | null;
+  /** The .pptx files given by the OS (argument, second instance, macOS), in order. */
+  import_picks: ImportPick[];
   windows: WindowView[];
 }
 

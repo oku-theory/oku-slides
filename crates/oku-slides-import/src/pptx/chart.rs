@@ -5,8 +5,8 @@ use roxmltree::Node;
 use crate::collect::{clip, clip_to};
 use crate::pptx::color::parse_color;
 use crate::pptx::context::PartCtx;
-use crate::pptx::xml::{attr_str, attr_u32, child, children, descendant, elements, text_of};
-use crate::source::{Chart, ChartKind, Grouping, Series, WarningKind};
+use crate::pptx::xml::{attr_bool, attr_str, attr_u32, child, children, descendant, elements, text_of};
+use crate::source::{Axes, Chart, ChartKind, Grouping, Series, WarningKind};
 
 /// Nombre maximal de points lus par cache.
 pub(crate) const MAX_CHART_POINTS: usize = 10_000;
@@ -20,6 +20,8 @@ pub(crate) const MAX_TITLE_LINES: usize = 8;
 const MAX_TITLE_CHARS: usize = 1024;
 /// Caractères gardés d'un `formatCode`.
 const MAX_FORMAT_CHARS: usize = 64;
+/// Axes read per chart: twice the four of a combo chart (two per type), for leeway.
+const MAX_AXES: usize = 8;
 
 /// Pourquoi un graphique n'est pas lu.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,6 +142,8 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
             }
         })
         .collect();
+    let legend = descendant(root, "chart").and_then(|c| child(c, "legend")).is_some();
+    let axes = axes(plot, first, kind == ChartKind::Bar);
     let title = descendant(root, "chart")
         .and_then(|c| child(c, "title"))
         .map(|t| {
@@ -151,7 +155,46 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
                 .join("\n")
         })
         .filter(|t| !t.trim().is_empty());
-    Ok(Chart { kind, grouping, title, categories, series })
+    Ok(Chart { kind, grouping, title, categories, series, legend, axes })
+}
+
+/// The axes of the chart type `first` drawn, by side; `horizontal`: bars along y.
+///
+/// Only the axes `first` names by `c:axId` count (a combo's other axes do not).
+/// A category axis (`c:catAx`, `c:dateAx`) is on the category side, x or y
+/// for horizontal bars, and a value axis on the other; the two value axes of
+/// a scatter are placed by `c:axPos` (`b`, `t`: x), else in order. An axis is
+/// deleted by `c:delete`, a bare one too (`CT_Boolean` defaults to true), and
+/// when the element is absent, as LibreOffice and python-pptx read it. A side
+/// is drawn when one of its axes is; a side without axis is not, as both
+/// witnesses draw it (t-954).
+fn axes(plot: Node<'_, '_>, first: Node<'_, '_>, horizontal: bool) -> Axes {
+    let ids: Vec<&str> = children(first, "axId").filter_map(|a| attr_str(a, "val")).take(MAX_AXES).collect();
+    let named = |n: &Node<'_, '_>| child(*n, "axId").and_then(|a| attr_str(a, "val")).is_some_and(|v| ids.contains(&v));
+    let read: Vec<Node<'_, '_>> = elements(plot)
+        .filter(|n| matches!(n.tag_name().name(), "catAx" | "dateAx" | "valAx") && named(n))
+        .take(MAX_AXES)
+        .collect();
+    let has_category = read.iter().any(|n| n.tag_name().name() != "valAx");
+    let (mut x, mut y) = (false, false);
+    for (rank, ax) in read.into_iter().enumerate() {
+        let category = ax.tag_name().name() != "valAx";
+        let vertical = if category {
+            horizontal
+        } else if has_category {
+            !horizontal
+        } else {
+            match child(ax, "axPos").and_then(|p| attr_str(p, "val")) {
+                Some("l" | "r") => true,
+                Some("b" | "t") => false,
+                _ => rank > 0,
+            }
+        };
+        let shown = child(ax, "delete").is_some_and(|d| attr_bool(d, "val") == Some(false));
+        let side = if vertical { &mut y } else { &mut x };
+        *side |= shown;
+    }
+    Axes { x, y }
 }
 
 #[cfg(test)]

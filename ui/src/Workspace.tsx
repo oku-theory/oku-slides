@@ -199,13 +199,13 @@ export default function Workspace() {
     });
   }, [label]);
 
-  // L'import d'un .pptx : son dialogue (dans l'`App` active) peut se fermer pendant qu'il tourne ;
-  // un refus arrivé ensuite s'affiche ici.
+  // Importing a .pptx: its dialog (in the active `App`) may close while it runs; a refusal
+  // arriving afterwards shows here.
   const imports = useImportJob(setError);
-  // Un .pptx reçu de l'OS (argument, seconde instance, macOS) : la vue le donne à sa fenêtre,
-  // qui ouvre le dialogue puis le fait oublier à l'hôte.
-  // Refusé pendant un import, le choix est repris quand celui-ci se termine.
-  useImportPick(view, label, imports.job?.busy ?? false, imports.pick, (id) => {
+  // The .pptx files given by the OS (argument, second instance, macOS): the view queues them for
+  // their window, which offers them one by one and has the host forget each one taken.
+  // During an import, a pick waits for it to end.
+  useImportPick(view, label, imports.job, imports.pick, (id) => {
     workspace
       .importPicked(id)
       .then((v) => alive.current && setView(v))

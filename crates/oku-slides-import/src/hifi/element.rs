@@ -13,7 +13,7 @@
 //! | forme remplie d'une image | `image` étirée au cadre, puis le trait |
 //! | forme portant du texte | la forme, puis un `text` sur le même cadre (marges : zone de texte de la géométrie et marges source) |
 //! | image, repli d'un opaque | `image` (`fit: stretch`) |
-//! | tableau, graphique | `table`, `chart` (conversions du retrofit, couleurs des séries gardées) ; d'un tableau, `header-row` et `striped` lus sur ses cellules ([`super::table`]), perte `TableStyle` pour le reste de son style |
+//! | tableau, graphique | `table`, `chart` (conversions du retrofit, couleurs des séries gardées) ; d'un tableau, `header-row` et `striped` lus sur ses cellules, ses largeurs et hauteurs en poids ([`super::table`]), perte `TableStyle` pour le reste de son style |
 //! | groupe, SmartArt dessiné | ses enfants, à leur place absolue |
 //! | opaque sans repli, SmartArt sans dessin | rien, perte `Opaque` |
 //!
@@ -37,7 +37,7 @@ use super::element_text::text_element;
 use super::geometry::arrow::{heads, points};
 use super::geometry::{Outline, outline};
 use super::page::round2;
-use super::table::TableLook;
+use super::table::{TableLook, set_geometry};
 use super::typst::{GenCtx, round_rect_radius};
 use crate::report::{Loss, LossKind, ShapeEffect};
 use crate::retrofit::chart::chart;
@@ -180,6 +180,7 @@ impl<F: FnMut() -> String> Builder<'_, '_, F> {
                 }
                 let option = table(t).map(|(mut option, lost)| {
                     look.set_flags(&mut option);
+                    set_geometry(&mut option, t);
                     (option, lost)
                 });
                 self.host(item, frame, base::TABLE, "data", option);

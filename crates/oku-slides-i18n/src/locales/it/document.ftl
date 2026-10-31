@@ -109,6 +109,7 @@ import-reference-unavailable = Nessun punteggio visivo: { $cause ->
        *[other] { $reference } pagine
     } per { $deck } nella presentazione
     [missing] LibreOffice (soffice) non trovato; indicarne il percorso in import.soffice
+    [refused] LibreOffice trovato ma non eseguibile qui; indicarne il binario in import.soffice (…/LibreOffice.app/Contents/MacOS/soffice), non uno script
    *[failed] il renderer di riferimento non ha potuto leggere la presentazione
 }
 import-region-suspect = Scarto messo da parte, un errore noto del renderer di riferimento: { $limit ->

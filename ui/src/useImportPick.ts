@@ -1,33 +1,49 @@
-// Un .pptx reçu de l'OS ouvre le dialogue d'import de sa fenêtre. La vue porte ce choix.
+// A .pptx given by the OS opens its window's import dialog. The view carries the queue of picks.
 
 import { useEffect, useRef } from "react";
-import type { WorkspaceView } from "./api";
+import type { ImportPick, WorkspaceView } from "./api";
+import type { ImportJob } from "./useImportJob";
 
 /**
- * Ouvre le dialogue d'import pour chaque choix d'import visant la fenêtre `label`.
+ * Opens the import dialog for each pick aimed at window `label`, one after another.
  *
- * `pick` dit s'il a pris le fichier : pris, `ack` demande à l'hôte d'oublier le choix (un
- * rechargement ne le rouvre pas). Les vues qui arrivent avant sa réponse le répètent encore :
- * seul un `id` plus grand que le dernier pris rouvre le dialogue. Refusé (un import tourne,
- * `busy`), le choix n'est ni pris ni oublié : il est repris quand l'import se termine.
+ * The pick with the lowest `id` above the last one taken (the queue head) waits while the dialog
+ * is shown. Taken (`pick` returns `true`), `ack` asks the host to forget it, so a reload does not
+ * reopen it; views that arrive before its reply still list it, and the `id` mark skips it. While
+ * an import runs with its dialog closed, `pick` is called once per queue head: it shows that
+ * import's dialog and refuses the file, so the pick stays queued and is offered when the import
+ * ends. Closing that dialog again does not reshow it for the same head.
  */
 export function useImportPick(
   view: WorkspaceView | null,
   label: string | null,
-  busy: boolean,
+  dialog: Pick<ImportJob, "shown" | "busy"> | null,
   pick: (path: string) => boolean,
   ack: (id: number) => void,
 ) {
   const handled = useRef(0);
+  const reshown = useRef(0);
   const latest = useRef({ pick, ack });
   latest.current = { pick, ack };
-  const wanted = view?.import_pick;
-  const id = wanted && label !== null && wanted.window === label ? wanted.id : 0;
-  const path = wanted?.path ?? "";
+  // Read during render: the mark only moves in the effect below, which a new view re-runs.
+  const next =
+    label === null
+      ? undefined
+      : view?.import_picks
+          .filter((p) => p.window === label && p.id > handled.current)
+          .reduce<ImportPick | undefined>((low, p) => (low === undefined || p.id < low.id ? p : low), undefined);
+  const id = next?.id ?? 0;
+  const path = next?.path ?? "";
+  const shown = dialog?.shown ?? false;
+  const busy = dialog?.busy ?? false;
   useEffect(() => {
-    if (id <= handled.current) return;
+    if (id <= handled.current || shown) return;
+    if (busy) {
+      if (reshown.current === id) return;
+      reshown.current = id;
+    }
     if (!latest.current.pick(path)) return;
     handled.current = id;
     latest.current.ack(id);
-  }, [id, path, busy]);
+  }, [id, path, busy, shown]);
 }

@@ -270,7 +270,10 @@ impl Session {
     /// Fails like the applied action (add, remove, version, theme): see each one.
     pub fn packs_action(&mut self, event: PacksEvent) -> Result<()> {
         match event {
-            PacksEvent::AddPack { kind, namespace } => self.add_library_pack(kind, &namespace),
+            PacksEvent::AddPack { kind, namespace } => match self.deck_only_choice(kind, &namespace) {
+                Some(choice) => self.pin_deck_only(kind, choice),
+                None => self.add_library_pack(kind, &namespace),
+            },
             PacksEvent::RemovePack { kind, namespace } => self.remove_deck_pack(kind, &namespace),
             PacksEvent::UseMine { kind, namespace } => self.pack_use_mine(kind, &namespace),
             PacksEvent::MakeCurrent { kind, namespace } => self.pack_make_current(kind, &namespace),

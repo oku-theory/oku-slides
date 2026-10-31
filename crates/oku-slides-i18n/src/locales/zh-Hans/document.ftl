@@ -101,6 +101,7 @@ import-reference-unavailable = 无视觉评分：{ $cause ->
     [memory] 参考渲染占用内存过多
     [pages] 参考渲染有{ $reference }页，而演示文稿有{ $deck }页
     [missing] 未找到 LibreOffice (soffice)；请在 import.soffice 中设置其路径
+    [refused] 找到了 LibreOffice，但无法在此运行；请在 import.soffice 中设置其二进制文件（…/LibreOffice.app/Contents/MacOS/soffice），而非脚本
    *[failed] 参考渲染器无法读取该演示文稿
 }
 import-region-suspect = 已搁置的差异，参考渲染器的已知错误：{ $limit ->

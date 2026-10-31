@@ -51,3 +51,4 @@ chart-table-cell-too-long = 표의 셀에는 최대 { $max }자까지 들어갑�
 chart-table-not-finite = 표의 숫자는 유한해야 합니다
 chart-table-chart-option = chart는 차트 옵션 객체여야 합니다
 chart-table-chart-columns = chart-columns에는 유효하며 서로 다른 열 식별자를 나열해야 합니다(1~64자의 영문자, 숫자, - 또는 _)
+chart-table-geometry = column-widths와 row-heights는 열 또는 행마다 유한한 양의 가중치를 하나씩 줍니다

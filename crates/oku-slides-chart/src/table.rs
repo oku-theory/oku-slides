@@ -21,6 +21,14 @@ pub const MAX_TABLE_ROWS: usize = 100;
 pub const MAX_TABLE_COLUMNS: usize = 20;
 /// Caractères au plus dans une cellule de texte.
 pub const MAX_TABLE_CELL_CHARS: usize = 1000;
+/// Largest column or row weight, so their sum stays finite.
+pub const MAX_TABLE_WEIGHT: f64 = 1e6;
+
+/// Are `w` a list of `count` weights, each finite, positive and at most [`MAX_TABLE_WEIGHT`]?
+#[must_use]
+pub fn valid_weights(w: &[f64], count: usize) -> bool {
+    w.len() == count && w.iter().all(|x| x.is_finite() && *x > 0.0 && *x <= MAX_TABLE_WEIGHT)
+}
 
 /// Options of a table: its data and their display.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -48,6 +56,19 @@ pub struct TableOption {
     /// Series i reads column i + 1 there. Identifiers are distinct; empty without `chart`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chart_columns: Vec<String>,
+    /// Width of each column as a relative weight; empty: sized on the content.
+    ///
+    /// One weight per column when given (see [`valid_weights`]). A list whose
+    /// length no longer matches, as a merge of concurrent edits leaves it, is dropped.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub column_widths: Vec<f64>,
+    /// Least height of each row, as a weight; empty: the content's.
+    ///
+    /// The weight is a share of the table height. One weight per row (header
+    /// included) when given, dropped like `column-widths` when its length no
+    /// longer matches; a row taller than its weight keeps its content's height.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub row_heights: Vec<f64>,
 }
 
 fn default_true() -> bool {
@@ -81,12 +102,21 @@ pub fn parse_table(v: &Value) -> Result<TableOption> {
     Ok(option)
 }
 
-/// Tronque `align` à la largeur du tableau (une entrée de trop n'a pas de
-/// colonne) et retire le `dataset` du graphique gardé (les données sont
-/// celles du tableau : un `dataset` gardé serait périmé). Sans graphique
-/// gardé, ses identifiants de colonnes n'ont plus d'objet.
+/// Fits the options to the data, as a merge of concurrent edits may leave them.
+///
+/// Truncates `align` to the table width (an extra entry has no column) and
+/// drops a weight list whose length does not match. Removes the kept chart's
+/// `dataset` (the data are the table's: a kept `dataset` would be stale).
+/// Without a kept chart, its column identifiers have no use.
 fn tidy(option: &mut TableOption) {
-    option.align.truncate(option.dataset.source.first().map_or(0, Vec::len));
+    let width = option.dataset.source.first().map_or(0, Vec::len);
+    option.align.truncate(width);
+    if option.column_widths.len() != width {
+        option.column_widths.clear();
+    }
+    if option.row_heights.len() != option.dataset.source.len() {
+        option.row_heights.clear();
+    }
     if option.chart.is_none() {
         option.chart_columns.clear();
     }
@@ -123,7 +153,12 @@ pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
         option.chart.as_ref().is_none_or(Value::is_object),
         InconsistentSnafu { reason: Message::new("chart-table-chart-option") }
     );
-    // Longueur d'abord : une liste énorme est refusée sans être parcourue.
+    // Each list's length is compared before its values are walked.
+    let weights = |w: &[f64], count: usize| w.is_empty() || valid_weights(w, count);
+    ensure!(
+        weights(&option.column_widths, width) && weights(&option.row_heights, rows.len()),
+        InconsistentSnafu { reason: Message::new("chart-table-geometry") }
+    );
     ensure!(
         option.chart_columns.len() <= MAX_TABLE_COLUMNS
             && option.chart_columns.iter().all(|id| valid_id(id))
@@ -149,7 +184,10 @@ fn check_growth(option: &TableOption, change: &DataOp) -> Result<()> {
     Ok(())
 }
 
-/// `set_data` on a table: applies `change`, realigns `align`, validates.
+/// `set_data` on a table: applies `change`, realigns `align` and the weights, validates.
+///
+/// An inserted column or row takes the mean weight; a replaced table keeps the
+/// weights only along a dimension whose count is unchanged.
 ///
 /// # Errors
 ///
@@ -166,8 +204,43 @@ pub fn table_data(option: &TableOption, change: &DataOp) -> Result<TableOption> 
         DataOp::Replace { source } => next.align.truncate(source.first().map_or(0, Vec::len)),
         _ => {}
     }
+    realign_weights(&mut next, option, change);
     validate_table(&next)?;
     Ok(next)
+}
+
+/// Keeps `column-widths` and `row-heights` of `next` aligned with its data after `change` on `before`.
+fn realign_weights(next: &mut TableOption, before: &TableOption, change: &DataOp) {
+    let mean = |w: &[f64]| {
+        let (sum, count) = w.iter().fold((0.0, 0.0), |(s, c), x| (s + x, c + 1.0));
+        sum / f64::max(count, 1.0)
+    };
+    match change {
+        DataOp::InsertColumn { at, .. } if !next.column_widths.is_empty() => {
+            let m = mean(&next.column_widths);
+            next.column_widths.insert((*at).min(next.column_widths.len()), m);
+        }
+        DataOp::RemoveColumn { at } if *at < next.column_widths.len() => {
+            next.column_widths.remove(*at);
+        }
+        DataOp::InsertRow { at, .. } if !next.row_heights.is_empty() => {
+            let m = mean(&next.row_heights);
+            next.row_heights.insert((*at).min(next.row_heights.len()), m);
+        }
+        DataOp::RemoveRow { at } if *at < next.row_heights.len() => {
+            next.row_heights.remove(*at);
+        }
+        DataOp::Replace { .. } => {
+            let width = |o: &TableOption| o.dataset.source.first().map_or(0, Vec::len);
+            if width(next) != width(before) {
+                next.column_widths.clear();
+            }
+            if next.dataset.source.len() != before.dataset.source.len() {
+                next.row_heights.clear();
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Merge patch (RFC 7396) on the options outside `dataset`; returns the inverse patch.
@@ -177,6 +250,8 @@ pub fn table_data(option: &TableOption, change: &DataOp) -> Result<TableOption> 
 /// Fails if the patch touches `dataset`, is not an object or makes the table invalid.
 pub fn patch_table(option: &TableOption, patch: &Value) -> Result<(TableOption, Value)> {
     let (mut next, inverse) = merge_patch(option, patch)?;
+    // An explicit edit with the wrong number of weights is refused, not dropped like a merge's.
+    validate_table(&next)?;
     tidy(&mut next);
     validate_table(&next)?;
     Ok((next, inverse))

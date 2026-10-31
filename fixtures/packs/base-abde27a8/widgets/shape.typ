@@ -51,8 +51,8 @@
   (args, ctx) => {
   let t = ctx.tokens
   let style = ctx.style
-  let fill = color-of(t, style.at("fill", default: none))
-  let stroke = if "stroke" in style { stroke-of(t, style.at("stroke-width", default: "rule")) + color-of(t, style.stroke) }
+  let fill = color-of(t, style.at("fill", default: none), lenient: true)
+  let stroke = if "stroke" in style { stroke-of(t, style.at("stroke-width", default: "rule")) + color-of(t, style.stroke, lenient: true) }
   // Hors cadre, la hauteur est infinie : le chemin s'inscrit dans un carré de la largeur.
   let d = if type(args.path) == dictionary { args.path.at("d", default: none) }
   if args.shape == "path" { layout(sz => _path-curve(d, sz.width,

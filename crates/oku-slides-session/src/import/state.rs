@@ -18,6 +18,7 @@
 //! les régions suspectes sont celles de ses limites connues.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde_json::Value;
@@ -31,7 +32,7 @@ use oku_slides_import::source::{SourceDeck, SourceSlide};
 use oku_slides_import::{CheckedPlan, ImportReport, hifi};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::ImportWitness;
-use oku_slides_reference::SOFFICE_WITNESS;
+use oku_slides_reference::{ReferenceError, ReferenceErrorKind, SOFFICE_WITNESS};
 use oku_slides_render::Fonts;
 use oku_slides_render_worker::ReferenceWitness;
 
@@ -238,11 +239,9 @@ impl ImportState {
             Some(ImportWitness::Office2pdf) => self.set_witness(Some(ReferenceWitness::Office2Pdf)),
             Some(ImportWitness::Soffice) => match soffice(platform) {
                 Ok(Some(found)) => self.set_witness(Some(found)),
-                Ok(None) => {
-                    self.witness_missing("[import] witness = soffice : aucun programme de [import] soffice".to_owned());
-                }
+                Ok(None) => self.witness_missing(&platform.settings.import.soffice),
                 // Un script, sur macOS : le bac à sable du rendu ne lance que le binaire (t-912).
-                Err(e) => self.witness_refused(e.to_string()),
+                Err(e) => self.witness_refused(&e),
             },
         }
     }
@@ -258,20 +257,25 @@ impl ImportState {
         self.witness = witness;
     }
 
-    /// Le témoin LibreOffice manque ; `detail` dit pourquoi au journal (la CLI : son option).
+    /// LibreOffice is missing: none of the `searched` programs is found.
     ///
-    /// Gardé comme un échec du témoin, cause `missing` : aucune slide n'a de
-    /// score, aucune région n'est suspecte, et le rapport dit pourquoi. Sans
-    /// effet sur une référence déjà faite.
-    pub(crate) fn witness_missing(&mut self, detail: String) {
-        self.witness_unavailable((ReferenceCause::Missing, detail));
+    /// Kept as a witness failure, cause `missing`: no slide has a score, no
+    /// region is suspect, and the report says why in the user's language; the
+    /// log names the programs searched (t-957). No effect on a reference
+    /// already made.
+    pub(crate) fn witness_missing(&mut self, searched: &[PathBuf]) {
+        let searched: Vec<String> = searched.iter().map(|p| p.display().to_string()).collect();
+        self.witness_unavailable((ReferenceCause::Missing, searched.join(", ")));
     }
 
-    /// Le témoin LibreOffice trouvé est refusé ; `detail` dit pourquoi (un script, sur macOS).
+    /// The LibreOffice found is refused, for the reason `e` gives.
     ///
-    /// Comme [`Self::witness_missing`], cause `failed` (t-912).
-    pub(crate) fn witness_refused(&mut self, detail: String) {
-        self.witness_unavailable((ReferenceCause::Failed, detail));
+    /// Like [`Self::witness_missing`]: cause `refused` for a script, on macOS
+    /// (t-912), `failed` when it cannot be read; the log carries `e` (t-957).
+    pub(crate) fn witness_refused(&mut self, e: &ReferenceError) {
+        let cause =
+            if e.kind() == ReferenceErrorKind::Script { ReferenceCause::Refused } else { ReferenceCause::Failed };
+        self.witness_unavailable((cause, e.to_string()));
     }
 
     /// Le témoin LibreOffice manque au rapport pour la cause de `failure`.

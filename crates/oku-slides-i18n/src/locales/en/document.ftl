@@ -109,6 +109,7 @@ import-reference-unavailable = No visual score: { $cause ->
        *[other] { $reference } pages
     } for { $deck } in the deck
     [missing] LibreOffice (soffice) was not found; set its path in import.soffice
+    [refused] LibreOffice was found but cannot run here; set its binary in import.soffice (…/LibreOffice.app/Contents/MacOS/soffice), not a script
    *[failed] the reference renderer could not read the presentation
 }
 import-region-suspect = Gap set aside, a known error of the reference renderer: { $limit ->

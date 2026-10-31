@@ -13,6 +13,8 @@ mod issue_0755_shared_theme;
 mod issue_0755_text_bounds;
 mod issue_0755_theme_no_fill;
 mod issue_0892_clamp_warning;
+mod issue_0954_chart_deleted_axes_and_no_legend;
+mod issue_0955_hifi_table_keeps_its_geometry;
 mod issue_1092_generated_registry_error;
 mod issue_692_bomb_rereads;
 mod issue_692_invisible_chars;

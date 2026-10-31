@@ -51,3 +51,4 @@ chart-table-cell-too-long = تحتوي خلية الجدول على { $max } ح�
 chart-table-not-finite = يجب أن تكون أرقام الجدول منتهية
 chart-table-chart-option = يجب أن يكون chart كائن خيارات مخطط
 chart-table-chart-columns = يجب أن يسرد chart-columns معرّفات أعمدة صالحة وغير مكررة (من 1 إلى 64 حرفًا أو رقمًا أو - أو _)
+chart-table-geometry = يعطي column-widths وrow-heights وزنًا محدودًا موجبًا لكل عمود أو صف

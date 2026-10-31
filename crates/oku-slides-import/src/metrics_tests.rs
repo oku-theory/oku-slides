@@ -247,6 +247,8 @@ fn smartart_and_chart() -> SourceSlide {
         title: None,
         categories: vec![],
         series: vec![],
+        legend: true,
+        axes: crate::source::Axes { x: true, y: true },
     };
     let group = item("s1/2", (0.0, 0.0, 100.0, 100.0), kind);
     source_slide(1, None, vec![group, item("s1/4", (0.0, 100.0, 50.0, 50.0), ItemKind::Chart(chart))])

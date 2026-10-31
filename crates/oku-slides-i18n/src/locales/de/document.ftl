@@ -109,6 +109,7 @@ import-reference-unavailable = Keine visuelle Bewertung: { $cause ->
        *[other] { $reference } Seiten
     } für { $deck } im Deck
     [missing] LibreOffice (soffice) wurde nicht gefunden; Pfad in import.soffice angeben
+    [refused] LibreOffice wurde gefunden, kann hier aber nicht laufen; in import.soffice die Programmdatei angeben (…/LibreOffice.app/Contents/MacOS/soffice), kein Skript
    *[failed] der Referenz-Renderer konnte die Präsentation nicht lesen
 }
 import-region-suspect = Abweichung zurückgestellt, ein bekannter Fehler des Referenz-Renderers: { $limit ->

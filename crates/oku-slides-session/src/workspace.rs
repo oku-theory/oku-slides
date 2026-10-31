@@ -52,8 +52,8 @@ pub struct Workspace {
     chosen_locale: Option<&'static str>,
     /// Schéma choisi dans les réglages ; `None` : celui du système.
     chosen_scheme: Option<&'static str>,
-    /// Le dernier `.pptx` reçu de l'OS (voir [`ImportPick`]), pas encore montré ; jamais enregistré.
-    import_pick: Option<ImportPick>,
+    /// The `.pptx` files given by the OS (see [`ImportPick`]), not shown yet, in order; never saved.
+    import_picks: Vec<ImportPick>,
     /// Numéro du dernier choix d'import : jamais réutilisé, même une fois le choix oublié.
     last_pick: u64,
     /// Le dernier élément copié, dans n'importe quelle fenêtre ; jamais enregistré.
@@ -104,7 +104,7 @@ impl Workspace {
             generation: AtomicU64::new(0),
             chosen_locale: platform.settings.i18n.locale.as_deref().and_then(oku_slides_i18n::shipped),
             chosen_scheme: platform.settings.appearance.scheme.as_deref().and_then(scheme::known),
-            import_pick: None,
+            import_picks: Vec::new(),
             last_pick: 0,
             clip: None,
             clip_seq: 0,
@@ -140,7 +140,7 @@ impl Workspace {
             generation: self.generation.fetch_add(1, Ordering::SeqCst) + 1,
             focused: self.layout.focused.clone(),
             agent_detached: self.layout.agent_detached,
-            import_pick: self.import_pick.clone(),
+            import_picks: self.import_picks.clone(),
             windows: self
                 .layout
                 .windows

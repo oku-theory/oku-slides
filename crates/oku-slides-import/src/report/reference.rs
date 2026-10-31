@@ -33,6 +33,8 @@ pub enum ReferenceCause {
     Memory,
     /// Le témoin, un programme externe (LibreOffice), est introuvable.
     Missing,
+    /// LibreOffice is found but cannot run here: a script, on macOS (t-912, t-957).
+    Refused,
     /// Le témoin et le deck n'ont pas le même nombre de pages.
     Pages {
         /// Pages du témoin.
@@ -52,6 +54,7 @@ impl std::fmt::Display for ReferenceCause {
             Self::Timeout => f.write_str("timeout"),
             Self::Memory => f.write_str("memory"),
             Self::Missing => f.write_str("missing"),
+            Self::Refused => f.write_str("refused"),
             Self::Pages { reference, deck } => write!(f, "pages ({reference} rendered, {deck} expected)"),
         }
     }
@@ -64,6 +67,7 @@ impl Localize for ReferenceCause {
             Self::Timeout => ("timeout", 0, 0),
             Self::Memory => ("memory", 0, 0),
             Self::Missing => ("missing", 0, 0),
+            Self::Refused => ("refused", 0, 0),
             Self::Pages { reference, deck } => ("pages", *reference, *deck),
         };
         l.tr_with(

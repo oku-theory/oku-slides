@@ -1,4 +1,5 @@
 use oku_slides_i18n::{Localize, Localizer};
+use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -360,4 +361,143 @@ fn patch_table_removing_the_chart_drops_the_chart_columns() {
 fn table_option_without_chart_columns_serializes_without_them() {
     let v = serde_json::to_value(table()).unwrap();
     assert_that!(v.get("chart-columns")).is_none();
+}
+
+/// `table()` with weights: three columns, three rows.
+fn weighted() -> TableOption {
+    let mut t = table();
+    t.column_widths = vec![1.0, 2.0, 3.0];
+    t.row_heights = vec![1.0, 1.0, 4.0];
+    validate_table(&t).unwrap_or_else(|e| panic!("{e}"));
+    t
+}
+
+#[test]
+fn parse_table_with_weights_reads_them() {
+    let t = parse_table(&json!({ "dataset": { "source": [["A", "B"], ["1", "2"]] },
+        "column-widths": [1, 3], "row-heights": [2, 1] }))
+    .unwrap();
+    assert_that!((t.column_widths, t.row_heights)).is_equal_to((vec![1.0, 3.0], vec![2.0, 1.0]));
+}
+
+#[rstest]
+#[case::too_few_columns(json!({ "column-widths": [1] }))]
+#[case::too_many_rows(json!({ "row-heights": [1, 1, 1] }))]
+fn parse_table_with_weights_of_another_length_drops_them(#[case] weights: serde_json::Value) {
+    let mut v = json!({ "dataset": { "source": [["A", "B"], ["1", "2"]] } });
+    v.as_object_mut().unwrap().extend(weights.as_object().unwrap().clone());
+    let t = parse_table(&v).unwrap();
+    assert_that!(t.column_widths.is_empty() && t.row_heights.is_empty()).is_true();
+}
+
+#[rstest]
+#[case::zero(json!({ "column-widths": [0, 1] }))]
+#[case::negative(json!({ "row-heights": [1, -1] }))]
+#[case::above_the_max(json!({ "column-widths": [1, 1e7] }))]
+fn parse_table_with_misfit_weights_is_inconsistent_and_localized(#[case] weights: serde_json::Value) {
+    let mut v = json!({ "dataset": { "source": [["A", "B"], ["1", "2"]] } });
+    v.as_object_mut().unwrap().extend(weights.as_object().unwrap().clone());
+    let e = parse_table(&v).unwrap_err();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.kind()).is_equal_to(ChartErrorKind::Inconsistent);
+    assert_that!(e.localize(&fr)).is_equal_to(Message::new("chart-table-geometry").localize(&fr));
+}
+
+#[test]
+fn validate_table_non_finite_weight_is_inconsistent() {
+    let mut t = weighted();
+    t.column_widths[1] = f64::INFINITY;
+    assert_that!(validate_table(&t).unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn patch_table_with_misfit_weights_is_refused() {
+    let e = patch_table(&table(), &json!({ "column-widths": [1, 2] })).unwrap_err();
+    assert_that!(e.kind()).is_equal_to(ChartErrorKind::Inconsistent);
+}
+
+#[test]
+fn patch_table_with_null_weights_clears_them() {
+    let (t, _) = patch_table(&weighted(), &json!({ "column-widths": null, "row-heights": null })).unwrap();
+    assert_that!(t.column_widths.is_empty() && t.row_heights.is_empty()).is_true();
+}
+
+#[test]
+fn table_data_insert_on_a_table_without_weights_adds_none() {
+    let op = DataOp::InsertColumn { at: 0, cells: vec![], id: None };
+    let t = table_data(&table(), &op).unwrap();
+    assert_that!(t.column_widths.is_empty()).is_true();
+}
+
+#[test]
+fn table_data_insert_column_at_the_end_appends_the_mean_width() {
+    let op = DataOp::InsertColumn { at: 3, cells: vec![], id: None };
+    let t = table_data(&weighted(), &op).unwrap();
+    assert_that!(t.column_widths).is_equal_to(vec![1.0, 2.0, 3.0, 2.0]);
+}
+
+#[rstest]
+#[case::exact(&[1.0, 2.0], 2, true)]
+#[case::short(&[1.0], 2, false)]
+#[case::at_the_max(&[1.0, MAX_TABLE_WEIGHT], 2, true)]
+#[case::above_the_max(&[1.0, MAX_TABLE_WEIGHT * 2.0], 2, false)]
+#[case::nan(&[1.0, f64::NAN], 2, false)]
+fn valid_weights_checks_length_and_bounds(#[case] w: &[f64], #[case] count: usize, #[case] ok: bool) {
+    assert_that!(valid_weights(w, count)).is_equal_to(ok);
+}
+
+#[test]
+fn table_without_weights_serializes_no_weight_key() {
+    let v = serde_json::to_value(table()).unwrap();
+    assert_that!(v.get("column-widths").is_none() && v.get("row-heights").is_none()).is_true();
+}
+
+#[test]
+fn table_data_insert_column_gives_it_the_mean_width() {
+    let op = DataOp::InsertColumn { at: 1, cells: vec![], id: None };
+    let t = table_data(&weighted(), &op).unwrap();
+    assert_that!(t.column_widths).is_equal_to(vec![1.0, 2.0, 2.0, 3.0]);
+}
+
+#[test]
+fn table_data_remove_column_drops_its_width() {
+    let t = table_data(&weighted(), &DataOp::RemoveColumn { at: 0 }).unwrap();
+    assert_that!(t.column_widths).is_equal_to(vec![2.0, 3.0]);
+}
+
+#[test]
+fn table_data_insert_row_gives_it_the_mean_height() {
+    let op = DataOp::InsertRow { at: 3, cells: vec![], id: None };
+    let t = table_data(&weighted(), &op).unwrap();
+    assert_that!(t.row_heights).is_equal_to(vec![1.0, 1.0, 4.0, 2.0]);
+}
+
+#[test]
+fn table_data_remove_row_drops_its_height() {
+    let t = table_data(&weighted(), &DataOp::RemoveRow { at: 1 }).unwrap();
+    assert_that!(t.row_heights).is_equal_to(vec![1.0, 4.0]);
+}
+
+#[test]
+fn table_data_set_cell_keeps_the_weights() {
+    let op = DataOp::SetCell { row: 1, col: 1, value: Cell::Number(3.0) };
+    let t = table_data(&weighted(), &op).unwrap();
+    assert_that!((t.column_widths, t.row_heights)).is_equal_to((vec![1.0, 2.0, 3.0], vec![1.0, 1.0, 4.0]));
+}
+
+#[rstest]
+#[case::same_shape(3, 3, true, true)]
+#[case::other_width(2, 3, false, true)]
+#[case::other_rows(3, 2, true, false)]
+fn table_data_replace_keeps_weights_only_where_the_count_is_unchanged(
+    #[case] columns: usize,
+    #[case] rows: usize,
+    #[case] widths_kept: bool,
+    #[case] heights_kept: bool,
+) {
+    let source = vec![vec![Cell::Text("x".into()); columns]; rows];
+    let t = table_data(&weighted(), &DataOp::Replace { source }).unwrap();
+    let kept = |kept: bool, w: Vec<f64>| if kept { w } else { vec![] };
+    assert_that!((t.column_widths, t.row_heights))
+        .is_equal_to((kept(widths_kept, vec![1.0, 2.0, 3.0]), kept(heights_kept, vec![1.0, 1.0, 4.0])));
 }

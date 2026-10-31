@@ -48,6 +48,7 @@ mod deck_closure;
 mod deck_fallback;
 mod deck_file;
 mod deck_offer;
+mod deck_only_offer;
 mod deck_pack;
 mod deck_pack_link;
 mod deck_pack_receive;

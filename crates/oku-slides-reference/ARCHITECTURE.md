@@ -12,11 +12,11 @@ to PDF, rasterized and compared with the Oku rendering (hi-fi gap, `oku_slides_i
   temp dir per render (isolated profile `-env:UserInstallation`, fonts in its `user/fonts`),
   `ExportHiddenSlides` and `PageRange`; `--version` read once (`LibreOffice 26.8.1.1`). One deadline
   per render; past it, its process group is killed (`process.rs`, `group.rs`). `find_soffice`: the
-  first candidate `find_program` finds, as its real path; on macOS a script is refused (`Render`).
+  first candidate `find_program` finds, as its real path; on macOS a script is refused (`Script`).
 - `ReferencePdf`: `page_count`, `raster(i, width) -> Raster` (hayro, on white, ≤ `MAX_RASTER_SIDE`);
   `Raster`: opaque 8-bit RGBA, `crop`, `scaled`, `from_png`, `to_png` (PNGs on the worker pipe).
-  Feature `test-support`: blank PDF, fake `soffice`. Real-LibreOffice tests: `OKU_SLIDES_TEST_SOFFICE=1`.
-- `ReferenceError` opaque, `kind()` (`Render`, `Timeout`, `Pdf`, `NoPage`, `Size`, `Png`): never
+  Feature `test-support`: blank PDF, fake `soffice`. Real-LibreOffice tests: ignored, run by `just test-soffice`.
+- `ReferenceError` opaque, `kind()` (`Render`, `Timeout`, `Pdf`, `NoPage`, `Size`, `Png`, `Script`): never
   fatal for the import, whose report says the reference is missing.
 
 ## Isolation

@@ -51,3 +51,4 @@ chart-table-cell-too-long = 表のセルは最大 { $max } 文字までです
 chart-table-not-finite = 表の数値は有限である必要があります
 chart-table-chart-option = chart はグラフオプションのオブジェクトでなければなりません
 chart-table-chart-columns = chart-columns には有効で重複しない列識別子を並べてください（1〜64 文字の英数字、- または _）
+chart-table-geometry = column-widths と row-heights は列または行ごとに有限で正の重みを1つずつ指定します

@@ -107,6 +107,7 @@ import-reference-unavailable = कोई दृश्य स्कोर नह�
        *[other] { $reference } पेज हैं
     }
     [missing] LibreOffice (soffice) नहीं मिला; import.soffice में उसका पथ दें
+    [refused] LibreOffice मिला, पर यहाँ नहीं चल सकता; import.soffice में स्क्रिप्ट नहीं, उसकी बाइनरी दें (…/LibreOffice.app/Contents/MacOS/soffice)
    *[failed] संदर्भ रेंडरर प्रस्तुति नहीं पढ़ सका
 }
 import-region-suspect = अंतर अलग रखा गया, संदर्भ रेंडरर की एक ज्ञात त्रुटि: { $limit ->

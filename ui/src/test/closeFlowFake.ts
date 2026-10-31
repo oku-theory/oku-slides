@@ -44,7 +44,7 @@ export const OFFER: OpenerOffer = { kind: "version", tab: "t-1", title: "Roadmap
 export const T0 = 1_000_000;
 
 /** The view a workspace command answers; the flows read only `freshView`. */
-const VIEW = { generation: 1, focused: "main", agent_detached: false, import_pick: null, windows: [] } as unknown as WorkspaceView;
+const VIEW = { generation: 1, focused: "main", agent_detached: false, import_picks: [], windows: [] } as unknown as WorkspaceView;
 
 /** A fake workspace: `state` holds the answers, `log` every call, `input` builds deps. */
 export function fake(tabs: TabInfo[]) {

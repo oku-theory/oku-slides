@@ -18,6 +18,8 @@ pub enum ReferenceErrorKind {
     Size,
     /// Un PNG illisible ou impossible à écrire.
     Png,
+    /// The LibreOffice found is a script: the render sandbox runs only the binary (t-912).
+    Script,
 }
 
 /// Une erreur du rendu de référence.
@@ -37,6 +39,8 @@ impl ReferenceError {
             Inner::NoPage { .. } => ReferenceErrorKind::NoPage,
             Inner::Size { .. } => ReferenceErrorKind::Size,
             Inner::Png { .. } => ReferenceErrorKind::Png,
+            #[cfg(target_os = "macos")]
+            Inner::Script { .. } => ReferenceErrorKind::Script,
         }
     }
 }
@@ -62,4 +66,8 @@ pub(crate) enum Inner {
     Size { width: u32, height: u32, backtrace: Backtrace },
     #[snafu(display("png: {message}"))]
     Png { message: String, backtrace: Backtrace },
+    /// Built only on macOS, where the render sandbox runs the binary alone.
+    #[cfg(target_os = "macos")]
+    #[snafu(display("{path} is a script: give the LibreOffice binary (…/LibreOffice.app/Contents/MacOS/soffice)"))]
+    Script { path: String, backtrace: Backtrace },
 }

@@ -178,7 +178,8 @@ pub enum Op {
     },
     /// Changes the display options of a table (`host(table)` parameter).
     ///
-    /// JSON Merge Patch on `header-row`, `header-column`, `striped`, `align`; never `dataset`.
+    /// JSON Merge Patch on `header-row`, `header-column`, `striped`, `align`, `column-widths`,
+    /// `row-heights` (weights, one per column or row); never `dataset`.
     SetTableOption {
         /// Slide or element that holds the table.
         target: Target,

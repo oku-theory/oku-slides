@@ -260,6 +260,9 @@ impl ChartsRsRenderer {
         let t = &self.theme;
         base.width = size.width;
         base.height = size.height;
+        // Bottom and left in charts-rs, as `xAxis` and `yAxis` (horizontal bars too).
+        base.x_axis_hidden = !model.axes_show.x;
+        base.y_axis_hidden = !model.axes_show.y;
         base.font_family.clone_from(&t.font_family);
         base.is_light = true;
         base.background_color = t.background.as_deref().map_or_else(transparent, color);

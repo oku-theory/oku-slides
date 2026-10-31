@@ -173,6 +173,22 @@ fn import_tab_hifi_with_an_absent_soffice_witness_says_it_is_missing_without_off
     assert_that!(witness_of(&ws, "t-2")).is_equal_to((None, Some(Err(missing))));
 }
 
+/// A script as `[import] soffice`, on macOS: refused, its own cause, never office2pdf (t-912, t-957).
+#[cfg(target_os = "macos")]
+#[test]
+fn import_tab_hifi_with_a_script_soffice_says_it_is_refused_without_office2pdf() {
+    let data = fresh_dir("oku-slides-workspace-import-soffice-script-");
+    let script = data.path().join("soffice");
+    std::fs::write(&script, b"#!/bin/sh\nexit 0\n").unwrap();
+    let ws = workspace_with(data.path(), |s| {
+        s.import.witness = oku_slides_platform::config::ImportWitness::Soffice;
+        s.import.soffice = vec![script.clone()];
+    });
+    import_tab(&ws, &pptx_fixture(data.path(), "minimal"), json!({ "mode": "hifi" }), false).unwrap();
+    let refused = oku_slides_import::report::ReferenceCause::Refused;
+    assert_that!(witness_of(&ws, "t-2")).is_equal_to((None, Some(Err(refused))));
+}
+
 #[test]
 fn import_tab_retrofit_has_no_witness_even_with_soffice_set() {
     let data = fresh_dir("oku-slides-workspace-import-retrofit-witness-");

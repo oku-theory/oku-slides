@@ -163,7 +163,7 @@ fn score_deck_after_a_witness_failure_leaves_no_score_and_says_why() {
 fn witness_missing_leaves_no_score_and_names_libreoffice() {
     let data = fresh_dir("oku-slides-import-state-missing-");
     let (_, Imported { mut state, .. }) = imported(data.path());
-    state.witness_missing("--reference soffice".to_owned());
+    state.witness_missing(&[std::path::PathBuf::from("soffice")]);
     assert_that!(state.report().slides.iter().all(|s| s.score.is_none())).is_true();
     let reference = state.report().reference.clone().unwrap();
     assert_that!((reference.witness.as_str(), reference.unavailable))
@@ -174,10 +174,11 @@ fn witness_missing_leaves_no_score_and_names_libreoffice() {
 }
 
 #[test]
-fn witness_refused_leaves_no_score_and_says_libreoffice_failed() {
+fn witness_refused_for_an_error_other_than_a_script_is_failed_without_score() {
     let data = fresh_dir("oku-slides-import-state-refused-");
     let (_, Imported { mut state, .. }) = imported(data.path());
-    state.witness_refused("soffice : un script".to_owned());
+    let Err(e) = oku_slides_reference::ReferencePdf::new(b"not a pdf".to_vec()) else { panic!("parsed garbage") };
+    state.witness_refused(&e);
     assert_that!(state.report().slides.iter().all(|s| s.score.is_none())).is_true();
     let reference = state.report().reference.clone().unwrap();
     assert_that!((reference.witness.as_str(), reference.unavailable))
@@ -370,6 +371,6 @@ fn regions_are_suspect_under_libreoffice_for_its_own_limits() {
 fn regions_are_never_suspect_when_the_soffice_witness_is_missing() {
     let data = fresh_dir("oku-slides-import-state-missing-");
     let mut state = imported_libreoffice(data.path());
-    state.witness_missing("test".to_owned());
+    state.witness_missing(&[]);
     assert_that!(suspects(&state).iter().all(Option::is_none)).is_true();
 }

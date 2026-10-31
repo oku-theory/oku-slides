@@ -46,6 +46,8 @@ pub fn chart_to_table(chart: &ChartOption) -> Result<TableOption> {
         align: Vec::new(),
         chart: Some(saved),
         chart_columns,
+        column_widths: Vec::new(),
+        row_heights: Vec::new(),
     };
     validate_table(&table)?;
     Ok(table)

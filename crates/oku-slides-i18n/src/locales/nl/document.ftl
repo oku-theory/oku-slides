@@ -110,6 +110,7 @@ import-reference-unavailable = Geen visuele score: { $cause ->
        *[other] { $reference } pagina’s
     } voor { $deck } in de presentatie
     [missing] LibreOffice (soffice) is niet gevonden; geef het pad op in import.soffice
+    [refused] LibreOffice is gevonden maar kan hier niet draaien; geef het programmabestand op in import.soffice (…/LibreOffice.app/Contents/MacOS/soffice), geen script
    *[failed] de referentierenderer kon de presentatie niet lezen
 }
 import-region-suspect = Afwijking terzijde gelegd, een bekende fout van de referentierenderer: { $limit ->

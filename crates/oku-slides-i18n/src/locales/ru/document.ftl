@@ -111,6 +111,7 @@ import-reference-unavailable = Нет визуальной оценки: { $caus
        *[other] { $reference } страницы
     } при { $deck } в презентации
     [missing] LibreOffice (soffice) не найден; укажите путь к нему в import.soffice
+    [refused] LibreOffice найден, но не может здесь запуститься; укажите в import.soffice его исполняемый файл (…/LibreOffice.app/Contents/MacOS/soffice), а не скрипт
    *[failed] эталонный рендерер не смог прочитать презентацию
 }
 import-region-suspect = Расхождение отложено, известная ошибка эталонного рендерера: { $limit ->

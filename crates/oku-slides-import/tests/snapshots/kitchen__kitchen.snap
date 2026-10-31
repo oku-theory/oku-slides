@@ -4594,7 +4594,12 @@ expression: kitchen()
                 ],
                 "color": null
               }
-            ]
+            ],
+            "legend": false,
+            "axes": {
+              "x": false,
+              "y": false
+            }
           }
         },
         {

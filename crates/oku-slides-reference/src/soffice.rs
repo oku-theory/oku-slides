@@ -17,6 +17,8 @@ use std::time::{Duration, Instant};
 use oku_slides_platform::find_program;
 use oku_slides_platform::storage::{Storage, canonical};
 
+#[cfg(target_os = "macos")]
+use crate::error::ScriptSnafu;
 use crate::error::{RenderSnafu, TimeoutSnafu};
 use crate::process::{self, Finished, RunError};
 use crate::{ReferenceError, ReferencePdf, ReferenceRenderer, SlideSpan};
@@ -55,7 +57,7 @@ impl Soffice {
     fn run(&self, args: &[OsString], deadline: Instant) -> Result<Finished, ReferenceError> {
         process::run(&self.program, args, deadline).map_err(|e| match e {
             RunError::Timeout => TimeoutSnafu { ms: millis(self.timeout) }.build().into(),
-            RunError::Spawn(e) | RunError::Wait(e) => render_err(format!("{} : {e}", self.program.display())),
+            RunError::Spawn(e) | RunError::Wait(e) => render_err(format!("{}: {e}", self.program.display())),
         })
     }
 
@@ -66,7 +68,7 @@ impl Soffice {
         }
         let out = self.run(&[profile.clone(), "--version".into()], deadline)?;
         let version =
-            parse_version(&out.stdout).ok_or_else(|| render_err(format!("--version : {}", tail(&out.stdout))))?;
+            parse_version(&out.stdout).ok_or_else(|| render_err(format!("--version: {}", tail(&out.stdout))))?;
         // Un autre fil a pu la poser : c'est la même.
         let _ = self.version.set(version);
         Ok(())
@@ -74,7 +76,7 @@ impl Soffice {
 
     /// Écrit `bytes` à `path`, créant ses dossiers.
     fn write(&self, path: &Path, bytes: Vec<u8>) -> Result<(), ReferenceError> {
-        self.storage.write(path, bytes).map_err(|e| render_err(format!("{} : {e}", path.display())))
+        self.storage.write(path, bytes).map_err(|e| render_err(format!("{}: {e}", path.display())))
     }
 }
 
@@ -93,7 +95,7 @@ impl ReferenceRenderer for Soffice {
         let dir = tempfile::Builder::new()
             .prefix("oku-slides-soffice-")
             .tempdir()
-            .map_err(|e| render_err(format!("dossier temporaire : {e}")))?;
+            .map_err(|e| render_err(format!("temporary directory: {e}")))?;
         let profile = dir.path().join("profile");
         let font_dir = profile.join("user").join("fonts");
         for (i, font) in fonts.into_iter().enumerate() {
@@ -107,12 +109,12 @@ impl ReferenceRenderer for Soffice {
         let out_dir = dir.path().join("out");
         let finished = self.run(&convert_args(profile, slides, &out_dir, &deck), deadline)?;
         if !finished.status.success() {
-            return Err(render_err(format!("{} : {}", finished.status, tail(&finished.stderr))));
+            return Err(render_err(format!("{}: {}", finished.status, tail(&finished.stderr))));
         }
         let pdf = self
             .storage
             .read_limited(&out_dir.join(PDF), MAX_PDF_BYTES)
-            .map_err(|e| render_err(format!("pas de PDF ({e}) : {}", tail(&finished.stderr))))?;
+            .map_err(|e| render_err(format!("no pdf ({e}): {}", tail(&finished.stderr))))?;
         ReferencePdf::new(pdf)
     }
 }
@@ -135,15 +137,12 @@ pub fn find_soffice(
 ) -> Result<Option<PathBuf>, ReferenceError> {
     let found = candidates.iter().find_map(|c| find_program(storage, c, path));
     let Some(found) = found else { return Ok(None) };
-    let real = canonical(&found).map_err(|e| render_err(format!("{} : {e}", found.display())))?;
+    let real = canonical(&found).map_err(|e| render_err(format!("{}: {e}", found.display())))?;
     #[cfg(target_os = "macos")]
     {
-        let head = storage.read_head(&real, 2).map_err(|e| render_err(format!("{} : {e}", real.display())))?;
+        let head = storage.read_head(&real, 2).map_err(|e| render_err(format!("{}: {e}", real.display())))?;
         if head == b"#!" {
-            return Err(render_err(format!(
-                "{} est un script : donner le binaire de LibreOffice (…/LibreOffice.app/Contents/MacOS/soffice)",
-                real.display()
-            )));
+            return Err(ScriptSnafu { path: real.display().to_string() }.build().into());
         }
     }
     Ok(Some(real))
@@ -168,7 +167,7 @@ fn convert_args(profile: OsString, slides: Option<SlideSpan>, out_dir: &Path, de
 
 /// `-env:UserInstallation=file:///…` : le profil isolé, en URL.
 fn profile_arg(profile: &Path) -> Result<OsString, ReferenceError> {
-    let path = profile.to_str().ok_or_else(|| render_err(format!("chemin non UTF-8 : {}", profile.display())))?;
+    let path = profile.to_str().ok_or_else(|| render_err(format!("path not in UTF-8: {}", profile.display())))?;
     let path = path.replace('\\', "/");
     let slash = if path.starts_with('/') { "" } else { "/" };
     Ok(format!("-env:UserInstallation=file://{slash}{}", percent_encode(&path)).into())

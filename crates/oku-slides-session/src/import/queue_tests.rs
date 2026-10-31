@@ -17,6 +17,13 @@ fn report(s: &mut crate::Session, witness: &WhiteWitness) -> Value {
     s.import_report(&crate::Localizer::new(Some("en"))).unwrap()
 }
 
+/// The first slide of `report` with two elements at least: `change` applies to it twice.
+fn changeable(s: &crate::Session, report: &Value) -> String {
+    let elements = |id: &str| s.deck().slide(id).map_or(0, |x| x.params.slots().map(|(_, list)| list.len()).sum());
+    let slides = report["slides"].as_array().unwrap();
+    slides.iter().filter_map(|e| e["slide"].as_str()).find(|id| elements(id) >= 2).unwrap().to_owned()
+}
+
 /// Retire le premier élément des slots de `slide` : sa page change.
 fn change(s: &mut crate::Session, slide: &str) {
     let slide_ref = s.deck().slide(slide).unwrap();
@@ -92,7 +99,7 @@ fn import_report_rescores_a_changed_slide_and_names_it_when_worse() {
     let mut s = hifi(data.path());
     let witness = WhiteWitness::default();
     let first = report(&mut s, &witness);
-    let slide = first["slides"][0]["slide"].as_str().unwrap().to_owned();
+    let slide = changeable(&s, &first);
     // Sur une référence blanche, retirer les éléments de la pire région rapproche la slide ;
     // l'annuler l'en éloigne.
     let diff = s.import_diff(&slide, None).unwrap();
@@ -123,7 +130,7 @@ fn import_report_leaves_a_changed_slide_without_tries_stale() {
     });
     let witness = WhiteWitness::default();
     let first = report(&mut s, &witness);
-    let slide = first["slides"][0]["slide"].as_str().unwrap().to_owned();
+    let slide = changeable(&s, &first);
     change(&mut s, &slide);
     let tried = report(&mut s, &witness);
     assert_that!(entry(&tried, &slide).and_then(|e| e["tries_left"].as_u64())).is_equal_to(Some(0));
@@ -143,7 +150,7 @@ fn import_report_leaves_a_stale_slide_out_of_the_means_and_worse() {
     });
     let witness = WhiteWitness::default();
     let first = report(&mut s, &witness);
-    let slide = first["slides"][0]["slide"].as_str().unwrap().to_owned();
+    let slide = changeable(&s, &first);
     change(&mut s, &slide);
     report(&mut s, &witness);
     change(&mut s, &slide);
@@ -199,7 +206,7 @@ fn import_report_after_a_theme_restore_with_a_slide_edit_charges_that_slide_a_tr
     let mut s = hifi(data.path());
     let witness = WhiteWitness::default();
     let first = report(&mut s, &witness);
-    let slide = first["slides"][0]["slide"].as_str().unwrap().to_owned();
+    let slide = changeable(&s, &first);
     edit_theme(&mut s, 30.0);
     assert_that!(report(&mut s, &witness)["global_tries_left"].as_u64()).is_equal_to(Some(2));
     // Le thème revient à l'état de l'import (déjà noté) et la slide est retouchée : elle paie un essai.
@@ -362,7 +369,7 @@ fn import_report_after_deleting_a_slide_leaves_it_out_of_the_queue_and_the_mean(
     let mut s = hifi(data.path());
     let witness = WhiteWitness::default();
     let first = report(&mut s, &witness);
-    let slide = first["slides"][0]["slide"].as_str().unwrap().to_owned();
+    let slide = changeable(&s, &first);
     s.handle(Request::Apply {
         label: "Supprimer".into(),
         ops: vec![Op::RemoveSlide { slide: slide.clone() }],

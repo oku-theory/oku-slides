@@ -198,3 +198,59 @@ fn series_read_the_format_code_of_their_values(#[case] code: Option<&str>, #[cas
     let xml = space(&format!("<c:barChart><c:ser><c:val>{}</c:val></c:ser></c:barChart>", num_lit(code, &["0.5"])));
     assert_that!(chart(&xml).series[0].format.as_deref()).is_equal_to(expected);
 }
+
+/// A bar chart (`dir`) naming axes 1 and 2, with `axes` after it and `legend` in `c:chart` (t-954).
+fn with_axes(dir: &str, axes: &str, legend: &str) -> Chart {
+    chart(&format!(
+        r#"<c:chartSpace xmlns:c="urn:c" xmlns:a="urn:a"><c:chart><c:plotArea><c:barChart><c:barDir val="{dir}"/><c:ser><c:val><c:numLit><c:ptCount val="1"/><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:val></c:ser><c:axId val="1"/><c:axId val="2"/></c:barChart>{axes}</c:plotArea>{legend}</c:chart></c:chartSpace>"#
+    ))
+}
+
+/// An axis `tag` of id `id`, with `inner` (its `c:delete`, its `c:axPos`).
+fn ax(tag: &str, id: u32, inner: &str) -> String {
+    format!(r#"<c:{tag}><c:axId val="{id}"/>{inner}</c:{tag}>"#)
+}
+
+const SHOWN: &str = r#"<c:delete val="0"/>"#;
+const DELETED: &str = r#"<c:delete val="1"/>"#;
+
+#[rstest::rstest]
+#[case::both_shown(ax("catAx", 1, SHOWN) + &ax("valAx", 2, SHOWN), true, true)]
+#[case::both_deleted(ax("catAx", 1, DELETED) + &ax("valAx", 2, DELETED), false, false)]
+#[case::bare_delete_is_true(ax("catAx", 1, "<c:delete/>") + &ax("valAx", 2, r#"<c:delete val="false"/>"#), false, true)]
+#[case::no_delete_is_deleted(ax("catAx", 1, "") + &ax("valAx", 2, SHOWN), false, true)]
+#[case::date_axis(ax("dateAx", 1, SHOWN) + &ax("valAx", 2, DELETED), true, false)]
+#[case::no_axis(String::new(), false, false)]
+#[case::axis_of_another_type(ax("catAx", 1, SHOWN) + &ax("valAx", 2, DELETED) + &ax("valAx", 3, SHOWN), true, false)]
+fn axes_are_read_by_role_and_delete(#[case] axes: String, #[case] x: bool, #[case] y: bool) {
+    assert_that!(with_axes("col", &axes, "").axes).is_equal_to(Axes { x, y });
+}
+
+#[test]
+fn axes_of_horizontal_bars_put_categories_on_the_left_whatever_their_position() {
+    let axes = ax("catAx", 1, &format!(r#"{DELETED}<c:axPos val="b"/>"#)) + &ax("valAx", 2, SHOWN);
+    assert_that!(with_axes("bar", &axes, "").axes).is_equal_to(Axes { x: true, y: false });
+}
+
+#[rstest::rstest]
+#[case::by_position(r#"<c:axPos val="l"/>"#, r#"<c:axPos val="b"/>"#, true, false)]
+#[case::in_order("", "", false, true)]
+fn axes_of_a_scatter_are_placed_by_position_else_in_order(
+    #[case] first: &str,
+    #[case] second: &str,
+    #[case] x: bool,
+    #[case] y: bool,
+) {
+    let axes = ax("valAx", 1, &format!("{DELETED}{first}")) + &ax("valAx", 2, &format!("{SHOWN}{second}"));
+    let xml = space(&format!(
+        r#"<c:scatterChart><c:ser><c:yVal><c:numLit><c:ptCount val="1"/><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:yVal></c:ser><c:axId val="1"/><c:axId val="2"/></c:scatterChart>{axes}"#
+    ));
+    assert_that!(chart(&xml).axes).is_equal_to(Axes { x, y });
+}
+
+#[rstest::rstest]
+#[case::present(r#"<c:legend><c:legendPos val="r"/></c:legend>"#, true)]
+#[case::absent("", false)]
+fn legend_is_read_from_its_presence(#[case] legend: &str, #[case] expected: bool) {
+    assert_that!(with_axes("col", "", legend).legend).is_equal_to(expected);
+}

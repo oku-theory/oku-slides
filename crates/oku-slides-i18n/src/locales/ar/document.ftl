@@ -115,6 +115,7 @@ import-reference-unavailable = لا توجد درجة مرئية: { $cause ->
        *[other] { $reference } صفحة
     } مقابل { $deck } في العرض التقديمي
     [missing] لم يُعثر على LibreOffice (soffice)؛ حدّد مساره في import.soffice
+    [refused] عُثر على LibreOffice لكنه لا يعمل هنا؛ حدّد ملفه التنفيذي في import.soffice (…/LibreOffice.app/Contents/MacOS/soffice) لا نصًا برمجيًا
    *[failed] تعذّر على أداة العرض المرجعي قراءة العرض التقديمي
 }
 import-region-suspect = فرق مُستبعد، وهو خطأ معروف في أداة العرض المرجعي: { $limit ->

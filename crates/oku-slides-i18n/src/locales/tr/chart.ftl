@@ -51,3 +51,4 @@ chart-table-cell-too-long = bir tablo hücresi en fazla { $max } karakter içere
 chart-table-not-finite = tablodaki sayılar sonlu olmalı
 chart-table-chart-option = chart bir grafik seçenekleri nesnesi olmalıdır
 chart-table-chart-columns = chart-columns geçerli ve birbirinden farklı sütun tanımlayıcıları listelemelidir (1 ila 64 harf, rakam, - veya _)
+chart-table-geometry = column-widths ve row-heights her sütun ya da satır için sonlu, pozitif bir ağırlık verir

@@ -51,3 +51,4 @@ chart-table-cell-too-long = 表格儲存格最多包含 { $max }個字元
 chart-table-not-finite = 表格中的數字必須是有限值
 chart-table-chart-option = chart 必須是圖表選項物件
 chart-table-chart-columns = chart-columns 必須列出有效且互不相同的欄識別碼（1 到 64個字母、數字、- 或 _）
+chart-table-geometry = column-widths 與 row-heights 為每欄或每列給出一個有限的正權重

@@ -51,3 +51,4 @@ chart-table-cell-too-long = клітинка таблиці містить не 
 chart-table-not-finite = числа в таблиці мають бути скінченними
 chart-table-chart-option = chart має бути об'єктом параметрів діаграми
 chart-table-chart-columns = chart-columns має містити дійсні та різні ідентифікатори стовпців (від 1 до 64 літер, цифр, - або _)
+chart-table-geometry = column-widths і row-heights задають одну скінченну додатну вагу на стовпець або рядок

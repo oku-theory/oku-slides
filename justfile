@@ -508,6 +508,10 @@ transcribe wav model="turbo" lang="":
 test-apple:
     cargo nextest run -p oku-slides-stt --run-ignored ignored-only -E 'binary_id(oku-slides-stt::apple) | test(/^apple::/)'
 
+# Tests against the real LibreOffice (it opens in the Dock), ignored by `just test` (t-960).
+test-soffice:
+    cargo nextest run -p oku-slides-reference -p oku-slides-cli --run-ignored ignored-only -E 'test(/real_libreoffice|installed_libreoffice/)'
+
 # Vérification manuelle avec le vrai agent (réseau, compte) : just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percutant"
 agent-smoke deck prompt:
     cargo run -p oku-slides-agent --example smoke -- {{deck}} "{{prompt}}"

@@ -109,6 +109,7 @@ import-reference-unavailable = Pas d'écart visuel : { $cause ->
        *[other] { $reference } pages
     } pour { $deck } dans le deck
     [missing] LibreOffice (soffice) est introuvable ; indiquez son chemin dans import.soffice
+    [refused] LibreOffice est trouvé mais ne peut pas tourner ici ; indiquez son binaire dans import.soffice (…/LibreOffice.app/Contents/MacOS/soffice), pas un script
    *[failed] le témoin n'a pas pu lire la présentation
 }
 import-region-suspect = Écart mis de côté, erreur connue du témoin : { $limit ->

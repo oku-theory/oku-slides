@@ -8,11 +8,20 @@ use crate::data_ops::validate_ids;
 use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
 use crate::option::{
-    AxisType, Cell, ChartOption, ColumnRef, DataItem, Dataset, HAlign, ItemValue, Length, NamedItem, Radius, RoseType,
-    Series, SeriesType,
+    Axis, AxisType, Cell, ChartOption, ColumnRef, DataItem, Dataset, HAlign, ItemValue, Length, NamedItem, Radius,
+    RoseType, Series, SeriesType,
 };
 use oku_slides_i18n::Message;
 use snafu::ResultExt;
+
+/// Which of the bottom and left axes a chart draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AxesShown {
+    /// The bottom axis (`xAxis`).
+    pub x: bool,
+    /// The left axis (`yAxis`).
+    pub y: bool,
+}
 
 /// Resolved chart, ready for an engine: data read, ECharts defaults applied.
 #[derive(Debug, Clone, PartialEq)]
@@ -27,6 +36,8 @@ pub struct ChartModel {
     pub legend_show: bool,
     /// Alignment of the legend (centered by default).
     pub legend_align: HAlign,
+    /// Bottom (`xAxis`) and left (`yAxis`) axes drawn: shown unless `show` is false.
+    pub axes_show: AxesShown,
     /// Shape of the chart and its data.
     pub kind: ChartKind,
     /// Palette des séries ; `None` = celle du thème.
@@ -183,9 +194,15 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
         title_align: title.and_then(|t| t.left).unwrap_or(HAlign::Center),
         legend_show: legend.and_then(|l| l.show).unwrap_or(default_legend),
         legend_align: legend.and_then(|l| l.left).unwrap_or(HAlign::Center),
+        axes_show: AxesShown { x: shown(option.x_axis.as_ref()), y: shown(option.y_axis.as_ref()) },
         kind,
         palette: option.color.clone(),
     })
+}
+
+/// Is `axis` drawn? Shown unless it says `show: false`.
+fn shown(axis: Option<&Axis>) -> bool {
+    axis.and_then(|a| a.show).unwrap_or(true)
 }
 
 /// Couleur d'une série (`itemStyle.color`), si elle en a une.

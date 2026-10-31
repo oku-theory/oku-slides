@@ -51,3 +51,4 @@ chart-table-cell-too-long = ячейка таблицы содержит не б
 chart-table-not-finite = числа в таблице должны быть конечными
 chart-table-chart-option = chart должен быть объектом параметров диаграммы
 chart-table-chart-columns = chart-columns должен содержать допустимые и различные идентификаторы столбцов (от 1 до 64 букв, цифр, - или _)
+chart-table-geometry = column-widths и row-heights задают один конечный положительный вес на столбец или строку

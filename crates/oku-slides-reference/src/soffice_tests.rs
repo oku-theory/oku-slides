@@ -172,7 +172,7 @@ fn find_soffice_follows_a_symlink_to_the_real_binary() {
 fn find_soffice_refuses_a_script_and_names_it() {
     let fake = Fake::with("exit 0");
     let err = find_soffice(&Storage::local().unwrap(), std::slice::from_ref(&fake.soffice), None).unwrap_err();
-    assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Render);
+    assert_that!(err.kind()).is_equal_to(ReferenceErrorKind::Script);
     assert_that!(err.to_string()).contains("soffice");
 }
 
@@ -213,22 +213,14 @@ fn parse_version_reads_name_and_version(#[case] stdout: &str, #[case] expected: 
     assert_that!(parse_version(stdout.as_bytes())).is_equal_to(expected.map(str::to_owned));
 }
 
-/// Variable qui autorise les tests à lancer le vrai LibreOffice (il s'affiche dans le Dock).
-const REAL_SOFFICE_VAR: &str = "OKU_SLIDES_TEST_SOFFICE";
-
-/// Le vrai LibreOffice, si `OKU_SLIDES_TEST_SOFFICE=1` et s'il est installé ; sinon le test s'arrête là.
-fn installed() -> Option<PathBuf> {
-    if std::env::var(REAL_SOFFICE_VAR).as_deref() != Ok("1") {
-        eprintln!("{REAL_SOFFICE_VAR}=1 absent : test du vrai LibreOffice sauté");
-        return None;
-    }
+/// The installed LibreOffice; the ignored tests that ask for it fail without it (t-960).
+///
+/// They run with `just test-soffice` only: the real LibreOffice opens in the Dock.
+fn installed() -> PathBuf {
     let candidates = [PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice"), PathBuf::from("soffice")];
-    let found =
-        find_soffice(&Storage::local().unwrap(), &candidates, std::env::var_os("PATH").as_deref()).ok().flatten();
-    if found.is_none() {
-        eprintln!("LibreOffice absent : test sauté");
-    }
-    found
+    find_soffice(&Storage::local().unwrap(), &candidates, std::env::var_os("PATH").as_deref())
+        .unwrap()
+        .unwrap_or_else(|| panic!("just test-soffice: LibreOffice is not installed"))
 }
 
 fn fixture(name: &str) -> Vec<u8> {
@@ -236,8 +228,9 @@ fn fixture(name: &str) -> Vec<u8> {
 }
 
 #[test]
+#[ignore = "real LibreOffice, it opens in the Dock: just test-soffice"]
 fn render_with_installed_libreoffice_gives_one_page_per_slide_of_the_span() {
-    let Some(program) = installed() else { return };
+    let program = installed();
     let soffice = Soffice::new(Storage::local().unwrap(), program, Duration::from_secs(120));
     let span = SlideSpan { first: 2, last: 3 };
     let pages = |s| soffice.render(&fixture("libreoffice.pptx"), vec![], s).map(|p| p.page_count()).ok();
@@ -246,8 +239,9 @@ fn render_with_installed_libreoffice_gives_one_page_per_slide_of_the_span() {
 }
 
 #[test]
+#[ignore = "real LibreOffice, it opens in the Dock: just test-soffice"]
 fn render_with_installed_libreoffice_keeps_the_page_of_a_hidden_slide() {
-    let Some(program) = installed() else { return };
+    let program = installed();
     let soffice = Soffice::new(Storage::local().unwrap(), program, Duration::from_secs(120));
     let pptx = crate::office2pdf::office2pdf_tests::hide(&fixture("libreoffice.pptx"), "ppt/slides/slide2.xml");
     let span = SlideSpan { first: 1, last: 3 };

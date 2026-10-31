@@ -424,14 +424,13 @@ impl Workspace {
         highest
     }
 
-    /// Ouvre des fichiers reçus dans la fenêtre active.
+    /// Opens files given by the OS in the focused window.
     ///
-    /// Sources : argument, seconde instance, macOS. Un fichier illisible le
-    /// dit dans l'onglet actif (avis montré une fois). Un `.pptx` ne s'ouvre
-    /// pas : il devient le choix d'import de la fenêtre active
-    /// ([`super::ImportPick`]), dont la page ouvre le dialogue d'import. Fin
-    /// déjà engagée (`settle`, `closed`) : s'arrête net, sous le même verrou
-    /// qu'elle, jamais après coup.
+    /// Sources: argument, second instance, macOS. An unreadable file says so in
+    /// the active tab (a notice shown once). A `.pptx` does not open: it joins
+    /// the focused window's queue of import picks ([`super::ImportPick`]), which
+    /// its page offers one by one. An end already under way (`settle`, `closed`)
+    /// stops here, under the same lock, never afterwards.
     pub fn open_files(ws: &Mutex<Self>, files: &[PathBuf]) {
         for path in files {
             let resolved = resolve(path);

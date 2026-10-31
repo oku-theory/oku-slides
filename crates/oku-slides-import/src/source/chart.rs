@@ -58,6 +58,17 @@ pub struct Series {
     pub format: Option<String>,
 }
 
+/// Axes drawn by side: bottom or top (`x`), left or right (`y`).
+///
+/// A side is drawn when one of its axes is not deleted (`c:delete` false); a side without axis is not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Axes {
+    /// The horizontal axis, at the bottom or the top.
+    pub x: bool,
+    /// The vertical axis, on the left or the right.
+    pub y: bool,
+}
+
 /// Graphique.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Chart {
@@ -71,4 +82,8 @@ pub struct Chart {
     pub categories: Vec<String>,
     /// Séries (256 au plus).
     pub series: Vec<Series>,
+    /// A legend is drawn: the chart has a `c:legend` (t-954).
+    pub legend: bool,
+    /// The axes drawn (t-954).
+    pub axes: Axes,
 }

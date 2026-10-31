@@ -101,6 +101,7 @@ import-reference-unavailable = Görsel puan yok: { $cause ->
     [memory] referans oluşturma çok fazla bellek kullandı
     [pages] referans oluşturmada sunudaki { $deck } sayfaya karşılık { $reference } sayfa var
     [missing] LibreOffice (soffice) bulunamadı; yolunu import.soffice içinde belirtin
+    [refused] LibreOffice bulundu ancak burada çalışamıyor; import.soffice içinde betik yerine ikili dosyasını belirtin (…/LibreOffice.app/Contents/MacOS/soffice)
    *[failed] referans oluşturucu sunuyu okuyamadı
 }
 import-region-suspect = Fark bir kenara bırakıldı, referans işleyicinin bilinen bir hatası: { $limit ->

@@ -104,6 +104,7 @@ import-reference-unavailable = কোনো দৃশ্যমান স্ক�
     [memory] রেফারেন্স রেন্ডার খুব বেশি মেমরি নিয়েছে
     [pages] রেফারেন্স রেন্ডারে উপস্থাপনার { $deck }টির বদলে { $reference }টি পাতা আছে
     [missing] LibreOffice (soffice) পাওয়া যায়নি; import.soffice-এ এর পাথ দিন
+    [refused] LibreOffice পাওয়া গেছে কিন্তু এখানে চলতে পারে না; import.soffice-এ স্ক্রিপ্ট নয়, এর বাইনারি দিন (…/LibreOffice.app/Contents/MacOS/soffice)
    *[failed] রেফারেন্স রেন্ডারার উপস্থাপনাটি পড়তে পারেনি
 }
 import-region-suspect = পার্থক্যটি সরিয়ে রাখা হয়েছে, রেফারেন্স রেন্ডারারের একটি জানা ত্রুটি: { $limit ->

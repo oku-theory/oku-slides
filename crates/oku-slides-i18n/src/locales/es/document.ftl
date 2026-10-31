@@ -109,6 +109,7 @@ import-reference-unavailable = Sin puntuación visual: { $cause ->
        *[other] { $reference } páginas
     } para { $deck } en la presentación
     [missing] no se encontró LibreOffice (soffice); indica su ruta en import.soffice
+    [refused] se encontró LibreOffice, pero no puede ejecutarse aquí; indica su binario en import.soffice (…/LibreOffice.app/Contents/MacOS/soffice), no un script
    *[failed] el renderizador de referencia no pudo leer la presentación
 }
 import-region-suspect = Diferencia apartada, un error conocido del renderizador de referencia: { $limit ->

@@ -6,8 +6,8 @@
 //! régions suspectes (erreurs connues d'office2pdf) passent en dernier et ne
 //! signalent rien (t-884), comme les boîtes de kitchen p. 2 (t-904). Une
 //! fixture décompressée (kitchen) est zippée à la volée. Polices de l'app
-//! (`--fonts assets/fonts`) : celles que le témoin reçoit aussi. Le vrai LibreOffice ne tourne qu'avec
-//! `OKU_SLIDES_TEST_SOFFICE=1` ; sinon `--reference soffice` a un faux `soffice`
+//! (`--fonts assets/fonts`) : celles que le témoin reçoit aussi. Le vrai LibreOffice ne tourne que dans
+//! les tests ignorés, lancés par `just test-soffice` (t-960) ; sinon `--reference soffice` a un faux `soffice`
 //! (un script qui copie un PDF blanc), refusé sur macOS (t-912), dont les régions
 //! suspectes sont celles des limites de LibreOffice ailleurs (t-905). Sans
 //! `--reference`, le témoin est celui de `[import] witness`.
@@ -87,11 +87,12 @@ fn max_score(report: &Value) -> f64 {
 }
 
 #[rstest]
-// Écart moyen de la pire slide, mesuré le 2026-10-14 (office2pdf 0.8.1, σ = 2), plus 25 % :
-// alto 1,57, libreoffice 2,52 ; kitchen 2,7 (p. 2, le 2026-10-18).
+// Mean gap of the worst slide, measured on 2026-10-31 (office2pdf 0.8.1, σ = 2), plus 25 %:
+// alto 1.57, libreoffice 3.22 and kitchen 3.66 (p. 2, the chart: office2pdf draws its deleted
+// axes, which Oku hides since t-954; the chart region is suspect, not the slide mean).
 #[case("alto-wealth.pptx", 2.0)]
-#[case("libreoffice.pptx", 3.2)]
-#[case("kitchen", 3.4)]
+#[case("libreoffice.pptx", 4.0)]
+#[case("kitchen", 4.6)]
 fn import_hifi_scores_every_slide_under_its_threshold(#[case] name: &str, #[case] threshold: f64) {
     let dir = workdir("import-reference");
     let (_, report) = import(dir.as_ref(), name, &[]);
@@ -136,17 +137,20 @@ fn import_hifi_of_alto_no_longer_designates_the_bullet_indents_on_page_8() {
     assert_that!(above).is_equal_to(0);
 }
 
-// Pire région non suspecte mesurée le 2026-10-18 (office2pdf 0.8.1, seuil 7) : p. 1 20,34 (le
-// tableau), p. 2 3,96 et p. 3 5,69 (les titres). p. 2 valait 8,7 avant t-904 : « Gauche » et
-// « Droite », dont seul le `defaultTextStyle` de la présentation nomme la police, qu'office2pdf
-// dessine dans sa police de repli ; elles sont désormais suspectes (`default_font`).
+// Worst non-suspect region measured on 2026-10-31 (office2pdf 0.8.1, threshold 7): p. 1 6.89 (the
+// table, 20.34 before t-955 gave it its column widths, row heights and margins), p. 2 3.96 and
+// p. 3 5.69 (the titles). p. 2 was 8.7 before t-904: "Gauche" and "Droite", whose font only the
+// presentation's `defaultTextStyle` names, which office2pdf draws in its fallback font; they are
+// suspect since (`default_font`).
 #[test]
-fn import_hifi_of_kitchen_flags_page_1_only() {
+fn import_hifi_of_kitchen_flags_no_page() {
     let dir = workdir("import-reference-kitchen");
     let (_, report) = import(dir.as_ref(), "kitchen", &[]);
-    assert_that!(flagged(&report)).is_equal_to(vec![1]);
+    assert_that!(flagged(&report)).is_empty();
 }
 
+// p. 1 7.26 (s1/8, the table) is the libreoffice deck's worst region: still above the threshold
+// under office2pdf, which sets its lines tighter than PowerPoint (3.47 under LibreOffice).
 #[test]
 fn import_hifi_of_libreoffice_designates_its_table_on_page_1() {
     let dir = workdir("import-reference-table");
@@ -270,32 +274,21 @@ fn import_hifi_with_reference_office2pdf_overrides_the_witness_setting() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn import_hifi_with_a_script_soffice_still_writes_the_deck_and_says_it_failed() {
+fn import_hifi_with_a_script_soffice_still_writes_the_deck_and_says_it_is_refused() {
     use oku_slides_reference::test_support::{blank_pdf, converting, fake_soffice};
     let dir = workdir("import-reference-soffice-script");
     let pdf = dir.as_ref().join("blanc.pdf");
     std::fs::write(&pdf, blank_pdf(3, 960, 540)).unwrap_or_else(|e| panic!("{e}"));
     soffice_config(dir.as_ref(), &fake_soffice(dir.as_ref(), &converting(&pdf, None)));
     let (_, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
-    assert_that!(report["reference"]["unavailable"]["type"].as_str()).is_equal_to(Some("failed"));
+    assert_that!(report["reference"]["unavailable"]["type"].as_str()).is_equal_to(Some("refused"));
     assert_that!(dir.as_ref().join("out.oku-slides.pdf").exists()).is_true();
 }
 
-/// LibreOffice réel lancé ? (`OKU_SLIDES_TEST_SOFFICE=1`, il s'ouvre dans le Dock.)
-fn real_soffice() -> bool {
-    let on = std::env::var("OKU_SLIDES_TEST_SOFFICE").as_deref() == Ok("1");
-    if !on {
-        eprintln!("OKU_SLIDES_TEST_SOFFICE absent : test sauté");
-    }
-    on
-}
-
-/// LibreOffice réel, sous le bac à sable du processus de rendu (t-912) : `OKU_SLIDES_TEST_SOFFICE=1`.
+/// Real LibreOffice, under the render worker's sandbox (t-912).
 #[test]
+#[ignore = "real LibreOffice, it opens in the Dock: just test-soffice"]
 fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
-    if !real_soffice() {
-        return;
-    }
     let dir = workdir("import-reference-soffice-real");
     let (out, report) = import(dir.as_ref(), "libreoffice.pptx", &["--reference", "soffice"]);
     assert_that!(report["reference"]["unavailable"].is_null()).is_true();
@@ -305,30 +298,28 @@ fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
     assert_that!(second).starts_with("Visual gap to LibreOffice ");
 }
 
-// Mesuré le 2026-10-18 (LibreOffice 26.8.1.1, seuil 7), pire région non suspecte :
-// - alto : pp. 1 à 5 et 7 au plus 6,77 (les titres interlettrés, à 1 px de largeur près) ; p. 6
-//   9,16 (s6/17, à 10,24 pt : LibreOffice coupe « the agent » une ligne plus tôt qu'Oku et
-//   office2pdf, qui partagent le façonnage de Typst : non tranché) ; p. 8 8,76 (les cartes des
-//   piliers 2 et 3, dont il rétrécit les listes `normAutofit` qui débordent, PowerPoint non : la
-//   source ne le dit pas, non marqué) ;
-// - libreoffice et kitchen : p. 1 18,93 et 18,16 (le tableau, où Oku s'écarte des deux témoins) ;
-//   p. 2 46,09 (le graphique : axes `delete` et sans légende, qu'Oku dessine) ; p. 3 au plus 0,1.
-// Les titres en Calibri Light (14,7 à 29) et le SmartArt de libreoffice (21, dont le texte ne nomme
-// ni couleur ni police) sont suspects ; celui de kitchen (1,68 et 3,45, que nomme le
-// `defaultTextStyle`) ne l'est plus depuis t-936.
-// Pire écart moyen d'une slide : alto 0,99, libreoffice et kitchen 3,05 ; plus 25 %.
+// Measured on 2026-10-31 (LibreOffice 26.8.1.1, threshold 7), worst non-suspect region:
+// - alto: pp. 1 to 5 and 7 at most 6.77 (the spaced-out titles, within 1 px of width); p. 6 9.16
+//   (s6/17, at 10.24 pt: LibreOffice breaks "the agent" one line earlier than Oku and office2pdf,
+//   which share Typst's shaping: not settled); p. 8 8.76 (the cards of pillars 2 and 3, whose
+//   overflowing `normAutofit` lists it shrinks, PowerPoint not: the source does not say, unmarked);
+// - libreoffice and kitchen: p. 1 3.47 and 3.68 (the table, 18.9 before t-955); p. 2 46.09 (the
+//   chart: Oku draws gridlines the source lacks and wider bars; axes and legend hidden since
+//   t-954); p. 3 at most 0.1.
+// The Calibri Light titles (14.7 to 29) and libreoffice's SmartArt (21, whose text names neither
+// color nor font) are suspect; kitchen's (1.68 and 3.45, named by the `defaultTextStyle`) no
+// longer is since t-936.
+// Worst mean gap of a slide: alto 0.99, libreoffice 3.34 and kitchen 3.35; plus 25 %.
 #[rstest]
 #[case("alto-wealth.pptx", 1.25, vec![6, 8])]
-#[case("libreoffice.pptx", 3.8, vec![1, 2])]
-#[case("kitchen", 3.8, vec![1, 2])]
+#[case("libreoffice.pptx", 4.2, vec![2])]
+#[case("kitchen", 4.2, vec![2])]
+#[ignore = "real LibreOffice, it opens in the Dock: just test-soffice"]
 fn import_hifi_against_real_libreoffice_flags_the_measured_slides(
     #[case] name: &str,
     #[case] threshold: f64,
     #[case] expected: Vec<usize>,
 ) {
-    if !real_soffice() {
-        return;
-    }
     let dir = workdir("import-reference-soffice-real-flags");
     let (_, report) = import(dir.as_ref(), name, &["--reference", "soffice"]);
     assert_that!(max_score(&report)).is_less_than_or_equal_to(threshold);
@@ -337,10 +328,8 @@ fn import_hifi_against_real_libreoffice_flags_the_measured_slides(
 }
 
 #[test]
+#[ignore = "real LibreOffice, it opens in the Dock: just test-soffice"]
 fn import_hifi_against_real_libreoffice_sets_its_calibri_light_titles_aside() {
-    if !real_soffice() {
-        return;
-    }
     let dir = workdir("import-reference-soffice-real-titles");
     let (_, report) = import(dir.as_ref(), "kitchen", &["--reference", "soffice"]);
     // p. 1 : le titre (14,74) passe après le tableau. p. 3 n'écrit plus le sien : ses trois régions

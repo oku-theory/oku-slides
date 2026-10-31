@@ -398,3 +398,39 @@ fn render_without_language_uses_the_minus_sign_without_groups() {
     }));
     assert_that!(pie.as_str()).contains(">\nA: 38.2%\n<");
 }
+
+/// Bars with categories `Janvier`, `Février` and values up to 77, axes shown as `x` and `y` say.
+fn bars_with_axes(dir: &str, x: bool, y: bool) -> String {
+    let (cat, val) = if dir == "horizontal" { ("yAxis", "xAxis") } else { ("xAxis", "yAxis") };
+    let mut v = json!({
+        "dataset": { "source": [["Mois", "Nord"], ["Janvier", 33], ["Février", 77]] },
+        "series": [{ "type": "bar" }]
+    });
+    v[cat] = json!({ "type": "category" });
+    v[val] = json!({ "type": "value" });
+    for (key, shown) in [("xAxis", x), ("yAxis", y)] {
+        if !shown {
+            v[key]["show"] = json!(false);
+        }
+    }
+    render(&v)
+}
+
+/// t-954: a hidden axis draws none of its labels; the other keeps them.
+#[rstest::rstest]
+#[case::vertical_both("vertical", true, true, true, true)]
+#[case::vertical_no_x("vertical", false, true, false, true)]
+#[case::vertical_none("vertical", false, false, false, false)]
+#[case::horizontal_no_y("horizontal", true, false, false, true)]
+fn render_axis_show_false_hides_its_labels(
+    #[case] dir: &str,
+    #[case] x: bool,
+    #[case] y: bool,
+    #[case] categories_drawn: bool,
+    #[case] values_drawn: bool,
+) {
+    let svg = bars_with_axes(dir, x, y);
+    assert_that!(svg.contains(">\nJanvier\n<")).named("category labels").is_equal_to(categories_drawn);
+    // A value axis labels its ticks (0, 20…); none is written when it is hidden.
+    assert_that!(svg.contains(">\n0\n<")).named("value labels").is_equal_to(values_drawn);
+}

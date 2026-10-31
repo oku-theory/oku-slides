@@ -35,7 +35,7 @@ const kinds = (host: HTMLElement) => [...host.querySelectorAll('[role="tab"]')].
 
 async function mount(packTab = false, tabs: TabInfo[] = [tab("a", packTab ? { kind: "pack", pack: PACK } : undefined), tab("b")]) {
   const win: WindowView = { label: "main", active: "a", tabs };
-  const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, import_pick: null, windows: [win] };
+  const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, import_picks: [], windows: [win] };
   const noop = () => {};
   const host = document.createElement("div");
   document.body.append(host);

@@ -155,6 +155,8 @@ fn chart_item() -> Item {
             series("Nord", Some(Styled::explicit(Rgba { a: 128, ..Rgba::new(0xc0, 0x50, 0x4d) }))),
             series("Sud", None),
         ],
+        legend: true,
+        axes: crate::source::Axes { x: true, y: true },
     };
     item("s1/1", (10.0, 20.0, 100.0, 50.0), ItemKind::Chart(c))
 }
@@ -335,6 +337,8 @@ fn image(id: &str, frame: &Value) -> Value {
         title: None,
         categories: Vec::new(),
         series: Vec::new(),
+        legend: true,
+        axes: crate::source::Axes { x: true, y: true },
     })),
     json!([]),
     vec![LossKind::EmptyData],

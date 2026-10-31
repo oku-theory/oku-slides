@@ -51,3 +51,4 @@ chart-table-cell-too-long = eine Tabellenzelle enthält höchstens { $max } Zeic
 chart-table-not-finite = Zahlen in der Tabelle müssen endlich sein
 chart-table-chart-option = chart muss ein Objekt mit Diagrammoptionen sein
 chart-table-chart-columns = chart-columns muss gültige, voneinander verschiedene Spaltenkennungen auflisten (1 bis 64 Buchstaben, Ziffern, - oder _)
+chart-table-geometry = column-widths und row-heights geben je Spalte oder Zeile ein endliches, positives Gewicht an

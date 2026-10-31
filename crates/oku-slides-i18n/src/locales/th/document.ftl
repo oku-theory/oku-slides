@@ -101,6 +101,7 @@ import-reference-unavailable = ไม่มีคะแนนภาพ: { $cause
     [memory] การเรนเดอร์อ้างอิงใช้หน่วยความจำมากเกินไป
     [pages] การเรนเดอร์อ้างอิงมี { $reference } หน้า แต่เด็คมี { $deck } หน้า
     [missing] ไม่พบ LibreOffice (soffice) โปรดระบุพาธใน import.soffice
+    [refused] พบ LibreOffice แต่ทำงานที่นี่ไม่ได้ โปรดระบุไฟล์ไบนารีใน import.soffice (…/LibreOffice.app/Contents/MacOS/soffice) ไม่ใช่สคริปต์
    *[failed] ตัวเรนเดอร์อ้างอิงอ่านงานนำเสนอไม่ได้
 }
 import-region-suspect = ส่วนต่างที่พักไว้ ซึ่งเป็นข้อผิดพลาดที่ทราบของตัวเรนเดอร์อ้างอิง: { $limit ->

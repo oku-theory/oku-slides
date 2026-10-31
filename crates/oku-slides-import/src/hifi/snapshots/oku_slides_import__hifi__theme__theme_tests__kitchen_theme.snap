@@ -54,7 +54,9 @@ expression: fixture_tokens(fixture)
         "header-weight": "strong",
         "body-bg": "#cfd5ea",
         "stripe-bg": "#e9ebf5",
-        "size": 32.0
+        "size": 32.0,
+        "padding-x": 14.4,
+        "padding-y": 7.2
       }
     }
   },

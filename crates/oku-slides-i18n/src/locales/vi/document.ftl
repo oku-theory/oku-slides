@@ -101,6 +101,7 @@ import-reference-unavailable = Không có điểm hình ảnh: { $cause ->
     [memory] bản kết xuất tham chiếu dùng quá nhiều bộ nhớ
     [pages] bản kết xuất tham chiếu có { $reference } trang so với { $deck } trong bản trình bày
     [missing] không tìm thấy LibreOffice (soffice); hãy đặt đường dẫn trong import.soffice
+    [refused] đã tìm thấy LibreOffice nhưng không chạy được ở đây; hãy đặt tệp nhị phân của nó trong import.soffice (…/LibreOffice.app/Contents/MacOS/soffice), không phải một script
    *[failed] trình kết xuất tham chiếu không đọc được bản trình bày
 }
 import-region-suspect = Chênh lệch được để riêng, một lỗi đã biết của trình kết xuất tham chiếu: { $limit ->

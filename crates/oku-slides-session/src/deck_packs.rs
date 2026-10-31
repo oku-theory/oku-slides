@@ -40,7 +40,7 @@ pub struct DeckPacksView {
     pub layouts: Vec<PinnedPackView>,
     /// Les packs de widgets épinglés, par espace de noms.
     pub widgets: Vec<PinnedPackView>,
-    /// Par sorte, les packs de la bibliothèque que le deck peut ajouter : espace de noms et nom.
+    /// Per kind, the packs the deck can add (its unpinned deck-only ones, then the library's): namespace and name.
     pub addable: BTreeMap<PackKind, Vec<(Namespace, String)>>,
     /// Le thème du deck.
     pub theme: ThemeSectionView,
@@ -390,18 +390,26 @@ impl Session {
         }
     }
 
-    /// Les packs de sorte `kind` que le deck peut ajouter : espace de noms épinglé
-    /// sous aucune sorte, détenu selon R15, de la bibliothèque.
+    /// Per kind, the packs the deck can add: namespace and name.
+    ///
+    /// Its unpinned deck-only packs come first, then the library's. A library
+    /// pack is owned under R15 and its namespace pinned under no kind; a
+    /// deck-only choice never takes a library namespace (`deck_only_choices`).
     fn addable(&self, kind: PackKind) -> Vec<(Namespace, String)> {
         let deck = self.deck();
         let pinned = |ns: &Namespace| deck.widgets.contains_key(ns) || deck.layouts.contains_key(ns);
-        self.library
+        let mut out: Vec<(Namespace, String)> =
+            self.deck_only_choices(kind).into_iter().map(|c| (c.namespace, c.name)).collect();
+        let library: Vec<(Namespace, String)> = self
+            .library
             .entries(kind)
             .into_iter()
             .filter(|s| PackLibrary::owns(s, &s.manifest.namespace) && s.manifest.scope.is_library())
             .filter(|s| !pinned(&s.manifest.namespace))
             .map(|s| (s.manifest.namespace, s.manifest.name))
-            .collect()
+            .collect();
+        out.extend(library);
+        out
     }
 
     /// La section du thème : actif, parents, surcharges, choix, retard.

@@ -244,7 +244,7 @@ pub fn sync(app: &AppHandle, at: Option<(f64, f64)>, focus: bool) -> WorkspaceVi
             focused: String::new(),
             windows: Vec::new(),
             agent_detached: false,
-            import_pick: None,
+            import_picks: Vec::new(),
         };
     };
     let _serial = state.sync.lock().unwrap_or_else(PoisonError::into_inner);

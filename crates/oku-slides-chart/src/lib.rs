@@ -33,15 +33,15 @@ pub use convert::convert;
 pub use data_ops::{DataOp, chart_data, ensure_ids};
 pub use error::{ChartError, ChartErrorKind, Result};
 pub use labels::ChartLabels;
-pub use model::{ChartKind, ChartModel, normalize, parse_option};
+pub use model::{AxesShown, ChartKind, ChartModel, normalize, parse_option};
 pub use numbers::NumberFormat;
 pub use option::*;
 pub use patch::{apply_option_patch, reverse_merge_patch};
 pub use render::{ChartRenderer, ChartsRsRenderer, Size, register_fonts};
 pub use schema::{data_op_schema, option_schema};
 pub use table::{
-    ColumnAlign, MAX_TABLE_CELL_CHARS, MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, TableOption, parse_table, patch_table,
-    table_data,
+    ColumnAlign, MAX_TABLE_CELL_CHARS, MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, MAX_TABLE_WEIGHT, TableOption, parse_table,
+    patch_table, table_data, valid_weights,
 };
 pub use table_convert::{chart_to_table, table_to_chart};
 pub use theme::ChartTheme;

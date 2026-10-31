@@ -226,8 +226,10 @@ pub struct WorkspaceView {
     pub windows: Vec<WindowView>,
     /// L'agent est dans sa propre fenêtre : la colonne de droite ne le montre plus.
     pub agent_detached: bool,
-    /// Le dernier `.pptx` reçu de l'OS, dont sa fenêtre ouvre le dialogue d'import.
-    pub import_pick: Option<ImportPick>,
+    /// The `.pptx` files given by the OS, in order.
+    ///
+    /// Every window's picks are listed; each page offers its own in the import dialog.
+    pub import_picks: Vec<ImportPick>,
 }
 
 /// Ce que [`Workspace::apply`] a fait : la vue à jour, en JSON, dans les deux cas.

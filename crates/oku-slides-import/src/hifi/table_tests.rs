@@ -2,7 +2,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::source::{Borders, Color, ColorMod, Rgba, Styled, TableFlags, TextBox};
+use crate::source::{Borders, Color, ColorMod, Insets, Rgba, Styled, TableFlags, TextBox};
 use crate::test_support::{fixture, item, office_theme, para, run_with, source_deck, source_slide};
 
 /// Couleur `slot` du thème Office, nuancée de `tint` (0 : pure).
@@ -73,12 +73,14 @@ fn table_look_of_explicit_fills_finds_the_header_and_the_bands() {
         "size": 32.0,
         "rule-color": "#ffffff",
         "rule-width": 2.0,
+        "padding-x": 14.4,
+        "padding-y": 7.2,
     }));
 }
 
 #[test]
-fn table_look_of_unequal_columns_is_irregular() {
-    assert_that!(look(&libreoffice_like([100.0, 200.0])).irregular).is_true();
+fn table_look_of_unequal_columns_is_regular() {
+    assert_that!(look(&libreoffice_like([100.0, 200.0])).irregular).is_false();
 }
 
 #[test]
@@ -93,7 +95,8 @@ fn table_look_of_a_plain_table_has_no_header_and_no_fill() {
     };
     let l = look(&t);
     assert_that!((l.header_row, l.striped, l.irregular)).is_equal_to((false, false, false));
-    assert_that!(Value::Object(l.tokens)).is_equal_to(json!({ "body-bg": null, "size": 36.0, "rule-width": 0 }));
+    assert_that!(Value::Object(l.tokens))
+        .is_equal_to(json!({ "body-bg": null, "size": 36.0, "rule-width": 0, "padding-x": 14.4, "padding-y": 7.2 }));
 }
 
 #[test]
@@ -124,7 +127,8 @@ fn table_look_matches_only_the_tokens_of_the_deck() {
     other.rows[0][0].fill = solid(scheme("accent2", 0));
     other.rows[0][1].fill = solid(scheme("accent2", 0));
     assert_that!(look(&other).matches(Some(&first))).is_false();
-    assert_that!(look(&libreoffice_like([1.0, 3.0])).matches(None)).is_false();
+    // Unequal columns are drawn by the widget since t-955 (`column-widths`).
+    assert_that!(look(&libreoffice_like([1.0, 3.0])).matches(None)).is_true();
 }
 
 #[test]
@@ -240,18 +244,116 @@ fn table_look_without_header_but_another_body_does_not_match() {
 }
 
 #[test]
-fn table_look_of_rows_taller_than_their_text_is_irregular() {
-    // 16 pt sur une ligne : 19,2 pt de texte et 7,2 pt de marges ; 80 pt n'en vient pas.
+fn table_look_of_rows_taller_than_their_text_is_regular() {
+    // The widget now gives each row at least its height (`row-heights`).
     let mut t = libreoffice_like([100.0, 100.0]);
     t.row_heights[2] = 80.0;
+    assert_that!(look(&t).irregular).is_false();
+}
+
+/// Every cell of `t` with the margins `insets`.
+fn with_insets(mut t: Table, insets: Insets) -> Table {
+    for c in t.rows.iter_mut().flatten() {
+        c.text.insets = insets;
+    }
+    t
+}
+
+#[test]
+fn table_look_of_common_symmetric_margins_writes_the_padding_tokens() {
+    let t = with_insets(libreoffice_like([100.0, 100.0]), Insets { l: 7.2, t: 3.6, r: 7.2, b: 3.6 });
+    let l = look(&t);
+    // The test page is drawn at twice its size: page pt are twice the source's.
+    assert_that!((l.tokens.get("padding-x"), l.tokens.get("padding-y"), l.irregular)).is_equal_to((
+        Some(&json!(14.4)),
+        Some(&json!(7.2)),
+        false,
+    ));
+}
+
+#[rstest::rstest]
+#[case("padding-x")]
+#[case("padding-y")]
+fn max_padding_is_the_max_of_the_base_table_token(#[case] token: &str) {
+    let widgets: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../typst/oku-slides/packs/base/widgets.json")).unwrap();
+    let max = widgets["tokens"]
+        .as_array()
+        .and_then(|t| t.iter().find(|t| t["path"] == json!(["table", token])))
+        .and_then(|t| t["max"].as_f64());
+    assert_that!(max).is_equal_to(Some(MAX_PADDING));
+}
+
+#[test]
+fn table_look_of_a_huge_margin_clamps_the_padding() {
+    let t = with_insets(libreoffice_like([100.0, 100.0]), Insets { l: 5000.0, t: 0.0, r: 5000.0, b: 0.0 });
+    assert_that!(look(&t).tokens.get("padding-x")).is_equal_to(Some(&json!(MAX_PADDING)));
+}
+
+#[rstest::rstest]
+#[case::left_and_right_differ(Insets { l: 7.2, t: 3.6, r: 2.0, b: 3.6 })]
+#[case::top_and_bottom_differ(Insets { l: 7.2, t: 3.6, r: 7.2, b: 0.0 })]
+fn table_look_of_asymmetric_margins_is_irregular(#[case] insets: Insets) {
+    let t = with_insets(libreoffice_like([100.0, 100.0]), insets);
     assert_that!(look(&t).irregular).is_true();
 }
 
 #[test]
-fn table_look_of_rows_as_tall_as_their_wrapped_text_is_regular() {
-    // 40 caractères de 16 pt dans 85,6 pt utiles : 4 lignes, 76,8 + 7,2 pt.
-    let mut t = libreoffice_like([100.0, 100.0]);
-    t.rows[2][0].text.paragraphs[0].runs[0].text = "x".repeat(40);
-    t.row_heights[2] = 84.0;
-    assert_that!(look(&t).irregular).is_false();
+fn table_look_of_one_cell_with_other_margins_is_irregular() {
+    let mut t = with_insets(libreoffice_like([100.0, 100.0]), Insets { l: 7.2, t: 3.6, r: 7.2, b: 3.6 });
+    t.rows[1][1].text.insets = Insets { l: 1.0, t: 1.0, r: 1.0, b: 1.0 };
+    assert_that!(look(&t).irregular).is_true();
+}
+
+#[test]
+fn table_look_matches_not_a_deck_theme_of_other_padding() {
+    let deck = look(&with_insets(libreoffice_like([100.0, 100.0]), Insets { l: 7.2, t: 3.6, r: 7.2, b: 3.6 }));
+    let t = with_insets(libreoffice_like([100.0, 100.0]), Insets { l: 2.0, t: 2.0, r: 2.0, b: 2.0 });
+    assert_that!(look(&t).matches(Some(&deck))).is_false();
+}
+
+/// The widget option of `t`, with its geometry.
+fn option_of(t: &Table) -> Value {
+    let (mut option, _) = crate::retrofit::table::table(t).unwrap();
+    set_geometry(&mut option, t);
+    option
+}
+
+#[test]
+fn set_geometry_writes_one_weight_per_column_and_row() {
+    let option = option_of(&libreoffice_like([100.0, 200.0]));
+    assert_that!((option["column-widths"].clone(), option["row-heights"].clone()))
+        .is_equal_to((json!([100.0, 200.0]), json!([30.0, 30.0, 30.0, 30.0])));
+}
+
+#[test]
+fn set_geometry_with_a_zero_width_writes_no_column_widths() {
+    let option = option_of(&libreoffice_like([0.0, 200.0]));
+    assert_that!((option.get("column-widths").is_none(), option.get("row-heights").is_some()))
+        .is_equal_to((true, true));
+}
+
+#[test]
+fn set_geometry_with_missing_row_heights_writes_none() {
+    let mut t = libreoffice_like([100.0, 200.0]);
+    t.row_heights.truncate(2);
+    assert_that!(option_of(&t).get("row-heights").is_none()).is_true();
+}
+
+#[test]
+fn set_geometry_of_a_table_beyond_the_limits_keeps_the_weights_of_the_kept_part() {
+    let mut t = libreoffice_like([100.0, 200.0]);
+    let extra = t.rows[1].clone();
+    t.rows.extend(std::iter::repeat_n(extra, oku_slides_chart::MAX_TABLE_ROWS));
+    t.row_heights = vec![30.0; t.rows.len()];
+    let option = option_of(&t);
+    assert_that!(option["row-heights"].as_array().map(Vec::len)).is_equal_to(Some(oku_slides_chart::MAX_TABLE_ROWS));
+    oku_slides_chart::parse_table(&option).unwrap_or_else(|e| panic!("{e}"));
+}
+
+#[test]
+fn set_geometry_output_parses_as_a_table_option() {
+    let option = option_of(&libreoffice_like([100.0, 200.0]));
+    let parsed = oku_slides_chart::parse_table(&option).unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(parsed.column_widths).is_equal_to(vec![100.0, 200.0]);
 }

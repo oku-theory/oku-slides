@@ -51,3 +51,4 @@ chart-table-cell-too-long = una cella della tabella contiene al massimo { $max }
 chart-table-not-finite = i numeri della tabella devono essere finiti
 chart-table-chart-option = chart deve essere un oggetto di opzioni del grafico
 chart-table-chart-columns = chart-columns deve elencare identificatori di colonna validi e distinti (da 1 a 64 lettere, cifre, - o _)
+chart-table-geometry = column-widths e row-heights danno un peso finito e positivo per colonna o riga

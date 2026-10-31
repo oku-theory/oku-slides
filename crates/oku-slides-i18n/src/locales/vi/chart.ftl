@@ -51,3 +51,4 @@ chart-table-cell-too-long = một ô của bảng chứa tối đa { $max } ký 
 chart-table-not-finite = các số trong bảng phải hữu hạn
 chart-table-chart-option = chart phải là một đối tượng tùy chọn biểu đồ
 chart-table-chart-columns = chart-columns phải liệt kê các mã định danh cột hợp lệ và khác nhau (1 đến 64 chữ cái, chữ số, - hoặc _)
+chart-table-geometry = column-widths và row-heights cho một trọng số hữu hạn, dương cho mỗi cột hoặc hàng

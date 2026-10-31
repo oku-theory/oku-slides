@@ -1,4 +1,4 @@
-use oku_slides_chart::{ChartLabels, ChartModel, Length, canonicalize, normalize, parse_option};
+use oku_slides_chart::{AxesShown, ChartLabels, ChartModel, Length, canonicalize, normalize, parse_option};
 use oku_slides_core::kinds::base;
 use rstest::rstest;
 use serde_json::json;
@@ -24,6 +24,8 @@ fn source_chart(kind: ChartKind, grouping: Grouping) -> source::Chart {
         title: Some("Ventes".to_owned()),
         categories: vec!["T1".into(), "T2".into(), "T3".into()],
         series: vec![series("2025", &[1.0, 2.0, 3.0]), series("2026", &[4.0, 5.0, 6.0])],
+        legend: !matches!(kind, ChartKind::Pie | ChartKind::Doughnut),
+        axes: source::Axes { x: true, y: true },
     }
 }
 
@@ -69,6 +71,7 @@ fn chart_of_columns_is_the_canonical_bar_option() {
         "yAxis": { "type": "value" },
         "series": [{ "type": "bar" }, { "type": "bar" }],
         "title": { "text": "Ventes" },
+        "legend": { "show": true },
     }));
     assert_that!(losses).is_empty();
 }
@@ -284,4 +287,50 @@ fn chart_within_the_replica_row_budget_keeps_every_row() {
     let (option, losses) = chart(&source_chart(ChartKind::Column, Grouping::Standard)).unwrap();
     assert_that!(option["dataset"]["source"].as_array().map(Vec::len)).is_equal_to(Some(4));
     assert_that!(losses).does_not_contain(LossKind::ChartTruncated);
+}
+
+/// t-954: deleted axes and no legend, as PowerPoint and LibreOffice draw them.
+#[rstest]
+#[case::column(ChartKind::Column, "/xAxis/show", "/yAxis/show")]
+#[case::horizontal_bars(ChartKind::Bar, "/xAxis/show", "/yAxis/show")]
+#[case::scatter(ChartKind::Scatter, "/xAxis/show", "/yAxis/show")]
+fn chart_with_deleted_axes_and_no_legend_hides_them(#[case] kind: ChartKind, #[case] x: &str, #[case] y: &str) {
+    let c = source::Chart {
+        legend: false,
+        axes: source::Axes { x: false, y: false },
+        ..source_chart(kind, Grouping::Clustered)
+    };
+    let option = option_of(&c);
+    assert_that!((option.pointer(x), option.pointer(y), option.pointer("/legend/show"))).is_equal_to((
+        Some(&json!(false)),
+        Some(&json!(false)),
+        Some(&json!(false)),
+    ));
+    let m = model(&c);
+    assert_that!((m.axes_show, m.legend_show)).is_equal_to((AxesShown { x: false, y: false }, false));
+}
+
+#[test]
+fn chart_with_one_deleted_axis_hides_only_that_side() {
+    let c =
+        source::Chart { axes: source::Axes { x: true, y: false }, ..source_chart(ChartKind::Bar, Grouping::Clustered) };
+    assert_that!(model(&c).axes_show).is_equal_to(AxesShown { x: true, y: false });
+}
+
+#[rstest]
+#[case::column_shown(ChartKind::Column, true)]
+#[case::column_hidden(ChartKind::Column, false)]
+#[case::pie_hidden(ChartKind::Pie, false)]
+#[case::pie_shown(ChartKind::Pie, true)]
+fn chart_always_writes_whether_the_source_has_a_legend(#[case] kind: ChartKind, #[case] legend: bool) {
+    let c = source::Chart { legend, ..source_chart(kind, Grouping::Clustered) };
+    let option = option_of(&c);
+    assert_that!(option.pointer("/legend/show").and_then(Value::as_bool)).is_equal_to(Some(legend));
+    assert_that!(model(&c).legend_show).is_equal_to(legend);
+}
+
+#[test]
+fn chart_with_shown_axes_writes_no_show_key() {
+    let option = option_of(&source_chart(ChartKind::Column, Grouping::Clustered));
+    assert_that!((option.pointer("/xAxis/show"), option.pointer("/yAxis/show"))).is_equal_to((None, None));
 }

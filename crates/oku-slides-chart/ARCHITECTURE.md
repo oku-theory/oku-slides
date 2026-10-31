@@ -19,8 +19,8 @@ Graphiques (options ECharts → SVG) et tableaux (modèle seul : le rendu est fa
 
 ## Tableau
 
-- `TableOption` : `dataset` (ligne 0 = noms de colonnes), `header-row`, `header-column`, `striped`, `align`.
-- `parse_table` lit, tronque `align` à la largeur et valide ; `table_data` applique une `DataOp` et recale `align` ; `patch_table` fait un merge patch hors `dataset`.
+- `TableOption`: `dataset` (row 0 = column names), `header-row`, `header-column`, `striped`, `align`, `column-widths`, `row-heights`.
+- `parse_table` reads, fits `align` and the weights to the data (a merge may leave them off), validates (`valid_weights`: one weight in (0, `MAX_TABLE_WEIGHT`] per column or row); `table_data` applies a `DataOp` and realigns `align` and the weights; `patch_table` merge-patches outside `dataset`.
 - Limites : `MAX_TABLE_ROWS` (100, en-tête compris), `MAX_TABLE_COLUMNS` (20), `MAX_TABLE_CELL_CHARS` (1000).
 - `chart_to_table` et `table_to_chart` passent d'un widget à l'autre sans perdre les données.
 

@@ -1,11 +1,11 @@
-//! Un `.pptx` reçu de l'OS : la vue demande le dialogue d'import à sa fenêtre.
+//! A `.pptx` given by the OS: the view asks its window for the import dialog.
 //!
-//! Argument de lancement, seconde instance ou macOS (`RunEvent::Opened`) :
-//! le fichier ne s'ouvre pas comme un deck. Il devient l'[`ImportPick`] de la
-//! fenêtre active, porté par la vue : une page qui n'écoute pas encore (ou le
-//! mode web, sans événements) le trouve à sa première lecture. La page qui a
-//! ouvert le dialogue l'acquitte (`ImportPicked`) : un rechargement ne le
-//! rouvre pas.
+//! Launch argument, second instance or macOS (`RunEvent::Opened`): the file
+//! does not open as a deck. It joins the queue of [`ImportPick`]s for the
+//! focused window, carried by the view: a page not listening yet (or web mode,
+//! without events) finds it on its first read. Several files at once queue in
+//! order, and the page offers them one after another. The page that opened the
+//! dialog acknowledges it (`ImportPicked`): a reload does not reopen it.
 
 use std::path::{Path, PathBuf};
 
@@ -13,39 +13,63 @@ use serde::Serialize;
 
 use super::Workspace;
 
-/// Un `.pptx` reçu de l'OS, à montrer dans le dialogue d'import.
+/// Most picks waiting at once; a further `.pptx` is dropped and logged.
+pub(super) const MAX_PICKS: usize = 32;
+
+/// A `.pptx` given by the OS, to show in the import dialog.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ImportPick {
-    /// Label de la fenêtre qui ouvre le dialogue (la fenêtre active).
+    /// Label of the window that opens the dialog (the focused window).
     pub window: String,
-    /// Le `.pptx` (normalisé à la réception).
+    /// The `.pptx` (normalized on receipt).
     pub path: PathBuf,
-    /// Numéro croissant : la page ouvre le dialogue une fois par numéro.
+    /// Increasing number: the page opens the dialog once per number.
     pub id: u64,
 }
 
-/// Une présentation PowerPoint : l'extension `.pptx`, sans casse.
+/// A PowerPoint presentation: the `.pptx` extension, in any case.
 pub(super) fn is_pptx(path: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pptx"))
 }
 
 impl Workspace {
-    /// `path` devient le choix d'import de la fenêtre active, à la place du précédent.
+    /// Queues `path` for the focused window, unless queued already or the queue is full.
+    ///
+    /// A path queued already keeps its window.
     pub(super) fn pick_import(&mut self, path: PathBuf) {
-        if let Some(previous) = &self.import_pick {
-            tracing::info!(replaced = %previous.path.display(), by = %path.display(), "choix d'import remplacé");
+        if self.import_picks.iter().any(|p| p.path == path) {
+            tracing::info!(path = %path.display(), "import pick already queued");
+            return;
         }
-        self.last_pick = self.last_pick.saturating_add(1);
-        self.import_pick = Some(ImportPick { window: self.layout.focused.clone(), path, id: self.last_pick });
+        if self.import_picks.len() >= MAX_PICKS {
+            tracing::warn!(path = %path.display(), max = MAX_PICKS, "import pick dropped: queue full");
+            return;
+        }
+        let id = self.next_pick_id();
+        self.import_picks.push(ImportPick { window: self.layout.focused.clone(), path, id });
     }
 
-    /// `ImportPicked` : oublie le choix `id`, montré par sa page.
-    ///
-    /// Un choix plus récent reste.
+    /// `ImportPicked`: forgets pick `id`, shown by its page. The others stay.
     pub(super) fn import_picked(&mut self, id: u64) {
-        if self.import_pick.as_ref().is_some_and(|p| p.id == id) {
-            self.import_pick = None;
+        self.import_picks.retain(|p| p.id != id);
+    }
+
+    /// Gives the picks of `from` to `to` with new ids, so its page offers them as new.
+    ///
+    /// They move to the end of the queue, which stays ordered by id.
+    pub(super) fn move_picks(&mut self, from: &str, to: &str) {
+        let (moved, kept) = std::mem::take(&mut self.import_picks).into_iter().partition(|p| p.window == from);
+        self.import_picks = kept;
+        for mut pick in moved {
+            to.clone_into(&mut pick.window);
+            pick.id = self.next_pick_id();
+            self.import_picks.push(pick);
         }
+    }
+
+    fn next_pick_id(&mut self) -> u64 {
+        self.last_pick = self.last_pick.saturating_add(1);
+        self.last_pick
     }
 }
 

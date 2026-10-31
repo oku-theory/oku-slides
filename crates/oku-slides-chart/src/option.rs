@@ -174,6 +174,9 @@ pub struct Axis {
     /// Maximum of the value axis; computed from the data if absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max: Option<f64>,
+    /// Draws the axis line and labels; shown if absent. The data keep their place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show: Option<bool>,
 }
 
 /// Kind of a cartesian axis.

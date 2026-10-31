@@ -105,6 +105,8 @@ impl Workspace {
         self.recent.retain(|l| l != label);
         self.recent.push(label.to_owned());
         label.clone_into(&mut self.layout.focused);
+        // Picks received while no window was left go to the first one that comes.
+        self.move_picks("", label);
     }
 
     pub(super) fn forget_window(&mut self, label: &str) {
@@ -112,6 +114,9 @@ impl Workspace {
         if self.layout.focused == label {
             self.layout.focused = self.recent.last().cloned().unwrap_or_default();
         }
+        // A closed window's picks go to the focused one (or wait for the next window).
+        let to = self.layout.focused.clone();
+        self.move_picks(label, &to);
     }
 
     pub(super) fn add_window(&mut self) -> String {

@@ -22,6 +22,8 @@ mod issue_0674_etat_ui_dans_l_ordre;
 mod issue_0694_reprise_v7_mise_de_cote;
 mod issue_0746_reprise_v8_mise_de_cote;
 mod issue_0902_deck_only_workshop;
+mod issue_0937_deck_only_pack_offered_again;
+mod issue_0961_several_pptx_from_the_os;
 mod issue_0981_pack_name_bidi;
 mod issue_1015_pack_fault_isolated;
 mod issue_1016_deck_widget_goes_to_deck_pack;

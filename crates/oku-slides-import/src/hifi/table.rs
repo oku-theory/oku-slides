@@ -1,47 +1,40 @@
-//! Le style d'un tableau source dans les termes du widget `table` de base :
-//! drapeaux de son option (`header-row`, `striped`) et jetons du composant
-//! `component.base.table` du thème.
+//! A source table's style in the terms of the base `table` widget: flags of
+//! its option (`header-row`, `striped`) and tokens of the theme's
+//! `component.base.table` component.
 //!
-//! Les cellules du lecteur sont résolues (style de tableau appliqué, ou
-//! remplissages explicites comme LibreOffice les écrit, `tblPr` vide) : le
-//! style se lit sur elles, les drapeaux `tblPr` ne sont que des indices.
+//! The reader's cells are resolved (table style applied, or explicit fills as
+//! LibreOffice writes them, empty `tblPr`): the style is read on them, the
+//! `tblPr` flags are only hints.
 //!
 //! | Source | Widget |
 //! |---|---|
-//! | 1re ligne d'un fond uni autre que la 2e (ou `firstRow`) | `header-row` ; `header-bg`, `header-color`, `header-weight` (texte dominant de la ligne) |
-//! | lignes du corps d'un même fond | `body-bg` (`null` : sans fond) |
-//! | lignes du corps alternant deux fonds | `striped` ; `body-bg` (1re, 3e…), `stripe-bg` (2e, 4e…) |
-//! | taille du texte des cellules | `size` (pt page) |
-//! | bordure basse commune des cellules | `rule-color`, `rule-width` (0 sans bordure) |
+//! | 1st row of a plain fill other than the 2nd's (or `firstRow`) | `header-row`; `header-bg`, `header-color`, `header-weight` (the row's dominant text) |
+//! | body rows of one fill | `body-bg` (`null`: no fill) |
+//! | body rows alternating two fills | `striped`; `body-bg` (1st, 3rd…), `stripe-bg` (2nd, 4th…) |
+//! | text size of the cells | `size` (page pt) |
+//! | common bottom border of the cells | `rule-color`, `rule-width` (0 without a border) |
+//! | common cell margins (`marL` = `marR`, `marT` = `marB`) | `padding-x`, `padding-y` (page pt) |
+//! | column widths, row heights (`a:gridCol`, `a:tr h`) | option `column-widths`, `row-heights` ([`set_geometry`]) |
 //!
-//! Le thème généré pose les jetons du premier tableau du deck
-//! ([`first_table`]) : ils valent pour tous. Est irrégulier
-//! ([`TableLook::irregular`]) ce que le widget ne rend pas : fonds par
-//! cellule, dégradés, bordures latérales ou différentes, largeurs de
-//! colonnes inégales (le widget les calcule sur le contenu), des lignes plus
-//! hautes que leur texte (`a:tr h`, une hauteur minimale : le widget donne à
-//! chaque ligne celle de son contenu, [`stretched`]), plusieurs tailles de
-//! texte, un texte du corps d'une autre couleur que l'encre. Un tableau
-//! s'accorde au thème du deck sur les seuls jetons qu'il emploie : sans
-//! en-tête, ceux de l'en-tête du premier tableau ne le concernent pas.
+//! The generated theme sets the tokens of the deck's first table
+//! ([`first_table`]): they hold for all. Irregular ([`TableLook::irregular`])
+//! is what the widget does not draw: per-cell fills, gradients, side or
+//! differing borders, differing cell margins, several text sizes, a body
+//! text in another color than the ink. A table agrees with the deck's theme
+//! on the tokens it uses only: without a header, the first table's header
+//! tokens do not concern it.
 
 use serde_json::{Map, Value, json};
 
 use super::color::ThemeColors;
 use super::element_text::dominant;
 use super::page::{Page, round2};
-use super::typst::DEFAULT_SIZE;
 use crate::source::{Cell, Dash, Fill, Item, ItemKind, Run, SourceDeck, Stroke, Table};
 
-/// Écart relatif au-delà duquel deux largeurs de colonnes sont inégales.
-const WIDTH_TOLERANCE: f64 = 0.1;
-/// Écart relatif au-delà duquel une ligne est plus haute que son texte
-/// (estimé : la largeur réelle des caractères n'est pas connue ici).
-const HEIGHT_TOLERANCE: f64 = 0.25;
-/// Avance moyenne d'un caractère, en em : de quoi estimer les lignes d'une cellule.
-const CHAR_ADVANCE: f64 = 0.5;
-/// Ligne simple de PowerPoint, en fraction de la taille de police.
-const LINE: f64 = 1.2;
+/// Largest cell padding token, in page pt: `max` of `table.padding-x/y` in `packs/base/widgets.json`.
+///
+/// A test reads the JSON, so the two cannot drift apart.
+const MAX_PADDING: f64 = 400.0;
 
 /// Le style d'un tableau source.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -123,9 +116,15 @@ impl TableLook {
         look.irregular |= rows.first().is_some_and(|r| r.iter().any(|c| c.borders.t.is_some()));
         look.irregular |= rows.iter().skip(1).flatten().any(|c| !same_rule(c.borders.t.as_ref(), rule));
 
-        let (min, max) = t.col_widths.iter().fold((f64::INFINITY, 0.0f64), |(lo, hi), w| (lo.min(*w), hi.max(*w)));
-        look.irregular |= t.col_widths.len() > 1 && max > min * (1.0 + WIDTH_TOLERANCE);
-        look.irregular |= stretched(t);
+        match uniform(cells().map(|c| c.text.insets)) {
+            Some(i) if (i.l - i.r).abs() < f64::EPSILON && (i.t - i.b).abs() < f64::EPSILON => {
+                let pad = |v: f64| json!(round2(page.len(v).clamp(0.0, MAX_PADDING)));
+                look.set("padding-x", Some(pad(i.l)));
+                look.set("padding-y", Some(pad(i.t)));
+            }
+            None if cells().next().is_none() => {}
+            _ => look.irregular = true,
+        }
         look
     }
 
@@ -178,37 +177,27 @@ pub(crate) fn first_table(deck: &SourceDeck) -> Option<&Table> {
     deck.slides.iter().find_map(|s| find(&s.items))
 }
 
-/// Une ligne de `t` est-elle nettement plus haute que le texte de ses
-/// cellules (une cellule fusionnée sur plusieurs lignes n'est pas comptée) ?
-fn stretched(t: &Table) -> bool {
-    t.rows.iter().zip(&t.row_heights).any(|(row, h)| {
-        // Une cellule par colonne de la grille, couvertes comprises.
-        let need =
-            row.iter().enumerate().filter(|(_, c)| !c.covered && c.row_span <= 1).fold(0.0f64, |need, (x, c)| {
-                let span = usize::try_from(c.col_span.max(1)).unwrap_or(1);
-                need.max(text_height(c, t.col_widths.iter().skip(x).take(span).sum()))
-            });
-        need > 0.0 && *h > need * (1.0 + HEIGHT_TOLERANCE)
-    })
-}
-
-/// Hauteur estimée du texte de la cellule `c` large de `width` pt, marges
-/// comprises : chaque paragraphe sur autant de lignes simples que ses
-/// caractères en demandent.
-fn text_height(c: &Cell, width: f64) -> f64 {
-    let tb = &c.text;
-    let room = (width - tb.insets.l - tb.insets.r).max(1.0);
-    let lines: f64 = tb
-        .paragraphs
-        .iter()
-        .map(|p| {
-            let size = p.runs.iter().map(|r| r.style.size).fold(0.0, f64::max);
-            let size = if size > 0.0 { size } else { DEFAULT_SIZE };
-            let chars: f64 = p.runs.iter().flat_map(|r| r.text.chars()).map(|_| 1.0).sum();
-            (chars * CHAR_ADVANCE * size / room).ceil().max(1.0) * LINE * size
-        })
-        .sum();
-    lines + tb.insets.t + tb.insets.b
+/// Writes the column widths and row heights of `t` as weights in the widget option `option`.
+///
+/// One weight per column and row the option keeps (at most `MAX_TABLE_COLUMNS`
+/// and `MAX_TABLE_ROWS`), and only when they are all finite and positive:
+/// otherwise the widget sizes that dimension on the content.
+pub(crate) fn set_geometry(option: &mut Value, t: &Table) {
+    let source = option.pointer("/dataset/source").and_then(Value::as_array);
+    let rows = source.map_or(0, Vec::len);
+    let width = source.and_then(|s| s.first()).and_then(Value::as_array).map_or(0, Vec::len);
+    let weights = |all: &[f64], count: usize| {
+        all.get(..count).filter(|w| !w.is_empty() && oku_slides_chart::valid_weights(w, count)).map(|w| json!(w))
+    };
+    let (columns, heights) = (weights(&t.col_widths, width), weights(&t.row_heights, rows));
+    if let Some(o) = option.as_object_mut() {
+        if let Some(w) = columns {
+            o.insert("column-widths".to_owned(), w);
+        }
+        if let Some(h) = heights {
+            o.insert("row-heights".to_owned(), h);
+        }
+    }
 }
 
 /// La valeur commune de `values`, `None` si elles diffèrent ou s'il n'y en a pas.

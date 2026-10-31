@@ -101,6 +101,7 @@ import-reference-unavailable = 시각 점수 없음: { $cause ->
     [memory] 참조 렌더링이 메모리를 너무 많이 사용했습니다
     [pages] 참조 렌더링은 { $reference }쪽이고 덱은 { $deck }쪽입니다
     [missing] LibreOffice(soffice)를 찾을 수 없습니다. import.soffice에 경로를 지정하세요
+    [refused] LibreOffice를 찾았지만 여기서 실행할 수 없습니다. import.soffice에 스크립트가 아닌 바이너리(…/LibreOffice.app/Contents/MacOS/soffice)를 지정하세요
    *[failed] 참조 렌더러가 프레젠테이션을 읽지 못했습니다
 }
 import-region-suspect = 참조 렌더러의 알려진 오류로 제외한 차이: { $limit ->

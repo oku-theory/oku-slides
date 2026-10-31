@@ -30,7 +30,15 @@ fn shape_with(text: TextBox) -> ItemKind {
 
 fn chart() -> ItemKind {
     let kind = ChartKind::Column;
-    ItemKind::Chart(Chart { kind, grouping: Grouping::default(), title: None, categories: vec![], series: vec![] })
+    ItemKind::Chart(Chart {
+        kind,
+        grouping: Grouping::default(),
+        title: None,
+        categories: vec![],
+        series: vec![],
+        legend: true,
+        axes: crate::source::Axes { x: true, y: true },
+    })
 }
 
 fn tracked(spacing: f64) -> TextBox {

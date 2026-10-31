@@ -103,6 +103,8 @@ fn chart_item(kind: ChartKind) -> Item {
         title: None,
         categories: vec!["T1".into(), "T2".into()],
         series: vec![series("Nord", [1.0, 2.0]), series("Sud", [3.0, 4.0])],
+        legend: true,
+        axes: crate::source::Axes { x: true, y: true },
     };
     item("ch", (0.0, 0.0, 200.0, 100.0), ItemKind::Chart(c))
 }
@@ -392,6 +394,8 @@ fn two_series_chart(second: [f64; 2], categories: [&str; 2]) -> Item {
         title: None,
         categories: categories.map(String::from).to_vec(),
         series: vec![series("Nord", [1.0, 2.0]), series("Sud", second)],
+        legend: true,
+        axes: crate::source::Axes { x: true, y: true },
     };
     item("ch", (0.0, 0.0, 200.0, 100.0), ItemKind::Chart(c))
 }

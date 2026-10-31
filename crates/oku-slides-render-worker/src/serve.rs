@@ -259,6 +259,7 @@ impl Worker {
                 let soffice = Soffice::new(storage, program.clone(), Duration::from_millis(*timeout_ms));
                 let pdf = soffice.render(pptx, files, span).map_err(|e| match e.kind() {
                     ReferenceErrorKind::Timeout => WireError::Timeout { ms: *timeout_ms },
+                    // A script `soffice` (`Script`) is refused by the session before rendering (t-957).
                     _ => reference_error(&e),
                 })?;
                 (pdf, soffice.witness().to_owned())

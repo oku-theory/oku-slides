@@ -51,3 +51,4 @@ chart-table-cell-too-long = komórka tabeli zawiera co najwyżej { $max } znakó
 chart-table-not-finite = liczby w tabeli muszą być skończone
 chart-table-chart-option = chart musi być obiektem opcji wykresu
 chart-table-chart-columns = chart-columns musi zawierać prawidłowe, niepowtarzalne identyfikatory kolumn (od 1 do 64 liter, cyfr, - lub _)
+chart-table-geometry = column-widths i row-heights podają jedną skończoną, dodatnią wagę na kolumnę lub wiersz

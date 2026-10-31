@@ -56,17 +56,18 @@ max_widget_kib = 256
 max_widgets = 64
 
 [import]
-# Import hi-fi : écart (ΔE OKLab ×100) de la pire région non suspecte d'une slide
-# au rendu de référence du témoin au-delà duquel le rapport signale la slide (les
-# régions suspectes, erreurs connues d'office2pdf, ne comptent pas). Mesuré sur
-# alto, libreoffice et kitchen (office2pdf 0.8.1, 2026-10-16) : bruit au plus 5,8,
-# vrais écarts 9,38 (alto, ligne d'introduction p. 6) à 22,5 (tableaux), dont
-# 15,71 (alto, encadré p. 7) ; les 8,7 de kitchen p. 2 sont suspects depuis
-# t-904 (police que seule la présentation nomme, 2026-10-18). Sous LibreOffice
-# (`witness = "soffice"`, 26.8.1.1, 2026-10-18), le même seuil : bruit au plus 6,77
-# (titres interlettrés d'alto), vrais écarts 18,2 (tableaux) et 46,1 (graphiques) ;
-# alto p. 6 (9,16, une coupure de ligne) et p. 8 (8,76, listes qu'il rétrécit) restent
-# signalées ; ses titres en Calibri Light et ses SmartArt sont suspects.
+# Hi-fi import: gap (ΔE OKLab ×100) of a slide's worst non-suspect region to the
+# witness's reference rendering beyond which the report flags the slide (suspect
+# regions, known office2pdf errors, do not count). Measured on alto, libreoffice
+# and kitchen (office2pdf 0.8.1, 2026-10-31): noise at most 5.8, real gaps 9.38
+# (alto, intro line p. 6) and 15.71 (alto, callout p. 7); the tables, at 22.5
+# before t-955, now 6.89 (kitchen) and 7.26 (libreoffice), where office2pdf and
+# PowerPoint still differ on line height. Under LibreOffice (`witness = "soffice"`,
+# 26.8.1.1, 2026-10-31), the same threshold: noise at most 6.77 (alto's spaced-out
+# titles), tables 3.68 and 3.47 (18.2 before t-955), charts 46.1 (gridlines and
+# bar widths, axes and legend now hidden as in the source, t-954); alto p. 6 (9.16,
+# a line break) and p. 8 (8.76, lists it shrinks) stay flagged; its Calibri Light
+# titles and SmartArt are suspect.
 score_threshold = 7.0
 # Durée maximale d'une tranche de 20 slides du rendu de référence (ms), dans son
 # propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).

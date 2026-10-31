@@ -187,3 +187,18 @@ fn convert_to_scatter_with_changed_row_count_mints_new_ids() {
     asserting("le nuage regroupe les abscisses").that(&back.source.len()).is_equal_to(3);
     assert_that!(back.ids.is_empty()).is_true();
 }
+
+#[test]
+fn convert_bars_to_lines_keeps_hidden_axes_hidden() {
+    let mut option = bars();
+    option.x_axis = Some(serde_json::from_value(json!({ "type": "category", "show": false })).unwrap());
+    option.y_axis = Some(serde_json::from_value(json!({ "type": "value", "show": false })).unwrap());
+    let out = convert(&option, SeriesType::Line, en()).unwrap();
+    assert_that!(normalize(&out, en()).unwrap().axes_show).is_equal_to(crate::AxesShown { x: false, y: false });
+}
+
+#[test]
+fn convert_bars_to_lines_leaves_shown_axes_without_show() {
+    let out = convert(&bars(), SeriesType::Line, en()).unwrap();
+    assert_that!((out.x_axis.and_then(|a| a.show), out.y_axis.and_then(|a| a.show))).is_equal_to((None, None));
+}

@@ -100,6 +100,7 @@ import-reference-unavailable = 見た目の差のスコアなし：{ $cause ->
     [memory] 参照レンダリングがメモリを使いすぎました
     [pages] 参照レンダリングは { $reference }ページで、デッキは{ $deck }ページです
     [missing] LibreOffice (soffice) が見つかりません。import.soffice にパスを指定してください
+    [refused] LibreOffice は見つかりましたが、ここでは実行できません。import.soffice にはスクリプトではなくバイナリ (…/LibreOffice.app/Contents/MacOS/soffice) を指定してください
    *[failed] 参照レンダラーがプレゼンテーションを読めませんでした
 }
 import-region-suspect = 参照レンダラーの既知の誤りとして除外した差：{ $limit ->

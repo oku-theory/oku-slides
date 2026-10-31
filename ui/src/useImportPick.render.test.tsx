@@ -1,11 +1,11 @@
-// Un .pptx reçu de l'OS : la vue de l'espace de travail ouvre le dialogue d'import de sa fenêtre.
+// A .pptx given by the OS: the workspace view opens its window's import dialog.
 
 import { afterAll, afterEach, expect, test } from "bun:test";
 import "./test/dom";
 import { resetMessages } from "./test/messages";
 import type { ImportPick, WorkspaceView } from "./api";
 
-// Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
+// See ./a2ui/catalog.render.test.tsx: React loads after the DOM.
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const ImportDialog = (await import("./ImportDialog")).default;
@@ -24,14 +24,14 @@ afterEach(async () => {
 
 const api = { packs: () => Promise.resolve([]) };
 
-/** La vue de numéro `generation`, avec le choix d'import `pick`. */
-function view(generation: number, pick: ImportPick | null): WorkspaceView {
-  return { generation, focused: "w-1", agent_detached: false, import_pick: pick, windows: [] };
+/** The view numbered `generation`, with the queued import `picks`. */
+function view(generation: number, picks: ImportPick[]): WorkspaceView {
+  return { generation, focused: "w-1", agent_detached: false, import_picks: picks, windows: [] };
 }
 
 /**
- * Une fenêtre `label` : le dialogue d'import tel que l'`App` le montre. `begin` lance l'import du
- * fichier montré, `done` le termine.
+ * A window `label`: the import dialog as the `App` shows it. `begin` starts importing the shown
+ * file, `done` ends it.
  */
 async function mount(label: string) {
   const state = {
@@ -49,7 +49,7 @@ async function mount(label: string) {
     useImportPick(
       v,
       label,
-      imports.job?.busy ?? false,
+      imports.job,
       (path) => {
         state.picks.push(path);
         return imports.pick(path);
@@ -94,53 +94,97 @@ async function mount(label: string) {
 }
 
 const alto: ImportPick = { window: "w-1", path: "/a/Alto.pptx", id: 1 };
+const kitchen: ImportPick = { window: "w-1", path: "/a/Kitchen.pptx", id: 2 };
 
-test("useImportPick ouvre le dialogue d'import pour un choix de cette fenêtre", async () => {
+test("useImportPick opens the import dialog for a pick of this window", async () => {
   const m = await mount("w-1");
-  await m.show(view(1, alto));
+  await m.show(view(1, [alto]));
   expect(m.title()).toBe("Importer une présentation PowerPoint");
   expect(m.picks).toEqual(["/a/Alto.pptx"]);
   expect(m.acks).toEqual([1]);
 });
 
-test("useImportPick ne rouvre pas le dialogue fermé pour le même choix", async () => {
+test("useImportPick does not reopen the closed dialog for the same pick", async () => {
   const m = await mount("w-1");
-  await m.show(view(1, alto));
+  await m.show(view(1, [alto]));
   await m.close();
-  await m.show(view(2, alto));
-  await m.show(view(3, alto));
+  await m.show(view(2, [alto]));
+  await m.show(view(3, [alto]));
   expect(m.title()).toBeNull();
   expect(m.picks).toEqual(["/a/Alto.pptx"]);
   expect(m.acks).toEqual([1]);
 });
 
-test("useImportPick ignore le choix d'une autre fenêtre", async () => {
+test("useImportPick ignores another window's pick", async () => {
   const m = await mount("w-2");
-  await m.show(view(1, alto));
+  await m.show(view(1, [alto]));
   expect(m.title()).toBeNull();
   expect(m.picks).toEqual([]);
   expect(m.acks).toEqual([]);
 });
 
-test("useImportPick rouvre le dialogue pour un choix plus récent", async () => {
+test("useImportPick reopens the dialog for a newer pick", async () => {
   const m = await mount("w-1");
-  await m.show(view(1, alto));
+  await m.show(view(1, [alto]));
   await m.close();
-  await m.show(view(2, { window: "w-1", path: "/a/Kitchen.pptx", id: 2 }));
+  await m.show(view(2, [kitchen]));
   expect(m.title()).toBe("Importer une présentation PowerPoint");
   expect(m.picks).toEqual(["/a/Alto.pptx", "/a/Kitchen.pptx"]);
   expect(m.acks).toEqual([1, 2]);
 });
 
-test("useImportPick garde un choix arrivé pendant un import et l'ouvre une fois l'import fini", async () => {
+test("useImportPick keeps a pick that arrives during an import and opens it once the import ends", async () => {
   const m = await mount("w-1");
-  await m.show(view(1, alto));
+  await m.show(view(1, [alto]));
   await m.begin();
   await m.close();
-  await m.show(view(2, { window: "w-1", path: "/a/Kitchen.pptx", id: 2 }));
+  await m.show(view(2, [kitchen]));
   expect(m.file()).toBe("Alto.pptx");
   expect(m.acks).toEqual([1]);
   await m.done();
   expect(m.file()).toBe("Kitchen.pptx");
   expect(m.acks).toEqual([1, 2]);
+});
+
+test("useImportPick offers queued picks one after another, the next once the dialog closes", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [alto, kitchen]));
+  expect(m.file()).toBe("Alto.pptx");
+  await m.show(view(2, [kitchen]));
+  expect(m.file()).toBe("Alto.pptx");
+  expect(m.acks).toEqual([1]);
+  await m.close();
+  expect(m.file()).toBe("Kitchen.pptx");
+  expect(m.acks).toEqual([1, 2]);
+});
+
+test("useImportPick shows the running import once for a waiting pick, not again after closing", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [alto]));
+  await m.begin();
+  await m.close();
+  await m.show(view(2, [kitchen]));
+  expect(m.file()).toBe("Alto.pptx");
+  await m.close();
+  await m.show(view(3, [kitchen]));
+  expect(m.title()).toBeNull();
+  await m.done();
+  expect(m.file()).toBe("Kitchen.pptx");
+  expect(m.acks).toEqual([1, 2]);
+});
+
+test("useImportPick offers the lowest id first when the queue is out of order", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [{ ...alto, id: 3 }, kitchen]));
+  expect(m.file()).toBe("Kitchen.pptx");
+  await m.close();
+  expect(m.file()).toBe("Alto.pptx");
+  expect(m.acks).toEqual([2, 3]);
+});
+
+test("useImportPick in a queue mixing windows takes only this window's picks", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [{ ...alto, window: "w-2" }, kitchen]));
+  expect(m.picks).toEqual(["/a/Kitchen.pptx"]);
+  expect(m.acks).toEqual([2]);
 });

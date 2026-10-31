@@ -34,7 +34,16 @@ expression: slides
             },
             "header-row": true,
             "header-column": false,
-            "striped": true
+            "striped": true,
+            "column-widths": [
+              100.0,
+              200.0
+            ],
+            "row-heights": [
+              30.0,
+              30.0,
+              30.0
+            ]
           }
         }
       }
@@ -92,10 +101,12 @@ expression: slides
               ]
             },
             "xAxis": {
-              "type": "category"
+              "type": "category",
+              "show": false
             },
             "yAxis": {
-              "type": "value"
+              "type": "value",
+              "show": false
             },
             "series": [
               {
@@ -110,6 +121,9 @@ expression: slides
                 "stack": "total"
               }
             ],
+            "legend": {
+              "show": false
+            },
             "title": {
               "text": "Ventes 2026"
             }

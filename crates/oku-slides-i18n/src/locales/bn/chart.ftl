@@ -51,3 +51,4 @@ chart-table-cell-too-long = টেবিলের একটি ঘরে সর�
 chart-table-not-finite = টেবিলের সংখ্যাগুলো সসীম হতে হবে
 chart-table-chart-option = chart অবশ্যই চার্ট অপশনের একটি অবজেক্ট হতে হবে
 chart-table-chart-columns = chart-columns-এ বৈধ ও স্বতন্ত্র কলাম শনাক্তকারী থাকতে হবে (১ থেকে ৬৪টি অক্ষর, অঙ্ক, - বা _)
+chart-table-geometry = column-widths ও row-heights প্রতিটি কলাম বা সারির জন্য একটি সসীম, ধনাত্মক ওজন দেয়

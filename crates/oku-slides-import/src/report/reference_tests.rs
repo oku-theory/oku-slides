@@ -9,6 +9,7 @@ use super::*;
 #[case(ReferenceCause::Timeout)]
 #[case(ReferenceCause::Memory)]
 #[case(ReferenceCause::Missing)]
+#[case(ReferenceCause::Refused)]
 #[case(ReferenceCause::Pages { reference: 7, deck: 8 })]
 fn cause_localize_in_every_locale_formats_its_own_message(#[case] cause: ReferenceCause) {
     for tag in oku_slides_i18n::available() {
@@ -25,17 +26,29 @@ fn cause_pages_gives_both_counts_in_order() {
 }
 
 #[test]
-fn causes_give_five_distinct_messages_in_french() {
+fn causes_give_six_distinct_messages_in_french() {
     let fr = Localizer::new(Some("fr"));
     let causes = [
         ReferenceCause::Failed,
         ReferenceCause::Timeout,
         ReferenceCause::Memory,
         ReferenceCause::Missing,
+        ReferenceCause::Refused,
         ReferenceCause::Pages { reference: 7, deck: 8 },
     ];
     let messages: std::collections::BTreeSet<String> = causes.iter().map(|c| c.localize(&fr)).collect();
-    assert_that!(messages.len()).is_equal_to(5);
+    assert_that!(messages.len()).is_equal_to(6);
+}
+
+/// Every locale has the `refused` branch: never the catch-all `failed` message (t-957).
+#[test]
+fn cause_refused_in_every_locale_is_not_the_failed_message() {
+    for tag in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(tag));
+        assert_that!(ReferenceCause::Refused.localize(&l))
+            .named(tag)
+            .is_not_equal_to(ReferenceCause::Failed.localize(&l));
+    }
 }
 
 #[rstest]
@@ -43,6 +56,7 @@ fn causes_give_five_distinct_messages_in_french() {
 #[case(ReferenceCause::Timeout, "timeout")]
 #[case(ReferenceCause::Memory, "memory")]
 #[case(ReferenceCause::Missing, "missing")]
+#[case(ReferenceCause::Refused, "refused")]
 #[case(ReferenceCause::Pages { reference: 7, deck: 8 }, "pages (7 rendered, 8 expected)")]
 fn cause_display_names_it_with_its_counts(#[case] cause: ReferenceCause, #[case] expected: &str) {
     assert_that!(cause.to_string()).is_equal_to(expected.to_owned());

@@ -42,7 +42,7 @@ const PACK = "a7e11e40-0000-4000-8000-000000000001";
 const tabIn = (id: string, document: TabDocument = { kind: "deck", path: null, deck_uid: null }): TabInfo => ({ ...tab(document), id, title: id });
 const linked = (id: string, owner: string) => tabIn(id, { kind: "deck_pack", deck_tab: owner, pack: PACK });
 const win = (label: string, tabs: TabInfo[]): WindowView => ({ label, active: tabs[0]?.id ?? "", tabs });
-const viewOf = (...windows: WindowView[]): WorkspaceView => ({ generation: 1, focused: "w-1", agent_detached: false, import_pick: null, windows });
+const viewOf = (...windows: WindowView[]): WorkspaceView => ({ generation: 1, focused: "w-1", agent_detached: false, import_picks: [], windows });
 
 describe("linkedTabs", () => {
   test("linkedTabs of a deck tab lists its deck_pack tabs in every window", () => {

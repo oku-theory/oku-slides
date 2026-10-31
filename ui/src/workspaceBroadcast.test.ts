@@ -15,7 +15,7 @@ const view = (generation: number, dirty: boolean): WorkspaceView => ({
   generation,
   focused: "w-1",
   agent_detached: false,
-  import_pick: null,
+  import_picks: [],
   windows: [{ label: "w-1", active: "t-1", tabs: [tab(dirty)] }],
 });
 

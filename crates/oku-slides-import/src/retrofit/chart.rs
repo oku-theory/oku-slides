@@ -77,11 +77,13 @@ fn scatter_grid(c: &source::Chart) -> Vec<Vec<Value>> {
 /// | `Scatter` | une paire de colonnes (x, y) par série |
 /// | `Radar` | radar, axes = catégories |
 ///
-/// `Stacked` pose `stack` sur les séries cartésiennes ; `PercentStacked` aussi,
-/// avec la perte `PercentStacked`. Le titre devient `title.text`. Un format des
-/// nombres (`0%`, monnaie) se perd (`ChartFormat`) : le modèle n'en a pas.
-/// `dataset.source` est coupé au budget de relecture du cœur
-/// ([`dataset_row_budget`], en-tête compris), avec la perte `ChartTruncated`.
+/// `Stacked` sets `stack` on the cartesian series; `PercentStacked` too, with
+/// the `PercentStacked` loss. A deleted axis gets `show: false` and
+/// `legend.show` says whether the source has a legend (t-954). The title
+/// becomes `title.text`. A number format (`0%`, currency) is lost
+/// (`ChartFormat`): the model has none. `dataset.source` is cut to the core's
+/// review budget ([`dataset_row_budget`], header included), with the
+/// `ChartTruncated` loss.
 pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
     if c.series.is_empty() {
         return None;
@@ -97,20 +99,26 @@ pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
         }
         vec![s; c.series.len()]
     };
-    let category = json!({ "type": "category" });
-    let value_axis = json!({ "type": "value" });
+    let axis = |kind: &str, shown: bool| {
+        let mut a = json!({ "type": kind });
+        if !shown {
+            a["show"] = json!(false);
+        }
+        a
+    };
+    let (x, y) = (c.axes.x, c.axes.y);
     let mut option = match c.kind {
         ChartKind::Column | ChartKind::Line | ChartKind::Area => {
             let kind = if c.kind == ChartKind::Column { "bar" } else { "line" };
             json!({
                 "dataset": { "source": grid(c, &c.series) },
-                "xAxis": category, "yAxis": value_axis,
+                "xAxis": axis("category", x), "yAxis": axis("value", y),
                 "series": cartesian(kind, c.kind == ChartKind::Area),
             })
         }
         ChartKind::Bar => json!({
             "dataset": { "source": grid(c, &c.series) },
-            "xAxis": value_axis, "yAxis": category,
+            "xAxis": axis("value", x), "yAxis": axis("category", y),
             "series": cartesian("bar", false),
         }),
         ChartKind::Pie | ChartKind::Doughnut => {
@@ -141,6 +149,15 @@ pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
     if let Some(format) = c.series.iter().find_map(|s| s.format.clone()) {
         losses.push(LossKind::ChartFormat(format));
     }
+    if c.kind == ChartKind::Scatter {
+        for (key, shown) in [("xAxis", x), ("yAxis", y)] {
+            if !shown {
+                option[key]["show"] = json!(false);
+            }
+        }
+    }
+    // Always written: an imported chart never depends on the model's default.
+    option["legend"] = json!({ "show": c.legend });
     if let Some(title) = c.title.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
         option["title"] = json!({ "text": title });
     }

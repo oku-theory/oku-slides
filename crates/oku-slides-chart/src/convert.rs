@@ -56,6 +56,12 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
     let mut out: ChartOption = serde_json::from_value(skeleton).context(InvalidOptionSnafu)?;
     out.title.clone_from(&option.title);
     out.legend.clone_from(&option.legend);
+    // A hidden side stays hidden (t-954): bottom and left, whatever the axis there.
+    for (to, from) in [(&mut out.x_axis, &option.x_axis), (&mut out.y_axis, &option.y_axis)] {
+        if let Some(axis) = to.as_mut() {
+            axis.show = from.as_ref().and_then(|a| a.show);
+        }
+    }
     out.dataset = Some(kept_ids(option.dataset.as_ref(), source));
     normalize(&out, labels)?;
     Ok(out)

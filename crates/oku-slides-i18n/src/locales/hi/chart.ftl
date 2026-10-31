@@ -51,3 +51,4 @@ chart-table-cell-too-long = तालिका के एक कक्ष मे
 chart-table-not-finite = तालिका की संख्याएँ परिमित होनी चाहिए
 chart-table-chart-option = chart चार्ट विकल्पों का ऑब्जेक्ट होना चाहिए
 chart-table-chart-columns = chart-columns में मान्य और अलग-अलग कॉलम पहचानकर्ता होने चाहिए (1 से 64 अक्षर, अंक, - या _)
+chart-table-geometry = column-widths और row-heights हर स्तंभ या पंक्ति के लिए एक सीमित, धनात्मक भार देते हैं

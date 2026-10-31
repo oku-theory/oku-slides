@@ -84,10 +84,12 @@ expression: plan.ops
                         ]
                       },
                       "xAxis": {
-                        "type": "category"
+                        "type": "category",
+                        "show": false
                       },
                       "yAxis": {
-                        "type": "value"
+                        "type": "value",
+                        "show": false
                       },
                       "series": [
                         {
@@ -99,6 +101,9 @@ expression: plan.ops
                           "stack": "total"
                         }
                       ],
+                      "legend": {
+                        "show": false
+                      },
                       "title": {
                         "text": "Ventes 2026"
                       }

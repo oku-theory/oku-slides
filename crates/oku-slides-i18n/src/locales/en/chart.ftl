@@ -51,3 +51,4 @@ chart-table-cell-too-long = a table cell holds at most { $max } characters
 chart-table-not-finite = table numbers must be finite
 chart-table-chart-option = chart must be a chart option object
 chart-table-chart-columns = chart-columns must list valid, distinct column identifiers (1 to 64 letters, digits, - or _)
+chart-table-geometry = column-widths and row-heights give one finite, positive weight per column or row
