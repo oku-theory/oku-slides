@@ -18,8 +18,25 @@
 
 #let _types = ("plain", "rich", "flag", "number", "choice", "asset", "slot", "grid", "host", "list")
 
-/// Déclare un widget. category : "element" ou "slide" ; description : ce
-/// qu'il montre, en une phrase (la grille d'ajout la filtre).
+/// A shown text, or a dictionary of texts by language: `(en: "…", fr: "…")`.
+/// Blank (the text, or each entry) counts as absent; with no entry kept, none.
+#let _shown-text(name, arg, value) = {
+  let ok = type(value) == str or (type(value) == dictionary and value.values().all(v => type(v) == str))
+  assert(value == none or ok,
+    message: "oku-slides : widget « " + name + " » : " + arg + " doit être un texte ou un dictionnaire de textes par langue")
+  if value == none { return none }
+  if type(value) == str { return if value.trim() == "" { none } else { value } }
+  let kept = (:)
+  for (lang, text) in value {
+    if text.trim() != "" { kept.insert(lang, text) }
+  }
+  if kept.len() == 0 { none } else { kept }
+}
+
+/// Declares a widget. label: its shown name; description: what it shows, in
+/// one sentence (the add grid filters on it). Each is a text, or a dictionary
+/// by language (`(en: "Value", fr: "Valeur")`): the app takes the user's
+/// language, else that language without region, else `en`, else the lowest code.
 /// grow (élément) : false, sa hauteur ; true, une part de la hauteur qui
 /// reste ; "fit", sa hauteur si elle tient dans une part, sinon une part.
 /// typography (élément) : sa boîte porte la typographie de son style.
@@ -30,19 +47,14 @@
     message: "oku-slides : widget « " + name + " » : catégorie inconnue « " + repr(category) + " »")
   // Un label ou une description d'un autre type casserait la lecture de tout le registre :
   // seul ce fichier est écarté, avec un message qui nomme l'argument.
-  assert(label == none or type(label) == str,
-    message: "oku-slides : widget « " + name + " » : le label doit être un texte")
-  assert(description == none or type(description) == str,
-    message: "oku-slides : widget « " + name + " » : la description doit être un texte")
+  let label = _shown-text(name, "le label", label)
+  let description = _shown-text(name, "la description", description)
   assert(grow in (false, true, "fit"),
     message: "oku-slides : widget « " + name + " » : grow vaut false, true ou \"fit\"")
   assert(type(typography) == bool,
     message: "oku-slides : widget « " + name + " » : typography est un booléen")
   assert(category == "element" or (grow == false and not typography),
     message: "oku-slides : widget « " + name + " » : une slide ne déclare ni grow ni typography")
-  // Vide ou d'espaces : rien à montrer, comme absent.
-  let label = if label == none or label.trim() == "" { none } else { label }
-  let description = if description == none or description.trim() == "" { none } else { description }
   let list = ()
   for (key, d) in params {
     assert(type(d) == dictionary and d.at("type", default: none) in _types,

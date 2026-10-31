@@ -6214,6 +6214,7 @@ name = "oku-slides-session"
 version = "8.0.0"
 dependencies = [
  "fontdb",
+ "hex",
  "insta",
  "loro",
  "oku-slides-a2ui",

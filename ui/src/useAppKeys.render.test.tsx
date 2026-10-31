@@ -1,5 +1,5 @@
 // A tab's window keys: in a pack tab ⌘Z undoes the session outside the item editor, no stage
-// keys; ⌘↩ presents only when the snapshot says the tab can.
+// keys; ⌘↩ presents only when the snapshot says the tab can; in a deck tab, A opens the add grid.
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import "./test/dom";
@@ -32,8 +32,15 @@ const SNAP = {
 
 const noop = () => {};
 
-/** Mounts the keys of a pack tab (or of `snap`); returns the undo, slide moves and presents made. */
-async function mount(snap: Snapshot = SNAP, packTab = true) {
+/** A deck tab: one slide, nothing being edited. */
+const DECK = {
+  editing: null, history: null, read_only: false, theming: null,
+  slides: [{ id: "s-1", kind: "essentiel/content", title: null, hash: "a" }],
+} as unknown as Snapshot;
+
+/** Mounts the keys of a tab (a pack tab by default); returns the undo, slide moves, presents and add openings made. */
+async function mount({ snap = SNAP, packTab = true, canAdd = false }: { snap?: Snapshot; packTab?: boolean; canAdd?: boolean } = {}) {
+  const openAdd = mock(() => {});
   const undo = mock(async () => null);
   const present = mock((_mode: string) => {});
   const goToSlide = mock((_id: string) => {});
@@ -41,11 +48,11 @@ async function mount(snap: Snapshot = SNAP, packTab = true) {
   const keptUi = { handleKey: () => false } as unknown as KeptUi;
   function Probe() {
     useAppKeys({
-      api, snap, view: null, current: "layout-a", selected: null, editing: null, presenting: null,
+      api, snap, view: null, current: snap.slides[0].id, selected: null, editing: null, presenting: null,
       agentStatus: IDLE_AGENT, dialogOpen: false, packTab, themeTab: false, cutMark: null, keptUi,
       cursor: {} as HistoryCursor, autosave: { flush: async () => {} } as never, run: (p) => p,
       apply: async () => true, present, goToSlide, moveSlide: noop, dropCut: noop, open: noop,
-      saveCopy: noop, cancelAgent: noop, setEditing: noop, setSelected: noop,
+      saveCopy: noop, cancelAgent: noop, setEditing: noop, setSelected: noop, openAdd: canAdd ? openAdd : null,
     });
     return createElement("div", { className: "typst-editor" }, createElement("button", { type: "button" }, "tool"));
   }
@@ -53,7 +60,7 @@ async function mount(snap: Snapshot = SNAP, packTab = true) {
   const root = createRoot(host);
   mounted = { root, host };
   await act(async () => root.render(createElement(Probe)));
-  return { host, undo, goToSlide, present };
+  return { host, undo, goToSlide, present, openAdd };
 }
 
 const press = (target: EventTarget, init: KeyboardEventInit) =>
@@ -80,17 +87,61 @@ describe("useAppKeys in a pack tab", () => {
   });
 });
 
+describe("useAppKeys add shortcut", () => {
+  const deck = () => mount({ snap: DECK, packTab: false, canAdd: true });
+
+  test("useAppKeys A in a deck tab opens the add grid", async () => {
+    const { openAdd } = await deck();
+    await press(document.body, { key: "a", code: "KeyA" });
+    expect(openAdd).toHaveBeenCalledTimes(1);
+  });
+
+  test("useAppKeys A is read by its letter, so it follows the layout", async () => {
+    const { openAdd } = await deck();
+    await press(document.body, { key: "a", code: "KeyQ" });
+    expect(openAdd).toHaveBeenCalledTimes(1);
+  });
+
+  test("useAppKeys A with a modifier does not open the add grid", async () => {
+    const { openAdd } = await deck();
+    await press(document.body, { key: "a", code: "KeyA", metaKey: true });
+    await press(document.body, { key: "a", code: "KeyA", altKey: true });
+    await press(document.body, { key: "A", code: "KeyA", shiftKey: true });
+    expect(openAdd).not.toHaveBeenCalled();
+  });
+
+  test("useAppKeys A held down opens the add grid once", async () => {
+    const { openAdd } = await deck();
+    await press(document.body, { key: "a", code: "KeyA" });
+    await press(document.body, { key: "a", code: "KeyA", repeat: true });
+    expect(openAdd).toHaveBeenCalledTimes(1);
+  });
+
+  test("useAppKeys A without an add target (openAdd null) does nothing", async () => {
+    const { openAdd } = await mount({ snap: DECK, packTab: false, canAdd: false });
+    await press(document.body, { key: "a", code: "KeyA" });
+    expect(openAdd).not.toHaveBeenCalled();
+  });
+
+  test("useAppKeys A in a text field is the field's", async () => {
+    const { host, openAdd } = await deck();
+    const input = host.appendChild(document.createElement("input"));
+    await press(input, { key: "a", code: "KeyA" });
+    expect(openAdd).not.toHaveBeenCalled();
+  });
+});
+
 describe("useAppKeys present", () => {
   const deck = (canPresent: boolean) => ({ ...SNAP, editing: null, can_present: canPresent }) as Snapshot;
 
   test("useAppKeys present when the snapshot can present presents", async () => {
-    const { present } = await mount(deck(true), false);
+    const { present } = await mount({ snap: deck(true), packTab: false });
     await press(document.body, { key: "Enter", metaKey: true });
     expect(present).toHaveBeenCalledWith("screen");
   });
 
   test("useAppKeys present when the snapshot cannot present does nothing", async () => {
-    const { present } = await mount(deck(false), false);
+    const { present } = await mount({ snap: deck(false), packTab: false });
     await press(document.body, { key: "Enter", metaKey: true });
     expect(present).not.toHaveBeenCalled();
   });

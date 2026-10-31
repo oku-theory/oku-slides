@@ -122,6 +122,8 @@ pub struct Snapshot<'a> {
     pub free_slots: BTreeMap<String, Option<Vec<String>>>,
     /// Révision des valeurs d'exemple des widgets (`widget_examples.rs`) : un changement relance les aperçus.
     pub widget_trials: u64,
+    /// Fingerprint of the packs the deck renders with: add grid previews depend on all of them.
+    pub preview_set: String,
     /// Slide courante et grille, gardées pour la reprise.
     pub ui: &'a UiState,
     /// Historique ouvert : la version montrée, en lecture seule.

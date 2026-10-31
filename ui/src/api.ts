@@ -102,6 +102,8 @@ export interface Snapshot {
   free_slots: Record<string, string[] | null>;
   /** Révision des valeurs d'exemple des widgets : change quand une valeur est modifiée (tirée de la version du pack édité). */
   widget_trials: number;
+  /** Fingerprint of the packs the deck renders with: add grid previews depend on all of them. */
+  preview_set: string;
   /** Historique ouvert : la version montrée (le reste du snapshot la décrit). */
   history: HistoryView | null;
   /** L'aide de l'app : le deck se lit, il ne se modifie pas. */

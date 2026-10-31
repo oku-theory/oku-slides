@@ -8,6 +8,7 @@ import "../test/dom";
 const { act, createElement, StrictMode, useState } = await import("react");
 const { mountSurface, messagesOf } = await import("../test/surface");
 const { StagePreviewContext, createStagePreviewStore } = await import("./stagePreview");
+const { QuickHintsContext } = await import("./quickHints");
 const { svgSrc } = await import("./svgSrc");
 
 const card = {
@@ -24,10 +25,18 @@ const other = { ...card, svg: "<svg>pro</svg>", name: "Pro", active: false, acti
 type Store = ReturnType<typeof createStagePreviewStore>;
 
 /** Monte des composants avec un magasin d'aperçu ; `around` enveloppe la surface (StrictMode…). */
-async function mountWith(components: Record<string, unknown>[], around: (n: ReactNode) => ReactNode = (n) => n) {
+async function mountWith(
+  components: Record<string, unknown>[],
+  around: (n: ReactNode) => ReactNode = (n) => n,
+  hints = false,
+) {
   const store: Store = createStagePreviewStore();
   const mounted = await mountSurface(messagesOf(components, {}), (s) =>
-    createElement(StagePreviewContext.Provider, { value: store }, around(s)),
+    createElement(
+      QuickHintsContext.Provider,
+      { value: hints },
+      createElement(StagePreviewContext.Provider, { value: store }, around(s)),
+    ),
   );
   const buttons = [...mounted.host.querySelectorAll("button.theme-choice")] as HTMLButtonElement[];
   return { ...mounted, store, buttons };
@@ -35,6 +44,21 @@ async function mountWith(components: Record<string, unknown>[], around: (n: Reac
 const mount = (root: Record<string, unknown> = card) => mountWith([{ id: "root", ...root }]);
 const two = () =>
   mountWith([{ id: "root", component: "Row", children: ["a", "b"] }, { id: "a", ...card }, { id: "b", ...other }]);
+
+/** Les cartes `ids` dans une rangée, précédées des composants `before` de la racine. */
+const row = (ids: string[], before: Record<string, unknown>[] = [], hints = true) =>
+  mountWith(
+    [
+      { id: "root", component: "Column", children: [...before.map((b) => b.id), "row"] },
+      ...before,
+      { id: "row", component: "Row", children: ids },
+      ...ids.map((id) => ({ ...other, id, action: { event: { name: "theme", context: { theme: id } } } })),
+    ],
+    (n) => n,
+    hints,
+  );
+/** Le chiffre montré par chaque carte, `null` sans chiffre. */
+const digits = (buttons: HTMLButtonElement[]) => buttons.map((b) => b.querySelector(".chip-key")?.textContent ?? null);
 
 /** Survol au sens de React 19 : `pointerover`/`pointerout` délégués, pas `pointerenter`. */
 const hover = (el: Element) =>
@@ -62,7 +86,7 @@ describe("ThemeChoice", () => {
 
   test("le nom est isolé dans un bdi", async () => {
     const { buttons } = await mount();
-    expect(buttons[0].querySelector("bdi.caption")?.textContent).toBe("Papier");
+    expect(buttons[0].querySelector(".caption bdi")?.textContent).toBe("Papier");
   });
 
   test("un clic envoie theme avec l'espace de noms du thème", async () => {
@@ -129,6 +153,35 @@ describe("ThemeChoice", () => {
     const { buttons, store } = await mountWith([{ id: "root", ...card }], (n) => createElement(StrictMode, null, n));
     await hover(buttons[0]);
     expect(store.get()?.slide).toBe("s-1");
+  });
+
+  test("ThemeChoice with quick hints shows each card's digit", async () => {
+    const { buttons } = await row(["a", "b"]);
+    expect(digits(buttons)).toEqual(["1", "2"]);
+  });
+
+  test("ThemeChoice without quick hints shows no digit", async () => {
+    const { buttons } = await row(["a", "b"], [], false);
+    expect(digits(buttons)).toEqual([null, null]);
+  });
+
+  test("ThemeChoice fifth card gets no digit", async () => {
+    const { buttons } = await row(["a", "b", "c", "d", "e"]);
+    expect(digits(buttons)).toEqual(["1", "2", "3", "4", null]);
+  });
+
+  test("ThemeChoice digit counts an action button before it, not dismiss", async () => {
+    const before = [
+      { id: "go", component: "Button", label: "Go", action: { event: { name: "go" } } },
+      { id: "x", component: "Button", label: "X", action: { event: { name: "dismiss" } } },
+    ];
+    const { buttons } = await row(["a", "b"], before);
+    expect(digits(buttons)).toEqual(["2", "3"]);
+  });
+
+  test("ThemeChoice digit is hidden from screen readers", async () => {
+    const { buttons } = await row(["a"]);
+    expect(buttons[0].querySelector(".chip-key")?.getAttribute("aria-hidden")).toBe("true");
   });
 
   test("une pastille qui n'est pas une couleur fait refuser la surface", async () => {

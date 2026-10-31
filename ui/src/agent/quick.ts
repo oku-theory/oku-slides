@@ -76,6 +76,16 @@ function actionOf(c: Component | undefined, model: Record<string, unknown>, boun
 const numbered = (cs: Component[]) =>
   cs.filter((c) => (c.component === "Button" || c.component === "SlideThumb" || c.component === "ThemeChoice") && eventOf(c) && eventOf(c)?.name !== DISMISS);
 
+/**
+ * The digit 1–4 of component `id` among `cs` (surface order); `null` without one. ChoiceChips take
+ * the digits whenever the surface has some, as in `quickAction`.
+ */
+export function quickDigit(cs: Component[], id: string): number | null {
+  if (cs.some((c) => c.component === "ChoiceChips")) return null;
+  const i = numbered(cs).findIndex((c) => c.id === id);
+  return i >= 0 && i < QUICK_KEYS ? i + 1 : null;
+}
+
 /** L'action qu'une touche déclenche dans `surface` ; `null` si elle n'en déclenche pas. */
 export function quickAction(surface: Surface, key: string): QuickAction | null {
   if (key === "Escape") return { name: DISMISS, context: {} };

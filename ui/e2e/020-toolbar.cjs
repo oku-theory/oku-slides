@@ -1,4 +1,4 @@
-// Barre d'outils (sous la feuille) : ajout d'éléments par la grille filtrable ; suppression de slide au coin de sa miniature.
+// Barre d'outils (sous la feuille) : ajout d'éléments par la grille filtrable (bouton ou touche A) ; suppression de slide au coin de sa miniature.
 // Contre `oku-slides serve fixtures/roadmap.json`.
 // Lancer : just e2e (serveur neuf, port 4872). À la main : bun run e2e dans ui/, E2E_URL = adresse du serveur.
 const { chromium } = require('playwright');
@@ -45,6 +45,15 @@ const state = (p) => p.evaluate(() => ({
   const added = 'Annuler : Ajouter « Graphique »';
   await until(p, async () => (await state(p)).undo === added, 'le graphique n\'est pas ajouté (libellé d\'annulation)');
   assert.equal((await state(p)).undo, added);
+  // A reopens the grid focused on the last card added (A then Enter would add it again); Escape closes it.
+  await p.keyboard.press('a');
+  await picker.waitFor();
+  await until(p, async () => (await picker.locator('[aria-selected="true"] .card-name').textContent()) === 'Graphique',
+    'A n\'ouvre pas la grille sur le dernier widget ajouté');
+  // Escape is ignored during the opening guard.
+  await p.waitForSelector('.widget-picker[data-armed]');
+  await p.keyboard.press('Escape');
+  await picker.waitFor({ state: 'detached' });
   // Suppression au coin de la miniature, puis annulation.
   const before = (await state(p)).slides;
   await p.locator('.thumb-slot').nth(3).getByRole('button', { name: 'Supprimer la slide' }).click();

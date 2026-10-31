@@ -13,14 +13,20 @@ use super::{McpEvent, Shown, SurfaceHub, ThemePicker};
 impl SurfaceHub {
     /// Shows the theme picker on `slide`; `false` outside deck mode.
     ///
-    /// Renders the thumbnails under the session lock: call it off the runtime threads.
+    /// The thumbnails render with no session lock held (a [`ThemeJob`](oku_slides_session::ThemeJob)),
+    /// but still block: call it off the runtime threads.
     ///
     /// # Errors
     ///
-    /// Fails if the session refuses: tab closed, unknown slide or thumbnails not rendered.
+    /// Fails if the session refuses: tab closed, no active theme or no preview slot.
     pub fn show_themes(&self, slide: Option<&str>) -> Result<bool, HubError> {
-        let choices = self.session.with(|s| s.theme_choices(slide)).and_then(|r| r).context(SessionSnafu)?;
-        let Some(choices) = choices else { return Ok(false) };
+        let job = self.session.with(|s| s.theme_job(slide)).and_then(|r| r).context(SessionSnafu)?;
+        let Some(job) = job else { return Ok(false) };
+        let (choices, slot) = job.run();
+        // Tab closed meanwhile: the slot is dropped with the error, the picker still shows.
+        if let Err(e) = self.session.with(|s| s.restore_preview_slot(slot)) {
+            tracing::debug!(error = %e, "emplacement d'aperçu non rendu : session fermée");
+        }
         let surface = theme_picker(&choices.cards, &choices.active, &self.localizer.current());
         let picker = ThemePicker { cards: choices.cards, active: choices.active };
         self.show_alone(surface, Shown::Themes(picker), |s| matches!(s, Shown::Themes(_)));

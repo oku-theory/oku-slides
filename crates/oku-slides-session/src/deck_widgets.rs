@@ -268,7 +268,7 @@ impl Session {
                 return Err(e).context(RenderSnafu)?;
             }
             self.pack_renderer = None;
-            self.variant_renderer = None;
+            self.reset_preview_slot();
             self.pack_cache.clear();
             self.seed_cache.clear();
             self.svg_cache.clear();

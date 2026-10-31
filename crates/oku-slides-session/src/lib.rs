@@ -116,6 +116,7 @@ mod theme_controls;
 mod theme_draft;
 mod theme_edit;
 mod theme_extends;
+mod theme_job;
 mod theme_panel;
 mod theme_picker;
 pub mod theme_schema;
@@ -169,6 +170,7 @@ pub use theme::{
 };
 pub use theme_edit::{ThemeEdit, ThemeEditView, ThemeParentView};
 pub use theme_extends::ExtendsEdit;
+pub use theme_job::{PreviewSlot, ThemeJob};
 pub use theme_panel::{THEME_EXTENDS_EVENT, TokenAction, TokenState};
 pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
 pub use theme_tab::{ThemeTab, ThemeTabView};
@@ -327,8 +329,10 @@ pub struct Session {
     pack_cache: pack_mode_previews::PreviewCache,
     /// Départs des widgets de la grille d'ajout, par version de pack et langue ; vidé avec `pack_cache`.
     seed_cache: add_grid::SeedCache,
-    /// Rendu des variantes proposées par l'agent, séparé du deck.
+    /// Rendu des variantes proposées par l'agent et des miniatures de thèmes, séparé du deck.
     variant_renderer: Option<RenderSlot>,
+    /// Bumped whenever `variant_renderer` is reset: a slot lent out before comes back stale.
+    preview_epoch: u64,
     /// Rendu du deck, ouvert au premier rendu (voir `render_fonts`).
     renderer: Option<RenderSlot>,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
@@ -520,6 +524,7 @@ impl Session {
             pack_cache: pack_mode_previews::PreviewCache::default(),
             seed_cache: add_grid::SeedCache::default(),
             variant_renderer: None,
+            preview_epoch: 0,
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
@@ -817,6 +822,7 @@ impl Session {
             add_packs: self.add_packs(),
             free_slots: self.free_slots(),
             widget_trials: self.examples_revision(),
+            preview_set: hex::encode(self.packs.fingerprint()),
             ui: &self.ui,
             history: match &self.mode {
                 Mode::History { history, .. } => Some(history.view()),

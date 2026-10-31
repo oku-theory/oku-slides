@@ -927,6 +927,17 @@
         {
          "runs": [
           {
+           "t": "A",
+           "highlight": 1
+          },
+          {
+           "t": "  Add an element (the last one added comes first)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "Enter",
            "highlight": 1
           },

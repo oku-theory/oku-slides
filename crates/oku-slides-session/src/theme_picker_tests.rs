@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use super::{Bounds, HOST_THEME_PICKER, THEMES_RENDERED, ThemeCard, picked_theme, swatches, theme_picker};
 use crate::library_kind::LibraryKind;
-use crate::test_support::{fresh_dir, ns, opened_on, session};
+use crate::test_support::{fresh_dir, ns, opened_on, session, theme_choices};
 use crate::{PAPIER_NAMESPACE, PRO_NAMESPACE, PRO_THEME, Session};
 
 /// Les composants `ThemeChoice` d'une surface, dans l'ordre.
@@ -160,7 +160,7 @@ fn theme_choices_list_the_library_themes_by_namespace() {
     let (mut s, _data) = session_with_library();
     add_theme(&mut s, "zephyr", json!({}));
     let listed: Vec<Namespace> =
-        s.theme_choices_within(None, WIDE).unwrap().unwrap().cards.iter().map(|c| c.namespace.clone()).collect();
+        theme_choices(&mut s, None, WIDE).unwrap().unwrap().cards.iter().map(|c| c.namespace.clone()).collect();
     let expected: Vec<Namespace> = s.theme_list.iter().map(|t| t.namespace.clone()).collect();
     assert_that!(listed).is_equal_to(expected);
     assert_that!(s.theme_list.iter().any(|t| t.namespace.as_str() == "zephyr")).is_true();
@@ -169,20 +169,20 @@ fn theme_choices_list_the_library_themes_by_namespace() {
 #[test]
 fn theme_choices_of_a_new_deck_mark_papier_active() {
     let mut s = session();
-    assert_that!(s.theme_choices_within(None, WIDE).unwrap().unwrap().active).is_equal_to(ns(PAPIER_NAMESPACE));
+    assert_that!(theme_choices(&mut s, None, WIDE).unwrap().unwrap().active).is_equal_to(ns(PAPIER_NAMESPACE));
 }
 
 #[test]
 fn theme_choices_after_set_theme_marks_it_active() {
     let mut s = session();
     s.set_theme(&ns(PRO_NAMESPACE)).unwrap();
-    assert_that!(s.theme_choices_within(None, WIDE).unwrap().unwrap().active).is_equal_to(ns(PRO_NAMESPACE));
+    assert_that!(theme_choices(&mut s, None, WIDE).unwrap().unwrap().active).is_equal_to(ns(PRO_NAMESPACE));
 }
 
 #[test]
 fn theme_choices_render_the_requested_slide() {
     let mut s = session();
-    let card = s.theme_choices_within(Some("s-libre"), WIDE).unwrap().unwrap().cards.remove(0);
+    let card = theme_choices(&mut s, Some("s-libre"), WIDE).unwrap().unwrap().cards.remove(0);
     assert_that!((card.slide.as_str(), card.svg.is_some())).is_equal_to(("s-libre", true));
 }
 
@@ -190,14 +190,14 @@ fn theme_choices_render_the_requested_slide() {
 fn theme_choices_with_an_unknown_slide_show_the_first() {
     let mut s = session();
     let first = s.deck().slides[0].id.clone();
-    let card = s.theme_choices_within(Some("s-nope"), WIDE).unwrap().unwrap().cards.remove(0);
+    let card = theme_choices(&mut s, Some("s-nope"), WIDE).unwrap().unwrap().cards.remove(0);
     assert_that!((card.slide, card.svg.is_some())).is_equal_to((first, true));
 }
 
 #[test]
 fn theme_choices_give_each_theme_its_own_thumbnail() {
     let mut s = session();
-    let cards = s.theme_choices_within(None, WIDE).unwrap().unwrap().cards;
+    let cards = theme_choices(&mut s, None, WIDE).unwrap().unwrap().cards;
     let svg = |n: &str| cards.iter().find(|c| c.namespace.as_str() == n).and_then(|c| c.svg.clone());
     let (papier, pro) = (svg(PAPIER_NAMESPACE), svg(PRO_NAMESPACE));
     assert_that!(papier.is_some() && pro.is_some() && papier != pro).is_true();
@@ -209,7 +209,7 @@ fn theme_choices_render_at_most_themes_rendered_thumbnails() {
     for i in 0..THEMES_RENDERED {
         add_theme(&mut s, &format!("theme-{i:02}"), json!({}));
     }
-    let cards = s.theme_choices_within(None, WIDE).unwrap().unwrap().cards;
+    let cards = theme_choices(&mut s, None, WIDE).unwrap().unwrap().cards;
     assert_that!(cards.iter().filter(|c| c.svg.is_some()).count()).is_equal_to(THEMES_RENDERED);
 }
 
@@ -219,8 +219,7 @@ fn theme_choices_past_the_budget_still_render_the_active() {
     let last = add_theme(&mut s, "zzz", json!({}));
     s.set_theme(&last).unwrap();
     let none = Bounds { budget: Duration::ZERO, thumb_bytes: super::THUMB_BYTES };
-    let rendered: Vec<Namespace> = s
-        .theme_choices_within(None, none)
+    let rendered: Vec<Namespace> = theme_choices(&mut s, None, none)
         .unwrap()
         .unwrap()
         .cards
@@ -235,7 +234,7 @@ fn theme_choices_past_the_budget_still_render_the_active() {
 fn theme_choices_drop_an_oversized_thumbnail() {
     let mut s = session();
     let tiny = Bounds { budget: Duration::from_secs(600), thumb_bytes: 1 };
-    let cards = s.theme_choices_within(None, tiny).unwrap().unwrap().cards;
+    let cards = theme_choices(&mut s, None, tiny).unwrap().unwrap().cards;
     assert_that!(cards.iter().all(|c| c.svg.is_none()) && !cards.is_empty()).is_true();
 }
 
@@ -243,7 +242,7 @@ fn theme_choices_drop_an_oversized_thumbnail() {
 fn theme_choices_keep_a_theme_that_fails_to_render_without_thumbnail() {
     let (mut s, _data) = session_with_library();
     let broken = add_theme(&mut s, "casse", json!({ "color": { "bg": 12 } }));
-    let cards = s.theme_choices_within(None, WIDE).unwrap().unwrap().cards;
+    let cards = theme_choices(&mut s, None, WIDE).unwrap().unwrap().cards;
     let card = cards.iter().find(|c| c.namespace == broken).unwrap();
     let others_rendered = cards.iter().filter(|c| c.namespace != broken).all(|c| c.svg.is_some());
     assert_that!((card.svg.is_none(), others_rendered)).is_equal_to((true, true));
@@ -254,7 +253,7 @@ fn theme_choices_on_an_empty_deck_keep_every_card_without_thumbnail() {
     let mut s = session();
     let ops = s.deck().slides.iter().map(|x| oku_slides_core::Op::RemoveSlide { slide: x.id.clone() }).collect();
     s.apply("vider", ops, None).unwrap();
-    let cards = s.theme_choices_within(None, WIDE).unwrap().unwrap().cards;
+    let cards = theme_choices(&mut s, None, WIDE).unwrap().unwrap().cards;
     assert_that!((cards.len(), cards.iter().all(|c| c.svg.is_none()))).is_equal_to((s.theme_list.len(), true));
 }
 
@@ -262,14 +261,14 @@ fn theme_choices_on_an_empty_deck_keep_every_card_without_thumbnail() {
 fn theme_choices_outside_deck_mode_are_none() {
     let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
     let mut s = crate::test_support_packs::pack_tab_of(data.path(), crate::pack::ESSENTIEL_PACK);
-    assert_that!(s.theme_choices(None).unwrap()).is_none();
+    assert_that!(theme_choices(&mut s, None, Bounds::DEFAULT).unwrap()).is_none();
 }
 
 #[test]
 fn theme_choices_leave_the_deck_unchanged() {
     let mut s = session();
     let before = (s.deck().clone(), s.snapshot().undo_label);
-    s.theme_choices_within(None, WIDE).unwrap();
+    theme_choices(&mut s, None, WIDE).unwrap();
     assert_that!((s.deck().clone(), s.snapshot().undo_label)).is_equal_to(before);
 }
 

@@ -1,7 +1,9 @@
 //! Champs de réglage d'un paramètre de widget, ceux de l'atelier (valeurs d'exemple).
 
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn, SubColumn, SubList};
-use oku_slides_core::{LIST_ITEMS_MAX, ListSpec, ParamSchema, ParamType, ParamValue, default_items, kinds, split_kind};
+use oku_slides_core::{
+    LIST_ITEMS_MAX, ListSpec, LocalizedText, ParamSchema, ParamType, ParamValue, default_items, kinds, split_kind,
+};
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
 
@@ -17,10 +19,10 @@ pub(crate) fn kind_key(kind: &str) -> Option<String> {
     Some(format!("{ns}-{name}"))
 }
 
-/// Le nom montré du widget `kind` : son `label`, sinon le nom traduit d'un widget d'un pack
+/// Le nom montré du widget `kind` : son `label` dans la langue de `l`, sinon le nom traduit d'un widget d'un pack
 /// intégré (`session-widget-kind-<clé>`, voir [`kind_key`]), sinon `kind` tel quel.
-pub(crate) fn kind_name(kind: &str, label: Option<&str>, l: &Localizer) -> String {
-    match label {
+pub(crate) fn kind_name(kind: &str, label: Option<&LocalizedText>, l: &Localizer) -> String {
+    match label.and_then(|t| t.pick(l.locale())) {
         Some(label) => label.to_owned(),
         None => kind_key(kind)
             .and_then(|k| l.try_tr(&format!("session-widget-kind-{k}")))
@@ -28,10 +30,10 @@ pub(crate) fn kind_name(kind: &str, label: Option<&str>, l: &Localizer) -> Strin
     }
 }
 
-/// La description montrée du widget `kind` : celle de son schéma, sinon celle traduite d'un widget
+/// La description montrée du widget `kind` : celle de son schéma dans la langue de `l`, sinon celle traduite d'un widget
 /// d'un pack intégré (`session-widget-description-<clé>`, voir [`kind_key`]), sinon aucune.
-pub(crate) fn kind_description(kind: &str, description: Option<&str>, l: &Localizer) -> Option<String> {
-    match description {
+pub(crate) fn kind_description(kind: &str, description: Option<&LocalizedText>, l: &Localizer) -> Option<String> {
+    match description.and_then(|t| t.pick(l.locale())) {
         Some(description) => Some(description.to_owned()),
         None => kind_key(kind).and_then(|k| l.try_tr(&format!("session-widget-description-{k}"))),
     }

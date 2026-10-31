@@ -85,7 +85,7 @@ fn layout_widget_declares_rich_plain_grid_and_extras() {
     ]);
     let (w, _) = layout_widget(1, &l, None, false, &Fixture::new().ctx(), usize::MAX).unwrap();
     let s = &w.schema;
-    assert_that!((s.name.as_str(), s.label.as_deref(), s.category)).is_equal_to((
+    assert_that!((s.name.as_str(), s.label.as_ref().and_then(|t| t.pick("fr")), s.category)).is_equal_to((
         "l1-titre-et-contenu",
         Some("Titre et contenu"),
         Category::Slide,

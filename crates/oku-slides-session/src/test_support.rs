@@ -692,3 +692,15 @@ pub(crate) fn edit_state(dir: &std::path::Path, edit: impl FnOnce(&mut serde_jso
 pub(crate) fn undo_label(s: &Session) -> Option<String> {
     s.sources_for_tests().replica().undo_label()
 }
+
+/// The theme picker cards of `s` on `slide`, as the hub gets them: job, run, slot handed back.
+pub(crate) fn theme_choices(
+    s: &mut Session,
+    slide: Option<&str>,
+    bounds: crate::theme_picker::Bounds,
+) -> crate::Result<Option<crate::ThemeChoices>> {
+    let Some(job) = s.theme_job_within(slide, bounds)? else { return Ok(None) };
+    let (choices, slot) = job.run();
+    s.restore_preview_slot(slot);
+    Ok(Some(choices))
+}

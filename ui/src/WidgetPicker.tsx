@@ -4,12 +4,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { WidgetPreview } from "./api";
-import { t } from "./i18n";
+import { locale, t } from "./i18n";
 import { gridStep, rowLength, sectionSlots, type GridKey } from "./gridNav";
 import { Icon } from "./icons";
 import { useModalFrame } from "./modalFrame";
 import { filterChoices, type WidgetChoice, type WidgetSection } from "./widgetChoices";
 import { croppedSvg } from "./widgetPreview";
+import { previewKey, type PreviewCache } from "./widgetPreviewCache";
 
 interface Props {
   /** Les sections de la grille, une par pack de widgets. */
@@ -17,10 +18,14 @@ interface Props {
   /** Faux : la carte se voit grisée (le slot libre de la slide ne l'accepte pas). */
   canPick: (c: WidgetChoice) => boolean;
   /**
-   * Change avec le thème : les aperçus sont rechargés. Chaque ouverture les recharge aussi ; un
-   * widget réécrit pendant l'ouverture garde son ancien aperçu (t-962).
+   * What every preview depends on besides its widget: the deck look, its pack set, the examples
+   * revision. A change reloads the previews; a widget rewritten while open keeps its old preview.
    */
-  themeKey: string;
+  renderKey: string;
+  /** The card focused on opening (the last widget added); absent or refused: the first one. */
+  initialKey: string | null;
+  /** Previews already rendered, kept across openings: only the missing ones are asked for. */
+  cache: PreviewCache;
   /** Aperçu d'un widget, rendu seul : son fichier `name` dans le pack épinglé `pack` (requête `preview_widget`). */
   preview: (name: string, pack?: string) => Promise<WidgetPreview>;
   onPick: (c: WidgetChoice) => void;
@@ -33,24 +38,24 @@ interface Props {
  * Depuis le filtre, les flèches parcourent les cartes ajoutables (← → au bord du texte seulement,
  * pour ne pas voler le curseur), Entrée ajoute celle au focus ; Échap ferme.
  */
-export default function WidgetPicker({ sections, canPick, themeKey, preview, onPick, onClose }: Props) {
+export default function WidgetPicker({ sections, canPick, renderKey, initialKey, cache, preview, onPick, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const { onClickCapture, armed } = useModalFrame(ref, { onEscape: onClose });
   const [query, setQuery] = useState("");
   const choices = useMemo(() => sections.flatMap((s) => s.choices), [sections]);
-  const urls = usePreviewUrls(choices, themeKey, preview);
+  const urls = usePreviewUrls(choices, renderKey, cache, preview);
   // Chaque section garde ses cartes filtrées ; une section vidée par le filtre disparaît.
   const shownSections = useMemo(
     () => sections.map((s) => ({ ...s, choices: filterChoices(s.choices, query) })).filter((s) => s.choices.length > 0),
     [sections, query],
   );
   const shown = useMemo(() => shownSections.flatMap((s) => s.choices), [shownSections]);
-  // La carte au focus, par clé : `null` vaut la première ajoutable. Une clé disparue ou devenue
+  // La carte au focus, par clé, d'abord `initialKey` : `null` vaut la première ajoutable. Une clé disparue ou devenue
   // refusée (liste changée pendant l'ouverture) retombe sur elle aussi ; sans carte ajoutable,
   // aucune n'a le focus (`at` vaut -1).
-  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [focusKey, setFocusKey] = useState<string | null>(initialKey);
   const found = shown.findIndex((c) => c.key === focusKey && canPick(c));
   const at = found >= 0 ? found : shown.findIndex(canPick);
   const focused = at >= 0 ? shown[at] : undefined;
@@ -218,28 +223,48 @@ function optionId(i: number): string {
 }
 
 /**
- * Adresses des aperçus SVG des widgets de la grille, par nom, chargées une à une.
+ * Preview SVG addresses of the grid's widgets, by name: read from `cache`, else loaded one by
+ * one and kept.
  *
  * L'aperçu est la slide d'essai entière : il est recadré sur ce que dessine le widget (`bbox`),
  * qui remplit alors sa vignette.
  *
- * Un aperçu raté (widget cassé, rendu refusé) ou un kind non qualifié laisse l'icône générique.
+ * A failed preview (broken widget, refused render) or an unqualified kind keeps the generic
+ * icon; it is not kept, so the next opening asks again.
  */
 function usePreviewUrls(
   choices: WidgetChoice[],
-  themeKey: string,
+  renderKey: string,
+  cache: PreviewCache,
   preview: (name: string, pack?: string) => Promise<WidgetPreview>,
 ): Map<string, string> {
   // Une Map, pas un objet : un widget nommé `constructor` ne lit pas une propriété héritée.
   const [urls, setUrls] = useState<Map<string, string>>(() => new Map());
-  const names = choices.map((c) => c.name).join("\n");
+  // Par contenu : un nouveau tableau de mêmes widgets ne relance rien.
+  const wanted = JSON.stringify(choices.map((c) => [c.name, c.version]));
+  // Examples are translated: another language is another preview.
+  const lang = locale();
 
   useEffect(() => {
     let alive = true;
     const made: string[] = [];
-    setUrls(new Map());
+    const urlOf = (svg: string) => {
+      const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      made.push(url);
+      return url;
+    };
+    const list = JSON.parse(wanted) as [string, string][];
+    // Kept previews show at once; the others follow, one by one.
+    const ready = new Map<string, string>();
+    const missing: [string, string][] = [];
+    for (const [name, version] of list) {
+      const svg = cache.get(previewKey(version, renderKey, lang, name));
+      if (svg !== undefined) ready.set(name, urlOf(svg));
+      else missing.push([name, version]);
+    }
+    setUrls(ready);
     (async () => {
-      for (const name of names ? names.split("\n") : []) {
+      for (const [name, version] of missing) {
         // La session nomme un widget par son fichier dans son pack : `base/card` → `card` de `base`.
         const slash = name.indexOf("/");
         if (slash <= 0) continue;
@@ -247,8 +272,8 @@ function usePreviewUrls(
         const svg = await asked.then((p) => (p.svg ? croppedSvg(p.svg, p.bbox ?? null) : null), () => null);
         if (!alive) return;
         if (!svg) continue;
-        const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-        made.push(url);
+        cache.set(previewKey(version, renderKey, lang, name), svg);
+        const url = urlOf(svg);
         setUrls((u) => new Map(u).set(name, url));
       }
     })();
@@ -256,7 +281,7 @@ function usePreviewUrls(
       alive = false;
       made.forEach((u) => URL.revokeObjectURL(u));
     };
-  }, [names, themeKey, preview]);
+  }, [wanted, renderKey, lang, cache, preview]);
 
   return urls;
 }

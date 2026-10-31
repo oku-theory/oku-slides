@@ -12,6 +12,7 @@ use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::error::{BadSchemaSnafu, SchemaFault, UnreadableSnafu, WidgetError};
+use crate::localized_text::LocalizedText;
 use crate::namespace::{Namespace, qualify};
 use crate::ops::{DefaultFault, default_fault};
 use crate::pack_kind::PackKind;
@@ -220,12 +221,12 @@ pub struct ParamSchema {
 pub struct WidgetSchema {
     /// Qualified name of the widget (`acme/card`).
     pub name: String,
-    /// Label shown in the editor; absent: the name.
+    /// Label shown in the editor, plain or by language; absent: the name.
     #[serde(default)]
-    pub label: Option<String>,
-    /// What the widget shows, in one sentence; the add grid filters on it.
+    pub label: Option<LocalizedText>,
+    /// What the widget shows, in one sentence, plain or by language; the add grid filters on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub description: Option<LocalizedText>,
     /// Slide or element; equal to the kind of its pack.
     pub category: Category,
     /// Height of a flow block: its own, a share, or its own if it fits.

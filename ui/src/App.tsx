@@ -30,7 +30,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
 import { useDictation } from "./useDictation";
-import { canAdd } from "./slideTools";
+import { acceptsElements, canAdd } from "./slideTools";
 import { panelOpen } from "./panelOpen";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
@@ -61,6 +61,7 @@ import { useLayoutInsert } from "./useLayoutInsert";
 import { useCloseGuard } from "./closeGuards";
 import { usePackWidgets } from "./usePackWidgets";
 import { ToolsTray } from "./ToolsTray";
+import { createPreviewCache } from "./widgetPreviewCache";
 
 /** Agent détaché : le dock n'est pas à l'écran, ses touches rapides ne le visent pas. */
 const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
@@ -227,9 +228,14 @@ export default function App({
   const [confirming, setConfirming] = useState(false);
   // An app dialog (layouts, add, import, a confirmation) or a window one is open: nothing behind it reacts.
   const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming;
+  // The last widget added from the grid: it reopens on it (A then Enter adds it again).
+  const [lastAdded, setLastAdded] = useState<string | null>(null);
+  // The grid's previews, kept across openings (key: pack versions, look and language).
+  const [previewCache] = useState(createPreviewCache);
   /** Ajoute la carte choisie dans la grille d'ajout, qui se ferme. */
   const addChoice = (c: WidgetChoice) => {
     setAdding(false);
+    setLastAdded(c.key);
     addElement(c.widget);
   };
   const addSlide = () => setPicking(true);
@@ -287,6 +293,8 @@ export default function App({
     api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, packTab, themeTab,
     cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
     saveCopy, cancelAgent, setEditing, setSelected,
+    // As the add button of a deck tab: a slide that accepts elements.
+    openAdd: !packTab && !themeTab && snap && acceptsElements(view?.slide.kind, snap.free_slots) ? () => setAdding(true) : null,
   });
 
   // --- Dictée : où va le texte ----------------------------------------------
@@ -482,7 +490,9 @@ export default function App({
         <WidgetPicker
           sections={addSections}
           canPick={(c) => canAdd(view?.slide.kind, c.key, snap.free_slots)}
-          themeKey={deckLook}
+          renderKey={[deckLook, snap.preview_set, snap.widget_trials].join("|")}
+          initialKey={lastAdded}
+          cache={previewCache}
           preview={api.previewWidget}
           onPick={addChoice}
           onClose={() => setAdding(false)}

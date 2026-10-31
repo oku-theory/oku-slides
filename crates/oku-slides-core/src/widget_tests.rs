@@ -56,9 +56,10 @@ fn from_probe_base_keeps_params_in_declaration_order() {
     assert_that!(names).is_equal_to(vec!["kicker", "title", "body", "highlight"]);
 }
 
-/// La description d'un widget est lue telle quelle ; absente ou nulle, elle vaut `None`.
+/// La description d'un widget est lue telle quelle (texte ou par langue) ; absente ou nulle, `None`.
 #[rstest]
 #[case::given(Some(json!("Une valeur en grand")), Some("Une valeur en grand"))]
+#[case::by_locale(Some(json!({"en": "A big value", "fr": "Une valeur en grand"})), Some("Une valeur en grand"))]
 #[case::null(Some(Value::Null), None)]
 #[case::absent(None, None)]
 #[case::blank_kept(Some(json!("")), Some(""))]
@@ -68,7 +69,7 @@ fn from_probe_description_is_read_or_none(#[case] given: Option<Value>, #[case] 
         kpi["description"] = d;
     }
     let r = WidgetRegistry::from_probe(probe(&[card(), kpi], None)).unwrap();
-    assert_that!(r.get("u/kpi").unwrap().description.as_deref()).is_equal_to(read);
+    assert_that!(r.get("u/kpi").unwrap().description.as_ref().and_then(|d| d.pick("fr"))).is_equal_to(read);
 }
 
 /// Sans description, le schéma sérialisé n'a pas la clé : les schémas existants ne changent pas.

@@ -14,6 +14,8 @@ export interface WidgetChoice {
   description: string;
   /** Le widget ajouté, avec son départ. */
   widget: AddWidget;
+  /** Its pack's version: its preview depends on it. */
+  version: string;
 }
 
 /** Une section de la grille : un pack de widgets et ses cartes. */
@@ -28,7 +30,14 @@ export function widgetSections(packs: AddPackView[]): WidgetSection[] {
   return packs.map((p) => ({
     namespace: p.namespace,
     name: p.name,
-    choices: p.widgets.map((w) => ({ key: w.name, name: w.name, label: w.label, description: w.description ?? "", widget: w })),
+    choices: p.widgets.map((w) => ({
+      key: w.name,
+      name: w.name,
+      label: w.label,
+      description: w.description ?? "",
+      widget: w,
+      version: p.version,
+    })),
   }));
 }
 

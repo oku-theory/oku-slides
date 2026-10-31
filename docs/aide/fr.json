@@ -927,6 +927,17 @@
         {
          "runs": [
           {
+           "t": "A",
+           "highlight": 1
+          },
+          {
+           "t": "  Ajouter un élément (le dernier ajouté d'abord)"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "Entrée",
            "highlight": 1
           },

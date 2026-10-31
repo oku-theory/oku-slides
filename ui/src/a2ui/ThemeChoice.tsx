@@ -1,10 +1,14 @@
 // Carte d'un thème du sélecteur de l'hôte : la slide rendue dans ce thème (image), ses pastilles,
 // son nom. Survol ou focus : aperçu sur la scène ; clic : l'action `theme`.
+// With quick hints on, its digit 1–4, the one `quickAction` reads.
 
 import { useCallback, useContext, useEffect, useMemo } from "react";
 import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
+import type { Component } from "../agent/a2uiModel";
+import { quickDigit } from "../agent/quick";
+import { QuickHintsContext } from "./quickHints";
 import { Hex } from "./schemas";
 import { StagePreviewContext } from "./stagePreview";
 import { svgSrc } from "./svgSrc";
@@ -28,8 +32,10 @@ export const ThemeChoiceApi = {
 };
 
 /** Une carte de thème : survol ou focus posent l'aperçu, que seule elle retire. */
-export const ThemeChoice = createComponentImplementation(ThemeChoiceApi, ({ props }) => {
+export const ThemeChoice = createComponentImplementation(ThemeChoiceApi, ({ props, context }) => {
   const store = useContext(StagePreviewContext);
+  const hints = useContext(QuickHintsContext);
+  const digit = hints ? quickDigit(surfaceComponents(context.surfaceComponents.values), context.componentModel.id) : null;
   const src = useMemo(() => (props.svg ? svgSrc(props.svg) : null), [props.svg]);
   const preview = useMemo(() => (src ? { slide: props.slide, url: src } : null), [props.slide, src]);
   const show = () => {
@@ -57,7 +63,15 @@ export const ThemeChoice = createComponentImplementation(ThemeChoiceApi, ({ prop
           <span key={i} className="a2ui-swatch" style={{ background: c }} />
         ))}
       </span>
-      <bdi className="caption">{props.name}</bdi>
+      <span className="caption">
+        {digit !== null && <><span className="chip-key" aria-hidden="true">{digit}</span> </>}
+        <bdi>{props.name}</bdi>
+      </span>
     </button>
   );
 });
+
+/** The surface's components in `quickDigit`'s shape: `component` is the type. */
+function surfaceComponents(models: Iterable<{ id: string; type: string; properties: Record<string, unknown> }>): Component[] {
+  return [...models].map((m) => ({ ...m.properties, id: m.id, component: m.type }));
+}

@@ -116,7 +116,7 @@ impl Session {
             .map(|slide| {
                 let page = layout.page_of(&slide.id).unwrap_or(1);
                 let svg = compiled.svg(page - 1).context(RenderSnafu)?;
-                let label = self.registry.get(&slide.kind).and_then(|w| w.label.as_deref());
+                let label = self.registry.get(&slide.kind).and_then(|w| w.label.as_ref());
                 Ok(LayoutView {
                     kind: slide.kind.clone(),
                     label: kind_name(&slide.kind, label, &self.localizer),

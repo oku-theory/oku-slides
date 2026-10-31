@@ -14,6 +14,7 @@ const WidgetPicker = (await import("./WidgetPicker")).default;
 const { ARMING_MS } = await import("./modalFrame");
 const { setMessages } = await import("./i18n");
 const { widgetSections } = await import("./widgetChoices");
+const { createPreviewCache } = await import("./widgetPreviewCache");
 
 afterAll(resetMessages);
 setMessages("fr", [
@@ -27,9 +28,10 @@ setMessages("fr", [
 const widget = (name: string, label: string, description: string | null = null): AddWidget => ({ name, label, description, seed: { params: {} } });
 
 /** Un pack de la grille : `kinds` sont des widgets ou des kinds (libellé = kind). */
-const pack = (namespace: string, name: string, kinds: (string | AddWidget)[]): AddPackView => ({
+const pack = (namespace: string, name: string, kinds: (string | AddWidget)[], version = `sha256:${namespace}`): AddPackView => ({
   namespace,
   name,
+  version,
   widgets: kinds.map((k) => (typeof k === "string" ? widget(k, k) : k)),
 });
 
@@ -64,11 +66,21 @@ interface Options {
   preview?: (name: string) => Promise<WidgetPreview>;
   canPick?: (c: WidgetChoice) => boolean;
   packs?: AddPackView[];
+  cache?: ReturnType<typeof createPreviewCache>;
+  renderKey?: string;
+  initialKey?: string | null;
 }
 
 const SVG = { svg: "<svg/>", diagnostics: [] } as unknown as WidgetPreview;
 
-async function mount({ preview = async () => SVG, canPick = () => true, packs = PACKS }: Options = {}) {
+async function mount({
+  preview = async () => SVG,
+  canPick = () => true,
+  packs = PACKS,
+  cache = createPreviewCache(),
+  renderKey = "t",
+  initialKey = null,
+}: Options = {}) {
   const picked: string[] = [];
   const asked: string[] = [];
   let closed = 0;
@@ -82,7 +94,9 @@ async function mount({ preview = async () => SVG, canPick = () => true, packs = 
         createElement(WidgetPicker, {
           sections: widgetSections(list),
           canPick: pickable,
-          themeKey: "t",
+          renderKey,
+          cache,
+          initialKey,
           preview: (name: string, pack?: string) => (asked.push(`${pack}:${name}`), preview(name)),
           onPick: (c: WidgetChoice) => void picked.push(c.key),
           onClose: () => void closed++,
@@ -96,6 +110,15 @@ async function mount({ preview = async () => SVG, canPick = () => true, packs = 
   const selected = () => host.querySelector('[aria-selected="true"] .card-name')?.textContent;
   const button = (label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
   return { host, picked, asked, closed: () => closed, names, filter, selected, button, rerender: render };
+}
+
+/** Ferme la grille montée (comme App à la fermeture). */
+async function unmount() {
+  const m = mounted;
+  mounted = null;
+  if (!m) return;
+  await act(async () => m.root.unmount());
+  m.host.remove();
 }
 
 /** Attend la fin de la garde des 500 ms (minuteur réel du cadre, et horloge simulée). */
@@ -165,6 +188,23 @@ test("WidgetPicker Enter during the guard picks nothing", async () => {
   expect(picked).toEqual([]);
 });
 
+test("WidgetPicker opened with the last used widget focuses its card", async () => {
+  const { selected } = await mount({ initialKey: "acme/kpi" });
+  expect(selected()).toBe("Indicateur");
+});
+
+test("WidgetPicker opened with a last used widget the slide refuses focuses the first card", async () => {
+  const { selected } = await mount({ initialKey: "acme/kpi", canPick: (c) => c.key !== "acme/kpi" });
+  expect(selected()).toBe("Texte");
+});
+
+test("WidgetPicker Enter after the guard picks the last used widget", async () => {
+  const { filter, picked } = await mount({ initialKey: "base/shape" });
+  await arm();
+  await key(filter(), "Enter");
+  expect(picked).toEqual(["base/shape"]);
+});
+
 test("WidgetPicker arrow right moves the focus to the next card", async () => {
   const { filter, selected } = await mount();
   await key(filter(), "ArrowRight");
@@ -174,6 +214,47 @@ test("WidgetPicker arrow right moves the focus to the next card", async () => {
 test("WidgetPicker card refused by canPick is disabled", async () => {
   const { host } = await mount({ canPick: (c) => c.key !== "base/text" });
   expect(host.querySelector<HTMLButtonElement>('[role="option"]')!.disabled).toBe(true);
+});
+
+test("WidgetPicker reopened with the same cache asks no preview again", async () => {
+  const cache = createPreviewCache();
+  await mount({ cache });
+  await unmount();
+  const { asked } = await mount({ cache });
+  expect(asked).toEqual([]);
+});
+
+test("WidgetPicker reopened from the cache still shows every preview", async () => {
+  const cache = createPreviewCache();
+  await mount({ cache });
+  await unmount();
+  const { host } = await mount({ cache });
+  expect(host.querySelectorAll('[role="option"] img')).toHaveLength(7);
+});
+
+test("WidgetPicker reopened after a pack version change asks again for that pack's widgets only", async () => {
+  const cache = createPreviewCache();
+  await mount({ cache, packs: [pack("base", "Base", ["base/text"]), pack("acme", "Acme", ["acme/kpi"])] });
+  await unmount();
+  const { asked } = await mount({ cache, packs: [pack("base", "Base", ["base/text"]), pack("acme", "Acme", ["acme/kpi"], "sha256:v2")] });
+  expect(asked).toEqual(["acme:kpi"]);
+});
+
+test("WidgetPicker reopened with another look asks every preview again", async () => {
+  const cache = createPreviewCache();
+  await mount({ cache, packs: [pack("base", "Base", ["base/text"])] });
+  await unmount();
+  const { asked } = await mount({ cache, packs: [pack("base", "Base", ["base/text"])], renderKey: "other" });
+  expect(asked).toEqual(["base:text"]);
+});
+
+test("WidgetPicker reopened after a failed preview asks it again", async () => {
+  const cache = createPreviewCache();
+  const only = [pack("acme", "Acme", ["acme/kpi"])];
+  await mount({ cache, packs: only, preview: () => Promise.reject(new Error("rendu")) });
+  await unmount();
+  const { asked } = await mount({ cache, packs: only });
+  expect(asked).toEqual(["acme:kpi"]);
 });
 
 test("WidgetPicker every widget shows its rendered preview in an img", async () => {

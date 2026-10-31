@@ -22,7 +22,7 @@
 //! - [`Slide::text_fields`]: the text fields of a slide in reading
 //!   order ([`TextField`], [`FieldOwner`]), the editor's Tab order.
 //! - [`is_hex_color`]: hexadecimal form of token colors; [`color_names`]: the color names a deck uses.
-//! - [`WidgetRegistry`]: schema of the widgets declared in Typst, read from the render probe (hosts: [`WidgetRegistry::host_params`]; block height: [`Grow`]).
+//! - [`WidgetRegistry`]: schema of the widgets declared in Typst, read from the render probe (hosts: [`WidgetRegistry::host_params`]; block height: [`Grow`]; label and description: [`LocalizedText`]).
 //! - [`PackKind`]: the kind of a pack (element `widgets`, slide `layouts`); [`LayoutProfile`]: preset of a layout for import.
 //! - [`kinds`]: the kinds of the built-in `base` and `essentiel` packs, the only place they are written.
 //! - [`media`]: actual type of a media file ([`media::sniff`]) and raster dimensions read from its header.
@@ -37,6 +37,7 @@ mod fields;
 mod heading_level;
 pub mod kinds;
 mod layout_profile;
+mod localized_text;
 pub mod locate;
 pub mod media;
 pub mod model;
@@ -70,6 +71,7 @@ pub use error::{
 pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
+pub use localized_text::LocalizedText;
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
 pub use namespace::{Namespace, qualify, split_kind};

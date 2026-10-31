@@ -47,13 +47,15 @@ interface AppKeysContext {
   cancelAgent: () => void;
   setEditing: (key: FieldKey | null) => void;
   setSelected: (id: string | null) => void;
+  /** Opens the add grid (key A); `null` when its button could not (no deck tab, no free slot). */
+  openAdd: (() => void) | null;
 }
 
 /** Les raccourcis de l'onglet, sauf ceux qu'un composant a déjà pris. */
 export function useAppKeys({
   api, snap, view, current, selected, editing, presenting, agentStatus, dialogOpen, packTab, themeTab,
   cutMark, keptUi, cursor, autosave, run, apply, present, goToSlide, moveSlide, dropCut, open,
-  saveCopy, cancelAgent, setEditing, setSelected,
+  saveCopy, cancelAgent, setEditing, setSelected, openAdd,
 }: AppKeysContext) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -119,6 +121,9 @@ export function useAppKeys({
         const i = snap.slides.findIndex((s) => s.id === current);
         const slot = e.key === "ArrowUp" ? i - 1 : i + 2;
         if (slot >= 0 && slot <= snap.slides.length) moveSlide(current, slot);
+      } else if (openAdd && addShortcut(e)) {
+        e.preventDefault();
+        openAdd();
       } else if (e.key === "Escape" && cutMark) {
         // Échap abandonne d'abord la coupe ; l'appui suivant reprend son rôle.
         dropCut();
@@ -171,4 +176,9 @@ export function useAppKeys({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+}
+
+/** A, alone and not held: opens the add grid. Read by its letter, so it follows the layout. */
+function addShortcut(e: KeyboardEvent): boolean {
+  return !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat || e.isComposing) && e.key.toLowerCase() === "a";
 }

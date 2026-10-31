@@ -79,7 +79,7 @@ impl Session {
         self.renderer = Some(built.renderer);
         self.render_deck_fonts = built.deck_fonts;
         self.pack_renderer = None;
-        self.variant_renderer = None;
+        self.reset_preview_slot();
         self.pack_cache.clear();
         self.seed_cache.clear();
         self.svg_cache.clear();

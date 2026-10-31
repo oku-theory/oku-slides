@@ -1,29 +1,26 @@
 //! Sélecteur de thème de l'hôte : cartes, surface et choix.
 //!
 //! Ouvert par le raccourci « thème » de l'agent, sans tour. Chaque carte porte la
-//! slide montrée rendue dans son thème (clone d'une seule slide : numéro de page
-//! et sommaire peuvent différer du deck entier), ses pastilles et son nom. Les
-//! rendus sont bornés (`Bounds`) : l'actif d'abord, puis au plus
-//! `THEMES_RENDERED` miniatures dans `RENDER_BUDGET`, chacune sous `THUMB_BYTES` ;
-//! au-delà, en échec ou sur un deck vide, une carte reste sans miniature. Le
-//! verrou de session (celui de l'espace de travail dans l'app) est tenu pendant
-//! les rendus. Le hub garde les cartes : un choix ne rend rien.
+//! slide montrée rendue dans son thème (le deck entier rendu, sa page prise :
+//! voir `theme_job`), ses pastilles et son nom. Les rendus sont bornés
+//! (`Bounds`) : l'actif d'abord, puis au plus `THEMES_RENDERED` miniatures dans
+//! `RENDER_BUDGET`, chacune sous `THUMB_BYTES` ; au-delà, en échec ou sur un deck
+//! vide, une carte reste sans miniature. Ils se font hors du verrou de session
+//! ([`crate::ThemeJob`]). Le hub garde les cartes : un choix ne rend rien.
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use oku_slides_a2ui::{Action, ButtonIcon, Component, ComponentKind, TextVariant};
 use oku_slides_core::tokens::effective_tokens;
-use oku_slides_core::{Deck, Namespace, is_hex_color};
+use oku_slides_core::{Namespace, is_hex_color};
 use oku_slides_i18n::Localizer;
-use oku_slides_render::PackSet;
 use serde_json::{Map, Value, json};
-use snafu::{OptionExt, ResultExt};
+use snafu::OptionExt;
 
 use crate::agent::clip;
 use crate::agent::forms::{Place, Surface, lit, surface};
-use crate::error::RenderSnafu;
 use crate::theme::default_namespace;
 use crate::theme_closure::theme_closure;
 use crate::theme_schema::{default_tokens, lookup};
@@ -42,7 +39,7 @@ pub(crate) const RENDER_BUDGET: Duration = Duration::from_secs(4);
 /// Taille maximale d'une miniature (SVG) ; miroir de `SVG_MAX` dans l'interface.
 pub(crate) const THUMB_BYTES: usize = 512 * 1024;
 /// Longueur maximale d'un nom de thème montré.
-const NAME_CHARS: usize = 80;
+pub(crate) const NAME_CHARS: usize = 80;
 
 /// Jetons montrés en pastilles, dans l'ordre ; puis la première couleur de `chart.palette`.
 const SWATCH_NAMES: [&str; 4] = ["bg", "surface", "ink", "accent"];
@@ -145,46 +142,6 @@ impl Session {
         self.deck_theme().cloned().map_or_else(default_namespace, Ok)
     }
 
-    /// The picker cards on `slide`; `None` outside deck mode.
-    ///
-    /// `slide` absent or unknown: the first one. Renders in the worker, with the session lock held.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the active theme or the card renders fail.
-    pub fn theme_choices(&mut self, slide: Option<&str>) -> Result<Option<ThemeChoices>> {
-        self.theme_choices_within(slide, Bounds::DEFAULT)
-    }
-
-    /// [`theme_choices`](Self::theme_choices) avec ces bornes.
-    pub(crate) fn theme_choices_within(&mut self, slide: Option<&str>, bounds: Bounds) -> Result<Option<ThemeChoices>> {
-        if !self.in_deck_mode() {
-            return Ok(None);
-        }
-        let active = self.active_theme()?;
-        let shown = self.one_slide_deck(slide);
-        let shown_id = shown.as_ref().and_then(|d| d.slides.first()).map(|s| s.id.clone()).unwrap_or_default();
-        let offered: Vec<(Namespace, String)> =
-            self.theme_list.iter().map(|t| (t.namespace.clone(), t.name.clone())).collect();
-        let tokens: HashMap<Namespace, Option<Map<String, Value>>> =
-            offered.iter().map(|(ns, _)| (ns.clone(), self.offered_layer(ns))).collect();
-        let svgs = match &shown {
-            Some(deck) => self.thumbnails(deck, &active, &offered, &tokens, bounds)?,
-            None => HashMap::new(),
-        };
-        let cards = offered
-            .into_iter()
-            .map(|(namespace, name)| ThemeCard {
-                name: clip(&name, NAME_CHARS),
-                slide: shown_id.clone(),
-                swatches: tokens.get(&namespace).and_then(Option::as_ref).map(swatches).unwrap_or_default(),
-                svg: svgs.get(&namespace).cloned(),
-                namespace,
-            })
-            .collect();
-        Ok(Some(ThemeChoices { cards, active }))
-    }
-
     /// Applies the chosen theme to the deck and notes it for the agent.
     ///
     /// Rejected outside deck mode or for an unknown theme; one undo step.
@@ -201,54 +158,10 @@ impl Session {
         Ok(())
     }
 
-    /// Les miniatures : l'actif d'abord, puis les autres dans l'ordre, dans les bornes.
-    fn thumbnails(
-        &mut self,
-        deck: &Deck,
-        active: &Namespace,
-        offered: &[(Namespace, String)],
-        tokens: &HashMap<Namespace, Option<Map<String, Value>>>,
-        bounds: Bounds,
-    ) -> Result<HashMap<Namespace, Arc<str>>> {
-        let set = self.usable_packs()?;
-        let mut order: Vec<&Namespace> = vec![active];
-        order.extend(offered.iter().map(|(ns, _)| ns).filter(|ns| *ns != active));
-        order.truncate(THEMES_RENDERED);
-        let deadline = Instant::now() + bounds.budget;
-        let mut svgs = HashMap::new();
-        for ns in order {
-            if ns != active && Instant::now() >= deadline {
-                break;
-            }
-            let Some(Some(layer)) = tokens.get(ns) else { continue };
-            if let Some(svg) = self.thumbnail(&set, deck, layer, ns, bounds.thumb_bytes) {
-                svgs.insert(ns.clone(), svg);
-            }
-        }
-        Ok(svgs)
-    }
-
-    /// Un clone du deck réduit à `slide` (sinon à la première) ; `None` si le deck est vide.
-    fn one_slide_deck(&self, slide: Option<&str>) -> Option<Deck> {
-        let deck = self.deck();
-        let keep = slide.and_then(|id| deck.slide(id)).or_else(|| deck.slides.first())?.clone();
-        Some(Deck {
-            version: deck.version,
-            theme: deck.theme.clone(),
-            themes: deck.themes.clone(),
-            params: deck.params.clone(),
-            vars: deck.vars.clone(),
-            tokens: deck.tokens.clone(),
-            widgets: deck.widgets.clone(),
-            layouts: deck.layouts.clone(),
-            slides: vec![keep],
-        })
-    }
-
     /// Le calque du deck sous le thème `ns`, dans la fermeture que prendrait `set_theme`.
     ///
     /// `None` (journalisé) si le thème ou un parent a disparu entre la liste et la lecture.
-    fn offered_layer(&self, ns: &Namespace) -> Option<Map<String, Value>> {
+    pub(crate) fn offered_layer(&self, ns: &Namespace) -> Option<Map<String, Value>> {
         let layer = || -> Result<Map<String, Value>> {
             let (pins, files) = theme_closure(&self.themes, ns)?;
             let files: HashMap<_, _> = files.into_iter().map(|f| (f.version(), f)).collect();
@@ -265,40 +178,6 @@ impl Session {
             )
         };
         layer().inspect_err(|e| tracing::warn!(theme = %ns, error = %e.one_line(), "calque du thème illisible")).ok()
-    }
-
-    /// La miniature du thème `id`, sous `max` octets ; `None` (journalisé) sinon.
-    fn thumbnail(
-        &mut self,
-        set: &PackSet,
-        deck: &Deck,
-        layer: &Map<String, Value>,
-        id: &Namespace,
-        max: usize,
-    ) -> Option<Arc<str>> {
-        match self.thumbnail_svg(set, deck, layer) {
-            Ok(Some(svg)) if svg.len() <= max => Some(svg.into()),
-            Ok(Some(svg)) => {
-                tracing::warn!(theme = %id, bytes = svg.len(), "miniature du thème trop lourde : écartée");
-                None
-            }
-            Ok(None) => {
-                tracing::warn!(theme = %id, "miniature du thème : slide absente du rendu");
-                None
-            }
-            Err(e) => {
-                tracing::warn!(theme = %id, error = %e.one_line(), "miniature du thème impossible");
-                None
-            }
-        }
-    }
-
-    /// Le SVG de l'unique slide de `deck` rendue avec le calque `layer` ; `None` si elle n'a pas de page.
-    fn thumbnail_svg(&mut self, set: &PackSet, deck: &Deck, layer: &Map<String, Value>) -> Result<Option<String>> {
-        let Some(slide) = deck.slides.first().map(|s| s.id.clone()) else { return Ok(None) };
-        let compiled = self.render_deck_preview(set, deck, layer)?;
-        let Some(page) = compiled.layout().page_of(&slide) else { return Ok(None) };
-        Ok(Some(compiled.svg(page - 1).context(RenderSnafu)?))
     }
 }
 

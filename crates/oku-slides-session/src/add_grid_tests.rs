@@ -26,6 +26,35 @@ fn session_with_widget_pack_example(namespace: &str, widget: &str, example: Valu
     s
 }
 
+/// A `badge` widget whose label and description are written per language.
+const LOCALIZED_BADGE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("badge", label: (en: "Badge", fr: "Pastille"),
+  description: (en: "A short label", fr: "Une courte étiquette"),
+  params: (label: p.plain()), (args, ctx) => field(ctx, "label", args.label))
+"#;
+
+/// The add grid card of `acme/badge` (written as `LOCALIZED_BADGE`) in a session in `locale`.
+fn localized_badge_card(locale: &str) -> super::AddWidget {
+    let mut s = crate::test_support::session_in_locale(locale);
+    let m = manifest_ns(Uuid::new_v4(), "acme", &["base"]);
+    let pin = add_version(&s.library, &m, &[("badge", LOCALIZED_BADGE)]);
+    s.apply("Pack", vec![add_pack(&m, &pin)], None).unwrap_or_else(|e| panic!("pack : {}", e.one_line()));
+    s.add_packs().into_iter().flat_map(|p| p.widgets).find(|w| w.name == "acme/badge").unwrap()
+}
+
+#[rstest::rstest]
+#[case::french("fr", "Pastille", "Une courte étiquette")]
+#[case::english("en", "Badge", "A short label")]
+#[case::other_language_falls_back_to_english("de", "Badge", "A short label")]
+fn add_packs_localized_label_and_description_follow_the_locale(
+    #[case] locale: &str,
+    #[case] label: &str,
+    #[case] description: &str,
+) {
+    let card = localized_badge_card(locale);
+    assert_that!((card.label.as_str(), card.description.as_deref())).is_equal_to((label, Some(description)));
+}
+
 /// Saves Essentiel as a copy named `name` from a pack tab on `data`.
 ///
 /// Returns the copy's manifest.
@@ -61,6 +90,29 @@ fn add_packs_text_seed_body_is_english_in_english() {
     let s = session_in_locale("en");
     let seed = seed_of(&s, kinds::base::TEXT).unwrap();
     assert_that!(seed.params["body"][0]["runs"][0]["t"].as_str()).is_equal_to(Some("New text"));
+}
+
+#[test]
+fn add_packs_section_carries_the_pinned_version() {
+    let s = session_with_widget_pack_example("acme", "badge", json!({}));
+    let pinned =
+        s.doc.sources.deck().widgets.iter().find(|(ns, _)| ns.as_str() == "acme").map(|(_, p)| p.version.clone());
+    let section = s.add_packs().into_iter().find(|p| p.namespace == "acme").map(|p| p.version);
+    assert_that!(section).is_equal_to(pinned);
+}
+
+/// Previews render with every pack of the deck: pinning another one changes the fingerprint.
+#[test]
+fn snapshot_preview_set_changes_when_a_pack_is_pinned() {
+    let before = session().snapshot().preview_set;
+    let after = session_with_widget_pack_example("acme", "badge", json!({})).snapshot().preview_set;
+    assert_that!(after).is_not_equal_to(before);
+}
+
+#[test]
+fn snapshot_preview_set_is_stable_between_snapshots() {
+    let s = session();
+    assert_that!(s.snapshot().preview_set).is_equal_to(s.snapshot().preview_set);
 }
 
 #[test]

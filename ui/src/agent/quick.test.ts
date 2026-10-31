@@ -1,7 +1,8 @@
 // Touches rapides des surfaces de l'agent et position de la fiche.
 
 import { describe, expect, test } from "bun:test";
-import { quickAction, quickKey, sheetPlacement } from "./quick";
+import { quickAction, quickDigit, quickKey, sheetPlacement } from "./quick";
+import { components } from "./a2uiModel";
 import type { Surface } from "../api";
 import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 
@@ -55,6 +56,19 @@ const themes = surface([
 describe("touches des surfaces", () => {
   test("un chiffre choisit le thème correspondant", () => {
     expect(quickAction(themes, "2")).toEqual({ name: "theme", context: { theme: "id-2" } });
+  });
+
+  test("quickDigit of a theme card returns the digit quickAction reads", () => {
+    expect(quickDigit(components(themes), "c1")).toBe(2);
+  });
+
+  test("quickDigit of the dismiss button returns null", () => {
+    expect(quickDigit(components(themes), "close")).toBeNull();
+  });
+
+  test("quickDigit beside ChoiceChips returns null, the chips taking the digits", () => {
+    const both = [...components(chips(2)), ...components(themes)];
+    expect(quickDigit(both, "c0")).toBeNull();
   });
 
   test("le bouton Fermer n'est pas numéroté", () => {

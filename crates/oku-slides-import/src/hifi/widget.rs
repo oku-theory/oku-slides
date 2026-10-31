@@ -27,7 +27,7 @@ use std::collections::BTreeSet;
 
 use serde_json::json;
 
-use oku_slides_core::{Category, Grow, ParamSchema, ParamType, SlotMode, WidgetFile, WidgetSchema};
+use oku_slides_core::{Category, Grow, LocalizedText, ParamSchema, ParamType, SlotMode, WidgetFile, WidgetSchema};
 
 use super::typst::{Decor, GenCtx, Typst, background, decor_within, indented_len, placeholder, string};
 use crate::report::Loss;
@@ -216,7 +216,7 @@ fn schema(name: &WidgetFile, label: Option<&str>, params: &[PlaceholderParam], d
     out.push(param(EXTRAS_PARAM, ParamType::Slot { mode: SlotMode::Free, accepts: None }, None));
     WidgetSchema {
         name: name.as_str().to_owned(),
-        label: label.map(str::to_owned),
+        label: label.map(|l| LocalizedText::Plain(l.to_owned())),
         description: None,
         category: Category::Slide,
         grow: Grow::Fixed,

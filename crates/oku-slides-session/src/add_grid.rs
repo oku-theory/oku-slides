@@ -49,6 +49,8 @@ pub struct AddPackView {
     pub namespace: String,
     /// Le nom du pack.
     pub name: String,
+    /// Its pinned version: its widgets' examples, hence their previews, depend on it.
+    pub version: PackVersion,
     /// Ses widgets d'élément, dans l'ordre du registre.
     pub widgets: Vec<AddWidget>,
 }
@@ -109,14 +111,19 @@ impl Session {
                 let name = qualify(ns, file.as_str());
                 let schema = self.registry.get(&name).filter(|w| w.category == Category::Element)?;
                 Some(AddWidget {
-                    label: kind_name(&name, schema.label.as_deref(), &self.localizer),
-                    description: kind_description(&name, schema.description.as_deref(), &self.localizer),
+                    label: kind_name(&name, schema.label.as_ref(), &self.localizer),
+                    description: kind_description(&name, schema.description.as_ref(), &self.localizer),
                     name,
                     seed,
                 })
             })
             .collect();
-        (!widgets.is_empty()).then(|| AddPackView { namespace: ns.as_str().to_owned(), name: seeds.name, widgets })
+        (!widgets.is_empty()).then(|| AddPackView {
+            namespace: ns.as_str().to_owned(),
+            name: seeds.name,
+            version: pin.version.clone(),
+            widgets,
+        })
     }
 
     /// Le premier slot libre de chaque layout épinglé, et ce qu'il accepte.

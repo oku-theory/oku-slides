@@ -27,6 +27,8 @@ export interface AddWidget {
 export interface AddPackView {
   namespace: string;
   name: string;
+  /** Its pinned version (`sha256:…`): part of its widgets' preview cache key. */
+  version: string;
   /** Ses widgets d'élément, dans l'ordre du registre. */
   widgets: AddWidget[];
 }

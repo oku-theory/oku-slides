@@ -393,9 +393,15 @@ declares neither: the probe refuses it.
 `category` is `"element"` (slide body widget) or `"slide"`.
 `label` is the name shown in the app; `description`, what the widget shows in
 one sentence: the app's add grid filters on the name, the label and the
-description. Both are shown as written, in every interface language, and must be
-text (`str`): any other value sets the widget file aside with an error naming
-the argument. A blank label or description counts as none.
+description. Each is either text (`str`), shown as written in every interface
+language, or a dictionary of texts by language, such as
+`description: (en: "A big value", fr: "Une valeur en grand")` (quote a region
+key: `"zh-Hant": "…"`). The app shows the user's language, else that language
+without its region, else `en`, else the entry with the lowest language code
+(`de` before `fr`, whatever the order written). Any other value sets the
+widget file aside with an error naming the argument. A blank label or
+description, or a dictionary whose entries are all blank, counts as none; a
+blank entry is dropped.
 
 ### `field(ctx, name, body, style:)`
 

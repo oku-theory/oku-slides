@@ -64,6 +64,8 @@ fn load_registry_pack_that_does_not_compile_returns_its_diagnostics() {
 #[case::description_content("description: [Une valeur]", "la description doit être un texte")]
 #[case::label_number("label: 42", "le label doit être un texte")]
 #[case::label_content("label: [KPI]", "le label doit être un texte")]
+#[case::description_dict_number("description: (en: 42)", "la description doit être un texte")]
+#[case::label_dict_content("label: (fr: [KPI])", "le label doit être un texte")]
 fn probe_file_with_a_non_text_label_or_description_is_set_aside(#[case] arg: &str, #[case] named: &str) {
     let src = format!(
         "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", {arg}, params: (:), (args, ctx) => [])\n"
@@ -80,6 +82,14 @@ fn probe_file_with_a_non_text_label_or_description_is_set_aside(#[case] arg: &st
 #[case::description_empty("description: \"\"", "description", Value::Null)]
 #[case::label_text("label: \"KPI\"", "label", json!("KPI"))]
 #[case::label_blank("label: \"  \"", "label", Value::Null)]
+#[case::description_by_locale(
+    "description: (en: \"A value\", fr: \"Une valeur\")",
+    "description",
+    json!({"en": "A value", "fr": "Une valeur"})
+)]
+#[case::label_by_locale_blank_entry_dropped("label: (en: \"KPI\", fr: \" \")", "label", json!({"en": "KPI"}))]
+#[case::label_by_locale_all_blank("label: (en: \"\", fr: \" \")", "label", Value::Null)]
+#[case::description_empty_dict("description: (:)", "description", Value::Null)]
 fn probe_file_text_label_or_description_is_kept_or_blank_becomes_none(
     #[case] arg: &str,
     #[case] field: &str,
