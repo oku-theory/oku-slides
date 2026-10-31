@@ -394,6 +394,9 @@ mod packs;
 #[path = "workspace_opening.rs"]
 mod opening;
 
+#[path = "workspace_opener.rs"]
+mod opener;
+
 #[path = "workspace_themes.rs"]
 mod themes;
 
@@ -430,8 +433,24 @@ pub(crate) fn tab_session(fonts: &Fonts, platform: &Platform) -> Result<Session>
 }
 
 #[cfg(test)]
-#[path = "workspace_tests.rs"]
-mod workspace_tests;
+#[path = "workspace_fixtures.rs"]
+mod workspace_fixtures;
+
+#[cfg(test)]
+#[path = "workspace_tabs_tests.rs"]
+mod workspace_tabs_tests;
+
+#[cfg(test)]
+#[path = "workspace_windows_tests.rs"]
+mod workspace_windows_tests;
+
+#[cfg(test)]
+#[path = "workspace_session_tests.rs"]
+mod workspace_session_tests;
+
+#[cfg(test)]
+#[path = "workspace_settings_tests.rs"]
+mod workspace_settings_tests;
 
 #[cfg(test)]
 #[path = "workspace_detach_tests.rs"]

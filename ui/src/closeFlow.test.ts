@@ -228,7 +228,7 @@ describe("closeTabFlow, live state", () => {
 describe("closeTabFlow, theme tabs", () => {
   const ASK_QUIT_THEME = "confirm Quit without saving the modified theme?";
 
-  test("a kept theme tab saves its theme and closes without an opener offer", async () => {
+  test("a kept theme tab saves its theme, then offers its opener the theme version (t-1207)", async () => {
     const f = fake([themeTabOf("a", true)]);
     let saved = false;
     f.state.snapshot = async () => snap({ dirty: !saved, theming: themeTabView() });
@@ -237,9 +237,15 @@ describe("closeTabFlow, theme tabs", () => {
       f.state.tabs = [themeTabOf("a", false)];
       return null;
     };
-    f.state.offer = OFFER;
+    f.state.offer = { ...OFFER, kind: "theme", pack: "t", pack_name: "Maison" };
     expect(await closeTabFlow("a", f.deps())).toBe(true);
-    expect(f.log).toEqual(["guard a", "fresh", "snapshot a", "saveTheme a", "snapshot a", "guard a", "fresh", "close a false"]);
+    expect(f.log.slice(7)).toEqual([
+      "opener a",
+      "confirm Update “⁨Roadmap⁩” to this version of the theme “⁨Maison⁩”?",
+      "close a false",
+      "takeTheme t-1 t v2 d1",
+      "refresh",
+    ]);
   });
 
   test("a theme tab snapshot rejection tries saveTheme before offering to discard", async () => {
@@ -462,9 +468,49 @@ describe("closeFlowDeps", () => {
     expect(isolate("Roadmap")).toBe("⁨Roadmap⁩");
   });
 
+  test("isolate drops the bidi controls inside the value", () => {
+    expect(isolate("a\u2069\u202eb\u2066\u2068\u202a")).toBe("\u2068ab\u2069");
+  });
+
   test("closeFlowDeps takes the clock from its input", () => {
     const f = fake([]);
     f.state.clock = 42;
     expect(closeFlowDeps(f.input).now()).toBe(42);
+  });
+});
+
+describe("closeTabFlow linked-tab leftovers (t-1255)", () => {
+  test("a second stall of a linked tab's guard asks, naming it, and closes the owner discarding", async () => {
+    const f = fake([tabOf("d"), { ...linkedOf("k", "d", true), title: "Acme" }]);
+    f.state.guard = (id) => Promise.resolve(id === "k" ? ("timeout" as const) : ("done" as const));
+    f.input.stalls.set("k", T0 - 5_000);
+    expect(await closeTabFlow("d", f.deps())).toBe(true);
+    expect(f.questions.map((q) => q.message)).toEqual([
+      "“⁨Acme⁩” is still saving. Close it anyway and lose what has not been saved?",
+    ]);
+    expect(f.log.at(-1)).toBe("close d true");
+  });
+
+  test("a rejected linked-tab snapshot falls back to saving it, and the owner closes", async () => {
+    const f = fake([tabOf("d"), linkedOf("k", "d", true)]);
+    const live = f.state.snapshot;
+    f.state.snapshot = (id) => (id === "k" ? Promise.reject(new Error("rendu")) : live(id));
+    expect(await closeTabFlow("d", f.deps())).toBe(true);
+    expect(f.log).toContain("savePack k");
+  });
+});
+
+describe("closeTabFlow, the copy offer (t-1207)", () => {
+  test("a kept pack tab that saved a copy offers the switch and takes it", async () => {
+    const f = fake([tabOf("a", false, true)]);
+    f.state.offer = { ...OFFER, kind: "copy", from: "p", pack: "c", pack_name: "Acme (copie)" };
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.slice(4)).toEqual([
+      "opener a",
+      "confirm Switch “⁨Roadmap⁩” to the copy “⁨Acme (copie)⁩”?",
+      "close a false",
+      "takeCopy t-1 p c v2 d1",
+      "refresh",
+    ]);
   });
 });

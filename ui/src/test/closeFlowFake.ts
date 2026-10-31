@@ -38,7 +38,7 @@ export const themeTabView = (o: Partial<ThemeTabView> = {}) =>
   ({ read_only: false, leased: true, display_name: "Maison", session_version: null, ...o }) as ThemeTabView;
 
 /** The offer of the opener `t-1` for version `v2` of pack `p`. */
-export const OFFER: OpenerOffer = { tab: "t-1", title: "Roadmap", deck_uid: "d1", pack: "p", pack_name: "Acme", version: "v2" };
+export const OFFER: OpenerOffer = { kind: "version", tab: "t-1", title: "Roadmap", deck_uid: "d1", pack: "p", pack_name: "Acme", version: "v2" };
 
 /** The clock's start, in milliseconds. */
 export const T0 = 1_000_000;
@@ -81,6 +81,8 @@ export function fake(tabs: TabInfo[]) {
     clock: T0,
     /** Runs inside closeWindow, before it answers. */
     duringCloseWindow: async () => {},
+    /** The host refuses closeWindow. */
+    windowRefused: false,
   };
   /** Every tab of every window. */
   const allTabs = () => [...state.tabs, ...state.otherWindows.flatMap((w) => w.tabs)];
@@ -103,6 +105,9 @@ export function fake(tabs: TabInfo[]) {
       save: () => (log.push(`save ${id}`), state.save(id)),
       historyClose: () => (log.push(`historyClose ${id}`), Promise.resolve(snap())),
       takePackVersion: (pack: string, version: string, deckUid: string) => (log.push(`take ${id} ${pack} ${version} ${deckUid}`), state.take()),
+      takePackCopy: (from: string, pack: string, version: string, deckUid: string) =>
+        (log.push(`takeCopy ${id} ${from} ${pack} ${version} ${deckUid}`), state.take()),
+      takeThemeVersion: (theme: string, version: string, deckUid: string) => (log.push(`takeTheme ${id} ${theme} ${version} ${deckUid}`), state.take()),
     }) as unknown as TabApi;
   const input: CloseFlowInput = {
     tabApi: api,
@@ -132,6 +137,7 @@ export function fake(tabs: TabInfo[]) {
       closeWindow: async (_label: string, discard: string[]) => {
         log.push(`closeWindow ${discard.join(",")}`);
         await state.duringCloseWindow();
+        if (state.windowRefused) throw new Error("refusé");
         return VIEW;
       },
       packOpener: async (id: string) => {

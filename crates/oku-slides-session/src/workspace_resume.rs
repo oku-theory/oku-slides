@@ -192,6 +192,12 @@ impl Workspace {
         // Un orphelin qu'on n'a pas pu supprimer garde son numéro : jamais réutilisé.
         let listed = ws.remove_orphans(&cited);
         ws.layout.next_tab = ws.layout.next_tab.max(listed.saturating_add(1)).min(MAX_NUMBER);
+        // Empty drafts a crash left with no tab (t-1251): those no restored tab shows.
+        let shown = super::tabs::shown_drafts(ws.tabs.values().map(|t| &t.info));
+        let collected = ws.library.collect_orphan_drafts(&shown, time::OffsetDateTime::now_utc());
+        if !collected.is_empty() {
+            tracing::info!(count = collected.len(), "orphan empty drafts collected");
+        }
         if ws.layout.windows.is_empty() {
             let pending = ws.pending(None, Opening::Blank, TabPlace::End);
             let session = pending.build()?;

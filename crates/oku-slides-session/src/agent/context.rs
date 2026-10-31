@@ -111,12 +111,17 @@ impl Session {
 
     /// Opens the undo group of the agent's turn `turn` (its number in the thread).
     ///
-    /// The deck-mode widget session ends here and at the turn's end: a
-    /// session never straddles a turn's step.
+    /// On the deck set aside too (a pack tab's preview, history's stash), as
+    /// `end_turn` closes it: a save during the turn and one after it are two
+    /// preview steps, never one merged step (t-1237). The deck-mode widget
+    /// session ends here and at the turn's end: a session never straddles a turn's step.
     pub fn begin_turn(&mut self, turn: u32, prompt: &str) {
         self.end_widget_session();
         let label = self.localizer.tr_with("agent-undo-turn", &[("text", turn_label(prompt).into())]);
         self.doc.sources.begin_group(&label);
+        if let Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } = &mut self.mode {
+            stash.sources.begin_group(&label);
+        }
         self.turn_steps_begin(turn);
     }
 

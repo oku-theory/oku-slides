@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, openAtelier, openPackTab: openFrom, openThemeTab, closePacksPanel, packTabShown } = require('./lib/atelier.cjs');
 const { post } = require('./lib/http.cjs');
-const { assertNoQuestion } = require('./lib/question.cjs');
+const { answerQuestion, assertNoQuestion } = require('./lib/question.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const { newPackItem, pileThumb, selectPackItem } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -36,7 +36,7 @@ const backToOpener = (p, tab, why) =>
   const errors = [];
   const dialogs = [];
   p.on('pageerror', (e) => errors.push(e.message));
-  // No browser dialog: the pile deletes through its own confirmation; the copy is not pinned by `t-1`: no update offer.
+  // No browser dialog: the pile deletes through its own confirmation, the copy offer is an in-page question.
   p.on('dialog', (d) => {
     dialogs.push(d.message());
     void d.dismiss();
@@ -106,8 +106,10 @@ const backToOpener = (p, tab, why) =>
   const current = (await api(p, 't-1', { cmd: 'packs', kind: 'layouts' })).find((pack) => pack.id === essentiel);
   assert.notEqual(current?.version, (await api(p, 't-1', { cmd: 'snapshot' })).layouts.essentiel.version, "t-1 épingle déjà l'Essentiel courant");
 
-  // 5. Terminer : l'onglet de pack se ferme, l'onglet du deck revient.
+  // 5. Terminer: t-1, which pins the original, is offered the copy (t-1207); "Plus tard" keeps its pin.
+  // The pack tab closes and the deck tab comes back.
   await p.getByRole('button', { name: 'Terminer' }).click();
+  await answerQuestion(p, /^Faire passer « .+ » à la copie « .+ » \?$/, 'Plus tard');
   await backToOpener(p, packTab, "l'onglet de pack ne se ferme pas");
   await p.waitForSelector('.stage img');
 

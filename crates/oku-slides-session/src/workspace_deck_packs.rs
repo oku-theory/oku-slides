@@ -93,8 +93,8 @@ impl Workspace {
                 Err(e) => (Err(e), None, Taken::default()),
             }
         };
-        Self::set_aside(ws, &taken.refused);
-        let mut changed = info.is_some_and(|info| Self::refresh(ws, tab, info));
+        let set_aside = Self::set_aside(ws, &taken.refused);
+        let mut changed = info.is_some_and(|info| Self::refresh(ws, tab, info)) || set_aside;
         if let Some(send) = taken.send {
             let cached = |ws: &Mutex<Self>| Self::lock(ws).tabs.get(tab).map(|t| t.info.clone());
             let before = cached(ws);
@@ -159,8 +159,8 @@ impl Workspace {
     /// The owner's session is awaited like any request; an owner that is
     /// gone answers `UnknownTab`, which the tab notices. An applied or
     /// delivered copy retargets the tab's cached document in this same call,
-    /// and an applied send puts the owner in `touched`. `true`: the owner applied it.
-    pub(super) fn forward(ws: &Mutex<Self>, tab: &str, send: &DeckPackSend) -> bool {
+    /// and an applied send puts the owner in `touched`.
+    pub(super) fn forward(ws: &Mutex<Self>, tab: &str, send: &DeckPackSend) {
         let owner = Self::lock(ws).tabs.get(tab).and_then(|t| t.info.document.deck_tab().map(str::to_owned));
         #[cfg(test)]
         {
@@ -180,7 +180,7 @@ impl Workspace {
         let applied = matches!(answer, Ok(Received::Applied));
         // `Delivered` too: an applied copy whose acknowledgement was lost is retargeted on its resend.
         if !matches!(answer, Ok(Received::Applied | Received::Delivered)) {
-            return false;
+            return;
         }
         let manifest = PackManifest::from_files(&send.files).ok().map(|m| m.id);
         let mut w = Self::lock(ws);
@@ -190,7 +190,6 @@ impl Workspace {
         if let Some(owner) = owner.filter(|o| applied && !w.touched.contains(o)) {
             w.touched.push(owner);
         }
-        applied
     }
 
     /// Forwards the parked sends of `owner`'s linked tabs.

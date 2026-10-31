@@ -1,16 +1,17 @@
-//! Enregistrement du mode pack : manifeste édité, version de la séance.
+//! Pack mode saves: the edited manifest, the session version.
 //!
-//! On édite la version courante du pack. Une version par session
-//! d'édition : le premier enregistrement crée une version (`parent` = la
-//! courante au début de la session), la rend courante, l'embarque dans le
-//! deck mis de côté, qui l'épingle sous son espace de noms (une seule étape
-//! d'annulation) ; les suivants la remplacent (`Library::save_draft` ; une version adoptée par un deck n'est pas remplacée, la suivante est sa fille ;
-//! même parente, l'intermédiaire quitte la bibliothèque et les sources des
-//! deux documents si l'enregistrement a rejoint son étape d'annulation ;
-//! sinon il y reste, annuler y revenant), jusqu'à la sortie du mode pack.
-//! « Enregistrer comme copie » : un nouvel id, sans parente, un nouvel espace
-//! de noms tiré de son nom (`namespace_slug`), et la session continue sur la
-//! copie. Un pack intégré suit la même règle, sous son id.
+//! The pack's current version is edited, one version per editing session.
+//! The first save makes a version (`parent` = the current one when the
+//! session began), makes it current and embeds it in the set-aside deck,
+//! which pins it under its namespace (one undo step). Later saves replace it
+//! (`Library::save_draft`; a version a deck adopted is not replaced, the next
+//! is its child), with the same parent. The replaced version leaves the
+//! library and both documents' sources when the save joined the set-aside
+//! deck's undo step that introduced it (`PackScratch::adopt_step`);
+//! otherwise it stays, as undo returns to it. This lasts until pack mode
+//! ends. "Save as copy" makes a new id with no parent and a new namespace
+//! from its name (`namespace_slug`), and the session goes on with the copy.
+//! A built-in pack follows the same rule, under its id.
 //! Les exemples des layouts ne passent pas par ici : chaque op sur une slide
 //! de layout les écrit aussitôt (`layout_examples`) ; un enregistrement
 //! reprend ceux de la dernière version et requiert les espaces de noms
@@ -254,13 +255,18 @@ impl Session {
         }
         .context(SourcesSnafu)?;
         let label = self.localizer.tr_with("pack-adopt-label", &[("name", manifest.name.as_str().into())]);
-        if let (Mode::Pack { preview, edit, lease, orphaned, .. }, Some((user, packs))) = (&mut self.mode, previewed) {
+        if let (Mode::Pack { preview, edit, lease, orphaned, scratch, .. }, Some((user, packs))) =
+            (&mut self.mode, previewed)
+        {
             embed_packs(&mut preview.sources, packs);
-            let steps = preview.sources.undo_steps();
             preview.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
             preview.dirty = true;
+            // The step that now holds the pin: the one that brought `old`, or another
+            // (a new merge key, an agent turn's group, a step after an undo).
+            let step = preview.sources.replica().undo_step();
+            let introduced = std::mem::replace(&mut scratch.adopt_step, step);
             if let Some(old) = replaced.filter(|old| **old != version && Some(*old) != parent.as_ref()) {
-                if preview.sources.undo_steps() == steps {
+                if step.is_some() && step == introduced {
                     // Fusionnée dans l'étape qui l'avait introduite : plus
                     // atteignable depuis le deck mis de côté.
                     preview.sources.packs.remove(old);
@@ -269,6 +275,10 @@ impl Session {
                     let witness = if as_new { copy.as_ref() } else { lease.as_ref() };
                     restore_session_version(&self.library, id, files, witness);
                 }
+            }
+            // The opener pins the pack the session started from: a copy of a copy keeps it.
+            if as_new {
+                scratch.copied_from.get_or_insert(edit.pack);
             }
             *edit = PackMode {
                 pack: id,

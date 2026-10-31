@@ -61,6 +61,8 @@ fn version() -> oku_slides_core::PackVersion {
 #[case::widget_source(Request::WidgetSource { pack: None, name: "w".into() }, false)]
 #[case::preview_widget(Request::PreviewWidget { pack: None, name: "w".into(), params: serde_json::Map::new() }, false)]
 #[case::use_pack_version(Request::UsePackVersion { pack: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
+#[case::use_pack_copy(Request::UsePackCopy { from: Uuid::nil(), pack: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
+#[case::use_theme_version(Request::UseThemeVersion { theme: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
 fn writes_edited_draft_classifies_every_request(#[case] request: Request, #[case] writes: bool) {
     assert_that!(request.writes_edited_draft()).is_equal_to(writes);
 }
@@ -96,6 +98,8 @@ fn writes_edited_draft_classifies_every_request(#[case] request: Request, #[case
 #[case::history_versions(Request::HistoryVersions, false)]
 #[case::history_open(Request::HistoryOpen, false)]
 #[case::save_copy(Request::SaveCopy { path: PathBuf::from("/x") }, false)]
+#[case::use_pack_copy(Request::UsePackCopy { from: Uuid::nil(), pack: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
+#[case::use_theme_version(Request::UseThemeVersion { theme: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
 fn theme_tab_allows_only_the_draft_requests(#[case] request: Request, #[case] allows: bool) {
     assert_that!(request.theme_tab_allows()).is_equal_to(allows);
 }

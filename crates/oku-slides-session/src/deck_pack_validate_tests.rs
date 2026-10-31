@@ -141,7 +141,7 @@ enum Mismatch {
     CopyIdPinnedInOtherKind,
     CopyWithParent,
     CopyOtherNamespace,
-    ClosureMovesAnotherPin,
+    RequiresTheOtherKind,
     PinMovedFromExpect,
     LibraryHasCurrent,
     OverBudget,
@@ -188,8 +188,8 @@ fn mismatched(owner: &mut Session, case: Mismatch) -> DeckPackSend {
             with_manifest(copy_send(owner, LINKED_TAB), |m| m.parent = parent)
         }
         Mismatch::CopyOtherNamespace => with_manifest(copy_send(owner, LINKED_TAB), |m| m.namespace = ns("autre")),
-        // `essentiel` is pinned as layouts: requiring it as widgets would move that pin.
-        Mismatch::ClosureMovesAnotherPin => with_manifest(send, |m| m.requires.push(ns("essentiel"))),
+        // `essentiel` is pinned as layouts: no widgets pack provides it (`UnknownNamespace`).
+        Mismatch::RequiresTheOtherKind => with_manifest(send, |m| m.requires.push(ns("essentiel"))),
         Mismatch::PinMovedFromExpect => {
             // Written straight into the sources: every public path is refused while linked.
             let moved = with_manifest(valid_send(owner, LINKED_TAB), |m| m.description.push('!')).files;
@@ -228,7 +228,6 @@ fn mismatched(owner: &mut Session, case: Mismatch) -> DeckPackSend {
 #[case::copy_whose_id_the_owner_pins_in_the_other_kind(Mismatch::CopyIdPinnedInOtherKind)]
 #[case::copy_with_a_parent(Mismatch::CopyWithParent)]
 #[case::copy_under_another_namespace(Mismatch::CopyOtherNamespace)]
-#[case::closure_would_move_another_pin(Mismatch::ClosureMovesAnotherPin)]
 #[case::owner_pin_moved_from_expect(Mismatch::PinMovedFromExpect)]
 #[case::library_now_has_a_current_version(Mismatch::LibraryHasCurrent)]
 #[case::over_the_sources_budget(Mismatch::OverBudget)]
@@ -244,15 +243,29 @@ fn receive_deck_pack_mismatch_is_refused(#[case] case: Mismatch) {
     assert_that!(link_of(&owner, LINKED_TAB).last_seq).is_none();
 }
 
+/// A closure failure keeps its own kind (t-1239): the tab says why, not just "mismatch".
+#[rstest]
+#[case::no_pack_has_it("inconnu")]
+// `essentiel` is pinned as layouts: no widgets pack provides it.
+#[case::only_the_other_kind_has_it("essentiel")]
+fn receive_deck_pack_requiring_an_unknown_namespace_is_refused_as_unknown(#[case] required: &str) {
+    let data = fresh_dir("oku-slides-deck-pack-validate-");
+    let (mut owner, _) = linked_owner(data.path());
+    let send = with_manifest(valid_send(&owner, LINKED_TAB), |m| m.requires.push(ns(required)));
+    let before = owner_state(&owner);
+    let received = owner.receive_deck_pack(LINKED_TAB, &send);
+    assert_refused(&owner, received, SessionErrorKind::UnknownNamespace, &before);
+}
+
 #[test]
 fn receive_deck_pack_refused_keeps_the_owner_widget_session() {
     let data = fresh_dir("oku-slides-deck-pack-validate-");
     let (mut owner, _) = linked_owner(data.path());
     // An open deck-mode widget session: its next write merges into the same step.
     owner.set_widget(None, "cover2", slide_widget("cover2")).unwrap();
-    let send = mismatched(&mut owner, Mismatch::ClosureMovesAnotherPin);
+    let send = mismatched(&mut owner, Mismatch::RequiresTheOtherKind);
     let received = owner.receive_deck_pack(LINKED_TAB, &send);
-    assert_that!(received.map_err(|e| e.kind())).is_equal_to(Err(SessionErrorKind::DeckPackMismatch));
+    assert_that!(received.map_err(|e| e.kind())).is_equal_to(Err(SessionErrorKind::UnknownNamespace));
     assert_that!(owner.widget_session.is_some()).is_true();
 }
 

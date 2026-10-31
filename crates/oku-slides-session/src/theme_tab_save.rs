@@ -13,7 +13,7 @@
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::ThemePin;
+use oku_slides_core::{PackVersion, ThemePin};
 
 use crate::agent::bounds::label;
 use crate::error::{
@@ -26,7 +26,26 @@ use crate::theme_closure::pin_of;
 use crate::theme_edit::ThemeEdit;
 use crate::{Mode, Result, Session, SessionErrorKind};
 
+/// The theme version a theme tab wrote last.
+#[derive(Debug, Clone)]
+pub(crate) struct ThemeWrite {
+    /// The edited theme.
+    pub theme: Uuid,
+    /// Its name, already a label.
+    pub name: String,
+    /// The version written.
+    pub version: PackVersion,
+}
+
 impl Session {
+    /// The version this theme tab wrote last, if it wrote one (its opener's offer, t-1207).
+    #[must_use]
+    pub(crate) fn wrote_in_theme_tab(&self) -> Option<ThemeWrite> {
+        let Mode::Theme { edit, .. } = &self.mode else { return None };
+        let version = edit.session_version.clone()?;
+        Some(ThemeWrite { theme: edit.draft.base.id, name: label(&edit.draft.name), version })
+    }
+
     /// Saves the theme draft by the library's draft rule; `None` when unchanged.
     ///
     /// `as_new`: a copy under a new id, even of an unchanged draft. The tab

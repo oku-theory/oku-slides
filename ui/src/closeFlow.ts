@@ -124,6 +124,16 @@ async function findTab(id: string, deps: CloseFlowDeps): Promise<TabInfo | undef
   return (await freshRead(deps)).tabs.find((x) => x.id === id);
 }
 
+/** Tab `id` in a fresh read of every window (a linked tab may be elsewhere), or undefined. */
+async function findAnywhere(id: string, deps: CloseFlowDeps): Promise<TabInfo | undefined> {
+  return (await deps.freshView()).windows.flatMap((w) => w.tabs).find((x) => x.id === id);
+}
+
+/** The question for a stuck tab of a window close or of an owner's linked tabs: it names the tab. */
+function stuckQuestion(tab: TabInfo) {
+  return discardQuestion(t("ui-confirm-close-tab-writes-pending", { tab: isolate(tab.title) }));
+}
+
 /**
  * A stalled close of `id`: a first stall is reported and refused; a second one asks whether to
  * close anyway, without a snapshot, save or guard on a session known to be stuck.
@@ -151,9 +161,13 @@ async function stalledClose(id: string, deps: CloseFlowDeps): Promise<boolean> {
   return deps.close(id, true);
 }
 
-/** A library pack tab, known by its live snapshot when one was read, else by its cached kind. */
-function isPackTab(tab: TabInfo, snap: Snapshot | null): boolean {
-  return snap ? !!snap.editing && !snap.editing.deck_only : tab.document?.kind === "pack";
+/**
+ * A library pack tab or a theme tab, whose opener may take what it wrote: known by its live
+ * snapshot when one was read, else by its cached kind.
+ */
+function offersToOpener(tab: TabInfo, snap: Snapshot | null): boolean {
+  if (snap) return (!!snap.editing && !snap.editing.deck_only) || !!snap.theming;
+  return tab.document?.kind === "pack" || tab.document?.kind === "theme";
 }
 
 /** The verdict after a failed snapshot read; "gone": the tab left the window meanwhile. */
@@ -162,12 +176,12 @@ type Unread = "keep" | "discard" | null | "gone";
 /**
  * After the live snapshot of `id` could not be read: a tab still of kind pack or deck_pack tries
  * savePack, one of kind theme saveTheme ("keep" when it resolves), else asks to quit without
- * saving ("discard" on yes); any other tab stays (null).
+ * saving ("discard" on yes); any other tab stays (null). `find` rereads the tab (this window's by default).
  */
-async function unreadVerdict(id: string, error: unknown, deps: CloseFlowDeps): Promise<Unread> {
+async function unreadVerdict(id: string, error: unknown, deps: CloseFlowDeps, find = findTab): Promise<Unread> {
   deps.report(error);
   // The wake attempt refreshed the cached info.
-  const again = await findTab(id, deps);
+  const again = await find(id, deps);
   if (!again) return "gone";
   const kind = again.document?.kind;
   const pack = kind === "pack" || kind === "deck_pack";
@@ -189,36 +203,67 @@ type LinkedVerdict = "keep" | "discard" | null;
  *
  * Each one neither closing already (its own flow runs) nor in `discarded` joins deps.closing
  * and `added` (the caller removes those ids). Its guard runs when `tabs` (this window) holds it;
- * another window's tab relies on its own autosave. A first stall of that guard refuses the close.
- * It is saved when its snapshot is dirty or unsent, then its snapshot is read again (the save's
- * answer predates the forward to the owner). One still unsaved asks ui-confirm-quit-pack: no
- * stays (null), yes answers "discard": the owner then closes with discard and the host discards
- * its linked tabs; the flows never name them in a discard themselves.
+ * another window's tab relies on its own autosave. A first stall of that guard refuses the close;
+ * a second one within STALL_MS asks, naming the tab ("discard" on yes). It is saved when its
+ * snapshot is dirty or unsent, then its snapshot is read again (the save's answer predates the
+ * forward to the owner); a snapshot that cannot be read goes through unreadVerdict, the tab
+ * looked up in every window. One still unsaved asks ui-confirm-quit-pack: no stays (null), yes
+ * answers "discard": the owner then closes with discard and the host discards its linked tabs;
+ * the flows never name them in a discard themselves, only add them to `givenUp` (not guarded again).
  */
-async function flushLinked(id: string, view: WorkspaceView, tabs: TabInfo[], added: string[], discarded: readonly string[], deps: CloseFlowDeps): Promise<LinkedVerdict> {
+async function flushLinked(id: string, view: WorkspaceView, tabs: TabInfo[], added: string[], discarded: readonly string[], givenUp: Set<string>, deps: CloseFlowDeps): Promise<LinkedVerdict> {
   let verdict: LinkedVerdict = "keep";
   for (const linked of linkedTabs(view.windows, id)) {
     if (deps.closing.has(linked.id) || discarded.includes(linked.id)) continue;
     deps.closing.add(linked.id);
     added.push(linked.id);
     if (tabs.some((x) => x.id === linked.id) && !(await guarded(linked.id, deps))) {
-      deps.report(t("ui-close-writes-pending"));
-      return null;
+      if (!secondStall(linked.id, deps)) {
+        deps.report(t("ui-close-writes-pending"));
+        return null;
+      }
+      if (!(await deps.confirm(stuckQuestion(linked)))) return null;
+      givenUp.add(linked.id);
+      verdict = "discard";
+      continue;
     }
     const api = deps.tabApi(linked.id);
-    const before = await api.snapshot();
-    if (!before.dirty && !before.editing?.unsent) continue;
+    const before = await readLinked(linked.id, api, deps);
+    if (before !== "dirty") {
+      if (before === null) return null;
+      if (before === "discard") verdict = "discard";
+      continue;
+    }
     try {
       await api.savePack();
     } catch (e) {
       deps.report(e);
     }
-    const after = await api.snapshot();
-    if (!after.dirty && !after.editing?.unsent) continue;
+    const after = await readLinked(linked.id, api, deps);
+    if (after !== "dirty") {
+      if (after === null) return null;
+      if (after === "discard") verdict = "discard";
+      continue;
+    }
     if (!(await deps.confirm(discardQuestion(t("ui-confirm-quit-pack"))))) return null;
+    givenUp.add(linked.id);
     verdict = "discard";
   }
   return verdict;
+}
+
+/**
+ * A linked tab's live state: "dirty" while it holds unsaved or unsent work, "keep" once clean;
+ * a rejected snapshot gives unreadVerdict's answer ("gone" counts as "keep": nothing left to save).
+ */
+async function readLinked(id: string, api: TabApi, deps: CloseFlowDeps): Promise<"dirty" | LinkedVerdict> {
+  try {
+    const snap = await api.snapshot();
+    return snap.dirty || snap.editing?.unsent ? "dirty" : "keep";
+  } catch (e) {
+    const unread = await unreadVerdict(id, e, deps, findAnywhere);
+    return unread === "gone" ? "keep" : unread;
+  }
 }
 
 /** Step 3: the tab's live state when dirty, then its verdict; a boolean ends the flow. */
@@ -253,9 +298,23 @@ async function askOffer(id: string, deps: CloseFlowDeps): Promise<OpenerOffer | 
   }
   if (!offer) return null;
   // Title and name are labels already: isolated at display only.
-  const message = t("ui-confirm-update-opener", { deck: isolate(offer.title), pack: isolate(offer.pack_name) });
+  const names = { deck: isolate(offer.title), pack: isolate(offer.pack_name) };
+  const key = { version: "ui-confirm-update-opener", copy: "ui-confirm-update-opener-copy", theme: "ui-confirm-update-opener-theme" }[offer.kind];
+  const message = t(key, names);
   const question = { message, ok: t("ui-confirm-update-ok"), cancel: t("ui-confirm-update-later"), danger: false };
   return (await deps.confirm(question)) ? offer : null;
+}
+
+/** Takes an accepted offer in the opener's tab: the request its kind names. */
+function takeOffer(offer: OpenerOffer, api: TabApi): Promise<Snapshot> {
+  switch (offer.kind) {
+    case "version":
+      return api.takePackVersion(offer.pack, offer.version, offer.deck_uid);
+    case "copy":
+      return api.takePackCopy(offer.from, offer.pack, offer.version, offer.deck_uid);
+    case "theme":
+      return api.takeThemeVersion(offer.pack, offer.version, offer.deck_uid);
+  }
 }
 
 /**
@@ -273,7 +332,7 @@ export async function closeTabFlow(id: string, deps: CloseFlowDeps): Promise<boo
     const first = await freshRead(deps);
     let tab = first.tabs.find((x) => x.id === id);
     if (!tab) return true;
-    const links = await flushLinked(id, first.view, first.tabs, added, [], deps);
+    const links = await flushLinked(id, first.view, first.tabs, added, [], new Set(), deps);
     if (links === null) return false;
     // A linked tab's save reached the owner: its dirty flag is read again.
     if (added.length > 0) tab = await findTab(id, deps);
@@ -294,12 +353,12 @@ export async function closeTabFlow(id: string, deps: CloseFlowDeps): Promise<boo
       read = await liveVerdict(tab, deps);
       if (typeof read === "boolean") return read;
     }
-    const offer = read.verdict === "keep" && isPackTab(tab, read.snap) ? await askOffer(id, deps) : null;
+    const offer = read.verdict === "keep" && offersToOpener(tab, read.snap) ? await askOffer(id, deps) : null;
     if (!(await deps.close(id, read.verdict === "discard" || links === "discard"))) return false;
     deps.stalls.delete(id);
     if (offer) {
       try {
-        await deps.tabApi(offer.tab).takePackVersion(offer.pack, offer.version, offer.deck_uid);
+        await takeOffer(offer, deps.tabApi(offer.tab));
       } catch (e) {
         deps.report(e);
       }
@@ -326,11 +385,16 @@ function sortStalls(stalled: string[], deps: CloseFlowDeps): string[] | false {
   return false;
 }
 
-/** Asks about each second stall; false on a no, else true with the ids collected. */
-async function askStuck(seconds: string[], discarded: string[], deps: CloseFlowDeps): Promise<boolean> {
+/**
+ * Asks about each second stall, naming its tab from `tabs`; false on a no, else true with the ids
+ * collected. A tab no longer in `tabs` is not asked about: nothing of it is left to lose.
+ */
+async function askStuck(seconds: string[], tabs: TabInfo[], discarded: string[], deps: CloseFlowDeps): Promise<boolean> {
   for (const id of seconds) {
     deps.stalls.delete(id);
-    if (!(await deps.confirm(discardQuestion(t("ui-confirm-close-writes-pending"))))) return false;
+    const tab = tabs.find((x) => x.id === id);
+    if (!tab) continue;
+    if (!(await deps.confirm(stuckQuestion(tab)))) return false;
     discarded.push(id);
   }
   return true;
@@ -346,14 +410,18 @@ async function stalledOf(ids: string[], deps: CloseFlowDeps): Promise<string[]> 
 export async function closeWindowFlow(active: string | null, deps: CloseWindowDeps): Promise<boolean> {
   const visited: string[] = [];
   const discarded: string[] = [];
+  // Linked tabs lost on request in their owner's flush: the host discards them with it.
+  const givenUp = new Set<string>();
   /** Gives the focus back to the tab active before, then refuses; a failed activation is reported. */
   const stay = async () => {
     if (active) await deps.activate(active).catch(deps.report);
     return false;
   };
   try {
-    const firstRound = sortStalls(await stalledOf((await freshRead(deps)).tabs.map((x) => x.id), deps), deps);
-    if (firstRound === false || !(await askStuck(firstRound, discarded, deps))) return await stay();
+    // A tab whose own close runs is left to it: its stalls are counted there, once.
+    const first = (await freshRead(deps)).tabs.filter((x) => !deps.closing.has(x.id));
+    const firstRound = sortStalls(await stalledOf(first.map((x) => x.id), deps), deps);
+    if (firstRound === false || !(await askStuck(firstRound, first, discarded, deps))) return await stay();
     for (const id of discarded) {
       deps.closing.add(id);
       visited.push(id);
@@ -365,7 +433,7 @@ export async function closeWindowFlow(active: string | null, deps: CloseWindowDe
       visited.push(listed.id);
       // Linked tabs join `visited`, so the finally below clears them from closing too.
       const linkedFrom = visited.length;
-      const links = await flushLinked(listed.id, view, tabs, visited, discarded, deps);
+      const links = await flushLinked(listed.id, view, tabs, visited, discarded, givenUp, deps);
       if (links === null) return await stay();
       const tab = visited.length > linkedFrom ? await findTab(listed.id, deps) : listed;
       if (!tab) continue;
@@ -391,9 +459,12 @@ export async function closeWindowFlow(active: string | null, deps: CloseWindowDe
     // The activations started flushes: joined, except for collected tabs (their guard is stuck)
     // and other windows' linked tabs (their own autosave).
     const here = (id: string) => tabs.some((x) => x.id === id);
-    const lastRound = sortStalls(await stalledOf(visited.filter((id) => !discarded.includes(id) && here(id)), deps), deps);
-    if (lastRound === false || !(await askStuck(lastRound, discarded, deps))) return await stay();
-    return await deps.closeWindow(discarded);
+    const pending = visited.filter((id) => !discarded.includes(id) && !givenUp.has(id) && here(id));
+    const lastRound = sortStalls(await stalledOf(pending, deps), deps);
+    if (lastRound === false || !(await askStuck(lastRound, tabs, discarded, deps))) return await stay();
+    // A refused close was reported by run: only the focus goes back.
+    if (await deps.closeWindow(discarded)) return true;
+    return await stay();
   } catch (e) {
     deps.report(e);
     return await stay();

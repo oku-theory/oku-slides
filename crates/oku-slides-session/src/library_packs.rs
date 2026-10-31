@@ -262,6 +262,11 @@ impl PackLibrary {
         by_kind!(self, self.kind_of(id), l => l.is_frozen(id, v))
     }
 
+    /// Whether version `v` of pack `id`, of `kind`, is an orphan draft (`Library::is_orphan`).
+    pub(crate) fn is_orphan_draft(&self, kind: PackKind, id: Uuid, v: &PackVersion) -> bool {
+        by_kind!(self, kind, l => l.is_orphan(id, v))
+    }
+
     /// L'index liste-t-il la version `v` du pack `id` ? Sans rien charger.
     pub(crate) fn lists(&self, id: Uuid, v: &PackVersion) -> bool {
         by_kind!(self, self.kind_of(id), l => l.lists(id, v))
@@ -324,7 +329,9 @@ impl PackLibrary {
         let write = self.draft_write(&lock, id, None);
         debug_assert!(matches!(write, DraftWrite::New), "a new id is never in the library");
         let lease = created_lease(&lock, self.lease_scope(), id, name)?;
-        write_session_version(self, &lock, id, &write, &files, lease.as_ref())?;
+        let version = write_session_version(self, &lock, id, &write, &files, lease.as_ref())?;
+        let marked = by_kind!(self, kind, l => l.mark_created_empty(&lock, id, &version));
+        warn_unmarked(id, marked);
         drop(lease);
         drop(lock);
         Ok(id)
@@ -335,7 +342,7 @@ impl PackLibrary {
     /// Under one `draft_lock`, as [`Self::create_empty_pack`]: a free
     /// namespace (`theme` when the name has no letter), no token, the new
     /// theme's lease checked with `covers`, then the theme library's
-    /// `save_draft`. `draft_lock` is per process (the cross-process race is ticketed).
+    /// `save_draft`. `draft_lock` is per process: the cross-process race is accepted (t-1251).
     ///
     /// # Errors
     ///
@@ -363,7 +370,8 @@ impl PackLibrary {
         debug_assert!(matches!(write, DraftWrite::New), "a new id is never in the library");
         let lease = created_lease(&lock, self.theme_scope(), id, name)?;
         ensure!(covers(lease.as_ref(), self.theme_scope(), id), LeaseMissingSnafu);
-        self.themes.save_draft(&lock, id, &write, &files)?;
+        let version = self.themes.save_draft(&lock, id, &write, &files)?;
+        warn_unmarked(id, self.themes.mark_created_empty(&lock, id, &version));
         drop(lease);
         drop(lock);
         Ok(id)
@@ -384,6 +392,19 @@ impl PackLibrary {
     ///
     /// Takes `DRAFTS`, reads and may delete in the library.
     pub(crate) fn discard_untouched(&self, kind: DraftKind, id: Uuid) -> Result<bool> {
+        self.discard_if(kind, id, |_| true)
+    }
+
+    /// `discard_untouched`, deleting only while `still` holds, checked under the same lock.
+    ///
+    /// # Errors
+    ///
+    /// The deletion's errors.
+    ///
+    /// # Blocking
+    ///
+    /// Takes `DRAFTS`, reads and may delete in the library.
+    pub(crate) fn discard_if(&self, kind: DraftKind, id: Uuid, still: impl FnOnce(&Self) -> bool) -> Result<bool> {
         let lock = draft_lock();
         let scope = match kind {
             DraftKind::Pack => self.lease_scope(),
@@ -399,7 +420,7 @@ impl PackLibrary {
             DraftKind::Pack => (self.versions(id).len(), Self::is_builtin(id)),
             DraftKind::Theme => (self.themes.versions(id).len(), ThemeLibrary::is_builtin(id)),
         };
-        if versions != 1 || builtin {
+        if versions != 1 || builtin || !still(self) {
             return Ok(false);
         }
         match kind {
@@ -458,6 +479,13 @@ impl PackLibrary {
             .into_iter()
             .map(|s| PackInfo::of(&s.files, &s.manifest, Self::is_builtin(s.manifest.id), s.received))
             .collect()
+    }
+}
+
+/// Logs a draft left without its `created-empty` mark: a crash would leave it behind.
+fn warn_unmarked(id: Uuid, marked: Result<()>) {
+    if let Err(e) = marked {
+        tracing::warn!(draft = %id, error = %e.one_line(), "empty draft not marked: never collected as an orphan");
     }
 }
 

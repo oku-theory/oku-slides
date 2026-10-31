@@ -65,21 +65,24 @@ export function closeStays(view: WorkspaceView, win: string, tab: string, inTaur
   return view.windows.every((w) => w.tabs.every((x) => closing.has(x.id)));
 }
 
-/** The deck a closed pack tab may update, and the version. */
-export interface OpenerOffer {
+/** What the opener is offered: a pack version, the switch to a copy, or a theme version. */
+type OfferKind = { kind: "version" } | { kind: "copy"; from: string } | { kind: "theme" };
+
+/** The deck a closed pack or theme tab may update, and what it would take. */
+export type OpenerOffer = OfferKind & {
   /** The opener deck's tab. */
   tab: string;
   /** Its title, already a label: never escaped or re-labelled here. */
   title: string;
   /** Its deck identity. */
   deck_uid: string;
-  /** The pack the tab edited. */
+  /** The pack (or theme) the tab edited: the copy for a "copy" offer. */
   pack: string;
   /** That pack's name, already a label. */
   pack_name: string;
   /** The version it wrote. */
   version: string;
-}
+};
 
 /** Une fenêtre : ses onglets et l'onglet actif. */
 export interface WindowView {

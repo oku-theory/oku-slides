@@ -356,6 +356,26 @@ pub enum Request {
         /// The deck the offer named; another deck in this tab refuses.
         deck_uid: String,
     },
+    /// Switches from `from` to `version` of its copy `pack`, if the offer holds.
+    UsePackCopy {
+        /// The original pack the deck pins.
+        from: Uuid,
+        /// The copy a pack tab saved.
+        pack: Uuid,
+        /// The copy's version offered when the pack tab closed.
+        version: oku_slides_core::PackVersion,
+        /// The deck the offer named; another deck in this tab refuses.
+        deck_uid: String,
+    },
+    /// Pins `version` of the deck's active theme `theme`, if the offer still holds.
+    UseThemeVersion {
+        /// The deck's active theme.
+        theme: Uuid,
+        /// The version offered when the theme tab closed.
+        version: oku_slides_core::PackVersion,
+        /// The deck the offer named; another deck in this tab refuses.
+        deck_uid: String,
+    },
 }
 
 impl Session {
@@ -414,6 +434,8 @@ impl Session {
                     | Request::HostToken { .. }
                     | Request::DataEdit { .. }
                     | Request::UsePackVersion { .. }
+                    | Request::UsePackCopy { .. }
+                    | Request::UseThemeVersion { .. }
                     | Request::SaveTheme { .. }
             ),
             !matches!(
@@ -510,6 +532,12 @@ impl Session {
             Request::HistoryClose => self.history_close()?,
             Request::HistoryVersions => return json(self.history_versions()?),
             Request::UsePackVersion { pack, version, deck_uid } => self.use_pack_version(pack, &version, &deck_uid)?,
+            Request::UsePackCopy { from, pack, version, deck_uid } => {
+                self.use_pack_copy(from, pack, &version, &deck_uid)?;
+            }
+            Request::UseThemeVersion { theme, version, deck_uid } => {
+                self.use_theme_version(theme, &version, &deck_uid)?;
+            }
         }
         if changes {
             self.persist(documents);

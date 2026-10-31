@@ -115,6 +115,15 @@ fn unlink_ready(slot: &mut Slot, tab: &str) -> bool {
     }
 }
 
+/// Whether `slot` is dormant, read without waiting: a busy session is awake.
+fn asleep(slot: &Mutex<Slot>) -> bool {
+    match slot.try_lock() {
+        Ok(slot) => slot.is_dormant(),
+        Err(TryLockError::Poisoned(p)) => p.into_inner().is_dormant(),
+        Err(TryLockError::WouldBlock) => false,
+    }
+}
+
 impl Workspace {
     /// Flushes and forwards every tab linked to `deck_tab`, waking them.
     pub(super) fn flush_linked(ws: &Mutex<Self>, deck_tab: &str) {
@@ -124,19 +133,16 @@ impl Workspace {
         }
     }
 
-    /// Flushes deck-pack tab `tab` and forwards its save; `true`: the owner applied it.
+    /// Flushes deck-pack tab `tab` and forwards its save; an applied one touches the owner.
     ///
     /// The forward path of a public call, run here so its answer is known; a
     /// deck-pack tab owns no links, so there is no pull to run. A failure is logged.
-    fn flush_deck_pack_tab(ws: &Mutex<Self>, tab: &str) -> bool {
+    fn flush_deck_pack_tab(ws: &Mutex<Self>, tab: &str) {
         let flushed = |s: &mut Session| s.flush_deck_pack().map(|()| s.take_deck_pack_send());
         match Self::acquire(ws, tab, Forward::No, flushed).0 {
             Ok(Ok(Some(send))) => Self::forward(ws, tab, &send),
-            Ok(Ok(None)) => false,
-            Ok(Err(e)) | Err(e) => {
-                tracing::warn!(tab, error = %e.one_line(), "deck-pack tab not flushed");
-                false
-            }
+            Ok(Ok(None)) => {}
+            Ok(Err(e)) | Err(e) => tracing::warn!(tab, error = %e.one_line(), "deck-pack tab not flushed"),
         }
     }
 
@@ -149,11 +155,7 @@ impl Workspace {
             }
             #[cfg(test)]
             FLUSH_ALL_SCANS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            let awake = |t: &Tab| match t.session.try_lock() {
-                Ok(slot) => !slot.is_dormant(),
-                Err(TryLockError::Poisoned(p)) => !p.into_inner().is_dormant(),
-                Err(TryLockError::WouldBlock) => true,
-            };
+            let awake = |t: &Tab| !asleep(&t.session);
             w.tab_ids()
                 .into_iter()
                 .filter(|id| !w.discard_at_quit.contains(id))
@@ -204,19 +206,18 @@ impl Workspace {
     /// `apply` on `Close`: the pre-phase's flush, then the close under the lock.
     ///
     /// A deck-pack tab closed alone is flushed, removed, unlinked from its
-    /// owner (lock released), and gives its owner the focus; the outcome is
-    /// `DeckChanged` for the owner when the flush reached it.
+    /// owner (lock released), and gives its owner the focus. A flush that reached
+    /// the owner is in `touched` (`forward`): the host's drain runs its after-change once.
     pub(super) fn close_tab(ws: &Mutex<Self>, tab: &str, discard: bool) -> Result<WorkspaceOutcome> {
         let owner = Self::lock(ws).tabs.get(tab).and_then(|t| t.info.document.deck_tab().map(str::to_owned));
-        let reached = match (&owner, discard) {
-            (_, true) => false,
+        match (&owner, discard) {
+            (_, true) => {}
             (Some(_), false) => Self::flush_deck_pack_tab(ws, tab),
             (None, false) => {
                 Self::flush_linked(ws, tab);
                 Self::save_pending_usages(ws, &[tab.to_owned()]);
-                false
             }
-        };
+        }
         let mut w = Self::lock(ws);
         let window = w.window_of(tab).ok().map(|i| w.layout.windows[i].label.clone());
         let was_active = w.tab_shown(tab);
@@ -240,11 +241,15 @@ impl Workspace {
         drop(w);
         trash.empty(gone);
         let Some(owner) = owner else { return json.map(WorkspaceOutcome::Applied) };
+        // A dormant owner holds no links: it takes the layout's, this tab gone, at its wake.
+        let sleeping = Self::lock(ws).session(&owner).is_ok_and(|slot| asleep(&slot));
+        if sleeping {
+            return json.map(WorkspaceOutcome::Applied);
+        }
         if let Err(e) = Self::with_quiet(ws, &owner, |s| s.unlink_deck_pack(tab)).0 {
             tracing::warn!(tab = %owner, error = %e.one_line(), "closed deck-pack tab not unlinked");
         }
-        let json = json?;
-        Ok(if reached { WorkspaceOutcome::DeckChanged { json, tab: owner } } else { WorkspaceOutcome::Applied(json) })
+        json.map(WorkspaceOutcome::Applied)
     }
 
     /// Every tab `CloseWindow` would close, and those of them discarded.

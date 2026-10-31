@@ -196,6 +196,29 @@ fn resume_owner_closes_a_tab_whose_link_it_refused() {
     });
 }
 
+/// The owner's first request after a restart sets the refused tab aside (t-1239): the
+/// host learns it through `changed` and `closed_by`, to stop that tab's agent.
+#[test]
+fn request_to_an_owner_refusing_a_link_reports_the_tab_set_aside() {
+    within(|| {
+        let (f, pin) = deck_packs_resumed();
+        f.new_tab();
+        let p = f.deck_pack_tab(pin.id);
+        let path = f.with("t-1", |s| s.doc.path.clone()).unwrap_or_else(|| panic!("a file"));
+        let data = f.data.path().to_owned();
+        let f = f.restart(|_, _| {
+            let mut other = session_on(&data);
+            ok(other.open(&path), "open elsewhere");
+            ok(other.remove_deck_pack(PackKind::Widgets, &Namespace::deck()), "remove elsewhere");
+            ok(other.save(None), "save elsewhere");
+        });
+        let ((result, changed), closed) =
+            Workspace::closed_by(&f.ws, |ws| Workspace::request(ws, "t-1", Request::Snapshot));
+        assert_that!(result.is_ok()).is_true();
+        assert_that!((changed, closed)).is_equal_to((true, vec![p]));
+    });
+}
+
 /// One bad deck-pack entry the resume sets aside.
 #[derive(Debug, Clone, Copy)]
 enum Bad {

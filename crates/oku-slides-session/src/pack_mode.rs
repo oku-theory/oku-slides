@@ -359,7 +359,7 @@ impl Session {
         // étape ne ramène à un autre pack que celui de l'édition.
         let Some((ns, pin)) = self.edited_pin().map(|(ns, pin)| (ns.clone(), pin.clone())) else { return Ok(()) };
         let held = self.doc.sources.packs.clone();
-        let Mode::Pack { preview, edit, lease, .. } = &mut self.mode else { return Ok(()) };
+        let Mode::Pack { preview, edit, lease, scratch, .. } = &mut self.mode else { return Ok(()) };
         if pin.version == edit.base {
             return Ok(());
         }
@@ -378,6 +378,8 @@ impl Session {
         pin_all(&mut user, &mut preview.sources, packs)?;
         preview.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
         preview.dirty = true;
+        // Restored to the library above: whichever step now pins it, a later save keeps it there.
+        scratch.adopt_step = None;
         // A deck-pack tab's owner takes the version the step brought back.
         self.fill_outbox(base, &files);
         Ok(())

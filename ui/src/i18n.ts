@@ -38,14 +38,18 @@ export function t(id: string, args?: Record<string, FluentVariable>): string {
   return message?.value ? bundle.formatPattern(message.value, args) : id;
 }
 
+/** The bidi embedding, override and isolate controls, which a label must not carry into a dialog. */
+const BIDI_CONTROLS = /[\u202A-\u202E\u2066-\u2069]/g;
+
 /**
  * Wraps `s` in one FSI and one PDI, for a message whose bundle adds no isolation marks.
  *
  * The bundles run with `useIsolating: false`: a call site that shows a label (a deck title,
  * a pack name) in a native dialog isolates it, so a right-to-left value cannot reorder the text.
+ * Its own bidi controls go first: a PDI inside could close the isolate early.
  */
 export function isolate(s: string): string {
-  return "\u2068" + s + "\u2069";
+  return "\u2068" + s.replace(BIDI_CONTROLS, "") + "\u2069";
 }
 
 let chosen: string | null = null;

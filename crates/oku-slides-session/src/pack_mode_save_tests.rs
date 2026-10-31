@@ -294,3 +294,57 @@ fn save_pack_writes_no_theme_version() {
     s.save_pack(true).unwrap();
     assert_that!(s.themes.themes()).is_equal_to(before);
 }
+
+/// t-1237: a save during an agent turn and one after it are two preview steps, so two versions.
+#[test]
+fn save_pack_after_a_turn_in_a_pack_tab_keeps_the_turn_version() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
+    s.begin_turn(1, "renomme");
+    s.apply("Nom", vec![rename_title("Un")], None).unwrap();
+    s.save_pack(false).unwrap();
+    let turn = edit_of(&s).session_version.unwrap_or_else(|| panic!("version du tour"));
+    s.end_turn();
+    s.apply("Nom", vec![rename_title("Deux")], None).unwrap();
+    s.save_pack(false).unwrap();
+    let after = edit_of(&s).session_version.unwrap_or_else(|| panic!("version d'après"));
+    let lib = library_of(&s);
+    let held = &preview_of(&s).sources.packs;
+    let library = (lib.version(ESSENTIEL_PACK, &turn).is_some(), lib.version(ESSENTIEL_PACK, &after).is_some());
+    let preview = (held.contains_key(&turn), held.contains_key(&after));
+    assert_that!((library, preview)).is_equal_to(((true, true), (true, true)));
+}
+
+/// t-1237: two saves inside one turn join the turn's step: the first leaves the preview.
+#[test]
+fn save_pack_twice_in_one_turn_keeps_only_the_last_version_in_the_preview() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
+    s.begin_turn(1, "renomme");
+    s.apply("Nom", vec![rename_title("Un")], None).unwrap();
+    s.save_pack(false).unwrap();
+    let first = edit_of(&s).session_version.unwrap_or_else(|| panic!("première version"));
+    s.apply("Nom", vec![rename_title("Deux")], None).unwrap();
+    s.save_pack(false).unwrap();
+    s.end_turn();
+    let second = edit_of(&s).session_version.unwrap_or_else(|| panic!("seconde version"));
+    let held = &preview_of(&s).sources.packs;
+    assert_that!((held.contains_key(&first), held.contains_key(&second))).is_equal_to((false, true));
+}
+
+/// t-1237: a save before a turn and one inside it are two steps: undoing the turn finds the first.
+#[test]
+fn save_pack_in_a_turn_after_a_save_before_it_keeps_the_earlier_version() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
+    s.apply("Nom", vec![rename_title("Un")], None).unwrap();
+    s.save_pack(false).unwrap();
+    let before = edit_of(&s).session_version.unwrap_or_else(|| panic!("version d'avant"));
+    s.begin_turn(1, "renomme");
+    s.apply("Nom", vec![rename_title("Deux")], None).unwrap();
+    s.save_pack(false).unwrap();
+    s.end_turn();
+    let kept =
+        (library_of(&s).version(ESSENTIEL_PACK, &before).is_some(), preview_of(&s).sources.packs.contains_key(&before));
+    assert_that!(kept).is_equal_to((true, true));
+}

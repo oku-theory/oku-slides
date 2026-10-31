@@ -204,10 +204,22 @@ fn pack_opener_offers_the_written_version() {
     ));
 }
 
+/// A pack tab that saved a copy offers its opener the switch to it (t-1207).
+#[test]
+fn pack_opener_after_a_save_as_new_offers_the_copy() {
+    let f = packs();
+    let p = f.pack_tab();
+    f.with(&p, |s| {
+        s.apply("x", vec![rename_title("acme copie")], None).unwrap();
+        drop(s.save_pack(true).unwrap());
+    });
+    let offer = Workspace::pack_opener(&f.ws, &p).unwrap().unwrap_or_else(|| panic!("an offer"));
+    assert_that!(offer.kind).is_equal_to(crate::workspace::opener::OfferKind::Copy { from: f.acme });
+}
+
 /// Why `pack_opener_is_null` answers nothing.
 #[derive(Debug, Clone, Copy)]
 enum Null {
-    SavedAsNew,
     NoOpener,
     OpenerClosed,
     OpenerCurrent,
@@ -231,7 +243,6 @@ fn newer_elsewhere(f: &Packs, v: &PackVersion) {
 }
 
 #[rstest]
-#[case::saved_as_new(Null::SavedAsNew)]
 #[case::no_opener(Null::NoOpener)]
 #[case::opener_closed(Null::OpenerClosed)]
 #[case::opener_current(Null::OpenerCurrent)]
@@ -242,10 +253,6 @@ fn pack_opener_is_null(#[case] why: Null) {
     let f = packs();
     let mut p = f.pack_tab();
     match why {
-        Null::SavedAsNew => f.with(&p, |s| {
-            s.apply("x", vec![rename_title("acme copie")], None).unwrap();
-            drop(s.save_pack(true).unwrap());
-        }),
         Null::NoOpener => {
             f.write_in(&p);
             Workspace::lock(&f.ws).tabs.get_mut(&p).unwrap().opener = None;

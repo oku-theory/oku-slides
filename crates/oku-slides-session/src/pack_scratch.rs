@@ -1,12 +1,13 @@
-//! Brouillon du mode pack : ce que la séance garde hors du pack.
+//! Pack mode scratch: what the session keeps outside the pack.
 //!
-//! Les widgets écrits par l'agent depuis la dernière écriture de
-//! l'utilisateur. Les valeurs d'exemple, elles, sont dans le pack
-//! (`PackManifest::examples`, `widget_examples.rs`).
+//! The widgets the agent wrote since the user's last write, and the preview
+//! step that pinned the session version. The example values live in the pack
+//! itself (`PackManifest::examples`, `widget_examples.rs`).
 
 use std::collections::BTreeSet;
 
 use oku_slides_core::WidgetFile;
+use uuid::Uuid;
 
 use crate::{Mode, Session};
 
@@ -15,6 +16,15 @@ use crate::{Mode, Session};
 pub(crate) struct PackScratch {
     /// Widgets écrits par l'agent depuis la dernière écriture de l'utilisateur.
     agent_wrote: BTreeSet<WidgetFile>,
+    /// The preview's undo step that pinned the session version; `None`: unknown.
+    ///
+    /// A later save that lands in that same step makes the replaced version
+    /// unreachable; in any other step an undo can bring it back (t-1237).
+    /// Kept in memory only: unknown after a resume or an undo, the replaced
+    /// version is then kept.
+    pub(crate) adopt_step: Option<u64>,
+    /// The pack this session first copied, which its opener may switch from.
+    pub(crate) copied_from: Option<Uuid>,
 }
 
 impl PackScratch {

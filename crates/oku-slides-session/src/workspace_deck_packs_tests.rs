@@ -248,6 +248,19 @@ fn failed_deck_pack_build_unlinks_the_owner() {
     });
 }
 
+/// What every error path after the link runs (t-1239): the owner forgets the pending tab.
+#[test]
+fn pending_link_cancel_unlinks_the_owner() {
+    within(|| {
+        let (f, pin) = deck_packs();
+        let linked = Workspace::with_quiet(&f.ws, "t-1", |s| s.link_deck_pack("t-9", "Importé", pin.id).map(drop));
+        linked.0.unwrap_or_else(|e| panic!("{}", e.one_line())).unwrap_or_else(|e| panic!("{}", e.one_line()));
+        let before = links_in(&f, "t-1").contains(&"t-9".to_owned());
+        super::super::deck_packs_close::PendingLink::new(&f.ws, "t-1", "t-9").cancel();
+        assert_that!((before, links_in(&f, "t-1").contains(&"t-9".to_owned()))).is_equal_to((true, false));
+    });
+}
+
 #[test]
 fn owner_closed_during_deck_pack_build_inserts_no_tab() {
     within(|| {

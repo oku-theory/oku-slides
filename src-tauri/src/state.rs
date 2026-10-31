@@ -114,10 +114,11 @@ impl std::fmt::Debug for AppSessions {
 
 impl Sessions for AppSessions {
     /// A deck-pack forward that changed owner decks: the view is emitted, and
-    /// each owner's `after_change` deferred to a blocking task, never inline
-    /// (the stack calls this method).
+    /// each owner's `after_change`, like the stop of a tab set aside meanwhile,
+    /// deferred to a blocking task, never inline (the stack calls this method).
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        let (done, changed) = Workspace::with_session(&self.workspace, tab, |s| f(s));
+        let ((done, changed), closed) =
+            Workspace::closed_by(&self.workspace, |ws| Workspace::with_session(ws, tab, |s| f(s)));
         if changed {
             crate::windows::emit_view(&self.app);
         }
@@ -127,10 +128,11 @@ impl Sessions for AppSessions {
             || crate::windows::emit_view(&self.app),
             |o| owners.push(o.to_owned()),
         );
-        if !owners.is_empty() {
+        if !owners.is_empty() || !closed.is_empty() {
             let app = self.app.clone();
             tauri::async_runtime::spawn_blocking(move || {
                 let state = app.state::<AppState>();
+                state.stop_closed_agents(&closed);
                 for owner in &owners {
                     state.stack.after_change(owner);
                 }

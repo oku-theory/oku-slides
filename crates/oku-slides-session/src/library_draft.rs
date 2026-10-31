@@ -23,6 +23,9 @@ use crate::library_kind::{LibraryKind, VersionManifest};
 /// Marque d'une version adoptée par un deck, dans son dossier.
 const ADOPTED_FILE: &str = "adopted";
 
+/// Mark of the version `create_empty_pack` or `create_empty_theme` wrote, in its folder (t-1251).
+const CREATED_EMPTY_FILE: &str = "created-empty";
+
 /// Le verrou des brouillons, commun à toutes les bibliothèques du processus.
 static DRAFTS: Mutex<()> = Mutex::new(());
 
@@ -128,6 +131,30 @@ impl<K: LibraryKind> Library<K> {
         let path = dir.join(VERSIONS_DIR).join(version.hex()).join(ADOPTED_FILE);
         self.storage.write_atomic(&path, b"").context(WriteSnafu { path: &path })?;
         Ok(())
+    }
+
+    /// Marks version `v` of `id` as a draft created empty, for the orphan collection at resume.
+    pub(crate) fn mark_created_empty(&self, _lock: &DraftLock, id: Uuid, v: &PackVersion) -> Result<()> {
+        let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
+        let path = dir.join(VERSIONS_DIR).join(v.hex()).join(CREATED_EMPTY_FILE);
+        self.storage.write_atomic(&path, b"").context(WriteSnafu { path: &path })?;
+        Ok(())
+    }
+
+    /// Whether version `v` of `id` was created empty; an unreadable mark counts as absent.
+    pub(crate) fn is_created_empty(&self, id: Uuid, v: &PackVersion) -> bool {
+        self.pack_dir(id).is_some_and(|d| self.is_marked(&d.join(VERSIONS_DIR).join(v.hex()), CREATED_EMPTY_FILE))
+    }
+
+    /// Whether `v` is all of `id`: marked created empty, unfrozen, current, its only folder.
+    ///
+    /// The folders are counted on disk, readable or not; an unlisted folder fails closed.
+    pub(crate) fn is_orphan(&self, id: Uuid, v: &PackVersion) -> bool {
+        let folders = self.pack_dir(id).and_then(|d| self.storage.list_dirs(&d.join(VERSIONS_DIR)).ok());
+        folders.is_some_and(|f| f.len() == 1)
+            && self.current(id).as_ref() == Some(v)
+            && self.is_created_empty(id, v)
+            && !self.is_frozen(id, v)
     }
 }
 

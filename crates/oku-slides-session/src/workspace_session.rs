@@ -114,20 +114,25 @@ impl Workspace {
                     }
                 }
             };
+            // A workspace request follows: its view shows the tab bar (`closed_by` the gone tabs).
             Self::set_aside(ws, &refused);
             Self::refresh(ws, &id, info);
         }
     }
 
     /// Sets aside the tabs an owner refused, then stops their resume, lock released.
-    pub(super) fn set_aside(ws: &Mutex<Self>, tabs: &[String]) {
+    ///
+    /// `true` when one left: the tab bar changed (t-1239).
+    pub(super) fn set_aside(ws: &Mutex<Self>, tabs: &[String]) -> bool {
         if tabs.is_empty() {
-            return;
+            return false;
         }
         let gone: Vec<(String, Tab)> = Self::lock(ws).set_aside_unlinked(tabs);
+        let any = !gone.is_empty();
         for (id, tab) in gone {
             relock(&tab.session).stop_resume(&id);
         }
+        any
     }
 
     /// La session d'un onglet, peut-être endormie.

@@ -70,7 +70,9 @@ impl Workspace {
 
 /// The agent reaches tab sessions through the workspace, deck-pack forwards included.
 /// The redraw flag and the touched owners stay with the host, which calls
-/// [`Workspace::with_session`] and drains [`Workspace::drain_touched`] itself.
+/// [`Workspace::with_session`] and drains [`Workspace::drain_touched`] itself. A tab
+/// set aside during a call keeps its agent here, a limit of the CLI's `serve`, which
+/// uses this impl; the app's host wraps the call in [`Workspace::closed_by`] (t-1239).
 impl Sessions for Mutex<Workspace> {
     fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> Result<()> {
         Workspace::with_session(self, tab, |s| f(s)).0

@@ -133,7 +133,9 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
             return Err(CLOSING.to_owned());
         }
         let changes_deck = req.changes_deck();
-        let (reply, changed) = Workspace::request(&state.workspace, &tab, req);
+        let ((reply, changed), closed) = Workspace::closed_by(&state.workspace, |ws| Workspace::request(ws, &tab, req));
+        // A deck-pack tab its owner refused, set aside by this request: its agent stops.
+        state.stop_closed_agents(&closed);
         if changed {
             windows::emit_view(app);
         }
@@ -170,11 +172,7 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         if let Some(tab) = outcome.tune_tab() {
             state.tune(tab);
         }
-        // A tab's deck changed: the agent's orphaned notes close, as after a deck request.
-        if let Some(tab) = outcome.after_change_tab() {
-            state.stack.after_change(tab);
-        }
-        // A close's flush reached owner decks: the view, then their notes.
+        // A close's flush reached owner decks: the view, then their notes (once each).
         Workspace::drain_touched(&state.workspace, || windows::emit_view(app), |owner| state.stack.after_change(owner));
         if outcome.is_last_window() {
             state::shutdown(app);

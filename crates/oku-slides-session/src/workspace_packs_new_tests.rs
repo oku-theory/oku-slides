@@ -123,6 +123,16 @@ fn new_pack_opens_created_pack_tab_after_requester(
     assert_that!((slides, edited, f.created_of(&new))).is_equal_to((0, kind, Some(id)));
 }
 
+/// Its tab opened, the draft is no orphan, whatever the age: opening froze it (t-1251).
+#[test]
+fn new_pack_opened_is_never_an_orphan_draft() {
+    let f = packs();
+    let (new, _) = f.created("t-1", PackKind::Widgets);
+    let later = time::OffsetDateTime::now_utc() + crate::library_orphans::ORPHAN_AGE + time::Duration::minutes(1);
+    let orphans = f.with(&new, |s| s.library.collect_orphan_drafts(&[], later));
+    assert_that!(orphans).is_empty();
+}
+
 /// G9: an empty working deck renders, snapshots and resumes as the tab of its pack.
 #[test]
 fn new_pack_empty_working_deck_snapshots_and_resumes() {

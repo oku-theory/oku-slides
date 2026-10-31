@@ -75,6 +75,7 @@ pub mod library;
 mod library_index;
 mod library_kind;
 mod library_lookup;
+mod library_orphans;
 mod library_packs;
 mod merge;
 mod namespace_slug;

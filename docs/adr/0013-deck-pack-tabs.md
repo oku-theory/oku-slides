@@ -106,6 +106,8 @@ the deck pins, across saves, undo, closes, quits and restarts.
   reports `DeckChanged` from it); `Closed::Gone` carries the removed slots, emptied once the lock is
   released. A deck-pack entry with an invalid owner is kept by `read_info` and set aside by the
   resume pre-pass, with its notice.
+- Superseded (t-1239): `forward` returns nothing and `DeckChanged` is gone. An applied send puts
+  the owner in `touched`, so the host's `drain_touched` runs its after-change once.
 - Known limits:
   - an owner that absorbs an external change of the file on save keeps its links, and a moved pin
     refuses the tab's later sends; an owner that opened another document fails closed by `deck_uid`;

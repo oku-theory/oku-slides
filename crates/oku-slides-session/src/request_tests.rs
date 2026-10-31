@@ -18,18 +18,28 @@ fn newer_elsewhere(data: &Path, pack: Uuid) {
     other.save_pack(false).unwrap();
 }
 
-/// Copies the folder `from` over `to`, files replaced.
+/// Copies the folder `from` over `to`, created if needed, files replaced.
 fn copy_over(from: &Path, to: &Path) {
+    // Created first: a file may come before any folder in `read_dir`'s order (t-1238).
+    std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {
         let entry = entry.unwrap();
         let target = to.join(entry.file_name());
         if entry.file_type().unwrap().is_dir() {
-            std::fs::create_dir_all(&target).unwrap();
             copy_over(&entry.path(), &target);
         } else {
             std::fs::copy(entry.path(), target).unwrap();
         }
     }
+}
+
+/// A library root holds a file beside its pack folders (t-1238): `read_dir` may list it first.
+#[test]
+fn copy_over_a_top_level_file_into_a_missing_folder_copies_it() {
+    let (from, to) = (fresh_dir("oku-slides-copy-from-"), fresh_dir("oku-slides-copy-to-"));
+    std::fs::write(from.path().join("generation"), "1").unwrap();
+    copy_over(from.path(), &to.path().join("widgets"));
+    assert_that!(to.path().join("widgets").join("generation").exists()).is_true();
 }
 
 #[test]
@@ -41,6 +51,32 @@ fn use_pack_version_request_parses_the_ui_json() {
     }))
     .unwrap();
     let parsed = matches!(request, Request::UsePackVersion { pack: p, version: v, deck_uid } if p == pack && v == version && deck_uid == "d-1");
+    assert_that!(parsed).is_true();
+}
+
+#[test]
+fn use_pack_copy_request_parses_the_ui_json() {
+    let (from, pack) = (Uuid::new_v4(), Uuid::new_v4());
+    let version = crate::test_support::builtin(crate::BASE_PACK).version.clone();
+    let request: Request = serde_json::from_value(json!({
+        "cmd": "use_pack_copy", "from": from, "pack": pack, "version": version.as_str(), "deck_uid": "d-1",
+    }))
+    .unwrap();
+    let parsed = matches!(request, Request::UsePackCopy { from: f, pack: p, version: v, deck_uid }
+        if f == from && p == pack && v == version && deck_uid == "d-1");
+    assert_that!(parsed).is_true();
+}
+
+#[test]
+fn use_theme_version_request_parses_the_ui_json() {
+    let theme = Uuid::new_v4();
+    let version = crate::test_support::builtin(crate::BASE_PACK).version.clone();
+    let request: Request = serde_json::from_value(json!({
+        "cmd": "use_theme_version", "theme": theme, "version": version.as_str(), "deck_uid": "d-1",
+    }))
+    .unwrap();
+    let parsed = matches!(request, Request::UseThemeVersion { theme: t, version: v, deck_uid }
+        if t == theme && v == version && deck_uid == "d-1");
     assert_that!(parsed).is_true();
 }
 

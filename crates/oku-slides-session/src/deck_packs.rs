@@ -344,7 +344,7 @@ impl Session {
     }
 
     /// La version du thème du deck par rapport à ma version courante de ce thème (voir [`Self::pin_relation`]).
-    fn theme_relation(&self) -> Option<Drift> {
+    pub(crate) fn theme_relation(&self) -> Option<Drift> {
         let pin = self.deck_theme_pin()?;
         let current = self.themes.current(pin.id)?;
         Drift::of(self.themes.relation(pin.id, &pin.version, &current))

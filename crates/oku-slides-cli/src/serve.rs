@@ -146,7 +146,12 @@ impl Shared {
                     // Le serveur de développement ignore le drapeau : l'interface relit
                     // l'espace de travail après chaque commande.
                     let changes_deck = req.changes_deck();
-                    let (result, _changed) = Workspace::request(&self.workspace, &tab, req);
+                    let ((result, _changed), closed) =
+                        Workspace::closed_by(&self.workspace, |ws| Workspace::request(ws, &tab, req));
+                    // A deck-pack tab its owner refused, set aside by this request: its agent stops.
+                    for gone in &closed {
+                        self.stack.tab_closed(gone);
+                    }
                     match result {
                         Ok(json) => {
                             if changes_deck {
@@ -176,11 +181,6 @@ impl Shared {
                         // Un onglet importé à fine-tuner : son tour part, puis la vue, comme un fichier ouvert.
                         Ok(WorkspaceOutcome::Tune { json, tab }) => {
                             self.stack.tune(&tab);
-                            (StatusCode::OK, json)
-                        }
-                        // A tab's deck changed: the agent's orphaned notes close, as after a deck request.
-                        Ok(WorkspaceOutcome::DeckChanged { json, tab }) => {
-                            self.stack.after_change(&tab);
                             (StatusCode::OK, json)
                         }
                         Ok(WorkspaceOutcome::LastWindow(_)) => last_window(),

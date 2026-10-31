@@ -47,7 +47,9 @@ impl Request {
             | Self::EditExampleList { .. }
             | Self::HostToken { .. }
             | Self::DataEdit { .. }
-            | Self::UsePackVersion { .. } => true,
+            | Self::UsePackVersion { .. }
+            | Self::UsePackCopy { .. }
+            | Self::UseThemeVersion { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
             | Self::Search { .. }
@@ -100,6 +102,8 @@ impl Request {
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
                 | Self::UsePackVersion { .. }
+                | Self::UsePackCopy { .. }
+                | Self::UseThemeVersion { .. }
         )
     }
 
@@ -108,11 +112,18 @@ impl Request {
     /// Every request that changes the deck, except a widget edit and `Save`:
     /// a save ends it only when it merges a file changed on disk (see
     /// `Session::absorb`). The interface saves after each write: otherwise
-    /// each would make a pack version. `UsePackVersion` ends it itself once
-    /// its checks passed: a refused one changes nothing.
+    /// each would make a pack version. `UsePackVersion` and the copy and theme
+    /// offers end it themselves once their checks passed: a refused one changes
+    /// nothing.
     pub(crate) fn ends_widget_session(&self) -> bool {
         self.changes_deck()
-            && !matches!(self, Self::Save { .. } | Self::UsePackVersion { .. })
+            && !matches!(
+                self,
+                Self::Save { .. }
+                    | Self::UsePackVersion { .. }
+                    | Self::UsePackCopy { .. }
+                    | Self::UseThemeVersion { .. }
+            )
             && !self.is_widget_edit()
     }
 
@@ -185,7 +196,9 @@ impl Request {
             | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
             | Self::PreviewWidget { .. }
-            | Self::UsePackVersion { .. } => false,
+            | Self::UsePackVersion { .. }
+            | Self::UsePackCopy { .. }
+            | Self::UseThemeVersion { .. } => false,
         }
     }
 
@@ -233,6 +246,8 @@ impl Request {
             | Self::EditExampleList { .. }
             | Self::DataEdit { .. }
             | Self::UsePackVersion { .. }
+            | Self::UsePackCopy { .. }
+            | Self::UseThemeVersion { .. }
             | Self::HostSettings { .. }
             | Self::DataPanel { .. }
             | Self::Layouts

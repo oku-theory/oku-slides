@@ -23,7 +23,6 @@ fn close(f: &Packs, tab: &str, discard: bool) -> Result<WorkspaceOutcome> {
 fn kind(r: &Result<WorkspaceOutcome>) -> String {
     match r {
         Ok(WorkspaceOutcome::LastWindow(_)) => "LastWindow".to_owned(),
-        Ok(WorkspaceOutcome::DeckChanged { tab, .. }) => format!("DeckChanged({tab})"),
         Ok(WorkspaceOutcome::Applied(_)) => "Applied".to_owned(),
         Ok(other) => format!("{other:?}"),
         Err(e) => format!("{:?}", e.kind()),
@@ -160,7 +159,9 @@ fn closing_a_deck_pack_tab_alone_unlinks_and_activates_its_owner() {
         let p = f.deck_pack_tab(pin.id);
         f.edit_in(&p, "Importé 2");
         drop(Workspace::take_touched(&f.ws));
-        assert_that!(kind(&close(&f, &p, false))).is_equal_to("DeckChanged(t-1)".to_owned());
+        assert_that!(kind(&close(&f, &p, false))).is_equal_to("Applied".to_owned());
+        // The flush's owner is named once, by the touched drain alone: one after-change (t-1239).
+        assert_that!(Workspace::take_touched(&f.ws)).is_equal_to(vec!["t-1".to_owned()]);
         assert_that!((has(&f, &p), f.active(0))).is_equal_to((false, "t-1".to_owned()));
         assert_that!(f.owner_write("t-1")).is_ok();
     });
@@ -275,5 +276,24 @@ fn ensure_closable_refuses_an_unsent_deck_pack_tab() {
         assert_that!(f.unsent(&p)).is_true();
         let refused = Workspace::lock(&f.ws).ensure_closable(&p, false).map_err(|e| e.kind());
         assert_that!(refused).is_equal_to(Err(SessionErrorKind::Unsaved));
+    });
+}
+
+/// Whether tab `tab`'s session is dormant, read without waking it.
+fn dormant(f: &Packs, tab: &str) -> bool {
+    let slot = Workspace::lock(&f.ws).session(tab).unwrap_or_else(|e| panic!("{tab}: {}", e.one_line()));
+    crate::workspace::relock(&slot).is_dormant()
+}
+
+#[test]
+fn closing_a_deck_pack_tab_leaves_a_dormant_owner_asleep() {
+    within_secs(60, || {
+        let (f, pin) = deck_packs_resumed();
+        let p = f.deck_pack_tab(pin.id);
+        let f = f.restart(|_, _| {});
+        let before = dormant(&f, "t-1");
+        assert_that!(kind(&close(&f, &p, false))).is_equal_to("Applied".to_owned());
+        // A dormant owner holds no links: it takes the layout's at its next wake (t-1239).
+        assert_that!((before, dormant(&f, "t-1"))).is_equal_to((true, true));
     });
 }

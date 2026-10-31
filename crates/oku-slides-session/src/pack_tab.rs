@@ -81,6 +81,8 @@ pub(crate) struct PackWrite {
     pub name: String,
     /// The version written.
     pub version: PackVersion,
+    /// The pack the tab copied into `pack`, when it saved a copy (t-1207).
+    pub copied_from: Option<Uuid>,
 }
 
 /// True if `files` hold the item `name` (a bare name; a layout pack's layouts are its widgets).
@@ -398,9 +400,9 @@ impl Session {
     /// The version this pack tab wrote last, if it wrote one.
     #[must_use]
     pub(crate) fn wrote_in_pack_tab(&self) -> Option<PackWrite> {
-        let Mode::Pack { edit, .. } = &self.mode else { return None };
+        let Mode::Pack { edit, scratch, .. } = &self.mode else { return None };
         let version = edit.session_version.clone()?;
-        Some(PackWrite { pack: edit.pack, name: label(&edit.name), version })
+        Some(PackWrite { pack: edit.pack, name: label(&edit.name), version, copied_from: scratch.copied_from })
     }
 }
 

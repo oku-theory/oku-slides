@@ -16,28 +16,22 @@
 
 use std::sync::{Mutex, TryLockError};
 
-use serde::Serialize;
-use snafu::OptionExt;
 use uuid::Uuid;
 
-use oku_slides_core::{PackKind, PackVersion};
+use oku_slides_core::PackKind;
 
-use crate::SessionErrorKind;
 use crate::agent::{TabGate, TabOpen};
-use crate::deck_offer::DeckOffer;
 use crate::error::SingleDocumentSnafu;
 use crate::library_packs::{DraftKind, PackLibrary};
 use crate::pack_lease::PackLease;
-use crate::pack_tab::{PackRoute, PackWrite};
+use crate::pack_tab::PackRoute;
 
 use super::opening::with_opening;
 #[cfg(test)]
 use super::opening::{opening_entry, opening_waiters};
 #[cfg(test)]
 use super::tabs::open_failpoint;
-use super::{
-    Activate, Created, Opening, Pending, Result, Slot, TabPlace, UnknownTabSnafu, Workspace, WorkspaceOutcome,
-};
+use super::{Activate, Created, Opening, Pending, Result, Slot, TabPlace, Workspace, WorkspaceOutcome};
 use crate::TabDocument;
 
 /// Dormant candidates woken at most by one open (O10): past them, the live re-scan decides.
@@ -85,22 +79,6 @@ impl From<PackOpened> for TabOpen {
             PackOpened::Refused => Self::Refused,
         }
     }
-}
-
-/// The deck offered to take the version a pack tab wrote.
-#[derive(Debug, Serialize)]
-pub(crate) struct OpenerOffer {
-    /// The opener deck's tab.
-    pub tab: String,
-    /// The opener deck's title and identity.
-    #[serde(flatten)]
-    pub deck: DeckOffer,
-    /// The pack the tab edited.
-    pub pack: Uuid,
-    /// That pack's name, already a label.
-    pub pack_name: String,
-    /// The version it wrote.
-    pub version: PackVersion,
 }
 
 /// One open of a pack, as the steps share it.
@@ -418,36 +396,6 @@ impl Workspace {
             };
             (document.as_ref() == Some(wanted)).then(|| id.clone())
         })
-    }
-
-    /// The opener of pack tab `tab`, with the version it would take.
-    ///
-    /// `None` for a deck-pack tab: its saves go to its owner deck.
-    ///
-    /// # Errors
-    ///
-    /// `UnknownTab` for `tab`.
-    ///
-    /// # Blocking
-    ///
-    /// Reads two sessions and the library.
-    pub(crate) fn pack_opener(ws: &Mutex<Self>, tab: &str) -> Result<Option<OpenerOffer>> {
-        let opener = {
-            let w = Self::lock(ws);
-            let t = w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
-            t.opener.clone().filter(|_| t.info.document.deck_tab().is_none())
-        };
-        let Some(opener) = opener else { return Ok(None) };
-        let (wrote, _changed) = Self::with_quiet(ws, tab, |s| s.wrote_in_pack_tab());
-        let Some(PackWrite { pack, name, version }) = wrote? else { return Ok(None) };
-        let (offer, _changed) = Self::with_quiet(ws, &opener, |s| s.opener_offer(pack, &version));
-        let deck = match offer {
-            Ok(Some(deck)) => deck,
-            Ok(None) => return Ok(None),
-            Err(e) if e.kind() == SessionErrorKind::UnknownTab => return Ok(None),
-            Err(e) => return Err(e),
-        };
-        Ok(Some(OpenerOffer { tab: opener, deck, pack, pack_name: name, version }))
     }
 
     /// Detaches `tab`; an active pack or theme tab hands the focus back to its opener.

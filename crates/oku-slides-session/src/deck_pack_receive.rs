@@ -102,8 +102,10 @@ impl Session {
     /// # Errors
     ///
     /// `WrongDocument` outside a deck; `DeckPackMismatch` for a send this deck
-    /// does not take (nothing changes then); `PackOpenInTab` when it would move
-    /// another link's pack; `Sources` and the widget and render errors of the apply.
+    /// does not take (nothing changes then); a closure or pin failure keeps its own
+    /// kind (`UnknownNamespace`, `NamespaceTaken`, `PackVersionMissing`…), nothing
+    /// changed either; `PackOpenInTab` when it would move another link's pack;
+    /// `Sources` and the widget and render errors of the apply.
     ///
     /// # Blocking
     ///
@@ -196,9 +198,9 @@ impl Session {
         let mut held = self.doc.sources.packs.clone();
         held.insert(version.clone(), send.files.clone());
         let edited = (namespace.clone(), pin, send.files.clone());
-        let packs = closure_with_files(&self.library, &deck, edited, &held)
-            .and_then(|packs| pin_deck(&mut deck, &packs).map(|()| packs))
-            .map_err(|e| mismatch(&name, &e.one_line()))?;
+        // A closure or pin failure keeps its own kind: the tab names the cause (t-1239).
+        let packs = closure_with_files(&self.library, &deck, edited, &held)?;
+        pin_deck(&mut deck, &packs)?;
         let (before, after) = (combined_pins(self.doc.sources.deck()), combined_pins(&deck));
         let moved = before.iter().any(|(ns, pin)| *ns != namespace && after.get(ns) != Some(pin));
         if moved {

@@ -512,6 +512,8 @@ type Request =
   | { cmd: "save_pack"; as_new: boolean }
   | { cmd: "delete_pack"; pack: string }
   | { cmd: "use_pack_version"; pack: string; version: string; deck_uid: string }
+  | { cmd: "use_pack_copy"; from: string; pack: string; version: string; deck_uid: string }
+  | { cmd: "use_theme_version"; theme: string; version: string; deck_uid: string }
   | { cmd: "rename_edited_theme"; name: string }
   | { cmd: "set_edited_theme_extends"; extends: string[] }
   | { cmd: "edit_theme_extends"; edit: ExtendsEdit; theme: string }
@@ -734,6 +736,12 @@ export function tabApi(tab: string) {
      */
     takePackVersion: (pack: string, version: string, deckUid: string) =>
       call<Snapshot>({ cmd: "use_pack_version", pack, version, deck_uid: deckUid }),
+    /** Switches from pack `from` to an offered copy if the offer still holds (sends `use_pack_copy`). */
+    takePackCopy: (from: string, pack: string, version: string, deckUid: string) =>
+      call<Snapshot>({ cmd: "use_pack_copy", from, pack, version, deck_uid: deckUid }),
+    /** Pins an offered version of the deck's theme if it still holds (sends `use_theme_version`). */
+    takeThemeVersion: (theme: string, version: string, deckUid: string) =>
+      call<Snapshot>({ cmd: "use_theme_version", theme, version, deck_uid: deckUid }),
     /** Supprime un pack de l'utilisateur, toutes versions ; répond les packs restants de sa sorte. */
     deletePack: (pack: string) => call<PackInfo[]>({ cmd: "delete_pack", pack }),
     /** Fichiers de widgets du pack en cours, `_commun` en tête. */

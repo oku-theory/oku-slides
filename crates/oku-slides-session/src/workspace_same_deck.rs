@@ -105,6 +105,7 @@ impl Workspace {
         });
         match info {
             Ok((info, refused)) => {
+                // Run inside a workspace request or an opening: its view shows the tab bar.
                 Self::set_aside(ws, &refused);
                 Self::refresh(ws, id, info);
             }

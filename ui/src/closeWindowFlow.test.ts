@@ -12,7 +12,7 @@ beforeAll(async () => {
 afterAll(resetMessages);
 
 const PENDING = "report This tab is still saving: close it again in a moment.";
-const ASK_STUCK = "confirm This tab is still saving. Close it anyway and lose what has not been saved?";
+const ASK_STUCK = "confirm “⁨p⁩” is still saving. Close it anyway and lose what has not been saved?";
 const timeout = () => Promise.resolve("timeout" as const);
 const onlyFor = (id: string) => (g: string) => Promise.resolve(g === id ? ("timeout" as const) : ("done" as const));
 const readOnlyPack = async () => snap({ dirty: true, editing: packEditing({ read_only: true, leased: false }) });
@@ -170,5 +170,42 @@ describe("closeWindowFlow", () => {
     expect(await closeWindowFlow("a", f.deps())).toBe(true);
     expect(f.log.slice(4, 13)).toEqual(["guard p", "snapshot p", "savePack p", "snapshot p", "fresh", "activate a", "snapshot a", "save a", "guard a"]);
     expect(f.log.at(-1)).toBe("closeWindow ");
+  });
+});
+
+describe("closeWindowFlow leftovers (t-1255)", () => {
+  test("a refused closeWindow re-activates the previous tab and returns false", async () => {
+    const f = fake([tabOf("a"), tabOf("b")]);
+    f.state.windowRefused = true;
+    expect(await closeWindowFlow("a", f.deps())).toBe(false);
+    expect(f.log.slice(-2)).toEqual(["run error refusé", "activate a"]);
+  });
+
+  test("the stuck-tab question names the tab", async () => {
+    const f = fake([tabOf("a"), { ...tabOf("p", true, true), title: "Charte" }]);
+    f.state.guard = onlyFor("p");
+    f.input.stalls.set("p", T0 - 5_000);
+    expect(await closeWindowFlow("a", f.deps())).toBe(true);
+    expect(f.questions.map((q) => q.message)).toEqual([
+      "“⁨Charte⁩” is still saving. Close it anyway and lose what has not been saved?",
+    ]);
+  });
+
+  test("a linked tab given up in its owner's flush is not guarded again", async () => {
+    const f = fake([tabOf("a"), linkedOf("p", "a", true)]);
+    let calls = 0;
+    f.state.guard = (id) => Promise.resolve(id === "p" && calls++ > 0 ? ("timeout" as const) : ("done" as const));
+    f.input.stalls.set("p", T0 - 5_000);
+    expect(await closeWindowFlow("a", f.deps())).toBe(true);
+    expect([f.questions.length, f.guardCalls.get("p")]).toEqual([1, 2]);
+  });
+
+  test("a stall its own tab close recorded is not counted again", async () => {
+    const f = fake([tabOf("a"), tabOf("b")]);
+    f.state.guard = onlyFor("b");
+    f.input.closing.add("b");
+    f.input.stalls.set("b", T0);
+    expect(await closeWindowFlow("a", f.deps())).toBe(true);
+    expect([f.questions.length, f.input.stalls.get("b")]).toEqual([0, T0]);
   });
 });

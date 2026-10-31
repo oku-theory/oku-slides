@@ -15,7 +15,7 @@ use oku_slides_core::SourceBundle;
 
 use crate::deck_pack_link::LinkedPins;
 use crate::error::{SourcesSnafu, UndoCompensationFailedSnafu};
-use crate::{Result, Session, SessionError};
+use crate::{Mode, Result, Session, SessionError};
 
 /// One replica step: undo or redo; `true` if it took place.
 type Step = fn(&mut SourceBundle) -> std::result::Result<bool, oku_slides_core::SourcesError>;
@@ -62,6 +62,10 @@ impl Session {
         self.end_widget_session();
         self.ensure_document_editable()?;
         let before = self.linked_pins();
+        // The replica ends an open turn group on an undo or redo: the deck set aside's too.
+        if let Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } = &mut self.mode {
+            stash.sources.end_group();
+        }
         if do_step(&mut self.doc.sources).context(SourcesSnafu)? {
             if let Err(refused) = self.stop_at_linked_pins(&before) {
                 return Err(self.take_back(opposite, &before, refused));
