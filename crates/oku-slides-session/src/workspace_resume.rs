@@ -361,7 +361,7 @@ impl Workspace {
         if let Some(info) = info {
             let (fonts, platform) = (self.fonts.clone(), self.platform.clone());
             let (title, document) = (info.title.clone(), info.document.clone());
-            let dormant = Dormant { dir: tab_dir, title, document, notice: None, fonts, platform };
+            let dormant = Dormant { dir: tab_dir, title, document, notice: None, fonts, platform, usage: Vec::new() };
             self.tabs.insert(id.to_owned(), Tab::dormant(info, dormant));
             return true;
         }

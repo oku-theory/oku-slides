@@ -151,6 +151,7 @@ ui-agent-detach = Open de agent in een apart venster
 ui-agent-attach = Breng de agent terug naar het hoofdvenster
 ui-agent-window-empty = Geen agent voor dit tabblad
 ui-agent-kept-in-draft = Nergens om te schrijven: tekst bewaard in het concept
+ui-agent-md-table = Scrollbare tabel
 ui-draft = Concept
 ui-draft-send = Naar de agent sturen
 ui-draft-send-title = Naar de agent sturen (⌘↩)

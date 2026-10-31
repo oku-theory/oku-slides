@@ -213,6 +213,8 @@ struct Document {
     ///
     /// Never makes the deck unsaved: a clean tab that closes writes it alone.
     usage_unsaved: bool,
+    /// A close already tried to write the unsaved usage: the next close goes on without it.
+    usage_write_tried: bool,
     /// The full ledger's refusal is already logged: logged once per document.
     usage_full_warned: bool,
 }
@@ -232,6 +234,7 @@ impl Document {
             blank: false,
             disk_replaced: false,
             usage_unsaved: false,
+            usage_write_tried: false,
             usage_full_warned: false,
         }
     }

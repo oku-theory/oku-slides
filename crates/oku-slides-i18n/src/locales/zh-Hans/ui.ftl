@@ -151,6 +151,7 @@ ui-agent-detach = 在单独的窗口中打开智能体
 ui-agent-attach = 将智能体放回主窗口
 ui-agent-window-empty = 此标签页没有智能体
 ui-agent-kept-in-draft = 没有可写入的位置：文本已保留在草稿中
+ui-agent-md-table = 可滚动表格
 ui-draft = 草稿
 ui-draft-send = 发送给智能体
 ui-draft-send-title = 发送给智能体 (⌘↩)

@@ -151,6 +151,7 @@ ui-agent-detach = एजेंट को अलग विंडो में ख
 ui-agent-attach = एजेंट को मुख्य विंडो में वापस लाएँ
 ui-agent-window-empty = इस टैब के लिए कोई एजेंट नहीं है
 ui-agent-kept-in-draft = लिखने की जगह नहीं: पाठ ड्राफ़्ट में रखा गया
+ui-agent-md-table = स्क्रॉल करने योग्य तालिका
 ui-draft = मसौदा
 ui-draft-send = एजेंट को भेजें
 ui-draft-send-title = एजेंट को भेजें (⌘↩)

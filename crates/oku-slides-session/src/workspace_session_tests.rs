@@ -147,8 +147,15 @@ fn slot_closed_while_dormant_refuses_to_wake_and_writes_nothing() {
     let data = Data::new();
     let dir = data.0.join("tabs/t-9");
     let (platform, document) = (workspace_platform(&data.0), crate::TabDocument::Deck { path: None, deck_uid: None });
-    let d =
-        Dormant { dir: dir.clone(), title: "t-9".into(), document, notice: None, fonts: Fonts::default(), platform };
+    let d = Dormant {
+        dir: dir.clone(),
+        title: "t-9".into(),
+        document,
+        notice: None,
+        fonts: Fonts::default(),
+        platform,
+        usage: Vec::new(),
+    };
     let mut slot = Slot::Dormant(Box::new(d));
     slot.stop_resume("t-9");
     let err = slot.ready_with_links(0, &[]).err().map(|e| e.kind());

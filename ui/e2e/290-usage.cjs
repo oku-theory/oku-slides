@@ -13,8 +13,8 @@ const LOG = process.env.E2E_AGENT_LOG;
 const HEAD = { turns: 'Tours', input: 'Entrée', cost: 'Coût' };
 
 const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text, ui: {} });
-/** A cell's number: digits and dot kept, 0 for "–". */
-const num = (text) => Number(text.replace(/[^\d.]/g, '') || '0');
+/** A cell's number: groups dropped, a French decimal comma read as a point, 0 for "–". */
+const num = (text) => Number(text.replace(/[^\d.,]/g, '').replace(',', '.') || '0');
 /** The thread's turns holding `text`. */
 const turnsOf = (p, text) => p.locator('.agent-turn', { hasText: text });
 

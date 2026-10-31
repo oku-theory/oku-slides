@@ -157,6 +157,7 @@ ui-agent-detach = Открыть агента в отдельном окне
 ui-agent-attach = Вернуть агента в главное окно
 ui-agent-window-empty = Для этой вкладки нет агента
 ui-agent-kept-in-draft = Некуда вставить: текст сохранён в черновике
+ui-agent-md-table = Прокручиваемая таблица
 ui-draft = Черновик
 ui-draft-send = Отправить агенту
 ui-draft-send-title = Отправить агенту (⌘↩)

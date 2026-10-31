@@ -3,12 +3,14 @@ use std::sync::Arc;
 use serde_json::json;
 use speculoos::prelude::*;
 
-use super::super::packs::workspace_packs_fixtures::{Packs, deck_packs, packs};
+use super::super::packs::workspace_packs_fixtures::{Packs, deck_packs, packs, packs_resumed};
 use crate::agent::{Sessions, TabOpen, TabSession};
 use crate::deck_usage::deck_usage_tests::{ledger_in, record};
 use crate::test_support::{logged, rename_title, touch_elsewhere};
 use crate::theme::PAPIER_THEME;
 use crate::{DocumentKind, Session, TabDocument, Workspace};
+
+use super::super::{Dormant, Slot, TABS_DIR};
 
 /// `tab`'s agent view of the fixture's workspace.
 fn tab_session(f: &Packs, tab: &str) -> TabSession {
@@ -206,4 +208,105 @@ fn close_window_with_clean_deck_writes_its_usage() {
     tab_session(&f, "t-1").record_usage(record(1));
     f.send(json!({"cmd": "close_window", "window": "w-1"}));
     assert_that!(ledger_in(&path).len()).is_equal_to(1);
+}
+
+/// The close race (t-1313): the pre-phase found the session busy, it freed before the check.
+#[test]
+fn ensure_closable_with_usage_the_skipped_save_left_refuses_the_close() {
+    let (f, _pin) = deck_packs();
+    tab_session(&f, "t-1").record_usage(record(1));
+    let refused = Workspace::lock(&f.ws).ensure_closable("t-1", false).map_err(|e| e.kind());
+    assert_that!(refused).is_equal_to(Err(crate::SessionErrorKind::Unsaved));
+}
+
+#[test]
+fn ensure_closable_after_a_dropped_usage_save_lets_the_close_go() {
+    let (f, _pin) = deck_packs();
+    let path = deck_path(&f);
+    tab_session(&f, "t-1").record_usage(record(1));
+    touch_elsewhere(&path);
+    Workspace::save_pending_usages(&f.ws, &["t-1".to_owned()]);
+    assert_that!(Workspace::lock(&f.ws).ensure_closable("t-1", false)).is_ok();
+}
+
+#[test]
+fn ensure_closable_with_a_turn_recorded_after_a_dropped_save_refuses_again() {
+    let (f, _pin) = deck_packs();
+    let path = deck_path(&f);
+    tab_session(&f, "t-1").record_usage(record(1));
+    touch_elsewhere(&path);
+    Workspace::save_pending_usages(&f.ws, &["t-1".to_owned()]);
+    tab_session(&f, "t-1").record_usage(record(2));
+    assert_that!(Workspace::lock(&f.ws).ensure_closable("t-1", false)).is_err();
+}
+
+#[test]
+fn close_deck_whose_busy_session_frees_before_the_check_keeps_its_usage() {
+    let (f, _pin) = deck_packs();
+    let path = deck_path(&f);
+    tab_session(&f, "t-1").record_usage(record(1));
+    let slot = Workspace::lock(&f.ws).session("t-1").unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let guard = slot.lock().unwrap();
+    Workspace::save_pending_usages(&f.ws, &["t-1".to_owned()]);
+    drop(guard);
+    assert_that!(Workspace::lock(&f.ws).ensure_closable("t-1", false)).is_err();
+    f.close_keeping("t-1").unwrap_or_else(|e| panic!("retried close: {}", e.one_line()));
+    assert_that!(ledger_in(&path).len()).is_equal_to(1);
+}
+
+/// Puts deck tab `id` to sleep as a restart would, its resume written first.
+fn doze(f: &Packs, id: &str) {
+    let w = Workspace::lock(&f.ws);
+    let dir = w.dir.clone().unwrap_or_else(|| panic!("a resume folder")).join(TABS_DIR).join(id);
+    let (fonts, platform) = (w.fonts.clone(), w.platform.clone());
+    let tab = w.tabs.get(id).unwrap_or_else(|| panic!("tab {id}"));
+    let mut slot = tab.session.lock().unwrap();
+    slot.flush();
+    let (title, document) = (tab.info.title.clone(), tab.info.document.clone());
+    let usage = Vec::new();
+    *slot = Slot::Dormant(Box::new(Dormant { dir, title, document, notice: None, fonts, platform, usage }));
+}
+
+fn is_dormant(f: &Packs, id: &str) -> bool {
+    Workspace::lock(&f.ws).tabs.get(id).is_some_and(|t| t.session.lock().unwrap().is_dormant())
+}
+
+#[test]
+fn record_usage_from_pack_tab_leaves_its_dormant_opener_asleep() {
+    let f = packs_resumed();
+    let pack_tab = f.pack_tab();
+    doze(&f, "t-1");
+    tab_session(&f, &pack_tab).record_usage(record(1));
+    assert_that!(is_dormant(&f, "t-1")).is_true();
+}
+
+#[test]
+fn record_usage_queued_for_a_dormant_deck_lands_when_it_wakes() {
+    let f = packs_resumed();
+    let pack_tab = f.pack_tab();
+    doze(&f, "t-1");
+    tab_session(&f, &pack_tab).record_usage(record(1));
+    tab_session(&f, &pack_tab).record_usage(record(2));
+    assert_that!(is_dormant(&f, "t-1")).is_true();
+    assert_that!(deck_turns(&f)).is_equal_to(2);
+}
+
+#[test]
+fn settle_wakes_a_dormant_deck_with_queued_usage_and_writes_its_resume() {
+    let f = packs_resumed();
+    let pack_tab = f.pack_tab();
+    doze(&f, "t-1");
+    tab_session(&f, &pack_tab).record_usage(record(1));
+    Workspace::settle(&f.ws);
+    let dir = Workspace::lock(&f.ws).dir.clone().unwrap_or_else(|| panic!("a resume folder"));
+    let ledger = std::fs::read_to_string(dir.join(TABS_DIR).join("t-1/deck/usage.jsonl")).unwrap();
+    assert_that!(ledger.lines().count()).is_equal_to(1);
+}
+
+#[test]
+fn settle_leaves_a_dormant_deck_without_queued_usage_asleep() {
+    let f = packs_resumed();
+    doze(&f, "t-1");
+    Workspace::settle(&f.ws);
+    assert_that!(is_dormant(&f, "t-1")).is_true();
 }

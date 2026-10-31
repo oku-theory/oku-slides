@@ -102,7 +102,7 @@ fn format_table_partial_cost_uses_the_partial_message() {
         record(2, "2026-10-30T11:00:00Z", Some("m"), 1, None),
     ];
     let text = format_table(&report(&rs, By::Day), &l);
-    let want = l.tr_with("usage-badge-cost-partial", &[("amount", "0.2500".into()), ("currency", "USD".into())]);
+    let want = l.tr_with("usage-badge-cost-partial", &[("amount", "0,2500".into()), ("currency", "USD".into())]);
     assert_that!(text.lines().last().unwrap_or_default()).contains(want.as_str());
 }
 

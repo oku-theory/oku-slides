@@ -151,6 +151,7 @@ ui-agent-detach = Apri l'agente in una finestra separata
 ui-agent-attach = Riporta l'agente nella finestra principale
 ui-agent-window-empty = Nessun agente per questa scheda
 ui-agent-kept-in-draft = Nessun posto dove scrivere: testo conservato nella bozza
+ui-agent-md-table = Tabella scorrevole
 ui-draft = Bozza
 ui-draft-send = Invia all'agente
 ui-draft-send-title = Invia all'agente (⌘↩)

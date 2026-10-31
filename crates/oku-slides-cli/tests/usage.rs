@@ -156,5 +156,5 @@ fn usage_table_in_french_has_localized_headers_and_total() {
     let total = text.lines().last().unwrap_or_default().to_owned();
     assert_that!(total).starts_with(fr.tr("usage-row-total").as_str());
     assert_that!(total).contains("4321");
-    assert_that!(total).contains("0.4321 USD");
+    assert_that!(total).contains("0,4321 USD");
 }

@@ -157,6 +157,7 @@ ui-agent-detach = Otwórz agenta w osobnym oknie
 ui-agent-attach = Przywróć agenta do głównego okna
 ui-agent-window-empty = Brak agenta dla tej karty
 ui-agent-kept-in-draft = Brak miejsca do wpisania: tekst zachowano w szkicu
+ui-agent-md-table = Przewijana tabela
 ui-draft = Szkic
 ui-draft-send = Wyślij do agenta
 ui-draft-send-title = Wyślij do agenta (⌘↩)

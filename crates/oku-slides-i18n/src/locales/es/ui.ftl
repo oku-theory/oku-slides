@@ -151,6 +151,7 @@ ui-agent-detach = Abrir el agente en una ventana aparte
 ui-agent-attach = Devolver el agente a la ventana principal
 ui-agent-window-empty = No hay agente para esta pestaña
 ui-agent-kept-in-draft = Nada donde escribir: texto guardado en el borrador
+ui-agent-md-table = Tabla desplazable
 ui-draft = Borrador
 ui-draft-send = Enviar al agente
 ui-draft-send-title = Enviar al agente (⌘↩)

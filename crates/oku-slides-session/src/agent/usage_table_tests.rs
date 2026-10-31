@@ -91,3 +91,12 @@ fn usage_total_cells_key_is_the_total_label() {
     assert_that!(cells[0].as_str()).is_equal_to("Total");
     assert_that!(cells[1].as_str()).is_equal_to("2");
 }
+
+#[rstest]
+#[case("en", "0.0400 USD")]
+#[case("fr", "0,0400 USD")]
+#[case("de", "0,0400 USD")]
+fn usage_cells_cost_amount_follows_the_locale(#[case] locale: &str, #[case] expected: &str) {
+    let cells = first_row(&[record(1, "2026-10-30", "m", true)], By::Day, &Localizer::new(Some(locale)));
+    assert_that!(cells[8].as_str()).is_equal_to(expected);
+}

@@ -7,6 +7,8 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use oku_slides_core::UsageRecord;
+
 use crate::deck_pack_link::LinkSpec;
 use crate::error::{Result, UnknownTabSnafu};
 use crate::resume::Resumed;
@@ -25,6 +27,11 @@ pub(super) struct Dormant {
     pub(super) notice: Option<String>,
     pub(super) fonts: Fonts,
     pub(super) platform: Platform,
+    /// Agent usage of the tabs it counts, held until it wakes (t-1310).
+    ///
+    /// In memory only: [`Workspace::settle`](super::Workspace::settle) wakes
+    /// the deck to keep it; a crash loses it.
+    pub(super) usage: Vec<UsageRecord>,
 }
 
 impl Dormant {
@@ -51,6 +58,17 @@ impl Dormant {
             tracing::warn!(path = %self.dir.display(), "reprise de l'onglet inactive");
         }
         session.set_notice(notice);
+        Ok(session)
+    }
+
+    /// The session, read back, holding the agent usage queued while it slept.
+    ///
+    /// The queue is kept when the wake fails: the next one tries again.
+    fn wake_with_usage(&mut self) -> Result<Session> {
+        let mut session = self.wake()?;
+        for record in std::mem::take(&mut self.usage) {
+            session.record_usage(record);
+        }
         Ok(session)
     }
 }
@@ -83,7 +101,7 @@ impl Slot {
                 Ok(session)
             }
             Self::Dormant(dormant) => {
-                let session = dormant.wake()?;
+                let session = dormant.wake_with_usage()?;
                 *self = Self::Ready(Box::new(session));
                 self.ready()
             }
@@ -138,7 +156,21 @@ impl Slot {
     }
 
     /// Attend que la reprise envoyée par la session soit écrite.
-    pub(super) fn flush(&self) {
+    ///
+    /// A dormant tab holding queued agent usage wakes first, unrendered, so
+    /// its resume keeps the records; after a failed wake they stay queued but are
+    /// never written, since the app is quitting (logged).
+    pub(super) fn flush(&mut self) {
+        if let Self::Dormant(dormant) = self
+            && !dormant.usage.is_empty()
+        {
+            match dormant.wake_with_usage() {
+                Ok(session) => *self = Self::Ready(Box::new(session)),
+                Err(e) => {
+                    tracing::warn!(error = %e.one_line(), "queued agent usage not written: the dormant deck did not wake");
+                }
+            }
+        }
         if let Self::Ready(session) = self {
             session.flush_resume();
         }

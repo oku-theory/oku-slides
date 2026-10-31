@@ -1,8 +1,10 @@
 //! Each session's cumulative cost, turned into each turn's share, and the turn's record.
 //!
 //! ACP sends the session's cost so far in `usage_update`; a turn's share is the growth since the
-//! previous turn. [`tells`] decides whether a session-state update counts (not replayed, from a
-//! routed session). [`record_turn`] builds the [`UsageRecord`] when a reply arrives and files it
+//! previous turn. A cost sent after the reply (background work) is never waited for: it counts in
+//! the turn that takes it first, once (t-1309). `PromptResponse.usage` is the turn's own, as the
+//! claude, codex and gemini adapters send it (t-1307). [`tells`] decides whether a
+//! session-state update counts (not replayed, from a routed session). [`record_turn`] builds the [`UsageRecord`] when a reply arrives and files it
 //! in the tab's deck through `TabSession::record_usage`.
 
 use std::collections::HashMap;
@@ -141,6 +143,7 @@ pub(crate) async fn record_turn(ctx: &Ctx, link: &Link, generation: u64, id: &Se
         return;
     };
     let record = UsageRecord {
+        // As the agent reports it, possibly an alias (`default`, `auto`): ACP gives no resolved id (t-1308).
         model: link.models().session(generation, id).map(|o| o.current),
         tokens: usage.map(tokens_of),
         cost,

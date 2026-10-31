@@ -37,6 +37,7 @@
 //! A turn's `usage` (`[total, input, output]`) goes in its prompt reply; its `cost`
 //! (`{ "amount", "currency" }`) is sent as is, as the session's cumulative cost, in a
 //! `usage_update` after its chunks: the scenario writes the running total, never a turn's share.
+//! A cost with `after_reply` is sent after the prompt reply instead (background work).
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -191,6 +192,9 @@ struct Turn {
 struct FakeCost {
     amount: f64,
     currency: String,
+    /// Sent after the prompt reply, not before it.
+    #[serde(default)]
+    after_reply: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -547,15 +551,30 @@ async fn play(
     for text in &turn.chunks {
         cx.send_notification(chunk(session, text.clone()))?;
     }
-    if let Some(c) = &turn.cost {
-        let update = UsageUpdate::new(0, 200_000).cost(Cost::new(c.amount, c.currency.clone()));
-        cx.send_notification(SessionNotification::new(session.clone(), SessionUpdate::UsageUpdate(update)))?;
-    }
+    send_cost(cx, session, turn.cost.as_ref().filter(|c| !c.after_reply))?;
     if turn.wait_cancel {
         state.notify_for(&session_key).notified().await;
         return Ok(StopReason::Cancelled);
     }
     Ok(StopReason::EndTurn)
+}
+
+impl Turn {
+    /// The token usage its prompt reply carries.
+    fn reply_usage(&self) -> Option<Usage> {
+        self.usage.map(|[total, input, output]| Usage::new(total, input, output))
+    }
+}
+
+/// The session's cumulative `cost`, if any, sent as a `usage_update`.
+fn send_cost(
+    cx: &ConnectionTo<Client>,
+    session: &SessionId,
+    c: Option<&FakeCost>,
+) -> agent_client_protocol::Result<()> {
+    let Some(c) = c else { return Ok(()) };
+    let update = UsageUpdate::new(0, 200_000).cost(Cost::new(c.amount, c.currency.clone()));
+    cx.send_notification(SessionNotification::new(session.clone(), SessionUpdate::UsageUpdate(update)))
 }
 
 #[tokio::main]
@@ -598,8 +617,8 @@ async fn main() -> agent_client_protocol::Result<()> {
                             std::process::exit(3);
                         }
                         state.log_turn_end(&req.session_id, &format!("{stop:?}"));
-                        let usage = turn.usage.map(|[total, input, output]| Usage::new(total, input, output));
-                        responder.respond(PromptResponse::new(stop).usage(usage))
+                        responder.respond(PromptResponse::new(stop).usage(turn.reply_usage()))?;
+                        send_cost(&cx, &req.session_id, turn.cost.as_ref().filter(|c| c.after_reply))
                     }
                 })
             },

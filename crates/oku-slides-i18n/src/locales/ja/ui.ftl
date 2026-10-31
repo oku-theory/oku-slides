@@ -151,6 +151,7 @@ ui-agent-detach = エージェントを別ウィンドウで開く
 ui-agent-attach = エージェントをメインウィンドウに戻す
 ui-agent-window-empty = このタブにはエージェントがありません
 ui-agent-kept-in-draft = 書き込み先がありません：テキストは下書きに残しました
+ui-agent-md-table = スクロールできる表
 ui-draft = 下書き
 ui-draft-send = エージェントに送信
 ui-draft-send-title = エージェントに送信 (⌘↩)

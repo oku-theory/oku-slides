@@ -151,6 +151,7 @@ ui-agent-detach = Ouvrir l'agent dans une fenêtre séparée
 ui-agent-attach = Ramener l'agent dans la fenêtre principale
 ui-agent-window-empty = Pas d'agent pour cet onglet
 ui-agent-kept-in-draft = Rien où écrire : texte gardé dans le brouillon
+ui-agent-md-table = Tableau défilant
 ui-draft = Brouillon
 ui-draft-send = Envoyer à l'agent
 ui-draft-send-title = Envoyer à l'agent (⌘↩)

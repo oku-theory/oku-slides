@@ -163,6 +163,7 @@ ui-agent-detach = فتح الوكيل في نافذة منفصلة
 ui-agent-attach = إعادة الوكيل إلى النافذة الرئيسية
 ui-agent-window-empty = لا يوجد وكيل لهذا التبويب
 ui-agent-kept-in-draft = لا يوجد مكان للكتابة: تم الاحتفاظ بالنص في المسودة
+ui-agent-md-table = جدول قابل للتمرير
 ui-draft = مسودة
 ui-draft-send = إرسال إلى الوكيل
 ui-draft-send-title = إرسال إلى الوكيل (⌘↩)

@@ -149,6 +149,31 @@ pub trait Sessions: Send + Sync + std::fmt::Debug {
     ///
     /// Takes the host's lock; wakes no dormant tab.
     fn usage_owner(&self, tab: &str) -> Option<String>;
+
+    /// Records a turn's usage in deck tab `owner`'s ledger; blocking.
+    ///
+    /// Defaults to [`Self::with`]; a host with dormant tabs overrides it so
+    /// a turn never wakes a deck.
+    ///
+    /// # Errors
+    ///
+    /// Fails if tab `owner` is unknown to the host.
+    fn record_usage(&self, owner: &str, record: UsageRecord) -> crate::Result<()> {
+        let mut record = Some(record);
+        self.with(owner, &mut |s| {
+            if let Some(r) = record.take() {
+                record_in(s, owner, r);
+            }
+        })
+    }
+}
+
+/// Records `record` in `owner`'s session; an owner that is no deck loses it, logged.
+pub(crate) fn record_in(s: &mut Session, owner: &str, record: UsageRecord) {
+    // An owner that is no deck (a host routing badly) loses the turn.
+    if !s.record_usage(record) && s.usage_ledger().is_none() {
+        tracing::warn!(owner = %owner, "agent usage owner holds no deck: turn not recorded");
+    }
 }
 
 /// A single session, whatever the tab (tests, single-document hosts).
@@ -280,21 +305,12 @@ impl TabSession {
 
     /// Records a turn's usage in the deck that counts this tab's turns; blocking.
     ///
-    /// Never fails the turn: a tab no deck counts records nothing, and an
-    /// owner tab that is gone is logged.
+    /// Wakes no dormant deck (see [`Sessions::record_usage`]). Never fails the
+    /// turn: a tab no deck counts records nothing, and an owner tab that is gone
+    /// is logged.
     pub fn record_usage(&self, record: UsageRecord) {
         let Some(owner) = self.sessions.usage_owner(&self.tab) else { return };
-        let mut record = Some(record);
-        let done = self.sessions.with(&owner, &mut |s| {
-            // An owner that is no deck (a host routing badly) loses the turn: logged.
-            if let Some(r) = record.take()
-                && !s.record_usage(r)
-                && s.usage_ledger().is_none()
-            {
-                tracing::warn!(owner = %owner, "agent usage owner holds no deck: turn not recorded");
-            }
-        });
-        if let Err(e) = done {
+        if let Err(e) = self.sessions.record_usage(&owner, record) {
             tracing::warn!(tab = %self.tab, owner = %owner, error = %e.one_line(), "agent usage not recorded");
         }
     }

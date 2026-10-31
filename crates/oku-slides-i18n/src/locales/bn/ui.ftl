@@ -151,6 +151,7 @@ ui-agent-detach = এজেন্টকে আলাদা উইন্ডোত
 ui-agent-attach = এজেন্টকে মূল উইন্ডোতে ফিরিয়ে আনুন
 ui-agent-window-empty = এই ট্যাবের জন্য কোনো এজেন্ট নেই
 ui-agent-kept-in-draft = লেখার জায়গা নেই: লেখাটি খসড়ায় রাখা হয়েছে
+ui-agent-md-table = স্ক্রোলযোগ্য সারণি
 ui-draft = খসড়া
 ui-draft-send = এজেন্টকে পাঠান
 ui-draft-send-title = এজেন্টকে পাঠান (⌘↩)

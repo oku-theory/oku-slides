@@ -9,6 +9,8 @@ import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser as commonmark } from "@lezer/markdown";
 import type { ReactNode } from "react";
 
+import { t } from "../i18n";
+
 const parser = commonmark.configure(GFM);
 
 /** Délimiteurs et métadonnées : jamais affichés. */
@@ -119,9 +121,10 @@ function element(node: SyntaxNode, text: string, key: number): ReactNode {
     case "Table": {
       const head = node.getChild("TableHeader");
       const rows = node.getChildren("TableRow");
-      // A wide table scrolls in its own box; `tabIndex` lets the keyboard scroll it too.
+      // A wide table scrolls in its own box; `tabIndex` lets the keyboard scroll it too,
+      // so the box is a named region: a tab stop says what it holds.
       return (
-        <div key={key} className="md-table" tabIndex={0}>
+        <div key={key} className="md-table" tabIndex={0} role="region" aria-label={t("ui-agent-md-table")}>
           <table>
             {head && <thead>{row(head, text, "th", 0)}</thead>}
             {rows.length > 0 && <tbody>{rows.map((r, i) => row(r, text, "td", i))}</tbody>}

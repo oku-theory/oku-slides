@@ -151,6 +151,7 @@ ui-agent-detach = Ajanı ayrı bir pencerede aç
 ui-agent-attach = Ajanı ana pencereye geri getir
 ui-agent-window-empty = Bu sekme için ajan yok
 ui-agent-kept-in-draft = Yazılacak yer yok: metin taslakta tutuldu
+ui-agent-md-table = Kaydırılabilir tablo
 ui-draft = Taslak
 ui-draft-send = Ajana gönder
 ui-draft-send-title = Ajana gönder (⌘↩)

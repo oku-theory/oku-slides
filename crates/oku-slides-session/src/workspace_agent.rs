@@ -4,6 +4,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
+use oku_slides_core::UsageRecord;
 use oku_slides_platform::storage::resolve;
 use snafu::{OptionExt, ensure};
 use uuid::Uuid;
@@ -110,6 +111,10 @@ impl Sessions for Mutex<Workspace> {
 
     fn usage_owner(&self, tab: &str) -> Option<String> {
         Workspace::usage_owner(self, tab)
+    }
+
+    fn record_usage(&self, owner: &str, record: UsageRecord) -> Result<()> {
+        Workspace::record_usage(self, owner, record)
     }
 }
 

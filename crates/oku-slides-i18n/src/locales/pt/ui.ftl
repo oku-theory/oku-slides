@@ -151,6 +151,7 @@ ui-agent-detach = Abrir o agente em uma janela separada
 ui-agent-attach = Trazer o agente de volta à janela principal
 ui-agent-window-empty = Nenhum agente para esta aba
 ui-agent-kept-in-draft = Nada onde escrever: texto mantido no rascunho
+ui-agent-md-table = Tabela rolável
 ui-draft = Rascunho
 ui-draft-send = Enviar ao agente
 ui-draft-send-title = Enviar ao agente (⌘↩)

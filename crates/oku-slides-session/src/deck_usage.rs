@@ -44,6 +44,7 @@ impl Session {
         };
         if changed {
             doc.usage_unsaved = true;
+            doc.usage_write_tried = false;
             self.persist(true);
         }
         added
@@ -67,6 +68,7 @@ impl Session {
         if !matches!(self.mode, Mode::Deck) || self.doc.dirty || !self.doc.usage_unsaved {
             return;
         }
+        self.doc.usage_write_tried = true;
         if !self.doc_defaults.store_usage {
             // Off drops the ledger only on a save: a silent write never removes records.
             tracing::info!("agent usage not written: [usage] store_in_deck is off, the file is left as is");
@@ -111,6 +113,14 @@ impl Session {
             }
             Err(e) => tracing::warn!(error = %e.one_line(), "agent usage dropped: the file could not be written"),
         }
+    }
+
+    /// Whether a clean deck holds usage no close has tried to write yet.
+    ///
+    /// A close checks it under the session lock it already holds: the
+    /// pre-phase may have skipped a busy session that has freed since (t-1313).
+    pub(crate) fn usage_awaits_write(&self) -> bool {
+        matches!(self.mode, Mode::Deck) && !self.doc.dirty && self.doc.usage_unsaved && !self.doc.usage_write_tried
     }
 
     /// The deck's usage ledger; `None` in a help, pack or theme tab.

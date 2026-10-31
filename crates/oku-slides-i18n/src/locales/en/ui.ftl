@@ -151,6 +151,7 @@ ui-agent-detach = Open the agent in a separate window
 ui-agent-attach = Bring the agent back to the main window
 ui-agent-window-empty = No agent for this tab
 ui-agent-kept-in-draft = Nowhere to write: text kept in the draft
+ui-agent-md-table = Scrollable table
 ui-draft = Draft
 ui-draft-send = Send to the agent
 ui-draft-send-title = Send to the agent (⌘↩)

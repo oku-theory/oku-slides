@@ -148,6 +148,7 @@ ui-agent-detach = Mở tác nhân trong cửa sổ riêng
 ui-agent-attach = Đưa tác nhân trở lại cửa sổ chính
 ui-agent-window-empty = Không có tác nhân cho thẻ này
 ui-agent-kept-in-draft = Không có chỗ để ghi: văn bản được giữ trong bản nháp
+ui-agent-md-table = Bảng cuộn được
 ui-draft = Bản nháp
 ui-draft-send = Gửi cho tác nhân AI
 ui-draft-send-title = Gửi cho tác nhân AI (⌘↩)

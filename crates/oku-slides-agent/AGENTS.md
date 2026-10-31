@@ -38,6 +38,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Switch agents inside the shared Link, never replace it; dropping its last clone stops the agent. (spec:2026-10-10-agent-panneau-configuration-design)
 - Keep is_cancelled after ToolServer start and the relay biased selects; only next is test-pinned. (t-815)
 - Do not rely on widget_touched being replayed after relay lag; only Changed and Surfaces are replayed. (plan:2026-10-03-widgets-agent-a2ui)
+- Treat PromptResponse.usage as the turn's own tokens, as claude, codex and gemini adapters send; its unstable feature is a draft, so recheck on every ACP bump. (t-1307)
 
 ## Testing
 
@@ -55,3 +56,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Write agent instructions in English only; pass the interface language in each turn context. (t-774, t-771)
 - Pick the deck language as declared params.lang, else inferred from slides, else the user's language. (t-780)
 - Hold every import tuning bound in session code that refuses with TuneError; import.md only explains the bounds and never enforces them. (ADR-0009, t-924)
+- Never wait for a late cost update; the cumulative cost counts it once, in whichever turn takes it first. (t-1309)
+- Record the model value the agent reports, even an alias like default or auto; ACP gives no resolved id. (t-1308)

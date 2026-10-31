@@ -151,6 +151,7 @@ ui-agent-detach = 在獨立視窗中開啟代理
 ui-agent-attach = 將代理放回主視窗
 ui-agent-window-empty = 此分頁沒有代理
 ui-agent-kept-in-draft = 沒有可寫入的位置：文字已保留在草稿中
+ui-agent-md-table = 可捲動表格
 ui-draft = 草稿
 ui-draft-send = 傳送給 AI 代理
 ui-draft-send-title = 傳送給 AI 代理 (⌘↩)

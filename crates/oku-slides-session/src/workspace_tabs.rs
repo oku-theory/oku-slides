@@ -602,14 +602,20 @@ impl Workspace {
     /// empoisonnée (une panique) ou encore endormie (réveil en échec, voir
     /// [`Workspace::wake`]) refuse aussi la fermeture, pour ne jamais fermer
     /// en silence un onglet dont on ne connaît pas l'état ; l'utilisateur
-    /// retente, ou abandonne.
+    /// retente, ou abandonne. So does a clean deck holding agent usage that
+    /// no close tried to write (its session was busy for the pre-phase,
+    /// [`Workspace::save_pending_usages`]): the retried close writes it.
     pub(super) fn ensure_closable(&self, tab: &str, discard: bool) -> Result<()> {
         let t = self.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
         if discard {
             return Ok(());
         }
-        let info = t.session.try_lock().ok().and_then(|slot| slot.info());
-        let (dirty, title) = info.map_or((true, t.info.title.clone()), |i| (i.dirty, i.title));
+        let state = t
+            .session
+            .try_lock()
+            .ok()
+            .and_then(|slot| slot.ready_session().map(|s| (s.tab_info(), s.usage_awaits_write())));
+        let (dirty, title) = state.map_or((true, t.info.title.clone()), |(i, pending)| (i.dirty || pending, i.title));
         ensure!(!dirty, UnsavedSnafu { title });
         Ok(())
     }

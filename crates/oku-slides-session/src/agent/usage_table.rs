@@ -3,6 +3,7 @@
 //! Keys come from an untrusted ledger: every cell drops what [`shown_text`] refuses, so a terminal
 //! shows it as text. Cells are plain text; the box escapes them for Markdown itself.
 
+use oku_slides_chart::NumberFormat;
 use oku_slides_core::{By, CostTotal, UsageRow, shown_text};
 use oku_slides_i18n::Localizer;
 
@@ -51,9 +52,12 @@ pub fn usage_total_cells(totals: &UsageRow, l: &Localizer) -> [String; USAGE_COL
 }
 
 /// One currency's cost, marked partial when some turns sent none.
+///
+/// Four decimals, with the interface language's separators.
 pub(crate) fn usage_cost(c: &CostTotal, l: &Localizer) -> String {
     let id = if c.partial { "usage-badge-cost-partial" } else { "usage-badge-cost" };
-    let amount = format!("{:.4}", c.amount);
+    let plain = format!("{:.4}", c.amount);
+    let amount = NumberFormat::for_lang(Some(l.locale())).localize(&plain).unwrap_or(plain);
     l.tr_with(id, &[("amount", amount.into()), ("currency", shown_text(&c.currency).into())])
 }
 

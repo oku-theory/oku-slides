@@ -34,6 +34,7 @@ pub use oku_slides_a2ui::{PromptImage, ServerMessage, StepStatus, TimelineStep, 
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
+pub(crate) use tabs::record_in;
 pub use tabs::{Sessions, TabGate, TabOpen, TabSession};
 pub use turn_view::{TurnState, TurnView};
 pub use usage_panel::usage_panel;

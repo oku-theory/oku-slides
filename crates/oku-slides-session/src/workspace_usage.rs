@@ -3,14 +3,18 @@
 //! A deck tab counts its own; a deck-pack tab its owner deck; a pack or
 //! theme tab the deck it was opened from (`Tab.opener`, by the user or an
 //! agent; lost on restart), through any pack or theme tab between them; a
-//! help tab none.
+//! help tab none. A dormant deck queues the records until it wakes.
 
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, TryLockError};
 
-use crate::DocumentKind;
+use oku_slides_core::UsageRecord;
 
-use super::{Slot, Workspace};
+use crate::DocumentKind;
+use crate::agent::record_in;
+use crate::error::{Result, UnknownTabSnafu};
+
+use super::{Slot, Workspace, relock};
 
 impl Workspace {
     /// The deck tab whose ledger takes `tab`'s agent usage; wakes nothing.
@@ -35,6 +39,37 @@ impl Workspace {
             }
         }
         None
+    }
+
+    /// Records a turn's usage in deck tab `owner`, waking nothing (t-1310).
+    ///
+    /// An awake deck takes it at once; a dormant one queues it until it
+    /// wakes, or until [`Workspace::settle`] wakes it to keep it. Neither
+    /// rendered nor handed its links: the ledger needs neither.
+    ///
+    /// # Errors
+    ///
+    /// `UnknownTab` for a tab unknown or closed, or after `settle`.
+    ///
+    /// # Blocking
+    ///
+    /// Takes the workspace lock, then the tab's session lock alone.
+    pub fn record_usage(ws: &Mutex<Self>, owner: &str, record: UsageRecord) -> Result<()> {
+        let (session, closed) = {
+            let w = Self::lock(ws);
+            (w.session(owner)?, Arc::clone(&w.closed))
+        };
+        let mut slot = relock(&session);
+        // As `acquire`: once `settle` ran, no session writes again.
+        if closed.load(Ordering::SeqCst) {
+            return Err(UnknownTabSnafu { id: owner }.build().into());
+        }
+        match &mut *slot {
+            Slot::Ready(s) => record_in(s, owner, record),
+            Slot::Dormant(dormant) => dormant.usage.push(record),
+            Slot::Closed(id) => return Err(UnknownTabSnafu { id: id.clone() }.build().into()),
+        }
+        Ok(())
     }
 
     /// Saves each awake clean deck of `tabs` that holds agent usage its file lacks.

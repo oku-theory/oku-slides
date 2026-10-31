@@ -148,6 +148,7 @@ ui-agent-detach = เปิดเอเจนต์ในหน้าต่า�
 ui-agent-attach = นำเอเจนต์กลับมาที่หน้าต่างหลัก
 ui-agent-window-empty = ไม่มีเอเจนต์สำหรับแท็บนี้
 ui-agent-kept-in-draft = ไม่มีที่ให้เขียน: เก็บข้อความไว้ในฉบับร่าง
+ui-agent-md-table = ตารางที่เลื่อนได้
 ui-draft = ฉบับร่าง
 ui-draft-send = ส่งถึงเอเจนต์
 ui-draft-send-title = ส่งถึงเอเจนต์ (⌘↩)

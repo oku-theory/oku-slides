@@ -133,3 +133,24 @@ async fn failed_turn_records_nothing() {
     assert_that!(r).has_length(1);
     assert_that!(r[0].tokens.map(|t| t.total)).is_equal_to(Some(3));
 }
+
+/// ACP's end-of-turn usage is the turn's own (t-1307): recorded as is, never differenced.
+#[tokio::test(flavor = "multi_thread")]
+async fn two_turns_with_usage_record_each_reply_as_the_turn_own() {
+    let script = json!({ "turns": [{ "usage": [30, 20, 10] }, { "usage": [5, 3, 2] }] });
+    let totals: Vec<_> = played(script, 2).await.iter().map(|r| r.tokens.map(|t| t.total)).collect();
+    assert_that!(totals).is_equal_to(vec![Some(30), Some(5)]);
+}
+
+/// A cost sent after the reply (t-1309) is counted once, in whichever turn takes it first.
+#[tokio::test(flavor = "multi_thread")]
+async fn cost_sent_after_the_reply_is_counted_once_across_turns() {
+    let script = json!({ "turns": [
+        { "cost": { "amount": 0.5, "currency": "USD", "after_reply": true } },
+        { "cost": { "amount": 0.75, "currency": "USD" } },
+    ] });
+    let r = played(script, 2).await;
+    let sum: f64 = r.iter().filter_map(|r| r.cost.as_ref()).map(|c| c.amount).sum();
+    assert_that!(sum).is_close_to(0.75, 1e-9);
+    assert_that!(r[1].cost.is_some()).is_true();
+}
