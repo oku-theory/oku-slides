@@ -19,6 +19,11 @@ fn defaults() -> DocDefaults {
     DocDefaults { undo_limit: 10, author: None, store_usage: true }
 }
 
+/// Read limits of 16 MiB.
+fn limits() -> oku_slides_core::SourceLimits {
+    oku_slides_core::SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 24, compact_after_secs: 0 }
+}
+
 fn temp_dir() -> PathBuf {
     crate::test_support::fresh_dir("oku-slides-writer-").keep()
 }
@@ -60,7 +65,7 @@ fn writer_flush_waits_for_the_sent_job() {
     let w = Writer::new(resume(&dir));
     w.send(job(Some("pro"), "s-1"));
     w.flush();
-    let doc = resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    let doc = resume(&dir).read_doc(DECK_DIR, &defaults(), limits(), &registry()).unwrap();
     assert_that!(doc.sources.deck().theme.as_ref().and_then(crate::test_support::theme_name)).is_equal_to(Some("pro"));
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -79,7 +84,7 @@ fn writer_merged_jobs_keep_the_latest_documents_and_state() {
     w.flush();
     let r = resume(&dir);
     assert_that!(
-        r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry())
+        r.read_doc(DECK_DIR, &defaults(), limits(), &registry())
             .unwrap()
             .sources
             .deck()
@@ -159,7 +164,7 @@ fn read_doc_after_write_keeps_deck_and_uid_but_not_undo() {
     let r = resume(&dir);
     let doc = document("pro");
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), limits(), &registry()).unwrap();
     assert_that!(back.sources.deck()).is_equal_to(doc.sources.deck());
     assert_that!(back.sources.replica().deck_uid()).is_equal_to(doc.sources.replica().deck_uid());
     assert_that!(back.sources.replica().can_undo()).is_false();
@@ -177,7 +182,7 @@ fn read_doc_without_deck_loro_returns_error() {
         r#"{"path":null,"dirty":false,"saved_hash":null,"blank":false,"deck":{"slides":[]},"history":{}}"#,
     )
     .unwrap();
-    assert_that!(resume(&dir).read_doc(DECK_DIR, &defaults(), 1 << 24, &registry()).is_err()).is_true();
+    assert_that!(resume(&dir).read_doc(DECK_DIR, &defaults(), limits(), &registry()).is_err()).is_true();
     std::fs::remove_dir_all(&dir).ok();
 }
 

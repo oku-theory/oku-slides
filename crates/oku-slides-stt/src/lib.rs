@@ -636,10 +636,18 @@ impl Stt {
         };
         let sink = match (model, apple) {
             (Model::Apple, Some((tag, _))) => {
+                let timeout = match self.apple_finish_timeout() {
+                    Ok(timeout) => timeout,
+                    Err(e) => {
+                        self.state().reset();
+                        self.report(&e);
+                        return;
+                    }
+                };
                 let (stream, events) = self.streaming.open(&tag, &vocabulary);
                 let held = Held::default();
                 let (worker, worker_held) = (self.clone(), held.clone());
-                std::thread::spawn(move || worker.stream_loop(session, &events, &worker_held));
+                std::thread::spawn(move || worker.stream_loop(session, &events, &worker_held, timeout));
                 Sink::Stream { stream, held }
             }
             (Model::Apple, None) => {

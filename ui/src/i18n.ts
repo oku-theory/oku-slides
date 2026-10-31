@@ -32,10 +32,46 @@ export function locale(): string {
   return bundle.locales[0] ?? "en";
 }
 
-/** Un message ; un identifiant inconnu se voit tel quel plutôt que de disparaître. */
+/**
+ * Bidi controls and invisible characters a label must not carry (t-959).
+ *
+ * Same set as `oku_slides_i18n::is_hidden_control`: bidi marks, embeddings, overrides and
+ * isolates, U+061C, zero-width space, word joiners, BOM, U+180E, soft hyphen, tag characters.
+ * ZWJ and ZWNJ stay (Indic scripts, emoji sequences).
+ */
+const HIDDEN = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B\u2060-\u2064\uFEFF\u180E\u00AD\u{E0000}-\u{E007F}]/gu;
+
+/** `s` without bidi controls and invisible characters. */
+function stripHidden(s: string): string {
+  return s.replace(HIDDEN, "");
+}
+
+/** One pair an `isolate` call put around a value (several when isolated items were joined). */
+const ISOLATED = /\u2068([^\u2068\u2069]*)\u2069/gu;
+
+/** A string argument made safe: stripped, keeping each balanced pair `isolate` calls put in it. */
+function safeArg(v: FluentVariable): FluentVariable {
+  if (typeof v !== "string") return v;
+  let out = "";
+  let last = 0;
+  for (const m of v.matchAll(ISOLATED)) {
+    out += stripHidden(v.slice(last, m.index)) + isolate(stripHidden(m[1] ?? ""));
+    last = m.index + m[0].length;
+  }
+  return out + stripHidden(v.slice(last));
+}
+
+/**
+ * Un message ; un identifiant inconnu se voit tel quel plutôt que de disparaître.
+ *
+ * String arguments lose their bidi controls and invisible characters: the bundle adds no
+ * isolation marks, so a forged name could otherwise reorder the sentence around it.
+ */
 export function t(id: string, args?: Record<string, FluentVariable>): string {
   const message = bundle.getMessage(id);
-  return message?.value ? bundle.formatPattern(message.value, args) : id;
+  if (!message?.value) return id;
+  const safe = args && Object.fromEntries(Object.entries(args).map(([k, v]) => [k, safeArg(v)]));
+  return bundle.formatPattern(message.value, safe);
 }
 
 /** The bidi embedding, override and isolate controls, which a label must not carry into a dialog. */

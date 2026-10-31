@@ -197,6 +197,7 @@ widget-fault-list-default-below-min = Widget { $widget }: giá trị mặc đị
 widget-fault-slide-sizing = Widget { $widget } là một slide: chỉ widget phần tử mới khai báo grow hoặc typography
 widget-fault-pack-category = Widget { $widget } không khớp với gói của nó: gói bố cục chứa widget slide, gói widget chứa widget phần tử
 widget-fault-unqualified = Widget { $widget } không có không gian tên gói
+widget-fault-too-long = Widget { $widget }: nhãn hoặc mô tả quá dài
 issue-empty-item-id = danh sách { $param } có một mục không có mã định danh
 issue-duplicate-item-id = danh sách { $param } có mã định danh mục bị trùng
 issue-invalid-item-id = danh sách { $param } có mã định danh mục chứa dấu gạch chéo

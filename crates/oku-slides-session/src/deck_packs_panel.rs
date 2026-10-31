@@ -159,8 +159,8 @@ impl Builder {
         match &p.remove_refusal {
             None => {
                 let remove =
-                    Component::button(sub("remove"), l.tr("packs-remove"), false, pack_action("remove_pack", p));
-                actions.push(self.push(remove.danger(true)));
+                    Component::button_builder(sub("remove"), l.tr("packs-remove"), pack_action("remove_pack", p));
+                actions.push(self.push(remove.danger(true).build()));
             }
             Some(refusal) => {
                 let text = refusal.localize(l);
@@ -255,8 +255,8 @@ pub fn deck_packs_panel(view: &DeckPacksView, l: &Localizer) -> Surface {
     b.section(PackKind::Layouts, view, l);
     b.section(PackKind::Widgets, view, l);
     b.theme(&view.theme, l);
-    let close = Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss"));
-    b.push(close.icon(ButtonIcon::Close));
+    let close = Component::button_builder("close", l.tr("agent-surface-close"), Action::named("dismiss"));
+    b.push(close.icon(ButtonIcon::Close).build());
     let root = Component::column("root", &["title", "layouts", "widgets", "theme", "close"]);
     let components = std::iter::once(root).chain(b.components).collect();
     surface(HOST_PACKS, Place::Thread, None, components, json!({ "theme": view.theme.active.as_str() }))

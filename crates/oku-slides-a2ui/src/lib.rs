@@ -12,12 +12,14 @@
 //! - [`Dynamic`]: a literal value or a path (JSON Pointer) into the
 //!   surface's data model.
 //! - [`Action`]: the event a component sends; the UI handles it.
+//! - [`ButtonBuilder`]: a button with its flags (`primary`, `danger`, `icon`).
 //!
 //! This crate only produces: the UI (`@a2ui/web_core`) validates the
 //! messages against the catalog, described in zod in `ui/src/a2ui`.
 //! Specification: <https://a2ui.org/specification/v0.9-a2ui/>.
 
 mod action;
+mod button;
 mod component;
 mod data;
 mod list;
@@ -25,6 +27,7 @@ mod message;
 mod props;
 
 pub use action::{Action, Dynamic, Event};
+pub use button::ButtonBuilder;
 pub use component::{Component, ComponentKind};
 pub use data::SeriesSwatch;
 pub use list::{ColumnKind, ListColumn, SubColumn, SubList, SubListFault};

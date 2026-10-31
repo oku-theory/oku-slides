@@ -509,3 +509,16 @@ fn resolve_agrees_with_the_localizer_without_building_it() {
 fn resolve_always_names_a_shipped_language() {
     assert_that(&shipped(resolve(Some("klingon")))).is_some();
 }
+
+#[test]
+fn tr_with_strips_bidi_controls_from_string_arguments() {
+    let fr = Localizer::new(Some("fr"));
+    let forged = fr.tr_with("packs-undo-add", &[("name", "Ré\u{202E}cent\u{2066}e\u{200B}".into())]);
+    assert_that!(forged).is_equal_to(fr.tr_with("packs-undo-add", &[("name", "Récente".into())]));
+}
+
+#[test]
+fn tr_with_keeps_number_arguments() {
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(fr.tr_with("cli-deck-valid", &[("slides", 8.into())])).contains("8");
+}

@@ -212,7 +212,7 @@ impl Builder {
                 let button = format!("{id}:{edit}");
                 let context = [("edit", lit(json!(edit))), ("theme", lit(json!(parent.namespace)))];
                 let action = Action::event(THEME_EXTENDS_EVENT, context);
-                self.components.push(Component::button(&button, l.tr(label), false, action).icon(icon));
+                self.components.push(Component::button_builder(&button, l.tr(label), action).icon(icon).build());
                 children.push(button);
             }
             let refs: Vec<&str> = children.iter().map(String::as_str).collect();

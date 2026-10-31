@@ -198,6 +198,7 @@ widget-fault-list-default-below-min = विजेट { $widget }: किसी 
 widget-fault-slide-sizing = विजेट { $widget } एक स्लाइड है: grow या typography केवल तत्व विजेट घोषित करते हैं
 widget-fault-pack-category = विजेट { $widget } अपने पैक से मेल नहीं खाता: लेआउट पैक में स्लाइड विजेट होते हैं, विजेट पैक में तत्व विजेट होते हैं
 widget-fault-unqualified = विजेट { $widget } का कोई पैक नेमस्पेस नहीं है
+widget-fault-too-long = विजेट { $widget }: कोई लेबल या विवरण बहुत लंबा है
 issue-empty-item-id = सूची { $param } में एक आइटम की पहचान नहीं है
 issue-duplicate-item-id = सूची { $param } में आइटम की पहचान दोहराई गई है
 issue-invalid-item-id = सूची { $param } में स्लैश वाला आइटम पहचानकर्ता है

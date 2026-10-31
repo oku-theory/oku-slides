@@ -116,7 +116,7 @@ pub(super) fn reopen_on_deck(
 /// version lives in the library, so only a pin moved off `edit.base`
 /// counts; a deck-only pack's edited version must be the one the deck pins.
 fn dropped_edits(s: &Session, resume: &Resume, edit: &PackMode) -> bool {
-    let doc = match resume.read_doc(PACK_DIR, &s.doc_defaults, s.source_limits.replica(), &s.registry) {
+    let doc = match resume.read_doc(PACK_DIR, &s.doc_defaults, s.source_limits, &s.registry) {
         Ok(doc) => doc,
         Err(e) => {
             let error = oku_slides_platform::errors::one_line(&e);

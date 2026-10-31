@@ -197,6 +197,7 @@ widget-fault-list-default-below-min = วิดเจ็ต { $widget }: ค่�
 widget-fault-slide-sizing = วิดเจ็ต { $widget } เป็นสไลด์: มีเพียงวิดเจ็ตองค์ประกอบเท่านั้นที่ประกาศ grow หรือ typography
 widget-fault-pack-category = วิดเจ็ต { $widget } ไม่ตรงกับแพ็กของตน: แพ็กเลย์เอาต์มีวิดเจ็ตสไลด์ ส่วนแพ็กวิดเจ็ตมีวิดเจ็ตองค์ประกอบ
 widget-fault-unqualified = วิดเจ็ต { $widget } ไม่มีเนมสเปซของแพ็ก
+widget-fault-too-long = วิดเจ็ต { $widget }: ป้ายกำกับหรือคำอธิบายยาวเกินไป
 issue-empty-item-id = รายการ { $param } มีรายการย่อยที่ไม่มีตัวระบุ
 issue-duplicate-item-id = รายการ { $param } มีตัวระบุของรายการย่อยซ้ำกัน
 issue-invalid-item-id = รายการ { $param } มีตัวระบุรายการย่อยที่มีเครื่องหมายทับ

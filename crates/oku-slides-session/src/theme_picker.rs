@@ -103,8 +103,9 @@ pub fn theme_picker(cards: &[ThemeCard], active: &Namespace, l: &Localizer) -> S
         Component::column("root", &["title", "row", "close"]),
         Component::text("title", l.tr("agent-surface-themes"), Some(TextVariant::H4)),
         Component::row("row", &refs),
-        Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss"))
-            .icon(ButtonIcon::Close),
+        Component::button_builder("close", l.tr("agent-surface-close"), Action::named("dismiss"))
+            .icon(ButtonIcon::Close)
+            .build(),
     ];
     for (cid, card) in ids.iter().zip(cards) {
         components.push(Component::new(

@@ -174,6 +174,11 @@ pub enum ParamType {
     },
 }
 
+/// Longest widget, parameter, column or item label, in characters.
+pub const WIDGET_LABEL_MAX: usize = 120;
+/// Longest widget description, in characters.
+pub const WIDGET_DESCRIPTION_MAX: usize = 500;
+
 /// Noms interdits à une colonne de `list` : clés de l'item et d'un élément.
 pub(crate) const RESERVED_COLUMNS: [&str; 2] = ["id", "kind"];
 
@@ -384,6 +389,11 @@ fn check_widget(w: &WidgetSchema) -> Result<(), WidgetError> {
     if w.name.is_empty() || w.params.iter().any(|p| p.name.is_empty()) {
         return Err(fault(w, SchemaFault::EmptyName));
     }
+    if localized_too_long(w.label.as_ref(), WIDGET_LABEL_MAX)
+        || localized_too_long(w.description.as_ref(), WIDGET_DESCRIPTION_MAX)
+    {
+        return Err(fault(w, SchemaFault::TooLong));
+    }
     let mut seen = BTreeSet::new();
     for p in &w.params {
         if !seen.insert(p.name.as_str()) {
@@ -394,9 +404,35 @@ fn check_widget(w: &WidgetSchema) -> Result<(), WidgetError> {
     Ok(())
 }
 
+/// Whether `text` has more than `max` characters.
+fn too_long(text: Option<&str>, max: usize) -> bool {
+    text.is_some_and(|t| t.chars().count() > max)
+}
+
+/// Whether `text`, in any of its languages, has more than `max` characters.
+fn localized_too_long(text: Option<&LocalizedText>, max: usize) -> bool {
+    match text {
+        Some(LocalizedText::Plain(t)) => too_long(Some(t), max),
+        Some(LocalizedText::ByLocale(by)) => by.values().any(|t| too_long(Some(t), max)),
+        None => false,
+    }
+}
+
+/// Whether the label of `p`, or the item label of a list, is over [`WIDGET_LABEL_MAX`].
+fn labels_too_long(p: &ParamSchema) -> bool {
+    let item_label = match &p.ty {
+        ParamType::List { item_label, .. } => item_label.as_deref(),
+        _ => None,
+    };
+    too_long(p.label.as_deref(), WIDGET_LABEL_MAX) || too_long(item_label, WIDGET_LABEL_MAX)
+}
+
 fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {
     if p.name.contains('/') {
         return Err(fault(w, SchemaFault::ReservedName));
+    }
+    if labels_too_long(p) {
+        return Err(fault(w, SchemaFault::TooLong));
     }
     if p.bind.is_some() && p.ty != ParamType::Plain {
         return Err(fault(w, SchemaFault::BindNotPlain));
@@ -459,6 +495,9 @@ fn check_list(w: &WidgetSchema, p: &ParamSchema, nested: bool) -> Result<(), Wid
             return Err(fault(w, SchemaFault::BindNotPlain));
         }
         if is_list {
+            if labels_too_long(c) {
+                return Err(fault(w, SchemaFault::TooLong));
+            }
             check_list(w, c, true)?;
         } else {
             check_param(w, c)?;

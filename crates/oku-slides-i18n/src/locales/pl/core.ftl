@@ -215,6 +215,7 @@ widget-fault-list-default-below-min = Widżet { $widget }: wartość domyślna z
 widget-fault-slide-sizing = Widżet { $widget } jest slajdem: tylko widżety elementów deklarują grow lub typography
 widget-fault-pack-category = Widżet { $widget } nie pasuje do swojego pakietu: pakiety układów zawierają widżety slajdów, pakiety widżetów zawierają widżety elementów
 widget-fault-unqualified = Widżet { $widget } nie ma przestrzeni nazw pakietu
+widget-fault-too-long = Widżet { $widget }: etykieta lub opis jest za długi
 issue-empty-item-id = lista { $param } ma pozycję bez identyfikatora
 issue-duplicate-item-id = lista { $param } ma zduplikowany identyfikator pozycji
 issue-invalid-item-id = lista { $param } ma identyfikator pozycji zawierający ukośnik

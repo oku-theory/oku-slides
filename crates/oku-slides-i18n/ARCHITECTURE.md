@@ -1,8 +1,7 @@
 # oku-slides-i18n
 
 Oku Slides languages: every user-facing message as Fluent, compiled into the binary.
-English is the reference; 20 locales ship. No dependency on any other oku-slides crate,
-so every crate can use it.
+English is the reference; 20 locales ship. No oku-slides dependency: every crate uses it.
 
 ## Modules
 
@@ -21,13 +20,14 @@ so every crate can use it.
 - `keys.rs`: `platform_keys` and `pc_keys` rewrite macOS shortcuts (`⌘⇧S`) as `Ctrl+Shift+S` off macOS.
 - `fold.rs`: `fold`, the one case and accent fold (shortcuts, help search, namespaces); `shortcut.rs`:
   `THEME_SHORTCUT`, `theme_shortcuts` (its words in every locale, for the UI).
+- `hidden.rs`: `is_hidden_control`, `strip_hidden`; `tr_with` strips string arguments, as UI `t()` does.
 
 ## Locale choice
 
 `Localizer::new(requested)` → `resolve`: the requested locale if shipped, else the system
 locale (`sys-locale`), else `en`. `shipped` maps regional tags (`fr-CA` → `fr`) and
 Chinese regions to `zh-Hans` or `zh-Hant`. Bidi isolation marks are off so paths and
-numbers print as is in a terminal.
+numbers print as is in a terminal; interpolated strings lose their bidi controls instead.
 
 ## On-disk layout
 
@@ -37,8 +37,8 @@ React UI). Keys are prefixed by domain (`cli-…`, `chart-…`, `import-…`).
 
 ## Outside Fluent
 
-The agent's instructions (`oku-slides-agent/src/instructions/*.md`) are prompts, not
-user-facing text: English only, never translated; each turn passes the interface language.
+The agent's instructions (`oku-slides-agent/src/instructions/*.md`) are prompts, English
+only, never translated; each turn passes the interface language.
 
 ## Extension points
 

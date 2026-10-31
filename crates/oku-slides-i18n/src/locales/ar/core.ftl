@@ -223,6 +223,7 @@ widget-fault-list-default-below-min = الودجة { $widget }: القيمة ا�
 widget-fault-slide-sizing = الودجة { $widget } شريحة: ودجات العناصر وحدها تصرّح بـ grow أو typography
 widget-fault-pack-category = الودجة { $widget } لا تطابق حزمتها: حزم التخطيطات تحوي ودجات الشرائح وحزم الودجات تحوي ودجات العناصر
 widget-fault-unqualified = الودجة { $widget } بلا مساحة أسماء حزمة
+widget-fault-too-long = الودجة { $widget }: تسمية أو وصف أطول من اللازم
 issue-empty-item-id = القائمة { $param } تحتوي على بند بلا معرّف
 issue-duplicate-item-id = القائمة { $param } تحتوي على معرّف بند مكرر
 issue-invalid-item-id = القائمة { $param } فيها معرّف بند يحتوي على شرطة مائلة

@@ -27,5 +27,6 @@ mod issue_0776_undo_add_keeps_moved_subtree;
 mod issue_0809_deep_tree_chain;
 mod issue_0865_inscribed_slot_keys;
 mod issue_0866_hidden_depth_refused_on_save;
+mod issue_0965_widget_text_too_long;
 mod issue_1068_namespace_pinned_under_both_kinds;
 mod issue_1104_manifest_errors_are_localized;

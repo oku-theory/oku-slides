@@ -215,6 +215,7 @@ widget-fault-list-default-below-min = Віджет { $widget }: у типово�
 widget-fault-slide-sizing = Віджет { $widget } — слайд: grow і typography оголошують лише віджети елементів
 widget-fault-pack-category = Віджет { $widget } не відповідає своєму пакету: пакети макетів містять віджети слайдів, пакети віджетів — віджети елементів
 widget-fault-unqualified = Віджет { $widget } не має простору імен пакета
+widget-fault-too-long = Віджет { $widget }: підпис або опис задовгі
 issue-empty-item-id = у списку { $param } є пункт без ідентифікатора
 issue-duplicate-item-id = у списку { $param } повторюється ідентифікатор пункту
 issue-invalid-item-id = у списку { $param } є ідентифікатор пункту з косою рискою

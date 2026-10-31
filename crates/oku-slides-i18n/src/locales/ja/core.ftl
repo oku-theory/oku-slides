@@ -197,6 +197,7 @@ widget-fault-list-default-below-min = ウィジェット { $widget }：入れ子
 widget-fault-slide-sizing = ウィジェット { $widget }：スライドです。grow と typography を宣言できるのは要素のウィジェットだけです
 widget-fault-pack-category = ウィジェット { $widget }：パックの種類と合いません。レイアウトパックにはスライドのウィジェット、ウィジェットパックには要素のウィジェットを入れます
 widget-fault-unqualified = ウィジェット { $widget }：パックの名前空間がありません
+widget-fault-too-long = ウィジェット { $widget }：ラベルまたは説明が長すぎます
 issue-empty-item-id = リスト { $param } に識別子のない項目があります
 issue-duplicate-item-id = リスト { $param } に識別子が重複した項目があります
 issue-invalid-item-id = リスト { $param } にスラッシュを含む項目の識別子があります

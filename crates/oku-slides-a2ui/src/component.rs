@@ -490,44 +490,6 @@ impl Component {
     pub fn text(id: impl Into<String>, text: impl Into<String>, variant: Option<TextVariant>) -> Self {
         Self::new(id, ComponentKind::Text { text: Dynamic::Literal(text.into()), variant })
     }
-
-    /// A button with a literal label; `primary` marks it as the main action.
-    pub fn button(id: impl Into<String>, label: impl Into<String>, primary: bool, action: Action) -> Self {
-        Self::new(
-            id,
-            ComponentKind::Button {
-                label: Dynamic::Literal(label.into()),
-                primary: primary.then_some(true),
-                danger: None,
-                icon: None,
-                action,
-            },
-        )
-    }
-
-    /// The same button, marked or not as a committing action.
-    ///
-    /// Only affects buttons: any other component is returned as is.
-    #[must_use]
-    pub fn danger(mut self, on: bool) -> Self {
-        debug_assert!(matches!(self.kind, ComponentKind::Button { .. }), "danger() ne vaut que pour un bouton");
-        if let ComponentKind::Button { danger, .. } = &mut self.kind {
-            *danger = on.then_some(true);
-        }
-        self
-    }
-
-    /// The same button, shown by the `icon` pictogram instead of its label.
-    ///
-    /// Only affects buttons: any other component is returned as is.
-    #[must_use]
-    pub fn icon(mut self, icon: ButtonIcon) -> Self {
-        debug_assert!(matches!(self.kind, ComponentKind::Button { .. }), "icon() ne vaut que pour un bouton");
-        if let ComponentKind::Button { icon: slot, .. } = &mut self.kind {
-            *slot = Some(icon);
-        }
-        self
-    }
 }
 
 #[cfg(test)]

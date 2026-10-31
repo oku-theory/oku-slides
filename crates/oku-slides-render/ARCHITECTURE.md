@@ -19,9 +19,9 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 - `PackWidgets` (`from_files`: id = version hash, the only trusted build): namespace, `PackKind`, `<dir>/<name>.typ` files (`widgets` or `layouts`,
   `_commun` shared) under `/packs/<id>/` and a generated `/packs/<id>/<dir>.typ` naming them
   `ns/name`; `PackSet`: packs by namespace, unique namespaces and ids (`DuplicatePack`).
-  `probe_file` (`widget_probe.rs`): one file alone, by kind, gives a `FileProbe` (schema or
-  diagnostics); `assemble_set`: a fixed probe's packs + valid files (category contrary to the
-  kind dropped). `Registries` memoizes by fingerprint and `probe_key` (empty set: empty
+  `probe_file` (`widget_probe.rs`): one file alone, by kind, gives a `FileProbe` (schema, read as a
+  `WidgetSchema`, or diagnostics); `assemble_set`: a fixed probe's packs + valid files
+  (category contrary to the kind dropped). `Registries` memoizes by fingerprint and `probe_key` (empty set: empty
   registry); `base_probe` (`base`), `builtin_registry` (`base` + `essentiel`) are memoized.
 - `builtin_packs.rs`: `BuiltinPack` (`Base`, `Essentiel`) embeds `typst/oku-slides/packs/*`;
   `is_trusted_pack`: built-in namespace, shipped version (`versions.txt`); `is_never_blamed`: trusted

@@ -197,6 +197,7 @@ widget-fault-list-default-below-min = 小工具 { $widget }：巢狀清單預設
 widget-fault-slide-sizing = 小工具 { $widget }：這是投影片，只有元素小工具才能宣告 grow 或 typography
 widget-fault-pack-category = 小工具 { $widget }：與所在套件的類型不符，版面配置套件只含投影片小工具，小工具套件只含元素小工具
 widget-fault-unqualified = 小工具 { $widget }：沒有套件命名空間
+widget-fault-too-long = 小工具 { $widget }：標籤或說明過長
 issue-empty-item-id = 清單 { $param } 中有項目沒有識別碼
 issue-duplicate-item-id = 清單 { $param } 中有重複的項目識別碼
 issue-invalid-item-id = 清單 { $param } 有包含斜線的項目識別碼

@@ -296,7 +296,8 @@ pub(crate) enum SessionInner {
     UnknownField { owner: String, field: String, backtrace: Backtrace },
     #[snafu(display("name a text field of {owner}"))]
     FieldNeeded { owner: String, backtrace: Backtrace },
-    #[snafu(display("tab not found: {id}"))]
+    /// The id comes from a request: cleaned and clipped for the logs.
+    #[snafu(display("tab not found: {}", crate::agent::bounds::label(id)))]
     UnknownTab { id: String, backtrace: Backtrace },
     #[snafu(display("window not found: {label}"))]
     UnknownWindow { label: String, backtrace: Backtrace },

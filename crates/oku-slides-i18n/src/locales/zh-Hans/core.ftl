@@ -197,6 +197,7 @@ widget-fault-list-default-below-min = 小组件 { $widget }：嵌套列表默认
 widget-fault-slide-sizing = 小组件 { $widget }：这是幻灯片，只有元素小组件才能声明 grow 或 typography
 widget-fault-pack-category = 小组件 { $widget }：与所在包的类型不符，布局包只含幻灯片小组件，小组件包只含元素小组件
 widget-fault-unqualified = 小组件 { $widget }：没有包命名空间
+widget-fault-too-long = 小组件 { $widget }：标签或描述过长
 issue-empty-item-id = 列表 { $param } 中有项目没有标识符
 issue-duplicate-item-id = 列表 { $param } 中有重复的项目标识符
 issue-invalid-item-id = 列表 { $param } 有包含斜杠的项目标识符

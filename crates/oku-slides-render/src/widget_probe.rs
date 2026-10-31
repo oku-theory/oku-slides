@@ -6,6 +6,7 @@
 //!   ou `layouts`, selon la sorte du pack), avec `_commun.typ` : la sonde ne
 //!   dépend pas de la version du pack.
 //! - Le nom déclaré doit être celui du fichier, sinon le fichier est refusé.
+//! - The schema must read as a `WidgetSchema` (serde), else the file alone is set aside.
 //! - Un message levé hors des fichiers du pack (source de la sonde,
 //!   bibliothèque) revient au fichier : à l'appel fautif, sinon sans position.
 //! - [`assemble`] forme le registre des valides ; un widget que le registre
@@ -25,7 +26,7 @@ use typst::introspection::Introspector;
 use typst::utils::PicoStr;
 use typst_layout::PagedDocument;
 
-use oku_slides_core::{Namespace, PackKind, WidgetFile, WidgetRegistry, split_kind};
+use oku_slides_core::{Namespace, PackKind, WidgetFile, WidgetRegistry, WidgetSchema, split_kind};
 
 use crate::diagnostic::{Diagnostic, Severity, SourceAt};
 use crate::error::{MissingSnafu, RegistryError, SchemaSnafu};
@@ -140,6 +141,12 @@ pub fn probe_file(fonts: &Fonts, kind: PackKind, name: &WidgetFile, source: &str
     let declared = schema.get("name").and_then(Json::as_str).unwrap_or_default().to_owned();
     if declared != name.as_str() {
         diagnostics.insert(0, misnamed(kind, name, source, &declared));
+        return FileProbe { schema: None, diagnostics };
+    }
+    // A schema written by hand (without `widget()`) may be mistyped: only this file is set aside,
+    // where the registry would fail to read as a whole, naming no widget (t-969).
+    if let Err(e) = serde_json::from_value::<WidgetSchema>(schema.clone()) {
+        diagnostics.insert(0, Diagnostic::widget_error(name, format!("the widget schema is invalid: {e}")));
         return FileProbe { schema: None, diagnostics };
     }
     FileProbe { schema: Some(schema), diagnostics }

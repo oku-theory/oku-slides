@@ -198,6 +198,7 @@ widget-fault-list-default-below-min = Widget { $widget }: iç içe bir listenin 
 widget-fault-slide-sizing = Widget { $widget } bir slayt: grow veya typography yalnızca öğe widget'ları tarafından bildirilir
 widget-fault-pack-category = Widget { $widget } paketine uymuyor: düzen paketleri slayt widget'larını, widget paketleri öğe widget'larını içerir
 widget-fault-unqualified = Widget { $widget } bir paket ad alanına sahip değil
+widget-fault-too-long = Widget { $widget }: bir etiket veya açıklama çok uzun
 issue-empty-item-id = { $param } listesinde tanımlayıcısı olmayan bir madde var
 issue-duplicate-item-id = { $param } listesinde yinelenen bir madde tanımlayıcısı var
 issue-invalid-item-id = { $param } listesinde eğik çizgi içeren bir öğe kimliği var

@@ -1,5 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { applyMessages, changeLocale, direction, loadMessages, locale, onLocaleChange, receiveMessages, setMessages, t } from "./i18n";
+import {
+  applyMessages, changeLocale, direction, isolate, loadMessages, locale, onLocaleChange, receiveMessages, setMessages, t,
+} from "./i18n";
 import { resetMessages } from "./test/messages";
 
 const en = "ui-hello = Hello { $name }\nui-only-en = Only in English\n";
@@ -22,6 +24,27 @@ describe("t", () => {
 
   test("un identifiant inconnu se voit tel quel", () => {
     expect(t("ui-missing")).toBe("ui-missing");
+  });
+
+  test("t strips bidi controls and invisible characters from string arguments (t-959)", () => {
+    expect(t("ui-hello", { name: "Ré\u202Ecent\u2066e\u200B\u{E0041}" })).toBe("Bonjour Récente");
+  });
+
+  test("t keeps the joiners of an emoji sequence", () => {
+    expect(t("ui-hello", { name: "👩\u200D💻" })).toBe("Bonjour 👩\u200D💻");
+  });
+
+  test("t keeps the one isolation pair of an isolated argument and strips its interior", () => {
+    expect(t("ui-hello", { name: isolate("A\u202Eb") })).toBe("Bonjour \u2068Ab\u2069");
+  });
+
+  test("t keeps each isolated item of a joined list in its own isolate", () => {
+    const list = [isolate("\u05D0\u202E"), isolate("B")].join(", ");
+    expect(t("ui-hello", { name: list })).toBe("Bonjour \u2068\u05D0\u2069, \u2068B\u2069");
+  });
+
+  test("t leaves number arguments as they are", () => {
+    expect(t("ui-hello", { name: 3 })).toBe("Bonjour 3");
   });
 });
 

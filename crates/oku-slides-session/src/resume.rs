@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 use oku_slides_core::{
-    DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, ReplicaLimits, SourceBundle,
+    DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, SourceBundle, SourceLimits,
     UsageLedger, WidgetFile, WidgetRegistry,
 };
 use oku_slides_platform::storage::{Storage, StorageError};
@@ -312,8 +312,9 @@ impl Resume {
         self.storage.write_atomic(path, bytes).context(AccessSnafu { path })
     }
 
-    fn get(&self, path: &Path) -> Result<Vec<u8>> {
-        self.storage.read(path).context(AccessSnafu { path })
+    /// A JSON file, refused unread above [`MAX_JSON_BYTES`].
+    fn get_json(&self, path: &Path) -> Result<Vec<u8>> {
+        self.storage.read_limited(path, MAX_JSON_BYTES).context(AccessSnafu { path })
     }
 
     /// Écrit `name` (JSON) dans le dossier, d'un coup.
@@ -452,12 +453,15 @@ impl Resume {
         Ok(())
     }
 
-    fn read_files(&self, dir: &Path) -> Result<BTreeMap<String, Vec<u8>>> {
+    /// The files of `dir`, each read within what is left of `budget` (bytes), then taken from it.
+    fn read_files(&self, dir: &Path, budget: &mut u64) -> Result<BTreeMap<String, Vec<u8>>> {
         let mut files = BTreeMap::new();
         for path in self.storage.list_files(dir).context(AccessSnafu { path: dir })? {
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             if !name.is_empty() && !name.starts_with('.') {
-                files.insert(name, self.get(&path)?);
+                let bytes = self.storage.read_limited(&path, *budget).context(AccessSnafu { path: &path })?;
+                *budget = budget.saturating_sub(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
+                files.insert(name, bytes);
             }
         }
         Ok(files)
@@ -524,7 +528,7 @@ impl Resume {
     pub(crate) fn deck_unsaved(&self) -> bool {
         let path = self.dir.join(DECK_DIR).join("document.json");
         let read = self
-            .get(&path)
+            .get_json(&path)
             .and_then(|bytes| serde_json::from_slice::<DocIn>(&bytes).context(JsonSnafu { path: &path }));
         read.inspect_err(
             |e| tracing::warn!(error = %oku_slides_platform::errors::one_line(e), "document de reprise illisible"),
@@ -533,32 +537,38 @@ impl Resume {
     }
 
     /// Relit un document : son replica (`deck.loro`, au plus
-    /// `limits.max_bytes`, compacté selon `limits.compact_after_secs`), avec une pile d'annulation neuve et l'auteur de
+    /// `limits.replica_bytes`, compacté selon `limits.compact_after_secs`), avec une pile d'annulation neuve et l'auteur de
     /// `defaults`, écrit ensuite avec les widgets de `registry`. Sans
     /// `deck.loro` (ancien format), illisible.
+    ///
+    /// Every read is bounded, as for a PDF's sources: `document.json` by [`MAX_JSON_BYTES`],
+    /// assets, fonts, packs and themes together by `limits.total_bytes` (t-1206).
     pub fn read_doc(
         &self,
         sub: &str,
         defaults: &DocDefaults,
-        limits: impl Into<ReplicaLimits>,
+        limits: SourceLimits,
         registry: &Arc<WidgetRegistry>,
     ) -> Result<Document> {
         let dir = self.dir.join(sub);
         let path = dir.join("document.json");
-        let raw: DocIn = serde_json::from_slice(&self.get(&path)?).context(JsonSnafu { path: &path })?;
+        let raw: DocIn = serde_json::from_slice(&self.get_json(&path)?).context(JsonSnafu { path: &path })?;
         let loro = dir.join("deck.loro");
         // Borné à la lecture : un fichier démesuré n'est pas chargé en mémoire.
-        let limits = limits.into();
-        let max = u64::try_from(limits.max_bytes).unwrap_or(u64::MAX);
+        let max = u64::try_from(limits.replica_bytes).unwrap_or(u64::MAX);
         let bytes = self.storage.read_limited(&loro, max).context(AccessSnafu { path: &loro })?;
-        let (replica, read) =
-            DeckReplica::from_snapshot(&bytes, limits, registry.clone()).context(ReplicaSnafu { path: &loro })?;
-        let assets =
-            self.read_files(&dir.join("assets"))?.into_iter().map(|(n, b)| (format!("sha256:{n}"), b)).collect();
+        let (replica, read) = DeckReplica::from_snapshot(&bytes, limits.replica(), registry.clone())
+            .context(ReplicaSnafu { path: &loro })?;
+        let mut budget = u64::try_from(limits.total_bytes).unwrap_or(u64::MAX);
+        let assets = self
+            .read_files(&dir.join("assets"), &mut budget)?
+            .into_iter()
+            .map(|(n, b)| (format!("sha256:{n}"), b))
+            .collect();
         // Le nom sur disque est `<hex>-<nom>` (adressage par contenu) : on ne
         // garde que le nom d'origine, après le premier tiret.
         let fonts = self
-            .read_files(&dir.join("fonts"))?
+            .read_files(&dir.join("fonts"), &mut budget)?
             .into_iter()
             .map(|(n, b)| {
                 let name = match n.split_once('-') {
@@ -581,7 +591,7 @@ impl Resume {
             }
             None => None,
         };
-        let raw_packs = self.read_files(&dir.join("packs"))?;
+        let raw_packs = self.read_files(&dir.join("packs"), &mut budget)?;
         let mut packs = BTreeMap::new();
         for (name, bytes) in &raw_packs {
             let Some(hex) = name.strip_suffix(".json") else { continue };
@@ -601,7 +611,7 @@ impl Resume {
             }
         }
         let mut themes = BTreeMap::new();
-        for (name, bytes) in self.read_files(&dir.join("themes"))? {
+        for (name, bytes) in self.read_files(&dir.join("themes"), &mut budget)? {
             let Some(hex) = name.strip_suffix(".json") else { continue };
             // Vérifié par son empreinte : un thème altéré est ignoré.
             if let Some(files) = PackFiles::verified_theme(hex, &bytes) {
@@ -761,8 +771,8 @@ impl Session {
 
     /// Restores `deck/` as the document, reread from its file if unchanged, with `ui`.
     fn restore_deck(&mut self, resume: &Resume, ui: UiState) -> Result<()> {
-        let max = self.source_limits.replica();
-        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, max, &self.registry)?);
+        let deck =
+            self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, self.source_limits, &self.registry)?);
         self.load_document(deck).context(SessionSnafu)?;
         self.ui = ui.sanitized(false);
         Ok(())

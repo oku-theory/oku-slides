@@ -10,8 +10,8 @@ rendering, no disk access.
   `deleteSurface`, serialized as v0.9; `CATALOG_ID` lives here.
 - `Component { id, kind }` and `ComponentKind` (`component.rs`): the catalog (layout, text, card,
   buttons, `Receipt`, `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`,
-  `ChartData`, `TableData`…); constructors `card`, `column`, `row`, `text`, `button`; button
-  builders `danger`, `icon`.
+  `ChartData`, `TableData`…); constructors `card`, `column`, `row`, `text`, `button`;
+  `button_builder` (`button.rs`, `ButtonBuilder`: `primary`, `danger`, `icon`, `build`).
 - Prop types (`props.rs`): `Tone`, `TextVariant`, `ButtonIcon`, `ChoiceOption` (the only type with
   a JSON schema, via `schemars`: its docs stay free of rustdoc links), `TimelineStep`,
   `ToolCallDetail`, `PromptImage`, `DiffSegment`, `SlideRef`.

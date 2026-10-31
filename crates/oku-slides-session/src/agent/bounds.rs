@@ -3,6 +3,7 @@
 //! [`label`] serves the whole crate: it cleans deck, manifest and request strings.
 
 use oku_slides_a2ui::ChoiceOption;
+use oku_slides_i18n::is_hidden_control;
 use snafu::ensure;
 
 use super::AgentFormReason;
@@ -21,18 +22,6 @@ pub const LABEL_MAX: usize = 60;
 pub const PROMPT_MAX: usize = 2000;
 /// Arguments ou résultat d'un appel d'outil, montrés au dépliage du tour.
 pub const DETAIL_CHARS: usize = 1500;
-
-/// Contrôles d'ordre bidirectionnel, caractères invisibles et caractères « tag » (U+E0000..U+E007F,
-/// un texte invisible que lit un LLM) : un libellé ne doit pas se lire autrement qu'il ne s'envoie.
-/// U+200C (ZWNJ) et U+200D (ZWJ) restent permis : ils servent aux écritures indiennes et aux émojis composés.
-fn is_hidden_control(c: char) -> bool {
-    matches!(
-        c,
-        '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'
-            | '\u{200B}' | '\u{2060}'..='\u{2064}' | '\u{FEFF}' | '\u{180E}' | '\u{00AD}'
-            | '\u{E0000}'..='\u{E007F}'
-    )
-}
 
 /// Texte de l'agent affichable : sans caractères invisibles, coupé à `max`.
 ///

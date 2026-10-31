@@ -102,4 +102,7 @@ pub use usage_report::{
     By, CostTotal, Range, UsageRangeError, UsageRangeErrorKind, UsageReport, UsageRow, aggregate, parse_day,
 };
 pub use validate::{Issue, asset_refs, element_asset_refs, validate};
-pub use widget::{Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema, is_text};
+pub use widget::{
+    Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WIDGET_DESCRIPTION_MAX, WIDGET_LABEL_MAX,
+    WidgetRegistry, WidgetSchema, is_text,
+};

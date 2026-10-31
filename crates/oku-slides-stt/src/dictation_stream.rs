@@ -12,7 +12,9 @@ use std::time::{Duration, Instant};
 
 use oku_slides_i18n::Localize;
 
-use crate::error::{AnalyzerSnafu, AssetInstallSnafu, CancelledSnafu, FinishTimeoutSnafu, LocaleUnsupportedSnafu};
+use crate::error::{
+    AnalyzerSnafu, AssetInstallSnafu, CancelledSnafu, FinishTimeoutSnafu, LocaleUnsupportedSnafu, ZeroSettingSnafu,
+};
 use crate::stream::{Availability, Event, Stream};
 use crate::{Download, Inner, Model, SAMPLE_RATE, State, Stt, SttError, TimedPhrase, join};
 #[cfg(any(test, target_os = "macos"))]
@@ -34,9 +36,9 @@ impl Stt {
     ///
     /// Une dictée abandonnée ou trop lente annule le flux confié ; il n'est
     /// lâché tel quel qu'après `Done`, `Failed` ou la fermeture du pont.
-    pub(crate) fn stream_loop(&self, session: u64, events: &mpsc::Receiver<Event>, held: &Held) {
+    /// `timeout` : attente maximale du texte final après l'arrêt ([`Self::apple_finish_timeout`]).
+    pub(crate) fn stream_loop(&self, session: u64, events: &mpsc::Receiver<Event>, held: &Held, timeout: Duration) {
         let tick = Duration::from_millis(self.settings.tick_ms);
-        let timeout = Duration::from_secs_f32(self.settings.apple_finish_timeout_secs);
         let mut finishing: Option<Instant> = None;
         loop {
             let event = events.recv_timeout(tick);
@@ -81,6 +83,18 @@ impl Stt {
                 }
             }
         }
+    }
+
+    /// The Apple engine's wait for its final text after a stop (`stt.apple_finish_timeout_secs`).
+    ///
+    /// # Errors
+    ///
+    /// `ZeroSetting` for a zero, negative, NaN or overflowing value, instead of a panic (t-1142).
+    pub(crate) fn apple_finish_timeout(&self) -> Result<Duration, SttError> {
+        Duration::try_from_secs_f32(self.settings.apple_finish_timeout_secs)
+            .ok()
+            .filter(|d| !d.is_zero())
+            .ok_or_else(|| ZeroSettingSnafu { field: "stt.apple_finish_timeout_secs" }.build().into())
     }
 
     /// Le moteur a échoué : message, puis retour au repos sans texte.
@@ -148,6 +162,7 @@ impl Stt {
 
     /// Transcrit un audio complet (mono 16 kHz) par le moteur en continu.
     pub(crate) fn transcribe_stream(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), SttError> {
+        let timeout = self.apple_finish_timeout()?;
         // Un ancien abandon (`cancel`) ne doit pas interrompre cette installation.
         self.cancel_download.store(false, Ordering::Relaxed);
         let (apple, vocabulary) = {
@@ -168,7 +183,6 @@ impl Stt {
             stream.push(chunk);
         }
         stream.finish();
-        let timeout = Duration::from_secs_f32(self.settings.apple_finish_timeout_secs);
         #[cfg_attr(
             not(any(test, target_os = "macos")),
             expect(unused_mut, reason = "only the Apple engine sends final texts")

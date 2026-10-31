@@ -207,6 +207,7 @@ widget-fault-list-default-below-min = Widget { $widget }: il valore predefinito 
 widget-fault-slide-sizing = Widget { $widget } è una slide: solo i widget di elemento dichiarano grow o typography
 widget-fault-pack-category = Il widget { $widget } non corrisponde al suo pack: i pack di layout contengono widget di slide, i pack di widget contengono widget di elemento
 widget-fault-unqualified = Il widget { $widget } non ha uno spazio dei nomi di pack
+widget-fault-too-long = Widget { $widget }: un'etichetta o una descrizione è troppo lunga
 issue-empty-item-id = l'elenco { $param } ha una voce senza identificatore
 issue-duplicate-item-id = l'elenco { $param } ha un identificatore di voce duplicato
 issue-invalid-item-id = l'elenco { $param } ha un identificatore di voce che contiene una barra

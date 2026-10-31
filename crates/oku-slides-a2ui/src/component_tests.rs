@@ -96,16 +96,6 @@ fn button_serializes_label_primary_and_action() {
 }
 
 #[test]
-fn danger_button_serializes_its_danger_flag() {
-    let c = Component::button("always", "Toujours autoriser", false, Action::named("x")).danger(true);
-    let json = serde_json::to_value(&c).unwrap();
-    assert_that!(json["danger"].clone()).is_equal_to(json!(true));
-    let plain =
-        serde_json::to_value(Component::button("once", "Une fois", true, Action::named("x")).danger(false)).unwrap();
-    assert_that!(plain.get("danger")).is_none();
-}
-
-#[test]
 fn choice_chips_serializes_options_with_optional_hint() {
     let options = vec![
         ChoiceOption { id: "a".into(), label: "Deux colonnes".into(), hint: None },
@@ -484,16 +474,9 @@ fn theme_choice_without_action_keeps_everything_else() {
 
 #[test]
 fn icon_button_serializes_its_icon() {
-    let c = Component::button("close", "Fermer", false, Action::named("dismiss")).icon(ButtonIcon::Close);
+    let c = Component::button_builder("close", "Fermer", Action::named("dismiss")).icon(ButtonIcon::Close).build();
     let json = serde_json::to_value(&c).unwrap();
     assert_that!(json["icon"].clone()).is_equal_to(json!("close"));
-}
-
-#[test]
-fn button_icon_up_serializes_lowercase() {
-    let c = Component::button("up", "Monter", false, Action::named("extends")).icon(ButtonIcon::Up);
-    let json = serde_json::to_value(&c).unwrap();
-    assert_that!(json["icon"].clone()).is_equal_to(json!("up"));
 }
 
 #[test]

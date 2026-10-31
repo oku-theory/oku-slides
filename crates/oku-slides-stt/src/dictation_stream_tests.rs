@@ -97,6 +97,34 @@ fn apple_engine_failure_reports_error_without_text() {
     assert_that!((done.error.as_deref(), done.seq)).is_equal_to((Some("La transcription a échoué"), 0));
 }
 
+#[rstest::rstest]
+#[case::negative(-1.0)]
+#[case::nan(f32::NAN)]
+#[case::infinite(f32::INFINITY)]
+#[case::zero(0.0)]
+fn apple_bad_finish_timeout_reports_a_setting_error_without_panicking(#[case] secs: f32) {
+    // t-1142: `Duration::from_secs_f32` panicked on such a value from config.toml.
+    let dir = fresh_dir("stream-bad-timeout");
+    let engine = ScriptedEngine::new(Availability::Ready, &["Bonjour à tous."]);
+    let (stt, _) = stt_with(dir.path(), engine, |s| s.apple_finish_timeout_secs = secs);
+    stt.handle(SttRequest::Start { vocabulary: Vec::new() });
+    let done = wait_until(&stt, "erreur de réglage", |s| s.state == State::Idle && s.error.is_some());
+    assert_that!(done.error.as_deref()).is_equal_to(Some(stt.localizer.tr("stt-model").as_str()));
+}
+
+#[rstest::rstest]
+#[case::negative(-1.0)]
+#[case::nan(f32::NAN)]
+#[case::zero(0.0)]
+fn apple_transcribe_samples_with_a_bad_finish_timeout_returns_a_model_error(#[case] secs: f32) {
+    let dir = fresh_dir("stream-samples-bad-timeout");
+    let (stt, _) = stt_with(dir.path(), ScriptedEngine::new(Availability::Ready, &["Un."]), |s| {
+        s.apple_finish_timeout_secs = secs;
+    });
+    let kind = stt.transcribe_samples(&vec![0.0; 16_000]).map(|_| ()).unwrap_err().kind();
+    assert_that!(kind).is_equal_to(crate::SttErrorKind::Model);
+}
+
 #[test]
 fn apple_nothing_heard_auto_stop_finishes_the_stream() {
     let dir = fresh_dir("stream-auto");

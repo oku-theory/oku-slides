@@ -346,7 +346,7 @@ pub fn confirm(id: &str, spec: &AskConfirm, l: &Localizer) -> Surface {
         Component::column("body", &["message", "buttons"]),
         Component::text("message", spec.message.clone(), Some(TextVariant::Body)),
         Component::row("buttons", &["yes", "no"]),
-        Component::button("yes", l.tr(yes), true, answer(true)).danger(spec.danger),
+        Component::button_builder("yes", l.tr(yes), answer(true)).primary(true).danger(spec.danger).build(),
         Component::button("no", l.tr("agent-surface-cancel"), false, answer(false)),
     ];
     question(surface(id, Place::Modal, None, components, json!({})))
@@ -428,7 +428,8 @@ pub fn permission(id: &str, title: &str, options: &[PermissionChoice], l: &Local
             option.name.clone()
         };
         let action = Action::event("permission", [("index", lit(json!(i)))]);
-        components.push(Component::button(bid, label, primary == Some(i), action).danger(option.kind.engages()));
+        let button = Component::button_builder(bid, label, action).primary(primary == Some(i));
+        components.push(button.danger(option.kind.engages()).build());
     }
     question(surface(id, Place::Modal, None, components, json!({})))
 }

@@ -198,6 +198,7 @@ widget-fault-list-default-below-min = উইজেট { $widget }: একটি 
 widget-fault-slide-sizing = উইজেট { $widget } একটি স্লাইড: grow বা typography শুধু এলিমেন্ট উইজেট ঘোষণা করে
 widget-fault-pack-category = উইজেট { $widget } তার প্যাকের সঙ্গে মেলে না: লেআউট প্যাকে স্লাইড উইজেট থাকে, উইজেট প্যাকে এলিমেন্ট উইজেট থাকে
 widget-fault-unqualified = উইজেট { $widget }-এর কোনো প্যাক নেমস্পেস নেই
+widget-fault-too-long = উইজেট { $widget }: কোনো লেবেল বা বিবরণ খুব দীর্ঘ
 issue-empty-item-id = { $param } তালিকার একটি আইটেমের শনাক্তকারী নেই
 issue-duplicate-item-id = { $param } তালিকায় একটি আইটেমের শনাক্তকারী পুনরাবৃত্ত হয়েছে
 issue-invalid-item-id = তালিকা { $param }-এ স্ল্যাশযুক্ত একটি আইটেম শনাক্তকারী আছে

@@ -77,8 +77,8 @@ impl VoicePanel {
             dictation(d, l, &mut b, &mut data);
         }
         agents(&view.agents, l, &mut b, &mut data);
-        let close = Component::button("close", l.tr("agent-surface-close"), false, Action::named("dismiss"));
-        b.push(close.icon(ButtonIcon::Close));
+        let close = Component::button_builder("close", l.tr("agent-surface-close"), Action::named("dismiss"));
+        b.push(close.icon(ButtonIcon::Close).build());
         let refs: Vec<&str> = b.children.iter().map(String::as_str).collect();
         let root = Component::column("root", &refs);
         let components = std::iter::once(root).chain(b.components).collect();

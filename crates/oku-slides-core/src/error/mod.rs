@@ -648,6 +648,8 @@ pub enum SchemaFault {
     PackCategory,
     /// Un widget de registre sans espace de noms (un registre se lit toujours qualifié).
     Unqualified,
+    /// A label or description longer than its cap (`WIDGET_LABEL_MAX`, `WIDGET_DESCRIPTION_MAX`).
+    TooLong,
 }
 
 impl std::fmt::Display for SchemaFault {
@@ -671,6 +673,7 @@ impl std::fmt::Display for SchemaFault {
             SchemaFault::SlideSizing => "slide declares grow or typography",
             SchemaFault::PackCategory => "widget category differs from its pack kind",
             SchemaFault::Unqualified => "registry widget without a namespace",
+            SchemaFault::TooLong => "label or description too long",
         })
     }
 }
@@ -696,6 +699,7 @@ impl SchemaFault {
             SchemaFault::SlideSizing => "widget-fault-slide-sizing",
             SchemaFault::PackCategory => "widget-fault-pack-category",
             SchemaFault::Unqualified => "widget-fault-unqualified",
+            SchemaFault::TooLong => "widget-fault-too-long",
         }
     }
 }
