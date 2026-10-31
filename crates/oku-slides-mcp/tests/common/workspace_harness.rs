@@ -39,6 +39,7 @@ fn add_library_pack(platform: &Platform, id: Uuid, namespace: &str, widgets: &[(
         examples: BTreeMap::new(),
         styles: BTreeMap::new(),
         tokens: Vec::new(),
+        order: Vec::new(),
     };
     let widgets = widgets
         .iter()
@@ -134,6 +135,15 @@ pub async fn start_in_help_tab() -> (Harness, Arc<Mutex<Workspace>>, String) {
 pub fn selected_item(ws: &Arc<Mutex<Workspace>>, tab: &str) -> Option<String> {
     tokio::task::block_in_place(|| {
         Workspace::with_session(ws, tab, |s| s.snapshot().ui.widget.clone())
+            .0
+            .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    })
+}
+
+/// The ids of the preview slides of a widget pack tab, in pile order (`widget-<name>`).
+pub fn pile_slide_ids(ws: &Arc<Mutex<Workspace>>, tab: &str) -> Vec<String> {
+    tokio::task::block_in_place(|| {
+        Workspace::with_session(ws, tab, |s| s.snapshot().slides.iter().map(|x| x.id.to_owned()).collect())
             .0
             .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
     })

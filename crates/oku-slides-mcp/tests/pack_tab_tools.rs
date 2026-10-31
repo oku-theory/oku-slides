@@ -5,7 +5,7 @@ mod common;
 
 use common::kinds::unknown_tool;
 use common::workspace_harness::{
-    ACME, ACME_WIDGET, edited_pack, library_files, next_event, preview_theme_and_dirty, selected_item,
+    ACME, ACME_WIDGET, edited_pack, library_files, next_event, pile_slide_ids, preview_theme_and_dirty, selected_item,
     start_in_deck_pack_tab, start_in_pack_tab,
 };
 use common::*;
@@ -141,4 +141,68 @@ async fn save_pack_in_a_deck_pack_tab_copies_deck_only_and_never_writes_the_libr
     assert_that!(edited.is_some() && edited != Some(pack)).is_true();
     assert_that!(library_files(h.data())).is_equal_to(before);
     assert_that!(owner_pack(&ws)).is_equal_to(edited);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn duplicate_widget_in_a_pack_tab_answers_the_copy_name() {
+    let (h, _ws, _tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let r = call(&c, "duplicate_widget", json!({ "from": ACME_WIDGET })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(text_of(&r).as_str()).contains(format!("\"name\":\"{ACME_WIDGET}-2\""));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn duplicate_widget_in_a_pack_tab_emits_changed_then_widget_touched() {
+    let (h, _ws, _tab) = start_in_pack_tab().await;
+    let mut events = h.hub.subscribe();
+    let c = server(&h).await;
+    let r = call(&c, "duplicate_widget", json!({ "from": ACME_WIDGET })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(matches!(next_event(&mut events).await, McpEvent::Changed)).is_true();
+    let touched = next_event(&mut events).await;
+    assert_that!(matches!(&touched, McpEvent::WidgetTouched { name, removed: false } if name == "badge-2")).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reorder_widgets_with_a_missing_item_is_refused_in_french() {
+    let (h, _ws, _tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let r = call(&c, "reorder_widgets", json!({ "order": [] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let expected =
+        h.localizer.tr_with("session-widget-order-mismatch", &[("missing", ACME_WIDGET.into()), ("extra", "—".into())]);
+    assert_that!(text_of(&r)).is_equal_to(expected);
+    assert_that!(text_of(&r).as_str()).contains("Manquants");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn duplicate_widget_outside_a_pack_tab_is_refused_as_an_unknown_tool() {
+    let h = start().await;
+    let c = server(&h).await;
+    let r = call(&c, "duplicate_widget", json!({ "from": "x" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(unknown_tool(&h, "duplicate_widget"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reorder_widgets_in_a_pack_tab_emits_changed() {
+    let (h, _ws, _tab) = start_in_pack_tab().await;
+    let mut events = h.hub.subscribe();
+    let c = server(&h).await;
+    let r = call(&c, "reorder_widgets", json!({ "order": [ACME_WIDGET] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(matches!(next_event(&mut events).await, McpEvent::Changed)).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reorder_widgets_in_a_pack_tab_moves_the_copy_first() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let copied = call(&c, "duplicate_widget", json!({ "from": ACME_WIDGET })).await;
+    assert_that!(copied.is_error).is_not_equal_to(Some(true));
+    assert_that!(pile_slide_ids(&ws, &tab)).is_equal_to(vec!["widget-badge".to_owned(), "widget-badge-2".to_owned()]);
+    let r = call(&c, "reorder_widgets", json!({ "order": ["badge-2", ACME_WIDGET] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(pile_slide_ids(&ws, &tab)).is_equal_to(vec!["widget-badge-2".to_owned(), "widget-badge".to_owned()]);
 }

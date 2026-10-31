@@ -68,15 +68,20 @@ pub enum PackManifestErrorKind {
     Json,
     /// Une entrée `tokens` est refusée ; voir [`PackManifestError::token_entry`].
     TokenEntry,
+    /// `order` repeats a name, lists `_commun` or an unknown file.
+    Order,
 }
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
+#[expect(clippy::enum_variant_names, reason = "every variant is a failure to read the manifest")]
 pub(crate) enum PackManifestInner {
     #[snafu(display("unreadable pack manifest"))]
     ManifestJson { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid component token in the pack manifest"))]
     ManifestTokens { source: TokenEntryError, backtrace: Backtrace },
+    #[snafu(display("invalid item order in the pack manifest at {name}"))]
+    ManifestOrder { name: String, backtrace: Backtrace },
 }
 
 impl PackManifestError {
@@ -86,6 +91,7 @@ impl PackManifestError {
         match *self.0 {
             PackManifestInner::ManifestJson { .. } => PackManifestErrorKind::Json,
             PackManifestInner::ManifestTokens { .. } => PackManifestErrorKind::TokenEntry,
+            PackManifestInner::ManifestOrder { .. } => PackManifestErrorKind::Order,
         }
     }
 
@@ -94,7 +100,16 @@ impl PackManifestError {
     pub fn token_entry(&self) -> Option<&TokenEntryError> {
         match &*self.0 {
             PackManifestInner::ManifestTokens { source, .. } => Some(source),
-            PackManifestInner::ManifestJson { .. } => None,
+            PackManifestInner::ManifestJson { .. } | PackManifestInner::ManifestOrder { .. } => None,
+        }
+    }
+
+    /// The name that makes `order` invalid, if that is what prevents the read.
+    #[must_use]
+    pub fn order_name(&self) -> Option<&str> {
+        match &*self.0 {
+            PackManifestInner::ManifestOrder { name, .. } => Some(name),
+            PackManifestInner::ManifestJson { .. } | PackManifestInner::ManifestTokens { .. } => None,
         }
     }
 }
@@ -106,6 +121,9 @@ impl Localize for PackManifestError {
                 l.tr_with("pack-manifest-json", &[("reason", source.to_string().into())])
             }
             PackManifestInner::ManifestTokens { source, .. } => source.localize(l),
+            PackManifestInner::ManifestOrder { name, .. } => {
+                l.tr_with("pack-manifest-order", &[("name", name.as_str().into())])
+            }
         }
     }
 }

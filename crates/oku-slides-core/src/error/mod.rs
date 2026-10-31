@@ -13,7 +13,7 @@ mod token;
 pub use reason::ValueReason;
 pub(crate) use reason::{ExpectedType, Shape};
 pub(crate) use token::{
-    EmptyPathSnafu, ManifestJsonSnafu, ManifestTokensSnafu, MissingDefaultSnafu, PathConflictSnafu,
+    EmptyPathSnafu, ManifestJsonSnafu, ManifestOrderSnafu, ManifestTokensSnafu, MissingDefaultSnafu, PathConflictSnafu,
 };
 pub use token::{PackManifestError, PackManifestErrorKind, TokenEntryError, TokenEntryErrorKind};
 

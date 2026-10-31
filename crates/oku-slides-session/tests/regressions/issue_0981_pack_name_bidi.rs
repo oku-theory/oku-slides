@@ -32,6 +32,7 @@ fn add_pack(data: &std::path::Path, name: &str) {
         profiles: vec![],
         examples: BTreeMap::default(),
         styles: BTreeMap::default(),
+        order: Vec::new(),
         tokens: vec![],
     };
     let quote = WidgetFile::parse("quote").unwrap_or_else(|| panic!("widget name"));

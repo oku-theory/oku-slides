@@ -159,6 +159,7 @@ usage-range-bad-date = “{ $date }” không phải là ngày: hãy dùng YYYY-
 usage-range-reversed = Ngày bắt đầu { $since } sau ngày kết thúc { $until }.
 pack-token-entry-invalid = Mã thông báo thành phần “{ $path }” không hợp lệ trong tệp kê khai của gói.
 pack-manifest-json = Không đọc được tệp kê khai của gói: { $reason }
+pack-manifest-order = Thứ tự các mục của gói không hợp lệ tại “{ $name }”.
 issue-unsupported-link = liên kết không được hỗ trợ: { $link }
 issue-highlight-zero = màu tô sáng được đánh số từ 1
 issue-unreadable-element = phần tử không đọc được, đã để riêng

@@ -88,8 +88,9 @@ impl Session {
         };
         let source = kept.as_ref().map(|m| m.id);
         // Ses jetons de composant suivent la version d'où il part.
-        let (description, mut examples, styles, requires, profiles, tokens) =
-            kept.map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens)).unwrap_or_default();
+        let (description, mut examples, styles, requires, profiles, tokens, order) = kept
+            .map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens, m.order))
+            .unwrap_or_default();
         // La copie d'un pack intégré ne l'est plus : ses textes d'exemple s'écrivent en clair, dans la langue courante.
         if let Some(source) = source.filter(|_| fresh) {
             for values in examples.values_mut() {
@@ -109,6 +110,7 @@ impl Session {
             examples,
             styles,
             tokens,
+            order,
         };
         // Ses besoins suivent ce qu'emploient ses exemples (`base/text`…).
         manifest.requires = examples_requires(&manifest.namespace, &manifest);

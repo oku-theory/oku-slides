@@ -5,8 +5,8 @@ use speculoos::prelude::*;
 
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
 use crate::test_support::{
-    adopt_deck_only_pack, edit_of, fresh_dir, layout_pack_tab, library_files, library_of, ns, pin, preview_of,
-    rename_title, session, session_on, slide_widget,
+    add_version_of, adopt_deck_only_pack, edit_of, fresh_dir, layout_pack_tab, library_files, library_of, manifest_ns,
+    ns, pin, preview_of, rename_title, session, session_on, slide_widget,
 };
 use crate::test_support_packs::{deck_pack_tab_of, pack_tab_from, pack_tab_of, scope_of};
 use crate::{Session, SessionErrorKind};
@@ -14,6 +14,59 @@ use crate::{Session, SessionErrorKind};
 /// Les ids des slides du deck de `s`.
 fn slide_ids(s: &Session) -> Vec<String> {
     s.deck().slides.iter().map(|sl| sl.id.clone()).collect()
+}
+
+/// Names as the owned strings the session takes.
+fn strings(list: &[&str]) -> Vec<String> {
+    list.iter().map(|n| (*n).to_owned()).collect()
+}
+
+#[test]
+fn reorder_widgets_in_a_layout_pack_reorders_the_working_deck() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let (mut s, _) = layout_pack_tab(data.path(), "acme", &["a", "b", "c"]);
+    s.reorder_widgets(None, &strings(&["c", "a", "b"])).unwrap();
+    assert_that!(slide_ids(&s)).is_equal_to(strings(&["layout-c", "layout-a", "layout-b"]));
+}
+
+#[test]
+fn layout_pack_tab_reopened_after_a_reorder_keeps_the_order() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let (mut s, id) = layout_pack_tab(data.path(), "acme", &["a", "b", "c"]);
+    s.reorder_widgets(None, &strings(&["c", "a", "b"])).unwrap();
+    s.save_pack(false).unwrap();
+    drop(s);
+    let reopened = pack_tab_of(data.path(), id);
+    assert_that!(slide_ids(&reopened)).is_equal_to(strings(&["layout-c", "layout-a", "layout-b"]));
+}
+
+#[test]
+fn duplicate_widget_in_a_layout_pack_puts_its_slide_after_the_original() {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let (mut s, _) = layout_pack_tab(data.path(), "acme", &["a", "b", "c"]);
+    s.duplicate_widget(None, "a", None).unwrap();
+    assert_that!(slide_ids(&s)).is_equal_to(strings(&["layout-a", "layout-a-2", "layout-b", "layout-c"]));
+}
+
+#[test]
+fn layouts_view_lists_a_pack_s_layouts_in_its_order() {
+    let mut s = session();
+    let mut m = manifest_ns(uuid::Uuid::new_v4(), "salle", &["base"]);
+    m.order = ["c", "a", "b"].map(|n| oku_slides_core::WidgetFile::parse(n).unwrap()).to_vec();
+    let sources: Vec<(String, String)> = ["a", "b", "c"].iter().map(|n| ((*n).to_owned(), slide_widget(n))).collect();
+    let files: Vec<(&str, &str)> = sources.iter().map(|(n, src)| (n.as_str(), src.as_str())).collect();
+    let kind = oku_slides_core::PackKind::Layouts;
+    let pin = add_version_of(&s.library, kind, &m, &files);
+    let op = Op::AddPack { kind, namespace: m.namespace.clone(), pin };
+    s.apply("Pack", vec![op], None).unwrap();
+    let view = s.layouts_view().unwrap();
+    let shown: Vec<String> = view
+        .packs
+        .iter()
+        .find(|p| p.namespace == ns("salle"))
+        .map(|p| p.layouts.iter().map(|l| l.kind.clone()).collect())
+        .unwrap_or_default();
+    assert_that!(shown).is_equal_to(strings(&["salle/c", "salle/a", "salle/b"]));
 }
 
 #[test]

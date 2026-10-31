@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use oku_slides_core::{
     Category, Namespace, PackFiles, PackKind, PackVersion, SchemaFault, Slide, WidgetError, WidgetFile, WidgetRegistry,
-    WidgetSchema, param_value, qualify, text_fits,
+    WidgetSchema, item_order, normalized_order, param_value, qualify, text_fits,
 };
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{Diagnostic, FileProbe, PackWidgets, RegistryError, Severity};
@@ -44,11 +44,11 @@ use crate::{Mode, Result, Session};
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct WidgetLimits {
     /// Maximum size of a file, in bytes.
-    bytes: usize,
+    pub(crate) bytes: usize,
     /// The same, in KiB, for the message.
-    kib: usize,
+    pub(crate) kib: usize,
     /// Maximum number of files per version.
-    files: usize,
+    pub(crate) files: usize,
 }
 
 impl WidgetLimits {
@@ -138,7 +138,11 @@ fn render_diagnostics(e: &crate::SessionError) -> Vec<WidgetDiagnostic> {
 /// Ajoute à `statuses` les diagnostics `render`, chacun à son fichier.
 ///
 /// Un diagnostic hors des fichiers listés va au fichier `name` (écrit ou renommé).
-fn with_render(mut statuses: Vec<WidgetStatus>, render: Vec<WidgetDiagnostic>, name: &WidgetFile) -> Vec<WidgetStatus> {
+pub(crate) fn with_render(
+    mut statuses: Vec<WidgetStatus>,
+    render: Vec<WidgetDiagnostic>,
+    name: &WidgetFile,
+) -> Vec<WidgetStatus> {
     for d in render {
         let owner = d.file.clone().filter(|f| statuses.iter().any(|s| s.name == *f)).unwrap_or_else(|| name.clone());
         match statuses.iter_mut().find(|s| s.name == owner) {
@@ -188,7 +192,7 @@ fn status_of(ns: &Namespace, name: &WidgetFile, probe: &FileProbe, registry: &Wi
 }
 
 /// La source du widget `from` renommé `to` : son nom déclaré suit.
-fn renamed_source(source: &str, from: &str, to: &str) -> String {
+pub(crate) fn renamed_source(source: &str, from: &str, to: &str) -> String {
     source.replacen(&format!("widget(\"{from}\""), &format!("widget(\"{to}\""), 1)
 }
 
@@ -440,6 +444,11 @@ impl Session {
         if let Some(style) = manifest.styles.remove(&from) {
             manifest.styles.insert(to.clone(), style);
         }
+        // The item keeps its place: the whole list is stored with the new name.
+        manifest.order = item_order(&manifest.order, &t.files)
+            .into_iter()
+            .map(|n| if *n == from { to.clone() } else { n.clone() })
+            .collect();
         let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &to))?;
         if let Some(scratch) = self.scratch_mut() {
             scratch.renamed(&from, &to);
@@ -491,6 +500,8 @@ impl Session {
         widgets: BTreeMap<WidgetFile, String>,
     ) -> Result<Committed> {
         self.ensure_editable()?;
+        // Compare orders in their stored form: a full list in name order equals the empty one.
+        manifest.order = normalized_order(&manifest.order, widgets.keys());
         let before = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         if widgets == *t.files.widgets() && manifest == before {
             return Ok((self.statuses((t.kind, &t.namespace), &t.version, &widgets)?, Vec::new()));

@@ -184,6 +184,7 @@ impl Session {
             examples: BTreeMap::default(),
             styles: BTreeMap::default(),
             tokens: Vec::new(),
+            order: Vec::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         Ok(WidgetTarget { kind, namespace, id, version: files.version(), files })

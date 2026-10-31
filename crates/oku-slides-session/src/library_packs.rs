@@ -324,6 +324,7 @@ impl PackLibrary {
             examples: BTreeMap::new(),
             styles: BTreeMap::new(),
             tokens: Vec::new(),
+            order: Vec::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         let write = self.draft_write(&lock, id, None);

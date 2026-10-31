@@ -373,6 +373,10 @@ pub(crate) enum SessionInner {
     TrialEncode { param: String, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("widget already exists: {name}"))]
     WidgetExists { name: String, backtrace: Backtrace },
+    #[snafu(display("no free name for a copy of {from}"))]
+    NoFreeCopyName { from: String, backtrace: Backtrace },
+    #[snafu(display("the new order must list each item once"))]
+    WidgetOrderMismatch { missing: Vec<String>, extra: Vec<String>, backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -384,8 +388,8 @@ impl SessionError {
             AgentForm, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack,
             FieldNeeded, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
             InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken,
-            NoChart, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides, NotPinned,
-            NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
+            NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides,
+            NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
             PackModePreview, PackModeSlides, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
             PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render,
             RequiresCycle, Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle,
@@ -393,8 +397,8 @@ impl SessionError {
             ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared,
             TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset,
             UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
-            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
-            Write, WrongDocument,
+            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid,
+            WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } => SessionErrorKind::File,
@@ -480,7 +484,9 @@ impl SessionError {
             | WidgetTooLarge { .. }
             | WidgetHasNul { .. }
             | TooManyWidgets { .. }
-            | WidgetExists { .. } => SessionErrorKind::InvalidWidget,
+            | WidgetExists { .. }
+            | NoFreeCopyName { .. }
+            | WidgetOrderMismatch { .. } => SessionErrorKind::InvalidWidget,
             WidgetInUse { .. } => SessionErrorKind::WidgetInUse,
             UnknownWidget { .. } => SessionErrorKind::UnknownWidget,
             WidgetInvalid { .. } => SessionErrorKind::WidgetInvalid,
@@ -612,8 +618,8 @@ impl Localize for SessionError {
             AgentForm, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack,
             FieldNeeded, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
             InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken,
-            NoChart, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides, NotPinned,
-            NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
+            NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides,
+            NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
             PackModePreview, PackModeSlides, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
             PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render,
             RequiresCycle, Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle,
@@ -621,8 +627,8 @@ impl Localize for SessionError {
             ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared,
             TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset,
             UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
-            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetTooLarge,
-            Write, WrongDocument,
+            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid,
+            WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -790,6 +796,14 @@ impl Localize for SessionError {
             ),
             TrialEncode { param, .. } => l.tr_with("session-trial-encode", &[("param", param.as_str().into())]),
             WidgetExists { name, .. } => l.tr_with("session-widget-exists", &[("name", name.as_str().into())]),
+            NoFreeCopyName { from, .. } => l.tr_with("session-widget-no-copy-name", &[("from", from.as_str().into())]),
+            WidgetOrderMismatch { missing, extra, .. } => {
+                let names = |list: &[String]| if list.is_empty() { "—".to_owned() } else { list.join(", ") };
+                l.tr_with(
+                    "session-widget-order-mismatch",
+                    &[("missing", names(missing).into()), ("extra", names(extra).into())],
+                )
+            }
         }
     }
 }

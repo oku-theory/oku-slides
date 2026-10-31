@@ -160,6 +160,7 @@ usage-range-bad-date = “{ $date }” कोई तिथि नहीं ह�
 usage-range-reversed = आरंभ तिथि { $since } समाप्ति तिथि { $until } के बाद है।
 pack-token-entry-invalid = पैक मैनिफ़ेस्ट में अमान्य कंपोनेंट टोकन “{ $path }”।
 pack-manifest-json = पैक मैनिफ़ेस्ट पढ़ा नहीं जा सका: { $reason }
+pack-manifest-order = पैक के आइटमों का क्रम “{ $name }” पर अमान्य है।
 issue-unsupported-link = असमर्थित लिंक: { $link }
 issue-highlight-zero = हाइलाइट रंगों की गिनती 1 से होती है
 issue-unreadable-element = अपठनीय तत्व, अलग रखा गया

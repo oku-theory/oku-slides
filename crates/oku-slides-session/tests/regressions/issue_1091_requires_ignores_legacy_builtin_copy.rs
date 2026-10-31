@@ -33,6 +33,7 @@ fn manifest(id: Uuid, namespace: &str, name: &str, requires: &[&str]) -> PackMan
         examples: BTreeMap::default(),
         styles: BTreeMap::default(),
         tokens: Vec::new(),
+        order: Vec::new(),
     }
 }
 

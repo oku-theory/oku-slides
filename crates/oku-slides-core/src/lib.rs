@@ -47,6 +47,7 @@ pub mod ops;
 pub mod pack;
 mod pack_examples;
 mod pack_kind;
+mod pack_order;
 pub mod params;
 pub mod replica;
 mod shape_path;
@@ -85,6 +86,7 @@ pub use pack::{
     now_created,
 };
 pub use pack_kind::PackKind;
+pub use pack_order::{item_order, normalized_order};
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{
     DeckRead, DeckReplica, HistoryPreview, MergeReport, ReplicaLimits, SlideChanges, Version, dataset_row_budget,

@@ -62,6 +62,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         examples: BTreeMap::new(),
         styles: BTreeMap::new(),
         tokens: Vec::new(),
+        order: Vec::new(),
     };
     let files = manifest
         .to_files(

@@ -135,6 +135,7 @@ mod widget_preview;
 mod widget_preview_items;
 mod widgets_deck;
 mod widgets_edit;
+mod widgets_order;
 mod workspace;
 
 pub use add_grid::{AddPackView, AddWidget, ElementSeed};
@@ -187,6 +188,7 @@ pub use voice_view::{
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
+pub use widgets_order::WidgetDuplicate;
 pub use workspace::{
     Clip, ImportPick, Rect, TabView, WindowView, Workspace, WorkspaceOutcome, WorkspaceRequest, WorkspaceView,
     is_window_label,

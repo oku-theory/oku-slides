@@ -324,7 +324,7 @@ pub struct LayoutPackView {
     pub namespace: Namespace,
     /// Nom du pack, lu dans son manifeste.
     pub name: String,
-    /// Ses layouts, dans l'ordre des fichiers.
+    /// Its layouts, in the version's item order.
     pub layouts: Vec<LayoutView>,
 }
 

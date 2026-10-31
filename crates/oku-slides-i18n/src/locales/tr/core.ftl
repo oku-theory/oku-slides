@@ -160,6 +160,7 @@ usage-range-bad-date = “{ $date }” bir tarih değil: YYYY-AA-GG biçimini ku
 usage-range-reversed = Başlangıç tarihi { $since }, bitiş tarihi { $until } tarihinden sonra.
 pack-token-entry-invalid = Paket bildiriminde geçersiz bileşen belirteci “{ $path }”.
 pack-manifest-json = Paket bildirimi okunamıyor: { $reason }
+pack-manifest-order = Paketin öğe sırası “{ $name }” noktasında geçersiz.
 issue-unsupported-link = desteklenmeyen bağlantı: { $link }
 issue-highlight-zero = vurgu renkleri 1'den başlayarak numaralanır
 issue-unreadable-element = okunamayan öğe, bir kenara ayrıldı

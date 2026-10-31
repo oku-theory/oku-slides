@@ -249,6 +249,7 @@ pub(crate) fn pack_manifest(
         tokens: Vec::new(),
         examples: values,
         styles: BTreeMap::new(),
+        order: Vec::new(),
     }
 }
 

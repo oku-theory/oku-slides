@@ -8,8 +8,8 @@ use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
 use oku_slides_core::{
-    Category, Namespace, PackFiles, PackKind, PackPin, PackVersion, ParamType, SlotMode, Style, WidgetFile, qualify,
-    split_kind,
+    Category, Namespace, PackFiles, PackKind, PackPin, PackVersion, ParamType, SlotMode, Style, WidgetFile, item_order,
+    qualify, split_kind,
 };
 
 use crate::error::{PackManifestSnafu, PackVersionMissingSnafu};
@@ -42,26 +42,28 @@ pub struct AddWidget {
     pub seed: ElementSeed,
 }
 
-/// Les widgets à ajouter d'un pack de widgets épinglé.
+/// The widgets to add from a pinned widget pack.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AddPackView {
-    /// L'espace de noms du pack.
+    /// The pack's namespace.
     pub namespace: String,
-    /// Le nom du pack.
+    /// The pack's name.
     pub name: String,
     /// Its pinned version: its widgets' examples, hence their previews, depend on it.
     pub version: PackVersion,
-    /// Ses widgets d'élément, dans l'ordre du registre.
+    /// Its element widgets, in the version's item order.
     pub widgets: Vec<AddWidget>,
 }
 
-/// Ce qu'une version de pack donne à la grille dans une langue : son nom et le départ de chaque widget.
+/// A pack version's name and widget seeds for the grid, in one language.
 #[derive(Debug, Clone)]
 struct PackSeeds {
-    /// Le nom du pack (`PackManifest::name`).
+    /// The pack's name (`PackManifest::name`).
     name: String,
-    /// Le départ de chaque widget d'élément connu du registre, par fichier.
+    /// The seed of each element widget the registry knows, by file.
     seeds: BTreeMap<WidgetFile, ElementSeed>,
+    /// The element widgets of `seeds`, in the version's item order.
+    order: Vec<WidgetFile>,
 }
 
 /// Les départs déjà calculés, par version de pack et langue : un snapshot ne relit pas leur manifeste.
@@ -104,10 +106,11 @@ impl Session {
                 return None;
             }
         };
-        let widgets: Vec<AddWidget> = seeds
-            .seeds
+        let PackSeeds { name: pack_name, mut seeds, order } = seeds;
+        let widgets: Vec<AddWidget> = order
             .into_iter()
-            .filter_map(|(file, seed)| {
+            .filter_map(|file| {
+                let seed = seeds.remove(&file)?;
                 let name = qualify(ns, file.as_str());
                 let schema = self.registry.get(&name).filter(|w| w.category == Category::Element)?;
                 Some(AddWidget {
@@ -120,7 +123,7 @@ impl Session {
             .collect();
         (!widgets.is_empty()).then(|| AddPackView {
             namespace: ns.as_str().to_owned(),
-            name: seeds.name,
+            name: pack_name,
             version: pin.version.clone(),
             widgets,
         })
@@ -158,7 +161,7 @@ impl Session {
             return Ok(seeds.clone());
         }
         let manifest = PackManifest::from_files(files).context(PackManifestSnafu { id: pin.id })?;
-        let seeds = self
+        let seeds: BTreeMap<WidgetFile, ElementSeed> = self
             .element_files(ns, files)
             .filter_map(|file| {
                 let schema = self.registry.get(&qualify(ns, file.as_str()))?;
@@ -168,7 +171,9 @@ impl Session {
                 Some((file.clone(), ElementSeed { params, style }))
             })
             .collect();
-        let computed = PackSeeds { name: manifest.name.clone(), seeds };
+        let order = item_order(&manifest.order, files);
+        let order = order.into_iter().filter(|f| seeds.contains_key(*f)).cloned().collect();
+        let computed = PackSeeds { name: manifest.name.clone(), seeds, order };
         cache.insert(key, computed.clone());
         Ok(computed)
     }

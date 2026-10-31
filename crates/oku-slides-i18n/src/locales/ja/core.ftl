@@ -159,6 +159,7 @@ usage-range-bad-date = 「{ $date }」は日付ではありません。YYYY-MM-D
 usage-range-reversed = 開始日 { $since } が終了日 { $until } より後になっています。
 pack-token-entry-invalid = パックのマニフェストにあるコンポーネントトークン「{ $path }」が無効です。
 pack-manifest-json = パックのマニフェストを読み込めません: { $reason }
+pack-manifest-order = パックの項目の順序が「{ $name }」で無効です。
 issue-unsupported-link = サポートされていないリンク：{ $link }
 issue-highlight-zero = ハイライトの色番号は 1 から始まります
 issue-unreadable-element = 読み取れない要素を除外しました

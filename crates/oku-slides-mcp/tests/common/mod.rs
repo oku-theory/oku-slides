@@ -801,6 +801,7 @@ pub async fn start_with_library_widget_pack(namespace: &'static str) -> Harness 
             examples: BTreeMap::new(),
             styles: BTreeMap::new(),
             tokens: Vec::new(),
+            order: Vec::new(),
         };
         let files = manifest.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("manifeste : {e}"));
         oku_slides_session::PackLibrary::user(&platform)

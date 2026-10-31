@@ -35,6 +35,7 @@ fn manifest(id: Uuid, namespace: &str) -> PackManifest {
         examples: BTreeMap::default(),
         styles: BTreeMap::default(),
         tokens: Vec::new(),
+        order: Vec::new(),
     }
 }
 

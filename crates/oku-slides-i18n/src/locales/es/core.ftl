@@ -169,6 +169,7 @@ usage-range-bad-date = «{ $date }» no es una fecha: use AAAA-MM-DD.
 usage-range-reversed = La fecha de inicio { $since } es posterior a la fecha de fin { $until }.
 pack-token-entry-invalid = Token de componente «{ $path }» no válido en el manifiesto del paquete.
 pack-manifest-json = No se puede leer el manifiesto del paquete: { $reason }
+pack-manifest-order = El orden de los elementos del pack no es válido en «{ $name }».
 issue-unsupported-link = enlace no admitido: { $link }
 issue-highlight-zero = los colores de resaltado se numeran desde 1
 issue-unreadable-element = elemento ilegible, apartado

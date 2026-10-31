@@ -44,6 +44,10 @@ export interface WidgetFiles {
   create(name: string): Promise<boolean>;
   /** Renomme ; vrai si fait. */
   rename(from: string, to: string): Promise<boolean>;
+  /** Copies `from` under a fresh name; the copy's name, `null` if refused. */
+  duplicate(from: string): Promise<string | null>;
+  /** Stores the pile's order, every item once; true if done. */
+  reorder(order: string[]): Promise<boolean>;
   /** Supprime ; vrai si fait. */
   remove(name: string): Promise<boolean>;
   /** Dit une erreur (toast du parent). */
@@ -417,6 +421,38 @@ export function useWidgetFiles(api: TabApi, pack: string | null, kind: PackKind,
     [enqueue, check, markUnsaved, invalidate],
   );
 
+  const duplicate = useCallback(
+    (from: string) => {
+      flush();
+      return enqueue((live) =>
+        apiRef.current.duplicateWidget(from).then((copy) => {
+          if (!live()) return null;
+          setStatuses(ordered(copy.statuses));
+          invalidate();
+          onRef.current.changed();
+          return copy.name;
+        }),
+      ).then((name) => (typeof name === "string" ? name : null));
+    },
+    [enqueue, flush, invalidate],
+  );
+
+  const reorder = useCallback(
+    (order: string[]) => {
+      flush();
+      return enqueue((live) =>
+        apiRef.current.reorderWidgets(order).then((list) => {
+          if (!live()) return false;
+          setStatuses(ordered(list));
+          invalidate();
+          onRef.current.changed();
+          return true;
+        }),
+      ).then((ok) => ok === true);
+    },
+    [enqueue, flush, invalidate],
+  );
+
   const remove = useCallback(
     (name: string) => {
       // Le fichier part : sa frappe en attente aussi ; l'écriture déjà partie est attendue.
@@ -478,9 +514,9 @@ export function useWidgetFiles(api: TabApi, pack: string | null, kind: PackKind,
   return useMemo(
     () => ({
       statuses, statusesFor, unsaved, checked, writes, rewrites,
-      edit, edits: editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending,
+      edit, edits: editsOf, stale, loaded, flush, settle, create, rename, duplicate, reorder, remove, fail, pending,
       attempted: attemptedOf, keep, forget,
     }),
-    [statuses, statusesFor, unsaved, checked, writes, rewrites, edit, editsOf, stale, loaded, flush, settle, create, rename, remove, fail, pending, attemptedOf, keep, forget],
+    [statuses, statusesFor, unsaved, checked, writes, rewrites, edit, editsOf, stale, loaded, flush, settle, create, rename, duplicate, reorder, remove, fail, pending, attemptedOf, keep, forget],
   );
 }

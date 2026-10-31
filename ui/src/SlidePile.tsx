@@ -188,7 +188,7 @@ export default function SlidePile({
             <button
               className={`thumb${lifted ? " lifted" : ""}`}
               aria-current={s.id === current}
-              title={onMove ? t("ui-pile-drag-hint") : hint}
+              title={hint ?? (onMove ? t("ui-pile-drag-hint") : undefined)}
               onPointerDown={(e) => down(e, s.id)}
               onPointerMove={move}
               onPointerUp={up}

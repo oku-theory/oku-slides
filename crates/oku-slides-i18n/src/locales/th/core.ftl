@@ -159,6 +159,7 @@ usage-range-bad-date = “{ $date }” ไม่ใช่วันที่: ใ
 usage-range-reversed = วันที่เริ่มต้น { $since } อยู่หลังวันที่สิ้นสุด { $until }
 pack-token-entry-invalid = โทเค็นคอมโพเนนต์ “{ $path }” ในไฟล์กำกับแพ็กไม่ถูกต้อง
 pack-manifest-json = อ่านไฟล์กำกับแพ็กไม่ได้: { $reason }
+pack-manifest-order = ลำดับรายการของแพ็กไม่ถูกต้องที่ “{ $name }”
 issue-unsupported-link = ลิงก์ที่ไม่รองรับ: { $link }
 issue-highlight-zero = สีไฮไลต์เริ่มนับจาก 1
 issue-unreadable-element = องค์ประกอบที่อ่านไม่ได้ ถูกแยกไว้

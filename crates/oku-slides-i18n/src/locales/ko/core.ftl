@@ -159,6 +159,7 @@ usage-range-bad-date = “{ $date }”은(는) 날짜가 아닙니다. YYYY-MM-D
 usage-range-reversed = 시작일 { $since }이(가) 종료일 { $until }보다 늦습니다.
 pack-token-entry-invalid = 팩 매니페스트의 구성 요소 토큰 “{ $path }”이(가) 잘못되었습니다.
 pack-manifest-json = 팩 매니페스트를 읽을 수 없습니다: { $reason }
+pack-manifest-order = 팩의 항목 순서가 “{ $name }”에서 올바르지 않습니다.
 issue-unsupported-link = 지원되지 않는 링크: { $link }
 issue-highlight-zero = 강조 색상 번호는 1부터 시작합니다
 issue-unreadable-element = 읽을 수 없는 요소를 따로 두었습니다

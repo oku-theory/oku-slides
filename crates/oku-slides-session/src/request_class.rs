@@ -43,6 +43,8 @@ impl Request {
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
+            | Self::DuplicateWidget { .. }
+            | Self::ReorderWidgets { .. }
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::HostToken { .. }
@@ -97,6 +99,8 @@ impl Request {
                 | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
+                | Self::DuplicateWidget { .. }
+                | Self::ReorderWidgets { .. }
                 | Self::HostToken { .. }
                 | Self::DataEdit { .. }
                 | Self::SetExampleValue { .. }
@@ -135,6 +139,8 @@ impl Request {
             Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
+                | Self::DuplicateWidget { .. }
+                | Self::ReorderWidgets { .. }
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
         )
@@ -162,6 +168,8 @@ impl Request {
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
+            | Self::DuplicateWidget { .. }
+            | Self::ReorderWidgets { .. }
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::HostToken { .. }
@@ -242,6 +250,8 @@ impl Request {
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
+            | Self::DuplicateWidget { .. }
+            | Self::ReorderWidgets { .. }
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::DataEdit { .. }

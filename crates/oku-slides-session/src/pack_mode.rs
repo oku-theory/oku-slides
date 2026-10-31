@@ -1,7 +1,7 @@
 //! Pack mode: a widget or layout pack is edited, the deck waits aside.
 //!
 //! The working deck of a layout pack has one slide per layout (id
-//! `layout-<name>`, in file order), at the layout's example value; that of a
+//! `layout-<name>`, in the version's item order), at the layout's example value; that of a
 //! widget pack has one read-only preview slide per widget
 //! (`pack_mode_preview`). Its slides are the examples: none is added,
 //! removed, moved or changes widget (`PackModeSlides`); writing a layout adds
@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use oku_slides_core::{
     Deck, Namespace, Op, PackFiles, PackKind, PackPin, PackVersion, ParamValue, Params, Slide, SourceBundle,
-    WidgetFile, kinds, qualify,
+    WidgetFile, item_order, kinds, qualify,
 };
 use oku_slides_i18n::Localizer;
 
@@ -78,35 +78,40 @@ pub(crate) fn example_slide(manifest: &PackManifest, name: &WidgetFile, l: &Loca
     slide
 }
 
-/// Les layouts de `files`, dans l'ordre des fichiers ; aucun pour un pack de widgets.
-fn layout_names(files: &PackFiles) -> impl Iterator<Item = &WidgetFile> {
-    let layouts = files.kind() == PackKind::Layouts;
-    files.widgets().keys().filter(move |n| layouts && !n.is_common())
+/// The layouts of `files` in the item order of `manifest`; none for a widget pack.
+fn layout_names<'a>(manifest: &PackManifest, files: &'a PackFiles) -> Vec<&'a WidgetFile> {
+    if files.kind() == PackKind::Layouts { item_order(&manifest.order, files) } else { Vec::new() }
 }
 
-/// Les slides d'un pack de layouts : une par layout de `files`, à sa valeur d'exemple.
+/// The slides of a layout pack: one per layout of `files`, in item order, at its example value.
 pub(crate) fn layout_slides(manifest: &PackManifest, files: &PackFiles, l: &Localizer) -> Vec<Slide> {
-    layout_names(files).map(|name| example_slide(manifest, name, l)).collect()
+    layout_names(manifest, files).into_iter().map(|name| example_slide(manifest, name, l)).collect()
 }
 
-/// Le deck de travail suit les layouts de `files`, version du pack `manifest`.
+/// The working deck follows the layouts of `files`, a version of the pack `manifest`.
 ///
-/// La slide d'un layout supprimé part ; celle d'un nouveau s'ajoute à la
-/// fin ; chacune prend la valeur d'exemple de son layout dans `manifest`,
-/// dont elle n'est que l'aperçu, traduite dans la langue de `l`. Rien pour un pack de widgets.
+/// The slide of a removed layout goes; a new layout gets a slide; the slides
+/// follow the version's item order. Each takes its layout's example value from
+/// `manifest`, of which it is only the preview, translated into the language
+/// of `l`. Nothing for a widget pack.
 pub(crate) fn realign_layouts(deck: &mut Deck, manifest: &PackManifest, files: &PackFiles, l: &Localizer) {
     if files.kind() != PackKind::Layouts {
         return;
     }
-    let ids: Vec<(String, &WidgetFile)> = layout_names(files).map(|n| (layout_slide_id(n), n)).collect();
-    deck.slides.retain(|s| ids.iter().any(|(id, _)| *id == s.id));
-    for (id, name) in ids {
-        match deck.slides.iter_mut().find(|s| s.id == id) {
-            Some(slide) => slide.params = manifest_example_params(manifest, name, &slide.kind, l),
-            None => deck.slides.push(example_slide(manifest, name, l)),
-        }
+    let mut kept = std::mem::take(&mut deck.slides);
+    for name in layout_names(manifest, files) {
+        let id = layout_slide_id(name);
+        let slide = match kept.iter().position(|s| s.id == id) {
+            Some(i) => {
+                let mut slide = kept.remove(i);
+                slide.params = manifest_example_params(manifest, name, &slide.kind, l);
+                slide
+            }
+            None => example_slide(manifest, name, l),
+        };
+        deck.slides.push(slide);
     }
-    // Un exemple garde `""` (texte vidé) : la slide, elle, a la forme du replica (vide = absent).
+    // An example keeps `""` (emptied text): the slide has the replica's shape (empty = absent).
     oku_slides_core::canonicalize(deck);
 }
 

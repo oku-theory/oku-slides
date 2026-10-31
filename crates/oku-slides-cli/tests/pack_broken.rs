@@ -29,6 +29,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackPin {
         examples: std::collections::BTreeMap::default(),
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
+        order: Vec::new(),
     };
     let widgets = widgets
         .iter()

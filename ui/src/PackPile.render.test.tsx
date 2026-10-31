@@ -25,6 +25,8 @@ afterEach(async () => {
 });
 
 interface Over {
+  /** The stored item order the working deck follows; alphabetical when unset. */
+  stored?: string[];
   kind?: PackKind;
   confirm?: Confirm;
   selected?: string | null;
@@ -43,7 +45,8 @@ async function mount(fake: TabApi, over: Over = {}) {
     const files = useWidgetFiles(fake, "p", kind, "r", { changed: () => {}, error: (m) => errors.push(m), renamed: () => {} });
     box.files = files;
     const [selected, setSelected] = useState<string | null>(over.selected ?? null);
-    const names = (files.statuses ?? []).map((s) => s.name).filter((n) => n !== COMMON);
+    const alpha = (files.statuses ?? []).map((s) => s.name).filter((n) => n !== COMMON);
+    const names = over.stored ? over.stored.filter((n) => alpha.includes(n)) : alpha;
     const snap = {
       editing: { pack: "p", base: "b", kind },
       slides: names.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
@@ -62,7 +65,7 @@ async function mount(fake: TabApi, over: Over = {}) {
   mounted = { root, host };
   await act(async () => root.render(createElement(Probe)));
   await wait(10);
-  return { host, selections, removed, errors, asked, box };
+  return { host, selections, removed, errors, asked, box, stored: over.stored };
 }
 
 const thumbs = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>(".thumb")];
@@ -326,7 +329,7 @@ describe("PackPile, context menu", () => {
   test("PackPile a thumbnail's context menu offers rename and delete", async () => {
     const { fake } = memory({ kpi: "k" });
     const { host } = await mount(fake);
-    expect((await openMenu(thumb(host, "kpi"))).map((b) => b.textContent)).toEqual(["ui-pile-menu-rename", "ui-pile-menu-delete"]);
+    expect((await openMenu(thumb(host, "kpi"))).map((b) => b.textContent)).toEqual(["ui-pile-menu-rename", "ui-pile-menu-duplicate", "ui-pile-menu-delete"]);
   });
 
   test("PackPile the shared row's context menu offers only delete", async () => {
@@ -346,7 +349,7 @@ describe("PackPile, context menu", () => {
   test("PackPile the menu's delete asks through confirm, then deletes", async () => {
     const { fake, log } = memory({ kpi: "k" });
     const { host, asked } = await mount(fake);
-    const [, remove] = await openMenu(thumb(host, "kpi"));
+    const remove = (await openMenu(thumb(host, "kpi"))).find((b) => b.textContent === "ui-pile-menu-delete") as HTMLButtonElement;
     await act(async () => remove.click());
     await wait(10);
     expect([asked, log]).toEqual([["ui-widgets-confirm-delete"], ["remove kpi"]]);
@@ -357,5 +360,146 @@ describe("PackPile, context menu", () => {
     const { host } = await mount(fake);
     await openMenu(thumb(host, "kpi"));
     expect(document.querySelector('[role="menu"]')?.getAttribute("aria-label")).toBe("ui-pile-menu");
+  });
+});
+
+/** A fake api whose reorder and duplicate are noted and answer like the session. */
+function orderApi(names: Record<string, string>, stored: string[]) {
+  const { fake, log } = memory(names);
+  stub(fake, "reorderWidgets", async (order: string[]) => {
+    log.push(`reorder ${order.join(",")}`);
+    stored.splice(0, stored.length, ...order);
+    return Object.keys(names).map((name) => ({ name, schema: null, diagnostics: [] }));
+  });
+  stub(fake, "duplicateWidget", async (from: string) => {
+    const name = `${from}-2`;
+    log.push(`duplicate ${from}>${name}`);
+    names[name] = names[from] ?? "";
+    stored.splice(stored.indexOf(from) + 1, 0, name);
+    return { name, statuses: Object.keys(names).map((n) => ({ name: n, schema: null, diagnostics: [] })) };
+  });
+  return { fake, log };
+}
+
+describe("PackPile, duplicating", () => {
+  const openMenu = async (target: HTMLElement) => {
+    await act(async () => void target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 40 })));
+    return [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] [role="menuitem"]')];
+  };
+  const ctrlD = (target: HTMLElement) =>
+    act(async () => void target.dispatchEvent(new KeyboardEvent("keydown", { key: "d", metaKey: true, bubbles: true, cancelable: true })));
+
+  test("PackPile menu Dupliquer duplicates the item and selects the copy", async () => {
+    const stored = ["a", "b"];
+    const { fake, log } = orderApi({ a: "a", b: "b" }, stored);
+    const { host, selections } = await mount(fake, { stored });
+    const entry = (await openMenu(thumb(host, "a"))).find((b) => b.textContent === "ui-pile-menu-duplicate") as HTMLButtonElement;
+    await act(async () => entry.click());
+    await wait(10);
+    expect([log, selections]).toEqual([["duplicate a>a-2"], ["a-2"]]);
+  });
+
+  // ⌘D stays the window's dictation shortcut: the pile does not take it.
+  test("PackPile ⌘D on a thumbnail duplicates nothing", async () => {
+    const stored = ["a", "b"];
+    const { fake, log } = orderApi({ a: "a", b: "b" }, stored);
+    const { host } = await mount(fake, { stored });
+    await ctrlD(thumb(host, "b"));
+    await wait(10);
+    expect(log).toEqual([]);
+  });
+
+  test("PackPile after a duplicate the focus goes to the copy", async () => {
+    const stored = ["a", "b"];
+    const { fake } = orderApi({ a: "a", b: "b" }, stored);
+    const { host } = await mount(fake, { stored });
+    const entry = (await openMenu(thumb(host, "a"))).find((b) => b.textContent === "ui-pile-menu-duplicate") as HTMLButtonElement;
+    await act(async () => entry.click());
+    await wait(10);
+    expect(document.activeElement).toBe(thumb(host, "a-2"));
+  });
+
+  test("PackPile shared row menu has no Dupliquer", async () => {
+    const { fake } = memory({ _commun: "c", kpi: "k" });
+    const { host } = await mount(fake);
+    const labels = (await openMenu(common(host) as HTMLButtonElement)).map((b) => b.textContent);
+    expect(labels).not.toContain("ui-pile-menu-duplicate");
+  });
+});
+
+describe("PackPile, reordering", () => {
+  const alt = (target: HTMLElement, key: string) =>
+    act(async () => void target.dispatchEvent(new KeyboardEvent("keydown", { key, altKey: true, bubbles: true, cancelable: true })));
+  /** Drags `name`'s thumbnail to `y`; happy-dom boxes are empty, so any y > 0 drops last. */
+  const drag = async (target: HTMLElement, y: number) => {
+    const at = (type: string, clientY: number) =>
+      act(() => void target.dispatchEvent(new PointerEvent(type, { pointerId: 1, button: 0, clientX: 5, clientY, bubbles: true, cancelable: true })));
+    // The pile's edge-scroll loop would spin inside act: no frames in this test.
+    const frame = spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+    await at("pointerdown", 0);
+    await at("pointermove", y);
+    await at("pointerup", y);
+    frame.mockRestore();
+  };
+
+  test("PackPile ⌥↓ on the first item reorders it after the second", async () => {
+    const stored = ["a", "b", "c"];
+    const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
+    const { host } = await mount(fake, { stored });
+    await alt(thumb(host, "a"), "ArrowDown");
+    await wait(10);
+    expect(log).toEqual(["reorder b,a,c"]);
+  });
+
+  test("PackPile ⌥↑ on the first item does nothing", async () => {
+    const stored = ["a", "b", "c"];
+    const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
+    const { host } = await mount(fake, { stored });
+    await alt(thumb(host, "a"), "ArrowUp");
+    await wait(10);
+    expect(log).toEqual([]);
+  });
+
+  test("PackPile ⌥↓ on the last item does nothing", async () => {
+    const stored = ["a", "b", "c"];
+    const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
+    const { host } = await mount(fake, { stored });
+    await alt(thumb(host, "c"), "ArrowDown");
+    await wait(10);
+    expect(log).toEqual([]);
+  });
+
+  test("PackPile ⌥↑ on the shared row does nothing", async () => {
+    const stored = ["a", "b"];
+    const { fake, log } = orderApi({ _commun: "c", a: "a", b: "b" }, stored);
+    const { host } = await mount(fake, { stored });
+    await alt(common(host) as HTMLButtonElement, "ArrowDown");
+    await wait(10);
+    expect(log).toEqual([]);
+  });
+
+  test("PackPile drop of an item at slot 3 sends it last", async () => {
+    const stored = ["a", "b", "c"];
+    const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
+    const { host } = await mount(fake, { stored });
+    await drag(thumb(host, "a"), 50);
+    await wait(10);
+    expect(log).toEqual(["reorder b,c,a"]);
+  });
+
+  test("PackPile after ⌥↓ focuses the moved item once the new order is shown", async () => {
+    const stored = ["a", "b", "c"];
+    const { fake } = orderApi({ a: "a", b: "b", c: "c" }, stored);
+    const { host } = await mount(fake, { stored });
+    // A real browser blurs a node React moves: simulate it before the new order renders.
+    const real = fake.reorderWidgets;
+    stub(fake, "reorderWidgets", async (order: string[]) => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      return real(order);
+    });
+    thumb(host, "a").focus();
+    await alt(thumb(host, "a"), "ArrowDown");
+    await wait(10);
+    expect([thumbs(host).map((b) => b.querySelector("img")?.alt), document.activeElement === thumb(host, "a")]).toEqual([["b", "a", "c"], true]);
   });
 });

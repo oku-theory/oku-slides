@@ -185,6 +185,7 @@ usage-range-bad-date = «{ $date }» ليس تاريخًا: استخدم YYYY-MM
 usage-range-reversed = تاريخ البداية { $since } بعد تاريخ النهاية { $until }.
 pack-token-entry-invalid = رمز مكوّن غير صالح «{ $path }» في بيان الحزمة.
 pack-manifest-json = تعذّرت قراءة بيان الحزمة: { $reason }
+pack-manifest-order = ترتيب عناصر الحزمة غير صالح عند «{ $name }».
 issue-unsupported-link = رابط غير مدعوم: { $link }
 issue-highlight-zero = تُرقَّم ألوان التمييز بدءًا من 1
 issue-unreadable-element = عنصر غير مقروء، نُحّي جانبًا

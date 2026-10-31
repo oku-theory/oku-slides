@@ -71,6 +71,8 @@ impl Tools {
             "widget_source" => self.widget_source(args).await,
             "set_widget" => self.set_widget(turn, args).await,
             "remove_widget" => self.remove_widget(turn, args).await,
+            "duplicate_widget" => self.duplicate_widget(turn, args).await,
+            "reorder_widgets" => self.reorder_widgets(turn, args).await,
             "preview_widget" => self.preview_widget(args).await,
             "set_widget_trial" => self.set_widget_trial(args).await,
             "import_report" => self.import_report().await,

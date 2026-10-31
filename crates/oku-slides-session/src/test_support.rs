@@ -92,6 +92,7 @@ pub(crate) fn manifest(
         examples: std::collections::BTreeMap::default(),
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
+        order: Vec::new(),
     }
 }
 

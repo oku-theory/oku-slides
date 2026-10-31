@@ -686,6 +686,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         examples: std::collections::BTreeMap::default(),
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
+        order: Vec::new(),
     };
     let widgets = widgets
         .iter()

@@ -159,6 +159,7 @@ usage-range-bad-date = “{ $date }”不是日期：请使用 YYYY-MM-DD。
 usage-range-reversed = 开始日期 { $since } 晚于结束日期 { $until }。
 pack-token-entry-invalid = 包清单中的组件令牌“{ $path }”无效。
 pack-manifest-json = 无法读取包清单：{ $reason }
+pack-manifest-order = 包的条目顺序在“{ $name }”处无效。
 issue-unsupported-link = 不支持的链接：{ $link }
 issue-highlight-zero = 高亮颜色从 1 开始编号
 issue-unreadable-element = 无法读取的元素，已移出

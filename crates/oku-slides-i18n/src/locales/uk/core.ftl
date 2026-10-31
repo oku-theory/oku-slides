@@ -177,6 +177,7 @@ usage-range-bad-date = «{ $date }» не є датою: використову�
 usage-range-reversed = Початкова дата { $since } пізніша за кінцеву дату { $until }.
 pack-token-entry-invalid = Неприпустимий токен компонента «{ $path }» у маніфесті пакета.
 pack-manifest-json = Не вдається прочитати маніфест пакета: { $reason }
+pack-manifest-order = Порядок елементів пакета недійсний на «{ $name }».
 issue-unsupported-link = непідтримуване посилання: { $link }
 issue-highlight-zero = кольори виділення нумеруються з 1
 issue-unreadable-element = нечитабельний елемент, відкладено

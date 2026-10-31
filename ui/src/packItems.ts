@@ -46,3 +46,17 @@ export function neighbour(order: readonly string[], gone: string, kept: (name: s
   for (let i = at - 1; i >= 0; i--) if (ok(order[i])) return order[i];
   return null;
 }
+
+/**
+ * `order` with `name` placed at `slot`, a `SlidePile` slot (0 is before the first item).
+ *
+ * `order` itself when `name` is absent or the slot is out of range.
+ */
+export function moved(order: readonly string[], name: string, slot: number): string[] {
+  const at = order.indexOf(name);
+  if (at < 0 || slot < 0 || slot > order.length) return [...order];
+  const next = [...order];
+  next.splice(at, 1);
+  next.splice(slot > at ? slot - 1 : slot, 0, name);
+  return next;
+}

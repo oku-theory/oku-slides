@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SlideSummary, Snapshot } from "./api";
 import type { PackKind } from "./packTypes";
-import { itemSlide, neighbour, pileItems, slideItem } from "./packItems";
+import { itemSlide, moved, neighbour, pileItems, slideItem } from "./packItems";
 
 const slide = (id: string): SlideSummary => ({ id, kind: "essentiel/content", title: null, page: 1, hash: `h-${id}` });
 /** A pack tab's snapshot reduced to the fields `pileItems` reads. */
@@ -57,4 +57,20 @@ describe("neighbour", () => {
   test("neighbour skips the items that are gone too", () => {
     expect(neighbour(["a", "b", "c", "d"], "b", (n) => n !== "c")).toBe("d");
   });
+});
+
+describe("moved", () => {
+  test.each([
+    ["a", 3, ["b", "c", "a"]],
+    ["a", 0, ["a", "b", "c"]],
+    ["a", 1, ["a", "b", "c"]],
+    ["a", 2, ["b", "a", "c"]],
+    ["c", 0, ["c", "a", "b"]],
+    ["c", 3, ["a", "b", "c"]],
+    ["b", 0, ["b", "a", "c"]],
+    ["x", 1, ["a", "b", "c"]],
+    ["a", 4, ["a", "b", "c"]],
+  ] as [string, number, string[]][])("moved of %s to slot %d returns %p", (name, slot, next) =>
+    expect(moved(["a", "b", "c"], name, slot)).toEqual(next),
+  );
 });

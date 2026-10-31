@@ -160,6 +160,7 @@ usage-range-bad-date = “{ $date }” কোনো তারিখ নয়: Y
 usage-range-reversed = শুরুর তারিখ { $since } শেষের তারিখ { $until } এর পরে।
 pack-token-entry-invalid = প্যাক ম্যানিফেস্টে অবৈধ কম্পোনেন্ট টোকেন “{ $path }”।
 pack-manifest-json = প্যাক ম্যানিফেস্ট পড়া যাচ্ছে না: { $reason }
+pack-manifest-order = প্যাকের আইটেমের ক্রম “{ $name }” এ অবৈধ।
 issue-unsupported-link = অসমর্থিত লিঙ্ক: { $link }
 issue-highlight-zero = হাইলাইট রঙের নম্বর 1 থেকে শুরু
 issue-unreadable-element = অপাঠযোগ্য উপাদান, আলাদা রাখা হয়েছে

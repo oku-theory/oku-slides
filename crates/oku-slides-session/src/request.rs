@@ -315,6 +315,25 @@ pub enum Request {
         /// New name of the widget file.
         to: String,
     },
+    /// Copies a widget file under a new name, right after the original in the pile.
+    DuplicateWidget {
+        /// Namespace of the pack (see `WidgetStatus`).
+        #[serde(default)]
+        pack: Option<Namespace>,
+        /// Name of the copied widget file.
+        from: String,
+        /// Name of the copy; the first free `<from>-N` when absent.
+        #[serde(default)]
+        to: Option<String>,
+    },
+    /// Sets the order of the pack's items: every item listed once.
+    ReorderWidgets {
+        /// Namespace of the pack (see `WidgetStatus`).
+        #[serde(default)]
+        pack: Option<Namespace>,
+        /// The item names, in their new order.
+        order: Vec<String>,
+    },
     /// Aperçu SVG d'un widget seul (`WidgetPreview`), aux valeurs d'exemple
     /// du widget ; `params` les complète (`pack` : voir `WidgetStatus`).
     PreviewWidget {
@@ -484,6 +503,16 @@ impl Session {
             }
             Request::RenameWidget { pack, from, to } => {
                 let statuses = self.rename_widget(pack.as_ref(), &from, &to)?;
+                self.persist(true);
+                return json(&statuses);
+            }
+            Request::DuplicateWidget { pack, from, to } => {
+                let copy = self.duplicate_widget(pack.as_ref(), &from, to.as_deref())?;
+                self.persist(true);
+                return json(&copy);
+            }
+            Request::ReorderWidgets { pack, order } => {
+                let statuses = self.reorder_widgets(pack.as_ref(), &order)?;
                 self.persist(true);
                 return json(&statuses);
             }

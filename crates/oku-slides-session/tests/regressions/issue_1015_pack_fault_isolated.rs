@@ -45,6 +45,7 @@ fn library_pack(library: &PackLibrary, namespace: &str, source: &str) -> Op {
         examples: BTreeMap::new(),
         styles: BTreeMap::new(),
         tokens: Vec::new(),
+        order: Vec::new(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));
     let files = manifest

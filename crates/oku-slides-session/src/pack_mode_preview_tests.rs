@@ -113,3 +113,14 @@ fn undoing_a_widget_write_takes_its_preview_slide_back() {
     s.undo().unwrap();
     assert_that!(slide_ids(&s)).does_not_contain("widget-pastille".to_owned());
 }
+
+#[test]
+fn reorder_widgets_in_a_widget_pack_reorders_the_preview_slides() {
+    let data = fresh_dir("oku-slides-preview-slides-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), BASE_PACK);
+    s.reorder_widgets(None, &["text", "table", "stack", "shape", "image", "chart", "card"].map(String::from)).unwrap();
+    let previews: Vec<String> = slide_ids(&s).into_iter().filter(|id| id.starts_with("widget-")).collect();
+    let want =
+        ["widget-text", "widget-table", "widget-stack", "widget-shape", "widget-image", "widget-chart", "widget-card"];
+    assert_that!(previews).is_equal_to(want.map(String::from).to_vec());
+}

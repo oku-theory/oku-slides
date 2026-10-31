@@ -31,6 +31,7 @@ fn legacy_files() -> PackFiles {
         examples: BTreeMap::default(),
         styles: BTreeMap::default(),
         tokens: Vec::new(),
+        order: Vec::new(),
     };
     m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }

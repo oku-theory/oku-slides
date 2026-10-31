@@ -8,7 +8,9 @@
 //! est refusée (`PackModePreview`), et l'écriture ou le retrait d'un fichier
 //! de widget les réaligne (`realign_widget_previews`).
 
-use oku_slides_core::{Deck, Element, Op, PackFiles, PackKind, ParamValue, Slide, WidgetFile, kinds, qualify};
+use oku_slides_core::{
+    Deck, Element, Op, PackFiles, PackKind, ParamValue, Slide, WidgetFile, item_order, kinds, qualify,
+};
 use oku_slides_i18n::Localizer;
 use snafu::ensure;
 
@@ -38,22 +40,22 @@ fn preview_slide(manifest: &PackManifest, name: &WidgetFile, l: &Localizer) -> S
     slide
 }
 
-/// Les slides d'aperçu d'un pack de widgets : une par widget de `files`, version du pack `manifest`.
+/// One preview slide per widget of `files`, for pack version `manifest`.
 ///
-/// Aucune pour un pack de layouts.
+/// None for a layout pack.
 pub(crate) fn preview_slides(manifest: &PackManifest, files: &PackFiles, l: &Localizer) -> Vec<Slide> {
     if files.kind() != PackKind::Widgets {
         return Vec::new();
     }
-    files.widgets().keys().filter(|n| !n.is_common()).map(|n| preview_slide(manifest, n, l)).collect()
+    item_order(&manifest.order, files).into_iter().map(|n| preview_slide(manifest, n, l)).collect()
 }
 
-/// Le deck de travail suit les widgets de `files`, version du pack `manifest`.
+/// Aligns the working deck with the widgets of `files`, for pack version `manifest`.
 ///
-/// La slide d'un widget retiré part ; celle d'un nouveau widget s'ajoute, à
-/// sa valeur d'exemple ; les autres restent telles quelles (une valeur
-/// d'exemple réglée ne les change pas). Elles suivent l'ordre des fichiers,
-/// après les autres slides. Rien pour un pack de layouts.
+/// A removed widget's slide goes; a new widget's slide is added at its
+/// example value; the others stay as they are (an adjusted example value
+/// does not change them). They follow the version's item order, after the
+/// other slides. Nothing for a layout pack.
 pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, files: &PackFiles, l: &Localizer) {
     if files.kind() != PackKind::Widgets {
         return;
@@ -61,7 +63,7 @@ pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, 
     let (mut kept, others): (Vec<Slide>, Vec<Slide>) =
         std::mem::take(&mut deck.slides).into_iter().partition(|s| s.id.starts_with(PREVIEW_PREFIX));
     deck.slides = others;
-    for name in files.widgets().keys().filter(|n| !n.is_common()) {
+    for name in item_order(&manifest.order, files) {
         let id = preview_slide_id(name);
         let slide = match kept.iter().position(|s| s.id == id) {
             Some(i) => kept.swap_remove(i),

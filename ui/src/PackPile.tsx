@@ -3,8 +3,10 @@
  * add button with its name field.
  *
  * F2 or a double-click renames an item; its trash button, Delete or Backspace delete it after
- * the shared confirmation (`confirm`, a `ConfirmDialog`). Its context menu offers both (the
- * shared file: delete only). After a delete, the focus goes to the
+ * the shared confirmation (`confirm`, a `ConfirmDialog`); a drag or Alt+Up and Alt+Down move
+ * it (Cmd+D stays the window's dictation shortcut). Its context menu offers rename, duplicate and delete (the
+ * shared file: delete only). After a duplicate the copy gets the focus, after a move the moved
+ * item keeps it. After a delete, the focus goes to the
  * neighbour thumbnail, else the shared row, else the add button. Thumbnails stay `<img>` (via
  * `SlidePile`); no id or selector is built from an item name.
  */
@@ -13,7 +15,7 @@ import type { Snapshot } from "./api";
 import ContextMenu from "./ContextMenu";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { itemSlide, neighbour, pileItems, slideItem } from "./packItems";
+import { itemSlide, moved, neighbour, pileItems, slideItem } from "./packItems";
 import type { PackKind } from "./packTypes";
 import { IconButton } from "./primitives";
 import SlidePile from "./SlidePile";
@@ -37,7 +39,7 @@ export interface PackPileProps {
 }
 
 /** Where the focus goes once the pile shows a change. */
-type Focus = { item: string } | "common" | "add";
+type Focus = { item: string; /** Wait until the pile shows this order. */ after?: string[] } | "common" | "add";
 
 /** The name being typed: a new item (`from` null) or a rename. */
 interface Naming {
@@ -73,6 +75,7 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
   // A renamed item has no thumbnail yet: the focus waits for the render that shows it.
   useEffect(() => {
     if (naming || !refocus) return;
+    if (typeof refocus === "object" && refocus.after && refocus.after.join("\n") !== order.join("\n")) return;
     const el = refocus === "common" ? commonRow.current : refocus === "add" ? addButton.current : thumbOf(refocus.item);
     if (!el) return;
     el.focus();
@@ -109,6 +112,21 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
     setRefocus(next !== null ? { item: next } : name !== COMMON && hasCommon ? "common" : "add");
     onRemoved(name);
   };
+  const duplicate = async (name: string) => {
+    if (name === COMMON) return;
+    const copy = await files.duplicate(name);
+    if (copy === null) return;
+    setRefocus({ item: copy });
+    onSelect(copy);
+  };
+  /** Stores `name` at `slot` (a pile slot); the moved thumbnail keeps the focus. */
+  const move = (name: string, slot: number) => {
+    if (name === COMMON) return;
+    const next = moved(order, name, slot);
+    if (next.every((n, i) => n === order[i])) return;
+    // The focus waits for the render that shows the new order: moving a node blurs it.
+    void files.reorder(next).then((done) => done && setRefocus({ item: name, after: next }));
+  };
   const startRename = (name: string) => {
     if (name !== COMMON) setNaming({ from: name, value: name });
   };
@@ -119,9 +137,11 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
     const keyboard = e.clientX === 0 && e.clientY === 0;
     setMenu({ name, x: keyboard ? box.left : e.clientX, y: keyboard ? box.bottom : e.clientY });
   };
-  /** F2 renames; Delete or Backspace deletes, the window's keys never seeing them. */
+  /** F2 renames, Alt+Up or Down moves; Delete or Backspace deletes. The window's keys never see them. */
   const onItemKey = (name: string, e: KeyboardEvent<HTMLButtonElement>) => {
+    const at = order.indexOf(name);
     if (e.key === "F2") startRename(name);
+    else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) move(name, e.key === "ArrowUp" ? at - 1 : at + 2);
     else if (e.key === "Delete" || e.key === "Backspace") void remove(name);
     else return;
     e.preventDefault();
@@ -179,7 +199,11 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
         names={Object.fromEntries(items.map((i) => [i.slide.id, i.name]))}
         label={t(kind === "layouts" ? "ui-pile-layouts" : "ui-widget-picker-list")}
         addLabel={t(kind === "layouts" ? "ui-layouts-new" : "ui-widgets-new")}
-        hint={t("ui-widgets-rename-hint")}
+        hint={t("ui-pack-pile-hint")}
+        onMove={(id, slot) => {
+          const name = slideItem(id);
+          if (name !== null) move(name, slot);
+        }}
         unsaved={unsaved}
         onSelect={(id) => {
           const name = slideItem(id);
@@ -217,6 +241,9 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
         <ContextMenu x={menu.x} y={menu.y} above={false} label={t("ui-pile-menu", { name: widgetLabel(menu.name) })} onClose={() => setMenu(null)}>
           {menu.name !== COMMON && (
             <button role="menuitem" onClick={() => { setMenu(null); startRename(menu.name); }}>{t("ui-pile-menu-rename")}</button>
+          )}
+          {menu.name !== COMMON && (
+            <button role="menuitem" onClick={() => { setMenu(null); void duplicate(menu.name); }}>{t("ui-pile-menu-duplicate")}</button>
           )}
           <button role="menuitem" onClick={() => { setMenu(null); void remove(menu.name); }}>{t("ui-pile-menu-delete")}</button>
         </ContextMenu>

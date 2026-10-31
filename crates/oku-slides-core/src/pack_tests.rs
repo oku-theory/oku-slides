@@ -293,6 +293,7 @@ fn manifest(name: &str) -> PackManifest {
         examples: BTreeMap::new(),
         styles: BTreeMap::new(),
         tokens: Vec::new(),
+        order: Vec::new(),
     }
 }
 
@@ -683,4 +684,55 @@ fn pack_manifest_styles_bad_entry_is_dropped_others_kept() {
     let files = PackFiles::new(PackKind::Widgets, object(json), BTreeMap::new());
     let m = PackManifest::from_files(&files).unwrap();
     assert_that!(m.styles.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![wf("shape")]);
+}
+
+#[test]
+fn to_files_with_an_alphabetical_order_writes_no_order_key() {
+    let mut m = manifest("order");
+    m.order = vec![wf("a"), wf("b")];
+    let f = m.to_files(PackKind::Widgets, files(&[("a", "1"), ("b", "2")])).unwrap();
+    assert_that!(f.manifest().contains_key("order")).is_false();
+}
+
+#[test]
+fn to_files_of_a_manifest_without_order_keeps_its_digest() {
+    let without = manifest("order");
+    let mut by_name = without.clone();
+    by_name.order = vec![wf("a"), wf("b")];
+    let items = [("a", "1"), ("b", "2")];
+    let plain = without.to_files(PackKind::Widgets, files(&items)).unwrap();
+    let named = by_name.to_files(PackKind::Widgets, files(&items)).unwrap();
+    assert_that!(plain.manifest().contains_key("order")).is_false();
+    assert_that!(named.version()).is_equal_to(plain.version());
+}
+
+#[test]
+fn to_files_with_a_reordered_list_writes_it_whole() {
+    let mut m = manifest("order");
+    m.order = vec![wf("b")];
+    let f = m.to_files(PackKind::Widgets, files(&[("a", "1"), ("b", "2")])).unwrap();
+    assert_that!(f.manifest().get("order")).is_equal_to(Some(&json!(["b", "a"])));
+}
+
+fn read_with_order(order: Value) -> Result<PackManifest, crate::PackManifestError> {
+    let mut m = manifest_map();
+    m.insert("order".into(), order);
+    PackManifest::from_files(&PackFiles::new(PackKind::Widgets, m, files(&[("a", "1"), ("b", "2")])))
+}
+
+#[rstest]
+#[case::duplicate(json!(["a", "a"]))]
+#[case::common(json!(["_commun"]))]
+#[case::unknown(json!(["zz"]))]
+fn from_files_with_a_bad_order_is_refused(#[case] order: Value) {
+    let err = read_with_order(order).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::PackManifestErrorKind::Order);
+}
+
+#[test]
+fn from_files_with_a_bad_order_localizes_in_french() {
+    let err = read_with_order(json!(["zz"])).unwrap_err();
+    assert_that!(err.order_name()).is_equal_to(Some("zz"));
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(oku_slides_i18n::Localize::localize(&err, &fr)).contains("« zz »");
 }

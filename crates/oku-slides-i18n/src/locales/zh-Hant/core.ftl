@@ -159,6 +159,7 @@ usage-range-bad-date = 「{ $date }」不是日期：請使用 YYYY-MM-DD。
 usage-range-reversed = 開始日期 { $since } 晚於結束日期 { $until }。
 pack-token-entry-invalid = 套件資訊清單中的元件權杖「{ $path }」無效。
 pack-manifest-json = 無法讀取套件資訊清單：{ $reason }
+pack-manifest-order = 套件的項目順序在「{ $name }」處無效。
 issue-unsupported-link = 不支援的連結：{ $link }
 issue-highlight-zero = 醒目提示顏色從 1 開始編號
 issue-unreadable-element = 無法讀取的元素，已移出

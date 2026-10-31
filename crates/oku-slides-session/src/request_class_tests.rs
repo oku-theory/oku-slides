@@ -33,6 +33,8 @@ fn version() -> oku_slides_core::PackVersion {
 #[case::set_widget(Request::SetWidget { pack: None, name: "w".into(), source: String::new() }, true)]
 #[case::remove_widget(Request::RemoveWidget { pack: None, name: "w".into() }, true)]
 #[case::rename_widget(Request::RenameWidget { pack: None, from: "a".into(), to: "b".into() }, true)]
+#[case::duplicate_widget(Request::DuplicateWidget { pack: None, from: "a".into(), to: None }, true)]
+#[case::reorder_widgets(Request::ReorderWidgets { pack: None, order: Vec::new() }, true)]
 #[case::set_example_value(Request::SetExampleValue { name: "w".into(), param: "p".into(), value: serde_json::Value::Null }, true)]
 #[case::edit_example_list(Request::EditExampleList { name: "w".into(), param: "p".into(), change: oku_slides_core::ListOp::Remove { item: "i".into() } }, true)]
 #[case::snapshot(Request::Snapshot, false)]

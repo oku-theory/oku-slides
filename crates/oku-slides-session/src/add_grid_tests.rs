@@ -158,6 +158,19 @@ fn add_packs_describes_a_builtin_widget_in_the_user_language() {
 }
 
 #[test]
+fn add_packs_lists_a_pack_s_widgets_in_its_order() {
+    let mut s = session();
+    let mut m = manifest_ns(Uuid::new_v4(), "acme", &["base"]);
+    m.order = ["chip", "badge"].map(|n| oku_slides_core::WidgetFile::parse(n).unwrap()).to_vec();
+    let chip = BADGE.replace("badge", "chip");
+    let pin = add_version(&s.library, &m, &[("badge", BADGE), ("chip", chip.as_str())]);
+    s.apply("Pack", vec![add_pack(&m, &pin)], None).unwrap();
+    let acme = s.add_packs().into_iter().find(|p| p.namespace == "acme").unwrap();
+    let names: Vec<&str> = acme.widgets.iter().map(|w| w.name.as_str()).collect();
+    assert_that!(names).is_equal_to(vec!["acme/chip", "acme/badge"]);
+}
+
+#[test]
 fn add_packs_lists_a_pinned_library_pack_after_base() {
     let s = session_with_widget_pack_example("acme", "badge", json!({"label": "Neuf"}));
     let names: Vec<String> = s.add_packs().into_iter().map(|p| p.namespace).collect();

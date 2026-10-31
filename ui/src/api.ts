@@ -196,6 +196,12 @@ export interface WidgetStatus {
   diagnostics: WidgetDiagnostic[];
 }
 
+/** Answer to a duplicate: the copy's name and the statuses after it. */
+export interface WidgetDuplicate {
+  name: string;
+  statuses: WidgetStatus[];
+}
+
 /** Réponse d'une écriture : le fichier, et les widgets qu'elle a cassés. */
 export interface WidgetChange {
   status: WidgetStatus;
@@ -541,6 +547,8 @@ type Request =
   | { cmd: "set_widget"; name: string; source: string; pack?: string }
   | { cmd: "remove_widget"; name: string; pack?: string }
   | { cmd: "rename_widget"; from: string; to: string; pack?: string }
+  | { cmd: "duplicate_widget"; from: string; to?: string; pack?: string }
+  | { cmd: "reorder_widgets"; order: string[]; pack?: string }
   | { cmd: "preview_widget"; name: string; pack?: string }
   | { cmd: "history_versions" }
   | { cmd: "search"; query: string };
@@ -753,6 +761,10 @@ export function tabApi(tab: string) {
     setWidget: (name: string, source: string, pack?: string) => call<WidgetChange>({ cmd: "set_widget", name, source, pack }),
     removeWidget: (name: string, pack?: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name, pack }),
     renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
+    /** Copies an item under a fresh name the session picks; answers that name and the statuses. */
+    duplicateWidget: (from: string, pack?: string) => call<WidgetDuplicate>({ cmd: "duplicate_widget", from, pack }),
+    /** Stores the pile's order (every item once, `_commun` excluded); answers the statuses. */
+    reorderWidgets: (order: string[], pack?: string) => call<WidgetStatus[]>({ cmd: "reorder_widgets", order, pack }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
     previewWidget: (name: string, pack?: string) => call<WidgetPreview>({ cmd: "preview_widget", name, pack }),
     /** Theme tab: saves the draft; the saved version, or null when unchanged. */

@@ -46,6 +46,7 @@ use crate::layout_profile::LayoutProfile;
 use crate::model::Style;
 use crate::namespace::Namespace;
 use crate::pack_kind::PackKind;
+use crate::pack_order::{check_order, normalized_order};
 use crate::token_spec::{ComponentToken, check_entries};
 use crate::tokens::merge;
 
@@ -442,6 +443,9 @@ pub struct PackManifest {
     /// n'est pas écrite (les versions sans jetons gardent leur empreinte).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tokens: Vec<ComponentToken>,
+    /// Items in their chosen order; the unlisted follow by name. Empty: name order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub order: Vec<WidgetFile>,
 }
 
 impl PackManifest {
@@ -456,6 +460,7 @@ impl PackManifest {
         let manifest: Self =
             serde_json::from_value(Value::Object(files.manifest().clone())).context(ManifestJsonSnafu)?;
         check_entries(&manifest.tokens).context(ManifestTokensSnafu)?;
+        check_order(&manifest.order, files)?;
         Ok(manifest)
     }
 
@@ -487,7 +492,12 @@ impl PackManifest {
     ///
     /// The manifest does not serialize into a JSON object.
     pub fn to_files(&self, kind: PackKind, widgets: BTreeMap<WidgetFile, String>) -> serde_json::Result<PackFiles> {
-        match serde_json::to_value(self)? {
+        let mut written = self.clone();
+        written.order = normalized_order(
+            &self.order,
+            widgets.iter().filter(|(_, source)| !source.is_empty()).map(|(name, _)| name), // `PackFiles::new` drops empty files.
+        );
+        match serde_json::to_value(&written)? {
             Value::Object(manifest) => Ok(PackFiles::new(kind, manifest, widgets)),
             _ => Err(serde::ser::Error::custom("pack manifest is not an object")),
         }

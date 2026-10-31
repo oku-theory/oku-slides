@@ -35,6 +35,21 @@ pub(crate) struct WidgetName {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct DuplicateWidgetArgs {
+    /// Name of the item to copy.
+    pub from: String,
+    /// Name of the copy; absent: `<from>-2`, or the next free number.
+    #[serde(default)]
+    pub to: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct ReorderWidgetsArgs {
+    /// Every item of the pack once, `_commun` excluded, in the new order.
+    pub order: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SetWidgetArgs {
     /// Namespace of a pack pinned by the deck.
     ///
@@ -68,6 +83,13 @@ pub(crate) struct SetWidgetTrialArgs {
     /// `null` clears a value, back to the preview's; an empty text or `[]`
     /// (rich text or list) keeps it empty.
     pub values: Map<String, Value>,
+}
+
+/// The part of `duplicate_widget`'s answer the pile needs.
+#[derive(Deserialize)]
+struct CopyName {
+    /// The name of the new item.
+    name: String,
 }
 
 impl Tools {
@@ -152,6 +174,51 @@ impl Tools {
                 if pack_mode {
                     self.hub.emit(McpEvent::WidgetTouched { name, removed: true });
                 }
+                text(json)
+            }
+            Err(e) => self.fail_with(&e),
+        }
+    }
+
+    /// `duplicate_widget`: copies an item of the edited pack right after it; the pile hears of the copy.
+    pub(crate) async fn duplicate_widget(&self, turn: Option<u32>, args: Value) -> CallToolResult {
+        let DuplicateWidgetArgs { from, to } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        if let Some(refused) = self.continues_elsewhere(turn) {
+            return refused;
+        }
+        // Only offered in a pack tab: `None` targets the edited pack.
+        let done = self.with_session(move |s| s.handle(Request::DuplicateWidget { pack: None, from, to })).await;
+        match done {
+            Ok(json) => {
+                self.hub.emit(McpEvent::Changed);
+                // The answer is `{name, statuses}`; the copy's name tells the pile what appeared. The
+                // write is done: an answer that does not read back is logged, never turned into an error.
+                match serde_json::from_str::<CopyName>(&json) {
+                    Ok(CopyName { name }) => self.hub.emit(McpEvent::WidgetTouched { name, removed: false }),
+                    Err(e) => tracing::warn!(error = %e, "duplicate_widget: copy name not read from the answer"),
+                }
+                text(json)
+            }
+            Err(e) => self.fail_with(&e),
+        }
+    }
+
+    /// `reorder_widgets`: sets the order of the edited pack's items.
+    pub(crate) async fn reorder_widgets(&self, turn: Option<u32>, args: Value) -> CallToolResult {
+        let ReorderWidgetsArgs { order } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        if let Some(refused) = self.continues_elsewhere(turn) {
+            return refused;
+        }
+        let done = self.with_session(move |s| s.handle(Request::ReorderWidgets { pack: None, order })).await;
+        match done {
+            Ok(json) => {
+                self.hub.emit(McpEvent::Changed);
                 text(json)
             }
             Err(e) => self.fail_with(&e),

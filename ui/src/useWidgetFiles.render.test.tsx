@@ -786,3 +786,49 @@ describe("useWidgetFiles, attempted", () => {
     expect(out.files!.attempted("kpi")).toBeUndefined();
   });
 });
+
+describe("useWidgetFiles, duplicate and reorder", () => {
+  test("useWidgetFiles duplicate sends pending typing first", async () => {
+    const { fake, log } = memory({ kpi: decl("kpi", "a") });
+    stub(fake, "duplicateWidget", async (from: string) => {
+      log.push(`duplicate ${from}`);
+      return { name: "kpi-2", statuses: [{ name: "kpi", schema: null, diagnostics: [] }, { name: "kpi-2", schema: null, diagnostics: [] }] };
+    });
+    const { out } = await mount(fake);
+    await typed(out, "kpi", decl("kpi", "tapé"));
+    let copy: string | null = null;
+    await act(async () => { copy = await out.files!.duplicate("kpi"); });
+    expect([log, copy, out.files!.statuses?.map((s) => s.name)]).toEqual([
+      [`set kpi:${decl("kpi", "tapé")}`, "duplicate kpi"],
+      "kpi-2",
+      ["kpi", "kpi-2"],
+    ]);
+  });
+
+  test("useWidgetFiles duplicate refused reports the error and answers null", async () => {
+    const { fake } = memory({ kpi: "k" });
+    stub(fake, "duplicateWidget", () => Promise.reject(new Error("refusé")));
+    const { out } = await mount(fake);
+    let copy: string | null = "x";
+    await act(async () => { copy = await out.files!.duplicate("kpi"); });
+    expect([copy, out.errors.length]).toEqual([null, 1]);
+  });
+
+  test("useWidgetFiles reorder refused reports the error and keeps the statuses", async () => {
+    const { fake } = memory({ a: "a", b: "b" });
+    stub(fake, "reorderWidgets", () => Promise.reject(new Error("refusé")));
+    const { out } = await mount(fake);
+    let done = true;
+    await act(async () => { done = await out.files!.reorder(["b", "a"]); });
+    expect([done, out.errors.length, out.files!.statuses?.map((s) => s.name)]).toEqual([false, 1, ["a", "b"]]);
+  });
+
+  test("useWidgetFiles reorder tells the parent the pack changed", async () => {
+    const { fake } = memory({ a: "a", b: "b" });
+    stub(fake, "reorderWidgets", async () => [{ name: "b", schema: null, diagnostics: [] }, { name: "a", schema: null, diagnostics: [] }]);
+    const { out } = await mount(fake);
+    let done = false;
+    await act(async () => { done = await out.files!.reorder(["b", "a"]); });
+    expect([done, out.changed.length > 0]).toEqual([true, true]);
+  });
+});

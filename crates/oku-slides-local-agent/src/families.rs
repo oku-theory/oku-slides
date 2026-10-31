@@ -71,7 +71,7 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         "packs" | "open_pack" | "open_theme" | "save_pack" | "delete_pack" | "edit_theme" | "theme_tokens"
         | "widget_source" | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial"
         | "preview_widget" | "set_theme_extends" | "select_item" | "set_preview_theme" | "rename_theme"
-        | "save_theme" => &[Packs],
+        | "save_theme" | "duplicate_widget" | "reorder_widgets" => &[Packs],
         "settings" => &[Configure, Troubleshoot],
         "set_setting"
         | "set_interface"
