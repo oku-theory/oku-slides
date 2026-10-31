@@ -85,13 +85,6 @@ pub(crate) struct SetWidgetTrialArgs {
     pub values: Map<String, Value>,
 }
 
-/// The part of `duplicate_widget`'s answer the pile needs.
-#[derive(Deserialize)]
-struct CopyName {
-    /// The name of the new item.
-    name: String,
-}
-
 impl Tools {
     /// Une requête de widgets, sa réponse JSON telle quelle.
     async fn widget_request(&self, req: Request) -> CallToolResult {
@@ -189,18 +182,15 @@ impl Tools {
         if let Some(refused) = self.continues_elsewhere(turn) {
             return refused;
         }
-        // Only offered in a pack tab: `None` targets the edited pack.
-        let done = self.with_session(move |s| s.handle(Request::DuplicateWidget { pack: None, from, to })).await;
+        // Only offered in a pack tab: `None` targets the edited pack. The copy is marked as the
+        // agent's, so a later user edit of it reaches the agent.
+        let done = self.with_session(move |s| s.duplicate_widget_by_agent(None, &from, to.as_deref())).await;
         match done {
-            Ok(json) => {
+            Ok(copy) => {
                 self.hub.emit(McpEvent::Changed);
-                // The answer is `{name, statuses}`; the copy's name tells the pile what appeared. The
-                // write is done: an answer that does not read back is logged, never turned into an error.
-                match serde_json::from_str::<CopyName>(&json) {
-                    Ok(CopyName { name }) => self.hub.emit(McpEvent::WidgetTouched { name, removed: false }),
-                    Err(e) => tracing::warn!(error = %e, "duplicate_widget: copy name not read from the answer"),
-                }
-                text(json)
+                // The copy's name tells the pile what appeared.
+                self.hub.emit(McpEvent::WidgetTouched { name: copy.name.clone(), removed: false });
+                self.json_result(&copy)
             }
             Err(e) => self.fail_with(&e),
         }

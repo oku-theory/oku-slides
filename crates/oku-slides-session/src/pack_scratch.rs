@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use oku_slides_core::WidgetFile;
+use oku_slides_core::{PackFiles, WidgetFile};
 use uuid::Uuid;
 
 use crate::{Mode, Session};
@@ -43,6 +43,14 @@ impl PackScratch {
     /// L'agent vient d'écrire `name`.
     pub(crate) fn mark_agent(&mut self, name: &WidgetFile) {
         self.agent_wrote.insert(name.clone());
+    }
+
+    /// Keeps only the marks of widgets `files` still holds.
+    ///
+    /// Called after an undo or redo. A redo that brings a widget back does not
+    /// bring its mark back: the agent then misses a note rather than gets a false one.
+    pub(crate) fn kept_in(&mut self, files: &PackFiles) {
+        self.agent_wrote.retain(|name| files.widget(name).is_some());
     }
 
     /// Vrai si l'agent avait écrit `name` ; la marque est retirée.

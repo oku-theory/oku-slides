@@ -41,6 +41,16 @@ impl Session {
         from: &str,
         to: Option<&str>,
     ) -> Result<WidgetDuplicate> {
+        self.copy_widget(pack, from, to).map(|(_, copy)| copy)
+    }
+
+    /// The duplicate itself, with the copy's file name for the agent's mark.
+    fn copy_widget(
+        &mut self,
+        pack: Option<&Namespace>,
+        from: &str,
+        to: Option<&str>,
+    ) -> Result<(WidgetFile, WidgetDuplicate)> {
         let from = parse_name(from)?;
         ensure!(!from.is_common(), InvalidWidgetNameSnafu { name: from.as_str() });
         let t = self.widget_target(pack)?;
@@ -76,7 +86,29 @@ impl Session {
         order.insert(at, to.clone());
         manifest.order = order;
         let statuses = self.commit_manifest(&t, manifest, widgets).map(|s| with_render(s.0, s.1, &to))?;
-        Ok(WidgetDuplicate { name: to.as_str().to_owned(), statuses })
+        let copy = WidgetDuplicate { name: to.as_str().to_owned(), statuses };
+        Ok((to, copy))
+    }
+
+    /// Agent duplicate (tool `duplicate_widget`): copied, persisted, the copy marked.
+    ///
+    /// A later user write of the copy then tells the agent, as after `set_widget_by_agent`.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::duplicate_widget`].
+    pub fn duplicate_widget_by_agent(
+        &mut self,
+        pack: Option<&Namespace>,
+        from: &str,
+        to: Option<&str>,
+    ) -> Result<WidgetDuplicate> {
+        let (name, copy) = self.copy_widget(pack, from, to)?;
+        if let Some(scratch) = self.scratch_mut() {
+            scratch.mark_agent(&name);
+        }
+        self.persist(true);
+        Ok(copy)
     }
 
     /// Stores `order` as the pack's item order; each item must be listed once.

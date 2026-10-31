@@ -11,9 +11,9 @@ use common::workspace_harness::{
 use common::*;
 use oku_slides_core::Namespace;
 use oku_slides_mcp::McpEvent;
-use oku_slides_session::Workspace;
 use oku_slides_session::agent::AgentUi;
 use oku_slides_session::agent::bounds::label;
+use oku_slides_session::{Request, Workspace};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -205,4 +205,22 @@ async fn reorder_widgets_in_a_pack_tab_moves_the_copy_first() {
     let r = call(&c, "reorder_widgets", json!({ "order": ["badge-2", ACME_WIDGET] })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     assert_that!(pile_slide_ids(&ws, &tab)).is_equal_to(vec!["widget-badge-2".to_owned(), "widget-badge".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn duplicate_widget_then_user_edit_of_the_copy_tells_the_agent() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let copied = call(&c, "duplicate_widget", json!({ "from": ACME_WIDGET })).await;
+    assert_that!(copied.is_error).is_not_equal_to(Some(true));
+    let edited = tokio::task::block_in_place(|| {
+        Workspace::with_session(&ws, &tab, |s| {
+            let source = s.widget_source(None, "badge-2")?;
+            s.handle(Request::SetWidget { pack: None, name: "badge-2".into(), source: format!("{source}// v2\n") })
+        })
+        .0
+        .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    });
+    assert_that!(edited).is_ok();
+    assert_that!(context_of(&ws, &tab).as_str()).contains("user edited widget badge-2 after you");
 }
