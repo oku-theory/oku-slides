@@ -228,12 +228,7 @@ pub(crate) fn spawn(limits: Limits, busy: Arc<Busy>) {
         let parent = Parent::current();
         let reason = watch(limits, TICK, || {
             let at = Instant::now();
-            Sample {
-                at,
-                busy_for: busy.busy_for(at),
-                rss: memory_bytes(&mut sys, me),
-                parent_gone: parent.gone(),
-            }
+            Sample { at, busy_for: busy.busy_for(at), rss: memory_bytes(&mut sys, me), parent_gone: parent.gone() }
         });
         eprintln!("oku-slides render worker stopped by its watchdog: {reason}");
         std::process::exit(EXIT_CODE);

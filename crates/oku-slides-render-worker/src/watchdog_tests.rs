@@ -145,11 +145,7 @@ mod identity {
 
     /// A child that runs until killed.
     fn long_child() -> std::process::Child {
-        Command::new("ping")
-            .args(["-n", "120", "127.0.0.1"])
-            .stdout(Stdio::null())
-            .spawn()
-            .expect("ping starts")
+        Command::new("ping").args(["-n", "120", "127.0.0.1"]).stdout(Stdio::null()).spawn().expect("ping starts")
     }
 
     #[test]
@@ -185,5 +181,4 @@ mod identity {
         let parent = ProcessIdentity::parent_of(std::process::id());
         assert_that!(parent.map(ProcessIdentity::alive)).is_equal_to(Some(true));
     }
-
 }
