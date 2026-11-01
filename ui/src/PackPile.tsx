@@ -1,13 +1,13 @@
 /**
- * A pack tab's pile: the shared file first when it exists, one row per item in a widget pack
- * (one thumbnail per layout), then the add button with its name field.
+ * A pack tab's strip: the shared file first when it exists, one named thumbnail per item, then
+ * the name field of a new or renamed item and the add button.
  *
  * F2 or a double-click renames an item; its trash button, Delete or Backspace delete it after
- * the shared confirmation (`confirm`, a `ConfirmDialog`); a drag or Alt+Up and Alt+Down move
+ * the shared confirmation (`confirm`, a `ConfirmDialog`); a drag or Alt+Left and Alt+Right move
  * it (Cmd+D stays the window's dictation shortcut). Its context menu offers rename, duplicate and delete (the
  * shared file: delete only). After a duplicate the copy gets the focus, after a move the moved
  * item keeps it. After a delete, the focus goes to the
- * neighbour item, else the shared row, else the add button. Layout thumbnails stay `<img>` (via
+ * neighbour item, else the shared button, else the add button. Thumbnails stay `<img>` (via
  * `SlidePile`); no id or selector is built from an item name.
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
@@ -137,11 +137,12 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
     const keyboard = e.clientX === 0 && e.clientY === 0;
     setMenu({ name, x: keyboard ? box.left : e.clientX, y: keyboard ? box.bottom : e.clientY });
   };
-  /** F2 renames, Alt+Up or Down moves; Delete or Backspace deletes. The window's keys never see them. */
+  /** F2 renames, Alt+Left or Right moves (mirrored right to left); Delete or Backspace deletes. The window's keys never see them. */
   const onItemKey = (name: string, e: KeyboardEvent<HTMLButtonElement>) => {
     const at = order.indexOf(name);
+    const rtl = !!box.current && getComputedStyle(box.current).direction === "rtl";
     if (e.key === "F2") startRename(name);
-    else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) move(name, e.key === "ArrowUp" ? at - 1 : at + 2);
+    else if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) move(name, (e.key === "ArrowLeft") !== rtl ? at - 1 : at + 2);
     else if (e.key === "Delete" || e.key === "Backspace") void remove(name);
     else return;
     e.preventDefault();
@@ -172,31 +173,11 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
           <IconButton className="token ghost pack-pile-remove" label={deleteLabel(COMMON)} icon={Icon.trash} onClick={() => void remove(COMMON)} />
         </div>
       )}
-      {naming && (
-        <form className="pack-pile-name" onSubmit={(e) => { e.preventDefault(); commit(); }}>
-          <input
-            className="select"
-            autoFocus
-            aria-label={t(kind === "layouts" ? "ui-layouts-name" : "ui-widgets-name")}
-            aria-invalid={naming.value !== "" && !ok(naming)}
-            aria-describedby={issue ? issueId : undefined}
-            value={naming.value}
-            // Brought to a name's form as typed: « Carte » becomes `carte`.
-            onChange={(e) => setNaming({ ...naming, value: widgetSlug(e.target.value) })}
-            onKeyDown={(e) => {
-              if (e.key !== "Escape") return;
-              e.stopPropagation();
-              close(naming.from === null ? "add" : { item: naming.from });
-            }}
-          />
-          {issue && <p id={issueId} className="pack-pile-issue" role="status">{t(issue)}</p>}
-        </form>
-      )}
       <SlidePile
         slides={items.map((i) => i.slide)}
         current={selected === null ? null : itemSlide(kind, selected)}
         svg={svg}
-        variant={kind === "widgets" ? "rows" : "thumbs"}
+        axis="x"
         names={Object.fromEntries(items.map((i) => [i.slide.id, i.name]))}
         label={t(kind === "layouts" ? "ui-pile-layouts" : "ui-widget-picker-list")}
         addLabel={t(kind === "layouts" ? "ui-layouts-new" : "ui-widgets-new")}
@@ -230,6 +211,26 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
         }}
       />
       {empty && <p className="caption pack-pile-empty">{t(kind === "layouts" ? "ui-layouts-empty" : "ui-widgets-empty")}</p>}
+      {naming && (
+        <form className="pack-pile-name" onSubmit={(e) => { e.preventDefault(); commit(); }}>
+          <input
+            className="select"
+            autoFocus
+            aria-label={t(kind === "layouts" ? "ui-layouts-name" : "ui-widgets-name")}
+            aria-invalid={naming.value !== "" && !ok(naming)}
+            aria-describedby={issue ? issueId : undefined}
+            value={naming.value}
+            // Brought to a name's form as typed: « Carte » becomes `carte`.
+            onChange={(e) => setNaming({ ...naming, value: widgetSlug(e.target.value) })}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape") return;
+              e.stopPropagation();
+              close(naming.from === null ? "add" : { item: naming.from });
+            }}
+          />
+          {issue && <p id={issueId} className="pack-pile-issue" role="status">{t(issue)}</p>}
+        </form>
+      )}
       <IconButton
         ref={addButton}
         className="object token pack-pile-add"

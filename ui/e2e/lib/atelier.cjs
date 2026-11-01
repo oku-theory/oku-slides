@@ -9,10 +9,10 @@ const { SLOW, until, untilValue } = require('./until.cjs');
 
 const view = (p) => post(p, '/api/workspace', { cmd: 'view' });
 
-/** Waits for the active tab to be a pack tab (`data-kind="pack"`) showing its pile and "Terminer". */
+/** Waits for the active tab to be a pack tab (`data-kind="pack"`) showing its strip and "Terminer". */
 async function packTabShown(p) {
   await p.locator('.tab.active[data-kind="pack"]').waitFor();
-  await p.locator('.pile-column .pack-pile').waitFor();
+  await p.locator('.pack-strip .pack-pile').waitFor();
   await p.getByRole('button', { name: 'Terminer' }).waitFor();
 }
 const snapshot = (p, tab) => post(p, '/api', { tab, req: { cmd: 'snapshot' } });

@@ -1,5 +1,5 @@
-// Poignées des séparateurs : une petite pastille visible au repos dit qu'une zone se redimensionne.
-// Sans serveur : la vraie feuille de styles sur des séparateurs reconstitués. Lancer : bun e2e/130-handles.cjs.
+// Column divider grips: a small pill visible at rest says an area resizes.
+// No server: the real style sheet on rebuilt dividers. Lancer : bun e2e/130-handles.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { APP_SHEETS, sheets } = require('./lib/css.cjs');
@@ -8,9 +8,6 @@ const css = sheets(...APP_SHEETS);
 const html = `<!doctype html><style>${css}</style>
 <div style="display:grid;grid-template-columns:200px 8px 200px;height:300px">
   <div></div><div class="col-divider" data-side="pile" style="grid-row:1;grid-column:2"></div><div></div>
-</div>
-<div style="display:grid;grid-template-columns:100px 12px 100px;width:212px;height:200px">
-  <div></div><div class="code-divider" style="grid-area:auto"></div><div></div>
 </div>`;
 
 (async () => {
@@ -18,7 +15,7 @@ const html = `<!doctype html><style>${css}</style>
   const p = await b.newPage({ viewport: { width: 800, height: 900 } });
   await p.setContent(html);
   const grips = await p.evaluate(() =>
-    [...document.querySelectorAll('.col-divider, .code-divider')].map((el) => {
+    [...document.querySelectorAll('.col-divider')].map((el) => {
       const g = getComputedStyle(el, '::after');
       return { el: `${el.className} ${el.dataset.side ?? ''}`, w: parseFloat(g.width), h: parseFloat(g.height), opacity: parseFloat(g.opacity), content: g.content };
     }),

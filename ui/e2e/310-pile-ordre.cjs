@@ -1,6 +1,6 @@
 // Duplicate and reorder in a pack tab's pile (t-1249): a layout pack made from the main menu gets the
 // layouts `a` and `b` ("Nouveau layout"); « Dupliquer » on `a` adds `a-2` right after it, selected and focused;
-// ⌥↑ pressed twice on `b` moves it first (the focus survives each move, checked in the real browser);
+// ⌥← pressed twice on `b` moves it first (the focus survives each move, checked in the real browser);
 // the order is stored in the pack version, so it is still `b`, `a`, `a-2` after closing and reopening
 // the tab. The "Nouvelle slide" picker lists a pinned pack's layouts in that order, but a library pack
 // made from the menu is not pinned by the deck and no short UI path pins it here: that order is covered
@@ -56,15 +56,15 @@ const focused = (p) => p.evaluate(() => document.activeElement?.closest('.thumb'
     await pileThumb(p, 'a-2', true).waitFor();
     await untilValue(p, () => focused(p), (n) => n === 'a-2', 'la copie a-2 ne prend pas le focus');
 
-    // 3. ⌥↑ twice on `b`: first, with the focus kept between the two presses.
+    // 3. ⌥← twice on `b`: first, with the focus kept between the two presses.
     await pileThumb(p, 'b').click();
     await pileThumb(p, 'b', true).waitFor();
-    await p.keyboard.press('Alt+ArrowUp');
-    await expectOrder(p, ['a', 'b', 'a-2'], 'premier ⌥↑');
-    await untilValue(p, () => focused(p), (n) => n === 'b', 'le focus quitte b après le premier ⌥↑');
-    await p.keyboard.press('Alt+ArrowUp');
-    await expectOrder(p, ['b', 'a', 'a-2'], 'second ⌥↑');
-    await untilValue(p, () => focused(p), (n) => n === 'b', 'le focus quitte b après le second ⌥↑');
+    await p.keyboard.press('Alt+ArrowLeft');
+    await expectOrder(p, ['a', 'b', 'a-2'], 'premier ⌥←');
+    await untilValue(p, () => focused(p), (n) => n === 'b', 'le focus quitte b après le premier ⌥←');
+    await p.keyboard.press('Alt+ArrowLeft');
+    await expectOrder(p, ['b', 'a', 'a-2'], 'second ⌥←');
+    await untilValue(p, () => focused(p), (n) => n === 'b', 'le focus quitte b après le second ⌥←');
 
     // 4. Stored in the pack version: save it in place (no copy to clean up), close, reopen the saved pack, same order.
     const saved = await api(p, tab, { cmd: 'save_pack', as_new: false });

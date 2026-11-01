@@ -1,7 +1,8 @@
-// The pack editor's layout (t-1392): in the Base widget pack, `card` selected, the preview slot set to
-// « Moitié » narrows the preview and is kept after a reload; the form sits on the preview's right, with
-// « Mise en avant » as a switch and a localized label; the pile lists rows, without thumbnails; the
-// header keeps the brand on one line and room for the title.
+// The pack editor's layout (t-1392, t-1419): in the Base widget pack, `card` selected, the preview slot set
+// to « Moitié » narrows the preview and is kept after a reload; the form sits under the preview, in the
+// Settings tab, with « Mise en avant » as a switch and a localized label; the strip shows a named thumbnail
+// per widget, the widget alone cropped as its preview, above the preview; the header keeps the brand on one
+// line and room for the title.
 // Writes: the UI state only (the slot is reset to full at the end). Leaves: no pack tab.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -33,8 +34,14 @@ const box = (p, sel) => p.locator(sel).first().boundingBox();
     await packTabShown(p);
     await p.waitForSelector(PREVIEW);
 
-    assert.equal(await p.locator('.pack-pile .pile.rows').count(), 1, "la pile n'est pas en lignes");
-    assert.equal(await p.locator('.pack-pile .thumb-img').count(), 0, 'la pile montre des miniatures');
+    assert.equal(await p.locator('.pack-strip .pile.horizontal').count(), 1, "la bande n'est pas horizontale");
+    assert.ok(await p.locator('.pack-strip .thumb img').count() >= 1, 'la bande ne montre pas de miniatures');
+    assert.equal(await p.locator('.pack-strip .thumb[aria-current="true"] .thumb-name').textContent(), 'card', 'card pas nommé sous sa miniature');
+    // The thumbnail is the widget alone, cropped as its full-slot preview: not its whole slide.
+    const natural = (sel) => p.locator(sel).first().evaluate((img) => (img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0));
+    const thumbRatio = await untilValue(p, () => natural('.pack-strip .thumb[aria-current="true"] img'), (r) => r > 0, 'miniature de card sans image');
+    const previewRatio = await untilValue(p, () => natural(PREVIEW), (r) => r > 0, 'aperçu de card sans image');
+    assert.ok(Math.abs(thumbRatio - previewRatio) < 0.01, `miniature ${thumbRatio}, aperçu ${previewRatio} : pas le même cadrage`);
     // The settings form arrives after the preview image: wait for it before counting.
     await p.locator(`${TAB} .host-settings`).getByRole('switch', { name: 'Mise en avant' }).waitFor({ timeout: 10000 });
     assert.equal(await p.locator(`${TAB} .host-settings`).getByRole('switch', { name: 'Mise en avant' }).count(), 1, 'pas de bascule « Mise en avant »');
@@ -50,10 +57,12 @@ const box = (p, sel) => p.locator(sel).first().boundingBox();
     const title = await box(p, '.label.editing-pack .doc-name');
     assert.ok(title.width >= 80, `le titre n'a pas la place (${title.width} px)`);
 
-    // The form sits on the preview's right (code hidden).
+    // The strip above the preview, the form under it.
+    const strip = await box(p, '.pack-strip');
     const pv = await box(p, `${TAB} .widget-tab-preview`);
     const side = await box(p, `${TAB} .widget-tab-side`);
-    assert.ok(side.x >= pv.x + pv.width - 1, `le formulaire n'est pas à droite de l'aperçu (${side.x} < ${pv.x + pv.width})`);
+    assert.ok(pv.y >= strip.y + strip.height - 1, `l'aperçu n'est pas sous la bande (${pv.y} < ${strip.y + strip.height})`);
+    assert.ok(side.y >= pv.y + pv.height - 1, `le formulaire n'est pas sous l'aperçu (${side.y} < ${pv.y + pv.height})`);
 
     const full = await untilValue(p, () => width(p), (w) => w > 0, 'aperçu sans image');
     const halfSaved = uiSaved(p, (req) => req.preview_span === 'half');
@@ -64,24 +73,8 @@ const box = (p, sel) => p.locator(sel).first().boundingBox();
     await p.reload();
     await p.waitForSelector(`${TAB} .widget-tab-preview`);
     assert.equal(await slot().inputValue(), 'half', 'case non gardée');
-
-    // Code shown: the form moves under the preview.
-    await p.getByRole('button', { name: 'Code source' }).click();
-    await p.waitForSelector(`${TAB}[data-code="shown"] .code-divider`);
-    const pv2 = await box(p, `${TAB} .widget-tab-preview`);
-    const side2 = await box(p, `${TAB} .widget-tab-side`);
-    assert.ok(side2.y >= pv2.y + pv2.height - 1, `le formulaire n'est pas sous l'aperçu (${side2.y} < ${pv2.y + pv2.height})`);
-    assert.ok(Math.abs(side2.x - pv2.x) <= 2, `le formulaire n'est pas aligné à gauche de l'aperçu (${side2.x} / ${pv2.x})`);
-    const foldSaved = uiSaved(p, (req) => !req.code);
-    await p.getByRole('button', { name: 'Code source' }).click();
-    await foldSaved;
   } finally {
-    // Later specs expect the default slot and the code folded; wait for each save before closing.
-    if (await p.locator(`${TAB}[data-code="shown"]`).count()) {
-      const folded = uiSaved(p, (req) => !req.code);
-      await p.getByRole('button', { name: 'Code source' }).click();
-      await folded;
-    }
+    // Later specs expect the default slot; wait for the save before closing.
     if (await slot().count() && (await slot().inputValue()) !== 'full') {
       const fullSaved = uiSaved(p, (req) => req.preview_span === 'full');
       await slot().selectOption('full');

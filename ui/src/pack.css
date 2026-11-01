@@ -12,47 +12,33 @@
 .cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
 .cm-diag-marker { color: var(--danger); cursor: help; }
 
-/* Named areas. Code hidden: the preview on the left, full height; the form on its right at 300px.
-   Code shown: the preview over the form on the left, the code on the right at the divider's width
-   (--code-w, set by WidgetTab); the left column keeps SIDE_MIN (240px) and the divider SPLIT (12px),
-   as codeSplit.ts. Hidden, the code has no track: see the absolute rule below. */
+/* Three groups with air between them: the item strip (WidgetPane), the preview, then the Settings and
+   Code tabs over the diagnostics. The preview and the tabs share the height; the tab panels scroll alone. */
+.widget-pane { flex-direction: column; gap: var(--space-6); }
 .widget-tab {
-  position: relative; display: grid; grid-template-areas: "preview split side";
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-columns: minmax(0, 1fr) 12px 300px; height: 100%; min-height: 0;
+  position: relative; display: grid; grid-template-rows: minmax(96px, 1fr) minmax(0, 1fr); gap: var(--space-6);
+  min-width: 0; min-height: 0;
 }
-.widget-tab-preview { grid-area: preview; }
-.widget-tab-side { grid-area: side; }
-.widget-tab-code { grid-area: code; }
-/* Hidden, the code has no area: out of the grid flow so it makes no implicit track, still mounted. */
-.widget-tab:not([data-code="shown"]) > .widget-tab-code { position: absolute; width: 0; height: 0; overflow: hidden; }
-.widget-tab[data-code="shown"] {
-  grid-template-areas: "preview split code" "side split code";
-  grid-template-rows: minmax(0, 1fr) fit-content(40%);
-  grid-template-columns: minmax(240px, 1fr) 12px var(--code-w, minmax(0, 1fr));
+.widget-tab-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.widget-tab-tabs { flex: none; display: flex; gap: var(--space-1); padding-inline: calc(10px * var(--elev-sheet)); }
+.widget-tab-tab {
+  padding: 4px 12px; border: 0; border-radius: var(--radius-sm); background: transparent;
+  color: var(--ink-muted); font: 500 13px/20px var(--sans); cursor: pointer;
 }
-/* Commun has no form: with the code hidden and no diagnostics, its list takes the side's track too. */
-.widget-tab[data-item="common"]:not([data-code="shown"]):not(:has(.widget-tab-diagnostics:not(:empty))) {
-  grid-template-columns: minmax(0, 1fr) 0 0;
-}
-/* Séparateur entre réglages et code, comme ceux des colonnes : un trait au survol, accentué au glisser. */
-.code-divider { grid-area: split; position: relative; cursor: col-resize; touch-action: none; outline: none; }
-.code-divider::before {
-  content: ""; position: absolute; inset-inline: 5.5px auto; inset-block: var(--space-6); width: 1px; border-radius: 1px;
-  background: var(--ink); opacity: 0; transition: opacity 160ms ease-out, background-color 160ms ease-out;
-}
-.code-divider:hover::before { opacity: 0.12; transition-delay: 120ms; }
-.code-divider.active::before, .code-divider:focus-visible::before { background: var(--accent); opacity: 0.6; transition-delay: 0s; }
-body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
-.code-divider::after { inset-inline-start: 4px; top: 50%; width: 4px; height: 32px; margin-top: -16px; }
+.widget-tab-tab:hover { color: var(--ink); }
+.widget-tab-tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+/* The closed tab's code stays mounted, out of the flow and invisible. */
+.widget-tab-code:not([inert]) { flex: 1 1 0; }
+.widget-tab-code[inert] { position: absolute; width: 0; height: 0; overflow: hidden; visibility: hidden; }
 /* Aperçu centré dans sa rangée, sur les deux axes ; trop haut, il défile. */
 .widget-tab-preview {
   min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column;
   align-items: center; justify-content: safe center;
 }
 .widget-tab-preview > .widget-tab-broken { align-self: stretch; }
-/* Settings and diagnostics: right of the preview (code hidden) or under it (shown); top-aligned, scrolling alone. */
-.widget-tab-side { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+/* The Settings tab: top-aligned, scrolling alone. */
+.widget-tab-side { flex: 1 1 0; min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.widget-tab-side[hidden] { display: none; }
 /* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
    égales en haut et en bas, l'aperçu reste au centre. */
 .widget-tab-preview > img {
@@ -69,18 +55,16 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .stage-preview .stage { box-shadow: var(--sheet-ring), var(--shadow-sheet-small); }
 /* Un champ lié au deck : en lecture, il le dit au survol. */
 .stage-preview .field.bound { cursor: help; }
-/* Hidden, the code stays mounted, invisible. */
+/* The code, on its paper. */
 .widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
-.widget-tab-code[inert] { visibility: hidden; }
 .widget-tab-broken h3 { margin: 0 0 var(--space-2); font: 500 13px/20px var(--sans); }
 .widget-tab-broken ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.widget-tab-diagnostics { margin: var(--space-2) calc(10px * var(--elev-sheet)) 0; padding: 0; list-style: none; font-size: 12px; }
-/* Vide, elle ne donne pas de hauteur à la zone des réglages. */
+.widget-tab-diagnostics { flex: none; max-height: 30%; overflow: auto; margin: 0 calc(10px * var(--elev-sheet)); padding: 0; list-style: none; font-size: 12px; }
+/* Empty, it takes no height under the tabs. */
 .widget-tab-diagnostics:empty { display: none; }
 .widget-tab-diagnostics .error { color: var(--danger); }
 
-/* The left column of a pack or theme tab: a layout pack's and a theme tab's foldable thumbnails,
-   or a widget pack's pile, which takes the whole column. */
+/* The left column of a theme tab: its foldable thumbnails. */
 .pile-column { grid-area: pile; display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-top: var(--space-4); }
 .pile-section { display: flex; flex-direction: column; min-height: 0; }
 .pile-section-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 28px 0 var(--space-6); }
@@ -94,24 +78,25 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .pile-thumbs[data-open="true"] { flex: 1 1 0; }
 .pile-thumbs .pile { flex: 1 1 auto; min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-6); }
 @media (prefers-reduced-motion: reduce) { .pile-section-chevron svg { transition: none; } }
-/* A pack tab's pile: the shared file, the item thumbnails, the add button and its name field. */
-.pack-pile { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-.pile-column > .pack-pile { padding: 0 28px var(--space-6) var(--space-6); }
-/* In a layout pack's section the thumbnails carry their own padding; the rows around them take the same
-   inset, so the name field's focus ring stays inside the column (it clips). */
-.pile-section-body > .pack-pile > :is(.pack-pile-common, .pack-pile-name, .pack-pile-empty) { margin-inline: var(--space-6) 28px; }
-.pack-pile .pile { flex: 1 1 auto; min-height: 0; }
+/* A pack tab's strip, above the item: the shared file, the item thumbnails (`.slide-strip .pile`), the name
+   field and the add button, in one row. */
+.slide-strip.pack-strip { margin: 0; }
+.pack-pile { display: flex; flex-direction: row; align-items: center; gap: var(--space-2); min-width: 0; }
+.pack-strip .pile { flex: 0 1 auto; min-width: 0; }
+/* A widget's thumbnail is the widget alone, cropped: fitted whole in the thumbnail's 16:9 box. */
+.pack-strip img.thumb-img { object-fit: contain; }
 .pack-pile-common { display: flex; align-items: center; }
-.pack-pile-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
+.pack-pile-item { flex: none; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
 .pack-pile-item[aria-current="true"] { background: var(--accent-soft); }
 .pack-pile-remove { opacity: 0; }
 .pack-pile-common:hover .pack-pile-remove, .pack-pile-common:focus-within .pack-pile-remove { opacity: 1; }
-/* A text field: the column's width, without a select's chevron or cursor. */
+/* A text field, without a select's chevron or cursor. */
+.pack-pile-name { flex: none; width: 180px; }
 .pack-pile-name input { width: 100%; min-width: 0; box-sizing: border-box; padding-inline: 10px; background-image: none; cursor: text; }
 .pack-pile-name input[aria-invalid="true"] { outline: 2px solid var(--danger); }
 .pack-pile-issue { margin: var(--space-1) 0 0; font-size: 12px; line-height: 16px; color: var(--danger); }
 .pack-pile-empty { margin: 0; }
-.pack-pile-add { align-self: center; flex: none; }
+.pack-pile-add { flex: none; }
 /* The shared delete confirmation, on the import dialog's frame. */
 .confirm-message { margin: 0 0 var(--space-4); }
 .unsaved-dot { flex: none; width: 7px; height: 7px; margin-inline-start: auto; border-radius: 50%; background: currentColor; }

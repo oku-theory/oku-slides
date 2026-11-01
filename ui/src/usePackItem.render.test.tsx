@@ -39,7 +39,7 @@ function snapOf(o: {
     widgets: { deck: { id: "p", version } },
     history: history ? {} : null,
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
-    ui: { slide, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [], preview_span: "full" },
+    ui: { slide, ghosts: false, pile: null, notes: null, widget, code: false, folded: [], preview_span: "full" },
   } as unknown as Snapshot;
 }
 
@@ -72,8 +72,8 @@ async function mount(fake: TabApi, first: Snapshot, strict = false) {
     out.item = item;
     useCloseGuard(guardTab, () => item.files.settle());
     return createElement(WidgetPane, {
-      api: fake, item, trials: snap.widget_trials ?? 0, look: "", code: false, codeWidth: null,
-      onCodeWidth: () => {}, run: async () => null, palette: [],
+      api: fake, item, trials: snap.widget_trials ?? 0, look: "", code: false, onCode: () => {}, strip: null,
+      run: async () => null, palette: [],
     });
   }
   const probe = createElement(Probe);

@@ -197,12 +197,9 @@ pub struct UiState {
     /// The selected item of the edited pack in pack mode, `_commun` included; `None`: none.
     #[serde(default)]
     pub widget: Option<String>,
-    /// Code source des widgets déplié à droite de l'aperçu ; replié par défaut.
+    /// A pack item's Code tab is open, rather than its Settings tab (the default).
     #[serde(default)]
     pub code: bool,
-    /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
-    #[serde(default)]
-    pub code_width: Option<u32>,
     /// The preview slot of a pack tab's element widgets; full by default.
     #[serde(default)]
     pub preview_span: PreviewSpan,
@@ -217,7 +214,7 @@ pub struct UiState {
 pub enum PileSection {
     /// The slide thumbnails, outside pack mode.
     Slides,
-    /// The layout thumbnails, in a layout pack or theme tab.
+    /// The layout thumbnails, in a theme tab.
     Layouts,
 }
 

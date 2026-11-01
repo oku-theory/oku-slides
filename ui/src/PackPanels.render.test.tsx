@@ -35,31 +35,24 @@ function snapOf(kind: PackKind, items: string[], widget: string | null): Snapsho
     widgets: {}, layouts: {}, widget_trials: 0, free_slots: {}, pack_updates: 0, can_undo: false, can_redo: false,
     undo_label: null, redo_label: null, appearance: { chart_palette: [] },
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
-    ui: { slide: null, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [], preview_span: "full" },
+    ui: { slide: null, ghosts: false, pile: null, notes: null, widget, code: false, folded: [], preview_span: "full" },
   } as unknown as Snapshot;
 }
 
-function keptUi(): KeptUi & { foldedNow: string[] } {
-  const k = {
-    ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
-    codeWidth: null, setCodeWidth: () => {}, folded: [] as string[], foldedNow: [] as string[],
-    setFolded: (s: string, fold: boolean) => { k.foldedNow = fold ? [...k.foldedNow, s] : k.foldedNow.filter((x) => x !== s); },
-    previewSpan: "full", setPreviewSpan: () => {}, setGhosts: () => {}, handleKey: () => false,
-  };
-  return k as unknown as KeptUi & { foldedNow: string[] };
-}
+const KEPT_UI = {
+  ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
+  folded: [], setFolded: () => {}, previewSpan: "full", setPreviewSpan: () => {}, setGhosts: () => {}, handleKey: () => false,
+} as KeptUi;
 
 async function mount(fake: TabApi, snap: Snapshot, over: { onClose?: () => void; run?: (p: Promise<Snapshot | null>) => Promise<Snapshot | null> } = {}) {
   const applied: Op[][] = [];
   const dialogs: boolean[] = [];
   stub(fake, "apply", async (_label: string, ops: Op[]) => (applied.push(ops), snap));
-  const kept = keptUi();
   function Probe() {
     const [s] = useState(snap);
     const item = usePackItem(fake, s, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    const k = { ...kept, folded: kept.foldedNow } as KeptUi;
     return createElement(PackPanels, {
-      api: fake, snap: s, item, keptUi: k, look: "", run: over.run ?? ((p: Promise<Snapshot | null>) => p),
+      api: fake, snap: s, item, keptUi: KEPT_UI, look: "", run: over.run ?? ((p: Promise<Snapshot | null>) => p),
       settings: null, svg: (id: string) => `blob:${id}`, mainMenu: null, drawer: null, onClose: over.onClose,
       onDialog: (open: boolean) => dialogs.push(open),
     });
@@ -70,24 +63,23 @@ async function mount(fake: TabApi, snap: Snapshot, over: { onClose?: () => void;
   mounted = { root, host };
   await act(async () => root.render(createElement(Probe)));
   await wait(10);
-  const rerender = () => act(async () => root.render(createElement(Probe)));
-  return { host, applied, dialogs, kept, rerender };
+  return { host, applied, dialogs };
 }
 
 describe("PackPanels", () => {
-  test("PackPanels of an empty pack shows the empty text once, in the pile, and no item view", async () => {
+  test("PackPanels of an empty pack shows the empty text once, in the strip, and no item view", async () => {
     const { fake } = memory({});
     const { host } = await mount(fake, snapOf("widgets", [], null));
     expect(host.textContent?.split("ui-widgets-empty").length).toBe(2);
-    expect(host.querySelector(".pile-column")?.textContent).toContain("ui-widgets-empty");
+    expect(host.querySelector(".sheet-area .pack-strip")?.textContent).toContain("ui-widgets-empty");
     expect(host.querySelector(".widget-tab")).toBeNull();
   });
 
-  test("PackPanels with a selected item shows exactly one item view and no tab", async () => {
+  test("PackPanels with a selected item shows exactly one item view, under the strip", async () => {
     const { fake } = memory({ kpi: "k", chart: "c" });
     const { host } = await mount(fake, snapOf("widgets", ["chart", "kpi"], "kpi"));
-    const sheet = host.querySelector(".sheet-area")!;
-    expect([sheet.querySelectorAll(".widget-tab").length, sheet.querySelectorAll('[role="tab"]').length]).toEqual([1, 0]);
+    const pane = host.querySelector(".sheet-area .widget-pane")!;
+    expect([...pane.children].map((c) => c.className)).toEqual(["slide-strip pack-strip", "widget-tab"]);
   });
 
   test("PackPanels header holds the preview slot menu for a selected widget", async () => {
@@ -136,13 +128,10 @@ describe("PackPanels", () => {
     expect(applied).toEqual([[{ op: "set_deck_param", key: "title", value: "Nouveau" }]]);
   });
 
-  test("PackPanels of a layout pack folds its layouts section", async () => {
+  test("PackPanels of a widget or a layout pack has no left column", async () => {
     const { fake } = memory({ cover: "c" });
     const m = await mount(fake, snapOf("layouts", ["cover"], "cover"));
-    expect(m.host.querySelectorAll(".pile-column .thumb").length).toBe(1);
-    await act(async () => m.host.querySelector<HTMLButtonElement>(".pile-section-toggle")?.click());
-    await m.rerender();
-    expect([m.kept.foldedNow, m.host.querySelectorAll(".pile-column .thumb").length]).toEqual([["layouts"], 0]);
+    expect([m.host.querySelector(".pile-column"), m.host.querySelectorAll(".pack-strip .thumb").length]).toEqual([null, 1]);
   });
 
   test("PackPanels a delete asks in a ConfirmDialog and reports it open", async () => {

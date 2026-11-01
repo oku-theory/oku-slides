@@ -1,33 +1,28 @@
-// Code d'un widget à droite de l'aperçu et des réglages (ceux-ci à droite de l'aperçu, code masqué), élargi au séparateur, retrouvé après
-// rechargement ; dans une fenêtre étroite, l'aperçu garde sa place minimale, dans l'onglet de pack d'Essentiel.
+// A pack item's layout (t-1419), in Essentiel's pack tab: the item strip under the header, the preview
+// under it, then the Settings and Code tabs; the Code tab opened is kept after a reload; in a narrow window
+// nothing overflows.
 // Writes: Essentiel (the `cadran` widget). Leaves: no pack tab. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
-const { untilValue } = require('./lib/until.cjs');
 const { uiSaved } = require('./lib/uiSaved.cjs');
 const { newPackItem } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab';
 
-/** Boîtes de l'aperçu, des réglages et du code de l'élément choisi. */
+/** Boxes of the strip, the preview, the tab list and the open panel of the selected item. */
 const boxes = (p) => p.evaluate((sel) => {
   const tab = document.querySelector(sel);
   const r = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, width: b.width }; };
+  const code = tab.querySelector('.widget-tab-code');
   return {
+    strip: r(document.querySelector('.pack-strip')),
     preview: r(tab.querySelector('.widget-tab-preview')),
-    side: r(tab.querySelector('.widget-tab-side')),
-    code: r(tab.querySelector('.widget-tab-code')),
+    tabs: r(tab.querySelector('.widget-tab-tabs')),
+    panel: r(code.hasAttribute('inert') ? tab.querySelector('.widget-tab-side') : code),
     overflow: tab.scrollWidth - tab.clientWidth,
   };
 }, TAB);
-
-/** Boîte du séparateur, relue tant qu'elle est nulle : il se remonte quand la disposition change (t-1108). */
-const dividerBox = (p) =>
-  untilValue(p, () => p.locator(`${TAB} .code-divider`).boundingBox(), (box) => box !== null, 'séparateur du code sans boîte');
-
-/** The host's answer to the UI-state save whose code width satisfies `ok`. */
-const saved = (p, ok) => uiSaved(p, (req) => ok(req.code_width));
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -40,56 +35,38 @@ const saved = (p, ok) => uiSaved(p, (req) => ok(req.code_width));
   await openEssentiel(p);
   await newPackItem(p, 'cadran');
   await p.waitForSelector(`${TAB} .widget-tab-preview`);
+  const tab = (name) => p.getByRole('tab', { name });
 
-  // Code hidden: the preview on the left over the full height, the form on its right.
+  // Settings tab: strip, preview, tabs, settings, from top to bottom, with room between the groups.
+  assert.equal(await tab('Paramètres').getAttribute('aria-selected'), 'true', 'onglet Paramètres pas ouvert par défaut');
   let r = await boxes(p);
-  assert.ok(r.side.left >= r.preview.right, `réglages pas à droite de l'aperçu : ${JSON.stringify(r)}`);
-  assert.ok(Math.abs(r.side.width - 300) <= 2, `réglages larges de ${r.side.width}, 300 attendus`);
+  assert.ok(r.preview.top >= r.strip.bottom + 8, `aperçu pas sous la bande : ${JSON.stringify(r)}`);
+  assert.ok(r.tabs.top >= r.preview.bottom + 8, `onglets pas sous l'aperçu : ${JSON.stringify(r)}`);
+  assert.ok(r.panel.top >= r.tabs.bottom, `réglages pas sous les onglets : ${JSON.stringify(r)}`);
 
-  // Code shown: the code on the right; the form under the preview.
-  await p.getByRole('button', { name: 'Code source' }).click();
-  await p.waitForSelector(`${TAB}[data-code="shown"] .code-divider[aria-orientation="vertical"]`);
+  // Code tab: the code takes the panel, under the tabs; kept after a reload.
+  const shown = uiSaved(p, (req) => req.code);
+  await tab('Code source').click();
+  await p.waitForSelector(`${TAB}[data-code="shown"]`);
   r = await boxes(p);
-  assert.ok(r.code.left >= r.preview.right && r.code.left >= r.side.right, `code pas à droite : ${JSON.stringify(r)}`);
-  assert.ok(r.side.top >= r.preview.bottom, `réglages pas sous l'aperçu : ${JSON.stringify(r)}`);
-
-  // Glisser le séparateur de 60 px vers la gauche élargit le code d'autant (the preview column keeps its 240 px, SIDE_MIN).
-  const before = r.code.width;
-  const d = await dividerBox(p);
-  await p.mouse.move(d.x + d.width / 2, d.y + d.height / 2);
-  await p.mouse.down();
-  await p.mouse.move(d.x + d.width / 2 - 60, d.y + d.height / 2, { steps: 6 });
-  const widened = saved(p, (w) => w !== null && Math.abs(w - before - 60) <= 2);
-  await p.mouse.up();
-  r = await boxes(p);
-  assert.ok(Math.abs(r.code.width - before - 60) <= 2, `largeur ${r.code.width}, attendue ${before + 60}`);
-  const wide = r.code.width;
-  // Recharger avant que l'hôte ait gardé la largeur la perdrait.
-  assert.ok((await widened).ok(), 'largeur non gardée par l\'hôte');
-
-  // Rechargé : même largeur.
+  assert.ok(r.panel.top >= r.tabs.bottom && r.panel.width > 200, `code pas sous les onglets : ${JSON.stringify(r)}`);
+  assert.ok((await shown).ok(), "onglet Code non gardé par l'hôte");
   await p.reload();
-  await p.waitForSelector(`${TAB}[data-code="shown"] .code-divider`);
-  r = await boxes(p);
-  assert.ok(Math.abs(r.code.width - wide) <= 2, `largeur reprise ${r.code.width}, attendue ${wide}`);
+  await p.waitForSelector(`${TAB}[data-code="shown"]`);
+  assert.equal(await tab('Code source').getAttribute('aria-selected'), 'true', 'onglet Code non repris');
 
-  // Fenêtre étroite, code tiré au plus large : the preview column keeps its 240 px (SIDE_MIN), rien ne déborde.
+  // Narrow window: nothing overflows the item view.
   await p.setViewportSize({ width: 1100, height: 900 });
-  const n = await dividerBox(p);
-  await p.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
-  await p.mouse.down();
-  await p.mouse.move(0, n.y + n.height / 2, { steps: 6 });
-  await p.mouse.up();
   r = await boxes(p);
-  assert.ok(r.preview.width >= 240 - 1, `aperçu trop étroit : ${r.preview.width}`);
   assert.ok(r.overflow <= 0, `la vue de l'élément déborde de ${r.overflow} px`);
-  // Retour à la proportion par défaut, pour les tests suivants.
-  const reset = saved(p, (w) => w === null);
-  await p.locator(`${TAB} .code-divider`).dblclick();
-  assert.ok((await reset).ok(), 'proportion par défaut non gardée par l\'hôte');
+
+  // Back to the Settings tab, for the following specs.
+  const folded = uiSaved(p, (req) => !req.code);
+  await tab('Paramètres').click();
+  assert.ok((await folded).ok(), "onglet Paramètres non gardé par l'hôte");
 
   await closePackTabs(p);
   assert.deepEqual(errors, []);
-  console.log('disposition du code ok');
+  console.log('disposition de l\'élément ok');
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -1,6 +1,6 @@
 /**
  * The panels of a pack tab: the header (brand, title, caption, preview theme), the toolbar, the finish button,
- * the pile of items in the left column, and the selected item's view in the sheet area, then the pack's guides for agents.
+ * and in the sheet area the strip of items, then the selected item's view, then the pack's guides for agents.
  *
  * A delete in the pile asks in a `ConfirmDialog` (useConfirm), reported open through `onDialog` so that
  * nothing behind it reacts.
@@ -11,19 +11,19 @@ import GuidesSection from "./GuidesSection";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { PackBrand } from "./PackBrand";
-import { pileItems } from "./packItems";
 import PackPile from "./PackPile";
 import PreviewSpanMenu from "./PreviewSpanMenu";
 import PreviewThemeMenu from "./PreviewThemeMenu";
 import { COMMON } from "./widgetList";
 import { showFinish } from "./packGestures";
-import PileColumn from "./PileColumn";
+import { pileItems, slideItem } from "./packItems";
 import TitleField from "./TitleField";
 import { ToolsTray } from "./ToolsTray";
 import { useConfirm } from "./useConfirm";
 import type { KeptUi } from "./useKeptUi";
 import type { PackItem } from "./usePackItem";
 import WidgetPane from "./WidgetPane";
+import { useWidgetThumbs } from "./useWidgetThumbs";
 
 /** Applies a request that answers a snapshot; `null` when nothing was done. */
 type Run = (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
@@ -56,6 +56,18 @@ export default function PackPanels({
 }: PackPanelsProps) {
   // A question left open when the tab goes is answered no (useConfirm).
   const { confirm, asking: open, dialog } = useConfirm();
+  // A widget pack's thumbnails show each widget alone; a layout pack's, its slides. Example values
+  // change the trials of the whole pack, but are edited on the selected widget: only its key follows them.
+  const widgets = snap.editing?.kind === "widgets";
+  const thumbs = useWidgetThumbs(
+    api,
+    widgets
+      ? pileItems(snap).map((i) => ({
+        name: i.name,
+        key: `${i.slide.hash}|${look}${i.name === item.selected ? `|${snap.widget_trials}` : ""}`,
+      }))
+      : null,
+  );
   // Reported open, then closed when it closes or the panels go with it open.
   useEffect(() => {
     onDialog(open);
@@ -69,11 +81,10 @@ export default function PackPanels({
   if (!editing) return <>{dialog}</>;
   const kind = editing.kind;
   const items = pileItems(snap);
-  const layouts = kind === "layouts";
-  const folded = layouts && keptUi.folded.includes("layouts");
   const pile = (
     <PackPile
-      snap={snap} kind={kind} files={item.files} selected={item.selected} svg={svg}
+      snap={snap} kind={kind} files={item.files} selected={item.selected}
+      svg={widgets ? (id) => { const name = slideItem(id); return name === null ? null : thumbs.url(name); } : svg}
       onSelect={item.select} onRemoved={item.removed} confirm={confirm}
     />
   );
@@ -108,17 +119,11 @@ export default function PackPanels({
           <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={onClose}>{Icon.check}</button>
         </div>
       )}
-      <PileColumn
-        title={t("ui-pile-layouts")}
-        open={!folded}
-        onToggle={() => keptUi.setFolded("layouts", !folded)}
-        slides={layouts ? pile : null}
-        widgets={layouts ? null : pile}
-      />
       <main className={`sheet-area${snap.guides ? " with-guides" : ""}`}>
         <WidgetPane
-          api={api} item={item} trials={snap.widget_trials} look={look} span={keptUi.previewSpan} code={keptUi.code} codeWidth={keptUi.codeWidth}
-          onCodeWidth={keptUi.setCodeWidth} run={run} palette={snap.appearance.chart_palette} settings={settings}
+          api={api} item={item} trials={snap.widget_trials} look={look} span={keptUi.previewSpan} strip={pile} code={keptUi.code}
+          onCode={keptUi.setCode} run={run}
+          onPreview={widgets && keptUi.previewSpan === "full" ? thumbs.put : undefined} palette={snap.appearance.chart_palette} settings={settings}
         />
         {drawer}
         {snap.guides && <GuidesSection api={api} view={snap.guides} run={run} />}

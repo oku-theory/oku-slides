@@ -212,10 +212,8 @@ export interface UiState {
   notes: number | null;
   /** A pack tab's selected item (widget or layout file); `null`: none. */
   widget: string | null;
-  /** Code source des widgets déplié à droite de l'aperçu ; replié par défaut. */
+  /** A pack item's Code tab is open, rather than its Settings tab (the default). */
   code: boolean;
-  /** Largeur du code en px, choisie au séparateur ; `null` : proportion par défaut. */
-  code_width: number | null;
   /** Folded sections (thumbnails); all open by default. */
   folded: PileSectionName[];
   /** A pack tab's preview slot for element widgets; full by default. */
@@ -232,7 +230,7 @@ export interface UiOrder {
   seq: number;
 }
 
-/** A foldable section: a deck's slides, or the layouts of a layout pack or theme tab. */
+/** A foldable section: a deck's slides, or the layouts of a theme tab. */
 export type PileSectionName = "slides" | "layouts";
 
 /** Un message de Typst (ou du contrôle) sur un fichier de widget ; ligne et colonne à partir de 1. */

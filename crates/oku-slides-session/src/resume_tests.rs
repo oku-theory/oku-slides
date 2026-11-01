@@ -241,7 +241,6 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         notes: Some(520),
         widget: Some("kpi".into()),
         code: true,
-        code_width: Some(640),
         preview_span: PreviewSpan::Third,
         folded: vec![PileSection::Layouts],
     };
@@ -276,15 +275,14 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         notes: None,
         widget: None,
         code: false,
-        code_width: None,
         preview_span: PreviewSpan::Full,
         folded: Vec::new(),
     });
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
-/// Couche fichier : un `state.json` écrit avant t-526 (planche, place et hauteur du code)
-/// se relit par la reprise, ces champs ignorés (la couche serde : `views_tests`).
+/// File layer: a `state.json` written before t-526 (board, code place and height) or t-1419
+/// (code width) reads back on resume, those fields ignored (the serde layer: `views_tests`).
 #[test]
 fn read_state_with_the_removed_board_and_code_place_keeps_the_rest() {
     let data = crate::test_support::fresh_dir("oku-slides-resume-");
@@ -293,12 +291,7 @@ fn read_state_with_the_removed_board_and_code_place_keeps_the_rest() {
     let state = format!(r#"{{"version":{VERSION},"mode":"deck","ui":{ui}}}"#);
     std::fs::write(r.dir.join("state.json"), state).unwrap();
     let back = r.read_state().unwrap().unwrap();
-    assert_that!(back.ui).is_equal_to(UiState {
-        slide: Some("s-1".into()),
-        code: true,
-        code_width: Some(640),
-        ..UiState::default()
-    });
+    assert_that!(back.ui).is_equal_to(UiState { slide: Some("s-1".into()), code: true, ..UiState::default() });
 }
 
 /// Couche fichier : un `state.json` écrit avant t-541 (cas d'exemple courant de chaque widget)
