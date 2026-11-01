@@ -211,16 +211,13 @@ pub fn settle(app: &AppHandle) {
     }
 }
 
-/// Termine proprement : marque la fin (`closing`), arrête les agents (le
-/// sous-processus ACP est tué), attend les requêtes en cours, enregistre
-/// l'espace de travail ([`settle`]), puis quitte.
+/// Exits cleanly: marks the end, stops the agents, saves the workspace ([`settle`]), then quits.
 ///
-/// Jamais sur le fil principal (voir [`settle`]), sauf le filet de sécurité
-/// de `main.rs` (`RunEvent::Exit`). Appelée depuis `commands::quit`, depuis le menu « Quitter »
-/// (`main.rs::on_menu_event`), depuis la dernière fenêtre
-/// (`commands::workspace` et `commands::close_requested`, chacune hors du
-/// fil principal), et depuis `windows::sync` quand la vue est vide (déjà
-/// hors du fil principal, dans `commands::blocking`).
+/// The ACP subprocess is killed and in-flight requests are awaited. Never on the main thread (see
+/// [`settle`]), except `main.rs`'s `RunEvent::Exit` safety net. Called by `quit::exit` (the
+/// `quit` command, the menu Quit, the last window's `workspace` close and native close), after
+/// the windows' close guards ran, and by `windows::sync` on an empty view (off the main thread,
+/// in `commands::blocking`; every tab was closed through its close flow).
 pub fn shutdown(app: &AppHandle) {
     settle(app);
     app.exit(0);

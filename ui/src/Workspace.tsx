@@ -8,7 +8,8 @@ import TabBar from "./TabBar";
 import UpdateBar, { UpdateNoticeBar } from "./UpdateBar";
 import { closeStays, errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
 import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
-import { runCloseGuard } from "./closeGuards";
+import { runAllCloseGuards, runCloseGuard } from "./closeGuards";
+import { listenQuit } from "./quitAnswer";
 import { t } from "./i18n";
 import { newest } from "./latest";
 import { mergedNotice, openGuarded } from "./merge";
@@ -186,7 +187,7 @@ export default function Workspace() {
         if (closingWindow.current) return;
         closingWindow.current = true;
         try {
-          // Quit runs no guard (t-1206).
+          // The last window quits: the host asks every window for its guards first (quit-requested).
           if ((viewRef.current?.windows.length ?? 0) <= 1) return void (await invoke("quit"));
           // The tab active at the request: shown again if the user gives up.
           await closeWindowFlow(winRef.current?.active ?? null, flowDeps(label));
@@ -198,6 +199,12 @@ export default function Workspace() {
       });
     });
   }, [label]);
+
+  // A quit (menu, last window, update): every guard of this webview runs, then the host hears back.
+  useEffect(() => {
+    if (!inTauri) return;
+    return listenQuit(runAllCloseGuards);
+  }, []);
 
   // Importing a .pptx: its dialog (in the active `App`) may close while it runs; a refusal
   // arriving afterwards shows here.

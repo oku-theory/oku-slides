@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Fenêtres de l'espace de travail (w-<n>) : commandes, événements, dialogues, plein écran (présentation). La fenêtre de l'agent a la sienne (agent.json).",
+  "description": "Workspace windows (w-<n>): every app command, events, dialogs, fullscreen (presenting). The agent window has its own (agent.json).",
   "windows": ["w-*"],
   "permissions": [
     "core:default",
@@ -12,6 +12,21 @@
     "core:window:allow-start-dragging",
     "dialog:allow-open",
     "dialog:allow-save",
-    "dialog:allow-message"
+    "dialog:allow-message",
+    "allow-request",
+    "allow-workspace",
+    "allow-drag-tab-over",
+    "allow-drag-tab-leave",
+    "allow-drop-tab",
+    "allow-quit",
+    "allow-quit-ready",
+    "allow-stt",
+    "allow-agent",
+    "allow-update-status",
+    "allow-check-update",
+    "allow-install-update",
+    "allow-open-release-page",
+    "allow-later-update",
+    "allow-take-update-notice"
   ]
 }

@@ -15,16 +15,17 @@ use serde::Serialize;
 use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, Op, PackFiles, PackKind, PackPin, PackVersion, remove_pack_refusal};
+use oku_slides_core::{Namespace, Op, PackFiles, PackKind, PackPin, PackVersion, ThemeManifest, remove_pack_refusal};
 use oku_slides_i18n::Localize;
 
 use crate::agent::bounds::label;
 use crate::deck_closure::{closure_with_files, combined_pins};
 use crate::deck_packs::Drift;
-use crate::error::{PackManifestSnafu, PackOfferExpiredSnafu, PackVersionMissingSnafu, SourcesSnafu};
+use crate::error::{PackManifestSnafu, PackOfferExpiredSnafu, PackVersionMissingSnafu, SourcesSnafu, ThemeJsonSnafu};
 use crate::namespace_slug::rename_namespace;
 use crate::pack::PackManifest;
 use crate::pack_mode::{embed_packs, pin_deck};
+use crate::theme_closure::{closure_with, library_theme, pin_of};
 use crate::{Mode, Result, Session};
 
 /// A checked switch from pack `from` to its copy: what `use_pack_copy` writes.
@@ -242,17 +243,44 @@ impl Session {
     /// The deck takes `version` of its active theme `theme`, if the offer still holds.
     ///
     /// Rechecked as `opener_theme_offer`, in the tab still holding deck
-    /// `deck_uid`; then the theme update of the packs panel (`update_deck_theme`):
-    /// its current version, which the check just found to be `version`.
+    /// `deck_uid`; then exactly `version` is pinned ([`Self::pin_theme_version`]),
+    /// even if another tab saved a newer one since the check (t-1378).
     ///
     /// # Errors
     ///
-    /// `PackOfferExpired`, and those of `update_deck_theme`.
+    /// `PackOfferExpired`, and those of `pin_theme_version`.
     pub(crate) fn use_theme_version(&mut self, theme: Uuid, version: &PackVersion, deck_uid: &str) -> Result<()> {
         self.ensure_deck_mode()?;
         let same_deck = self.doc.sources.replica().deck_uid() == deck_uid;
         ensure!(same_deck && self.theme_due(theme, version), PackOfferExpiredSnafu);
-        self.update_deck_theme()
+        self.pin_theme_version(theme, version)
+    }
+
+    /// Pins exactly `version` of the active theme, the rest of its closure current.
+    ///
+    /// One undo step. The packs panel's theme update reads the library's current version when the op applies;
+    /// an offer names its version, which a save in between must not replace.
+    ///
+    /// # Errors
+    ///
+    /// `PackOfferExpired` when `version` is gone or is not the active theme's; `ThemeJson` for an
+    /// unreadable manifest; the closure's and `apply`'s errors.
+    ///
+    /// # Blocking
+    ///
+    /// Reads the theme library.
+    pub(crate) fn pin_theme_version(&mut self, theme: Uuid, version: &PackVersion) -> Result<()> {
+        let ns = self.active_theme()?;
+        let files = self.themes.version(theme, version).context(PackOfferExpiredSnafu)?;
+        let manifest = ThemeManifest::from_files(&files).context(ThemeJsonSnafu { id: theme })?;
+        ensure!(manifest.id == theme && manifest.namespace == ns, PackOfferExpiredSnafu);
+        let offered = pin_of(&manifest, version.clone());
+        let (pins, _) = closure_with(&ns, |n| {
+            if *n == ns { Some((offered.clone(), files.clone())) } else { library_theme(&self.themes, n) }
+        })?;
+        let name = label(&manifest.name);
+        let label_text = self.localizer.tr_with("packs-undo-theme-update", &[("name", name.as_str().into())]);
+        self.apply(&label_text, vec![Op::SetTheme { theme: Some(ns), themes: pins }], None)
     }
 
     /// The deck pins exactly `version` of `pack`, if the offer still holds.

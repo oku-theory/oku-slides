@@ -74,3 +74,48 @@ fn pack_tab_lease_frees_when_the_session_drops() {
     drop(t);
     assert_unleased(&scope_of(&s), acme);
 }
+
+/// t-1378: a pack deleted by another process (its own library, leases and `DRAFTS`) while a tab edits it.
+fn deleted_elsewhere() -> (tempfile::TempDir, Session, Session, Uuid) {
+    let data = fresh_dir("oku-slides-lease-tab-");
+    let (mut s, _deck, acme) = opener_on(data.path());
+    let t = pack_tab_from(&mut s, data.path(), acme);
+    session_on(data.path()).library.delete(acme).unwrap();
+    (data, s, t, acme)
+}
+
+#[test]
+fn ensure_pack_lease_pack_deleted_by_another_process_refuses_the_write() {
+    let (_data, s, mut t, acme) = deleted_elsewhere();
+    let err = t.apply("x", vec![rename_title("acme 2")], None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownPack);
+    assert_unleased(&scope_of(&s), acme);
+}
+
+#[test]
+fn ensure_pack_lease_pack_deleted_by_another_process_makes_the_tab_read_only_with_a_notice() {
+    let (_data, _s, mut t, acme) = deleted_elsewhere();
+    let name = t.editing_view().map(|v| v.display_name).unwrap();
+    let err = t.save_pack(false).unwrap_err();
+    let expected = t.localizer.tr_with("notice-pack-deleted", &[("pack", name.as_str().into())]);
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::UnknownPack);
+    assert_that!(t.edit_flags().0).is_true();
+    assert_that!(holds(&t, acme)).is_false();
+    assert_that!(t.doc.notice).is_equal_to(Some(expected));
+}
+
+#[test]
+fn edit_flags_pack_deleted_by_another_process_reads_read_only_before_any_write() {
+    let (_data, _s, t, _acme) = deleted_elsewhere();
+    assert_that!(t.edit_flags().0).is_true();
+}
+
+#[test]
+fn save_pack_as_new_after_deletion_by_another_process_keeps_the_work() {
+    let (_data, _s, mut t, acme) = deleted_elsewhere();
+    t.save_pack(true).unwrap();
+    let copy = editing(&t).unwrap();
+    assert_that!(copy).is_not_equal_to(acme);
+    assert_that!(t.library.current(copy)).is_some();
+    assert_that!(t.edit_flags().0).is_false();
+}

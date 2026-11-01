@@ -498,6 +498,34 @@ fn list_messages_use_the_reference_variables_in_every_locale() {
     }
 }
 
+/// The close-flow and opener-offer questions, machine-translated (t-1378): each locale keeps the variables.
+const CLOSE_FLOW_KEYS: &[&str] = &[
+    "ui-confirm-quit-pack",
+    "ui-confirm-quit-theme",
+    "ui-confirm-quit-read-only-theme",
+    "ui-confirm-quit-read-only-pack",
+    "ui-confirm-update-opener",
+    "ui-confirm-update-opener-copy",
+    "ui-confirm-update-opener-theme",
+    "ui-close-writes-pending",
+    "ui-confirm-close-writes-pending",
+    "ui-confirm-close-writes-pending-linked",
+    "ui-confirm-close-tab-writes-pending",
+    "ui-confirm-discard-ok",
+    "ui-confirm-update-ok",
+    "ui-confirm-update-later",
+];
+
+#[test]
+fn close_flow_messages_use_the_reference_variables_in_every_locale() {
+    for id in CLOSE_FLOW_KEYS {
+        let reference = variables(&source_of(REFERENCE, id));
+        for locale in crate::available() {
+            asserting(&format!("{locale} : {id}")).that(&variables(&source_of(locale, id))).is_equal_to(&reference);
+        }
+    }
+}
+
 #[test]
 fn resolve_picks_the_requested_shipped_language() {
     assert_that(&resolve(Some("fr-CA"))).is_equal_to("fr");

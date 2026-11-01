@@ -256,6 +256,41 @@ fn open_pack_with_a_widget_on_an_open_pack_tab_opens_its_sub_tab_before_activati
     ));
 }
 
+/// t-1378: the pack tab sits in another window; opening its widget from the deck focuses that window.
+fn pack_tab_in_another_window() -> (Packs, String) {
+    let f = packs();
+    let p = f.pack_tab();
+    f.send(json!({"cmd": "move_tab", "tab": p}));
+    // A second tab, active in that window: the open must switch back to the pack tab.
+    f.send(json!({"cmd": "new_tab", "window": "w-2"}));
+    assert_that!(f.active(1)).is_not_equal_to(p.clone());
+    f.activate("t-1");
+    (f, p)
+}
+
+#[test]
+fn open_pack_with_a_widget_on_a_pack_tab_of_another_window_focuses_that_window() {
+    let (f, p) = pack_tab_in_another_window();
+    let r = f.open("t-1", f.acme, Some("card"));
+    let focused = Workspace::lock(&f.ws).layout.focused.clone();
+    assert_that!((outcome(r), f.active(1), focused)).is_equal_to((format!("Focused({p:?})"), p, "w-2".to_owned()));
+}
+
+#[test]
+fn open_pack_with_a_widget_on_a_pack_tab_of_another_window_selects_the_widget_there() {
+    let (f, p) = pack_tab_in_another_window();
+    f.open("t-1", f.acme, Some("card")).unwrap();
+    assert_that!(f.with(&p, |s| s.ui.widget.clone())).is_equal_to(Some("card".to_owned()));
+}
+
+#[test]
+fn open_pack_with_a_widget_on_a_pack_tab_of_another_window_leaves_the_opener_window_as_it_was() {
+    let (f, _p) = pack_tab_in_another_window();
+    f.open("t-1", f.acme, Some("card")).unwrap();
+    assert_that!(f.window(0)).is_equal_to(vec!["t-1".to_owned()]);
+    assert_that!(f.active(0)).is_equal_to("t-1".to_owned());
+}
+
 #[test]
 fn open_pack_with_an_unknown_widget_on_an_open_pack_tab_activates_nothing() {
     let f = packs();

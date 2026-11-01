@@ -102,3 +102,19 @@ fn collect_orphan_drafts_keeps_a_draft_with_an_unreadable_second_folder(#[case] 
     std::fs::create_dir(versions_dir(data.path(), id).join("illisible")).unwrap();
     assert_that!(s.library.collect_orphan_drafts(&[], later())).is_empty();
 }
+
+/// t-1378: resume runs this before the first window; an unmarked pack is ruled out by listings alone.
+#[test]
+fn collect_orphan_drafts_reads_no_version_of_an_unmarked_pack() {
+    let data = fresh_dir("oku-slides-orphans-");
+    let mut s = session_on(data.path());
+    s.new_deck().unwrap();
+    acme_pack(&mut s, data.path());
+    let fresh = session_on(data.path());
+    let before = fresh.library.widget_scans();
+    fresh.library.collect_orphan_drafts(&[], later());
+    let after_scan = fresh.library.widget_scans();
+    // Positive control: a listing that does read versions moves the counter.
+    assert_that!(fresh.library.packs(PackKind::Widgets)).is_not_empty();
+    assert_that!((after_scan, fresh.library.widget_scans() > before)).is_equal_to((before, true));
+}

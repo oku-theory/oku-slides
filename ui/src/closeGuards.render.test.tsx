@@ -7,7 +7,7 @@ import type { Snapshot, TabApi, WidgetChange } from "./api";
 const { act, createElement, StrictMode, useCallback, useRef, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { EditorView } = await import("@codemirror/view");
-const { runCloseGuard, useCloseGuard } = await import("./closeGuards");
+const { runAllCloseGuards, runCloseGuard, useCloseGuard } = await import("./closeGuards");
 const { usePackItem } = await import("./usePackItem");
 const { useFileActions } = await import("./useFileActions");
 const WidgetPane = (await import("./WidgetPane")).default;
@@ -84,6 +84,39 @@ test("runCloseGuard answers timeout when the guard hangs", async () => {
   await mountGuard(tab, () => hang.promise);
   expect(await runCloseGuard(tab, 20)).toBe("timeout");
   hang.resolve();
+});
+
+test("runAllCloseGuards runs every guard, an unmounted tab's pending work included", async () => {
+  const [kept, left] = [freshTab(), freshTab()];
+  let calls = 0;
+  await mountGuard(kept, async () => void calls++);
+  const pending = deferred<void>();
+  const gone = await mountGuard(left, () => pending.promise);
+  await gone.unmount();
+  const all = runAllCloseGuards(500);
+  expect(await settled(all)).toBe(false);
+  pending.resolve();
+  await all;
+  expect(calls).toBe(1);
+});
+
+test("runAllCloseGuards with a hanging guard settles after its bound", async () => {
+  const hang = deferred<void>();
+  leftovers.push(hang.promise);
+  await mountGuard(freshTab(), () => hang.promise);
+  const all = runAllCloseGuards(20);
+  expect(await settled(all)).toBe(false);
+  await wait(60);
+  expect(await settled(all)).toBe(true);
+  hang.resolve();
+});
+
+test("runAllCloseGuards with a rejecting guard still runs the others", async () => {
+  let calls = 0;
+  await mountGuard(freshTab(), () => Promise.reject(new Error("write refused")));
+  await mountGuard(freshTab(), async () => void calls++);
+  await runAllCloseGuards(500);
+  expect(calls).toBe(1);
 });
 
 test("a re-render does not run the guard", async () => {

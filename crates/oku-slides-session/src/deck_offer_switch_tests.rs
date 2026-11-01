@@ -1,4 +1,5 @@
 use oku_slides_core::{Op, PackVersion};
+use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -126,6 +127,38 @@ fn use_theme_version_pins_the_written_version() {
     let deck_uid = uid(&s);
     s.use_theme_version(id, &v, &deck_uid).unwrap();
     assert_that!(s.deck_theme_pin().map(|pin| pin.version.clone())).is_equal_to(Some(v));
+}
+
+/// t-1378: another tab saves a newer version between the check and the pin; the offered one is pinned.
+#[test]
+fn pin_theme_version_with_a_newer_current_pins_the_offered_version() {
+    let (mut s, id, v, data) = themed();
+    let mut tab = theme_tab(data.path(), id);
+    tab.apply("y", vec![Op::SetToken { path: p(&["color", "accent"]), value: json!("#654321") }], None).unwrap();
+    tab.save_theme(false).unwrap();
+    assert_that!(s.themes.current(id)).is_not_equal_to(Some(v.clone()));
+    s.pin_theme_version(id, &v).unwrap();
+    assert_that!(s.deck_theme_pin().map(|pin| pin.version.clone())).is_equal_to(Some(v));
+}
+
+/// A version no library holds, for the offer-expired cases.
+fn missing_version() -> PackVersion {
+    PackVersion::from_hex(&"f".repeat(64)).unwrap()
+}
+
+#[rstest]
+#[case::version_gone(false, true)]
+#[case::another_active_theme(true, false)]
+fn pin_theme_version_not_the_active_themes_is_expired(#[case] switch_theme: bool, #[case] gone: bool) {
+    let (mut s, id, v, _data) = themed();
+    if switch_theme {
+        s.apply("thème", vec![set_theme_op("pro")], None).unwrap();
+    }
+    let version = if gone { missing_version() } else { v };
+    let pinned = s.deck_theme_pin().map(|pin| pin.version.clone());
+    let err = s.pin_theme_version(id, &version).unwrap_err();
+    let after = s.deck_theme_pin().map(|pin| pin.version.clone());
+    assert_that!((err.kind(), after)).is_equal_to((SessionErrorKind::PackOfferExpired, pinned));
 }
 
 #[test]

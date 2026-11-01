@@ -39,6 +39,33 @@ web file=deck *vite_args="": install
     trap "kill $! 2>/dev/null" EXIT
     cd ui && bun run dev --port {{web_port}} {{vite_args}}
 
+# `just web` whose Rust API restarts on every Rust or Typst edit (cargo watch), on fresh
+# data and decks dirs removed at exit (t-1387); extra arguments go to Vite
+web-watch file=deck *vite_args="": install
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v cargo-watch >/dev/null || { echo "web-watch needs cargo-watch: cargo install cargo-watch" >&2; exit 1; }
+    tmp="$(mktemp -d "${TMPDIR:-/tmp}/oku-slides-web.XXXXXX")"
+    watcher=""
+    # At exit: TERM the watcher's process group (cargo watch stops its server), KILL after 5 s.
+    stop() {
+      if [[ -n "$watcher" ]]; then
+        kill -- -"$watcher" 2>/dev/null || true
+        for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$watcher" 2>/dev/null || break; sleep 0.5; done
+        kill -KILL -- -"$watcher" 2>/dev/null || true
+      fi
+      rm -rf "$tmp"
+    }
+    trap stop EXIT
+    export OKU_SLIDES_PATHS__DATA="$tmp/data" OKU_SLIDES_PATHS__DECKS="$tmp/decks"
+    # Job control: the watcher gets its own process group.
+    set -m
+    cargo watch -q -w crates -w typst/oku-slides -w Cargo.toml -w Cargo.lock \
+      -x 'run -q -p oku-slides-cli --bin oku-slides -- --fonts {{fonts}} serve "{{file}}" --ui ui/dist' &
+    watcher=$!
+    set +m
+    cd ui && bun run dev --port {{web_port}} {{vite_args}}
+
 # `just web`, opening the browser on the A2UI playbook (every component, dev only)
 playbook file=deck: (web file "--open" "/playbook.html")
 

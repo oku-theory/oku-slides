@@ -9,7 +9,7 @@ use super::*;
 #[case(TooLargeSnafu.build(), UpdateStage::Download)]
 #[case(UntrustedSnafu { url: "x".to_owned() }.build(), UpdateStage::Download)]
 #[case(UnavailableSnafu.build(), UpdateStage::Unavailable)]
-#[case(RefusedSnafu { why: "agent window" }.build(), UpdateStage::Refused)]
+#[case(RefusedSnafu { why: "not ready" }.build(), UpdateStage::Refused)]
 #[case(AlreadyInstallingSnafu.build(), UpdateStage::Busy)]
 #[case(
     DownloadSnafu { url: "x", endpoint: UpdateSource::GitHub }

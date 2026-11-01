@@ -90,7 +90,8 @@ impl Session {
 
     /// The read-only and leased flags of the edited pack, for the snapshot.
     ///
-    /// Read from the library's index only (no version load).
+    /// Read from the library's index only (no version load), refreshed from its generation file
+    /// on every call: a pack another process deleted reads read-only at once (t-1378).
     #[must_use]
     pub(crate) fn edit_flags(&self) -> (bool, bool) {
         let Mode::Pack { edit, lease, orphaned, .. } = &self.mode else { return (false, true) };
@@ -103,7 +104,8 @@ impl Session {
                 || !self.library.lists(edit.pack, &edit.base)
         };
         let held = || scope.is_some_and(|scope| pack_leased(scope, edit.pack).is_some());
-        let read_only = *orphaned || (needs && !covered && (gone() || held()));
+        // A lease held here does not keep a pack another process deleted (t-1378): `gone` first.
+        let read_only = *orphaned || (needs && (gone() || (!covered && held())));
         (read_only, !needs || covered)
     }
 
@@ -116,8 +118,9 @@ impl Session {
 
     /// Takes the edited pack's lease before a write, if this editor lacks it.
     ///
-    /// Only in pack mode. A pack the library no longer lists marks the editor
-    /// orphaned. A pack tab that never saved freezes its base once it holds the lease.
+    /// Only in pack mode. A pack the library no longer lists (deleted here or by
+    /// another process, even under a held lease) marks the editor orphaned, drops
+    /// its lease and leaves `notice-pack-deleted`. A pack tab that never saved freezes its base once it holds the lease.
     ///
     /// # Errors
     ///
@@ -134,15 +137,20 @@ impl Session {
         ensure!(self.doc.sources.packs.contains_key(&base), PackVersionMissingSnafu { id: pack, version: base });
         ensure!(!*orphaned, UnknownPackSnafu { id: pack });
         let Some(scope) = self.library.lease_scope().filter(|_| self.needs_lease()) else { return Ok(()) };
-        if covers(lease.as_ref(), Some(scope), pack) {
-            return Ok(());
-        }
+        // Checked even under a held lease: another process (the CLI's serve) may have deleted the
+        // pack, its leases being per process (t-1378). Read-only then, as a resumed orphan.
         if self.library.current(pack).is_none() || !self.library.lists(pack, &base) {
-            if let Mode::Pack { orphaned, .. } = &mut self.mode {
+            let name = label(&edit.name);
+            if let Mode::Pack { orphaned, lease, .. } = &mut self.mode {
                 *orphaned = true;
+                *lease = None;
             }
             tracing::warn!(pack = %pack, "edited pack no longer in the library: read-only");
+            self.set_notice(self.localizer.tr_with("notice-pack-deleted", &[("pack", name.as_str().into())]));
             return UnknownPackSnafu { id: pack }.fail()?;
+        }
+        if covers(lease.as_ref(), Some(scope), pack) {
+            return Ok(());
         }
         let (name, unsaved) = (label(&edit.name), edit.session_version.is_none());
         let taken = PackLease::acquire(scope, pack, &name, &name)?;

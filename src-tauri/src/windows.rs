@@ -233,10 +233,9 @@ pub fn emit_view(app: &AppHandle) {
 /// Ouvre celles qui manquent (sous `at`, repère de l'hôte), ferme celles qui n'y sont plus,
 /// prévient toutes les fenêtres ; `focus` : la fenêtre active passe au
 /// premier plan. Sérialisé et toujours sur la vue la plus récente : deux
-/// commandes simultanées ne s'appliquent jamais dans le désordre. Plus
-/// aucune fenêtre (dernier onglet fermé) : fin propre (`state::shutdown`),
-/// un seul chemin de sortie avec `commands::quit`, la dernière fenêtre
-/// (`commands::workspace`) et sa fermeture native (`commands::close_requested`).
+/// commandes simultanées ne s'appliquent jamais dans le désordre. No window left (the last tab
+/// closed through its close flow, guards run): `state::shutdown` directly; every other exit goes
+/// through `quit::exit` (t-1377).
 pub fn sync(app: &AppHandle, at: Option<(f64, f64)>, focus: bool) -> WorkspaceView {
     let Some(state) = app.try_state::<AppState>() else {
         return WorkspaceView {

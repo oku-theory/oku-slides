@@ -18,7 +18,7 @@ just test          # nextest (excludes oku-slides-app) + UI tests
 just check         # fmt --check, clippy -D warnings, tsc, fonts-lfs, agents-lint
 just ci            # check + test + audit — the full pre-merge gate
 just e2e 4999      # Playwright; default port 4872, refuses a port already taken
-just web           # UI with HMR on :5174 + Rust API; `just playbook` also opens /playbook.html (A2UI)
+just web           # UI (HMR, :5174) + Rust API; `web-watch`: API restarted on edits, temp data; `playbook`: A2UI
 just oku-slides …  # CLI, e.g. check, render, save, open, import, serve (see --help)
 ```
 
@@ -26,7 +26,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 
 ## Gotchas
 
-- Every run outside `just e2e` (`just dev/web/serve`, the launch.json preview, the raw
+- Every run outside `just e2e` and `just web-watch` (`just dev/web/serve`, the launch.json preview, the raw
   binary) writes into the real `~/Library/Application Support/me.dartiguenave.oku-slides`
   and `~/Documents/Oku Slides`. Set `OKU_SLIDES_PATHS__DATA` and `OKU_SLIDES_PATHS__DECKS`
   to a **fresh** temp dir per run (also in subagent prompts): a reused dir restores the

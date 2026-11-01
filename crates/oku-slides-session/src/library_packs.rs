@@ -289,6 +289,11 @@ impl PackLibrary {
         by_kind!(self, kind, l => l.is_orphan(id, v))
     }
 
+    /// The packs of `kind` that may be orphan drafts (see [`Library::orphan_candidates`]).
+    pub(crate) fn orphan_candidates(&self, kind: PackKind) -> Vec<(Uuid, PackVersion)> {
+        by_kind!(self, kind, l => l.orphan_candidates())
+    }
+
     /// L'index liste-t-il la version `v` du pack `id` ? Sans rien charger.
     pub(crate) fn lists(&self, id: Uuid, v: &PackVersion) -> bool {
         by_kind!(self, self.kind_of(id), l => l.lists(id, v))

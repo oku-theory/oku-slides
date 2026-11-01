@@ -212,16 +212,24 @@ describe("AgentWindow", () => {
   async function mountView(view: Parameters<typeof AgentWindowView>[0]["view"]) {
     const calls: string[] = [];
     let closing: () => void = () => {};
+    let quitting: (ms: number) => Promise<void> = async () => {};
     const close = {
       onCloseRequested: (cb: () => void) => ((closing = cb), () => {}),
       attach: async () => void calls.push("attach"),
+      onQuitRequested: (work: (ms: number) => Promise<void>) => ((quitting = work), () => {}),
     };
     const el = document.createElement("div");
     const root = createRoot(el);
     await act(async () => root.render(createElement(AgentWindowView, { view, close })));
     cleanup = async () => act(async () => root.unmount());
-    return { el, calls, closeWindow: () => act(async () => closing()) };
+    return { el, calls, closeWindow: () => act(async () => closing()), quit: () => act(async () => quitting(3000)) };
   }
+
+  test("AgentWindowView loading: a quit request settles without attaching the agent", async () => {
+    const m = await mountView(null);
+    await m.quit();
+    expect(m.calls).toEqual([]);
+  });
 
   test("AgentWindowView chargement : la fermeture système rattache l'agent", async () => {
     const m = await mountView(null);

@@ -22,11 +22,10 @@ use oku_slides_platform::updates::{
 };
 use oku_slides_session::{Localize, Localizer, Storage};
 use snafu::{Backtrace, ResultExt, Snafu};
-use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-use crate::agent_window;
 use crate::state::AppState;
 
 /// Update failure; the message shown depends on the stage.
@@ -139,14 +138,6 @@ fn changed(app: &AppHandle) {
     }
 }
 
-/// Refuse la fenêtre de l'agent : elle affiche du contenu venu de l'agent et des imports.
-fn workspace_window(window: &WebviewWindow) -> Result<(), UpdateError> {
-    if window.label() == agent_window::LABEL {
-        return Err(RefusedSnafu { why: "agent window" }.build().into());
-    }
-    Ok(())
-}
-
 fn closing(app: &AppHandle) -> bool {
     app.try_state::<AppState>().is_some_and(|s| s.closing.load(Ordering::SeqCst))
 }
@@ -242,12 +233,7 @@ fn refuse(state: &AppState, e: &UpdateError) -> String {
 
 /// L'état gardé, pour une fenêtre ouverte ou prévenue après coup.
 #[tauri::command]
-pub async fn update_status(
-    window: WebviewWindow,
-    state: State<'_, AppState>,
-    updates: State<'_, Updates>,
-) -> Result<UpdateStatus, String> {
-    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
+pub async fn update_status(updates: State<'_, Updates>) -> Result<UpdateStatus, String> {
     Ok(updates.status())
 }
 
@@ -255,11 +241,9 @@ pub async fn update_status(
 #[tauri::command]
 pub async fn check_update(
     app: AppHandle,
-    window: WebviewWindow,
     state: State<'_, AppState>,
     updates: State<'_, Updates>,
 ) -> Result<UpdateStatus, String> {
-    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
     *updates.later.lock().unwrap_or_else(PoisonError::into_inner) = None;
     // Shown again even if the check below fails.
     changed(&app);
@@ -276,12 +260,9 @@ pub async fn check_update(
 #[tauri::command]
 pub async fn later_update(
     app: AppHandle,
-    window: WebviewWindow,
-    state: State<'_, AppState>,
     updates: State<'_, Updates>,
     version: String,
 ) -> Result<UpdateStatus, String> {
-    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
     // Decided under the offer's lock: a newer offer found meanwhile was never shown, so it is
     // not put off, and a check cannot replace the offer between the test and the mark.
     let accepted = {
@@ -309,11 +290,9 @@ pub async fn later_update(
 /// Removed from disk only now: a launch that never shows a window tells it next time.
 #[tauri::command]
 pub async fn take_update_notice(
-    window: WebviewWindow,
     state: State<'_, AppState>,
     updates: State<'_, Updates>,
 ) -> Result<Option<String>, String> {
-    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
     let version = updates.notice.lock().unwrap_or_else(PoisonError::into_inner).take();
     if version.is_some() {
         with_marks(&updates.marks, |m| {
@@ -328,8 +307,7 @@ pub async fn take_update_notice(
 
 /// Télécharge, puis enregistre l'espace de travail, installe et redémarre.
 #[tauri::command]
-pub async fn install_update(app: AppHandle, window: WebviewWindow, state: State<'_, AppState>) -> Result<(), String> {
-    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
+pub async fn install_update(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     install(&app).await.map_err(|e| refuse(&state, &e))
 }
 
@@ -362,6 +340,12 @@ async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     };
     if closing(app) {
         // L'utilisateur a quitté pendant le téléchargement : la fin suit son cours.
+        return Err(RefusedSnafu { why: "app closing" }.build().into());
+    }
+    // The windows' close guards first, as for a quit (t-1377). A quit already underway wins and
+    // exits; a quit asked while this install waits joins it, and the app restarts into the update.
+    if !crate::quit::guarded(app).await {
+        updates.installing.store(false, Ordering::SeqCst);
         return Err(RefusedSnafu { why: "app closing" }.build().into());
     }
     tracing::info!(version = %offer.version, "mise à jour téléchargée : enregistrement puis installation");
@@ -423,12 +407,7 @@ async fn download(app: &AppHandle, update: &Update, endpoint: UpdateSource) -> R
 
 /// Ouvre la page des releases (paquet à installer à la main).
 #[tauri::command]
-pub async fn open_release_page(
-    app: AppHandle,
-    window: WebviewWindow,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    workspace_window(&window).map_err(|e| refuse(&state, &e))?;
+pub async fn open_release_page(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     app.opener()
         .open_url(RELEASES_URL, None::<&str>)
         .context(OpenSnafu)

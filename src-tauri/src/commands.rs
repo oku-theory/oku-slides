@@ -14,7 +14,7 @@ use oku_slides_stt::{Status, Stt, SttRequest};
 use tauri::ipc::Response;
 use tauri::{AppHandle, Manager};
 
-use crate::state::{self, AppState, CLOSING};
+use crate::state::{AppState, CLOSING};
 use crate::windows;
 
 /// Travail bloquant hors du fil principal ; sa panique devient une erreur.
@@ -175,7 +175,8 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
         // A close's flush reached owner decks: the view, then their notes (once each).
         Workspace::drain_touched(&state.workspace, || windows::emit_view(app), |owner| state.stack.after_change(owner));
         if outcome.is_last_window() {
-            state::shutdown(app);
+            // The windows' close guards run first (t-1377); the exit follows on its own task.
+            crate::quit::exit(app);
             return Ok(outcome.into_json());
         }
         if changes {
@@ -193,11 +194,11 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
     Ok(Response::new(reply))
 }
 
-/// Quitter en gardant tout (repli de l'interface pour la dernière fenêtre).
+/// Quits keeping everything, after every window's close guards (the UI's last-window fallback).
 #[tauri::command]
-pub async fn quit(app: AppHandle) {
-    let app2 = app.clone();
-    let _ = tauri::async_runtime::spawn_blocking(move || state::shutdown(&app2)).await;
+#[expect(clippy::needless_pass_by_value, reason = "a Tauri command takes its arguments by value")]
+pub fn quit(app: AppHandle) {
+    crate::quit::exit(&app);
 }
 
 /// Dictée, hors du fil principal : les requêtes au moteur d'Apple bloquent.
@@ -291,8 +292,7 @@ pub fn close_requested(app: &AppHandle, label: &str) {
     use tauri::Emitter;
     let last = app.try_state::<AppState>().and_then(|state| Some(state.try_workspace()?.is_only_window(label)));
     if last == Some(true) {
-        let app2 = app.clone();
-        tauri::async_runtime::spawn_blocking(move || state::shutdown(&app2));
+        crate::quit::exit(app);
         return;
     }
     if let Err(e) = app.emit_to(label, "close-requested", ()) {

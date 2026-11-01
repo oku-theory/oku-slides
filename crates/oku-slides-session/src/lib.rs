@@ -7,6 +7,8 @@
 //!   the help, a pack or a theme, each in its own tab: [`ThemeTab`], [`ThemeTabView`]),
 //!   and the resume of the whole.
 //!
+//! - [`QuitBarrier`]: the windows a guarded quit waits for before the app exits.
+//!
 //! The agent reaches a tab's session through [`agent::TabSession`], provided by
 //! the host through [`agent::Sessions`] (see [`Workspace::with_session`]).
 //!
@@ -104,6 +106,7 @@ mod preview_crop;
 mod preview_span;
 mod preview_theme;
 mod probed_widgets;
+mod quit_barrier;
 mod render_fonts;
 mod request;
 mod resume;
@@ -175,6 +178,7 @@ use pack_scratch::PackScratch;
 pub use present::PresentRefusal;
 pub use preview_span::PreviewSpan;
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
+pub use quit_barrier::{QuitBarrier, QuitStart};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
 pub use tab_document::TabDocument;

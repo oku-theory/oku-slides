@@ -146,6 +146,21 @@ impl<K: LibraryKind> Library<K> {
         self.pack_dir(id).is_some_and(|d| self.is_marked(&d.join(VERSIONS_DIR).join(v.hex()), CREATED_EMPTY_FILE))
     }
 
+    /// The user entries that may be orphan drafts, with their one version.
+    ///
+    /// One version folder, marked created empty, not frozen. From directory listings and marks only, no version read (t-1378): resume runs this over the
+    /// whole library before the first window. [`Self::is_orphan`] then decides each.
+    pub(crate) fn orphan_candidates(&self) -> Vec<(Uuid, PackVersion)> {
+        let candidate = |id: Uuid| {
+            let dir = self.pack_dir(id)?;
+            let folders = self.storage.list_dirs(&dir.join(VERSIONS_DIR)).ok()?;
+            let [only] = folders.as_slice() else { return None };
+            let v = PackVersion::from_hex(only.file_name()?.to_str()?)?;
+            (self.is_created_empty(id, &v) && !self.is_frozen(id, &v)).then_some((id, v))
+        };
+        self.user_ids().into_iter().filter(|id| !Self::is_builtin(*id)).filter_map(candidate).collect()
+    }
+
     /// Whether `v` is all of `id`: marked created empty, unfrozen, current, its only folder.
     ///
     /// The folders are counted on disk, readable or not; an unlisted folder fails closed.

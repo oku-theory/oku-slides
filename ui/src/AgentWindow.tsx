@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { agentApi, errorText, inTauri, isMac, listenTauri, tabApi, workspace, type AgentUi, type Snapshot, type TabApi, type WorkspaceView } from "./api";
+import { listenQuit } from "./quitAnswer";
 import { newest } from "./latest";
 import { t } from "./i18n";
 import { debounced } from "./debounce";
@@ -78,9 +79,16 @@ function onCloseRequested(cb: () => void): () => void {
   });
 }
 
-/** Ce que la page entière demande à l'hôte : la fermeture système et le rattachement. */
-export type AgentWindowClose = Pick<AgentWindowHost, "onCloseRequested" | "attach">;
-const TAURI_CLOSE: AgentWindowClose = { onCloseRequested, attach: workspace.attachAgent };
+/** What the whole page asks the host: the system close, attaching, and answering a quit. */
+export type AgentWindowClose = Pick<AgentWindowHost, "onCloseRequested" | "attach"> & {
+  /** A quit request (t-1377): `work` runs, bounded, then the host gets its answer; returns the cleanup. */
+  onQuitRequested: (work: (ms: number) => Promise<void>) => () => void;
+};
+const TAURI_CLOSE: AgentWindowClose = {
+  onCloseRequested,
+  attach: workspace.attachAgent,
+  onQuitRequested: (work) => (inTauri ? listenQuit(work) : NOOP),
+};
 
 /** Vide la frappe en attente d'un onglet. */
 type Flush = () => Promise<void>;
@@ -108,6 +116,8 @@ export function AgentWindowView({ view, close = TAURI_CLOSE }: { view: Workspace
     [close],
   );
   useEffect(() => close.onCloseRequested(attachNow), [close, attachNow]);
+  // A quit (t-1377): the typed draft reaches the host before the app exits; the host bounds the wait.
+  useEffect(() => close.onQuitRequested(() => flush.current?.() ?? Promise.resolve()), [close]);
   if (view === null)
     return (
       <div className="agent-window agent-window-loading">

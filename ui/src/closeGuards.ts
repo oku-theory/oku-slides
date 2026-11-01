@@ -1,12 +1,13 @@
 // Close guards: the work a tab must finish before it closes (typed widget writes, the autosave).
 //
 // A tab's App registers its guard while mounted; the close flows run it, bounded, before reading
-// whether the tab is dirty. An App that unmounted (its tab no longer shown) leaves its in-flight
-// work as the entry until that work settles, so a close right after still waits for it.
+// whether the tab is dirty; a quit runs them all (runAllCloseGuards). An App that unmounted (its
+// tab no longer shown) leaves its in-flight work as the entry until that work settles, so a close
+// right after still waits for it.
 
 import { useEffect, useRef } from "react";
 
-/** How long a close waits for a tab's guard, in milliseconds. */
+/** How long a close waits for a tab's guard, in milliseconds (the host's `QUIT_GUARD_MS` on quit). */
 const CLOSE_GUARD_MS = 3000;
 
 /** Each tab's guard: the mounted App's, or an unmounted App's pending work. */
@@ -63,4 +64,15 @@ export async function runCloseGuard(tab: string, ms = CLOSE_GUARD_MS): Promise<"
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Runs every registered guard at once, each bounded by `ms` (a quit, t-1377).
+ *
+ * The whole registry, not a tab list: an App that unmounted (its tab dragged to another window)
+ * left its pending work here. Settles once each guard is done or timed out.
+ */
+export async function runAllCloseGuards(ms = CLOSE_GUARD_MS): Promise<void> {
+  const failed = (tab: string) => (e: unknown) => console.warn(`close guard of tab ${tab} failed`, String(e));
+  await Promise.all([...guards.keys()].map((tab) => runCloseGuard(tab, ms).catch(failed(tab))));
 }

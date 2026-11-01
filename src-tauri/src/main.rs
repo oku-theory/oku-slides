@@ -1,33 +1,30 @@
-//! Oku Slides : application de bureau.
+//! Oku Slides: the desktop app.
 //!
-//! Toute la logique est dans `oku-slides-session` : l'espace de travail
-//! (fenêtres, onglets) et une session par onglet. L'interface appelle
-//! `request` (un onglet), `workspace` (onglets et fenêtres), le glisser
-//! d'onglets entre fenêtres (`tab_drag`) et `quit`. Démarrage : journaux →
-//! plateforme → espace de travail (reprise) et dictée → fenêtres ; chacune
-//! reprend sa taille et sa position, enregistrées une fois le geste fini
-//! (`window_state`). Les fichiers reçus au lancement s'ouvrent ensuite, hors
-//! du fil principal.
+//! All the logic lives in `oku-slides-session`: the workspace (windows, tabs) and one session per
+//! tab. The UI calls `request` (one tab), `workspace` (tabs and windows), tab drags between windows
+//! (`tab_drag`), `quit` and `quit_ready`. Startup: logs → platform → workspace (resume) and
+//! dictation → windows; each restores its size and position, saved once a gesture ends
+//! (`window_state`). Files received at launch open afterwards, off the main thread.
 //!
-//! `state` porte l'état de l'app et la fin propre (`state::shutdown`,
-//! `Workspace::settle`) ; `commands` et `windows` en dépendent tous deux,
-//! jamais l'inverse. Six chemins de sortie s'y retrouvent : `quit`, le menu
-//! « Quitter » (`on_menu_event`, jamais le `terminate:` prédéfini de macOS),
-//! la dernière fenêtre (`commands::workspace`), sa fermeture native
-//! (`commands::close_requested`), la vue vide (`windows::sync`) et la mise à
-//! jour (`updates::install`, par `state::settle` puis `request_restart`). Un
-//! septième, `RunEvent::Exit`, sert de filet pour les chemins qui échappent à
-//! tous ceux-là (Dock, session système) : lui seul revient toujours,
-//! `Workspace::settle` y est donc rappelée sans condition.
+//! `state` holds the app state and the clean end (`state::shutdown`, `Workspace::settle`);
+//! `commands` and `windows` both depend on it, never the reverse. Exit paths: `quit`, the menu
+//! Quit (`on_menu_event`, never macOS's predefined `terminate:`), a last-window `CloseWindow`
+//! (`commands::workspace`), its native close (`commands::close_requested`) and an update install
+//! (`updates::install`, then `request_restart`) all go through `quit` (`quit::exit`,
+//! `quit::guarded`): every window runs its close guards first (t-1377). The empty view
+//! (`windows::sync`) shuts down directly: each tab left through its close flow, guards run.
+//! `RunEvent::Exit` is the safety net for paths that escape all of these (Dock, system logout:
+//! the webviews are going away, nothing can be waited for); `Workspace::settle` is called there
+//! unconditionally.
 //!
-//! Une seule instance : une seconde transmet ses fichiers à la première ;
-//! sous macOS, Finder les envoie (`RunEvent::Opened`).
+//! A single instance: a second one hands its files to the first; on macOS, Finder sends them
+//! (`RunEvent::Opened`).
 //!
-//! L'agent (`oku-slides-agent::Stack`) : un par onglet, sessions via
-//! `AppSessions` ; commande `agent`, évènements `oku-slides:mcp` et
-//! `oku-slides:agent` émis à toutes les fenêtres.
+//! The agent (`oku-slides-agent::Stack`): one per tab, sessions through `AppSessions`; command
+//! `agent`, events `oku-slides:mcp` and `oku-slides:agent` emitted to every window.
 //!
-//! `updates` cherche les nouvelles versions et les installe.
+//! `updates` looks for new versions and installs them. Each window may call only the commands its
+//! capability grants (`capabilities/*.json`, checked by `build.rs`, t-980).
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -35,6 +32,7 @@ mod agent_window;
 mod commands;
 mod menu;
 mod pending;
+mod quit;
 mod state;
 mod tab_drag;
 mod updates;
@@ -164,8 +162,7 @@ fn menu_event(app: &tauri::AppHandle, event: &tauri::menu::MenuEvent) {
         }
     }
     if event.id() == menu::QUIT_ID {
-        let app = app.clone();
-        tauri::async_runtime::spawn_blocking(move || state::shutdown(&app));
+        quit::exit(app);
     }
 }
 
@@ -236,6 +233,7 @@ fn main() -> color_eyre::Result<()> {
                 stack,
             });
             app.manage(stt);
+            app.manage(quit::Quit::default());
             app.manage(window_state::Saver::new(app.handle().clone()));
             app.manage(updates::Updates::new(platform.storage.clone(), &platform.settings.paths.data()));
             updates::spawn_checks(app.handle(), &platform.settings.updates);
@@ -276,6 +274,7 @@ fn main() -> color_eyre::Result<()> {
             tab_drag::drag_tab_leave,
             tab_drag::drop_tab,
             commands::quit,
+            quit::quit_ready,
             commands::stt,
             commands::agent,
             updates::update_status,

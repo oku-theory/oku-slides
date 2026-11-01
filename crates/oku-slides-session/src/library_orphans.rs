@@ -17,7 +17,6 @@ use uuid::Uuid;
 use oku_slides_core::{PackKind, PackVersion};
 
 use crate::library_packs::{DraftKind, PackLibrary};
-use crate::theme::ThemeLibrary;
 
 /// How old an empty draft must be before resume collects it.
 pub(crate) const ORPHAN_AGE: Duration = Duration::days(1);
@@ -43,26 +42,23 @@ impl PackLibrary {
     ///
     /// Reads the libraries and may delete in them, taking `DRAFTS` per draft.
     pub(crate) fn collect_orphan_drafts(&self, shown: &[Uuid], now: OffsetDateTime) -> Vec<Uuid> {
-        // Each found draft with its pack kind (`None`: a theme), rechecked under `DRAFTS`.
+        // Each found draft with its pack kind (`None`: a theme), rechecked under `DRAFTS`. Only the
+        // candidates' current version is read: listings and marks rule out every other entry.
         let mut found: Vec<(Option<PackKind>, Uuid, PackVersion)> = Vec::new();
         let unshown_old = |id: Uuid, created: &str| !shown.contains(&id) && old_enough(created, now);
         for kind in PackKind::ALL {
-            for s in self.entries(kind) {
-                let id = s.manifest.id;
-                if !Self::is_builtin(id)
-                    && unshown_old(id, &s.manifest.created)
-                    && self.is_orphan_draft(kind, id, &s.version)
-                {
-                    found.push((Some(kind), id, s.version));
+            for (id, v) in self.orphan_candidates(kind) {
+                let old = self.current_version(id).is_some_and(|s| unshown_old(id, &s.manifest.created));
+                if old && self.is_orphan_draft(kind, id, &v) {
+                    found.push((Some(kind), id, v));
                 }
             }
         }
         let themes = self.themes();
-        for s in themes.entries() {
-            let id = s.manifest.id;
-            if !ThemeLibrary::is_builtin(id) && unshown_old(id, &s.manifest.created) && themes.is_orphan(id, &s.version)
-            {
-                found.push((None, id, s.version));
+        for (id, v) in themes.orphan_candidates() {
+            let old = themes.current_version(id).is_some_and(|s| unshown_old(id, &s.manifest.created));
+            if old && themes.is_orphan(id, &v) {
+                found.push((None, id, v));
             }
         }
         found

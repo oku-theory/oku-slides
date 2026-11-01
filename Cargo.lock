@@ -5922,6 +5922,7 @@ dependencies = [
  "oku-slides-session",
  "oku-slides-stt",
  "rstest",
+ "serde",
  "serde_json",
  "snafu",
  "speculoos",
