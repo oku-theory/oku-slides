@@ -33,7 +33,7 @@ async function mount(fake: TabApi, widget: string | null) {
   } as unknown as Snapshot;
   function Probe() {
     const item = usePackItem(fake, snap, { changed: () => {}, error: () => {}, notice: () => {}, blocked: () => false });
-    return createElement(WidgetPane, { api: fake, item, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {},
+    return createElement(WidgetPane, { api: fake, item, trials: 0, look: "", code: false, onCode: () => {}, strip: null,
       run: async () => null, palette: [] });
   }
   await act(async () => root.render(createElement(Probe)));

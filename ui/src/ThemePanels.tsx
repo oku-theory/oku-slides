@@ -54,7 +54,6 @@ export default function ThemePanels({ api, snap, keptUi, current, run, say, svg,
         open={open}
         onToggle={() => keptUi.setFolded("layouts", open)}
         slides={<DeckPile snap={snap} themeTab current={current} svg={svg} onSelect={onSelect} onMove={noop} onAdd={noop} onRemove={noop} axis="y" />}
-        widgets={null}
       />
       {notes && createPortal(<ThemePanel api={api} snap={snap} run={run} say={say} />, notes)}
     </>

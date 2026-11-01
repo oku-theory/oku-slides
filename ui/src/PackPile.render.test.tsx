@@ -110,20 +110,12 @@ describe("PackPile, items", () => {
     expect(common(host)).toBeNull();
   });
 
-  test("PackPile of a widget pack lists rows, of a layout pack thumbnails", async () => {
-    const widgets = await mount(memory({ card: "" }).fake);
-    const rows = widgets.host.querySelector(".pile.rows") !== null;
-    await act(async () => mounted?.root.unmount());
-    mounted?.host.remove();
-    const layouts = await mount(memory({ card: "" }).fake, { kind: "layouts" });
-    expect([rows, layouts.host.querySelector(".pile.rows")]).toEqual([true, null]);
-  });
-
-  test("PackPile of a widget pack shows a name row per item, no image", async () => {
+  test("PackPile of a widget pack shows a named img thumbnail per item, in a horizontal strip", async () => {
     const { fake } = memory({ kpi: "k", chart: "c" });
     const { host } = await mount(fake);
-    expect([...host.querySelectorAll(".thumb .thumb-name")].map((n) => n.textContent)).toEqual(["chart", "kpi"]);
-    expect(host.querySelectorAll(".thumb img").length).toBe(0);
+    const names = [...host.querySelectorAll(".thumb .thumb-name")].map((n) => n.textContent);
+    expect([names, host.querySelectorAll(".thumb img").length, host.querySelector(".pile")?.classList.contains("horizontal")])
+      .toEqual([["chart", "kpi"], 2, true]);
   });
 
   test("PackPile shows one img thumbnail per layout, named after it, and no inline svg", async () => {
@@ -446,50 +438,50 @@ describe("PackPile, duplicating", () => {
 describe("PackPile, reordering", () => {
   const alt = (target: HTMLElement, key: string) =>
     act(async () => void target.dispatchEvent(new KeyboardEvent("keydown", { key, altKey: true, bubbles: true, cancelable: true })));
-  /** Drags `name`'s thumbnail to `y`; happy-dom boxes are empty, so any y > 0 drops last. */
-  const drag = async (target: HTMLElement, y: number) => {
-    const at = (type: string, clientY: number) =>
-      act(() => void target.dispatchEvent(new PointerEvent(type, { pointerId: 1, button: 0, clientX: 5, clientY, bubbles: true, cancelable: true })));
+  /** Drags `name`'s thumbnail to `x`; happy-dom boxes are empty, so any x > 0 drops last. */
+  const drag = async (target: HTMLElement, x: number) => {
+    const at = (type: string, clientX: number) =>
+      act(() => void target.dispatchEvent(new PointerEvent(type, { pointerId: 1, button: 0, clientX, clientY: 5, bubbles: true, cancelable: true })));
     // The pile's edge-scroll loop would spin inside act: no frames in this test.
     const frame = spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
     await at("pointerdown", 0);
-    await at("pointermove", y);
-    await at("pointerup", y);
+    await at("pointermove", x);
+    await at("pointerup", x);
     frame.mockRestore();
   };
 
-  test("PackPile ⌥↓ on the first item reorders it after the second", async () => {
+  test("PackPile ⌥→ on the first item reorders it after the second", async () => {
     const stored = ["a", "b", "c"];
     const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
     const { host } = await mount(fake, { stored });
-    await alt(thumb(host, "a"), "ArrowDown");
+    await alt(thumb(host, "a"), "ArrowRight");
     await wait(10);
     expect(log).toEqual(["reorder b,a,c"]);
   });
 
-  test("PackPile ⌥↑ on the first item does nothing", async () => {
+  test("PackPile ⌥← on the first item does nothing", async () => {
     const stored = ["a", "b", "c"];
     const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
     const { host } = await mount(fake, { stored });
-    await alt(thumb(host, "a"), "ArrowUp");
+    await alt(thumb(host, "a"), "ArrowLeft");
     await wait(10);
     expect(log).toEqual([]);
   });
 
-  test("PackPile ⌥↓ on the last item does nothing", async () => {
+  test("PackPile ⌥→ on the last item does nothing", async () => {
     const stored = ["a", "b", "c"];
     const { fake, log } = orderApi({ a: "a", b: "b", c: "c" }, stored);
     const { host } = await mount(fake, { stored });
-    await alt(thumb(host, "c"), "ArrowDown");
+    await alt(thumb(host, "c"), "ArrowRight");
     await wait(10);
     expect(log).toEqual([]);
   });
 
-  test("PackPile ⌥↑ on the shared row does nothing", async () => {
+  test("PackPile ⌥← on the shared row does nothing", async () => {
     const stored = ["a", "b"];
     const { fake, log } = orderApi({ _commun: "c", a: "a", b: "b" }, stored);
     const { host } = await mount(fake, { stored });
-    await alt(common(host) as HTMLButtonElement, "ArrowDown");
+    await alt(common(host) as HTMLButtonElement, "ArrowRight");
     await wait(10);
     expect(log).toEqual([]);
   });
@@ -503,7 +495,7 @@ describe("PackPile, reordering", () => {
     expect(log).toEqual(["reorder b,c,a"]);
   });
 
-  test("PackPile after ⌥↓ focuses the moved item once the new order is shown", async () => {
+  test("PackPile after ⌥→ focuses the moved item once the new order is shown", async () => {
     const stored = ["a", "b", "c"];
     const { fake } = orderApi({ a: "a", b: "b", c: "c" }, stored);
     const { host } = await mount(fake, { stored });
@@ -514,7 +506,7 @@ describe("PackPile, reordering", () => {
       return real(order);
     });
     thumb(host, "a").focus();
-    await alt(thumb(host, "a"), "ArrowDown");
+    await alt(thumb(host, "a"), "ArrowRight");
     await wait(10);
     expect([thumbs(host).map((b) => b.querySelector(".thumb-name")?.textContent), document.activeElement === thumb(host, "a")]).toEqual([["b", "a", "c"], true]);
   });

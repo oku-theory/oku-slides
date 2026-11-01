@@ -234,8 +234,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 /* Fenêtre étroite : des jetons plus petits, pour que la barre tienne sous la slide. */
 @media (max-width: 1199px) { .tools-tray .token.ghost { width: 32px; height: 32px; } }
-/* Enfoncé : le code est affiché, même survolé (la règle de survol de .ghost vient plus tard, dans glass.css). */
-.tools-tray .code-switch.on, .tools-tray .code-switch.on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
 .tools-sep { width: 1px; height: 20px; margin-inline: var(--space-1); background: color-mix(in oklab, var(--edge) 55%, transparent); }
 .select {
   appearance: none; -webkit-appearance: none; height: 32px; padding-block: 0; padding-inline: 10px 30px; border: 0; border-radius: var(--radius-sm);
@@ -397,14 +395,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
 body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 /* Poignée : une pastille discrète au repos dit que la zone se redimensionne ; plus nette au survol,
    elle s'efface au glisser et au focus, où le trait d'accent prend le relais. */
-.col-divider::after, .code-divider::after {
+.col-divider::after {
   content: ""; position: absolute; border-radius: 2px; background: var(--ink); opacity: 0.16;
   transition: opacity 160ms ease-out; pointer-events: none;
 }
 .col-divider::after { top: 50%; inset-inline-start: 2px; width: 4px; height: 32px; margin-top: -16px; }
-.col-divider:hover::after, .code-divider:hover::after { opacity: 0.32; }
-.col-divider.active::after, .col-divider:focus-visible::after,
-.code-divider.active::after, .code-divider:focus-visible::after { opacity: 0; }
+.col-divider:hover::after { opacity: 0.32; }
+.col-divider.active::after, .col-divider:focus-visible::after { opacity: 0; }
 
 /* ---- Appareil de dictée ---- */
 .device {
@@ -618,20 +615,6 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
   background: var(--accent-fill); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
 }
 .drop-line.end { position: relative; top: auto; display: block; margin-block: -9px; margin-inline: 22px 0; flex: none; }
-
-/* A widget pack's pile: one row per item, its name; the trash shows on hover or focus. */
-.table:has(> .pile-column .pile.rows) { --pile-w: 180px; }
-.pile.rows { gap: 2px; padding-inline: 0; }
-.pile.rows .thumb-slot { position: relative; display: flex; align-items: center; }
-.pile.rows .thumb { display: flex; align-items: center; flex: 1; min-width: 0; padding: 6px 8px; border-radius: var(--radius-sm); background: transparent; box-shadow: none; }
-.pile.rows .thumb[aria-current="true"] { background: var(--accent-soft); }
-.pile.rows .thumb-body { display: flex; flex-direction: row; align-items: center; gap: var(--space-2); min-width: 0; }
-.pile.rows .thumb-name { max-width: none; font-size: inherit; line-height: inherit; color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pile.rows .thumb-remove { top: 50%; transform: translateY(-50%); inset-inline: auto 4px; opacity: 0; width: 28px; height: 28px; }
-.pile.rows .thumb-slot:hover .thumb-remove, .pile.rows .thumb-slot:focus-within .thumb-remove { opacity: 1; }
-.pile.rows .drop-line { inset-inline: 0; top: -2px; height: 2px; }
-.pile.rows .drop-line.end { margin-block: 0; margin-inline: 0; }
-.pile.rows .thumb-ghost .thumb-name { aspect-ratio: auto; padding: 6px 8px; background: var(--paper-200); color: var(--ink); }
 
 /* ---- Cartes des surfaces A2UI (réglages du dock, agent) ---- */
 /* Une surface ne fait pas de boîte : ses cartes se placent dans leur conteneur (tour, dock). */

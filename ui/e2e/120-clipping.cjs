@@ -1,6 +1,5 @@
-// Ce que rognent les zones qui défilent : l'anneau du champ de nom d'un élément dans la pile d'un pack (widgets :
-// la pile seule dans la colonne ; layouts : dans la section repliable),
-// l'ombre du dock de l'agent dans le fil. Sans serveur : les vraies feuilles de styles sur un DOM
+// What the clipping areas cut: the focus ring of an item's name field in a pack tab's strip,
+// the agent dock's shadow in the thread. Sans serveur : les vraies feuilles de styles sur un DOM
 // reconstitué. Lancer : bun e2e/120-clipping.cjs.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -10,13 +9,8 @@ const { APP_SHEETS, sheets } = require('./lib/css.cjs');
 const css = sheets(...APP_SHEETS, 'glass.css', path.join('a2ui', 'a2ui.css'));
 const html = `<!doctype html><style>${css}</style>
 <div style="display:flex;gap:40px;height:600px">
-  <div class="pile-column" id="widgets" style="width:236px;height:200px">
-    <div class="pack-pile"><form class="pack-pile-name"><input class="select" value=""></form><nav class="pile"></nav></div>
-  </div>
-  <div class="pile-column" id="layouts" style="width:236px;height:200px">
-    <section class="pile-section pile-thumbs" data-open="true"><div class="pile-section-head"><h3>Layouts</h3></div>
-      <div class="pile-section-body"><div class="pack-pile"><form class="pack-pile-name"><input class="select" value=""></form><nav class="pile"></nav></div></div>
-    </section>
+  <div class="slide-strip pack-strip" id="strip" style="width:420px;align-self:flex-start">
+    <div class="pack-pile"><nav class="pile horizontal"></nav><form class="pack-pile-name"><input class="select" value=""></form></div>
   </div>
   <aside class="notes" style="width:480px;height:500px;position:relative">
     <section class="agent-thread"><section class="agent-dock agent-keys"><div style="height:120px"></div></section></section>
@@ -42,7 +36,7 @@ function reach(boxShadow) {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
   const p = await b.newPage({ viewport: { width: 1000, height: 700 } });
   await p.setContent(html);
-  /** The focused name field of column `column` and the clipping box (padding box) of that column. */
+  /** The focused name field in area `column` and the clipping box (padding box) of that area. */
   const measure = (column) => p.evaluate((id) => {
     const box = (el) => {
       const r = el.getBoundingClientRect();
@@ -58,7 +52,7 @@ function reach(boxShadow) {
     };
   }, column);
   const all = [];
-  for (const column of ['widgets', 'layouts']) all.push([column, await measure(column)]);
+  for (const column of ['strip']) all.push([column, await measure(column)]);
   await b.close();
 
   for (const [column, c] of all) {

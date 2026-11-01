@@ -1,10 +1,10 @@
 /**
- * The view of a pack tab's selected item: its preview on the left; the settings and diagnostics
- * on its right, or under it when the code is shown.
+ * The view of a pack tab's selected item: its preview, then its settings and its code as two tabs,
+ * then the diagnostics.
  *
- * The toolbar switch shows the code (hidden by default, a choice the host keeps for every item):
- * shown, the code takes the right of the view, at the width set at the divider. Hidden, the editor
- * stays mounted (inert, out of the grid): typing and history remain while the item stays selected.
+ * The Settings tab opens by default; the open tab is a choice the host keeps for every item. With
+ * the Settings tab open, the editor stays mounted (inert, hidden): typing and history remain while
+ * the item stays selected. Commun has no settings: its code shows, with no tabs.
  * The preview shows the widget at its example values, kept in the pack. With its view, the
  * preview is a stage (`Stage` in preview mode): its text fields are edited in place, as on a
  * slide, and written to those values (a field bound to the deck stays read-only); its lists
@@ -21,8 +21,6 @@ import type { FieldView, PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./
 import { fieldValue } from "./deck";
 import { t } from "./i18n";
 import { Button } from "./primitives";
-import CodeDivider from "./CodeDivider";
-import { codeTrack } from "./codeSplit";
 import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEditor";
 import type { WidgetFiles } from "./useWidgetFiles";
 import Stage from "./Stage";
@@ -45,18 +43,18 @@ export interface WidgetTabProps {
   look: string;
   /** The preview slot of an element widget. */
   span: PreviewSpan;
-  /** Source code shown; hidden, the editor stays mounted but inert. */
+  /** The Code tab is open; with the Settings tab open, the editor stays mounted but inert. */
   code: boolean;
-  /** The code width chosen, shared by every item; `null`: the default share. */
-  codeWidth: number | null;
-  /** Keeps a new width set at the divider. */
-  onCodeWidth: (width: number | null) => void;
-  /** The host's settings (the widget's example values), right of the preview, or under it when the code is shown. */
+  /** Opens the Code tab (`true`) or the Settings tab. */
+  onCode: (code: boolean) => void;
+  /** The host's settings (the widget's example values), in the Settings tab. */
   settings?: ReactNode;
   /** Sends an example value write (refusal toasted); default: the refusal goes through the files. */
   run?: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   /** Swatch colours in a field's editor (the theme's chart palette). */
   palette?: string[];
+  /** Each preview received, with the item's name (the strip's thumbnail can follow it). */
+  onPreview?: (name: string, preview: WidgetPreview) => void;
   /** Commun: selects the widget clicked in its list of widgets in error. */
   onOpen: (name: string) => void;
   onCommands: (c: EditorCommands | null) => void;
@@ -76,18 +74,24 @@ interface Committed {
 
 /** The selected item's preview, settings, diagnostics and editor. */
 export default function WidgetTab({
-  api, files, name, revision, trials, look, span, code, codeWidth, onCodeWidth, settings = null,
-  run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
+  api, files, name, revision, trials, look, span, code, onCode, settings = null,
+  run, palette = NO_PALETTE, onPreview, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [preview, setPreview] = useState<WidgetPreview | null>(null);
   const host = useRef<HTMLElement>(null);
+  const tabs = useRef<HTMLDivElement>(null);
+  const common = name === COMMON;
+  /** The code shows: its tab is open, or the item is Commun, which has no settings. */
+  const coding = code || common;
   const nameRef = useRef(name);
   const filesRef = useRef(files);
+  const onPreviewRef = useRef(onPreview);
   useLayoutEffect(() => {
     nameRef.current = name;
     filesRef.current = files;
+    onPreviewRef.current = onPreview;
   });
   /** Revision dont la source est lue (ou due). */
   const readFor = useRef<string | null>(null);
@@ -142,6 +146,7 @@ export default function WidgetTab({
       .then((p) => {
         if (seq !== previewSeq.current) return;
         setPreview(p);
+        onPreviewRef.current?.(nameRef.current, p);
         // Demandé après l'accord des écritures : l'aperçu montre leurs valeurs (ou ce que l'hôte en a fait).
         setCommitted((m) => {
           const left = new Map([...m].filter(([, c]) => c.acked === null || c.acked >= seq));
@@ -154,10 +159,10 @@ export default function WidgetTab({
 
   // The code shown again: the editor, measured while hidden, measures again.
   useEffect(() => {
-    if (!code) return;
+    if (!coding) return;
     const el = host.current?.querySelector(".cm-content");
     if (el) EditorView.findFromDOM(el as HTMLElement)?.requestMeasure();
-  }, [code]);
+  }, [coding]);
 
   const status = files.statuses?.find((s) => s.name === name);
   const diagnostics = useMemo(() => fileDiagnostics(status, name), [status, name]);
@@ -222,15 +227,14 @@ export default function WidgetTab({
   /** Un changement de liste de l'aperçu : le changement, dans la liste des valeurs d'exemple. */
   const onListOp: OnListOp = (_owner, list, change) => void write(api.editExampleList(name, list, change));
 
-  /** Widths of the view (the preview column, divider and code share it) and of the code, at a gesture's start. */
-  const measure = () => {
-    const el = host.current;
-    const codeEl = el?.querySelector<HTMLElement>(".widget-tab-code");
-    return el && codeEl ? { total: el.clientWidth, size: codeEl.offsetWidth } : { total: 0, size: 0 };
+  /** Arrows, Home and End move to the other tab and open it (two tabs: any of them does). */
+  const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const next = e.key === "Home" ? false : e.key === "End" ? true : !code;
+    onCode(next);
+    tabs.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next ? 1 : 0]?.focus();
   };
-  /** Pendant le glisser, la largeur ne touche que le DOM. */
-  const show = (size: number) => host.current?.style.setProperty("--code-w", codeTrack(size));
-  const tracks = { "--code-w": codeTrack(codeWidth) ?? undefined };
 
   const inError = (files.statuses ?? []).filter((s) => s.name !== COMMON && stateOf(s) === "errors");
 
@@ -241,12 +245,11 @@ export default function WidgetTab({
       role="region"
       id="widget-panel"
       aria-label={widgetLabel(name)}
-      data-code={code ? "shown" : "folded"}
-      data-item={name === COMMON ? "common" : undefined}
-      style={tracks as React.CSSProperties}
+      data-code={coding ? "shown" : "folded"}
+      data-item={common ? "common" : undefined}
     >
-      <section className="widget-tab-preview" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>
-        {name === COMMON ? (
+      <section className="widget-tab-preview" aria-label={t(common ? "ui-widgets-in-error" : "ui-widgets-preview")}>
+        {common ? (
           <div className="widget-tab-broken">
             <h3>{t("ui-widgets-in-error")}</h3>
             {inError.length === 0 ? (
@@ -280,8 +283,52 @@ export default function WidgetTab({
           <p className="caption">{t("ui-widgets-no-preview")}</p>
         )}
       </section>
-      <div className="widget-tab-side">
-        {settings}
+      <div className="widget-tab-panel">
+        {!common && (
+          <div ref={tabs} className="widget-tab-tabs" role="tablist" aria-label={widgetLabel(name)} onKeyDown={onTabKey}>
+            {[false, true].map((c) => (
+              <button
+                key={String(c)}
+                type="button"
+                role="tab"
+                className="widget-tab-tab"
+                id={c ? "widget-code-tab" : "widget-settings-tab"}
+                aria-selected={code === c}
+                aria-controls={c ? "widget-code" : "widget-settings"}
+                tabIndex={code === c ? 0 : -1}
+                onClick={() => onCode(c)}
+              >
+                {t(c ? "ui-widgets-source" : "ui-widgets-settings-tab")}
+              </button>
+            ))}
+          </div>
+        )}
+        {!common && (
+          <div className="widget-tab-side" id="widget-settings" role="tabpanel" aria-labelledby="widget-settings-tab" tabIndex={0} hidden={code}>
+            {settings}
+          </div>
+        )}
+        <div
+          className="widget-tab-code"
+          id="widget-code"
+          role={common ? undefined : "tabpanel"}
+          aria-labelledby={common ? undefined : "widget-code-tab"}
+          inert={!coding}
+        >
+          {source !== null && (
+            <TypstEditor
+              key={editorKey}
+              text={source}
+              rewrite={files.rewrites.get(name) ?? null}
+              diagnostics={diagnostics}
+              diagnosticsFor={files.checked.get(name) ?? null}
+              label={widgetLabel(name)}
+              onChange={(text) => files.edit(name, text)}
+              onCommands={onCommands}
+              onHistory={onHistory}
+            />
+          )}
+        </div>
         <ul className="widget-tab-diagnostics">
           {listedDiagnostics(status, preview?.diagnostics ?? []).map((d, i) => {
             const place = diagnosticPlace(d);
@@ -293,29 +340,6 @@ export default function WidgetTab({
             );
           })}
         </ul>
-      </div>
-      {code && (
-        <CodeDivider
-          label={t("ui-divider-code")}
-          measure={measure}
-          onResize={(size, done) => (done ? onCodeWidth(size) : show(size))}
-          onReset={() => onCodeWidth(null)}
-        />
-      )}
-      <div className="widget-tab-code" id="widget-code" inert={!code}>
-        {source !== null && (
-          <TypstEditor
-            key={editorKey}
-            text={source}
-            rewrite={files.rewrites.get(name) ?? null}
-            diagnostics={diagnostics}
-            diagnosticsFor={files.checked.get(name) ?? null}
-            label={widgetLabel(name)}
-            onChange={(text) => files.edit(name, text)}
-            onCommands={onCommands}
-            onHistory={onHistory}
-          />
-        )}
       </div>
     </section>
   );

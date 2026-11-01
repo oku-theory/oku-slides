@@ -1,7 +1,7 @@
 // Séparateur générique entre deux panneaux : on le glisse (ou on presse les
 // flèches, Début, Fin) pour régler la taille d'un panneau, on le double-clique
-// pour revenir à sa taille par défaut. ColumnDivider, CodeDivider et BandDivider
-// le règlent. Il annonce aria-valuenow, -min et -max en px du panneau réglé.
+// pour revenir à sa taille par défaut. ColumnDivider et BandDivider le
+// règlent. Il annonce aria-valuenow, -min et -max en px du panneau réglé.
 //
 // Glisser fait à la main (événements de pointeur) : dans l'app Tauri, la webview
 // réserve le glisser-déposer HTML5 au dépôt de fichiers.

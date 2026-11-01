@@ -14,8 +14,12 @@ const page = (preview) => `<!doctype html><style>${css}</style>
 <div style="height:600px;width:800px;display:flex;flex-direction:column">
   <section class="widget-tab" data-code="folded">
     <section class="widget-tab-preview">${preview}</section>
-    <div class="widget-tab-side"><ul class="widget-tab-diagnostics"></ul></div>
-    <div class="widget-tab-code" inert></div>
+    <div class="widget-tab-panel">
+      <div class="widget-tab-tabs" role="tablist"><button role="tab" class="widget-tab-tab" aria-selected="true">Paramètres</button></div>
+      <div class="widget-tab-side" role="tabpanel"></div>
+      <div class="widget-tab-code" inert></div>
+      <ul class="widget-tab-diagnostics"></ul>
+    </div>
   </section>
 </div>`;
 const scene = `<div class="stage-wrap stage-preview" dir="ltr"><div class="stage-frame"><div class="stage">${img}</div></div></div>`;
@@ -68,7 +72,7 @@ const fitScene = () => {
     }, c.sheet);
     const { ext, i, box, side } = r;
     const n = c.name;
-    // Code masqué : l'aperçu est au centre de sa rangée.
+    // The preview is centred in its row.
     const dx = (i.left + i.right) / 2 - (side.left + side.right) / 2;
     const dy = (i.top + i.bottom) / 2 - (side.top + side.bottom) / 2;
     assert.ok(Math.abs(dx) <= 1, `${n} : aperçu décentré horizontalement de ${dx}px`);

@@ -10,6 +10,7 @@ import { IconButton, IconToggle } from "./primitives";
 import type { KeptUi } from "./useKeptUi";
 import type { PackItem } from "./usePackItem";
 import WidgetTools from "./WidgetTools";
+import { COMMON } from "./widgetList";
 
 /** Ce que la barre d'outils montre et ce qu'elle déclenche. */
 interface Props {
@@ -118,12 +119,11 @@ export function ToolsTray({
           {mainMenu}
           <span className="tools-sep" aria-hidden />
           <WidgetTools
-            selected={item.selected !== null}
+            editor={item.selected !== null && (keptUi.code || item.selected === COMMON)}
             history={item.history}
             onUndo={item.undo}
             onRedo={item.redo}
             session={sessionHistory}
-            options={keptUi}
           />
         </>
       ) : (

@@ -1,6 +1,6 @@
-/** The sheet area of a pack tab: the selected item's view, alone, or nothing when none is. */
+/** The sheet area of a pack tab: the item strip, then the selected item's view, if any. */
 import type { ReactNode } from "react";
-import type { PreviewSpan, Snapshot, TabApi } from "./api";
+import type { PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./api";
 import type { PackItem } from "./usePackItem";
 import WidgetTab from "./WidgetTab";
 
@@ -14,23 +14,26 @@ interface Props {
   look: string;
   /** The preview slot of an element widget, shared by every item. */
   span: PreviewSpan;
-  /** Source code shown, shared by every item. */
+  /** The item strip (`PackPile`), above the view. */
+  strip: ReactNode;
+  /** The Code tab is open, shared by every item. */
   code: boolean;
-  /** The code width chosen at the divider, shared by every item; `null`: the default share. */
-  codeWidth: number | null;
-  onCodeWidth: (width: number | null) => void;
-  /** The host's settings of the selected item, under its preview. */
+  onCode: (code: boolean) => void;
+  /** The host's settings of the selected item, in its Settings tab. */
   settings?: ReactNode;
   /** Example value writes: refusals toasted, snapshot updated. */
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   /** Swatch colours in a field's editor (the theme's chart palette). */
   palette: string[];
+  /** Each preview of the selected item, with its name. */
+  onPreview?: (name: string, preview: WidgetPreview) => void;
 }
 
-/** One `WidgetTab`, mounted again for each item selected (its pending write settled first). */
-export default function WidgetPane({ api, item, trials, look, span, code, codeWidth, onCodeWidth, settings = null, run, palette }: Props) {
+/** The strip, then one `WidgetTab`, mounted again for each item selected (its pending write settled first). */
+export default function WidgetPane({ api, item, trials, look, span, strip, code, onCode, settings = null, run, palette, onPreview }: Props) {
   return (
     <div className="widget-pane">
+      <div className="slide-strip pack-strip">{strip}</div>
       {item.selected !== null && (
         <WidgetTab
           key={item.selected}
@@ -42,11 +45,11 @@ export default function WidgetPane({ api, item, trials, look, span, code, codeWi
           look={look}
           span={span}
           code={code}
-          codeWidth={codeWidth}
-          onCodeWidth={onCodeWidth}
+          onCode={onCode}
           settings={settings}
           run={run}
           palette={palette}
+          onPreview={onPreview}
           onOpen={item.select}
           onCommands={item.onCommands}
           onHistory={item.onHistory}

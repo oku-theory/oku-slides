@@ -231,7 +231,7 @@ test("real editor hooks: the guard waits for the typed write and sends it once",
       await item.files.settle();
       await autosave.flush();
     });
-    return createElement(WidgetPane, { api, item, trials: 0, look: "", code: false, codeWidth: null, onCodeWidth: () => {}, run, palette: [] });
+    return createElement(WidgetPane, { api, item, trials: 0, look: "", code: false, onCode: () => {}, strip: null, run, palette: [] });
   }
   const host = document.createElement("div");
   document.body.append(host);

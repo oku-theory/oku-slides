@@ -1,4 +1,4 @@
-// Rendu de la colonne de gauche du mode pack (miniatures et widgets) dans un DOM happy-dom.
+// The left column of a theme tab (its foldable thumbnails), rendered in a happy-dom DOM.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -18,7 +18,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-async function mount(withSlides = true) {
+async function mount() {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -29,8 +29,7 @@ async function mount(withSlides = true) {
       title: "Layouts",
       open,
       onToggle: () => setOpen((o) => !o),
-      slides: withSlides ? createElement("nav", { id: "slides" }) : null,
-      widgets: createElement("section", { id: "widgets" }),
+      slides: createElement("nav", { id: "slides" }),
     });
   };
   await act(async () => root.render(createElement(Probe)));
@@ -45,21 +44,9 @@ describe("PileColumn", () => {
     expect(host.querySelector(".pile-thumbs .pile-section-body #slides")).not.toBeNull();
   });
 
-  test("PileColumn les widgets suivent la section des miniatures", async () => {
-    const host = await mount();
-    const thumbs = host.querySelector(".pile-thumbs") as Element;
-    expect(thumbs.nextElementSibling?.id).toBe("widgets");
-  });
-
-  test("PileColumn replier les miniatures garde les widgets", async () => {
+  test("PileColumn folding the thumbnails hides them", async () => {
     const host = await mount();
     await fold(host);
     expect(host.querySelector("#slides")).toBeNull();
-    expect(host.querySelector("#widgets")).not.toBeNull();
-  });
-
-  test("PileColumn of a widget pack shows the widgets without a thumbnail section", async () => {
-    const host = await mount(false);
-    expect([host.querySelector(".pile-thumbs"), !!host.querySelector(".pile-column > #widgets")]).toEqual([null, true]);
   });
 });

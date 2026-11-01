@@ -41,20 +41,15 @@ fn sanitized_outside_pack_keeps_folded_sections() {
     assert_that!(ui.sanitized(false).folded).is_equal_to(vec![PileSection::Layouts]);
 }
 
-#[test]
-fn ui_state_default_has_the_code_at_its_default_width() {
-    assert_that!(UiState::default().code_width).is_none();
-}
-
-/// Couche serde : un `UiState` écrit avant t-526 (planche, place et hauteur du code) se relit,
-/// ces champs ignorés ; la largeur du code est gardée (la couche fichier : `resume_tests`).
+/// Serde layer: a `UiState` written before t-526 (board, code place and height) or t-1419
+/// (code width) reads back, those fields ignored (the file layer: `resume_tests`).
 #[test]
 fn ui_state_with_the_removed_board_and_code_place_still_reads() {
     let ui: UiState = serde_json::from_str(
         r#"{"slide":null,"code":true,"board":true,"code_place":"right","code_height":300,"code_width":640}"#,
     )
     .unwrap();
-    assert_that!(ui).is_equal_to(UiState { code: true, code_width: Some(640), ..UiState::default() });
+    assert_that!(ui).is_equal_to(UiState { code: true, ..UiState::default() });
 }
 
 /// Serde layer: a `UiState` written before t-541 (each widget's current example case)

@@ -151,9 +151,9 @@ const backToOpener = (p, tab, why) =>
   await p.reload();
   await packTabShown(p);
   await selectPackItem(p, 'garde');
-  // The item's code shows on demand (its state is kept by the host).
+  // The item's code shows in its tab (the open tab is kept by the host).
   await p.waitForSelector('.widget-tab .widget-tab-preview');
-  if ((await p.locator('.widget-tab[data-code="shown"]').count()) === 0) await p.getByRole('button', { name: 'Code source' }).click();
+  if ((await p.locator('.widget-tab[data-code="shown"]').count()) === 0) await p.getByRole('tab', { name: 'Code source' }).click();
   const editor = p.locator('.widget-tab .cm-content');
   await editor.click();
   await p.keyboard.press('ControlOrMeta+End');

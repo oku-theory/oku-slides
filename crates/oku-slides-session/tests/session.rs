@@ -305,7 +305,7 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "preview_span": "full", "folded": []}));
+        .is_equal_to(json!({"slide": "s-1", "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "preview_span": "full", "folded": []}));
 }
 
 #[test]
@@ -322,14 +322,6 @@ fn ui_request_with_code_shown_keeps_it_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": null, "code": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]["code"]).is_equal_to(json!(true));
-}
-
-/// La largeur du code des widgets est gardée.
-#[test]
-fn ui_request_with_code_width_keeps_it_in_snapshot() {
-    let mut s = session();
-    s.handle(req(json!({"cmd": "ui", "slide": null, "code_width": 640}))).unwrap();
-    assert_that!(snapshot_json(&mut s)["ui"]["code_width"]).is_equal_to(json!(640));
 }
 
 /// The pile's folded sections are kept.
@@ -359,7 +351,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "code_width": null, "preview_span": "full", "folded": []}));
+        .is_equal_to(json!({"slide": null, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "preview_span": "full", "folded": []}));
 }
 
 #[test]
@@ -368,7 +360,7 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_ghosts_and_columns() {
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true, "pile": 200, "notes": 520}))).unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "code_width": null, "preview_span": "full", "folded": []}),
+        json!({"slide": null, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "preview_span": "full", "folded": []}),
     );
 }
 

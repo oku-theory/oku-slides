@@ -25,7 +25,7 @@ type Item = Pick<UiState, "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", ghosts: true, pile: 200, notes: null, widget: null, code: true,
-  code_width: 640, folded: ["layouts"], preview_span: "third" };
+  folded: ["layouts"], preview_span: "third" };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
@@ -115,7 +115,7 @@ test("useKeptUi setColumns saves the new widths with the rest of the state", asy
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", ghosts: true, pile: null, notes: 540, widget: null, code: true,
-    code_width: 640, folded: ["layouts"], preview_span: "third" });
+    folded: ["layouts"], preview_span: "third" });
 });
 
 test("useKeptUi premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -127,23 +127,6 @@ test("useKeptUi setCode sauve le code replié avec le reste", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setCode(false); });
   expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: false });
-});
-
-test("useKeptUi premier snapshot reprend la largeur du code gardée par l'hôte", async () => {
-  const { out } = await mount();
-  expect(out.hook!.codeWidth).toBe(640);
-});
-
-test("useKeptUi setCodeWidth sauve la largeur du code avec le reste", async () => {
-  const { out } = await mount();
-  await act(async () => { out.hook!.setCodeWidth(320); });
-  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", code: true, code_width: 320 });
-});
-
-test("useKeptUi setCodeWidth(null) sauve la proportion par défaut", async () => {
-  const { out } = await mount();
-  await act(async () => { out.hook!.setCodeWidth(null); });
-  expect([out.hook!.codeWidth, out.kept.at(-1)?.code_width]).toEqual([null, null]);
 });
 
 test("useKeptUi premier snapshot reprend les sections repliées gardées par l'hôte", async () => {
@@ -211,9 +194,9 @@ test("useKeptUi envoie deux changements rapprochés sans attendre la réponse au
   const { answer } = held();
   const { out } = await mount(kept, answer);
   await act(async () => { out.hook!.setCode(false); });
-  await act(async () => { out.hook!.setCodeWidth(320); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 320 }); });
   expect(out.kept.length).toBe(3);
-  expect(out.kept.at(-1)).toMatchObject({ code: false, code_width: 320 });
+  expect(out.kept.at(-1)).toMatchObject({ code: false, notes: 320 });
   const [a, b, c] = out.orders;
   expect([b.page, c.page]).toEqual([a.page, a.page]);
   expect(a.seq < b.seq && b.seq < c.seq).toBe(true);
@@ -224,10 +207,10 @@ test("useKeptUi envoie deux changements rapprochés sans attendre la réponse au
 test("useKeptUi donne à la dernière largeur le plus grand numéro", async () => {
   const { answer } = held();
   const { out } = await mount(kept, answer);
-  await act(async () => { out.hook!.setCodeWidth(320); });
-  await act(async () => { out.hook!.setCodeWidth(480); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 320 }); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 480 }); });
   const last = out.orders.reduce((a, b) => (b.seq > a.seq ? b : a));
-  expect(out.kept[out.orders.indexOf(last)]).toMatchObject({ code_width: 480 });
+  expect(out.kept[out.orders.indexOf(last)]).toMatchObject({ notes: 480 });
 });
 
 // Le compteur est celui du module : il survit au remontage d'`App` d'un onglet à l'autre.
@@ -246,9 +229,9 @@ test("useKeptUi continue la numérotation après un remontage", async () => {
 test("useKeptUi après une sauvegarde refusée envoie encore la suivante", async () => {
   const { answer, settle } = held();
   const { out } = await mount(kept, answer);
-  await act(async () => { out.hook!.setCodeWidth(320); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 320 }); });
   await settle(0, false);
-  expect(out.kept.at(-1)).toMatchObject({ code_width: 320 });
+  expect(out.kept.at(-1)).toMatchObject({ notes: 320 });
 });
 
 // Une sauvegarde perdue (requête échouée) laissait à l'hôte l'ancien état jusqu'au changement suivant (t-749).
@@ -269,19 +252,19 @@ test("useKeptUi ne renvoie pas une sauvegarde refusée si une plus récente est 
   const { answer, settle } = held();
   const timers = manualTimers();
   const { out } = await mount(kept, answer, timers);
-  await act(async () => { out.hook!.setCodeWidth(320); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 320 }); });
   await settle(1, false);
-  await act(async () => { out.hook!.setCodeWidth(480); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 480 }); });
   await act(async () => timers.run());
   expect(out.kept.length).toBe(3);
-  expect(out.kept.at(-1)).toMatchObject({ code_width: 480 });
+  expect(out.kept.at(-1)).toMatchObject({ notes: 480 });
 });
 
 test("useKeptUi ne renvoie qu'une fois une sauvegarde dont le renvoi échoue aussi", async () => {
   const { answer, settle } = held();
   const timers = manualTimers();
   const { out } = await mount(kept, answer, timers);
-  await act(async () => { out.hook!.setCodeWidth(320); });
+  await act(async () => { out.hook!.setColumns({ pile: null, notes: 320 }); });
   await settle(1, false);
   await act(async () => timers.run());
   expect(out.kept.length).toBe(3);
