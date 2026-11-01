@@ -39,6 +39,7 @@ fn guard_memory_grace_restarts_after_a_rest() {
     assert_that!(guard.check(&Sample { rss: Some(1_001), ..busy(t0 + MEMORY_GRACE) })).is_none();
 }
 
+#[cfg(unix)]
 #[rstest::rstest]
 #[case(500, 500, false)]
 #[case(500, 1, true)]
@@ -132,4 +133,57 @@ fn watch_returns_the_reason_once_a_sample_is_over() {
     });
     assert_that!(tick).is_equal_to(3);
     assert_that!(reason.as_str()).contains("request");
+}
+
+#[cfg(not(unix))]
+mod identity {
+    use std::process::{Command, Stdio};
+
+    use speculoos::prelude::*;
+
+    use super::super::ProcessIdentity;
+
+    /// A child that runs until killed.
+    fn long_child() -> std::process::Child {
+        Command::new("ping")
+            .args(["-n", "120", "127.0.0.1"])
+            .stdout(Stdio::null())
+            .spawn()
+            .expect("ping starts")
+    }
+
+    #[test]
+    fn process_identity_of_a_running_child_is_alive() {
+        let mut child = long_child();
+        let identity = ProcessIdentity::read(child.id());
+        let _ = child.kill();
+        let _ = child.wait();
+        assert_that!(identity.map(ProcessIdentity::alive)).is_equal_to(Some(true));
+    }
+
+    #[test]
+    fn process_identity_of_a_killed_child_is_not_alive() {
+        let mut child = long_child();
+        let identity = ProcessIdentity::read(child.id()).expect("the child runs");
+        child.kill().expect("the child is killed");
+        child.wait().expect("the child is reaped");
+        // `child` is dropped with its handle: only then may Windows free the pid.
+        drop(child);
+        assert_that!(identity.alive()).is_false();
+    }
+
+    #[test]
+    fn process_identity_of_a_reused_pid_is_not_alive() {
+        // The pid answers, but with another start time: another process holds it.
+        let me = ProcessIdentity::read(std::process::id()).expect("this process runs");
+        let earlier = ProcessIdentity { start_time: me.start_time + 1, ..me };
+        assert_that!(earlier.alive()).is_false();
+    }
+
+    #[test]
+    fn process_identity_parent_of_this_process_is_alive() {
+        let parent = ProcessIdentity::parent_of(std::process::id());
+        assert_that!(parent.map(ProcessIdentity::alive)).is_equal_to(Some(true));
+    }
+
 }
