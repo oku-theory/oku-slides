@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, tema{ $dirty ->
 }
 ui-tab-theme = Tema
 ui-preview-theme = Tema de pré-visualização
+ui-preview-label = Pré-visualização:
+ui-preview-span = Espaço da pré-visualização
+ui-preview-span-full = Largura total
+ui-preview-span-half = Metade
+ui-preview-span-third = Terço
 ui-tab-move-new-window = Mover para uma nova janela
 ui-tab-move-to = Mover para a janela { $n }
 ui-tab-close-others = Fechar as outras abas

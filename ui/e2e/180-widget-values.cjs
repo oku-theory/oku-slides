@@ -22,8 +22,9 @@ const TAB = '.widget-tab';
   // The item is selected once created (newPackItem waits for its thumbnail, current).
   await newPackItem(p, 'fiche');
 
-  // Le réglage du titre sous l'aperçu (libellé : le nom du paramètre), relu jusqu'à ce que `ok` le prenne :
-  // la surface des réglages est reconstruite à chaque relecture.
+  // The title setting beside the preview, read until `ok` accepts it. Its label is the param name: a
+  // new item's skeleton declares no `label:`, and Fluent labels exist only for built-in widgets.
+  // The settings surface is rebuilt on every read.
   const title = p.locator(`${TAB} .host-settings`).getByRole('textbox', { name: 'title', exact: true });
   const titleUntil = (ok, what) => untilValue(
     p,

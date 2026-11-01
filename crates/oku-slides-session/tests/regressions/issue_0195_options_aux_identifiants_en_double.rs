@@ -25,6 +25,7 @@ fn select(options: Vec<ChoiceOption>) -> ShowParams {
         options,
         columns: Vec::new(),
         item_label: None,
+        help: None,
     };
     ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] }
 }

@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, thema{ $dirty ->
 }
 ui-tab-theme = Thema
 ui-preview-theme = Voorbeeldthema
+ui-preview-label = Voorbeeld:
+ui-preview-span = Voorbeeldvak
+ui-preview-span-full = Volledige breedte
+ui-preview-span-half = Half
+ui-preview-span-third = Derde
 ui-tab-move-new-window = Naar nieuw venster verplaatsen
 ui-tab-move-to = Naar venster { $n } verplaatsen
 ui-tab-close-others = Andere tabbladen sluiten

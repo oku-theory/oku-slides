@@ -95,6 +95,7 @@ mod panel;
 mod param_fields;
 mod present;
 mod preview_crop;
+mod preview_span;
 mod preview_theme;
 mod probed_widgets;
 mod render_fonts;
@@ -161,6 +162,7 @@ pub use merge::{Saved, deck_path};
 pub use pack::{BASE_PACK, ESSENTIEL_PACK, PackInfo, PackManifest, PackScope, Relation};
 use pack_scratch::PackScratch;
 pub use present::PresentRefusal;
+pub use preview_span::PreviewSpan;
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
@@ -877,7 +879,7 @@ impl Session {
                 Some(Target::element(b, &l.element.kind, l.is_free()))
             })
             .collect();
-        let fields = fields::field_views(deck, slide, &self.registry, layout.fields_on(page));
+        let fields = fields::field_views(deck, slide, &self.registry, layout.fields_on(page), self.localizer.locale());
         Ok(SlideView {
             slide,
             page,

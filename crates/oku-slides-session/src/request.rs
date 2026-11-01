@@ -13,7 +13,7 @@ use oku_slides_core::{Namespace, Op, PackKind};
 use crate::error::{EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
 use crate::theme_extends::ExtendsEdit;
 use crate::views::UiState;
-use crate::{Mode, PreviewFormat, Result, Session};
+use crate::{Mode, PreviewFormat, PreviewSpan, Result, Session};
 
 /// Widget to show data under: chart or table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -345,6 +345,9 @@ pub enum Request {
         /// Values that replace the example ones, by parameter.
         #[serde(default)]
         params: serde_json::Map<String, serde_json::Value>,
+        /// The element's share of the grid; full by default.
+        #[serde(default)]
+        span: PreviewSpan,
     },
     /// Règle une valeur d'exemple du widget `name` ; `null` ou la valeur neutre
     /// l'effacent, un texte vidé reste vide (mode pack, dans le pack).
@@ -518,8 +521,8 @@ impl Session {
             }
             // `apply` (adoption par le deck) écrit son état de reprise.
             Request::EditTheme { id, name, ops } => return json(&self.edit_theme(id, name, ops)?),
-            Request::PreviewWidget { pack, name, params } => {
-                return json(&self.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Svg)?);
+            Request::PreviewWidget { pack, name, params, span } => {
+                return json(&self.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Svg, span)?);
             }
             Request::DeletePack { pack } => return json(&self.delete_pack(pack)?),
             Request::Save { path, overwrite } => {

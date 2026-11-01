@@ -1,13 +1,13 @@
 /**
- * A pack tab's pile: the shared file first when it exists, one thumbnail per item, then the
- * add button with its name field.
+ * A pack tab's pile: the shared file first when it exists, one row per item in a widget pack
+ * (one thumbnail per layout), then the add button with its name field.
  *
  * F2 or a double-click renames an item; its trash button, Delete or Backspace delete it after
  * the shared confirmation (`confirm`, a `ConfirmDialog`); a drag or Alt+Up and Alt+Down move
  * it (Cmd+D stays the window's dictation shortcut). Its context menu offers rename, duplicate and delete (the
  * shared file: delete only). After a duplicate the copy gets the focus, after a move the moved
  * item keeps it. After a delete, the focus goes to the
- * neighbour thumbnail, else the shared row, else the add button. Thumbnails stay `<img>` (via
+ * neighbour item, else the shared row, else the add button. Layout thumbnails stay `<img>` (via
  * `SlidePile`); no id or selector is built from an item name.
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
@@ -196,6 +196,7 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
         slides={items.map((i) => i.slide)}
         current={selected === null ? null : itemSlide(kind, selected)}
         svg={svg}
+        variant={kind === "widgets" ? "rows" : "thumbs"}
         names={Object.fromEntries(items.map((i) => [i.slide.id, i.name]))}
         label={t(kind === "layouts" ? "ui-pile-layouts" : "ui-widget-picker-list")}
         addLabel={t(kind === "layouts" ? "ui-layouts-new" : "ui-widgets-new")}

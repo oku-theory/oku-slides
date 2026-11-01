@@ -72,6 +72,7 @@ fn kind_info(kind: &ComponentKind) -> (&'static str, Group) {
         K::Slider { .. } => ("Slider", Field),
         K::ColorField { .. } => ("ColorField", Field),
         K::Select { .. } => ("Select", Field),
+        K::Switch { .. } => ("Switch", Field),
         K::ListTable { .. } => ("ListTable", Field),
         K::SlideThumb { .. } => ("SlideThumb", HostOnly),
         K::ThemeChoice { .. } => ("ThemeChoice", HostOnly),

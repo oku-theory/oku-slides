@@ -43,9 +43,9 @@ fn set_example_values_stores_a_plain_value() {
 }
 
 #[test]
-fn set_example_values_reads_a_flag_option_as_a_boolean() {
+fn set_example_values_stores_a_flag_switch_as_a_boolean() {
     let (_d, mut s) = pack();
-    s.set_example_values("tout", values(json!({ "on": "true" }))).unwrap();
+    s.set_example_values("tout", values(json!({ "on": true }))).unwrap();
     assert_that!(stored(&s, "on")).is_equal_to(Some(json!(true)));
 }
 
@@ -79,7 +79,7 @@ fn set_example_values_stores_rich_paragraphs_as_the_preview_stage_writes_them() 
 
 #[rstest]
 #[case::number_as_integer("count", json!(5), json!(1))]
-#[case::flag_as_text("on", json!("true"), json!("false"))]
+#[case::flag("on", json!(true), json!(false))]
 #[case::choice("tone", json!("froid"), json!("chaud"))]
 #[case::null("title", json!("x"), Value::Null)]
 fn set_example_values_preview_or_null_value_erases(#[case] param: &str, #[case] set: Value, #[case] reset: Value) {
@@ -220,7 +220,7 @@ fn widget_settings_keys_follow_the_schema_order() {
 #[case::bounded_number(2, crate::agent::FieldKind::Slider)]
 #[case::open_number(3, crate::agent::FieldKind::Text)]
 #[case::choice(4, crate::agent::FieldKind::Select)]
-#[case::flag(5, crate::agent::FieldKind::Select)]
+#[case::flag(5, crate::agent::FieldKind::Switch)]
 fn widget_settings_field_kind_matches_the_param_type(#[case] i: usize, #[case] kind: crate::agent::FieldKind) {
     let (_d, s) = pack();
     assert_that!(settings(&s, "tout").spec.fields.get(i).map(|f| f.kind)).is_equal_to(Some(kind));
@@ -242,8 +242,8 @@ fn widget_settings_value_is_the_preview_value() {
 #[test]
 fn widget_settings_value_shows_the_example_value() {
     let (_d, mut s) = pack();
-    s.set_example_values("tout", values(json!({ "on": "true" }))).unwrap();
-    assert_that!(settings(&s, "tout").spec.fields[5].value.clone()).is_equal_to(json!("true"));
+    s.set_example_values("tout", values(json!({ "on": true }))).unwrap();
+    assert_that!(settings(&s, "tout").spec.fields[5].value.clone()).is_equal_to(json!(true));
 }
 
 #[test]
@@ -272,12 +272,13 @@ fn bounded(min: f64, max: f64) -> crate::agent::ParamField {
     let p = oku_slides_core::ParamSchema {
         name: "n".into(),
         label: None,
+        help: None,
         ty: oku_slides_core::ParamType::Number { min: Some(min), max: Some(max) },
         default: None,
         bind: None,
     };
     let shown = oku_slides_core::ParamValue::Value(json!(min));
-    super::field(&p, Some(&shown), &oku_slides_i18n::Localizer::new(Some("fr"))).unwrap()
+    super::field("acme/card", &p, Some(&shown), &oku_slides_i18n::Localizer::new(Some("fr"))).unwrap()
 }
 
 #[rstest]
@@ -473,4 +474,14 @@ fn widget_preview_params_of_a_list_are_its_default_items() {
     let items = params.list("etapes").unwrap();
     assert_that!(items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>()).is_equal_to(DEFAULT_IDS.to_vec());
     assert_that!(items[1].values.text("texte")).is_equal_to(Some("Premier client"));
+}
+
+#[test]
+fn widget_settings_title_of_a_builtin_widget_uses_its_shown_name() {
+    let (_d, s) = pack();
+    let l = oku_slides_i18n::Localizer::new(Some("fr"));
+    let shown = l.tr("session-widget-kind-base-card");
+    let title = settings(&s, "card").spec.title;
+    assert_that!(title.as_str()).contains(shown.as_str());
+    assert_that!(title.as_str()).does_not_contain("card");
 }

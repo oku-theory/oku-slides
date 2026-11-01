@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, tema{ $dirty ->
 }
 ui-tab-theme = Tema
 ui-preview-theme = Önizleme teması
+ui-preview-label = Önizleme:
+ui-preview-span = Önizleme alanı
+ui-preview-span-full = Tam genişlik
+ui-preview-span-half = Yarım
+ui-preview-span-third = Üçte bir
 ui-tab-move-new-window = Yeni pencereye taşı
 ui-tab-move-to = { $n }. pencereye taşı
 ui-tab-close-others = Diğer sekmeleri kapat

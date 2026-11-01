@@ -291,6 +291,11 @@ ui-tab-kind-theme = { $title }, ธีม{ $dirty ->
 }
 ui-tab-theme = ธีม
 ui-preview-theme = ธีมตัวอย่าง
+ui-preview-label = ตัวอย่าง:
+ui-preview-span = ช่องตัวอย่าง
+ui-preview-span-full = เต็มความกว้าง
+ui-preview-span-half = ครึ่งหนึ่ง
+ui-preview-span-third = หนึ่งในสาม
 ui-tab-move-new-window = ย้ายไปหน้าต่างใหม่
 ui-tab-move-to = ย้ายไปหน้าต่าง { $n }
 ui-tab-close-others = ปิดแท็บอื่น

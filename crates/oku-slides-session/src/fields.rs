@@ -123,6 +123,7 @@ pub(crate) fn field_views<'a>(
     slide: &'a Slide,
     registry: &'a WidgetRegistry,
     boxes: &'a [FieldBox],
+    locale: &str,
 ) -> Vec<FieldView<'a>> {
     let views: Vec<FieldView<'a>> = slide
         .text_fields(registry)
@@ -144,7 +145,7 @@ pub(crate) fn field_views<'a>(
                 item: tf.list.map(|(_, i)| i.id.as_str()),
                 column: tf.param.name.as_str(),
                 kind: if rich { FieldKind::Rich } else { FieldKind::Plain },
-                label: tf.param.label.as_deref(),
+                label: tf.param.label.as_ref().and_then(|t| t.pick(locale)),
                 text: field_text(deck, &tf),
                 empty: b.empty,
                 bound: tf.param.bind.is_some() && tf.list.is_none(),

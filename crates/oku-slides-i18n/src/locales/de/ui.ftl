@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, Design{ $dirty ->
 }
 ui-tab-theme = Design
 ui-preview-theme = Vorschau-Thema
+ui-preview-label = Vorschau:
+ui-preview-span = Vorschau-Feld
+ui-preview-span-full = Volle Breite
+ui-preview-span-half = Halb
+ui-preview-span-third = Drittel
 ui-tab-move-new-window = In neues Fenster verschieben
 ui-tab-move-to = In Fenster { $n } verschieben
 ui-tab-close-others = Andere Tabs schließen

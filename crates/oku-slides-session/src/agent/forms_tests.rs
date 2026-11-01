@@ -151,6 +151,18 @@ fn params_with_notes_shows_them() {
 }
 
 #[test]
+fn params_with_field_help_adds_a_caption_after_the_field() {
+    let spec: ShowParams = serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [
+        { "label": "Surtitre", "kind": "text", "value": "x", "op_template": null, "help": "Au-dessus du titre" }
+    ] }))
+    .unwrap();
+    let extras = FormExtras { keys: &[], notes: &[], closable: false };
+    let json = serde_json::to_string(&params_with("host-widget", &spec, &extras, &[], &fr()).messages).unwrap();
+    assert_that!(json.as_str()).contains("\"children\":[\"title\",\"f0\",\"f0-help\"]");
+    assert_that!(json.as_str()).contains("Au-dessus du titre");
+}
+
+#[test]
 fn params_with_not_closable_has_no_close_button() {
     let extras = FormExtras { keys: &[], notes: &[], closable: false };
     let json = serde_json::to_string(&params_with("host-widget", &host_spec(), &extras, &[], &fr()).messages).unwrap();
@@ -370,6 +382,7 @@ fn every_form() -> Vec<super::Surface> {
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     };
     let show = ShowParams {
         title: "Réglages".into(),

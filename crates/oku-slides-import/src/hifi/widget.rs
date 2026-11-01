@@ -195,7 +195,7 @@ fn placeholder_params(layout: &Layout) -> Vec<PlaceholderParam> {
 
 /// Un paramètre déclaré sans libellé ni lien.
 fn param(name: &str, ty: ParamType, default: Option<serde_json::Value>) -> ParamSchema {
-    ParamSchema { name: name.to_owned(), label: None, ty, default, bind: None }
+    ParamSchema { name: name.to_owned(), label: None, help: None, ty, default, bind: None }
 }
 
 /// Le schéma du widget `name` (libellé `label`) aux paramètres de

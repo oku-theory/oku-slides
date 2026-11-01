@@ -557,3 +557,30 @@ describe("composants du fil (v3)", () => {
     }
   });
 });
+
+describe("Switch", () => {
+  const sw = { component: "Switch", label: "Highlight", value: { path: "/on" }, action: { event: { name: "param", context: { value: { path: "/on" } } } } };
+
+  test("Switch shows a checkbox switch named by its label, checked from the model", async () => {
+    const { host } = await mount(sw, { on: true });
+    const input = host.querySelector<HTMLInputElement>('input[role="switch"]');
+    expect(input?.checked).toBe(true);
+    expect(input?.closest("label")?.textContent).toContain("Highlight");
+  });
+
+  test("Switch draws the app's toggle, on while checked", async () => {
+    const { host } = await mount(sw, { on: true });
+    const toggle = host.querySelector('input[role="switch"]')?.closest("label");
+    expect(toggle?.classList.contains("toggle")).toBe(true);
+    expect(toggle?.classList.contains("on")).toBe(true);
+    expect(toggle?.querySelector(".toggle-track > .toggle-thumb")).not.toBeNull();
+    await click(host.querySelector('input[role="switch"]') as HTMLInputElement);
+    expect(toggle?.classList.contains("on")).toBe(false);
+  });
+
+  test("Switch click writes false and sends its action", async () => {
+    const { host, actions } = await mount(sw, { on: true });
+    await click(host.querySelector('input[role="switch"]') as HTMLInputElement);
+    expect(actions.at(-1)?.context?.value).toBe(false);
+  });
+});

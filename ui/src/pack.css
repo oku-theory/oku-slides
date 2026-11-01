@@ -12,25 +12,28 @@
 .cm-diag-point { display: inline-block; width: 1ch; border-bottom: 2px dotted var(--danger); vertical-align: text-bottom; }
 .cm-diag-marker { color: var(--danger); cursor: help; }
 
-/* En zones nommées : l'aperçu en haut sur toute la largeur ; dessous, réglages, séparateur, code.
-   Code replié : sans séparateur, sa piste reste vide et les réglages prennent la rangée, à leur
-   hauteur (au plus 40 %, puis ils défilent) ; l'aperçu garde le reste.
-   Les pistes repliées à `0px` supposent `.widget-tab-code` sans padding ni bordure :
-   sinon il déborderait de sa piste nulle. */
+/* Named areas. Code hidden: the preview on the left, full height; the form on its right at 300px.
+   Code shown: the preview over the form on the left, the code on the right at the divider's width
+   (--code-w, set by WidgetTab); the left column keeps SIDE_MIN (240px) and the divider SPLIT (12px),
+   as codeSplit.ts. Hidden, the code has no track: see the absolute rule below. */
 .widget-tab {
-  display: grid; grid-template-areas: "preview preview preview" "side split code";
-  grid-template-rows: minmax(0, 1fr) fit-content(40%);
-  grid-template-columns: minmax(0, 1fr) 0px 0px; height: 100%; min-height: 0;
+  position: relative; display: grid; grid-template-areas: "preview split side";
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 12px 300px; height: 100%; min-height: 0;
 }
 .widget-tab-preview { grid-area: preview; }
 .widget-tab-side { grid-area: side; }
 .widget-tab-code { grid-area: code; }
-/* Code déplié : la rangée du bas prend la moitié de la hauteur ; moitié / moitié en largeur,
-   sauf largeur réglée (--code-w, posée par WidgetTab) ; les réglages gardent SIDE_MIN (240px)
-   et le séparateur SPLIT (12px), comme codeSplit.ts. */
+/* Hidden, the code has no area: out of the grid flow so it makes no implicit track, still mounted. */
+.widget-tab:not([data-code="shown"]) > .widget-tab-code { position: absolute; width: 0; height: 0; overflow: hidden; }
 .widget-tab[data-code="shown"] {
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "preview split code" "side split code";
+  grid-template-rows: minmax(0, 1fr) fit-content(40%);
   grid-template-columns: minmax(240px, 1fr) 12px var(--code-w, minmax(0, 1fr));
+}
+/* Commun has no form: with the code hidden and no diagnostics, its list takes the side's track too. */
+.widget-tab[data-item="common"]:not([data-code="shown"]):not(:has(.widget-tab-diagnostics:not(:empty))) {
+  grid-template-columns: minmax(0, 1fr) 0 0;
 }
 /* Séparateur entre réglages et code, comme ceux des colonnes : un trait au survol, accentué au glisser. */
 .code-divider { grid-area: split; position: relative; cursor: col-resize; touch-action: none; outline: none; }
@@ -48,7 +51,7 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
   align-items: center; justify-content: safe center;
 }
 .widget-tab-preview > .widget-tab-broken { align-self: stretch; }
-/* Réglages et diagnostics sous l'aperçu : en haut de leur zone, qui défile seule. */
+/* Settings and diagnostics: right of the preview (code hidden) or under it (shown); top-aligned, scrolling alone. */
 .widget-tab-side { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
 /* Le panneau défile, donc rogne : les marges logent l'ombre (étendue de --shadow-sheet-small) ;
    égales en haut et en bas, l'aperçu reste au centre. */
@@ -66,7 +69,7 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .stage-preview .stage { box-shadow: var(--sheet-ring), var(--shadow-sheet-small); }
 /* Un champ lié au deck : en lecture, il le dit au survol. */
 .stage-preview .field.bound { cursor: help; }
-/* Masqué, le code reste monté dans sa piste nulle, invisible. */
+/* Hidden, the code stays mounted, invisible. */
 .widget-tab-code { min-width: 0; min-height: 0; overflow: auto; border-radius: var(--radius-sm); background: var(--paper-200); }
 .widget-tab-code[inert] { visibility: hidden; }
 .widget-tab-broken h3 { margin: 0 0 var(--space-2); font: 500 13px/20px var(--sans); }

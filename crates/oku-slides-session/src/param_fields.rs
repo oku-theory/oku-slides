@@ -9,8 +9,30 @@ use serde_json::{Value, json};
 
 use crate::agent::{FieldKind, ParamField};
 
-pub(crate) fn label(p: &ParamSchema) -> String {
-    p.label.clone().unwrap_or_else(|| p.name.clone())
+/// The shown label of a widget parameter.
+///
+/// For `p`, a parameter of widget `kind`: its schema label in the UI language, else the translated
+/// label of a built-in pack's parameter (`session-widget-param-label-<key>-<param>`), else its name.
+pub(crate) fn param_label(kind: &str, p: &ParamSchema, l: &Localizer) -> String {
+    match p.label.as_ref().and_then(|t| t.pick(l.locale())) {
+        Some(label) => label.to_owned(),
+        None => builtin_param(kind, p, "label", l).unwrap_or_else(|| p.name.clone()),
+    }
+}
+
+/// The help line under a parameter's field.
+///
+/// The schema's help of `p` in the UI language, else a built-in pack's translated one.
+pub(crate) fn param_help(kind: &str, p: &ParamSchema, l: &Localizer) -> Option<String> {
+    match p.help.as_ref().and_then(|t| t.pick(l.locale())) {
+        Some(help) => Some(help.to_owned()),
+        None => builtin_param(kind, p, "help", l),
+    }
+}
+
+/// A built-in pack parameter's translated `what` (`label` or `help`); `None` outside built-in packs.
+fn builtin_param(kind: &str, p: &ParamSchema, what: &str, l: &Localizer) -> Option<String> {
+    kind_key(kind).and_then(|k| l.try_tr(&format!("session-widget-param-{what}-{k}-{}", p.name)))
 }
 
 /// La clé Fluent d'un widget d'un pack intégré (`base`, `essentiel`) : `<pack>-<nom>` ; `None` sinon.
@@ -43,7 +65,7 @@ pub(crate) fn kind_description(kind: &str, description: Option<&LocalizedText>, 
 ///
 /// Un `rich` montré est une liste de paragraphes : `params_with` en fait le markdown.
 /// Une liste montre ses items (ceux d'essai, ou ceux du `default`, ids `d0`…).
-pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<ParamField> {
+pub(crate) fn field(widget: &str, p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) -> Option<ParamField> {
     if !settable(&p.ty) {
         return None;
     }
@@ -53,7 +75,8 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
             None => default_items(p).ok().and_then(|items| serde_json::to_value(items).ok()).unwrap_or(Value::Null),
         };
         return Some(ParamField {
-            label: label(p),
+            label: param_label(widget, p, l),
+            help: param_help(widget, p, l),
             kind: FieldKind::List,
             value: if value.is_array() { value } else { json!([]) },
             op_template: Value::Null,
@@ -61,7 +84,7 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
             max: Some(oku_slides_core::num::count_f64(max.map_or(LIST_ITEMS_MAX, |m| m.min(LIST_ITEMS_MAX)))),
             step: None,
             options: Vec::new(),
-            columns: item.iter().filter_map(column).collect(),
+            columns: item.iter().filter_map(|c| column(widget, c, l)).collect(),
             item_label: item_label.clone(),
         });
     }
@@ -75,25 +98,21 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
         ParamType::Choice { values } => {
             (FieldKind::Select, None, None, None, values.iter().map(|v| option(v, v)).collect())
         }
-        ParamType::Flag => (
-            FieldKind::Select,
-            None,
-            None,
-            None,
-            vec![option("true", &l.tr("session-widget-param-yes")), option("false", &l.tr("session-widget-param-no"))],
-        ),
+        ParamType::Flag => (FieldKind::Switch, None, None, None, Vec::new()),
         // `plain`, et un nombre sans bornes (lu comme un nombre, `checked_value`).
         _ => (FieldKind::Text, None, None, None, Vec::new()),
     };
     let value = match (&p.ty, shown) {
         (ParamType::Number { .. }, Some(ParamValue::Value(v))) if kind == FieldKind::Slider => v.clone(),
         (ParamType::Number { .. }, Some(ParamValue::Value(v))) => json!(v.to_string()),
+        (ParamType::Flag, Some(ParamValue::Value(Value::Bool(b)))) => json!(b),
         (_, Some(ParamValue::Value(Value::Bool(b)))) => json!(b.to_string()),
         (_, Some(v)) => serde_json::to_value(v).unwrap_or(Value::Null),
         (_, None) => Value::Null,
     };
     Some(ParamField {
-        label: label(p),
+        label: param_label(widget, p, l),
+        help: param_help(widget, p, l),
         kind,
         value,
         op_template: Value::Null,
@@ -109,11 +128,11 @@ pub(crate) fn field(p: &ParamSchema, shown: Option<&ParamValue>, l: &Localizer) 
 /// La colonne du tableau d'une liste pour une colonne de son schéma ; `None`
 /// pour un type qu'une colonne n'admet pas (refusé à la validation du schéma).
 /// Une colonne `list` (liste imbriquée) porte ses colonnes, ses bornes et son libellé.
-fn column(c: &ParamSchema) -> Option<ListColumn> {
+fn column(widget: &str, c: &ParamSchema, l: &Localizer) -> Option<ListColumn> {
     if let Some(spec) = ListSpec::of(&c.name, &c.ty) {
         let ParamType::List { item_label, .. } = &c.ty else { return None };
         // Un seul niveau : une colonne `list` d'une liste imbriquée est refusée au schéma.
-        let columns = spec.columns.iter().filter_map(sub_column).collect();
+        let columns = spec.columns.iter().filter_map(|c| sub_column(widget, c, l)).collect();
         let bound = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
         let sub = match SubList::new(columns, bound(spec.min), Some(bound(spec.max_items())), item_label.clone()) {
             Ok(sub) => sub,
@@ -125,20 +144,20 @@ fn column(c: &ParamSchema) -> Option<ListColumn> {
         let list = Some(Box::new(sub));
         return Some(ListColumn {
             key: c.name.clone(),
-            label: label(c),
+            label: param_label(widget, c, l),
             kind: ColumnKind::List,
             options: Vec::new(),
             list,
         });
     }
     let (kind, options) = cell_kind(&c.ty)?;
-    Some(ListColumn { key: c.name.clone(), label: label(c), kind, options, list: None })
+    Some(ListColumn { key: c.name.clone(), label: param_label(widget, c, l), kind, options, list: None })
 }
 
 /// La colonne d'une liste imbriquée ; `None` pour un type qu'elle n'admet pas, `list` compris.
-fn sub_column(c: &ParamSchema) -> Option<SubColumn> {
+fn sub_column(widget: &str, c: &ParamSchema, l: &Localizer) -> Option<SubColumn> {
     let (kind, options) = cell_kind(&c.ty)?;
-    Some(SubColumn { key: c.name.clone(), label: label(c), kind, options })
+    Some(SubColumn { key: c.name.clone(), label: param_label(widget, c, l), kind, options })
 }
 
 /// Saisie et options d'une colonne de type `ty` hors liste ; `None` pour un type non admis.
@@ -178,16 +197,13 @@ pub(crate) fn settable(ty: &ParamType) -> bool {
     !matches!(ty, ParamType::Asset | ParamType::Slot { .. } | ParamType::Grid | ParamType::Host { .. })
 }
 
-/// La valeur saisie, ramenée à celle du schéma : `None` efface la valeur.
+/// Normalizes a form value before it is checked; `None` clears the value.
 ///
-/// `null` ou un texte blanc effacent ; une sélection de `flag` renvoie `"true"`/`"false"` ; un
-/// nombre se saisit en texte (s'il n'en est pas un, le texte reste, refusé plus loin).
+/// `null` or blank text clears it, and a `flag` arrives as a boolean. A number is typed as text; text that is not a number stays, to be refused further on.
 pub(crate) fn coerce(p: &ParamSchema, value: Value) -> Option<Value> {
     Some(match (&p.ty, value) {
         (_, Value::Null) => return None,
         (_, Value::String(s)) if s.trim().is_empty() => return None,
-        // Un champ de sélection renvoie le texte de l'option.
-        (ParamType::Flag, Value::String(s)) if s == "true" || s == "false" => Value::Bool(s == "true"),
         // Un nombre sans bornes se règle dans un champ texte.
         (ParamType::Number { .. }, Value::String(s)) => {
             s.trim().parse::<f64>().ok().and_then(serde_json::Number::from_f64).map_or(Value::String(s), Value::Number)

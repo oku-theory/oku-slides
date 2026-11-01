@@ -160,6 +160,8 @@ pub enum FieldKind {
     Color,
     /// One value among `options`.
     Select,
+    /// On or off: `value` is a boolean.
+    Switch,
     /// Plain text, without formatting.
     Text,
     /// Rich text: paragraphs, shown as editing markdown.
@@ -206,6 +208,10 @@ pub struct ParamField {
     #[serde(default)]
     #[schemars(skip)]
     pub item_label: Option<String>,
+    /// One line of help under the field (host settings).
+    #[serde(default)]
+    #[schemars(skip)]
+    pub help: Option<String>,
 }
 
 /// `show_params`: a surface of settings that apply at once.
@@ -513,7 +519,12 @@ pub(crate) fn params_with(
         let (component, entries) = field_components(&key, f, &FieldEvent { name: "param", context }, palette);
         components.push(component);
         data.extend(entries);
-        body.push(key);
+        body.push(key.clone());
+        if let Some(help) = &f.help {
+            let hid = format!("{key}-help");
+            components.push(Component::text(&hid, help.clone(), Some(TextVariant::Caption)));
+            body.push(hid);
+        }
     }
     for (i, note) in extras.notes.iter().enumerate() {
         let nid = format!("note-{i}");
@@ -578,6 +589,7 @@ pub(crate) fn field_components(
         FieldKind::Select => {
             ComponentKind::Select { label, value: Dynamic::path(&path), options: f.options.clone(), action }
         }
+        FieldKind::Switch => ComponentKind::Switch { label, value: Dynamic::path(&path), action },
         FieldKind::Text => ComponentKind::TextField { label, value: Dynamic::path(&path), action },
         FieldKind::Rich => {
             let source = format!("{path}-source");

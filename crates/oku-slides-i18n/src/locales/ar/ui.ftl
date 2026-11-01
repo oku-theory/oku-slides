@@ -306,6 +306,11 @@ ui-tab-kind-theme = { $title }, السمة{ $dirty ->
 }
 ui-tab-theme = السمة
 ui-preview-theme = سمة المعاينة
+ui-preview-label = المعاينة:
+ui-preview-span = خانة المعاينة
+ui-preview-span-full = العرض الكامل
+ui-preview-span-half = النصف
+ui-preview-span-third = الثلث
 ui-tab-move-new-window = نقل إلى نافذة جديدة
 ui-tab-move-to = نقل إلى النافذة { $n }
 ui-tab-close-others = إغلاق علامات التبويب الأخرى

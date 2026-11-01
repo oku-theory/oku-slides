@@ -3,6 +3,7 @@ use std::sync::Arc;
 use speculoos::prelude::*;
 
 use super::*;
+use crate::PreviewSpan;
 use crate::test_support::registry;
 use crate::views::{PackMode, PileSection};
 use oku_slides_core::{Deck, SourceBundle};
@@ -241,6 +242,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         widget: Some("kpi".into()),
         code: true,
         code_width: Some(640),
+        preview_span: PreviewSpan::Third,
         folded: vec![PileSection::Layouts],
     };
     r.write_state(&State {
@@ -275,6 +277,7 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         widget: None,
         code: false,
         code_width: None,
+        preview_span: PreviewSpan::Full,
         folded: Vec::new(),
     });
     std::fs::remove_dir_all(&r.dir).ok();

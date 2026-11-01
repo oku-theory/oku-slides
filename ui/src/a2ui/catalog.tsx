@@ -151,6 +151,16 @@ const SelectApi = {
     })
     .strict(),
 };
+const SwitchApi = {
+  name: "Switch",
+  schema: z
+    .object({
+      label: CommonSchemas.DynamicString,
+      value: CommonSchemas.DynamicBoolean,
+      action: CommonSchemas.Action.optional(),
+    })
+    .strict(),
+};
 const ListColumnBase = {
   key: z.string(),
   label: z.string(),
@@ -513,6 +523,26 @@ const Select = createComponentImplementation(SelectApi, ({ props }) => {
   );
 });
 
+/** An on/off switch drawn as the app's toggle: the checkbox writes the boolean, then sends the action. */
+const Switch = createComponentImplementation(SwitchApi, ({ props }) => (
+  <label className={props.value === true ? "toggle on" : "toggle"}>
+    <span className="toggle-track">
+      <input
+        className="toggle-input"
+        type="checkbox"
+        role="switch"
+        checked={props.value === true}
+        onChange={(e) => {
+          props.setValue(e.currentTarget.checked);
+          props.action?.();
+        }}
+      />
+      <span className="toggle-thumb" />
+    </span>
+    <span>{props.label}</span>
+  </label>
+));
+
 /** Les items d'une liste : objets à `id` chaîne ; le reste est ignoré. */
 const listRows = (v: unknown): ListRow[] =>
   Array.isArray(v) ? v.filter((r): r is ListRow => typeof r === "object" && r !== null && typeof r.id === "string") : [];
@@ -603,6 +633,6 @@ const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild, co
 
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, "0.9", [
-  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, ListTableField, SlideThumb, ThemeChoice, DiffText,
+  Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, Switch, ListTableField, SlideThumb, ThemeChoice, DiffText,
   Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice, ChartData, TableData,
 ]);

@@ -12,7 +12,9 @@ import { Icon } from "./icons";
 import { PackBrand } from "./PackBrand";
 import { pileItems } from "./packItems";
 import PackPile from "./PackPile";
+import PreviewSpanMenu from "./PreviewSpanMenu";
 import PreviewThemeMenu from "./PreviewThemeMenu";
+import { COMMON } from "./widgetList";
 import { showFinish } from "./packGestures";
 import PileColumn from "./PileColumn";
 import TitleField from "./TitleField";
@@ -86,7 +88,14 @@ export default function PackPanels({
           onCommit={(v) => void run(api.apply(t("ui-undo-rename-pack"), [{ op: "set_deck_param", key: "title", value: v }]))}
         />
         <span className="caption" role="status">{t("ui-caption-pack", { kind, count: items.length, status })}</span>
-        <PreviewThemeMenu themes={snap.themes} theme={snap.theme} onPick={(ns) => void run(api.setPreviewTheme(ns))} />
+        {/* One group, so the preview controls wrap together under the title on a narrow sheet. */}
+        <span className="pack-preview-controls">
+          <span className="preview-label">{t("ui-preview-label")}</span>
+          <PreviewThemeMenu themes={snap.themes} theme={snap.theme} onPick={(ns) => void run(api.setPreviewTheme(ns))} />
+          {kind === "widgets" && item.selected !== null && item.selected !== COMMON && (
+            <PreviewSpanMenu span={keptUi.previewSpan} onPick={keptUi.setPreviewSpan} />
+          )}
+        </span>
       </header>
       <ToolsTray
         api={api} snap={snap} item={item} keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
@@ -107,7 +116,7 @@ export default function PackPanels({
       />
       <main className="sheet-area">
         <WidgetPane
-          api={api} item={item} trials={snap.widget_trials} look={look} code={keptUi.code} codeWidth={keptUi.codeWidth}
+          api={api} item={item} trials={snap.widget_trials} look={look} span={keptUi.previewSpan} code={keptUi.code} codeWidth={keptUi.codeWidth}
           onCodeWidth={keptUi.setCodeWidth} run={run} palette={snap.appearance.chart_palette} settings={settings}
         />
         {drawer}

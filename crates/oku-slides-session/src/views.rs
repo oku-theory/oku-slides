@@ -13,6 +13,7 @@ use oku_slides_render::{ElementBox, ZoneBox};
 use crate::appearance::Appearance;
 use crate::fields::FieldView;
 use crate::items::{ItemView, ListView};
+use crate::preview_span::PreviewSpan;
 use crate::tab_document::TabDocument;
 
 /// Empreinte d'une page (clé de cache de son SVG), écrite en hex ; vide si
@@ -179,6 +180,9 @@ pub struct UiState {
     /// Largeur du code en px, choisie au séparateur ; `None` : proportion par défaut.
     #[serde(default)]
     pub code_width: Option<u32>,
+    /// The preview slot of a pack tab's element widgets; full by default.
+    #[serde(default)]
+    pub preview_span: PreviewSpan,
     /// Folded sections of the pile (thumbnails); all open by default.
     #[serde(default)]
     pub folded: Vec<PileSection>,

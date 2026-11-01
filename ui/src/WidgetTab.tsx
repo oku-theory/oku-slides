@@ -1,11 +1,10 @@
 /**
- * The view of a pack tab's selected item: its preview on top, across the whole width; below,
- * settings and diagnostics on the left, the Typst editor on the right.
+ * The view of a pack tab's selected item: its preview on the left; the settings and diagnostics
+ * on its right, or under it when the code is shown.
  *
  * The toolbar switch shows the code (hidden by default, a choice the host keeps for every item):
- * hidden, the settings take the whole width under the preview; shown, the code sits on their
- * right, at the width set at the divider. Hidden, the editor stays mounted (inert): typing and
- * history remain while the item stays selected.
+ * shown, the code takes the right of the view, at the width set at the divider. Hidden, the editor
+ * stays mounted (inert, out of the grid): typing and history remain while the item stays selected.
  * The preview shows the widget at its example values, kept in the pack. With its view, the
  * preview is a stage (`Stage` in preview mode): its text fields are edited in place, as on a
  * slide, and written to those values (a field bound to the deck stays read-only); its lists
@@ -18,7 +17,7 @@
  */
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
-import type { FieldView, Snapshot, TabApi, WidgetPreview } from "./api";
+import type { FieldView, PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./api";
 import { fieldValue } from "./deck";
 import { t } from "./i18n";
 import { Button } from "./primitives";
@@ -44,13 +43,15 @@ export interface WidgetTabProps {
   trials: number;
   /** The deck style's fingerprint (theme, colours): the preview, rendered in it, follows it. */
   look: string;
+  /** The preview slot of an element widget. */
+  span: PreviewSpan;
   /** Source code shown; hidden, the editor stays mounted but inert. */
   code: boolean;
   /** The code width chosen, shared by every item; `null`: the default share. */
   codeWidth: number | null;
   /** Keeps a new width set at the divider. */
   onCodeWidth: (width: number | null) => void;
-  /** The host's settings (the widget's example values), under the preview left of the code. */
+  /** The host's settings (the widget's example values), right of the preview, or under it when the code is shown. */
   settings?: ReactNode;
   /** Sends an example value write (refusal toasted); default: the refusal goes through the files. */
   run?: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
@@ -75,7 +76,7 @@ interface Committed {
 
 /** The selected item's preview, settings, diagnostics and editor. */
 export default function WidgetTab({
-  api, files, name, revision, trials, look, code, codeWidth, onCodeWidth, settings = null,
+  api, files, name, revision, trials, look, span, code, codeWidth, onCodeWidth, settings = null,
   run, palette = NO_PALETTE, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
@@ -137,7 +138,7 @@ export default function WidgetTab({
     if (name === COMMON || !ready) return;
     const seq = ++previewSeq.current;
     api
-      .previewWidget(name)
+      .previewWidget(name, undefined, span)
       .then((p) => {
         if (seq !== previewSeq.current) return;
         setPreview(p);
@@ -149,7 +150,7 @@ export default function WidgetTab({
       })
       .catch((e: unknown) => seq === previewSeq.current && filesRef.current.fail(e));
     // `trials` et `look` ne sont pas lus : ils relancent l'aperçu quand les essais ou le style du deck changent.
-  }, [api, name, written, ready, editorKey, trials, look]);
+  }, [api, name, written, ready, editorKey, trials, look, span]);
 
   // The code shown again: the editor, measured while hidden, measures again.
   useEffect(() => {
@@ -221,7 +222,7 @@ export default function WidgetTab({
   /** Un changement de liste de l'aperçu : le changement, dans la liste des valeurs d'exemple. */
   const onListOp: OnListOp = (_owner, list, change) => void write(api.editExampleList(name, list, change));
 
-  /** Widths of the view (its bottom row takes all of it) and of the code, at a gesture's start. */
+  /** Widths of the view (the preview column, divider and code share it) and of the code, at a gesture's start. */
   const measure = () => {
     const el = host.current;
     const codeEl = el?.querySelector<HTMLElement>(".widget-tab-code");
@@ -241,6 +242,7 @@ export default function WidgetTab({
       id="widget-panel"
       aria-label={widgetLabel(name)}
       data-code={code ? "shown" : "folded"}
+      data-item={name === COMMON ? "common" : undefined}
       style={tracks as React.CSSProperties}
     >
       <section className="widget-tab-preview" aria-label={t(name === COMMON ? "ui-widgets-in-error" : "ui-widgets-preview")}>

@@ -352,18 +352,20 @@ the deck warnings.
 Each widget parameter is declared with a `p.*` descriptor, imported
 from `params.typ` (`#import "/oku-slides/lib.typ": params as p`):
 
+Every descriptor takes `label:` and `help:` (one line under the field), each a text or a dictionary by language.
+
 | Descriptor | Role |
 | --- | --- |
-| `p.plain(label:, default:, bind:)` | Single-line text; `bind` ties the parameter to a `deck.params` key |
-| `p.rich(label:)` | Paragraphs made of runs |
-| `p.flag(label:, default:)` | Boolean |
-| `p.number(label:, default:, min:, max:)` | Bounded number |
-| `p.choice(..values, label:, default:)` | One value among `values`; the first by default |
-| `p.asset(label:)` | Asset identifier `sha256:…` |
-| `p.slot(label:, mode:, accepts:)` | Child elements; `mode`: `"flow"` or `"free"`; `accepts`: accepted widget names, or `none` |
-| `p.grid(label:, default:)` | Grid `(columns:, rows:, gap:)` |
-| `p.list(label:, item-label:, item:, min:, max:, default:)` | List of items with typed columns (`plain`, `rich`, `number`, `flag`, `choice`, `asset`, or a `p.list` nested one level only), entered as a table; absent list = empty, `default` only seeds a newly created object |
-| `p.host(name, label:)` | Type supplied and validated by the host (`"chart"`, `"table"`, `"path"`) |
+| `p.plain(label:, help:, default:, bind:)` | Single-line text; `bind` ties the parameter to a `deck.params` key |
+| `p.rich(label:, help:)` | Paragraphs made of runs |
+| `p.flag(label:, help:, default:)` | Boolean |
+| `p.number(label:, help:, default:, min:, max:)` | Bounded number |
+| `p.choice(..values, label:, help:, default:)` | One value among `values`; the first by default |
+| `p.asset(label:, help:)` | Asset identifier `sha256:…` |
+| `p.slot(label:, help:, mode:, accepts:)` | Child elements; `mode`: `"flow"` or `"free"`; `accepts`: accepted widget names, or `none` |
+| `p.grid(label:, help:, default:)` | Grid `(columns:, rows:, gap:)` |
+| `p.list(label:, help:, item-label:, item:, min:, max:, default:)` | List of items with typed columns (`plain`, `rich`, `number`, `flag`, `choice`, `asset`, or a `p.list` nested one level only), entered as a table; absent list = empty, `default` only seeds a newly created object |
+| `p.host(name, label:, help:)` | Type supplied and validated by the host (`"chart"`, `"table"`, `"path"`) |
 
 ### `widget(name, label:, description:, category:, grow:, typography:, params:, render)`
 

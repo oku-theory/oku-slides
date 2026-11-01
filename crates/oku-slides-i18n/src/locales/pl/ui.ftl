@@ -300,6 +300,11 @@ ui-tab-kind-theme = { $title }, motyw{ $dirty ->
 }
 ui-tab-theme = Motyw
 ui-preview-theme = Motyw podglądu
+ui-preview-label = Podgląd:
+ui-preview-span = Pole podglądu
+ui-preview-span-full = Pełna szerokość
+ui-preview-span-half = Połowa
+ui-preview-span-third = Trzecia część
 ui-tab-move-new-window = Przenieś do nowego okna
 ui-tab-move-to = Przenieś do okna { $n }
 ui-tab-close-others = Zamknij pozostałe karty

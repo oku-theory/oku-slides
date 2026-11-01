@@ -1,19 +1,19 @@
-// Largeur du code d'un widget, sous son aperçu à droite des réglages, bornée
-// pour que les réglages et le code gardent chacun de la place.
+// Width of a widget's code, on the right of the preview and settings column, bounded
+// so the preview column and the code each keep some room.
 
 import type { Bounds } from "./bounds";
 
 /** Place gardée au code, en px. */
 export const CODE_MIN = 120;
-/** Place gardée aux réglages, en px : leurs champs restent lisibles. */
+/** Room kept for the preview and settings column, in px: the fields stay readable. */
 export const SIDE_MIN = 240;
-/** Épaisseur du séparateur entre réglages et code, en px. */
+/** Thickness of the divider between that column and the code, in px. */
 export const SPLIT = 12;
 
 /**
  * Bounds of the code's width in an item view `total` px wide (divider included).
  *
- * At least `CODE_MIN` for the code and `SIDE_MIN` for the settings; too narrow for both, half
+ * At least `CODE_MIN` for the code and `SIDE_MIN` for the preview column; too narrow for both, half
  * and half; with no room at all (nothing measured), zero.
  */
 export function codeBounds(total: number): Bounds {

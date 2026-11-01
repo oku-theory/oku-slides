@@ -43,6 +43,7 @@ fn param(label: String, kind: FieldKind, value: Value) -> ParamField {
         options: Vec::new(),
         columns: Vec::new(),
         item_label: None,
+        help: None,
     }
 }
 

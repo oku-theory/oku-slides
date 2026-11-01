@@ -97,6 +97,7 @@ fn check_content(i: usize, c: &Component, name: &str) -> Result<()> {
         | ComponentKind::Slider { .. }
         | ComponentKind::ColorField { .. }
         | ComponentKind::Select { .. }
+        | ComponentKind::Switch { .. }
         | ComponentKind::ListTable { .. }
         | ComponentKind::ChoiceChips { .. }
         | ComponentKind::SlideThumb { .. }

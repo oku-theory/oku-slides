@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, thème{ $dirty ->
 }
 ui-tab-theme = Thème
 ui-preview-theme = Thème d’aperçu
+ui-preview-label = Aperçu :
+ui-preview-span = Case de l’aperçu
+ui-preview-span-full = Pleine largeur
+ui-preview-span-half = Moitié
+ui-preview-span-third = Tiers
 ui-tab-move-new-window = Déplacer vers une nouvelle fenêtre
 ui-tab-move-to = Déplacer vers la fenêtre { $n }
 ui-tab-close-others = Fermer les autres onglets

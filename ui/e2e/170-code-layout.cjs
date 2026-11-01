@@ -1,10 +1,11 @@
-// Code d'un widget sous l'aperçu, à droite des réglages, élargi au séparateur, retrouvé après
-// rechargement ; dans une fenêtre étroite, les réglages gardent leur place minimale, dans l'onglet de pack d'Essentiel.
+// Code d'un widget à droite de l'aperçu et des réglages (ceux-ci à droite de l'aperçu, code masqué), élargi au séparateur, retrouvé après
+// rechargement ; dans une fenêtre étroite, l'aperçu garde sa place minimale, dans l'onglet de pack d'Essentiel.
 // Writes: Essentiel (the `cadran` widget). Leaves: no pack tab. Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { closePackTabs, openEssentiel } = require('./lib/atelier.cjs');
 const { untilValue } = require('./lib/until.cjs');
+const { uiSaved } = require('./lib/uiSaved.cjs');
 const { newPackItem } = require('./lib/widget.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = '.widget-tab';
@@ -25,19 +26,8 @@ const boxes = (p) => p.evaluate((sel) => {
 const dividerBox = (p) =>
   untilValue(p, () => p.locator(`${TAB} .code-divider`).boundingBox(), (box) => box !== null, 'séparateur du code sans boîte');
 
-/** Réponse de l'hôte à la sauvegarde de l'état d'interface dont la largeur du code vérifie `ok` :
- *  la sauvegarde part après le rendu et peut tarder sur une machine chargée (t-668). */
-const saved = (p, ok) =>
-  p.waitForResponse((res) => {
-    const q = res.request();
-    if (q.method() !== 'POST') return false;
-    try {
-      const { req } = JSON.parse(q.postData() ?? '');
-      return req?.cmd === 'ui' && ok(req.code_width);
-    } catch {
-      return false;
-    }
-  });
+/** The host's answer to the UI-state save whose code width satisfies `ok`. */
+const saved = (p, ok) => uiSaved(p, (req) => ok(req.code_width));
 
 (async () => {
   const b = await chromium.launch({ channel: process.env.E2E_CHANNEL });
@@ -51,15 +41,19 @@ const saved = (p, ok) =>
   await newPackItem(p, 'cadran');
   await p.waitForSelector(`${TAB} .widget-tab-preview`);
 
-  // Code affiché : l'aperçu en haut sur toute la largeur ; dessous, les réglages puis le code à leur droite.
+  // Code hidden: the preview on the left over the full height, the form on its right.
+  let r = await boxes(p);
+  assert.ok(r.side.left >= r.preview.right, `réglages pas à droite de l'aperçu : ${JSON.stringify(r)}`);
+  assert.ok(Math.abs(r.side.width - 300) <= 2, `réglages larges de ${r.side.width}, 300 attendus`);
+
+  // Code shown: the code on the right; the form under the preview.
   await p.getByRole('button', { name: 'Code source' }).click();
   await p.waitForSelector(`${TAB}[data-code="shown"] .code-divider[aria-orientation="vertical"]`);
-  let r = await boxes(p);
-  assert.ok(r.code.top >= r.preview.bottom && r.side.top >= r.preview.bottom, `pas sous l'aperçu : ${JSON.stringify(r)}`);
-  assert.ok(r.code.left >= r.side.right, `code pas à droite des réglages : ${JSON.stringify(r)}`);
-  assert.ok(r.preview.right >= r.code.right - 1, `l'aperçu ne couvre pas la largeur : ${JSON.stringify(r)}`);
+  r = await boxes(p);
+  assert.ok(r.code.left >= r.preview.right && r.code.left >= r.side.right, `code pas à droite : ${JSON.stringify(r)}`);
+  assert.ok(r.side.top >= r.preview.bottom, `réglages pas sous l'aperçu : ${JSON.stringify(r)}`);
 
-  // Glisser le séparateur de 60 px vers la gauche élargit le code d'autant (les réglages gardent leurs 240 px).
+  // Glisser le séparateur de 60 px vers la gauche élargit le code d'autant (the preview column keeps its 240 px, SIDE_MIN).
   const before = r.code.width;
   const d = await dividerBox(p);
   await p.mouse.move(d.x + d.width / 2, d.y + d.height / 2);
@@ -79,7 +73,7 @@ const saved = (p, ok) =>
   r = await boxes(p);
   assert.ok(Math.abs(r.code.width - wide) <= 2, `largeur reprise ${r.code.width}, attendue ${wide}`);
 
-  // Fenêtre étroite, code tiré au plus large : les réglages gardent leurs 240 px (SIDE_MIN), rien ne déborde.
+  // Fenêtre étroite, code tiré au plus large : the preview column keeps its 240 px (SIDE_MIN), rien ne déborde.
   await p.setViewportSize({ width: 1100, height: 900 });
   const n = await dividerBox(p);
   await p.mouse.move(n.x + n.width / 2, n.y + n.height / 2);
@@ -87,7 +81,7 @@ const saved = (p, ok) =>
   await p.mouse.move(0, n.y + n.height / 2, { steps: 6 });
   await p.mouse.up();
   r = await boxes(p);
-  assert.ok(r.side.width >= 240 - 1, `réglages trop étroits : ${r.side.width}`);
+  assert.ok(r.preview.width >= 240 - 1, `aperçu trop étroit : ${r.preview.width}`);
   assert.ok(r.overflow <= 0, `la vue de l'élément déborde de ${r.overflow} px`);
   // Retour à la proportion par défaut, pour les tests suivants.
   const reset = saved(p, (w) => w === null);

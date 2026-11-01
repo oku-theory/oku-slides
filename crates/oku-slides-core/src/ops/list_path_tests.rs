@@ -176,7 +176,14 @@ fn set_param_of_a_list_refuses_nested_items_without_id() {
 #[test]
 fn max_items_is_capped_at_the_core_bound() {
     let ty = ParamType::List {
-        item: vec![ParamSchema { name: "t".into(), label: None, ty: ParamType::Plain, default: None, bind: None }],
+        item: vec![ParamSchema {
+            name: "t".into(),
+            label: None,
+            help: None,
+            ty: ParamType::Plain,
+            default: None,
+            bind: None,
+        }],
         item_label: None,
         min: 0,
         max: Some(crate::LIST_ITEMS_MAX * 4),

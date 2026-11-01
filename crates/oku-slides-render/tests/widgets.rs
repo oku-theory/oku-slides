@@ -103,6 +103,37 @@ fn probe_file_text_label_or_description_is_kept_or_blank_becomes_none(
     assert_that!(probe.schema.as_ref().and_then(|s| s.get(field)).cloned()).is_equal_to(Some(read));
 }
 
+/// A parameter's label and help: a text or a dictionary by language; blank becomes none.
+#[rstest]
+#[case::label_text("label: \"Titre\"", "label", json!("Titre"))]
+#[case::help_by_locale(
+    "help: (en: \"Shown above\", fr: \"Au-dessus\")",
+    "help",
+    json!({"en": "Shown above", "fr": "Au-dessus"})
+)]
+#[case::help_blank("help: \"  \"", "help", Value::Null)]
+fn probe_file_param_label_or_help_is_kept_or_blank_becomes_none(
+    #[case] arg: &str,
+    #[case] key: &str,
+    #[case] read: Value,
+) {
+    let src = format!(
+        "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", params: (t: p.plain({arg})), (args, ctx) => [])\n"
+    );
+    let probe = probe_file(&Fonts::default(), PackKind::Widgets, &WidgetFile::parse("kpi").unwrap(), &src, None);
+    assert_that!(probe.is_valid()).is_true();
+    let param = probe.schema.as_ref().and_then(|s| s.get("params")).and_then(|ps| ps.get(0)).cloned();
+    assert_that!(param.and_then(|p| p.get(key).cloned()).unwrap_or(Value::Null)).is_equal_to(read);
+}
+
+#[test]
+fn probe_file_with_a_non_text_param_help_is_set_aside() {
+    let src = "#import \"/oku-slides/lib.typ\": widget, params as p\n#let widget = widget(\"kpi\", params: (t: p.plain(help: 42)), (args, ctx) => [])\n";
+    let probe = probe_file(&Fonts::default(), PackKind::Widgets, &WidgetFile::parse("kpi").unwrap(), src, None);
+    assert_that!(probe.is_valid()).is_false();
+    assert_that!(probe.diagnostics.iter().any(|d| d.message.contains("l'aide du paramètre « t »"))).is_true();
+}
+
 #[test]
 fn pack_widgets_new_with_a_path_like_id_returns_bad_pack_id() {
     for id in ["", "../x", "A", "a/b", "é"] {

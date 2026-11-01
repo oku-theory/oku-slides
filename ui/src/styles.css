@@ -619,6 +619,20 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 }
 .drop-line.end { position: relative; top: auto; display: block; margin-block: -9px; margin-inline: 22px 0; flex: none; }
 
+/* A widget pack's pile: one row per item, its name; the trash shows on hover or focus. */
+.table:has(> .pile-column .pile.rows) { --pile-w: 180px; }
+.pile.rows { gap: 2px; padding-inline: 0; }
+.pile.rows .thumb-slot { position: relative; display: flex; align-items: center; }
+.pile.rows .thumb { display: flex; align-items: center; flex: 1; min-width: 0; padding: 6px 8px; border-radius: var(--radius-sm); background: transparent; box-shadow: none; }
+.pile.rows .thumb[aria-current="true"] { background: var(--accent-soft); }
+.pile.rows .thumb-body { display: flex; flex-direction: row; align-items: center; gap: var(--space-2); min-width: 0; }
+.pile.rows .thumb-name { max-width: none; font-size: inherit; line-height: inherit; color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pile.rows .thumb-remove { top: 50%; transform: translateY(-50%); inset-inline: auto 4px; opacity: 0; width: 28px; height: 28px; }
+.pile.rows .thumb-slot:hover .thumb-remove, .pile.rows .thumb-slot:focus-within .thumb-remove { opacity: 1; }
+.pile.rows .drop-line { inset-inline: 0; top: -2px; height: 2px; }
+.pile.rows .drop-line.end { margin-block: 0; margin-inline: 0; }
+.pile.rows .thumb-ghost .thumb-name { aspect-ratio: auto; padding: 6px 8px; background: var(--paper-200); color: var(--ink); }
+
 /* ---- Cartes des surfaces A2UI (réglages du dock, agent) ---- */
 /* Une surface ne fait pas de boîte : ses cartes se placent dans leur conteneur (tour, dock). */
 .a2ui-surface { display: contents; }
@@ -638,16 +652,32 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .rich-field-editor .cm-scroller, .rich-field-editor .cm-content { font: inherit; }
 .rich-field-editor .cm-cursor, .rich-field-editor .cm-dropCursor { border-left-color: var(--accent); }
 .label.editing-pack .brand { color: var(--app-danger, var(--accent)); }
+/* A pack tab's header: one row from the sheet's left edge, the finish tray at its end. On a narrow
+   sheet the preview controls wrap as one group to a second line, at its end. */
+.label.editing-pack {
+  justify-self: stretch; flex-direction: row; flex-wrap: wrap; align-items: center; align-content: center;
+  gap: var(--space-1) var(--space-4); max-width: none; padding-inline: var(--space-6) var(--tray-reserve); text-align: start;
+}
+.label.editing-pack .brand, .label.editing-pack .brand-note { flex: none; white-space: nowrap; }
+/* The title keeps a readable minimum; the caption ellipsizes first. */
+.label.editing-pack .doc-name { flex: 1 1 8em; min-width: 6em; }
+.label.editing-pack .caption { flex: 0 1 auto; min-width: 0; }
+.label.editing-pack .pack-preview-controls { flex: none; display: flex; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
+.label.editing-pack .doc-name-button, .label.editing-pack .doc-name-input { text-align: start; }
+.label.editing-pack .preview-label { font-size: 12px; color: var(--ink-muted); }
+/* The on/off switch (A2UI `Switch`): a checkbox over a track and a thumb; the label is the accessible name. */
 .toggle { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: pointer; }
 .toggle-track {
   position: relative; width: 30px; height: 18px; border-radius: 9px; flex: none; transition: background 140ms;
   background: color-mix(in oklab, var(--a2ui-surface) 70%, var(--ink));
 }
-.toggle-thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 140ms; }
+/* The real checkbox covers the track, invisible: it takes the click, the focus and the keys. */
+.toggle-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.toggle-thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 140ms; pointer-events: none; }
 .toggle.on .toggle-track { background: var(--accent-fill); }
 .toggle.on .toggle-thumb { transform: translateX(12px); }
-.toggle:focus-visible { outline: none; }
-.toggle:focus-visible .toggle-track { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent); }
+.toggle:has(.toggle-input:focus-visible) .toggle-track { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent); }
+@media (prefers-reduced-motion: reduce) { .toggle-track, .toggle-thumb { transition: none; } }
 
 /* ---- De droite à gauche (arabe) ---- */
 /* Ce que les propriétés logiques ne retournent pas d'elles-mêmes. */

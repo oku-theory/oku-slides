@@ -165,6 +165,16 @@ pub enum ComponentKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         action: Option<Action>,
     },
+    /// An on/off switch bound to a boolean.
+    Switch {
+        /// Switch label.
+        label: Dynamic<String>,
+        /// Whether it is on.
+        value: Dynamic<bool>,
+        /// Sent after the new state is written into `value`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        action: Option<Action>,
+    },
     /// The table of a list, one row per item and one column per entry.
     ///
     /// Rows are the items of `rows` (objects with an `id`), columns the
@@ -352,6 +362,7 @@ impl ComponentKind {
                 | Self::Slider { .. }
                 | Self::ColorField { .. }
                 | Self::Select { .. }
+                | Self::Switch { .. }
                 | Self::ListTable { .. }
                 | Self::ChoiceChips { .. }
         )
@@ -374,6 +385,7 @@ impl ComponentKind {
             | Self::Slider { .. }
             | Self::ColorField { .. }
             | Self::Select { .. }
+            | Self::Switch { .. }
             | Self::ListTable { .. }
             | Self::SlideThumb { .. }
             | Self::ThemeChoice { .. }
@@ -403,6 +415,7 @@ impl ComponentKind {
             | Self::Slider { action, .. }
             | Self::ColorField { action, .. }
             | Self::Select { action, .. }
+            | Self::Switch { action, .. }
             | Self::ListTable { action, .. }
             | Self::SlideThumb { action, .. }
             | Self::ThemeChoice { action, .. } => action.iter().collect(),
@@ -438,6 +451,7 @@ impl ComponentKind {
             }
             Self::ColorField { label, value, palette, .. } => Self::ColorField { label, value, palette, action: None },
             Self::Select { label, value, options, .. } => Self::Select { label, value, options, action: None },
+            Self::Switch { label, value, .. } => Self::Switch { label, value, action: None },
             Self::ListTable { action: _, label, rows, change, markdown, columns, min, max, item_label, palette } => {
                 Self::ListTable { label, rows, change, markdown, columns, min, max, item_label, palette, action: None }
             }

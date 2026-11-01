@@ -13,7 +13,7 @@ use snafu::{ResultExt, ensure};
 use crate::agent::ShowParams;
 use crate::error::{NotEditingPackSnafu, TrialEncodeSnafu, TrialFixedSnafu, TrialTooLongSnafu, TrialValueSnafu};
 use crate::panel::HostParams;
-use crate::param_fields::{coerce, field, label, settable};
+use crate::param_fields::{coerce, field, kind_name, param_label, settable};
 use crate::widget_preview::preview_params;
 use crate::widgets_edit::parse_name;
 use crate::{Result, Session};
@@ -27,20 +27,23 @@ impl Session {
             return Ok(None);
         }
         let l = &self.localizer;
-        let title = l.tr_with("session-widget-params", &[("name", file.as_str().into())]);
         let Some(schema) = self.valid_schema(&file)? else {
+            let title = l.tr_with("session-widget-params", &[("name", file.as_str().into())]);
             let spec = ShowParams { title, slide: String::new(), fields: Vec::new() };
             return Ok(Some(HostParams { spec, keys: Vec::new(), notes: vec![l.tr("session-widget-invalid-file")] }));
         };
+        let title =
+            l.tr_with("session-widget-params", &[("name", kind_name(&schema.name, schema.label.as_ref(), l).into())]);
         let shown = preview_params(&schema, &self.preview_inputs(None, &file, &schema, &Map::new())?, l);
         let (mut fields, mut keys, mut notes) = (Vec::new(), Vec::new(), Vec::new());
         for p in &schema.params {
-            match field(p, shown.get(&p.name), l) {
+            match field(&schema.name, p, shown.get(&p.name), l) {
                 Some(f) => {
                     keys.push(p.name.clone());
                     fields.push(f);
                 }
-                None => notes.push(l.tr_with("session-widget-param-fixed", &[("name", label(p).into())])),
+                None => notes
+                    .push(l.tr_with("session-widget-param-fixed", &[("name", param_label(&schema.name, p, l).into())])),
             }
         }
         if schema.params.is_empty() {

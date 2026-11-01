@@ -37,6 +37,7 @@
 /// one sentence (the add grid filters on it). Each is a text, or a dictionary
 /// by language (`(en: "Value", fr: "Valeur")`): the app takes the user's
 /// language, else that language without region, else `en`, else the lowest code.
+/// A parameter's `label` and `help` (one line under its field) take the same forms.
 /// grow (élément) : false, sa hauteur ; true, une part de la hauteur qui
 /// reste ; "fit", sa hauteur si elle tient dans une part, sinon une part.
 /// typography (élément) : sa boîte porte la typographie de son style.
@@ -59,6 +60,10 @@
   for (key, d) in params {
     assert(type(d) == dictionary and d.at("type", default: none) in _types,
       message: "oku-slides : widget « " + name + " » : le paramètre « " + key + " » n'est pas un descripteur p.*")
+    let d = d + (label: _shown-text(name, "le label du paramètre « " + key + " »", d.at("label", default: none)))
+    let help = _shown-text(name, "l'aide du paramètre « " + key + " »", d.at("help", default: none))
+    // Absent from the schema when blank, like a descriptor that never had one.
+    if help == none { let _ = d.remove("help", default: none) } else { d.insert("help", help) }
     list.push((name: key) + d)
   }
   (name: name, schema: (name: name, label: label, description: description, category: category, grow: grow,

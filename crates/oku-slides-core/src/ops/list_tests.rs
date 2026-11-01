@@ -4,7 +4,7 @@ use serde_json::{Map, json};
 use speculoos::prelude::*;
 
 fn column(name: &str, ty: ParamType, default: Option<serde_json::Value>) -> ParamSchema {
-    ParamSchema { name: name.into(), label: None, ty, default, bind: None }
+    ParamSchema { name: name.into(), label: None, help: None, ty, default, bind: None }
 }
 fn schema(min: usize, max: Option<usize>) -> ParamType {
     ParamType::List {
@@ -107,6 +107,7 @@ fn default_items_gives_deterministic_ids() {
     let p = ParamSchema {
         name: "l".into(),
         label: None,
+        help: None,
         ty: schema(0, None),
         default: Some(json!([{ "date": "2019" }, { "date": "2021" }])),
         bind: None,
@@ -227,6 +228,7 @@ fn default_items_with_a_cell_over_limit_fails() {
     let p = ParamSchema {
         name: "l".into(),
         label: None,
+        help: None,
         ty: texts(None),
         default: Some(json!([{ "t": "x".repeat(PLAIN_MAX + 1) }])),
         bind: None,

@@ -6,7 +6,7 @@
 //! de taille et de nombre, caractère nul.
 
 use oku_slides_core::Namespace;
-use oku_slides_session::{PreviewFormat, Request};
+use oku_slides_session::{PreviewFormat, PreviewSpan, Request};
 use rust_mcp_sdk::schema::{CallToolResult, TextContent};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -235,8 +235,11 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let preview =
-            self.with_session(move |s| s.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Png)).await;
+        let preview = self
+            .with_session(move |s| {
+                s.preview_widget(pack.as_ref(), &name, &params, PreviewFormat::Png, PreviewSpan::Full)
+            })
+            .await;
         let preview = match preview {
             Ok(p) => p,
             Err(e) => return self.fail_with(&e),

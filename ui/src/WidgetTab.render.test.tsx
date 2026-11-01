@@ -38,7 +38,7 @@ async function mount(fake: TabApi, first: Shown) {
     files.current = f;
     if (!shown) return null;
     return createElement(WidgetTab, {
-      key: name, api: fake, files: f, name, revision, trials, code, codeWidth, look, settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
+      key: name, api: fake, files: f, name, revision, trials, code, codeWidth, look, span: "full", settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCodeWidth: (w: number | null) => widths.push(w),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
     });
   }
@@ -302,6 +302,14 @@ describe("WidgetTab, disposition", () => {
     expect(m.host.querySelector(".widget-tab-preview > .widget-tab-broken")).not.toBeNull();
   });
 
+  test("WidgetTab on Commun marks the item view as common, so its empty side takes no track", async () => {
+    const { fake } = memory({ _commun: "c", kpi: "k" });
+    const common = await mount(fake, { name: "_commun" });
+    expect(common.host.querySelector(".widget-tab")?.getAttribute("data-item")).toBe("common");
+    const widget = await mount(fake, { name: "kpi" });
+    expect(widget.host.querySelector(".widget-tab")?.hasAttribute("data-item")).toBe(false);
+  });
+
   test("les réglages passés sont sous l'aperçu, avant les diagnostics", async () => {
     const { fake } = memory({ kpi: "k" });
     const m = await mount(fake, { name: "kpi", settings: true });
@@ -411,7 +419,7 @@ describe("WidgetTab, valeurs d'exemple", () => {
     const asked: unknown[][] = [];
     stub(fake, "previewWidget", async (...a: never[]) => (asked.push(a), { svg: null, diagnostics: [] }));
     const m = await mount(fake, { name: "kpi" });
-    expect(asked).toEqual([["kpi"]]);
+    expect(asked).toEqual([["kpi", undefined, "full"]]);
     // Rien avant l'aperçu dans sa zone.
     expect(m.host.querySelector(".widget-tab-preview [role=group]")).toBeNull();
   });

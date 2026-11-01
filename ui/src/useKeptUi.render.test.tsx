@@ -25,7 +25,7 @@ type Item = Pick<UiState, "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", ghosts: true, pile: 200, notes: null, widget: null, code: true,
-  code_width: 640, folded: ["layouts"] };
+  code_width: 640, folded: ["layouts"], preview_span: "third" };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
@@ -115,7 +115,7 @@ test("useKeptUi setColumns saves the new widths with the rest of the state", asy
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", ghosts: true, pile: null, notes: 540, widget: null, code: true,
-    code_width: 640, folded: ["layouts"] });
+    code_width: 640, folded: ["layouts"], preview_span: "third" });
 });
 
 test("useKeptUi premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -308,4 +308,15 @@ describe("viewToggle", () => {
   test("viewToggle G without shift or without modifier toggles nothing", () => {
     expect([viewToggle(key("g", { meta: true })), viewToggle(key("G", { shift: true }))]).toEqual([false, false]);
   });
+});
+
+test("useKeptUi first snapshot restores the preview slot kept by the host", async () => {
+  const { out } = await mount();
+  expect(out.hook!.previewSpan).toBe("third");
+});
+
+test("useKeptUi setPreviewSpan saves the slot with the rest", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setPreviewSpan("half"); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", preview_span: "half" });
 });

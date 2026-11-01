@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, থিম{ $dirty ->
 }
 ui-tab-theme = থিম
 ui-preview-theme = প্রিভিউ থিম
+ui-preview-label = প্রিভিউ:
+ui-preview-span = প্রিভিউয়ের ঘর
+ui-preview-span-full = পূর্ণ প্রস্থ
+ui-preview-span-half = অর্ধেক
+ui-preview-span-third = এক-তৃতীয়াংশ
 ui-tab-move-new-window = নতুন উইন্ডোতে সরান
 ui-tab-move-to = উইন্ডো { $n }-এ সরান
 ui-tab-close-others = অন্য ট্যাবগুলি বন্ধ করুন

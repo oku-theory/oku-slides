@@ -2,6 +2,7 @@ use rstest::rstest;
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
+use crate::PreviewSpan;
 use crate::pack::{BASE_PACK, PackManifest};
 use crate::test_support::{fresh_dir, session_on};
 use crate::test_support_packs::pack_tab_of;
@@ -217,7 +218,7 @@ fn set_example_values_with_null_resets_to_the_preview_text() {
 fn preview_with_an_emptied_field_shows_it_empty() {
     let (_d, mut s) = editing();
     s.set_example_values("kpi", values(json!({"value": ""}))).unwrap();
-    let p = s.preview_widget(None, "kpi", &Map::new(), crate::PreviewFormat::Svg).unwrap();
+    let p = s.preview_widget(None, "kpi", &Map::new(), crate::PreviewFormat::Svg, PreviewSpan::Full).unwrap();
     // Pas le texte d'exemple : la valeur vidée, telle quelle, sur l'élément d'aperçu.
     // Lue dans les paramètres de la slide de la vue, pas dans `fields` : un champ
     // vide ne dessine rien, la mise en page n'en donne pas de boîte.

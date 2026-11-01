@@ -42,6 +42,7 @@ use crate::fields;
 use crate::pack_mode::styled_like;
 use crate::param_fields::schema_default;
 use crate::preview_crop::{CROP_PIXEL_PER_PT, crop_box};
+use crate::preview_span::PreviewSpan;
 use crate::views::{PageHash, SLIDE_HEIGHT, SLIDE_WIDTH, SlideView};
 use crate::widget_preview_items::preview_items;
 use crate::widgets_edit::{WidgetDiagnostic, parse_name, trial_fits};
@@ -237,6 +238,7 @@ fn preview_view(
     layout: &Layout,
     hash: Option<u128>,
     widget: &str,
+    locale: &str,
 ) -> std::result::Result<Option<Value>, RenderError> {
     let Some(slide) = deck.slide(PREVIEW_SLIDE) else { return Ok(None) };
     // La seule page du deck d'aperçu : un widget de slide ne la déclare pas
@@ -250,7 +252,7 @@ fn preview_view(
         width: SLIDE_WIDTH,
         height: SLIDE_HEIGHT,
         targets: Vec::new(),
-        fields: fields::field_views(deck, slide, registry, layout.fields_on(page)),
+        fields: fields::field_views(deck, slide, registry, layout.fields_on(page), locale),
         // Les poignées des listes du widget : l'interface les écrit dans ses valeurs d'exemple.
         items,
         lists,
@@ -292,6 +294,8 @@ impl Session {
     /// A broken file returns its diagnostics; so does a failed render (Typst,
     /// timeout, memory), without dropping the pack.
     ///
+    /// `span`: the element's share of the grid; ignored for a slide widget.
+    ///
     /// # Errors
     ///
     /// Fails if the targeted pack cannot be found, if `name` is invalid or unknown, or if the deck's
@@ -302,6 +306,7 @@ impl Session {
         name: &str,
         params: &Map<String, Value>,
         format: PreviewFormat,
+        span: PreviewSpan,
     ) -> Result<WidgetPreview> {
         let name = parse_name(name)?;
         let t = self.widget_target(pack)?;
@@ -317,7 +322,7 @@ impl Session {
         let kind = qualify(&t.namespace, name.as_str());
         let Some(schema) = probe.registry.get(&kind).cloned() else { return Ok(no_schema(&name)) };
         let inputs = self.preview_inputs(pack, &name, &schema, params)?;
-        let deck = self.preview_deck(&schema, &inputs);
+        let deck = self.preview_deck(&schema, &inputs, span);
         let pack = probe.pack.as_ref();
         let set = self.preview_set(&t.namespace, pack)?;
         let registry = self.registry_for(&set)?;
@@ -349,7 +354,7 @@ impl Session {
 
     /// Le deck d'aperçu : la slide du widget, ou une `blank` qui porte
     /// l'élément, au style du deck.
-    fn preview_deck(&self, schema: &WidgetSchema, given: &Map<String, Value>) -> Deck {
+    fn preview_deck(&self, schema: &WidgetSchema, given: &Map<String, Value>, span: PreviewSpan) -> Deck {
         let params = preview_params(schema, given, &self.localizer);
         let slide = match schema.category {
             Category::Slide => {
@@ -362,7 +367,7 @@ impl Session {
                 let grid = slide.resolved_grid(&self.registry);
                 let mut element = Element::new(PREVIEW_ELEMENT, &schema.name);
                 element.params = params;
-                element.cell = Some(Cell { col: 0, row: 0, cols: grid.columns, rows: grid.rows });
+                element.cell = Some(Cell { col: 0, row: 0, cols: span.columns(grid.columns), rows: grid.rows });
                 slide.params.set("elements", ParamValue::Slot(vec![element]));
                 slide
             }
@@ -408,7 +413,7 @@ impl Session {
                 PreviewFormat::Svg => {
                     let hash = compiled.page_hash(0);
                     let kind = pack.map_or_else(|| name.as_str().to_owned(), |p| qualify(p.namespace(), name.as_str()));
-                    let view = preview_view(deck, registry, compiled.layout(), hash, &kind)?;
+                    let view = preview_view(deck, registry, compiled.layout(), hash, &kind, self.localizer.locale())?;
                     WidgetPreview { svg: Some(compiled.svg(0)?), view, diagnostics, ..Default::default() }
                 }
                 // L'agent voit la slide entière : pas de recadrage.

@@ -22,7 +22,7 @@ afterEach(async () => {
 
 const slide = (id: string) => ({ id, hash: id, title: id }) as unknown as SlideSummary;
 
-async function mount({ canRemove = true, readOnly = false } = {}) {
+async function mount({ canRemove = true, readOnly = false, variant, names, svg }: { canRemove?: boolean; readOnly?: boolean; variant?: "rows"; names?: Record<string, string>; svg?: (id: string) => string | null } = {}) {
   const removed: string[] = [];
   const selected: string[] = [];
   const host = document.createElement("div");
@@ -34,7 +34,9 @@ async function mount({ canRemove = true, readOnly = false } = {}) {
       createElement(SlidePile, {
         slides: [slide("a"), slide("b")],
         current: "a",
-        svg: () => null,
+        svg: svg ?? (() => null),
+        variant,
+        names,
         label: "Slides",
         addLabel: "Nouvelle slide",
         removeLabel: "Supprimer la slide",
@@ -67,6 +69,15 @@ describe("pile des miniatures", () => {
   test("SlidePile dernière slide : suppression impossible", async () => {
     const { removes } = await mount({ canRemove: false });
     expect(removes().every((b) => b.disabled)).toBe(true);
+  });
+
+  test("SlidePile rows variant shows names without images and asks no SVG", async () => {
+    const asked: string[] = [];
+    const { host } = await mount({ variant: "rows", names: { a: "card" }, svg: (id) => (asked.push(id), "blob:x") });
+    expect(host.querySelector(".pile")?.classList.contains("rows")).toBe(true);
+    expect(host.querySelector(".thumb-img")).toBeNull();
+    expect(host.querySelector(".thumb-name")?.textContent).toBe("card");
+    expect(asked).toEqual([]);
   });
 
   test("SlidePile add button shows an icon only, named by its label", async () => {

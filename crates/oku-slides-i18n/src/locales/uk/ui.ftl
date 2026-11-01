@@ -300,6 +300,11 @@ ui-tab-kind-theme = { $title }, тема{ $dirty ->
 }
 ui-tab-theme = Тема
 ui-preview-theme = Тема попереднього перегляду
+ui-preview-label = Попередній перегляд:
+ui-preview-span = Комірка попереднього перегляду
+ui-preview-span-full = Вся ширина
+ui-preview-span-half = Половина
+ui-preview-span-third = Третина
 ui-tab-move-new-window = Перемістити в нове вікно
 ui-tab-move-to = Перемістити у вікно { $n }
 ui-tab-close-others = Закрити інші вкладки

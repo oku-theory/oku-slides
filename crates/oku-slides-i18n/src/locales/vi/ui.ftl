@@ -291,6 +291,11 @@ ui-tab-kind-theme = { $title }, chủ đề{ $dirty ->
 }
 ui-tab-theme = Chủ đề
 ui-preview-theme = Chủ đề xem trước
+ui-preview-label = Xem trước:
+ui-preview-span = Ô xem trước
+ui-preview-span-full = Toàn chiều rộng
+ui-preview-span-half = Một nửa
+ui-preview-span-third = Một phần ba
 ui-tab-move-new-window = Chuyển sang cửa sổ mới
 ui-tab-move-to = Chuyển sang cửa sổ { $n }
 ui-tab-close-others = Đóng các thẻ khác

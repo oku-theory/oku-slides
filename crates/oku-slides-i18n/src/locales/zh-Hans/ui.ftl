@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, 主题{ $dirty ->
 }
 ui-tab-theme = 主题
 ui-preview-theme = 预览主题
+ui-preview-label = 预览：
+ui-preview-span = 预览位置
+ui-preview-span-full = 整宽
+ui-preview-span-half = 一半
+ui-preview-span-third = 三分之一
 ui-tab-move-new-window = 移到新窗口
 ui-tab-move-to = 移到窗口 { $n }
 ui-tab-close-others = 关闭其他标签页

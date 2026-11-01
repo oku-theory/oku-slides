@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, theme{ $dirty ->
 }
 ui-tab-theme = Theme
 ui-preview-theme = Preview theme
+ui-preview-label = Preview:
+ui-preview-span = Preview slot
+ui-preview-span-full = Full width
+ui-preview-span-half = Half
+ui-preview-span-third = Third
 ui-tab-move-new-window = Move to new window
 ui-tab-move-to = Move to window { $n }
 ui-tab-close-others = Close other tabs

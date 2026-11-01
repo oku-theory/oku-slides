@@ -79,8 +79,14 @@ fn tr_unknown_id_returns_the_id() {
 fn try_tr_unknown_id_is_none_and_known_id_falls_back_to_english() {
     let fr = Localizer::new(Some("fr"));
     assert_that!(fr.try_tr("does-not-exist")).is_none();
-    assert_that!(fr.try_tr("session-widget-param-yes")).is_equal_to(Some("Oui".to_owned()));
-    assert_that!(english().try_tr("session-widget-param-yes")).is_equal_to(Some("Yes".to_owned()));
+    assert_that!(fr.try_tr("session-widget-param-fixed")).is_some();
+    assert_that!(english().try_tr("session-widget-param-fixed")).is_some();
+}
+
+#[test]
+fn builtin_param_label_is_translated_in_japanese() {
+    let ja = Localizer::new(Some("ja"));
+    assert_that!(ja.try_tr("session-widget-param-label-base-card-title")).is_some().is_not_equal_to("Title".to_owned());
 }
 
 #[test]

@@ -1,8 +1,8 @@
 // The interface state the host keeps for the resume: current slide, the stage's ghosts,
-// column widths, widget code (shown, width), folded sections, a pack tab's selected item.
+// column widths, widget code (shown, width), folded sections, a pack tab's selected item and preview slot.
 
 import { useEffect, useState } from "react";
-import type { PileSectionName, UiOrder, UiState } from "./api";
+import type { PileSectionName, PreviewSpan, UiOrder, UiState } from "./api";
 import { REAL_TIMERS, type Timers } from "./debounce";
 import { randomId } from "./randomId";
 
@@ -66,6 +66,10 @@ export interface KeptUi {
   folded: PileSectionName[];
   /** Replie ou rouvre une section (et le fait garder par l'hôte). */
   setFolded: (section: PileSectionName, folded: boolean) => void;
+  /** A pack tab's preview slot for element widgets. */
+  previewSpan: PreviewSpan;
+  /** Picks the preview slot (and has the host keep it). */
+  setPreviewSpan: (span: PreviewSpan) => void;
   /** Montre ou cache les repères des champs vides (demandé par l'agent). */
   setGhosts: (on: boolean) => void;
   /** Prend ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
@@ -92,6 +96,7 @@ export function useKeptUi(
   const [code, setCode] = useState(false);
   const [codeWidth, setCodeWidth] = useState<number | null>(null);
   const [folded, setFoldedList] = useState<PileSectionName[]>([]);
+  const [previewSpan, setPreviewSpan] = useState<PreviewSpan>("full");
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
   const [restored, setRestored] = useState(false);
@@ -102,14 +107,15 @@ export function useKeptUi(
     setCode(kept.code);
     setCodeWidth(kept.code_width);
     setFoldedList(kept.folded);
+    setPreviewSpan(kept.preview_span);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    send(save, { slide: current, ghosts, ...columns, widget: item.widget, code, code_width: codeWidth, folded }, timers);
+    send(save, { slide: current, ghosts, ...columns, widget: item.widget, code, code_width: codeWidth, folded, preview_span: previewSpan }, timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
-  }, [restored, current, ghosts, columns, item.widget, code, codeWidth, folded]);
+  }, [restored, current, ghosts, columns, item.widget, code, codeWidth, folded, previewSpan]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
@@ -120,5 +126,5 @@ export function useKeptUi(
     setGhosts((v) => !v);
     return true;
   };
-  return { ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, folded, setFolded, setGhosts, handleKey };
+  return { ghosts, columns, setColumns, code, setCode, codeWidth, setCodeWidth, folded, setFolded, previewSpan, setPreviewSpan, setGhosts, handleKey };
 }

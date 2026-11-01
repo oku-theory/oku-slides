@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, थीम{ $dirty ->
 }
 ui-tab-theme = थीम
 ui-preview-theme = पूर्वावलोकन थीम
+ui-preview-label = पूर्वावलोकन:
+ui-preview-span = पूर्वावलोकन का स्थान
+ui-preview-span-full = पूरी चौड़ाई
+ui-preview-span-half = आधा
+ui-preview-span-third = एक तिहाई
 ui-tab-move-new-window = नई विंडो में ले जाएँ
 ui-tab-move-to = विंडो { $n } में ले जाएँ
 ui-tab-close-others = अन्य टैब बंद करें

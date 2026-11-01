@@ -291,6 +291,11 @@ ui-tab-kind-theme = { $title }, 테마{ $dirty ->
 }
 ui-tab-theme = 테마
 ui-preview-theme = 미리보기 테마
+ui-preview-label = 미리보기:
+ui-preview-span = 미리보기 칸
+ui-preview-span-full = 전체 너비
+ui-preview-span-half = 절반
+ui-preview-span-third = 3분의 1
 ui-tab-move-new-window = 새 창으로 이동
 ui-tab-move-to = { $n }번 창으로 이동
 ui-tab-close-others = 다른 탭 닫기

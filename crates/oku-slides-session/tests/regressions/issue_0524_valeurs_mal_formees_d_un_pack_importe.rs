@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::{PLAIN_MAX, PackFiles, WidgetFile};
-use oku_slides_session::{PackLibrary, PackManifest, PreviewFormat, Storage};
+use oku_slides_session::{PackLibrary, PackManifest, PreviewFormat, PreviewSpan, Storage};
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -90,7 +90,9 @@ fn a_received_value_over_the_text_bound_is_ignored_in_the_preview_and_dropped_at
     library.add_version(id, &well_formed(id, &long)).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&data);
     s.open_pack_tab_here(id, None).unwrap_or_else(|e| panic!("{e}"));
-    let p = s.preview_widget(None, "kpi", &Map::new(), PreviewFormat::Svg).unwrap_or_else(|e| panic!("{e}"));
+    let p = s
+        .preview_widget(None, "kpi", &Map::new(), PreviewFormat::Svg, PreviewSpan::Full)
+        .unwrap_or_else(|e| panic!("{e}"));
     let params = &p.view.unwrap_or_else(|| panic!("vue de l'aperçu"))["slide"]["params"]["elements"][0]["params"];
     assert_that!(params["value"]).is_equal_to(json!("12"));
     assert_that!(params["label"] == json!(long)).is_false();

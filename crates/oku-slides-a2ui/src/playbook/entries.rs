@@ -57,6 +57,7 @@ pub(super) fn all() -> Vec<Example> {
         slider(),
         color_field(),
         select(),
+        switch(),
         list_table(),
         slide_thumb(),
         theme_choice(),
@@ -310,6 +311,17 @@ fn select() -> Vec<Example> {
         },
         vec![],
         json!({ "theme": "papier" }),
+    )]
+}
+
+fn switch() -> Vec<Example> {
+    vec![example(
+        "bound",
+        "An on/off setting; it writes a boolean.",
+        false,
+        K::Switch { label: lit("Highlight"), value: Dynamic::path("/on"), action: Some(Action::named("toggle")) },
+        vec![],
+        json!({ "on": true }),
     )]
 }
 

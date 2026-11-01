@@ -110,9 +110,25 @@ describe("PackPile, items", () => {
     expect(common(host)).toBeNull();
   });
 
-  test("PackPile shows one img thumbnail per item, named after it, and no inline svg", async () => {
+  test("PackPile of a widget pack lists rows, of a layout pack thumbnails", async () => {
+    const widgets = await mount(memory({ card: "" }).fake);
+    const rows = widgets.host.querySelector(".pile.rows") !== null;
+    await act(async () => mounted?.root.unmount());
+    mounted?.host.remove();
+    const layouts = await mount(memory({ card: "" }).fake, { kind: "layouts" });
+    expect([rows, layouts.host.querySelector(".pile.rows")]).toEqual([true, null]);
+  });
+
+  test("PackPile of a widget pack shows a name row per item, no image", async () => {
     const { fake } = memory({ kpi: "k", chart: "c" });
     const { host } = await mount(fake);
+    expect([...host.querySelectorAll(".thumb .thumb-name")].map((n) => n.textContent)).toEqual(["chart", "kpi"]);
+    expect(host.querySelectorAll(".thumb img").length).toBe(0);
+  });
+
+  test("PackPile shows one img thumbnail per layout, named after it, and no inline svg", async () => {
+    const { fake } = memory({ kpi: "k", chart: "c" });
+    const { host } = await mount(fake, { kind: "layouts" });
     const imgs = [...host.querySelectorAll<HTMLImageElement>(".thumb img")];
     expect(imgs.map((i) => i.alt)).toEqual(["chart", "kpi"]);
     expect(host.querySelectorAll(".thumb svg, object, iframe").length).toBe(0);
@@ -500,6 +516,6 @@ describe("PackPile, reordering", () => {
     thumb(host, "a").focus();
     await alt(thumb(host, "a"), "ArrowDown");
     await wait(10);
-    expect([thumbs(host).map((b) => b.querySelector("img")?.alt), document.activeElement === thumb(host, "a")]).toEqual([["b", "a", "c"], true]);
+    expect([thumbs(host).map((b) => b.querySelector(".thumb-name")?.textContent), document.activeElement === thumb(host, "a")]).toEqual([["b", "a", "c"], true]);
   });
 });

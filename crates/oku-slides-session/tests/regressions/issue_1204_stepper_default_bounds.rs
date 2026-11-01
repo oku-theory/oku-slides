@@ -22,6 +22,7 @@ fn stepper(min: Option<f64>, max: Option<f64>) -> ShowParams {
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     };
     ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] }
 }

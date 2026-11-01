@@ -167,7 +167,12 @@ export interface UiState {
   code_width: number | null;
   /** Folded sections (thumbnails); all open by default. */
   folded: PileSectionName[];
+  /** A pack tab's preview slot for element widgets; full by default. */
+  preview_span: PreviewSpan;
 }
+
+/** The share of the grid an element widget's preview spans. */
+export type PreviewSpan = "full" | "half" | "third";
 
 /** Ordre d'une sauvegarde de l'état d'interface : l'hôte ignore une sauvegarde plus ancienne (même `page`,
  *  `seq` inférieur ou égal) que la dernière appliquée ; une autre `page` (rechargée) est toujours acceptée. */
@@ -549,7 +554,7 @@ type Request =
   | { cmd: "rename_widget"; from: string; to: string; pack?: string }
   | { cmd: "duplicate_widget"; from: string; to?: string; pack?: string }
   | { cmd: "reorder_widgets"; order: string[]; pack?: string }
-  | { cmd: "preview_widget"; name: string; pack?: string }
+  | { cmd: "preview_widget"; name: string; pack?: string; span?: PreviewSpan }
   | { cmd: "history_versions" }
   | { cmd: "search"; query: string };
 
@@ -766,7 +771,8 @@ export function tabApi(tab: string) {
     /** Stores the pile's order (every item once, `_commun` excluded); answers the statuses. */
     reorderWidgets: (order: string[], pack?: string) => call<WidgetStatus[]>({ cmd: "reorder_widgets", order, pack }),
     /** Aperçu d'un widget à ses valeurs d'exemple, sans `params` (ceux de l'agent) : la session les prend vides. */
-    previewWidget: (name: string, pack?: string) => call<WidgetPreview>({ cmd: "preview_widget", name, pack }),
+    previewWidget: (name: string, pack?: string, span: PreviewSpan = "full") =>
+      call<WidgetPreview>({ cmd: "preview_widget", name, pack, span }),
     /** Theme tab: saves the draft; the saved version, or null when unchanged. */
     saveTheme: (asNew = false) => call<ThemePin | null>({ cmd: "save_theme", as_new: asNew }),
     /** Theme tab: renames the draft (undoable). */

@@ -176,7 +176,7 @@ pub enum ParamType {
 
 /// Longest widget, parameter, column or item label, in characters.
 pub const WIDGET_LABEL_MAX: usize = 120;
-/// Longest widget description, in characters.
+/// Longest widget description or parameter help, in characters.
 pub const WIDGET_DESCRIPTION_MAX: usize = 500;
 
 /// Noms interdits à une colonne de `list` : clés de l'item et d'un élément.
@@ -207,9 +207,12 @@ pub(crate) fn is_column_type(ty: &ParamType) -> bool {
 pub struct ParamSchema {
     /// Name of the parameter, without `/`, unique in the widget.
     pub name: String,
-    /// Label shown in the editor; absent: the name.
+    /// Label shown in the editor, plain or by language; absent: the name.
     #[serde(default)]
-    pub label: Option<String>,
+    pub label: Option<LocalizedText>,
+    /// One line of help under the field, plain or by language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help: Option<LocalizedText>,
     /// Type of the parameter and its constraints.
     #[serde(flatten)]
     pub ty: ParamType,
@@ -418,20 +421,25 @@ fn localized_too_long(text: Option<&LocalizedText>, max: usize) -> bool {
     }
 }
 
-/// Whether the label of `p`, or the item label of a list, is over [`WIDGET_LABEL_MAX`].
-fn labels_too_long(p: &ParamSchema) -> bool {
+/// Whether a text of `p` is over its cap.
+///
+/// Its label or a list's item label is capped at [`WIDGET_LABEL_MAX`], its help at
+/// [`WIDGET_DESCRIPTION_MAX`].
+fn texts_too_long(p: &ParamSchema) -> bool {
     let item_label = match &p.ty {
         ParamType::List { item_label, .. } => item_label.as_deref(),
         _ => None,
     };
-    too_long(p.label.as_deref(), WIDGET_LABEL_MAX) || too_long(item_label, WIDGET_LABEL_MAX)
+    localized_too_long(p.label.as_ref(), WIDGET_LABEL_MAX)
+        || too_long(item_label, WIDGET_LABEL_MAX)
+        || localized_too_long(p.help.as_ref(), WIDGET_DESCRIPTION_MAX)
 }
 
 fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {
     if p.name.contains('/') {
         return Err(fault(w, SchemaFault::ReservedName));
     }
-    if labels_too_long(p) {
+    if texts_too_long(p) {
         return Err(fault(w, SchemaFault::TooLong));
     }
     if p.bind.is_some() && p.ty != ParamType::Plain {
@@ -495,7 +503,7 @@ fn check_list(w: &WidgetSchema, p: &ParamSchema, nested: bool) -> Result<(), Wid
             return Err(fault(w, SchemaFault::BindNotPlain));
         }
         if is_list {
-            if labels_too_long(c) {
+            if texts_too_long(c) {
                 return Err(fault(w, SchemaFault::TooLong));
             }
             check_list(w, c, true)?;

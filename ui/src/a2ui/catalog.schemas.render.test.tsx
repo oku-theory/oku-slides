@@ -27,7 +27,7 @@ function typesOf(components: unknown[], data: unknown = {}) {
 }
 
 const V4 = [
-  "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select",
+  "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select", "Switch",
   "ListTable", "SlideThumb", "ThemeChoice", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown", "Notice",
   "ChartData", "TableData",
 ];

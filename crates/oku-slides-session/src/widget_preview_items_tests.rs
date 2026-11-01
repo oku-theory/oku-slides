@@ -3,6 +3,7 @@ use speculoos::prelude::*;
 
 use oku_slides_core::{ListOp, Slide};
 
+use crate::PreviewSpan;
 use crate::test_support::{fresh_dir, opened_on, set_frise_widget};
 use crate::widget_preview::PreviewFormat;
 use crate::{Session, SessionErrorKind};
@@ -18,7 +19,7 @@ fn editing() -> (tempfile::TempDir, Session) {
 
 /// La vue de l'aperçu de la frise, à ses valeurs d'exemple.
 fn preview_view(s: &mut Session) -> Value {
-    let preview = s.preview_widget(None, "frise", &Map::new(), PreviewFormat::Svg).unwrap();
+    let preview = s.preview_widget(None, "frise", &Map::new(), PreviewFormat::Svg, PreviewSpan::Full).unwrap();
     assert_that!(preview.diagnostics.iter().any(|d| d.error)).is_false();
     preview.view.unwrap()
 }

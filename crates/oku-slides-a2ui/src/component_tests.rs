@@ -153,6 +153,13 @@ fn slider_color_select_thumb_and_row_serialize_their_fields() {
         action: None,
     });
     assert_that!(select.and_then(|v| v.get("component").cloned())).is_some().is_equal_to(json!("Select"));
+    let switch = component_json(ComponentKind::Switch {
+        label: Dynamic::Literal("On".into()),
+        value: Dynamic::path("/on"),
+        action: None,
+    });
+    assert_that!(switch.as_ref().and_then(|v| v.get("component").cloned())).is_some().is_equal_to(json!("Switch"));
+    assert_that!(switch.and_then(|v| v.get("value").cloned())).is_some().is_equal_to(json!({"path": "/on"}));
     let thumb = component_json(ComponentKind::SlideThumb {
         svg: "<svg/>".into(),
         label: Dynamic::Literal("1 · deux colonnes".into()),

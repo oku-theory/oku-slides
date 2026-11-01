@@ -47,6 +47,8 @@ interface Props {
   onThumbContextMenu?: (id: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   /** Slides whose item has typing not yet saved: they carry a dot. */
   unsaved?: ReadonlySet<string>;
+  /** Thumbnails (default), or rows with the name only (a widget pack's pile): no image is asked. */
+  variant?: "thumbs" | "rows";
 }
 
 const MARK_TITLE = { removed: "ui-history-removed-since", changed: "ui-history-changed-since" } as const;
@@ -82,7 +84,7 @@ const THRESHOLD = 5;
 
 export default function SlidePile({
   slides, current, svg, names, label, addLabel, marks, onSelect, onMove, onAdd, removeLabel, canRemove, onRemove, axis = "y",
-  hint, onThumbKey, onThumbDoubleClick, onThumbContextMenu, unsaved,
+  hint, onThumbKey, onThumbDoubleClick, onThumbContextMenu, unsaved, variant = "thumbs",
 }: Props) {
   const nav = useRef<HTMLElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -173,12 +175,13 @@ export default function SlidePile({
   }, [current]);
 
   const dragged = drag?.moved ? slides.find((s) => s.id === drag.id) : undefined;
-  const ghostUrl = dragged ? svg(dragged.id, dragged.hash) : null;
+  const rows = variant === "rows";
+  const ghostUrl = dragged && !rows ? svg(dragged.id, dragged.hash) : null;
 
   return (
-    <nav className={`pile${axis === "x" ? " horizontal" : ""}${drag?.moved ? " dragging" : ""}`} aria-label={label} ref={nav}>
+    <nav className={`pile${axis === "x" ? " horizontal" : ""}${rows ? " rows" : ""}${drag?.moved ? " dragging" : ""}`} aria-label={label} ref={nav}>
       {slides.map((s, i) => {
-        const url = svg(s.id, s.hash);
+        const url = rows ? null : svg(s.id, s.hash);
         const name = names?.[s.id];
         const lifted = drag?.moved && drag.id === s.id;
         const mark = marks?.[s.id];
@@ -204,9 +207,9 @@ export default function SlidePile({
                 }
               }}
             >
-              <span className="thumb-n">{i + 1}</span>
+              {!rows && <span className="thumb-n">{i + 1}</span>}
               <span className="thumb-body">
-                {url ? <img className="thumb-img" src={url} alt={name ?? s.title ?? t("ui-slide-alt", { n: i + 1 })} draggable={false} /> : <span className="thumb-img" />}
+                {!rows && (url ? <img className="thumb-img" src={url} alt={name ?? s.title ?? t("ui-slide-alt", { n: i + 1 })} draggable={false} /> : <span className="thumb-img" />)}
                 {name && <span className="thumb-name">{name}</span>}
                 {unsaved?.has(s.id) && <span className="unsaved-dot" role="img" aria-label={t("ui-widgets-unsaved")} title={t("ui-widgets-unsaved")} />}
                 {mark && <span className={`thumb-mark ${mark}`} role="img" title={t(MARK_TITLE[mark])} aria-label={t(MARK_TITLE[mark])} />}
@@ -238,7 +241,7 @@ export default function SlidePile({
           aria-hidden
           style={axis === "x" ? { top: drag.top, left: drag.x - drag.grabX, width: drag.width } : { top: drag.y - drag.grabY, left: drag.left, width: drag.width }}
         >
-          {ghostUrl ? <img src={ghostUrl} alt="" draggable={false} /> : <span />}
+          {rows ? <span className="thumb-name">{names?.[drag.id]}</span> : ghostUrl ? <img src={ghostUrl} alt="" draggable={false} /> : <span />}
         </div>
       )}
     </nav>

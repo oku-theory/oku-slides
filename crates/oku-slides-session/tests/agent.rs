@@ -377,6 +377,7 @@ fn theme_field(template: serde_json::Value) -> ParamField {
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     }
 }
 
@@ -413,6 +414,7 @@ fn rich_field(value: serde_json::Value) -> ParamField {
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     }
 }
 
@@ -500,6 +502,7 @@ fn params_surface_slider_with_inverted_bounds_returns_agent_form() {
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     };
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-1e", &spec).unwrap_err();
@@ -525,6 +528,7 @@ fn params_surface_slider_with_only_one_bound_still_rejects_an_implicit_inverted_
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     };
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-1g", &spec).unwrap_err();
@@ -547,6 +551,7 @@ fn params_surface_stepper_with_non_finite_bound_returns_agent_form() {
         options: vec![],
         columns: Vec::new(),
         item_label: None,
+        help: None,
     };
     let spec = ShowParams { title: "x".into(), slide: "s-libre".into(), fields: vec![field] };
     let err = s.params_surface("show-1f", &spec).unwrap_err();

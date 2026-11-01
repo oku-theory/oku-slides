@@ -294,6 +294,11 @@ ui-tab-kind-theme = { $title }, テーマ{ $dirty ->
 }
 ui-tab-theme = テーマ
 ui-preview-theme = プレビューのテーマ
+ui-preview-label = プレビュー:
+ui-preview-span = プレビューの枠
+ui-preview-span-full = 全幅
+ui-preview-span-half = 半分
+ui-preview-span-third = 3分の1
 ui-tab-move-new-window = 新しいウィンドウに移動
 ui-tab-move-to = ウィンドウ { $n } に移動
 ui-tab-close-others = ほかのタブを閉じる

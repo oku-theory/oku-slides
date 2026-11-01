@@ -2,6 +2,7 @@ use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::{PileSection, UiState};
+use crate::PreviewSpan;
 
 #[test]
 fn sanitized_outside_pack_clears_the_selected_item() {
@@ -110,4 +111,10 @@ fn kept_ui_with_legacy_widgets_section_drops_it_only() {
 #[test]
 fn ui_state_with_an_unknown_section_folded_is_refused() {
     assert_that!(serde_json::from_str::<UiState>(r#"{"slide":null,"folded":["params"]}"#).is_err()).is_true();
+}
+
+#[test]
+fn ui_state_without_preview_span_reads_full() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"code":false}"#).unwrap();
+    assert_that!(ui.preview_span).is_equal_to(PreviewSpan::Full);
 }

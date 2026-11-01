@@ -1,6 +1,6 @@
 /** The sheet area of a pack tab: the selected item's view, alone, or nothing when none is. */
 import type { ReactNode } from "react";
-import type { Snapshot, TabApi } from "./api";
+import type { PreviewSpan, Snapshot, TabApi } from "./api";
 import type { PackItem } from "./usePackItem";
 import WidgetTab from "./WidgetTab";
 
@@ -12,6 +12,8 @@ interface Props {
   trials: number;
   /** The deck style's fingerprint: the preview is asked again when it changes. */
   look: string;
+  /** The preview slot of an element widget, shared by every item. */
+  span: PreviewSpan;
   /** Source code shown, shared by every item. */
   code: boolean;
   /** The code width chosen at the divider, shared by every item; `null`: the default share. */
@@ -26,7 +28,7 @@ interface Props {
 }
 
 /** One `WidgetTab`, mounted again for each item selected (its pending write settled first). */
-export default function WidgetPane({ api, item, trials, look, code, codeWidth, onCodeWidth, settings = null, run, palette }: Props) {
+export default function WidgetPane({ api, item, trials, look, span, code, codeWidth, onCodeWidth, settings = null, run, palette }: Props) {
   return (
     <div className="widget-pane">
       {item.selected !== null && (
@@ -38,6 +40,7 @@ export default function WidgetPane({ api, item, trials, look, code, codeWidth, o
           revision={item.revision}
           trials={trials}
           look={look}
+          span={span}
           code={code}
           codeWidth={codeWidth}
           onCodeWidth={onCodeWidth}

@@ -124,7 +124,7 @@ fn field_views_rich_slide_param_carries_its_markdown_text() {
         "owner": "s-1", "field": "body", "page": 1, "x": 0.0, "y": 0.0, "w": 100.0, "h": 20.0
     }]))
     .unwrap();
-    let views = field_views(&deck, slide, &registry, &boxes);
+    let views = field_views(&deck, slide, &registry, &boxes, "fr");
     let body = views.iter().find(|f| f.field == "body").unwrap();
     assert_that!(body.kind).is_equal_to(FieldKind::Rich);
     assert_that!(body.owner_kind).is_equal_to(OwnerKind::Slide);

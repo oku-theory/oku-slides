@@ -35,7 +35,7 @@ function snapOf(kind: PackKind, items: string[], widget: string | null): Snapsho
     widgets: {}, layouts: {}, widget_trials: 0, free_slots: {}, pack_updates: 0, can_undo: false, can_redo: false,
     undo_label: null, redo_label: null, appearance: { chart_palette: [] },
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
-    ui: { slide: null, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [] },
+    ui: { slide: null, ghosts: false, pile: null, notes: null, widget, code: false, code_width: null, folded: [], preview_span: "full" },
   } as unknown as Snapshot;
 }
 
@@ -44,7 +44,7 @@ function keptUi(): KeptUi & { foldedNow: string[] } {
     ghosts: false, columns: { pile: null, notes: null }, setColumns: () => {}, code: false, setCode: () => {},
     codeWidth: null, setCodeWidth: () => {}, folded: [] as string[], foldedNow: [] as string[],
     setFolded: (s: string, fold: boolean) => { k.foldedNow = fold ? [...k.foldedNow, s] : k.foldedNow.filter((x) => x !== s); },
-    setGhosts: () => {}, handleKey: () => false,
+    previewSpan: "full", setPreviewSpan: () => {}, setGhosts: () => {}, handleKey: () => false,
   };
   return k as unknown as KeptUi & { foldedNow: string[] };
 }
@@ -88,6 +88,24 @@ describe("PackPanels", () => {
     const { host } = await mount(fake, snapOf("widgets", ["chart", "kpi"], "kpi"));
     const sheet = host.querySelector(".sheet-area")!;
     expect([sheet.querySelectorAll(".widget-tab").length, sheet.querySelectorAll('[role="tab"]').length]).toEqual([1, 0]);
+  });
+
+  test("PackPanels header holds the preview slot menu for a selected widget", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake, snapOf("widgets", ["kpi"], "kpi"));
+    expect(host.querySelector(".label.editing-pack .preview-span-menu")).not.toBeNull();
+  });
+
+  test("PackPanels header of a layout pack has no preview slot menu", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake, snapOf("layouts", ["kpi"], "kpi"));
+    expect(host.querySelector(".preview-span-menu")).toBeNull();
+  });
+
+  test("PackPanels header with Commun selected has no preview slot menu", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake, snapOf("widgets", ["kpi"], "_commun"));
+    expect(host.querySelector(".preview-span-menu")).toBeNull();
   });
 
   test("PackPanels shows the finish button when the tab can close", async () => {
