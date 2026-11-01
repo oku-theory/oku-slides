@@ -103,7 +103,7 @@ similar = "3"
 unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }
 # Repli des diacritiques (NFD) pour reconnaître les raccourcis de l'agent (« Thème. » = « theme »).
 unicode-normalization = "0.1"
-loro = "1.16"
+loro = "1.17.1"
 # Dictée
 ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
 # Même version que ct2rs : son tokenizer se construit depuis un tokenizers::Tokenizer.
@@ -154,7 +154,7 @@ rstest = "0.26"
 proptest = "1"
 # Somme de contrôle des snapshots Loro : forger un snapshot malformé mais accepté.
 xxhash-rust = { version = "0.8", features = ["xxh32"] }
-loro-kv-store = "1.16"
+loro-kv-store = "1.17"
 bytes = "1"
 
 [workspace.lints.rust]

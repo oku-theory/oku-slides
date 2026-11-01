@@ -65,7 +65,7 @@ pub(super) fn sync_text(t: &LoroText, s: &str) -> Res {
     Ok(())
 }
 
-/// Committe les changements en cours ; appelé avant chaque `mov` (voir [`Writer::sync_list`]).
+/// Commits pending changes; called before nodes are born marked (t-776).
 pub(super) type Split<'a> = &'a dyn Fn();
 
 /// La carte `{rich: LoroText}` d'un paramètre `rich` : réutilisée si elle
@@ -263,7 +263,7 @@ impl Writer<'_> {
                 Kind::Slides => return SlidesInParamsSnafu.fail(),
                 Kind::List => {
                     let columns = columns(fields, key);
-                    self.sync_list(&items_at(map, key)?, elements(value), &|m, o| self.sync_item(m, o, columns))?;
+                    Self::sync_list(&items_at(map, key)?, elements(value), &|m, o| self.sync_item(m, o, columns))?;
                 }
                 Kind::Host => match value {
                     Value::Object(o) => self.sync_host(&map_at(map, key)?, o)?,
@@ -308,7 +308,6 @@ impl Writer<'_> {
     /// Réconcilie une collection à `id` : suppressions, puis insertions et
     /// déplacements ([`Self::reorder`]) ; `each` amène chaque objet à son état.
     pub(super) fn sync_list(
-        &self,
         list: &LoroMovableList,
         items: &[Value],
         each: &dyn Fn(&LoroMap, &Map<String, Value>) -> Res,
@@ -321,7 +320,7 @@ impl Writer<'_> {
             (Some(ValueOrContainer::Container(Container::Map(m))), Some(obj)) => each(&m, obj),
             _ => Ok(()),
         };
-        self.reorder(list, &current, &wanted, &insert, &mut visit)
+        Self::reorder(list, &current, &wanted, &insert, &mut visit)
     }
 
     /// Amène l'ordre de `list`, d'identifiants `current`, à `wanted` :
@@ -333,11 +332,9 @@ impl Writer<'_> {
     /// Appariement par occurrence ([`keyed`]) et positions indexées : linéaire
     /// quand rien ne change, un passage de la liste par insertion ou déplacement.
     ///
-    /// Chaque `mov` part dans son propre commit (`split` juste avant) : Loro
-    /// 1.16.2 défait mal un item d'annulation qui en porte plusieurs sur une
-    /// liste de conteneurs (élément perdu, voire panique ; t-263).
+    /// All `mov`s share the application's commit: since Loro 1.17 (loro#1138)
+    /// one undo item may carry several of them (t-893, formerly t-263).
     pub(super) fn reorder(
-        &self,
         list: &LoroMovableList,
         current: &[String],
         wanted: &[String],
@@ -357,7 +354,6 @@ impl Writer<'_> {
         for (target, key) in wanted_keys.iter().enumerate() {
             if keys.get(target) != Some(key) {
                 if let Some(from) = pos.get(key).copied() {
-                    (self.split)();
                     list.mov(from, target).context(LoroSnafu)?;
                     let moved = keys.remove(from);
                     keys.insert(target, moved);

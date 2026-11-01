@@ -569,11 +569,11 @@ fn p6_every_swap_in_one_commit_undoes_and_redoes_exactly() {
     }
 }
 
-/// Point 6c : Témoin t-263 : les mêmes 56 échanges sur une `LoroMovableList` de
-/// cartes, dans UN commit. Défaire perd un élément dans 32 cas, et rétablir
-/// panique dans 10 autres : 42 sur 56, le chiffre de t-263.
+/// Point 6c: t-263 witness: the same 56 swaps on a `LoroMovableList` of maps,
+/// in ONE commit. On 1.16.2, undo lost an element in 32 cases and redo panicked
+/// in 10 others (42 of 56, the t-263 figure); since 1.17 (loro#1138), none (t-893).
 #[test]
-fn p6_control_movable_list_reproduces_t263() {
+fn p6_control_movable_list_no_longer_reproduces_t263() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(|_| {}));
     let (mut lost, mut panicked) = (0, 0);
@@ -604,7 +604,7 @@ fn p6_control_movable_list_reproduces_t263() {
         }
     }
     std::panic::set_hook(hook);
-    assert_that!((lost, panicked)).is_equal_to((32, 10));
+    assert_that!((lost, panicked)).is_equal_to((0, 0));
 }
 
 /// Point 7a : A défait un déplacement après avoir reçu l'édition de méta de B : la

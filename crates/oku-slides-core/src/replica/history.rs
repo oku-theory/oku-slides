@@ -5,12 +5,11 @@
 //! préfixe est une coupe causale. Un cran montre l'état après **tous** les
 //! changes du préfixe, branches concurrentes comprises.
 //!
-//! Un cran par édition, pas par change : une édition qui déplace des items
-//! de liste ou des lignes de données fait un commit par `mov` (t-263), dont
-//! seuls les intermédiaires portent le message `oku-part:<libellé>`. Ils n'ont
-//! pas de cran ; celui du commit final de l'édition les contient. Les `mov`
-//! de l'arbre du deck n'ajoutent aucun commit (ADR-0006). Le commit de
-//! compaction (t-770) n'a pas de cran.
+//! One step per edit, not per change: an edit that adds slides or elements
+//! commits its nodes born marked first (t-776), with the message
+//! `oku-part:<label>`. Such intermediate commits have no step; the edit's final
+//! commit contains them. `mov`s, of lists or of the deck tree, add no commit
+//! (t-893). The compaction commit (t-770) has no step.
 //!
 //! Une version se lit par rejeu de ses opérations, jamais par `checkout` (t-809).
 
@@ -81,8 +80,8 @@ pub(super) fn build(doc: &LoroDoc) -> HistoryPreview {
     metas.sort_by_key(|m| (m.lamport, m.id.peer));
     let (mut vv, mut seen) = (VersionVector::default(), HashSet::new());
     let (mut versions, mut cuts) = (Vec::with_capacity(metas.len()), Vec::with_capacity(metas.len()));
-    // Commits intermédiaires d'une édition (un `mov` de liste par commit,
-    // t-263), par pair : ils n'ont pas de cran, le commit final le porte.
+    // Intermediate commits of an edit (nodes born marked, t-776), per peer:
+    // they have no step, the final commit carries it.
     let mut parts: HashMap<u64, bool> = HashMap::new();
     let mut last_part = None;
     for m in metas {

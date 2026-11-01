@@ -16,13 +16,13 @@
 //! Un document accepté ne déborde plus : export, `fork` et drop d'un arbre de
 //! 1024 niveaux tiennent dans ~1 Mio de pile, sous les 2 Mio des fils de l'app.
 //!
-//! Résidus : les valeurs plates imbriquées (t-223) ; ne jamais appeler
-//! `get_deep_value` sur un document reçu ; au-delà de 65 535 conteneurs
-//! imbriqués, Loro panique (rattrapé par [`guarded`]) ; le rejeu d'un très grand
-//! historique est lent (un million de nœuds : ~10 s) ; comme une fusion, il
-//! réunit en un change les changes consécutifs d'un pair, de même message,
-//! dans la même seconde (Loro 1.16.2, intervalle fixe) : deux éditions de même
-//! libellé dans la même seconde ne font plus qu'une version.
+//! Residues: never call `get_deep_value` on a received document, it recurses
+//! over deep trees (t-865); deep plain values no longer overflow since Loro 1.17
+//! (loro#1204, t-223). Beyond 65,535 nested containers Loro panics (caught by
+//! [`guarded`]). Replaying a very large history is slow (a million nodes: ~10 s).
+//! Like a merge, the replay combines a peer's consecutive changes with the same
+//! message within the same second (measured on Loro 1.16.2, fixed interval):
+//! two edits with the same label within the same second become one version.
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};

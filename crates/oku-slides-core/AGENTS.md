@@ -36,7 +36,6 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Expect any change to widgets.json, including name or description, to produce a new content-addressed PackVersion. (plan:2026-10-01-packs-portables)
 - Generate random element ids; concurrent adds with the same id produce duplicates that validate flags. (spec:2026-09-27-sources-loro-design)
-- Beware Loro UndoManager on commits with several mov on the slides list; undo can lose elements or panic. (t-263)
 
 ## Testing
 

@@ -68,7 +68,7 @@ than by overwriting one of the two. Three goals arose at once:
   turn) groups several Loro items in a stack of our own, with its
   label: Loro 1.16.2 undoes an item carrying several `mov`s badly, hence
   one commit per `mov` (t-263); no longer needed for the deck tree since
-  ADR-0006 (still used for item and data lists).
+  ADR-0006, nor for item and data lists since Loro 1.17.1 (t-893).
 - **Total read.** `DeckReplica::deck()` never returns an error: an
   unreadable subtree (element, slide, top-level field) is dropped and
   reported by an `Issue`, reset to its default value if needed. A

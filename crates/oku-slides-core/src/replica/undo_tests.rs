@@ -162,36 +162,20 @@ fn a_new_group_closes_the_open_one() {
     assert_that!(r.undo_label()).is_equal_to(Some("Premier".to_owned()));
 }
 
-/// `roadmap` et, dans `blocks` de `s-constat`, l'élément `f` (`liste`) aux items `ids`.
-fn with_items(ids: &[String]) -> Deck {
-    let items: Vec<serde_json::Value> = ids.iter().map(|id| serde_json::json!({ "id": id, "date": id })).collect();
-    let ops = vec![
-        json_op(
-            serde_json::json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-            "element": { "id": "f", "kind": "test-el/liste" } }),
-        ),
-        json_op(serde_json::json!({ "op": "set_param", "target": { "slide": "s-constat", "element": "f" },
-            "param": "etapes", "value": items })),
-    ];
-    let mut deck = roadmap();
-    ok(crate::apply_all(&mut deck, ops, &crate::test_registry::with_list()));
-    deck
-}
-
 #[test]
 fn step_partly_dropped_by_loro_is_no_longer_undoable() {
-    // Limite 1 : Loro garde 64 items ; renverser 80 items d'une liste en fait
-    // 79, un commit par `mov` (parade t-263). Les slides, dans l'arbre du
-    // deck, n'en font qu'un.
-    let ids: Vec<String> = (0..80).map(|k| format!("i{k}")).collect();
-    let deck = with_items(&ids);
-    let mut r = DeckReplica::new(&deck, crate::test_registry::with_list()).unwrap();
+    // Limit 1: Loro keeps 64 items. A typing session under one merge key grows
+    // one step; at its 65th item Loro has dropped part of it, so the whole step
+    // goes and the session goes on in a new step (here the last 15 applications).
+    let deck = roadmap();
+    let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
     r.set_undo_limit(1);
-    let reversed = with_items(&ids.iter().rev().cloned().collect::<Vec<_>>());
-    r.apply(&reversed, "Inverser", None).unwrap();
+    for k in 0..80 {
+        r.apply(&subtitled(&deck, &format!("t{k}")), "Taper", Some("k")).unwrap();
+    }
+    assert_that!(r.undo().unwrap()).is_true();
+    assert_that!(r.deck().0).is_equal_to(subtitled(&deck, "t64"));
     assert_that!(r.can_undo()).is_false();
-    assert_that!(r.undo().unwrap()).is_false();
-    assert_that!(r.deck().0).is_equal_to(&reversed);
 }
 
 fn subtitled(deck: &Deck, t: &str) -> Deck {
@@ -426,9 +410,9 @@ fn undo_redo_of_reordered_rows_and_columns_restores_exactly() {
     assert_undo_redo_exact(&deck, &reordered);
 }
 
-// Éléments d'une slide en arbre (t-694) : la parade t-263 ne vise plus que les
-// listes ; ces tests vérifient qu'annuler et rétablir un `mov` d'arbre, seul ou
-// mêlé à un `mov` de liste, rend l'état exact.
+// A slide's elements as a tree (t-694), without one commit per `mov` (nor for
+// lists since t-893): undoing and redoing a tree `mov`, alone or mixed with a
+// list `mov`, gives back the exact state.
 
 fn json_op(v: serde_json::Value) -> crate::Op {
     serde_json::from_value(v).unwrap_or_else(|e| panic!("op invalide : {e}"))
@@ -633,10 +617,10 @@ fn undo_a_stale_move_after_the_peer_moved_it_again_converges() {
     assert_that!(declared.iter().any(|(o, s)| *o == place[0].0 && *s == place[0].1)).is_true();
 }
 
-// Le deck en un seul arbre (t-746), sans la parade t-263 pour les slides :
-// annuler et rétablir des `mov` de slides et d'éléments d'une slide à
-// l'autre rend l'état exact, et ce qu'ils produisent passe le contrôle
-// d'entrée (relecture d'un snapshot, fusion avec un pair).
+// The deck as one tree (t-746), without one commit per `mov`: undoing and
+// redoing `mov`s of slides, and of elements from one slide to another, gives
+// back the exact state, and what they produce passes the entry check (rereading
+// a snapshot, merging with a peer).
 
 /// Comme [`assert_undo_redo_exact`], puis, après « rétablir » : relecture d'un
 /// snapshot et fusion dans un pair du départ, sans `Issue`. Avec `repair`,

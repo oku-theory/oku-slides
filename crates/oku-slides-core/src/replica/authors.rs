@@ -26,7 +26,7 @@ pub struct MergeReport {
 
 /// Les modifications de `doc` absentes de `before`.
 ///
-/// Les parties d'une édition (t-263, t-776) ne comptent pas : une édition compte une fois.
+/// The parts of an edit (t-776) do not count: an edit counts once.
 pub(super) fn report_since(doc: &LoroDoc, before: &VersionVector) -> MergeReport {
     let heads: Vec<loro::ID> = doc.oplog_frontiers().iter().collect();
     let (mut changes, mut peers) = (0, BTreeSet::new());

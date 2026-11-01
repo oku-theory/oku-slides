@@ -70,8 +70,8 @@ const FORMAT: &str = "format";
 /// Le changer impose de changer `SOURCES_VERSION`.
 const REPLICA_FORMAT: i64 = 7;
 
-/// Préfixe du message d'un commit intermédiaire d'une application (avant
-/// un `mov` de liste) : l'état qui suit n'est pas une version du deck.
+/// Message prefix of an application's intermediate commit (nodes born
+/// marked, t-776): the state after it is not a version of the deck.
 pub(crate) const PART: &str = "oku-part:";
 
 fn part_message(label: &str) -> String {

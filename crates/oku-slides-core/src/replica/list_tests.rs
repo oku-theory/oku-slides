@@ -248,7 +248,7 @@ fn messages(r: &DeckReplica) -> Vec<String> {
 }
 
 #[test]
-fn apply_reorder_of_items_marks_intermediate_commits_as_parts() {
+fn apply_reorder_of_items_is_one_commit() {
     let deck = deck_with_list(&["a", "b", "c", "d"]);
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let before = messages(&r).len();
@@ -260,9 +260,8 @@ fn apply_reorder_of_items_marks_intermediate_commits_as_parts() {
     assert_that!(ids(&reversed)).is_equal_to(vec!["d".to_owned(), "c".into(), "b".into(), "a".into()]);
     r.apply(&reversed, "Inverser", None).unwrap();
     let got = messages(&r).split_off(before);
-    // Trois `mov` d'items, chacun précédé d'un commit (parade t-263) : le
-    // premier ne committe rien, puis deux commits intermédiaires et le dernier.
-    assert_that!(got).is_equal_to(vec![format!("{PART}Inverser"), format!("{PART}Inverser"), "Inverser".to_owned()]);
+    // Three item `mov`s in one commit, without intermediate parts (t-893).
+    assert_that!(got).is_equal_to(vec!["Inverser".to_owned()]);
     assert_that!(ids(&r.deck().0)).is_equal_to(ids(&reversed));
 }
 

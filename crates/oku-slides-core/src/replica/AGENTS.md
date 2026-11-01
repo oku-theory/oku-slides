@@ -53,5 +53,5 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Store host datasets as row, column and cell containers matched by id, never as one JSON atom. (ADR-0004, plan:2026-10-08-fusion-cellules)
 - Keep the whole deck in one LoroTree whose roots, and only they, are slides; elements are descendants. (ADR-0006, plan:2026-10-10-deck-en-arbre)
 - Store one deletion mark key per peer, never a shared boolean, so one undo cannot cancel a peer's removal. (plan:2026-10-10-deck-en-arbre)
-- Commit before each mov on movable lists such as items and dataset; never split commits for deck tree moves. (ADR-0006, t-269)
+- Never add commits between the movs of an application, for lists or the deck tree. (ADR-0006, t-893)
 - Use silent commits (oku-silent origin) for non-undoable changes such as load-time canonicalization. (plan:2026-09-27-sources-loro-fondation)

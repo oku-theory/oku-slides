@@ -393,14 +393,12 @@ fn json_depth(v: &serde_json::Value) -> usize {
 /// de lecture qui doit arrêter la descente.
 const HOSTILE_CONTAINER_DEPTH: usize = 4000;
 
-/// Profondeur hostile pour une valeur plate imbriquée sans conteneur
-/// (`LoroValue::Map` dans `LoroValue::Map`, par exemple une entrée de
-/// `vars`) : `doc.import` n'y touche pas (import paresseux), mais au
-/// premier accès Loro décode la valeur récursivement (postcard + serde), et
-/// le drop du doc la libère récursivement ; sur une pile de 256 Kio, l'un
-/// ou l'autre déborde vers 1000 niveaux (2000 et 1000 débordent, 700
-/// tient). On reste sous ce plafond, très au-delà de `MAX_DEPTH` (64), pour
-/// que ce soit notre borne qui décide, pas la pile. Limite côté Loro : t-223.
+/// Hostile depth for a plain nested value without containers
+/// (`LoroValue::Map` in `LoroValue::Map`, e.g. a `vars` entry). On Loro 1.16.2
+/// the first access decoded it recursively and the drop freed it recursively,
+/// overflowing a 256 KiB stack near 1000 levels (700 held); Loro 1.17 fixed both
+/// (t-223, regression test `issue_0223`). Kept small for speed, still far above
+/// `MAX_DEPTH` (64) so that our bound decides.
 const HOSTILE_PLAIN_VALUE_DEPTH: usize = 700;
 
 /// Relit un snapshot dans un fil à petite pile (256 Kio) : sans la borne de

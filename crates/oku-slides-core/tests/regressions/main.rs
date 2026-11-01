@@ -9,6 +9,7 @@
 mod common;
 
 mod issue_0001_asset_id_escaping_or_injecting;
+mod issue_0223_deep_plain_value_snapshot;
 mod issue_0263_undo_reorder_loses_slides;
 mod issue_0292_grid_hides_blocks;
 mod issue_0527_rich_list_links;

@@ -209,8 +209,7 @@ fn restore_across_a_delete_then_a_swap_brings_back_each_earlier_version() {
     }
 }
 
-/// Un échange de slides non voisines, annulé : t-263 (un `mov` par commit)
-/// le rend sans perte, restauration comprise.
+/// A swap of non-adjacent slides, undone, loses nothing (t-263), restore included.
 #[test]
 fn restore_across_a_swap_can_be_undone() {
     let deck = roadmap();

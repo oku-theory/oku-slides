@@ -75,7 +75,8 @@
   `move_element` op (the agent's `apply` tool, the interface's cut and paste), and
   an `apply` that removes an id from one slide and adds it to another, under the
   conditions of the inferred move.
-- **The t-263 workaround remains only for lists** (items, `dataset`).
+- **The t-263 workaround remains only for lists** (items, `dataset`); no longer
+  needed for lists either since Loro 1.17.1 (t-893).
 
 ### Reading
 
@@ -133,7 +134,7 @@ None. `REPLICA_FORMAT` goes from 2 to 3 and `SOURCES_VERSION` from 8 to 9.
   55 ms.
 - **Opening replays the whole history** (chain of 100,000 ops: ~60 ms;
   1 M: ~0.8 s; wide tree of one million nodes: ~10 s). Nested flat
-  values (t-223) remain unbounded.
+  values (t-223) remained unbounded until Loro 1.17.1 fixed them (loro#1204).
 - The replay on opening (t-809), like a merge, combines into a single change
   the consecutive changes of the same peer, with the same message, within the same
   second (Loro 1.16.2, fixed interval): two edits with the same label within
@@ -183,6 +184,6 @@ None. `REPLICA_FORMAT` goes from 2 to 3 and `SOURCES_VERSION` from 8 to 9.
   of the peer that set it removes it: the mark of an absent peer, or of a
   closed session, hides the node for good, without an `Issue`.
 - An empty node is born from an undone `mov` whose target was compacted (ADR-0007).
-- Loro stays pinned by `Cargo.lock` (1.16.2). No `cargo update -p loro`
+- Loro stays pinned by `Cargo.lock` (1.16.2, 1.17.1 since t-893). No `cargo update -p loro`
   without rerunning `tests/loro_tree_probe.rs` and
   `tests/loro_deck_tree_probe.rs`.

@@ -117,7 +117,7 @@ impl Writer<'_> {
                     if key == DATASET
                         && let Some(s) = shape(o) =>
                 {
-                    self.sync_dataset(&dataset_at(map)?, &s)?;
+                    Self::sync_dataset(&dataset_at(map)?, &s)?;
                 }
                 Value::Object(o) => self.sync_map(&map_at(map, key)?, o, Ctx::Opaque)?,
                 v => set_value(map, key, json_to_loro(v))?,
@@ -127,8 +127,8 @@ impl Writer<'_> {
     }
 
     /// Amène la carte `{columns, rows}` à l'état de `ds`.
-    fn sync_dataset(&self, map: &LoroMap, ds: &Shape<'_>) -> Res {
-        self.sync_ids(&list_at(map, COLUMNS)?, &ds.columns)?;
+    fn sync_dataset(map: &LoroMap, ds: &Shape<'_>) -> Res {
+        Self::sync_ids(&list_at(map, COLUMNS)?, &ds.columns)?;
         let rows: Vec<Value> = ds
             .ids
             .iter()
@@ -139,15 +139,15 @@ impl Writer<'_> {
                 serde_json::json!({ "id": id, CELLS: cells })
             })
             .collect();
-        self.sync_list(&list_at(map, ROWS)?, &rows, &|m, o| sync_row(m, o))
+        Self::sync_list(&list_at(map, ROWS)?, &rows, &|m, o| sync_row(m, o))
     }
 
     /// Réconcilie une liste d'identifiants en valeurs ([`Writer::reorder`]).
-    fn sync_ids(&self, list: &LoroMovableList, wanted: &[&str]) -> Res {
+    fn sync_ids(list: &LoroMovableList, wanted: &[&str]) -> Res {
         let wanted: Vec<String> = wanted.iter().map(|s| (*s).to_owned()).collect();
         let current: Vec<String> = (0..list.len()).map(|i| value_id(list, i)).collect();
         let insert = |at: usize, id: &str| list.insert(at, id).context(LoroSnafu);
-        self.reorder(list, &current, &wanted, &insert, &mut |_| Ok(()))
+        Self::reorder(list, &current, &wanted, &insert, &mut |_| Ok(()))
     }
 }
 

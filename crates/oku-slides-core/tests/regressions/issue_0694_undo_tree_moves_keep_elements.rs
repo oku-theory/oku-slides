@@ -1,8 +1,8 @@
-//! t-694 : les éléments d'une slide sont les nœuds d'un `LoroTree`, sans la
-//! parade t-263 (un `mov` par commit), gardée pour les listes. Plusieurs `mov`
-//! d'arbre dans un même commit (permutation, passage d'un slot à l'autre,
-//! imbrication), mêlés à des suppressions et des ajouts, doivent se défaire
-//! et se refaire exactement.
+//! t-694: a slide's elements are nodes of a `LoroTree`, without one commit per `mov`.
+//!
+//! The t-263 workaround is gone for lists too since t-893. Several tree `mov`s
+//! in one commit (permutation, slot to slot, nesting), mixed with removals and
+//! additions, must undo and redo exactly.
 
 use oku_slides_core::{Deck, Element, Frame, SourceBundle, canonicalize};
 use serde_json::json;

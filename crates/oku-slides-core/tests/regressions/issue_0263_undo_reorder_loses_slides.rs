@@ -1,10 +1,10 @@
-//! Loro 1.16.2 : défaire un item d'annulation qui porte plusieurs `mov` sur
-//! une `LoroMovableList` de conteneurs perd des éléments (suppression
-//! durable dans l'oplog), voire panique. Échanger deux slides non voisines
-//! suffisait : 42 échanges sur 56 perdaient une slide du fixture.
+//! Loro 1.16.2 lost slides when undoing several `mov`s of one item.
 //!
-//! Les slides sont désormais les racines de l'arbre du deck (t-746), sans
-//! cette parade : ce test reste une garde.
+//! Undoing an undo item carrying several `mov`s on a `LoroMovableList` of
+//! containers lost elements (durable deletion in the oplog), or panicked.
+//! Swapping two non-adjacent slides was enough: 42 swaps of 56 lost a slide of
+//! the fixture. Slides are now roots of the deck tree (t-746) and Loro 1.17.1
+//! fixed lists (t-893), both without one commit per `mov`: this test stays a guard.
 
 use oku_slides_core::{Deck, ParamValue, SourceBundle};
 use speculoos::prelude::*;

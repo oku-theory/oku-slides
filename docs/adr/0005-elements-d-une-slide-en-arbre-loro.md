@@ -82,7 +82,7 @@ None. `SOURCES_VERSION` goes from 7 to 8, and `DECK_VERSION` does not change
 - A move between slots or between depths keeps the concurrent edits
   of the element.
 - The t-263 workaround goes away for elements: the tree is written without a commit per
-  `mov`. It remains for list items only.
+  `mov`. It remains for list items only (until Loro 1.17.1, t-893).
 
 ## Limits
 
@@ -95,6 +95,6 @@ None. `SOURCES_VERSION` goes from 7 to 8, and `DECK_VERSION` does not change
   the same fractional index. An insertion between them makes Loro emit a
   `Rearrange`, that is implicit `mov` of siblings, which can
   bring back a sibling that a peer was moving in parallel.
-- Loro is pinned by `Cargo.lock` (1.16.2): no `cargo update -p loro`
+- Loro is pinned by `Cargo.lock` (1.16.2, 1.17.1 since t-893): no `cargo update -p loro`
   without rerunning the probes (`tests/loro_tree_probe.rs`,
   `tests/loro_deck_tree_probe.rs`).

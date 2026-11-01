@@ -1,13 +1,11 @@
 //! Annuler / rétablir : des étapes à nous, chacune faite de plusieurs items
 //! de l'`UndoManager` de Loro, qui ne défait que les changements de ce pair.
 //!
-//! Loro 1.16.2 défait mal un item qui porte plusieurs `mov` sur une
-//! `LoroMovableList` de conteneurs (t-263). La réconciliation committe donc
-//! avant chaque `mov` d'une liste (items, lignes et colonnes d'un `dataset`).
-//! L'arbre du deck n'en a pas besoin (ADR-0006). Une application est une étape,
-//! faite d'un item par commit, défaits ou rétablis tous ensemble. Pour la même
-//! raison, les groupes (un tour de l'agent) sont des étapes à nous, jamais
-//! un `group_start` de Loro, qui fusionnerait leurs items en un seul.
+//! An application is one step, made of one item per commit (the nodes born
+//! marked get a commit of their own, t-776), undone or redone together; since
+//! Loro 1.17 one item may carry several `mov`s (t-893, formerly t-263). Groups
+//! (an agent turn) are steps of our own too, never a Loro `group_start`: a step
+//! carries its label and merge key, which Loro groups do not.
 //!
 //! Une application peut aussi porter une clé de fusion : elle rejoint l'étape
 //! du sommet si celle-ci porte la même clé (une séance de frappe sur plusieurs
