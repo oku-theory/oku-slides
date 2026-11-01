@@ -155,10 +155,10 @@ mod identity {
     #[test]
     fn process_identity_of_a_running_child_is_alive() {
         let mut child = long_child();
-        let identity = ProcessIdentity::read(child.id());
+        let alive = ProcessIdentity::read(child.id()).map(ProcessIdentity::alive);
         let _ = child.kill();
         let _ = child.wait();
-        assert_that!(identity.map(ProcessIdentity::alive)).is_equal_to(Some(true));
+        assert_that!(alive).is_equal_to(Some(true));
     }
 
     #[test]
