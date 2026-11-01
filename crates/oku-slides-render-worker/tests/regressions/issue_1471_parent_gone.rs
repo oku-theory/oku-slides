@@ -22,7 +22,8 @@ const TEST_NAME: &str = "issue_1471_parent_gone::worker_whose_parent_exits_stops
 fn worker_whose_parent_exits_stops_by_its_watchdog() {
     if std::env::var_os(SPAWNER).is_some() {
         // Inherited stdin and stderr: the outer test's pipes.
-        Command::new(env!("CARGO_BIN_EXE_oku-slides-render-worker"))
+        #[expect(clippy::zombie_processes, reason = "the worker must outlive this parent, which never waits")]
+        let _worker = Command::new(env!("CARGO_BIN_EXE_oku-slides-render-worker"))
             .arg("--render-worker")
             .stdout(Stdio::null())
             .spawn()
