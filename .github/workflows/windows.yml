@@ -75,7 +75,7 @@ jobs:
           tool: cargo-nextest@0.9.146
 
       - name: Clippy
-        run: cargo clippy -p oku-slides-render-worker --all-targets -- -D warnings
+        run: cargo clippy -p oku-slides-render-worker --all-targets --keep-going -- -D warnings
 
       - name: Tests
         run: cargo nextest run -p oku-slides-render-worker --retries 2
