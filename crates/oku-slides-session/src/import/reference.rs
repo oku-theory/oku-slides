@@ -46,7 +46,7 @@ const SOFFICE_GRACE_MS: u64 = 10_000;
 /// Les pages d'une tranche rendues par le témoin.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WitnessPages {
-    /// Nom et version du témoin (`office2pdf 0.8.1`).
+    /// Name and version of the witness (`office2pdf 0.10.0`).
     pub witness: String,
     /// Pages que le témoin a rendues pour la tranche.
     pub count: usize,

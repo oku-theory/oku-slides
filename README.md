@@ -92,8 +92,8 @@ rendered past its page becomes an `Overflow` loss; in retrofit, so does any elem
 rendered below the page's bottom margin.
 
 The default `[import] score_threshold` is 7.0 (OKLab ΔE ×100 of the worst non-suspect
-region, measured with office2pdf on the alto, libreoffice and kitchen fixtures on
-2026-10-16). `[import] witness = "soffice"` (or `--reference soffice`) uses LibreOffice
+region, measured with office2pdf 0.10.0 on the alto, libreoffice and kitchen fixtures on
+2026-11-01). `[import] witness = "soffice"` (or `--reference soffice`) uses LibreOffice
 instead, in the app too: the first program of `[import] soffice` found. Missing, or a
 script on macOS, the report says why and no slide is scored: never a fallback to
 office2pdf. Its own suspect regions are Calibri Light text (it has no substitute) and

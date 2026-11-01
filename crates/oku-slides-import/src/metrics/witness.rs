@@ -1,4 +1,4 @@
-//! Les limites connues des témoins (office2pdf 0.8.1, LibreOffice 26.8), lues sur l'item source d'une région.
+//! Known limits of the witnesses (office2pdf 0.10.0, LibreOffice 26.8), read on a region's source item.
 //!
 //! Là, son écart au rendu Oku est surtout celui du témoin.
 //!
@@ -9,10 +9,9 @@
 //! Une liste à puces ou un texte de plusieurs paragraphes ancré en haut n'est
 //! pas ajusté : son écart reste celui d'Oku.
 //!
-//! La police (t-904) : du `defaultTextStyle` de la présentation, office2pdf ne
-//! lit que la taille (`parse_default_text_size_pt`, `parser/pptx_package.rs:348`) ;
-//! une forme ordinaire n'hérite que de l'`otherStyle` du master
-//! (`parser/pptx_slides.rs:471`). Un run dont seule la présentation nomme la
+//! The font (t-904): of the presentation's `defaultTextStyle`, office2pdf reads
+//! only the size (`parse_default_text_size_pt`, `parser/pptx_package.rs`); an
+//! ordinary shape inherits only the master's `otherStyle` (`parser/pptx_theme.rs`). Un run dont seule la présentation nomme la
 //! police (`+mn-lt`, Calibri) reste sans famille (`font_family: None`), et son
 //! Typst n'en écrit aucune (`#set text(size: 16pt)`, kitchen p. 2) : le texte
 //! sort dans la police de repli de Typst, plus étroite. PowerPoint, lui, le

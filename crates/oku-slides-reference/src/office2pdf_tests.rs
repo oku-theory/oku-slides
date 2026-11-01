@@ -86,6 +86,22 @@ fn witness_names_the_version_pinned_in_the_workspace() {
     assert_that!(pin).contains(format!(r#"version = "={version}""#));
 }
 
+/// The `zip` dependencies of `package` in `Cargo.lock`.
+fn locked_zip_of(lock: &str, package: &str) -> Vec<String> {
+    let header = format!("name = \"{package}\"\n");
+    let block = lock.split("\n\n").find(|b| b.contains(&header)).unwrap_or_default();
+    block.lines().map(str::trim).filter(|l| *l == "\"zip\"," || l.starts_with("\"zip ")).map(str::to_owned).collect()
+}
+
+/// `ensure_no_font_left` rereads with the workspace's zip, the one `office2pdf` uses.
+#[test]
+fn witness_reads_with_the_workspace_zip() {
+    let lock = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.lock")).unwrap();
+    let ours = locked_zip_of(&lock, "oku-slides-reference");
+    assert_that!(ours).has_length(1);
+    assert_that!(locked_zip_of(&lock, "office2pdf")).is_equal_to(ours);
+}
+
 #[test]
 fn render_of_a_slide_span_gives_its_pages_only() {
     let span = SlideSpan { first: 2, last: 3 };
@@ -136,13 +152,13 @@ fn without_fonts_drops_a_font_part_outside_fonts_dir() {
 }
 
 #[test]
-fn office2pdf_view_of_a_font_part_is_refused() {
+fn ensure_no_font_left_of_a_font_part_is_refused() {
     let pptx = with_part(&fixture("libreoffice.pptx"), "ppt/media/X.fntdata", b"police");
-    assert_that!(ensure_no_font_for_office2pdf(&pptx)).is_err();
+    assert_that!(ensure_no_font_left(&pptx)).is_err();
 }
 
 #[test]
-fn office2pdf_view_of_a_stripped_deck_is_accepted() {
+fn ensure_no_font_left_of_a_stripped_deck_is_accepted() {
     let pptx = with_part(&fixture("libreoffice.pptx"), "ppt/media/X.fntdata", b"police");
-    assert_that!(ensure_no_font_for_office2pdf(&without_fonts(&pptx).unwrap())).is_ok();
+    assert_that!(ensure_no_font_left(&without_fonts(&pptx).unwrap())).is_ok();
 }

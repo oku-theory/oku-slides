@@ -1182,6 +1182,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "charset"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1f927b07c74ba84c7e5fe4db2baeb3e996ab2688992e39ac68ce3220a677c7e"
+dependencies = [
+ "base64 0.22.1",
+ "encoding_rs",
+]
+
+[[package]]
 name = "charts-rs"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1777,7 +1787,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
 dependencies = [
  "quote",
- "syn 2.0.119",
+ "syn 3.0.6",
 ]
 
 [[package]]
@@ -1982,6 +1992,12 @@ name = "dasp_sample"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c87e182de0887fd5361989c677c4e8f5000cd9491d6d563161a8f3a5519fc7f"
+
+[[package]]
+name = "data-encoding"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
 name = "data-url"
@@ -2222,23 +2238,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
 dependencies = [
  "litrs",
-]
-
-[[package]]
-name = "docx-rs"
-version = "0.4.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fdf00e8af6d0b3e92d4bbf9b76f773d8b84ea80f310324ad16cbdc2e653e02c"
-dependencies = [
- "base64 0.22.1",
- "crc32fast",
- "image 0.25.10",
- "quick-xml 0.41.0",
- "serde",
- "serde_json",
- "smallvec",
- "thiserror 2.0.21",
- "zip 8.6.0",
 ]
 
 [[package]]
@@ -5036,6 +5035,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc04a4c58212d57930a24bf47d3fa87485264a3a054e9c10e042eb373573ad3c"
 
 [[package]]
+name = "mailparse"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "068d4f5d1083883b9e626051dc5bdaa321f5be01093e61ade3ee3ab44dafeadd"
+dependencies = [
+ "charset",
+ "data-encoding",
+ "quoted_printable",
+]
+
+[[package]]
 name = "markup5ever"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5044,6 +5054,18 @@ dependencies = [
  "log",
  "tendril",
  "web_atoms",
+]
+
+[[package]]
+name = "markup5ever_rcdom"
+version = "0.39.0+unofficial"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ac010f19d6c4af81eeb4018a39d7a115de9d285af45c126a4ac02e6fc5716b7"
+dependencies = [
+ "html5ever",
+ "markup5ever",
+ "tendril",
+ "xml5ever",
 ]
 
 [[package]]
@@ -5835,15 +5857,20 @@ dependencies = [
 
 [[package]]
 name = "office2pdf"
-version = "0.8.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b816a251df46819b282610723877ec6c5fa9a97a953c2068f83367e7d804d512"
+checksum = "bb210d293ca16b7ca9874a82390c9e1857558e2a97137d003a2b382de64a7a2e"
 dependencies = [
  "comemo",
- "docx-rs",
  "getrandom 0.2.17",
  "getrandom 0.3.4",
+ "html5ever",
  "image 0.25.10",
+ "mailparse",
+ "markup5ever_rcdom",
+ "office2pdf-docx-rs",
+ "office2pdf-umya-spreadsheet",
+ "png 0.18.1",
  "quick-xml 0.41.0",
  "serde",
  "serde_json",
@@ -5854,10 +5881,55 @@ dependencies = [
  "typst-kit",
  "typst-layout",
  "typst-pdf",
- "umya-spreadsheet",
  "unicode-normalization",
  "web-time",
- "zip 0.6.6",
+ "zip 9.1.3",
+]
+
+[[package]]
+name = "office2pdf-docx-rs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67aed8f6a216ab3ce5ebf8eb94997dbdb26f63f288fb773b30873362eb3edea5"
+dependencies = [
+ "base64 0.22.1",
+ "crc32fast",
+ "image 0.25.10",
+ "quick-xml 0.41.0",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror 2.0.21",
+ "zip 9.1.3",
+]
+
+[[package]]
+name = "office2pdf-umya-spreadsheet"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86a43845ff7fcc646f7b69d1d252203c9eb7403201854661856275f78c990c65"
+dependencies = [
+ "aes 0.8.4",
+ "ahash",
+ "base64 0.22.1",
+ "byteorder",
+ "cbc 0.1.2",
+ "cfb 0.10.0",
+ "chrono",
+ "encoding_rs",
+ "fancy-regex 0.14.0",
+ "getrandom 0.2.17",
+ "hmac",
+ "html_parser",
+ "imagesize",
+ "lazy_static",
+ "md-5 0.10.6",
+ "quick-xml 0.41.0",
+ "regex",
+ "sha2 0.10.9",
+ "thin-vec",
+ "thousands",
+ "zip 9.1.3",
 ]
 
 [[package]]
@@ -6157,7 +6229,6 @@ dependencies = [
  "snafu",
  "speculoos",
  "tempfile",
- "zip 0.6.6",
  "zip 9.1.3",
 ]
 
@@ -7103,16 +7174,6 @@ checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
 
 [[package]]
 name = "quick-xml"
-version = "0.37.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
-dependencies = [
- "memchr",
- "serde",
-]
-
-[[package]]
-name = "quick-xml"
 version = "0.38.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
@@ -7218,6 +7279,12 @@ checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "quoted_printable"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "478e0585659a122aa407eb7e3c0e1fa51b1d8a870038bd29f0cf4a8551eea972"
 
 [[package]]
 name = "r-efi"
@@ -8769,6 +8836,7 @@ dependencies = [
  "parking_lot",
  "phf_shared",
  "precomputed-hash",
+ "serde",
 ]
 
 [[package]]
@@ -10037,12 +10105,6 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typed-path"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
-
-[[package]]
-name = "typed-path"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ce898823d8cd0f028662d2f349694b1af0a5cc9be83f1d213a00d3147445e1e"
@@ -10430,35 +10492,6 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "umya-spreadsheet"
-version = "2.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "408c7e039c96ec1d517a1111ade7fadab889f32c096dac691a1e3b8018c3e39a"
-dependencies = [
- "aes 0.8.4",
- "ahash",
- "base64 0.22.1",
- "byteorder",
- "cbc 0.1.2",
- "cfb 0.10.0",
- "chrono",
- "encoding_rs",
- "fancy-regex 0.14.0",
- "getrandom 0.2.17",
- "hmac",
- "html_parser",
- "imagesize",
- "lazy_static",
- "md-5 0.10.6",
- "quick-xml 0.37.5",
- "regex",
- "sha2 0.10.9",
- "thin-vec",
- "thousands",
- "zip 2.4.2",
 ]
 
 [[package]]
@@ -11794,6 +11827,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "xml5ever"
+version = "0.39.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ab627f34ff61b80d756180d556f9c68801d836d271b3b8c094504ceca69d221"
+dependencies = [
+ "log",
+ "markup5ever",
+]
+
+[[package]]
 name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12025,18 +12068,6 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "0.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "760394e246e4c28189f19d488c058bf16f564016aefac5d32bb1f3b51d5e9261"
-dependencies = [
- "byteorder",
- "crc32fast",
- "crossbeam-utils",
- "flate2",
-]
-
-[[package]]
-name = "zip"
 version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
@@ -12054,20 +12085,6 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "8.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
-dependencies = [
- "crc32fast",
- "flate2",
- "indexmap 2.14.2",
- "memchr",
- "typed-path 0.12.3",
- "zopfli",
-]
-
-[[package]]
-name = "zip"
 version = "9.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1156b39d142a34b999c2310a50455e0cb3760bf7efad0122f796d813bee26ccb"
@@ -12078,7 +12095,7 @@ dependencies = [
  "indexmap 2.14.2",
  "memchr",
  "nix",
- "typed-path 0.13.0",
+ "typed-path",
  "windows-sys 0.61.2",
  "zopfli",
 ]

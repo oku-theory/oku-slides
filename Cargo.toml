@@ -43,9 +43,6 @@ schemars = "1"
 snafu = "0.9"
 toml_edit = "0.25"
 zip = { version = "9", default-features = false, features = ["deflate"] }
-# Le lecteur zip d'office2pdf 0.8.1, aux mêmes fonctionnalités : le témoin relit
-# avec lui le .pptx qu'il lui passe, pour n'y laisser aucune police (t-898).
-zip-office2pdf = { package = "zip", version = "=0.6.6", default-features = false, features = ["deflate"] }
 # Lecture des parts XML d'un .pptx (import, t-692) : DOM en lecture seule, sans dépendance.
 roxmltree = "0.21"
 # Nom, style et droits des polices (import, t-692) ; déjà tiré par typst et fontdb.
@@ -84,7 +81,7 @@ png = "0.18"
 # Témoin du rendu de référence de l'import (t-692, lot 4) : PPTX → PDF en Rust pur, sur Typst 0.15 ;
 # sans les polices embarquées de typst-kit (l'appelant passe les siennes). Épinglé : le rapport nomme
 # la version (`oku_slides_reference::WITNESS`) et les bornes des tests sont mesurées avec elle.
-office2pdf = { version = "=0.8.1", default-features = false }
+office2pdf = { version = "=0.10.0", default-features = false }
 # Rastérisation des pages du PDF de référence ; déjà tiré par typst-render.
 hayro = { version = "0.7.1", default-features = false }
 # Serveur de développement (`oku-slides serve`, t-419) ; déjà tiré par rust-mcp-axum.

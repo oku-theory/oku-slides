@@ -42,7 +42,7 @@ pub use soffice::{SOFFICE_WITNESS, Soffice, find_soffice};
 /// visibles) et utiliser les polices fournies en priorité : l'écart mesure la
 /// mise en page, pas la substitution des polices.
 pub trait ReferenceRenderer: std::fmt::Debug + Send + Sync {
-    /// Nom et version du témoin, tel que le rapport l'écrit (`office2pdf 0.8.1`).
+    /// Name and version of the witness, as the report writes them (`office2pdf 0.10.0`).
     fn witness(&self) -> &str;
 
     /// The PDF of `pptx` rendered with `fonts`, for slides `slides` or all of them.

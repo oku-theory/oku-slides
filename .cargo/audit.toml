@@ -1,11 +1,11 @@
-# Exceptions de `cargo audit`, alignées sur `[advisories] ignore` de deny.toml (t-890) :
-# la raison de chaque avis y est écrite. Retirer une entrée ici et là-bas ensemble.
+# `cargo audit` exceptions, in line with deny.toml's `[advisories] ignore` (t-890), which
+# gives each advisory's reason. Remove an entry here and there together.
 [advisories]
 ignore = [
-    "RUSTSEC-2026-0192", # ttf-parser non maintenu, tiré par Typst
-    "RUSTSEC-2026-0194", # quick-xml, bibliographies de Typst et XLSX d'office2pdf
-    "RUSTSEC-2026-0195", # quick-xml, bibliographies de Typst et XLSX d'office2pdf
-    "RUSTSEC-2026-0367", # zip < 9 transitif, extract jamais appelé ; retrait : t-899
-    "RUSTSEC-2026-0368", # zip < 9 transitif, extract jamais appelé ; retrait : t-899
-    "RUSTSEC-2026-0369", # zip < 9 transitif, extract jamais appelé ; retrait : t-899
+    "RUSTSEC-2026-0192", # ttf-parser unmaintained, pulled by Typst
+    "RUSTSEC-2026-0194", # quick-xml < 0.41, Typst's bibliographies
+    "RUSTSEC-2026-0195", # quick-xml < 0.41, Typst's bibliographies
+    "RUSTSEC-2026-0367", # zip 2.4.2 via mel_spec → ndarray-npy, extract never called
+    "RUSTSEC-2026-0368", # zip 2.4.2 via mel_spec → ndarray-npy, extract never called
+    "RUSTSEC-2026-0369", # zip 2.4.2 via mel_spec → ndarray-npy, extract never called
 ]

@@ -14,7 +14,6 @@ hayro.workspace = true
 png.workspace = true
 snafu.workspace = true
 zip.workspace = true
-zip-office2pdf.workspace = true
 # Le dossier du témoin LibreOffice : profil isolé, présentation et PDF.
 tempfile.workspace = true
 

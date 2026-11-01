@@ -4,29 +4,26 @@
 all-features = true
 
 [advisories]
-# RUSTSEC-2026-0194/0195 (quick-xml) : 0.38, via typst-library → hayagriva →
-# citationberg, lecture de styles CSL de bibliographie (Oku Slides ne donne jamais de
-# fichier de bibliographie à Typst) ; 0.37, via office2pdf → umya-spreadsheet, lecture
-# des classeurs XLSX (le témoin de l'import ne reçoit que des PPTX). À retirer quand
-# Typst et office2pdf suivront.
-# RUSTSEC-2026-0192 (ttf-parser non maintenu) : Typst 0.15, fontdb, rustybuzz et
-# office2pdf en dépendent ; l'import le lit pour les noms, droits et métriques des
-# polices (fonts/face.rs). Suivre la migration de Typst (t-890).
-# RUSTSEC-2026-0367/0368/0369 (zip < 9) : seuls `ZipArchive::extract` et
-# `ZipStreamReader::extract` sont touchés (bits SUID, liens symboliques hors du dossier).
-# Le workspace est en zip 9 ; restent zip 0.6 et 8 via office2pdf (et docx-rs), zip 2 via
-# umya-spreadsheet et ndarray-npy (dictée), qui lisent les entrées une à une sans jamais
-# appeler `extract` (vérifié dans leurs sources, t-897). Le témoin relit aussi avec zip 0.6
-# (`zip-office2pdf`, t-898), noms des parts seulement.
-# À retirer quand ils passeront en zip 9 (t-899).
-# Tenir .cargo/audit.toml aligné sur cette liste.
+# RUSTSEC-2026-0194/0195 (quick-xml < 0.41): 0.38, via typst-library → hayagriva →
+# citationberg, reading CSL bibliography styles (Oku Slides never gives Typst a
+# bibliography file). office2pdf 0.10 is on 0.41, patched. Remove when Typst follows.
+# RUSTSEC-2026-0192 (ttf-parser unmaintained): Typst 0.15, fontdb, rustybuzz and
+# office2pdf depend on it; the import reads font names, rights and metrics with it
+# (fonts/face.rs). Follow Typst's migration (t-890).
+# RUSTSEC-2026-0367/0368/0369 (zip < 9): only `ZipArchive::extract` and
+# `ZipStreamReader::extract` are affected (SUID bits, symlinks out of the directory).
+# The workspace and office2pdf 0.10 are on zip 9 (t-899); the one zip < 9 left is 2.4.2
+# via mel_spec 0.3.4 → ndarray-npy 0.9.1 (dictation), which reads entries one by one and
+# never calls `extract` (checked in its sources, t-897). mel_spec 0.5 still pulls
+# ndarray-npy 0.9: remove when ndarray-npy moves to zip 9.
+# Keep .cargo/audit.toml in line with this list.
 ignore = [
-    { id = "RUSTSEC-2026-0192", reason = "ttf-parser non maintenu, tiré par Typst ; l'import suivra la migration de Typst" },
-    { id = "RUSTSEC-2026-0194", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
-    { id = "RUSTSEC-2026-0195", reason = "quick-xml via les bibliographies de Typst et le XLSX d'office2pdf, jamais atteints par Oku Slides" },
-    { id = "RUSTSEC-2026-0367", reason = "zip < 9 transitif (office2pdf, docx-rs, umya-spreadsheet, ndarray-npy), qui n'appelle jamais extract" },
-    { id = "RUSTSEC-2026-0368", reason = "zip < 9 transitif (office2pdf, docx-rs, umya-spreadsheet, ndarray-npy), qui n'appelle jamais extract" },
-    { id = "RUSTSEC-2026-0369", reason = "zip < 9 transitif (office2pdf, docx-rs, umya-spreadsheet, ndarray-npy), qui n'appelle jamais extract" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained, pulled by Typst; the import follows Typst's migration" },
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml < 0.41 via the bibliographies of Typst, never reached by Oku Slides" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml < 0.41 via the bibliographies of Typst, never reached by Oku Slides" },
+    { id = "RUSTSEC-2026-0367", reason = "zip 2.4.2 via mel_spec → ndarray-npy (dictation), which never calls extract" },
+    { id = "RUSTSEC-2026-0368", reason = "zip 2.4.2 via mel_spec → ndarray-npy (dictation), which never calls extract" },
+    { id = "RUSTSEC-2026-0369", reason = "zip 2.4.2 via mel_spec → ndarray-npy (dictation), which never calls extract" },
 ]
 unmaintained = "workspace"
 

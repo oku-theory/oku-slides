@@ -1,16 +1,15 @@
-//! Le témoin `office2pdf` : la présentation en PDF par le crate du même nom
-//! (Rust pur, sur Typst 0.15), sans LibreOffice.
+//! The `office2pdf` witness: the presentation as PDF through the crate of that
+//! name (pure Rust, on Typst 0.15), without LibreOffice.
 //!
-//! Les polices fournies passent avant toutes les autres ; celles du système
-//! restent un repli (le crate les cherche toujours, hors WASM). Les slides
-//! masquées sont rendues : l'import les reprend visibles, une page par slide.
-//! Les polices embarquées du `.pptx` (`ppt/fonts/` et toute part `.fntdata`)
-//! sont ôtées avant la conversion : `office2pdf` les écrirait dans le dossier
-//! temporaire du système, et un processus de rendu tué les y laisserait ;
-//! l'appelant les fournit déjà en mémoire. Surtout, `office2pdf` 0.8.1 nomme
-//! ce fichier d'après le `typeface` de `<p:embeddedFont><p:font>` sans refuser `../`
-//! ni un chemin absolu : une police embarquée y serait une écriture
-//! arbitraire (t-898).
+//! The given fonts come before all others; system fonts stay a fallback (the
+//! crate always looks for them, outside WASM). Hidden slides are rendered: the
+//! import keeps them visible, one page per slide. The `.pptx`'s embedded fonts
+//! (`ppt/fonts/` and any `.fntdata` part) are stripped before the conversion:
+//! `office2pdf` would write them to the system temp dir, where a killed render
+//! process would leave them; the caller already passes them in memory.
+//! `office2pdf` 0.8.1 also named that file after the `typeface` of
+//! `<p:embeddedFont><p:font>`, refusing neither `../` nor an absolute path
+//! (t-898); 0.10 names it by position, and the filter stays as defense in depth.
 
 use std::io::Cursor;
 
@@ -19,10 +18,10 @@ use office2pdf::config::{ConvertOptions, Format, SlideRange};
 use crate::error::RenderSnafu;
 use crate::{ReferenceError, ReferencePdf, ReferenceRenderer, SlideSpan};
 
-/// Nom et version du témoin `office2pdf`, tels que le rapport les écrit.
+/// Name and version of the `office2pdf` witness, as the report writes them.
 ///
-/// La version est celle que `Cargo.toml` épingle (`=0.8.1`) : un test le vérifie.
-pub const WITNESS: &str = "office2pdf 0.8.1";
+/// The version is the one `Cargo.toml` pins (`=0.10.0`): a test checks it.
+pub const WITNESS: &str = "office2pdf 0.10.0";
 
 /// Le dossier des polices embarquées d'un `.pptx`.
 const FONTS_DIR: &str = "ppt/fonts/";
@@ -47,7 +46,7 @@ impl ReferenceRenderer for Office2Pdf {
     ) -> Result<ReferencePdf, ReferenceError> {
         let render_err = |message: String| ReferenceError::from(RenderSnafu { message }.build());
         let pptx = without_fonts(pptx).map_err(|e| render_err(e.to_string()))?;
-        ensure_no_font_for_office2pdf(&pptx).map_err(render_err)?;
+        ensure_no_font_left(&pptx).map_err(render_err)?;
         let options = ConvertOptions {
             include_hidden_slides: true,
             font_bytes: fonts,
@@ -61,10 +60,6 @@ impl ReferenceRenderer for Office2Pdf {
 }
 
 /// `pptx` réécrit sans ses polices embarquées, les autres parts copiées telles quelles.
-///
-/// L'archive est toujours réécrite : `office2pdf` la relit avec `zip` 0.6, qui
-/// ignore le nom Unicode (extra field 0x7075) que `zip` 9 préfère à celui de
-/// l'en-tête ; réécrite, chaque part ne porte plus que le nom que ce filtre a vu.
 fn without_fonts(pptx: &[u8]) -> Result<Vec<u8>, zip::result::ZipError> {
     let mut source = zip::ZipArchive::new(Cursor::new(pptx))?;
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::with_capacity(pptx.len())));
@@ -77,16 +72,19 @@ fn without_fonts(pptx: &[u8]) -> Result<Vec<u8>, zip::result::ZipError> {
     Ok(out.finish()?.into_inner())
 }
 
-/// Refuse `pptx` si `zip` 0.6, le lecteur d'`office2pdf`, y voit encore une police.
+/// Refuses `pptx` if, reread, the rewritten archive still holds a font.
 ///
-/// Les deux lecteurs `zip` peuvent lire une archive différemment ; ce contrôle
-/// vaut pour celle qu'`office2pdf` lira, quelle que soit la différence.
-fn ensure_no_font_for_office2pdf(pptx: &[u8]) -> Result<(), String> {
-    let archive = zip_office2pdf::ZipArchive::new(Cursor::new(pptx)).map_err(|e| e.to_string())?;
-    match archive.file_names().find(|n| is_font(n)) {
-        Some(name) => Err(format!("an embedded font is left for office2pdf: {name}")),
-        None => Ok(()),
+/// An assertion that `without_fonts` left nothing, made with the zip 9 that
+/// `office2pdf` shares with the workspace (a test checks it in `Cargo.lock`).
+fn ensure_no_font_left(pptx: &[u8]) -> Result<(), String> {
+    let archive = zip::ZipArchive::new(Cursor::new(pptx)).map_err(|e| e.to_string())?;
+    for name in archive.file_names() {
+        let name = name.map_err(|e| e.to_string())?;
+        if is_font(&name) {
+            return Err(format!("an embedded font is left for office2pdf: {name}"));
+        }
     }
+    Ok(())
 }
 
 /// Vrai si la part `name` est une police embarquée, où qu'elle soit dans l'archive.

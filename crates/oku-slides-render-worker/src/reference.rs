@@ -95,7 +95,7 @@ impl RenderWorker {
 }
 
 impl RemoteReference {
-    /// Nom et version du témoin (`office2pdf 0.8.1`, `LibreOffice 26.8.1.1`).
+    /// Name and version of the witness (`office2pdf 0.10.0`, `LibreOffice 26.8.1.1`).
     #[must_use]
     pub fn witness(&self) -> &str {
         &self.witness

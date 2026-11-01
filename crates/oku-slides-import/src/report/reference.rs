@@ -12,7 +12,7 @@ use crate::metrics::{RegionScore, WitnessLimit};
 /// Le rendu de référence d'un import hi-fi.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ReferenceReport {
-    /// Nom et version du témoin (`office2pdf 0.8.1`, `LibreOffice 26.8.1.1`).
+    /// Name and version of the witness (`office2pdf 0.10.0`, `LibreOffice 26.8.1.1`).
     pub witness: String,
     /// Écart (ΔE OKLab ×100) de sa pire région au-delà duquel une slide est signalée.
     pub threshold: f64,

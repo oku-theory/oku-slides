@@ -37,7 +37,7 @@ fn fonts() -> Fonts {
 #[test]
 fn reference_gives_the_witness_and_its_pages() {
     let r = worker(30_000).reference(&ReferenceWitness::Office2Pdf, &pptx(), &fonts(), None).unwrap();
-    assert_that!((r.witness(), r.page_count())).is_equal_to(("office2pdf 0.8.1", 3));
+    assert_that!((r.witness(), r.page_count())).is_equal_to(("office2pdf 0.10.0", 3));
 }
 
 #[test]

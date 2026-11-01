@@ -1,13 +1,17 @@
-//! Une police embarquée hors de `ppt/fonts/` laissait `office2pdf` écrire où
-//! le `typeface` de `<p:embeddedFont>` le voulait (`../` ou chemin absolu).
+//! An embedded font outside `ppt/fonts/` let `office2pdf` write wherever the
+//! `typeface` of `<p:embeddedFont>` pointed (`../` or an absolute path).
 //!
-//! `office2pdf` 0.8.1 résout la police par la relation de `presentation.xml`
-//! (n'importe quelle part nommée `{GUID}.fntdata`), puis l'écrit en
-//! `temp_dir.join("{typeface}-{style}.{ext}")` sans rien refuser.
+//! `office2pdf` 0.8.1 resolved the font through `presentation.xml`'s relation
+//! (any part named `{GUID}.fntdata`), then wrote it to
+//! `temp_dir.join("{typeface}-{style}.{ext}")` without refusing anything; 0.10
+//! names it `font-NNNN.{ext}` (t-899). The render cases below now only pin that
+//! nothing is written there, guard or not; `without_fonts`, kept as defense in
+//! depth, is covered by the unit tests of `office2pdf.rs`.
 //!
-//! `office2pdf` lit l'archive avec `zip` 0.6, qui ignore le nom Unicode
-//! (extra field 0x7075) que `zip` 9 préfère : une part peut s'appeler
-//! `image.png` pour le filtre et `{GUID}.fntdata` pour `office2pdf`.
+//! `office2pdf` 0.8.1 read the archive with zip 0.6, which ignores the Unicode
+//! name (extra field 0x7075) zip 9 prefers: a part could be `image.png` for the
+//! filter and `{GUID}.fntdata` for `office2pdf`. Both now read with zip 9; that
+//! case stays as a guard should `office2pdf` change zip again.
 
 use std::io::{Cursor, Write};
 use std::path::Path;
@@ -108,10 +112,10 @@ fn written(dir: &Path) -> Vec<std::ffi::OsString> {
         .collect()
 }
 
-/// Témoin positif : sans la garde, `office2pdf` écrit bien la police au chemin
-/// du `typeface`. S'il échoue, `office2pdf` a changé : revoir `without_fonts`.
+/// Without the guard, `office2pdf` 0.10 writes nothing at the `typeface` path.
+/// If this fails, `office2pdf` regressed: `without_fonts` is the only guard again.
 #[test]
-fn convert_bytes_without_guard_writes_at_the_typeface_path() {
+fn convert_bytes_without_guard_writes_nothing_at_the_typeface_path() {
     let dir = tempfile::tempdir().unwrap();
     let target = dir.path().canonicalize().unwrap().join("evil");
     let pptx = pptx_with_font(&typeface_towards(&target, false), &format!("ppt/media/{GUID}.fntdata"), None);
@@ -122,7 +126,7 @@ fn convert_bytes_without_guard_writes_at_the_typeface_path() {
         &office2pdf::config::ConvertOptions::default(),
     );
 
-    assert_that!(written(dir.path())).contains(std::ffi::OsString::from("evil-regular.ttf"));
+    assert_that!(written(dir.path())).is_empty();
 }
 
 /// Prémisse du cas Unicode : `zip` 9 lit la police sous son nom Unicode.

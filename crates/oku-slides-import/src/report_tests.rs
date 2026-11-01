@@ -379,7 +379,7 @@ fn scored(n: u32, score: f64) -> SlideReport {
 }
 
 fn with_reference(slides: Vec<SlideReport>, unavailable: Option<ReferenceCause>) -> ImportReport {
-    let reference = ReferenceReport { witness: "office2pdf 0.8.1".into(), threshold: 5.0, unavailable };
+    let reference = ReferenceReport { witness: "office2pdf 0.10.0".into(), threshold: 5.0, unavailable };
     ImportReport { slides, reference: Some(reference), ..ImportReport::new(Mode::Hifi) }
 }
 

@@ -61,10 +61,10 @@ max_guide_chars = 4000
 # Hi-fi import: gap (ΔE OKLab ×100) of a slide's worst non-suspect region to the
 # witness's reference rendering beyond which the report flags the slide (suspect
 # regions, known office2pdf errors, do not count). Measured on alto, libreoffice
-# and kitchen (office2pdf 0.8.1, 2026-10-31): noise at most 5.8, real gaps 9.38
+# and kitchen (office2pdf 0.10.0, 2026-11-01): noise at most 5.8, real gaps 9.38
 # (alto, intro line p. 6) and 15.71 (alto, callout p. 7); the tables, at 22.5
-# before t-955, now 6.89 (kitchen) and 7.26 (libreoffice), where office2pdf and
-# PowerPoint still differ on line height. Under LibreOffice (`witness = "soffice"`,
+# before t-955, 6.89 (kitchen) and 7.26 (libreoffice) under office2pdf
+# 0.8.1, are now 4.17 and 4.24, its line height closer to PowerPoint's. Under LibreOffice (`witness = "soffice"`,
 # 26.8.1.1, 2026-10-31), the same threshold: noise at most 6.77 (alto's spaced-out
 # titles), tables 3.68 and 3.47 (18.2 before t-955), charts 46.1 (gridlines and
 # bar widths, axes and legend now hidden as in the source, t-954); alto p. 6 (9.16,

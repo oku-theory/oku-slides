@@ -8,14 +8,14 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Give the witness the app's fonts and the deck's embedded fonts, and render hidden slides. (t-692)
 - Run soffice without a shell on an isolated temp profile, and kill its process group past its timeout. (t-885)
 - Keep the soffice timeout below its render worker's, so soffice dies before the worker could orphan it. (t-885)
-- Strip every font part from the .pptx and recheck it with zip-office2pdf before office2pdf; never give it a .docx. (t-898)
+- Strip every font part from the .pptx and recheck it with the workspace zip before office2pdf; never give it a .docx. (t-898, t-899)
 
 ## Pitfalls
 
 - Read a gap on letter-spaced titles, autofit text, charts, SmartArt or default-font text as a likely witness error before changing the import. (t-692, t-904)
 - Under LibreOffice, read a gap on a normAutofit box whose text overflows as its shrink, not Oku's, but a chart gap as Oku's. (t-905)
 - Do not align the import on office2pdf code without checking it against the OOXML or another witness. (t-692)
-- Re-audit without_fonts against office2pdf's embedded_fonts.rs and keep zip-office2pdf equal to its zip on every bump. (t-898)
+- Re-audit without_fonts against office2pdf's embedded_fonts.rs on every bump; if office2pdf leaves the workspace zip, recheck with its own zip again. (t-898, t-899)
 - Change [import] score_threshold or a WitnessLimit only after a live witness run on alto, kitchen and libreoffice, updating config.default.toml's measured table and import_reference.rs bounds. (t-884, t-904, plan:2026-10-16-import-pptx-lot5)
 
 ## Settled decisions

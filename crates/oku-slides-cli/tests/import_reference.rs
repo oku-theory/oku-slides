@@ -87,8 +87,8 @@ fn max_score(report: &Value) -> f64 {
 }
 
 #[rstest]
-// Mean gap of the worst slide, measured on 2026-10-31 (office2pdf 0.8.1, σ = 2), plus 25 %:
-// alto 1.57, libreoffice 3.22 and kitchen 3.66 (p. 2, the chart: office2pdf draws its deleted
+// Mean gap of the worst slide, measured on 2026-11-01 (office2pdf 0.10.0, σ = 2, as
+// under 0.8.1), plus 25 %: alto 1.57, libreoffice 3.22 and kitchen 3.66 (p. 2, the chart: office2pdf draws its deleted
 // axes, which Oku hides since t-954; the chart region is suspect, not the slide mean).
 #[case("alto-wealth.pptx", 2.0)]
 #[case("libreoffice.pptx", 4.0)]
@@ -100,10 +100,10 @@ fn import_hifi_scores_every_slide_under_its_threshold(#[case] name: &str, #[case
     assert_that!(max_score(&report)).is_less_than_or_equal_to(threshold);
 }
 
-// Pire région non suspecte mesurée le 2026-10-16 (office2pdf 0.8.1, seuil 7) : pp. 1 à 5 et 8 au
-// plus 3,4 (les titres, ajustés par le témoin, sont suspects ; les puces p. 8 à leur retrait depuis
-// t-863) ; p. 6 9,38 (la ligne d'introduction coupée ailleurs que dans PowerPoint), p. 7 15,71 (le
-// filet de l'encadré, puis sa ligne coupée 12,81).
+// Worst non-suspect region measured on 2026-11-01 (office2pdf 0.10.0, threshold 7, as under 0.8.1):
+// pp. 1 to 5 and 8 at most 3.4 (the titles, which the witness fits, are suspect; the p. 8 bullets at
+// their indent since t-863); p. 6 9.38 (the intro line breaks elsewhere than in PowerPoint), p. 7
+// 15.71 (the callout's rule, then its broken line 12.81).
 #[test]
 fn import_hifi_of_alto_flags_pages_6_and_7_only() {
     let dir = workdir("import-reference-flags");
@@ -137,8 +137,9 @@ fn import_hifi_of_alto_no_longer_designates_the_bullet_indents_on_page_8() {
     assert_that!(above).is_equal_to(0);
 }
 
-// Worst non-suspect region measured on 2026-10-31 (office2pdf 0.8.1, threshold 7): p. 1 6.89 (the
-// table, 20.34 before t-955 gave it its column widths, row heights and margins), p. 2 3.96 and
+// Worst non-suspect region measured on 2026-11-01 (office2pdf 0.10.0, threshold 7): p. 1 4.17 (the
+// table: 6.89 under 0.8.1, which set its lines tighter; 20.34 before t-955 gave it its column
+// widths, row heights and margins), p. 2 3.96 and
 // p. 3 5.69 (the titles). p. 2 was 8.7 before t-904: "Gauche" and "Droite", whose font only the
 // presentation's `defaultTextStyle` names, which office2pdf draws in its fallback font; they are
 // suspect since (`default_font`).
@@ -149,8 +150,8 @@ fn import_hifi_of_kitchen_flags_no_page() {
     assert_that!(flagged(&report)).is_empty();
 }
 
-// p. 1 7.26 (s1/8, the table) is the libreoffice deck's worst region: still above the threshold
-// under office2pdf, which sets its lines tighter than PowerPoint (3.47 under LibreOffice).
+// p. 1 4.24 (s1/8, the table) is the libreoffice deck's worst region (7.26 under office2pdf 0.8.1,
+// which set its lines tighter than PowerPoint; 3.47 under LibreOffice).
 #[test]
 fn import_hifi_of_libreoffice_designates_its_table_on_page_1() {
     let dir = workdir("import-reference-table");
@@ -158,8 +159,7 @@ fn import_hifi_of_libreoffice_designates_its_table_on_page_1() {
     assert_that!(worst(&report, 1).first().map(String::as_str)).is_equal_to(Some("s1/8"));
 }
 
-// p. 3 : le SmartArt (10,41 et 10,33, au-delà du seuil) est suspect ; les autres régions valent
-// au plus 5,8.
+// p. 3: the SmartArt (10.41, above the threshold) is suspect; the other regions are at most 5.8.
 #[test]
 fn import_hifi_of_libreoffice_ranks_its_smartart_last_without_flagging_page_3() {
     let dir = workdir("import-reference-smartart");
@@ -175,7 +175,7 @@ fn import_hifi_says_the_visual_gap_on_a_second_line() {
     let dir = workdir("import-reference-line");
     let (out, _) = import(dir.as_ref(), "libreoffice.pptx", &[]);
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert_that!(stdout.lines().nth(1).unwrap_or_default()).starts_with("Visual gap to office2pdf 0.8.1: ");
+    assert_that!(stdout.lines().nth(1).unwrap_or_default()).starts_with("Visual gap to office2pdf 0.10.0: ");
 }
 
 #[test]
