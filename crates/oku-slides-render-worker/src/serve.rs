@@ -450,6 +450,7 @@ fn protocol_output() -> std::io::Result<Box<dyn Write>> {
 
 /// Ailleurs qu'en unix, stdout tel quel.
 #[cfg(not(unix))]
+#[expect(clippy::unnecessary_wraps, reason = "same signature as the unix output, which can fail")]
 fn protocol_output() -> std::io::Result<Box<dyn Write>> {
     Ok(Box::new(std::io::stdout()))
 }
