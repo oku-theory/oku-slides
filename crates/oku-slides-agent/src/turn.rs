@@ -63,22 +63,26 @@ pub(crate) async fn run(
                     (r, bytes)
                 })
                 .collect();
-            (s.agent_context(&ui), pasted)
+            (s.agent_context(&ui), s.agent_guides(first), s.active_received_guides(), pasted)
         })
     })
     .await;
     // Without a session the turn has no context and no images: there is nothing to read them from.
-    let (context, pasted) = match blocking {
+    let (context, guides, received, pasted) = match blocking {
         Ok(Ok(x)) => x,
         Ok(Err(e)) => {
             tracing::warn!(error = %e.one_line(), "agent context: tab session not found, empty context");
-            (String::new(), Vec::new())
+            (String::new(), None, Vec::new(), Vec::new())
         }
         Err(e) => {
             tracing::warn!(error = %e, "agent context: blocking task lost, empty context");
-            (String::new(), Vec::new())
+            (String::new(), None, Vec::new(), Vec::new())
         }
     };
+    // The note names the active received guides of the current list, taken at turn start; one sent
+    // in an earlier turn and since dropped from the list is not named. It shows with each
+    // permission request until `end_turn` clears it, whichever way the turn ends.
+    ctx.hub.set_permission_note(permission_note(&received, &ctx.localizer.current()));
     ctx.emit(AgentEvent::Status { state: AgentState::Working });
     tracing::debug!(tab = %ctx.tab.tab(), kind = ctx.kind.as_str(), turn, "agent turn starts");
     let mut blocks = Vec::with_capacity(5);
@@ -92,6 +96,10 @@ pub(crate) async fn run(
     }
     if tune {
         blocks.push(ContentBlock::Text(TextContent::new(IMPORT)));
+    }
+    // Guides are untrusted advice, framed by the session; they come before the context on every turn they are sent.
+    if let Some(guides) = guides {
+        blocks.push(ContentBlock::Text(TextContent::new(guides.block)));
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.extend(crate::prompt_images::image_blocks(&pasted, see_images, ctx.prompt_limits));
@@ -131,3 +139,13 @@ pub(crate) async fn run(
     ctx.emit(AgentEvent::idle());
     Ok((pending, response.usage))
 }
+
+/// The permission note naming the received guides the turn carries, `None` without any.
+fn permission_note(received: &[String], l: &oku_slides_i18n::Localizer) -> Option<String> {
+    (!received.is_empty())
+        .then(|| l.tr_with("agent-surface-permission-guides", &[("names", received.join(", ").into())]))
+}
+
+#[cfg(test)]
+#[path = "turn_tests.rs"]
+mod turn_tests;

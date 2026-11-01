@@ -394,3 +394,23 @@ ui-about-breaking = uyumsuz
 ui-about-close = Kapat
 
 ui-shortcut-theme = tema, temalar, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = Ajanlar için kılavuzlar
+ui-guides-edit = Nasıl düzenlenir
+ui-guides-use = Nasıl kullanılır
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = Yerleşik
+ui-guides-origin-local = Sizin
+ui-guides-origin-received = Alınan
+ui-guides-approve = Bu kılavuzu onayla
+ui-guides-awaiting = Onaylayana kadar ajana gönderilmez.
+ui-guides-install-title = Bu sunum ajanlar için kılavuzlar getiriyor
+ui-guides-install-intro = Siz onaylayana kadar ajana ulaşmazlar. Önce okuyun.
+ui-guides-install-approve = Kılavuzları onayla
+ui-guides-install-later = Sonra
+ui-guides-install-items = { $count } öğe
+ui-guides-install-requires = Gerektirir: { $names }
+ui-guides-kind-widgets = Widget'lar
+ui-guides-kind-layouts = Düzenler
+ui-guides-kind-theme = Tema

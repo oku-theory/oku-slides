@@ -16,7 +16,9 @@ use common::{
     FIXTURE, Server, assert_stdout_lacks, assert_success, builtin_pins, deck_json, free_port, http, oku_slides,
     request, workdir,
 };
-use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry};
+use oku_slides_core::{
+    Deck, Guides, Namespace, PackFiles, PackPin, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry,
+};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
@@ -158,6 +160,7 @@ fn save_with_the_name_of_a_library_theme_embeds_its_current_version() {
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
         tokens: serde_json::json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
+        guides: Guides::default(),
     };
     let files = manifest.to_files().unwrap();
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
@@ -687,6 +690,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let widgets = widgets
         .iter()

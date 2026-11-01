@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use oku_slides_core::{Namespace, Op, PackFiles, PackPin, PackVersion};
+use oku_slides_core::{Guides, Namespace, Op, PackFiles, PackPin, PackVersion};
 use oku_slides_session::{BASE_PACK, PackLibrary, PackManifest, Request, Storage, builtin_versions};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -40,6 +40,7 @@ fn version(id: Uuid, name: &str, parent: Option<&PackVersion>, created: &str) ->
         styles: BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     m.to_files(oku_slides_core::PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }

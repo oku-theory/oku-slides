@@ -12,6 +12,7 @@ agent-surface-themes = থিম
 agent-surface-variants = ভ্যারিয়েন্ট
 agent-surface-permission-always = চিরদিনের জন্য
 agent-surface-permission-title = এজেন্ট একটি অনুমতি চাইছে
+agent-surface-permission-guides = এই টার্নে { $names }-এর প্রাপ্ত গাইড অন্তর্ভুক্ত আছে।
 agent-undo-turn = এজেন্ট: { $text }
 
 agent-tools-unavailable = এজেন্টের টুলগুলি চালু করা যায়নি।

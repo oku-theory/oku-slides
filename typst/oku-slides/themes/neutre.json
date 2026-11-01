@@ -3,7 +3,11 @@
   "name": "Neutre",
   "namespace": "neutre",
   "description": "",
-  "parent": null,
+  "parent": "sha256:f24ed39a72ee52d8ab5e54ba037c66346932ce8374a083e115b3e536848f9e6a",
   "created": "2026-10-22T00:00:00Z",
+  "guides": {
+    "edit": "# Editing Neutre\n\nNeutre is empty on purpose: it is the base that high-fidelity imports write their deck tokens over, so every token it set would show through wherever an imported deck sets nothing.\n\n- Keep its tokens empty. To give decks a look, use deck tokens, or a theme that extends Neutre.\n- If it ever sets a token, keep the default pairs readable: ink and ink-muted on bg and surface, on-accent on accent, and component.base.card.highlight-kicker on highlight-bg.\n- Keep its namespace `neutre`: imports pin it as the theme of the decks they write.",
+    "use": "# Using Neutre\n\nNeutre sets no tokens: a deck on it shows the library defaults, a white bg, near-black ink, a blue accent (#2f5fb3), Libertinus Serif for titles and body, titles 60 and body 32 on a 1920 by 1080 page. High-fidelity PowerPoint imports use it and write the imported deck's own colors, fonts and sizes as deck tokens over it.\n\n- On an imported deck the look lives in the deck tokens, not in Neutre: restyle it there, and keep those tokens.\n- Neutre defines only the standard colors (bg, surface, ink, ink-muted, accent, on-accent, rule): a name such as accent-soft or brand-ink does not exist here unless the deck tokens add it.\n- Pack components keep their pack defaults: chapter slides on accent with on-accent text, a plain cover with an accent bar, cards on bg with an accent top rule, tables with an accent header.\n- As a starting point for a brand, extend Neutre and set only what the brand changes."
+  },
   "tokens": {}
 }

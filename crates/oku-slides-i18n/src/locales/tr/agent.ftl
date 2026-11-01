@@ -12,6 +12,7 @@ agent-surface-themes = Temalar
 agent-surface-variants = Varyantlar
 agent-surface-permission-always = her zaman için
 agent-surface-permission-title = Ajan bir izin istiyor
+agent-surface-permission-guides = Bu tur, { $names } için alınan kılavuzu içerir.
 agent-undo-turn = Ajan: { $text }
 
 agent-tools-unavailable = Ajanın araçları başlatılamadı.

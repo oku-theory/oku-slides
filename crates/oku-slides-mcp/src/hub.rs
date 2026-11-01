@@ -169,6 +169,8 @@ struct HubState {
     tab_claim: Option<turns::TabClaim>,
     /// The turn that moved to another tab (`note_elsewhere`).
     elsewhere: Option<u32>,
+    /// Shown with every permission request of the turn (it carries a received guide).
+    permission_note: Option<String>,
 }
 
 /// Les surfaces de l'agent : ouvertes, attendues, fermées.
@@ -188,6 +190,11 @@ impl SurfaceHub {
     pub fn new(session: TabSession, localizer: LiveLocalizer, voice: Arc<dyn VoicePort>) -> Arc<Self> {
         let (events, _) = broadcast::channel(64);
         Arc::new(Self { session, localizer, voice, events, state: Mutex::new(HubState::default()) })
+    }
+
+    /// Sets the note every permission request shows, `None` clears it (turn start and end).
+    pub fn set_permission_note(&self, note: Option<String>) {
+        self.state().permission_note = note;
     }
 
     /// Identifiant de l'onglet dont ce hub sert les surfaces.

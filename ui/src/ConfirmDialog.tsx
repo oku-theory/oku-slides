@@ -17,7 +17,7 @@ export interface ConfirmDialogProps {
 }
 
 /** Enter and digits never act in a confirmation, nor reach the app behind it. */
-function swallow(e: KeyboardEvent) {
+export function swallow(e: KeyboardEvent) {
   if (e.key !== "Enter" && !/^Digit|^Numpad\d/.test(e.code) && !/^\d$/.test(e.key)) return;
   e.preventDefault();
   e.stopPropagation();

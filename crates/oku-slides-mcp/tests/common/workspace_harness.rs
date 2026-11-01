@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use oku_slides_core::{Namespace, PackKind, PackScope};
+use oku_slides_core::{Guides, Namespace, PackKind, PackScope};
 use oku_slides_session::agent::Sessions;
 use oku_slides_session::{Fonts, PackLibrary, Platform, Session, Workspace, WorkspaceRequest};
 use serde_json::{Value, json};
@@ -40,6 +40,7 @@ fn add_library_pack(platform: &Platform, id: Uuid, namespace: &str, widgets: &[(
         styles: BTreeMap::new(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let widgets = widgets
         .iter()

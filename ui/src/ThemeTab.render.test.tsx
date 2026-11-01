@@ -23,7 +23,7 @@ const SNAP = {
   warnings: [], notice: null, disk_replaced: false,
   appearance: { scheme: "light", slide: {}, app: {}, variants: {}, metrics: {}, font_display: [], font_body: [], chart_palette: [] },
   widgets: {}, layouts: {}, editing: null, deck_pack: false, pack_updates: 0, pack_widgets: [], add_packs: [],
-  free_slots: { "essentiel/content": null }, widget_trials: 0, history: null, read_only: false, host_params: {},
+  free_slots: { "essentiel/content": null }, widget_trials: 0, history: null, read_only: false, host_params: {}, guides: null,
   ui: { slide: null, ghosts: false, pile: null, notes: null, widget: null, code: false, code_width: null, folded: [], preview_span: "full" },
   theming: {
     theme: { base: { id: "t", version: "v1" }, namespace: "papier", name: "Papier", child: true, extends: [], dirty: false, revision: "r1" },

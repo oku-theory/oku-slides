@@ -159,3 +159,25 @@ body:has(.code-divider.active) { cursor: col-resize; user-select: none; -webkit-
 .theme-panel-title { margin: 0; font: inherit; font-weight: 600; }
 .theme-panel-head .caption { display: flex; align-items: center; gap: var(--space-2); }
 .theme-panel > .host-settings { width: auto; }
+
+/* ---- Guides for agents: the section of a pack or theme tab, and the install dialog ---- */
+.guides-section { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-4); max-height: 40vh; overflow-y: auto; background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object); }
+.guides-section[open] > summary { margin-bottom: var(--space-2); }
+.sheet-area.with-guides { grid-template-rows: minmax(0, 1fr) auto auto; }
+.sheet-area.with-guides > .guides-section { grid-row: 3; margin: var(--space-2) var(--space-4) 0; }
+.guides-title { font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: var(--space-2); }
+.guides-badge { font-weight: 400; font-size: 11px; line-height: 14px; padding: 1px 6px; border-radius: 999px; color: var(--ink-muted); background: color-mix(in oklab, var(--paper-100) 70%, var(--ink-muted) 15%); }
+.guides-badge[data-origin="received"] { color: var(--ink); }
+.guide-field textarea {
+  width: 100%; min-width: 0; padding: 3px 6px; border: 0; border-radius: 5px; font: 13px/18px var(--sans); color: var(--ink);
+  background: color-mix(in oklab, var(--a2ui-surface) 70%, white); outline: none; resize: vertical;
+}
+.guide-field textarea:focus { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent); }
+.guide-field .caption { display: flex; justify-content: space-between; gap: var(--space-2); }
+.guides-approval { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.guides-install { width: min(640px, 92vw); }
+.guides-install-title { margin: 0; font: inherit; font-weight: 600; }
+.guides-review { display: flex; flex-direction: column; gap: var(--space-1); }
+.guides-review-name { margin: 0; font: inherit; font-weight: 600; }
+.guides-review .caption { margin: 0; }
+.guide-text { margin: 0; padding: var(--space-2); max-height: 30vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/16px var(--mono, monospace); background: color-mix(in oklab, var(--paper-100) 85%, var(--ink-muted) 10%); border-radius: 5px; }

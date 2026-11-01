@@ -12,6 +12,7 @@ agent-surface-themes = テーマ
 agent-surface-variants = バリエーション
 agent-surface-permission-always = 常に
 agent-surface-permission-title = エージェントが許可を求めています
+agent-surface-permission-guides = このターンには、{ $names } の受信したガイドが含まれています。
 agent-undo-turn = エージェント：{ $text }
 
 agent-tools-unavailable = エージェントのツールを起動できませんでした。

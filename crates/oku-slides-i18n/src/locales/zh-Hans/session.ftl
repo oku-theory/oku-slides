@@ -88,6 +88,7 @@ session-undo-theme = 更改主题
 session-undo-edited-theme = 更改主题：{ $name }
 session-undo-theme-extends = 更改继承的主题
 session-undo-theme-rename = 重命名主题
+session-undo-theme-guide = 编辑主题指南
 session-help-deck = 无法读取帮助演示文稿
 session-agent-form = 智能体的请求无效：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }个字符，最多 { $max }个
@@ -138,6 +139,9 @@ session-widgets-not-saved = 无法将包“{ $pack }”的小组件版本保存�
 session-invalid-widget-name = 小组件名称无效：“{ $name }”。请使用小写字母、数字和连字符，或 _commun。
 session-widget-too-large = 小组件“{ $name }”超过 { $max } KiB。
 session-widget-nul = 小组件“{ $name }”包含 NUL 字符。
+session-guide-too-long = 指南超过 { $max }个字符。
+session-guide-has-nul = 指南包含 NUL 字符。
+session-guide-approvals-write = 无法将指南批准保存到 { $path }
 session-too-many-widgets = 一个包最多只能有 { $max }个小组件文件。
 session-widget-in-use = 小组件“{ $name }”仍在以下位置使用：{ $uses }。
 session-unknown-widget = 找不到小组件：“{ $name }”。
@@ -658,3 +662,11 @@ voice-agent-model-later = 智能体的模型会在它首次回复后列出。
 voice-agent-model-asked = 请求的模型：{ $model }。智能体的模型会在它首次回复后列出。
 voice-agent-model-missing = 此智能体不提供 { $model }：它使用显示的模型。
 voice-agent-model-next = 新模型从每个标签页的下一条消息起生效。
+
+deck-packs-guide = { $origin ->
+    [builtin] 智能体指南 (内置)
+    [received] 智能体指南 (已接收)
+   *[local] 智能体指南 (自有)
+  }
+deck-packs-guide-edit = 智能体编辑指南 (已接收)
+deck-packs-guide-approve = 批准此指南

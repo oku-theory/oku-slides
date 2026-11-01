@@ -88,6 +88,7 @@ session-undo-theme = เปลี่ยนธีม
 session-undo-edited-theme = เปลี่ยนธีม: { $name }
 session-undo-theme-extends = เปลี่ยนธีมที่ขยาย
 session-undo-theme-rename = เปลี่ยนชื่อธีม
+session-undo-theme-guide = แก้ไขคู่มือของธีม
 session-help-deck = อ่านงานนำเสนอความช่วยเหลือไม่ได้
 session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
 session-agent-form-too-long = { $at }: { $count } อักขระ ไม่เกิน { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = บันทึกเวอร์ชันวิด�
 session-invalid-widget-name = ชื่อวิดเจ็ตไม่ถูกต้อง: “{ $name }” ใช้อักษรละตินตัวพิมพ์เล็ก ตัวเลข และขีดกลาง หรือ _commun
 session-widget-too-large = วิดเจ็ต “{ $name }” มีขนาดเกิน { $max } KiB
 session-widget-nul = วิดเจ็ต “{ $name }” มีอักขระ NUL
+session-guide-too-long = คู่มือยาวเกิน { $max } อักขระ
+session-guide-has-nul = คู่มือมีอักขระ NUL
+session-guide-approvals-write = บันทึกการอนุมัติคู่มือใน { $path } ไม่ได้
 session-too-many-widgets = แพ็กหนึ่งมีไฟล์วิดเจ็ตได้ไม่เกิน { $max } ไฟล์
 session-widget-in-use = วิดเจ็ต “{ $name }” ยังถูกใช้อยู่ที่นี่: { $uses }
 session-unknown-widget = ไม่พบวิดเจ็ต: “{ $name }”
@@ -658,3 +662,11 @@ voice-agent-model-later = โมเดลของเอเจนต์จะแ
 voice-agent-model-asked = โมเดลที่ขอ: { $model } โมเดลของเอเจนต์จะแสดงหลังการตอบกลับครั้งแรก
 voice-agent-model-missing = เอเจนต์นี้ไม่มี { $model } ให้เลือก จึงใช้โมเดลที่แสดงอยู่
 voice-agent-model-next = โมเดลใหม่จะมีผลตั้งแต่ข้อความถัดไปในแต่ละแท็บ
+
+deck-packs-guide = { $origin ->
+    [builtin] คู่มือสำหรับเอเจนต์ (ในตัว)
+    [received] คู่มือสำหรับเอเจนต์ (ที่ได้รับ)
+   *[local] คู่มือสำหรับเอเจนต์ (ของคุณ)
+  }
+deck-packs-guide-edit = คู่มือการแก้ไขสำหรับเอเจนต์ (ที่ได้รับ)
+deck-packs-guide-approve = อนุมัติคู่มือนี้

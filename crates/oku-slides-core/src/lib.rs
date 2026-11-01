@@ -23,6 +23,7 @@
 //!   order ([`TextField`], [`FieldOwner`]), the editor's Tab order.
 //! - [`is_hex_color`]: hexadecimal form of token colors; [`color_names`]: the color names a deck uses.
 //! - [`WidgetRegistry`]: schema of the widgets declared in Typst, read from the render probe (hosts: [`WidgetRegistry::host_params`]; block height: [`Grow`]; label and description: [`LocalizedText`]).
+//! - [`Guides`], [`GuideKind`]: the agent's edit and use guides in a pack or theme manifest.
 //! - [`PackKind`]: the kind of a pack (element `widgets`, slide `layouts`); [`LayoutProfile`]: preset of a layout for import.
 //! - [`kinds`]: the kinds of the built-in `base` and `essentiel` packs, the only place they are written.
 //! - [`media`]: actual type of a media file ([`media::sniff`]) and raster dimensions read from its header.
@@ -46,6 +47,7 @@ pub mod num;
 pub mod ops;
 pub mod pack;
 mod pack_examples;
+mod pack_guides;
 mod pack_kind;
 mod pack_order;
 pub mod params;
@@ -85,6 +87,7 @@ pub use pack::{
     COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, WidgetFile,
     now_created,
 };
+pub use pack_guides::{GuideKind, Guides};
 pub use pack_kind::PackKind;
 pub use pack_order::{item_order, normalized_order};
 pub use params::{ListItem, ParamValue, Params};

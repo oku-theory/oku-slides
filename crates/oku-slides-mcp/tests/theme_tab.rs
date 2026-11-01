@@ -135,14 +135,18 @@ fn agent_form(h: &Harness, key: &str, args: &[(&str, oku_slides_i18n::FluentValu
 
 /// The edited theme's name, as the tab's snapshot shows it.
 fn theming_name(h: &Harness) -> String {
-    let s = lock(&h.session);
-    s.snapshot().theming.map_or_else(|| panic!("a theme tab"), |t| t.theme.name)
+    tokio::task::block_in_place(|| {
+        let s = lock(&h.session);
+        s.snapshot().theming.map_or_else(|| panic!("a theme tab"), |t| t.theme.name)
+    })
 }
 
 /// The edited theme's base id, as the tab's snapshot shows it.
 fn theming_base(h: &Harness) -> uuid::Uuid {
-    let s = lock(&h.session);
-    s.snapshot().theming.map_or_else(|| panic!("a theme tab"), |t| t.theme.base.id)
+    tokio::task::block_in_place(|| {
+        let s = lock(&h.session);
+        s.snapshot().theming.map_or_else(|| panic!("a theme tab"), |t| t.theme.base.id)
+    })
 }
 
 /// The ids of the library's themes, as a fresh snapshot lists them (it rereads the library).
@@ -161,7 +165,8 @@ async fn rename_theme_renames_the_draft_in_one_undo_step() {
     let r = call(&c, "rename_theme", json!({ "name": "Mon pro" })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     assert_that!(theming_name(&h)).is_equal_to("Mon pro".to_owned());
-    lock(&h.session).handle(Request::Undo).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    tokio::task::block_in_place(|| lock(&h.session).handle(Request::Undo))
+        .unwrap_or_else(|e| panic!("{}", e.one_line()));
     assert_that!(theming_name(&h)).is_equal_to("Pro".to_owned());
 }
 
@@ -239,4 +244,20 @@ async fn theme_tab_does_not_serve_the_deck_only_shared_tools(#[case] tool: &str,
     let r = call(&c, tool, args).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to(unknown_tool(&h, tool));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_on_a_theme_tab_stores_it_and_is_not_echoed_back() {
+    let h = start_theme_tab(PRO_THEME).await;
+    let c = server(&h).await;
+    // The turn starts: its guides block is sent first.
+    tokio::task::block_in_place(|| lock(&h.session).agent_guides(true));
+    let r = call(&c, "set_guide", json!({ "which": "use", "text": "Prefer the dark scheme." })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let (stored, echoed) = tokio::task::block_in_place(|| {
+        let mut s = lock(&h.session);
+        (s.snapshot().guides.map(|g| g.guides.use_), s.agent_guides(false).is_some())
+    });
+    assert_that!(stored).is_equal_to(Some("Prefer the dark scheme.".to_owned()));
+    assert_that!(echoed).is_false();
 }

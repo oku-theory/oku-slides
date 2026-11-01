@@ -116,7 +116,9 @@ async fn save_pack_denied_saves_nothing() {
 #[tokio::test(flavor = "multi_thread")]
 async fn save_pack_asks_with_the_pack_name_as_a_label() {
     let (h, ws, tab) = start_in_pack_tab().await;
-    let name = Workspace::with_session(&ws, &tab, |s| s.snapshot().editing.map(|e| e.mode.name.clone())).0;
+    let name = tokio::task::block_in_place(|| {
+        Workspace::with_session(&ws, &tab, |s| s.snapshot().editing.map(|e| e.mode.name.clone())).0
+    });
     let name = name.unwrap_or_else(|e| panic!("tab {tab}: {e}")).unwrap_or_else(|| panic!("a pack tab"));
     let (message, danger, _r) = guarded_message(&h, "save_pack", json!({}), false).await;
     let expected = h.localizer.tr_with("agent-confirm-copy-pack", &[("name", label(&name).into())]);
@@ -223,4 +225,28 @@ async fn duplicate_widget_then_user_edit_of_the_copy_tells_the_agent() {
     });
     assert_that!(edited).is_ok();
     assert_that!(context_of(&ws, &tab).as_str()).contains("user edited widget badge-2 after you");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_on_a_pack_tab_stores_it_and_is_not_echoed_back() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    // The turn starts: its guides block is sent first.
+    tokio::task::block_in_place(|| {
+        Workspace::with_session(&ws, &tab, |s| s.agent_guides(true).is_some())
+            .0
+            .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    });
+    let r = call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(json_of(&r)).is_equal_to(json!({ "chars": 19, "max_chars": 4000 }));
+    let (stored, echoed) = tokio::task::block_in_place(|| {
+        Workspace::with_session(&ws, &tab, |s| {
+            (s.snapshot().guides.map(|g| g.guides.edit), s.agent_guides(false).is_some())
+        })
+        .0
+        .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    });
+    assert_that!(stored).is_equal_to(Some("Keep widgets small.".to_owned()));
+    assert_that!(echoed).is_false();
 }

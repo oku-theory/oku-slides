@@ -1,5 +1,6 @@
 //! Tools of a pack or theme tab's own document: selection, preview theme, rename, copies.
 
+use oku_slides_core::GuideKind;
 use oku_slides_session::Request;
 use oku_slides_session::agent::bounds::{LABEL_MAX, check_text, label};
 use rust_mcp_sdk::schema::CallToolResult;
@@ -31,6 +32,15 @@ pub(crate) struct SetPreviewThemeArgs {
 pub(crate) struct RenameThemeArgs {
     /// The new name; empty takes back the base theme's name.
     pub name: String,
+}
+
+/// `set_guide`: one of the edited pack's or theme's guides for agents.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct SetGuideArgs {
+    /// `edit`: how to edit it; `use`: how a deck uses it.
+    pub which: GuideKind,
+    /// The guide as plain Markdown; empty clears it.
+    pub text: String,
 }
 
 impl Tools {
@@ -66,6 +76,28 @@ impl Tools {
             return self.fail_with(&SessionSnafu.into_error(e));
         }
         self.change(Request::RenameEditedTheme { name }).await
+    }
+
+    /// `set_guide`: writes the edited pack's or theme's guide for agents, in one undo step.
+    ///
+    /// It goes through `set_guide_by_agent`, so the user-write note is not recorded and the
+    /// guide is not echoed back to the agent. Answers the stored text's length and the cap.
+    pub(crate) async fn set_guide(&self, args: Value) -> CallToolResult {
+        let SetGuideArgs { which, text } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let chars = text.chars().count();
+        let done = self
+            .with_session(move |s| {
+                s.set_guide_by_agent(which, text)?;
+                Ok(s.guide_limit())
+            })
+            .await;
+        self.reply(done, |max_chars| {
+            self.hub.emit(McpEvent::Changed);
+            self.json_result(&json!({ "chars": chars, "max_chars": max_chars }))
+        })
     }
 
     /// `save_theme`: saves a copy of the edited theme under a new id, once the user confirms.

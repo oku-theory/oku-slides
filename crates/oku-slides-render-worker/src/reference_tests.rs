@@ -17,6 +17,7 @@ fn worker(timeout_ms: u64) -> RenderWorker {
             max_frame_mib: 64,
             max_widget_kib: 256,
             max_widgets: 64,
+            max_guide_chars: 4000,
         },
     )
 }

@@ -26,7 +26,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 - `replica/`: `DeckReplica`, the deck in a `LoroDoc` (merge, history, undo): [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `pack.rs`: content-addressed `PackVersion` (sha-256 of `layouts\0` for a layout pack, the canonical manifest and widget files),
   `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, `styles`, read in
-  `pack_examples.rs`; `tokens`: `ComponentToken`s checked on read; `profiles`: `LayoutProfile`; `order`: item order, `pack_order.rs`: `item_order`, `normalized_order`, `check_order`). A theme version
+  `pack_examples.rs`; `tokens`: `ComponentToken`s checked on read; `profiles`: `LayoutProfile`; `order`: item order, `pack_order.rs`: `item_order`, `normalized_order`, `check_order`; `guides`: `Guides` (`pack_guides.rs`: the agent's `edit` and `use` guides, `GuideKind`, unwritten when empty)). A theme version
   (`ThemeManifest`: `namespace`, ordered `extends`) is a prefix-free `PackFiles` without widgets, manifest `theme.json`
   (`PackFiles::theme`, `verified_theme`). `PackScope`, packs only (`library` default, unwritten; `deck`: an import's).
 - `theme_chain.rs`: `ThemePin`, `linearize` (post-order, each theme once, the deck's last), `check_closure`.

@@ -1,6 +1,7 @@
 //! Aides partagées par les tests d'intégration de `oku-slides-session`
 //! (`session.rs`, `merge.rs`, `agent.rs`, `errors.rs`, `regressions/`).
 
+use oku_slides_core::Guides;
 use oku_slides_session::{Fonts, Platform, Request, Session, Settings};
 use serde_json::json;
 
@@ -133,6 +134,7 @@ pub fn add_user_theme(data: &std::path::Path, namespace: &str, extends: &[&str],
         parent: None,
         created: "2026-10-22T10:00:00Z".to_owned(),
         tokens: serde_json::from_value(tokens).unwrap_or_default(),
+        guides: Guides::default(),
     };
     let files = manifest.to_files().unwrap_or_else(|e| panic!("theme.json : {e}"));
     themes.add_version(manifest.id, &files).unwrap_or_else(|e| panic!("thème : {}", e.one_line()));
@@ -161,6 +163,7 @@ pub fn add_user_pack(data: &std::path::Path, name: &str) -> uuid::Uuid {
         styles: std::collections::BTreeMap::default(),
         tokens: vec![],
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let quote = oku_slides_core::WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget invalide"));
     let widgets = std::collections::BTreeMap::from([(quote, WIDGET.to_owned())]);

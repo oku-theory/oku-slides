@@ -88,6 +88,7 @@ session-undo-theme = 變更主題
 session-undo-edited-theme = 變更主題：{ $name }
 session-undo-theme-extends = 變更繼承的主題
 session-undo-theme-rename = 重新命名主題
+session-undo-theme-guide = 編輯主題指南
 session-help-deck = 無法讀取說明簡報
 session-agent-form = AI 代理的請求無效：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }個字元，最多 { $max }個
@@ -138,6 +139,9 @@ session-widgets-not-saved = 無法將套件「{ $pack }」的小工具版本儲�
 session-invalid-widget-name = 小工具名稱無效：「{ $name }」。請使用小寫字母、數字和連字號，或 _commun。
 session-widget-too-large = 小工具「{ $name }」超過 { $max } KiB。
 session-widget-nul = 小工具「{ $name }」包含 NUL 字元。
+session-guide-too-long = 指南超過 { $max }個字元。
+session-guide-has-nul = 指南包含 NUL 字元。
+session-guide-approvals-write = 無法將指南核准儲存到 { $path }
 session-too-many-widgets = 一個套件最多只能有 { $max }個小工具檔案。
 session-widget-in-use = 小工具「{ $name }」仍在以下位置使用：{ $uses }。
 session-unknown-widget = 找不到小工具：「{ $name }」。
@@ -658,3 +662,11 @@ voice-agent-model-later = 代理的模型會在它首次回覆後列出。
 voice-agent-model-asked = 要求的模型：{ $model }。代理的模型會在它首次回覆後列出。
 voice-agent-model-missing = 此代理不提供 { $model }：它使用顯示的模型。
 voice-agent-model-next = 新模型從每個分頁的下一則訊息起生效。
+
+deck-packs-guide = { $origin ->
+    [builtin] AI 代理指南 (內建)
+    [received] AI 代理指南 (已接收)
+   *[local] AI 代理指南 (自有)
+  }
+deck-packs-guide-edit = AI 代理編輯指南 (已接收)
+deck-packs-guide-approve = 核准此指南

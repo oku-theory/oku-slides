@@ -25,7 +25,7 @@ with the UI context; agent updates become A2UI turn surfaces.
   `session_model`: `ModelBoard`, sessions' `model` options; the actor asks the chosen one before a prompt if offered; `usage_board`: `UsageBoard`, each session's cumulative cost (replays and unknown sessions ignored, a reopened session's first one only the base), `record_turn` files the turn's `UsageRecord` in its deck (`TabSession::record_usage`), `tells` guards session-state updates.
 - `keeper` : `Keeper`, the per-tab queue that alone reads and writes the conversation (`Keep`).
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`); `turns` : `Turns`, reducer to A2UI turn surfaces (`TurnOut`).
-- `turn` (returns the reply's `Usage`; `prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
+- `turn` (puts the session's guides block, when `agent_guides` returns one, before the context block; returns the reply's `Usage`; `prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
   `[paste] prompt_*` limits), `permission` (ACP option to `PermissionChoice`), `config` (`Launch`, its `path`
   the child's `PATH` and lookup, `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`:
   tests only), `settings_port` (`AppSettings`).

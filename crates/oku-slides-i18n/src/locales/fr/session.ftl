@@ -88,6 +88,7 @@ session-undo-theme = Changer de thème
 session-undo-edited-theme = Changer de thème : { $name }
 session-undo-theme-extends = Changer les thèmes étendus
 session-undo-theme-rename = Renommer le thème
+session-undo-theme-guide = Modifier le guide du thème
 session-help-deck = La présentation d'aide est illisible
 session-agent-form = La demande de l'agent est invalide : { $reason }
 session-agent-form-too-long = { $at } : { $count } caractères, { $max } au plus
@@ -138,6 +139,9 @@ session-widgets-not-saved = La version des widgets du pack « { $pack } » n'a p
 session-invalid-widget-name = Nom de widget invalide : « { $name } ». Lettres minuscules, chiffres et tirets, ou _commun.
 session-widget-too-large = Le widget « { $name } » dépasse { $max } Kio.
 session-widget-nul = Le widget « { $name } » contient un caractère nul.
+session-guide-too-long = Le guide dépasse { $max } caractères.
+session-guide-has-nul = Le guide contient un caractère nul.
+session-guide-approvals-write = Impossible d'enregistrer les approbations de guides dans { $path }
 session-too-many-widgets = Un pack ne peut pas avoir plus de { $max } fichiers de widgets.
 session-widget-in-use = Le widget « { $name } » est encore utilisé ici : { $uses }.
 session-unknown-widget = Widget introuvable : « { $name } ».
@@ -673,3 +677,11 @@ voice-agent-model-later = Les modèles de l'agent s'affichent après sa premièr
 voice-agent-model-asked = Modèle demandé : { $model }. Les modèles de l'agent s'affichent après sa première réponse.
 voice-agent-model-missing = Cet agent ne propose pas { $model } : il utilise le modèle affiché.
 voice-agent-model-next = Un nouveau modèle vaut à partir du prochain message de chaque onglet.
+
+deck-packs-guide = { $origin ->
+    [builtin] Guide pour les agents (intégré)
+    [received] Guide pour les agents (reçu)
+   *[local] Guide pour les agents (le vôtre)
+  }
+deck-packs-guide-edit = Guide pour les agents sur sa modification (reçu)
+deck-packs-guide-approve = Approuver ce guide

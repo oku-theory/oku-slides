@@ -51,6 +51,7 @@ mod issue_1224_deck_pack_write_keeps_its_parent;
 mod issue_1228_deck_only_pack_opens_a_linked_tab;
 mod issue_1237_save_after_turn_keeps_turn_version;
 mod issue_1239_closing_a_deck_pack_tab_changes_its_owner_once;
+mod issue_1267_hostile_guide_stays_confined;
 mod issue_1293_unknown_theme_color_warns;
 mod issue_1402_undone_agent_copy_drops_its_mark;
 mod issue_1403_undone_writes_move_the_agent_mark;

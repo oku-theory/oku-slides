@@ -45,6 +45,7 @@ use crate::error::{
 use crate::layout_profile::LayoutProfile;
 use crate::model::Style;
 use crate::namespace::Namespace;
+use crate::pack_guides::Guides;
 use crate::pack_kind::PackKind;
 use crate::pack_order::{check_order, normalized_order};
 use crate::token_spec::{ComponentToken, check_entries};
@@ -446,6 +447,9 @@ pub struct PackManifest {
     /// Items in their chosen order; the unlisted follow by name. Empty: name order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub order: Vec<WidgetFile>,
+    /// The agent's guides; empty, the key is not written (versions without guides keep their digest).
+    #[serde(default, skip_serializing_if = "Guides::is_empty")]
+    pub guides: Guides,
 }
 
 impl PackManifest {
@@ -526,6 +530,9 @@ pub struct ThemeManifest {
     pub created: String,
     /// Jetons de conception, par groupe (`color`, `font`, …).
     pub tokens: Map<String, Value>,
+    /// The agent's guides; empty, the key is not written (versions without guides keep their digest).
+    #[serde(default, skip_serializing_if = "Guides::is_empty")]
+    pub guides: Guides,
 }
 
 impl ThemeManifest {

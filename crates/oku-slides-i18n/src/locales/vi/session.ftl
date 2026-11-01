@@ -88,6 +88,7 @@ session-undo-theme = Đổi chủ đề
 session-undo-edited-theme = Đổi chủ đề: { $name }
 session-undo-theme-extends = Đổi các chủ đề được mở rộng
 session-undo-theme-rename = Đổi tên chủ đề
+session-undo-theme-guide = Sửa hướng dẫn của chủ đề
 session-help-deck = Không đọc được bản trình bày trợ giúp
 session-agent-form = Yêu cầu của tác nhân AI không hợp lệ: { $reason }
 session-agent-form-too-long = { $at }: { $count } ký tự, tối đa { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = Không thể lưu phiên bản widget của gói “
 session-invalid-widget-name = Tên widget không hợp lệ: “{ $name }”. Hãy dùng chữ thường, chữ số và dấu gạch ngang, hoặc _commun.
 session-widget-too-large = Widget “{ $name }” lớn hơn { $max } KiB.
 session-widget-nul = Widget “{ $name }” chứa ký tự NUL.
+session-guide-too-long = Hướng dẫn dài hơn { $max } ký tự.
+session-guide-has-nul = Hướng dẫn chứa ký tự NUL.
+session-guide-approvals-write = Không thể lưu các phê duyệt hướng dẫn vào { $path }
 session-too-many-widgets = Một gói không thể có quá { $max } tệp widget.
 session-widget-in-use = Widget “{ $name }” vẫn đang được dùng ở đây: { $uses }.
 session-unknown-widget = Không tìm thấy widget: “{ $name }”.
@@ -658,3 +662,11 @@ voice-agent-model-later = Các mô hình của tác nhân hiện ra sau phản h
 voice-agent-model-asked = Mô hình yêu cầu: { $model }. Các mô hình của tác nhân hiện ra sau phản hồi đầu tiên của nó.
 voice-agent-model-missing = Tác nhân này không cung cấp { $model }: nó dùng mô hình đang hiển thị.
 voice-agent-model-next = Mô hình mới áp dụng từ tin nhắn tiếp theo trong mỗi thẻ.
+
+deck-packs-guide = { $origin ->
+    [builtin] Hướng dẫn cho tác nhân AI (tích hợp)
+    [received] Hướng dẫn cho tác nhân AI (nhận được)
+   *[local] Hướng dẫn cho tác nhân AI (của bạn)
+  }
+deck-packs-guide-edit = Hướng dẫn chỉnh sửa cho tác nhân AI (nhận được)
+deck-packs-guide-approve = Phê duyệt hướng dẫn này

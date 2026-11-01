@@ -72,7 +72,7 @@ fn instructions_ask_for_report_not_suggest_next() {
 #[case("`open_theme` opens a library theme in its own tab")]
 #[case("the set_theme op with a namespace")]
 #[case("set_token ops on deck.tokens")]
-#[case("component.base.card")]
+#[case("are under component.<namespace>")]
 #[case("one tab move per turn, shared with `open_pack`")]
 #[case("a deck-only pack in its own tab linked to this deck")]
 fn deck_instructions_name_the_app_tools_that_replace_the_menu(#[case] listed: &str) {
@@ -374,9 +374,20 @@ fn widgets_names_the_deck_own_layout_pack() {
     assert_that!(WIDGETS).contains("deck-layouts");
 }
 
-#[test]
-fn instructions_name_the_essentiel_content_layout_for_slides() {
-    assert_that!(for_kind(DocumentKind::Deck)).contains(oku_slides_core::kinds::essentiel::CONTENT);
+/// What only holds for a built-in pack or theme lives in its guides, not in the instructions (t-1411).
+#[rstest]
+#[case::agent(INSTRUCTIONS)]
+#[case::deck(for_kind(DocumentKind::Deck))]
+#[case::pack(for_kind(DocumentKind::Pack))]
+#[case::theme(for_kind(DocumentKind::Theme))]
+#[case::widgets(WIDGETS)]
+fn instructions_name_no_builtin_layout_or_component_group(#[case] text: &str) {
+    let named: Vec<&str> = oku_slides_core::kinds::essentiel::ALL
+        .into_iter()
+        .chain(["component.base.", "component.essentiel."])
+        .filter(|part| text.contains(part))
+        .collect();
+    assert_that!(named).is_empty();
 }
 
 #[test]

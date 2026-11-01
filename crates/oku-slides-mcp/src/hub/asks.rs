@@ -176,7 +176,8 @@ impl SurfaceHub {
     /// `answer`) donnent `None`, que la connexion transmet comme un refus.
     pub async fn permission(&self, title: &str, options: &[PermissionChoice]) -> Option<usize> {
         let id = self.next_id("permission");
-        match self.ask(forms::permission(&id, title, options, &self.localizer.current())).await {
+        let note = self.state().permission_note.clone();
+        match self.ask(forms::permission(&id, title, options, note.as_deref(), &self.localizer.current())).await {
             Answer::Action { name, context } if name == "permission" => Self::index(&context, "index").ok(),
             _ => None,
         }

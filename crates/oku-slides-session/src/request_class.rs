@@ -40,6 +40,7 @@ impl Request {
             | Self::HistoryRestore
             | Self::HistoryClose
             | Self::Move { .. }
+            | Self::SetGuide { .. }
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
@@ -70,6 +71,8 @@ impl Request {
             | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
             | Self::SetPreviewTheme { .. }
+            | Self::ApproveGuides { .. }
+            | Self::LaterGuides { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }
@@ -96,6 +99,7 @@ impl Request {
                 | Self::EditThemeExtends { .. }
                 | Self::RenameEditedTheme { .. }
                 | Self::DeletePack { .. }
+                | Self::SetGuide { .. }
                 | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
@@ -136,7 +140,8 @@ impl Request {
     pub(crate) fn is_widget_edit(&self) -> bool {
         matches!(
             self,
-            Self::SetWidget { .. }
+            Self::SetGuide { .. }
+                | Self::SetWidget { .. }
                 | Self::RemoveWidget { .. }
                 | Self::RenameWidget { .. }
                 | Self::DuplicateWidget { .. }
@@ -165,6 +170,7 @@ impl Request {
             | Self::ShowAs { .. }
             | Self::DataEdit { .. }
             | Self::SavePack { as_new: false }
+            | Self::SetGuide { .. }
             | Self::SetWidget { .. }
             | Self::RemoveWidget { .. }
             | Self::RenameWidget { .. }
@@ -206,6 +212,8 @@ impl Request {
             | Self::PreviewWidget { .. }
             | Self::UsePackVersion { .. }
             | Self::UsePackCopy { .. }
+            | Self::ApproveGuides { .. }
+            | Self::LaterGuides { .. }
             | Self::UseThemeVersion { .. } => false,
         }
     }
@@ -232,6 +240,9 @@ impl Request {
             | Self::RenameEditedTheme { .. }
             | Self::SetEditedThemeExtends { .. }
             | Self::EditThemeExtends { .. }
+            | Self::SetGuide { .. }
+            | Self::ApproveGuides { .. }
+            | Self::LaterGuides { .. }
             | Self::SaveTheme { .. } => true,
             Self::Save { .. }
             | Self::SetPreviewTheme { .. }

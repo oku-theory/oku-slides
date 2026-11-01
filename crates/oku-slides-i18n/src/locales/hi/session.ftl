@@ -88,6 +88,7 @@ session-undo-theme = थीम बदलें
 session-undo-edited-theme = थीम बदलें: { $name }
 session-undo-theme-extends = विस्तारित थीम बदलें
 session-undo-theme-rename = थीम का नाम बदलें
+session-undo-theme-guide = थीम की मार्गदर्शिका संपादित करें
 session-help-deck = सहायता प्रस्तुति पढ़ी नहीं जा सकी
 session-agent-form = एजेंट का अनुरोध अमान्य है: { $reason }
 session-agent-form-too-long = { $at }: { $count } वर्ण, अधिकतम { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = पैक “{ $pack }” के विजेट क
 session-invalid-widget-name = विजेट का नाम अमान्य है: “{ $name }”। छोटे अक्षर, अंक और हाइफ़न, या _commun इस्तेमाल करें।
 session-widget-too-large = विजेट “{ $name }” { $max } KiB से बड़ा है।
 session-widget-nul = विजेट “{ $name }” में NUL वर्ण है।
+session-guide-too-long = गाइड { $max } वर्णों से लंबी है।
+session-guide-has-nul = गाइड में NUL वर्ण है।
+session-guide-approvals-write = गाइड की स्वीकृतियाँ { $path } में सहेजी नहीं जा सकतीं
 session-too-many-widgets = किसी पैक में { $max } से ज़्यादा विजेट फ़ाइलें नहीं हो सकतीं।
 session-widget-in-use = विजेट “{ $name }” अभी भी यहाँ इस्तेमाल होता है: { $uses }।
 session-unknown-widget = विजेट नहीं मिला: “{ $name }”।
@@ -673,3 +677,11 @@ voice-agent-model-later = एजेंट के मॉडल उसके प�
 voice-agent-model-asked = माँगा गया मॉडल: { $model }। एजेंट के मॉडल उसके पहले उत्तर के बाद दिखते हैं।
 voice-agent-model-missing = यह एजेंट { $model } नहीं देता: यह दिखाया गया मॉडल इस्तेमाल करता है।
 voice-agent-model-next = नया मॉडल हर टैब के अगले संदेश से लागू होता है।
+
+deck-packs-guide = { $origin ->
+    [builtin] एजेंट के लिए गाइड (अंतर्निहित)
+    [received] एजेंट के लिए गाइड (प्राप्त)
+   *[local] एजेंट के लिए गाइड (आपका)
+  }
+deck-packs-guide-edit = संपादन के लिए एजेंट गाइड (प्राप्त)
+deck-packs-guide-approve = इस गाइड को मंज़ूर करें

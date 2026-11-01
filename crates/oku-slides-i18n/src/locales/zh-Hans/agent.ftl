@@ -12,6 +12,7 @@ agent-surface-themes = 主题
 agent-surface-variants = 变体
 agent-surface-permission-always = 永久
 agent-surface-permission-title = 智能体请求一项权限
+agent-surface-permission-guides = 本轮包含收到的 { $names } 指南。
 agent-undo-turn = 智能体：{ $text }
 
 agent-tools-unavailable = 智能体的工具未能启动。

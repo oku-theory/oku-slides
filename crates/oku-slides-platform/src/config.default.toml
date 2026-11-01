@@ -54,6 +54,8 @@ max_frame_mib = 512
 max_widget_kib = 256
 # Nombre maximal de fichiers de widgets d'une version de pack, `_commun` compris.
 max_widgets = 64
+# Maximum length of an agent guide of a pack or theme, in characters.
+max_guide_chars = 4000
 
 [import]
 # Hi-fi import: gap (ΔE OKLab ×100) of a slide's worst non-suspect region to the

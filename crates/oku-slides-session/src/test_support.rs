@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use oku_slides_core::WidgetRegistry;
+use oku_slides_core::{Guides, WidgetRegistry};
 
 use crate::{Fonts, Platform, Session, Settings, builtin_versions};
 
@@ -93,6 +93,7 @@ pub(crate) fn manifest(
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     }
 }
 
@@ -301,6 +302,8 @@ pub(crate) fn adopt_deck_only_pack(s: &mut Session) -> oku_slides_core::PackPin 
     m.requires = vec![oku_slides_core::kinds::base::namespace()];
     m.parent = Some(t.version);
     m.scope = oku_slides_core::PackScope::Deck;
+    // Like an imported deck-only pack, it carries no guide: base's would describe base.
+    m.guides = Guides::default();
     let files = m.to_files(t.kind, t.files.widgets().clone()).unwrap_or_else(|e| panic!("manifeste : {e}"));
     let pin = oku_slides_core::PackPin { id: m.id, version: files.version(), requires: m.requires.clone() };
     s.doc.sources.add_pack(files);
@@ -385,6 +388,7 @@ pub(crate) fn add_user_theme(
         // Plus récente à chaque version : la courante par défaut reste la dernière ajoutée.
         created: format!("2026-10-{:02}T10:00:00Z", 1 + themes.versions(id).len()),
         tokens,
+        guides: Guides::default(),
     };
     let files = manifest.to_files().unwrap_or_else(|e| panic!("theme.json : {e}"));
     themes.add_version(id, &files).unwrap_or_else(|e| panic!("thème {namespace} : {}", e.one_line()));

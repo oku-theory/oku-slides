@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use common::data_dir;
-use oku_slides_core::{Namespace, PackKind, PackScope};
+use oku_slides_core::{Guides, Namespace, PackKind, PackScope};
 use oku_slides_session::agent::{TabGate, TabOpen, TabSession};
 use oku_slides_session::{
     Fonts, PackLibrary, PackManifest, Platform, SessionErrorKind, Settings, Workspace, WorkspaceRequest,
@@ -57,6 +57,7 @@ fn deck() -> Deck {
         styles: BTreeMap::new(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let files = manifest.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("manifeste : {e}"));
     PackLibrary::user(&platform).add_version(ACME, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));

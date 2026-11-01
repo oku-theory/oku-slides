@@ -391,3 +391,23 @@ ui-about-breaking = 호환되지 않음
 ui-about-close = 닫기
 
 ui-shortcut-theme = 테마, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = 에이전트 가이드
+ui-guides-edit = 편집 방법
+ui-guides-use = 사용 방법
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = 기본 제공
+ui-guides-origin-local = 내 것
+ui-guides-origin-received = 받음
+ui-guides-approve = 이 가이드 승인
+ui-guides-awaiting = 승인하기 전에는 에이전트에 전달되지 않습니다.
+ui-guides-install-title = 이 프레젠테이션에는 에이전트용 가이드가 있습니다
+ui-guides-install-intro = 승인해야만 에이전트에 전달됩니다. 먼저 읽어 보세요.
+ui-guides-install-approve = 가이드 승인
+ui-guides-install-later = 나중에
+ui-guides-install-items = { $count }개
+ui-guides-install-requires = 필요: { $names }
+ui-guides-kind-widgets = 위젯
+ui-guides-kind-layouts = 레이아웃
+ui-guides-kind-theme = 테마

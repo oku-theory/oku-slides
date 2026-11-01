@@ -97,6 +97,17 @@ fn theme_tab_survives_resume_with_its_draft() {
 }
 
 #[test]
+fn theme_tab_survives_resume_with_its_guides() {
+    let (data, dir) = folders();
+    let (mut s, id) = persisted_maison(data.path(), &dir);
+    s.set_guide(oku_slides_core::GuideKind::Use, "Accent sparingly.".into()).unwrap();
+    park(s, id);
+    let (back, _) = reopen(data.path(), &dir, id);
+    assert_that!(draft_of(&back).guides.use_.as_str()).is_equal_to("Accent sparingly.");
+    assert_that!(back.tab_info().dirty).is_true();
+}
+
+#[test]
 fn theme_tab_state_is_version_5_without_documents() {
     let (data, dir) = folders();
     let (s, _) = persisted_maison(data.path(), &dir);

@@ -4,7 +4,7 @@
 mod common;
 
 use common::{deck_json, oku_slides, workdir};
-use oku_slides_core::{PackPin, WidgetFile};
+use oku_slides_core::{Guides, PackPin, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
@@ -30,6 +30,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackPin {
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let widgets = widgets
         .iter()

@@ -88,6 +88,7 @@ session-undo-theme = تغيير السمة
 session-undo-edited-theme = تغيير السمة: { $name }
 session-undo-theme-extends = تغيير السمات الموسَّعة
 session-undo-theme-rename = إعادة تسمية السمة
+session-undo-theme-guide = تعديل دليل السمة
 session-help-deck = تعذّرت قراءة عرض التعليمات
 session-agent-form = طلب الوكيل غير صالح: { $reason }
 session-agent-form-too-long = { $at }: { $count } حرفًا، والحد الأقصى { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = تعذّر حفظ إصدار عناصر الواجه
 session-invalid-widget-name = اسم عنصر واجهة غير صالح: «{ $name }». استخدم أحرفًا لاتينية صغيرة وأرقامًا وشرطات، أو _commun.
 session-widget-too-large = عنصر الواجهة «{ $name }» أكبر من { $max } كيلوبايت.
 session-widget-nul = عنصر الواجهة «{ $name }» يحتوي على محرف NUL.
+session-guide-too-long = الدليل أطول من { $max } حرفًا.
+session-guide-has-nul = يحتوي الدليل على محرف NUL.
+session-guide-approvals-write = تعذّر حفظ الموافقات على الأدلة في { $path }
 session-too-many-widgets = لا يمكن أن تحتوي الحزمة على أكثر من { $max } ملفًا لعناصر الواجهة.
 session-widget-in-use = لا يزال عنصر الواجهة «{ $name }» مستخدمًا هنا: { $uses }.
 session-unknown-widget = لم يُعثر على عنصر الواجهة: «{ $name }».
@@ -661,3 +665,11 @@ voice-agent-model-later = تظهر نماذج الوكيل بعد ردّه ال�
 voice-agent-model-asked = النموذج المطلوب: { $model }. تظهر نماذج الوكيل بعد ردّه الأول.
 voice-agent-model-missing = لا يقدّم هذا الوكيل { $model }: يستخدم النموذج المعروض.
 voice-agent-model-next = يسري النموذج الجديد بدءًا من الرسالة التالية في كل علامة تبويب.
+
+deck-packs-guide = { $origin ->
+    [builtin] دليل للوكلاء (مدمج)
+    [received] دليل للوكلاء (مستلم)
+   *[local] دليل للوكلاء (خاص بك)
+  }
+deck-packs-guide-edit = دليل الوكلاء للتعديل (مستلم)
+deck-packs-guide-approve = الموافقة على هذا الدليل

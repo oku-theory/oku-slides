@@ -113,7 +113,58 @@ export interface Snapshot {
   ui: UiState;
   /** Paramètres d'hôte des widgets d'élément du deck, par kind et type d'hôte. */
   host_params: HostParams;
+  /** The edited pack's or theme's agent guides; `null` outside a pack or theme tab. */
+  guides: GuidesView | null;
+  /** Received versions the deck pins whose guides await the user's approval (asked at install). */
+  guides_to_approve: GuidesReview[];
 }
+
+/** The two agent guides of a pack or theme, as written in the session's version. */
+export interface Guides {
+  edit?: string;
+  use?: string;
+}
+
+/** Where a version of a pack or theme came from. */
+export type GuideOrigin = "builtin" | "local" | "received";
+
+/** The guides of the edited pack or theme, with the length one may reach. */
+export interface GuidesView {
+  guides: Guides;
+  max_chars: number;
+  /** Id of the edited pack or theme. */
+  id: string;
+  /** The edited version. */
+  version: string;
+  /** Where that version came from. */
+  origin: GuideOrigin;
+  /** The user approved this version's guides. */
+  approved: boolean;
+  /** Approve may be offered: the version awaits, and `guides` are the ones it would approve. */
+  approvable: boolean;
+}
+
+/** One version of a pack or theme, by id and digest. */
+export interface VersionRef {
+  id: string;
+  version: string;
+}
+
+/** A received version awaiting the user's approval, with what it holds. */
+export interface GuidesReview {
+  id: string;
+  version: string;
+  kind: "widgets" | "layouts" | "theme";
+  name: string;
+  /** How many widgets or layouts it holds. */
+  items: number;
+  /** The namespaces it requires (a theme's parents). */
+  requires: string[];
+  guides: Guides;
+}
+
+/** Which of the two guides. */
+export type GuideKind = "edit" | "use";
 
 /** Une slide où le texte cherché apparaît. */
 export interface SearchHit {
@@ -550,6 +601,9 @@ type Request =
   | { cmd: "widget_status"; pack?: string }
   | { cmd: "widget_source"; name: string; pack?: string }
   | { cmd: "set_widget"; name: string; source: string; pack?: string }
+  | { cmd: "set_guide"; which: GuideKind; text: string }
+  | { cmd: "approve_guides"; versions: VersionRef[] }
+  | { cmd: "later_guides"; versions: VersionRef[] }
   | { cmd: "remove_widget"; name: string; pack?: string }
   | { cmd: "rename_widget"; from: string; to: string; pack?: string }
   | { cmd: "duplicate_widget"; from: string; to?: string; pack?: string }
@@ -764,6 +818,12 @@ export function tabApi(tab: string) {
     widgetSource: (name: string, pack?: string) => call<string>({ cmd: "widget_source", name, pack }),
     /** Crée ou remplace un fichier ; en mode deck, le deck passe à la nouvelle version de son pack. */
     setWidget: (name: string, source: string, pack?: string) => call<WidgetChange>({ cmd: "set_widget", name, source, pack }),
+    /** Writes the edit or use guide of the edited pack or theme; empty text clears it. */
+    setGuide: (which: GuideKind, text: string) => call<Snapshot>({ cmd: "set_guide", which, text }),
+    /** Approves the guides of these received versions for good. */
+    approveGuides: (versions: VersionRef[]) => call<Snapshot>({ cmd: "approve_guides", versions }),
+    /** Puts the approval of these versions off for this tab; the deck asks again when reopened. */
+    laterGuides: (versions: VersionRef[]) => call<Snapshot>({ cmd: "later_guides", versions }),
     removeWidget: (name: string, pack?: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name, pack }),
     renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
     /** Copies an item under a fresh name the session picks; answers that name and the statuses. */

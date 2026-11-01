@@ -394,3 +394,26 @@ ui-about-breaking = inkompatibel
 ui-about-close = Schließen
 
 ui-shortcut-theme = Thema, Themen, Design, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = Leitfäden für Agenten
+ui-guides-edit = Bearbeiten
+ui-guides-use = Verwenden
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = Integriert
+ui-guides-origin-local = Von Ihnen
+ui-guides-origin-received = Empfangen
+ui-guides-approve = Diesen Leitfaden genehmigen
+ui-guides-awaiting = Wird erst an den Agenten gesendet, wenn Sie ihn genehmigen.
+ui-guides-install-title = Diese Präsentation bringt Leitfäden für Agenten mit
+ui-guides-install-intro = Sie erreichen den Agenten erst nach Ihrer Genehmigung. Lesen Sie sie zuerst.
+ui-guides-install-approve = Leitfäden genehmigen
+ui-guides-install-later = Später
+ui-guides-install-items = { $count ->
+    [one] { $count } Element
+   *[other] { $count } Elemente
+  }
+ui-guides-install-requires = Benötigt { $names }
+ui-guides-kind-widgets = Widgets
+ui-guides-kind-layouts = Layouts
+ui-guides-kind-theme = Design

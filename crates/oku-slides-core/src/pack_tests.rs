@@ -294,6 +294,7 @@ fn manifest(name: &str) -> PackManifest {
         styles: BTreeMap::new(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     }
 }
 
@@ -383,6 +384,7 @@ fn theme_manifest_round_trips_through_pack_files_without_widgets() {
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
         tokens: object(json!({ "color": { "accent": "#2f5fb3" } })),
+        guides: Guides::default(),
     };
     let files = m.to_files().unwrap();
     assert_that!(ThemeManifest::from_files(&files).unwrap()).is_equal_to(&m);
@@ -520,6 +522,7 @@ fn theme_manifest_without_extends_omits_it_and_has_no_scope() {
         parent: None,
         created: "2026-10-01T10:00:00Z".into(),
         tokens: Map::new(),
+        guides: Guides::default(),
     };
     let files = m.to_files().unwrap();
     assert_that!((files.manifest().get("extends"), files.manifest().get("scope"))).is_equal_to((None, None));

@@ -88,6 +88,7 @@ session-undo-theme = 테마 변경
 session-undo-edited-theme = 테마 변경: { $name }
 session-undo-theme-extends = 확장 대상 테마 변경
 session-undo-theme-rename = 테마 이름 변경
+session-undo-theme-guide = 테마 가이드 편집
 session-help-deck = 도움말 프레젠테이션을 읽을 수 없습니다
 session-agent-form = 에이전트의 요청이 잘못되었습니다: { $reason }
 session-agent-form-too-long = { $at }: { $count }자, 최대 { $max }자
@@ -138,6 +139,9 @@ session-widgets-not-saved = 팩 “{ $pack }”의 위젯 버전을 라이브러
 session-invalid-widget-name = 위젯 이름이 올바르지 않습니다: “{ $name }”. 영문 소문자, 숫자, 하이픈 또는 _commun을 사용하세요.
 session-widget-too-large = 위젯 “{ $name }”이(가) { $max } KiB를 넘습니다.
 session-widget-nul = 위젯 “{ $name }”에 NUL 문자가 있습니다.
+session-guide-too-long = 가이드가 { $max }자를 넘습니다.
+session-guide-has-nul = 가이드에 NUL 문자가 있습니다.
+session-guide-approvals-write = 가이드 승인을 { $path }에 저장할 수 없습니다
 session-too-many-widgets = 팩에는 위젯 파일을 최대 { $max }개까지 넣을 수 있습니다.
 session-widget-in-use = 위젯 “{ $name }”은(는) 아직 여기에서 사용됩니다: { $uses }.
 session-unknown-widget = 위젯을 찾을 수 없습니다: “{ $name }”.
@@ -658,3 +662,11 @@ voice-agent-model-later = 에이전트의 모델은 첫 응답 후에 표시됩�
 voice-agent-model-asked = 요청한 모델: { $model }. 에이전트의 모델은 첫 응답 후에 표시됩니다.
 voice-agent-model-missing = 이 에이전트는 { $model }을(를) 제공하지 않습니다. 표시된 모델을 사용합니다.
 voice-agent-model-next = 새 모델은 각 탭의 다음 메시지부터 적용됩니다.
+
+deck-packs-guide = { $origin ->
+    [builtin] 에이전트 가이드 (기본 제공)
+    [received] 에이전트 가이드 (받음)
+   *[local] 에이전트 가이드 (내 것)
+  }
+deck-packs-guide-edit = 편집용 에이전트 가이드 (받음)
+deck-packs-guide-approve = 이 가이드 승인

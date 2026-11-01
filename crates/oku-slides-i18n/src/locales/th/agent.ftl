@@ -12,6 +12,7 @@ agent-surface-themes = ธีม
 agent-surface-variants = ตัวเลือกอื่น
 agent-surface-permission-always = ตลอดไป
 agent-surface-permission-title = เอเจนต์ขอสิทธิ์
+agent-surface-permission-guides = เทิร์นนี้มีคู่มือที่ได้รับของ { $names }
 agent-undo-turn = เอเจนต์: { $text }
 
 agent-tools-unavailable = ไม่สามารถเริ่มเครื่องมือของเอเจนต์ได้

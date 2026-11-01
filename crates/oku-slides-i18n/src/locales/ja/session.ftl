@@ -88,6 +88,7 @@ session-undo-theme = テーマを変更
 session-undo-edited-theme = テーマを変更：{ $name }
 session-undo-theme-extends = 継承元テーマを変更
 session-undo-theme-rename = テーマの名前を変更
+session-undo-theme-guide = テーマのガイドを編集
 session-help-deck = ヘルプのプレゼンテーションを読み込めません
 session-agent-form = エージェントのリクエストが無効です：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }文字（最大 { $max }文字）
@@ -138,6 +139,9 @@ session-widgets-not-saved = パック「{ $pack }」のウィジェットのバ�
 session-invalid-widget-name = ウィジェット名が無効です：「{ $name }」。半角英小文字・数字・ハイフン、または _commun を使ってください。
 session-widget-too-large = ウィジェット「{ $name }」は { $max } KiB を超えています。
 session-widget-nul = ウィジェット「{ $name }」に NUL 文字が含まれています。
+session-guide-too-long = ガイドが { $max }文字を超えています。
+session-guide-has-nul = ガイドに NUL 文字が含まれています。
+session-guide-approvals-write = ガイドの承認を { $path } に保存できません
 session-too-many-widgets = パックに入れられるウィジェットファイルは { $max }個までです。
 session-widget-in-use = ウィジェット「{ $name }」はまだ次の場所で使われています：{ $uses }。
 session-unknown-widget = ウィジェットが見つかりません：「{ $name }」。
@@ -658,3 +662,11 @@ voice-agent-model-later = エージェントのモデルは最初の応答の後
 voice-agent-model-asked = 指定したモデル: { $model }。エージェントのモデルは最初の応答の後に表示されます。
 voice-agent-model-missing = このエージェントは { $model } を提供していません。表示中のモデルを使います。
 voice-agent-model-next = 新しいモデルは各タブの次のメッセージから適用されます。
+
+deck-packs-guide = { $origin ->
+    [builtin] エージェント向けガイド (内蔵)
+    [received] エージェント向けガイド (受信)
+   *[local] エージェント向けガイド (自分用)
+  }
+deck-packs-guide-edit = 編集のためのエージェント向けガイド (受信)
+deck-packs-guide-approve = このガイドを承認

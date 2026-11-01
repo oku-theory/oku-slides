@@ -42,7 +42,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::{
-    Category, Namespace, Op, PackFiles, PackKind, PackPin, PackScope, PackVersion, WidgetFile, now_created,
+    Category, Guides, Namespace, Op, PackFiles, PackKind, PackPin, PackScope, PackVersion, WidgetFile, now_created,
 };
 use oku_slides_render::PackWidgets;
 
@@ -185,6 +185,7 @@ impl Session {
             styles: BTreeMap::default(),
             tokens: Vec::new(),
             order: Vec::new(),
+            guides: Guides::default(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         Ok(WidgetTarget { kind, namespace, id, version: files.version(), files })
@@ -230,6 +231,7 @@ impl Session {
     ) -> Result<WidgetSession> {
         // Un pack que la séance crée (pas encore embarqué) n'a pas de parente.
         let created = !self.doc.sources.packs.contains_key(&t.version);
+        let before = if created { None } else { self.predecessor(t.id, &t.version, false) };
         // Le brouillon de la séance, figé depuis (un autre deck l'a adopté) : la version suivante est sa fille.
         let frozen = session.filter(|s| {
             let lock = draft_lock();
@@ -271,8 +273,10 @@ impl Session {
         // Le deck embarque la version : un échec d'écriture n'y perd rien. Un
         // pack du deck seul ne quitte jamais le deck.
         if manifest.scope.is_library() {
+            self.taint_inherited(&files, before.as_ref(), false);
             self.write_deck_widgets(t.id, &manifest.name, replaced, parent.as_ref(), &files);
         }
+        self.approve_written(t.id, &files, before.as_ref());
         Ok(WidgetSession { id: t.id, parent, version })
     }
 

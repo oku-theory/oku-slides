@@ -120,6 +120,7 @@ fn paths_without_overrides_live_under_data_dir() {
     assert_that!(paths.widgets()).is_equal_to(PathBuf::from("/d/widgets"));
     assert_that!(paths.layouts()).is_equal_to(PathBuf::from("/d/layouts"));
     assert_that!(paths.themes()).is_equal_to(PathBuf::from("/d/themes"));
+    assert_that!(paths.guide_approvals()).is_equal_to(PathBuf::from("/d/guide-approvals.json"));
 }
 
 #[test]
@@ -279,6 +280,7 @@ fn render_settings_probe_budget_is_in_milliseconds() {
         max_frame_mib: 1,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     };
     assert_that!(r.probe_budget()).is_equal_to(std::time::Duration::from_millis(250));
 }
@@ -292,6 +294,7 @@ fn render_settings_memory_bytes_converts_mib() {
         max_frame_mib: 1,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     };
     assert_that!(r.memory_bytes()).is_equal_to(3 * 1024 * 1024);
 }
@@ -305,6 +308,7 @@ fn render_settings_timeout_is_in_milliseconds() {
         max_frame_mib: 1,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     };
     assert_that!(r.timeout()).is_equal_to(std::time::Duration::from_millis(1500));
 }
@@ -318,6 +322,7 @@ fn render_settings_max_frame_bytes_converts_mib() {
         max_frame_mib: 512,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     };
     assert_that!(r.max_frame_bytes()).is_equal_to(512 * 1024 * 1024);
 }
@@ -346,6 +351,7 @@ fn render_settings_max_frame_bytes_saturates_instead_of_overflowing() {
         max_frame_mib: u64::MAX,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     };
     assert_that!((r.max_frame_bytes(), r.memory_bytes())).is_equal_to((usize::MAX, u64::MAX));
 }
@@ -476,6 +482,7 @@ fn defaults_bound_widget_files() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.render.max_widget_kib).is_equal_to(256);
     assert_that!(s.render.max_widgets).is_equal_to(64);
+    assert_that!(s.render.max_guide_chars).is_equal_to(4000);
     assert_that!(s.render.max_widget_bytes()).is_equal_to(256 * 1024);
 }
 

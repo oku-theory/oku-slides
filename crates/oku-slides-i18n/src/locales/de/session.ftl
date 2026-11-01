@@ -88,6 +88,7 @@ session-undo-theme = Design ändern
 session-undo-edited-theme = Design ändern: { $name }
 session-undo-theme-extends = Erweiterte Designs ändern
 session-undo-theme-rename = Design umbenennen
+session-undo-theme-guide = Leitfaden des Designs bearbeiten
 session-help-deck = Die Hilfe-Präsentation ist nicht lesbar
 session-agent-form = Die Anfrage des Agenten ist ungültig: { $reason }
 session-agent-form-too-long = { $at }: { $count } Zeichen, höchstens { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = Die Widget-Version des Pakets „{ $pack }“ konnte
 session-invalid-widget-name = Ungültiger Widget-Name: „{ $name }“. Kleinbuchstaben, Ziffern und Bindestriche oder _commun verwenden.
 session-widget-too-large = Das Widget „{ $name }“ ist größer als { $max } KiB.
 session-widget-nul = Das Widget „{ $name }“ enthält ein NUL-Zeichen.
+session-guide-too-long = Der Leitfaden ist länger als { $max } Zeichen.
+session-guide-has-nul = Der Leitfaden enthält ein NUL-Zeichen.
+session-guide-approvals-write = Die Freigaben der Leitfäden können nicht in { $path } gespeichert werden
 session-too-many-widgets = Ein Paket kann höchstens { $max } Widget-Dateien enthalten.
 session-widget-in-use = Das Widget „{ $name }“ wird hier noch verwendet: { $uses }.
 session-unknown-widget = Widget nicht gefunden: „{ $name }“.
@@ -673,3 +677,11 @@ voice-agent-model-later = Die Modelle des Agenten werden nach seiner ersten Antw
 voice-agent-model-asked = Gewünschtes Modell: { $model }. Die Modelle des Agenten werden nach seiner ersten Antwort angezeigt.
 voice-agent-model-missing = Dieser Agent bietet { $model } nicht an: Er verwendet das angezeigte Modell.
 voice-agent-model-next = Ein neues Modell gilt ab der nächsten Nachricht in jedem Tab.
+
+deck-packs-guide = { $origin ->
+    [builtin] Leitfaden für Agenten (integriert)
+    [received] Leitfaden für Agenten (empfangen)
+   *[local] Leitfaden für Agenten (von Ihnen)
+  }
+deck-packs-guide-edit = Leitfaden für Agenten zum Bearbeiten (empfangen)
+deck-packs-guide-approve = Diesen Leitfaden genehmigen

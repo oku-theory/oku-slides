@@ -12,6 +12,7 @@ agent-surface-themes = Chủ đề
 agent-surface-variants = Các biến thể
 agent-surface-permission-always = vĩnh viễn
 agent-surface-permission-title = Tác nhân AI xin một quyền
+agent-surface-permission-guides = Lượt này bao gồm hướng dẫn đã nhận của { $names }.
 agent-undo-turn = Tác nhân AI: { $text }
 
 agent-tools-unavailable = Không thể khởi động các công cụ của tác nhân AI.

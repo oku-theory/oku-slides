@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use oku_slides_core::{Namespace, PackFiles, PackKind, PackScope};
+use oku_slides_core::{Guides, Namespace, PackFiles, PackKind, PackScope};
 use oku_slides_session::{BASE_PACK, PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -34,6 +34,7 @@ fn manifest(id: Uuid, namespace: &str, name: &str, requires: &[&str]) -> PackMan
         styles: BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     }
 }
 

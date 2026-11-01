@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::{PackKind, PackScope, WidgetFile};
+use oku_slides_core::{Guides, PackKind, PackScope, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -34,6 +34,7 @@ fn add_pack(data: &std::path::Path, name: &str) {
         styles: BTreeMap::default(),
         order: Vec::new(),
         tokens: vec![],
+        guides: Guides::default(),
     };
     let quote = WidgetFile::parse("quote").unwrap_or_else(|| panic!("widget name"));
     let files = manifest

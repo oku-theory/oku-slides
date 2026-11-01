@@ -135,6 +135,29 @@ pub struct Snapshot<'a> {
     pub can_present: bool,
     /// Paramètres d'hôte des widgets d'élément du deck, par kind et type d'hôte.
     pub host_params: BTreeMap<String, BTreeMap<oku_slides_core::HostType, String>>,
+    /// The edited pack's or theme's agent guides; `None` outside a pack or theme tab.
+    pub guides: Option<GuidesView>,
+    /// Received versions the deck pins whose guides await the user's approval (asked at install).
+    pub guides_to_approve: Vec<crate::guide_install::GuidesReview>,
+}
+
+/// The guides of the pack or theme a tab edits, with the length they may reach.
+#[derive(Debug, Clone, Serialize)]
+pub struct GuidesView {
+    /// The guides as written in the session's version.
+    pub guides: oku_slides_core::Guides,
+    /// Maximum length of one guide, in characters.
+    pub max_chars: usize,
+    /// Id of the edited pack or theme.
+    pub id: uuid::Uuid,
+    /// The edited version.
+    pub version: oku_slides_core::PackVersion,
+    /// Where that version came from.
+    pub origin: crate::guide_origin::GuideOrigin,
+    /// The user approved this version's guides.
+    pub approved: bool,
+    /// Approve may be offered: the version awaits, and `guides` are the ones it would approve.
+    pub approvable: bool,
 }
 
 /// La version que montre l'historique, et ce qui a changé depuis.

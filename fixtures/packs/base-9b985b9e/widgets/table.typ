@@ -1,4 +1,5 @@
 // Tableau rendu en Typst, à la largeur de sa place, réduit s'il déborde.
+// `column-widths` and `row-heights` (weights, from an import) set its geometry when given.
 
 #import "/oku-slides/lib.typ": widget, color-of, size-of, space-of, weight-of, stroke-of, params as p
 #import "/oku-slides/lib.typ": format-number, deck-lang
@@ -26,6 +27,15 @@
 #let _table-word = regex("[\\p{Han}\\p{Hiragana}\\p{Katakana}]\\p{P}*|[^\\s\\p{Han}\\p{Hiragana}\\p{Katakana}]+")
 
 #let _numeric(v) = v == none or type(v) == int or type(v) == float
+
+// The weights under `key` in `d`: `count` numbers in (0, 1e6] (the host's bound), as floats,
+// else `none` (the content decides).
+#let _weights(d, key, count) = {
+  let w = d.at(key, default: none)
+  let ok = (type(w) == array and w.len() == count
+    and w.all(x => (type(x) == int or type(x) == float) and x > 0 and x <= 1e6))
+  if ok { w.map(float) } else { none }
+}
 
 // Le drapeau `key` de `d` s'il est booléen, sinon `default`.
 #let _flag(d, key, default) = {
@@ -77,8 +87,11 @@
   let cells = texts.enumerate().map(((y, r)) => r.enumerate().map(((x, body)) => styled-cell(x, y, body))).flatten()
   let rule = stroke-of(t, k.rule-width) + color-of(t, k.rule-color)
   let pad-x = space-of(t, k.padding-x)
-  let tbl(columns) = table(
+  let widths = _weights(d, "column-widths", n)
+  let heights = _weights(d, "row-heights", rows.len())
+  let tbl(columns, row-sizes: auto) = table(
     columns: columns,
+    rows: row-sizes,
     inset: (x: pad-x, y: space-of(t, k.padding-y)),
     align: (x, y) => col-aligns.at(x) + horizon,
     fill: (x, y) => if head-row and y == 0 { header-bg }
@@ -102,8 +115,14 @@
   // pour tenir sur une ligne ; trop large même ainsi, le tableau est posé à
   // cette largeur minimale puis réduit. Pas de pagination.
   layout(size => {
-    let natural = range(n).map(x => col-width(x, true))
-    let (columns, width) = if natural.sum() <= size.width {
+    let natural = if widths != none and size.width != float.inf * 1pt { none } else {
+      range(n).map(x => col-width(x, true))
+    }
+    let (columns, width) = if natural == none {
+      // Given weights and a bounded width: each column takes its share; text wraps inside it.
+      let total = widths.sum()
+      (widths.map(w => size.width * (w / total)), size.width)
+    } else if natural.sum() <= size.width {
       let grows = if numeric.all(v => v) { range(n) } else { range(n).filter(x => not numeric.at(x)) }
       let share = grows.map(x => natural.at(x)).sum()
       let spare = size.width - natural.sum()
@@ -115,7 +134,17 @@
       if spare <= 0pt or want <= 0pt { (least, least.sum()) }
       else { (range(n).map(x => least.at(x) + spare * ((natural.at(x) - least.at(x)) / want)), size.width) }
     }
-    let body = block(width: width, tbl(columns))
+    // Given row weights and a bounded height: each row is at least its share of the height,
+    // or its content's height when taller (measured row by row, with the same columns).
+    let row-sizes = if heights == none or size.height == float.inf * 1pt { auto } else {
+      let total = heights.sum()
+      range(rows.len()).map(y => {
+        let row = table(columns: columns, inset: (x: pad-x, y: space-of(t, k.padding-y)),
+          ..cells.slice(y * n, (y + 1) * n))
+        calc.max(measure(block(width: width, row)).height, size.height * (heights.at(y) / total))
+      })
+    }
+    let body = block(width: width, tbl(columns, row-sizes: row-sizes))
     let m = measure(body)
     if m.width <= 0pt or m.height <= 0pt { return body }
     let fit-w = size.width / width

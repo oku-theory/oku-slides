@@ -12,6 +12,7 @@ agent-surface-themes = 테마
 agent-surface-variants = 변형
 agent-surface-permission-always = 항상
 agent-surface-permission-title = 에이전트가 권한을 요청합니다
+agent-surface-permission-guides = 이 턴에는 { $names }의 수신한 가이드가 포함되어 있습니다.
 agent-undo-turn = 에이전트: { $text }
 
 agent-tools-unavailable = 에이전트의 도구를 시작할 수 없습니다.

@@ -156,6 +156,8 @@ pub enum SessionErrorKind {
     TokenInUse,
     /// Nom, taille ou nombre de fichiers de widgets refusé.
     InvalidWidget,
+    /// Agent guide too long or holding a NUL character.
+    InvalidGuide,
     /// Widget utilisé par un modèle du pack.
     WidgetInUse,
     /// Fichier de widget introuvable.
@@ -353,6 +355,12 @@ pub(crate) enum SessionInner {
     WidgetTooLarge { name: String, max: usize, backtrace: Backtrace },
     #[snafu(display("widget {name} contains a nul character"))]
     WidgetHasNul { name: String, backtrace: Backtrace },
+    #[snafu(display("the guide is longer than {max} characters"))]
+    GuideTooLong { max: usize, backtrace: Backtrace },
+    #[snafu(display("the guide holds a null character"))]
+    GuideHasNul { backtrace: Backtrace },
+    #[snafu(display("cannot write the guide approvals {}", path.display()))]
+    GuideApprovalsWrite { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("a pack holds at most {max} widget files"))]
     TooManyWidgets { max: usize, backtrace: Backtrace },
     #[snafu(display("widget {name} is still used by: {}", uses.join(", ")))]
@@ -386,22 +394,22 @@ impl SessionError {
     pub fn kind(&self) -> SessionErrorKind {
         use SessionInner::{
             AgentForm, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack,
-            FieldNeeded, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
-            InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken,
-            NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides,
-            NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
-            PackModePreview, PackModeSlides, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
-            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render,
-            RequiresCycle, Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle,
-            ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab,
-            ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared,
-            TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset,
-            UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
-            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid,
-            WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
+            FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import,
+            InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged,
+            NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable,
+            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
+            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
+            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
+            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
+            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
-            Read { .. } | Write { .. } => SessionErrorKind::File,
+            Read { .. } | Write { .. } | GuideApprovalsWrite { .. } => SessionErrorKind::File,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
             Pdf { .. }
             | Sources { .. }
@@ -487,6 +495,7 @@ impl SessionError {
             | WidgetExists { .. }
             | NoFreeCopyName { .. }
             | WidgetOrderMismatch { .. } => SessionErrorKind::InvalidWidget,
+            GuideTooLong { .. } | GuideHasNul { .. } => SessionErrorKind::InvalidGuide,
             WidgetInUse { .. } => SessionErrorKind::WidgetInUse,
             UnknownWidget { .. } => SessionErrorKind::UnknownWidget,
             WidgetInvalid { .. } => SessionErrorKind::WidgetInvalid,
@@ -616,24 +625,25 @@ impl Localize for SessionError {
     fn localize(&self, l: &Localizer) -> String {
         use SessionInner::{
             AgentForm, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack,
-            FieldNeeded, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
-            InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken,
-            NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NotEditingPack, NotHelp, NotOkuSlides,
-            NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
-            PackModePreview, PackModeSlides, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
-            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, Registry, Render,
-            RequiresCycle, Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle,
-            ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab,
-            ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared,
-            TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset,
-            UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget,
-            UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid,
-            WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
+            FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import,
+            InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged,
+            NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable,
+            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
+            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
+            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
+            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
+            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
             Read { path, .. } => l.tr_with("session-read", &path_arg(path)),
             Write { path, .. } => l.tr_with("session-write", &path_arg(path)),
+            GuideApprovalsWrite { path, .. } => l.tr_with("session-guide-approvals-write", &path_arg(path)),
             NotOkuSlides { .. } => l.tr("session-not-oku-slides"),
             Pdf { source, .. } => source.localize(l),
             Sources { source, .. } => source.localize(l),
@@ -781,6 +791,8 @@ impl Localize for SessionError {
                 l.tr_with("session-widget-too-large", &[("name", name.as_str().into()), ("max", (*max).into())])
             }
             WidgetHasNul { name, .. } => l.tr_with("session-widget-nul", &[("name", name.as_str().into())]),
+            GuideTooLong { max, .. } => l.tr_with("session-guide-too-long", &[("max", (*max).into())]),
+            GuideHasNul { .. } => l.tr("session-guide-has-nul"),
             TooManyWidgets { max, .. } => l.tr_with("session-too-many-widgets", &[("max", (*max).into())]),
             WidgetInUse { name, uses, .. } => {
                 l.tr_with("session-widget-in-use", &[("name", name.as_str().into()), ("uses", uses.join(", ").into())])

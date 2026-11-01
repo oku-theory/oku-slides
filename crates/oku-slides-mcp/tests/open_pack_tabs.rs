@@ -166,9 +166,11 @@ async fn start_pack_tab_edits_widgets_of_its_pack() {
     let c = server(&h).await;
     let r = call(&c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
-    let s = lock(&h.session);
-    let snap = s.snapshot();
-    let edited = snap.editing.as_ref().map(|e| (e.pack, e.session_version.is_some()));
+    let edited = tokio::task::block_in_place(|| {
+        let s = lock(&h.session);
+        let snap = s.snapshot();
+        snap.editing.as_ref().map(|e| (e.pack, e.session_version.is_some()))
+    });
     assert_that!(edited).is_equal_to(Some((oku_slides_session::BASE_PACK, true)));
 }
 

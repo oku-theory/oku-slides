@@ -394,3 +394,23 @@ ui-about-breaking = 不相容
 ui-about-close = 關閉
 
 ui-shortcut-theme = 主題, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = AI 代理指南
+ui-guides-edit = 如何編輯
+ui-guides-use = 如何使用
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = 內建
+ui-guides-origin-local = 自有
+ui-guides-origin-received = 已接收
+ui-guides-approve = 核准此指南
+ui-guides-awaiting = 在你核准之前不會傳送給 AI 代理。
+ui-guides-install-title = 此簡報附帶 AI 代理指南
+ui-guides-install-intro = 只有在你核准後，它們才會交給 AI 代理。請先閱讀。
+ui-guides-install-approve = 核准指南
+ui-guides-install-later = 稍後
+ui-guides-install-items = { $count }項
+ui-guides-install-requires = 需要：{ $names }
+ui-guides-kind-widgets = 小工具
+ui-guides-kind-layouts = 版面配置
+ui-guides-kind-theme = 主題

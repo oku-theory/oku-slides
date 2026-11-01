@@ -12,6 +12,7 @@ agent-surface-themes = السمات
 agent-surface-variants = البدائل
 agent-surface-permission-always = بشكل دائم
 agent-surface-permission-title = يطلب الوكيل إذنًا
+agent-surface-permission-guides = يتضمن هذا الدور الدليل المستلم الخاص بـ { $names }.
 agent-undo-turn = الوكيل: { $text }
 
 agent-tools-unavailable = تعذّر تشغيل أدوات الوكيل.

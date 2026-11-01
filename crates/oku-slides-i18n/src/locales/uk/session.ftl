@@ -88,6 +88,7 @@ session-undo-theme = Змінити тему
 session-undo-edited-theme = Змінити тему: { $name }
 session-undo-theme-extends = Змінити розширювані теми
 session-undo-theme-rename = Перейменувати тему
+session-undo-theme-guide = Редагувати посібник теми
 session-help-deck = Не вдається прочитати презентацію довідки
 session-agent-form = Запит агента недійсний: { $reason }
 session-agent-form-too-long = { $at }: символів: { $count }, не більше { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = Не вдалося зберегти в бібліо
 session-invalid-widget-name = Неприпустиме ім’я віджета: «{ $name }». Використовуйте малі літери, цифри й дефіси або _commun.
 session-widget-too-large = Віджет «{ $name }» більший за { $max } КіБ.
 session-widget-nul = Віджет «{ $name }» містить символ NUL.
+session-guide-too-long = Посібник довший за { $max } символів.
+session-guide-has-nul = Посібник містить символ NUL.
+session-guide-approvals-write = Не вдається зберегти схвалення посібників у { $path }
 session-too-many-widgets = У пакеті може бути не більше { $max } файлів віджетів.
 session-widget-in-use = Віджет «{ $name }» ще використовується тут: { $uses }.
 session-unknown-widget = Віджет не знайдено: «{ $name }».
@@ -683,3 +687,11 @@ voice-agent-model-later = Моделі агента з'являться післ
 voice-agent-model-asked = Запитана модель: { $model }. Моделі агента з'являться після його першої відповіді.
 voice-agent-model-missing = Цей агент не пропонує { $model }: він використовує показану модель.
 voice-agent-model-next = Нова модель діє з наступного повідомлення в кожній вкладці.
+
+deck-packs-guide = { $origin ->
+    [builtin] Посібник для агентів (вбудований)
+    [received] Посібник для агентів (отриманий)
+   *[local] Посібник для агентів (ваш)
+  }
+deck-packs-guide-edit = Посібник для агентів із редагування (отриманий)
+deck-packs-guide-approve = Схвалити цей посібник

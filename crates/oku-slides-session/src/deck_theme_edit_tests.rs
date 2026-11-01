@@ -1,4 +1,4 @@
-use oku_slides_core::ThemePin;
+use oku_slides_core::{Guides, ThemePin};
 use serde_json::json;
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -45,6 +45,7 @@ fn add_user_theme(s: &Session, id: Uuid) -> ThemePin {
         parent: None,
         created: "2026-01-01T00:00:00Z".into(),
         tokens: pro.manifest.tokens.clone(),
+        guides: Guides::default(),
     };
     let files = manifest.to_files().unwrap();
     s.themes.add_version(id, &files).unwrap();
@@ -192,4 +193,33 @@ fn find_theme_info_of_an_unknown_theme_is_refused() {
     let data = fresh_dir("oku-slides-find-theme-info-unknown-");
     let s = opened_on(data.path());
     assert_that!(s.find_theme_info("inconnu").unwrap_err().kind()).is_equal_to(SessionErrorKind::UnknownTheme);
+}
+
+/// R16: the deck-tab child of a built-in has no guides of its own; Papier's use guide reaches the agent once.
+#[test]
+fn edit_theme_of_a_builtin_creates_a_child_without_guides_and_papier_use_guide_is_sent_once() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-");
+    let mut s = session_with_theme(&data, PAPIER_THEME);
+    s.edit_theme(PAPIER_THEME, None, vec![accent("#c0392b")]).unwrap();
+    let own = s.theme_manifest(&deck_pin(&s)).unwrap().guides;
+    let block = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
+    assert_that!(own.is_empty()).is_true();
+    assert_that!(block.matches("# Using Papier").count()).is_equal_to(1);
+}
+
+/// R16: a user theme rewritten in place keeps its own guides.
+#[test]
+fn edit_theme_of_a_user_theme_in_place_keeps_its_guides() {
+    let data = fresh_dir("oku-slides-deck-theme-edit-");
+    let mut s = opened_on(data.path());
+    let id = Uuid::new_v4();
+    let mut manifest =
+        ThemeManifest::from_files(&s.themes.version(id, &add_user_theme(&s, id).version).unwrap()).unwrap();
+    manifest.guides = Guides { edit: "keep navy".into(), use_: "one accent".into() };
+    let files = manifest.to_files().unwrap();
+    s.themes.add_version(id, &files).unwrap();
+    s.themes.set_current(id, &files.version()).unwrap();
+    let edited = s.edit_theme(id, None, vec![accent("#c0392b")]).unwrap();
+    let kept = ThemeManifest::from_files(&s.themes.version(edited.id, &edited.version).unwrap()).unwrap().guides;
+    assert_that!((edited.id, kept)).is_equal_to((id, manifest.guides));
 }

@@ -400,3 +400,28 @@ ui-about-breaking = несумісно
 ui-about-close = Закрити
 
 ui-shortcut-theme = тема, теми, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = Посібники для агентів
+ui-guides-edit = Як редагувати
+ui-guides-use = Як користуватися
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = Вбудований
+ui-guides-origin-local = Ваш
+ui-guides-origin-received = Отриманий
+ui-guides-approve = Схвалити цей посібник
+ui-guides-awaiting = Не передається агенту, доки ви його не схвалите.
+ui-guides-install-title = Ця презентація містить посібники для агентів
+ui-guides-install-intro = Агент отримає їх лише після вашого схвалення. Спершу прочитайте їх.
+ui-guides-install-approve = Схвалити посібники
+ui-guides-install-later = Пізніше
+ui-guides-install-items = { $count ->
+    [one] { $count } елемент
+    [few] { $count } елементи
+    [many] { $count } елементів
+   *[other] { $count } елементи
+  }
+ui-guides-install-requires = Потрібно: { $names }
+ui-guides-kind-widgets = Віджети
+ui-guides-kind-layouts = Макети
+ui-guides-kind-theme = Тема

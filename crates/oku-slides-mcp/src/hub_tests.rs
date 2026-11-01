@@ -174,3 +174,36 @@ async fn ask_registers_and_shows_a_question_under_one_lock() {
     assert_that!(verdict).is_ok();
     asserting("l'observateur a vu des questions en attente").that(&seen.load(Ordering::Relaxed)).is_greater_than(0);
 }
+
+/// The surface the hub opens for one permission request, then cancelled.
+async fn permission_surface(hub: &Arc<SurfaceHub>) -> Surface {
+    let mut rx = hub.subscribe();
+    let asking = tokio::spawn({
+        let hub = hub.clone();
+        async move { hub.permission("Run tool", &[]).await }
+    });
+    let surface = loop {
+        if let Ok(McpEvent::Surface { surface }) = rx.recv().await {
+            break surface;
+        }
+    };
+    hub.cancel_asks();
+    let _ = asking.await;
+    surface
+}
+
+fn has_note(surface: &Surface) -> bool {
+    serde_json::to_string(surface).is_ok_and(|json| json.contains("\"id\":\"note\""))
+}
+
+#[tokio::test]
+async fn permission_with_a_note_set_shows_it_and_without_one_does_not() {
+    let hub = hub();
+    hub.set_permission_note(Some("This turn includes the received guide of X.".into()));
+    let with = permission_surface(&hub).await;
+    assert_that!(has_note(&with)).is_true();
+    assert_that!(serde_json::to_string(&with).unwrap_or_default()).contains("received guide of X");
+
+    hub.set_permission_note(None);
+    assert_that!(has_note(&permission_surface(&hub).await)).is_false();
+}

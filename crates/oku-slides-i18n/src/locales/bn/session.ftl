@@ -88,6 +88,7 @@ session-undo-theme = থিম বদলান
 session-undo-edited-theme = থিম বদলান: { $name }
 session-undo-theme-extends = প্রসারিত থিম বদলান
 session-undo-theme-rename = থিমের নাম বদলান
+session-undo-theme-guide = থিমের নির্দেশিকা সম্পাদনা
 session-help-deck = সহায়িকার উপস্থাপনা পড়া যায়নি
 session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
 session-agent-form-too-long = { $at }: { $count }টি অক্ষর, সর্বোচ্চ { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = “{ $pack }” প্যাকের উইজে�
 session-invalid-widget-name = উইজেটের নাম অবৈধ: “{ $name }”। ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন, অথবা _commun ব্যবহার করুন।
 session-widget-too-large = উইজেট “{ $name }” { $max } KiB-এর চেয়ে বড়।
 session-widget-nul = উইজেট “{ $name }”-এ একটি NUL অক্ষর আছে।
+session-guide-too-long = গাইডটি { $max } অক্ষরের বেশি লম্বা।
+session-guide-has-nul = গাইডে একটি NUL অক্ষর আছে।
+session-guide-approvals-write = { $path }-এ গাইডের অনুমোদন সংরক্ষণ করা যাচ্ছে না
 session-too-many-widgets = একটি প্যাকে { $max }টির বেশি উইজেট ফাইল থাকতে পারে না।
 session-widget-in-use = উইজেট “{ $name }” এখনও এখানে ব্যবহৃত হচ্ছে: { $uses }।
 session-unknown-widget = উইজেট পাওয়া যায়নি: “{ $name }”।
@@ -658,3 +662,11 @@ voice-agent-model-later = এজেন্টের মডেলগুলো ত�
 voice-agent-model-asked = চাওয়া মডেল: { $model }। এজেন্টের মডেলগুলো তার প্রথম উত্তরের পরে দেখা যায়।
 voice-agent-model-missing = এই এজেন্ট { $model } দেয় না: এটি দেখানো মডেলটি ব্যবহার করে।
 voice-agent-model-next = নতুন মডেল প্রতিটি ট্যাবের পরের বার্তা থেকে কার্যকর হয়।
+
+deck-packs-guide = { $origin ->
+    [builtin] এজেন্টের জন্য নির্দেশিকা (অন্তর্নির্মিত)
+    [received] এজেন্টের জন্য নির্দেশিকা (প্রাপ্ত)
+   *[local] এজেন্টের জন্য নির্দেশিকা (আপনার)
+  }
+deck-packs-guide-edit = সম্পাদনার জন্য এজেন্টের নির্দেশিকা (প্রাপ্ত)
+deck-packs-guide-approve = এই নির্দেশিকা অনুমোদন করুন

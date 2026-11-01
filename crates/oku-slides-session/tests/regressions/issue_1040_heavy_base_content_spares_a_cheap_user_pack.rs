@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Namespace, Op, PackPin, PackScope, WidgetFile};
+use oku_slides_core::{Guides, Namespace, Op, PackPin, PackScope, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Request, Settings, Storage};
 use serde_json::Value;
 use speculoos::prelude::*;
@@ -41,6 +41,7 @@ fn cheap_pack(library: &PackLibrary) -> Op {
         styles: BTreeMap::new(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));
     let files = manifest

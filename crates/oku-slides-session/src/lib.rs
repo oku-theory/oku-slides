@@ -54,6 +54,7 @@ mod deck_pack_link;
 mod deck_pack_receive;
 mod deck_pack_tab;
 mod deck_packs;
+mod deck_packs_guide;
 mod deck_packs_panel;
 mod deck_theme;
 mod deck_theme_edit;
@@ -64,6 +65,10 @@ mod error;
 mod example_text;
 mod fields;
 mod files;
+mod guide_approvals;
+mod guide_install;
+mod guide_origin;
+mod guides_edit;
 mod help;
 mod history;
 pub mod import;
@@ -118,6 +123,7 @@ mod theme_controls;
 mod theme_draft;
 mod theme_edit;
 mod theme_extends;
+mod theme_guides;
 mod theme_job;
 mod theme_panel;
 mod theme_picker;
@@ -145,6 +151,7 @@ pub use appearance::{Appearance, appearance};
 pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
 pub use deck_packs::{DeckPacksView, Drift};
+pub use deck_packs_guide::PinnedGuideView;
 pub use deck_packs_panel::{HOST_PACKS, PacksEvent, deck_packs_panel, packs_event};
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
@@ -153,6 +160,9 @@ use error::{NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesS
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
+pub use guide_approvals::{GuideApprovals, VersionRef};
+pub use guide_install::GuidesReview;
+pub use guide_origin::GuideOrigin;
 pub use items::{ItemView, ListView};
 pub use library::{Library, builtin_versions};
 pub use library_kind::{Layouts, LibraryKind, StoredVersion, VersionManifest, Widgets};
@@ -384,6 +394,12 @@ pub struct Session {
     themes_notice: Option<String>,
     /// Bornes des fichiers de widgets (`[render]`).
     widget_limits: widgets_edit::WidgetLimits,
+    /// Maximum length of an agent guide, in characters (`[render] max_guide_chars`).
+    guide_limit: usize,
+    /// Versions whose guide approval the user put off in this tab; in memory, never resumed.
+    guides_later: std::collections::BTreeSet<VersionRef>,
+    /// Digest of the guides block last sent to the agent; `None`: none sent (`agent/guides.rs`).
+    guides_sent: Option<[u8; 32]>,
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
     widget_edit: bool,
     /// Séance de modification des widgets en mode deck.
@@ -548,6 +564,9 @@ impl Session {
             pack_updates_pins: None,
             themes_notice: None,
             widget_limits: widgets_edit::WidgetLimits::of(&settings.render),
+            guide_limit: settings.render.max_guide_chars,
+            guides_later: std::collections::BTreeSet::new(),
+            guides_sent: None,
             widget_edit: false,
             widget_session: None,
             widget_preview: None,
@@ -839,6 +858,8 @@ impl Session {
             read_only: self.help().is_some(),
             can_present: self.can_present().is_ok(),
             host_params: self.registry.host_params(),
+            guides: self.guides_view(),
+            guides_to_approve: self.guides_to_approve(),
         }
     }
 

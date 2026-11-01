@@ -262,7 +262,9 @@ async fn deck_pack_tab_of_the_hifi_pack_edits_it_and_never_writes_the_library() 
     let before = common::workspace_harness::library_files(h.data());
     let r = call(&c, "set_widget", json!({ "name": "cover", "source": COVER })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
-    let edit = Workspace::with_session(&ws, &tab, |s| s.snapshot().editing.map(|e| e.mode.clone())).0;
+    let edit = tokio::task::block_in_place(|| {
+        Workspace::with_session(&ws, &tab, |s| s.snapshot().editing.map(|e| e.mode.clone())).0
+    });
     let edit = edit.unwrap_or_else(|e| panic!("onglet {tab} : {e}")).unwrap_or_else(|| panic!("mode pack attendu"));
     assert_that!((edit.pack, edit.deck_only)).is_equal_to((pack, true));
     assert_that!(edit.session_version.is_some()).is_true();

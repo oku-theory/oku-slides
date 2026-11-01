@@ -413,7 +413,9 @@ pub struct PermissionChoice {
 /// est marquée engageante et reçoit une mention traduite par l'app (« pour
 /// toujours »), pour qu'un libellé trompeur de l'agent se voie. Chaque bouton
 /// renvoie l'index de l'option dans l'ordre de l'agent.
-pub fn permission(id: &str, title: &str, options: &[PermissionChoice], l: &Localizer) -> Surface {
+///
+/// `note`, when given, shows under the title (the received guides the turn carries).
+pub fn permission(id: &str, title: &str, options: &[PermissionChoice], note: Option<&str>, l: &Localizer) -> Surface {
     let mut order: Vec<usize> = (0..options.len()).collect();
     order.sort_by_key(|&i| options[i].kind.rank());
     let primary = options.iter().position(|o| o.kind == PermissionKind::AllowOnce);
@@ -422,10 +424,16 @@ pub fn permission(id: &str, title: &str, options: &[PermissionChoice], l: &Local
     let title = if title.trim().is_empty() { l.tr("agent-surface-permission-title") } else { title.to_owned() };
     let mut components = vec![
         Component::card("root", "body"),
-        Component::column("body", &["title", "buttons"]),
+        Component::column(
+            "body",
+            if note.is_some() { &["title", "note", "buttons"][..] } else { &["title", "buttons"] },
+        ),
         Component::text("title", title, Some(TextVariant::H4)),
         Component::row("buttons", &refs),
     ];
+    if let Some(note) = note {
+        components.push(Component::text("note", note, None));
+    }
     for (&i, bid) in order.iter().zip(&ids) {
         let option = &options[i];
         let label = if option.kind == PermissionKind::AllowAlways {

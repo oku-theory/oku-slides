@@ -35,6 +35,8 @@ const box = (p, sel) => p.locator(sel).first().boundingBox();
 
     assert.equal(await p.locator('.pack-pile .pile.rows').count(), 1, "la pile n'est pas en lignes");
     assert.equal(await p.locator('.pack-pile .thumb-img').count(), 0, 'la pile montre des miniatures');
+    // The settings form arrives after the preview image: wait for it before counting.
+    await p.locator(`${TAB} .host-settings`).getByRole('switch', { name: 'Mise en avant' }).waitFor({ timeout: 10000 });
     assert.equal(await p.locator(`${TAB} .host-settings`).getByRole('switch', { name: 'Mise en avant' }).count(), 1, 'pas de bascule « Mise en avant »');
     assert.ok(await p.locator(`${TAB} .host-settings`).getByText('Titre', { exact: true }).count() >= 1, 'libellé « Titre » absent');
     assert.ok(await p.locator(`${TAB} .host-settings`).getByText('Passe la carte sur le fond sombre du thème').count() >= 1, "aide de « Mise en avant » absente");

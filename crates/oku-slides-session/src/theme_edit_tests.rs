@@ -1,4 +1,4 @@
-use oku_slides_core::{Op, ThemePin};
+use oku_slides_core::{Guides, Op, ThemePin};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -42,6 +42,7 @@ pub(crate) fn add_user_theme(s: &Session, id: Uuid) -> ThemePin {
         parent: None,
         created: "2026-01-01T00:00:00Z".into(),
         tokens: pro.manifest.tokens.clone(),
+        guides: Guides::default(),
     };
     let files = manifest.to_files().unwrap();
     s.themes.add_version(id, &files).unwrap();

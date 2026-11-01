@@ -53,7 +53,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Show free agent text only as one-line turn narration, never as an answer, except in the fallback receipt. (spec:2026-10-03-agent-a2ui-design)
 - Let users only pick configured agent presets; never add or edit agent commands from the UI. (spec:2026-10-10-agent-panneau-configuration-design)
 - Keep one ACP session and thread per tab, restored on reopen. (spec:2026-10-24-onglets-pack-theme-design, t-1154)
-- Write agent instructions in English only; pass the interface language in each turn context. (t-774, t-771)
+- Write agent instructions in English only, leaving what holds only for a built-in pack or theme to its guides, and never put a pack's or theme's guide text in the instruction files (guides travel in the turn's guides block); pass the interface language in each turn context. (t-774, t-771, spec:2026-10-31-agent-guides-design, t-1411)
 - Pick the deck language as declared params.lang, else inferred from slides, else the user's language. (t-780)
 - Hold every import tuning bound in session code that refuses with TuneError; import.md only explains the bounds and never enforces them. (ADR-0009, t-924)
 - Never wait for a late cost update; the cumulative cost counts it once, in whichever turn takes it first. (t-1309)

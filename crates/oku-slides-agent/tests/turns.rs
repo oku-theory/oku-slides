@@ -38,12 +38,45 @@ async fn prompt_sends_instructions_context_then_text_and_streams_chunks() {
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "Je regarde.".into() });
     until(&mut rx, ended).await;
     let blocks = logged(&h.log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
-    assert_that!(blocks.len()).is_equal_to(5);
+    assert_that!(blocks.len()).is_equal_to(6);
     assert_that!(blocks[1]["text"].as_str().unwrap().starts_with("This tab edits a deck.")).is_true();
     assert_that!(blocks[2]["text"].as_str().unwrap().contains("preview_widget")).is_true();
-    assert_that!(blocks[3]["text"].as_str().unwrap().starts_with("<oku-slides-context>")).is_true();
-    assert_that!(blocks[3]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
-    assert_that!(blocks[4]["text"].as_str()).is_equal_to(Some("rends le titre plus court"));
+    assert_that!(blocks[3]["text"].as_str().unwrap().starts_with("<oku-slides-guides>")).is_true();
+    assert_that!(blocks[4]["text"].as_str().unwrap().starts_with("<oku-slides-context>")).is_true();
+    assert_that!(blocks[4]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
+    assert_that!(blocks[5]["text"].as_str()).is_equal_to(Some("rends le titre plus court"));
+}
+
+/// The texts of the blocks of prompt `n` of the log.
+fn prompt_texts(log: &std::path::Path, n: usize) -> Vec<String> {
+    let blocks = logged(log, "session/prompt")[n]["prompt"]
+        .as_array()
+        .cloned()
+        .unwrap_or_else(|| panic!("prompt {n} has no blocks"));
+    blocks.iter().map(|b| b["text"].as_str().unwrap_or_default().to_owned()).collect()
+}
+
+/// A deck tab pins Base, whose guide is sent once, between the instruction files and the context.
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_sends_the_guides_after_the_instructions_then_not_on_an_unchanged_turn() {
+    let h = start(json!({ "turns": [{}] })).await;
+    let t = h.tab("t-1");
+    let mut rx = t.agent.subscribe();
+    t.agent.prompt("un".into(), AgentUi::default());
+    until(&mut rx, ended).await;
+    t.agent.prompt("deux".into(), AgentUi::default());
+    until(&mut rx, ended).await;
+    let (first, second) = (prompt_texts(&h.log, 0), prompt_texts(&h.log, 1));
+    let at = |texts: &[String], head: &str| texts.iter().position(|t| t.starts_with(head));
+    let (widgets, guides, context) = (
+        first.iter().position(|t| t.contains("preview_widget")),
+        at(&first, "<oku-slides-guides>"),
+        at(&first, "<oku-slides-context>"),
+    );
+    assert_that!(guides.is_some_and(|g| widgets < Some(g) && Some(g) < context)).is_true();
+    assert_that!(first[guides.unwrap_or_default()].as_str())
+        .contains("<guide for=\"use\" kind=\"widgets\" name=\"Base\"");
+    assert_that!(at(&second, "<oku-slides-guides>")).is_none();
 }
 
 #[tokio::test(flavor = "multi_thread")]

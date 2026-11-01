@@ -31,8 +31,8 @@ use serde_json::{Map, Value, json};
 use uuid::Uuid;
 
 use oku_slides_core::{
-    Category, Namespace, PackKind, PackManifest, PackScope, ParamValue, SchemaFault, Slide, WidgetError, WidgetFile,
-    WidgetRegistry, WidgetSchema, kinds, split_kind,
+    Category, Guides, Namespace, PackKind, PackManifest, PackScope, ParamValue, SchemaFault, Slide, WidgetError,
+    WidgetFile, WidgetRegistry, WidgetSchema, kinds, split_kind,
 };
 
 use super::typst::{GenCtx, Typst};
@@ -250,6 +250,7 @@ pub(crate) fn pack_manifest(
         examples: values,
         styles: BTreeMap::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     }
 }
 

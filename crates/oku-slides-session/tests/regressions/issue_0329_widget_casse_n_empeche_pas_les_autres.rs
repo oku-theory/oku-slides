@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use oku_slides_core::{Namespace, Op, PackPin, WidgetFile};
+use oku_slides_core::{Guides, Namespace, Op, PackPin, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Request, Storage};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -40,6 +40,7 @@ fn mixed_pack(data: &Path) -> PackPin {
         styles: BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let name = |n: &str| WidgetFile::parse(n).unwrap_or_else(|| panic!("nom invalide : {n}"));
     let widgets = BTreeMap::from([(name("quote"), QUOTE.to_owned()), (name("casse"), BROKEN.to_owned())]);

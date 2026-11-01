@@ -12,6 +12,7 @@ agent-surface-themes = Теми
 agent-surface-variants = Варіанти
 agent-surface-permission-always = назавжди
 agent-surface-permission-title = Агент просить дозвіл
+agent-surface-permission-guides = Цей хід містить отримане керівництво: { $names }.
 agent-undo-turn = Агент: { $text }
 
 agent-tools-unavailable = Не вдалося запустити інструменти агента.

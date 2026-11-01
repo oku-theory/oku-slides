@@ -13,6 +13,7 @@ import { findElement, pickSlide, previewLook, slideToFetch } from "./deck";
 import LayoutPicker from "./LayoutPicker";
 import WidgetPicker from "./WidgetPicker";
 import type { WidgetChoice } from "./widgetChoices";
+import GuidesInstallDialog from "./GuidesInstallDialog";
 import ImportDialog from "./ImportDialog";
 import type { ImportJob } from "./useImportJob";
 import { useFileActions } from "./useFileActions";
@@ -227,7 +228,9 @@ export default function App({
   // A pack tab's delete confirmation (`PackPanels`).
   const [confirming, setConfirming] = useState(false);
   // An app dialog (layouts, add, import, a confirmation) or a window one is open: nothing behind it reacts.
-  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming;
+  // The deck brought guides for agents the user has not approved: asked at once, nothing behind reacts.
+  const guidesToApprove = snap?.guides_to_approve ?? [];
+  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming || guidesToApprove.length > 0;
   // The last widget added from the grid: it reopens on it (A then Enter adds it again).
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   // The grid's previews, kept across openings (key: pack versions, look and language).
@@ -514,6 +517,8 @@ export default function App({
           onClose={onImportClose}
         />
       )}
+
+      {guidesToApprove.length > 0 && <GuidesInstallDialog api={api} reviews={guidesToApprove} run={run} />}
 
       <SlotView slot={agentSlots.modal} />
 

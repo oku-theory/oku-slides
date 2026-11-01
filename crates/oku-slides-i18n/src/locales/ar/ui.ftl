@@ -406,3 +406,26 @@ ui-about-breaking = غير متوافق
 ui-about-close = إغلاق
 
 ui-shortcut-theme = سمة, السمة, ثيم, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = أدلة للوكلاء
+ui-guides-edit = طريقة التعديل
+ui-guides-use = طريقة الاستخدام
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = مدمج
+ui-guides-origin-local = خاص بك
+ui-guides-origin-received = مستلم
+ui-guides-approve = الموافقة على هذا الدليل
+ui-guides-awaiting = لا يُرسل إلى الوكيل حتى توافق عليه.
+ui-guides-install-title = يأتي هذا العرض بأدلة للوكلاء
+ui-guides-install-intro = لا تصل إلى الوكيل إلا بعد موافقتك. اقرأها أولاً.
+ui-guides-install-approve = الموافقة على الأدلة
+ui-guides-install-later = لاحقًا
+ui-guides-install-items = { $count ->
+    [one] { $count } عنصر
+   *[other] { $count } عناصر
+  }
+ui-guides-install-requires = يتطلب { $names }
+ui-guides-kind-widgets = الأدوات
+ui-guides-kind-layouts = التخطيطات
+ui-guides-kind-theme = السمة

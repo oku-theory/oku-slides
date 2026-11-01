@@ -20,6 +20,7 @@ fn settings(timeout_ms: u64) -> RenderSettings {
         max_frame_mib: 64,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     }
 }
 
@@ -166,6 +167,7 @@ fn link_outgoing_frame_over_max_is_refused_as_frame_and_keeps_the_worker() {
             max_frame_mib: 1,
             max_widget_kib: 256,
             max_widgets: 64,
+            max_guide_chars: 4000,
         },
     );
     link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
@@ -216,6 +218,7 @@ fn worker_command_passes_bounds_and_marks_the_child_as_a_worker() {
         max_frame_mib: 1,
         max_widget_kib: 256,
         max_widgets: 64,
+        max_guide_chars: 4000,
     };
     let cmd = worker_command(Path::new("/bin/app"), &s, None);
     let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().into_owned()).collect();

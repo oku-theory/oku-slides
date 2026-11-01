@@ -158,6 +158,8 @@ pub struct Library<K: LibraryKind> {
     dir: Option<PathBuf>,
     storage: Storage,
     index: Arc<Mutex<Index<K::Manifest>>>,
+    /// Versions the next write of which is marked received (`Self::taint`); shared by clones.
+    taint: Arc<Mutex<std::collections::BTreeSet<PackVersion>>>,
     kind: PhantomData<K>,
 }
 
@@ -165,7 +167,12 @@ impl<K: LibraryKind> Library<K> {
     /// `dir` : `<data>/<K::DIR>`, créé à la première écriture.
     #[must_use]
     pub fn new(dir: Option<PathBuf>, storage: Storage) -> Self {
-        Self { dir, storage, index: Arc::default(), kind: PhantomData }
+        Self { dir, storage, index: Arc::default(), taint: Arc::default(), kind: PhantomData }
+    }
+
+    /// Makes the next new write of version `v` received, whoever writes it (see `guide_origin`).
+    pub(crate) fn taint(&self, v: &PackVersion) {
+        self.taint.lock().unwrap_or_else(PoisonError::into_inner).insert(v.clone());
     }
 
     /// This library's directory, if it has one.
@@ -305,6 +312,16 @@ impl<K: LibraryKind> Library<K> {
         self.pack_dir(id).is_some_and(|d| self.is_marked(&d.join(VERSIONS_DIR).join(v.hex()), RECEIVED_FILE))
     }
 
+    /// Like [`Self::is_received`], failing closed: an unreadable mark counts as received (logged).
+    pub(crate) fn is_received_or_unreadable(&self, id: Uuid, v: &PackVersion) -> bool {
+        let Some(dir) = self.pack_dir(id) else { return false };
+        let path = dir.join(VERSIONS_DIR).join(v.hex()).join(RECEIVED_FILE);
+        self.marker(&path).unwrap_or_else(|e| {
+            tracing::warn!(path = %path.display(), error = %one_line(&e), "received mark unreadable: counted as received");
+            true
+        })
+    }
+
     /// Les versions de `id`, chargées : l'intégrée d'abord, puis celles de l'utilisateur.
     #[must_use]
     pub fn versions(&self, id: Uuid) -> Vec<StoredVersion<K::Manifest>> {
@@ -442,6 +459,8 @@ impl<K: LibraryKind> Library<K> {
         // Une sorte sans widgets les perdrait à l'écriture, mais ils compteraient dans l'empreinte.
         debug_assert!(K::PACK_KIND.is_some() || files.widgets().is_empty(), "widgets given to a kind without widgets");
         let version = files.version();
+        let tainted = self.taint.lock().unwrap_or_else(PoisonError::into_inner).remove(&version);
+        let origin = if tainted { Origin::Received } else { origin };
         let mut index = self.fresh();
         let known = &self.entry(&mut index, id).versions;
         if known.iter().any(|s| s.version == version) {

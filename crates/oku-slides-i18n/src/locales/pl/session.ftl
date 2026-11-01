@@ -88,6 +88,7 @@ session-undo-theme = Zmień motyw
 session-undo-edited-theme = Zmień motyw: { $name }
 session-undo-theme-extends = Zmień rozszerzane motywy
 session-undo-theme-rename = Zmień nazwę motywu
+session-undo-theme-guide = Edytuj przewodnik motywu
 session-help-deck = Nie można odczytać prezentacji pomocy
 session-agent-form = Żądanie agenta jest nieprawidłowe: { $reason }
 session-agent-form-too-long = { $at }: znaków: { $count }, najwyżej { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = Nie udało się zapisać w bibliotece wersji widżet
 session-invalid-widget-name = Nieprawidłowa nazwa widżetu: „{ $name }”. Użyj małych liter, cyfr i łączników albo _commun.
 session-widget-too-large = Widżet „{ $name }” przekracza { $max } KiB.
 session-widget-nul = Widżet „{ $name }” zawiera znak NUL.
+session-guide-too-long = Przewodnik jest dłuższy niż { $max } znaków.
+session-guide-has-nul = Przewodnik zawiera znak NUL.
+session-guide-approvals-write = Nie można zapisać zatwierdzeń przewodników w { $path }
 session-too-many-widgets = Pakiet nie może mieć więcej niż { $max } plików widżetów.
 session-widget-in-use = Widżet „{ $name }” jest nadal używany tutaj: { $uses }.
 session-unknown-widget = Nie znaleziono widżetu: „{ $name }”.
@@ -683,3 +687,11 @@ voice-agent-model-later = Modele agenta pojawią się po jego pierwszej odpowied
 voice-agent-model-asked = Wybrany model: { $model }. Modele agenta pojawią się po jego pierwszej odpowiedzi.
 voice-agent-model-missing = Ten agent nie oferuje modelu { $model }: używa pokazanego modelu.
 voice-agent-model-next = Nowy model obowiązuje od następnej wiadomości w każdej karcie.
+
+deck-packs-guide = { $origin ->
+    [builtin] Wskazówki dla agentów (wbudowane)
+    [received] Wskazówki dla agentów (otrzymane)
+   *[local] Wskazówki dla agentów (Twoje)
+  }
+deck-packs-guide-edit = Wskazówki dla agentów dotyczące edycji (otrzymane)
+deck-packs-guide-approve = Zatwierdź tę wskazówkę

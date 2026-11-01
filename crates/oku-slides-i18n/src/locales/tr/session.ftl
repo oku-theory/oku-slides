@@ -88,6 +88,7 @@ session-undo-theme = Temayı değiştir
 session-undo-edited-theme = Temayı değiştir: { $name }
 session-undo-theme-extends = Genişletilen temaları değiştir
 session-undo-theme-rename = Temayı yeniden adlandır
+session-undo-theme-guide = Temanın kılavuzunu düzenle
 session-help-deck = Yardım sunumu okunamıyor
 session-agent-form = Ajanın isteği geçersiz: { $reason }
 session-agent-form-too-long = { $at }: { $count } karakter, en fazla { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = “{ $pack }” paketinin widget sürümü kitaplı�
 session-invalid-widget-name = Geçersiz widget adı: “{ $name }”. Küçük harf, rakam ve kısa çizgi ya da _commun kullanın.
 session-widget-too-large = “{ $name }” widget'ı { $max } KiB'tan büyük.
 session-widget-nul = “{ $name }” widget'ı bir NUL karakteri içeriyor.
+session-guide-too-long = Kılavuz { $max } karakterden uzun.
+session-guide-has-nul = Kılavuz bir NUL karakteri içeriyor.
+session-guide-approvals-write = Kılavuz onayları { $path } içine kaydedilemiyor
 session-too-many-widgets = Bir pakette en fazla { $max } widget dosyası olabilir.
 session-widget-in-use = “{ $name }” widget'ı hâlâ burada kullanılıyor: { $uses }.
 session-unknown-widget = Widget bulunamadı: “{ $name }”.
@@ -661,3 +665,11 @@ voice-agent-model-later = Ajanın modelleri ilk yanıtından sonra listelenir.
 voice-agent-model-asked = İstenen model: { $model }. Ajanın modelleri ilk yanıtından sonra listelenir.
 voice-agent-model-missing = Bu ajan { $model } modelini sunmuyor: gösterilen modeli kullanır.
 voice-agent-model-next = Yeni model her sekmedeki bir sonraki mesajdan itibaren geçerli olur.
+
+deck-packs-guide = { $origin ->
+    [builtin] Ajanlar için kılavuz (yerleşik)
+    [received] Ajanlar için kılavuz (alınan)
+   *[local] Ajanlar için kılavuz (sizin)
+  }
+deck-packs-guide-edit = Ajanlar için düzenleme kılavuzu (alınan)
+deck-packs-guide-approve = Bu kılavuzu onayla

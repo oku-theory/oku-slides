@@ -19,6 +19,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 use uuid::Uuid;
 
 use crate::agent::bounds::label;
+use crate::deck_packs_guide::PinnedGuideView;
 use crate::error::{
     BuiltinPackSnafu, DeckOnlySnafu, InPackTabSnafu, NamespaceTakenSnafu, NotPinnedSnafu, OpSnafu,
     PackAlreadyCurrentSnafu, PackNotMakeCurrentSnafu, PackOpenInTabSnafu, ThemeNotOutdatedSnafu, UnknownNamespaceSnafu,
@@ -92,6 +93,8 @@ pub struct PinnedPackView {
     pub library_has_pinned: bool,
     /// Pourquoi le pack ne peut pas quitter le deck ; `None` s'il le peut.
     pub remove_refusal: Option<OpError>,
+    /// Its use guide, folded and read-only in the panel; `None` without one.
+    pub guide: Option<PinnedGuideView>,
 }
 
 /// Le thème du deck dans le panneau.
@@ -111,6 +114,8 @@ pub struct ThemeSectionView {
     pub choices: Vec<(Namespace, String)>,
     /// La version épinglée est plus ancienne que ma version courante.
     pub outdated: bool,
+    /// The pinned theme's use guide; `None` without one.
+    pub guide: Option<PinnedGuideView>,
 }
 
 impl Session {
@@ -387,6 +392,7 @@ impl Session {
             deck_only,
             library_has_pinned: !deck_only && self.library.version(pin.id, &pin.version).is_some(),
             remove_refusal: remove_pack_refusal(self.deck(), kind, ns),
+            guide: self.pinned_guide(pin.id, &pin.version, self.user_blobs().packs.get(&pin.version), false),
         }
     }
 
@@ -433,6 +439,9 @@ impl Session {
             overrides,
             choices: self.theme_list.iter().map(|t| (t.namespace.clone(), t.name.clone())).collect(),
             outdated: self.theme_relation() == Some(Drift::Older),
+            guide: self
+                .deck_theme_pin()
+                .and_then(|pin| self.pinned_guide(pin.id, &pin.version, self.theme_files(pin).as_ref(), true)),
         })
     }
 }

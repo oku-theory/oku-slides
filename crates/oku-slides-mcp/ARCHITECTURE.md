@@ -11,7 +11,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - `tools` : `Tools`, `list_for(kind)`: the tab's kind, read once when its agent starts; an unlisted tool is
   `UnknownTool` (`tool_kinds`: `Kinds`; a theme tab lists no `widgets`, `packs` or `ask_rewrite`); input schemas (`nest_schema`: MCP 1.x); `parse`, `with_session`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
-  settings), `edit_tools` (undoable edits, `add_pack`/`remove_pack`, `set_theme_extends`), `open_tools` (`open_pack`, `open_theme`: one tab move per turn, a deck-only pack's tab linked to its deck), `tab_tools` (pack tab: `select_item`, `set_preview_theme`; theme tab: `rename_theme`, `save_theme`), `widget_tools` (pack tab: `duplicate_widget`, `reorder_widgets`; no `pack`: `deck`, so
+  settings), `edit_tools` (undoable edits, `add_pack`/`remove_pack`, `set_theme_extends`), `open_tools` (`open_pack`, `open_theme`: one tab move per turn, a deck-only pack's tab linked to its deck), `tab_tools` (pack tab: `select_item`, `set_preview_theme`; theme tab: `rename_theme`, `save_theme`; both: `set_guide`, an agent write that is never echoed back), `widget_tools` (pack tab: `duplicate_widget`, `reorder_widgets`; no `pack`: `deck`, so
   `deck-layouts` is named; writes refused in a turn that moved to another tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
   `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`, its list paged by `history_page`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `a2ui_tools` (`a2ui_examples`: the playbook's agent reference, cached), `surface_tools` (`report`, `render`, `ask_*`,
@@ -22,7 +22,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
 - Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, in the hub, which builds the box);
   `draft` (`DraftPort` in `Tools`: `open_*`'s `request`, cleaned, at most `MAX_REQUEST_BYTES`, to a moved tab's draft; `Prefill`).
 - `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
-  the open list; `resync` resends it whole. `hub/asks` (questions, confirmations, permissions),
+  the open list; `resync` resends it whole. `hub/asks` (questions, confirmations, permissions; a turn's received-guide note shows in each, `set_permission_note`),
   `hub/actions` (`SurfaceAction`, `act`, `prune`); the hub builds two boxes itself: `hub/themes`
   (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
   `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).

@@ -2,6 +2,7 @@
 //! (forms, variants), context and a tab's session (`Sessions`, `TabSession`,
 //! `TabGate`, `TabOpen`). The MCP tools (`oku-slides-mcp`) and the ACP
 //! client (`oku-slides-agent`) go through here.
+//! Guides of the packs and themes a tab uses: `guides` (`AgentGuides`).
 //! Pasted images: `attachments` (`AttachmentRef`).
 
 mod address;
@@ -11,6 +12,7 @@ pub mod context;
 pub mod conversation;
 pub mod diff;
 pub mod forms;
+pub mod guides;
 pub mod reason;
 pub mod receipt;
 pub mod render;
@@ -30,6 +32,7 @@ pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
     ShowParams, ShowVariants, Surface, Variant,
 };
+pub use guides::AgentGuides;
 pub use oku_slides_a2ui::{PromptImage, ServerMessage, StepStatus, TimelineStep, ToolCallDetail};
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};

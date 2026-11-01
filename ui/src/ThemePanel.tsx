@@ -1,10 +1,11 @@
 /**
  * A theme tab's panel, right of the stage: its title, the draft's name, the
  * unsaved mark, then its tokens (surface `host-theme`, filtered by its own
- * field). A theme tab never changes which theme it edits: there is no base picker.
+ * field) and its guides for agents. A theme tab never changes which theme it edits: there is no base picker.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Snapshot, TabApi } from "./api";
+import GuidesSection from "./GuidesSection";
 import HostSettings from "./HostSettings";
 import { t } from "./i18n";
 import { useThemeSettings } from "./useThemeSettings";
@@ -68,6 +69,7 @@ export default function ThemePanel({ api, snap, run, say }: Props) {
         )}
       </div>
       {settings.surface && <HostSettings surface={settings.surface} onAction={settings.onAction} outcome={settings.outcome} onError={(m) => say(m, true)} />}
+      {snap.guides && <GuidesSection api={api} view={snap.guides} run={run} />}
     </section>
   );
 }

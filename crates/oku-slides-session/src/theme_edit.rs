@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::OptionExt;
 
-use oku_slides_core::{Deck, Namespace, Op, ThemePin};
+use oku_slides_core::{Deck, Guides, Namespace, Op, ThemePin};
 use uuid::Uuid;
 
 use crate::deck_theme_edit::token_deck;
@@ -43,19 +43,28 @@ pub struct ThemeEdit {
     pub name: String,
     /// Les thèmes qu'étend le brouillon, dans l'ordre (le dernier l'emporte).
     pub extends: Vec<Namespace>,
+    /// The guides the saved theme will carry (absent from older resume states: empty).
+    #[serde(default)]
+    pub guides: Guides,
 }
 
 impl ThemeEdit {
     /// L'édition de la version `base` d'espace de noms `namespace`, nommée `name`, étendant `extends`.
     pub(crate) fn of(base: ThemePin, namespace: Namespace, name: String, extends: Vec<Namespace>) -> Self {
-        Self { base, namespace, name, extends }
+        Self { base, namespace, name, extends, guides: Guides::default() }
     }
 
     /// L'édition de la version `base`, de manifeste `manifest`, partant de ses parents de départ.
     pub(crate) fn starting(base: ThemePin, manifest: &ThemeManifest) -> Self {
         let mut edit = Self::of(base, manifest.namespace.clone(), manifest.name.clone(), Vec::new());
         edit.extends = edit.starting_extends(manifest);
+        edit.guides = edit.starting_guides(manifest);
         edit
+    }
+
+    /// The starting guides: none for a child, whose built-in parent sends its own; else the base's.
+    pub(crate) fn starting_guides(&self, base: &ThemeManifest) -> Guides {
+        inherited_guides(self.child(), base)
     }
 
     /// Les parents de départ : l'intégré lui-même pour un enfant, sinon ceux de la base `base`.
@@ -138,10 +147,21 @@ fn tokens_of(v: &Value) -> Map<String, Value> {
     v.as_object().cloned().unwrap_or_default()
 }
 
-/// True when the draft `edit` of tokens `tokens` differs from its base `base` (tokens, name or parents).
+/// The guides a new version built on `base` starts with: none for a child of a built-in.
+///
+/// A child extends the built-in, whose use guide the agent already gets as a parent's; a user
+/// theme rewritten in place keeps its own guides.
+pub(crate) fn inherited_guides(child: bool, base: &ThemeManifest) -> Guides {
+    if child { Guides::default() } else { base.guides.clone() }
+}
+
+/// True when the draft `edit` of tokens `tokens` differs from its base `base` (tokens, name, parents or guides).
 pub(crate) fn draft_differs(edit: &ThemeEdit, base: &ThemeManifest, tokens: &Map<String, Value>) -> bool {
     let origin = if edit.child() { Map::new() } else { base.tokens.clone() };
-    base.name != edit.name || edit.extends != edit.starting_extends(base) || origin != *tokens
+    base.name != edit.name
+        || edit.extends != edit.starting_extends(base)
+        || edit.guides != edit.starting_guides(base)
+        || origin != *tokens
 }
 
 /// `tokens` en valeur de deck : un objet vide n'en est pas une.

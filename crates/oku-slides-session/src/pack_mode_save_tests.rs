@@ -1,4 +1,5 @@
-use oku_slides_core::{Op, PackScope, WidgetFile, kinds};
+use oku_slides_core::{GuideKind, Guides, Op, PackScope, WidgetFile, kinds};
+use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -347,4 +348,48 @@ fn save_pack_in_a_turn_after_a_save_before_it_keeps_the_earlier_version() {
     let kept =
         (library_of(&s).version(ESSENTIEL_PACK, &before).is_some(), preview_of(&s).sources.packs.contains_key(&before));
     assert_that!(kept).is_equal_to((true, true));
+}
+
+/// How a pack tab's guides leave it.
+#[derive(Debug, Clone, Copy)]
+enum Leaves {
+    /// A save into the library.
+    Save,
+    /// A save as a copy.
+    Copy,
+    /// A deck-pack tab's save, forwarded to its owner deck.
+    Outbox,
+}
+
+#[rstest]
+#[case::save(Leaves::Save)]
+#[case::copy(Leaves::Copy)]
+#[case::outbox(Leaves::Outbox)]
+fn save_pack_keeps_the_guides_of_the_session_version(#[case] leaves: Leaves) {
+    let data = fresh_dir("oku-slides-pack-mode-");
+    let want = Guides { edit: "Keep slots named.".into(), use_: "Use the title layout first.".into() };
+    let write = |s: &mut crate::Session| {
+        s.set_guide(GuideKind::Edit, want.edit.clone()).unwrap();
+        s.set_guide(GuideKind::Use, want.use_.clone()).unwrap();
+    };
+    let saved = match leaves {
+        Leaves::Save | Leaves::Copy => {
+            let mut s = pack_tab_of(data.path(), ESSENTIEL_PACK);
+            write(&mut s);
+            let version = s.save_pack(matches!(leaves, Leaves::Copy)).unwrap();
+            saved_manifest(&s, &version).guides
+        }
+        Leaves::Outbox => {
+            let mut owner = session_on(data.path());
+            let r = adopt_deck_only_pack(&mut owner);
+            let mut s = deck_pack_tab_of(&mut owner, data.path(), r.id);
+            write(&mut s);
+            s.save_pack(false).unwrap();
+            s.mark_due();
+            forward_to_owner(&mut s, LINKED_TAB, &mut owner).unwrap();
+            let pinned = pin(&owner, "deck").unwrap_or_else(|| panic!("the deck pin"));
+            saved_manifest(&owner, &pinned.version).guides
+        }
+    };
+    assert_that!(saved).is_equal_to(want);
 }

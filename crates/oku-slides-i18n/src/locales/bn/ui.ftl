@@ -394,3 +394,23 @@ ui-about-breaking = অসামঞ্জস্যপূর্ণ
 ui-about-close = বন্ধ করুন
 
 ui-shortcut-theme = থিম, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = এজেন্টের জন্য নির্দেশিকা
+ui-guides-edit = কীভাবে সম্পাদনা করবেন
+ui-guides-use = কীভাবে ব্যবহার করবেন
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = অন্তর্নির্মিত
+ui-guides-origin-local = আপনার
+ui-guides-origin-received = প্রাপ্ত
+ui-guides-approve = এই নির্দেশিকা অনুমোদন করুন
+ui-guides-awaiting = আপনি অনুমোদন না করা পর্যন্ত এজেন্টকে পাঠানো হয় না।
+ui-guides-install-title = এই উপস্থাপনা এজেন্টের জন্য নির্দেশিকা নিয়ে এসেছে
+ui-guides-install-intro = আপনি অনুমোদন করলেই এগুলো এজেন্টের কাছে যাবে। আগে পড়ে নিন।
+ui-guides-install-approve = নির্দেশিকা অনুমোদন করুন
+ui-guides-install-later = পরে
+ui-guides-install-items = { $count }টি উপাদান
+ui-guides-install-requires = প্রয়োজন: { $names }
+ui-guides-kind-widgets = উইজেট
+ui-guides-kind-layouts = লেআউট
+ui-guides-kind-theme = থিম

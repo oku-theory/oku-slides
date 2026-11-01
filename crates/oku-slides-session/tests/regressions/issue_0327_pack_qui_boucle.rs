@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use oku_slides_core::{Op, WidgetFile};
+use oku_slides_core::{Guides, Op, WidgetFile};
 use oku_slides_platform::RenderLaunch;
 use oku_slides_session::{Fonts, PackLibrary, PackManifest, Platform, Request, Session, Settings, Storage};
 
@@ -63,6 +63,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         styles: BTreeMap::new(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let files = manifest
         .to_files(

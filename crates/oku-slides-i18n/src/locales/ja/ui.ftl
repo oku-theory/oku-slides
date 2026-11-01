@@ -394,3 +394,23 @@ ui-about-breaking = 互換性なし
 ui-about-close = 閉じる
 
 ui-shortcut-theme = テーマ, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = エージェント向けガイド
+ui-guides-edit = 編集のしかた
+ui-guides-use = 使い方
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = 内蔵
+ui-guides-origin-local = 自分用
+ui-guides-origin-received = 受信
+ui-guides-approve = このガイドを承認
+ui-guides-awaiting = 承認するまでエージェントには送られません。
+ui-guides-install-title = このデッキにはエージェント向けのガイドが含まれています
+ui-guides-install-intro = 承認するまでエージェントには渡りません。先にお読みください。
+ui-guides-install-approve = ガイドを承認
+ui-guides-install-later = あとで
+ui-guides-install-items = { $count }件
+ui-guides-install-requires = 必要: { $names }
+ui-guides-kind-widgets = ウィジェット
+ui-guides-kind-layouts = レイアウト
+ui-guides-kind-theme = テーマ

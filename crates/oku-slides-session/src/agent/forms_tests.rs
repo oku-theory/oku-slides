@@ -299,6 +299,7 @@ fn permission_orders_buttons_from_safest_and_keeps_the_agent_index() {
             ("Autoriser une fois", PermissionKind::AllowOnce),
             ("Refuser", PermissionKind::RejectOnce),
         ]),
+        None,
         &fr(),
     );
     assert_that!(buttons(&s)).is_equal_to(vec![
@@ -315,6 +316,7 @@ fn permission_without_allow_once_has_no_primary() {
         "perm-1",
         "Écrire ?",
         &choices(&[("Toujours autoriser", PermissionKind::AllowAlways), ("Refuser", PermissionKind::RejectOnce)]),
+        None,
         &fr(),
     );
     assert_that!(buttons(&s)).is_equal_to(vec![
@@ -326,13 +328,14 @@ fn permission_without_allow_once_has_no_primary() {
 #[test]
 fn permission_misleading_label_still_gets_the_always_tag() {
     // Un agent qui présente « toujours » comme « une fois » : la mention de l'app le trahit.
-    let s = permission("perm-1", "Écrire ?", &choices(&[("Autoriser une fois", PermissionKind::AllowAlways)]), &fr());
+    let s =
+        permission("perm-1", "Écrire ?", &choices(&[("Autoriser une fois", PermissionKind::AllowAlways)]), None, &fr());
     assert_that!(buttons(&s)).is_equal_to(vec![btn("Autoriser une fois · pour toujours".into(), false, true, Some(0))]);
 }
 
 #[test]
 fn permission_unknown_kind_is_engaging_and_never_primary() {
-    let s = permission("perm-1", "Écrire ?", &choices(&[("Pour la session", PermissionKind::Other)]), &fr());
+    let s = permission("perm-1", "Écrire ?", &choices(&[("Pour la session", PermissionKind::Other)]), None, &fr());
     assert_that!(buttons(&s)).is_equal_to(vec![btn("Pour la session".into(), false, true, Some(0))]);
 }
 
@@ -342,6 +345,7 @@ fn permission_primary_is_the_first_of_several_allow_once() {
         "perm-1",
         "Écrire ?",
         &choices(&[("Ce fichier", PermissionKind::AllowOnce), ("Ce dossier", PermissionKind::AllowOnce)]),
+        None,
         &fr(),
     );
     assert_that!(buttons(&s).iter().map(|b| b.primary).collect::<Vec<_>>()).is_equal_to(vec![true, false]);
@@ -349,7 +353,7 @@ fn permission_primary_is_the_first_of_several_allow_once() {
 
 #[test]
 fn permission_without_title_says_what_it_asks() {
-    let s = permission("perm-1", " ", &choices(&[("Refuser", PermissionKind::RejectOnce)]), &fr());
+    let s = permission("perm-1", " ", &choices(&[("Refuser", PermissionKind::RejectOnce)]), None, &fr());
     assert_that!(title_of(&s)).is_equal_to("L'agent demande une permission".to_owned());
 }
 
@@ -558,6 +562,7 @@ fn every_form() -> Vec<super::Surface> {
                 ("Autoriser une fois", PermissionKind::AllowOnce),
                 ("Refuser", PermissionKind::RejectOnce),
             ]),
+            None,
             &l,
         ),
         rewrite(
@@ -640,6 +645,7 @@ fn packs_view() -> crate::DeckPacksView {
         library_has_pinned: true,
         remove_refusal: None,
         id: uuid::Uuid::from_u128(0xac3e),
+        guide: None,
     });
     view.addable.insert(oku_slides_core::PackKind::Widgets, vec![(crate::test_support::ns("hifi"), "Hi-fi".into())]);
     view.theme.outdated = true;
@@ -683,4 +689,32 @@ fn question_marks_exactly_the_surfaces_awaiting_an_answer() {
         "ask-4".to_owned(),
         "ask-8".to_owned(),
     ]);
+}
+
+/// The `text` of every text component of a surface.
+fn texts(s: &super::Surface) -> Vec<String> {
+    let json = serde_json::to_value(s).expect("surface en JSON");
+    json["messages"][1]["updateComponents"]["components"]
+        .as_array()
+        .map(|cs| cs.iter().filter_map(|c| c["text"].as_str().map(str::to_owned)).collect())
+        .unwrap_or_default()
+}
+
+#[test]
+fn permission_with_note_shows_it_under_the_title() {
+    let note = "This turn includes the received guide of X.";
+    let s = permission("p", "Run tool", &choices(&[("Allow", PermissionKind::AllowOnce)]), Some(note), &fr());
+    assert_that!(texts(&s)).contains(note.to_owned());
+    let json = serde_json::to_value(&s).expect("surface en JSON");
+    let components = json["messages"][1]["updateComponents"]["components"].as_array().expect("components").clone();
+    let body = components.iter().find(|c| c["id"] == "body").expect("body");
+    assert_that!(body["children"].clone()).is_equal_to(json!(["title", "note", "buttons"]));
+}
+
+#[test]
+fn permission_without_note_has_no_note_component() {
+    let s = permission("p", "Run tool", &choices(&[("Allow", PermissionKind::AllowOnce)]), None, &fr());
+    let json = serde_json::to_value(&s).expect("surface en JSON");
+    let components = json["messages"][1]["updateComponents"]["components"].as_array().expect("components").clone();
+    assert_that!(components.iter().any(|c| c["id"] == "note")).is_false();
 }

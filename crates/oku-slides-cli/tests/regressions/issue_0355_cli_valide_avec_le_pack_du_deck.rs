@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::process::Output;
 
-use oku_slides_core::{PackFiles, PackPin, WidgetFile};
+use oku_slides_core::{Guides, PackFiles, PackPin, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Storage};
 use speculoos::prelude::*;
 
@@ -38,6 +38,7 @@ fn quote_pack(id: uuid::Uuid, namespace: &str) -> PackFiles {
         styles: std::collections::BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let file = WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget"));
     manifest

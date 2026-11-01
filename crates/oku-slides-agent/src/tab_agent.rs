@@ -113,6 +113,8 @@ impl Ctx {
 
     /// Ferme le tour d'annulation, quoi qu'il soit arrivé (verrou synchrone : hors thread async).
     pub async fn end_turn(&self) {
+        // The received-guide note belongs to the turn: every exit path ends here.
+        self.hub.set_permission_note(None);
         let tab = self.tab.clone();
         let closed = tokio::task::spawn_blocking(move || tab.with(Session::end_turn)).await;
         if let Ok(Err(e)) = closed {

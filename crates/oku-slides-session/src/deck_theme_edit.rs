@@ -31,6 +31,7 @@ use crate::pack::now_created;
 use crate::pack_lease::refuse_held;
 use crate::theme::{ThemeInfo, ThemeLibrary, ThemeManifest};
 use crate::theme_closure::{Closure, chain_tokens, closure_with, embedded_or_library, library_theme, pin_of};
+use crate::theme_edit::inherited_guides;
 use crate::theme_schema::{default_tokens, merge};
 use crate::{Mode, Result, Session};
 
@@ -187,6 +188,7 @@ impl Session {
         }
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
         let (current, base) = self.theme_base(id)?;
+        let before = self.predecessor(id, &current, true);
         let child = ThemeLibrary::is_builtin(id);
         let ops: Vec<Op> = ops.into_iter().map(Op::from).collect();
         let start = if child { Map::new() } else { base.tokens.clone() };
@@ -209,6 +211,7 @@ impl Session {
             None if child => self.localizer.tr_with("theme-copy-name", &[("name", base.name.as_str().into())]),
             None => base.name.clone(),
         };
+        let guides = inherited_guides(child, &base);
         let manifest = if child {
             ThemeManifest {
                 id: Uuid::new_v4(),
@@ -219,6 +222,7 @@ impl Session {
                 parent: None,
                 created: now_created(),
                 tokens,
+                guides,
             }
         } else {
             ThemeManifest { name, parent: Some(current.clone()), created: now_created(), tokens, ..base }
@@ -240,9 +244,11 @@ impl Session {
         if let Some(files) = &built_on {
             self.themes.adopt(&lock, id, files)?;
         }
+        self.taint_inherited(&files, before.as_ref(), true);
         self.themes.add_version(new_id, &files)?;
         self.themes.set_current(new_id, &version)?;
         drop(lock);
+        self.approve_written(new_id, &files, before.as_ref());
         self.theme_list = self.themes.themes();
         if adopted {
             self.adopt_edited_theme(&manifest.namespace, pins)?;

@@ -12,6 +12,7 @@ agent-surface-themes = Temi
 agent-surface-variants = Varianti
 agent-surface-permission-always = per sempre
 agent-surface-permission-title = L'agente chiede un'autorizzazione
+agent-surface-permission-guides = Questo turno include la guida ricevuta di { $names }.
 agent-undo-turn = Agente: { $text }
 
 agent-tools-unavailable = Non è stato possibile avviare gli strumenti dell'agente.

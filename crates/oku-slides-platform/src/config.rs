@@ -171,6 +171,8 @@ pub struct RenderSettings {
     pub max_widget_kib: usize,
     /// Nombre maximal de fichiers de widgets d'une version de pack, `_commun` compris.
     pub max_widgets: usize,
+    /// Maximum length of an agent guide of a pack or theme, in characters.
+    pub max_guide_chars: usize,
 }
 
 /// Import d'une présentation (`oku-slides import`).
@@ -588,6 +590,12 @@ impl PathSettings {
     #[must_use]
     pub fn themes(&self) -> PathBuf {
         self.themes.clone().unwrap_or_else(|| self.data().join("themes"))
+    }
+
+    /// The versions whose guides the user approved (`guide-approvals.json`).
+    #[must_use]
+    pub fn guide_approvals(&self) -> PathBuf {
+        self.data().join("guide-approvals.json")
     }
 
     /// Decks enregistrés d'eux-mêmes : `Documents/Oku Slides` par défaut.

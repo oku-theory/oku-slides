@@ -8,15 +8,21 @@
 //! `use_mine`, `make_current`, `theme`, `theme_update`, `open_pack`, `open_theme`); its
 //! context carries the kind and namespace, which the session checks again.
 //! `open_pack` and `open_theme` are no session actions: the interface opens the tab.
+//! A pinned pack or theme with a use guide shows it folded and read-only (plain text, clipped,
+//! with its origin); one awaiting approval shows its edit guide too, since `approve_guides`,
+//! from the button of a received guide not yet approved, approves both.
 
 use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
-use oku_slides_core::{Namespace, PackKind};
+use oku_slides_core::{GuideKind, Namespace, PackKind, PackVersion};
 use oku_slides_i18n::{Localize, Localizer};
 use serde_json::{Map, Value, json};
+use uuid::Uuid;
 
 use crate::agent::Surface;
+use crate::agent::bounds::clip;
 use crate::agent::forms::{Place, lit, surface};
 use crate::deck_packs::{DeckPacksView, Drift, PinnedPackView, ThemeSectionView};
+use crate::deck_packs_guide::PinnedGuideView;
 use crate::theme_picker::picked_theme;
 use crate::{Result, Session};
 
@@ -64,6 +70,13 @@ pub enum PacksEvent {
     },
     /// Passer le deck à ma version de son thème.
     ThemeUpdate,
+    /// Approve the guides of a received version the deck pins.
+    ApproveGuides {
+        /// Id of the pack or theme.
+        id: Uuid,
+        /// The pinned version.
+        version: PackVersion,
+    },
 }
 
 /// Le nom d'une sorte dans les ids et les contextes.
@@ -91,6 +104,11 @@ pub fn packs_event(name: &str, context: &Map<String, Value>) -> Option<PacksEven
         "make_current" => pack().map(|(kind, namespace)| PacksEvent::MakeCurrent { kind, namespace }),
         "theme" => picked_theme(context).map(|theme| PacksEvent::Theme { theme }),
         "theme_update" => Some(PacksEvent::ThemeUpdate),
+        "approve_guides" => {
+            let id = context.get("id").and_then(Value::as_str).and_then(|s| Uuid::parse_str(s).ok())?;
+            let version = context.get("version").and_then(Value::as_str).and_then(PackVersion::from_hex)?;
+            Some(PacksEvent::ApproveGuides { id, version })
+        }
         _ => None,
     }
 }
@@ -117,6 +135,37 @@ impl Builder {
         let id = c.id.clone();
         self.components.push(c);
         id
+    }
+
+    /// The folded guides of a pinned version, their ids starting with `prefix`, then its approval button if awaited.
+    ///
+    /// The use guide folds under `{prefix}guide`, an awaited edit guide under `{prefix}guide-edit`.
+    /// The text is untrusted: a plain text component, clipped to what the agent would get.
+    /// Returns the ids to add to the card's body.
+    fn guide(&mut self, prefix: &str, g: &PinnedGuideView, l: &Localizer) -> Vec<String> {
+        let mut ids = Vec::new();
+        for (which, text) in &g.texts {
+            let (fold, key) = match which {
+                GuideKind::Use => (format!("{prefix}guide"), "deck-packs-guide"),
+                GuideKind::Edit => (format!("{prefix}guide-edit"), "deck-packs-guide-edit"),
+            };
+            let summary = l.tr_with(key, &[("origin", g.origin.as_str().into())]);
+            let child = format!("{fold}-text");
+            let shown = Component::text(child.as_str(), clip(text.trim(), g.max_chars), Some(TextVariant::Caption));
+            self.push(shown);
+            let disclosure = ComponentKind::Disclosure { summary: Dynamic::Literal(summary), child, open: None };
+            ids.push(self.push(Component::new(fold, disclosure)));
+        }
+        if g.awaiting {
+            let action = Action::event(
+                "approve_guides",
+                [("id", lit(json!(g.id.to_string()))), ("version", lit(json!(g.version.hex())))],
+            );
+            let approve =
+                Component::button(format!("{prefix}guide-approve"), l.tr("deck-packs-guide-approve"), true, action);
+            ids.push(self.push(approve));
+        }
+        ids
     }
 
     /// La carte du pack `p` ; son id.
@@ -146,6 +195,9 @@ impl Builder {
         // A drifted pack opens the library's current version, not the pin: the button says so (t-1252).
         let open_key = if drift.is_some() { "packs-pack-open-mine" } else { "packs-pack-open" };
         let open = Component::button(sub("open"), l.tr(open_key), false, open_action(p));
+        if let Some(g) = &p.guide {
+            body.extend(self.guide(&format!("{id}/"), g, l));
+        }
         let mut actions = vec![self.push(open)];
         if drift.is_some() {
             let action = pack_action("use_mine", p);
@@ -241,6 +293,9 @@ impl Builder {
             let update = Component::button("theme-update", l.tr("packs-use-mine"), true, Action::named("theme_update"));
             children.push(self.push(update));
         }
+        if let Some(g) = &t.guide {
+            children.extend(self.guide("theme-", g, l));
+        }
         let refs: Vec<&str> = children.iter().map(String::as_str).collect();
         self.push(Component::column("theme", &refs))
     }
@@ -279,6 +334,7 @@ impl Session {
             PacksEvent::MakeCurrent { kind, namespace } => self.pack_make_current(kind, &namespace),
             PacksEvent::Theme { theme } => self.pick_theme(&theme),
             PacksEvent::ThemeUpdate => self.update_deck_theme(),
+            PacksEvent::ApproveGuides { id, version } => self.approve_pinned_guides(id, version),
         }
     }
 }

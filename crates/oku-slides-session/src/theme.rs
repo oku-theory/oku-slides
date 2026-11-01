@@ -132,6 +132,18 @@ static BUILTIN_THEME_VERSIONS: LazyLock<Vec<StoredVersion<ThemeManifest>>> = Laz
     .collect()
 });
 
+/// The shipped versions of the built-in themes, as `(namespace, hex)`, oldest first.
+///
+/// One `<namespace> <hex>` per line of `themes/versions.txt`, appended whenever a built-in
+/// theme changes, never rewritten: a deck pinning an older built-in stays built-in.
+pub(crate) fn shipped_theme_versions() -> impl Iterator<Item = (&'static str, &'static str)> {
+    include_str!("../../../typst/oku-slides/themes/versions.txt")
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .filter_map(|l| l.split_once(' '))
+}
+
 impl LibraryKind for Themes {
     const DIR: &'static str = "themes";
     const MANIFEST_FILE: &'static str = "theme.json";

@@ -391,3 +391,23 @@ ui-about-breaking = ไม่เข้ากัน
 ui-about-close = ปิด
 
 ui-shortcut-theme = ธีม, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = คู่มือสำหรับเอเจนต์
+ui-guides-edit = วิธีแก้ไข
+ui-guides-use = วิธีใช้
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = ในตัว
+ui-guides-origin-local = ของคุณ
+ui-guides-origin-received = ที่ได้รับ
+ui-guides-approve = อนุมัติคู่มือนี้
+ui-guides-awaiting = จะไม่ส่งให้เอเจนต์จนกว่าคุณจะอนุมัติ
+ui-guides-install-title = งานนำเสนอนี้มีคู่มือสำหรับเอเจนต์
+ui-guides-install-intro = คู่มือจะถึงเอเจนต์ต่อเมื่อคุณอนุมัติเท่านั้น โปรดอ่านก่อน
+ui-guides-install-approve = อนุมัติคู่มือ
+ui-guides-install-later = ภายหลัง
+ui-guides-install-items = { $count } รายการ
+ui-guides-install-requires = ต้องใช้ { $names }
+ui-guides-kind-widgets = วิดเจ็ต
+ui-guides-kind-layouts = เลย์เอาต์
+ui-guides-kind-theme = ธีม

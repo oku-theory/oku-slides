@@ -61,7 +61,7 @@ impl Session {
     /// Le manifeste que montre `deck`, le deck de travail du pack en cours d'édition.
     ///
     /// `kept` : la dernière version enregistrée, dont la description, les
-    /// valeurs d'exemple, la portée, l'espace de noms et les besoins restent ;
+    /// valeurs d'exemple, la portée, l'espace de noms, les besoins et les guides restent ;
     /// sans elle, la portée de l'édition (`deck_only`). Un nouveau pack de la
     /// bibliothèque (`fresh` : une copie, ou sans `kept`) prend un espace de
     /// noms libre tiré de son nom ; un nouveau pack du deck seul garde celui
@@ -88,8 +88,8 @@ impl Session {
         };
         let source = kept.as_ref().map(|m| m.id);
         // Ses jetons de composant suivent la version d'où il part.
-        let (description, mut examples, styles, requires, profiles, tokens, order) = kept
-            .map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens, m.order))
+        let (description, mut examples, styles, requires, profiles, tokens, order, guides) = kept
+            .map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens, m.order, m.guides))
             .unwrap_or_default();
         // La copie d'un pack intégré ne l'est plus : ses textes d'exemple s'écrivent en clair, dans la langue courante.
         if let Some(source) = source.filter(|_| fresh) {
@@ -111,6 +111,7 @@ impl Session {
             styles,
             tokens,
             order,
+            guides,
         };
         // Ses besoins suivent ce qu'emploient ses exemples (`base/text`…).
         manifest.requires = examples_requires(&manifest.namespace, &manifest);
@@ -202,6 +203,7 @@ impl Session {
         if !as_new {
             self.ensure_pack_lease()?;
         }
+        let before = self.predecessor(edit.pack, &edit.base, false);
         // Décider puis écrire sous le verrou des brouillons : une adoption ne s'y glisse pas.
         let lock = draft_lock();
         let session = edit.session_version.as_ref().filter(|_| !as_new);
@@ -247,6 +249,9 @@ impl Session {
             Mode::Pack { lease, .. } => lease.as_ref(),
             _ => None,
         };
+        if !deck_only {
+            self.taint_inherited(&files, before.as_ref(), false);
+        }
         write_session_version(&self.library, &lock, id, &write, &files, witness)?;
         drop(lock);
         embed_packs(&mut self.doc.sources, packs);
@@ -300,6 +305,7 @@ impl Session {
                 *orphaned = false;
             }
         }
+        self.approve_written(id, &files, before.as_ref());
         self.fill_outbox(SendBase { pack: edit.pack, parent: edit.parent.clone() }, &files);
         self.sync_widgets()?;
         Ok(version)

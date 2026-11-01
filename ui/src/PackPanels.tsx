@@ -1,12 +1,13 @@
 /**
  * The panels of a pack tab: the header (brand, title, caption, preview theme), the toolbar, the finish button,
- * the pile of items in the left column, and the selected item's view in the sheet area.
+ * the pile of items in the left column, and the selected item's view in the sheet area, then the pack's guides for agents.
  *
  * A delete in the pile asks in a `ConfirmDialog` (useConfirm), reported open through `onDialog` so that
  * nothing behind it reacts.
  */
 import { useEffect, type ReactNode } from "react";
 import type { Snapshot, TabApi } from "./api";
+import GuidesSection from "./GuidesSection";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { PackBrand } from "./PackBrand";
@@ -114,12 +115,13 @@ export default function PackPanels({
         slides={layouts ? pile : null}
         widgets={layouts ? null : pile}
       />
-      <main className="sheet-area">
+      <main className={`sheet-area${snap.guides ? " with-guides" : ""}`}>
         <WidgetPane
           api={api} item={item} trials={snap.widget_trials} look={look} span={keptUi.previewSpan} code={keptUi.code} codeWidth={keptUi.codeWidth}
           onCodeWidth={keptUi.setCodeWidth} run={run} palette={snap.appearance.chart_palette} settings={settings}
         />
         {drawer}
+        {snap.guides && <GuidesSection api={api} view={snap.guides} run={run} />}
       </main>
       {dialog}
     </>

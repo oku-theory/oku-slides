@@ -5,6 +5,7 @@ use uuid::Uuid;
 use super::*;
 use crate::Storage;
 use crate::test_support::{fresh_dir, library_with_raw_theme, ns};
+use oku_slides_core::Guides;
 
 fn temp_theme_library() -> (ThemeLibrary, tempfile::TempDir) {
     let dir = fresh_dir("oku-slides-themes-");
@@ -21,6 +22,7 @@ fn theme(name: &str, namespace: &str, created: &str) -> ThemeManifest {
         parent: None,
         created: created.into(),
         tokens: json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
+        guides: Guides::default(),
     }
 }
 
@@ -130,4 +132,48 @@ fn library_without_user_themes_skips_nothing() {
     let m = theme("Mien", "mien", "2026-10-05T10:00:00Z");
     lib.add_version(m.id, &m.to_files().unwrap()).unwrap();
     assert_that!(lib.skipped()).is_equal_to(0);
+}
+
+/// The shipped versions of built-in theme `ns`, oldest first.
+fn shipped_of(ns: &str) -> Vec<&'static str> {
+    shipped_theme_versions().filter(|(n, _)| *n == ns).map(|(_, hex)| hex).collect()
+}
+
+#[rstest::rstest]
+#[case::papier(PAPIER_NAMESPACE)]
+#[case::pro(PRO_NAMESPACE)]
+#[case::neutre(NEUTRE_NAMESPACE)]
+fn builtin_theme_current_version_is_listed_as_shipped(#[case] ns: &str) {
+    let current = Themes::builtins().iter().find(|b| b.manifest.namespace.as_str() == ns).unwrap();
+    let hex = current.version.hex().to_owned();
+    asserting(&format!("{ns}: current version {hex} missing from themes/versions.txt"))
+        .that(&shipped_of(ns).last().copied())
+        .is_equal_to(Some(hex.as_str()));
+}
+
+#[test]
+fn shipped_theme_versions_every_line_is_a_builtin_namespace_and_a_digest() {
+    let text = include_str!("../../../typst/oku-slides/themes/versions.txt");
+    let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let builtin = [PAPIER_NAMESPACE, PRO_NAMESPACE, NEUTRE_NAMESPACE];
+    let well_formed = |l: &&&str| {
+        l.split_once(' ').is_some_and(|(ns, hex)| {
+            builtin.contains(&ns) && hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit())
+        })
+    };
+    assert_that!(lines.iter().filter(well_formed).count()).is_equal_to(lines.len());
+}
+
+#[test]
+fn builtin_themes_have_the_previous_shipped_version_as_parent() {
+    let parents: Vec<Option<String>> =
+        Themes::builtins().iter().map(|b| b.manifest.parent.as_ref().map(|v| v.hex().to_owned())).collect();
+    let previous: Vec<Option<String>> = Themes::builtins()
+        .iter()
+        .map(|b| {
+            let shipped = shipped_of(b.manifest.namespace.as_str());
+            shipped.len().checked_sub(2).map(|i| shipped[i].to_owned())
+        })
+        .collect();
+    assert_that!(parents).is_equal_to(previous);
 }

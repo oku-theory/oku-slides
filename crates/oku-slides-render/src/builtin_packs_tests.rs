@@ -215,8 +215,8 @@ fn default_tokens_have_no_component_and_the_four_frame_families() {
 }
 
 #[rstest]
-#[case(BuiltinPack::Base, 5)]
-#[case(BuiltinPack::Essentiel, 3)]
+#[case(BuiltinPack::Base, 6)]
+#[case(BuiltinPack::Essentiel, 4)]
 fn builtin_pack_shipped_versions_counts_each_line(#[case] pack: BuiltinPack, #[case] count: usize) {
     assert_that!(pack.shipped_versions().count()).is_equal_to(count);
 }

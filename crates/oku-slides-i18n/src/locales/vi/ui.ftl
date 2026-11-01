@@ -391,3 +391,23 @@ ui-about-breaking = không tương thích
 ui-about-close = Đóng
 
 ui-shortcut-theme = chủ đề, giao diện, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = Hướng dẫn cho tác nhân AI
+ui-guides-edit = Cách chỉnh sửa
+ui-guides-use = Cách sử dụng
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = Tích hợp
+ui-guides-origin-local = Của bạn
+ui-guides-origin-received = Nhận được
+ui-guides-approve = Phê duyệt hướng dẫn này
+ui-guides-awaiting = Không gửi cho tác nhân AI cho đến khi bạn phê duyệt.
+ui-guides-install-title = Bản trình bày này kèm hướng dẫn cho tác nhân AI
+ui-guides-install-intro = Chúng chỉ đến tác nhân AI sau khi bạn phê duyệt. Hãy đọc trước.
+ui-guides-install-approve = Phê duyệt hướng dẫn
+ui-guides-install-later = Để sau
+ui-guides-install-items = { $count } mục
+ui-guides-install-requires = Yêu cầu { $names }
+ui-guides-kind-widgets = Widget
+ui-guides-kind-layouts = Bố cục
+ui-guides-kind-theme = Chủ đề

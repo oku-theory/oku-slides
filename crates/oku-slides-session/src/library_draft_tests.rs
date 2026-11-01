@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Barrier;
 
-use oku_slides_core::{PackFiles, PackKind, PackVersion};
+use oku_slides_core::{Guides, PackFiles, PackKind, PackVersion};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -206,6 +206,7 @@ fn theme_save_draft_adopted_opens_child_version() {
             parent: parent.cloned(),
             created: "2026-10-24T10:00:00Z".into(),
             tokens: serde_json::json!({"color": {"accent": "#ff0000"}}).as_object().cloned().unwrap(),
+            guides: Guides::default(),
         }
         .to_files()
         .unwrap()

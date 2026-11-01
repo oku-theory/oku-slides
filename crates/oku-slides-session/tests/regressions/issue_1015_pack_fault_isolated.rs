@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::{Namespace, Op, PackPin, PackScope, WidgetFile};
+use oku_slides_core::{Guides, Namespace, Op, PackPin, PackScope, WidgetFile};
 use oku_slides_session::{PackLibrary, PackManifest, Request, Settings, Storage};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -46,6 +46,7 @@ fn library_pack(library: &PackLibrary, namespace: &str, source: &str) -> Op {
         styles: BTreeMap::new(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));
     let files = manifest

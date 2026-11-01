@@ -252,6 +252,7 @@ const PACK_TOOLS: &[&str] = &[
     "select_agent",
     "select_item",
     "set_dictation",
+    "set_guide",
     "set_interface",
     "set_preview_theme",
     "set_setting",
@@ -289,6 +290,7 @@ const THEME_TOOLS: &[&str] = &[
     "save_theme",
     "select_agent",
     "set_dictation",
+    "set_guide",
     "set_interface",
     "set_setting",
     "set_theme_extends",
@@ -310,6 +312,28 @@ fn list_for_a_kind_is_exactly_its_tools(#[case] kind: DocumentKind, #[case] expe
     let mut names: Vec<String> = list_for(kind).into_iter().map(|t| t.name).collect();
     names.sort();
     assert_that!(names).is_equal_to(expected.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>());
+}
+
+#[rstest]
+#[case::pack(DocumentKind::Pack, true)]
+#[case::theme(DocumentKind::Theme, true)]
+#[case::deck(DocumentKind::Deck, false)]
+#[case::help(DocumentKind::Help, false)]
+fn list_for_set_guide_only_in_pack_and_theme_tabs(#[case] kind: DocumentKind, #[case] listed: bool) {
+    assert_that!(list_for(kind).iter().any(|t| t.name == "set_guide")).is_equal_to(listed);
+}
+
+/// The agent can never approve a received guide: no tool of any kind is named for it (t-1267).
+#[rstest]
+#[case::deck(DocumentKind::Deck)]
+#[case::help(DocumentKind::Help)]
+#[case::pack(DocumentKind::Pack)]
+#[case::theme(DocumentKind::Theme)]
+fn list_for_no_tool_approves_or_postpones_guides(#[case] kind: DocumentKind) {
+    for tool in list_for(kind) {
+        let name = tool.name.to_lowercase();
+        assert_that!(name.contains("approve") || name.contains("later")).named(&tool.name).is_false();
+    }
 }
 
 /// A help tab lists the deck's tools but the usage ones: it belongs to no deck.

@@ -1598,6 +1598,18 @@
               "variant": "caption"
             },
             {
+              "id": "layouts/essentiel/guide-text",
+              "component": "Text",
+              "text": "# Using Essentiel\n\nEssentiel holds the slide layouts: a slide's kind is one of `essentiel/title`, `essentiel/toc`, `essentiel/chapter`, `essentiel/content`, `essentiel/end` or `essentiel/blank`. It requires Base, whose widgets fill its slides.\n\n## Layouts\n\n- `essentiel/title` (profile \"Couverture\"): the cover, first and once. Its title, subtitle and kicker edit the deck's own title, subtitle and organization; author and date come from the deck's params, on one line below. The theme picks a plain or a band cover.\n- `essentiel/toc` (\"Sommaire\"): lists the chapter slides with their number and page; its title defaults to the deck's toc title. Worth it from three chapters on.\n- `essentiel/chapter` (\"Chapitre\"): opens a section with a title and a subtitle, numbered by the deck's chapter numbering. Its title feeds the toc and the header's chapter label: keep it short.\n- `essentiel/content`: every ordinary slide: `kicker`, `title`, then either `blocks` laid out by `layout`, or, with no blocks, `elements` placed freely on the slide's `grid` (12 by 6 by default).\n- `essentiel/end` (\"Fin\"): one centered closing text.\n- `essentiel/blank`: no title, header or footer; only free `elements` on a grid. For full-bleed images or diagrams.\n\n## Content layouts and profiles\n\n- default: blocks stacked; images and charts share the height left. Profile \"Texte\": title, kicker, one text block.\n- columns: one equal column per block. Profile \"Trois cartes\": three blocks, usually cards.\n- split: two columns; extra blocks wrap to a new row. Profile \"Deux colonnes\": text beside an image, a chart or a table.\n- quote: large display text behind an accent bar. Profile \"Citation\": the title introduces, one block holds the quote.\n- center: blocks centered on the page. Profile \"Message central\": one short statement, no title.\n- Profile \"Libre\": no blocks, two free elements on the grid.\n\n## Advice\n\n- One message per content slide; its title states that message, its kicker (short, often uppercase) names the topic.\n- Prefer blocks to free elements: blocks follow the theme and resize together. Use free elements for diagrams and overlaps.\n- Keep the default layout to 1 to 3 blocks; split to two.\n- An empty title removes the title row; use it only for center slides.\n- Cover, chapter and end slides have no header or footer.\n\n## Theme tokens\n\nUnder component.essentiel:\n\n- title: size, color, weight, font, tracking, leading, gap, rule (none or width, height, color).\n- title-slide: layout (plain or band), bg, title, subtitle and meta sizes and colors, bar, band-bg, band-ratio, band colors, top-left and top-right templates, top rule, badge.\n- chapter: bg, ink, number-color, number-size, number-opacity, title-size, title-tracking, subtitle-size.\n- toc: size, number-color, page-color, gap. end-slide: bg, size, color. quote: size, color, bar-color. columns: gap.\n\nThe global families header, footer, list and kicker shape every content slide too.",
+              "variant": "caption"
+            },
+            {
+              "id": "layouts/essentiel/guide",
+              "component": "Disclosure",
+              "summary": "Guide pour les agents (intégré)",
+              "child": "layouts/essentiel/guide-text"
+            },
+            {
               "id": "layouts/essentiel/open",
               "component": "Button",
               "label": "Ouvrir",
@@ -1629,6 +1641,7 @@
               "children": [
                 "layouts/essentiel/head",
                 "layouts/essentiel/ns",
+                "layouts/essentiel/guide",
                 "layouts/essentiel/refusal",
                 "layouts/essentiel/actions"
               ]
@@ -1678,6 +1691,18 @@
               "variant": "caption"
             },
             {
+              "id": "widgets/base/guide-text",
+              "component": "Text",
+              "text": "# Using Base\n\nBase holds the element widgets every deck pins: `base/text`, `base/card`, `base/image`, `base/shape`, `base/chart`, `base/table` and `base/stack`. Put them in a slide's blocks (laid out by the slide) or its elements (placed freely on the slide's grid).\n\n## Which widget\n\n- `base/text`: prose, bullet and numbered lists, headings. The only widget with typography: size, color, weight, font, align, leading, spacing, indent, inset and valign come from the element's style. Prefer one text holding a list to several texts.\n- `base/card`: one point in a box: `kicker`, `title`, a rich `body`, and `highlight` to put it on the theme's dark highlight colors. Use 2 to 4 cards side by side for parallel points; highlight one at most. In a frame or a grid cell, a card fills its place.\n- `base/image`: a deck asset (`asset`), `fit` cover (crops to fill, the default), contain (whole image) or stretch. In the flow it keeps its proportions.\n- `base/shape`: rect, ellipse, line or path, styled by fill, stroke, stroke-width and radius; it defaults to a `surface` fill and `md` radius. A path is `{\"d\": \"M x y L x y C … Q … Z\"}`, coordinates relative to the frame (0 to 1). Use shapes for accents, separators and diagrams, not as text boxes.\n- `base/chart`: an ECharts-style `option` (bar, line, pie, scatter, radar, waterfall), colored by the theme's chart.palette.\n- `base/table`: cells in `data.dataset.source`, one array per row; the first row is the header unless `header-row` is false; `header-column`, `striped` and a per-column `align` are optional. At most 100 rows and 20 columns. Numbers are written in the deck language; true shows ✓. Cells are plain text.\n- `base/stack`: keeps flow children together in rows, columns or a grid of `count` columns, with a `gap` from xs to xxl (default lg).\n\n## Height in a slide's blocks\n\nText, card, shape and stack keep their own height; image and chart share the height left; a table keeps its height when it fits its share, otherwise it takes one and shrinks to fit.\n\n## Avoid\n\n- Literal colors where a theme color name fits (ink, ink-muted, accent, on-accent, surface, rule): theme names follow a theme change, literals do not.\n- Long paragraphs in cards, more than 4 cards in a row, a table for two or three numbers (cards or a chart read better).\n- Shapes or stacked texts that imitate a card, a list or a table.\n\n## Theme tokens\n\nBase's component tokens restyle every card or table of the deck at once:\n\n- component.base.card: bg, border-color, border-width, radius, top-rule-color, top-rule-width, padding-x, padding-y, title-size, title-weight, title-color, gap, height (auto or fill), highlight-bg, highlight-ink, highlight-title, highlight-kicker.\n- component.base.table: size, header-bg, header-color, header-weight, body-bg, stripe-bg, rule-color, rule-width, padding-x, padding-y.",
+              "variant": "caption"
+            },
+            {
+              "id": "widgets/base/guide",
+              "component": "Disclosure",
+              "summary": "Guide pour les agents (intégré)",
+              "child": "widgets/base/guide-text"
+            },
+            {
               "id": "widgets/base/open",
               "component": "Button",
               "label": "Ouvrir",
@@ -1709,6 +1734,7 @@
               "children": [
                 "widgets/base/head",
                 "widgets/base/ns",
+                "widgets/base/guide",
                 "widgets/base/refusal",
                 "widgets/base/actions"
               ]
@@ -1941,6 +1967,18 @@
               }
             },
             {
+              "id": "theme-guide-text",
+              "component": "Text",
+              "text": "# Using Papier\n\nPapier is the theme of a new deck: warm off-white paper (`bg` #fffdf9, `surface` #f7f5f0), dark brown `ink`, a muted green `accent` (#3f6b5e) and a pale green `accent-soft`. Titles are in Newsreader, a serif, at weight 500; body text in Instrument Sans. It suits calm, editorial, text-led decks.\n\n- Colors by name: bg, surface, ink, ink-muted, accent, on-accent, accent-soft, rule. Keep accent for one emphasis per slide; use accent-soft only as a fill behind ink text (a shape, a highlight), never as a text color.\n- Chapter slides sit on `surface` with ink text and an accent number; the cover is plain on `bg` with an accent bar; the end slide is on `surface`.\n- Highlighted cards turn dark ink with an accent-soft kicker: one per slide at most.\n- Charts take accent, then rust, blue, ochre, plum and ink-muted: up to six series, the key one first.\n- Sizes, spacing and margins are the library defaults (titles 60, body 32 on a 1920 by 1080 page): keep bullets short, about six lines a slide.\n- Header and footer are the defaults: chapter and organization on top, author, date and page number below.\n- A change for this deck only belongs in the deck tokens; a lasting variant is a theme that extends Papier.",
+              "variant": "caption"
+            },
+            {
+              "id": "theme-guide",
+              "component": "Disclosure",
+              "summary": "Guide pour les agents (intégré)",
+              "child": "theme-guide-text"
+            },
+            {
               "id": "theme",
               "component": "Column",
               "children": [
@@ -1949,7 +1987,8 @@
                 "theme-overrides",
                 "theme-pick",
                 "theme-open",
-                "theme-update"
+                "theme-update",
+                "theme-guide"
               ]
             },
             {

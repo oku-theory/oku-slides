@@ -12,6 +12,7 @@ agent-surface-themes = 主題
 agent-surface-variants = 變體
 agent-surface-permission-always = 永久
 agent-surface-permission-title = AI 代理請求一項權限
+agent-surface-permission-guides = 本輪包含收到的 { $names } 指南。
 agent-undo-turn = AI 代理：{ $text }
 
 agent-tools-unavailable = AI 代理的工具未能啟動。

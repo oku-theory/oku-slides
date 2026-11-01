@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use oku_slides_core::{Namespace, PackFiles, PackKind, PackScope};
+use oku_slides_core::{Guides, Namespace, PackFiles, PackKind, PackScope};
 use oku_slides_session::{ESSENTIEL_PACK, PackLibrary, PackManifest, Storage, library_pack};
 use serde_json::{Map, json};
 use speculoos::prelude::*;
@@ -32,6 +32,7 @@ fn legacy_files() -> PackFiles {
         styles: BTreeMap::default(),
         tokens: Vec::new(),
         order: Vec::new(),
+        guides: Guides::default(),
     };
     m.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }

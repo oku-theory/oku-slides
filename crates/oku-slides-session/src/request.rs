@@ -8,9 +8,10 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, Op, PackKind};
+use oku_slides_core::{GuideKind, Namespace, Op, PackKind};
 
 use crate::error::{EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
+use crate::guide_approvals::VersionRef;
 use crate::theme_extends::ExtendsEdit;
 use crate::views::UiState;
 use crate::{Mode, PreviewFormat, PreviewSpan, Result, Session};
@@ -297,6 +298,23 @@ pub enum Request {
         /// New Typst source; when empty, the file is deleted.
         source: String,
     },
+    /// Writes the edit or use guide of the edited pack or theme; empty text clears it.
+    SetGuide {
+        /// Which guide.
+        which: GuideKind,
+        /// New text; when empty, the guide is cleared.
+        text: String,
+    },
+    /// Approves the guides of these received versions for good.
+    ApproveGuides {
+        /// The versions approved.
+        versions: Vec<VersionRef>,
+    },
+    /// Puts the approval of these versions off for this tab; the deck asks again when reopened.
+    LaterGuides {
+        /// The versions set aside.
+        versions: Vec<VersionRef>,
+    },
     /// Supprime un fichier de widget ; refusé s'il est utilisé par un modèle ou le deck.
     RemoveWidget {
         /// Namespace of the pack (see `WidgetStatus`).
@@ -459,6 +477,8 @@ impl Session {
                     | Request::UsePackCopy { .. }
                     | Request::UseThemeVersion { .. }
                     | Request::SaveTheme { .. }
+                    | Request::ApproveGuides { .. }
+                    | Request::LaterGuides { .. }
             ),
             !matches!(
                 req,
@@ -499,6 +519,12 @@ impl Session {
                 self.persist(true);
                 return json(&change);
             }
+            Request::SetGuide { which, text } => {
+                self.set_guide(which, text)?;
+                self.note(format!("user edited the {} guide", which.as_str()));
+            }
+            Request::ApproveGuides { versions } => self.library.guide_approvals().approve(&versions)?,
+            Request::LaterGuides { versions } => self.guides_later.extend(versions),
             Request::RemoveWidget { pack, name } => {
                 let statuses = self.remove_widget(pack.as_ref(), &name)?;
                 self.persist(true);

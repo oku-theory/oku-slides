@@ -398,3 +398,26 @@ ui-about-close = Fermer
 
 # Mots qui, seuls dans une consigne, ouvrent le sélecteur de thème ; séparés par des virgules, anglais compris.
 ui-shortcut-theme = thème, thèmes, theme, themes
+
+# Agent guides: the section of a pack or theme tab, and the install dialog.
+ui-guides-title = Guides pour les agents
+ui-guides-edit = Comment modifier
+ui-guides-use = Comment utiliser
+ui-guides-count = { $count } / { $max }
+ui-guides-origin-builtin = Intégré
+ui-guides-origin-local = Le vôtre
+ui-guides-origin-received = Reçu
+ui-guides-approve = Approuver ce guide
+ui-guides-awaiting = Pas envoyé à l'agent tant que vous ne l'approuvez pas.
+ui-guides-install-title = Ce deck apporte des guides pour les agents
+ui-guides-install-intro = Ils ne parviennent à l'agent qu'une fois approuvés. Lisez-les d'abord.
+ui-guides-install-approve = Approuver les guides
+ui-guides-install-later = Plus tard
+ui-guides-install-items = { $count ->
+    [one] { $count } élément
+   *[other] { $count } éléments
+  }
+ui-guides-install-requires = Requiert { $names }
+ui-guides-kind-widgets = Widgets
+ui-guides-kind-layouts = Layouts
+ui-guides-kind-theme = Thème

@@ -98,6 +98,7 @@ impl Session {
             return WrongDocumentSnafu { kind: self.document_kind() }.fail()?;
         };
         let (old, session) = (edit.draft.base.clone(), edit.session_version.clone());
+        let before = self.predecessor(old.id, &old.version, true);
         let (id, fresh) = (manifest.id, manifest.id != old.id);
         if !fresh {
             self.ensure_theme_lease()?;
@@ -120,10 +121,12 @@ impl Session {
             manifest.parent = Some(frozen.clone());
             files = manifest.to_files().context(ThemeJsonSnafu { id })?;
         }
+        self.taint_inherited(&files, before.as_ref(), true);
         let version = self.themes.save_draft(&lock, id, &write, &files)?;
         drop(lock);
         let pin = pin_of(&manifest, version.clone());
         // The saved version is the tab's base from now on: read in memory.
+        self.approve_written(id, &files, before.as_ref());
         self.doc.sources.add_theme(files);
         let saved = ThemeEdit::starting(pin.clone(), &manifest);
         if let Mode::Theme { edit, switches, lease } = &mut self.mode {

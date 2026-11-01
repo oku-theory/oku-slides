@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use snafu::{ResultExt, ensure};
 use uuid::Uuid;
 
-use oku_slides_core::{Namespace, PackFiles, PackKind, PackScope, PackVersion, ThemeManifest, now_created};
+use oku_slides_core::{Guides, Namespace, PackFiles, PackKind, PackScope, PackVersion, ThemeManifest, now_created};
 use oku_slides_platform::storage::Storage;
 
 use crate::Result;
@@ -21,6 +21,7 @@ use crate::agent::bounds::label;
 use crate::error::{
     LeaseMissingSnafu, NamespaceReservedSnafu, NamespaceTakenSnafu, PackJsonSnafu, PackKindChangedSnafu, ThemeJsonSnafu,
 };
+use crate::guide_approvals::GuideApprovals;
 use crate::library::{DraftLock, DraftWrite, Library, builtin_owner, draft_lock, may_own};
 use crate::library_kind::{Layouts, StoredVersion, Widgets};
 use crate::namespace_slug::library_namespace;
@@ -56,6 +57,8 @@ pub struct PackLibrary {
     lease_scope: Option<LeaseScope>,
     /// The lease key of its theme library; `None` without its directory.
     theme_scope: Option<LeaseScope>,
+    /// The versions whose guides the user approved; shared by clones.
+    guide_approvals: GuideApprovals,
 }
 
 /// What a draft created empty is: a library pack or a library theme.
@@ -87,10 +90,17 @@ impl PackLibrary {
     /// `themes` : la bibliothèque des thèmes de la même session (un clone partage son index).
     #[must_use]
     pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
+        let guide_approvals = GuideApprovals::load(None, storage.clone());
         let (widgets, layouts) = (Library::new(widgets, storage.clone()), Library::new(layouts, storage));
         let lease_scope = widgets.dir().zip(layouts.dir()).map(|(w, l)| LeaseScope::new(w, l));
         let theme_scope = themes.dir().map(LeaseScope::themes);
-        Self { widgets, layouts, themes, lease_scope, theme_scope }
+        Self { widgets, layouts, themes, lease_scope, theme_scope, guide_approvals }
+    }
+
+    /// The versions whose guides the user approved.
+    #[must_use]
+    pub fn guide_approvals(&self) -> &GuideApprovals {
+        &self.guide_approvals
     }
 
     /// This library's lease key; None without both directories.
@@ -117,7 +127,9 @@ impl PackLibrary {
     #[must_use]
     pub fn with_themes(platform: &oku_slides_platform::Platform, themes: ThemeLibrary) -> Self {
         let paths = &platform.settings.paths;
-        Self::new(Some(paths.widgets()), Some(paths.layouts()), themes, platform.storage.clone())
+        let mut library = Self::new(Some(paths.widgets()), Some(paths.layouts()), themes, platform.storage.clone());
+        library.guide_approvals = GuideApprovals::load(Some(paths.guide_approvals()), platform.storage.clone());
+        library
     }
 
     /// La bibliothèque des thèmes que celle-ci consulte.
@@ -170,6 +182,16 @@ impl PackLibrary {
     #[must_use]
     pub fn is_received(&self, id: Uuid, v: &PackVersion) -> bool {
         by_kind!(self, self.kind_of(id), l => l.is_received(id, v))
+    }
+
+    /// Makes the next new write of version `v`, of pack kind `kind`, received (see `Library::taint`).
+    pub(crate) fn taint_pack(&self, v: &PackVersion, kind: PackKind) {
+        by_kind!(self, kind, l => l.taint(v));
+    }
+
+    /// Like [`Self::is_received`], failing closed: an unreadable mark counts as received.
+    pub(crate) fn is_received_or_unreadable(&self, id: Uuid, v: &PackVersion) -> bool {
+        by_kind!(self, self.kind_of(id), l => l.is_received_or_unreadable(id, v))
     }
 
     /// Refuse `files` pour `id` si l'autre sorte connaît ce pack, ou si l'autre sorte ou un thème a son espace de noms.
@@ -325,6 +347,7 @@ impl PackLibrary {
             styles: BTreeMap::new(),
             tokens: Vec::new(),
             order: Vec::new(),
+            guides: Guides::default(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         let write = self.draft_write(&lock, id, None);
@@ -364,6 +387,7 @@ impl PackLibrary {
             parent: None,
             created: now_created(),
             tokens: serde_json::Map::new(),
+            guides: Guides::default(),
         };
         self.check_theme(id, &manifest.namespace)?;
         let files = manifest.to_files().context(ThemeJsonSnafu { id })?;

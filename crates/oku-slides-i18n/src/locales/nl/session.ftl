@@ -88,6 +88,7 @@ session-undo-theme = Thema wijzigen
 session-undo-edited-theme = Thema wijzigen: { $name }
 session-undo-theme-extends = Uitgebreide thema's wijzigen
 session-undo-theme-rename = Thema hernoemen
+session-undo-theme-guide = Handleiding van het thema bewerken
 session-help-deck = De helppresentatie is onleesbaar
 session-agent-form = Het verzoek van de agent is ongeldig: { $reason }
 session-agent-form-too-long = { $at }: { $count } tekens, hoogstens { $max }
@@ -138,6 +139,9 @@ session-widgets-not-saved = De widgetversie van het pakket ‘{ $pack }’ kon n
 session-invalid-widget-name = Ongeldige widgetnaam: ‘{ $name }’. Gebruik kleine letters, cijfers en koppeltekens, of _commun.
 session-widget-too-large = Widget ‘{ $name }’ is groter dan { $max } KiB.
 session-widget-nul = Widget ‘{ $name }’ bevat een NUL-teken.
+session-guide-too-long = De gids is langer dan { $max } tekens.
+session-guide-has-nul = De gids bevat een NUL-teken.
+session-guide-approvals-write = Kan de goedkeuringen van gidsen niet opslaan in { $path }
 session-too-many-widgets = Een pakket kan niet meer dan { $max } widgetbestanden hebben.
 session-widget-in-use = Widget ‘{ $name }’ wordt hier nog gebruikt: { $uses }.
 session-unknown-widget = Widget niet gevonden: ‘{ $name }’.
@@ -673,3 +677,11 @@ voice-agent-model-later = De modellen van de agent verschijnen na zijn eerste an
 voice-agent-model-asked = Gevraagd model: { $model }. De modellen van de agent verschijnen na zijn eerste antwoord.
 voice-agent-model-missing = Deze agent biedt { $model } niet aan: hij gebruikt het getoonde model.
 voice-agent-model-next = Een nieuw model geldt vanaf het volgende bericht in elk tabblad.
+
+deck-packs-guide = { $origin ->
+    [builtin] Gids voor agents (ingebouwd)
+    [received] Gids voor agents (ontvangen)
+   *[local] Gids voor agents (van jou)
+  }
+deck-packs-guide-edit = Gids voor agents over bewerken (ontvangen)
+deck-packs-guide-approve = Deze gids goedkeuren

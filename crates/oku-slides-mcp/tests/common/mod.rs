@@ -10,6 +10,7 @@ pub mod refusals;
 pub mod workspace_harness;
 
 use async_trait::async_trait;
+use oku_slides_core::Guides;
 use oku_slides_mcp::{
     Applied, Checked, DraftPort, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools,
     VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
@@ -802,6 +803,7 @@ pub async fn start_with_library_widget_pack(namespace: &'static str) -> Harness 
             styles: BTreeMap::new(),
             tokens: Vec::new(),
             order: Vec::new(),
+            guides: Guides::default(),
         };
         let files = manifest.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("manifeste : {e}"));
         oku_slides_session::PackLibrary::user(&platform)
