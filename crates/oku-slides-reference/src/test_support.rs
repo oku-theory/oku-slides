@@ -1,7 +1,7 @@
 //! Outils des tests (feature `test-support`) : un PDF blanc fait main, un faux `soffice`.
 
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Un PDF de `pages` pages blanches de `w` × `h` pt.
 #[must_use]
@@ -39,7 +39,7 @@ pub fn blank_pdf(pages: usize, w: u32, h: u32) -> Vec<u8> {
 #[cfg(unix)]
 #[must_use]
 #[expect(clippy::panic, reason = "test tool: a fake soffice that cannot be written must stop the test")]
-pub fn fake_soffice(dir: &Path, body: &str) -> PathBuf {
+pub fn fake_soffice(dir: &Path, body: &str) -> std::path::PathBuf {
     use std::os::unix::fs::PermissionsExt;
     let path = dir.join("soffice");
     let script = format!(

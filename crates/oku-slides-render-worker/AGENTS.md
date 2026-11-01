@@ -9,7 +9,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Refuse to render a slot whose pack is faulty with pack_disabled; never silently render with core widgets only. (plan:2026-09-29-compilation-bornee)
 - Never blame a pack for failures during widget editing or preview; turn a probe timeout into a file diagnostic. (plan:2026-10-02-creation-widgets)
 - Do not retry a faulty pack in the same session until its source fingerprint changes. (spec:2026-09-29-compilation-bornee-design)
-- Apply the watchdog memory limit only during a request; detect parent loss by a PPID change, not PPID 1. (t-340)
+- Apply the watchdog memory limit only during a request; detect parent loss by a PPID change, not PPID 1, on Windows by pid and start time. (t-340, t-1471)
 - Bump PROTOCOL_VERSION on any change to Request, Response or frames; the host refuses a worker of another version. (t-341)
 - Refuse a Render that lists an asset the worker lacks with MissingAssets; the host resends once, never draws its missing frame. (t-1295)
 - Clear every slot's last_assets on reconnect, as the replayed worker has none, so host and worker evict alike. (t-1295)
@@ -26,6 +26,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do not rely on RLIMIT_AS or RLIMIT_DATA for memory limits; macOS ignores them, so poll worker memory instead. (spec:2026-09-29-compilation-bornee-design)
 - Keep render worker stdout free of anything but protocol frames; the worker redirects stdout to stderr. (t-341)
 - Keep allow default (LibreOffice needs the launchservicesd lookup) and the /tmp OSL_PIPE socket rule in worker.sb. (spec:2026-10-17-render-worker-sandbox-design, t-912)
+- Read a Windows process identity with a fresh sysinfo System; a cached entry keeps the handle and a stale start time. (t-1471)
 - Pass every Seatbelt path parameter through storage::canonical; Seatbelt matches real paths, so /var never matches /private/var. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 
 ## Settled decisions

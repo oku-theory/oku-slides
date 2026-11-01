@@ -56,6 +56,7 @@ pub(crate) fn sandbox_for(program: &Path, soffice: Option<&Path>) -> Result<Opti
 
 /// Hors macOS, pas de bac à sable : le travailleur est lancé tel quel.
 #[cfg(not(target_os = "macos"))]
+#[expect(clippy::unnecessary_wraps, reason = "same signature as the macOS sandbox, which can fail")]
 pub(crate) fn sandbox_for(_program: &Path, _soffice: Option<&Path>) -> Result<Option<Sandbox>, RenderError> {
     Ok(None)
 }

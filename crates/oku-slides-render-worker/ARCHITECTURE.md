@@ -29,8 +29,8 @@ too much memory is killed without taking the app down.
   fail to create it (`Canary::Denied`) or it is refused (`WorkerLost`). No switch; other OSes and
   `InProcess` are unsandboxed.
 - `serve` (`serve.rs`): the worker loop, run by `exit_if_worker` on `--render-worker`, under the
-  watchdog (`watchdog.rs`): request > 2 × timeout, memory over the limit for 1 s, parent gone →
-  exit 3. Frames go to a copy of stdout; stdout points to stderr.
+  watchdog (`watchdog.rs`): request > 2 × timeout, memory over the limit for 1 s, parent gone (Windows:
+  pid free or reused, by start time) → exit 3. Frames go to a copy of stdout; stdout points to stderr.
 - `Hello` starts each connection: another `PROTOCOL_VERSION` (6) is refused (`Protocol`). Before each
   request, unused fonts are dropped (`DropFonts`); `registry_of`: a set's registry; `trial_slot` blames none.
 - `Request`/`Response` (`protocol.rs`), frames (`frame.rs`): JSON header and raw payload, bounded

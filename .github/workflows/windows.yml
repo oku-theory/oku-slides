@@ -1,0 +1,81 @@
+# Windows build and render worker tests (t-1471). Nobody here runs Windows: this job is the only
+# place the worker's Windows-only code (watchdog parent check by pid and start time, t-341) is
+# compiled and run. `just ci` stays the full gate, on macOS; release.yml builds the Windows app.
+# Runs on every push to main or PR touching Rust code, and by hand from the Actions tab.
+name: Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "**/Cargo.toml"
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/**
+      - "typst/**"
+      - "fixtures/**"
+      - "assets/fonts/**"
+      - .github/workflows/windows.yml
+  pull_request:
+    paths:
+      - "crates/**"
+      - "**/Cargo.toml"
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/**
+      - "typst/**"
+      - "fixtures/**"
+      - "assets/fonts/**"
+      - .github/workflows/windows.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  render-worker:
+    name: Render worker (Windows)
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      # LF as on macOS: embedded Typst and JSON files must match their hashes and goldens.
+      - name: No CRLF conversion
+        run: git config --global core.autocrlf false
+
+      # Worker tests read fonts from assets/fonts, held in Git LFS.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          lfs: true
+          persist-credentials: false
+
+      - name: Fonts fetched
+        shell: bash
+        run: |
+          if grep -l "^version https://git-lfs" assets/fonts/*.ttf assets/fonts/*.otf 2>/dev/null; then
+            echo "::error::fonts not fetched (Git LFS pointers)"
+            exit 1
+          fi
+
+      # Same pin as release.yml and rust-toolchain.toml (t-1201).
+      - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: windows-render-worker
+
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
+        with:
+          tool: cargo-nextest@0.9.146
+
+      - name: Clippy
+        run: cargo clippy -p oku-slides-render-worker --all-targets --keep-going -- -D warnings
+
+      - name: Tests
+        run: cargo nextest run -p oku-slides-render-worker --retries 2
