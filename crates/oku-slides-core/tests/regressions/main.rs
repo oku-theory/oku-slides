@@ -30,3 +30,4 @@ mod issue_0866_hidden_depth_refused_on_save;
 mod issue_0965_widget_text_too_long;
 mod issue_1068_namespace_pinned_under_both_kinds;
 mod issue_1104_manifest_errors_are_localized;
+mod issue_1381_widget_names_and_values_capped;

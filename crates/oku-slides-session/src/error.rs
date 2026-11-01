@@ -7,6 +7,8 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::storage::StorageError;
 use snafu::{Backtrace, IntoError, Snafu};
 
+use crate::agent::bounds::label;
+
 /// Une requête de l'interface qui n'a pas abouti. La session est intacte.
 ///
 /// Elle enveloppe les erreurs des autres crates : boîte, pour que les
@@ -201,11 +203,11 @@ pub(crate) enum SessionInner {
     NotRendered { backtrace: Backtrace },
     #[snafu(display("no file: choose where to save"))]
     NoPath { backtrace: Backtrace },
-    #[snafu(display("slide not found: {id}"))]
+    #[snafu(display("slide not found: {}", label(id)))]
     NoSlide { id: String, backtrace: Backtrace },
-    #[snafu(display("not a chart: {id}"))]
+    #[snafu(display("not a chart: {}", label(id)))]
     NoChart { id: String, backtrace: Backtrace },
-    #[snafu(display("not a table: {id}"))]
+    #[snafu(display("not a table: {}", label(id)))]
     NoTable { id: String, backtrace: Backtrace },
     #[snafu(display("chart conversion failed"))]
     Chart { source: oku_slides_chart::ChartError, backtrace: Backtrace },
@@ -282,26 +284,26 @@ pub(crate) enum SessionInner {
     PackModePreview { backtrace: Backtrace },
     #[snafu(display("this request does not fit a {} tab", kind.as_str()))]
     WrongDocument { kind: crate::DocumentKind, backtrace: Backtrace },
-    #[snafu(display("unknown host setting: {key}"))]
+    #[snafu(display("unknown host setting: {}", label(key)))]
     HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid surface: {reason}"))]
     AgentForm { reason: crate::agent::AgentFormReason, backtrace: Backtrace },
-    #[snafu(display("an op cites asset {asset} that is neither in the deck nor pasted"))]
+    #[snafu(display("an op cites asset {} that is neither in the deck nor pasted", label(asset)))]
     UnknownAsset { asset: String, backtrace: Backtrace },
     #[snafu(display("pasted image refused: {reason:?}"))]
     Paste { reason: crate::agent::PasteReason, backtrace: Backtrace },
-    #[snafu(display("{owner} is neither slide {slide} nor one of its elements"))]
+    #[snafu(display("{} is neither slide {} nor one of its elements", label(owner), label(slide)))]
     UnknownOwner { slide: String, owner: String, backtrace: Backtrace },
-    #[snafu(display("{owner} has no text field {field}"))]
+    #[snafu(display("{} has no text field {}", label(owner), label(field)))]
     UnknownField { owner: String, field: String, backtrace: Backtrace },
-    #[snafu(display("name a text field of {owner}"))]
+    #[snafu(display("name a text field of {}", label(owner)))]
     FieldNeeded { owner: String, backtrace: Backtrace },
-    /// The id comes from a request: cleaned and clipped for the logs.
-    #[snafu(display("tab not found: {}", crate::agent::bounds::label(id)))]
+    /// The id comes from a request: cleaned and clipped for the logs, as below.
+    #[snafu(display("tab not found: {}", label(id)))]
     UnknownTab { id: String, backtrace: Backtrace },
-    #[snafu(display("window not found: {label}"))]
+    #[snafu(display("window not found: {}", crate::agent::bounds::label(label)))]
     UnknownWindow { label: String, backtrace: Backtrace },
     #[snafu(display("only one presentation can be open here"))]
     SingleDocument { backtrace: Backtrace },
@@ -323,7 +325,7 @@ pub(crate) enum SessionInner {
     NotHelp { backtrace: Backtrace },
     #[snafu(display("agent turn {turn} is no longer the last change"))]
     TurnNotOnTop { turn: u32, backtrace: Backtrace },
-    #[snafu(display("unknown theme: {theme}"))]
+    #[snafu(display("unknown theme: {}", label(theme)))]
     UnknownTheme { theme: String, backtrace: Backtrace },
     #[snafu(display("themes extend each other in a loop: {chain}"))]
     ThemeCycle { chain: String, backtrace: Backtrace },
@@ -349,7 +351,7 @@ pub(crate) enum SessionInner {
     HelpDeck { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("unreadable version"))]
     Version { source: oku_slides_core::ReplicaError, backtrace: Backtrace },
-    #[snafu(display("invalid widget name: {name}"))]
+    #[snafu(display("invalid widget name: {}", label(name)))]
     InvalidWidgetName { name: String, backtrace: Backtrace },
     #[snafu(display("widget {name} is larger than {max} KiB"))]
     WidgetTooLarge { name: String, max: usize, backtrace: Backtrace },
@@ -365,13 +367,13 @@ pub(crate) enum SessionInner {
     TooManyWidgets { max: usize, backtrace: Backtrace },
     #[snafu(display("widget {name} is still used by: {}", uses.join(", ")))]
     WidgetInUse { name: String, uses: Vec<String>, backtrace: Backtrace },
-    #[snafu(display("widget not found: {name}"))]
+    #[snafu(display("widget not found: {}", label(name)))]
     UnknownWidget { name: String, backtrace: Backtrace },
     #[snafu(display("widget file does not compile: {name}"))]
     WidgetInvalid { name: String, backtrace: Backtrace },
-    #[snafu(display("{param} is not a parameter of this widget"))]
+    #[snafu(display("{} is not a parameter of this widget", label(param)))]
     TrialUndeclared { param: String, backtrace: Backtrace },
-    #[snafu(display("{param} cannot be set in the preview"))]
+    #[snafu(display("{} cannot be set in the preview", label(param)))]
     TrialFixed { param: String, backtrace: Backtrace },
     #[snafu(display("trial value too long for {param}"))]
     TrialTooLong { param: String, backtrace: Backtrace },
@@ -653,9 +655,9 @@ impl Localize for SessionError {
             Registry { source, .. } => source.localize(l),
             NotRendered { .. } => l.tr("session-not-rendered"),
             NoPath { .. } => l.tr("session-no-path"),
-            NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", id.as_str().into())]),
-            NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", id.as_str().into())]),
-            NoTable { id, .. } => l.tr_with("session-no-table", &[("subject", id.as_str().into())]),
+            NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", label(id).into())]),
+            NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", label(id).into())]),
+            NoTable { id, .. } => l.tr_with("session-no-table", &[("subject", label(id).into())]),
             Chart { source, .. } => source.localize(l),
             BuiltinPack { .. } => l.tr("session-builtin-pack"),
             NoLibraryDir { .. } => l.tr("session-no-library-dir"),
@@ -728,20 +730,18 @@ impl Localize for SessionError {
             PackModeSlides { .. } => l.tr("session-pack-mode-slides"),
             PackModePreview { .. } => l.tr("session-pack-mode-preview"),
             WrongDocument { kind, .. } => l.tr_with("session-wrong-document", &[("kind", kind.as_str().into())]),
-            HostKey { key, .. } => l.tr_with("session-host-key", &[("key", key.as_str().into())]),
+            HostKey { key, .. } => l.tr_with("session-host-key", &[("key", label(key).into())]),
             Response { .. } => l.tr("session-response"),
             Paste { reason, .. } => l.tr(reason.key()),
             UnknownAsset { .. } => l.tr("session-asset-unknown"),
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.localize(l).into())]),
-            UnknownOwner { slide, owner, .. } => l.tr_with(
-                "session-unknown-owner",
-                &[("slide", slide.as_str().into()), ("owner", owner.as_str().into())],
-            ),
-            UnknownField { owner, field, .. } => l.tr_with(
-                "session-unknown-field",
-                &[("owner", owner.as_str().into()), ("field", field.as_str().into())],
-            ),
-            FieldNeeded { owner, .. } => l.tr_with("session-field-needed", &[("owner", owner.as_str().into())]),
+            UnknownOwner { slide, owner, .. } => {
+                l.tr_with("session-unknown-owner", &[("slide", label(slide).into()), ("owner", label(owner).into())])
+            }
+            UnknownField { owner, field, .. } => {
+                l.tr_with("session-unknown-field", &[("owner", label(owner).into()), ("field", label(field).into())])
+            }
+            FieldNeeded { owner, .. } => l.tr_with("session-field-needed", &[("owner", label(owner).into())]),
             UnknownTab { .. } => l.tr("session-unknown-tab"),
             UnknownWindow { .. } => l.tr("session-unknown-window"),
             SingleDocument { .. } => l.tr("session-single-document"),
@@ -754,7 +754,7 @@ impl Localize for SessionError {
             CannotPresent { reason, .. } => l.tr(reason.key()),
             NotHelp { .. } => l.tr("session-not-help"),
             TurnNotOnTop { .. } => l.tr("session-turn-not-on-top"),
-            UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", theme.as_str().into())]),
+            UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", label(theme).into())]),
             ThemeCycle { chain, .. } => l.tr_with("session-theme-cycle", &[("chain", chain.as_str().into())]),
             ThemeExtendsDuplicate { theme, .. } => {
                 l.tr_with("session-theme-extends-duplicate", &[("theme", theme.as_str().into())])
@@ -784,9 +784,7 @@ impl Localize for SessionError {
             }
             HelpDeck { .. } => l.tr("session-help-deck"),
             Version { source, .. } => source.localize(l),
-            InvalidWidgetName { name, .. } => {
-                l.tr_with("session-invalid-widget-name", &[("name", name.as_str().into())])
-            }
+            InvalidWidgetName { name, .. } => l.tr_with("session-invalid-widget-name", &[("name", label(name).into())]),
             WidgetTooLarge { name, max, .. } => {
                 l.tr_with("session-widget-too-large", &[("name", name.as_str().into()), ("max", (*max).into())])
             }
@@ -797,10 +795,10 @@ impl Localize for SessionError {
             WidgetInUse { name, uses, .. } => {
                 l.tr_with("session-widget-in-use", &[("name", name.as_str().into()), ("uses", uses.join(", ").into())])
             }
-            UnknownWidget { name, .. } => l.tr_with("session-unknown-widget", &[("name", name.as_str().into())]),
+            UnknownWidget { name, .. } => l.tr_with("session-unknown-widget", &[("name", label(name).into())]),
             WidgetInvalid { name, .. } => l.tr_with("session-widget-invalid", &[("name", name.as_str().into())]),
-            TrialUndeclared { param, .. } => l.tr_with("session-trial-undeclared", &[("param", param.as_str().into())]),
-            TrialFixed { param, .. } => l.tr_with("session-trial-fixed", &[("param", param.as_str().into())]),
+            TrialUndeclared { param, .. } => l.tr_with("session-trial-undeclared", &[("param", label(param).into())]),
+            TrialFixed { param, .. } => l.tr_with("session-trial-fixed", &[("param", label(param).into())]),
             TrialTooLong { param, .. } => l.tr_with("session-trial-too-long", &[("param", param.as_str().into())]),
             TrialValue { param, source, .. } => l.tr_with(
                 "session-trial-value",

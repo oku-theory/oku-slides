@@ -7,6 +7,7 @@
 //! `OKU_SLIDES_STT__VAD__PAUSE=0.9`).
 
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -430,8 +431,8 @@ pub struct ModelsSettings {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct SttSettings {
-    /// Pace of the listening loop (ms).
-    pub tick_ms: u64,
+    /// Pace of the listening loop (ms); 0 is refused, it would spin the loop (t-1383).
+    pub tick_ms: NonZeroU64,
     /// Without any speech for this long (s), listening stops.
     pub nothing_heard_secs: f32,
     /// New preview when the sentence has grown by at least this much (s).

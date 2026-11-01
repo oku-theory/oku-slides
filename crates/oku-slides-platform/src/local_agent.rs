@@ -9,16 +9,17 @@ use crate::config::{LocalEngine, Settings};
 use crate::models::PinnedFile;
 use crate::storage::Storage;
 
+/// Size of the model file in bytes, checked against the hub (`X-Linked-Size`).
+pub const AGENT_MODEL_SIZE: u64 = 2_497_281_120;
+
 /// The Qwen3 4B Instruct 2507 model (`Q4_K_M`), pinned to an audited revision.
 pub const AGENT_MODEL: PinnedFile = PinnedFile {
     repo: "unsloth/Qwen3-4B-Instruct-2507-GGUF",
     revision: "a06e946bb6b655725eafa393f4a9745d460374c9",
     name: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     sha256: Some("3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597"),
+    size: AGENT_MODEL_SIZE,
 };
-
-/// Taille du fichier du modèle, en octets.
-pub const AGENT_MODEL_SIZE: u64 = 2_497_281_120;
 
 /// Les fichiers à télécharger pour l'agent local (une tranche `'static`).
 pub const AGENT_MODEL_FILES: [PinnedFile; 1] = [AGENT_MODEL];

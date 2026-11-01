@@ -3,7 +3,7 @@
 //! [`label`] serves the whole crate: it cleans deck, manifest and request strings.
 
 use oku_slides_a2ui::ChoiceOption;
-use oku_slides_i18n::is_hidden_control;
+use oku_slides_i18n::{is_hidden_control, is_line_control};
 use snafu::ensure;
 
 use super::AgentFormReason;
@@ -44,13 +44,14 @@ pub fn clip(text: &str, max: usize) -> String {
 /// Invisible or blank-rendering code points that `label` removes besides the hidden controls.
 ///
 /// Default-ignorable code points, the joiners U+200C and U+200D that `clip` keeps for
-/// scripts and emoji, and the code points that draw blanks (Braille blank, Hangul fillers).
+/// scripts and emoji, and the code points that draw blanks (Braille blank, conjoining Hangul
+/// fillers; the other two are hidden controls).
 fn is_label_invisible(c: char) -> bool {
     matches!(
         c,
         '\u{034F}' | '\u{115F}' | '\u{1160}' | '\u{17B4}'..='\u{17B5}' | '\u{180B}'..='\u{180F}'
             | '\u{200C}' | '\u{200D}' | '\u{2065}' | '\u{206A}'..='\u{206F}' | '\u{2800}'
-            | '\u{3164}' | '\u{FE00}'..='\u{FE0F}' | '\u{FFA0}' | '\u{FFF9}'..='\u{FFFB}'
+            | '\u{FE00}'..='\u{FE0F}' | '\u{FFF9}'..='\u{FFFB}'
             | '\u{1D159}'..='\u{1D15A}' | '\u{1D173}'..='\u{1D17A}' | '\u{E0100}'..='\u{E01EF}'
     )
 }
@@ -78,7 +79,7 @@ pub fn label(text: &str) -> String {
     let cleaned: String = text
         .chars()
         .filter_map(|c| {
-            if c.is_control() || matches!(c, '\u{2028}' | '\u{2029}') {
+            if is_line_control(c) {
                 Some(' ')
             } else if is_hidden_control(c) || is_label_invisible(c) {
                 None

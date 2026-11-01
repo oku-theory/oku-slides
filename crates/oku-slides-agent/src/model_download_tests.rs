@@ -50,7 +50,7 @@ fn sha(bytes: &[u8]) -> &'static str {
 
 /// Deux fichiers épinglés `a.bin` (« hello ») et `b.bin` (« world »), en tranche `'static`.
 fn pins(a: &[u8], b: &[u8]) -> &'static [PinnedFile] {
-    let file = |name, sha256| PinnedFile { repo: "repo", revision: "rev", name, sha256: Some(sha256) };
+    let file = |name, sha256| PinnedFile { repo: "repo", revision: "rev", name, sha256: Some(sha256), size: 1 << 20 };
     Box::leak(Box::new([file("a.bin", sha(a)), file("b.bin", sha(b))]))
 }
 

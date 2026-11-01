@@ -292,7 +292,7 @@ fn element_kind_title_is_kept_by_the_model_and_reported_by_validate() {
 fn widget_error_names_the_refused_widget() {
     let pack = [widget("card", "element", &json!([{ "name": "a", "type": "choice", "values": [] }]))];
     let err = WidgetRegistry::from_probe(probe(&[card()], Some(&pack))).unwrap_err();
-    assert_that!(err.widget()).is_equal_to(Some("card"));
+    assert_that!(err.widget()).is_equal_to(Some("acme/card"));
     let unreadable = WidgetRegistry::from_probe(json!({ "packs": 1 })).unwrap_err();
     assert_that!(unreadable.widget()).is_none();
 }
@@ -584,7 +584,7 @@ fn localize_slide_sizing_fault_names_the_widget_in_each_locale(#[case] locale: &
     assert_that!(err.kind()).is_equal_to(WidgetErrorKind::BadSchema(SchemaFault::SlideSizing));
     let text = err.localize(&Localizer::new(Some(locale)));
     assert_that!(text).contains(fragment);
-    assert_that!(text).contains("Widget s");
+    assert_that!(text).contains("Widget t/s");
 }
 
 #[test]

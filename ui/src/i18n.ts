@@ -36,36 +36,46 @@ export function locale(): string {
  * Bidi controls and invisible characters a label must not carry (t-959).
  *
  * Same set as `oku_slides_i18n::is_hidden_control`: bidi marks, embeddings, overrides and
- * isolates, U+061C, zero-width space, word joiners, BOM, U+180E, soft hyphen, tag characters.
- * ZWJ and ZWNJ stay (Indic scripts, emoji sequences).
+ * isolates, U+061C, zero-width space, word joiners, BOM, U+180E, soft hyphen, the Hangul fillers
+ * U+3164 and U+FFA0, tag characters. ZWJ and ZWNJ stay (Indic scripts, emoji sequences), as do
+ * the variation selectors and the conjoining fillers U+115F, U+1160.
  */
-const HIDDEN = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B\u2060-\u2064\uFEFF\u180E\u00AD\u{E0000}-\u{E007F}]/gu;
+const HIDDEN =
+  /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B\u2060-\u2064\uFEFF\u180E\u00AD\u3164\uFFA0\u{E0000}-\u{E007F}]/gu;
 
-/** `s` without bidi controls and invisible characters. */
-function stripHidden(s: string): string {
-  return s.replace(HIDDEN, "");
+/**
+ * Line breaks and terminal controls, turned into spaces in an argument (t-1379).
+ *
+ * Same set as `oku_slides_i18n::is_line_control`: the `Cc` controls (LF, CR, TAB, ESC, NEL…)
+ * and U+2028, U+2029. A paragraph separator would end every isolate around it.
+ */
+const LINE = /[\u0000-\u001F\u007F-\u009F\u2028\u2029]/gu;
+
+/** `s` made safe to interpolate: hidden controls removed, line controls turned into spaces. */
+export function cleanArg(s: string): string {
+  return s.replace(HIDDEN, "").replace(LINE, " ");
 }
 
 /** One pair an `isolate` call put around a value (several when isolated items were joined). */
 const ISOLATED = /\u2068([^\u2068\u2069]*)\u2069/gu;
 
-/** A string argument made safe: stripped, keeping each balanced pair `isolate` calls put in it. */
+/** A string argument made safe: cleaned, keeping each balanced pair `isolate` calls put in it. */
 function safeArg(v: FluentVariable): FluentVariable {
   if (typeof v !== "string") return v;
   let out = "";
   let last = 0;
   for (const m of v.matchAll(ISOLATED)) {
-    out += stripHidden(v.slice(last, m.index)) + isolate(stripHidden(m[1] ?? ""));
+    out += cleanArg(v.slice(last, m.index)) + isolate(cleanArg(m[1] ?? ""));
     last = m.index + m[0].length;
   }
-  return out + stripHidden(v.slice(last));
+  return out + cleanArg(v.slice(last));
 }
 
 /**
  * Un message ; un identifiant inconnu se voit tel quel plutôt que de disparaître.
  *
- * String arguments lose their bidi controls and invisible characters: the bundle adds no
- * isolation marks, so a forged name could otherwise reorder the sentence around it.
+ * String arguments are cleaned: the bundle adds no isolation marks, so a forged name could
+ * otherwise reorder the sentence around it (t-959) or inject a line (t-1379).
  */
 export function t(id: string, args?: Record<string, FluentVariable>): string {
   const message = bundle.getMessage(id);

@@ -47,7 +47,7 @@ fn defaults_embedded_file_gives_documented_values() {
     assert_that!((s.serve.host.as_str(), s.serve.port)).is_equal_to(("127.0.0.1", 4870));
     assert_that!(s.serve.header_timeout()).is_equal_to(std::time::Duration::from_secs(10));
     assert_that!(s.serve.max_connections.get()).is_equal_to(64);
-    assert_that!(s.stt.tick_ms).is_equal_to(50);
+    assert_that!(s.stt.tick_ms.get()).is_equal_to(50);
     assert_that!(s.stt.vad.onset_frames).is_equal_to(3);
     assert_that!(s.paths).is_equal_to(PathSettings::default());
     // Sans réglage, la langue du système.

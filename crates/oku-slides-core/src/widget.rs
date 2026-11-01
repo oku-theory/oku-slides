@@ -14,7 +14,7 @@ use snafu::ResultExt;
 use crate::error::{BadSchemaSnafu, SchemaFault, UnreadableSnafu, WidgetError};
 use crate::localized_text::LocalizedText;
 use crate::namespace::{Namespace, qualify};
-use crate::ops::{DefaultFault, default_fault};
+use crate::ops::{DefaultFault, PLAIN_MAX, default_fault};
 use crate::pack_kind::PackKind;
 
 /// What a widget renders: a whole slide, or a slide element.
@@ -178,6 +178,10 @@ pub enum ParamType {
 pub const WIDGET_LABEL_MAX: usize = 120;
 /// Longest widget description or parameter help, in characters.
 pub const WIDGET_DESCRIPTION_MAX: usize = 500;
+/// Longest parameter, column or `bind` name, in characters.
+pub const PARAM_NAME_MAX: usize = 64;
+/// Most values of a `choice`, or widgets a slot `accepts`.
+pub const SCHEMA_LIST_MAX: usize = 100;
 
 /// Noms interdits à une colonne de `list` : clés de l'item et d'un élément.
 pub(crate) const RESERVED_COLUMNS: [&str; 2] = ["id", "kind"];
@@ -297,9 +301,7 @@ impl WidgetRegistry {
         let probe: Probe = serde_json::from_value(probe).context(UnreadableSnafu)?;
         let mut widgets = BTreeMap::new();
         for pack in probe.packs {
-            for (name, mut w) in collect(pack.widgets)? {
-                let qualified = qualify(&pack.namespace, &name);
-                w.name.clone_from(&qualified);
+            for (qualified, w) in collect(&pack.namespace, pack.widgets)? {
                 if w.category != pack.kind.category() {
                     return Err(fault(&w, SchemaFault::PackCategory));
                 }
@@ -372,10 +374,16 @@ fn fault(w: &WidgetSchema, fault: SchemaFault) -> WidgetError {
     BadSchemaSnafu { widget: w.name.clone(), fault }.build().into()
 }
 
-/// Contrôle chaque widget d'une liste et les range par nom.
-fn collect(list: Vec<WidgetSchema>) -> Result<BTreeMap<String, WidgetSchema>, WidgetError> {
+/// Checks each widget of pack `namespace` and files it under its qualified name.
+///
+/// The name is qualified first, so a fault names this pack's widget, never a same-named widget
+/// of another pack (t-1381). An empty name stays empty: `check_widget` refuses it.
+fn collect(namespace: &Namespace, list: Vec<WidgetSchema>) -> Result<BTreeMap<String, WidgetSchema>, WidgetError> {
     let mut out = BTreeMap::new();
-    for w in list {
+    for mut w in list {
+        if !w.name.is_empty() {
+            w.name = qualify(namespace, &w.name);
+        }
         check_widget(&w)?;
         if out.contains_key(&w.name) {
             return Err(fault(&w, SchemaFault::DuplicateWidget));
@@ -421,18 +429,27 @@ fn localized_too_long(text: Option<&LocalizedText>, max: usize) -> bool {
     }
 }
 
-/// Whether a text of `p` is over its cap.
+/// Whether a text of `p`, or one of its lists, is over its cap.
 ///
-/// Its label or a list's item label is capped at [`WIDGET_LABEL_MAX`], its help at
-/// [`WIDGET_DESCRIPTION_MAX`].
+/// Its name and `bind` are capped at [`PARAM_NAME_MAX`]; its label, a list's item label, each
+/// choice value and each accepted widget at [`WIDGET_LABEL_MAX`]; its help at
+/// [`WIDGET_DESCRIPTION_MAX`]; a string default at [`PLAIN_MAX`] bytes; the choice values and the
+/// accepted widgets at [`SCHEMA_LIST_MAX`] entries.
 fn texts_too_long(p: &ParamSchema) -> bool {
-    let item_label = match &p.ty {
-        ParamType::List { item_label, .. } => item_label.as_deref(),
-        _ => None,
+    let (item_label, entries): (Option<&str>, &[String]) = match &p.ty {
+        ParamType::List { item_label, .. } => (item_label.as_deref(), &[]),
+        ParamType::Choice { values } => (None, values),
+        ParamType::Slot { accepts: Some(kinds), .. } => (None, kinds),
+        _ => (None, &[]),
     };
-    localized_too_long(p.label.as_ref(), WIDGET_LABEL_MAX)
+    too_long(Some(&p.name), PARAM_NAME_MAX)
+        || too_long(p.bind.as_deref(), PARAM_NAME_MAX)
+        || localized_too_long(p.label.as_ref(), WIDGET_LABEL_MAX)
         || too_long(item_label, WIDGET_LABEL_MAX)
         || localized_too_long(p.help.as_ref(), WIDGET_DESCRIPTION_MAX)
+        || p.default.as_ref().and_then(Value::as_str).is_some_and(|d| d.len() > PLAIN_MAX)
+        || entries.len() > SCHEMA_LIST_MAX
+        || entries.iter().any(|e| too_long(Some(e), WIDGET_LABEL_MAX))
 }
 
 fn check_param(w: &WidgetSchema, p: &ParamSchema) -> Result<(), WidgetError> {

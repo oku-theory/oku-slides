@@ -18,7 +18,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 - `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind` (every kind is `ns/name`). `kinds.rs`: `kinds::base`,
   `kinds::essentiel`, `is_builtin_kind`. `pack_kind.rs`: `PackKind` (`widgets`: elements, `layouts`: slides).
 - `widget.rs`: `WidgetRegistry`, `WidgetSchema` and its param types, declared in Typst; ops and `validate` ask it. Probe
-  `{"packs": [{namespace, kind, widgets}]}`; a widget whose category is not its pack kind's is refused; label, description (and a parameter's label, help): `LocalizedText` (`localized_text.rs`).
+  `{"packs": [{namespace, kind, widgets}]}`, names qualified before the checks; a widget whose category is not its pack kind's is refused; every schema text and list is capped; label, description (and a parameter's label, help): `LocalizedText` (`localized_text.rs`).
 - `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`; `set_theme` checks `check_closure`); `edit.rs` applies the multi-step variants (checks, then the write); `check.rs` types subtrees;
   `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs` (`ListPath`: `param` or
   `param/item/column`, one level); `grid.rs` (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)`,

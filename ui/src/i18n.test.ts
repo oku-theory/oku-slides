@@ -30,8 +30,16 @@ describe("t", () => {
     expect(t("ui-hello", { name: "Ré\u202Ecent\u2066e\u200B\u{E0041}" })).toBe("Bonjour Récente");
   });
 
+  test("t strips the Hangul fillers and keeps an emoji's variation selector (t-1383)", () => {
+    expect(t("ui-hello", { name: "\u3164A\uFFA0\u2764\uFE0F" })).toBe("Bonjour A\u2764\uFE0F");
+  });
+
   test("t keeps the joiners of an emoji sequence", () => {
     expect(t("ui-hello", { name: "👩\u200D💻" })).toBe("Bonjour 👩\u200D💻");
+  });
+
+  test("t turns line breaks and terminal controls in string arguments into spaces (t-1379)", () => {
+    expect(t("ui-hello", { name: "a\r\nb\u0085c\u2028d\u2029e\tf\u001Bg\u007Fh" })).toBe("Bonjour a  b c d e f g h");
   });
 
   test("t keeps the one isolation pair of an isolated argument and strips its interior", () => {

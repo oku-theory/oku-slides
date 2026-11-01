@@ -8,7 +8,7 @@
 - Derive LOCALES and ENGLISH_NAMES from the single locales macro list; never keep two lists. (t-782)
 - Keep code tokens and Fluent variables unchanged when reviewing or editing translations. (plan:2026-10-04-suivis-listes, t-535)
 - Add every new Fluent key to all 20 locales, in the same key order everywhere. (spec:2026-10-08-widget-tableau-design)
-- Keep is_hidden_control and HIDDEN in ui/src/i18n.ts the same set; strip interpolated strings only in tr_with and t(). (t-959, t-981)
+- Keep is_hidden_control and is_line_control equal to HIDDEN and LINE in ui/src/i18n.ts; clean arguments only in tr_with and t(). (t-959, t-981, t-1379)
 
 ## Pitfalls
 

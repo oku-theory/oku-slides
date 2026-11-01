@@ -210,10 +210,9 @@ pub type ProbedPack<'a> = (&'a Namespace, PackKind, &'a mut BTreeMap<WidgetFile,
 /// Registry of `fixed`'s packs plus the valid widgets of each pack in `packs`.
 ///
 /// Each pack's widgets go under its namespace. A widget the registry rejects
-/// is set aside, with a diagnostic, and assembly resumes without it. A bare
-/// name in the error (schema) designates the first pack whose file of that
-/// name is valid; a qualified name (slot, category contrary to the kind), the
-/// file of its pack.
+/// is set aside, with a diagnostic, and assembly resumes without it. The
+/// registry names it qualified, so the error designates the file of its own
+/// pack, never a same-named file of another pack (t-1381).
 ///
 /// The packs already probed (`packs` of the `fixed` probe, like `base` in
 /// [`crate::base_probe`]) enter the registry as is: their widgets are never
@@ -246,19 +245,13 @@ pub fn assemble_set(fixed: &Json, packs: &mut [ProbedPack<'_>]) -> Result<Widget
             Ok(registry) => return Ok(registry),
             Err(e) => e,
         };
-        // Le registre nomme le widget nu (schéma) ou qualifié (slots) : on revient au pack et au fichier.
+        // The registry names the widget qualified: back to its pack and its file.
         let valid = |files: &BTreeMap<WidgetFile, FileProbe>, w: &str| {
             WidgetFile::parse(w).filter(|n| files.get(n).is_some_and(FileProbe::is_valid))
         };
-        let culprit = err.widget().and_then(|w| match split_kind(w) {
-            Some((ns, name)) => packs
-                .iter()
-                .position(|(namespace, _, _)| namespace.as_str() == ns)
-                .and_then(|i| valid(packs[i].2, name).map(|n| (i, n))),
-            None => packs
-                .iter()
-                .position(|(_, _, files)| valid(files, w).is_some())
-                .and_then(|i| valid(packs[i].2, w).map(|n| (i, n))),
+        let culprit = err.widget().and_then(split_kind).and_then(|(ns, name)| {
+            let i = packs.iter().position(|(namespace, _, _)| namespace.as_str() == ns)?;
+            valid(packs[i].2, name).map(|n| (i, n))
         });
         let Some((i, name)) = culprit else { return Err(SchemaSnafu.into_error(Box::new(err)).into()) };
         if let Some(probe) = packs[i].2.get_mut(&name) {

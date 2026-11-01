@@ -36,6 +36,8 @@ enum DownloadInner {
     Incomplete { got: u64, expected: u64, backtrace: Backtrace },
     #[snafu(display("{file} does not match its pinned SHA-256"))]
     Integrity { file: String, backtrace: Backtrace },
+    #[snafu(display("{file} is longer than its {max} bytes"))]
+    TooLarge { file: String, max: u64, backtrace: Backtrace },
     #[snafu(display("download cancelled"))]
     Cancelled { backtrace: Backtrace },
 }
@@ -53,7 +55,7 @@ impl DownloadError {
             DownloadInner::Incomplete { got, expected, .. } => {
                 DownloadErrorKind::Incomplete { got: *got, expected: *expected }
             }
-            DownloadInner::Integrity { .. } => DownloadErrorKind::Integrity,
+            DownloadInner::Integrity { .. } | DownloadInner::TooLarge { .. } => DownloadErrorKind::Integrity,
             DownloadInner::Cancelled { .. } => DownloadErrorKind::Cancelled,
         }
     }
@@ -72,7 +74,9 @@ const RETRY_BUDGET: u32 = 8;
 ///
 /// Each file is written as `.part`, checked then renamed; files already there are kept on
 /// their length alone. A pinned file resumes its `.part` with `Range` (re-hashing the
-/// prefix); an unpinned one restarts from zero. A cut, a stall, a short body or a busy hub
+/// prefix); an unpinned one restarts from zero. A `.part` longer than the file's `size` is
+/// dropped; a length announced past it, or a body that goes past it, stops the download and
+/// deletes the `.part` (t-1376). A cut, a stall, a short body or a busy hub
 /// is retried `download_retries` times in a row, the count starting over once the `.part`
 /// grows by [`PROGRESS_STEP`] (at most [`RETRY_BUDGET`] times as many failures in all); the
 /// `.part` is kept for the next run. A slice that ends cleanly short of the file (a capped
@@ -83,8 +87,8 @@ const RETRY_BUDGET: u32 = 8;
 ///
 /// # Errors
 ///
-/// On a network or write failure, a truncated file or one with an unexpected fingerprint,
-/// too long a wait on the hub, or a cancellation by `progress`.
+/// On a network or write failure, a truncated file, one with an unexpected fingerprint or
+/// longer than its `size`, too long a wait on the hub, or a cancellation by `progress`.
 pub fn download(
     files: &[PinnedFile],
     dir: &Path,
@@ -184,8 +188,8 @@ impl<'a> Job<'a> {
                 0
             }
         };
-        if len > 0 && pinned.sha256.is_none() {
-            // Its revision can move between runs: never resumed.
+        if len > 0 && (pinned.sha256.is_none() || len > pinned.size) {
+            // Its revision can move between runs, or it is longer than the file: never resumed.
             discard(storage, &job.part);
         } else if len > 0 {
             job.rehash(progress)?;
@@ -347,15 +351,23 @@ impl<'a> Job<'a> {
             Answer::Refuse if from.is_some() => return Err(Failure::Again(self.range_error())),
             Answer::Refuse => return Err(Failure::Retry(self.range_error())),
         };
+        if expected.is_some_and(|e| e > self.pinned.size) {
+            return Err(self.too_large());
+        }
         let opened = if self.have > 0 { self.storage.appender(&self.part) } else { self.storage.writer(&self.part) };
         let mut out = opened.context(WriteSnafu { path: &self.part }).map_err(fatal)?;
         loop {
             match next(&rx, timeout, self.at(), self.total, progress) {
                 Ok(Fetched::Chunk(chunk)) => {
+                    let after = self.have.saturating_add(chunk.len() as u64);
                     // A body longer than announced is not the file: never written past its end.
-                    if expected.is_some_and(|e| self.have.saturating_add(chunk.len() as u64) > e) {
+                    if expected.is_some_and(|e| after > e) {
                         drop(out);
                         return Err(self.mismatch());
+                    }
+                    if after > self.pinned.size {
+                        drop(out);
+                        return Err(self.too_large());
                     }
                     out.write_all(&chunk).context(WriteSnafu { path: &self.part }).map_err(fatal)?;
                     if let Some(h) = self.hasher.as_mut() {
@@ -421,6 +433,12 @@ impl<'a> Job<'a> {
     /// Closes the writer so the bytes received stay in the `.part`.
     fn keep(&self, out: StreamWriter) -> Result<(), Failure> {
         out.close().context(WriteSnafu { path: &self.part }).map_err(fatal)
+    }
+
+    /// Drops the `.part` of a file longer than its `size`: the download stops (t-1376).
+    fn too_large(&self) -> Failure {
+        discard(self.storage, &self.part);
+        Failure::Fatal(TooLargeSnafu { file: self.file(), max: self.pinned.size }.build().into())
     }
 
     fn cancel(&self) -> Failure {

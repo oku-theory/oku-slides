@@ -20,14 +20,14 @@ English is the reference; 20 locales ship. No oku-slides dependency: every crate
 - `keys.rs`: `platform_keys` and `pc_keys` rewrite macOS shortcuts (`⌘⇧S`) as `Ctrl+Shift+S` off macOS.
 - `fold.rs`: `fold`, the one case and accent fold (shortcuts, help search, namespaces); `shortcut.rs`:
   `THEME_SHORTCUT`, `theme_shortcuts` (its words in every locale, for the UI).
-- `hidden.rs`: `is_hidden_control`, `strip_hidden`; `tr_with` strips string arguments, as UI `t()` does.
+- `hidden.rs`: `is_hidden_control`, `is_line_control`, `clean_arg`; `tr_with` cleans string arguments, as UI `t()` does.
 
 ## Locale choice
 
 `Localizer::new(requested)` → `resolve`: the requested locale if shipped, else the system
 locale (`sys-locale`), else `en`. `shipped` maps regional tags (`fr-CA` → `fr`) and
 Chinese regions to `zh-Hans` or `zh-Hant`. Bidi isolation marks are off so paths and
-numbers print as is in a terminal; interpolated strings lose their bidi controls instead.
+numbers print as is in a terminal; interpolated strings lose their bidi controls and line breaks instead.
 
 ## On-disk layout
 

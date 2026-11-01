@@ -11,8 +11,9 @@
 //! - [`platform_keys`], [`pc_keys`] : les raccourcis dans la notation de la plateforme.
 //! - [`fold`]: case and accent folding, to compare spoken or typed text.
 //! - [`theme_shortcuts`]: the theme shortcut's words in every shipped language.
-//! - [`is_hidden_control`], [`strip_hidden`]: bidi controls and invisible characters, removed
-//!   from every interpolated string ([`Localizer::tr_with`]).
+//! - [`is_hidden_control`], [`is_line_control`], [`clean_arg`]: bidi controls and invisible
+//!   characters removed, line controls turned into spaces, in every interpolated string
+//!   ([`Localizer::tr_with`]).
 //!
 //! Les fichiers `.ftl` sont dans `src/locales/<langue>/`, un par domaine ;
 //! `en` est la référence, chaque autre langue en reprend toutes les clés.
@@ -27,7 +28,7 @@ mod shortcut;
 use std::sync::LazyLock;
 
 pub use fold::fold;
-pub use hidden::{is_hidden_control, strip_hidden};
+pub use hidden::{clean_arg, is_hidden_control, is_line_control};
 pub use keys::{pc_keys, platform_keys};
 pub use live::LiveLocalizer;
 pub use message::{Arg, Message};
@@ -192,13 +193,13 @@ impl Localizer {
 
     /// Un message et ses paramètres : `l.tr_with("cli-deck-valid", &[("slides", 8.into())])`.
     ///
-    /// String arguments lose their bidi controls and invisible characters ([`strip_hidden`]):
-    /// the bundle adds no isolation marks, so a forged name could reorder the sentence (t-981).
+    /// String arguments are cleaned ([`clean_arg`]): the bundle adds no isolation marks, so a
+    /// forged name could reorder the sentence (t-981) or inject a line (t-1379).
     pub fn tr_with(&self, id: &str, args: &[(&str, FluentValue<'_>)]) -> String {
         let mut fluent = FluentArgs::with_capacity(args.len());
         for (name, value) in args {
             match value {
-                FluentValue::String(s) => fluent.set(*name, strip_hidden(s)),
+                FluentValue::String(s) => fluent.set(*name, clean_arg(s)),
                 other => fluent.set(*name, other.clone()),
             }
         }

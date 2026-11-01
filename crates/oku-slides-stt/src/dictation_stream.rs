@@ -38,7 +38,7 @@ impl Stt {
     /// lâché tel quel qu'après `Done`, `Failed` ou la fermeture du pont.
     /// `timeout` : attente maximale du texte final après l'arrêt ([`Self::apple_finish_timeout`]).
     pub(crate) fn stream_loop(&self, session: u64, events: &mpsc::Receiver<Event>, held: &Held, timeout: Duration) {
-        let tick = Duration::from_millis(self.settings.tick_ms);
+        let tick = Duration::from_millis(self.settings.tick_ms.get());
         let mut finishing: Option<Instant> = None;
         loop {
             let event = events.recv_timeout(tick);
@@ -140,7 +140,7 @@ impl Stt {
     fn install(&self, tag: &str) -> Result<(), SttError> {
         let events = self.streaming.install(tag);
         loop {
-            match events.recv_timeout(Duration::from_millis(self.settings.tick_ms)) {
+            match events.recv_timeout(Duration::from_millis(self.settings.tick_ms.get())) {
                 #[cfg(any(test, target_os = "macos"))]
                 Ok(Event::Progress { received, total }) => {
                     self.state().download = Some(Download { model: Model::Apple, received, total });

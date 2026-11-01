@@ -108,6 +108,6 @@ pub use usage_report::{
 };
 pub use validate::{Issue, asset_refs, element_asset_refs, validate};
 pub use widget::{
-    Category, Grow, HostType, ParamSchema, ParamType, SlotMode, WIDGET_DESCRIPTION_MAX, WIDGET_LABEL_MAX,
-    WidgetRegistry, WidgetSchema, is_text,
+    Category, Grow, HostType, PARAM_NAME_MAX, ParamSchema, ParamType, SCHEMA_LIST_MAX, SlotMode,
+    WIDGET_DESCRIPTION_MAX, WIDGET_LABEL_MAX, WidgetRegistry, WidgetSchema, is_text,
 };

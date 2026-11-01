@@ -681,7 +681,7 @@ impl Stt {
         let mut fresh = Vec::new();
         let mut previewed = 0usize;
         loop {
-            std::thread::sleep(Duration::from_millis(s.tick_ms));
+            std::thread::sleep(Duration::from_millis(s.tick_ms.get()));
             let (state, auto_stop, silence_limit) = {
                 let g = self.state();
                 if g.session != session {

@@ -6,7 +6,7 @@ use super::*;
 use crate::PreviewSpan;
 use crate::test_support::registry;
 use crate::views::{PackMode, PileSection};
-use oku_slides_core::{Deck, SourceBundle};
+use oku_slides_core::{Deck, SourceBundle, SourceLimits};
 use oku_slides_platform::storage::StorageErrorKind;
 
 /// Réglages de test : 10 étapes d'annulation, sans auteur réglé.
@@ -51,7 +51,7 @@ fn write_snapshot_then_read_doc_round_trips_sources_uid_and_meta() {
     let r = resume();
     let doc = document();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources).is_equal_to(&doc.sources);
     assert_that!(back.sources.replica().deck_uid()).is_equal_to(doc.sources.replica().deck_uid());
     assert_that!(back.path).is_equal_to(&doc.path);
@@ -67,8 +67,14 @@ fn write_snapshot_removes_orphan_assets() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     std::sync::Arc::make_mut(&mut doc.sources.assets).clear();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap().sources.assets.len())
-        .is_equal_to(0);
+    assert_that!(
+        r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry())
+            .unwrap()
+            .sources
+            .assets
+            .len()
+    )
+    .is_equal_to(0);
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -102,7 +108,7 @@ fn write_usage_then_read_doc_keeps_usage_and_its_flag() {
     doc.usage_unsaved = true;
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     r.write_usage(DECK_DIR, &doc.sources.usage).unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.usage).is_equal_to(&doc.sources.usage);
     assert_that!(back.usage_unsaved).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
@@ -128,7 +134,7 @@ fn read_doc_bad_usage_line_is_set_aside_and_the_doc_opens() {
     let doc = document();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     std::fs::write(r.dir.join(DECK_DIR).join(oku_slides_core::USAGE_FILE), b"{not json}\n").unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.usage.is_empty()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -139,7 +145,8 @@ fn read_doc_with_corrupt_deck_loro_returns_error() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
     std::fs::write(r.dir.join(DECK_DIR).join("deck.loro"), b"illisible").unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).is_err()).is_true();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).is_err())
+        .is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -158,7 +165,10 @@ fn read_doc_of_a_replica_without_format_returns_unsupported_version() {
     doc.get_map("meta").delete("format").unwrap();
     doc.commit();
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
-    let err = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).err().expect("replica v7 refusé");
+    let err = r
+        .read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry())
+        .err()
+        .expect("replica v7 refusé");
     assert_that!(oku_slides_platform::errors::one_line(&err)).contains("unsupported replica format");
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -178,7 +188,10 @@ fn read_doc_of_a_format_2_replica_returns_unsupported_version() {
     doc.get_map("meta").insert("format", 2_i64).unwrap();
     doc.commit();
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
-    let err = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).err().expect("replica format 2 refusé");
+    let err = r
+        .read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry())
+        .err()
+        .expect("replica format 2 refusé");
     assert_that!(oku_slides_platform::errors::one_line(&err)).contains("unsupported replica format");
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -198,7 +211,10 @@ fn read_doc_of_a_format_3_replica_returns_unsupported_version() {
     doc.get_map("meta").insert("format", 3_i64).unwrap();
     doc.commit();
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
-    let err = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).err().expect("replica format 3 refusé");
+    let err = r
+        .read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry())
+        .err()
+        .expect("replica format 3 refusé");
     assert_that!(oku_slides_platform::errors::one_line(&err)).contains("unsupported replica format");
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -208,7 +224,7 @@ fn read_doc_of_a_format_3_replica_returns_unsupported_version() {
 fn read_doc_with_deck_loro_over_the_maximum_returns_error() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(16), &registry()).is_err()).is_true();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(16)), &registry()).is_err()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -351,7 +367,7 @@ fn write_snapshot_font_changed_under_same_name_reads_new_bytes() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     doc.sources.fonts.insert("Inter.ttf".into(), b"nouvelle police".to_vec());
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.fonts.get("Inter.ttf").cloned()).is_equal_to(Some(b"nouvelle police".to_vec()));
     let fonts_dir = r.dir.join(DECK_DIR).join("fonts");
     assert_that!(std::fs::read_dir(&fonts_dir).unwrap().count()).is_equal_to(1);
@@ -375,7 +391,7 @@ fn write_snapshot_unsafe_names_writes_nothing_outside_dir() {
     assert_that!(r.dir.join(DECK_DIR).join("fonts").join("evil.ttf").exists()).is_false();
     assert_that!(r.dir.join(DECK_DIR).join("evil.ttf").exists()).is_false();
     assert_that!(parent.path().join("evil.ttf").exists()).is_false();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.assets.contains_key("sha256:../x")).is_false();
     assert_that!(back.sources.fonts.contains_key("evil.ttf")).is_false();
     assert_that!(back.sources.fonts.contains_key(".hidden.ttf")).is_false();
@@ -387,7 +403,8 @@ fn read_doc_with_stored_path_not_oku_slides_drops_path() {
     let mut doc = document();
     doc.path = Some(PathBuf::from("/tmp/notes.txt"));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap().path).is_none();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap().path)
+        .is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -397,7 +414,8 @@ fn read_doc_with_stored_relative_path_drops_path() {
     let mut doc = document();
     doc.path = Some(PathBuf::from("essai.oku-slides.pdf"));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap().path).is_none();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap().path)
+        .is_none();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -407,7 +425,8 @@ fn write_snapshot_then_read_doc_keeps_the_blank_flag() {
     let mut doc = document();
     doc.blank = true;
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap().blank).is_true();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap().blank)
+        .is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -417,7 +436,8 @@ fn write_snapshot_then_read_doc_keeps_a_non_blank_flag() {
     let doc = document();
     assert_that!(doc.blank).is_false();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
-    assert_that!(r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap().blank).is_false();
+    assert_that!(r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap().blank)
+        .is_false();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -526,7 +546,7 @@ fn write_snapshot_then_read_doc_keeps_the_packs_and_their_widgets() {
     assert_that!(packs.join(format!("{}.kpi.typ", with.hex())).exists()).is_true();
     assert_that!(packs.join(format!("{}._commun.typ", with.hex())).exists()).is_true();
     assert_that!(widget_files_of(&packs, without.hex())).is_empty();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.packs == doc.sources.packs).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -539,7 +559,7 @@ fn read_doc_ignores_a_pack_whose_content_differs_from_its_name() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     let typ = r.dir.join(DECK_DIR).join("packs").join(format!("{}.kpi.typ", v.hex()));
     std::fs::write(&typ, "autre").unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.packs.is_empty()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -572,7 +592,7 @@ fn write_snapshot_then_read_doc_keeps_the_themes() {
     let v = doc.sources.add_theme(theme_files("T"));
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     assert_that!(r.dir.join(DECK_DIR).join("themes").join(format!("{}.json", v.hex())).exists()).is_true();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.themes == doc.sources.themes).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -585,7 +605,7 @@ fn read_doc_ignores_a_theme_whose_content_differs_from_its_name() {
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&doc, &mut Vec::new()).unwrap()).unwrap();
     std::fs::write(r.dir.join(DECK_DIR).join("themes").join(format!("{}.json", v.hex())), r#"{"name":"autre"}"#)
         .unwrap();
-    let back = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).unwrap();
     assert_that!(back.sources.themes.is_empty()).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -645,7 +665,7 @@ fn read_doc_compacts_a_node_marked_before_the_delay() {
     doc.commit();
     std::fs::write(&path, doc.export(loro::ExportMode::Snapshot).unwrap()).unwrap();
     let limits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 24, compact_after_secs: 5 * 86_400 };
-    let back = r.read_doc(DECK_DIR, &defaults(), limits, &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits), &registry()).unwrap();
     let raw = loro::LoroDoc::new();
     raw.import(&back.sources.replica().snapshot().unwrap()).unwrap();
     let Some(loro::ValueOrContainer::Container(loro::Container::Tree(tree))) = raw.get_map("deck").get("slides") else {
@@ -712,7 +732,7 @@ fn issue_1206_read_doc_with_document_json_over_the_maximum_returns_error() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
     pad_document_json(&r, false);
-    let err = r.read_doc(DECK_DIR, &defaults(), limits(1 << 24), &registry()).err();
+    let err = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits(1 << 24)), &registry()).err();
     assert_that!(err.as_ref().is_some_and(is_too_large)).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
@@ -731,10 +751,30 @@ fn issue_1206_deck_unsaved_with_document_json_over_the_maximum_returns_false() {
 fn issue_1206_read_doc_with_files_over_the_total_budget_returns_error() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
-    std::fs::write(r.dir.join(DECK_DIR).join("assets").join("ab"), vec![0u8; 4096]).unwrap();
-    let limits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1024, compact_after_secs: 0 };
-    let err = r.read_doc(DECK_DIR, &defaults(), limits, &registry()).err();
+    std::fs::write(r.dir.join(DECK_DIR).join("assets").join("ab"), vec![0u8; 65_536]).unwrap();
+    // Room for a few entries (t-1382), not for the 64 KiB file.
+    let limits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 16_384, compact_after_secs: 0 };
+    let err = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits), &registry()).err();
     assert_that!(err.as_ref().is_some_and(is_too_large)).is_true();
+    std::fs::remove_dir_all(&r.dir).ok();
+}
+
+/// t-1382: the documents of one tab (a pack tab reads `pack/` then `deck/`) share one budget.
+#[test]
+fn issue_1382_read_doc_of_two_documents_shares_one_budget() {
+    let r = resume();
+    for sub in [DECK_DIR, PACK_DIR] {
+        r.write_snapshot(sub, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
+        std::fs::write(r.dir.join(sub).join("assets").join("ab"), vec![0u8; 100_000]).unwrap();
+    }
+    // Room for one document (100 kB and a few entries), not for both.
+    let limits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 150_000, compact_after_secs: 0 };
+    assert_that!(r.read_doc(PACK_DIR, &defaults(), &mut ReadBudget::new(limits), &registry()).is_ok()).is_true();
+    let mut shared = ReadBudget::new(limits);
+    r.read_doc(PACK_DIR, &defaults(), &mut shared, &registry()).unwrap();
+    let err = r.read_doc(DECK_DIR, &defaults(), &mut shared, &registry()).err();
+    let exhausted = |e: &ResumeError| is_too_large(e) || matches!(e, ResumeError::BudgetExhausted { .. });
+    assert_that!(err.as_ref().is_some_and(exhausted)).is_true();
     std::fs::remove_dir_all(&r.dir).ok();
 }
 
@@ -743,7 +783,7 @@ fn issue_1206_read_doc_within_the_total_budget_reads_every_file() {
     let r = resume();
     r.write_snapshot(DECK_DIR, &DocSnapshot::of(&document(), &mut Vec::new()).unwrap()).unwrap();
     let limits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 24, compact_after_secs: 0 };
-    let back = r.read_doc(DECK_DIR, &defaults(), limits, &registry()).unwrap();
+    let back = r.read_doc(DECK_DIR, &defaults(), &mut ReadBudget::new(limits), &registry()).unwrap();
     assert_that!((back.sources.assets.len(), back.sources.fonts.len())).is_equal_to((1, 1));
     std::fs::remove_dir_all(&r.dir).ok();
 }

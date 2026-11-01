@@ -1,7 +1,7 @@
 // Choix d'un fichier : dialogue natif dans Tauri, saisie du chemin en développement.
 
 import { inTauri } from "./hostCall";
-import { t } from "./i18n";
+import { cleanArg, t } from "./i18n";
 
 /** Un chemin saisi (mode web) sans ses blancs autour ; vide ou abandonné : `null`. */
 export function typedPath(typed: string | null): string | null {
@@ -30,8 +30,25 @@ export async function pickOpenPath(): Promise<string | null> {
   return typedPath(window.prompt(t("ui-file-open-prompt")));
 }
 
-/** Le chemin où enregistrer le deck, proposé sous `defaultName` ; `null` : abandonné. */
-export async function pickSavePath(defaultName: string): Promise<string | null> {
+/** Longest proposed file name, in code points: macOS caps a name at 255 bytes. */
+const SAVE_NAME_MAX = 200;
+
+/**
+ * The file name proposed for a deck named `name` (t-1383).
+ *
+ * The name comes from the deck (an imported title): cleaned like a message argument, so a U+202E
+ * cannot reverse the proposed name; path separators become `-`, the ends are trimmed and the
+ * name clipped. Nothing left: the app's name.
+ */
+export function saveName(name: string): string {
+  const cleaned = cleanArg(name).replace(/[/\\]/g, "-").trim();
+  const clipped = Array.from(cleaned).slice(0, SAVE_NAME_MAX).join("").trim();
+  return clipped === "" ? t("ui-brand") : clipped;
+}
+
+/** The path to save the deck to, proposed as `saveName(name)`; `null`: given up. */
+export async function pickSavePath(name: string): Promise<string | null> {
+  const defaultName = saveName(name);
   if (inTauri) {
     const { save } = await import("@tauri-apps/plugin-dialog");
     return save({ defaultPath: `${defaultName}.oku-slides.pdf`, filters: [{ name: t("ui-brand"), extensions: ["pdf"] }] });

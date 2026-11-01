@@ -22,9 +22,9 @@ the CLI, the session, the agent and dictation.
 - `storage`: `Storage`, a synchronous OpenDAL file API on its own small Tokio runtime
   (`read_limited`, `write_atomic`, `delete_dir`, `writer`, `appender`, `reader`, `read_fonts`, …); call it outside
   async contexts only. `StorageError::kind` gives a `StorageErrorKind`.
-- `models`: `PinnedFile`, `is_complete`, (feature `download`) `download`: hashed `.part`s renamed
-  once verified, `.complete` last, a pinned `.part` resumed by `Range` (`resume.rs` decides,
-  `download/transport.rs` fetches); retries capped per file; waits cancellable; `DownloadError::kind`.
+- `models`: `PinnedFile`, `is_complete`, (feature `download`) `download`: hashed `.part`s renamed once verified,
+  `.complete` last, a pinned `.part` resumed by `Range` (`resume.rs` decides, `download/transport.rs` fetches);
+  retries capped per file; waits cancellable; nothing past `PinnedFile.size`; `DownloadError::kind`.
 - `http` (feature `download`): `system_tls`, TLS on the system certificate store, for every ureq agent.
 - `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve`, `local_engine` → `ReadyEngine` or `Unavailable`.
 - `listen` (feature `listen`): `serve_connections`, bounded by `Limits`, replaces `axum::serve`.

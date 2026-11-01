@@ -21,8 +21,8 @@ use serde_json::{Map, Value};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
 use oku_slides_core::{
-    DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, SourceBundle, SourceLimits,
-    UsageLedger, WidgetFile, WidgetRegistry,
+    DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, SourceBundle, UsageLedger,
+    WidgetRegistry,
 };
 use oku_slides_platform::storage::{Storage, StorageError};
 
@@ -58,6 +58,11 @@ mod theme;
 #[path = "resume_workshop.rs"]
 mod workshop;
 
+#[path = "resume_read.rs"]
+mod read;
+
+pub(crate) use read::ReadBudget;
+
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum ResumeError {
@@ -65,6 +70,8 @@ pub(crate) enum ResumeError {
     Access { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("unreadable {}", path.display()))]
     Json { path: PathBuf, source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("the resume read budget ran out in {}", path.display()))]
+    BudgetExhausted { path: PathBuf, backtrace: Backtrace },
     #[snafu(display("unsupported resume state version {version}"))]
     Version { version: u32, backtrace: Backtrace },
     #[snafu(display("cannot restore the session"))]
@@ -93,6 +100,7 @@ impl ResumeError {
             Self::Version { version, .. } => *version < VERSION,
             Self::Replica { source, .. } => source.kind() == ReplicaErrorKind::UnsupportedVersion,
             Self::Access { .. }
+            | Self::BudgetExhausted { .. }
             | Self::Json { .. }
             | Self::Session { .. }
             | Self::PackTab { .. }
@@ -453,20 +461,6 @@ impl Resume {
         Ok(())
     }
 
-    /// The files of `dir`, each read within what is left of `budget` (bytes), then taken from it.
-    fn read_files(&self, dir: &Path, budget: &mut u64) -> Result<BTreeMap<String, Vec<u8>>> {
-        let mut files = BTreeMap::new();
-        for path in self.storage.list_files(dir).context(AccessSnafu { path: dir })? {
-            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            if !name.is_empty() && !name.starts_with('.') {
-                let bytes = self.storage.read_limited(&path, *budget).context(AccessSnafu { path: &path })?;
-                *budget = budget.saturating_sub(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
-                files.insert(name, bytes);
-            }
-        }
-        Ok(files)
-    }
-
     /// Déplace ce dossier (celui d'un onglet, ou la racine) vers un dossier
     /// voisin `<nom>.failed-<horodatage>[-<n>]`, pour ne jamais écraser du
     /// travail non enregistré qu'on n'a pas su relire.
@@ -542,14 +536,16 @@ impl Resume {
     /// `deck.loro` (ancien format), illisible.
     ///
     /// Every read is bounded, as for a PDF's sources: `document.json` by [`MAX_JSON_BYTES`],
-    /// assets, fonts, packs and themes together by `limits.total_bytes` (t-1206).
+    /// the replica by `budget.limits.replica_bytes`, assets, fonts, packs and themes by
+    /// `budget`, shared with the tab's other documents (t-1206, t-1382).
     pub fn read_doc(
         &self,
         sub: &str,
         defaults: &DocDefaults,
-        limits: SourceLimits,
+        budget: &mut ReadBudget,
         registry: &Arc<WidgetRegistry>,
     ) -> Result<Document> {
+        let limits = budget.limits;
         let dir = self.dir.join(sub);
         let path = dir.join("document.json");
         let raw: DocIn = serde_json::from_slice(&self.get_json(&path)?).context(JsonSnafu { path: &path })?;
@@ -559,16 +555,15 @@ impl Resume {
         let bytes = self.storage.read_limited(&loro, max).context(AccessSnafu { path: &loro })?;
         let (replica, read) = DeckReplica::from_snapshot(&bytes, limits.replica(), registry.clone())
             .context(ReplicaSnafu { path: &loro })?;
-        let mut budget = u64::try_from(limits.total_bytes).unwrap_or(u64::MAX);
         let assets = self
-            .read_files(&dir.join("assets"), &mut budget)?
+            .read_files(&dir.join("assets"), budget)?
             .into_iter()
             .map(|(n, b)| (format!("sha256:{n}"), b))
             .collect();
         // Le nom sur disque est `<hex>-<nom>` (adressage par contenu) : on ne
         // garde que le nom d'origine, après le premier tiret.
         let fonts = self
-            .read_files(&dir.join("fonts"), &mut budget)?
+            .read_files(&dir.join("fonts"), budget)?
             .into_iter()
             .map(|(n, b)| {
                 let name = match n.split_once('-') {
@@ -591,16 +586,11 @@ impl Resume {
             }
             None => None,
         };
-        let raw_packs = self.read_files(&dir.join("packs"), &mut budget)?;
+        let raw_packs = self.read_files(&dir.join("packs"), budget)?;
         let mut packs = BTreeMap::new();
-        for (name, bytes) in &raw_packs {
-            let Some(hex) = name.strip_suffix(".json") else { continue };
-            let prefix = format!("{hex}.");
-            let widgets = raw_packs
-                .iter()
-                .filter_map(|(n, b)| WidgetFile::from_file_name(n.strip_prefix(&prefix)?).map(|w| (w, b.as_slice())));
+        for (hex, (json, widgets)) in read::group_packs(&raw_packs) {
+            let Some(bytes) = json else { continue };
             // Vérifiée par son empreinte, qui dit aussi sa sorte : un pack altéré est ignoré.
-            let widgets: Vec<_> = widgets.collect();
             let verified = PackKind::ALL
                 .into_iter()
                 .find_map(|kind| PackFiles::verified(kind, hex, bytes, widgets.iter().map(|(n, b)| (n.clone(), *b))));
@@ -611,7 +601,7 @@ impl Resume {
             }
         }
         let mut themes = BTreeMap::new();
-        for (name, bytes) in self.read_files(&dir.join("themes"), &mut budget)? {
+        for (name, bytes) in self.read_files(&dir.join("themes"), budget)? {
             let Some(hex) = name.strip_suffix(".json") else { continue };
             // Vérifié par son empreinte : un thème altéré est ignoré.
             if let Some(files) = PackFiles::verified_theme(hex, &bytes) {
@@ -771,8 +761,8 @@ impl Session {
 
     /// Restores `deck/` as the document, reread from its file if unchanged, with `ui`.
     fn restore_deck(&mut self, resume: &Resume, ui: UiState) -> Result<()> {
-        let deck =
-            self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, self.source_limits, &self.registry)?);
+        let mut budget = ReadBudget::new(self.source_limits);
+        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, &mut budget, &self.registry)?);
         self.load_document(deck).context(SessionSnafu)?;
         self.ui = ui.sanitized(false);
         Ok(())

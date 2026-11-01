@@ -20,3 +20,4 @@ mod issue_1202_agent_selected_invariant;
 #[cfg(feature = "download")]
 mod issue_1211_system_root_certs;
 mod issue_1212_update_download_endpoint;
+mod issue_1383_zero_dictation_tick;

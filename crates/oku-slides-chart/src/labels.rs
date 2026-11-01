@@ -5,9 +5,10 @@ use std::sync::LazyLock;
 
 use oku_slides_i18n::{Localizer, english};
 
-/// Marque le numéro dans le modèle « Série { $n } » : le message est traduit
-/// une fois, le numéro inséré à chaque série.
-const SLOT: &str = "\u{1}";
+/// Marks the number in the template "Series { $n }": the message is translated once, the
+/// number inserted for each series. A private-use code point: `tr_with` turns a control
+/// character into a space (t-1379), and no translation writes this one.
+const SLOT: &str = "\u{E000}";
 
 /// Libellés par défaut, résolus une fois depuis Fluent (`chart-default-*`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

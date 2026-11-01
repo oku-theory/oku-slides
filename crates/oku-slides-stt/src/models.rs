@@ -13,6 +13,9 @@ use snafu::{ResultExt, ensure};
 use crate::api::ApiConfig;
 use crate::error::{DownloadSnafu, NotDownloadableSnafu, SttError};
 
+/// Upper bound on a model's small files (configuration, tokenizer, vocabulary), in bytes.
+const SMALL_FILE_MAX: u64 = 16 << 20;
+
 /// Modèles proposés. Tous sont multilingues.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -74,13 +77,14 @@ impl Model {
         // Le vocabulaire est en .txt dans le dépôt `base`, en .json ailleurs.
         let vocabulary = if self == Model::Base { "vocabulary.txt" } else { "vocabulary.json" };
         let preprocessor_repo = if self == Model::Base { "openai/whisper-base" } else { repo };
-        let file = |repo, name| PinnedFile { repo, revision: "main", name, sha256: None };
+        let file = |repo, name, size| PinnedFile { repo, revision: "main", name, sha256: None, size };
         vec![
-            file(repo, "config.json"),
-            file(repo, "tokenizer.json"),
-            file(repo, vocabulary),
-            file(preprocessor_repo, "preprocessor_config.json"),
-            file(repo, "model.bin"),
+            file(repo, "config.json", SMALL_FILE_MAX),
+            file(repo, "tokenizer.json", SMALL_FILE_MAX),
+            file(repo, vocabulary, SMALL_FILE_MAX),
+            file(preprocessor_repo, "preprocessor_config.json", SMALL_FILE_MAX),
+            // Unpinned, `main` may grow: twice the expected total, never without end (t-1376).
+            file(repo, "model.bin", self.size().saturating_mul(2)),
         ]
     }
 

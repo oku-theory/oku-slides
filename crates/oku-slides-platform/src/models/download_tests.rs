@@ -19,11 +19,11 @@ fn sha(bytes: &[u8]) -> &'static str {
 }
 
 fn pinned(name: &'static str, body: &[u8]) -> PinnedFile {
-    PinnedFile { repo: "repo", revision: "rev", name, sha256: Some(sha(body)) }
+    PinnedFile { repo: "repo", revision: "rev", name, sha256: Some(sha(body)), size: body.len() as u64 }
 }
 
 fn unpinned(name: &'static str) -> PinnedFile {
-    PinnedFile { repo: "repo", revision: "main", name, sha256: None }
+    PinnedFile { repo: "repo", revision: "main", name, sha256: None, size: 1 << 20 }
 }
 
 const BODY: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
@@ -234,14 +234,15 @@ fn download_unreadable_part_is_fetched_again_from_zero() {
 }
 
 #[test]
-fn download_part_longer_than_file_restarts_after_416() {
+fn download_part_longer_than_file_is_dropped_unresumed() {
     let dir = tempfile::tempdir().unwrap();
+    // Longer than the pinned size: never resumed, not even asked by `Range` (t-1376).
     std::fs::write(dir.path().join("a.bin.part"), [b'x'; 50]).unwrap();
     let (url, seen) = scripted(|_, head, stream| serve_ranged(BODY, head, stream));
     download(&[pinned("a.bin", BODY)], dir.path(), 36, &settings(url, 0), &Storage::local().unwrap(), |_, _| true)
         .unwrap();
     assert_that!(std::fs::read(dir.path().join("a.bin")).unwrap()).is_equal_to(BODY.to_vec());
-    assert_that!(ranges(&seen)).is_equal_to(vec![Some(50), None]);
+    assert_that!(ranges(&seen)).is_equal_to(vec![None]);
 }
 
 #[test]
@@ -312,7 +313,13 @@ fn download_half_open_socket_after_5_mib_returns_within_timeout_with_part() {
     });
     let mut s = settings(url, 0);
     s.read_timeout_secs = 1;
-    let file = PinnedFile { repo: "repo", revision: "rev", name: "big.bin", sha256: Some(sha(b"never")) };
+    let file = PinnedFile {
+        repo: "repo",
+        revision: "rev",
+        name: "big.bin",
+        sha256: Some(sha(b"never")),
+        size: (MIB5 * 2) as u64,
+    };
     let started = Instant::now();
     let err =
         download(&[file], dir.path(), (MIB5 * 2) as u64, &s, &Storage::local().unwrap(), |_, _| true).unwrap_err();
@@ -416,4 +423,51 @@ fn download_206_to_a_request_without_range_fails_as_network() {
         download(&[pinned("a.bin", BODY)], dir.path(), 36, &settings(url, 0), &Storage::local().unwrap(), |_, _| true)
             .unwrap_err();
     assert_that!(err.kind()).is_equal_to(DownloadErrorKind::Network);
+}
+
+/// `unpinned` with a `size` of `max` bytes.
+fn capped(name: &'static str, max: u64) -> PinnedFile {
+    PinnedFile { size: max, ..unpinned(name) }
+}
+
+#[test]
+fn download_body_past_size_stops_and_deletes_the_part() {
+    let dir = tempfile::tempdir().unwrap();
+    // No length announced: an endless body is cut at the file's size (t-1376).
+    let (url, _) = scripted(|_, _, mut stream| send(&mut stream, "200 OK", &[], BODY));
+    let err =
+        download(&[capped("a.bin", 20)], dir.path(), 20, &settings(url, 0), &Storage::local().unwrap(), |_, _| true)
+            .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(DownloadErrorKind::Integrity);
+    assert_that!(dir.path().join("a.bin.part").exists()).is_false();
+    assert_that!(dir.path().join("a.bin").exists()).is_false();
+}
+
+#[test]
+fn download_announced_length_past_size_is_refused_unwritten() {
+    let dir = tempfile::tempdir().unwrap();
+    let (url, _) = scripted(|_, _, mut stream| {
+        send(&mut stream, "200 OK", &[format!("content-length: {}", BODY.len())], BODY);
+    });
+    let err =
+        download(&[capped("a.bin", 20)], dir.path(), 20, &settings(url, 0), &Storage::local().unwrap(), |_, _| true)
+            .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(DownloadErrorKind::Integrity);
+    assert_that!(dir.path().join("a.bin.part").exists()).is_false();
+}
+
+#[test]
+fn download_body_at_size_completes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (url, _) = scripted(|_, _, mut stream| send(&mut stream, "200 OK", &[], BODY));
+    download(
+        &[capped("a.bin", BODY.len() as u64)],
+        dir.path(),
+        36,
+        &settings(url, 0),
+        &Storage::local().unwrap(),
+        |_, _| true,
+    )
+    .unwrap();
+    assert_that!(std::fs::read(dir.path().join("a.bin")).unwrap()).is_equal_to(BODY.to_vec());
 }

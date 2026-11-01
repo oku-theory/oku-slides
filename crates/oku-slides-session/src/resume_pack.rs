@@ -150,14 +150,15 @@ pub(super) fn restore_pack_tab(
     snafu::ensure!(!header.path, PackTabSnafu { reason: "preview with a path" });
     snafu::ensure!(!header.saved_hash, PackTabSnafu { reason: "preview with a saved hash" });
     snafu::ensure!(header.assets == 0, PackTabSnafu { reason: "preview with assets" });
-    let limits = s.source_limits;
-    let pack_doc = resume.read_doc(PACK_DIR, &s.doc_defaults, limits, &s.registry).map_err(|e| {
+    // One budget for both documents: the tab's resume reads at most `max_sources_mib` (t-1382).
+    let mut budget = super::ReadBudget::new(s.source_limits);
+    let pack_doc = resume.read_doc(PACK_DIR, &s.doc_defaults, &mut budget, &s.registry).map_err(|e| {
         tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "pack de reprise illisible");
         PackTabSnafu { reason: "unreadable pack" }.build()
     })?;
     // A blob that does not match its key was dropped on reading: the base is then missing.
     snafu::ensure!(pack_doc.sources.packs.contains_key(&saved.edit.base), PackTabSnafu { reason: "base missing" });
-    let preview = resume.read_doc(DECK_DIR, &s.doc_defaults, limits, &s.registry).map_err(|e| {
+    let preview = resume.read_doc(DECK_DIR, &s.doc_defaults, &mut budget, &s.registry).map_err(|e| {
         tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "aperçu de reprise illisible");
         PackTabSnafu { reason: "unreadable preview" }.build()
     })?;

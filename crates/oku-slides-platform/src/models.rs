@@ -2,7 +2,8 @@
 //!
 //! Each file arrives as `.part`, hashed on the fly, then renamed; the [`COMPLETE`] marker
 //! is written only once every file is verified. A cut `.part` of a pinned file is resumed
-//! with `Range` (t-1052). Untrusted bytes: a different SHA-256 deletes the file.
+//! with `Range` (t-1052). Untrusted bytes: a different SHA-256, or a file longer than its
+//! [`PinnedFile::size`], deletes the file.
 
 use std::path::Path;
 
@@ -29,6 +30,11 @@ pub struct PinnedFile {
     pub name: &'static str,
     /// SHA-256 attendu, en hexadécimal minuscule ; `None` : non vérifié.
     pub sha256: Option<&'static str>,
+    /// Size in bytes: exact when pinned, an upper bound otherwise.
+    ///
+    /// The download stops past it (t-1376): an endless body cannot fill the disk before the
+    /// hash check.
+    pub size: u64,
 }
 
 /// Nature d'un `DownloadError` (avec la feature `download`).
@@ -45,7 +51,7 @@ pub enum DownloadErrorKind {
         /// Octets annoncés.
         expected: u64,
     },
-    /// SHA-256 différent de celui épinglé.
+    /// A SHA-256 other than the pinned one, or a file longer than its size.
     Integrity,
     /// Annulé par la fonction de progression.
     Cancelled,

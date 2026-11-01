@@ -40,7 +40,7 @@ fn sha(bytes: &[u8]) -> &'static str {
 }
 
 fn file(name: &'static str, sha256: Option<&'static str>) -> PinnedFile {
-    PinnedFile { repo: "repo", revision: "rev", name, sha256 }
+    PinnedFile { repo: "repo", revision: "rev", name, sha256, size: 1 << 20 }
 }
 
 #[test]
