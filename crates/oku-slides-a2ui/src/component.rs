@@ -51,6 +51,9 @@ pub enum ComponentKind {
     TextField {
         /// Field label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// Entered text, usually a model path where the UI writes it.
         value: Dynamic<String>,
         /// Sent when the input is committed.
@@ -64,6 +67,9 @@ pub enum ComponentKind {
     RichTextField {
         /// Field label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// Editing markdown shown in the field.
         value: Dynamic<String>,
         /// Original structured value (paragraphs), rewritten on commit.
@@ -78,6 +84,9 @@ pub enum ComponentKind {
     Stepper {
         /// Counter label, reused by the buttons' accessible names.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// Current integer value.
         value: Dynamic<i64>,
         /// Smallest value; absent: 1 on the UI side.
@@ -128,6 +137,9 @@ pub enum ComponentKind {
     Slider {
         /// Slider label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// Current value, between `min` and `max`.
         value: Dynamic<f64>,
         /// Lower bound, strictly below `max`.
@@ -145,6 +157,9 @@ pub enum ComponentKind {
     ColorField {
         /// Field label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// Chosen color, as `#rrggbb`.
         value: Dynamic<String>,
         /// `#rrggbb` colors offered as chips.
@@ -157,6 +172,9 @@ pub enum ComponentKind {
     Select {
         /// List label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// `id` of the chosen option.
         value: Dynamic<String>,
         /// The options offered, in order.
@@ -169,6 +187,9 @@ pub enum ComponentKind {
     Switch {
         /// Switch label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// Whether it is on.
         value: Dynamic<bool>,
         /// Sent after the new state is written into `value`.
@@ -185,6 +206,9 @@ pub enum ComponentKind {
     ListTable {
         /// Table label.
         label: Dynamic<String>,
+        /// Help shown under the field, tied to it for screen readers; absent: none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        help: Option<Dynamic<String>>,
         /// The items shown, objects with an `id`.
         rows: Dynamic<Value>,
         /// Where the UI writes the requested change before the action.
@@ -440,21 +464,49 @@ impl ComponentKind {
         Some(match self {
             // Without an action, a button, a banner or a data grid makes no sense.
             Self::Button { .. } | Self::Notice { .. } | Self::ChartData { .. } | Self::TableData { .. } => return None,
-            Self::TextField { label, value, .. } => Self::TextField { label, value, action: None },
-            Self::RichTextField { label, value, source, palette, .. } => {
-                Self::RichTextField { label, value, source, palette, action: None }
+            Self::TextField { label, help, value, .. } => Self::TextField { label, help, value, action: None },
+            Self::RichTextField { label, help, value, source, palette, .. } => {
+                Self::RichTextField { label, help, value, source, palette, action: None }
             }
-            Self::Stepper { label, value, min, max, .. } => Self::Stepper { label, value, min, max, action: None },
+            Self::Stepper { label, help, value, min, max, .. } => {
+                Self::Stepper { label, help, value, min, max, action: None }
+            }
             Self::ChoiceChips { options, value, .. } => Self::ChoiceChips { options, value, action: None },
-            Self::Slider { label, value, min, max, step, .. } => {
-                Self::Slider { label, value, min, max, step, action: None }
+            Self::Slider { label, help, value, min, max, step, .. } => {
+                Self::Slider { label, help, value, min, max, step, action: None }
             }
-            Self::ColorField { label, value, palette, .. } => Self::ColorField { label, value, palette, action: None },
-            Self::Select { label, value, options, .. } => Self::Select { label, value, options, action: None },
-            Self::Switch { label, value, .. } => Self::Switch { label, value, action: None },
-            Self::ListTable { action: _, label, rows, change, markdown, columns, min, max, item_label, palette } => {
-                Self::ListTable { label, rows, change, markdown, columns, min, max, item_label, palette, action: None }
+            Self::ColorField { label, help, value, palette, .. } => {
+                Self::ColorField { label, help, value, palette, action: None }
             }
+            Self::Select { label, help, value, options, .. } => {
+                Self::Select { label, help, value, options, action: None }
+            }
+            Self::Switch { label, help, value, .. } => Self::Switch { label, help, value, action: None },
+            Self::ListTable {
+                action: _,
+                label,
+                help,
+                rows,
+                change,
+                markdown,
+                columns,
+                min,
+                max,
+                item_label,
+                palette,
+            } => Self::ListTable {
+                label,
+                help,
+                rows,
+                change,
+                markdown,
+                columns,
+                min,
+                max,
+                item_label,
+                palette,
+                action: None,
+            },
             Self::SlideThumb { svg, label, .. } => Self::SlideThumb { svg, label, action: None },
             Self::ThemeChoice { svg, name, slide, swatches, active, .. } => {
                 Self::ThemeChoice { svg, name, slide, swatches, active, action: None }

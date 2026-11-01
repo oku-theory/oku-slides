@@ -3,6 +3,7 @@
 // à la main. Elles ne posent que les classes et attributs communs ; l'apparence reste dans
 // styles.css et a2ui.css.
 
+import { useId } from "react";
 import type { ButtonHTMLAttributes, ReactNode, Ref, SelectHTMLAttributes } from "react";
 
 /** Les classes non vides, séparées par une espace. */
@@ -107,19 +108,47 @@ const FIELD = {
   menu: ["menu-theme", "caption"],
 } as const;
 
-/** Un champ libellé : le libellé, puis le contrôle ; `as="div"` quand il contient plusieurs contrôles. */
-export function Field({ variant, label, as = "label", children }: {
+/** A field's help line and the id its control cites in `aria-describedby`. */
+export interface FieldHelp {
+  /** The help element's id; absent without help. */
+  describedBy: string | undefined;
+  /** The muted help line, to place under the control; `null` without help. */
+  node: ReactNode;
+}
+
+/**
+ * The help line of a field, tied to its control for screen readers.
+ *
+ * The control takes `describedBy` as its `aria-describedby`; `node` goes after the field, outside
+ * its `<label>`, so the help is not read as part of the label.
+ */
+export function useFieldHelp(help: string | undefined): FieldHelp {
+  const id = useId();
+  if (!help) return { describedBy: undefined, node: null };
+  return { describedBy: id, node: <span id={id} className="a2ui-hint field-help">{help}</span> };
+}
+
+/**
+ * A labelled field: the label, then the control; `as="div"` when it holds several controls.
+ *
+ * `help`, the `node` of `useFieldHelp`, follows the field.
+ */
+export function Field({ variant, label, as = "label", help, children }: {
   variant: keyof typeof FIELD;
   label: ReactNode;
   as?: "label" | "div";
+  help?: ReactNode;
   children: ReactNode;
 }) {
   const [outer, hint] = FIELD[variant];
   const Tag = as;
   return (
-    <Tag className={outer}>
-      <span className={hint}>{label}</span>
-      {children}
-    </Tag>
+    <>
+      <Tag className={outer}>
+        <span className={hint}>{label}</span>
+        {children}
+      </Tag>
+      {help}
+    </>
   );
 }

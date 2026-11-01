@@ -15,6 +15,7 @@ import { t } from "../i18n";
 import { Icon } from "../icons";
 import { coerce, parseTsv, type ColumnKind } from "../table/cells";
 import { formatNumber, parseNumber } from "../table/numbers";
+import { useFieldHelp } from "../primitives";
 import { useNumberLang } from "./numberLang";
 import { RichTextField } from "./RichTextField";
 import { lift, subMarkdown, subRows, type Change, type Row } from "./listNested";
@@ -34,6 +35,8 @@ export type ListChange = Change;
 
 export type ListTableProps = {
   label: string;
+  /** A help line under the table, which describes it (`aria-describedby`). */
+  help?: string;
   rows: ListRow[];
   columns: readonly ListColumn[];
   min: number;
@@ -92,7 +95,8 @@ type CellContext = { row: { original: ListRow; index: number }; getValue: () => 
 /** Adresse d'une cellule : `id/colonne`. */
 const at = (row: string, col: string) => `${row}/${col}`;
 
-export function ListTable({ label, rows, columns, min, max, itemLabel, palette, markdown, onChange }: ListTableProps) {
+export function ListTable({ label, help, rows, columns, min, max, itemLabel, palette, markdown, onChange }: ListTableProps) {
+  const fieldHelp = useFieldHelp(help);
   const lang = useNumberLang();
   const item = itemLabel ?? t("ui-list-item");
   const full = max !== null && rows.length >= max;
@@ -341,7 +345,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
     <div ref={lt} className="lt note-field" data-dragging={lifted ? "" : undefined}>
       <span className="a2ui-hint">{label}</span>
       <div ref={scroller} className="lt-scroll">
-        <table className="lt-table">
+        <table className="lt-table" aria-describedby={fieldHelp.describedBy}>
           <thead>
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
@@ -455,6 +459,7 @@ export function ListTable({ label, rows, columns, min, max, itemLabel, palette, 
       >
         {Icon.addRow}
       </button>
+      {fieldHelp.node}
     </div>
   );
 }

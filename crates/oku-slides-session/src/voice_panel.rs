@@ -224,6 +224,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
             let action = Action::event("api", [("field", lit(json!(field))), ("value", Dynamic::path(path.as_str()))]);
             let kind = ComponentKind::TextField {
                 label: Dynamic::Literal(l.tr(key)),
+                help: None,
                 value: Dynamic::path(path.as_str()),
                 action: Some(action),
             };
@@ -287,6 +288,7 @@ fn language_select(d: &DictationView, chosen: Option<&ModelView>, l: &Localizer)
     }
     ComponentKind::Select {
         label: Dynamic::Literal(l.tr("voice-language")),
+        help: None,
         value: Dynamic::path("/language"),
         options: languages,
         action: Some(Action::event("language", [("code", Dynamic::path("/language"))])),
@@ -308,6 +310,7 @@ fn silence_select(d: &DictationView, l: &Localizer) -> ComponentKind {
     }));
     ComponentKind::Select {
         label: Dynamic::Literal(l.tr("voice-silence")),
+        help: None,
         value: Dynamic::path("/silence"),
         options: silences,
         action: Some(Action::event("silence", [("value", Dynamic::path("/silence"))])),
@@ -400,6 +403,7 @@ fn agent_models(models: &AgentModelsView, l: &Localizer, b: &mut Builder, data: 
                 .collect();
             let select = ComponentKind::Select {
                 label: Dynamic::Literal(l.tr("voice-agent-model")),
+                help: None,
                 value: Dynamic::path("/agent_model"),
                 options,
                 action: Some(Action::event("agent_model", [("id", Dynamic::path("/agent_model"))])),

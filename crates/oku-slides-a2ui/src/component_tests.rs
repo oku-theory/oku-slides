@@ -31,6 +31,7 @@ fn text_field_binds_value_and_sends_action_with_path_context() {
         "name",
         ComponentKind::TextField {
             label: Dynamic::Literal("Nom".into()),
+            help: None,
             value: Dynamic::path("/template/name"),
             action: Some(Action::event("rename_template", [("value", Dynamic::path("/template/name"))])),
         },
@@ -48,6 +49,7 @@ fn rich_text_field_binds_markdown_and_source() {
         "b",
         ComponentKind::RichTextField {
             label: Dynamic::Literal("Corps".into()),
+            help: None,
             value: Dynamic::path("/v"),
             source: Dynamic::path("/v-source"),
             palette: vec!["#112233".into()],
@@ -66,6 +68,7 @@ fn stepper_leaves_out_missing_bounds_and_action() {
         "cols",
         ComponentKind::Stepper {
             label: Dynamic::Literal("Colonnes".into()),
+            help: None,
             value: Dynamic::path("/grid/columns"),
             min: Some(1),
             max: None,
@@ -129,6 +132,7 @@ fn diff_text_serializes_segment_kinds_in_lowercase() {
 fn slider_color_select_thumb_and_row_serialize_their_fields() {
     let slider = component_json(ComponentKind::Slider {
         label: Dynamic::Literal("Espacement".into()),
+        help: None,
         value: Dynamic::path("/f0"),
         min: 0.0,
         max: 64.0,
@@ -141,6 +145,7 @@ fn slider_color_select_thumb_and_row_serialize_their_fields() {
     }));
     let color = component_json(ComponentKind::ColorField {
         label: Dynamic::Literal("Accent".into()),
+        help: None,
         value: Dynamic::path("/f1"),
         palette: vec!["#c2573a".into()],
         action: None,
@@ -148,6 +153,7 @@ fn slider_color_select_thumb_and_row_serialize_their_fields() {
     assert_that!(color.and_then(|v| v.get("palette").cloned())).is_some().is_equal_to(json!(["#c2573a"]));
     let select = component_json(ComponentKind::Select {
         label: Dynamic::Literal("Mise en page".into()),
+        help: None,
         value: Dynamic::path("/f2"),
         options: vec![ChoiceOption { id: "columns".into(), label: "Colonnes".into(), hint: None }],
         action: None,
@@ -155,6 +161,7 @@ fn slider_color_select_thumb_and_row_serialize_their_fields() {
     assert_that!(select.and_then(|v| v.get("component").cloned())).is_some().is_equal_to(json!("Select"));
     let switch = component_json(ComponentKind::Switch {
         label: Dynamic::Literal("On".into()),
+        help: None,
         value: Dynamic::path("/on"),
         action: None,
     });
@@ -168,6 +175,47 @@ fn slider_color_select_thumb_and_row_serialize_their_fields() {
     assert_that!(thumb.and_then(|v| v.get("svg").cloned())).is_some().is_equal_to(json!("<svg/>"));
     let row = component_json(ComponentKind::Row { children: vec!["a".into(), "b".into()] });
     assert_that!(row).is_some().is_equal_to(json!({ "id": "c", "component": "Row", "children": ["a", "b"] }));
+}
+
+fn switch_with_help() -> ComponentKind {
+    ComponentKind::Switch {
+        label: Dynamic::Literal("Highlight".into()),
+        help: Some(Dynamic::Literal("Puts the card on the dark background".into())),
+        value: Dynamic::path("/on"),
+        action: Some(Action::named("toggle")),
+    }
+}
+
+#[test]
+fn field_help_serializes_next_to_its_label_and_round_trips() {
+    let json = component_json(switch_with_help());
+    assert_that!(json.as_ref().and_then(|v| v.get("help").cloned()))
+        .is_some()
+        .is_equal_to(json!("Puts the card on the dark background"));
+    let back: Option<Component> = json.and_then(|v| serde_json::from_value(v).ok());
+    assert_that!(back).is_some().is_equal_to(Component::new("c", switch_with_help()));
+}
+
+#[test]
+fn field_without_help_omits_the_key() {
+    let json = component_json(ComponentKind::TextField {
+        label: Dynamic::Literal("Title".into()),
+        help: None,
+        value: Dynamic::path("/t"),
+        action: None,
+    });
+    assert_that!(json.and_then(|v| v.get("help").cloned())).is_none();
+}
+
+#[test]
+fn without_action_keeps_the_field_help() {
+    let frozen = switch_with_help().without_action();
+    assert_that!(frozen).is_some().is_equal_to(ComponentKind::Switch {
+        label: Dynamic::Literal("Highlight".into()),
+        help: Some(Dynamic::Literal("Puts the card on the dark background".into())),
+        value: Dynamic::path("/on"),
+        action: None,
+    });
 }
 
 #[test]
@@ -321,6 +369,7 @@ fn without_action_on_button_and_field_drops_or_strips() {
     assert_that!(b.kind.without_action()).is_none();
     let field = ComponentKind::Stepper {
         label: Dynamic::Literal("Colonnes".into()),
+        help: None,
         value: Dynamic::path("/f0"),
         min: None,
         max: None,
@@ -361,6 +410,7 @@ fn list_table_carries_its_columns_and_leaves_out_missing_bounds() {
         "f0",
         ComponentKind::ListTable {
             label: Dynamic::Literal("Étapes".into()),
+            help: None,
             rows: Dynamic::path("/f0"),
             change: Dynamic::path("/f0-change"),
             markdown: Dynamic::path("/f0-markdown"),

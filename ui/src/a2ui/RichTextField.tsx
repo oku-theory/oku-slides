@@ -12,9 +12,12 @@ import type { Paragraph } from "../api";
 import { textToParagraphs } from "../deck";
 import { markdownDecorations } from "../markdownDecorations";
 import { markdownFormatKeys } from "../markdownEditing";
+import { useFieldHelp } from "../primitives";
 
 export interface RichTextFieldProps {
   label: string;
+  /** A help line under the editor, tied to it with `aria-describedby`. */
+  help?: string;
   /** Markdown d'édition montré. */
   value: string;
   /** Paragraphes d'origine, alignés ligne à ligne sur `value`. */
@@ -31,7 +34,9 @@ interface Editor {
 }
 
 /** Champ riche multiligne d'une carte. */
-export function RichTextField({ label, value, source, palette, onCommit }: RichTextFieldProps) {
+export function RichTextField({ label, help, value, source, palette, onCommit }: RichTextFieldProps) {
+  const fieldHelp = useFieldHelp(help);
+  const describedBy = fieldHelp.describedBy;
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<Editor | null>(null);
   const looks = useRef(new Compartment());
@@ -93,11 +98,15 @@ export function RichTextField({ label, value, source, palette, onCommit }: RichT
     editor.current?.view.dispatch({
       effects: looks.current.reconfigure([
         markdownDecorations(palette),
-        EditorView.contentAttributes.of({ "aria-label": label, "aria-multiline": "true" }),
+        EditorView.contentAttributes.of({
+          "aria-label": label,
+          "aria-multiline": "true",
+          ...(describedBy ? { "aria-describedby": describedBy } : {}),
+        }),
       ]),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `palette` suit `paletteKey`.
-  }, [label, paletteKey]);
+  }, [label, describedBy, paletteKey]);
 
   // Une nouvelle valeur de la session, hors saisie.
   useEffect(() => {
@@ -111,6 +120,7 @@ export function RichTextField({ label, value, source, palette, onCommit }: RichT
     <div className="note-field rich-field" onKeyDown={(e) => e.stopPropagation()}>
       <span className="a2ui-hint">{label}</span>
       <div ref={host} className="rich-field-editor" />
+      {fieldHelp.node}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 use oku_slides_a2ui::{ChoiceOption, ColumnKind, ListColumn, SubColumn, SubList};
 use oku_slides_i18n::Localizer;
+use rstest::rstest;
 use speculoos::prelude::*;
 
 use serde_json::{Value, json};
@@ -150,16 +151,40 @@ fn params_with_notes_shows_them() {
     assert_that!(json.as_str()).contains("n1");
 }
 
-#[test]
-fn params_with_field_help_adds_a_caption_after_the_field() {
+/// The `f0` component and the body's children of a form with one field of `kind`, with `help`.
+fn help_form(kind: &str, value: &Value, help: Option<&str>) -> (Value, Value) {
     let spec: ShowParams = serde_json::from_value(json!({ "title": "T", "slide": "", "fields": [
-        { "label": "Surtitre", "kind": "text", "value": "x", "op_template": null, "help": "Au-dessus du titre" }
+        { "label": "Surtitre", "kind": kind, "value": value, "op_template": null, "help": help }
     ] }))
     .unwrap();
     let extras = FormExtras { keys: &[], notes: &[], closable: false };
-    let json = serde_json::to_string(&params_with("host-widget", &spec, &extras, &[], &fr()).messages).unwrap();
-    assert_that!(json.as_str()).contains("\"children\":[\"title\",\"f0\",\"f0-help\"]");
-    assert_that!(json.as_str()).contains("Au-dessus du titre");
+    let json = serde_json::to_value(params_with("host-widget", &spec, &extras, &[], &fr())).unwrap();
+    let components = json["messages"][1]["updateComponents"]["components"].as_array().unwrap().clone();
+    let field = components.iter().find(|c| c["id"] == "f0").unwrap().clone();
+    let body = components.iter().find(|c| c["id"] == "body").unwrap()["children"].clone();
+    (field, body)
+}
+
+#[rstest]
+#[case::text("text", json!("x"))]
+#[case::rich("rich", json!([{ "runs": [{ "t": "x" }] }]))]
+#[case::stepper("stepper", json!(2))]
+#[case::slider("slider", json!(0.5))]
+#[case::color("color", json!("#112233"))]
+#[case::select("select", json!("a"))]
+#[case::switch("switch", json!(true))]
+#[case::list("list", json!([]))]
+fn params_with_field_help_rides_on_the_field_component(#[case] kind: &str, #[case] value: Value) {
+    let (field, body) = help_form(kind, &value, Some("Au-dessus du titre"));
+    assert_that!(field["help"].clone()).is_equal_to(json!("Au-dessus du titre"));
+    assert_that!(body).is_equal_to(json!(["title", "f0"]));
+}
+
+#[test]
+fn params_with_field_without_help_has_no_help() {
+    let (field, body) = help_form("text", &json!("x"), None);
+    assert_that!(field.get("help")).is_none();
+    assert_that!(body).is_equal_to(json!(["title", "f0"]));
 }
 
 #[test]
@@ -401,7 +426,10 @@ fn every_form() -> Vec<super::Surface> {
             },
             field("Accent", FieldKind::Color, json!("#c2573a")),
             ParamField { options: options(), ..field("Mise en page", FieldKind::Select, json!("a")) },
-            field("Légende", FieldKind::Text, json!("Source : Insee")),
+            ParamField {
+                help: Some("Sous le graphique".into()),
+                ..field("Légende", FieldKind::Text, json!("Source : Insee"))
+            },
             field("Corps", FieldKind::Rich, json!([{ "runs": [{ "t": "Un", "bold": true }] }])),
         ],
     };

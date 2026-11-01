@@ -225,6 +225,7 @@ impl Builder {
                 "extends-add",
                 ComponentKind::Select {
                     label: Dynamic::Literal(l.tr("theme-extends-add")),
+                    help: None,
                     value: Dynamic::path("/extends_add"),
                     options: choices,
                     action: Some(Action::event(THEME_EXTENDS_EVENT, context)),
@@ -245,6 +246,7 @@ impl Builder {
             "new-color:name",
             ComponentKind::TextField {
                 label: field("theme-new-color-name"),
+                help: None,
                 value: Dynamic::path("/new-color-name"),
                 action: None,
             },
@@ -253,6 +255,7 @@ impl Builder {
             "new-color:value",
             ComponentKind::ColorField {
                 label: field("theme-new-color-value"),
+                help: None,
                 value: Dynamic::path("/new-color-value"),
                 palette: palette.to_vec(),
                 action: None,
@@ -368,6 +371,7 @@ impl Session {
             "filter",
             ComponentKind::TextField {
                 label: Dynamic::Literal(l.tr("theme-filter")),
+                help: None,
                 value: Dynamic::path("/filter"),
                 action: Some(Action::event("filter", [("filter", Dynamic::path("/filter"))])),
             },

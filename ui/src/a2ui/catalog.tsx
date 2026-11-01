@@ -15,7 +15,7 @@ import { Catalog, CommonSchemas, type ComponentContext } from "@a2ui/web_core/v0
 import type { Paragraph } from "../api";
 import { t } from "../i18n";
 import { Icon } from "../icons";
-import { Button as UiButton, Field, IconButton, Select as UiSelect } from "../primitives";
+import { Button as UiButton, Field, IconButton, Select as UiSelect, useFieldHelp } from "../primitives";
 import { ActionOutcomeContext, sendWithOutcome } from "./actionOutcome";
 import { QuickHintsContext } from "./quickHints";
 import { ListTable, type ListRow } from "./ListTable";
@@ -35,10 +35,17 @@ const TextApi = {
   name: "Text",
   schema: z.object({ text: CommonSchemas.DynamicString, variant: z.enum(["h4", "body", "caption", "note"]).optional() }).strict(),
 };
+/** A field's help line, shown under it and tied to its control (`aria-describedby`). */
+const HelpSchema = CommonSchemas.DynamicString.optional();
 const TextFieldApi = {
   name: "TextField",
   schema: z
-    .object({ label: CommonSchemas.DynamicString, value: CommonSchemas.DynamicString, action: CommonSchemas.Action.optional() })
+    .object({
+      label: CommonSchemas.DynamicString,
+      help: HelpSchema,
+      value: CommonSchemas.DynamicString,
+      action: CommonSchemas.Action.optional(),
+    })
     .strict(),
 };
 const RichTextFieldApi = {
@@ -46,6 +53,7 @@ const RichTextFieldApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       value: CommonSchemas.DynamicString,
       source: CommonSchemas.DynamicValue,
       palette: z.array(Hex).readonly(),
@@ -58,6 +66,7 @@ const StepperApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       value: CommonSchemas.DynamicNumber,
       // `.safe()`: zod 3 `.int()` alone accepts 1e19; the host refuses the same range (t-1204).
       min: z.number().int().safe().optional(),
@@ -112,6 +121,7 @@ const SliderApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       value: CommonSchemas.DynamicNumber,
       min: z.number(),
       max: z.number(),
@@ -133,6 +143,7 @@ const ColorFieldApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       value: CommonSchemas.DynamicString,
       // `readonly` : un `string[]` serait pris pour une liste d'enfants (`ChildList`) par @a2ui/react.
       palette: z.array(Hex).readonly(),
@@ -145,6 +156,7 @@ const SelectApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       value: CommonSchemas.DynamicString,
       options: Options,
       action: CommonSchemas.Action.optional(),
@@ -156,6 +168,7 @@ const SwitchApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       value: CommonSchemas.DynamicBoolean,
       action: CommonSchemas.Action.optional(),
     })
@@ -191,6 +204,7 @@ const ListTableApi = {
   schema: z
     .object({
       label: CommonSchemas.DynamicString,
+      help: HelpSchema,
       rows: CommonSchemas.DynamicValue,
       change: CommonSchemas.DynamicValue,
       markdown: CommonSchemas.DynamicValue,
@@ -285,6 +299,7 @@ const Text = createComponentImplementation(TextApi, ({ props }) => (
 /** Champ d'une carte : la valeur et l'action partent à la sortie ou sur Entrée. */
 const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
   const value = props.value ?? "";
+  const help = useFieldHelp(props.help);
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const commit = () => {
@@ -293,8 +308,9 @@ const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
     props.action?.();
   };
   return (
-    <Field variant="note" label={props.label}>
+    <Field variant="note" label={props.label} help={help.node}>
       <input
+        aria-describedby={help.describedBy}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -313,6 +329,7 @@ const TextField = createComponentImplementation(TextFieldApi, ({ props }) => {
 const RichText = createComponentImplementation(RichTextFieldApi, ({ props }) => (
   <RichTextField
     label={props.label}
+    help={props.help}
     value={props.value ?? ""}
     source={Array.isArray(props.source) ? (props.source as Paragraph[]) : []}
     palette={[...props.palette]}
@@ -327,17 +344,21 @@ const RichText = createComponentImplementation(RichTextFieldApi, ({ props }) => 
 /** Petit compteur − valeur + ; l'action part à chaque pas. */
 const Stepper = createComponentImplementation(StepperApi, ({ props }) => {
   const { label, value, min = STEPPER_DEFAULT_MIN, max = STEPPER_DEFAULT_MAX } = props;
+  const help = useFieldHelp(props.help);
   const step = (next: number) => {
     props.setValue(next);
     props.action?.();
   };
   return (
-    <div className="stepper">
-      <span className="a2ui-hint">{label}</span>
-      <button aria-label={t("ui-stepper-less", { label })} disabled={value <= min} onClick={() => step(value - 1)}>−</button>
-      <span className="stepper-value">{value}</span>
-      <button aria-label={t("ui-stepper-more", { label })} disabled={value >= max} onClick={() => step(value + 1)}>+</button>
-    </div>
+    <>
+      <div className="stepper">
+        <span className="a2ui-hint">{label}</span>
+        <button aria-label={t("ui-stepper-less", { label })} aria-describedby={help.describedBy} disabled={value <= min} onClick={() => step(value - 1)}>−</button>
+        <span className="stepper-value">{value}</span>
+        <button aria-label={t("ui-stepper-more", { label })} aria-describedby={help.describedBy} disabled={value >= max} onClick={() => step(value + 1)}>+</button>
+      </div>
+      {help.node}
+    </>
   );
 });
 
@@ -449,11 +470,13 @@ const Slider = createComponentImplementation(SliderApi, ({ props }) => {
     props.action?.();
   });
   const ref = useNativeChange((v) => commit(Number(v)));
+  const help = useFieldHelp(props.help);
   const step = props.step ?? 1;
   return (
-    <Field variant="note" label={<>{props.label} · {draft.toFixed(decimals(step))}</>}>
+    <Field variant="note" label={<>{props.label} · {draft.toFixed(decimals(step))}</>} help={help.node}>
       <input
         ref={ref}
+        aria-describedby={help.describedBy}
         type="range"
         min={props.min}
         max={props.max}
@@ -479,9 +502,10 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
     props.action?.();
   });
   const ref = useNativeChange(pick);
+  const help = useFieldHelp(props.help);
   return (
-    <Field variant="note" label={props.label} as="div">
-      <div className="swatches">
+    <Field variant="note" label={props.label} as="div" help={help.node}>
+      <div className="swatches" role="group" aria-describedby={help.describedBy}>
         {props.palette.map((c, i) => (
           <button
             key={`${i}-${c}`}
@@ -509,9 +533,11 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
 /** Une liste déroulante ; une valeur absente des options montre une option vide. */
 const Select = createComponentImplementation(SelectApi, ({ props }) => {
   const known = props.options.some((o) => o.id === props.value);
+  const help = useFieldHelp(props.help);
   return (
-    <Field variant="note" label={props.label}>
+    <Field variant="note" label={props.label} help={help.node}>
       <UiSelect
+        aria-describedby={help.describedBy}
         value={known ? props.value : ""}
         options={[...(known ? [] : [{ value: "", label: "", disabled: true }]), ...props.options.map((o) => ({ value: o.id, label: o.label }))]}
         onChange={(v) => {
@@ -523,25 +549,36 @@ const Select = createComponentImplementation(SelectApi, ({ props }) => {
   );
 });
 
-/** An on/off switch drawn as the app's toggle: the checkbox writes the boolean, then sends the action. */
-const Switch = createComponentImplementation(SwitchApi, ({ props }) => (
-  <label className={props.value === true ? "toggle on" : "toggle"}>
-    <span className="toggle-track">
-      <input
-        className="toggle-input"
-        type="checkbox"
-        role="switch"
-        checked={props.value === true}
-        onChange={(e) => {
-          props.setValue(e.currentTarget.checked);
-          props.action?.();
-        }}
-      />
-      <span className="toggle-thumb" />
-    </span>
-    <span>{props.label}</span>
-  </label>
-));
+/**
+ * An on/off switch drawn as the app's toggle: the checkbox writes the boolean, then sends the action.
+ *
+ * Its help line follows the label, outside it, and describes the checkbox.
+ */
+const Switch = createComponentImplementation(SwitchApi, ({ props }) => {
+  const help = useFieldHelp(props.help);
+  return (
+    <>
+      <label className={props.value === true ? "toggle on" : "toggle"}>
+        <span className="toggle-track">
+          <input
+            className="toggle-input"
+            type="checkbox"
+            role="switch"
+            aria-describedby={help.describedBy}
+            checked={props.value === true}
+            onChange={(e) => {
+              props.setValue(e.currentTarget.checked);
+              props.action?.();
+            }}
+          />
+          <span className="toggle-thumb" />
+        </span>
+        <span>{props.label}</span>
+      </label>
+      {help.node}
+    </>
+  );
+});
 
 /** Les items d'une liste : objets à `id` chaîne ; le reste est ignoré. */
 const listRows = (v: unknown): ListRow[] =>
@@ -557,6 +594,7 @@ const ListTableField = createComponentImplementation(ListTableApi, ({ props }) =
   return (
     <ListTable
       label={props.label}
+      help={props.help}
       rows={listRows(props.rows)}
       columns={props.columns}
       min={props.min}

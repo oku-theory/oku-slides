@@ -470,6 +470,7 @@ pub(crate) fn rewrite(id: &str, spec: &AskRewrite, original: &str, l: &Localizer
         "edit",
         ComponentKind::TextField {
             label: Dynamic::Literal(l.tr("agent-surface-edit")),
+            help: None,
             value: Dynamic::path("/draft"),
             action: Some(edited),
         },
@@ -528,11 +529,6 @@ pub(crate) fn params_with(
         components.push(component);
         data.extend(entries);
         body.push(key.clone());
-        if let Some(help) = &f.help {
-            let hid = format!("{key}-help");
-            components.push(Component::text(&hid, help.clone(), Some(TextVariant::Caption)));
-            body.push(hid);
-        }
     }
     for (i, note) in extras.notes.iter().enumerate() {
         let nid = format!("note-{i}");
@@ -565,8 +561,10 @@ impl FieldEvent<'_> {
     }
 }
 
-/// Le composant `key` d'un champ et ses entrées du modèle de données : sa
-/// valeur sous `key`, plus les entrées annexes d'un texte riche ou d'une liste.
+/// A field's `key` component and its data model entries.
+///
+/// The value sits under `key`, plus the side entries of a rich text or a list; the field's
+/// help, if any, rides on the component itself.
 pub(crate) fn field_components(
     key: &str,
     f: &ParamField,
@@ -578,13 +576,15 @@ pub(crate) fn field_components(
     let mut markdown: Option<String> = None;
     let action = Some(event.action("value", &path));
     let label = Dynamic::Literal(f.label.clone());
+    let help = f.help.clone().map(Dynamic::Literal);
     let kind = match f.kind {
         FieldKind::Stepper => {
             let (min, max) = stepper_bounds(f);
-            ComponentKind::Stepper { label, value: Dynamic::path(&path), min: Some(min), max: Some(max), action }
+            ComponentKind::Stepper { label, help, value: Dynamic::path(&path), min: Some(min), max: Some(max), action }
         }
         FieldKind::Slider => ComponentKind::Slider {
             label,
+            help,
             value: Dynamic::path(&path),
             min: f.min.unwrap_or(SLIDER_DEFAULT_MIN),
             max: f.max.unwrap_or(SLIDER_DEFAULT_MAX),
@@ -592,13 +592,13 @@ pub(crate) fn field_components(
             action,
         },
         FieldKind::Color => {
-            ComponentKind::ColorField { label, value: Dynamic::path(&path), palette: palette.to_vec(), action }
+            ComponentKind::ColorField { label, help, value: Dynamic::path(&path), palette: palette.to_vec(), action }
         }
         FieldKind::Select => {
-            ComponentKind::Select { label, value: Dynamic::path(&path), options: f.options.clone(), action }
+            ComponentKind::Select { label, help, value: Dynamic::path(&path), options: f.options.clone(), action }
         }
-        FieldKind::Switch => ComponentKind::Switch { label, value: Dynamic::path(&path), action },
-        FieldKind::Text => ComponentKind::TextField { label, value: Dynamic::path(&path), action },
+        FieldKind::Switch => ComponentKind::Switch { label, help, value: Dynamic::path(&path), action },
+        FieldKind::Text => ComponentKind::TextField { label, help, value: Dynamic::path(&path), action },
         FieldKind::Rich => {
             let source = format!("{path}-source");
             let paragraphs: Vec<Paragraph> = serde_json::from_value(f.value.clone()).unwrap_or_default();
@@ -606,6 +606,7 @@ pub(crate) fn field_components(
             markdown = Some(paragraphs_to_text(&paragraphs));
             ComponentKind::RichTextField {
                 label,
+                help,
                 value: Dynamic::path(&path),
                 source: Dynamic::path(&source),
                 palette: palette.to_vec(),
@@ -618,6 +619,7 @@ pub(crate) fn field_components(
             data.insert(format!("{key}-markdown"), rich_markdown(&f.value, &f.columns));
             ComponentKind::ListTable {
                 label,
+                help,
                 rows: Dynamic::path(&path),
                 change: Dynamic::path(&change),
                 markdown: Dynamic::path(format!("{path}-markdown")),

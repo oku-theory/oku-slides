@@ -38,6 +38,7 @@ use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 mod add_grid;
 pub mod agent;
 mod appearance;
+mod builtin_labels;
 mod carried_assets;
 mod charts;
 mod color_warnings;

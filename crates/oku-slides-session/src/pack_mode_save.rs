@@ -23,6 +23,7 @@ use uuid::Uuid;
 use oku_slides_core::{Deck, Moved, Namespace, PackFiles, PackVersion};
 use oku_slides_i18n::Localize;
 
+use crate::builtin_labels::{builtin_pack_of, inline_labels};
 use crate::deck_closure::{closure_with_files, examples_requires};
 use crate::deck_pack_tab::SendBase;
 use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, SourcesSnafu};
@@ -152,7 +153,11 @@ impl Session {
         let base = self.doc.sources.packs.get(&edit.base);
         let base = base.context(PackVersionMissingSnafu { id: edit.pack, version: edit.base.clone() })?;
         let kept = PackManifest::from_files(base).ok();
-        let (kind, widgets) = (base.kind(), base.widgets().clone());
+        let (kind, mut widgets) = (base.kind(), base.widgets().clone());
+        // A copy of a built-in pack is no longer built-in: its widgets declare their Fluent labels inline.
+        if let Some(pack) = kept.as_ref().and_then(|m| builtin_pack_of(m.id)).filter(|_| as_new) {
+            widgets = inline_labels(pack, widgets);
+        }
         let (id, parent) = if as_new { (Uuid::new_v4(), None) } else { (edit.pack, edit.parent.clone()) };
         let old = kept.as_ref().map(|m| m.namespace.clone());
         let manifest = self.edited_manifest(&deck, (id, parent, as_new), edit.deck_only, kept)?;

@@ -419,6 +419,54 @@
     ]
   },
   {
+    "component": "TextField",
+    "variant": "with-help",
+    "note": "A help line under the field, which screen readers announce with it.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-TextField-with-help",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-TextField-with-help",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-TextField-with-help",
+          "components": [
+            {
+              "id": "root",
+              "component": "TextField",
+              "label": "Kicker",
+              "help": "Shown above the title, in small capitals.",
+              "value": {
+                "path": "/kicker"
+              },
+              "action": {
+                "event": {
+                  "name": "commit"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-TextField-with-help",
+          "value": {
+            "kicker": "Results"
+          }
+        }
+      }
+    ]
+  },
+  {
     "component": "RichTextField",
     "variant": "bound",
     "note": "Edits paragraphs as markdown; writes the markdown and the paragraphs, then acts.",
@@ -1027,6 +1075,54 @@
           "surfaceId": "playbook-Switch-bound",
           "value": {
             "on": true
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "Switch",
+    "variant": "with-help",
+    "note": "A switch whose help line says what turning it on does.",
+    "group": "field",
+    "agent": false,
+    "surface": "playbook-Switch-with-help",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-Switch-with-help",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-Switch-with-help",
+          "components": [
+            {
+              "id": "root",
+              "component": "Switch",
+              "label": "Highlight",
+              "help": "Puts the card on the theme's dark background.",
+              "value": {
+                "path": "/on"
+              },
+              "action": {
+                "event": {
+                  "name": "toggle"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-Switch-with-help",
+          "value": {
+            "on": false
           }
         }
       }

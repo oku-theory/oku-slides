@@ -247,6 +247,7 @@ impl Builder {
                 Action::event("add_pack", [("kind", lit(json!(id))), ("namespace", Dynamic::path(path.as_str()))]);
             let select = ComponentKind::Select {
                 label: Dynamic::Literal(l.tr("packs-add")),
+                help: None,
                 value: Dynamic::path(path.as_str()),
                 options,
                 action: Some(action),
@@ -280,6 +281,7 @@ impl Builder {
             .collect();
         let pick = ComponentKind::Select {
             label: Dynamic::Literal(l.tr("packs-theme-pick")),
+            help: None,
             value: Dynamic::path("/theme"),
             options,
             action: Some(Action::event("theme", [("theme", Dynamic::path("/theme"))])),

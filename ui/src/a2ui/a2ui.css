@@ -21,6 +21,8 @@
 .a2ui-prompt-image { font: 500 12px/18px var(--sans); padding: 0 8px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--paper-200) 90%, var(--ink)); }
 .a2ui-title { font: 600 14px/20px var(--sans); }
 .a2ui-hint, .a2ui-note { font: 400 12px/16px var(--sans); color: var(--ink-muted); }
+/* A field's help line (`useFieldHelp`): under its control, muted like a caption. */
+.field-help { display: block; margin-top: 2px; }
 .a2ui-note { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .a2ui-column { display: flex; flex-direction: column; gap: var(--space-1); }
 .a2ui-row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: stretch; }

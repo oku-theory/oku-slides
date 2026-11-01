@@ -118,3 +118,28 @@ fn field_of_a_flag_is_a_switch_with_a_bool_value() {
     let f = field("acme/w", &p, Some(&ParamValue::Value(json!(true))), &Localizer::new(None)).unwrap();
     assert_that!((f.kind, f.value)).is_equal_to((crate::agent::FieldKind::Switch, json!(true)));
 }
+
+/// The `base` widgets and their parameter names, from the built-in registry fixture.
+fn base_params() -> Vec<(String, String)> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
+    let probe: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let base = probe["packs"].as_array().unwrap().iter().find(|p| p["namespace"] == "base").unwrap();
+    let widgets = base["widgets"].as_array().unwrap();
+    widgets
+        .iter()
+        .flat_map(|w| {
+            let kind = format!("base/{}", w["name"].as_str().unwrap());
+            w["params"].as_array().unwrap().iter().map(move |p| (kind.clone(), p["name"].as_str().unwrap().to_owned()))
+        })
+        .collect()
+}
+
+/// English only: `try_tr` falls back to English, and `every_locale_has_exactly_the_reference_keys`
+/// (oku-slides-i18n) already requires each locale to have every reference key.
+#[test]
+fn param_label_of_every_base_parameter_is_not_its_raw_name() {
+    let l = Localizer::new(Some("en"));
+    let raw: Vec<_> =
+        base_params().into_iter().filter(|(kind, name)| param_label(kind, &flag_named(name), &l) == *name).collect();
+    assert_that!(raw).is_empty();
+}

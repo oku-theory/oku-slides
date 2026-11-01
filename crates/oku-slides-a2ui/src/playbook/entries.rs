@@ -147,14 +147,34 @@ fn text_atom() -> Vec<Example> {
 }
 
 fn text_field() -> Vec<Example> {
-    vec![example(
-        "bound",
-        "Edits a model value; the action fires on Enter or blur.",
-        false,
-        K::TextField { label: lit("Title"), value: Dynamic::path("/title"), action: Some(Action::named("commit")) },
-        vec![],
-        json!({ "title": "Quarterly review" }),
-    )]
+    vec![
+        example(
+            "bound",
+            "Edits a model value; the action fires on Enter or blur.",
+            false,
+            K::TextField {
+                label: lit("Title"),
+                help: None,
+                value: Dynamic::path("/title"),
+                action: Some(Action::named("commit")),
+            },
+            vec![],
+            json!({ "title": "Quarterly review" }),
+        ),
+        example(
+            "with-help",
+            "A help line under the field, which screen readers announce with it.",
+            false,
+            K::TextField {
+                label: lit("Kicker"),
+                help: Some(lit("Shown above the title, in small capitals.")),
+                value: Dynamic::path("/kicker"),
+                action: Some(Action::named("commit")),
+            },
+            vec![],
+            json!({ "kicker": "Results" }),
+        ),
+    ]
 }
 
 fn rich_text_field() -> Vec<Example> {
@@ -164,6 +184,7 @@ fn rich_text_field() -> Vec<Example> {
         false,
         K::RichTextField {
             label: lit("Body"),
+            help: None,
             value: Dynamic::path("/body"),
             source: Dynamic::path("/body-source"),
             palette: palette(),
@@ -181,6 +202,7 @@ fn stepper() -> Vec<Example> {
         false,
         K::Stepper {
             label: lit("Columns"),
+            help: None,
             value: Dynamic::path("/columns"),
             min: Some(1),
             max: Some(4),
@@ -267,6 +289,7 @@ fn slider() -> Vec<Example> {
         false,
         K::Slider {
             label: lit("Opacity"),
+            help: None,
             value: Dynamic::path("/opacity"),
             min: 0.0,
             max: 100.0,
@@ -285,6 +308,7 @@ fn color_field() -> Vec<Example> {
         false,
         K::ColorField {
             label: lit("Accent"),
+            help: None,
             value: Dynamic::path("/color"),
             palette: palette(),
             action: Some(Action::named("color")),
@@ -301,6 +325,7 @@ fn select() -> Vec<Example> {
         false,
         K::Select {
             label: lit("Theme"),
+            help: None,
             value: Dynamic::path("/theme"),
             options: vec![
                 option("papier", "Paper", Some("light")),
@@ -315,14 +340,34 @@ fn select() -> Vec<Example> {
 }
 
 fn switch() -> Vec<Example> {
-    vec![example(
-        "bound",
-        "An on/off setting; it writes a boolean.",
-        false,
-        K::Switch { label: lit("Highlight"), value: Dynamic::path("/on"), action: Some(Action::named("toggle")) },
-        vec![],
-        json!({ "on": true }),
-    )]
+    vec![
+        example(
+            "bound",
+            "An on/off setting; it writes a boolean.",
+            false,
+            K::Switch {
+                label: lit("Highlight"),
+                help: None,
+                value: Dynamic::path("/on"),
+                action: Some(Action::named("toggle")),
+            },
+            vec![],
+            json!({ "on": true }),
+        ),
+        example(
+            "with-help",
+            "A switch whose help line says what turning it on does.",
+            false,
+            K::Switch {
+                label: lit("Highlight"),
+                help: Some(lit("Puts the card on the theme's dark background.")),
+                value: Dynamic::path("/on"),
+                action: Some(Action::named("toggle")),
+            },
+            vec![],
+            json!({ "on": false }),
+        ),
+    ]
 }
 
 fn list_table() -> Vec<Example> {
@@ -345,6 +390,7 @@ fn list_table() -> Vec<Example> {
     }));
     let table = |columns: Vec<ListColumn>| K::ListTable {
         label: lit("Steps"),
+        help: None,
         rows: Dynamic::path("/rows"),
         change: Dynamic::path("/change"),
         markdown: Dynamic::path("/markdown"),

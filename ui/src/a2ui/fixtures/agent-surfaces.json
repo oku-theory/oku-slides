@@ -615,6 +615,7 @@
               "id": "f4",
               "component": "TextField",
               "label": "Légende",
+              "help": "Sous le graphique",
               "value": {
                 "path": "/f4"
               },
