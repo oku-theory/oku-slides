@@ -325,7 +325,7 @@
            "bold": true
           },
           {
-           "t": ": “Add from the library” pins a pack in the deck; “Remove” unpins it, unless a slide or another pack still needs it. The base pack always stays."
+           "t": ": “Add a pack” pins a pack from the library or one made for this deck; “Remove” unpins it, unless a slide or another pack still needs it. The base pack always stays."
           }
          ],
          "list": "bullet"
@@ -637,7 +637,7 @@
            "bold": true
           },
           {
-           "t": ": ⌘O on a .pptx, or opening it from the Finder, shows “Import a PowerPoint presentation”. The resulting deck comes up in a new tab."
+           "t": ": ⌘O on a .pptx, or opening it from the Finder, shows “Import a PowerPoint presentation”. The resulting deck comes up in a new tab. Several files opened at once wait their turn, up to 32: “Skip the waiting files” drops the rest, and a note names the files that did not fit."
           }
          ],
          "list": "bullet"

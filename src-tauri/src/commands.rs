@@ -60,7 +60,8 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::CloseWindow { .. }
         | WorkspaceRequest::DetachAgent
         | WorkspaceRequest::AttachAgent
-        | WorkspaceRequest::ImportPicked { .. } => (true, false),
+        | WorkspaceRequest::ImportPicked { .. }
+        | WorkspaceRequest::DismissImportPicks { .. } => (true, false),
         WorkspaceRequest::OpenTab { .. }
         | WorkspaceRequest::ImportTab { .. }
         | WorkspaceRequest::OpenHelp { .. }
@@ -106,6 +107,7 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::NewWindow
         | WorkspaceRequest::MoveTab { .. }
         | WorkspaceRequest::ImportPicked { .. }
+        | WorkspaceRequest::DismissImportPicks { .. }
         | WorkspaceRequest::OpenPack { .. }
         | WorkspaceRequest::OpenTheme { .. }
         | WorkspaceRequest::NewPack { .. }

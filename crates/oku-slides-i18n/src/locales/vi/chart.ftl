@@ -52,3 +52,6 @@ chart-table-not-finite = các số trong bảng phải hữu hạn
 chart-table-chart-option = chart phải là một đối tượng tùy chọn biểu đồ
 chart-table-chart-columns = chart-columns phải liệt kê các mã định danh cột hợp lệ và khác nhau (1 đến 64 chữ cái, chữ số, - hoặc _)
 chart-table-geometry = column-widths và row-heights cho một trọng số hữu hạn, dương cho mỗi cột hoặc hàng
+chart-axis-interval = khoảng chia (interval) của một trục phải là số lớn hơn 0
+chart-axis-bounds = giá trị lớn nhất (max) của một trục phải lớn hơn giá trị nhỏ nhất (min)
+chart-bar-gap = barCategoryGap chỉ dùng cho chuỗi cột: tỷ lệ phần trăm từ 0% đến dưới 100%, hoặc độ dài theo điểm từ 0 trở lên

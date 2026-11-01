@@ -22,7 +22,7 @@ use crate::{Fonts, Platform};
 
 use serde::{Deserialize, Serialize};
 
-use super::import_pick::is_pptx;
+use super::import_pick::{DroppedPicks, is_pptx};
 use super::{
     Dormant, LAYOUT_VERSION, Layout, MAX_NUMBER, Opening, Slot, TABS_DIR, Tab, TabPlace, WindowLayout, Workspace,
     WorkspaceRequest, is_tab_id, is_window_label, number,
@@ -429,9 +429,11 @@ impl Workspace {
     /// Sources: argument, second instance, macOS. An unreadable file says so in
     /// the active tab (a notice shown once). A `.pptx` does not open: it joins
     /// the focused window's queue of import picks ([`super::ImportPick`]), which
-    /// its page offers one by one. An end already under way (`settle`, `closed`)
-    /// stops here, under the same lock, never afterwards.
+    /// its page offers one by one; the files a full queue drops get one notice.
+    /// An end already under way (`settle`, `closed`) stops here, under the same
+    /// lock, never afterwards.
     pub fn open_files(ws: &Mutex<Self>, files: &[PathBuf]) {
+        let mut dropped = DroppedPicks::default();
         for path in files {
             let resolved = resolve(path);
             if is_pptx(&resolved) {
@@ -439,7 +441,9 @@ impl Workspace {
                 if w.is_closed() {
                     break;
                 }
-                w.pick_import(resolved);
+                if !dropped.contains(&resolved) && !w.pick_import(resolved.clone()) {
+                    dropped.push(resolved);
+                }
                 continue;
             }
             let (window, closed, already) = {
@@ -486,6 +490,8 @@ impl Workspace {
             // L'onglet actif, peut-être endormi : relu ici, il le serait de toute façon.
             Self::post_notice(ws, &id, &session, text);
         }
+        // Once for the whole list, so a large drop reads as one notice.
+        Self::notice_dropped_picks(ws, &dropped);
     }
 
     /// Writes `workspace.json`, with each tab's info and its legacy keys; a failure is logged.

@@ -1,5 +1,6 @@
 ---
 source: crates/oku-slides-import/tests/kitchen.rs
+assertion_line: 53
 expression: kitchen()
 ---
 {
@@ -4599,7 +4600,14 @@ expression: kitchen()
             "axes": {
               "x": false,
               "y": false
-            }
+            },
+            "value_axis": {
+              "gridlines": false,
+              "min": null,
+              "max": null,
+              "major_unit": null
+            },
+            "gap_width": 150
           }
         },
         {

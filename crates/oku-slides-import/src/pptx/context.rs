@@ -38,11 +38,13 @@ pub(crate) struct Shared<'x> {
     /// `defaultTextStyle` de `presentation.xml` (couleurs non résolues).
     pub pres: LevelProps,
     pub sink: RefCell<Sink>,
+    /// PowerPoint 2007 wrote the file: some booleans follow its draft defaults (`app`, t-1385).
+    pub mso2007: bool,
 }
 
 impl<'x> Shared<'x> {
     pub(crate) fn new(pkg: &'x Package<'x>, table_styles: Option<Document<'x>>, pres: LevelProps) -> Self {
-        Self { pkg, table_styles, pres, sink: RefCell::new(Sink::new()) }
+        Self { pkg, table_styles, pres, sink: RefCell::new(Sink::new()), mso2007: false }
     }
 }
 

@@ -375,6 +375,7 @@ ui-import-tune-note-retrofit = 에이전트가 각 슬라이드를 원본과 비
 ui-import-tune-unavailable = 사용할 수 있는 에이전트가 없습니다: { $reason }
 ui-import-submit = 가져오기
 ui-import-busy = 가져오는 중…
+ui-import-dismiss-waiting = 대기 중인 파일 건너뛰기({ $count })
 ui-update-available = Oku Slides { $version } 버전을 사용할 수 있습니다.
 ui-update-install = 설치 후 다시 시작
 ui-update-see-release = 릴리스 보기

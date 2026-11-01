@@ -16,6 +16,7 @@ import type { WidgetChoice } from "./widgetChoices";
 import GuidesInstallDialog from "./GuidesInstallDialog";
 import ImportDialog from "./ImportDialog";
 import type { ImportJob } from "./useImportJob";
+import type { WaitingPicks } from "./useImportPick";
 import { useFileActions } from "./useFileActions";
 import DeckPile, { pileSection } from "./DeckPile";
 import { ColumnDividers } from "./ColumnDivider";
@@ -69,7 +70,7 @@ const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
-  tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose,
+  tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose, importWaiting,
   onHelp, onAbout, windowDialog = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange,
 }: {
   tab: string;
@@ -95,6 +96,8 @@ export default function App({
   onImport: (target: ImportTarget, tune: boolean) => void;
   /** Ferme le dialogue d'import ; un import lancé continue. */
   onImportClose: () => void;
+  /** Other `.pptx` files given by the OS, waiting behind the import dialog; absent: none. */
+  importWaiting?: WaitingPicks | null;
   /** Montrer l'aide de l'app : l'espace de travail ouvre (ou retrouve) son onglet. */
   onHelp: () => void;
   /** Opens the window's About dialog (version and changelog). */
@@ -515,6 +518,7 @@ export default function App({
           agentUnusable={agentAvailability.unusable}
           onImport={onImport}
           onClose={onImportClose}
+          waiting={importWaiting}
         />
       )}
 

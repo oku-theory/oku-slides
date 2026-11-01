@@ -52,3 +52,6 @@ chart-table-not-finite = table numbers must be finite
 chart-table-chart-option = chart must be a chart option object
 chart-table-chart-columns = chart-columns must list valid, distinct column identifiers (1 to 64 letters, digits, - or _)
 chart-table-geometry = column-widths and row-heights give one finite, positive weight per column or row
+chart-axis-interval = an axis interval must be a number above 0
+chart-axis-bounds = an axis max must be above its min
+chart-bar-gap = barCategoryGap goes on a bar series only: a percentage from 0% to under 100%, or a length in points of 0 or more

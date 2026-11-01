@@ -384,6 +384,7 @@ ui-import-tune-note-retrofit = Agent porównuje każdy slajd z oryginałem i pro
 ui-import-tune-unavailable = Brak dostępnego agenta: { $reason }
 ui-import-submit = Importuj
 ui-import-busy = Importowanie…
+ui-import-dismiss-waiting = Pomiń oczekujące pliki ({ $count })
 ui-update-available = Dostępna jest wersja { $version } aplikacji Oku Slides.
 ui-update-install = Zainstaluj i uruchom ponownie
 ui-update-see-release = Zobacz wydanie

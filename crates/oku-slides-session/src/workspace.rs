@@ -258,6 +258,10 @@ impl Workspace {
                     w.import_picked(id);
                     return w.view_json().map(WorkspaceOutcome::Applied);
                 }
+                WorkspaceRequest::DismissImportPicks { window, through } => {
+                    w.dismiss_import_picks(&window, through);
+                    return w.view_json().map(WorkspaceOutcome::Applied);
+                }
                 other => {
                     let gone = w.change(other)?;
                     w.save_layout();

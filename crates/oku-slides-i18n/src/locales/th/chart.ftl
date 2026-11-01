@@ -52,3 +52,6 @@ chart-table-not-finite = ตัวเลขในตารางต้องเ�
 chart-table-chart-option = chart ต้องเป็นอ็อบเจกต์ตัวเลือกของแผนภูมิ
 chart-table-chart-columns = chart-columns ต้องระบุตัวระบุคอลัมน์ที่ถูกต้องและไม่ซ้ำกัน (ตัวอักษร ตัวเลข - หรือ _ จำนวน 1 ถึง 64 ตัว)
 chart-table-geometry = column-widths และ row-heights ให้น้ำหนักบวกที่จำกัดหนึ่งค่าต่อคอลัมน์หรือแถว
+chart-axis-interval = ช่วง (interval) ของแกนต้องเป็นตัวเลขที่มากกว่า 0
+chart-axis-bounds = ค่าสูงสุด (max) ของแกนต้องมากกว่าค่าต่ำสุด (min)
+chart-bar-gap = barCategoryGap ใช้ได้กับชุดข้อมูลแท่งเท่านั้น: เปอร์เซ็นต์ตั้งแต่ 0% ถึงต่ำกว่า 100% หรือความยาวเป็นพอยต์ตั้งแต่ 0 ขึ้นไป

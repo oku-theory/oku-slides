@@ -52,3 +52,6 @@ chart-table-not-finite = числа в таблиці мають бути скі
 chart-table-chart-option = chart має бути об'єктом параметрів діаграми
 chart-table-chart-columns = chart-columns має містити дійсні та різні ідентифікатори стовпців (від 1 до 64 літер, цифр, - або _)
 chart-table-geometry = column-widths і row-heights задають одну скінченну додатну вагу на стовпець або рядок
+chart-axis-interval = інтервал (interval) осі має бути числом більшим за 0
+chart-axis-bounds = максимум (max) осі має бути більшим за її мінімум (min)
+chart-bar-gap = barCategoryGap задається лише для серії стовпців: відсоток від 0% до менше ніж 100% або довжина в пунктах не менше 0

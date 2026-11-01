@@ -378,6 +378,7 @@ ui-import-tune-note-retrofit = Ajan her slaytı orijinalle karşılaştırır ve
 ui-import-tune-unavailable = Kullanılabilir ajan yok: { $reason }
 ui-import-submit = İçe aktar
 ui-import-busy = İçe aktarılıyor…
+ui-import-dismiss-waiting = Bekleyen dosyaları atla ({ $count })
 ui-update-available = Oku Slides { $version } kullanıma hazır.
 ui-update-install = Yükle ve yeniden başlat
 ui-update-see-release = Sürümü gör

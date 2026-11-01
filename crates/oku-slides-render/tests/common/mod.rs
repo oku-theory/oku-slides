@@ -203,3 +203,30 @@ pub fn pixels(c: &Compiled) -> (Vec<[u8; 4]>, usize) {
 pub fn is_red(p: [u8; 4]) -> bool {
     p[0] > 200 && p[1] < 80 && p[2] < 80
 }
+
+/// Ink runs of page 1 inside the box of element `id`, along one axis, relative to the box.
+///
+/// At 1 px per pt, a pixel is ink when it differs from the page's top-left pixel. With
+/// `along_x`, each run is a span of columns holding ink; otherwise a span of rows. Runs are
+/// `(first, last)`, inclusive, in px from the box's left or top edge.
+pub fn ink_runs(c: &Compiled, id: &str, along_x: bool) -> Vec<(usize, usize)> {
+    let frame = box_of(c.layout(), id);
+    let px_of = |v: f64| oku_slides_core::num::trunc_usize(v.round());
+    let (left, top) = (px_of(frame.x), px_of(frame.y));
+    let (across_x, across_y) = (left..left + px_of(frame.w), top..top + px_of(frame.h));
+    let (px, width) = pixels(c);
+    let bg = px[0];
+    let inked = |p: [u8; 4]| p.iter().zip(bg).any(|(channel, page)| channel.abs_diff(page) > 40);
+    let (origin, outer, inner) = if along_x { (left, across_x, across_y) } else { (top, across_y, across_x) };
+    let hit = |line: usize| {
+        inner.clone().any(|cross| inked(if along_x { px[cross * width + line] } else { px[line * width + cross] }))
+    };
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    for line in outer.filter(|&line| hit(line)).map(|line| line - origin) {
+        match runs.last_mut() {
+            Some(last) if last.1 + 1 == line => last.1 = line,
+            _ => runs.push((line, line)),
+        }
+    }
+    runs
+}

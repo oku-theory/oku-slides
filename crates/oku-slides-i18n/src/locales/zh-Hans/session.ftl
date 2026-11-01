@@ -194,7 +194,7 @@ packs-make-current = 将对方的版本设为我的版本
 packs-remove = 移除
 packs-pack-open = 打开
 packs-pack-open-mine = 打开我的版本
-packs-add = 从库中添加
+packs-add = 添加包
 packs-theme-overrides = 演示文稿覆盖：{ $count }
 packs-theme-pick = 演示文稿主题
 packs-theme-open = 打开
@@ -218,6 +218,11 @@ notice-pack-edited-elsewhere = 包 { $pack } 正在标签页“{ $tab }”中编
 notice-pack-deleted = 包 { $pack } 已不在库中：此标签页为只读；如需保留更改，请让智能体将其另存为新包。
 notice-themes-skipped = 你的库中有些主题来自旧版 Oku Slides：无法读取，不再提供（{ $count }）。
 notice-unreadable-parts = 此演示文稿的部分内容无法读取，已移出（{ $count }）。
+notice-import-picks-full = 等待导入的 PowerPoint 文件太多：最多只能同时等待{ $max }个。未加入的文件（{ $count }个）：{ $names }{ $others ->
+        [0] {""}
+       *[other] 及另外{ $others }个
+    }。请在等待中的文件处理完后重新打开它们。
+notice-import-picks-separator = {"、"}
 
 log-document-opened = 文档已打开
 log-document-saved = 文档已保存

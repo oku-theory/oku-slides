@@ -189,6 +189,26 @@ fn convert_to_scatter_with_changed_row_count_mints_new_ids() {
 }
 
 #[test]
+fn convert_bars_to_lines_keeps_a_hidden_grid_hidden() {
+    let mut option = bars();
+    option.y_axis = Some(serde_json::from_value(json!({ "type": "value", "splitLine": { "show": false } })).unwrap());
+    let out = convert(&option, SeriesType::Line, en()).unwrap();
+    assert_that!(normalize(&out, en()).unwrap().grid_show).is_false();
+}
+
+#[test]
+fn convert_horizontal_bars_to_lines_keeps_their_hidden_grid_hidden() {
+    let option = opt(json!({
+        "dataset": { "source": [["Mois", "Nord"], ["Jan", 3], ["Fév", 5]] },
+        "xAxis": { "type": "value", "splitLine": { "show": false } },
+        "yAxis": { "type": "category" },
+        "series": [{ "type": "bar" }]
+    }));
+    let out = convert(&option, SeriesType::Line, en()).unwrap();
+    assert_that!(normalize(&out, en()).unwrap().grid_show).is_false();
+}
+
+#[test]
 fn convert_bars_to_lines_keeps_hidden_axes_hidden() {
     let mut option = bars();
     option.x_axis = Some(serde_json::from_value(json!({ "type": "category", "show": false })).unwrap());

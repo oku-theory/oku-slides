@@ -150,6 +150,15 @@ pub enum WorkspaceRequest {
         /// Numéro du choix traité ([`ImportPick::id`]).
         id: u64,
     },
+    /// The user dismisses every pick waiting for `window`, up to id `through`.
+    ///
+    /// A newer pick (one the page had not seen) stays.
+    DismissImportPicks {
+        /// Label of the window whose picks go.
+        window: String,
+        /// Highest [`ImportPick::id`] the page showed as waiting.
+        through: u64,
+    },
     /// Opens `pack` from tab `tab`, in its own tab beside it.
     OpenPack {
         /// The requesting tab.

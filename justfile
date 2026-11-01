@@ -541,8 +541,37 @@ test-apple:
     cargo nextest run -p oku-slides-stt --run-ignored ignored-only -E 'binary_id(oku-slides-stt::apple) | test(/^apple::/)'
 
 # Tests against the real LibreOffice (it opens in the Dock), ignored by `just test` (t-960).
+# Fails first when a test ignored for real LibreOffice escapes the name filter, e.g. once renamed (t-1385).
 test-soffice:
-    cargo nextest run -p oku-slides-reference -p oku-slides-cli --run-ignored ignored-only -E 'test(/real_libreoffice|installed_libreoffice/)'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dirs=(crates/oku-slides-reference crates/oku-slides-cli)
+    pkgs=(-p oku-slides-reference -p oku-slides-cli)
+    filter='test(/real_libreoffice|installed_libreoffice/)'
+    marker='#[ignore = "real LibreOffice'
+    # Another wording or another crate would escape the filter below unnoticed.
+    if odd=$(grep -rnE 'ignore.*LibreOffice' crates --include='*.rs' | grep -vF "$marker"); then
+        echo "✗ ignored for LibreOffice without the marker $marker:"; echo "$odd"; exit 1
+    fi
+    files=$(grep -rlF "$marker" crates --include='*.rs' || true)
+    [ -n "$files" ] || { echo "✗ no test ignored for real LibreOffice found"; exit 1; }
+    for f in $files; do
+        case "$f" in "${dirs[0]}"/*|"${dirs[1]}"/*) ;; *) echo "✗ $f is outside the packages test-soffice runs"; exit 1;; esac
+    done
+    # The fn after each marker; rstest cases list as <fn>::case_N.
+    names=$(MARKER="$marker" awk 'index($0, ENVIRON["MARKER"]) {want=1} want && match($0, /fn [a-z0-9_]+/) {print substr($0, RSTART+3, RLENGTH-3); want=0}' $files)
+    marked=$(grep -hcF "$marker" $files | paste -sd+ - | bc)
+    [ "$(wc -w <<<"$names")" -eq "$marked" ] || { echo "✗ a marker is not followed by a test fn"; exit 1; }
+    selected=$(cargo nextest list "${pkgs[@]}" --run-ignored ignored-only -E "$filter" --message-format oneline)
+    missing=0
+    for name in $names; do
+        grep -qE "[ :]${name}(::|$)" <<<"$selected" || { echo "✗ $name is ignored for real LibreOffice but $filter skips it"; missing=1; }
+    done
+    # Two marked tests may share a name: compare counts too.
+    chosen=$(awk '{print $NF}' <<<"$selected" | sed -E 's/::case_[0-9]+$//' | sort -u | grep -c . || true)
+    [ "$chosen" -eq "$marked" ] || { echo "✗ $marked tests are ignored for real LibreOffice, $filter selects $chosen"; missing=1; }
+    [ "$missing" = 0 ]
+    cargo nextest run "${pkgs[@]}" --run-ignored ignored-only -E "$filter"
 
 # Vérification manuelle avec le vrai agent (réseau, compte) : just agent-smoke fixtures/roadmap.json "Rends le titre de la slide 2 plus percutant"
 agent-smoke deck prompt:

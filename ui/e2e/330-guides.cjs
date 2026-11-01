@@ -88,7 +88,7 @@ async function openFile(p, file) {
     await activate(p, TAB);
     await openPanel(p);
     const add = part(p, 'widgets-add').locator('select');
-    await until(p, async () => (await add.locator('option', { hasText: 'Guidé' }).count()) === 1, 'Guidé absent de « Ajouter depuis la bibliothèque »');
+    await until(p, async () => (await add.locator('option', { hasText: 'Guidé' }).count()) === 1, 'Guidé absent de « Ajouter un pack »');
     await add.selectOption({ label: 'Guidé' });
     const fold = `widgets/${own.namespace}/guide`;
     await part(p, fold).waitFor();

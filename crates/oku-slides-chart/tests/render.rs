@@ -434,3 +434,175 @@ fn render_axis_show_false_hides_its_labels(
     // A value axis labels its ticks (0, 20…); none is written when it is hidden.
     assert_that!(svg.contains(">\n0\n<")).named("value labels").is_equal_to(values_drawn);
 }
+
+/// Bars of `option`: (x, width) of each `<rect>` charts-rs gives a `data-series`, in order.
+fn bars(svg: &str) -> Vec<(f32, f32)> {
+    bars_along(svg, "x", "width")
+}
+
+/// Bars of `svg`: (`pos`, `size`) of each `<rect>` with a `data-series`, in order.
+fn bars_along(svg: &str, pos: &str, size: &str) -> Vec<(f32, f32)> {
+    svg.split("<rect")
+        .skip(1)
+        .filter_map(|r| r.split('>').next())
+        .filter(|tag| tag.contains("data-series="))
+        .filter_map(|tag| Some((attr(tag, pos)?, attr(tag, size)?)))
+        .collect()
+}
+
+/// Centre of a bar given as (position, size).
+fn centre(b: (f32, f32)) -> f32 {
+    b.0 + b.1 / 2.0
+}
+
+/// Columns over 4 categories, `series` series, `stack` shared or not, with `gap` if any.
+fn columns(series: usize, stack: bool, gap: Option<&str>) -> serde_json::Value {
+    let header: Vec<serde_json::Value> =
+        std::iter::once(json!("Q")).chain((0..series).map(|i| json!(format!("S{i}")))).collect();
+    let rows = ["T1", "T2", "T3", "T4"]
+        .map(|t| std::iter::once(json!(t)).chain((0..series).map(|i| json!(3 + i))).collect::<Vec<_>>());
+    let mut s: Vec<serde_json::Value> = (0..series).map(|_| json!({ "type": "bar" })).collect();
+    for one in &mut s {
+        if stack {
+            one["stack"] = json!("t");
+        }
+    }
+    if let Some(gap) = gap {
+        s[0]["barCategoryGap"] = json!(gap);
+    }
+    json!({
+        "legend": { "show": false },
+        "dataset": { "source": std::iter::once(header).chain(rows).collect::<Vec<_>>() },
+        "xAxis": { "type": "category", "show": false }, "yAxis": { "type": "value", "show": false },
+        "series": s
+    })
+}
+
+/// t-1384: one bar per category takes (1 - gap) of its band, centred where charts-rs put it.
+#[rstest::rstest]
+#[case::wide("20%", 0.8)]
+#[case::narrow("60%", 0.4)]
+fn render_bar_category_gap_sets_the_bar_share_of_its_band(#[case] gap: &str, #[case] share: f32) {
+    let before = bars(&render(&columns(1, false, None)));
+    let after = bars(&render(&columns(1, false, Some(gap))));
+    let band = before[1].0 - before[0].0;
+    assert_that!((after[0].1 - band * share).abs()).is_less_than(0.2);
+    assert_that!((centre(after[0]) - centre(before[0])).abs()).is_less_than(0.2);
+}
+
+#[test]
+fn render_bar_category_gap_clustered_bars_touch() {
+    let after = bars(&render(&columns(2, false, Some("40%"))));
+    // Series 0 then series 1: the first category's two bars, side by side.
+    let (a, b) = (after[0], after[4]);
+    assert_that!((a.0 + a.1 - b.0).abs()).is_less_than(0.2);
+}
+
+#[test]
+fn render_bar_category_gap_clustered_bars_split_the_bar_share() {
+    let before = bars(&render(&columns(2, false, None)));
+    let after = bars(&render(&columns(2, false, Some("40%"))));
+    let band = before[1].0 - before[0].0;
+    // 60 % of the band for two bars.
+    assert_that!(after.iter().all(|b| (b.1 - band * 0.3).abs() < 0.2)).is_true();
+}
+
+#[test]
+fn render_bar_category_gap_stacked_bars_take_the_share_of_one_bar() {
+    let before = bars(&render(&columns(3, true, None)));
+    let after = bars(&render(&columns(3, true, Some("50%"))));
+    let band = before[1].0 - before[0].0;
+    assert_that!(after.len()).is_equal_to(12);
+    assert_that!(after.iter().all(|b| (b.1 - band * 0.5).abs() < 0.2)).is_true();
+}
+
+/// Horizontal bars over 4 categories, with `gap` if any.
+fn rows(gap: Option<&str>) -> serde_json::Value {
+    let mut option = columns(1, false, gap);
+    option["xAxis"] = json!({ "type": "value", "show": false });
+    option["yAxis"] = json!({ "type": "category", "show": false });
+    option
+}
+
+#[test]
+fn render_bar_category_gap_horizontal_bars_take_their_share_of_the_band() {
+    let before = bars_along(&render(&rows(None)), "y", "height");
+    let after = bars_along(&render(&rows(Some("60%"))), "y", "height");
+    let band = (before[1].0 - before[0].0).abs();
+    assert_that!(after.len()).is_equal_to(4);
+    assert_that!(after.iter().all(|b| (b.1 - band * 0.4).abs() < 0.2)).is_true();
+}
+
+#[test]
+fn render_bar_category_gap_horizontal_bars_keep_their_centre() {
+    let before = bars_along(&render(&rows(None)), "y", "height");
+    let after = bars_along(&render(&rows(Some("60%"))), "y", "height");
+    let moved = before.iter().zip(&after).map(|(b, a)| (centre(*b) - centre(*a)).abs()).fold(0.0_f32, f32::max);
+    assert_that!(moved).is_less_than(0.2);
+}
+
+/// t-1384: charts-rs puts horizontal stack groups before plain series; resized bars keep apart.
+#[test]
+fn render_bar_category_gap_horizontal_plain_and_stacked_bars_do_not_overlap() {
+    let mut option = rows(Some("40%"));
+    let source = json!([["Q", "A", "B", "C"], ["T1", 3, 4, 5], ["T2", 3, 4, 5], ["T3", 3, 4, 5], ["T4", 3, 4, 5]]);
+    option["dataset"]["source"] = source;
+    option["series"] = json!([
+        { "type": "bar", "barCategoryGap": "40%" }, { "type": "bar", "stack": "s" }, { "type": "bar", "stack": "s" }
+    ]);
+    let after = bars_along(&render(&option), "y", "height");
+    assert_that!(after.len()).is_equal_to(12);
+    // Per category, plain A against stacked B: their spans share at most an edge.
+    for i in 0..4 {
+        let (a, b) = (after[i], after[4 + i]);
+        let overlap = (a.0 + a.1).min(b.0 + b.1) - a.0.max(b.0);
+        assert_that!(overlap).is_less_than(0.2);
+    }
+}
+
+/// x of each `<text>` of `svg` that reads exactly `text`, blanks around it aside.
+fn texts_at(svg: &str, text: &str) -> Vec<f32> {
+    svg.split("<text")
+        .skip(1)
+        .filter(|t| t.split_once('>').is_some_and(|(_, rest)| rest.split('<').next().map(str::trim) == Some(text)))
+        .filter_map(|t| attr(t.split('>').next()?, "x"))
+        .collect()
+}
+
+#[test]
+fn render_bar_category_gap_value_labels_follow_their_bar() {
+    let mut option = columns(2, false, Some("40%"));
+    option["series"][0]["label"] = json!({ "show": true });
+    let svg = render(&option);
+    // Series 0 holds 3 in every category: its labels sit on its 4 bars' new centres.
+    let centres: Vec<f32> = bars(&svg)[..4].iter().copied().map(centre).collect();
+    let labels = texts_at(&svg, "3");
+    assert_that!(labels.len()).is_equal_to(4);
+    for c in centres {
+        assert_that!(labels.iter().any(|x| (x - c).abs() < 0.2)).is_true();
+    }
+}
+
+/// t-1384: `splitLine.show: false` draws no gridline; by default they are drawn.
+#[rstest::rstest]
+#[case::default(None, true)]
+#[case::hidden(Some(false), false)]
+fn render_split_line_show_draws_or_hides_the_grid(#[case] show: Option<bool>, #[case] drawn: bool) {
+    let mut option = columns(1, false, None);
+    if let Some(show) = show {
+        option["yAxis"]["splitLine"] = json!({ "show": show });
+    }
+    let theme = ChartTheme::default();
+    let svg = render(&option);
+    assert_that!(has_color(&svg, &theme.grid)).is_equal_to(drawn);
+}
+
+/// t-1384: an interval of 5 up to 20 labels the ticks 0, 5, 10, 15 and 20.
+#[test]
+fn render_value_interval_labels_each_tick() {
+    let mut option = columns(1, false, None);
+    option["yAxis"] = json!({ "type": "value", "min": 0, "max": 20, "interval": 5 });
+    let svg = render(&option);
+    let ticks = ["0", "5", "10", "15", "20"].iter().all(|t| svg.contains(&format!(">\n{t}\n<")));
+    assert_that!((ticks, svg.contains(">\n4\n<"))).is_equal_to((true, false));
+}

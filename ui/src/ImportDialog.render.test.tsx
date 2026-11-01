@@ -29,6 +29,7 @@ setMessages("fr", [
     "ui-import-submit = Importer",
     "ui-import-busy = Import en cours…",
     "ui-close-cancel = Annuler",
+    "ui-import-dismiss-waiting = Ignorer les fichiers en attente ({ $count })",
     "ui-picker-set-mine = { $name } · à moi",
     "ui-picker-set-received = { $name } · reçu",
   ].join("\n") + "\n",
@@ -71,6 +72,7 @@ afterEach(async () => {
 interface Calls {
   imports: { target: ImportTarget; tune: boolean }[];
   closed: number;
+  dismissed: number;
 }
 
 interface Options {
@@ -79,6 +81,7 @@ interface Options {
   error?: string | null;
   initial?: { target: ImportTarget; tune: boolean };
   agentUnusable?: string | null;
+  waiting?: number;
 }
 
 async function mount({
@@ -87,8 +90,9 @@ async function mount({
   error = null,
   initial,
   agentUnusable = null,
+  waiting,
 }: Options = {}) {
-  const calls: Calls = { imports: [], closed: 0 };
+  const calls: Calls = { imports: [], closed: 0, dismissed: 0 };
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
@@ -112,6 +116,7 @@ async function mount({
           ...state,
           onImport: (target: ImportTarget, tune: boolean) => void calls.imports.push({ target, tune }),
           onClose: () => void calls.closed++,
+          waiting: waiting === undefined ? undefined : { count: waiting, onDismiss: () => void calls.dismissed++ },
         }),
       ),
     );
@@ -400,4 +405,21 @@ test("ImportDialog lancé sans agent utilisable montre, pendant l'import, le pea
   const sent = calls.imports[0]!;
   await render({ busy: true, error: null, agentUnusable: null, initial: sent });
   expect(tune().checked).toBe(false);
+});
+
+test("ImportDialog without waiting files shows no dismiss button", async () => {
+  const { host } = await mount();
+  expect(host.querySelector(".import-dismiss-waiting")).toBeNull();
+});
+
+test("ImportDialog with waiting files dismisses them and stays open", async () => {
+  const { button, calls } = await mount({ waiting: 1 });
+  await click(button("Ignorer les fichiers en attente (1)"));
+  expect(calls.dismissed).toBe(1);
+  expect(calls.closed).toBe(0);
+});
+
+test("ImportDialog during an import still offers to dismiss the waiting files", async () => {
+  const { button } = await mount({ busy: true, waiting: 2 });
+  expect(button("Ignorer les fichiers en attente (2)").disabled).toBe(false);
 });

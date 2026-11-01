@@ -12,7 +12,7 @@ use snafu::ResultExt;
 
 use crate::error::{InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
-use crate::model::{ChartKind, normalize};
+use crate::model::{ChartKind, is_horizontal, normalize};
 use crate::option::{Cell, ChartOption, Dataset, SeriesType, format_number, parse_number};
 
 /// Tableau neutre : libellés des lignes et colonnes de valeurs.
@@ -61,6 +61,11 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
         if let Some(axis) = to.as_mut() {
             axis.show = from.as_ref().and_then(|a| a.show);
         }
+    }
+    // A hidden grid stays hidden (t-1384): it belongs to the value axis, x for horizontal bars.
+    let value = if is_horizontal(option) { &option.x_axis } else { &option.y_axis };
+    if let Some(axis) = out.y_axis.as_mut() {
+        axis.split_line = value.as_ref().and_then(|a| a.split_line.clone());
     }
     out.dataset = Some(kept_ids(option.dataset.as_ref(), source));
     normalize(&out, labels)?;

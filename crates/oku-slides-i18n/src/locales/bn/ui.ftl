@@ -378,6 +378,7 @@ ui-import-tune-note-retrofit = এজেন্ট প্রতিটি স্�
 ui-import-tune-unavailable = ব্যবহারযোগ্য কোনো এজেন্ট নেই: { $reason }
 ui-import-submit = আমদানি করুন
 ui-import-busy = আমদানি হচ্ছে…
+ui-import-dismiss-waiting = অপেক্ষমাণ ফাইলগুলো বাদ দিন ({ $count })
 ui-update-available = Oku Slides { $version } এখন উপলব্ধ।
 ui-update-install = ইনস্টল করে পুনরায় চালু করুন
 ui-update-see-release = রিলিজ দেখুন

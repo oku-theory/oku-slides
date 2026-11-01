@@ -11,6 +11,7 @@ use crate::option::{
     Axis, AxisType, Cell, ChartOption, ColumnRef, DataItem, Dataset, HAlign, ItemValue, Length, NamedItem, Radius,
     RoseType, Series, SeriesType,
 };
+use crate::scale::{check_axis, stacked_extent, value_scale};
 use oku_slides_i18n::Message;
 use snafu::ResultExt;
 
@@ -38,6 +39,8 @@ pub struct ChartModel {
     pub legend_align: HAlign,
     /// Bottom (`xAxis`) and left (`yAxis`) axes drawn: shown unless `show` is false.
     pub axes_show: AxesShown,
+    /// Gridlines drawn: unless the value axis (`yAxis` of a scatter) says `splitLine.show: false`.
+    pub grid_show: bool,
     /// Shape of the chart and its data.
     pub kind: ChartKind,
     /// Palette des séries ; `None` = celle du thème.
@@ -71,6 +74,10 @@ pub struct Cartesian {
     pub area: bool,
     pub value_min: Option<f64>,
     pub value_max: Option<f64>,
+    /// Intervals of the value axis, from its `interval`.
+    pub value_splits: Option<usize>,
+    /// Free space of each category band (`barCategoryGap` of the first bar series that sets it).
+    pub bar_gap: Option<Length>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,6 +111,8 @@ pub struct Waterfall {
     pub label: bool,
     pub value_min: Option<f64>,
     pub value_max: Option<f64>,
+    /// Intervals of the value axis, from its `interval`.
+    pub value_splits: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -125,6 +134,9 @@ pub struct Scatter {
     pub x_max: Option<f64>,
     pub y_min: Option<f64>,
     pub y_max: Option<f64>,
+    /// Intervals of each axis, from its `interval`.
+    pub x_splits: Option<usize>,
+    pub y_splits: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -172,6 +184,9 @@ pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
 pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
     check_colors(option)?;
+    check_axis(option.x_axis.as_ref())?;
+    check_axis(option.y_axis.as_ref())?;
+    check_bar_gap(option)?;
     if let Some(d) = &option.dataset {
         validate_ids(d)?;
     }
@@ -188,6 +203,8 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
     let title = option.title.as_ref();
     let legend = option.legend.as_ref();
     let default_legend = !matches!(kind, ChartKind::Pie(_) | ChartKind::Waterfall(_));
+    let horizontal = matches!(&kind, ChartKind::Cartesian(c) if c.horizontal);
+    let value_axis = if horizontal { option.x_axis.as_ref() } else { option.y_axis.as_ref() };
     Ok(ChartModel {
         title: title.and_then(|t| t.text.clone()).unwrap_or_default(),
         subtitle: title.and_then(|t| t.subtext.clone()).unwrap_or_default(),
@@ -195,6 +212,7 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
         legend_show: legend.and_then(|l| l.show).unwrap_or(default_legend),
         legend_align: legend.and_then(|l| l.left).unwrap_or(HAlign::Center),
         axes_show: AxesShown { x: shown(option.x_axis.as_ref()), y: shown(option.y_axis.as_ref()) },
+        grid_show: value_axis.and_then(|a| a.split_line.as_ref()).and_then(|l| l.show).unwrap_or(true),
         kind,
         palette: option.color.clone(),
     })
@@ -203,6 +221,18 @@ pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartMode
 /// Is `axis` drawn? Shown unless it says `show: false`.
 fn shown(axis: Option<&Axis>) -> bool {
     axis.and_then(|a| a.show).unwrap_or(true)
+}
+
+/// Refuses a `barCategoryGap` off a bar series, negative, or as a share of 100 % or more.
+fn check_bar_gap(option: &ChartOption) -> Result<()> {
+    let valid = |s: &Series| match &s.bar_category_gap {
+        None => true,
+        Some(gap @ Length::Percent(_)) => {
+            s.kind == SeriesType::Bar && gap.resolve(100.0).is_some_and(|g| (0.0..100.0).contains(&g))
+        }
+        Some(Length::Pixels(points)) => s.kind == SeriesType::Bar && points.is_finite() && *points >= 0.0,
+    };
+    if option.series.iter().all(valid) { Ok(()) } else { Err(inconsistent(Message::new("chart-bar-gap"))) }
 }
 
 /// Couleur d'une série (`itemStyle.color`), si elle en a une.
@@ -223,7 +253,7 @@ fn check_colors(option: &ChartOption) -> Result<()> {
     }
 }
 
-fn inconsistent(reason: Message) -> ChartError {
+pub(crate) fn inconsistent(reason: Message) -> ChartError {
     InconsistentSnafu { reason }.build().into()
 }
 
@@ -276,7 +306,8 @@ impl<'a> Table<'a> {
     }
 }
 
-fn is_horizontal(option: &ChartOption) -> bool {
+/// Bars along y: a category y axis and a value x axis.
+pub(crate) fn is_horizontal(option: &ChartOption) -> bool {
     let y_cat = option.y_axis.as_ref().is_some_and(|a| a.kind == Some(AxisType::Category) || a.data.is_some());
     let x_val = option.x_axis.as_ref().is_none_or(|a| a.kind != Some(AxisType::Category) && a.data.is_none());
     y_cat && x_val
@@ -356,14 +387,18 @@ fn cartesian(option: &ChartOption, table: Option<&Table<'_>>, labels: &ChartLabe
         });
     }
 
+    let (low, high) = stacked_extent(series.iter().map(|s| (s.stack.as_deref(), s.values.as_slice())));
+    let scale = value_scale(val_axis, low, high);
     Ok(Cartesian {
         category_label,
         categories,
         horizontal,
         smooth: option.series.iter().any(|s| s.smooth == Some(true)),
         area: option.series.iter().any(|s| s.area_style.is_some()),
-        value_min: val_axis.and_then(|a| a.min),
-        value_max: val_axis.and_then(|a| a.max),
+        value_min: scale.min,
+        value_max: scale.max,
+        value_splits: scale.splits,
+        bar_gap: option.series.iter().find_map(|s| s.bar_category_gap.clone()),
         series,
     })
 }
@@ -385,14 +420,16 @@ fn waterfall(option: &ChartOption, table: Option<&Table<'_>>) -> Result<Waterfal
     // charts-rs arrête l'axe pile sur la barre la plus haute : son étiquette
     // serait coupée. L'axe s'arrondit donc au-delà des sommes courantes.
     let (low, high) = running_extent(&steps, &totals);
+    let scale = value_scale(val_axis, low, high);
     Ok(Waterfall {
         category_label,
         categories,
         name,
         totals,
         label: s.label.as_ref().and_then(|l| l.show).unwrap_or(true),
-        value_min: val_axis.and_then(|a| a.min).or_else(|| (low < 0.0).then(|| -nice_above(-low))),
-        value_max: val_axis.and_then(|a| a.max).or_else(|| (high > 0.0).then(|| nice_above(high))),
+        value_min: scale.min.or_else(|| (low < 0.0).then(|| -nice_above(-low))),
+        value_max: scale.max.or_else(|| (high > 0.0).then(|| nice_above(high))),
+        value_splits: scale.splits,
         steps,
     })
 }
@@ -471,14 +508,21 @@ fn scatter(option: &ChartOption, table: Option<&Table<'_>>, labels: &ChartLabels
         };
         series.push(ScatterSeries { name, points, color: series_color(s) });
     }
-    let x = option.x_axis.as_ref();
-    let y = option.y_axis.as_ref();
+    let extent = |pick: fn(&(f64, f64)) -> f64| {
+        let all = series.iter().flat_map(|s| &s.points).map(pick);
+        all.fold((0.0_f64, 0.0_f64), |(lo, hi), v| (lo.min(v), hi.max(v)))
+    };
+    let ((x_low, x_high), (y_low, y_high)) = (extent(|p| p.0), extent(|p| p.1));
+    let x = value_scale(option.x_axis.as_ref(), x_low, x_high);
+    let y = value_scale(option.y_axis.as_ref(), y_low, y_high);
     Ok(Scatter {
         series,
-        x_min: x.and_then(|a| a.min),
-        x_max: x.and_then(|a| a.max),
-        y_min: y.and_then(|a| a.min),
-        y_max: y.and_then(|a| a.max),
+        x_min: x.min,
+        x_max: x.max,
+        y_min: y.min,
+        y_max: y.max,
+        x_splits: x.splits,
+        y_splits: y.splits,
     })
 }
 

@@ -194,7 +194,7 @@ packs-make-current = ตั้งเวอร์ชันของเขาเ�
 packs-remove = นำออก
 packs-pack-open = เปิด
 packs-pack-open-mine = เปิดเวอร์ชันของฉัน
-packs-add = เพิ่มจากคลัง
+packs-add = เพิ่มแพ็ก
 packs-theme-overrides = การปรับแต่งของงานนำเสนอ: { $count }
 packs-theme-pick = ธีมของงานนำเสนอ
 packs-theme-open = เปิด
@@ -218,6 +218,11 @@ notice-pack-edited-elsewhere = แพ็ก { $pack } กำลังถูก�
 notice-pack-deleted = แพ็ก { $pack } ไม่อยู่ในคลังแล้ว: แท็บนี้อ่านได้อย่างเดียว ให้เอเจนต์บันทึกเป็นแพ็กใหม่เพื่อเก็บการเปลี่ยนแปลงของคุณไว้
 notice-themes-skipped = ธีมบางรายการในคลังของคุณมาจาก Oku Slides รุ่นเก่า จึงอ่านไม่ได้และไม่ได้นำเสนอ ({ $count })
 notice-unreadable-parts = บางส่วนของงานนำเสนอนี้อ่านไม่ได้และถูกแยกไว้ ({ $count })
+notice-import-picks-full = มีไฟล์ PowerPoint รอนำเข้ามากเกินไป: รอพร้อมกันได้ไม่เกิน { $max } ไฟล์ ไฟล์ที่ไม่ได้เพิ่ม ({ $count }): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}และอีก { $others } ไฟล์
+    } เปิดไฟล์เหล่านั้นอีกครั้งเมื่อไฟล์ที่รออยู่เสร็จแล้ว
+notice-import-picks-separator = {", "}
 
 log-document-opened = เปิดเอกสารแล้ว
 log-document-saved = บันทึกเอกสารแล้ว

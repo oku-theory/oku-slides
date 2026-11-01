@@ -60,13 +60,29 @@ pub struct Series {
 
 /// Axes drawn by side: bottom or top (`x`), left or right (`y`).
 ///
-/// A side is drawn when one of its axes is not deleted (`c:delete` false); a side without axis is not.
+/// A side is drawn when one of its axes is not deleted (`c:delete`); a side without axis is not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Axes {
     /// The horizontal axis, at the bottom or the top.
     pub x: bool,
     /// The vertical axis, on the left or the right.
     pub y: bool,
+}
+
+/// The value axis as written: gridlines and scale (t-1384).
+///
+/// Bounds are finite with `min` below `max`, `major_unit` finite above 0; the
+/// reader drops the others.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize)]
+pub struct ValueAxis {
+    /// Major gridlines drawn across the plot (`c:majorGridlines`).
+    pub gridlines: bool,
+    /// Lower bound (`c:scaling/c:min`); automatic if absent.
+    pub min: Option<f64>,
+    /// Upper bound (`c:scaling/c:max`); automatic if absent.
+    pub max: Option<f64>,
+    /// Step between ticks (`c:majorUnit`); automatic if absent.
+    pub major_unit: Option<f64>,
 }
 
 /// Graphique.
@@ -86,4 +102,8 @@ pub struct Chart {
     pub legend: bool,
     /// The axes drawn (t-954).
     pub axes: Axes,
+    /// The value axis (the vertical one of a scatter): gridlines and scale (t-1384).
+    pub value_axis: ValueAxis,
+    /// Bars: gap between categories in % of a bar's width (`c:gapWidth`, 150 if absent, 0 to 500).
+    pub gap_width: Option<u16>,
 }

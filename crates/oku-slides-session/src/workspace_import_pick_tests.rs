@@ -22,6 +22,15 @@ fn pptx(dir: &Path, name: &str) -> PathBuf {
     path
 }
 
+/// `paths` dropped in order.
+fn dropped_of(paths: impl IntoIterator<Item = PathBuf>) -> DroppedPicks {
+    let mut dropped = DroppedPicks::default();
+    for p in paths {
+        dropped.push(p);
+    }
+    dropped
+}
+
 /// The queued paths, in order.
 fn paths(view: &WorkspaceView) -> Vec<PathBuf> {
     view.import_picks.iter().map(|p| p.path.clone()).collect()
@@ -204,4 +213,107 @@ fn import_picked_after_clearing_keeps_ids_increasing() {
     Workspace::open_files(&ws, &[pptx(data.path(), "b.pptx")]);
     let second = Workspace::lock(&ws).view().import_picks[0].clone().id;
     assert_that!(second).is_greater_than(first);
+}
+
+#[test]
+fn open_files_beyond_the_queue_cap_notices_the_dropped_files_in_the_active_tab() {
+    let data = fresh_dir("oku-slides-ws-pick-cap-notice-");
+    let ws = workspace_on(data.path());
+    let files: Vec<PathBuf> = (0..MAX_PICKS + 2).map(|i| pptx(data.path(), &format!("{i}.pptx"))).collect();
+    Workspace::open_files(&ws, &files);
+    let names = format!("{}.pptx, {}.pptx", MAX_PICKS, MAX_PICKS + 1);
+    let expected = Workspace::lock(&ws).platform.localizer.tr_with(
+        "notice-import-picks-full",
+        &[("count", 2.into()), ("max", MAX_PICKS.into()), ("names", names.into()), ("others", 0.into())],
+    );
+    assert_that!(notice(&ws, "t-1")).is_equal_to(json!(expected));
+}
+
+#[rstest]
+#[case::one(&["a.pptx"], "a.pptx", 0)]
+#[case::three(&["a.pptx", "b.pptx", "c.pptx"], "a.pptx, b.pptx, c.pptx", 0)]
+#[case::five(&["a.pptx", "b.pptx", "c.pptx", "d.pptx", "e.pptx"], "a.pptx, b.pptx, c.pptx", 2)]
+fn dropped_list_names_the_first_files_and_counts_the_others(
+    #[case] files: &[&str],
+    #[case] names: &str,
+    #[case] others: usize,
+) {
+    let list = dropped_list(oku_slides_i18n::english(), &dropped_of(files.iter().map(|f| Path::new("/x").join(f))));
+    assert_that!(list).is_equal_to((names.to_owned(), others));
+}
+
+#[test]
+fn dropped_list_cleans_each_name_like_a_request_string() {
+    let dropped = dropped_of([PathBuf::from("/x/a\nb \"c\"\u{202E}.pptx")]);
+    let (names, _) = dropped_list(oku_slides_i18n::english(), &dropped);
+    assert_that!(names).is_equal_to("a b \u{2BC}c\u{2BC}.pptx".to_owned());
+}
+
+#[test]
+fn dropped_list_uses_the_locale_separator() {
+    let dropped = dropped_of([PathBuf::from("/x/a.pptx"), PathBuf::from("/x/b.pptx")]);
+    let (names, _) = dropped_list(&oku_slides_i18n::Localizer::new(Some("ja")), &dropped);
+    assert_that!(names).is_equal_to("a.pptx、b.pptx".to_owned());
+}
+
+#[test]
+fn open_files_counts_a_dropped_file_given_twice_once() {
+    let data = fresh_dir("oku-slides-ws-pick-cap-twice-");
+    let ws = workspace_on(data.path());
+    let mut files: Vec<PathBuf> = (0..MAX_PICKS).map(|i| pptx(data.path(), &format!("{i}.pptx"))).collect();
+    let extra = pptx(data.path(), "extra.pptx");
+    files.extend([extra.clone(), extra]);
+    Workspace::open_files(&ws, &files);
+    let expected = Workspace::lock(&ws).platform.localizer.tr_with(
+        "notice-import-picks-full",
+        &[("count", 1.into()), ("max", MAX_PICKS.into()), ("names", "extra.pptx".into()), ("others", 0.into())],
+    );
+    assert_that!(notice(&ws, "t-1")).is_equal_to(json!(expected));
+}
+
+#[test]
+fn open_files_a_queued_file_given_again_when_full_is_not_dropped() {
+    let data = fresh_dir("oku-slides-ws-pick-cap-again-");
+    let ws = workspace_on(data.path());
+    let files: Vec<PathBuf> = (0..MAX_PICKS).map(|i| pptx(data.path(), &format!("{i}.pptx"))).collect();
+    Workspace::open_files(&ws, &files);
+    Workspace::open_files(&ws, &files[..1]);
+    assert_that!(notice(&ws, "t-1")).is_equal_to(serde_json::Value::Null);
+}
+
+#[test]
+fn open_files_within_the_queue_cap_sets_no_notice() {
+    let data = fresh_dir("oku-slides-ws-pick-cap-quiet-");
+    let ws = workspace_on(data.path());
+    let files: Vec<PathBuf> = (0..MAX_PICKS).map(|i| pptx(data.path(), &format!("{i}.pptx"))).collect();
+    Workspace::open_files(&ws, &files);
+    assert_that!(notice(&ws, "t-1")).is_equal_to(serde_json::Value::Null);
+}
+
+#[test]
+fn dismiss_import_picks_forgets_the_window_picks_and_keeps_the_others() {
+    let data = fresh_dir("oku-slides-ws-pick-dismiss-");
+    let ws = workspace_on(data.path());
+    Workspace::open_files(&ws, &[pptx(data.path(), "a.pptx"), pptx(data.path(), "b.pptx")]);
+    apply_ws(&ws, json!({"cmd": "new_window"})).unwrap();
+    let other = pptx(data.path(), "c.pptx");
+    Workspace::open_files(&ws, std::slice::from_ref(&other));
+    let through = Workspace::lock(&ws).view().import_picks[1].id;
+    let reply =
+        apply_ws(&ws, json!({"cmd": "dismiss_import_picks", "window": "w-1", "through": through})).unwrap().into_json();
+    let json: serde_json::Value = serde_json::from_str(&reply).unwrap();
+    assert_that!(json["import_picks"].as_array().map(Vec::len)).is_equal_to(Some(1));
+    assert_that!(paths(&Workspace::lock(&ws).view())).is_equal_to(vec![resolve(&other)]);
+}
+
+#[test]
+fn dismiss_import_picks_keeps_a_pick_newer_than_through() {
+    let data = fresh_dir("oku-slides-ws-pick-dismiss-newer-");
+    let ws = workspace_on(data.path());
+    Workspace::open_files(&ws, &[pptx(data.path(), "a.pptx")]);
+    let through = Workspace::lock(&ws).view().import_picks[0].id;
+    let late = pptx(data.path(), "b.pptx");
+    Workspace::open_files(&ws, std::slice::from_ref(&late));
+    apply_ws(&ws, json!({"cmd": "dismiss_import_picks", "window": "w-1", "through": through})).unwrap();
+    assert_that!(paths(&Workspace::lock(&ws).view())).is_equal_to(vec![resolve(&late)]);
 }

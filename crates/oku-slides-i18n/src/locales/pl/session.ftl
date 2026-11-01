@@ -214,7 +214,7 @@ packs-make-current = Ustaw tamtą wersję jako moją
 packs-remove = Usuń
 packs-pack-open = Otwórz
 packs-pack-open-mine = Otwórz moją wersję
-packs-add = Dodaj z biblioteki
+packs-add = Dodaj pakiet
 packs-theme-overrides = { $count ->
     [one] { $count } nadpisanie prezentacji
     [few] { $count } nadpisania prezentacji
@@ -243,6 +243,11 @@ notice-pack-edited-elsewhere = Pakiet { $pack } jest edytowany na karcie „{ $t
 notice-pack-deleted = Pakietu { $pack } nie ma już w bibliotece: ta karta jest tylko do odczytu; poproś agenta, aby zapisał go jako nowy pakiet, by zachować zmiany.
 notice-themes-skipped = Niektóre motywy w Twojej bibliotece pochodzą ze starszej wersji Oku Slides: nie udało się ich odczytać i nie są proponowane ({ $count }).
 notice-unreadable-parts = Części tej prezentacji nie udało się odczytać i zostały odłożone ({ $count }).
+notice-import-picks-full = Zbyt wiele plików PowerPoint czeka na import: naraz może czekać najwyżej { $max }. Nie dodano ({ $count }): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}i jeszcze { $others }
+    }. Otwórz je ponownie, gdy oczekujące zostaną obsłużone.
+notice-import-picks-separator = {", "}
 
 log-document-opened = Dokument otwarty
 log-document-saved = Dokument zapisany

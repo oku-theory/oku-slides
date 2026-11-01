@@ -52,3 +52,6 @@ chart-table-not-finite = les nombres du tableau doivent être finis
 chart-table-chart-option = chart doit être un objet d'options de graphique
 chart-table-chart-columns = chart-columns doit lister des identifiants de colonnes valides et distincts (1 à 64 lettres, chiffres, - ou _)
 chart-table-geometry = column-widths et row-heights donnent un poids fini et positif par colonne ou par ligne
+chart-axis-interval = l’intervalle (interval) d’un axe doit être un nombre supérieur à 0
+chart-axis-bounds = le maximum (max) d’un axe doit être supérieur à son minimum (min)
+chart-bar-gap = barCategoryGap ne va que sur une série de barres : un pourcentage de 0 % à moins de 100 %, ou une longueur en points positive ou nulle

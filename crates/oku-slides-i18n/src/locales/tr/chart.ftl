@@ -52,3 +52,6 @@ chart-table-not-finite = tablodaki sayılar sonlu olmalı
 chart-table-chart-option = chart bir grafik seçenekleri nesnesi olmalıdır
 chart-table-chart-columns = chart-columns geçerli ve birbirinden farklı sütun tanımlayıcıları listelemelidir (1 ila 64 harf, rakam, - veya _)
 chart-table-geometry = column-widths ve row-heights her sütun ya da satır için sonlu, pozitif bir ağırlık verir
+chart-axis-interval = bir eksenin aralığı (interval) 0’dan büyük bir sayı olmalıdır
+chart-axis-bounds = bir eksenin en büyük değeri (max) en küçük değerinden (min) büyük olmalıdır
+chart-bar-gap = barCategoryGap yalnızca bir çubuk serisinde kullanılır: %0 ile %100’ün altı arasında bir yüzde ya da 0 veya daha büyük bir punto uzunluğu

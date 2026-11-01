@@ -15,6 +15,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Count the header row within MAX_TABLE_ROWS (100); tables allow at most 20 columns and 1000 chars per cell. (plan:2026-10-08-widget-tableau)
 - Do not pass an id to insert_row or insert_column; let the core mint it. (plan:2026-10-08-fusion-cellules)
 - Never insert, remove or index into dataset ids or columns without checking the length first. (plan:2026-10-08-fusion-cellules)
+- Keep bar_gap's MARGIN and SLOT_GAP equal to charts-rs's bar margin and gap when bumping charts-rs; its render tests are the oracle. (t-1384)
 
 ## Settled decisions
 

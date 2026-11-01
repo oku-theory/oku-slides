@@ -35,7 +35,7 @@ async function activate(p, tab) {
   await p.reload();
 }
 
-/** The options of the panel's "Ajouter depuis la bibliothèque" for widget packs; none when it is absent. */
+/** The options of the panel's "Ajouter un pack" for widget packs; none when it is absent. */
 const addable = (p) => part(p, 'widgets-add').locator('option').allTextContents();
 
 /** Ouvre le panneau par la barre d'outils et attend ses sections. */
@@ -99,7 +99,7 @@ async function openGrid(p) {
     await packsButton(p).waitFor();
     await openPanel(p);
     const add = part(p, 'widgets-add').locator('select');
-    await until(p, async () => (await add.locator('option', { hasText: 'Acme' }).count()) === 1, 'Acme absent de « Ajouter depuis la bibliothèque »');
+    await until(p, async () => (await add.locator('option', { hasText: 'Acme' }).count()) === 1, 'Acme absent de « Ajouter un pack »');
     await add.selectOption({ label: 'Acme' });
     await until(p, async () => (await snapshot(p)).widgets[pack.namespace] !== undefined, "Acme n'est pas épinglé par le deck");
     await untilValue(p, () => text(p, `widgets/${pack.namespace}/name`), (t) => t === 'Acme', "Acme n'apparaît pas dans le panneau");
@@ -166,7 +166,7 @@ async function openGrid(p) {
   // While its tab is open, the new pack is in the library: `t-1`'s add list offers it.
   await activate(p, TAB);
   await openPanel(p);
-  await untilValue(p, () => addable(p), (l) => l.includes(made.name), `« ${made.name} » absent de « Ajouter depuis la bibliothèque »`);
+  await untilValue(p, () => addable(p), (l) => l.includes(made.name), `« ${made.name} » absent de « Ajouter un pack »`);
 
   // Its preview theme: the select changes the tab's theme, silently (clean tab, nothing for ⌘Z to undo).
   await activate(p, fresh);
@@ -191,7 +191,7 @@ async function openGrid(p) {
   await activate(p, TAB);
   await snapshot(p);
   await openPanel(p);
-  await untilValue(p, () => addable(p), (l) => !l.includes(made.name), `« ${made.name} » reste dans « Ajouter depuis la bibliothèque »`);
+  await untilValue(p, () => addable(p), (l) => !l.includes(made.name), `« ${made.name} » reste dans « Ajouter un pack »`);
   assert.equal((await api(p, { cmd: 'packs', kind: 'widgets' })).some((pack) => pack.id === made.pack), false, 'le pack neuf fermé intact reste dans la bibliothèque');
 
   await part(p, 'close').getByRole('button').click();

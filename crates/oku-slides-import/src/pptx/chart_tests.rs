@@ -254,3 +254,81 @@ fn axes_of_a_scatter_are_placed_by_position_else_in_order(
 fn legend_is_read_from_its_presence(#[case] legend: &str, #[case] expected: bool) {
     assert_that!(with_axes("col", "", legend).legend).is_equal_to(expected);
 }
+
+/// The axes of a column chart naming axes 1 and 2, `axes` after it, read for a PowerPoint 2007 file or not.
+fn axes_of(axes: &str, mso2007: bool) -> Axes {
+    let xml =
+        space(&format!(r#"<c:barChart><c:barDir val="col"/><c:axId val="1"/><c:axId val="2"/></c:barChart>{axes}"#));
+    let doc = parse(&xml, "t", 100_000).unwrap_or_else(|e| panic!("{e}"));
+    let plot = descendant(doc.root_element(), "plotArea").unwrap_or_else(|| panic!("plotArea"));
+    let first = child(plot, "barChart").unwrap_or_else(|| panic!("barChart"));
+    super::axes(plot, first, false, mso2007).0
+}
+
+#[rstest::rstest]
+#[case::absent_elsewhere("", false, false)]
+#[case::absent_in_2007("", true, true)]
+#[case::bare_elsewhere("<c:delete/>", false, false)]
+#[case::bare_in_2007("<c:delete/>", true, true)]
+#[case::written_true_in_2007(DELETED, true, false)]
+fn axes_delete_default_follows_the_app_version(#[case] delete: &str, #[case] mso2007: bool, #[case] shown: bool) {
+    let axes = ax("catAx", 1, delete) + &ax("valAx", 2, delete);
+    assert_that!(axes_of(&axes, mso2007)).is_equal_to(Axes { x: shown, y: shown });
+}
+
+/// A column chart (`gap` inside it) with the value axis `val` (its inner XML).
+fn with_value_axis(gap: &str, val: &str) -> (Chart, Vec<Warning>) {
+    let (r, w) = read(&space(&format!(
+        r#"<c:barChart><c:barDir val="col"/>{gap}<c:ser><c:val><c:numLit><c:ptCount val="1"/><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:val></c:ser><c:axId val="1"/><c:axId val="2"/></c:barChart>{}{}"#,
+        ax("catAx", 1, SHOWN),
+        ax("valAx", 2, val)
+    )));
+    (r.unwrap_or_else(|e| panic!("{e:?}")), w)
+}
+
+#[test]
+fn value_axis_reads_gridlines_bounds_and_major_unit() {
+    let val = r#"<c:scaling><c:orientation val="minMax"/><c:max val="20"/><c:min val="-5"/></c:scaling><c:delete val="0"/><c:majorGridlines/><c:majorUnit val="5"/>"#;
+    let (c, w) = with_value_axis("", val);
+    assert_that!(c.value_axis).is_equal_to(ValueAxis {
+        gridlines: true,
+        min: Some(-5.0),
+        max: Some(20.0),
+        major_unit: Some(5.0),
+    });
+    assert_that!(w).is_empty();
+}
+
+#[test]
+fn value_axis_without_gridlines_or_scaling_is_automatic() {
+    assert_that!(with_value_axis("", SHOWN).0.value_axis).is_equal_to(ValueAxis::default());
+}
+
+#[rstest::rstest]
+#[case::bounds_inverted(r#"<c:scaling><c:max val="1"/><c:min val="3"/></c:scaling>"#, "c:scaling")]
+#[case::unit_zero(r#"<c:majorUnit val="0"/>"#, "majorUnit")]
+#[case::log_scale(r#"<c:scaling><c:logBase val="10"/></c:scaling>"#, "logBase")]
+#[case::reversed(r#"<c:scaling><c:orientation val="maxMin"/></c:scaling>"#, "orientation")]
+fn value_axis_unsupported_scale_is_approximated(#[case] val: &str, #[case] label: &str) {
+    let (c, w) = with_value_axis("", val);
+    assert_that!((c.value_axis.min, c.value_axis.max, c.value_axis.major_unit)).is_equal_to((None, None, None));
+    assert_that!(w.iter().any(|w| w.kind == WarningKind::Approximated(label.into()))).is_true();
+}
+
+#[rstest::rstest]
+#[case::absent("", Some(150), false)]
+#[case::written(r#"<c:gapWidth val="50"/>"#, Some(50), false)]
+#[case::above_schema(r#"<c:gapWidth val="900"/>"#, Some(500), true)]
+fn gap_width_defaults_to_150_and_is_clamped(#[case] gap: &str, #[case] expected: Option<u16>, #[case] warned: bool) {
+    let (c, w) = with_value_axis(gap, SHOWN);
+    assert_that!(c.gap_width).is_equal_to(expected);
+    assert_that!(w.iter().any(|w| w.kind == WarningKind::Approximated("gapWidth".into()))).is_equal_to(warned);
+}
+
+#[test]
+fn gap_width_of_a_line_chart_is_none() {
+    let c = chart(&space(
+        r#"<c:lineChart><c:ser><c:val><c:numLit><c:ptCount val="1"/></c:numLit></c:val></c:ser></c:lineChart>"#,
+    ));
+    assert_that!(c.gap_width).is_none();
+}

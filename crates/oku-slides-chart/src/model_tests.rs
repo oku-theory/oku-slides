@@ -1,6 +1,7 @@
 use speculoos::prelude::*;
 
 use super::*;
+use crate::ChartErrorKind;
 
 #[test]
 fn nice_ceiling_any_value_rounds_up_to_nice_number() {
@@ -224,4 +225,76 @@ fn parse_option_id_of_64_chars_is_accepted() {
 #[test]
 fn parse_option_without_ids_is_accepted() {
     assert_that!(parse_option(&bars_with_ids(&serde_json::json!([]), &serde_json::json!([])))).is_ok();
+}
+
+fn cartesian_of(v: serde_json::Value) -> Result<Cartesian> {
+    match normalize(&option(v), ChartLabels::english())?.kind {
+        ChartKind::Cartesian(c) => Ok(c),
+        other => panic!("cartésien attendu : {other:?}"),
+    }
+}
+
+fn stacked_bars(y_axis: &serde_json::Value, gap: Option<&str>) -> serde_json::Value {
+    serde_json::json!({
+        "dataset": { "source": [["Q", "Nord", "Sud"], ["T1", 10, 4], ["T2", null, null], ["T3", 12.5, 6]] },
+        "xAxis": { "type": "category" }, "yAxis": y_axis,
+        "series": [{ "type": "bar", "stack": "s", "barCategoryGap": gap }, { "type": "bar", "stack": "s" }]
+    })
+}
+
+#[test]
+fn normalize_value_interval_rounds_the_stacked_maximum_to_a_tick() {
+    let c = cartesian_of(stacked_bars(&serde_json::json!({ "type": "value", "interval": 5 }), None)).unwrap();
+    assert_that!((c.value_min, c.value_max, c.value_splits)).is_equal_to((Some(0.0), Some(20.0), Some(4)));
+}
+
+#[test]
+fn normalize_bar_category_gap_reaches_the_model() {
+    let c = cartesian_of(stacked_bars(&serde_json::json!({ "type": "value" }), Some("40%"))).unwrap();
+    assert_that!(c.bar_gap).is_equal_to(Some(Length::Percent("40%".into())));
+}
+
+#[rstest::rstest]
+#[case::hundred(serde_json::json!("100%"))]
+#[case::negative(serde_json::json!(-3))]
+#[case::not_a_percent(serde_json::json!("wide"))]
+fn normalize_bar_category_gap_out_of_range_is_refused(#[case] gap: serde_json::Value) {
+    let mut v = stacked_bars(&serde_json::json!({ "type": "value" }), None);
+    v["series"][0]["barCategoryGap"] = gap;
+    assert_that!(cartesian_of(v).err().map(|e| e.kind())).is_equal_to(Some(ChartErrorKind::Inconsistent));
+}
+
+#[rstest::rstest]
+#[case::no_gap(serde_json::json!("0%"))]
+#[case::almost_all(serde_json::json!("99%"))]
+#[case::points_beyond_a_hundred(serde_json::json!(120))]
+fn normalize_bar_category_gap_in_range_is_accepted(#[case] gap: serde_json::Value) {
+    let mut v = stacked_bars(&serde_json::json!({ "type": "value" }), None);
+    v["series"][0]["barCategoryGap"] = gap;
+    assert_that!(cartesian_of(v)).is_ok();
+}
+
+#[test]
+fn normalize_bar_category_gap_on_a_line_is_refused() {
+    let mut v = stacked_bars(&serde_json::json!({ "type": "value" }), None);
+    v["series"] = serde_json::json!([{ "type": "line", "barCategoryGap": "20%" }]);
+    assert_that!(cartesian_of(v).err().map(|e| e.kind())).is_equal_to(Some(ChartErrorKind::Inconsistent));
+}
+
+#[rstest::rstest]
+#[case::absent(serde_json::json!({ "type": "value" }), true)]
+#[case::hidden(serde_json::json!({ "type": "value", "splitLine": { "show": false } }), false)]
+fn normalize_split_line_sets_grid_show(#[case] y_axis: serde_json::Value, #[case] shown: bool) {
+    let model = normalize(&option(stacked_bars(&y_axis, None)), ChartLabels::english()).unwrap();
+    assert_that!(model.grid_show).is_equal_to(shown);
+}
+
+#[test]
+fn normalize_horizontal_bars_read_the_grid_from_the_x_axis() {
+    let v = serde_json::json!({
+        "dataset": { "source": [["Q", "Nord"], ["T1", 10]] },
+        "xAxis": { "type": "value", "splitLine": { "show": false } }, "yAxis": { "type": "category" },
+        "series": [{ "type": "bar" }]
+    });
+    assert_that!(normalize(&option(v), ChartLabels::english()).unwrap().grid_show).is_false();
 }

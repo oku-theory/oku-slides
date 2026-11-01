@@ -32,6 +32,9 @@ pub(crate) const MARGIN: (i64, i64) = (0, 51_206_400);
 /// `ST_TextIndent` (`indent`), en EMU.
 pub(crate) const INDENT: (i64, i64) = (-51_206_400, 51_206_400);
 
+/// `ST_GapAmount` (`gapWidth` of a bar chart), in % of a bar's width.
+pub(crate) const GAP_WIDTH: (i64, i64) = (0, 500);
+
 /// Entier `name` de `n`, ramené dans `range`.
 pub(crate) fn attr_in(n: Node<'_, '_>, name: &str, range: (i64, i64)) -> Option<i64> {
     attr_i64(n, name).map(|v| v.clamp(range.0, range.1))

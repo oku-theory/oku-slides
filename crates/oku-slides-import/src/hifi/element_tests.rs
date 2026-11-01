@@ -157,6 +157,8 @@ fn chart_item() -> Item {
         ],
         legend: true,
         axes: crate::source::Axes { x: true, y: true },
+        value_axis: crate::source::ValueAxis::default(),
+        gap_width: None,
     };
     item("s1/1", (10.0, 20.0, 100.0, 50.0), ItemKind::Chart(c))
 }
@@ -339,6 +341,8 @@ fn image(id: &str, frame: &Value) -> Value {
         series: Vec::new(),
         legend: true,
         axes: crate::source::Axes { x: true, y: true },
+        value_axis: crate::source::ValueAxis::default(),
+        gap_width: None,
     })),
     json!([]),
     vec![LossKind::EmptyData],

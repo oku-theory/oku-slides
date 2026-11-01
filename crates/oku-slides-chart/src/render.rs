@@ -12,6 +12,7 @@ use serde_json::json;
 
 use snafu::ResultExt;
 
+use crate::bar_gap;
 use crate::error::{RenderSnafu, Result};
 use crate::header::{Header, append};
 use crate::labels::ChartLabels;
@@ -77,7 +78,7 @@ impl ChartsRsRenderer {
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
                 self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
-                set_bounds(&mut axes, c.value_min, c.value_max);
+                set_bounds(&mut axes, c.value_min, c.value_max, c.value_splits);
                 chart.y_axis_configs = axes;
                 let header = self.header(&mut chart.base, model);
                 (chart.svg(), header)
@@ -88,7 +89,7 @@ impl ChartsRsRenderer {
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
                 self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
-                set_bounds(&mut axes, c.value_min, c.value_max);
+                set_bounds(&mut axes, c.value_min, c.value_max, c.value_splits);
                 chart.y_axis_configs = axes;
                 chart.series_smooth = c.smooth;
                 chart.series_fill = c.area;
@@ -101,7 +102,7 @@ impl ChartsRsRenderer {
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
                 self.series_colors(&mut chart.base, model, c.series.iter().map(|s| s.color.as_deref()));
-                set_bounds(&mut axes, c.value_min, c.value_max);
+                set_bounds(&mut axes, c.value_min, c.value_max, c.value_splits);
                 chart.y_axis_configs = axes;
                 chart.series_smooth = c.smooth;
                 chart.series_fill = c.area;
@@ -122,18 +123,26 @@ impl ChartsRsRenderer {
                 let mut axes = std::mem::take(&mut chart.y_axis_configs);
                 self.frame(&mut chart.base, &mut axes, model, size);
                 self.series_colors(&mut chart.base, model, s.series.iter().map(|ss| ss.color.as_deref()));
-                set_bounds(&mut axes, s.y_min, s.y_max);
+                set_bounds(&mut axes, s.y_min, s.y_max, s.y_splits);
                 chart.y_axis_configs = axes;
                 self.axis_style(&mut chart.x_axis_config);
                 chart.x_axis_config.axis_min = s.x_min.map(engine_f32);
                 chart.x_axis_config.axis_max = s.x_max.map(engine_f32);
+                if let Some(splits) = s.x_splits {
+                    chart.x_axis_config.axis_split_number = splits;
+                }
                 let header = self.header(&mut chart.base, model);
                 (chart.svg(), header)
             }
             ChartKind::Radar(r) => self.radar(r, model, size),
             ChartKind::Waterfall(w) => return self.waterfall(w, model, size, keep),
         };
-        Ok(append(self.numbers.localize_svg(&svg.context(RenderSnafu)?, keep), &header))
+        let svg = svg.context(RenderSnafu)?;
+        let svg = match &model.kind {
+            ChartKind::Cartesian(c) => bar_gap::narrow(svg, c)?,
+            _ => svg,
+        };
+        Ok(append(self.numbers.localize_svg(&svg, keep), &header))
     }
 
     /// Pie: renders the raw charts-rs SVG and the header to add to it.
@@ -196,6 +205,9 @@ impl ChartsRsRenderer {
         }
         if let Some(max) = w.value_max {
             axis["axis_max"] = json!(max);
+        }
+        if let Some(splits) = w.value_splits {
+            axis["axis_split_number"] = json!(splits);
         }
         let mut chart =
             WaterfallChart::from_json(&json!({ "y_axis_configs": [axis] }).to_string()).context(RenderSnafu)?;
@@ -274,7 +286,7 @@ impl ChartsRsRenderer {
         base.x_axis_font_size = t.axis_size;
         base.x_axis_font_color = color(&t.text_muted);
         base.x_axis_stroke_color = color(&t.axis);
-        base.grid_stroke_color = color(&t.grid);
+        base.grid_stroke_color = if model.grid_show { color(&t.grid) } else { transparent() };
         base.series_colors = self.palette(model).iter().map(|c| color(c)).collect();
         base.series_label_font_size = t.label_size;
         base.series_label_font_color = color(&t.text);
@@ -318,10 +330,13 @@ fn engine_f32(x: f64) -> f32 {
     x as f32
 }
 
-fn set_bounds(axes: &mut [YAxisConfig], min: Option<f64>, max: Option<f64>) {
+fn set_bounds(axes: &mut [YAxisConfig], min: Option<f64>, max: Option<f64>, splits: Option<usize>) {
     if let Some(a) = axes.first_mut() {
         a.axis_min = min.map(engine_f32);
         a.axis_max = max.map(engine_f32);
+        if let Some(splits) = splits {
+            a.axis_split_number = splits;
+        }
     }
 }
 

@@ -11,6 +11,7 @@ import { useModalFrame } from "./modalFrame";
 import { packOptionLabel } from "./packOps";
 import { Button, Field, Select } from "./primitives";
 import type { ImportChoice } from "./useImportJob";
+import type { WaitingPicks } from "./useImportPick";
 
 interface Props {
   /** Le `.pptx` choisi par « Ouvrir ». */
@@ -30,6 +31,8 @@ interface Props {
   /** Lance l'import ; l'espace de travail suit la suite. */
   onImport: (target: ImportTarget, tune: boolean) => void;
   onClose: () => void;
+  /** Other `.pptx` files given by the OS, waiting behind this one; absent: none. */
+  waiting?: WaitingPicks | null;
 }
 
 /**
@@ -50,6 +53,7 @@ export default function ImportDialog({
   agentUnusable,
   onImport,
   onClose,
+  waiting,
 }: Props) {
   const [mode, setMode] = useState<ImportTarget["mode"]>(initial?.target.mode ?? "hifi");
   // Les packs de layouts qui ont des profils : les seuls que le retrofit sait viser.
@@ -167,6 +171,15 @@ export default function ImportDialog({
         <p id="import-tune-note" className="caption">{tuneNote}</p>
         {error && <p className="import-error" role="alert">{error}</p>}
         <div className="import-actions">
+          {waiting && (
+            <Button ghost className="import-dismiss-waiting" onClick={() => {
+              waiting.onDismiss();
+              // The button unmounts: focus goes back to the dialog, not to the page body.
+              ref.current?.focus();
+            }}>
+              {t("ui-import-dismiss-waiting", { count: waiting.count })}
+            </Button>
+          )}
           {busy && <span className="caption" role="status">{t("ui-import-busy")}</span>}
           <Button ghost onClick={onClose}>{t("ui-close-cancel")}</Button>
           <Button primary disabled={busy || !ready} onClick={submit}>{t("ui-import-submit")}</Button>

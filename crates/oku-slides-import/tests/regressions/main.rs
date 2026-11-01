@@ -16,6 +16,7 @@ mod issue_0892_clamp_warning;
 mod issue_0954_chart_deleted_axes_and_no_legend;
 mod issue_0955_hifi_table_keeps_its_geometry;
 mod issue_1092_generated_registry_error;
+mod issue_1385_powerpoint_2007_bare_delete_shows_axes;
 mod issue_692_bomb_rereads;
 mod issue_692_invisible_chars;
 mod issue_692_layout_dedup;

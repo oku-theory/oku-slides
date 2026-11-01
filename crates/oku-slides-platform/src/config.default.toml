@@ -66,8 +66,9 @@ max_guide_chars = 4000
 # before t-955, 6.89 (kitchen) and 7.26 (libreoffice) under office2pdf
 # 0.8.1, are now 4.17 and 4.24, its line height closer to PowerPoint's. Under LibreOffice (`witness = "soffice"`,
 # 26.8.1.1, 2026-10-31), the same threshold: noise at most 6.77 (alto's spaced-out
-# titles), tables 3.68 and 3.47 (18.2 before t-955), charts 46.1 (gridlines and
-# bar widths, axes and legend now hidden as in the source, t-954); alto p. 6 (9.16,
+# titles), tables 3.68 and 3.47 (18.2 before t-955), charts 33.6 (46.1 before
+# t-1384 took the source's gridlines and bar width; Oku's automatic value scale
+# still differs); alto p. 6 (9.16,
 # a line break) and p. 8 (8.76, lists it shrinks) stay flagged; its Calibri Light
 # titles and SmartArt are suspect.
 score_threshold = 7.0

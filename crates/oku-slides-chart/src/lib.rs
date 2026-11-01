@@ -12,6 +12,7 @@
 //!
 //! Ce crate ne dépend ni de Typst ni de Tauri.
 
+mod bar_gap;
 mod canonical;
 mod convert;
 mod data_ops;
@@ -23,6 +24,7 @@ mod numbers;
 mod option;
 mod patch;
 mod render;
+mod scale;
 mod schema;
 mod table;
 mod table_convert;

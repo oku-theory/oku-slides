@@ -206,7 +206,7 @@ packs-make-current = Faire de la sienne ma version
 packs-remove = Retirer
 packs-pack-open = Ouvrir
 packs-pack-open-mine = Ouvrir ma version
-packs-add = Ajouter depuis la bibliothèque
+packs-add = Ajouter un pack
 packs-theme-overrides = { $count ->
     [one] { $count } surcharge du deck
    *[other] { $count } surcharges du deck
@@ -233,6 +233,12 @@ notice-pack-edited-elsewhere = Le pack { $pack } est en cours d'édition dans l'
 notice-pack-deleted = Le pack { $pack } n'est plus dans la bibliothèque : cet onglet est en lecture seule ; demandez à l'agent de l'enregistrer comme nouveau pack pour garder vos modifications.
 notice-themes-skipped = Des thèmes de votre bibliothèque viennent d'une version plus ancienne d'Oku Slides : ils n'ont pas pu être lus et ne sont pas proposés ({ $count }).
 notice-unreadable-parts = Des parties de cette présentation n'ont pas pu être lues et ont été mises de côté ({ $count }).
+notice-import-picks-full = Trop de fichiers PowerPoint attendent d'être importés : { $max } au plus peuvent attendre à la fois. Non ajoutés ({ $count }) : { $names }{ $others ->
+        [0] {""}
+        [one] {" "}et 1 autre
+       *[other] {" "}et { $others } autres
+    }. Rouvrez-les une fois ceux en attente traités.
+notice-import-picks-separator = {", "}
 
 log-document-opened = Document ouvert
 log-document-saved = Document enregistré

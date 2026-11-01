@@ -3,10 +3,13 @@
 use roxmltree::Node;
 
 use crate::collect::{clip, clip_to};
+use crate::pptx::bounds::{GAP_WIDTH, attr_in};
 use crate::pptx::color::parse_color;
 use crate::pptx::context::PartCtx;
-use crate::pptx::xml::{attr_bool, attr_str, attr_u32, child, children, descendant, elements, text_of};
-use crate::source::{Axes, Chart, ChartKind, Grouping, Series, WarningKind};
+use crate::pptx::xml::{
+    attr_bool, attr_f64, attr_i64, attr_str, attr_u32, child, children, descendant, elements, text_of,
+};
+use crate::source::{Axes, Chart, ChartKind, Grouping, Series, ValueAxis, WarningKind};
 
 /// Nombre maximal de points lus par cache.
 pub(crate) const MAX_CHART_POINTS: usize = 10_000;
@@ -22,6 +25,8 @@ const MAX_TITLE_CHARS: usize = 1024;
 const MAX_FORMAT_CHARS: usize = 64;
 /// Axes read per chart: twice the four of a combo chart (two per type), for leeway.
 const MAX_AXES: usize = 8;
+/// `c:gapWidth` of a bar chart that does not write it (`CT_GapAmount` default).
+const DEFAULT_GAP_WIDTH: u16 = 150;
 
 /// Pourquoi un graphique n'est pas lu.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -143,7 +148,9 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
         })
         .collect();
     let legend = descendant(root, "chart").and_then(|c| child(c, "legend")).is_some();
-    let axes = axes(plot, first, kind == ChartKind::Bar);
+    let (axes, value) = axes(plot, first, kind == ChartKind::Bar, cx.shared.mso2007);
+    let value_axis = value.map(|v| value_axis(v, cx, item)).unwrap_or_default();
+    let gap_width = matches!(kind, ChartKind::Bar | ChartKind::Column).then(|| gap_width(first, cx, item));
     let title = descendant(root, "chart")
         .and_then(|c| child(c, "title"))
         .map(|t| {
@@ -155,20 +162,67 @@ pub(crate) fn parse_chart(root: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> R
                 .join("\n")
         })
         .filter(|t| !t.trim().is_empty());
-    Ok(Chart { kind, grouping, title, categories, series, legend, axes })
+    Ok(Chart { kind, grouping, title, categories, series, legend, axes, value_axis, gap_width })
 }
 
-/// The axes of the chart type `first` drawn, by side; `horizontal`: bars along y.
+/// `c:gapWidth` of the bar chart `first`, 150 if absent, clamped to 0 to 500 with `Approximated`.
+fn gap_width(first: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> u16 {
+    let Some(g) = child(first, "gapWidth") else { return DEFAULT_GAP_WIDTH };
+    if attr_i64(g, "val").is_some_and(|v| !(GAP_WIDTH.0..=GAP_WIDTH.1).contains(&v)) {
+        cx.warn(Some(item), WarningKind::Approximated("gapWidth".into()));
+    }
+    attr_in(g, "val", GAP_WIDTH).and_then(|v| u16::try_from(v).ok()).unwrap_or(DEFAULT_GAP_WIDTH)
+}
+
+/// Gridlines and scale of the value axis `ax`.
+///
+/// Bounds that are not finite, or not in order, are dropped with
+/// `Approximated`, and so is a `majorUnit` that is not above 0. A log scale
+/// (`c:logBase`) and a reversed one (`c:orientation` `maxMin`) are drawn
+/// linear and in order, with `Approximated`.
+fn value_axis(ax: Node<'_, '_>, cx: &PartCtx<'_>, item: &str) -> ValueAxis {
+    let scaling = child(ax, "scaling");
+    let bound = |name: &str| scaling.and_then(|s| child(s, name)).and_then(|b| attr_f64(b, "val"));
+    let (mut min, mut max) = (bound("min").filter(|v| v.is_finite()), bound("max").filter(|v| v.is_finite()));
+    if let (Some(lo), Some(hi)) = (min, max)
+        && lo >= hi
+    {
+        cx.warn(Some(item), WarningKind::Approximated("c:scaling".into()));
+        (min, max) = (None, None);
+    }
+    let unit = child(ax, "majorUnit").and_then(|u| attr_f64(u, "val"));
+    let major_unit = unit.filter(|u| u.is_finite() && *u > 0.0);
+    if unit.is_some() && major_unit.is_none() {
+        cx.warn(Some(item), WarningKind::Approximated("majorUnit".into()));
+    }
+    if scaling.and_then(|s| child(s, "logBase")).is_some() {
+        cx.warn(Some(item), WarningKind::Approximated("logBase".into()));
+    }
+    if scaling.and_then(|s| child(s, "orientation")).and_then(|o| attr_str(o, "val")) == Some("maxMin") {
+        cx.warn(Some(item), WarningKind::Approximated("orientation".into()));
+    }
+    ValueAxis { gridlines: child(ax, "majorGridlines").is_some(), min, max, major_unit }
+}
+
+/// The axes of the chart type `first` drawn, by side, and its value axis; `horizontal`: bars along y.
 ///
 /// Only the axes `first` names by `c:axId` count (a combo's other axes do not).
 /// A category axis (`c:catAx`, `c:dateAx`) is on the category side, x or y
 /// for horizontal bars, and a value axis on the other; the two value axes of
-/// a scatter are placed by `c:axPos` (`b`, `t`: x), else in order. An axis is
-/// deleted by `c:delete`, a bare one too (`CT_Boolean` defaults to true), and
-/// when the element is absent, as LibreOffice and python-pptx read it. A side
+/// a scatter are placed by `c:axPos` (`b`, `t`: x), else in order, the
+/// vertical one being its value axis. An axis is deleted by `c:delete`, a
+/// bare one too (`CT_Boolean` defaults to true), and when the element is
+/// absent, as LibreOffice and python-pptx read it; in a file of PowerPoint
+/// 2007 (`mso2007`), whose schema defaulted to false, both mean shown, as
+/// LibreOffice's oox reads it (`mbDeleted = !bMSO2007Doc`, t-1385). A side
 /// is drawn when one of its axes is; a side without axis is not, as both
 /// witnesses draw it (t-954).
-fn axes(plot: Node<'_, '_>, first: Node<'_, '_>, horizontal: bool) -> Axes {
+fn axes<'a, 'i>(
+    plot: Node<'a, 'i>,
+    first: Node<'a, 'i>,
+    horizontal: bool,
+    mso2007: bool,
+) -> (Axes, Option<Node<'a, 'i>>) {
     let ids: Vec<&str> = children(first, "axId").filter_map(|a| attr_str(a, "val")).take(MAX_AXES).collect();
     let named = |n: &Node<'_, '_>| child(*n, "axId").and_then(|a| attr_str(a, "val")).is_some_and(|v| ids.contains(&v));
     let read: Vec<Node<'_, '_>> = elements(plot)
@@ -177,6 +231,7 @@ fn axes(plot: Node<'_, '_>, first: Node<'_, '_>, horizontal: bool) -> Axes {
         .collect();
     let has_category = read.iter().any(|n| n.tag_name().name() != "valAx");
     let (mut x, mut y) = (false, false);
+    let mut value = None;
     for (rank, ax) in read.into_iter().enumerate() {
         let category = ax.tag_name().name() != "valAx";
         let vertical = if category {
@@ -190,11 +245,14 @@ fn axes(plot: Node<'_, '_>, first: Node<'_, '_>, horizontal: bool) -> Axes {
                 _ => rank > 0,
             }
         };
-        let shown = child(ax, "delete").is_some_and(|d| attr_bool(d, "val") == Some(false));
+        if !category && (has_category || vertical) && value.is_none() {
+            value = Some(ax);
+        }
+        let deleted = child(ax, "delete").map_or(!mso2007, |d| attr_bool(d, "val").unwrap_or(!mso2007));
         let side = if vertical { &mut y } else { &mut x };
-        *side |= shown;
+        *side |= !deleted;
     }
-    Axes { x, y }
+    (Axes { x, y }, value)
 }
 
 #[cfg(test)]

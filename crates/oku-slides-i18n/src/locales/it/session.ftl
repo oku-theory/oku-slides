@@ -206,7 +206,7 @@ packs-make-current = Rendi la sua la mia versione
 packs-remove = Rimuovi
 packs-pack-open = Apri
 packs-pack-open-mine = Apri la mia versione
-packs-add = Aggiungi dalla libreria
+packs-add = Aggiungi un pacchetto
 packs-theme-overrides = { $count ->
     [one] { $count } modifica della presentazione
    *[other] { $count } modifiche della presentazione
@@ -233,6 +233,12 @@ notice-pack-edited-elsewhere = Il pacchetto { $pack } è in modifica nella sched
 notice-pack-deleted = Il pacchetto { $pack } non è più nella libreria: questa scheda è in sola lettura; chiedi all'agente di salvarlo come nuovo pacchetto per conservare le tue modifiche.
 notice-themes-skipped = Alcuni temi della tua libreria provengono da una versione precedente di Oku Slides: non è stato possibile leggerli e non vengono proposti ({ $count }).
 notice-unreadable-parts = Alcune parti di questa presentazione non sono state lette e sono state messe da parte ({ $count }).
+notice-import-picks-full = Troppi file PowerPoint sono in attesa di importazione: al massimo { $max } possono attendere insieme. Non aggiunti ({ $count }): { $names }{ $others ->
+        [0] {""}
+        [one] {" "}e 1 altro
+       *[other] {" "}e altri { $others }
+    }. Riaprili quando quelli in attesa sono stati gestiti.
+notice-import-picks-separator = {", "}
 
 log-document-opened = Documento aperto
 log-document-saved = Documento salvato

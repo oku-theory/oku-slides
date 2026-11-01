@@ -582,6 +582,7 @@ impl Workspace {
             | WorkspaceRequest::OpenHelp { .. }
             | WorkspaceRequest::NewWindow
             | WorkspaceRequest::ImportPicked { .. }
+            | WorkspaceRequest::DismissImportPicks { .. }
             | WorkspaceRequest::OpenPack { .. }
             | WorkspaceRequest::OpenTheme { .. }
             | WorkspaceRequest::NewPack { .. }

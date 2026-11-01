@@ -194,7 +194,7 @@ packs-make-current = 將對方的版本設為我的版本
 packs-remove = 移除
 packs-pack-open = 開啟
 packs-pack-open-mine = 開啟我的版本
-packs-add = 從資料庫加入
+packs-add = 加入套件
 packs-theme-overrides = 簡報覆寫：{ $count }
 packs-theme-pick = 簡報主題
 packs-theme-open = 開啟
@@ -218,6 +218,11 @@ notice-pack-edited-elsewhere = 套件 { $pack } 正在分頁「{ $tab }」中編
 notice-pack-deleted = 套件 { $pack } 已不在資料庫中：此分頁為唯讀；如需保留變更，請讓 AI 代理將其另存為新套件。
 notice-themes-skipped = 你的資料庫中有些主題來自舊版 Oku Slides：無法讀取，不再提供（{ $count }）。
 notice-unreadable-parts = 此簡報的部分內容無法讀取，已移出（{ $count }）。
+notice-import-picks-full = 等待匯入的 PowerPoint 檔案太多：最多只能同時等待{ $max }個。未加入的檔案（{ $count }個）：{ $names }{ $others ->
+        [0] {""}
+       *[other] 及另外{ $others }個
+    }。請在等待中的檔案處理完後重新開啟它們。
+notice-import-picks-separator = {"、"}
 
 log-document-opened = 文件已開啟
 log-document-saved = 文件已儲存

@@ -378,6 +378,7 @@ ui-import-tune-note-retrofit = エージェントが各スライドを元のも�
 ui-import-tune-unavailable = 使用できるエージェントがありません：{ $reason }
 ui-import-submit = インポート
 ui-import-busy = インポート中…
+ui-import-dismiss-waiting = 待機中のファイルをスキップ（{ $count }）
 ui-update-available = Oku Slides { $version } が利用可能です。
 ui-update-install = インストールして再起動
 ui-update-see-release = リリースを見る

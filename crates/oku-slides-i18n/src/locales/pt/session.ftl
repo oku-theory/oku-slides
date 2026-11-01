@@ -206,7 +206,7 @@ packs-make-current = Tornar a dela a minha versão
 packs-remove = Remover
 packs-pack-open = Abrir
 packs-pack-open-mine = Abrir minha versão
-packs-add = Adicionar da biblioteca
+packs-add = Adicionar um pacote
 packs-theme-overrides = { $count ->
     [one] { $count } ajuste da apresentação
    *[other] { $count } ajustes da apresentação
@@ -233,6 +233,12 @@ notice-pack-edited-elsewhere = O pacote { $pack } está sendo editado na aba “
 notice-pack-deleted = O pacote { $pack } não está mais na biblioteca: esta aba é somente leitura; peça ao agente para salvá-lo como um novo pacote para manter suas alterações.
 notice-themes-skipped = Alguns temas da sua biblioteca vêm de uma versão anterior do Oku Slides: não puderam ser lidos e não são oferecidos ({ $count }).
 notice-unreadable-parts = Algumas partes desta apresentação não puderam ser lidas e foram deixadas de lado ({ $count }).
+notice-import-picks-full = Há arquivos do PowerPoint demais esperando para serem importados: no máximo { $max } podem esperar ao mesmo tempo. Não adicionados ({ $count }): { $names }{ $others ->
+        [0] {""}
+        [one] {" "}e mais 1
+       *[other] {" "}e mais { $others }
+    }. Abra-os de novo quando os que esperam forem tratados.
+notice-import-picks-separator = {", "}
 
 log-document-opened = Documento aberto
 log-document-saved = Documento salvo

@@ -177,6 +177,23 @@ pub struct Axis {
     /// Draws the axis line and labels; shown if absent. The data keep their place.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show: Option<bool>,
+    /// Value axis: step between ticks, above 0; the engine's own step if absent.
+    ///
+    /// A missing `min` or `max` is then rounded to a multiple of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval: Option<f64>,
+    /// Value axis: the gridlines across the plot; drawn if absent.
+    #[serde(rename = "splitLine", default, skip_serializing_if = "Option::is_none")]
+    pub split_line: Option<SplitLine>,
+}
+
+/// Gridlines of a value axis.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SplitLine {
+    /// Draws the gridlines; `false` hides them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show: Option<bool>,
 }
 
 /// Kind of a cartesian axis.
@@ -281,6 +298,11 @@ pub struct Series {
     /// Bars, lines or scatter: color of the series.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item_style: Option<ItemStyle>,
+    /// Bars: free space of each category band, `"40%"` of it or points.
+    ///
+    /// The engine's own spacing if absent; the first bar series that sets it decides.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar_category_gap: Option<Length>,
 }
 
 /// Style of a series' elements.

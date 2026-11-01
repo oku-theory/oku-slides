@@ -84,14 +84,9 @@ fn previous_hex(pack: BuiltinPack) -> String {
     shipped[shipped.len() - 2].to_owned()
 }
 
-/// The previous shipped base: the current files without guides, under the parent before.
+/// The previous shipped base, as kept in `fixtures/packs` (t-1385 changed more than its guides).
 fn previous_base() -> PackFiles {
-    let current = &builtin(BASE_PACK).files;
-    let shipped: Vec<&str> = BuiltinPack::Base.shipped_versions().collect();
-    let mut m = current.manifest().clone();
-    m.remove("guides");
-    m.insert("parent".into(), Value::String(format!("sha256:{}", shipped[shipped.len() - 3])));
-    PackFiles::new(PackKind::Widgets, m, current.widgets().clone())
+    crate::deck_widgets::deck_widgets_tests::fixture_pack("packs/base-100fe5ab")
 }
 
 /// The previous shipped Papier: the current theme without guides and without parent.

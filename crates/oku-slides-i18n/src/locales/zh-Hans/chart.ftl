@@ -52,3 +52,6 @@ chart-table-not-finite = 表格中的数字必须是有限值
 chart-table-chart-option = chart 必须是图表选项对象
 chart-table-chart-columns = chart-columns 必须列出有效且互不相同的列标识符（1 到 64个字母、数字、- 或 _）
 chart-table-geometry = column-widths 和 row-heights 为每列或每行给出一个有限的正权重
+chart-axis-interval = 坐标轴间隔（interval）必须是大于 0 的数字
+chart-axis-bounds = 坐标轴的最大值（max）必须大于最小值（min）
+chart-bar-gap = barCategoryGap 只能用于柱状系列：0% 到小于 100% 的百分比，或不小于 0 的磅值长度

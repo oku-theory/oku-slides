@@ -1,5 +1,6 @@
 ---
 source: crates/oku-slides-import/tests/retrofit.rs
+assertion_line: 198
 expression: plan.ops
 ---
 [
@@ -89,12 +90,16 @@ expression: plan.ops
                       },
                       "yAxis": {
                         "type": "value",
-                        "show": false
+                        "show": false,
+                        "splitLine": {
+                          "show": false
+                        }
                       },
                       "series": [
                         {
                           "type": "bar",
-                          "stack": "total"
+                          "stack": "total",
+                          "barCategoryGap": "60%"
                         },
                         {
                           "type": "bar",

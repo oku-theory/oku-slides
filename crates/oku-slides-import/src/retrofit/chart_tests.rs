@@ -26,6 +26,8 @@ fn source_chart(kind: ChartKind, grouping: Grouping) -> source::Chart {
         series: vec![series("2025", &[1.0, 2.0, 3.0]), series("2026", &[4.0, 5.0, 6.0])],
         legend: !matches!(kind, ChartKind::Pie | ChartKind::Doughnut),
         axes: source::Axes { x: true, y: true },
+        value_axis: source::ValueAxis::default(),
+        gap_width: None,
     }
 }
 
@@ -68,7 +70,7 @@ fn chart_of_columns_is_the_canonical_bar_option() {
     assert_that!(option).is_equal_to(json!({
         "dataset": { "source": [["", "2025", "2026"], ["T1", 1.0, 4.0], ["T2", 2.0, 5.0], ["T3", 3.0, 6.0]] },
         "xAxis": { "type": "category" },
-        "yAxis": { "type": "value" },
+        "yAxis": { "type": "value", "splitLine": { "show": false } },
         "series": [{ "type": "bar" }, { "type": "bar" }],
         "title": { "text": "Ventes" },
         "legend": { "show": true },
@@ -333,4 +335,58 @@ fn chart_always_writes_whether_the_source_has_a_legend(#[case] kind: ChartKind, 
 fn chart_with_shown_axes_writes_no_show_key() {
     let option = option_of(&source_chart(ChartKind::Column, Grouping::Clustered));
     assert_that!((option.pointer("/xAxis/show"), option.pointer("/yAxis/show"))).is_equal_to((None, None));
+}
+
+/// t-1384: the value axis of `kind` with `gridlines`, a 0..20 scale by 5, and a gap width of 150.
+fn scaled(kind: ChartKind, grouping: Grouping, gridlines: bool) -> source::Chart {
+    source::Chart {
+        value_axis: source::ValueAxis { gridlines, min: Some(0.0), max: Some(20.0), major_unit: Some(5.0) },
+        gap_width: matches!(kind, ChartKind::Column | ChartKind::Bar).then_some(150),
+        ..source_chart(kind, grouping)
+    }
+}
+
+#[rstest]
+#[case::column(ChartKind::Column, "/yAxis")]
+#[case::horizontal_bars(ChartKind::Bar, "/xAxis")]
+#[case::line(ChartKind::Line, "/yAxis")]
+#[case::scatter(ChartKind::Scatter, "/yAxis")]
+fn chart_value_axis_writes_gridlines_and_scale(#[case] kind: ChartKind, #[case] axis: &str) {
+    let option = option_of(&scaled(kind, Grouping::Clustered, false));
+    let at = |key: &str| option.pointer(&format!("{axis}/{key}")).cloned();
+    assert_that!((at("splitLine"), at("min"), at("max"), at("interval"))).is_equal_to((
+        Some(json!({ "show": false })),
+        Some(json!(0.0)),
+        Some(json!(20.0)),
+        Some(json!(5.0)),
+    ));
+    assert_that!(model(&scaled(kind, Grouping::Clustered, false)).grid_show).is_false();
+}
+
+#[test]
+fn chart_with_gridlines_shows_the_grid() {
+    assert_that!(model(&scaled(ChartKind::Column, Grouping::Clustered, true)).grid_show).is_true();
+}
+
+#[test]
+fn chart_percent_stacked_drops_the_scale_in_shares() {
+    let option = option_of(&scaled(ChartKind::Column, Grouping::PercentStacked, true));
+    assert_that!((option.pointer("/yAxis/max"), option.pointer("/yAxis/interval"))).is_equal_to((None, None));
+}
+
+#[rstest]
+#[case::clustered_two_series(Grouping::Clustered, "42.86%")]
+#[case::stacked_one_column(Grouping::Stacked, "60%")]
+fn chart_bars_write_the_category_gap_of_the_gap_width(#[case] grouping: Grouping, #[case] gap: &str) {
+    let option = option_of(&scaled(ChartKind::Column, grouping, false));
+    assert_that!(option.pointer("/series/0/barCategoryGap")).is_equal_to(Some(&json!(gap)));
+    assert_that!(option.pointer("/series/1/barCategoryGap")).is_none();
+}
+
+#[test]
+fn chart_value_axis_options_are_canonical() {
+    let option = option_of(&scaled(ChartKind::Column, Grouping::Stacked, false));
+    let parsed = parse_option(&option).unwrap();
+    let canonical = canonicalize(&parsed, ChartLabels::english()).unwrap();
+    assert_that!(serde_json::to_value(canonical).unwrap()).is_equal_to(option);
 }

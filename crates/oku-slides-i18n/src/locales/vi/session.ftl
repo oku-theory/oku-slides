@@ -194,7 +194,7 @@ packs-make-current = Đặt phiên bản đó làm phiên bản của tôi
 packs-remove = Gỡ bỏ
 packs-pack-open = Mở
 packs-pack-open-mine = Mở phiên bản của tôi
-packs-add = Thêm từ thư viện
+packs-add = Thêm gói
 packs-theme-overrides = Tùy chỉnh của bản trình bày: { $count }
 packs-theme-pick = Chủ đề của bản trình bày
 packs-theme-open = Mở
@@ -218,6 +218,11 @@ notice-pack-edited-elsewhere = Gói { $pack } đang được chỉnh sửa trong
 notice-pack-deleted = Gói { $pack } không còn trong thư viện: thẻ này chỉ đọc; hãy nhờ tác nhân AI lưu nó thành một gói mới để giữ các thay đổi của bạn.
 notice-themes-skipped = Một số chủ đề trong thư viện của bạn đến từ phiên bản cũ hơn của Oku Slides: không đọc được và không được đề xuất ({ $count }).
 notice-unreadable-parts = Một số phần của bản trình bày này không đọc được và đã được để riêng ({ $count }).
+notice-import-picks-full = Có quá nhiều tệp PowerPoint đang chờ nhập: tối đa { $max } tệp có thể chờ cùng lúc. Chưa được thêm ({ $count }): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}và { $others } tệp khác
+    }. Hãy mở lại chúng khi các tệp đang chờ đã xong.
+notice-import-picks-separator = {", "}
 
 log-document-opened = Đã mở tài liệu
 log-document-saved = Đã lưu tài liệu

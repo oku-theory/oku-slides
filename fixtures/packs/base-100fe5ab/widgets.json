@@ -1,0 +1,68 @@
+{
+  "id": "3b1f6c2e-5a4d-4e8b-9c71-0d2e4f6a8b13",
+  "name": "Base",
+  "namespace": "base",
+  "requires": [],
+  "description": "Les widgets de base : texte, carte, image, forme, graphique, tableau, pile.",
+  "parent": "sha256:9b985b9efa806670795de472c77cd728aeb56dc52a8d20279dffbe97ff379cff",
+  "created": "2026-10-23T00:00:00Z",
+  "guides": {
+    "edit": "# Editing Base\n\nBase is the widget pack every deck pins, and Essentiel requires it. Its seven widgets are text, card, image, shape, chart, table and stack: keep their names and params, or the elements of existing decks stop rendering.\n\n- One widget per file, `widgets/<name>.typ`, whose declared name is the file name. Shared code lives in `_commun.typ`: `placeholder(t, label, height:)`, the frame shown for a missing image, an undrawn chart or a table without data.\n- Params: text `body` (rich); card `kicker`, `title` (plain), `body` (rich), `highlight` (flag); image `asset`, `fit` (cover, contain, stretch); shape `shape` (rect, ellipse, line, path), `path` (host); chart `option` (host); table `data` (host); stack `layout` (rows, columns, grid), `count`, `gap`, `children` (flow slot). Do not rename or retype a param; add new ones as optional.\n- Sizing is declared in the schema, never by testing a kind: only text declares `typography: true`; image and chart `grow: true`; table `grow: \"fit\"`; the others keep their height.\n- Wrap every plain and rich param in `field()` (the card does it through its `wrap` callback) and stack fields with `fields-stack`; an empty field must never change the layout.\n- Colors and sizes come from tokens through `color-of`, `size-of`, `space-of`, `radius-of`, `stroke-of` and `weight-of`, never literals. Pass `lenient: true` to `color-of` only for colors from the element's style.\n- Card and table read `ctx.component.card` and `ctx.component.table`. A new component token goes in this manifest's `tokens`, with a default that names a theme token (bg, ink, accent, md…); themes override it under component.base.\n- Contrast to keep with the defaults: card text on `bg`; highlight-ink, highlight-title and highlight-kicker on highlight-bg (ink); table header-color on header-bg (on-accent on accent).\n- Table cell texts are plain strings, never Typst markup or eval. Keep the guards (100 rows, 20 columns), and scale a table down only if it still overflows after wrapping.\n- Shape paths accept `M`, `L`, `C`, `Q` and `Z` only, with coordinates relative to the frame, matching the host's parser.\n- The default element style of shape (`styles.shape`: surface fill, md radius) is part of the manifest.\n- Example texts are `ftl:session-example-base-…` markers whose keys exist in all 20 locales.",
+    "use": "# Using Base\n\nBase holds the element widgets every deck pins: `base/text`, `base/card`, `base/image`, `base/shape`, `base/chart`, `base/table` and `base/stack`. Put them in a slide's blocks (laid out by the slide) or its elements (placed freely on the slide's grid).\n\n## Which widget\n\n- `base/text`: prose, bullet and numbered lists, headings. The only widget with typography: size, color, weight, font, align, leading, spacing, indent, inset and valign come from the element's style. Prefer one text holding a list to several texts.\n- `base/card`: one point in a box: `kicker`, `title`, a rich `body`, and `highlight` to put it on the theme's dark highlight colors. Use 2 to 4 cards side by side for parallel points; highlight one at most. In a frame or a grid cell, a card fills its place.\n- `base/image`: a deck asset (`asset`), `fit` cover (crops to fill, the default), contain (whole image) or stretch. In the flow it keeps its proportions.\n- `base/shape`: rect, ellipse, line or path, styled by fill, stroke, stroke-width and radius; it defaults to a `surface` fill and `md` radius. A path is `{\"d\": \"M x y L x y C … Q … Z\"}`, coordinates relative to the frame (0 to 1). Use shapes for accents, separators and diagrams, not as text boxes.\n- `base/chart`: an ECharts-style `option` (bar, line, pie, scatter, radar, waterfall), colored by the theme's chart.palette.\n- `base/table`: cells in `data.dataset.source`, one array per row; the first row is the header unless `header-row` is false; `header-column`, `striped` and a per-column `align` are optional. At most 100 rows and 20 columns. Numbers are written in the deck language; true shows ✓. Cells are plain text.\n- `base/stack`: keeps flow children together in rows, columns or a grid of `count` columns, with a `gap` from xs to xxl (default lg).\n\n## Height in a slide's blocks\n\nText, card, shape and stack keep their own height; image and chart share the height left; a table keeps its height when it fits its share, otherwise it takes one and shrinks to fit.\n\n## Avoid\n\n- Literal colors where a theme color name fits (ink, ink-muted, accent, on-accent, surface, rule): theme names follow a theme change, literals do not.\n- Long paragraphs in cards, more than 4 cards in a row, a table for two or three numbers (cards or a chart read better).\n- Shapes or stacked texts that imitate a card, a list or a table.\n\n## Theme tokens\n\nBase's component tokens restyle every card or table of the deck at once:\n\n- component.base.card: bg, border-color, border-width, radius, top-rule-color, top-rule-width, padding-x, padding-y, title-size, title-weight, title-color, gap, height (auto or fill), highlight-bg, highlight-ink, highlight-title, highlight-kicker.\n- component.base.table: size, header-bg, header-color, header-weight, body-bg, stripe-bg, rule-color, rule-width, padding-x, padding-y."
+  },
+  "tokens": [
+    {"path": ["card", "bg"], "default": "bg", "control": "color"},
+    {"path": ["card", "border-color"], "default": "rule", "control": "color"},
+    {"path": ["card", "border-width"], "default": "hairline", "control": "pt", "min": 0, "max": 400, "refs": "stroke"},
+    {"path": ["card", "radius"], "default": "md", "control": "pt", "min": 0, "max": 400, "refs": "radius"},
+    {"path": ["card", "top-rule-color"], "default": "accent", "control": "color"},
+    {"path": ["card", "top-rule-width"], "default": 4, "control": "pt", "min": 0, "max": 400},
+    {"path": ["card", "padding-x"], "default": "lg", "control": "pt", "min": 0, "max": 400, "refs": "space"},
+    {"path": ["card", "padding-y"], "default": "lg", "control": "pt", "min": 0, "max": 400, "refs": "space"},
+    {"path": ["card", "title-size"], "default": "lead", "control": "pt", "min": 0, "max": 400, "refs": "size"},
+    {"path": ["card", "title-weight"], "default": "strong", "control": "weight"},
+    {"path": ["card", "title-color"], "default": "ink", "control": "color"},
+    {"path": ["card", "gap"], "default": "sm", "control": "pt", "min": 0, "max": 400, "refs": "space"},
+    {"path": ["card", "height"], "default": "auto", "control": "choice", "options": ["auto", "fill"]},
+    {"path": ["card", "highlight-bg"], "default": "ink", "control": "color"},
+    {"path": ["card", "highlight-ink"], "default": "bg", "control": "color"},
+    {"path": ["card", "highlight-title"], "default": "bg", "control": "color"},
+    {"path": ["card", "highlight-kicker"], "default": "bg", "control": "color"},
+    {"path": ["table", "size"], "default": "small", "control": "pt", "min": 0, "max": 400, "refs": "size"},
+    {"path": ["table", "header-bg"], "default": "accent", "control": "color"},
+    {"path": ["table", "header-color"], "default": "on-accent", "control": "color"},
+    {"path": ["table", "header-weight"], "default": "strong", "control": "weight"},
+    {"path": ["table", "body-bg"], "default": null, "control": "color", "nullable": true},
+    {"path": ["table", "stripe-bg"], "default": "surface", "control": "color"},
+    {"path": ["table", "rule-color"], "default": "rule", "control": "color"},
+    {"path": ["table", "rule-width"], "default": "hairline", "control": "pt", "min": 0, "max": 400, "refs": "stroke"},
+    {"path": ["table", "padding-x"], "default": "sm", "control": "pt", "min": 0, "max": 400, "refs": "space"},
+    {"path": ["table", "padding-y"], "default": "xs", "control": "pt", "min": 0, "max": 400, "refs": "space"}
+  ],
+  "examples": {
+    "text": {
+      "body": [{"runs": [{"t": "ftl:session-example-base-text-body"}]}]
+    },
+    "card": {
+      "title": "ftl:session-example-base-card-title",
+      "body": [{"runs": [{"t": "ftl:session-example-base-card-body"}]}]
+    },
+    "chart": {
+      "option": {"xAxis": {"type": "category", "data": ["1", "2", "3"]}, "series": [{"type": "bar", "data": [3, 5, 2]}]}
+    },
+    "table": {
+      "data": {
+        "dataset": {
+          "source": [
+            ["ftl:session-example-base-table-column-1", "ftl:session-example-base-table-column-2", "ftl:session-example-base-table-column-3"],
+            ["", 0, 0],
+            ["", 0, 0]
+          ]
+        }
+      }
+    }
+  },
+  "styles": {
+    "shape": {"fill": "surface", "radius": "md"}
+  }
+}

@@ -87,12 +87,13 @@ fn max_score(report: &Value) -> f64 {
 }
 
 #[rstest]
-// Mean gap of the worst slide, measured on 2026-11-01 (office2pdf 0.10.0, σ = 2, as
-// under 0.8.1), plus 25 %: alto 1.57, libreoffice 3.22 and kitchen 3.66 (p. 2, the chart: office2pdf draws its deleted
-// axes, which Oku hides since t-954; the chart region is suspect, not the slide mean).
+// Mean gap of the worst slide, measured on 2026-11-01 (office2pdf 0.8.1, σ = 2; 0.10.0 scores the
+// slides before t-1384 alike), plus 25 %: alto 1.57, libreoffice 1.23 and kitchen 1.74 (p. 2, the
+// chart: 3.22 and 3.66 before t-1384 drew no gridlines and the source's bar width; office2pdf still
+// draws its deleted axes, 46.07, so the chart region stays suspect).
 #[case("alto-wealth.pptx", 2.0)]
-#[case("libreoffice.pptx", 4.0)]
-#[case("kitchen", 4.6)]
+#[case("libreoffice.pptx", 1.6)]
+#[case("kitchen", 2.2)]
 fn import_hifi_scores_every_slide_under_its_threshold(#[case] name: &str, #[case] threshold: f64) {
     let dir = workdir("import-reference");
     let (_, report) = import(dir.as_ref(), name, &[]);
@@ -303,17 +304,18 @@ fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
 //   (s6/17, at 10.24 pt: LibreOffice breaks "the agent" one line earlier than Oku and office2pdf,
 //   which share Typst's shaping: not settled); p. 8 8.76 (the cards of pillars 2 and 3, whose
 //   overflowing `normAutofit` lists it shrinks, PowerPoint not: the source does not say, unmarked);
-// - libreoffice and kitchen: p. 1 3.47 and 3.68 (the table, 18.9 before t-955); p. 2 46.09 (the
-//   chart: Oku draws gridlines the source lacks and wider bars; axes and legend hidden since
-//   t-954); p. 3 at most 0.1.
+// - libreoffice and kitchen: p. 1 3.47 and 3.68 (the table, 18.9 before t-955); p. 2 33.6 (the
+//   chart, 46.09 before t-1384 dropped the gridlines and took the source's bar width: Oku's own
+//   automatic value scale still tops the axis higher than LibreOffice's 18); p. 3 at most 0.1.
 // The Calibri Light titles (14.7 to 29) and libreoffice's SmartArt (21, whose text names neither
 // color nor font) are suspect; kitchen's (1.68 and 3.45, named by the `defaultTextStyle`) no
 // longer is since t-936.
-// Worst mean gap of a slide: alto 0.99, libreoffice 3.34 and kitchen 3.35; plus 25 %.
+// Worst mean gap of a slide: alto 0.99, libreoffice 1.24 and kitchen 1.28 (3.34 and 3.35 before
+// t-1384); plus 25 %.
 #[rstest]
 #[case("alto-wealth.pptx", 1.25, vec![6, 8])]
-#[case("libreoffice.pptx", 4.2, vec![2])]
-#[case("kitchen", 4.2, vec![2])]
+#[case("libreoffice.pptx", 1.6, vec![2])]
+#[case("kitchen", 1.6, vec![2])]
 #[ignore = "real LibreOffice, it opens in the Dock: just test-soffice"]
 fn import_hifi_against_real_libreoffice_flags_the_measured_slides(
     #[case] name: &str,

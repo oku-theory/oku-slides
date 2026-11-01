@@ -37,6 +37,8 @@ fn classify_structural_requests_resync_without_forcing_focus() {
         serde_json::json!({"cmd": "close_window", "window": "w-1"}),
         // Le choix d'import oublié : chaque fenêtre reçoit la vue sans lui.
         serde_json::json!({"cmd": "import_picked", "id": 1}),
+        // Dismissed picks: every window gets the view without them.
+        serde_json::json!({"cmd": "dismiss_import_picks", "window": "w-1", "through": 3}),
     ] {
         assert_that!(classify(&req(v))).is_equal_to((true, false));
     }

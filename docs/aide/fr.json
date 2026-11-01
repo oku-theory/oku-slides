@@ -325,7 +325,7 @@
            "bold": true
           },
           {
-           "t": " : « Ajouter depuis la bibliothèque » épingle un pack dans le deck ; « Retirer » le désépingle, sauf si une slide ou un autre pack en a besoin. Le pack de base reste toujours."
+           "t": " : « Ajouter un pack » épingle un pack de la bibliothèque ou propre au deck ; « Retirer » le désépingle, sauf si une slide ou un autre pack en a besoin. Le pack de base reste toujours."
           }
          ],
          "list": "bullet"
@@ -637,7 +637,7 @@
            "bold": true
           },
           {
-           "t": " : ⌘O sur un .pptx, ou l'ouvrir depuis le Finder, affiche « Importer une présentation PowerPoint ». Le deck obtenu arrive dans un nouvel onglet."
+           "t": " : ⌘O sur un .pptx, ou l'ouvrir depuis le Finder, affiche « Importer une présentation PowerPoint ». Le deck obtenu arrive dans un nouvel onglet. Plusieurs fichiers ouverts d'un coup attendent leur tour, 32 au plus : « Ignorer les fichiers en attente » écarte les autres, et un avis nomme les fichiers qui n'ont pas trouvé de place."
           }
          ],
          "list": "bullet"

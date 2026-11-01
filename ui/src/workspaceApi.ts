@@ -158,6 +158,7 @@ type WorkspaceRequest =
   | { cmd: "detach_agent" }
   | { cmd: "attach_agent" }
   | { cmd: "import_picked"; id: number }
+  | { cmd: "dismiss_import_picks"; window: string; through: number }
   | { cmd: "open_pack"; tab: string; pack: string; widget: string | null }
   | { cmd: "open_theme"; tab: string; theme: string }
   | { cmd: "new_pack"; tab: string; kind: PackKind }
@@ -206,6 +207,9 @@ export const workspace = {
   attachAgent: () => ws<WorkspaceView>({ cmd: "attach_agent" }),
   /** Le dialogue d'import du choix `id` est ouvert : l'hôte l'oublie (un choix plus récent reste). */
   importPicked: (id: number) => ws<WorkspaceView>({ cmd: "import_picked", id }),
+  /** Forgets the picks of `window` up to id `through`, the user dismissing them; newer ones stay. */
+  dismissImportPicks: (window: string, through: number) =>
+    ws<WorkspaceView>({ cmd: "dismiss_import_picks", window, through }),
   /** Opens a pack from a tab, beside it or in place. */
   openPack: (tab: string, pack: string, widget: string | null) => ws<WorkspaceView>({ cmd: "open_pack", tab, pack, widget }),
   /** Opens theme `theme` in its own tab, after `tab`, or focuses the tab that has it. */

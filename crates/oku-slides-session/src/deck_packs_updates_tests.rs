@@ -74,7 +74,7 @@ fn previous_builtin_base(s: &Session) -> oku_slides_core::PackVersion {
 fn pack_updates_opening_a_file_on_the_previous_builtin_base_counts_one() {
     let (me, them) = (fresh_dir("oku-slides-updates-me-"), fresh_dir("oku-slides-updates-them-"));
     let mut other = opened_on(them.path());
-    let old = fixture_pack("packs/base-9b985b9e");
+    let old = fixture_pack("packs/base-100fe5ab");
     assert_that!(old.version()).is_equal_to(previous_builtin_base(&other));
     let version = other.doc.sources.add_pack(old);
     let mut deck = other.deck().clone();

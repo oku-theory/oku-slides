@@ -1,5 +1,6 @@
 //! Lecteur PPTX : du paquet OOXML à la [`crate::source::SourceDeck`].
 
+pub(crate) mod app;
 pub(crate) mod bounds;
 pub(crate) mod cascade;
 pub(crate) mod chart;
@@ -236,8 +237,10 @@ pub fn read_pptx(bytes: &[u8], limits: &ReadLimits) -> Result<SourceDeck, Import
         (Some(x), Some(p)) => soft(parse(x, p, nodes), &early, p)?,
         _ => None,
     };
+    let mso2007 = app::written_by_mso2007(&pkg, &early)?;
     let shared = Shared {
         sink: early,
+        mso2007,
         ..Shared::new(&pkg, table_styles, child(root, "defaultTextStyle").map_or_else(empty_levels, parse_lst_style))
     };
 

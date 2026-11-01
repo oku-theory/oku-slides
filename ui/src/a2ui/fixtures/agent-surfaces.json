@@ -1861,7 +1861,7 @@
             {
               "id": "widgets-add",
               "component": "Select",
-              "label": "Ajouter depuis la bibliothèque",
+              "label": "Ajouter un pack",
               "value": {
                 "path": "/add/widgets"
               },

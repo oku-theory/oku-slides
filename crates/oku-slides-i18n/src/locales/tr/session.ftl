@@ -194,7 +194,7 @@ packs-make-current = Onunkini benim sürümüm yap
 packs-remove = Kaldır
 packs-pack-open = Aç
 packs-pack-open-mine = Benim sürümümü aç
-packs-add = Kitaplıktan ekle
+packs-add = Paket ekle
 packs-theme-overrides = { $count ->
     [one] { $count } sunu geçersiz kılması
    *[other] { $count } sunu geçersiz kılması
@@ -221,6 +221,11 @@ notice-pack-edited-elsewhere = { $pack } paketi “{ $tab }” sekmesinde düzen
 notice-pack-deleted = { $pack } paketi artık kitaplıkta değil: bu sekme salt okunur; değişikliklerinizi korumak için ajandan onu yeni bir paket olarak kaydetmesini isteyin.
 notice-themes-skipped = Kitaplığınızdaki bazı temalar Oku Slides'ın eski bir sürümünden geliyor: okunamadılar ve sunulmuyorlar ({ $count }).
 notice-unreadable-parts = Bu sunumun bazı bölümleri okunamadı ve bir kenara ayrıldı ({ $count }).
+notice-import-picks-full = İçe aktarılmayı bekleyen çok fazla PowerPoint dosyası var: aynı anda en fazla { $max } dosya bekleyebilir. Eklenmeyenler ({ $count }): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}ve { $others } dosya daha
+    }. Bekleyenler bitince onları yeniden açın.
+notice-import-picks-separator = {", "}
 
 log-document-opened = Belge açıldı
 log-document-saved = Belge kaydedildi

@@ -194,7 +194,7 @@ packs-make-current = اجعل إصداره إصداري
 packs-remove = إزالة
 packs-pack-open = فتح
 packs-pack-open-mine = فتح نسختي
-packs-add = إضافة من المكتبة
+packs-add = إضافة حزمة
 packs-theme-overrides = { $count ->
     [one] تخصيص واحد للعرض التقديمي ({ $count })
    *[other] تخصيصات العرض التقديمي: { $count }
@@ -221,6 +221,11 @@ notice-pack-edited-elsewhere = الحزمة { $pack } قيد التعديل في
 notice-pack-deleted = لم تعد الحزمة { $pack } في المكتبة: علامة التبويب هذه للقراءة فقط؛ اطلب من الوكيل حفظها كحزمة جديدة للاحتفاظ بتغييراتك.
 notice-themes-skipped = بعض السمات في مكتبتك من إصدار أقدم من Oku Slides: تعذّرت قراءتها ولا تُعرض ({ $count }).
 notice-unreadable-parts = تعذّرت قراءة بعض أجزاء هذا العرض التقديمي فنُحّيت جانبًا ({ $count }).
+notice-import-picks-full = ملفات PowerPoint كثيرة جدًا تنتظر الاستيراد: يمكن أن ينتظر { $max } ملفًا على الأكثر في آن واحد. لم يُضف ({ $count }): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}و{ $others } أخرى
+    }. افتحها مجددًا بعد الانتهاء من الملفات المنتظرة.
+notice-import-picks-separator = {"، "}
 
 log-document-opened = فُتح المستند
 log-document-saved = حُفظ المستند

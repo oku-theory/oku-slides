@@ -105,6 +105,8 @@ fn chart_item(kind: ChartKind) -> Item {
         series: vec![series("Nord", [1.0, 2.0]), series("Sud", [3.0, 4.0])],
         legend: true,
         axes: crate::source::Axes { x: true, y: true },
+        value_axis: crate::source::ValueAxis::default(),
+        gap_width: None,
     };
     item("ch", (0.0, 0.0, 200.0, 100.0), ItemKind::Chart(c))
 }
@@ -396,6 +398,8 @@ fn two_series_chart(second: [f64; 2], categories: [&str; 2]) -> Item {
         series: vec![series("Nord", [1.0, 2.0]), series("Sud", second)],
         legend: true,
         axes: crate::source::Axes { x: true, y: true },
+        value_axis: crate::source::ValueAxis::default(),
+        gap_width: None,
     };
     item("ch", (0.0, 0.0, 200.0, 100.0), ItemKind::Chart(c))
 }

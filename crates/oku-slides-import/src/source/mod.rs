@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-pub use chart::{Axes, Chart, ChartKind, Grouping, Series};
+pub use chart::{Axes, Chart, ChartKind, Grouping, Series, ValueAxis};
 pub use font::{Asset, FaceStyle, FontFace, SourceFont};
 pub(crate) use font::{family_weight, is_drawable};
 pub use lang::{Script, lang_tag};

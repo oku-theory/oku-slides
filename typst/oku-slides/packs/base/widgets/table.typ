@@ -134,21 +134,34 @@
       if spare <= 0pt or want <= 0pt { (least, least.sum()) }
       else { (range(n).map(x => least.at(x) + spare * ((natural.at(x) - least.at(x)) / want)), size.width) }
     }
-    // Given row weights and a bounded height: each row is at least its share of the height,
-    // or its content's height when taller (measured row by row, with the same columns).
+    // Given row weights and a bounded height: each row gets its share of the height. A row whose
+    // content (measured row by row, with the same columns) is taller keeps its content height;
+    // its overflow comes out of the rows with slack (content shorter than their share), each
+    // giving up the same fraction of its slack. Once the slack is used up, every row keeps its
+    // content height and the table shrinks below.
     let row-sizes = if heights == none or size.height == float.inf * 1pt { auto } else {
       let total = heights.sum()
-      range(rows.len()).map(y => {
+      let shares = heights.map(h => size.height * (h / total))
+      let contents = range(rows.len()).map(y => {
         let row = table(columns: columns, inset: (x: pad-x, y: space-of(t, k.padding-y)),
           ..cells.slice(y * n, (y + 1) * n))
-        calc.max(measure(block(width: width, row)).height, size.height * (heights.at(y) / total))
+        measure(block(width: width, row)).height
       })
+      let gaps = range(rows.len()).map(y => shares.at(y) - contents.at(y))
+      let over = gaps.map(g => calc.max(0pt, -g)).sum()
+      let slack = gaps.map(g => calc.max(0pt, g)).sum()
+      if over <= 0pt { shares }
+      else if over >= slack { contents }
+      else { range(rows.len()).map(y => if gaps.at(y) > 0pt { shares.at(y) - gaps.at(y) * (over / slack) } else { contents.at(y) }) }
     }
     let body = block(width: width, tbl(columns, row-sizes: row-sizes))
     let m = measure(body)
     if m.width <= 0pt or m.height <= 0pt { return body }
     let fit-w = size.width / width
-    let fit-h = if size.height == float.inf * 1pt { 1 } else { size.height / m.height }
+    // Weighted rows fill the height exactly: a float rounding above it must not shrink the table.
+    let tolerance = if row-sizes == auto { 0pt } else { 0.01pt }
+    let fit-h = if size.height == float.inf * 1pt or m.height <= size.height + tolerance { 1 }
+      else { size.height / m.height }
     let s = calc.max(0.01, calc.min(1, fit-w, fit-h))
     if s >= 1 { body } else { scale(s * 100%, reflow: true, body) }
   })

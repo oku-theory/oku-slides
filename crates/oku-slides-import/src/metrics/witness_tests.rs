@@ -38,6 +38,8 @@ fn chart() -> ItemKind {
         series: vec![],
         legend: true,
         axes: crate::source::Axes { x: true, y: true },
+        value_axis: crate::source::ValueAxis::default(),
+        gap_width: None,
     })
 }
 

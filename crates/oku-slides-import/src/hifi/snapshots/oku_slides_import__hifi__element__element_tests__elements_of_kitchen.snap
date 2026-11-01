@@ -1,5 +1,6 @@
 ---
 source: crates/oku-slides-import/src/hifi/element_tests.rs
+assertion_line: 579
 expression: slides
 ---
 [
@@ -106,12 +107,16 @@ expression: slides
             },
             "yAxis": {
               "type": "value",
-              "show": false
+              "show": false,
+              "splitLine": {
+                "show": false
+              }
             },
             "series": [
               {
                 "type": "bar",
                 "stack": "total",
+                "barCategoryGap": "60%",
                 "itemStyle": {
                   "color": "#4472c4"
                 }

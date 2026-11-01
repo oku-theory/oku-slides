@@ -52,3 +52,6 @@ chart-table-not-finite = liczby w tabeli muszą być skończone
 chart-table-chart-option = chart musi być obiektem opcji wykresu
 chart-table-chart-columns = chart-columns musi zawierać prawidłowe, niepowtarzalne identyfikatory kolumn (od 1 do 64 liter, cyfr, - lub _)
 chart-table-geometry = column-widths i row-heights podają jedną skończoną, dodatnią wagę na kolumnę lub wiersz
+chart-axis-interval = odstęp (interval) osi musi być liczbą większą od 0
+chart-axis-bounds = maksimum (max) osi musi być większe od jej minimum (min)
+chart-bar-gap = barCategoryGap dotyczy tylko serii słupków: procent od 0% do mniej niż 100% albo długość w punktach równa 0 lub większa

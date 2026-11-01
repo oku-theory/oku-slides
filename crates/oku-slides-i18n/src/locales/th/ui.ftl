@@ -375,6 +375,7 @@ ui-import-tune-note-retrofit = เอเจนต์เทียบแต่ล�
 ui-import-tune-unavailable = ไม่มีเอเจนต์ที่ใช้งานได้: { $reason }
 ui-import-submit = นำเข้า
 ui-import-busy = กำลังนำเข้า…
+ui-import-dismiss-waiting = ข้ามไฟล์ที่รออยู่ ({ $count })
 ui-update-available = Oku Slides { $version } พร้อมใช้งานแล้ว
 ui-update-install = ติดตั้งและรีสตาร์ท
 ui-update-see-release = ดูรุ่นที่เผยแพร่

@@ -14,7 +14,12 @@ const { useImportPick } = await import("./useImportPick");
 const { setMessages } = await import("./i18n");
 
 afterAll(resetMessages);
-setMessages("fr", ["ui-import-title = Importer une présentation PowerPoint\n"]);
+setMessages("fr", [
+  [
+    "ui-import-title = Importer une présentation PowerPoint",
+    "ui-import-dismiss-waiting = Ignorer les fichiers en attente ({ $count })",
+  ].join("\n") + "\n",
+]);
 
 let cleanup: (() => Promise<void>) | null = null;
 afterEach(async () => {
@@ -38,15 +43,17 @@ async function mount(label: string) {
     close: () => {},
     begin: () => {},
     finish: () => {},
+    dismiss: () => {},
     picks: [] as string[],
     acks: [] as number[],
+    forgets: [] as number[],
   };
   const Probe = ({ v }: { v: WorkspaceView | null }) => {
     const imports = useImportJob(() => {});
     state.close = imports.close;
     state.begin = () =>
       void imports.start({ target: { mode: "hifi" }, tune: false }, () => new Promise((ok) => (state.finish = ok)));
-    useImportPick(
+    const waiting = useImportPick(
       v,
       label,
       imports.job,
@@ -55,7 +62,9 @@ async function mount(label: string) {
         return imports.pick(path);
       },
       (id) => void state.acks.push(id),
+      (through) => void state.forgets.push(through),
     );
+    state.dismiss = waiting?.onDismiss ?? (() => {});
     const job = imports.job?.shown ? imports.job : null;
     return job
       ? createElement(ImportDialog, {
@@ -67,6 +76,7 @@ async function mount(label: string) {
           agentUnusable: null,
           onImport: () => {},
           onClose: imports.close,
+          waiting,
         })
       : null;
   };
@@ -81,12 +91,16 @@ async function mount(label: string) {
   };
   const title = () => host.querySelector("h2")?.textContent ?? null;
   const file = () => host.querySelector("#import-file")?.textContent ?? null;
+  const dismissLabel = () => host.querySelector(".import-dismiss-waiting")?.textContent ?? null;
   return {
     show,
     title,
     file,
     picks: state.picks,
     acks: state.acks,
+    forgets: state.forgets,
+    dismissLabel,
+    dismiss: () => act(async () => state.dismiss()),
     close: () => act(async () => state.close()),
     begin: () => act(async () => state.begin()),
     done: () => act(async () => state.finish()),
@@ -187,4 +201,41 @@ test("useImportPick in a queue mixing windows takes only this window's picks", a
   await m.show(view(1, [{ ...alto, window: "w-2" }, kitchen]));
   expect(m.picks).toEqual(["/a/Kitchen.pptx"]);
   expect(m.acks).toEqual([2]);
+});
+
+test("useImportPick offers to dismiss the other picks of this window waiting behind the dialog", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [alto, kitchen, { ...kitchen, id: 3, path: "/a/Coda.pptx" }, { ...alto, id: 4, window: "w-2" }]));
+  expect(m.file()).toBe("Alto.pptx");
+  expect(m.dismissLabel()).toBe("Ignorer les fichiers en attente (2)");
+});
+
+test("useImportPick without another pick waiting offers no dismissal", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [alto]));
+  expect(m.file()).toBe("Alto.pptx");
+  expect(m.dismissLabel()).toBeNull();
+});
+
+test("useImportPick dismissing forgets the waiting picks through the highest id and never offers them", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [alto, kitchen, { ...kitchen, id: 3, path: "/a/Coda.pptx" }]));
+  await m.dismiss();
+  expect(m.forgets).toEqual([3]);
+  expect(m.dismissLabel()).toBeNull();
+  // The host's reply has not arrived yet: the view still lists them.
+  await m.close();
+  await m.show(view(2, [kitchen, { ...kitchen, id: 3, path: "/a/Coda.pptx" }]));
+  expect(m.title()).toBeNull();
+  expect(m.acks).toEqual([1]);
+});
+
+test("useImportPick after a dismissal still offers a newer pick", async () => {
+  const m = await mount("w-1");
+  await m.show(view(1, [alto, kitchen]));
+  await m.dismiss();
+  await m.close();
+  await m.show(view(2, [{ ...alto, id: 5, path: "/a/Late.pptx" }]));
+  expect(m.file()).toBe("Late.pptx");
+  expect(m.acks).toEqual([1, 5]);
 });

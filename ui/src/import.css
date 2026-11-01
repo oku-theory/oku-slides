@@ -12,8 +12,8 @@
 .import-layouts legend { padding: 0; margin-bottom: 6px; }
 .import-tune { font-size: 14px; }
 .import-error { color: var(--danger); font-size: 13px; line-height: 18px; }
-.import-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
-.import-actions > .caption { margin-inline-end: auto; }
+.import-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.import-actions > :is(.caption, .import-dismiss-waiting):first-child { margin-inline-end: auto; }
 .import-actions .btn { height: 36px; border: 0; border-radius: var(--radius-md); cursor: pointer; }
 .import-actions .btn:disabled { opacity: 0.5; cursor: default; }
 /* The About dialog (AboutDialog.tsx) reuses the import veil and frame. */

@@ -206,7 +206,7 @@ packs-make-current = उनके संस्करण को मेरा स�
 packs-remove = हटाएँ
 packs-pack-open = खोलें
 packs-pack-open-mine = मेरा संस्करण खोलें
-packs-add = लाइब्रेरी से जोड़ें
+packs-add = पैक जोड़ें
 packs-theme-overrides = { $count ->
     [one] प्रस्तुति का { $count } बदलाव
    *[other] प्रस्तुति के { $count } बदलाव
@@ -233,6 +233,11 @@ notice-pack-edited-elsewhere = पैक { $pack } का संपादन ट
 notice-pack-deleted = पैक { $pack } अब लाइब्रेरी में नहीं है: यह टैब केवल पढ़ने के लिए है; अपने बदलाव रखने के लिए एजेंट से इसे नए पैक के रूप में सहेजने को कहें।
 notice-themes-skipped = आपकी लाइब्रेरी की कुछ थीम Oku Slides के पुराने संस्करण से हैं: उन्हें पढ़ा नहीं जा सका और वे पेश नहीं की जातीं ({ $count })।
 notice-unreadable-parts = इस प्रस्तुति के कुछ हिस्से पढ़े नहीं जा सके और अलग रखे गए ({ $count })।
+notice-import-picks-full = आयात की प्रतीक्षा में बहुत अधिक PowerPoint फ़ाइलें हैं: एक साथ अधिकतम { $max } प्रतीक्षा कर सकती हैं। नहीं जोड़ी गईं ({ $count }): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}और { $others } अन्य
+    }। प्रतीक्षारत फ़ाइलें पूरी होने के बाद उन्हें फिर से खोलें।
+notice-import-picks-separator = {", "}
 
 log-document-opened = दस्तावेज़ खोला गया
 log-document-saved = दस्तावेज़ सहेजा गया

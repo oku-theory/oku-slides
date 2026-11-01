@@ -114,7 +114,7 @@ pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartO
 }
 
 fn empty_axis() -> Axis {
-    Axis { kind: None, data: None, min: None, max: None, show: None }
+    Axis { kind: None, data: None, min: None, max: None, show: None, interval: None, split_line: None }
 }
 
 /// Vrai si toutes les séries sont des barres ou lignes en forme canonique.

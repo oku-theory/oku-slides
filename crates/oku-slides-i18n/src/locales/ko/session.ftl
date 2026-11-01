@@ -194,7 +194,7 @@ packs-make-current = 상대 버전을 내 버전으로 지정
 packs-remove = 제거
 packs-pack-open = 열기
 packs-pack-open-mine = 내 버전 열기
-packs-add = 라이브러리에서 추가
+packs-add = 팩 추가
 packs-theme-overrides = 프레젠테이션 재정의: { $count }
 packs-theme-pick = 프레젠테이션 테마
 packs-theme-open = 열기
@@ -218,6 +218,11 @@ notice-pack-edited-elsewhere = 팩 { $pack }은(는) 탭 “{ $tab }”에서 �
 notice-pack-deleted = 팩 { $pack }이(가) 더 이상 라이브러리에 없습니다. 이 탭은 읽기 전용입니다. 변경 사항을 유지하려면 에이전트에게 새 팩으로 저장해 달라고 요청하세요.
 notice-themes-skipped = 라이브러리의 일부 테마는 이전 버전의 Oku Slides에서 만들어져 읽을 수 없으므로 제공되지 않습니다({ $count }).
 notice-unreadable-parts = 이 프레젠테이션의 일부를 읽을 수 없어 따로 두었습니다({ $count }).
+notice-import-picks-full = 가져오기를 기다리는 PowerPoint 파일이 너무 많습니다. 한 번에 최대 { $max }개까지 기다릴 수 있습니다. 추가되지 않은 파일({ $count }개): { $names }{ $others ->
+        [0] {""}
+       *[other] {" "}외 { $others }개
+    }. 기다리는 파일이 끝나면 다시 여세요.
+notice-import-picks-separator = {", "}
 
 log-document-opened = 문서를 열었습니다
 log-document-saved = 문서를 저장했습니다

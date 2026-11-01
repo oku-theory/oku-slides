@@ -66,6 +66,8 @@ pub enum WitnessLimit {
     /// Texte interlettré : le témoin le dessine plus large de 2 à 5 px.
     Tracking,
     /// Graphique : le témoin le dessine à peu près.
+    ///
+    /// Kept after t-1384: the automatic value scale still differs from PowerPoint's (t-1493).
     Chart,
     /// Item d'un SmartArt dessiné : le témoin en rend le texte trop petit.
     SmartArt,

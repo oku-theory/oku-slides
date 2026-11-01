@@ -390,6 +390,7 @@ ui-import-tune-note-retrofit = يقارن الوكيل كل شريحة بالأ�
 ui-import-tune-unavailable = لا يوجد وكيل قابل للاستخدام: { $reason }
 ui-import-submit = استيراد
 ui-import-busy = جارٍ الاستيراد…
+ui-import-dismiss-waiting = تخطي الملفات المنتظرة ({ $count })
 ui-update-available = Oku Slides { $version } متاح الآن.
 ui-update-install = التثبيت وإعادة التشغيل
 ui-update-see-release = عرض الإصدار

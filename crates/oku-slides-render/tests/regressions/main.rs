@@ -19,3 +19,4 @@ mod issue_0969_hand_written_schema_set_aside_alone;
 mod issue_1036_image_box_follows_its_row;
 mod issue_1057_trust_follows_content;
 mod issue_1293_unknown_theme_color_falls_back;
+mod issue_1385_table_row_overflow_takes_slack_first;

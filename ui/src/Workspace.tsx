@@ -212,12 +212,19 @@ export default function Workspace() {
   // The .pptx files given by the OS (argument, second instance, macOS): the view queues them for
   // their window, which offers them one by one and has the host forget each one taken.
   // During an import, a pick waits for it to end.
-  useImportPick(view, label, imports.job, imports.pick, (id) => {
-    workspace
-      .importPicked(id)
-      .then((v) => alive.current && setView(v))
-      .catch((e) => alive.current && setError(errorText(e)));
-  });
+  // The user may dismiss every pick still waiting for this window at once.
+  const follow = (reply: Promise<WorkspaceView>) =>
+    void reply.then((v) => alive.current && setView(v)).catch((e) => alive.current && setError(errorText(e)));
+  const waitingPicks = useImportPick(
+    view,
+    label,
+    imports.job,
+    imports.pick,
+    (id) => follow(workspace.importPicked(id)),
+    (through) => {
+      if (label !== null) follow(workspace.dismissImportPicks(label, through));
+    },
+  );
 
   // Tab shortcuts, held while the import dialog, About or a close question is open.
   useTabShortcuts(label !== null, {
@@ -315,6 +322,7 @@ export default function Workspace() {
           onImportPick={imports.pick}
           onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
           onImportClose={imports.close}
+          importWaiting={waitingPicks}
           onHelp={() => run(workspace.openHelp(label))}
           onAbout={() => setAbout(true)}
           windowDialog={about || asker.asking}

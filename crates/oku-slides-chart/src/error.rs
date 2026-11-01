@@ -41,6 +41,8 @@ pub(crate) enum ChartInner {
     PatchTouchesDataset { backtrace: Backtrace },
     #[snafu(display("chart rendering failed"))]
     Render { source: charts_rs::Error, backtrace: Backtrace },
+    #[snafu(display("charts-rs drew {found} bars, {expected} expected"))]
+    BarLayout { expected: usize, found: usize, backtrace: Backtrace },
 }
 
 impl ChartError {
@@ -51,7 +53,7 @@ impl ChartError {
             ChartInner::Inconsistent { .. } => ChartErrorKind::Inconsistent,
             ChartInner::DataOp { .. } => ChartErrorKind::DataOp,
             ChartInner::PatchTouchesDataset { .. } => ChartErrorKind::PatchTouchesDataset,
-            ChartInner::Render { .. } => ChartErrorKind::Render,
+            ChartInner::Render { .. } | ChartInner::BarLayout { .. } => ChartErrorKind::Render,
         }
     }
 }
@@ -69,7 +71,7 @@ impl Localize for ChartError {
             | ChartInner::Inconsistent { reason, .. }
             | ChartInner::DataOp { reason, .. } => reason.localize(l),
             ChartInner::PatchTouchesDataset { .. } => l.tr("chart-patch-dataset"),
-            ChartInner::Render { .. } => l.tr("chart-render"),
+            ChartInner::Render { .. } | ChartInner::BarLayout { .. } => l.tr("chart-render"),
         }
     }
 }

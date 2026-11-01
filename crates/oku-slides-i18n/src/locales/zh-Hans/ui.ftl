@@ -378,6 +378,7 @@ ui-import-tune-note-retrofit = 智能体将每张幻灯片与原稿比较，并�
 ui-import-tune-unavailable = 没有可用的智能体：{ $reason }
 ui-import-submit = 导入
 ui-import-busy = 正在导入…
+ui-import-dismiss-waiting = 跳过等待中的文件（{ $count }）
 ui-update-available = Oku Slides { $version } 现已推出。
 ui-update-install = 安装并重新启动
 ui-update-see-release = 查看发行版

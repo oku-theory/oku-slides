@@ -52,3 +52,6 @@ chart-table-not-finite = getallen in de tabel moeten eindig zijn
 chart-table-chart-option = chart moet een object met grafiekopties zijn
 chart-table-chart-columns = chart-columns moet geldige, onderling verschillende kolom-id's bevatten (1 tot 64 letters, cijfers, - of _)
 chart-table-geometry = column-widths en row-heights geven één eindig, positief gewicht per kolom of rij
+chart-axis-interval = het interval (interval) van een as moet een getal groter dan 0 zijn
+chart-axis-bounds = het maximum (max) van een as moet groter zijn dan het minimum (min)
+chart-bar-gap = barCategoryGap hoort alleen bij een staafreeks: een percentage van 0% tot onder 100%, of een lengte in punten van 0 of meer

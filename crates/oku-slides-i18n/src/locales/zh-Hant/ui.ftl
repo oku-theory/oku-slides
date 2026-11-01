@@ -378,6 +378,7 @@ ui-import-tune-note-retrofit = AI 代理會將每張投影片與原稿比較，�
 ui-import-tune-unavailable = 沒有可用的 AI 代理：{ $reason }
 ui-import-submit = 匯入
 ui-import-busy = 正在匯入…
+ui-import-dismiss-waiting = 略過等待中的檔案（{ $count }）
 ui-update-available = Oku Slides { $version } 現已推出。
 ui-update-install = 安裝並重新啟動
 ui-update-see-release = 查看發行版

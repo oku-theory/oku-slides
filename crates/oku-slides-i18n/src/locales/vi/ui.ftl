@@ -375,6 +375,7 @@ ui-import-tune-note-retrofit = Tác nhân AI so sánh từng trang chiếu với
 ui-import-tune-unavailable = Không có tác nhân AI nào dùng được: { $reason }
 ui-import-submit = Nhập
 ui-import-busy = Đang nhập…
+ui-import-dismiss-waiting = Bỏ qua các tệp đang chờ ({ $count })
 ui-update-available = Oku Slides { $version } đã có sẵn.
 ui-update-install = Cài đặt và khởi động lại
 ui-update-see-release = Xem bản phát hành

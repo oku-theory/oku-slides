@@ -381,6 +381,7 @@ ui-import-tune-note-retrofit = O agente compara cada slide com o original e cria
 ui-import-tune-unavailable = Nenhum agente disponível: { $reason }
 ui-import-submit = Importar
 ui-import-busy = Importando…
+ui-import-dismiss-waiting = Ignorar os arquivos em espera ({ $count })
 ui-update-available = O Oku Slides { $version } está disponível.
 ui-update-install = Instalar e reiniciar
 ui-update-see-release = Ver a versão

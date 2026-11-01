@@ -52,3 +52,6 @@ chart-table-not-finite = तालिका की संख्याएँ प�
 chart-table-chart-option = chart चार्ट विकल्पों का ऑब्जेक्ट होना चाहिए
 chart-table-chart-columns = chart-columns में मान्य और अलग-अलग कॉलम पहचानकर्ता होने चाहिए (1 से 64 अक्षर, अंक, - या _)
 chart-table-geometry = column-widths और row-heights हर स्तंभ या पंक्ति के लिए एक सीमित, धनात्मक भार देते हैं
+chart-axis-interval = अक्ष का अंतराल (interval) 0 से बड़ी संख्या होना चाहिए
+chart-axis-bounds = अक्ष का अधिकतम (max) उसके न्यूनतम (min) से बड़ा होना चाहिए
+chart-bar-gap = barCategoryGap केवल बार श्रृंखला पर लगता है: 0% से 100% से कम तक का प्रतिशत, या 0 या अधिक पॉइंट की लंबाई

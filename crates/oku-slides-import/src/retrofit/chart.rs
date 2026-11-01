@@ -79,7 +79,12 @@ fn scatter_grid(c: &source::Chart) -> Vec<Vec<Value>> {
 ///
 /// `Stacked` sets `stack` on the cartesian series; `PercentStacked` too, with
 /// the `PercentStacked` loss. A deleted axis gets `show: false` and
-/// `legend.show` says whether the source has a legend (t-954). The title
+/// `legend.show` says whether the source has a legend (t-954). The value axis
+/// (`xAxis` of horizontal bars) always writes `splitLine.show`, and the
+/// source's `min`, `max` and `interval` (`majorUnit`) unless percent-stacked,
+/// whose scale is in shares. Bars write `barCategoryGap` = g / (n + g) of
+/// the band, for a `gapWidth` of g bar widths and n bars per category (one
+/// per series, one per stack), bars touching (t-1384). The title
 /// becomes `title.text`. A number format (`0%`, currency) is lost
 /// (`ChartFormat`): the model has none. `dataset.source` is cut to the core's
 /// review budget ([`dataset_row_budget`], header included), with the
@@ -156,6 +161,9 @@ pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
             }
         }
     }
+    if stacked || c.kind == ChartKind::Scatter {
+        value_axis(c, &mut option);
+    }
     // Always written: an imported chart never depends on the model's default.
     option["legend"] = json!({ "show": c.legend });
     if let Some(title) = c.title.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
@@ -169,6 +177,31 @@ pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
         }
     }
     Some((option, losses))
+}
+
+/// Writes the value axis's gridlines and scale, and the bars' gap, into `option` (t-1384).
+fn value_axis(c: &source::Chart, option: &mut Value) {
+    let key = if c.kind == ChartKind::Bar { "xAxis" } else { "yAxis" };
+    let v = &c.value_axis;
+    option[key]["splitLine"] = json!({ "show": v.gridlines });
+    if c.grouping != Grouping::PercentStacked {
+        for (name, value) in [("min", v.min), ("max", v.max), ("interval", v.major_unit)] {
+            if let Some(value) = value {
+                option[key][name] = json!(value);
+            }
+        }
+    }
+    let (Some(gap), Some(first)) = (c.gap_width, option.pointer_mut("/series/0")) else { return };
+    let stacked = matches!(c.grouping, Grouping::Stacked | Grouping::PercentStacked);
+    let bars = if stacked { 1.0 } else { count_f64(c.series.len().max(1)) };
+    let g = f64::from(gap) / 100.0;
+    first["barCategoryGap"] = json!(percent(100.0 * g / (bars + g)));
+}
+
+/// A share in percent, two decimals at most: `"60%"`, `"42.86%"`.
+fn percent(p: f64) -> String {
+    let text = format!("{p:.2}");
+    format!("{}%", text.trim_end_matches('0').trim_end_matches('.'))
 }
 
 #[cfg(test)]

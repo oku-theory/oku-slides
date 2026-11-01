@@ -52,3 +52,6 @@ chart-table-not-finite = টেবিলের সংখ্যাগুলো �
 chart-table-chart-option = chart অবশ্যই চার্ট অপশনের একটি অবজেক্ট হতে হবে
 chart-table-chart-columns = chart-columns-এ বৈধ ও স্বতন্ত্র কলাম শনাক্তকারী থাকতে হবে (১ থেকে ৬৪টি অক্ষর, অঙ্ক, - বা _)
 chart-table-geometry = column-widths ও row-heights প্রতিটি কলাম বা সারির জন্য একটি সসীম, ধনাত্মক ওজন দেয়
+chart-axis-interval = অক্ষের ব্যবধান (interval) 0-এর চেয়ে বড় সংখ্যা হতে হবে
+chart-axis-bounds = অক্ষের সর্বোচ্চ মান (max) তার সর্বনিম্ন মানের (min) চেয়ে বড় হতে হবে
+chart-bar-gap = barCategoryGap শুধু বার সিরিজে বসে: 0% থেকে 100%-এর কম শতাংশ, অথবা 0 বা তার বেশি পয়েন্টের দৈর্ঘ্য

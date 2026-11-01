@@ -52,3 +52,6 @@ chart-table-not-finite = 표의 숫자는 유한해야 합니다
 chart-table-chart-option = chart는 차트 옵션 객체여야 합니다
 chart-table-chart-columns = chart-columns에는 유효하며 서로 다른 열 식별자를 나열해야 합니다(1~64자의 영문자, 숫자, - 또는 _)
 chart-table-geometry = column-widths와 row-heights는 열 또는 행마다 유한한 양의 가중치를 하나씩 줍니다
+chart-axis-interval = 축 간격(interval)은 0보다 큰 숫자여야 합니다
+chart-axis-bounds = 축의 최댓값(max)은 최솟값(min)보다 커야 합니다
+chart-bar-gap = barCategoryGap은 막대 계열에만 지정합니다: 0% 이상 100% 미만의 비율 또는 0 이상의 포인트 길이

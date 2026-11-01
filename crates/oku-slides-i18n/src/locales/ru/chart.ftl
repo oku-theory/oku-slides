@@ -52,3 +52,6 @@ chart-table-not-finite = числа в таблице должны быть ко
 chart-table-chart-option = chart должен быть объектом параметров диаграммы
 chart-table-chart-columns = chart-columns должен содержать допустимые и различные идентификаторы столбцов (от 1 до 64 букв, цифр, - или _)
 chart-table-geometry = column-widths и row-heights задают один конечный положительный вес на столбец или строку
+chart-axis-interval = интервал (interval) оси должен быть числом больше 0
+chart-axis-bounds = максимум (max) оси должен быть больше её минимума (min)
+chart-bar-gap = barCategoryGap задаётся только для серии столбцов: процент от 0% до менее 100% или длина в пунктах не меньше 0

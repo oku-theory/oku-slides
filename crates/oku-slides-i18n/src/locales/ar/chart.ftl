@@ -52,3 +52,6 @@ chart-table-not-finite = يجب أن تكون أرقام الجدول منتهي
 chart-table-chart-option = يجب أن يكون chart كائن خيارات مخطط
 chart-table-chart-columns = يجب أن يسرد chart-columns معرّفات أعمدة صالحة وغير مكررة (من 1 إلى 64 حرفًا أو رقمًا أو - أو _)
 chart-table-geometry = يعطي column-widths وrow-heights وزنًا محدودًا موجبًا لكل عمود أو صف
+chart-axis-interval = يجب أن تكون فترة المحور (interval) رقمًا أكبر من 0
+chart-axis-bounds = يجب أن تكون القيمة القصوى للمحور (max) أكبر من قيمته الدنيا (min)
+chart-bar-gap = يُستخدم barCategoryGap مع سلسلة أعمدة فقط: نسبة من 0% إلى أقل من 100%، أو طول بالنقاط يساوي 0 أو أكثر
