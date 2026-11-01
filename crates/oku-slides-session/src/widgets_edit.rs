@@ -265,12 +265,19 @@ impl Session {
 
     /// Source of file `name` of the current pack (see `pack` at [`Self::set_widget`]).
     ///
+    /// `_commun` is an item whether or not its file exists: absent, it reads empty (an empty
+    /// file is an absent one), so the UI can show it for the pack's guides.
+    ///
     /// # Errors
     ///
-    /// Fails for an invalid name, a pack not found or an unknown file (`UnknownWidget`).
+    /// Fails for an invalid name, a pack not found or an unknown file other than `_commun`
+    /// (`UnknownWidget`).
     pub fn widget_source(&self, pack: Option<&Namespace>, name: &str) -> Result<String> {
         let name = parse_name(name)?;
         let t = self.widget_target(pack)?;
+        if name.is_common() && t.files.widget(&name).is_none() {
+            return Ok(String::new());
+        }
         Ok(t.files.widget(&name).context(UnknownWidgetSnafu { name: name.as_str() })?.to_owned())
     }
 

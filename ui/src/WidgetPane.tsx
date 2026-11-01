@@ -1,6 +1,6 @@
 /** The sheet area of a pack tab: the item strip, then the selected item's view, if any. */
 import type { ReactNode } from "react";
-import type { PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./api";
+import type { GuidesView, PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./api";
 import type { PackItem } from "./usePackItem";
 import WidgetTab from "./WidgetTab";
 
@@ -25,12 +25,14 @@ interface Props {
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   /** Swatch colours in a field's editor (the theme's chart palette). */
   palette: string[];
+  /** The pack's guides for agents, in Commun's tabs; `null`: none. */
+  guides: GuidesView | null;
   /** Each preview of the selected item, with its name. */
   onPreview?: (name: string, preview: WidgetPreview) => void;
 }
 
 /** The strip, then one `WidgetTab`, mounted again for each item selected (its pending write settled first). */
-export default function WidgetPane({ api, item, trials, look, span, strip, code, onCode, settings = null, run, palette, onPreview }: Props) {
+export default function WidgetPane({ api, item, trials, look, span, strip, code, onCode, settings = null, run, palette, guides, onPreview }: Props) {
   return (
     <div className="widget-pane">
       <div className="slide-strip pack-strip">{strip}</div>
@@ -49,6 +51,7 @@ export default function WidgetPane({ api, item, trials, look, span, strip, code,
           settings={settings}
           run={run}
           palette={palette}
+          guides={guides}
           onPreview={onPreview}
           onOpen={item.select}
           onCommands={item.onCommands}

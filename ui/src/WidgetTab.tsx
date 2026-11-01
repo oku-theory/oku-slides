@@ -4,7 +4,11 @@
  *
  * The Settings tab opens by default; the open tab is a choice the host keeps for every item. With
  * the Settings tab open, the editor stays mounted (inert, hidden): typing and history remain while
- * the item stays selected. Commun has no settings: its code shows, with no tabs.
+ * the item stays selected. Commun has no settings: its tabs are its code, then one per guide for
+ * agents of the pack (`GuidePanel`), the code first unless a received guide awaits approval; this
+ * choice lasts while Commun stays selected. Without guides (no pack edited), its code alone shows.
+ * Under the guide tabs, approving a received version needs both guides shown since that version
+ * arrived, and no unsaved text in either. Commun without its file reads empty: typing creates it.
  * The preview shows the widget at its example values, kept in the pack. With its view, the
  * preview is a stage (`Stage` in preview mode): its text fields are edited in place, as on a
  * slide, and written to those values (a field bound to the deck stays read-only); its lists
@@ -15,10 +19,11 @@
  * Mounted once per selected item (keyed by name): a mount whose file still has a write pending
  * waits for the queue, then starts from the text last refused, if any, else the saved source.
  */
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
-import type { FieldView, PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./api";
+import type { FieldView, GuideKind, GuidesView, PreviewSpan, Snapshot, TabApi, WidgetPreview } from "./api";
 import { fieldValue } from "./deck";
+import { Approval, awaitingApproval, GuidePanel } from "./GuidesSection";
 import { t } from "./i18n";
 import { Button } from "./primitives";
 import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEditor";
@@ -53,6 +58,8 @@ export interface WidgetTabProps {
   run?: (p: Promise<Snapshot>) => Promise<Snapshot | null>;
   /** Swatch colours in a field's editor (the theme's chart palette). */
   palette?: string[];
+  /** The pack's guides for agents, in Commun's tabs; `null`: none. */
+  guides?: GuidesView | null;
   /** Each preview received, with the item's name (the strip's thumbnail can follow it). */
   onPreview?: (name: string, preview: WidgetPreview) => void;
   /** Commun: selects the widget clicked in its list of widgets in error. */
@@ -62,6 +69,25 @@ export interface WidgetTabProps {
 }
 
 const NO_PALETTE: string[] = [];
+
+/** A tab of the item's panel: an element's settings or code, Commun's code or one of its guides. */
+type PanelTab = "settings" | "code" | GuideKind;
+
+/** An element's tabs. */
+const ELEMENT_TABS: PanelTab[] = ["settings", "code"];
+/** Commun's tabs when it shows guides; without them, it has none. */
+const COMMON_TABS: PanelTab[] = ["code", "edit", "use"];
+
+/** Each tab's label (literal ids, so unused messages are caught). */
+const TAB_LABEL = {
+  settings: "ui-widgets-settings-tab",
+  code: "ui-widgets-source",
+  edit: "ui-guides-edit",
+  use: "ui-guides-use",
+} as const;
+
+/** The id of a tab's panel; its tab's id adds `-tab`. */
+const panelId = (tab: PanelTab) => (tab === "settings" || tab === "code" ? `widget-${tab}` : `widget-guide-${tab}`);
 
 /**
  * Valeur validée d'un champ que l'aperçu ne montre pas encore. `acked` : dernier aperçu demandé avant
@@ -75,7 +101,7 @@ interface Committed {
 /** The selected item's preview, settings, diagnostics and editor. */
 export default function WidgetTab({
   api, files, name, revision, trials, look, span, code, onCode, settings = null,
-  run, palette = NO_PALETTE, onPreview, onOpen, onCommands, onHistory,
+  run, palette = NO_PALETTE, guides = null, onPreview, onOpen, onCommands, onHistory,
 }: WidgetTabProps) {
   const [source, setSource] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
@@ -83,8 +109,33 @@ export default function WidgetTab({
   const host = useRef<HTMLElement>(null);
   const tabs = useRef<HTMLDivElement>(null);
   const common = name === COMMON;
-  /** The code shows: its tab is open, or the item is Commun, which has no settings. */
-  const coding = code || common;
+  /** The guides shown in Commun's tabs (they need `run` to write). */
+  const guided = common && run ? guides : null;
+  const awaiting = guided !== null && awaitingApproval(guided);
+  // Commun's open tab, and the guides it showed since this version (and its approval state) arrived.
+  const [commonTab, setCommonTab] = useState<PanelTab>(awaiting ? "edit" : "code");
+  const [seen, setSeen] = useState<ReadonlySet<PanelTab>>(() => new Set([commonTab]));
+  // Whatever changes what an approval would cover makes everything unseen again.
+  const seenKey = guided
+    ? JSON.stringify([guided.version, awaiting, guided.approvable, guided.guides.edit ?? "", guided.guides.use ?? ""])
+    : null;
+  const [seenFor, setSeenFor] = useState(seenKey);
+  if (seenKey !== seenFor) {
+    // Another version: nothing of it was seen; one awaiting approval opens on its first guide.
+    const tab = awaiting ? "edit" : commonTab;
+    setSeenFor(seenKey);
+    setCommonTab(tab);
+    setSeen(new Set([tab]));
+  }
+  const [guideDirty, setGuideDirty] = useState<Record<GuideKind, boolean>>({ edit: false, use: false });
+  const onGuideDirty = useCallback(
+    (which: GuideKind, d: boolean) => setGuideDirty((prev) => (prev[which] === d ? prev : { ...prev, [which]: d })),
+    [],
+  );
+  const tabList = common ? (guided ? COMMON_TABS : []) : ELEMENT_TABS;
+  const active: PanelTab = common ? (guided ? commonTab : "code") : code ? "code" : "settings";
+  /** The code shows: its tab is open, or the item is Commun without guides. */
+  const coding = active === "code";
   const nameRef = useRef(name);
   const filesRef = useRef(files);
   const onPreviewRef = useRef(onPreview);
@@ -227,13 +278,26 @@ export default function WidgetTab({
   /** Un changement de liste de l'aperçu : le changement, dans la liste des valeurs d'exemple. */
   const onListOp: OnListOp = (_owner, list, change) => void write(api.editExampleList(name, list, change));
 
-  /** Arrows, Home and End move to the other tab and open it (two tabs: any of them does). */
+  /** Opens `tab`: an element's choice goes to the host, Commun's stays here. */
+  const open = (tab: PanelTab) => {
+    if (!common) {
+      onCode(tab === "code");
+      return;
+    }
+    setCommonTab(tab);
+    setSeen((prev) => (prev.has(tab) ? prev : new Set([...prev, tab])));
+  };
+
+  /** Arrows (mirrored in RTL), Home and End move to another tab and open it. */
   const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
-    const next = e.key === "Home" ? false : e.key === "End" ? true : !code;
-    onCode(next);
-    tabs.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next ? 1 : 0]?.focus();
+    const at = tabList.indexOf(active);
+    const rtl = getComputedStyle(e.currentTarget).direction === "rtl";
+    const step = (e.key === "ArrowRight") !== rtl ? 1 : -1;
+    const to = e.key === "Home" ? 0 : e.key === "End" ? tabList.length - 1 : (at + step + tabList.length) % tabList.length;
+    open(tabList[to]);
+    tabs.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[to]?.focus();
   };
 
   const inError = (files.statuses ?? []).filter((s) => s.name !== COMMON && stateOf(s) === "errors");
@@ -284,21 +348,21 @@ export default function WidgetTab({
         )}
       </section>
       <div className="widget-tab-panel">
-        {!common && (
+        {tabList.length > 0 && (
           <div ref={tabs} className="widget-tab-tabs" role="tablist" aria-label={widgetLabel(name)} onKeyDown={onTabKey}>
-            {[false, true].map((c) => (
+            {tabList.map((tab) => (
               <button
-                key={String(c)}
+                key={tab}
                 type="button"
                 role="tab"
                 className="widget-tab-tab"
-                id={c ? "widget-code-tab" : "widget-settings-tab"}
-                aria-selected={code === c}
-                aria-controls={c ? "widget-code" : "widget-settings"}
-                tabIndex={code === c ? 0 : -1}
-                onClick={() => onCode(c)}
+                id={`${panelId(tab)}-tab`}
+                aria-selected={active === tab}
+                aria-controls={panelId(tab)}
+                tabIndex={active === tab ? 0 : -1}
+                onClick={() => open(tab)}
               >
-                {t(c ? "ui-widgets-source" : "ui-widgets-settings-tab")}
+                {t(TAB_LABEL[tab])}
               </button>
             ))}
           </div>
@@ -308,11 +372,29 @@ export default function WidgetTab({
             {settings}
           </div>
         )}
+        {guided && run && (["edit", "use"] as const).map((which) => (
+          <div
+            key={which}
+            className="widget-tab-side"
+            id={panelId(which)}
+            role="tabpanel"
+            aria-labelledby={`${panelId(which)}-tab`}
+            hidden={active !== which}
+          >
+            <GuidePanel api={api} view={guided} run={run} which={which} onDirty={onGuideDirty} />
+          </div>
+        ))}
+        {guided && run && active !== "code" && (
+          <Approval
+            api={api} view={guided} run={run}
+            blocked={guideDirty.edit || guideDirty.use || !(seen.has("edit") && seen.has("use"))}
+          />
+        )}
         <div
           className="widget-tab-code"
           id="widget-code"
-          role={common ? undefined : "tabpanel"}
-          aria-labelledby={common ? undefined : "widget-code-tab"}
+          role={tabList.length > 0 ? "tabpanel" : undefined}
+          aria-labelledby={tabList.length > 0 ? "widget-code-tab" : undefined}
           inert={!coding}
         >
           {source !== null && (

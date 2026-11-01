@@ -1,4 +1,4 @@
-// Agent guides in packs and themes (t-1267): the "Guides pour les agents" section of a pack tab saves
+// Agent guides in packs and themes (t-1267): a guide tab of a pack tab's Commun saves
 // a use guide when its field is left; a deck pinning that pack shows the guide, folded, in "Packs du deck".
 // A deck written by another installation brings a received pack with a guide: opening it asks, "Plus tard"
 // keeps the guide inactive (badge "reçu", button "Approuver ce guide" in "Packs du deck"), the button
@@ -71,10 +71,11 @@ async function openFile(p, file) {
     const packTab = await openPackTab(p, TAB, own.id);
     await p.reload();
     await packTabShown(p);
-    const section = p.locator('details.guides-section');
-    await section.waitFor();
-    if ((await section.getAttribute('open')) === null) await section.locator('summary').click();
-    const field = section.locator('.guide-field', { hasText: 'Comment utiliser' }).locator('textarea');
+    // The guides are tabs of Commun, shown even though the new pack has no shared file.
+    await p.locator('.pack-pile-common .pack-pile-item').click();
+    await p.getByRole('tab', { name: 'Comment utiliser' }).click();
+    const section = p.locator('#widget-guide-use');
+    const field = section.locator('.guide-field').locator('textarea');
     await field.fill(OWN_GUIDE);
     await blur(p);
     await untilValue(p, async () => (await snapshot(p, packTab)).guides?.guides.use, (u) => u === OWN_GUIDE, 'le guide ne s\'enregistre pas à la sortie du champ');

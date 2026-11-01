@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
-import type { FieldView, ItemView, ListView, SlideView, Snapshot, TabApi, WidgetStatus } from "./api";
+import type { FieldView, GuidesView, ItemView, ListView, SlideView, Snapshot, TabApi, WidgetStatus } from "./api";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -22,7 +22,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-interface Shown { name: string; shown?: boolean; revision?: string; trials?: number; code?: boolean; look?: string; settings?: boolean }
+interface Shown { name: string; shown?: boolean; revision?: string; trials?: number; code?: boolean; look?: string; settings?: boolean; guides?: GuidesView | null }
 
 async function mount(fake: TabApi, first: Shown) {
   const host = document.createElement("div");
@@ -33,13 +33,14 @@ async function mount(fake: TabApi, first: Shown) {
   const coded: boolean[] = [];
   const previewed: string[] = [];
   const files: { current: ReturnType<typeof useWidgetFiles> | null } = { current: null };
-  function Probe({ name, shown = true, revision = "r", trials = 0, code = true, look = "clair", settings = false }: Shown) {
+  function Probe({ name, shown = true, revision = "r", trials = 0, code = true, look = "clair", settings = false, guides = null }: Shown) {
     const f = useWidgetFiles(fake, "p", "widgets", revision, { changed: () => {}, error: () => {}, renamed: () => {} });
     files.current = f;
     if (!shown) return null;
     return createElement(WidgetTab, {
       key: name, api: fake, files: f, name, revision, trials, code, look, span: "full", settings: settings ? createElement("div", { className: "probe-settings" }) : null, onCode: (c: boolean) => coded.push(c), onPreview: (n: string) => previewed.push(n),
       onOpen: (n: string) => opened.push(n), onCommands: () => {}, onHistory: () => {},
+      ...(guides ? { guides, run: (p: Promise<Snapshot>) => p } : {}),
     });
   }
   const render = (p: Shown) => act(async () => root.render(createElement(Probe, p)));
@@ -365,6 +366,102 @@ describe("WidgetTab, disposition", () => {
     const m = await mount(fake, { name: "_commun", code: false });
     expect([tabs(m.host).length, !!m.host.querySelector(".widget-tab-side"), m.host.querySelector(".widget-tab-code")!.hasAttribute("inert")])
       .toEqual([0, false, false]);
+  });
+
+  const guides = (origin: GuidesView["origin"] = "local", approved = true): GuidesView => ({
+    guides: { edit: "E", use: "U" }, max_chars: 100, id: "id-1", version: "v1", origin, approved,
+    approvable: origin === "received" && !approved,
+  });
+  const tabIds = (host: HTMLElement) => tabs(host).map((b) => b.id);
+  const selectedTab = (host: HTMLElement) => tabs(host).find((b) => b.getAttribute("aria-selected") === "true")?.id;
+  const approve = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".guides-approval button");
+
+  test("WidgetTab on Commun with guides shows the code then one tab per guide", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides() });
+    expect([tabIds(m.host), selectedTab(m.host)])
+      .toEqual([["widget-code-tab", "widget-guide-edit-tab", "widget-guide-use-tab"], "widget-code-tab"]);
+  });
+
+  test("WidgetTab on Commun opens a guide tab with its text, the code going inert", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides() });
+    await act(async () => tabs(m.host)[2].click());
+    const panel = m.host.querySelector<HTMLElement>("#widget-guide-use")!;
+    expect([panel.hidden, panel.querySelector("textarea")?.value, m.host.querySelector(".widget-tab-code")!.hasAttribute("inert")])
+      .toEqual([false, "U", true]);
+  });
+
+  test("WidgetTab on Commun keeps its open tab to itself, not the host's code choice", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides() });
+    await act(async () => tabs(m.host)[1].click());
+    expect(m.coded).toEqual([]);
+  });
+
+  test("WidgetTab on Commun arrow right from the last guide wraps to the code", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides() });
+    await act(async () => tabs(m.host)[2].click());
+    await act(async () => void tabs(m.host)[2].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    expect([selectedTab(m.host), document.activeElement?.id]).toEqual(["widget-code-tab", "widget-code-tab"]);
+  });
+
+  test("WidgetTab on Commun with a received guide awaiting approval opens the first guide", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides("received", false) });
+    expect(selectedTab(m.host)).toBe("widget-guide-edit-tab");
+  });
+
+  test("WidgetTab on Commun approval stays off until both guides were shown", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides("received", false) });
+    const before = approve(m.host)?.disabled;
+    await act(async () => tabs(m.host)[2].click());
+    expect([before, approve(m.host)?.disabled]).toEqual([true, false]);
+  });
+
+  test("WidgetTab on Commun approval turns off again when a new version arrives", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides("received", false) });
+    await act(async () => tabs(m.host)[2].click());
+    await m.render({ name: "_commun", guides: { ...guides("received", false), version: "v2" } });
+    expect([approve(m.host)?.disabled, selectedTab(m.host)]).toEqual([true, "widget-guide-edit-tab"]);
+  });
+
+  test("WidgetTab on Commun opens the first guide when the version becomes received", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides() });
+    await m.render({ name: "_commun", guides: { ...guides("received", false), version: "v2" } });
+    expect(selectedTab(m.host)).toBe("widget-guide-edit-tab");
+  });
+
+  test("WidgetTab on Commun approval stays off while the other guide holds unsaved text", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides("received", false) });
+    const edit = m.host.querySelector<HTMLTextAreaElement>("#widget-guide-edit textarea")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(edit, "E changed");
+      edit.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => tabs(m.host)[2].click());
+    expect(approve(m.host)?.disabled).toBe(true);
+  });
+
+  test("WidgetTab on Commun shows one approval, under the guide tabs only", async () => {
+    const { fake } = memory({ _commun: "c" });
+    const m = await mount(fake, { name: "_commun", guides: guides("received", false) });
+    const onGuide = m.host.querySelectorAll(".guides-approval").length;
+    await act(async () => tabs(m.host)[0].click());
+    expect([onGuide, m.host.querySelectorAll(".guides-approval").length]).toEqual([1, 0]);
+  });
+
+  test("WidgetTab on Commun without its file opens an empty editor, typing creating the file", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { name: "_commun", guides: guides() });
+    await m.typeText("#let x = 1");
+    await later();
+    expect([await fake.widgetSource("_commun")]).toEqual(["#let x = 1"]);
   });
 
   test("WidgetTab on Commun marks the item view as common", async () => {

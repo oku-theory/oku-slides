@@ -1,13 +1,12 @@
 /**
  * The panels of a pack tab: the header (brand, title, caption, preview theme), the toolbar, the finish button,
- * and in the sheet area the strip of items, then the selected item's view, then the pack's guides for agents.
+ * and in the sheet area the strip of items, then the selected item's view (Commun's holds the pack's guides for agents).
  *
  * A delete in the pile asks in a `ConfirmDialog` (useConfirm), reported open through `onDialog` so that
  * nothing behind it reacts.
  */
 import { useEffect, type ReactNode } from "react";
 import type { Snapshot, TabApi } from "./api";
-import GuidesSection from "./GuidesSection";
 import { t } from "./i18n";
 import { Icon } from "./icons";
 import { PackBrand } from "./PackBrand";
@@ -85,7 +84,7 @@ export default function PackPanels({
     <PackPile
       snap={snap} kind={kind} files={item.files} selected={item.selected}
       svg={widgets ? (id) => { const name = slideItem(id); return name === null ? null : thumbs.url(name); } : svg}
-      onSelect={item.select} onRemoved={item.removed} confirm={confirm}
+      onSelect={item.select} onRemoved={item.removed} confirm={confirm} keepCommon={!!snap.guides}
     />
   );
   const status = t(snap.dirty ? "ui-status-unsaved" : "ui-status-saved");
@@ -119,14 +118,14 @@ export default function PackPanels({
           <button className="object token" aria-label={t("ui-toolbar-finish")} title={t("ui-toolbar-finish")} onClick={onClose}>{Icon.check}</button>
         </div>
       )}
-      <main className={`sheet-area${snap.guides ? " with-guides" : ""}`}>
+      <main className="sheet-area">
         <WidgetPane
           api={api} item={item} trials={snap.widget_trials} look={look} span={keptUi.previewSpan} strip={pile} code={keptUi.code}
           onCode={keptUi.setCode} run={run}
           onPreview={widgets && keptUi.previewSpan === "full" ? thumbs.put : undefined} palette={snap.appearance.chart_palette} settings={settings}
+          guides={snap.guides}
         />
         {drawer}
-        {snap.guides && <GuidesSection api={api} view={snap.guides} run={run} />}
       </main>
       {dialog}
     </>

@@ -190,6 +190,13 @@ fn rename_widget_renames_the_file_and_its_declared_name() {
 }
 
 #[test]
+fn widget_source_common_without_its_file_is_empty() {
+    let data = crate::test_support::fresh_dir("oku-slides-widgets-");
+    let s = bounded(data.path(), 1, 1);
+    assert_that!(s.widget_source(None, "_commun").map_err(|e| e.kind())).is_equal_to(Ok(String::new()));
+}
+
+#[test]
 fn widget_operations_refuse_bad_names_unknown_files_and_limits() {
     let data = crate::test_support::fresh_dir("oku-slides-widgets-");
     let mut s = bounded(data.path(), 1, 1);

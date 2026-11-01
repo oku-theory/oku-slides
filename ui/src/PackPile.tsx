@@ -1,6 +1,7 @@
 /**
- * A pack tab's strip: the shared file first when it exists, one named thumbnail per item, then
- * the name field of a new or renamed item and the add button.
+ * A pack tab's strip: the shared file first (a code icon) when it exists or holds the pack's
+ * guides for agents, one named thumbnail per item, then the name field of a new or renamed item
+ * and the add button.
  *
  * F2 or a double-click renames an item; its trash button, Delete or Backspace delete it after
  * the shared confirmation (`confirm`, a `ConfirmDialog`); a drag or Alt+Left and Alt+Right move
@@ -36,6 +37,8 @@ export interface PackPileProps {
   onRemoved(name: string): void;
   /** Asks a question in a `ConfirmDialog`; true when confirmed. */
   confirm: Confirm;
+  /** Commun shows even without its file: it holds the pack's guides for agents. */
+  keepCommon: boolean;
 }
 
 /** Where the focus goes once the pile shows a change. */
@@ -55,7 +58,7 @@ interface ItemMenu {
 }
 
 /** The pile of a pack tab: shared file, item thumbnails, add, rename, delete. */
-export default function PackPile({ snap, kind, files, selected, svg, onSelect, onRemoved, confirm }: PackPileProps) {
+export default function PackPile({ snap, kind, files, selected, svg, onSelect, onRemoved, confirm, keepCommon }: PackPileProps) {
   const [naming, setNaming] = useState<Naming | null>(null);
   const [menu, setMenu] = useState<ItemMenu | null>(null);
   const [refocus, setRefocus] = useState<Focus | null>(null);
@@ -66,6 +69,8 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
   const items = pileItems(snap);
   const order = items.map((i) => i.name);
   const hasCommon = !!files.statuses?.some((s) => s.name === COMMON);
+  // Commun holds the guides for agents: it shows without its file too, once the statuses are read.
+  const showCommon = hasCommon || (keepCommon && files.statuses !== null);
 
   /** The thumbnail of `name`, found by its place in the pile. */
   const thumbOf = (name: string) => {
@@ -103,13 +108,14 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
     });
   };
   const remove = async (name: string) => {
+    if (name === COMMON && !hasCommon) return;
     const question = kind === "layouts"
       ? t("ui-layouts-confirm-delete", { name: widgetLabel(name) })
       : t("ui-widgets-confirm-delete", { name: widgetLabel(name) });
     if (!(await confirm({ message: question, ok: t("ui-confirm-delete-ok"), danger: true }))) return;
     const next = neighbour(order, name, () => true);
     if (!(await files.remove(name))) return;
-    setRefocus(next !== null ? { item: next } : name !== COMMON && hasCommon ? "common" : "add");
+    setRefocus(next !== null ? { item: next } : name !== COMMON && showCommon ? "common" : "add");
     onRemoved(name);
   };
   const duplicate = async (name: string) => {
@@ -133,6 +139,8 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
   /** Opens `name`'s menu at the pointer, or at the element's corner from the keyboard. */
   const openMenu = (name: string, e: MouseEvent<HTMLElement>) => {
     e.preventDefault();
+    // Commun without its file: nothing to delete, so no menu.
+    if (name === COMMON && !hasCommon) return;
     const box = e.currentTarget.getBoundingClientRect();
     const keyboard = e.clientX === 0 && e.clientY === 0;
     setMenu({ name, x: keyboard ? box.left : e.clientX, y: keyboard ? box.bottom : e.clientY });
@@ -157,7 +165,7 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
 
   return (
     <div className="pack-pile" ref={box}>
-      {hasCommon && (
+      {showCommon && (
         <div className="pack-pile-common">
           <button
             ref={commonRow}
@@ -167,10 +175,14 @@ export default function PackPile({ snap, kind, files, selected, svg, onSelect, o
             onKeyDown={(e) => onItemKey(COMMON, e)}
             onContextMenu={(e) => openMenu(COMMON, e)}
           >
-            {commonLabel}
-            {files.unsaved.has(COMMON) && <span className="unsaved-dot" role="img" aria-label={t("ui-widgets-unsaved")} title={t("ui-widgets-unsaved")} />}
+            {/* Shaped like the items' thumbnails, without their class (item queries skip it): an icon, its name under it. */}
+            <span className="thumb-body">
+              <span className="thumb-img pack-pile-common-icon" aria-hidden>{Icon.code}</span>
+              <span className="thumb-name">{commonLabel}</span>
+              {files.unsaved.has(COMMON) && <span className="unsaved-dot" role="img" aria-label={t("ui-widgets-unsaved")} title={t("ui-widgets-unsaved")} />}
+            </span>
           </button>
-          <IconButton className="token ghost pack-pile-remove" label={deleteLabel(COMMON)} icon={Icon.trash} onClick={() => void remove(COMMON)} />
+          {hasCommon && <IconButton className="token ghost pack-pile-remove" label={deleteLabel(COMMON)} icon={Icon.trash} onClick={() => void remove(COMMON)} />}
         </div>
       )}
       <SlidePile

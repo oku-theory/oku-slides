@@ -31,15 +31,16 @@ afterEach(async () => {
 /** A snapshot reduced to what the hook reads; `items` are the pile's items, in slide order. */
 function snapOf(o: {
   set?: string | null; version?: string; base?: string; widget?: string | null; history?: boolean; kind?: PackKind; items?: string[];
-  slide?: string | null;
+  slide?: string | null; guides?: boolean;
 }): Snapshot {
-  const { set = "p", version = "v", base = "b", widget = null, history = false, kind = "widgets", items = [], slide = null } = o;
+  const { set = "p", version = "v", base = "b", widget = null, history = false, kind = "widgets", items = [], slide = null, guides = false } = o;
   return {
     editing: set === null ? null : { pack: set, base, kind },
     widgets: { deck: { id: "p", version } },
     history: history ? {} : null,
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
     ui: { slide, ghosts: false, pile: null, notes: null, widget, code: false, folded: [], preview_span: "full" },
+    guides: guides ? { guides: {}, max_chars: 100, id: "id-1", version: "v1", origin: "local", approved: true, approvable: false } : null,
   } as unknown as Snapshot;
 }
 
@@ -155,6 +156,18 @@ describe("usePackItem, restore", () => {
   test("usePackItem opened with no items and none named selects the shared file", async () => {
     const { fake } = memory({ _commun: "s" });
     const m = await mount(fake, snapOf({ widget: null }));
+    expect(m.out.item!.selected).toBe("_commun");
+  });
+
+  test("usePackItem with guides, no items and no shared file selects the shared file", async () => {
+    const { fake } = memory({});
+    const m = await mount(fake, snapOf({ widget: null, guides: true }));
+    expect(m.out.item!.selected).toBe("_commun");
+  });
+
+  test("usePackItem with guides keeps a restored shared file that has no file", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, snapOf({ widget: "_commun", items: ["kpi"], guides: true }));
     expect(m.out.item!.selected).toBe("_commun");
   });
 
@@ -403,7 +416,7 @@ describe("usePackItem, the current slide", () => {
       useKeptUi(first.ui, item.kept.slide, save, item.kept);
       return createElement(PackPile, {
         snap: first, kind: first.editing!.kind, files: item.files, selected: item.selected, svg: (id: string) => `blob:${id}`,
-        onSelect: item.select, onRemoved: item.removed, confirm: async () => true,
+        onSelect: item.select, onRemoved: item.removed, confirm: async () => true, keepCommon: false,
       });
     }
     await act(async () => root.render(createElement(Probe)));

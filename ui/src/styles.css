@@ -249,15 +249,16 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* ---- Pile de slides ---- */
 /* Les miniatures suivent la largeur de la pile : 150px par défaut, moins le numéro et les marges. */
 .pile { --thumb-w: calc(var(--pile-w) - 86px); grid-area: pile; padding: var(--space-4) 28px 40px var(--space-6); overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
-.thumb { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; scroll-margin-block: var(--space-4); }
+/* `.pack-pile-item`: a pack's Commun, shaped like a thumbnail without being one of the items. */
+.thumb, .pack-pile-item { display: flex; gap: var(--space-2); align-items: flex-start; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; scroll-margin-block: var(--space-4); }
 .thumb-n { width: 18px; font-size: 12px; line-height: 16px; color: var(--ink-muted); padding-top: 2px; }
 .thumb[aria-current="true"] .thumb-n { color: var(--accent); font-weight: 600; }
 .thumb-img {
   width: var(--thumb-w); aspect-ratio: 16 / 9; border-radius: var(--radius-sm); background: var(--t-bg); display: block; overflow: hidden;
   box-shadow: var(--sheet-ring), var(--shadow-sheet-small); transition: var(--theme-fade), transform 180ms ease-out;
 }
-.thumb:hover .thumb-img { box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
-.thumb[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
+.thumb:hover .thumb-img, .pack-pile-item:hover .thumb-img { box-shadow: var(--sheet-ring), var(--shadow-sheet-lifted); }
+.thumb[aria-current="true"] .thumb-img, .pack-pile-item[aria-current="true"] .thumb-img { transform: var(--lift) scale(1.03); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 55%, transparent), var(--shadow-sheet-lifted); }
 /* Jeton rond (`.object.token`), à l'accent. */
 .add-slide { margin-inline-start: 26px; color: var(--accent); }
 
@@ -601,7 +602,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .thumb-remove:hover:not(:disabled) { color: var(--danger); }
 .thumb-body { display: flex; flex-direction: column; gap: 4px; }
 .thumb-name { font-size: 12px; line-height: 15px; color: var(--ink-muted); max-width: var(--thumb-w); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.thumb[aria-current="true"] .thumb-name { color: var(--ink); }
+.thumb[aria-current="true"] .thumb-name, .pack-pile-item[aria-current="true"] .thumb-name { color: var(--ink); }
 .thumb { touch-action: none; user-select: none; -webkit-user-select: none; }
 .thumb.lifted .thumb-img { opacity: 0.3; transform: none; box-shadow: none; outline: 2px dashed color-mix(in oklab, var(--accent) 50%, transparent); outline-offset: -2px; }
 .pile.dragging, .pile.dragging .thumb { cursor: grabbing; }

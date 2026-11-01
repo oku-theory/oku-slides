@@ -63,6 +63,9 @@ const NONE: ReadonlySet<string> = new Set();
 /** No statuses read yet: no order to find a neighbour in. */
 const UNKNOWN: { of: WidgetStatus[] | null; names: string[] } = { of: null, names: [] };
 
+/** The names `listed`, with Commun when it is kept without its file. */
+const withCommon = (listed: readonly string[], keepCommon: boolean): ReadonlySet<string> =>
+  new Set(keepCommon ? [...listed, COMMON] : listed);
 /** The shared file when listed, else nothing. */
 const commonOr = (names: ReadonlySet<string>) => (names.has(COMMON) ? COMMON : null);
 /** The first pile item the statuses list, else the shared file, else nothing. */
@@ -71,6 +74,8 @@ const firstOr = (pile: readonly string[], names: ReadonlySet<string>) => pile.fi
 /** The selected item of the pack `snap` edits; nothing outside a pack tab or in its history. */
 export function usePackItem(api: TabApi, snap: Snapshot | null, on: Callbacks): PackItem {
   const pack = snap?.editing && !snap.history ? snap.editing.pack : null;
+  // Commun holds the pack's guides for agents: an item even without its file.
+  const keepCommon = !!snap?.guides;
   const host = pack === null ? null : (snap?.ui.widget ?? null);
   const kind = snap?.editing?.kind ?? "widgets";
   const revision = `${deckPinsKey(snap)}|${snap?.editing?.base ?? ""}`;
@@ -105,7 +110,7 @@ export function usePackItem(api: TabApi, snap: Snapshot | null, on: Callbacks): 
   } else if (pack !== null && files.statuses) {
     const listed = files.statuses.map((s) => s.name);
     if (files.statusesFor === revision) {
-      const names = new Set(listed);
+      const names = withCommon(listed, keepCommon);
       if ([...awaiting].some((n) => names.has(n))) setAwaiting(new Set([...awaiting].filter((n) => !names.has(n))));
       const kept = sel === null || names.has(sel) || awaiting.has(sel);
       if (restoredFor !== pack) {
@@ -124,11 +129,13 @@ export function usePackItem(api: TabApi, snap: Snapshot | null, on: Callbacks): 
   const packRef = useRef(pack);
   const kindRef = useRef(kind);
   const listedRef = useRef<string[]>([]);
+  const keepCommonRef = useRef(keepCommon);
   useLayoutEffect(() => {
     selRef.current = sel;
     packRef.current = pack;
     kindRef.current = kind;
     listedRef.current = files.statuses?.map((s) => s.name) ?? [];
+    keepCommonRef.current = keepCommon;
   });
 
   const { flush } = files;
@@ -146,7 +153,7 @@ export function usePackItem(api: TabApi, snap: Snapshot | null, on: Callbacks): 
   /** The item selected instead of `gone`: its neighbour in the statuses, else `_commun`, else none. */
   const fallbackOf = useCallback((gone: string) => {
     const listed = listedRef.current;
-    const names = new Set(listed.filter((n) => n !== gone));
+    const names = withCommon(listed.filter((n) => n !== gone), keepCommonRef.current);
     return neighbour(listed, gone, (n) => names.has(n)) ?? commonOr(names);
   }, []);
   const removed = useCallback(

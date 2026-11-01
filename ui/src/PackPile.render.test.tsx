@@ -30,6 +30,7 @@ interface Over {
   kind?: PackKind;
   confirm?: Confirm;
   selected?: string | null;
+  keepCommon?: boolean;
 }
 
 /** The pile over a real file queue; the snapshot's slides follow the statuses read. */
@@ -57,6 +58,7 @@ async function mount(fake: TabApi, over: Over = {}) {
       onSelect: (n: string) => { selections.push(n); setSelected(n); },
       onRemoved: (n: string) => removed.push(n),
       confirm,
+      keepCommon: over.keepCommon ?? false,
     });
   };
   const host = document.createElement("div");
@@ -102,6 +104,28 @@ describe("PackPile, items", () => {
     const { host } = await mount(fake);
     const items = [...host.querySelectorAll(".pack-pile-item, .thumb")];
     expect([items[0] === common(host), items.length]).toEqual([true, 2]);
+  });
+
+  test("PackPile shows the shared file as a thumbnail with the code icon over its name", async () => {
+    const { fake } = memory({ _commun: "c", kpi: "k" });
+    const { host } = await mount(fake);
+    const tile = common(host)!;
+    // Not a `.thumb`: item queries count only the items.
+    expect([tile.classList.contains("thumb"), !!tile.querySelector(".thumb-img svg"), !!tile.querySelector(".thumb-name")])
+      .toEqual([false, true, true]);
+  });
+
+  test("PackPile with guides shows the shared tile without its file, with no delete", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const { host } = await mount(fake, { keepCommon: true });
+    expect([!!common(host), !!host.querySelector(".pack-pile-common .pack-pile-remove")]).toEqual([true, false]);
+  });
+
+  test("PackPile with guides ignores Delete on the shared tile without its file", async () => {
+    const { fake } = memory({ kpi: "k" });
+    const m = await mount(fake, { keepCommon: true });
+    await press(common(m.host)!, "Delete");
+    expect(m.asked).toEqual([]);
   });
 
   test("PackPile without the shared file has no shared row", async () => {

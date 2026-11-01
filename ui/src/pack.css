@@ -85,10 +85,15 @@
 .pack-strip .pile { flex: 0 1 auto; min-width: 0; }
 /* A widget's thumbnail is the widget alone, cropped: fitted whole in the thumbnail's 16:9 box. */
 .pack-strip img.thumb-img { object-fit: contain; }
-.pack-pile-common { display: flex; align-items: center; }
-.pack-pile-item { flex: none; display: flex; align-items: center; gap: var(--space-2); padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; text-align: start; }
-.pack-pile-item[aria-current="true"] { background: var(--accent-soft); }
-.pack-pile-remove { opacity: 0; }
+/* Commun: a thumbnail like the items', with the code icon on paper; its delete button at its corner. */
+.pack-pile-common { --thumb-w: 128px; position: relative; flex: none; align-self: flex-start; padding: var(--space-4) 0 var(--space-6) var(--space-4); }
+.pack-pile-item { color: inherit; }
+.pack-pile-common-icon { display: grid; place-items: center; background: var(--paper-100); color: var(--ink-muted); }
+.pack-pile-common-icon svg { width: 32px; height: 32px; }
+.pack-pile-item[aria-current="true"] .pack-pile-common-icon { color: var(--accent); }
+.pack-pile-common .thumb-body { position: relative; }
+.pack-pile-common .unsaved-dot { position: absolute; top: 6px; inset-inline-end: 6px; }
+.pack-pile-remove { position: absolute; top: calc(var(--space-4) + 4px); inset-inline-end: 4px; opacity: 0; }
 .pack-pile-common:hover .pack-pile-remove, .pack-pile-common:focus-within .pack-pile-remove { opacity: 1; }
 /* A text field, without a select's chevron or cursor. */
 .pack-pile-name { flex: none; width: 180px; }
@@ -145,11 +150,13 @@
 .theme-panel-head .caption { display: flex; align-items: center; gap: var(--space-2); }
 .theme-panel > .host-settings { width: auto; }
 
-/* ---- Guides for agents: the section of a pack or theme tab, and the install dialog ---- */
+/* ---- Guides for agents: the section of a theme tab, a tab of a pack's Commun, and the install dialog ---- */
 .guides-section { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-4); max-height: 40vh; overflow-y: auto; background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object); }
 .guides-section[open] > summary { margin-bottom: var(--space-2); }
-.sheet-area.with-guides { grid-template-rows: minmax(0, 1fr) auto auto; }
-.sheet-area.with-guides > .guides-section { grid-row: 3; margin: var(--space-2) var(--space-4) 0; }
+.guide-panel { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) calc(10px * var(--elev-sheet)); }
+.guide-panel .guide-field textarea { min-height: 12em; }
+.guide-panel .guides-title { cursor: default; }
+.widget-tab-panel > .guides-approval { padding: 0 calc(10px * var(--elev-sheet)); }
 .guides-title { font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: var(--space-2); }
 .guides-badge { font-weight: 400; font-size: 11px; line-height: 14px; padding: 1px 6px; border-radius: 999px; color: var(--ink-muted); background: color-mix(in oklab, var(--paper-100) 70%, var(--ink-muted) 15%); }
 .guides-badge[data-origin="received"] { color: var(--ink); }

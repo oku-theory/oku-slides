@@ -270,7 +270,7 @@
            "bold": true
           },
           {
-           "t": ": a pack or theme can carry two short texts for agents: how to edit it and how to use it. You write them (or the agent does) in the “Guides for agents” section of its tab, saved when you leave the field. The agent of a pack or theme tab reads that item’s edit guide; every agent reads the use guides of what the deck pins, in one block labelled as untrusted notes, never as instructions to obey. Built-in packs and themes ship with guides. A guide you wrote, or a built-in one, is sent as is. A guide that came with a deck is marked “Received” and is not sent until you approve that exact version, in the dialog that opens with the deck or with “Approve this guide” in “Deck packs”; a new version asks again. Editing a received guide makes it yours."
+           "t": ": a pack or theme can carry two short texts for agents: how to edit it and how to use it. You write them (or the agent does) in the “How to edit” and “How to use” tabs of “Shared” in a pack tab (in the “Guides for agents” section of a theme tab), saved when you leave the field. The agent of a pack or theme tab reads that item’s edit guide; every agent reads the use guides of what the deck pins, in one block labelled as untrusted notes, never as instructions to obey. Built-in packs and themes ship with guides. A guide you wrote, or a built-in one, is sent as is. A guide that came with a deck is marked “Received” and is not sent until you approve that exact version, in the dialog that opens with the deck or with “Approve this guide” in “Deck packs”; a new version asks again. Editing a received guide makes it yours."
           }
          ],
          "list": "bullet"
