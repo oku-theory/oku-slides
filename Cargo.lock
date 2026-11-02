@@ -6013,6 +6013,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "oku-slides-apple-model"
+version = "8.0.0"
+dependencies = [
+ "rstest",
+ "snafu",
+ "speculoos",
+ "swift-rs",
+ "tokio-util",
+]
+
+[[package]]
 name = "oku-slides-chart"
 version = "8.0.0"
 dependencies = [
@@ -6129,6 +6140,7 @@ dependencies = [
  "llama-cpp-2",
  "llama-cpp-sys-2",
  "oku-slides-agent",
+ "oku-slides-apple-model",
  "oku-slides-i18n",
  "oku-slides-mcp",
  "oku-slides-platform",
@@ -6143,6 +6155,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -6199,6 +6212,7 @@ dependencies = [
  "hex",
  "hyper",
  "hyper-util",
+ "oku-slides-apple-model",
  "oku-slides-i18n",
  "opendal",
  "rstest",
@@ -6208,6 +6222,7 @@ dependencies = [
  "snafu",
  "speculoos",
  "tempfile",
+ "time",
  "tiny_http",
  "tokio",
  "toml_edit 0.25.15+spec-1.1.0",

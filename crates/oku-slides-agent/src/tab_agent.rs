@@ -28,6 +28,11 @@ use crate::session_model::{Offered, model_options};
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, AgentState};
 
+#[path = "fallback_turn.rs"]
+mod fallback_turn;
+
+use fallback_turn::Connected;
+
 /// Wait for the connection's end after a failed request: ACP fails pending requests before
 /// signalling the end, and the next prompt must relaunch the agent, not reuse the old connection.
 const CLOSE_GRACE: Duration = Duration::from_secs(1);
@@ -163,7 +168,7 @@ impl AgentHandle {
         let (tx, rx) = mpsc::unbounded_channel();
         let (events, _) = broadcast::channel(256);
         let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, voice, prompt_limits, kind };
-        tokio::spawn(TabAgent { ctx, tools, link, live: HashSet::new() }.run(rx));
+        tokio::spawn(TabAgent { ctx, tools, link, live: HashSet::new(), on_local: false }.run(rx));
         Self { tx, events }
     }
 
@@ -208,6 +213,14 @@ enum Reopened {
     Refused,
 }
 
+/// The session a turn opens with, looked up for the agent the link ran then.
+struct Known {
+    /// That agent's fingerprint.
+    agent: String,
+    /// The session and its agent's fingerprint (see `Keeper::lookup`).
+    session: Option<(String, Option<String>)>,
+}
+
 /// L'acteur de l'onglet.
 struct TabAgent {
     ctx: Ctx,
@@ -215,6 +228,8 @@ struct TabAgent {
     link: Link,
     /// Sessions ACP vivantes : (lancement de l'agent, id) ; un agent relancé peut réutiliser un id.
     live: HashSet<(u64, String)>,
+    /// The tab was last told its turns run on the local agent (`AgentEvent::Fallback`).
+    on_local: bool,
 }
 
 impl TabAgent {
@@ -274,26 +289,14 @@ impl TabAgent {
             text: instruction.text.clone(),
             images: instruction.images.iter().map(AttachmentRef::shown).collect(),
         });
-        let known = self.ctx.keeper.lookup().await;
-        let current = self.link.current_generation();
-        let alive = known.as_ref().zip(current).is_some_and(|((id, _), g)| self.live.contains(&(g, id.clone())));
-        if !alive {
-            self.ctx.emit(AgentEvent::Status { state: AgentState::Starting });
-        }
-        let live = match self.link.connect().await {
-            Ok(live) => live,
-            Err(e) => {
-                self.failed(n, &e);
-                // L'agent est inutilisable : un dialogue d'import ouvert le dit sans redemander.
-                // Le même texte que `Stack::availability`.
-                if let Some(u) = e.unusable() {
-                    let unusable = Some(u.localize(&self.ctx.localizer.current()));
-                    self.ctx.emit(AgentEvent::Availability { unusable });
-                }
-                return None;
-            }
+        let mut known = self.known_session().await;
+        // Routed first: the local agent may stand in for an unusable selected one.
+        let live = match self.connect_routed(rx, n, &mut known).await {
+            Connected::Live(live) => live,
+            Connected::Failed => return None,
+            Connected::Interrupted(next) => return next,
         };
-        let opened = match known {
+        let opened = match known.session {
             Some((id, _)) if self.live.contains(&(live.generation, id.clone())) => Ok((SessionId::new(id), false)),
             Some((id, agent)) => match self.reopen(&live, n, &id, agent.as_deref()).await {
                 Ok(Reopened::Resumed(id)) => Ok((id, false)),
@@ -330,6 +333,18 @@ impl TabAgent {
                 None
             }
         }
+    }
+
+    /// The session known for the agent the link runs now; `Starting` shows unless it is live.
+    async fn known_session(&self) -> Known {
+        let agent = self.link.agent_id();
+        let session = self.ctx.keeper.lookup(&agent).await;
+        let current = self.link.current_generation();
+        let alive = session.as_ref().zip(current).is_some_and(|((id, _), g)| self.live.contains(&(g, id.clone())));
+        if !alive {
+            self.ctx.emit(AgentEvent::Status { state: AgentState::Starting });
+        }
+        Known { agent, session }
     }
 
     /// Dossier du document et serveur d'outils de l'onglet.

@@ -273,7 +273,7 @@ impl Workspace {
             }
         };
         let tune = pending.tunes();
-        let session = pending.build()?;
+        let session = pending.build().inspect_err(|e| Self::note_failed_import(ws, &pending, e))?;
         match Self::finish(ws, pending, session)? {
             (WorkspaceOutcome::Applied(json), tab) if tune => Ok(WorkspaceOutcome::Tune { json, tab }),
             (outcome, _) => Ok(outcome),

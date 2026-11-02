@@ -2,6 +2,8 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::time::Duration;
 
 use speculoos::prelude::*;
 
@@ -28,11 +30,18 @@ fn local_agent_flag_answers_initialize() {
         r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"protocolVersion":1,"clientCapabilities":{{}}}}}}"#
     )
     .unwrap();
-    let mut line = String::new();
-    BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+    // Read on a thread: a silent agent fails the test in 30 s instead of hanging it.
+    let stdout = child.stdout.take().unwrap();
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut line = String::new();
+        let read = BufReader::new(stdout).read_line(&mut line).map(|_| line);
+        let _ = tx.send(read);
+    });
+    let line = rx.recv_timeout(Duration::from_secs(30));
     child.kill().unwrap();
     child.wait().unwrap();
-    let reply: serde_json::Value = serde_json::from_str(&line).unwrap();
+    let reply: serde_json::Value = serde_json::from_str(&line.unwrap().unwrap()).unwrap();
     assert_that!(reply["id"]).is_equal_to(serde_json::json!(1));
     assert_that!(reply["result"]["agentCapabilities"]["mcpCapabilities"]["http"]).is_equal_to(serde_json::json!(true));
 }

@@ -137,6 +137,11 @@ impl SwitchState {
         Switch::Go
     }
 
+    /// The only request running is `tab`'s: the agent may switch for its turn.
+    pub(crate) fn alone(&self, tab: &str) -> bool {
+        self.running.len() == 1 && self.running.values().all(|t| t == tab)
+    }
+
     /// Une requête tourne dans un onglet.
     pub(crate) fn busy(&self) -> bool {
         !self.running.is_empty()

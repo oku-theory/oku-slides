@@ -3,9 +3,15 @@
 //! `trace`: what repeats (loops, polling).
 
 use tracing_subscriber::EnvFilter;
-use tracing_subscriber::filter::ParseError;
+use tracing_subscriber::filter::{LevelFilter, ParseError};
 use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
+
+use crate::log_ring::APP_RING;
+pub use crate::log_ring::{
+    LOG_LINE_MAX, LOG_RING_CAP, LogLine, LogRing, RingLayer, captured, clip_line, home, redact_home,
+};
+pub use crate::log_secrets::{REDACTED, SECRET_MIN_CHARS, redact_secrets, register_secret};
 
 /// Default level without `RUST_LOG`: `info` for us, `warn` for Loro
 /// (`loro`, `loro_internal`), whose `info` logs (import, commit) do not
@@ -36,12 +42,14 @@ pub const ACP_TARGET: &str = "oku_slides_acp";
 /// The directive [`ACP_DEBUG_ENV`] adds: [`ACP_TARGET`] at `debug`.
 pub(crate) const ACP_FILTER: &str = "oku_slides_acp=debug";
 
-/// Installs the log subscriber, on standard error.
+/// Installs the log subscriber, on standard error, and the ring of recent problems.
 ///
 /// In development, `RUST_LOG` picks the level (default: `DEFAULT_FILTER`);
 /// a production build always uses `DEFAULT_FILTER`. In both, setting
 /// [`NETWORK_DEBUG_ENV`] adds the HTTP and TLS directives, and [`ACP_DEBUG_ENV`]
-/// the ACP messages. No effect if a subscriber is already installed (tests, second call).
+/// the ACP messages. The ring ([`recent_problems`]) sits under the same filter, so what it
+/// drops (`async_openai`, which may echo secrets) never reaches it, with a `WARN` floor of its
+/// own. No effect if a subscriber is already installed (tests, second call).
 pub fn init() {
     let rust_log = std::env::var(EnvFilter::DEFAULT_ENV).ok();
     let debug: Vec<&str> = [(NETWORK_DEBUG_ENV, NETWORK_FILTER), (ACP_DEBUG_ENV, ACP_FILTER)]
@@ -51,10 +59,24 @@ pub fn init() {
         .collect();
     let (filter, invalid) = filter(rust_log, &debug, cfg!(debug_assertions));
     // `try_init`: an already installed subscriber is not an error.
-    let _ = tracing_subscriber::registry().with(fmt::layer().with_writer(std::io::stderr)).with(filter).try_init();
+    let ring = RingLayer::new(&APP_RING, home().map(str::to_owned)).with_filter(LevelFilter::WARN);
+    let _ = tracing_subscriber::registry()
+        .with(fmt::layer().with_writer(std::io::stderr))
+        .with(ring)
+        .with(filter)
+        .try_init();
     if let Some(error) = invalid {
         tracing::warn!(%error, "invalid RUST_LOG, using the default filter");
     }
+}
+
+/// The last [`LOG_RING_CAP`] warnings and errors of the app log, oldest first.
+///
+/// Empty until [`init`] ran; registered secrets already masked ([`register_secret`]), home paths
+/// shown as `~`, each line cut to [`LOG_LINE_MAX`].
+#[must_use]
+pub fn recent_problems() -> Vec<LogLine> {
+    APP_RING.lines()
 }
 
 /// Whether the value of a debug variable ([`NETWORK_DEBUG_ENV`], [`ACP_DEBUG_ENV`]) asks for its logs.
@@ -65,11 +87,18 @@ fn debug_requested(value: Option<String>) -> bool {
     })
 }
 
+/// The directive that keeps async-openai silent whatever `RUST_LOG` says (t-1233).
+pub(crate) const ASYNC_OPENAI_OFF: &str = "async_openai=off";
+
 /// Filter directives: the `debug` ones, then `RUST_LOG` (debug builds) or the default.
 ///
-/// `RUST_LOG` comes last so that it wins for a target both name (`ureq=trace`).
+/// `RUST_LOG` comes after the `debug` ones so that it wins for a target both name (`ureq=trace`);
+/// [`ASYNC_OPENAI_OFF`] follows it, so no `RUST_LOG` lets async-openai echo a secret.
 fn directives(rust_log: Option<String>, debug: &[&str], debug_build: bool) -> String {
-    let base = rust_log.filter(|_| debug_build).unwrap_or_else(|| DEFAULT_FILTER.to_owned());
+    let base = match rust_log.filter(|_| debug_build) {
+        Some(user) => format!("{user},{ASYNC_OPENAI_OFF}"),
+        None => DEFAULT_FILTER.to_owned(),
+    };
     debug.iter().copied().chain(std::iter::once(base.as_str())).collect::<Vec<_>>().join(",")
 }
 

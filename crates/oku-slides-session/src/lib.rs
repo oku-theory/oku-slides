@@ -77,6 +77,7 @@ mod history;
 pub mod import;
 mod inline;
 mod items;
+mod last_errors;
 mod layout_examples;
 #[cfg(test)]
 pub(crate) mod lib_tests_support;
@@ -197,7 +198,10 @@ pub use views::{
     EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
     SlideView, Snapshot, TabInfo, Target, UiState,
 };
-pub use voice_panel::{HOST_VOICE, VoicePanel, gigabytes_text, model_label, seconds_text, size_text};
+pub use voice_panel::{
+    HOST_VOICE, VoicePanel, agent_download_progress, gigabytes_text, local_failure_text, model_label, seconds_text,
+    size_text,
+};
 pub use voice_view::{
     AgentModelView, AgentModelsView, AgentPresetView, AgentsView, ApiView, DICTATION_LANGUAGES, DictationLanguage,
     DictationPatch, DictationView, DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, VoiceEvent,
@@ -423,6 +427,8 @@ pub struct Session {
     link_pull: bool,
     /// The layout generation of the last `set_deck_links` applied.
     links_generation: u64,
+    /// The last render and import errors, for diagnosis (`last_errors`).
+    last_errors: last_errors::LastErrors,
     #[cfg(test)]
     failpoints: deck_widgets::Failpoints,
 }
@@ -581,6 +587,7 @@ impl Session {
             deck_links: BTreeMap::new(),
             link_pull: false,
             links_generation: 0,
+            last_errors: last_errors::LastErrors::default(),
             #[cfg(test)]
             failpoints: deck_widgets::Failpoints::default(),
         };

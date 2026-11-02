@@ -16,10 +16,10 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`, its list paged by `history_page`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `a2ui_tools` (`a2ui_examples`: the playbook's agent reference, cached), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
-  tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument), `usage_tools` (`usage`, `show_usage`: the linked deck's ledger as JSON capped at 1000 rows, a thread box capped at 100; not in help tabs).
+  tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument), `diagnose_tools` (`diagnose`, every kind: `VoicePort::diagnosis`, the log ring (the tab's lines and those of no tab), the tab's last errors; capped, secrets and home redacted once more, escapes and controls stripped; `ToolServer` registers its token as a secret), `usage_tools` (`usage`, `show_usage`: the linked deck's ledger as JSON capped at 1000 rows, a thread box capped at 100; not in help tabs).
 - `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized message in
   the current interface language (`LiveLocalizer`, also read by the hub). `error` : `McpError`, `say_session`; `paths` (agent-given paths).
-- Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, in the hub, which builds the box);
+- Ports: `settings` (`SettingsPort` in `Tools`, `Applied`, whitelist without `dictation.*`); `voice` (`VoicePort`: view, check, apply, `diagnosis` (`diagnosis.rs`), in the hub, which builds the box);
   `draft` (`DraftPort` in `Tools`: `open_*`'s `request`, cleaned, at most `MAX_REQUEST_BYTES`, to a moved tab's draft; `Prefill`).
 - `hub` : `SurfaceHub`, open surfaces and events to the UI (`McpEvent`); `emit` alone changes
   the open list; `resync` resends it whole. `hub/asks` (questions, confirmations, permissions; a turn's received-guide note shows in each, `set_permission_note`),

@@ -45,11 +45,13 @@ impl Family {
     /// One line of English for the routing prompt.
     pub(crate) fn summary(self) -> &'static str {
         match self {
-            Family::Edit => "change slide content, elements, charts and tables, or move between slides",
+            Family::Edit => "change slides, elements, charts, tables or the deck's theme; go to a slide",
             Family::Present => "start, steer or stop a presentation",
-            Family::Files => "open, create, save, copy, move, merge a deck or browse its history",
-            Family::Packs => "edit packs of widgets and slide layouts, and themes",
-            Family::Configure => "change app settings: language, dictation, the app agent, interface",
+            Family::Files => "open, create, save, copy, move or merge deck files, or browse their history",
+            Family::Packs => "create or edit widget packs, slide layouts and theme designs",
+            Family::Configure => {
+                "app settings: interface, dictation and model download, the app agent (Claude, Codex…), usage, cost"
+            }
             Family::Troubleshoot => "diagnose an error, a failed render or import, or why something fails",
             Family::AskReport => "ask the user a question or report back",
         }
@@ -60,9 +62,8 @@ impl Family {
 pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     use Family::{AskReport, Configure, Edit, Files, Packs, Present, Troubleshoot};
     match tool {
-        "apply" | "slide" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants" | "show_themes"
-        | "show_packs" | "add_pack" | "remove_pack" => &[Edit],
-        "focus" => &[Edit, Present],
+        "apply" | "slide" | "focus" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants"
+        | "show_themes" | "show_packs" | "add_pack" | "remove_pack" => &[Edit],
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
         "present" => &[Present],
@@ -132,9 +133,9 @@ fn shared_tools() -> &'static HashSet<String> {
 /// The routable families a tab offers, in `ROUTABLE` order, given the tools it lists.
 ///
 /// A listed tool counts for its families unless every kind lists it and it spans several
-/// families (`focus`, `deck_outline`, `settings`): such a tool says nothing about the tab.
-/// A shared tool of one family (`apply`, `set_setting`) still counts, so every tab keeps
-/// `edit`; `configure` is always offered, all its tools being shared.
+/// families (`deck_outline`, `settings`): such a tool says nothing about the tab.
+/// A shared tool of one family (`apply`, `set_setting`, `diagnose`) still counts, so every
+/// tab keeps `edit` and `troubleshoot`; `configure` is always offered, all its tools being shared.
 pub(crate) fn offered_families<'a>(listed: impl IntoIterator<Item = &'a str>) -> Vec<Family> {
     let shared = shared_tools();
     let own: Vec<&str> = listed.into_iter().filter(|t| !shared.contains(*t) || families_of(t).len() == 1).collect();

@@ -32,6 +32,7 @@ mod session_model;
 mod settings_port;
 mod shortcut;
 mod stack;
+mod stderr_tail;
 mod stt_watch;
 mod tab_agent;
 mod tab_entry;

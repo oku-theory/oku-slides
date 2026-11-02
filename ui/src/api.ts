@@ -652,7 +652,9 @@ export type AgentEvent =
   | { kind: "status"; state: AgentState }
   | { kind: "draft"; text: string | null; origin: string | null; images: PastedImage[] }
   | { kind: "voice" }
-  | { kind: "availability"; unusable: string | null };
+  | { kind: "availability"; unusable: string | null }
+  /** The tab's turns run on the local agent standing in for the selected one (`reason`), or no longer (`null`). */
+  | { kind: "fallback"; reason: string | null };
 
 /** Une image collée dans le brouillon, tenue par l'hôte (`AttachmentRef`). */
 export interface PastedImage {

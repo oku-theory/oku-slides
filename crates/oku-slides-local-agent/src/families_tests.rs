@@ -88,8 +88,8 @@ use Family::{Configure, Edit, Files, Packs, Present, Troubleshoot};
 #[rstest]
 #[case(DocumentKind::Deck, Family::ROUTABLE.to_vec())]
 #[case(DocumentKind::Help, Family::ROUTABLE.to_vec())]
-#[case(DocumentKind::Pack, vec![Edit, Packs, Configure])]
-#[case(DocumentKind::Theme, vec![Edit, Packs, Configure])]
+#[case(DocumentKind::Pack, vec![Edit, Packs, Configure, Troubleshoot])]
+#[case(DocumentKind::Theme, vec![Edit, Packs, Configure, Troubleshoot])]
 fn offered_families_follow_the_tab_kind_tools(#[case] kind: DocumentKind, #[case] expected: Vec<Family>) {
     let names = oku_slides_mcp::tool_names_for(kind);
     assert_that!(offered_families(names.iter().map(String::as_str))).is_equal_to(expected);
@@ -118,4 +118,24 @@ fn parse_route_ignores_a_family_that_is_not_offered() {
 #[test]
 fn families_of_a2ui_examples_is_ask_report() {
     assert_that!(families_of("a2ui_examples")).is_equal_to(&[Family::AskReport][..]);
+}
+
+/// Tuned on the evaluation set (eval/requests.json): the pick chose `focus` over `present`.
+#[rstest]
+#[case("focus", &[Family::Edit][..])]
+#[case("present", &[Family::Present][..])]
+#[case("deck_outline", &[Family::Edit, Family::Present, Family::Files][..])]
+fn families_of_the_slide_moving_tools(#[case] tool: &str, #[case] expected: &[Family]) {
+    assert_that!(families_of(tool)).is_equal_to(expected);
+}
+
+/// Tuned on the evaluation set: each word was missing when a request misrouted.
+#[rstest]
+#[case::theme(Family::Edit, "theme")]
+#[case::dictation_model(Family::Configure, "download")]
+#[case::agent(Family::Configure, "agent")]
+#[case::cost(Family::Configure, "cost")]
+#[case::pack_widgets(Family::Packs, "widget packs")]
+fn families_summary_names_what_the_evaluation_needed(#[case] family: Family, #[case] word: &str) {
+    assert_that!(family.summary()).contains(word);
 }

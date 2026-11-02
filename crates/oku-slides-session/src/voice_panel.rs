@@ -136,6 +136,26 @@ pub fn gigabytes_text(bytes: u64, l: &Localizer) -> String {
     NumberFormat::for_lang(Some(l.locale())).format(gb)
 }
 
+/// The local agent's model download at `percent`, as the box and a fallback turn show it.
+#[must_use]
+pub fn agent_download_progress(percent: u8, l: &Localizer) -> String {
+    l.tr_with("agent-model-downloading", &[("percent", percent_text(u64::from(percent), l).into())])
+}
+
+/// Why the local agent's model download failed, localized.
+#[must_use]
+pub fn local_failure_text(failure: &LocalFailure, l: &Localizer) -> String {
+    match failure {
+        LocalFailure::Failed => l.tr("agent-model-download-failed"),
+        LocalFailure::Integrity => l.tr("agent-model-download-integrity"),
+        LocalFailure::Incomplete { got, expected } => l.tr_with(
+            "agent-model-download-incomplete",
+            &[("got", count_text(*got, l).into()), ("expected", count_text(*expected, l).into())],
+        ),
+        LocalFailure::Cancelled => l.tr("agent-model-download-cancelled"),
+    }
+}
+
 /// La valeur d'une durée dans le modèle de données : `1.5`, `3`, `1.2`.
 fn secs_value(v: f32) -> String {
     format!("{v}")
@@ -344,22 +364,11 @@ fn agents(a: &AgentsView, l: &Localizer, b: &mut Builder, data: &mut Value) {
             b.button("a-download", l.tr("agent-model-download"), download());
         }
         Some(LocalModelView::Running { percent }) => {
-            let text =
-                l.tr_with("agent-model-downloading", &[("percent", percent_text(u64::from(*percent), l).into())]);
-            data["progress"]["agent"] = json!(text);
+            data["progress"]["agent"] = json!(agent_download_progress(*percent, l));
         }
         Some(LocalModelView::Failed { size, failure }) => {
             b.text("a-local-reason", reason(*size), TextVariant::Caption);
-            let error = match failure {
-                LocalFailure::Failed => l.tr("agent-model-download-failed"),
-                LocalFailure::Integrity => l.tr("agent-model-download-integrity"),
-                LocalFailure::Incomplete { got, expected } => l.tr_with(
-                    "agent-model-download-incomplete",
-                    &[("got", count_text(*got, l).into()), ("expected", count_text(*expected, l).into())],
-                ),
-                LocalFailure::Cancelled => l.tr("agent-model-download-cancelled"),
-            };
-            b.text("a-error", error, TextVariant::Caption);
+            b.text("a-error", local_failure_text(failure, l), TextVariant::Caption);
             b.button("a-download", l.tr("agent-model-download"), download());
         }
     }

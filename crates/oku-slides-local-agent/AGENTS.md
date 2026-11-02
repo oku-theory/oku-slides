@@ -9,18 +9,26 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Choose the engine only through local_engine; a forced engine that is unavailable fails with its reason. (spec:2026-10-18-agent-local-repli-design)
 - Keep every llama.cpp call in gguf.rs, on its one worker thread; never share a LlamaContext. (plan:2026-10-18-agent-local-repli-lot3)
 - Build every Gguf prompt through chatml::render; gguf tokenizes special tokens, so inserted text must be neutralised there. (plan:2026-10-18-agent-local-repli-lot3, t-1047)
+- Build every Apple schema through apple_schema and every Apple prompt through apple_prompt; the bridge only runs them. (plan:2026-11-01-lot-l-local-agent)
+- End an Apple completion that still overflows the 4,096-token context with an EngineError, never by trimming the history. (plan:2026-11-01-lot-l-local-agent)
+- Send Apple one tool schema per reply: pick the tool by name, narrow its union above FILL_BYTES, then its call. (plan:2026-11-01-lot-l-local-agent)
+- Keep one ACP session per tab MCP URL; a session/new or session/load drops that URL's other sessions. (plan:2026-11-01-lot-l-local-agent)
+- Give session ids a random per-process nonce and refuse a session/load from another MCP URL. (plan:2026-11-01-lot-l-local-agent, t-1462)
 
 ## Pitfalls
 
 - Drop the GgufEngine before the process exits; Metal aborts at exit while a model is still loaded. (plan:2026-10-18-agent-local-repli-lot3)
 - Change AGENT_MODEL only together with chatml.rs and reply.rs; llama.cpp skips the GGUF chat template, so Qwen3 ChatML is hand-written. (spec:2026-10-18-agent-local-repli-design)
 - Load the model before serving ACP, within READY_WITHIN (120 s); a new binary's first LlamaBackend::init compiles Metal shaders (~23 s). (spec:2026-10-18-agent-local-repli-design)
+- Keep Apple schema titles built from the schema path: GenerationSchema merges equal titles into one type, and rejects untitled objects or unions, a partial x-order, nested or untitled $defs and non-string enums. (plan:2026-11-01-lot-l-local-agent)
 - Gate every gguf or llama-cpp use behind cfg(all(target_os = "macos", target_arch = "aarch64")); other targets lack the dependency. (spec:2026-10-18-agent-local-repli-design)
 
 ## Testing
 
 - Test turns with the scripted fake engine and a fake tool port, never a real model. (plan:2026-10-18-agent-local-repli-lot1)
 - Initialise llama.cpp only in the ignored manual test of gguf_tests.rs, never in another test. (plan:2026-10-18-agent-local-repli-lot3)
+- Call Apple's real model only in the ignored manual tests of apple_tests.rs and eval_tests.rs, never in another test. (plan:2026-11-01-lot-l-local-agent)
+- Change families_of or Family::summary only with a new eval set run recorded in the plan's eval doc. (plan:2026-11-01-lot-l-local-agent)
 
 ## Settled decisions
 

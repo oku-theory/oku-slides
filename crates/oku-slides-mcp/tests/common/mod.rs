@@ -12,8 +12,8 @@ pub mod workspace_harness;
 use async_trait::async_trait;
 use oku_slides_core::Guides;
 use oku_slides_mcp::{
-    Applied, Checked, DraftPort, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub, ToolServer, Tools,
-    VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
+    Applied, Checked, Diagnosis, DraftPort, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub,
+    ToolServer, Tools, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
 };
 use oku_slides_session::agent::{Sessions, Surface, TabGate, TabOpen, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
@@ -86,6 +86,8 @@ pub struct FakeVoice {
     pub checked: Mutex<Checked>,
     pub answer: Mutex<Option<VoiceApplied>>,
     pub view: Mutex<VoiceView>,
+    /// What `diagnosis` answers.
+    pub diagnosis: Mutex<Diagnosis>,
 }
 
 impl FakeVoice {
@@ -113,6 +115,10 @@ impl VoicePort for FakeVoice {
         }
         lock(&self.applied).push((event, origin));
         Ok(lock(&self.answer).unwrap_or(VoiceApplied::Now))
+    }
+
+    fn diagnosis(&self) -> Diagnosis {
+        lock(&self.diagnosis).clone()
     }
 }
 

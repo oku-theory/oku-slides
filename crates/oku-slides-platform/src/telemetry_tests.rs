@@ -6,13 +6,32 @@ use tracing::Level;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
 
-use super::{ACP_FILTER, ACP_TARGET, DEFAULT_FILTER, NETWORK_FILTER, debug_requested, directives, filter, init};
+use super::{
+    ACP_FILTER, ACP_TARGET, DEFAULT_FILTER, NETWORK_FILTER, debug_requested, directives, filter, init, recent_problems,
+};
 
 #[test]
 fn init_called_twice_is_harmless() {
     init();
     init();
     tracing::info!(appel = 2, "journaux installés");
+}
+
+#[test]
+fn init_then_warn_and_info_rings_only_the_warning() {
+    init();
+    tracing::info!("ring-marker-info");
+    tracing::warn!("ring-marker-warn");
+    let messages: Vec<String> = recent_problems().into_iter().map(|l| l.message).collect();
+    assert_that!(messages.iter().any(|m| m == "ring-marker-warn")).is_true();
+    assert_that!(messages.iter().any(|m| m == "ring-marker-info")).is_false();
+}
+
+#[test]
+fn init_then_async_openai_error_is_not_ringed() {
+    init();
+    tracing::error!(target: "async_openai", "ring-marker-secret");
+    assert_that!(recent_problems().iter().any(|l| l.message == "ring-marker-secret")).is_false();
 }
 
 #[test]
@@ -68,7 +87,32 @@ fn directives_in_release_ignore_rust_log() {
 #[test]
 fn directives_in_debug_build_put_rust_log_after_network() {
     assert_that!(directives(Some("ureq=trace".into()), &[NETWORK_FILTER], true))
-        .is_equal_to(format!("{NETWORK_FILTER},ureq=trace"));
+        .is_equal_to(format!("{NETWORK_FILTER},ureq=trace,async_openai=off"));
+}
+
+#[rstest]
+#[case("debug")]
+#[case("debug,async_openai=trace")]
+fn filter_in_debug_build_with_rust_log_still_drops_async_openai(#[case] rust_log: &str) {
+    let seen = Seen::default();
+    let (installed, invalid) = filter(Some(rust_log.into()), &[], true);
+    assert_that!(invalid.is_none()).is_true();
+    let subscriber = tracing_subscriber::registry().with(seen.clone().with_filter(installed));
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::error!(target: "async_openai::error", "body: {{\"key\":\"sk-x\"}}");
+        tracing::debug!(target: "oku_slides_session", "kept");
+    });
+    let recorded = seen.0.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    assert_that!(recorded).is_equal_to(vec![("oku_slides_session".to_owned(), Level::DEBUG)]);
+}
+
+#[test]
+fn init_then_registered_secret_never_reaches_recent_problems() {
+    init();
+    super::register_secret("oku-e2e-secret-1144");
+    tracing::error!(key = "oku-e2e-secret-1144", "ring-marker-key");
+    let line = recent_problems().into_iter().find(|l| l.message.starts_with("ring-marker-key"));
+    assert_that!(line.map(|l| l.message.contains("oku-e2e-secret-1144"))).is_equal_to(Some(false));
 }
 
 #[test]

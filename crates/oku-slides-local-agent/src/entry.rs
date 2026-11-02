@@ -35,6 +35,7 @@ pub fn exit_if_local_agent() {
 /// Construit le moteur que dictent les réglages ; un moteur forcé indisponible échoue avec sa raison.
 pub(crate) fn build_engine(platform: &Platform) -> Result<Arc<dyn Engine>, LocalAgentError> {
     match local_engine(&platform.settings, &platform.storage) {
+        Ok(ReadyEngine::Apple) => Ok(Arc::new(crate::apple::AppleEngine::new(&platform.settings.local_agent)?)),
         #[cfg(debug_assertions)]
         Ok(ReadyEngine::Fake) => {
             let settings = &platform.settings.local_agent;

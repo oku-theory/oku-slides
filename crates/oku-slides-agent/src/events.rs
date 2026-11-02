@@ -129,6 +129,11 @@ pub enum AgentEvent {
     },
     /// Dictation changed (settings, models, state): the interface reads its state again.
     Voice,
+    /// The tab's turns run on the local agent standing in for the selected one, or no longer.
+    Fallback {
+        /// Why the selected agent cannot serve, localized; `None` once back on it.
+        reason: Option<String>,
+    },
 }
 
 impl AgentEvent {

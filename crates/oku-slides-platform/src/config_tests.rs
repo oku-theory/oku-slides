@@ -585,6 +585,15 @@ fn settings_defaults_local_agent_engine_is_auto() {
     assert_that!(settings.local_agent.context).is_equal_to(16384);
 }
 
+#[rstest]
+#[case::auto("auto", LocalEngine::Auto)]
+#[case::apple("apple", LocalEngine::Apple)]
+#[case::gguf("gguf", LocalEngine::Gguf)]
+fn local_agent_engine_name_loads_from_toml(#[case] name: &str, #[case] engine: LocalEngine) {
+    let settings = settings_from_toml(&format!("[local_agent]\nengine = \"{name}\"\n")).unwrap();
+    assert_that!(settings.local_agent.engine).is_equal_to(engine);
+}
+
 #[cfg(debug_assertions)]
 #[test]
 fn local_agent_fake_engine_loads_from_toml() {

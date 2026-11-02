@@ -31,8 +31,16 @@ pub enum Keep {
     ///
     /// Replies with the forgotten session id.
     Forget(oneshot::Sender<Option<String>>),
-    /// La session connue et l'empreinte de son agent, dans l'ordre de la file.
-    Lookup(oneshot::Sender<Option<(String, Option<String>)>>),
+    /// The session known for agent fingerprint `agent`, else the current one, with its agent's.
+    ///
+    /// In queue order. The session another agent took over is kept aside (in memory) for its
+    /// agent: back on it, the turn resumes it.
+    Lookup {
+        /// The fingerprint of the agent the turn runs on.
+        agent: String,
+        /// Where the session goes.
+        reply: oneshot::Sender<Option<(String, Option<String>)>>,
+    },
     /// Montrer le fil de l'onglet à l'interface.
     Show,
     /// Attendre que les ordres précédents soient appliqués.
@@ -54,7 +62,7 @@ impl Keep {
             Self::Thread(_) => "fil de la conversation non enregistré",
             Self::Session { .. } => "session de l'agent non enregistrée",
             Self::Forget(_) => "conversation non oubliée",
-            Self::Lookup(_) => "session de l'agent non relue",
+            Self::Lookup { .. } => "session de l'agent non relue",
             Self::Show | Self::Flush(_) => "ordre du gardien non appliqué",
         }
     }
@@ -93,10 +101,11 @@ impl Keeper {
         }
     }
 
-    /// La session connue (id, empreinte de l'agent), après les ordres déjà envoyés.
-    pub async fn lookup(&self) -> Option<(String, Option<String>)> {
+    /// The session known for agent fingerprint `agent`, else the current one (id, agent
+    /// fingerprint), after the orders already sent.
+    pub async fn lookup(&self, agent: &str) -> Option<(String, Option<String>)> {
         let (tx, rx) = oneshot::channel();
-        self.send(Keep::Lookup(tx));
+        self.send(Keep::Lookup { agent: agent.to_owned(), reply: tx });
         rx.await.ok().flatten()
     }
 
@@ -118,16 +127,28 @@ async fn run(tab: TabSession, hub: Arc<SurfaceHub>, mut rx: mpsc::UnboundedRecei
         Err(e) => tracing::warn!(error = %e, "relecture de la conversation perdue"),
     }
     done.send_replace(true);
+    let mut aside = Aside::default();
     while let Some(k) = rx.recv().await {
-        let (t, h) = (tab.clone(), hub.clone());
-        if let Err(e) = tokio::task::spawn_blocking(move || apply(&t, &h, k)).await {
-            tracing::warn!(error = %e, "ordre du gardien perdu");
+        let (t, h, mut kept) = (tab.clone(), hub.clone(), aside.clone());
+        match tokio::task::spawn_blocking(move || {
+            apply(&t, &h, &mut kept, k);
+            kept
+        })
+        .await
+        {
+            Ok(kept) => aside = kept,
+            Err(e) => tracing::warn!(error = %e, "ordre du gardien perdu"),
         }
     }
 }
 
+/// The session another agent took over: (agent fingerprint, session id); memory only.
+///
+/// While the local agent stands in, the selected agent's session waits here.
+type Aside = Option<(String, String)>;
+
 /// Applique un ordre à la session et au hub de l'onglet.
-fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
+fn apply(tab: &TabSession, hub: &SurfaceHub, aside: &mut Aside, k: Keep) {
     let failure = k.failure();
     let written = match k {
         // Tour effacé entre-temps (nouvelle conversation) : rien à écrire.
@@ -142,7 +163,18 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
         }
         Keep::Session { turn, id, agent } => {
             if hub.in_thread(turn) {
-                tab.with(|s| s.keep_agent_session(id, agent))
+                tab.with(|s| {
+                    let before = s.conversation().and_then(|c| Some((c.agent.clone()?, c.session.clone()?)));
+                    match before {
+                        // Another agent takes over: its session waits for it.
+                        Some((was, session)) if was != agent => *aside = Some((was, session)),
+                        _ => {}
+                    }
+                    if aside.as_ref().is_some_and(|(was, _)| *was == agent) {
+                        *aside = None;
+                    }
+                    s.keep_agent_session(id, agent);
+                })
             } else {
                 // Tour effacé entre-temps (nouvelle conversation) : sa session n'est plus à garder.
                 tracing::debug!(turn, "session d'un tour effacé : non enregistrée");
@@ -150,6 +182,7 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
             }
         }
         Keep::Forget(reply) => {
+            *aside = None;
             let gone = tab.with(Session::forget_conversation);
             // Dans l'ordre de la file : une fin de tour arrivée après l'oubli ne trouve plus son tour.
             hub.clear_thread();
@@ -158,8 +191,16 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, k: Keep) {
             }
             gone.map(drop)
         }
-        Keep::Lookup(reply) => tab.with(|s| {
-            let found = s.conversation().and_then(|c| Some((c.session.clone()?, c.agent.clone())));
+        Keep::Lookup { agent, reply } => tab.with(|s| {
+            let current = s.conversation().and_then(|c| Some((c.session.clone()?, c.agent.clone())));
+            let found = match aside.as_ref() {
+                Some((was, session))
+                    if *was == agent && current.as_ref().is_none_or(|(_, a)| a.as_deref() != Some(agent.as_str())) =>
+                {
+                    Some((session.clone(), Some(was.clone())))
+                }
+                _ => current,
+            };
             if reply.send(found).is_err() {
                 tracing::debug!("lecture : l'acteur est parti (onglet fermé)");
             }

@@ -28,3 +28,21 @@ fn read_prompt_without_context_has_no_locale() {
 fn read_prompt_without_text_has_an_empty_request() {
     assert_that!(read_prompt(&[]).request.as_str()).is_equal_to("");
 }
+
+#[rstest::rstest]
+#[case::diagnose_first("diagnose")]
+#[case::node("npx")]
+#[case::login("log in")]
+#[case::preset("[agent.presets]")]
+#[case::download("download_agent_model")]
+#[case::apple("Apple Intelligence")]
+#[case::never_runs("never run")]
+fn instructions_name_each_fix_recipe(#[case] needle: &str) {
+    assert_that!(super::INSTRUCTIONS).contains(needle);
+}
+
+#[test]
+fn instructions_stay_short() {
+    // Every Apple step carries them in a 4,096-token context.
+    assert_that!(super::INSTRUCTIONS.split_whitespace().count()).is_less_than(260);
+}

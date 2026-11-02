@@ -88,6 +88,7 @@ impl Tools {
             "show_packs" => self.show_packs().await,
             "report" => self.report(turn, args).await,
             "render" => self.render(turn, args),
+            "diagnose" => self.diagnose().await,
             "usage" => self.usage(args).await,
             "show_usage" => self.show_usage(turn, args).await,
             "save" => self.save(args).await,

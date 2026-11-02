@@ -11,7 +11,7 @@ the CLI, the session, the agent and dictation.
   `RENDER_WORKER_ENV` marks a render worker process, which never launches another one.
   `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent;
   `program_path` (`ProgramPath`, `login_path.rs`: the app's `with_login_path` reads the login shell's `PATH` on a thread).
-- `telemetry`: `init` installs the `tracing` subscriber, first; `NETWORK_DEBUG_ENV` adds HTTP/TLS logs, `ACP_DEBUG_ENV` ACP messages (`ACP_TARGET`). `errors`: `one_line`.
+- `telemetry`: `init` installs the `tracing` subscriber, first; `NETWORK_DEBUG_ENV` adds HTTP/TLS logs, `ACP_DEBUG_ENV` ACP messages (`ACP_TARGET`); `log_ring.rs`: a `WARN`-floored ring under the same filter (`recent_problems`, 50 lines, each event's `tab` kept apart, `captured`: secrets then home redacted, cut to 500 chars); `log_secrets.rs`: `register_secret` (8+ chars, process-wide), `redact_secrets`; `async_openai=off` follows any `RUST_LOG`. `errors`: `one_line`.
 - `config`: `Settings`, its sections (`PathSettings`, `RenderSettings`, `SttSettings`, `UsageSettings`, …), `APP_ID`.
   `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (a `command` xor a
   `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
@@ -26,7 +26,7 @@ the CLI, the session, the agent and dictation.
   `.complete` last, a pinned `.part` resumed by `Range` (`resume.rs` decides, `download/transport.rs` fetches);
   retries capped per file; waits cancellable; nothing past `PinnedFile.size`; `DownloadError::kind`.
 - `http` (feature `download`): `system_tls`, TLS on the system certificate store, for every ureq agent.
-- `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve`, `local_engine` → `ReadyEngine` or `Unavailable`.
+- `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve` (engine × target × `AppleModel` × model on disk; `auto`: Apple when ready, else Gguf), `local_engine` (probes Apple only for `auto`/`apple`) → `ReadyEngine` or `Unavailable`.
 - `listen` (feature `listen`): `serve_connections`, bounded by `Limits`, replaces `axum::serve`.
 
 ## Startup order
@@ -47,4 +47,4 @@ the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD_
 
 ## Dependencies
 
-`oku-slides-i18n` (the `Localizer`); `ureq`, `sha2`, `hex` for model downloads (feature `download`).
+`oku-slides-i18n` (the `Localizer`); `oku-slides-apple-model` (Apple's model availability); `ureq`, `sha2`, `hex` for model downloads (feature `download`).

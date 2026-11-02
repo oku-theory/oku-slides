@@ -4,9 +4,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use agent_client_protocol::schema::v1::{
     AgentCapabilities, CancelNotification, ContentBlock, ContentChunk, InitializeRequest, InitializeResponse,
-    McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse, PromptRequest, PromptResponse, SessionId,
-    SessionNotification, SessionUpdate, StopReason, TextContent, ToolCall, ToolCallStatus, ToolCallUpdate,
-    ToolCallUpdateFields,
+    LoadSessionRequest, LoadSessionResponse, McpCapabilities, McpServer, NewSessionRequest, NewSessionResponse,
+    PromptRequest, PromptResponse, SessionId, SessionNotification, SessionUpdate, StopReason, TextContent, ToolCall,
+    ToolCallStatus, ToolCallUpdate, ToolCallUpdateFields,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Responder, Stdio};
 use serde_json::Value;
@@ -16,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 use crate::engine::Engine;
 use crate::error::{AcpSnafu, LocalAgentError};
 use crate::prompt::read_prompt;
-use crate::sessions::{McpAccess, SessionState, Sessions};
+use crate::sessions::{McpAccess, SessionState, Sessions, turn_summary};
 use crate::turn::{TurnEnd, Updates, run_turn};
 
 /// Le serveur MCP HTTP de l'onglet et son en-tête `Authorization`.
@@ -90,7 +90,12 @@ async fn answer(
     cx: ConnectionTo<Client>,
 ) -> agent_client_protocol::Result<()> {
     let Started { session, turn, cancel } = started;
-    let tools = match session.tools().await {
+    // The first connect of a session can hang on a stalled server: a cancel wins over it.
+    let connected = tokio::select! {
+        connected = session.tools() => connected,
+        () = cancel.cancelled() => return responder.respond(PromptResponse::new(StopReason::Cancelled)),
+    };
+    let tools = match connected {
         Ok(tools) => tools,
         Err(error) => {
             tracing::warn!(error = %snafu::Report::from_error(&error), "connexion MCP de l'agent local impossible");
@@ -106,26 +111,25 @@ async fn answer(
         TurnEnd::Cancelled => None,
     };
     if let Some(outcome) = outcome {
-        session.push_summary(format!("{} → {outcome}", prompt.request));
+        session.push_summary(turn_summary(&prompt.request, &outcome));
     }
     let stop = if end == TurnEnd::Cancelled { StopReason::Cancelled } else { StopReason::EndTurn };
     responder.respond(PromptResponse::new(stop))
 }
 
-/// Sert ACP sur stdin/stdout jusqu'à la fermeture du tube.
+/// Serves ACP on stdin/stdout until the pipe closes, then drops every session.
 pub(crate) async fn serve(engine: Arc<dyn Engine>) -> Result<(), LocalAgentError> {
     let sessions = Arc::new(Sessions::default());
-    let (for_new, for_prompt, for_cancel) = (sessions.clone(), sessions.clone(), sessions);
-    Agent
+    let (for_new, for_load, for_prompt, for_cancel) =
+        (sessions.clone(), sessions.clone(), sessions.clone(), sessions.clone());
+    let served = Agent
         .builder()
         .name("oku-slides-local-agent")
         .on_receive_request(
             async move |req: InitializeRequest, responder, _cx: ConnectionTo<Client>| {
-                responder.respond(
-                    InitializeResponse::new(req.protocol_version).agent_capabilities(
-                        AgentCapabilities::new().mcp_capabilities(McpCapabilities::new().http(true)),
-                    ),
-                )
+                responder.respond(InitializeResponse::new(req.protocol_version).agent_capabilities(
+                    AgentCapabilities::new().load_session(true).mcp_capabilities(McpCapabilities::new().http(true)),
+                ))
             },
             agent_client_protocol::on_receive_request!(),
         )
@@ -135,6 +139,23 @@ pub(crate) async fn serve(engine: Arc<dyn Engine>) -> Result<(), LocalAgentError
             ) {
                 Some(access) => responder.respond(NewSessionResponse::new(for_new.open(access))),
                 None => responder.respond_with_internal_error("no http mcp server"),
+            },
+            agent_client_protocol::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |req: LoadSessionRequest, responder, _cx: ConnectionTo<Client>| {
+                let Some(access) = http_access(&req.mcp_servers) else {
+                    return responder.respond_with_internal_error("no http mcp server");
+                };
+                // An id this process never opened (ids carry a per-process nonce) or opened for
+                // another tab's MCP URL is refused: the host starts anew.
+                if for_load.load(req.session_id.0.as_ref(), access) {
+                    responder.respond(LoadSessionResponse::new())
+                } else {
+                    responder.respond_with_error(agent_client_protocol::Error::resource_not_found(Some(
+                        req.session_id.0.to_string(),
+                    )))
+                }
             },
             agent_client_protocol::on_receive_request!(),
         )
@@ -153,14 +174,15 @@ pub(crate) async fn serve(engine: Arc<dyn Engine>) -> Result<(), LocalAgentError
         .on_receive_notification(
             async move |n: CancelNotification, _cx: ConnectionTo<Client>| {
                 if let Some(session) = for_cancel.get(n.session_id.0.as_ref()) {
-                    session.cancel.lock().unwrap_or_else(PoisonError::into_inner).cancel();
+                    session.cancel_turn();
                 }
                 Ok(())
             },
             agent_client_protocol::on_receive_notification!(),
         )
         .connect_to(Stdio::new())
-        .await
-        .context(AcpSnafu)
-        .map_err(Into::into)
+        .await;
+    // Still on the runtime: each dropped `McpTools` closes its client.
+    sessions.clear();
+    served.context(AcpSnafu).map_err(Into::into)
 }

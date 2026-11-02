@@ -38,6 +38,7 @@ export function AgentThread({
   onError,
   undoTurn = null,
   onUndoTurn,
+  fallback = null,
 }: {
   /** Ouvre l'agent dans sa propre fenêtre (fenêtre principale). */
   onDetach?: () => void;
@@ -55,6 +56,8 @@ export function AgentThread({
   undoTurn?: number | null;
   /** Annule ce tour : sans rappel, son reçu n'offre pas de l'annuler. */
   onUndoTurn?: (turn: number) => void;
+  /** Why the local agent stands in for the selected one: a badge in the header while set. */
+  fallback?: string | null;
 } & Pick<Routed, "turns" | "loose" | "dock">) {
   const scroller = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
@@ -111,6 +114,11 @@ export function AgentThread({
       {!vacant && (
         <header className="agent-thread-head">
           {!empty && <span className="caption">{t(STATE_KEY[state])}</span>}
+          {fallback !== null && (
+            <span className="agent-fallback" role="status" title={fallback} aria-label={t("ui-agent-fallback-reason", { reason: fallback })}>
+              {t("ui-agent-fallback")}
+            </span>
+          )}
           {!empty && <button type="button" className="token ghost agent-new" aria-label={t("ui-agent-new-conversation")} title={t("ui-agent-new-conversation")} onClick={onNewConversation}>{Icon.newChat}</button>}
           {onDetach && <button type="button" className="token ghost agent-detach" aria-label={t("ui-agent-detach")} title={t("ui-agent-detach")} onClick={onDetach}>{Icon.detach}</button>}
           {onAttach && <button type="button" className="token ghost agent-attach" aria-label={t("ui-agent-attach")} title={t("ui-agent-attach")} onClick={onAttach}>{Icon.attach}</button>}

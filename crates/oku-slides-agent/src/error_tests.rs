@@ -57,6 +57,9 @@ fn unusable_spawn_is_not_said_as_not_found() {
 #[case::needs_download(Unusable::LocalNeedsDownload { size: 2_497_281_120 }, "agent-local-needs-download")]
 #[case::intel(Unusable::LocalIntelMac, "agent-local-intel-mac")]
 #[case::other_os(Unusable::LocalUnsupportedOs, "agent-local-unsupported-os")]
+#[case::apple_off(Unusable::LocalAppleOff, "agent-local-apple-off")]
+#[case::apple_not_ready(Unusable::LocalAppleNotReady, "agent-local-apple-not-ready")]
+#[case::apple_unsupported(Unusable::LocalAppleUnsupported, "agent-local-apple-unsupported")]
 fn unusable_local_states_localize_with_their_key(#[case] u: Unusable, #[case] key: &str) {
     let fr = Localizer::new(Some("fr"));
     let text = u.localize(&fr);
@@ -75,6 +78,9 @@ fn unusable_needs_download_shows_size_in_gigabytes() {
 #[case::intel(Unavailable::IntelMac, Unusable::LocalIntelMac)]
 #[case::other_os(Unavailable::UnsupportedOs, Unusable::LocalUnsupportedOs)]
 #[case::download(Unavailable::NeedsDownload { size: 7 }, Unusable::LocalNeedsDownload { size: 7 })]
+#[case::apple_off(Unavailable::AppleIntelligenceOff, Unusable::LocalAppleOff)]
+#[case::apple_not_ready(Unavailable::AppleModelNotReady, Unusable::LocalAppleNotReady)]
+#[case::apple_unsupported(Unavailable::AppleUnsupported, Unusable::LocalAppleUnsupported)]
 fn unusable_from_unavailable_keeps_the_state(#[case] u: Unavailable, #[case] expected: Unusable) {
     assert_that!(Unusable::from(u)).is_equal_to(expected);
 }

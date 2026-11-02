@@ -482,6 +482,8 @@ pub enum LocalEngine {
     /// Le meilleur moteur disponible sur cette machine.
     #[default]
     Auto,
+    /// Apple's on-device model (Foundation Models, macOS 26+ with Apple Intelligence).
+    Apple,
     /// llama.cpp sur Apple silicon, avec le modèle Qwen3 téléchargé.
     Gguf,
     /// Rejoue un script (tests, builds de débogage).
@@ -493,7 +495,7 @@ pub enum LocalEngine {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct LocalAgentSettings {
-    /// Moteur qui répond (llama.cpp ou script rejoué).
+    /// The engine that answers (Apple's model, llama.cpp or a replayed script).
     pub engine: LocalEngine,
     /// Contexte du modèle (jetons).
     pub context: u32,

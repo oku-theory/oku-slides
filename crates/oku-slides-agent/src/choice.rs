@@ -5,7 +5,8 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
 
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::config::AgentPreset;
@@ -17,11 +18,15 @@ use oku_slides_platform::local_agent::{
 use oku_slides_platform::models::DownloadErrorKind;
 use oku_slides_session::{AgentPresetView, AgentsView, LocalFailure, LocalModelView, Platform};
 
-use crate::command_error::{CommandError, UnknownAgentSnafu};
-use crate::error::Unusable;
+use crate::error::{Reason, Unusable};
 use crate::model_download::{DownloadState, ModelDownload, percent};
 use crate::session_model::Offered;
 use crate::{Launch, Link};
+
+#[path = "choice_fallback.rs"]
+pub(crate) mod choice_fallback;
+
+use choice_fallback::Fallback;
 
 /// Pourquoi un agent ne peut pas être choisi.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,12 +46,22 @@ pub(crate) enum ModelRefusal {
     NotSaved,
 }
 
+/// The selected agent and, while the local agent stands in for it, the fallback.
+#[derive(Debug)]
+struct Active {
+    /// The selected agent (an `[agent.presets]` key): never the fallback's.
+    id: String,
+    fallback: Option<Fallback>,
+    /// The wait of the fallback left to retry the selected agent; a failed retry doubles it.
+    retrying: Option<Duration>,
+}
+
 /// L'agent actif de l'app (clé de `[agent.presets]`) et ce qui en dépend.
 #[derive(Debug)]
 pub(crate) struct AgentChoice {
     platform: Platform,
     link: Link,
-    active: Mutex<String>,
+    active: Mutex<Active>,
     /// The model asked of each preset's sessions, by preset id; seeded from the settings.
     ///
     /// Taken after `active`, never before.
@@ -65,7 +80,11 @@ impl AgentChoice {
         Self {
             platform: platform.clone(),
             link,
-            active: Mutex::new(platform.settings.agent.selected().to_owned()),
+            active: Mutex::new(Active {
+                id: platform.settings.agent.selected().to_owned(),
+                fallback: None,
+                retrying: None,
+            }),
             models: Mutex::new(models),
             saving: Mutex::new(()),
             download: ModelDownload::default(),
@@ -89,36 +108,83 @@ impl AgentChoice {
 
     /// L'agent choisi (clé de `[agent.presets]`).
     pub(crate) fn active(&self) -> String {
-        self.active.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        self.lock_active().id.clone()
+    }
+
+    fn lock_active(&self) -> MutexGuard<'_, Active> {
+        self.active.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Pourquoi l'agent choisi est inutilisable, localisé ; `None` s'il semble utilisable.
     ///
-    /// Son programme introuvable (chemin, ou nom cherché dans `PATH`) ; pour l'agent intégré,
-    /// l'état du moteur local (modèle à télécharger, machine non prise en charge) ; sinon
-    /// l'échec récent de son dernier lancement. Peut bloquer : lit le disque.
+    /// See [`AgentChoice::main_reason`]. Peut bloquer : lit le disque.
     pub(crate) fn availability(&self) -> Option<String> {
-        let l = self.platform.live_localizer.current();
-        let active = self.active();
+        self.main_reason().map(|r| r.localize(&self.platform.live_localizer.current()))
+    }
+
+    /// Why the selected agent is unusable; `None` if it seems usable.
+    ///
+    /// Its program not found (path, or name looked up in `PATH`); for the built-in agent, the
+    /// local engine's state (model to download, machine not supported); else the recent failure
+    /// of its last launch, the one kept at the switch while the local agent stands in for it
+    /// (recent for the fallback's wait, see `choice_fallback`).
+    /// May block: reads the disk.
+    pub(crate) fn main_reason(&self) -> Option<Reason> {
+        let (active, fallback) = {
+            let a = self.lock_active();
+            (a.id.clone(), a.fallback.as_ref().map(|f| (f.main_failure.clone(), f.wait)))
+        };
         let Some(preset) = self.platform.settings.agent.preset(&active) else {
             // `check` ne laisse choisir qu'un agent de la liste, vérifiée au chargement.
             tracing::error!(active, "agent actif absent des réglages");
-            return Some(CommandError::from(UnknownAgentSnafu { id: active }.build()).localize(&l));
+            return Some(Reason::UnknownAgent { id: active });
+        };
+        let failure = || match &fallback {
+            // The link runs the local agent: its failure is not the selected agent's.
+            Some((kept, wait)) => kept.as_ref().filter(|(_, at)| at.elapsed() < *wait).map(|(u, _)| u.clone()),
+            None => self.link.failure(),
         };
         if preset.builtin.is_some() {
-            if self.platform.program.is_none() {
-                return Some(Unusable::NoProgram.localize(&l));
-            }
-            return match local_engine(&self.platform.settings, &self.platform.storage) {
-                Err(unavailable) => Some(Unusable::from(unavailable).localize(&l)),
-                Ok(_) => self.link.failure().map(|u| u.localize(&l)),
-            };
+            return self.builtin_reason(self.link.failure().as_ref()).map(Reason::from);
         }
         let path = self.platform.program_path.get();
         if find_program(&self.platform.storage, Path::new(&preset.command), path).is_none() {
-            return Some(Unusable::NotFound { command: preset.command.clone() }.localize(&l));
+            return Some(Unusable::NotFound { command: preset.command.clone() }.into());
         }
-        self.link.failure().map(|u| u.localize(&l))
+        failure().map(Reason::from)
+    }
+
+    /// Why the built-in agent cannot run: no app binary, the engine's state, else `failure`.
+    ///
+    /// May block: reads the disk.
+    fn builtin_reason(&self, failure: Option<&Unusable>) -> Option<Unusable> {
+        if self.platform.program.is_none() {
+            return Some(Unusable::NoProgram);
+        }
+        match local_engine(&self.platform.settings, &self.platform.storage) {
+            Err(unavailable) => Some(Unusable::from(unavailable)),
+            Ok(_) => failure.cloned(),
+        }
+    }
+
+    /// The fallback preset (the first built-in one) and why it cannot run, `None` if it can.
+    ///
+    /// `None` when the selected agent is itself built-in, when no preset is, or outside the app
+    /// (no app binary to relaunch: tests, tools). Its launch failure counts only while the link
+    /// runs it. May block: reads the disk.
+    pub(crate) fn local_check(&self) -> Option<(String, Option<Unusable>)> {
+        self.platform.program.as_ref()?;
+        let agent = &self.platform.settings.agent;
+        let (active, standing) = {
+            let a = self.lock_active();
+            (a.id.clone(), a.fallback.is_some())
+        };
+        if agent.preset(&active).is_none_or(|p| p.builtin.is_some()) {
+            return None;
+        }
+        let (id, _) = agent.presets().find(|(_, p)| p.builtin.is_some())?;
+        let failure = if standing { self.link.failure() } else { None };
+        Some((id.to_owned(), self.builtin_reason(failure.as_ref())))
     }
 
     /// Ce que la boîte montre du modèle local : `None` sauf pour l'agent intégré sans modèle.
@@ -127,6 +193,13 @@ impl AgentChoice {
     pub(crate) fn local_panel(&self) -> Option<LocalModelView> {
         let preset = self.platform.settings.agent.preset(&self.active())?;
         preset.builtin.as_ref()?;
+        self.local_model()
+    }
+
+    /// The local model's download state, whichever agent is selected; `None` if nothing is missing.
+    ///
+    /// May block: reads the disk.
+    pub(crate) fn local_model(&self) -> Option<LocalModelView> {
         let Err(Unavailable::NeedsDownload { size }) = local_engine(&self.platform.settings, &self.platform.storage)
         else {
             return None;
@@ -143,8 +216,12 @@ impl AgentChoice {
     /// Peut bloquer : lit le disque (état du modèle local).
     pub(crate) fn agents_view(&self) -> AgentsView {
         let agent = &self.platform.settings.agent;
-        let active = self.active();
-        let external = agent.preset(&active).is_some_and(|p| p.builtin.is_none());
+        let (active, standing) = {
+            let a = self.lock_active();
+            (a.id.clone(), a.fallback.is_some())
+        };
+        // While the local agent stands in, the link's sessions tell nothing of the selected agent's models.
+        let external = !standing && agent.preset(&active).is_some_and(|p| p.builtin.is_none());
         let models = if external { self.link.offered_models().view(self.chosen_model(&active)) } else { None };
         AgentsView {
             presets: agent.presets().map(|(id, p)| preset_view(id, p)).collect(),
@@ -194,9 +271,10 @@ impl AgentChoice {
         let (storage, file) = (&self.platform.storage, self.platform.settings.config_file());
         let key = format!("agent.presets.{id}.model");
         write_value(storage, &file, &key, &serde_json::Value::from(model)).map_err(Box::new)?;
-        let active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
+        let active = self.lock_active();
         self.models.lock().unwrap_or_else(PoisonError::into_inner).insert(id.to_owned(), model.to_owned());
-        if *active == id {
+        // While the local agent stands in, the model is asked once the selected agent is back.
+        if active.id == id && active.fallback.is_none() {
             self.link.set_wanted_model(Some(model.to_owned()));
         }
         Ok(())
@@ -207,12 +285,12 @@ impl AgentChoice {
         self.platform.live_localizer.current()
     }
 
-    /// Lance le téléchargement du modèle local ; faux si le panneau ne le propose pas.
+    /// Lance le téléchargement du modèle local ; faux s'il ne manque pas ou s'il tourne déjà.
     ///
     /// `on_change` est appelé à chaque pourcent et à la fin, sur le fil du téléchargement ;
     /// il ne l'est plus une fois le choix lâché. Peut bloquer : lit le disque.
     pub(crate) fn start_download(self: &Arc<Self>, on_change: impl Fn() + Send + 'static) -> bool {
-        if !matches!(self.local_panel(), Some(LocalModelView::NeedsDownload { .. } | LocalModelView::Failed { .. })) {
+        if !matches!(self.local_model(), Some(LocalModelView::NeedsDownload { .. } | LocalModelView::Failed { .. })) {
             return false;
         }
         let settings = &self.platform.settings;
@@ -260,22 +338,30 @@ impl AgentChoice {
         self.platform.settings.agent.preset(id).map(|p| preset_view(id, p))
     }
 
-    /// Bascule sur l'agent `id` ; rien si c'est déjà l'actif. Rapide : rien n'est écrit.
+    /// Switches to agent `id`; nothing if it is already the active one, served. Fast: nothing is written.
     ///
-    /// L'agent a été vérifié par [`AgentChoice::check`] ; inconnu ici, le refus est journalisé.
+    /// The agent was checked by [`AgentChoice::check`]; unknown here, the refusal is logged.
+    ///
+    /// A chosen agent ends any fallback, and the next prompt routes again: the selected agent
+    /// chosen again is retried at once; the fallback preset chosen keeps running, not relaunched.
     pub(crate) fn switch_to(&self, id: &str) {
-        let mut active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
-        if *active == id {
+        let mut active = self.lock_active();
+        let fallback = active.fallback.take();
+        active.retrying = None;
+        if active.id == id && fallback.is_none() {
             return;
         }
         let Some(preset) = self.platform.settings.agent.preset(id) else {
             tracing::error!(id, "agent absent des réglages : bascule refusée");
+            active.fallback = fallback;
             return;
         };
-        // The built-in agent offers no model choice: none is asked of it.
-        let model = preset.builtin.is_none().then(|| self.chosen_model(id)).flatten();
-        self.link.switch(id, Self::launch_of(preset, &self.platform), model);
-        id.clone_into(&mut active);
+        if fallback.is_none_or(|f| f.preset != id) {
+            // The built-in agent offers no model choice: none is asked of it.
+            let model = preset.builtin.is_none().then(|| self.chosen_model(id)).flatten();
+            self.link.switch(id, Self::launch_of(preset, &self.platform), model);
+        }
+        id.clone_into(&mut active.id);
     }
 
     /// Écrit l'agent actif dans `agent.selected` de `config.toml`.
@@ -298,6 +384,24 @@ impl AgentChoice {
     #[cfg(test)]
     pub(crate) fn launch_epoch(&self) -> u64 {
         self.link.launch_epoch()
+    }
+
+    /// The preset the link launches next.
+    #[cfg(test)]
+    pub(crate) fn link_preset(&self) -> Option<String> {
+        self.link.preset()
+    }
+
+    /// The link's stderr tail, to write lines into.
+    #[cfg(test)]
+    pub(crate) fn link_stderr(&self) -> crate::stderr_tail::StderrTail {
+        self.link.stderr()
+    }
+
+    /// The link remembers a launch failure of its current agent, dated `at`.
+    #[cfg(test)]
+    pub(crate) fn link_failed(&self, unusable: Unusable, at: std::time::Instant) {
+        self.link.remember_at(self.link.launch_epoch(), Some(unusable), at);
     }
 
     /// Écrit `id` ; l'erreur est boxée : elle grossirait tout `Result` qui la porte.

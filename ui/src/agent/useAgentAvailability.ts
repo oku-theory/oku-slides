@@ -1,6 +1,7 @@
 // La disponibilité de l'agent vue de la page. Elle est demandée à l'hôte quand le dialogue
 // d'import s'ouvre, et mise à jour par l'évènement `availability` (`onAvailability`
-// d'`AgentPanel`), qui arrive aussi de lui-même après un lancement raté.
+// d'`AgentPanel`), qui arrive aussi de lui-même après un lancement raté. The `fallback` event
+// (`onFallback`) tells whether the tab's turns run on the local agent standing in for it.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentApi } from "./AgentPanel";
@@ -11,6 +12,10 @@ interface AgentAvailability {
   unusable: string | null;
   /** À donner à `AgentPanel` : une disponibilité reçue de l'hôte. */
   onAvailability: (unusable: string | null) => void;
+  /** Why the selected agent cannot serve while the local agent stands in for it; `null`: it serves. */
+  fallback: string | null;
+  /** To give to `AgentPanel`: a fallback received from the host. */
+  onFallback: (reason: string | null) => void;
 }
 
 /** Suit la disponibilité de l'agent ; la redemande chaque fois que `asking` devient vrai. */
@@ -26,5 +31,7 @@ export function useAgentAvailability(
     if (asking) void latest.current.availability().catch((e) => console.warn(e));
   }, [asking]);
   const onAvailability = useCallback((u: string | null) => setUnusable(u), []);
-  return { unusable, onAvailability };
+  const [fallback, setFallback] = useState<string | null>(null);
+  const onFallback = useCallback((reason: string | null) => setFallback(reason), []);
+  return { unusable, onAvailability, fallback, onFallback };
 }

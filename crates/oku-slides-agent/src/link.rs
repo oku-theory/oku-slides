@@ -25,10 +25,11 @@ use tokio::sync::{Mutex, broadcast, oneshot, watch};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tokio_util::sync::CancellationToken;
 
-use crate::error::{AgentError, NoHttpSnafu, NotFoundSnafu, SpawnSnafu, StoppedSnafu, Unusable};
+use crate::error::{AgentError, NoHttpSnafu, NoProgramSnafu, NotFoundSnafu, SpawnSnafu, StoppedSnafu, Unusable};
 use crate::events::from_update;
 use crate::permission::choice;
 use crate::session_model::{ModelBoard, Offered, model_options};
+use crate::stderr_tail::{StderrTail, forward};
 use crate::usage_board::{UsageBoard, tells};
 use crate::{AgentEvent, Launch};
 
@@ -150,6 +151,8 @@ struct Inner {
     models: Arc<ModelBoard>,
     /// The cost the sessions told, by launch and session.
     usage: Arc<UsageBoard>,
+    /// The last lines of the agent's stderr, from its current launch.
+    stderr: StderrTail,
     /// Arrête la connexion courante quand `Inner` est lâché.
     shutdown: CancellationToken,
 }
@@ -193,6 +196,7 @@ impl Link {
                 routes: Routes::default(),
                 models: Arc::default(),
                 usage: Arc::default(),
+                stderr: StderrTail::new(oku_slides_platform::telemetry::home().map(str::to_owned)),
                 shutdown: CancellationToken::new(),
             }),
         }
@@ -241,6 +245,18 @@ impl Link {
         &self.inner.usage
     }
 
+    /// The last lines (at most 40) the agent wrote to stderr since its last launch, `~` for home.
+    #[must_use]
+    pub fn stderr_tail(&self) -> Vec<String> {
+        self.inner.stderr.lines()
+    }
+
+    /// The stderr tail itself, to write lines into.
+    #[cfg(test)]
+    pub(crate) fn stderr(&self) -> StderrTail {
+        self.inner.stderr.clone()
+    }
+
     /// Advances each time [`Link::offered_models`] may show something else.
     pub(crate) fn models_revision(&self) -> watch::Receiver<u64> {
         self.inner.models.subscribe()
@@ -278,9 +294,17 @@ impl Link {
     /// Programme non lançable ou agent sans MCP en HTTP, depuis moins de [`FAILURE_TTL`] ;
     /// jamais un arrêt, ni un programme introuvable (revérifié en direct par la pile).
     pub(crate) fn failure(&self) -> Option<Unusable> {
+        self.failure_at().map(|(unusable, _)| unusable)
+    }
+
+    /// As [`Link::failure`], with the time it happened: kept by a fallback across a switch.
+    pub(crate) fn failure_at(&self) -> Option<(Unusable, Instant)> {
         let epoch = self.launch_now().1;
         let failure = self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner);
-        failure.as_ref().filter(|f| f.epoch == epoch && f.at.elapsed() < FAILURE_TTL).map(|f| f.unusable.clone())
+        failure
+            .as_ref()
+            .filter(|f| f.epoch == epoch && f.at.elapsed() < FAILURE_TTL)
+            .map(|f| (f.unusable.clone(), f.at))
     }
 
     /// Oublie l'échec retenu : l'état de l'agent a changé depuis (modèle téléchargé).
@@ -300,10 +324,12 @@ impl Link {
         *self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner) = failure;
     }
 
-    /// Le lancement vivant, s'il y en a un ; `None` aussi pendant un lancement (verrou pris).
+    /// The live launch of the current agent, if any; `None` also during a launch (lock taken)
+    /// and right after a switch, before the old connection ends.
     pub(crate) fn current_generation(&self) -> Option<u64> {
+        let epoch = self.launch_now().1;
         let state = self.inner.state.try_lock().ok()?;
-        state.live.as_ref().filter(|l| !l.closed.is_cancelled()).map(|l| l.generation)
+        state.live.as_ref().filter(|l| !l.closed.is_cancelled() && l.epoch == epoch).map(|l| l.generation)
     }
 
     /// Dossier de travail d'une session sans document enregistré.
@@ -405,6 +431,10 @@ impl Link {
         stop: CancellationToken,
     ) -> Result<Live, AgentError> {
         let Launch { command, args, env, ready_within, path, .. } = launch;
+        // Presets are checked at load: only the built-in one without the app binary has no command.
+        if command.is_empty() {
+            return Err(NoProgramSnafu.build().into());
+        }
         let path = match path {
             // The login shell's `PATH` may still be resolving (a few seconds at most).
             Some(path) => match tokio::task::spawn_blocking(move || path.get().map(OsStr::to_owned)).await {
@@ -416,6 +446,8 @@ impl Link {
             },
             None => None,
         };
+        // A new launch: the previous agent's stderr says nothing of this one, even if it fails to spawn.
+        let launch_tail = self.inner.stderr.begin();
         let mut command_line = tokio::process::Command::new(&command);
         // With `PATH` set, the program is looked up in it too, not in the process's.
         if let Some(path) = &path {
@@ -426,7 +458,7 @@ impl Link {
             .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
             .map_err(|source| match source.kind() {
@@ -436,6 +468,11 @@ impl Link {
         let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
             return Err(StoppedSnafu { message: "no stdio".to_owned() }.build().into());
         };
+        // Every byte still reaches the app's stderr (tokio's: no runtime worker blocks on it);
+        // the tail keeps the last lines of this launch.
+        if let Some(stderr) = child.stderr.take() {
+            tokio::spawn(forward(stderr, tokio::io::stderr(), self.inner.stderr.clone(), launch_tail));
+        }
         tracing::info!(command = %command, generation, "agent lancé");
         let transport = crate::wire::transport(stdin.compat_write(), stdout.compat(), generation);
         let (ready_tx, ready_rx) = oneshot::channel();

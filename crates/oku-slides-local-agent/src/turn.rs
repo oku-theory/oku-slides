@@ -101,6 +101,29 @@ struct Turn<'a> {
     calls: usize,
 }
 
+/// The Route completion: the instructions, then one `key: summary` line per offered family.
+pub(crate) fn route_completion(messages: &[Message], offered: &[Family]) -> Completion {
+    let families: Vec<String> = offered.iter().map(|f| format!("{}: {}", f.key(), f.summary())).collect();
+    Completion {
+        step: Step::Route,
+        system: format!("{INSTRUCTIONS}\n{}", families.join("\n")),
+        messages: messages.to_vec(),
+        tools: vec![],
+        offered: offered.to_vec(),
+    }
+}
+
+/// The Act completion over the exposed `tools`.
+pub(crate) fn act_completion(tools: &[ToolSpec], messages: &[Message], offered: &[Family]) -> Completion {
+    Completion {
+        step: Step::Act,
+        system: INSTRUCTIONS.to_owned(),
+        messages: messages.to_vec(),
+        tools: tools.to_vec(),
+        offered: offered.to_vec(),
+    }
+}
+
 /// Joue un tour : routage, boucle d'outils bornée, puis rapport (sauf annulation).
 pub(crate) async fn run_turn(
     engine: &dyn Engine,
@@ -153,14 +176,7 @@ impl Turn<'_> {
 
     /// Demande une ou deux familles au moteur ; un essai de plus si la réponse n'en nomme aucune.
     async fn route(&self, messages: &[Message], offered: &[Family]) -> Result<Vec<Family>, Stop> {
-        let families: Vec<String> = offered.iter().map(|f| format!("{}: {}", f.key(), f.summary())).collect();
-        let completion = Completion {
-            step: Step::Route,
-            system: format!("{INSTRUCTIONS}\n{}", families.join("\n")),
-            messages: messages.to_vec(),
-            tools: vec![],
-            offered: offered.to_vec(),
-        };
+        let completion = route_completion(messages, offered);
         for _ in 0..2 {
             self.check_cancel()?;
             if let Reply::Text(text) = self.engine.complete(&completion, self.cancel).await? {
@@ -183,13 +199,7 @@ impl Turn<'_> {
         let mut repairs = 0;
         for _ in 0..MAX_CALLS {
             self.check_cancel()?;
-            let completion = Completion {
-                step: Step::Act,
-                system: INSTRUCTIONS.to_owned(),
-                messages: messages.clone(),
-                tools: tools.clone(),
-                offered: offered.clone(),
-            };
+            let completion = act_completion(&tools, &messages, &offered);
             let (name, result) = match self.engine.complete(&completion, self.cancel).await? {
                 Reply::Text(text) => {
                     self.updates.note(&text);

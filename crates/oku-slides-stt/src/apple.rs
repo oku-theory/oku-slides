@@ -16,6 +16,7 @@ type Free = extern "C" fn(*mut c_void);
 
 unsafe extern "C" {
     fn oku_speech_supported() -> bool;
+    fn oku_speech_microphone() -> i32;
     fn oku_speech_availability(locale: *const c_char) -> i32;
     fn oku_speech_install(locale: *const c_char, ctx: *mut c_void, cb: Callback, free: Free);
     fn oku_speech_start(
@@ -62,6 +63,12 @@ extern "C" fn free_ctx(ctx: *mut c_void) {
 fn context() -> (*mut c_void, mpsc::Receiver<Event>) {
     let (tx, rx) = mpsc::channel();
     (Box::into_raw(Box::new(tx)).cast::<c_void>(), rx)
+}
+
+/// The bridge's microphone permission code (see `Microphone::from_code`); never asks.
+pub(crate) fn microphone_code() -> i32 {
+    // SAFETY: no argument, no shared state; `AVCaptureDevice.authorizationStatus` only reads.
+    unsafe { oku_speech_microphone() }
 }
 
 /// Le moteur de dictée d'Apple.

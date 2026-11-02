@@ -97,7 +97,9 @@ e2e port="4872": install
     mkdir -p "$tmp/data"
     # Le journal du faux agent (`--log`) : les specs y lisent le résultat des appels MCP (220-import).
     log="$tmp/fake-agent.log"
-    printf '[agent]\nselected = "e2e"\n\n[agent.presets.e2e]\nname = "Faux"\ncommand = "%s"\nargs = ["--script", "%s", "--log", "%s"]\n\n[agent.presets.e2e-bis]\nname = "Faux bis"\ncommand = "%s"\nargs = ["--script", "%s"]\n' \
+    # The Gguf engine whatever the Mac: 210-settings-box downloads the local agent's model,
+    # which `auto` skips where Apple's model is ready.
+    printf '[agent]\nselected = "e2e"\n\n[agent.presets.e2e]\nname = "Faux"\ncommand = "%s"\nargs = ["--script", "%s", "--log", "%s"]\n\n[agent.presets.e2e-bis]\nname = "Faux bis"\ncommand = "%s"\nargs = ["--script", "%s"]\n\n[local_agent]\nengine = "gguf"\n' \
       "$bin/oku-slides-fake-agent" "$PWD/fixtures/agent/e2e.json" "$log" "$bin/oku-slides-fake-agent" "$PWD/fixtures/agent/e2e-bis.json" > "$tmp/data/config.toml"
     "$bin/oku-slides" --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port "$port" &
     server=$!

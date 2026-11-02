@@ -331,6 +331,15 @@ impl TabSession {
         Ok(out)
     }
 
+    /// The tab's last render error, then its last import error, each on one line; blocking.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the tab is unknown to the host.
+    pub fn last_errors(&self) -> crate::Result<(Option<String>, Option<String>)> {
+        self.with(|s| (s.last_render_error().map(str::to_owned), s.last_import_error().map(str::to_owned)))
+    }
+
     /// Runs `f` on the tab's session; blocking (lock), so off the async thread.
     ///
     /// # Errors

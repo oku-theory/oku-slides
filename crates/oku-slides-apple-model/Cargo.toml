@@ -1,0 +1,24 @@
+[package]
+name = "oku-slides-apple-model"
+description = "Swift bridge to Apple's on-device language model (Foundation Models, macOS 26+), weak-linked."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+snafu.workspace = true
+tokio-util.workspace = true
+
+# macOS only: elsewhere the swift-rs library linked by the build script leaves unresolved
+# Swift runtime symbols (LNK2019 on Windows).
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+speculoos.workspace = true
+rstest.workspace = true
+
+[lints]
+workspace = true

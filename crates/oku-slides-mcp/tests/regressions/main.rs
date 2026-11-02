@@ -16,3 +16,4 @@ mod issue_1144_set_setting_dictation;
 mod issue_1171_asset_unknown_agent;
 mod issue_1191_open_claim_release;
 mod issue_1213_agent_api_headers;
+mod issue_1462_diagnose_isolation;

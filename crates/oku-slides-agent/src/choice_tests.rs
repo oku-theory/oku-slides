@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use agent_client_protocol::schema::v1::SessionId;
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_platform::config::{AgentPreset, AgentSettings, Builtin};
-use oku_slides_platform::local_agent::{AGENT_MODEL_SIZE, Target, Unavailable, agent_model_dir};
+use oku_slides_platform::config::{AgentPreset, AgentSettings, Builtin, LocalEngine};
+use oku_slides_platform::local_agent::{AGENT_MODEL_SIZE, Target, Unavailable, agent_model_dir, local_engine};
 use oku_slides_session::{AgentModelsView, AgentPresetView, LocalModelView, Platform, Settings};
 use speculoos::prelude::*;
 
@@ -19,6 +19,8 @@ fn platform(data: &std::path::Path, program: Option<PathBuf>) -> Platform {
     settings.paths.decks = Some(data.join("decks"));
     settings.agent.select("local").unwrap_or_else(|e| panic!("agent : {e}"));
     settings.i18n.locale = Some("fr".into());
+    // Gguf, not auto: Apple's model, ready on some test Macs, would hide the download.
+    settings.local_agent.engine = LocalEngine::Gguf;
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     match program {
         Some(p) => platform.with_program(p),
@@ -142,6 +144,31 @@ fn local_panel_local_without_model_offers_the_download_on_apple_silicon() {
         _ => None,
     };
     assert_that!(choice(&platform).local_panel()).is_equal_to(expected);
+}
+
+/// The local agent on Apple's engine, in `data`, with an app binary.
+fn apple_platform(data: &std::path::Path) -> Platform {
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("settings: {e}"));
+    settings.paths.data = Some(data.to_path_buf());
+    settings.paths.decks = Some(data.join("decks"));
+    settings.agent.select("local").unwrap_or_else(|e| panic!("agent: {e}"));
+    settings.i18n.locale = Some("fr".into());
+    settings.local_agent.engine = LocalEngine::Apple;
+    Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")).with_program(PathBuf::from("/app"))
+}
+
+#[test]
+fn local_panel_apple_engine_offers_no_download() {
+    let dir = tempfile::tempdir().unwrap();
+    assert_that!(choice(&apple_platform(dir.path())).local_panel()).is_none();
+}
+
+#[test]
+fn availability_apple_engine_says_local_engine_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let platform = apple_platform(dir.path());
+    let expected = local_engine(&platform.settings, &platform.storage).err().map(|u| Unusable::from(u).localize(&fr()));
+    assert_that!(choice(&platform).availability()).is_equal_to(expected);
 }
 
 /// Une plateforme sur `data` à deux agents, `faux` (choisi) et `bis` ; `locked` : choix imposé.

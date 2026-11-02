@@ -1,4 +1,4 @@
-//! Erreurs de l'agent : introuvable, sans HTTP, arrêté, requête refusée.
+//! Agent errors: not found, no app binary, no HTTP, stopped, request refused.
 
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::local_agent::Unavailable;
@@ -13,6 +13,8 @@ pub struct AgentError(pub(crate) AgentInner);
 pub(crate) enum AgentInner {
     #[snafu(display("agent command not found: {command}"))]
     NotFound { command: String, source: std::io::Error, backtrace: Backtrace },
+    #[snafu(display("built-in agent without the app binary to run"))]
+    NoProgram { backtrace: Backtrace },
     #[snafu(display("agent could not start: {command}"))]
     Spawn { command: String, source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("the agent cannot reach MCP servers over HTTP"))]
@@ -37,6 +39,7 @@ impl AgentError {
             AgentInner::NotFound { command, .. } => Some(Unusable::NotFound { command: command.clone() }),
             AgentInner::Spawn { command, .. } => Some(Unusable::Spawn { command: command.clone() }),
             AgentInner::NoHttp { .. } => Some(Unusable::NoHttp),
+            AgentInner::NoProgram { .. } => Some(Unusable::NoProgram),
             AgentInner::Stopped { .. } | AgentInner::Request { .. } => None,
         }
     }
@@ -61,6 +64,12 @@ pub(crate) enum Unusable {
     LocalIntelMac,
     /// Agent local : pas encore disponible sur ce système.
     LocalUnsupportedOs,
+    /// Local agent: Apple Intelligence is turned off.
+    LocalAppleOff,
+    /// Local agent: Apple's model is still getting ready.
+    LocalAppleNotReady,
+    /// Local agent: Apple's model cannot run on this Mac (device or macOS).
+    LocalAppleUnsupported,
 }
 
 impl From<Unavailable> for Unusable {
@@ -69,6 +78,9 @@ impl From<Unavailable> for Unusable {
             Unavailable::IntelMac => Self::LocalIntelMac,
             Unavailable::UnsupportedOs => Self::LocalUnsupportedOs,
             Unavailable::NeedsDownload { size } => Self::LocalNeedsDownload { size },
+            Unavailable::AppleIntelligenceOff => Self::LocalAppleOff,
+            Unavailable::AppleModelNotReady => Self::LocalAppleNotReady,
+            Unavailable::AppleUnsupported => Self::LocalAppleUnsupported,
         }
     }
 }
@@ -86,6 +98,36 @@ impl Localize for Unusable {
             ),
             Self::LocalIntelMac => l.tr("agent-local-intel-mac"),
             Self::LocalUnsupportedOs => l.tr("agent-local-unsupported-os"),
+            Self::LocalAppleOff => l.tr("agent-local-apple-off"),
+            Self::LocalAppleNotReady => l.tr("agent-local-apple-not-ready"),
+            Self::LocalAppleUnsupported => l.tr("agent-local-apple-unsupported"),
+        }
+    }
+}
+
+/// Why the selected agent cannot serve, localized at each use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Reason {
+    /// One of the reasons an agent is unusable.
+    Unusable(Unusable),
+    /// Its preset is missing from the settings (checked at load: logged as a bug).
+    UnknownAgent { id: String },
+}
+
+impl From<Unusable> for Reason {
+    fn from(unusable: Unusable) -> Self {
+        Self::Unusable(unusable)
+    }
+}
+
+impl Localize for Reason {
+    fn localize(&self, l: &Localizer) -> String {
+        match self {
+            Self::Unusable(u) => u.localize(l),
+            Self::UnknownAgent { id } => {
+                let e = crate::command_error::UnknownAgentSnafu { id: id.clone() }.build();
+                crate::command_error::CommandError::from(e).localize(l)
+            }
         }
     }
 }
@@ -96,6 +138,7 @@ impl Localize for AgentError {
             AgentInner::NotFound { command, .. } => Unusable::NotFound { command: command.clone() }.localize(l),
             AgentInner::Spawn { command, .. } => Unusable::Spawn { command: command.clone() }.localize(l),
             AgentInner::NoHttp { .. } => Unusable::NoHttp.localize(l),
+            AgentInner::NoProgram { .. } => Unusable::NoProgram.localize(l),
             AgentInner::Stopped { .. } => l.tr("agent-stopped"),
             AgentInner::Request { message, .. } => l.tr_with("agent-failed", &[("message", message.as_str().into())]),
         }

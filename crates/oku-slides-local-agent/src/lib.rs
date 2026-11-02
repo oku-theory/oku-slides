@@ -6,6 +6,11 @@
 //! il n'agit que par les outils MCP de l'onglet, routés par familles (`families`).
 
 mod acp;
+mod apple;
+mod apple_prompt;
+mod apple_reply;
+mod apple_schema;
+mod apple_steps;
 #[cfg_attr(
     all(not(test), not(all(target_os = "macos", target_arch = "aarch64"))),
     expect(dead_code, reason = "lu par le moteur Gguf, sur Apple silicon seulement")
@@ -15,6 +20,8 @@ mod compact;
 mod engine;
 mod entry;
 mod error;
+#[cfg(test)]
+mod eval_tests;
 #[cfg(debug_assertions)]
 mod fake;
 mod families;
@@ -28,6 +35,8 @@ mod prompt;
 )]
 mod reply;
 mod sessions;
+#[cfg(test)]
+mod test_tools;
 mod tool_error;
 mod turn;
 

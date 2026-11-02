@@ -181,6 +181,7 @@ const DECK_TOOLS: &[&str] = &[
     "chart_kind",
     "deck_outline",
     "delete_pack",
+    "diagnose",
     "download_agent_model",
     "download_dictation_model",
     "edit_theme",
@@ -236,6 +237,7 @@ const PACK_TOOLS: &[&str] = &[
     "cancel_agent_model_download",
     "cancel_dictation_download",
     "deck_outline",
+    "diagnose",
     "download_agent_model",
     "download_dictation_model",
     "duplicate_widget",
@@ -280,6 +282,7 @@ const THEME_TOOLS: &[&str] = &[
     "cancel_agent_model_download",
     "cancel_dictation_download",
     "deck_outline",
+    "diagnose",
     "download_agent_model",
     "download_dictation_model",
     "focus",
@@ -344,6 +347,17 @@ fn list_for_help_is_the_deck_tools_without_usage() {
     let expected: Vec<String> =
         DECK_TOOLS.iter().filter(|n| !matches!(**n, "usage" | "show_usage")).map(|n| (*n).to_owned()).collect();
     assert_that!(names).is_equal_to(expected);
+}
+
+#[rstest]
+#[case::deck(DocumentKind::Deck)]
+#[case::help(DocumentKind::Help)]
+#[case::pack(DocumentKind::Pack)]
+#[case::theme(DocumentKind::Theme)]
+fn list_for_diagnose_is_listed_with_no_property(#[case] kind: DocumentKind) {
+    let tool = list_for(kind).into_iter().find(|t| t.name == "diagnose").unwrap();
+    let schema = serde_json::to_value(&tool.input_schema).unwrap();
+    assert_that!(schema["properties"].as_object().map_or(0, serde_json::Map::len)).is_equal_to(0);
 }
 
 /// Every tool is listed somewhere: no table entry is dead.

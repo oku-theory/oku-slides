@@ -53,6 +53,8 @@ impl ToolServer {
         let mut bytes = [0u8; 32];
         getrandom::fill(&mut bytes).context(TokenSnafu)?;
         let token = hex::encode(bytes);
+        // Agents may print their environment or headers: diagnosis masks the token.
+        oku_slides_platform::telemetry::register_secret(&token);
         let limits = tools.limits;
         let state = Arc::new(McpAppState {
             session_store: Arc::new(InMemorySessionStore::new()),

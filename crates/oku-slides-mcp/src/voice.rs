@@ -4,6 +4,8 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_session::{AgentPresetView, ModelView, VoiceEvent, VoiceView};
 use snafu::{Backtrace, Snafu};
 
+use crate::Diagnosis;
+
 /// Qui demande un changement de la dictée ou de l'agent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Origin {
@@ -174,7 +176,7 @@ impl Localize for VoiceError {
 
 /// Implémenter ce trait pour brancher la dictée et l'agent sur la boîte.
 ///
-/// Les trois méthodes peuvent bloquer (disque) : jamais sur le fil async.
+/// Every method may block (disk): never call one on the async thread.
 pub trait VoicePort: Send + Sync + std::fmt::Debug {
     /// L'état à montrer.
     fn view(&self) -> VoiceView;
@@ -190,6 +192,8 @@ pub trait VoicePort: Send + Sync + std::fmt::Debug {
     ///
     /// Fails if the new check refuses the request or if the setting cannot be saved.
     fn apply(&self, event: VoiceEvent, origin: Origin) -> Result<VoiceApplied, VoiceError>;
+    /// The selected agent and the dictation, for the `diagnose` tool; text redacted (`~` for home).
+    fn diagnosis(&self) -> Diagnosis;
 }
 
 /// Un port sans dictée ni agent, pour les tests qui n'y touchent pas.
@@ -207,6 +211,9 @@ impl VoicePort for NoVoice {
     }
     fn apply(&self, _: VoiceEvent, _: Origin) -> Result<VoiceApplied, VoiceError> {
         Err(VoiceError::new(VoiceErrorKind::NoDictation))
+    }
+    fn diagnosis(&self) -> Diagnosis {
+        Diagnosis::default()
     }
 }
 

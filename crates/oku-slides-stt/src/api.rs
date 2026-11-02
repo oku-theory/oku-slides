@@ -173,6 +173,10 @@ impl ApiTranscriber {
             }
             headers.insert(name, sent);
         }
+        // Agents inherit the environment and may print it: diagnosis masks these values.
+        for secret in &secrets {
+            oku_slides_platform::telemetry::register_secret(secret);
+        }
         let mut http = reqwest::Client::builder()
             .default_headers(headers)
             .redirect(reqwest::redirect::Policy::none())

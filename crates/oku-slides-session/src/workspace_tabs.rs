@@ -377,6 +377,17 @@ impl Workspace {
         Ok(self.pending(Some(window), opening, TabPlace::Replace(active)))
     }
 
+    /// A failed import becomes the last import error of the tab it was started from.
+    ///
+    /// That tab is the window's active one, which an import replaces only once built.
+    /// Takes the tab's session: call it with no workspace guard held.
+    pub(super) fn note_failed_import(ws: &Mutex<Self>, pending: &Pending, error: &crate::SessionError) {
+        let (Opening::Import(_), TabPlace::Replace(from)) = (&pending.opening, &pending.place) else { return };
+        if let Err(e) = Self::with_quiet(ws, from, |s| s.note_import_error(error)).0 {
+            tracing::warn!(tab = %from, error = %e.one_line(), "import error not recorded");
+        }
+    }
+
     /// Ouvre l'aide de `window` : son onglet s'il existe déjà (au thème du
     /// deck d'où on vient), sinon un nouvel onglet.
     pub(super) fn open_help(ws: &Mutex<Self>, mut w: MutexGuard<'_, Self>, window: String) -> Result<Step> {

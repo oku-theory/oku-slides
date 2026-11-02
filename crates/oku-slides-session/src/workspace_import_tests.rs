@@ -197,3 +197,14 @@ fn import_tab_retrofit_has_no_witness_even_with_soffice_set() {
     import_tab(&ws, &pptx_fixture(data.path(), "minimal"), target, false).unwrap();
     assert_that!(witness_of(&ws, "t-2")).is_equal_to((None, None));
 }
+
+#[test]
+fn import_tab_failed_import_is_the_last_import_error_of_the_active_tab() {
+    let data = fresh_dir("oku-slides-workspace-import-failed-");
+    let ws = workspace_on(data.path());
+    let pptx = data.path().join("broken.pptx");
+    std::fs::write(&pptx, b"not a zip").unwrap();
+    let err = import_tab(&ws, &pptx, json!({ "mode": "hifi" }), false).unwrap_err();
+    let recorded = Workspace::with_session(&ws, "t-1", |s| s.last_import_error().map(str::to_owned)).0.unwrap();
+    assert_that!(recorded).is_equal_to(Some(err.one_line()));
+}

@@ -1,9 +1,11 @@
-//! État du moteur de l'agent local de repli : machine, modèle téléchargé, réglages.
+//! The local fallback agent's engine state: machine, Apple's model, downloaded model, settings.
 //!
-//! [`local_engine`] est la seule décision : l'hôte et le processus fils s'y fient
-//! pour savoir si l'agent local peut tourner.
+//! [`local_engine`] is the one decision: the host and the child process both rely on it
+//! to know whether the local agent can run, and on which engine.
 
 use std::path::PathBuf;
+
+pub use oku_slides_apple_model::AppleModel;
 
 use crate::config::{LocalEngine, Settings};
 use crate::models::PinnedFile;
@@ -58,6 +60,8 @@ impl Target {
 /// Un moteur prêt à être lancé.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadyEngine {
+    /// Apple's on-device model, nothing to download.
+    Apple,
     /// llama.cpp avec ce fichier GGUF.
     Gguf {
         /// Chemin du fichier GGUF à charger.
@@ -80,41 +84,68 @@ pub enum Unavailable {
         /// Octets à télécharger.
         size: u64,
     },
+    /// Apple Intelligence is turned off in System Settings.
+    AppleIntelligenceOff,
+    /// Apple's model is still downloading or preparing.
+    AppleModelNotReady,
+    /// Apple's model cannot run here: device not eligible or macOS older than 26.
+    AppleUnsupported,
 }
 
-/// The engine for this setting, this machine and the model's state.
+/// The engine for this setting, this machine, Apple's model and the downloaded model.
+///
+/// `apple` is asked only when the engine is `auto` or `apple`, and not outside macOS.
+/// `auto` takes Apple's model when ready, else Gguf; on a machine without Gguf it gives
+/// Apple's reason when the user can fix it (turned off, not ready yet).
 ///
 /// # Errors
 ///
-/// On an Intel Mac or outside macOS, or if the model is not downloaded yet.
+/// When the chosen engine cannot run here, with its reason; nothing falls back silently.
 pub fn resolve(
     engine: LocalEngine,
     target: Target,
+    apple: impl FnOnce() -> AppleModel,
     installed: bool,
     model: PathBuf,
 ) -> Result<ReadyEngine, Unavailable> {
+    let gguf = || match target {
+        Target::IntelMac => Err(Unavailable::IntelMac),
+        Target::Other => Err(Unavailable::UnsupportedOs),
+        Target::AppleSilicon if !installed => Err(Unavailable::NeedsDownload { size: AGENT_MODEL_SIZE }),
+        Target::AppleSilicon => Ok(ReadyEngine::Gguf { model }),
+    };
     match engine {
         #[cfg(debug_assertions)]
         LocalEngine::Fake => Ok(ReadyEngine::Fake),
-        // Le lot 4 ajoute Apple : `auto` le préférera quand il est disponible.
-        LocalEngine::Auto | LocalEngine::Gguf => match target {
-            Target::IntelMac => Err(Unavailable::IntelMac),
-            Target::Other => Err(Unavailable::UnsupportedOs),
-            Target::AppleSilicon if !installed => Err(Unavailable::NeedsDownload { size: AGENT_MODEL_SIZE }),
-            Target::AppleSilicon => Ok(ReadyEngine::Gguf { model }),
+        LocalEngine::Gguf => gguf(),
+        _ if target == Target::Other => Err(Unavailable::UnsupportedOs),
+        LocalEngine::Apple => match apple() {
+            AppleModel::Ready => Ok(ReadyEngine::Apple),
+            AppleModel::IntelligenceOff => Err(Unavailable::AppleIntelligenceOff),
+            AppleModel::ModelNotReady => Err(Unavailable::AppleModelNotReady),
+            AppleModel::DeviceNotEligible | AppleModel::MacOsTooOld | AppleModel::Unknown => {
+                Err(Unavailable::AppleUnsupported)
+            }
+        },
+        LocalEngine::Auto => match (apple(), target) {
+            (AppleModel::Ready, _) => Ok(ReadyEngine::Apple),
+            (AppleModel::IntelligenceOff, Target::IntelMac) => Err(Unavailable::AppleIntelligenceOff),
+            (AppleModel::ModelNotReady, Target::IntelMac) => Err(Unavailable::AppleModelNotReady),
+            _ => gguf(),
         },
     }
 }
 
-/// The local agent's engine, from the settings and the model on disk.
+/// The local agent's engine, from the settings, Apple's model and the model on disk.
 ///
 /// # Errors
 ///
-/// Like [`resolve`]: unsupported machine or missing model.
+/// Like [`resolve`]: unsupported machine, Apple's model unavailable, or missing model.
 pub fn local_engine(settings: &Settings, storage: &Storage) -> Result<ReadyEngine, Unavailable> {
     let dir = agent_model_dir(settings);
     let installed = crate::models::is_complete(storage, &dir);
-    resolve(settings.local_agent.engine, Target::current(), installed, dir.join(AGENT_MODEL.name))
+    let model = dir.join(AGENT_MODEL.name);
+    resolve(settings.local_agent.engine, Target::current(), oku_slides_apple_model::availability, installed, model)
 }
 
 #[cfg(test)]

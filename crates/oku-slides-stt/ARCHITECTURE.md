@@ -34,7 +34,7 @@ does not parse is renamed `config.json.invalid-<secs>[-<n>]`; one it cannot read
 
 `listen_loop` (lib.rs): microphone (`audio.rs`) -> 16 kHz -> earshot (`vad.rs`,
 automatic stop) -> `Sink`: Whisper jobs, or the `Stream` of a continuous engine
-whose events `dictation_stream.rs` applies (`results.rs`).
+whose events `dictation_stream.rs` applies (`results.rs`). `microphone.rs`: `Stt::microphone` (bridge `oku_speech_microphone`, never asks; `Unknown` off macOS), `Stt::model_files` (missing, partial, complete) for diagnosis.
 Lossy numeric casts (sample counts, seconds, positions) live in `num.rs` (named like `oku_slides_core::num`), each with its reason.
 
 In automatic-language mode the API engine sends no language hint: its answer

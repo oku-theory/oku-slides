@@ -13,6 +13,8 @@
 
 mod a2ui_tools;
 mod app_tools;
+mod diagnose_tools;
+mod diagnosis;
 mod draft;
 mod edit_tools;
 mod error;
@@ -38,6 +40,7 @@ mod voice_tools;
 mod widget_tools;
 
 pub use app_tools::{InterfaceChange, PresentMode, SchemeChoice};
+pub use diagnosis::{AgentDiagnosis, Diagnosis, DictationDiagnosis};
 #[cfg(any(test, feature = "test-support"))]
 pub use draft::NoDrafts;
 pub use draft::{DraftPort, MAX_REQUEST_BYTES, Prefill};

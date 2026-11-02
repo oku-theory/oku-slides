@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use oku_slides_i18n::Localize;
 use oku_slides_mcp::{Origin, VoiceApplied, VoiceErrorKind, VoicePort};
 use oku_slides_platform::config::{AgentPreset, AgentSettings};
 use oku_slides_session::{DictationLanguage, DictationPatch, VoiceEvent};
@@ -412,4 +413,39 @@ fn dictation_event_without_stt_is_no_dictation() {
     let t = voice_without_stt();
     let r = t.voice.check(&VoiceEvent::CancelDictationDownload, &Origin::User);
     assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::NoDictation);
+}
+
+#[test]
+fn diagnosis_missing_agent_program_names_it_unusable() {
+    let t = build(false, |s| {
+        let missing = AgentPreset::new("Missing", "oku-no-such-program-t1449", vec![]);
+        s.agent = AgentSettings::new("gone", [("gone".to_owned(), missing)].into_iter().collect()).unwrap();
+    });
+    let agent = t.voice.diagnosis().agent;
+    assert_that!(agent.selected.as_str()).is_equal_to("gone");
+    assert_that!(agent.name.as_str()).is_equal_to("Missing");
+    assert_that!(agent.builtin).is_false();
+    let expected = crate::error::Unusable::NotFound { command: "oku-no-such-program-t1449".into() }
+        .localize(&oku_slides_i18n::Localizer::new(Some("fr")));
+    assert_that!(agent.unusable).is_equal_to(Some(expected));
+}
+
+#[test]
+fn diagnosis_without_dictation_is_null() {
+    let t = voice_without_stt();
+    let json = serde_json::to_value(t.voice.diagnosis()).unwrap();
+    assert_that!(json["dictation"].is_null()).is_true();
+}
+
+#[test]
+fn diagnosis_with_dictation_tells_engine_files_and_language() {
+    let t = voice_with_stt();
+    let dictation = t.voice.diagnosis().dictation.unwrap();
+    assert_that!(dictation.engine.as_str()).is_equal_to("turbo");
+    assert_that!(dictation.model.as_str()).is_equal_to("missing");
+    assert_that!(dictation.language.as_str()).is_equal_to("auto");
+    assert_that!(
+        ["granted", "denied", "restricted", "undetermined", "unknown"].contains(&dictation.microphone.as_str())
+    )
+    .is_true();
 }

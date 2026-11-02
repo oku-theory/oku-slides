@@ -50,4 +50,17 @@ describe("useAgentAvailability", () => {
     await act(async () => m.state().onAvailability(null));
     expect(m.state().unusable).toBeNull();
   });
+
+  test("useAgentAvailability starts without fallback", async () => {
+    const m = await mount(false);
+    expect(m.state().fallback).toBeNull();
+  });
+
+  test("useAgentAvailability keeps the last fallback received", async () => {
+    const m = await mount(false);
+    await act(async () => m.state().onFallback("Agent introuvable : npx."));
+    expect(m.state().fallback).toBe("Agent introuvable : npx.");
+    await act(async () => m.state().onFallback(null));
+    expect(m.state().fallback).toBeNull();
+  });
 });

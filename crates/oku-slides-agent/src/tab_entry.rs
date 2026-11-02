@@ -62,6 +62,8 @@ pub(crate) struct TabLink {
     /// Vers la tâche qui démarre les outils puis l'agent, et lui relaie les commandes.
     cmds: mpsc::UnboundedSender<Command>,
     status: Arc<Mutex<AgentState>>,
+    /// Why the tab's last turn ran on the local agent; `None`: on the selected one.
+    pub fallback: Arc<Mutex<Option<String>>>,
     /// Le brouillon de l'onglet, tenu pour toutes ses vues.
     draft: Arc<Mutex<Draft>>,
     /// La session de l'onglet : magasin des images collées.
@@ -134,6 +136,10 @@ impl TabLink {
     pub fn replay(&self, out: &mpsc::UnboundedSender<Out>) {
         let state = *self.status.lock().unwrap_or_else(PoisonError::into_inner);
         emit(out, "agent", &self.tab, &AgentEvent::Status { state });
+        let reason = self.fallback.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        if reason.is_some() {
+            emit(out, "agent", &self.tab, &AgentEvent::Fallback { reason });
+        }
         // Sous le verrou, comme `set_draft` : jamais un brouillon périmé diffusé après un plus récent.
         let draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
         let event = AgentEvent::Draft { text: draft.text.clone(), origin: None, images: draft.images.clone() };
@@ -178,6 +184,7 @@ impl TabEntry {
         let cancel = CancellationToken::new();
         let (cmds, rx) = mpsc::unbounded_channel();
         let status = Arc::new(Mutex::new(AgentState::Idle));
+        let fallback = Arc::new(Mutex::new(None));
         let closed = cancel.clone();
         let mcp = hub.subscribe();
         // Après l'abonnement du relais : la liste qu'envoie la relecture des fils n'est jamais perdue.
@@ -204,13 +211,24 @@ impl TabEntry {
             localizer: platform.live_localizer.clone(),
             turns: Turns::default(),
             status: status.clone(),
+            fallback: fallback.clone(),
             out,
             closed,
         };
         rt.spawn(agent.run(ports.settings, platform.clone(), cancel.clone(), rx, relay));
         let draft = Arc::new(Mutex::new(Draft::default()));
         Self {
-            link: TabLink { tab, hub, keeper, cmds, status, draft, session: tab_session, paste: Arc::default() },
+            link: TabLink {
+                tab,
+                hub,
+                keeper,
+                cmds,
+                status,
+                fallback,
+                draft,
+                session: tab_session,
+                paste: Arc::default(),
+            },
             cancel,
         }
     }
@@ -272,6 +290,7 @@ struct Relay {
     localizer: oku_slides_i18n::LiveLocalizer,
     turns: Turns,
     status: Arc<Mutex<AgentState>>,
+    fallback: Arc<Mutex<Option<String>>>,
     out: mpsc::UnboundedSender<Out>,
     closed: CancellationToken,
 }
@@ -287,6 +306,10 @@ impl Relay {
                 emit(&self.out, "agent", &self.tab, e);
             }
             AgentEvent::Availability { .. } => emit(&self.out, "agent", &self.tab, e),
+            AgentEvent::Fallback { reason } => {
+                reason.clone_into(&mut *self.fallback.lock().unwrap_or_else(PoisonError::into_inner));
+                emit(&self.out, "agent", &self.tab, e);
+            }
             _ => {}
         }
         // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).

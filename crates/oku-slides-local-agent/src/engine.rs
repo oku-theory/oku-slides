@@ -43,18 +43,10 @@ pub(crate) enum Message {
 
 /// Ce que l'on demande au moteur : instructions, conversation et outils exposés.
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    all(not(debug_assertions), not(all(target_os = "macos", target_arch = "aarch64"))),
-    expect(dead_code, reason = "lu par un moteur ; hors Apple silicon, seul le factice existe, en débogage")
-)]
 pub(crate) struct Completion {
     /// Étape servie.
     pub step: Step,
     /// Instructions système.
-    #[cfg_attr(
-        all(debug_assertions, not(test), not(all(target_os = "macos", target_arch = "aarch64"))),
-        expect(dead_code, reason = "lu par les vrais moteurs (Gguf, Apple), pas par le factice")
-    )]
     pub system: String,
     /// Conversation jusqu'ici.
     pub messages: Vec<Message>,
@@ -66,10 +58,6 @@ pub(crate) struct Completion {
 
 /// Réponse du modèle.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(
-    all(not(debug_assertions), not(test), not(all(target_os = "macos", target_arch = "aarch64"))),
-    expect(dead_code, reason = "construit par un moteur ; hors Apple silicon, seul le factice existe, en débogage")
-)]
 pub(crate) enum Reply {
     /// Texte libre.
     Text(String),

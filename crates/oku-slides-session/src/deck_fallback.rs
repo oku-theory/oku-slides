@@ -40,7 +40,16 @@ impl Session {
     /// Rend `deck` avec les widgets installés. Si un pack a fait échouer le
     /// rendu (délai, mémoire, arrêt du processus de rendu), il est écarté
     /// (voir `disable_faulty`) et le rendu refait une fois.
+    ///
+    /// Its outcome is the tab's last render error for diagnosis (`last_errors`).
     pub(crate) fn render_deck(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
+        let outcome = self.render_deck_once(deck);
+        self.note_render(&outcome);
+        outcome
+    }
+
+    /// [`Session::render_deck`] without recording its outcome.
+    fn render_deck_once(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
         self.probe_remaining();
         let layer = self.theme_layer(deck)?;
         self.open_deck_renderer()?;

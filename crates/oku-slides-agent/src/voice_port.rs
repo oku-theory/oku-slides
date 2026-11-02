@@ -12,7 +12,9 @@
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
 use oku_slides_i18n::Localizer;
-use oku_slides_mcp::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
+use oku_slides_mcp::{
+    ApiTarget, Checked, Diagnosis, DictationDiagnosis, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
+};
 use oku_slides_session::{
     ApiView, DICTATION_LANGUAGES, DictationLanguage, DictationPatch, DictationView, DownloadView, LocalModelView,
     ModelKind, ModelView, VoiceEvent, VoiceView,
@@ -27,6 +29,11 @@ use tokio::sync::watch;
 
 use crate::agent_switch::{AgentSwitch, PromptGuard, Requested, Switch};
 use crate::choice::{AgentChoice, ModelRefusal, Refusal};
+
+#[path = "fallback.rs"]
+mod fallback;
+
+pub(crate) use fallback::{TurnRoute, both_reasons};
 
 /// La réponse d'un changement d'agent demandé quand rien ne tournait, selon son issue.
 ///
@@ -94,6 +101,19 @@ fn dictation_view(s: &Status) -> DictationView {
             total: d.total,
         }),
         idle: s.state == State::Idle,
+    }
+}
+
+/// The dictation for the `diagnose` tool: microphone, engine, its files, language.
+///
+/// Reads the disk (model files) and the microphone permission, never asking it.
+fn dictation_diagnosis(stt: &Stt) -> DictationDiagnosis {
+    let status = stt.status();
+    DictationDiagnosis {
+        microphone: stt.microphone().id().to_owned(),
+        engine: status.config.model.id().to_owned(),
+        model: stt.model_files(&status).id().to_owned(),
+        language: status.config.language.clone().filter(|c| !c.is_empty()).unwrap_or_else(|| "auto".to_owned()),
     }
 }
 
@@ -352,11 +372,6 @@ impl AppVoice {
         self.choice.localizer()
     }
 
-    /// Pourquoi l'agent choisi est inutilisable, localisé. Peut bloquer : lit le disque.
-    pub(crate) fn availability(&self) -> Option<String> {
-        self.choice.availability()
-    }
-
     /// Lance le téléchargement du modèle de l'agent local (`apply(DownloadAgentModel)`).
     ///
     /// Chaque pourcent et la fin font avancer la révision : la boîte de chaque onglet se
@@ -481,7 +496,8 @@ impl AppVoice {
     fn user_select(&self, id: &str) -> Result<VoiceApplied, VoiceError> {
         {
             let mut state = self.switch.lock();
-            if self.choice.active() == id {
+            // Chosen again while the local agent stands in for it: retried below, at once.
+            if self.choice.active() == id && self.choice.fallback_reason().is_none() {
                 let had_pending = state.user_select();
                 drop(state);
                 if had_pending {
@@ -591,6 +607,10 @@ impl VoicePort for AppVoice {
             // Only the box sends it: no tool of the agent chooses its model.
             VoiceEvent::SelectAgentModel { id } => self.select_model(&id),
         }
+    }
+
+    fn diagnosis(&self) -> Diagnosis {
+        Diagnosis { agent: self.choice.diagnosis(), dictation: self.stt.as_ref().map(dictation_diagnosis) }
     }
 }
 

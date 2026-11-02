@@ -451,6 +451,7 @@ export default function App({
           onWidgetTouched={item.touched} say={say}
           onDraft={dictation.draft.onHost}
           onVoice={bumpVoiceSeq} onAvailability={agentAvailability.onAvailability}
+          fallback={agentAvailability.fallback} onFallback={agentAvailability.onFallback}
           undoTurn={snap.undo_turn} onUndoTurn={(turn) => void run(api.undoTurn(turn))}
         />
         {!snap.read_only && !agentDetached && <DictationDraft

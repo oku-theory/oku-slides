@@ -88,6 +88,20 @@ private func transcriber(_ locale: Locale) -> SpeechTranscriber {
     )
 }
 
+/// Microphone permission, never requested here: 0 undetermined, 1 restricted, 2 denied, 3 granted.
+///
+/// Same code table as `Microphone::from_code` in crates/oku-slides-stt/src/microphone.rs.
+@_cdecl("oku_speech_microphone")
+public func okuSpeechMicrophone() -> Int32 {
+    switch AVCaptureDevice.authorizationStatus(for: .audio) {
+    case .notDetermined: return 0
+    case .restricted: return 1
+    case .denied: return 2
+    case .authorized: return 3
+    @unknown default: return -1
+    }
+}
+
 @_cdecl("oku_speech_supported")
 public func okuSpeechSupported() -> Bool {
     if #available(macOS 26.0, *) {

@@ -698,6 +698,7 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .agent-thread { position: relative; z-index: 3; }
 .agent-thread-head { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-1); }
 .agent-thread-head > .caption { margin-right: auto; }
+.agent-thread-head > .agent-fallback { font-size: 12px; line-height: 16px; white-space: nowrap; color: var(--accent); background: var(--accent-fill); border-radius: var(--radius-sm); padding: 2px var(--space-2); }
 .agent-thread-head .token.ghost { width: 28px; height: 28px; }
 /* Le Markdown d'une réponse : des blocs serrés, à la taille de la carte. */
 .md > :first-child { margin-top: 0; }

@@ -1,49 +1,11 @@
 // A deck file written by another installation (330-guides): a second `oku-slides serve` on its own
 // data folder pins a pack it made, with a use guide, and saves a copy. Opened here, the pack is received.
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
-const { copyFileSync, mkdtempSync, rmSync } = require('node:fs');
+const { copyFileSync, mkdtempSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const net = require('node:net');
 const path = require('node:path');
-const { until, untilValue } = require('./until.cjs');
-
-const ROOT = path.resolve(__dirname, '..', '..', '..');
-/** The `oku-slides` binary `just e2e` built (its target dir, as the recipe reads it). */
-const BIN = path.resolve(ROOT, process.env.CARGO_TARGET_DIR ?? 'target', 'debug', 'oku-slides');
-
-/** A port nobody listens on. */
-const freePort = () => new Promise((resolve, reject) => {
-  const probe = net.createServer();
-  probe.once('error', reject);
-  probe.listen(0, '127.0.0.1', () => {
-    const { port } = probe.address();
-    probe.close(() => resolve(port));
-  });
-});
-
-/**
- * Starts a server on `port` with fresh data and deck folders, then returns `{ url, dir, stop }`.
- * `dir` holds the folders; `stop` kills the server and removes them.
- */
-async function startForeign(p, port) {
-  const dir = mkdtempSync(path.join(tmpdir(), 'oku-slides-e2e-foreign-'));
-  const env = { ...process.env, OKU_SLIDES_PATHS__DATA: path.join(dir, 'data'), OKU_SLIDES_PATHS__DECKS: path.join(dir, 'decks') };
-  delete env.OKU_SLIDES_AGENT__SELECTED;
-  const server = spawn(BIN, ['--fonts', path.join(ROOT, 'assets/fonts'), 'serve', path.join(ROOT, 'fixtures/roadmap.json'), '--ui', path.join(ROOT, 'ui/dist'), '--port', String(port)], { env, stdio: 'ignore' });
-  const url = `http://127.0.0.1:${port}/`;
-  const stop = () => {
-    server.kill();
-    rmSync(dir, { recursive: true, force: true });
-  };
-  try {
-    await until(p, () => fetch(url).then((r) => r.ok, () => false), `${url} : le second serveur ne répond pas`, 30_000);
-  } catch (e) {
-    stop();
-    throw e;
-  }
-  return { url, dir, stop };
-}
+const { untilValue } = require('./until.cjs');
+const { freePort, startServer } = require('./ownServer.cjs');
 
 /**
  * Writes `<foreign dir>/recu.oku-slides.pdf`: a deck pinning a pack named `name` whose use guide is
@@ -52,7 +14,7 @@ async function startForeign(p, port) {
 async function writeDeckBringingGuide(browser, name, guide) {
   const port = await freePort();
   const page = await browser.newPage();
-  const foreign = await startForeign(page, port);
+  const foreign = await startServer(page, port);
   try {
     const call = (endpoint, body) =>
       fetch(foreign.url + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());

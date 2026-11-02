@@ -22,6 +22,7 @@ import { createSlot } from "./agent/slot";
 import { routeStaged } from "./agent/surfaces";
 import { agentTarget } from "./agent/target";
 import { useDraft } from "./agent/useDraft";
+import { useAgentAvailability } from "./agent/useAgentAvailability";
 import { AttachButton } from "./agent/AttachButton";
 import { useAppearance } from "./useAppearance";
 import { bumpVoiceSeq } from "./voiceSeq";
@@ -164,6 +165,8 @@ export function AgentWindowFor({
   const { say, node: toastNode } = useToast();
 
   const draft = useDraft(host.agent.setDraft);
+  // Only its fallback badge: the import dialog, which asks for availability, is in the main window.
+  const availability = useAgentAvailability(host.agent, false);
   const pasted = usePastedImages(draft.state.images, host.agent.pasteImage, (m) => say(m, true));
   const insertOrKeep = async (text: string) => {
     const ok = await insertWithAck(transport, tab, text);
@@ -282,6 +285,8 @@ export function AgentWindowFor({
         onOpenHistory={NOOP}
         onDraft={draft.onHost}
         onVoice={bumpVoiceSeq}
+        fallback={availability.fallback}
+        onFallback={availability.onFallback}
         say={say}
         subscribe={host.subscribe}
         onAttach={attach}

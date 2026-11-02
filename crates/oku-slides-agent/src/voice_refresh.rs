@@ -53,8 +53,16 @@ pub(crate) fn spawn(rt: &Handle, voice: Weak<AppVoice>, table: Weak<Mutex<Table>
                 let view = voice.view();
                 let panel = VoicePanel::build(&view, &voice.localizer());
                 let availability = voice.availability();
+                let standing = voice.standing_reason().is_some();
                 let links = table.lock().unwrap_or_else(PoisonError::into_inner).links();
                 for (tab, link) in links {
+                    // The fallback ended (back to the selected agent, or another chosen): no
+                    // tab's badge stays, even one with no turn since.
+                    let ended =
+                        !standing && link.fallback.lock().unwrap_or_else(PoisonError::into_inner).take().is_some();
+                    if ended {
+                        emit(&out, "agent", &tab, &AgentEvent::Fallback { reason: None });
+                    }
                     link.hub.refresh_settings_with(&panel);
                     if view.dictation != previous.dictation {
                         emit(&out, "agent", &tab, &AgentEvent::Voice);

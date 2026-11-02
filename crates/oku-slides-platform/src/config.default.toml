@@ -244,8 +244,9 @@ name = "Local"
 builtin = "local"
 
 [local_agent]
-# Moteur de l'agent local de repli : "auto" (le meilleur disponible) ou "gguf"
-# (llama.cpp sur Apple silicon, modèle Qwen3 4B téléchargé depuis le panneau de l'agent).
+# The local fallback agent's engine: "auto" (Apple's model when ready, else gguf), "apple"
+# (Apple's on-device model, macOS 26+ with Apple Intelligence on, nothing to download) or "gguf"
+# (llama.cpp on Apple silicon, Qwen3 4B model downloaded from the agent panel).
 engine = "auto"
 # Contexte du modèle (jetons), température, longueur maximale d'une réponse (jetons).
 context = 16384

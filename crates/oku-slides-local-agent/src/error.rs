@@ -35,6 +35,8 @@ pub(crate) enum Inner {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     #[snafu(display("cannot load the local model {}: {message}", path.display()))]
     Model { path: PathBuf, message: String, backtrace: Backtrace },
+    #[snafu(display("invalid local agent settings: {message}"))]
+    Settings { message: String, backtrace: Backtrace },
     #[snafu(display("cannot start the async runtime"))]
     Runtime { source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("ACP connection failed"))]

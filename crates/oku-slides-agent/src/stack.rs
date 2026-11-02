@@ -430,9 +430,9 @@ impl Stack {
     /// Lance le tour de fine-tuning de l'onglet importé `tab` (voir [`AgentCommand::Tune`]).
     ///
     /// Pour l'hôte, quand un import demande le fine-tuning ; démarre l'agent de l'onglet.
-    /// Refusé si l'agent est inutilisable ([`Stack::availability`]) : rien n'est lancé, et
-    /// l'onglet reçoit la raison (`AgentEvent::Availability`), comme après un lancement raté.
-    /// Peut bloquer (lit le disque) : à appeler hors des fils du runtime.
+    /// Refused only if neither the selected agent nor the local one can run (a model download
+    /// included): nothing starts, and the tab gets the reason (`AgentEvent::Availability`), as
+    /// after a failed launch. Peut bloquer (lit le disque) : à appeler hors des fils du runtime.
     pub fn tune(&self, tab: &str) {
         if let Some(reason) = self.availability() {
             tracing::warn!(tab, reason, "fine-tuning de l'import non lancé : agent inutilisable");
@@ -444,12 +444,14 @@ impl Stack {
         }
     }
 
-    /// Pourquoi l'agent choisi est inutilisable, localisé ; `None` s'il semble utilisable.
+    /// Why no agent can serve a turn, localized; `None` if one seems usable.
     ///
-    /// Son programme introuvable, l'état du moteur local pour l'agent intégré, sinon l'échec
-    /// récent de son dernier lancement. Peut bloquer : lit le disque.
+    /// The selected agent's reason (its program not found, the local engine's state for the
+    /// built-in agent, else the recent failure of its last launch), and the local agent's when
+    /// it cannot stand in for it either (a model to download counts as able). May block: reads
+    /// the disk.
     pub fn availability(&self) -> Option<String> {
-        self.choice.availability()
+        self.voice.availability()
     }
 
     /// Le deck de l'onglet a changé depuis l'interface (voir

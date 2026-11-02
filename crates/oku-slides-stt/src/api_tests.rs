@@ -38,6 +38,15 @@ fn transcriber(url: String) -> ApiTranscriber {
 }
 
 #[test]
+fn transcriber_new_registers_the_key_as_a_secret() {
+    let home = std::env::var("HOME").unwrap();
+    let (url, _calls) = fake_api(200, r#"{"text":"x"}"#);
+    let _ = transcriber(url);
+    let shown = oku_slides_platform::telemetry::redact_secrets(&format!("key={home}"));
+    assert_that!(shown).is_equal_to(format!("key={}", oku_slides_platform::telemetry::REDACTED));
+}
+
+#[test]
 fn transcribe_ok_returns_the_api_text() {
     let (url, _calls) = fake_api(200, r#"{"text":"Bonjour à tous."}"#);
     let t = transcriber(url).transcribe(&[0.0; 1600], Some("fr"), Some("Oku"), false).unwrap();

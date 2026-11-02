@@ -14,6 +14,7 @@ const { AgentPanel, IDLE_AGENT } = await import("./AgentPanel");
 const { createSlot, SlotView } = await import("./slot");
 const { routeSurfaces } = await import("./surfaces");
 const { ARMING_MS } = await import("../modalFrame");
+const { t } = await import("../i18n");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -60,8 +61,10 @@ async function mount({
   mode = DRIVE,
   keyPlaces,
   hostSurfaces,
-}: { promptFails?: boolean; mode?: ThreadMode; keyPlaces?: QuickTarget["kind"][]; hostSurfaces?: Surface[] } = {}) {
+  fallback,
+}: { promptFails?: boolean; mode?: ThreadMode; keyPlaces?: QuickTarget["kind"][]; hostSurfaces?: Surface[]; fallback?: string | null } = {}) {
   let voices = 0;
+  const fallbacks: (string | null)[] = [];
   const renders = { app: 0, stage: 0, pile: 0 };
   let handlers: HostHandlers | null = null;
   const subscribe = (_tab: string, h: HostHandlers) => {
@@ -125,6 +128,8 @@ async function mount({
         ui: UI,
         onDraft: (e: { text: string | null; origin: string | null }) => void drafts.push(e),
         onVoice: () => void voices++,
+        onFallback: (reason: string | null) => void fallbacks.push(reason),
+        fallback,
         keysOff: false,
         thread: true,
         thumbs: { cached: () => null, svg: () => null, current: () => undefined },
@@ -158,7 +163,7 @@ async function mount({
   const until = async (cond: () => boolean) => {
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
-  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptArgs, resyncs: () => resyncs, newConversations: () => newConversations, follows, actions, voices: () => voices };
+  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptArgs, resyncs: () => resyncs, newConversations: () => newConversations, follows, actions, voices: () => voices, fallbacks };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -319,6 +324,28 @@ test("AgentPanel voice event calls onVoice", async () => {
   const m = await mount();
   await act(async () => m.handlers().onAgent({ kind: "voice" }));
   expect(m.voices()).toBe(1);
+});
+
+test("AgentPanel fallback event calls onFallback with its reason", async () => {
+  const m = await mount();
+  await act(async () => m.handlers().onAgent({ kind: "fallback", reason: "Agent introuvable : npx." }));
+  await act(async () => m.handlers().onAgent({ kind: "fallback", reason: null }));
+  expect(m.fallbacks).toEqual(["Agent introuvable : npx.", null]);
+});
+
+test("AgentPanel shows the local agent badge with its reason while fallback is set", async () => {
+  const m = await mount({ fallback: "Agent introuvable : npx." });
+  await m.mcp({ kind: "surfaces", list: [dock] });
+  const badge = m.host.querySelector(".agent-thread-head .agent-fallback");
+  expect(badge?.textContent).toBe(t("ui-agent-fallback"));
+  expect(badge?.getAttribute("title")).toBe("Agent introuvable : npx.");
+});
+
+test("AgentPanel shows no local agent badge without fallback", async () => {
+  const m = await mount({ fallback: null });
+  await m.mcp({ kind: "surfaces", list: [dock] });
+  expect(m.host.querySelector(".agent-thread-head")).not.toBeNull();
+  expect(m.host.querySelector(".agent-fallback")).toBeNull();
 });
 
 // Une reconnexion a pu manquer des évènements : la dictée relit son état.

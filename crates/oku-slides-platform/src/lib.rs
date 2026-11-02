@@ -25,6 +25,8 @@ pub mod http;
 #[cfg(feature = "listen")]
 mod listen;
 pub mod local_agent;
+mod log_ring;
+mod log_secrets;
 mod login_path;
 pub mod models;
 mod program;
