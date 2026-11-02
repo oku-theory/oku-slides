@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { ChartDataGrid } from "../chart/ChartDataGrid";
 import type { Cell } from "../chart/chartTypes";
 import type { DataEdit } from "../chart/dataEdit";
-import { t } from "../i18n";
+import { t, tPlain } from "../i18n";
 import { stroke } from "../icons";
 import { IconToggle } from "../primitives";
 import { ShowAsButton } from "./ShowAsButton";
@@ -22,7 +22,8 @@ const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
     icon: stroke(<><rect x="4" y="5" width="16" height="14" rx="1" /><path d="M4 9.5h16M4 14.5h16" /></>) },
 ];
 
-const tableColumnName = (n: number) => t("ui-table-column", { n: n + 1 });
+/** Default column header written into the deck, so without isolation marks (t-1380). */
+const tableColumnName = (n: number) => tPlain("ui-table-column", { n: n + 1 });
 
 /** Les données d'un tableau et ses options ; chaque geste part en une modification (`onEdit`). */
 export function TableDataView({ source, headerRow, headerColumn, striped, align, onEdit }: {

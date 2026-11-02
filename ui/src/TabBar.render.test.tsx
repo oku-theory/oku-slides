@@ -83,7 +83,7 @@ test("TabBar pack tab names its kind", async () => {
   const host = await mount(false, [tab("Mine", { kind: "pack", pack: PACK }), tab("Look", { kind: "theme", theme: PACK }), tab("Plain")]);
   const names = [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("aria-label"));
   expect(names).toEqual([t("ui-tab-kind-pack", { title: "Mine" }), t("ui-tab-kind-theme", { title: "Look" }), null]);
-  expect(names[0]).toBe("Mine, pack");
+  expect(names[0]).toBe("\u2068Mine\u2069, pack");
 });
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -96,15 +96,15 @@ async function names(lang: string, tabs: TabInfo[]) {
 const dirty = (x: TabInfo): TabInfo => ({ ...x, dirty: true, pristine: false });
 
 test.each([
-  ["en", ["Mine, pack, Unsaved changes", "Look, theme, Unsaved changes"]],
-  ["fr", ["Mine, pack, Modifications non enregistrées", "Look, thème, Modifications non enregistrées"]],
+  ["en", ["\u2068Mine\u2069, pack, Unsaved changes", "\u2068Look\u2069, theme, Unsaved changes"]],
+  ["fr", ["\u2068Mine\u2069, pack, Modifications non enregistrées", "\u2068Look\u2069, thème, Modifications non enregistrées"]],
 ])("TabBar a dirty pack or theme tab names its unsaved state (%s)", async (lang, expected) => {
   const tabs = [dirty(tab("Mine", { kind: "pack", pack: PACK })), dirty(tab("Look", { kind: "theme", theme: PACK }))];
   expect(await names(lang, tabs)).toEqual(expected);
 });
 
 test("TabBar a clean pack tab's name says nothing of unsaved changes", async () => {
-  expect(await names("en", [tab("Mine", { kind: "pack", pack: PACK })])).toEqual(["Mine, pack"]);
+  expect(await names("en", [tab("Mine", { kind: "pack", pack: PACK })])).toEqual(["\u2068Mine\u2069, pack"]);
 });
 
 test("TabBar has no tab badge and its kind icon is aria-hidden", async () => {

@@ -11,7 +11,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { GuidesReview, TabApi, VersionRef } from "./api";
 import { swallow } from "./ConfirmDialog";
 import type { Run } from "./GuidesSection";
-import { t } from "./i18n";
+import { isolate, t } from "./i18n";
 import { useModalFrame } from "./modalFrame";
 import { Button } from "./primitives";
 
@@ -39,7 +39,7 @@ function Review({ review }: { review: GuidesReview }) {
         {[
           t(KIND[review.kind]),
           t("ui-guides-install-items", { count: review.items }),
-          ...(review.requires.length > 0 ? [t("ui-guides-install-requires", { names: review.requires.join(", ") })] : []),
+          ...(review.requires.length > 0 ? [t("ui-guides-install-requires", { names: review.requires.map(isolate).join(", ") })] : []),
         ].join(" · ")}
       </p>
       {guides.edit && (

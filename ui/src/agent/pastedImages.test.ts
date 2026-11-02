@@ -9,11 +9,11 @@ beforeAll(() => applyMessages({ locale: "en", resources: [ftl("en")], chosen: nu
 afterAll(resetMessages);
 
 test("imageLabel gives the short type and the size", () => {
-  expect(imageLabel("image/png", 1200, 800)).toBe("PNG 1200×800");
+  expect(imageLabel("image/png", 1200, 800)).toBe("\u2068PNG\u2069 \u20681200×800\u2069");
 });
 
 test("imageLabel of jpeg says JPEG", () => {
-  expect(imageLabel("image/jpeg", 2, 1)).toBe("JPEG 2×1");
+  expect(imageLabel("image/jpeg", 2, 1)).toBe("\u2068JPEG\u2069 \u20682×1\u2069");
 });
 
 const file = (type: string) => new File([new Uint8Array([1, 2, 3])], "x", { type });

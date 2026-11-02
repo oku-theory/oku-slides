@@ -8,7 +8,7 @@ import { baseName } from "./builtinKinds";
 import { capHeight, cssFont } from "./fontMetrics";
 import type { Cell } from "./grid";
 import { cellLabel } from "./grid";
-import { t } from "./i18n";
+import { t, tPlain } from "./i18n";
 
 export type FieldKey = string;
 
@@ -45,9 +45,13 @@ export const kindLabel = (kind: string) => t("ui-element-kind", { kind: baseName
 export const elementTag = (kind: string, cell: Cell | null | undefined) =>
   cell ? `${kindLabel(kind)} · ${cellLabel(cell)}` : kindLabel(kind);
 
-/** Libellé du placeholder : traduction du nom, sinon libellé du schéma, sinon le nom. */
+/**
+ * Libellé du placeholder : traduction du nom, sinon libellé du schéma, sinon le nom.
+ *
+ * Compared without isolation marks: `t()` prints the raw name of an unknown field isolated.
+ */
 export function fieldLabel(f: Pick<FieldView, "field" | "label">): string {
-  const translated = t("ui-field", { kind: f.field });
+  const translated = tPlain("ui-field", { kind: f.field });
   return translated !== f.field ? translated : f.label ?? f.field;
 }
 

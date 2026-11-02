@@ -41,8 +41,8 @@ test("deckPinsKey changes when a layout pin changes", () => {
 test("packOptionLabel tells a received pack from mine and leaves a built-in one bare", () => {
   setMessages("en", ["ui-picker-set-mine = { $name } · mine\nui-picker-set-received = { $name } · received"]);
   expect(packOptionLabel(pack({}))).toBe("Essentiel");
-  expect(packOptionLabel(pack({ builtin: false, name: "Charte" }))).toBe("Charte · mine");
-  expect(packOptionLabel(pack({ builtin: false, received: true, name: "Charte" }))).toBe("Charte · received");
+  expect(packOptionLabel(pack({ builtin: false, name: "Charte" }))).toBe("\u2068Charte\u2069 · mine");
+  expect(packOptionLabel(pack({ builtin: false, received: true, name: "Charte" }))).toBe("\u2068Charte\u2069 · received");
 });
 
 const snapOf = (widgets: Record<string, PackPin>, layouts: Record<string, PackPin> = {}) => ({ widgets, layouts }) as unknown as Snapshot;

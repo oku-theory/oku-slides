@@ -286,7 +286,7 @@ describe("brouillon de dictée", () => {
 
   test("une puce par image, son bouton la retire", async () => {
     const m = await mount("Pose-la", { images: one });
-    expect(m.host.querySelector(".draft-image")?.textContent).toContain("PNG 4×3");
+    expect(m.host.querySelector(".draft-image")?.textContent).toContain("\u2068PNG\u2069 \u20684×3\u2069");
     await act(async () => (m.host.querySelector(".draft-image button") as HTMLButtonElement).click());
     expect(m.removed).toEqual(["sha256:aa"]);
   });

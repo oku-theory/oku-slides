@@ -9,6 +9,7 @@
 - Keep code tokens and Fluent variables unchanged when reviewing or editing translations. (plan:2026-10-04-suivis-listes, t-535)
 - Add every new Fluent key to all 20 locales, in the same key order everywhere. (spec:2026-10-08-widget-tableau-design)
 - Keep is_hidden_control and is_line_control equal to HIDDEN and LINE in ui/src/i18n.ts; clean arguments only in tr_with and t(). (t-959, t-981, t-1379)
+- Keep tr_with free of isolation marks; only the UI t() isolates string arguments, since agent, CLI and logs read Rust text. (t-1380)
 
 ## Pitfalls
 

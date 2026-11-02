@@ -62,7 +62,7 @@ test("GuidesInstallDialog shows each guide as plain text", async () => {
 test("GuidesInstallDialog describes what each version holds", async () => {
   const host = await render([review({ use: "u" }, "v1", { requires: ["a", "b"] })]);
   expect(host.querySelector(".guides-review-name")?.textContent).toBe("Brought");
-  expect(host.querySelector(".guides-review .caption")?.textContent).toBe("Widgets · 3 items · Requires a, b");
+  expect(host.querySelector(".guides-review .caption")?.textContent).toBe("Widgets · 3 items · Requires \u2068\u2068a\u2069, \u2068b\u2069\u2069");
 });
 
 test("GuidesInstallDialog focuses Later by default", async () => {

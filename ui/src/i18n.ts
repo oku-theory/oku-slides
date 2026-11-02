@@ -2,10 +2,10 @@
 // Rust (requête « messages »). L'anglais est chargé d'abord ; la langue de
 // l'utilisateur le recouvre, message par message.
 
-import { FluentBundle, FluentResource, type FluentVariable } from "@fluent/bundle";
+import { FluentBundle, FluentResource, type FluentValue, type FluentVariable, type Message } from "@fluent/bundle";
 import { type Messages, inTauri, listenTauri, workspace } from "./api";
 
-let bundle = new FluentBundle("en", { useIsolating: false });
+let bundle = newBundle("en");
 
 /** Langues écrites de droite à gauche (parmi celles qu'on pourrait livrer). */
 const RTL = new Set(["ar", "he", "fa", "ur"]);
@@ -17,8 +17,8 @@ export function direction(lang: string): "rtl" | "ltr" {
 
 /** Remplace les messages : `resources` va de la référence à la langue choisie. */
 export function setMessages(lang: string, resources: string[]): void {
-  const next = new FluentBundle(lang, { useIsolating: false });
-  for (const source of resources) next.addResource(new FluentResource(source), { allowOverrides: true });
+  const next = newBundle(lang);
+  for (const source of resources) next.addResource(isolatedResource(source), { allowOverrides: true });
   bundle = next;
   if (typeof document !== "undefined") {
     document.documentElement.lang = lang;
@@ -56,6 +56,53 @@ export function cleanArg(s: string): string {
   return s.replace(HIDDEN, "").replace(LINE, " ");
 }
 
+/** A pattern, as parsed by `@fluent/bundle` (not exported by its root). */
+type Pattern = NonNullable<Message["value"]>;
+
+/** A placeable of a pattern: variable, select, function or message reference, literal. */
+type Placeable = Exclude<Exclude<Pattern, string>[number], string>;
+
+/** `pattern` with each `{ $var }` as `{ ISOLATE($var) }`, in select variants too (t-1380). */
+function isolatePlaceables(pattern: Pattern): Pattern {
+  return typeof pattern === "string" ? pattern : pattern.map((e) => (typeof e === "string" ? e : isolatePlaceable(e)));
+}
+
+/** A bare variable placeable turned into `ISOLATE($var)`; selectors stay bare and match raw strings. */
+function isolatePlaceable(e: Placeable): Placeable {
+  if (e.type === "var") return { type: "func", name: "ISOLATE", args: [e] };
+  if (e.type === "select") return { ...e, variants: e.variants.map((v) => ({ ...v, value: isolatePlaceables(v.value) })) };
+  return e;
+}
+
+/**
+ * `source` parsed, each message and term value printing its string variables isolated.
+ *
+ * Attributes are left as they are: `t()` formats message values only.
+ */
+function isolatedResource(source: string): FluentResource {
+  const resource = new FluentResource(source);
+  for (const entry of resource.body) if (entry.value !== null) entry.value = isolatePlaceables(entry.value);
+  return resource;
+}
+
+/** A string that already is one isolate, such as an `isolate()` result passed as an argument. */
+const ONE_ISOLATE = /^\u2068[^\u2068\u2069]*\u2069$/u;
+
+/**
+ * Wraps a string argument in FSI and PDI; other values pass through.
+ *
+ * Numbers, dates and a missing variable keep their own formatting.
+ * The value was cleaned by `safeArg`, whose only isolates are balanced pairs.
+ */
+function isolateArg([value]: FluentValue[]): FluentValue {
+  return typeof value === "string" && !ONE_ISOLATE.test(value) ? `\u2068${value}\u2069` : value;
+}
+
+/** A bundle for `lang`: isolation by `ISOLATE` on string variables only, not on every placeable. */
+function newBundle(lang: string): FluentBundle {
+  return new FluentBundle(lang, { useIsolating: false, functions: { ISOLATE: isolateArg } });
+}
+
 /** One pair an `isolate` call put around a value (several when isolated items were joined). */
 const ISOLATED = /\u2068([^\u2068\u2069]*)\u2069/gu;
 
@@ -74,8 +121,9 @@ function safeArg(v: FluentVariable): FluentVariable {
 /**
  * Un message ; un identifiant inconnu se voit tel quel plutôt que de disparaître.
  *
- * String arguments are cleaned: the bundle adds no isolation marks, so a forged name could
- * otherwise reorder the sentence around it (t-959) or inject a line (t-1379).
+ * String arguments are cleaned, so a forged name cannot reorder the sentence with overrides
+ * (t-959) or inject a line (t-1379), and printed between FSI and PDI, so a right-to-left value
+ * cannot reorder the text around it (t-1380).
  */
 export function t(id: string, args?: Record<string, FluentVariable>): string {
   const message = bundle.getMessage(id);
@@ -84,15 +132,23 @@ export function t(id: string, args?: Record<string, FluentVariable>): string {
   return bundle.formatPattern(message.value, safe);
 }
 
+/** Isolation marks `t()` puts around string arguments. */
+const ISOLATES = /[\u2068\u2069]/gu;
+
+/** `t()` output without isolation marks, for text sent to the host (t-1380). */
+export function tPlain(id: string, args?: Record<string, FluentVariable>): string {
+  return t(id, args).replace(ISOLATES, "");
+}
+
 /** The bidi embedding, override and isolate controls, which a label must not carry into a dialog. */
 const BIDI_CONTROLS = /[\u202A-\u202E\u2066-\u2069]/g;
 
 /**
- * Wraps `s` in one FSI and one PDI, for a message whose bundle adds no isolation marks.
+ * Wraps `s` in one FSI and one PDI, its own bidi controls removed first.
  *
- * The bundles run with `useIsolating: false`: a call site that shows a label (a deck title,
- * a pack name) in a native dialog isolates it, so a right-to-left value cannot reorder the text.
- * Its own bidi controls go first: a PDI inside could close the isolate early.
+ * The controls go because a PDI inside could close the isolate early. `t()` isolates each string
+ * argument; a list of labels joined into one argument isolates each item, so one right-to-left
+ * item cannot reorder its neighbours.
  */
 export function isolate(s: string): string {
   return "\u2068" + s.replace(BIDI_CONTROLS, "") + "\u2069";

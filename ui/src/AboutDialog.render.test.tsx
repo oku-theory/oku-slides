@@ -57,7 +57,7 @@ async function render(onClose: () => void = () => {}) {
 
 test("AboutDialog shows the version", async () => {
   const dialog = await render();
-  expect(dialog.querySelector(".about-version")?.textContent).toBe("Version 7.0.0");
+  expect(dialog.querySelector(".about-version")?.textContent).toBe("Version \u20687.0.0\u2069");
 });
 
 test("AboutDialog lists every release newest first", async () => {

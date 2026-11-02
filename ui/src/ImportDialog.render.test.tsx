@@ -170,7 +170,7 @@ test("ImportDialog en retrofit liste les packs de layouts qui ont des profils, E
   const { asked, radio, layouts } = await mount();
   await click(radio("retrofit"));
   expect(asked).toEqual(["layouts"]);
-  expect(layouts().map((c) => c.closest("label")?.textContent)).toEqual(["Essentiel", "Maison · à moi", "Client · reçu"]);
+  expect(layouts().map((c) => c.closest("label")?.textContent)).toEqual(["Essentiel", "\u2068Maison\u2069 · à moi", "\u2068Client\u2069 · reçu"]);
   expect(layouts().map((c) => c.checked)).toEqual([true, false, false]);
 });
 
@@ -226,8 +226,8 @@ test("ImportDialog Importer en copie fidèle envoie hifi et le peaufinage, sans 
 test("ImportDialog Importer en retrofit envoie les packs cochés dans l'ordre de la liste et le thème, sans peaufinage", async () => {
   const { calls, radio, selects, tune, layout, button } = await mount();
   await click(radio("retrofit"));
-  await click(layout("Client · reçu"));
-  await click(layout("Maison · à moi"));
+  await click(layout("\u2068Client\u2069 · reçu"));
+  await click(layout("\u2068Maison\u2069 · à moi"));
   await choose(selects()[0]!, "t-nuit");
   await click(tune());
   await click(button("Importer"));
@@ -248,7 +248,7 @@ test("ImportDialog sends the pack id, not a namespace another pack could bear as
   await click(radio("retrofit"));
   await click(button("Importer"));
   expect(calls.imports[0]!.target).toEqual({ mode: "retrofit", layouts: ["p-essentiel"], theme: null });
-  expect(layout("Maison · à moi").checked).toBe(false);
+  expect(layout("\u2068Maison\u2069 · à moi").checked).toBe(false);
 });
 
 test("ImportDialog retrofit sans pack coché n'importe pas", async () => {
@@ -368,7 +368,7 @@ test("ImportDialog sans agent utilisable : peaufinage décoché, désactivé, ra
   const { host, tune } = await mount({ agentUnusable: NO_AGENT });
   expect(tune().checked).toBe(false);
   expect(tune().disabled).toBe(true);
-  expect(host.querySelector("#import-tune-note")?.textContent).toBe(`Aucun agent utilisable : ${NO_AGENT}`);
+  expect(host.querySelector("#import-tune-note")?.textContent).toBe(`Aucun agent utilisable : \u2068${NO_AGENT}\u2069`);
 });
 
 test("ImportDialog sans agent utilisable importe sans peaufinage", async () => {

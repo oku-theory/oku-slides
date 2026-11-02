@@ -163,7 +163,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   await commitWith(p, () => p.keyboard.press('ControlOrMeta+Enter'));
   assert.deepEqual(await points(p), [{ runs: RUNS }]);
   const undo1 = await undoLabel(p);
-  assert.equal(undo1, 'Annuler : Modifier la slide');
+  assert.equal(undo1, 'Annuler : \u2068Modifier la slide\u2069');
 
   // 2. Rouvrir redonne le même markdown ; Échap ferme sans rien changer.
   await open(p, 'Corps');

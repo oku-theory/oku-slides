@@ -131,7 +131,7 @@ async function findAnywhere(id: string, deps: CloseFlowDeps): Promise<TabInfo | 
 
 /** The question for a stuck tab of a window close or of an owner's linked tabs: it names the tab. */
 function stuckQuestion(tab: TabInfo) {
-  return discardQuestion(t("ui-confirm-close-tab-writes-pending", { tab: isolate(tab.title) }));
+  return discardQuestion(t("ui-confirm-close-tab-writes-pending", { tab: tab.title }));
 }
 
 /**
@@ -297,8 +297,7 @@ async function askOffer(id: string, deps: CloseFlowDeps): Promise<OpenerOffer | 
     deps.report(e);
   }
   if (!offer) return null;
-  // Title and name are labels already: isolated at display only.
-  const names = { deck: isolate(offer.title), pack: isolate(offer.pack_name) };
+  const names = { deck: offer.title, pack: offer.pack_name };
   const key = { version: "ui-confirm-update-opener", copy: "ui-confirm-update-opener-copy", theme: "ui-confirm-update-opener-theme" }[offer.kind];
   const message = t(key, names);
   const question = { message, ok: t("ui-confirm-update-ok"), cancel: t("ui-confirm-update-later"), danger: false };

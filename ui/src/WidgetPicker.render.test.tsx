@@ -170,7 +170,7 @@ test("WidgetPicker filtered by a description word keeps the matching cards", asy
 test("WidgetPicker filtered with no match says so", async () => {
   const { filter, host } = await mount();
   await type(filter(), "zzz");
-  expect(host.querySelector(".widget-picker-empty")?.textContent).toBe("Aucun widget pour « zzz ».");
+  expect(host.querySelector(".widget-picker-empty")?.textContent).toBe("Aucun widget pour « \u2068zzz\u2069 ».");
 });
 
 test("WidgetPicker Enter after the guard picks the focused filtered card", async () => {
@@ -479,7 +479,7 @@ test("WidgetPicker empty filter result is announced outside the list", async () 
   await type(filter(), "zzz");
   expect([host.querySelector('[role="listbox"] .widget-picker-empty') !== null, host.querySelector('[role="status"]')?.textContent]).toEqual([
     false,
-    "Aucun widget pour « zzz ».",
+    "Aucun widget pour « \u2068zzz\u2069 ».",
   ]);
 });
 

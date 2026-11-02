@@ -30,6 +30,9 @@ or stores `t()` output audited. The Rust half has its own question: the platform
 the UI, the agent and CLI-hosted sessions alike, and marks in tool errors reach the model, whose
 echo `check_text` rejects.
 
+Decided and done in t-1380: placeable rewrite in the UI, Rust stays raw
+(`docs/superpowers/specs/2026-11-01-bidi-isolation-design.md`).
+
 ## Task 3 — t-1383: request strings in session errors, save dialog name, hidden set, tick
 
 - `Display` of `UnknownWindow`, `NoSlide`, `NoChart`, `NoTable`, `UnknownOwner`, `UnknownField`,

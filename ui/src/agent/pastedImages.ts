@@ -2,10 +2,15 @@
 
 import { t } from "../i18n";
 
-/** Le libellé d'une image : son type court et sa taille, « PNG 1200×800 ». */
+/**
+ * Le libellé d'une image : son type court et sa taille, « PNG 1200×800 ».
+ *
+ * The size is one argument, so one isolate: two would swap width and height in a right-to-left
+ * interface (t-1380).
+ */
 export function imageLabel(mime: string, width: number, height: number): string {
   const type = mime.replace(/^image\//, "").toUpperCase();
-  return t("ui-pasted-image", { type, width: String(width), height: String(height) });
+  return t("ui-pasted-image", { type, size: `${width}×${height}` });
 }
 
 /** Les fichiers image d'un collage ; aucun s'il porte du texte (une copie de Word y joint une image du rendu). */

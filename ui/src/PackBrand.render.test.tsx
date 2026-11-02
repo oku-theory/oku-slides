@@ -37,12 +37,12 @@ async function mount(kind: PackKind, deckOnly: boolean) {
 
 test("PackBrand of a layout pack shows its name and kind", async () => {
   const host = await mount("layouts", false);
-  expect(host.querySelector(".brand")?.textContent).toBe("Essentiel · layout pack");
+  expect(host.querySelector(".brand")?.textContent).toBe("\u2068Essentiel\u2069 · layout pack");
 });
 
 test("PackBrand of a widget pack shows its name and kind", async () => {
   const host = await mount("widgets", false);
-  expect(host.querySelector(".brand")?.textContent).toBe("Essentiel · widget pack");
+  expect(host.querySelector(".brand")?.textContent).toBe("\u2068Essentiel\u2069 · widget pack");
 });
 
 test("PackBrand of a deck-only pack shows the deck-only note", async () => {

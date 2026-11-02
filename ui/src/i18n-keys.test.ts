@@ -51,22 +51,22 @@ describe("messages de l'interface", () => {
 
   test("les messages français gardent les textes d'origine, pluriels et nombres compris", () => {
     setMessages("fr", [en, fr]);
-    expect(t("ui-caption-slides", { count: 1, status: "enregistré" })).toBe("1 slide · enregistré");
-    expect(t("ui-caption-slides", { count: 8, status: "enregistré" })).toBe("8 slides · enregistré");
-    expect(t("ui-caption-pack", { kind: "widgets", count: 1, status: "enregistré" })).toBe("1 widget · enregistré");
+    expect(t("ui-caption-slides", { count: 1, status: "enregistré" })).toBe("1 slide · \u2068enregistré\u2069");
+    expect(t("ui-caption-slides", { count: 8, status: "enregistré" })).toBe("8 slides · \u2068enregistré\u2069");
+    expect(t("ui-caption-pack", { kind: "widgets", count: 1, status: "enregistré" })).toBe("1 widget · \u2068enregistré\u2069");
     expect(t("ui-seconds", { value: 1.5 })).toBe("1,5 s");
-    expect(t("ui-undo-add-widget", { name: "Bonjour" })).toBe("Ajouter « Bonjour »");
+    expect(t("ui-undo-add-widget", { name: "Bonjour" })).toBe("Ajouter « \u2068Bonjour\u2069 »");
     expect(t("ui-field", { kind: "kicker" })).toBe("Surtitre");
-    expect(t("ui-field", { kind: "autre" })).toBe("autre");
+    expect(t("ui-field", { kind: "autre" })).toBe("\u2068autre\u2069");
     expect(t("ui-chart-kind", { kind: "waterfall" })).toBe("Cascade");
-    expect(cellLabel({ col: 0, row: 1, cols: 8 })).toBe("col. 1–8 · lig. 2");
+    expect(cellLabel({ col: 0, row: 1, cols: 8 })).toBe("col. \u20681–8\u2069 · lig. \u20682\u2069");
   });
 
   test("les mêmes messages en anglais", () => {
     setMessages("en", [en]);
-    expect(t("ui-caption-pack", { kind: "layouts", count: 1, status: "saved" })).toBe("1 layout · saved");
-    expect(t("ui-caption-pack", { kind: "widgets", count: 3, status: "saved" })).toBe("3 widgets · saved");
+    expect(t("ui-caption-pack", { kind: "layouts", count: 1, status: "saved" })).toBe("1 layout · \u2068saved\u2069");
+    expect(t("ui-caption-pack", { kind: "widgets", count: 3, status: "saved" })).toBe("3 widgets · \u2068saved\u2069");
     expect(t("ui-seconds", { value: 1.5 })).toBe("1.5 s");
-    expect(t("ui-undo-add-widget", { name: "Chart" })).toBe("Add “Chart”");
+    expect(t("ui-undo-add-widget", { name: "Chart" })).toBe("Add “\u2068Chart\u2069”");
   });
 });

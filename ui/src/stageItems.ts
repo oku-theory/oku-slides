@@ -3,7 +3,7 @@
  * suivent, et leur déplacement au clavier depuis un champ édité.
  */
 import type { ItemView, ListOp, ListView, Op, SlideView } from "./api";
-import { t } from "./i18n";
+import { t, tPlain } from "./i18n";
 
 export type Axis = "x" | "y";
 
@@ -46,7 +46,7 @@ export type OnListOp = (owner: ListOwner, list: string, change: ListOp, label: s
 
 /** Déplace `it` au rang `to` de sa liste par `onListOp` (rien s'il y est déjà) : Cmd/Ctrl+Alt+flèche depuis un champ édité. */
 export function moveItemTo(onListOp: OnListOp, it: ItemView, to: number) {
-  if (to !== it.index) onListOp(it, it.list, { op: "move", item: it.item, to }, t("ui-undo-list-move", { item: itemName(it) }));
+  if (to !== it.index) onListOp(it, it.list, { op: "move", item: it.item, to }, tPlain("ui-undo-list-move", { item: itemName(it) }));
 }
 
 /** Ops d'un changement de la liste `l` de la slide de `view`. */

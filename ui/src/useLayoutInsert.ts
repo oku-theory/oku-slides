@@ -3,7 +3,7 @@
 import type { Op, Snapshot } from "./api";
 import type { LayoutView } from "./packTypes";
 import { instantiate } from "./deck";
-import { t } from "./i18n";
+import { tPlain } from "./i18n";
 
 /** Ce dont l'ajout a besoin de l'onglet. */
 interface LayoutInsertContext {
@@ -23,7 +23,7 @@ export function useLayoutInsert({ snap, current, apply, setCurrent, setSelected,
     const index = snap.slides.findIndex((s) => s.id === current) + 1;
     // Nouveaux ids : la slide du layout sert de modèle, jamais deux fois sous le même.
     const slide = instantiate(layout.slide);
-    apply(t("ui-undo-new-slide", { name: layout.label }), [{ op: "add_slide", index, slide }]).then((ok) => {
+    apply(tPlain("ui-undo-new-slide", { name: layout.label }), [{ op: "add_slide", index, slide }]).then((ok) => {
       if (!ok) return;
       setCurrent(slide.id);
       setSelected(null);

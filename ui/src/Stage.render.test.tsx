@@ -200,7 +200,7 @@ test("Stage with ghosts outlines the body zone and tags gridded elements with th
   } as unknown as SlideView;
   const { host } = await mount({ view: v, showGhosts: true });
   expect(host.querySelector(".stage-ghost-zone .stage-ghost-tag")?.textContent).toBe("Zone");
-  expect(host.querySelector(".stage-ghost-target .stage-ghost-tag")?.textContent).toBe("Texte · col. 2–3 · lig. 1");
+  expect(host.querySelector(".stage-ghost-target .stage-ghost-tag")?.textContent).toBe("Texte · col. \u20682–3\u2069 · lig. \u20681\u2069");
 });
 
 test("Stage read only with ghosts outlines elements and fields but shows no field layer", async () => {
@@ -222,7 +222,7 @@ const gridded = {
 
 test("Stage selected element on the grid is tagged with its kind and cell", async () => {
   const { host } = await mount({ view: gridded, selected: "t1" });
-  expect(host.querySelector(".target.selected .tag")?.textContent).toBe("Texte · col. 2–3 · lig. 1");
+  expect(host.querySelector(".target.selected .tag")?.textContent).toBe("Texte · col. \u20682–3\u2069 · lig. \u20681\u2069");
 });
 
 test("Stage with ghosts puts the tags of boxes at the slide edges inside them", async () => {
@@ -535,7 +535,7 @@ test("Stage selected base element: the open tag is named by its localized kind",
   const opened: string[] = [];
   const { host } = await mount({ view: gridded, selected: "t1", packWidgets: new Set(["base/text"]), onOpenWidget: (n: string) => opened.push(n) });
   const tag = host.querySelector("button.tag-open")!;
-  expect([tag.getAttribute("aria-label"), tag.getAttribute("title")]).toEqual(["Ouvrir le widget Texte", "Ouvrir le widget Texte"]);
+  expect([tag.getAttribute("aria-label"), tag.getAttribute("title")]).toEqual(["Ouvrir le widget \u2068Texte\u2069", "Ouvrir le widget \u2068Texte\u2069"]);
   await act(async () => tag.dispatchEvent(new MouseEvent("click", { bubbles: true })));
   expect(opened).toEqual(["base/text"]);
 });

@@ -37,7 +37,7 @@ const pastePng = (p) =>
   await p.locator('.draft-text').fill("pose l'image collée");
   await pastePng(p);
   await p.locator('.draft-image').waitFor();
-  assert.match(await p.locator('.draft-image').innerText(), /PNG 1×1/);
+  assert.match(await p.locator('.draft-image').innerText(), /\u2068PNG\u2069 \u20681×1\u2069/);
   assert.equal(await p.locator('.draft-image img').count(), 1, 'miniature locale');
 
   await p.locator('.draft-send').click();

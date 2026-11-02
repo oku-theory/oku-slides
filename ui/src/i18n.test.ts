@@ -1,11 +1,25 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   applyMessages, changeLocale, direction, isolate, loadMessages, locale, onLocaleChange, receiveMessages, setMessages, t,
+  tPlain,
 } from "./i18n";
 import { resetMessages } from "./test/messages";
 
 const en = "ui-hello = Hello { $name }\nui-only-en = Only in English\n";
-const fr = "ui-hello = Bonjour { $name }\n";
+const fr = [
+  "ui-hello = Bonjour { $name }",
+  "ui-kind = { $kind ->\n    [text] Texte\n   *[other] { $kind }\n}",
+  "ui-size = { NUMBER($value, maximumFractionDigits: 1) } Go",
+  "-brand = Oku { $edition }",
+  "ui-brand = { -brand(edition: \"Pro\") }",
+  "ui-unsaved = Non enregistré { $name }",
+  "ui-tab = { $dirty ->\n    [yes] { ui-unsaved }\n   *[no] { $name }\n}",
+  "ui-when = Le { $when }",
+  "",
+].join("\n");
+
+/** `s` between one FSI and one PDI, as `t()` prints a string argument. */
+const fsi = (s: string) => `\u2068${s}\u2069`;
 
 // Les autres fichiers de la passe attendent les identifiants bruts.
 afterAll(resetMessages);
@@ -13,8 +27,8 @@ afterAll(resetMessages);
 describe("t", () => {
   beforeEach(() => setMessages("fr", [en, fr]));
 
-  test("dit le message dans la langue choisie, avec ses paramètres, sans marques d'isolement", () => {
-    expect(t("ui-hello", { name: "Ada" })).toBe("Bonjour Ada");
+  test("t isolates a string argument in the chosen language (t-1380)", () => {
+    expect(t("ui-hello", { name: "Ada" })).toBe(`Bonjour ${fsi("Ada")}`);
     expect(locale()).toBe("fr");
   });
 
@@ -27,32 +41,69 @@ describe("t", () => {
   });
 
   test("t strips bidi controls and invisible characters from string arguments (t-959)", () => {
-    expect(t("ui-hello", { name: "Ré\u202Ecent\u2066e\u200B\u{E0041}" })).toBe("Bonjour Récente");
+    expect(t("ui-hello", { name: "Ré\u202Ecent\u2066e\u200B\u{E0041}" })).toBe(`Bonjour ${fsi("Récente")}`);
   });
 
   test("t strips the Hangul fillers and keeps an emoji's variation selector (t-1383)", () => {
-    expect(t("ui-hello", { name: "\u3164A\uFFA0\u2764\uFE0F" })).toBe("Bonjour A\u2764\uFE0F");
+    expect(t("ui-hello", { name: "\u3164A\uFFA0\u2764\uFE0F" })).toBe(`Bonjour ${fsi("A\u2764\uFE0F")}`);
   });
 
   test("t keeps the joiners of an emoji sequence", () => {
-    expect(t("ui-hello", { name: "👩\u200D💻" })).toBe("Bonjour 👩\u200D💻");
+    expect(t("ui-hello", { name: "👩\u200D💻" })).toBe(`Bonjour ${fsi("👩\u200D💻")}`);
   });
 
   test("t turns line breaks and terminal controls in string arguments into spaces (t-1379)", () => {
-    expect(t("ui-hello", { name: "a\r\nb\u0085c\u2028d\u2029e\tf\u001Bg\u007Fh" })).toBe("Bonjour a  b c d e f g h");
+    expect(t("ui-hello", { name: "a\r\nb\u0085c\u2028d\u2029e\tf\u001Bg\u007Fh" })).toBe(`Bonjour ${fsi("a  b c d e f g h")}`);
   });
 
-  test("t keeps the one isolation pair of an isolated argument and strips its interior", () => {
-    expect(t("ui-hello", { name: isolate("A\u202Eb") })).toBe("Bonjour \u2068Ab\u2069");
+  test("t does not nest an argument that already is one isolate, and strips its interior", () => {
+    expect(t("ui-hello", { name: isolate("A\u202Eb") })).toBe(`Bonjour ${fsi("Ab")}`);
   });
 
   test("t keeps each isolated item of a joined list in its own isolate", () => {
     const list = [isolate("\u05D0\u202E"), isolate("B")].join(", ");
-    expect(t("ui-hello", { name: list })).toBe("Bonjour \u2068\u05D0\u2069, \u2068B\u2069");
+    expect(t("ui-hello", { name: list })).toBe(`Bonjour ${fsi(`${fsi("\u05D0")}, ${fsi("B")}`)}`);
   });
 
   test("t leaves number arguments as they are", () => {
     expect(t("ui-hello", { name: 3 })).toBe("Bonjour 3");
+  });
+
+  test("t keeps a right-to-left argument from reordering the sentence (t-1380)", () => {
+    expect(t("ui-hello", { name: "\u05E9\u05DC\u05D5\u05DD 2" })).toBe(`Bonjour ${fsi("\u05E9\u05DC\u05D5\u05DD 2")}`);
+  });
+
+  test("t matches a selector on the raw string", () => {
+    expect(t("ui-kind", { kind: "text" })).toBe("Texte");
+  });
+
+  test("t isolates a string printed by a selector's variant", () => {
+    expect(t("ui-kind", { kind: "acme/x" })).toBe(fsi("acme/x"));
+  });
+
+  test("t leaves a number passed to NUMBER() unisolated", () => {
+    expect(t("ui-size", { value: 1.25 })).toBe("1,3 Go");
+  });
+
+  test("t isolates a term's parameter where the term prints it", () => {
+    expect(t("ui-brand")).toBe(`Oku ${fsi("Pro")}`);
+  });
+
+  test("t isolates the arguments of a message referenced from a variant", () => {
+    expect(t("ui-tab", { dirty: "yes", name: "A" })).toBe(`Non enregistré ${fsi("A")}`);
+  });
+
+  test("t leaves a date argument unisolated", () => {
+    expect(t("ui-when", { when: new Date(0) })).not.toContain("\u2068");
+  });
+
+  test("t isolates a string argument of a message overridden by a later resource", () => {
+    setMessages("fr", [en, fr, "ui-hello = Salut { $name }\n"]);
+    expect(t("ui-hello", { name: "Ada" })).toBe(`Salut ${fsi("Ada")}`);
+  });
+
+  test("tPlain formats the message without isolation marks", () => {
+    expect(tPlain("ui-hello", { name: isolate("Ada") })).toBe("Bonjour Ada");
   });
 });
 

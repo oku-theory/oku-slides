@@ -10,7 +10,7 @@
 import { useMemo, type ClipboardEvent, type KeyboardEvent } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { useNumberLang } from "../a2ui/numberLang";
-import { t } from "../i18n";
+import { t, tPlain } from "../i18n";
 import { Icon } from "../icons";
 import { parseCheck, parseTsv } from "../table/cells";
 import { formatNumber, parseNumber } from "../table/numbers";
@@ -34,7 +34,8 @@ export type ChartDataGridProps = {
   newColumnName?: (n: number) => string;
 };
 
-const seriesName = (n: number) => t("ui-chart-series", { n });
+/** Default series name written into the deck, so without isolation marks (t-1380). */
+const seriesName = (n: number) => tPlain("ui-chart-series", { n });
 
 const NO_CHECKBOXES: readonly number[] = [];
 

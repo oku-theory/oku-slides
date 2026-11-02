@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import type { Element, Op, Paragraph, SlideView, Snapshot, TabApi } from "./api";
 import type { AddWidget } from "./packTypes";
 import { neighbourSlide, newElementOps, newId } from "./deck";
-import { t } from "./i18n";
+import { t, tPlain } from "./i18n";
 import { BASE } from "./builtinKinds";
 import { newElement } from "./newElement";
 import { canRemoveSlide } from "./slideTools";
@@ -49,7 +49,7 @@ export function useSlideOps({
   const addElement = (widget: AddWidget, override?: { text: Paragraph[]; label: string }) => {
     const element = newElement(widget.name, newId(idPrefix(widget.name)), widget.seed);
     if (override) element.params = { ...element.params, body: override.text };
-    place(element, override?.label ?? t("ui-undo-add-widget", { name: widget.label }), widget.name === BASE.text && !override);
+    place(element, override?.label ?? tPlain("ui-undo-add-widget", { name: widget.label }), widget.name === BASE.text && !override);
   };
 
   /** Pose `element` sur la slide affichée, puis le sélectionne (et l'édite si `edit`). */

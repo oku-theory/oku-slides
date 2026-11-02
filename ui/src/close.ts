@@ -2,7 +2,7 @@
 // (to the default folder when it has no file); a pack or theme tab saves its pack or theme, or asks.
 
 import { pickSavePath, type Snapshot, type TabApi, type TabInfo } from "./api";
-import { isolate, t } from "./i18n";
+import { t } from "./i18n";
 import { type AskReplaced, type PickSavePath, saveGuarded } from "./merge";
 import type { PackMode, ThemeTabView } from "./packTypes";
 import type { Confirm, Question } from "./useConfirm";
@@ -23,7 +23,7 @@ interface SaveForCloseOptions {
 }
 
 /** The read-only question: the pack cannot be saved here, close and lose its changes? */
-const readOnlyQuestion = (editing: PackMode) => t("ui-confirm-quit-read-only-pack", { pack: isolate(editing.display_name) });
+const readOnlyQuestion = (editing: PackMode) => t("ui-confirm-quit-read-only-pack", { pack: editing.display_name });
 
 /**
  * Saves a tab before it closes; false: given up.
@@ -77,7 +77,7 @@ async function packTabVerdict(snap: Snapshot, editing: PackMode, api: TabApi, co
 async function themeTabVerdict(snap: Snapshot, theming: ThemeTabView, api: TabApi, confirm: Confirm): Promise<"keep" | "discard" | null> {
   if (!snap.dirty) return "keep";
   if (theming.read_only) {
-    const question = discardQuestion(t("ui-confirm-quit-read-only-theme", { theme: isolate(theming.display_name) }));
+    const question = discardQuestion(t("ui-confirm-quit-read-only-theme", { theme: theming.display_name }));
     return (await confirm(question)) ? "discard" : null;
   }
   await api.saveTheme();

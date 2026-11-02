@@ -128,7 +128,7 @@ async function openGrid(p) {
   await picker.getByRole('group', { name: 'Base', exact: true }).getByRole('option', { name: /^Carte/ }).click();
   await picker.waitFor({ state: 'detached' });
   const undoLabel = () => p.evaluate(() => document.querySelector('[aria-label^="Annuler"]')?.getAttribute('aria-label'));
-  await untilValue(p, undoLabel, (l) => l === 'Annuler : Ajouter « Carte »', "la carte n'est pas ajoutée (libellé d'annulation)");
+  await untilValue(p, undoLabel, (l) => l === 'Annuler : \u2068Ajouter « Carte »\u2069', "la carte n'est pas ajoutée (libellé d'annulation)");
   const slideJson = async () => JSON.stringify(await api(p, { cmd: 'slide', id: slide }));
   const added = await slideJson();
   assert.ok(added.includes('"base/card"') && added.includes('Titre de la carte'), `carte sans son titre de départ : ${added.slice(0, 300)}`);

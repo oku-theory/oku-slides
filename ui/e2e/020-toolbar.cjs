@@ -42,7 +42,7 @@ const state = (p) => p.evaluate(() => ({
   await p.waitForSelector('.widget-picker[data-armed]');
   await p.keyboard.press('Enter');
   await picker.waitFor({ state: 'detached' });
-  const added = 'Annuler : Ajouter « Graphique »';
+  const added = 'Annuler : \u2068Ajouter « Graphique »\u2069';
   await until(p, async () => (await state(p)).undo === added, 'le graphique n\'est pas ajouté (libellé d\'annulation)');
   assert.equal((await state(p)).undo, added);
   // A reopens the grid focused on the last card added (A then Enter would add it again); Escape closes it.
@@ -59,7 +59,7 @@ const state = (p) => p.evaluate(() => ({
   await p.locator('.thumb-slot').nth(3).getByRole('button', { name: 'Supprimer la slide' }).click();
   await until(p, async () => {
     const s = await state(p);
-    return s.slides === before - 1 && s.undo === 'Annuler : Supprimer la slide';
+    return s.slides === before - 1 && s.undo === 'Annuler : \u2068Supprimer la slide\u2069';
   }, 'la slide n\'est pas supprimée (nombre de slides, libellé d\'annulation)');
   assert.equal((await state(p)).slides, before - 1);
   await p.keyboard.press('Control+z');
