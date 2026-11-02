@@ -43,6 +43,9 @@ struct TabRequest {
     req: oku_slides_session::Request,
 }
 
+/// Parent of each server's own tab-state folder in the data dir (t-1413).
+const SERVE_DIR: &str = "serve";
+
 /// Taille maximale du corps d'une requête `/api*` : au-delà, 413.
 const MAX_BODY: u64 = 64 * 1024 * 1024;
 
@@ -337,9 +340,12 @@ pub fn serve(
     fonts: Fonts,
     platform: &Platform,
 ) -> Result<()> {
-    // Le fichier donné s'ouvre dans le premier onglet, `t-1`. L'espace de
-    // travail est partagé par le serveur et l'agent (`Sessions`).
-    let workspace = Arc::new(Mutex::new(Workspace::new(fonts, platform, input)?));
+    // The given file opens in the first tab, `t-1`. The workspace is shared by
+    // the server and the agent (`Sessions`). Its tabs write in a random folder
+    // of `<data>/serve` of this process only, removed at exit and never read
+    // back: each tab's agent works in an empty folder there (t-1413).
+    let dir = platform.settings.paths.data().join(SERVE_DIR);
+    let workspace = Arc::new(Mutex::new(Workspace::new_in(fonts, platform, input, &dir)?));
     let settings = &platform.settings;
     let (host, port) = (settings.serve.host.as_str(), port.unwrap_or(settings.serve.port));
     // Le serveur, les outils MCP et l'agent : un seul runtime tokio.

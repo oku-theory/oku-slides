@@ -476,6 +476,22 @@
       }
      },
      {
+      "id": "b-agent-dossier",
+      "kind": "base/card",
+      "params": {
+       "title": "Its own empty folder",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "The agent works in a private, empty folder of its tab and reaches the deck only through Oku Slides' tools: it does not see the files next to the deck (paste images instead), nor a CLAUDE.md or AGENTS.md kept there. Its own app settings still apply, permission modes included: keep it asking."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
       "id": "b-agent-confirme",
       "kind": "base/card",
       "params": {

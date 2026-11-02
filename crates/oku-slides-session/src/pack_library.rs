@@ -5,13 +5,14 @@
 //! import) part de la version qu'embarque le deck ; ses versions restent dans
 //! les sources des documents, jamais dans la bibliothèque.
 
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{ResultExt, ensure};
 use uuid::Uuid;
 
 use oku_slides_core::{PackFiles, PackVersion};
 
 use crate::error::{
-    DeckOnlySnafu, LeaseMissingSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, UnknownPackSnafu,
+    DeckOnlySnafu, LeaseMissingSnafu, PackJsonSnafu, PackManifestSnafu, PackNotInstalledSnafu, PackVersionMissingSnafu,
+    UnknownPackSnafu,
 };
 use crate::library::{DraftLock, DraftWrite};
 use crate::library_kind::StoredVersion;
@@ -28,7 +29,9 @@ impl Session {
     /// qu'il embarque. Sinon la courante de la bibliothèque. Un pack du deck seul
     /// que le deck n'utilise plus (resté dans l'historique) est refusé
     /// (`DeckOnly`) : la bibliothèque ne l'a pas. Celui du deck dont la version
-    /// n'est pas embarquée l'est aussi (`PackVersionMissing`).
+    /// n'est pas embarquée l'est aussi (`PackVersionMissing`). A library pack the
+    /// deck received and the user has not added to the library yet is refused
+    /// (`PackNotInstalled`): it enters the library only through `install_received`.
     pub(crate) fn pack_base(&self, id: Uuid) -> Result<StoredVersion<PackManifest>> {
         let packs = &self.user_blobs().packs;
         if let Some((_, _, pin)) = self.user_deck().all_pins().find(|(_, _, pin)| pin.id == id) {
@@ -45,7 +48,20 @@ impl Session {
             ensure!(!missing, PackVersionMissingSnafu { id, version: pin.version.clone() });
         }
         ensure!(!self.embeds_deck_only_pack(id), DeckOnlySnafu { id });
-        Ok(self.library.current_version(id).context(UnknownPackSnafu { id })?)
+        if let Some(stored) = self.library.current_version(id) {
+            return Ok(stored);
+        }
+        match self.received_pack_name(id) {
+            Some(pack) => PackNotInstalledSnafu { pack }.fail()?,
+            None => UnknownPackSnafu { id }.fail()?,
+        }
+    }
+
+    /// The name of library pack `id` the deck pins and embeds, cleaned; `None` if it pins none.
+    fn received_pack_name(&self, id: Uuid) -> Option<String> {
+        let (_, _, pin) = self.user_deck().all_pins().find(|(_, _, pin)| pin.id == id)?;
+        let files = self.user_blobs().packs.get(&pin.version)?;
+        Some(crate::received_review::name_of(files))
     }
 }
 

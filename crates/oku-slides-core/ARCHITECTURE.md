@@ -30,7 +30,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   (`ThemeManifest`: `namespace`, ordered `extends`) is a prefix-free `PackFiles` without widgets, manifest `theme.json`
   (`PackFiles::theme`, `verified_theme`). `PackScope`, packs only (`library` default, unwritten; `deck`: an import's).
 - `theme_chain.rs`: `ThemePin`, `linearize` (post-order, each theme once, the deck's last), `check_closure`.
-  `token_spec.rs`: `Control` (an editor control), `ComponentToken` (a pack manifest `tokens` entry).
+  `token_spec.rs`: `Control` (an editor control), `ComponentToken` (a pack manifest `tokens` entry). `capabilities.rs`: `Capabilities::of`, what a version holds (items, requires, tokens, fonts, profiles, code bytes).
 - `sources.rs`: `SourceBundle` (`SOURCES_VERSION`); its zip in `sources_zip.rs`: Loro snapshot, assets, fonts, `<kind>/<hex>/
   {<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`), `themes/<hex>/theme.json` (`sources_themes.rs`, pins
   checked against manifests and closure), `usage.jsonl` (read last, own cap, never fails), all add-only, verified on read

@@ -130,7 +130,7 @@ fn second_launch(h: &Harness, script: &serde_json::Value) -> (oku_slides_agent::
         ],
         env: Vec::new(),
         path: None,
-        fallback_cwd: h.log.parent().unwrap_or_else(|| panic!("dossier du journal")).to_owned(),
+        process_dir: h.process_dir(),
         ready_within: oku_slides_agent::READY_WITHIN,
     };
     (launch, log)

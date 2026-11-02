@@ -395,7 +395,7 @@ ui-about-close = ปิด
 
 ui-shortcut-theme = ธีม, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = คู่มือสำหรับเอเจนต์
 ui-guides-edit = วิธีแก้ไข
 ui-guides-use = วิธีใช้
@@ -406,12 +406,27 @@ ui-guides-origin-received = ที่ได้รับ
 ui-guides-approve = อนุมัติคู่มือนี้
 ui-guides-awaiting = จะไม่ส่งให้เอเจนต์จนกว่าคุณจะอนุมัติ
 ui-guides-awaiting-mixed = หากต้องการอนุมัติ ให้เลิกทำการแก้ไขคู่มือเหล่านี้ หรือเขียนใหม่หรือล้างคู่มือที่ยังรออนุมัติ
-ui-guides-install-title = งานนำเสนอนี้มีคู่มือสำหรับเอเจนต์
-ui-guides-install-intro = คู่มือจะถึงเอเจนต์ต่อเมื่อคุณอนุมัติเท่านั้น โปรดอ่านก่อน
-ui-guides-install-approve = อนุมัติคู่มือ
-ui-guides-install-later = ภายหลัง
-ui-guides-install-items = { $count } รายการ
-ui-guides-install-requires = ต้องใช้ { $names }
-ui-guides-kind-widgets = วิดเจ็ต
-ui-guides-kind-layouts = เลย์เอาต์
-ui-guides-kind-theme = ธีม
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = งานนำเสนอนี้มีแพ็กหรือธีม
+ui-received-intro = ตรวจดูว่าแต่ละรายการมีอะไรบ้าง จะไม่มีสิ่งใดเข้าสู่คลังของคุณและไม่มีคู่มือใดถึงเอเจนต์จนกว่าคุณจะยืนยัน
+ui-received-offline = แพ็กและธีมอ่านไฟล์ของคุณหรือเครือข่ายไม่ได้
+ui-received-add = เพิ่มลงในคลังของฉัน
+ui-received-approve = อนุมัติคู่มือ
+ui-received-dismiss = ตกลง
+ui-received-later = ภายหลัง
+ui-received-install = จะเพิ่มลงในคลังของคุณ
+ui-received-kind-widgets = วิดเจ็ต
+ui-received-kind-layouts = เลย์เอาต์
+ui-received-kind-theme = ธีม
+ui-received-relation-new-pack = แพ็กใหม่
+ui-received-relation-new-version = เวอร์ชันใหม่
+ui-received-relation-held = มีอยู่ในคลังของคุณแล้ว
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = เนมสเปซ: { $namespace }
+ui-received-items = เนื้อหา: { $names }
+ui-received-more = { $names } และอีก { $count } รายการ
+ui-received-requires = ต้องใช้: { $names }
+ui-received-tokens = โทเค็น: { $names }
+ui-received-fonts = ฟอนต์: { $names }
+ui-received-profiles = โปรไฟล์เลย์เอาต์ { $count } รายการ
+ui-received-code = โค้ด Typst: { NUMBER($kb) } KB

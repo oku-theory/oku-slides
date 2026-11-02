@@ -71,6 +71,7 @@ local-agent-engine-failed = 本機 AI 代理的模型發生錯誤。
 local-agent-retry = 請重試，或在 AI 代理面板中選擇其他 AI 代理。
 agent-stopped = AI 代理已停止。
 agent-failed = AI 代理拒絕了請求：{ $message }
+agent-error-work-dir = 無法為此分頁準備 AI 代理的專用工作資料夾。
 agent-tool-failed = 此工具意外失敗。
 
 agent-turn-tools = { $tools }個工具

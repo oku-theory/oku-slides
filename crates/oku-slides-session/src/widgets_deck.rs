@@ -46,12 +46,16 @@ use oku_slides_core::{
 };
 use oku_slides_render::PackWidgets;
 
-use crate::error::{NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackVersionMissingSnafu, RegistrySnafu};
+use crate::error::{
+    NamespaceReservedSnafu, NotPinnedSnafu, PackJsonSnafu, PackNotInstalledSnafu, PackVersionMissingSnafu,
+    RegistrySnafu,
+};
 use crate::library::{DraftWrite, draft_lock};
 use crate::pack::PackManifest;
 use crate::pack_lease::pack_leased;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_receive::is_deck_only;
+use crate::received_held::HeldVersion;
 use crate::widgets_edit::WidgetTarget;
 use crate::{Result, Session};
 
@@ -137,13 +141,14 @@ impl Session {
         Ok(None)
     }
 
-    /// Le pack du deck de l'utilisateur sous `pack`, sinon son pack propre pour `category`, et ses fichiers.
+    /// The user's deck pack under `pack`, else its own pack for `category`, with its files.
     ///
-    /// Sans `pack` : `deck-layouts` pour une slide, `deck` pour un élément ; pour
-    /// une catégorie inconnue, `deck`, ou `deck-layouts` si le deck n'épingle que
-    /// lui. Sans pack propre épinglé : un pack du deck seul
-    /// neuf, vide, au nom du deck, que la première écriture épingle. Un `pack`
-    /// que le deck n'épingle pas est refusé (`NotPinned`).
+    /// Without `pack`: `deck-layouts` for a slide, `deck` for an element; for an
+    /// unknown category, `deck`, or `deck-layouts` if the deck pins only that one.
+    /// Without an own pack pinned: a new, empty deck-only pack named after the deck,
+    /// which the first write pins. A `pack` the deck does not pin is refused
+    /// (`NotPinned`), and so is a received library version the library does not
+    /// list yet (`PackNotInstalled`), unless it is the running widget session's draft.
     pub(crate) fn deck_widget_target(
         &self,
         pack: Option<&Namespace>,
@@ -161,9 +166,16 @@ impl Session {
             return self.new_deck_pack(wanted);
         };
         let files = self.user_pack_files(pin)?;
-        // `deck` et `deck-layouts` n'appartiennent qu'aux packs du deck seul : un pack de bibliothèque reçu sous ce nom n'est pas écrit.
+        // `deck` and `deck-layouts` belong to deck-only packs: a received library pack under them is not written.
         let own = namespace.is_deck() || namespace.is_deck_layouts();
         ensure!(!own || is_deck_only(&files), NamespaceReservedSnafu { namespace: namespace.as_str() });
+        // A received version, of a new pack or a new version of a known one, enters the library
+        // only through `install_received`, never by an edit: the write would make its child current.
+        let held = HeldVersion::of_pack(kind, &namespace, pin, &files);
+        ensure!(
+            self.library_has(&held) || self.is_widget_draft(pin.id, &pin.version),
+            PackNotInstalledSnafu { pack: crate::received_review::name_of(&files) }
+        );
         Ok(WidgetTarget { kind, namespace, id: pin.id, version: pin.version.clone(), files })
     }
 

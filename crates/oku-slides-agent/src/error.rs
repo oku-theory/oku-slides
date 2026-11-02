@@ -1,7 +1,10 @@
-//! Agent errors: not found, no app binary, no HTTP, stopped, request refused.
+//! Agent errors: not found, no app binary, no HTTP, stopped, request refused, no working folder.
+
+use std::path::PathBuf;
 
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::local_agent::Unavailable;
+use oku_slides_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
 
 /// L'agent n'a pas pu servir la consigne.
@@ -23,6 +26,14 @@ pub(crate) enum AgentInner {
     Stopped { message: String, backtrace: Backtrace },
     #[snafu(display("the agent refused the request: {message}"))]
     Request { message: String, backtrace: Backtrace },
+    #[snafu(display("no working folder for the tab's agent"))]
+    WorkDir { source: oku_slides_session::SessionError, backtrace: Backtrace },
+    #[snafu(display("the tab's agent working folder was lost"))]
+    WorkDirTask { source: tokio::task::JoinError, backtrace: Backtrace },
+    #[snafu(display("cannot empty the agent process folder {}", path.display()))]
+    ProcessDir { path: PathBuf, source: StorageError, backtrace: Backtrace },
+    #[snafu(display("the agent process folder task was lost"))]
+    ProcessDirTask { source: tokio::task::JoinError, backtrace: Backtrace },
 }
 
 impl AgentError {
@@ -40,7 +51,12 @@ impl AgentError {
             AgentInner::Spawn { command, .. } => Some(Unusable::Spawn { command: command.clone() }),
             AgentInner::NoHttp { .. } => Some(Unusable::NoHttp),
             AgentInner::NoProgram { .. } => Some(Unusable::NoProgram),
-            AgentInner::Stopped { .. } | AgentInner::Request { .. } => None,
+            AgentInner::Stopped { .. }
+            | AgentInner::Request { .. }
+            | AgentInner::WorkDir { .. }
+            | AgentInner::WorkDirTask { .. }
+            | AgentInner::ProcessDir { .. }
+            | AgentInner::ProcessDirTask { .. } => None,
         }
     }
 }
@@ -141,6 +157,11 @@ impl Localize for AgentError {
             AgentInner::NoProgram { .. } => Unusable::NoProgram.localize(l),
             AgentInner::Stopped { .. } => l.tr("agent-stopped"),
             AgentInner::Request { message, .. } => l.tr_with("agent-failed", &[("message", message.as_str().into())]),
+            // The path stays in Display, for the logs: never quoted to the user.
+            AgentInner::WorkDir { .. }
+            | AgentInner::WorkDirTask { .. }
+            | AgentInner::ProcessDir { .. }
+            | AgentInner::ProcessDirTask { .. } => l.tr("agent-error-work-dir"),
         }
     }
 }

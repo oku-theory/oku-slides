@@ -410,7 +410,7 @@ ui-about-close = إغلاق
 
 ui-shortcut-theme = سمة, السمة, ثيم, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = أدلة للوكلاء
 ui-guides-edit = طريقة التعديل
 ui-guides-use = طريقة الاستخدام
@@ -421,15 +421,30 @@ ui-guides-origin-received = مستلم
 ui-guides-approve = الموافقة على هذا الدليل
 ui-guides-awaiting = لا يُرسل إلى الوكيل حتى توافق عليه.
 ui-guides-awaiting-mixed = للموافقة عليه، تراجع عن تعديلاتك على هذه الأدلة، أو أعد كتابة الدليل الذي ما زال بانتظار الموافقة أو امسحه.
-ui-guides-install-title = يأتي هذا العرض بأدلة للوكلاء
-ui-guides-install-intro = لا تصل إلى الوكيل إلا بعد موافقتك. اقرأها أولاً.
-ui-guides-install-approve = الموافقة على الأدلة
-ui-guides-install-later = لاحقًا
-ui-guides-install-items = { $count ->
-    [one] { $count } عنصر
-   *[other] { $count } عناصر
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = يأتي هذا العرض بحزم أو سمات
+ui-received-intro = تحقق مما يحتويه كل منها. لا يدخل شيء إلى مكتبتك ولا يصل أي دليل إلى الوكيل قبل موافقتك.
+ui-received-offline = لا يمكن للحزم والسمات قراءة ملفاتك أو الوصول إلى الشبكة.
+ui-received-add = إضافة إلى مكتبتي
+ui-received-approve = الموافقة على الأدلة
+ui-received-dismiss = حسنًا
+ui-received-later = لاحقًا
+ui-received-install = ستُضاف إلى مكتبتك
+ui-received-kind-widgets = الأدوات
+ui-received-kind-layouts = التخطيطات
+ui-received-kind-theme = السمة
+ui-received-relation-new-pack = حزمة جديدة
+ui-received-relation-new-version = إصدار جديد
+ui-received-relation-held = موجودة في مكتبتك
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = مساحة الأسماء: { $namespace }
+ui-received-items = المحتوى: { $names }
+ui-received-more = { $names } و{ $count } أخرى
+ui-received-requires = يتطلب: { $names }
+ui-received-tokens = الرموز: { $names }
+ui-received-fonts = الخطوط: { $names }
+ui-received-profiles = { $count ->
+    [one] { $count } ملف تخطيط
+   *[other] { $count } ملفات تخطيط
   }
-ui-guides-install-requires = يتطلب { $names }
-ui-guides-kind-widgets = الأدوات
-ui-guides-kind-layouts = التخطيطات
-ui-guides-kind-theme = السمة
+ui-received-code = شيفرة Typst: { NUMBER($kb) } ك.ب

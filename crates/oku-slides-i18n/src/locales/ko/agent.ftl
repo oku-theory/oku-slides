@@ -71,6 +71,7 @@ local-agent-engine-failed = 로컬 에이전트의 모델이 실패했습니다.
 local-agent-retry = 다시 시도하거나, 에이전트 패널에서 다른 에이전트를 선택하세요.
 agent-stopped = 에이전트가 중지되었습니다.
 agent-failed = 에이전트가 요청을 거부했습니다: { $message }
+agent-error-work-dir = 이 탭의 에이전트 전용 작업 폴더를 준비할 수 없습니다.
 agent-tool-failed = 도구가 예기치 않게 실패했습니다.
 
 agent-turn-tools = 도구 { $tools }개

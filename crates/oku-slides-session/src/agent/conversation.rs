@@ -42,7 +42,9 @@ impl Session {
         self.persist_conversation();
     }
 
-    /// Nouvelle conversation : oubliée, son fichier effacé ; rend sa session.
+    /// A new conversation: the old one forgotten, its file deleted; returns its session.
+    ///
+    /// The caller empties the agent's working folder ([`super::AgentWorkDir::empty`]) out of the lock.
     pub fn forget_conversation(&mut self) -> Option<String> {
         let gone = self.conversation.take()?;
         self.persist_agent(None);

@@ -52,6 +52,25 @@ pub struct Harness {
 }
 
 impl Harness {
+    /// The data folder: script, log, sessions' data and resume folders.
+    pub fn data(&self) -> &Path {
+        self.dir.path()
+    }
+
+    /// The working folder `tab`'s agent gets, under its resume folder, as its session names it.
+    pub fn work_dir(&self, tab: &str) -> PathBuf {
+        let session = self.session(tab).lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let work = session.agent_work_dir().unwrap_or_else(|e| panic!("work dir of {tab}: {}", e.one_line()));
+        let path = work.path().to_path_buf();
+        assert!(path.starts_with(tab_resume_dir(self.dir.path(), tab)), "{} outside the tab's folder", path.display());
+        path
+    }
+
+    /// The folder the agent process runs in.
+    pub fn process_dir(&self) -> PathBuf {
+        self.dir.path().join(PROCESS_DIR)
+    }
+
     pub fn tab(&self, name: &str) -> &Tab {
         self.tabs.iter().find(|t| t.name == name).unwrap_or_else(|| panic!("onglet inconnu : {name}"))
     }
@@ -67,6 +86,9 @@ impl Drop for Harness {
     }
 }
 
+/// The agent process folder's name in a test's data folder.
+const PROCESS_DIR: &str = "agent-process";
+
 /// Un dossier neuf, supprimé au `drop` (t-273).
 ///
 /// Créé atomiquement sous un nom aléatoire : jamais celui d'un test
@@ -75,8 +97,40 @@ fn test_dir(prefix: &str) -> tempfile::TempDir {
     tempfile::Builder::new().prefix(prefix).tempdir().unwrap_or_else(|e| panic!("dossier de test : {e}"))
 }
 
-/// Une session sur la fixture `roadmap.json`, et la plateforme (locale `fr`).
-async fn session(dir: PathBuf) -> (Session, Platform) {
+/// The resume folder of tab `tab` under `data`, as the workspace names it.
+pub fn tab_resume_dir(data: &Path, tab: &str) -> PathBuf {
+    data.join("tabs").join(tab)
+}
+
+/// One storage for every test launch, never dropped: dropping its runtime in an async test panics.
+pub fn launch_storage() -> oku_slides_platform::storage::Storage {
+    static STORAGE: std::sync::LazyLock<oku_slides_platform::storage::Storage> = std::sync::LazyLock::new(|| {
+        oku_slides_platform::storage::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"))
+    });
+    STORAGE.clone()
+}
+
+/// What a test tab's session holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Deck {
+    /// The `roadmap.json` fixture, saved, with a resume folder.
+    Fixture,
+    /// The deck file at this path, with a resume folder.
+    File(PathBuf),
+    /// A new deck never saved, with a resume folder.
+    Unsaved,
+    /// The fixture, without a resume folder: no working folder for the agent.
+    NoResume,
+}
+
+/// The `roadmap.json` fixture.
+pub fn roadmap() -> PathBuf {
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))
+}
+
+/// Une session de l'onglet `tab` selon `deck`, et la plateforme (locale `fr`).
+async fn session(dir: PathBuf, tab: &str, deck: Deck) -> (Session, Platform) {
+    let resume = tab_resume_dir(&dir, tab);
     tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
         settings.paths.data = Some(dir);
@@ -85,9 +139,17 @@ async fn session(dir: PathBuf) -> (Session, Platform) {
         settings.i18n.locale = Some("fr".into());
         let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
         let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
-        session
-            .open(&PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json")))
-            .unwrap_or_else(|e| panic!("ouverture : {e}"));
+        let file = match &deck {
+            Deck::Fixture | Deck::NoResume => Some(roadmap()),
+            Deck::File(path) => Some(path.clone()),
+            Deck::Unsaved => None,
+        };
+        if let Some(file) = file {
+            session.open(&file).unwrap_or_else(|e| panic!("ouverture : {e}"));
+        }
+        if deck != Deck::NoResume {
+            assert!(session.resume(resume), "reprise de l'onglet");
+        }
         (session, platform)
     })
     .await
@@ -96,12 +158,17 @@ async fn session(dir: PathBuf) -> (Session, Platform) {
 
 /// Démarre un onglet par nom de `tabs`, sur un seul faux agent (ou `command`) suivant `script`.
 pub async fn start_tabs_with(script: Value, tabs: &[&str], command: Option<&str>) -> Harness {
-    start_tabs_ready_within(script, tabs, command, oku_slides_agent::READY_WITHIN).await
+    start_tabs_ready_within(script, tabs, command, oku_slides_agent::READY_WITHIN, Deck::Fixture).await
 }
 
 /// Un onglet `t-1` dont l'agent doit être prêt dans `ready_within`.
 pub async fn start_ready_within(script: Value, ready_within: Duration) -> Harness {
-    start_tabs_ready_within(script, &["t-1"], None, ready_within).await
+    start_tabs_ready_within(script, &["t-1"], None, ready_within, Deck::Fixture).await
+}
+
+/// One tab `t-1` whose session holds `deck`, on the fake agent following `script`.
+pub async fn start_deck(script: Value, deck: Deck) -> Harness {
+    start_tabs_ready_within(script, &["t-1"], None, oku_slides_agent::READY_WITHIN, deck).await
 }
 
 /// Le scénario du faux agent : réécrit, il vaut pour le lancement suivant.
@@ -114,6 +181,7 @@ async fn start_tabs_ready_within(
     tabs: &[&str],
     command: Option<&str>,
     ready_within: Duration,
+    deck: Deck,
 ) -> Harness {
     let dir = test_dir("oku-slides-agent-");
     let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
@@ -128,14 +196,14 @@ async fn start_tabs_ready_within(
         ],
         env: Vec::new(),
         path: None,
-        fallback_cwd: dir.path().to_owned(),
+        process_dir: dir.path().join(PROCESS_DIR),
         ready_within,
     };
-    let link = Link::for_preset("fake", launch, None);
+    let link = Link::for_preset("fake", launch, None, launch_storage());
     let cancel = CancellationToken::new();
     let mut started = Vec::with_capacity(tabs.len());
     for name in tabs {
-        let (session, platform) = session(dir.path().to_owned()).await;
+        let (session, platform) = session(dir.path().to_owned(), name, deck.clone()).await;
         let session = Arc::new(Mutex::new(session));
         let tab = TabSession::new(*name, session.clone());
         let hub = SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), Arc::new(oku_slides_mcp::NoVoice));
@@ -631,6 +699,7 @@ async fn build_stack_with(
     let resumed = !matches!(first, First::Fixture);
     let names: Vec<String> = tabs.iter().map(|t| (*t).to_owned()).collect();
     let resume_dir = resume.clone();
+    let tabs_data = data.clone();
     let (sessions, platform) = tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
         settings.paths.data = Some(data);
@@ -661,16 +730,18 @@ async fn build_stack_with(
         };
         let fixture = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"));
         let new = || Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
-        let opened = || {
+        // Each tab resumes in its own folder: its agent works in `work/` there.
+        let opened = |name: &str| {
             let mut session = new();
             session.open(&fixture).unwrap_or_else(|e| panic!("ouverture : {e}"));
+            assert!(session.resume(tab_resume_dir(&tabs_data, name)), "reprise de l'onglet");
             session
         };
         let sessions = TabSessions::closed_on(&platform);
         let mut first = Some(first);
         for name in names {
             let session = match first.take_if(|_| name == "t-1") {
-                None | Some(First::Fixture) => opened(),
+                None | Some(First::Fixture) => opened(&name),
                 Some(First::Seeded(seed)) => {
                     let mut first = new();
                     assert!(first.resume(resume_dir.clone()));

@@ -398,7 +398,7 @@ ui-about-close = Kapat
 
 ui-shortcut-theme = tema, temalar, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Ajanlar için kılavuzlar
 ui-guides-edit = Nasıl düzenlenir
 ui-guides-use = Nasıl kullanılır
@@ -409,12 +409,27 @@ ui-guides-origin-received = Alınan
 ui-guides-approve = Bu kılavuzu onayla
 ui-guides-awaiting = Onaylayana kadar ajana gönderilmez.
 ui-guides-awaiting-mixed = Onaylamak için bu kılavuzlardaki düzenlemelerinizi geri alın ya da hâlâ bekleyen kılavuzu yeniden yazın veya boşaltın.
-ui-guides-install-title = Bu sunum ajanlar için kılavuzlar getiriyor
-ui-guides-install-intro = Siz onaylayana kadar ajana ulaşmazlar. Önce okuyun.
-ui-guides-install-approve = Kılavuzları onayla
-ui-guides-install-later = Sonra
-ui-guides-install-items = { $count } öğe
-ui-guides-install-requires = Gerektirir: { $names }
-ui-guides-kind-widgets = Widget'lar
-ui-guides-kind-layouts = Düzenler
-ui-guides-kind-theme = Tema
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = Bu sunum paketler veya temalar getiriyor
+ui-received-intro = Her birinin içeriğini kontrol edin. Siz onaylayana kadar kitaplığınıza hiçbir şey girmez ve hiçbir kılavuz ajana ulaşmaz.
+ui-received-offline = Paketler ve temalar dosyalarınızı veya ağı okuyamaz.
+ui-received-add = Kitaplığıma ekle
+ui-received-approve = Kılavuzları onayla
+ui-received-dismiss = Tamam
+ui-received-later = Sonra
+ui-received-install = Kitaplığınıza eklenecek
+ui-received-kind-widgets = Widget'lar
+ui-received-kind-layouts = Düzenler
+ui-received-kind-theme = Tema
+ui-received-relation-new-pack = Yeni paket
+ui-received-relation-new-version = Yeni sürüm
+ui-received-relation-held = Zaten kitaplığınızda
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Ad alanı: { $namespace }
+ui-received-items = İçerik: { $names }
+ui-received-more = { $names } ve { $count } tane daha
+ui-received-requires = Gerektirir: { $names }
+ui-received-tokens = Belirteçler: { $names }
+ui-received-fonts = Yazı tipleri: { $names }
+ui-received-profiles = { $count } düzen profili
+ui-received-code = Typst kodu: { NUMBER($kb) } KB

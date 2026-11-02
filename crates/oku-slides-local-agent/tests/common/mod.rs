@@ -57,6 +57,7 @@ impl Drop for Harness {
 
 /// Une session sur la fixture `roadmap.json`, et la plateforme (locale `fr`).
 async fn session(dir: PathBuf) -> (Session, Platform) {
+    let resume = dir.join("tabs").join("t-1");
     tokio::task::spawn_blocking(move || {
         let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
         settings.paths.data = Some(dir);
@@ -68,10 +69,20 @@ async fn session(dir: PathBuf) -> (Session, Platform) {
         session
             .open(&PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json")))
             .unwrap_or_else(|e| panic!("ouverture : {e}"));
+        // Its own resume folder, as in the workspace: the agent works in `work/` there.
+        assert!(session.resume(resume), "reprise de l'onglet");
         (session, platform)
     })
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante : {e}"))
+}
+
+/// One storage for every test launch, never dropped: dropping its runtime in an async test panics.
+fn launch_storage() -> oku_slides_platform::storage::Storage {
+    static STORAGE: std::sync::LazyLock<oku_slides_platform::storage::Storage> = std::sync::LazyLock::new(|| {
+        oku_slides_platform::storage::Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"))
+    });
+    STORAGE.clone()
 }
 
 /// Démarre l'onglet `t-1` sur l'agent local de test, moteur factice suivant `script`.
@@ -94,10 +105,10 @@ pub async fn start(script: Value) -> Harness {
             ("OKU_SLIDES_PATHS__DECKS".into(), dir.path().join("decks").to_string_lossy().into_owned()),
         ],
         path: None,
-        fallback_cwd: dir.path().to_owned(),
+        process_dir: dir.path().join("agent-process"),
         ready_within: oku_slides_agent::READY_WITHIN,
     };
-    let link = Link::new(launch);
+    let link = Link::new(launch, launch_storage());
     let cancel = CancellationToken::new();
     let (session, platform) = session(dir.path().to_owned()).await;
     let session = Arc::new(Mutex::new(session));

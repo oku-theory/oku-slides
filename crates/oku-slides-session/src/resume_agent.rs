@@ -10,6 +10,8 @@ use crate::resume_writer::AgentWrite;
 
 /// Sous-dossier de la conversation, dans le dossier de reprise de l'onglet.
 pub(crate) const AGENT_DIR: &str = "agent";
+/// The agent's working folder, in the tab's resume folder (see `Session::agent_work_dir`).
+pub(crate) const AGENT_WORK_DIR: &str = "work";
 /// Fichier de la conversation de l'onglet.
 const CONVERSATION_FILE: &str = "conversation.json";
 /// Version of the conversation file.

@@ -71,6 +71,7 @@ local-agent-engine-failed = Mô hình của tác nhân AI cục bộ đã gặp 
 local-agent-retry = Hãy thử lại, hoặc chọn một tác nhân AI khác trong bảng tác nhân AI.
 agent-stopped = Tác nhân AI đã dừng.
 agent-failed = Tác nhân AI đã từ chối yêu cầu: { $message }
+agent-error-work-dir = Không thể chuẩn bị thư mục làm việc riêng của tác nhân AI cho thẻ này.
 agent-tool-failed = Công cụ gặp lỗi ngoài dự kiến.
 
 agent-turn-tools = { $tools } công cụ

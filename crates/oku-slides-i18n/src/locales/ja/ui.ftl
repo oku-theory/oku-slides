@@ -398,7 +398,7 @@ ui-about-close = 閉じる
 
 ui-shortcut-theme = テーマ, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = エージェント向けガイド
 ui-guides-edit = 編集のしかた
 ui-guides-use = 使い方
@@ -409,12 +409,27 @@ ui-guides-origin-received = 受信
 ui-guides-approve = このガイドを承認
 ui-guides-awaiting = 承認するまでエージェントには送られません。
 ui-guides-awaiting-mixed = 承認するには、これらのガイドへの編集を取り消すか、承認待ちのガイドを書き直すか空にしてください。
-ui-guides-install-title = このデッキにはエージェント向けのガイドが含まれています
-ui-guides-install-intro = 承認するまでエージェントには渡りません。先にお読みください。
-ui-guides-install-approve = ガイドを承認
-ui-guides-install-later = あとで
-ui-guides-install-items = { $count }件
-ui-guides-install-requires = 必要: { $names }
-ui-guides-kind-widgets = ウィジェット
-ui-guides-kind-layouts = レイアウト
-ui-guides-kind-theme = テーマ
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = このデッキにはパックまたはテーマが含まれています
+ui-received-intro = それぞれの内容を確認してください。確認するまで、ライブラリには何も追加されず、ガイドもエージェントに渡りません。
+ui-received-offline = パックとテーマはあなたのファイルやネットワークを読み取れません。
+ui-received-add = マイライブラリに追加
+ui-received-approve = ガイドを承認
+ui-received-dismiss = OK
+ui-received-later = あとで
+ui-received-install = ライブラリに追加されます
+ui-received-kind-widgets = ウィジェット
+ui-received-kind-layouts = レイアウト
+ui-received-kind-theme = テーマ
+ui-received-relation-new-pack = 新しいパック
+ui-received-relation-new-version = 新しいバージョン
+ui-received-relation-held = すでにライブラリにあります
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = 名前空間: { $namespace }
+ui-received-items = 内容: { $names }
+ui-received-more = { $names } ほか{ $count }件
+ui-received-requires = 必要: { $names }
+ui-received-tokens = トークン: { $names }
+ui-received-fonts = フォント: { $names }
+ui-received-profiles = レイアウトプロファイル{ $count }件
+ui-received-code = Typstコード: { NUMBER($kb) } KB

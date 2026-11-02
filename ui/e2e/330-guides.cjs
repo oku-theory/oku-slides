@@ -1,9 +1,9 @@
 // Agent guides in packs and themes (t-1267): a guide tab of a pack tab's Commun saves
 // a use guide when its field is left; a deck pinning that pack shows the guide, folded, in "Packs du deck".
-// A deck written by another installation brings a received pack with a guide: opening it asks, "Plus tard"
-// keeps the guide inactive (badge "reçu", button "Approuver ce guide" in "Packs du deck"), the button
-// approves it for good (reopened, the deck no longer asks), and the agent's first turn then holds the
-// `<oku-slides-guides>` block with the guide. Two screenshots go to E2E_SHOTS (default .superpowers/sdd/2026-10-31-agent-guides).
+// A deck written by another installation brings a received pack with a guide: opening it asks (t-1414's
+// received dialog), "Plus tard" keeps the guide inactive (badge "reçu", button "Approuver ce guide" in
+// "Packs du deck"), the button approves it for good, and the agent's first turn then holds the
+// `<oku-slides-guides>` block with the guide. Reopened, the deck asks only to add the pack, guide approved. Two screenshots go to E2E_SHOTS (default .superpowers/sdd/2026-10-31-agent-guides).
 // Runs against `oku-slides serve` started by `just e2e` (fake agent, log in E2E_AGENT_LOG).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -12,7 +12,7 @@ const path = require('node:path');
 const { post } = require('./lib/http.cjs');
 const { closePackTabs, openPackTab, packTabShown } = require('./lib/atelier.cjs');
 const { createLibraryWidgetPack, deleteLibraryPack } = require('./lib/packs.cjs');
-const { writeDeckBringingGuide } = require('./lib/foreignDeck.cjs');
+const { writeDeckBringingPack } = require('./lib/foreignDeck.cjs');
 const { logOffset, logSince } = require('./lib/agentLog.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
@@ -29,7 +29,7 @@ const part = (p, id) => p.locator(`${PANEL} [data-component-id="${id}"]`);
 /** Text of component `id` of the packs panel, fluent isolation marks dropped; `''` when absent. */
 const text = (p, id) => part(p, id).first().innerText({ timeout: 1000 }).then((t) => t.replace(/[⁨⁩]/g, '').trim(), () => '');
 const blur = (p) => p.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
-const dialog = (p) => p.getByRole('alertdialog', { name: 'Ce deck apporte des guides pour les agents' });
+const dialog = (p) => p.getByRole('alertdialog', { name: 'Ce deck apporte des packs ou des thèmes' });
 
 /** Activates `tab` and reloads the page (serve pushes no view). */
 async function activate(p, tab) {
@@ -107,15 +107,15 @@ async function openFile(p, file) {
     await deleteLibraryPack(p, TAB, own.id);
   }
 
-  // 2. A deck written elsewhere brings a pack with a use guide: the install dialog asks.
-  const file = await writeDeckBringingGuide(b, 'Venu', BROUGHT_GUIDE);
+  // 2. A deck written elsewhere brings a pack with a use guide: the received dialog asks.
+  const file = await writeDeckBringingPack(b, 'Venu', BROUGHT_GUIDE);
   let received = null;
   try {
     received = await openFile(p, file);
     assert.notEqual(received, TAB, 'le deck reçu n\'ouvre pas d\'onglet');
     const ask = dialog(p);
     await ask.waitFor();
-    await p.waitForSelector('.guides-install[data-armed]');
+    await p.waitForSelector('.received-dialog[data-armed]');
     await ask.getByText(BROUGHT_GUIDE, { exact: true }).waitFor();
     await ask.getByRole('heading', { name: 'Venu' }).waitFor();
     await p.screenshot({ path: path.join(SHOTS, 'e2e-guides-install.png') });
@@ -123,7 +123,7 @@ async function openFile(p, file) {
     // « Plus tard » : no more dialog, the guide stays inactive.
     await ask.getByRole('button', { name: 'Plus tard' }).click();
     await ask.waitFor({ state: 'detached' });
-    assert.deepEqual((await snapshot(p, received)).guides_to_approve, [], 'le deck demande encore après « Plus tard »');
+    assert.deepEqual((await snapshot(p, received)).received_to_review, [], 'le deck demande encore après « Plus tard »');
     await openPanel(p);
     const card = part(p, 'widgets/venu/guide');
     await card.waitFor();
@@ -142,13 +142,22 @@ async function openFile(p, file) {
     await until(p, () => logSince(log, from).some((m) => m.method === 'session/prompt' && JSON.stringify(m).includes('<oku-slides-guides>')), 'le tour de l\'agent ne porte pas <oku-slides-guides>', 15_000);
     assert.ok(logSince(log, from).some((m) => m.method === 'session/prompt' && JSON.stringify(m).includes(BROUGHT_GUIDE)), 'le guide approuvé n\'arrive pas à l\'agent');
 
-    // 4. Reopened, the deck asks no more.
+    // 4. Reopened, the deck asks only to add the pack: its guide is approved, so none shows.
     await post(p, '/api/workspace', { cmd: 'close', tab: received, discard: true });
     received = null;
     received = await openFile(p, file);
-    await p.waitForSelector('.stage img');
-    assert.equal(await dialog(p).count(), 0, 'le deck rouvert redemande l\'approbation');
-    assert.deepEqual((await snapshot(p, received)).guides_to_approve, [], 'le deck rouvert liste encore des guides à approuver');
+    const [again, ...more] = (await snapshot(p, received)).received_to_review;
+    assert.deepEqual(more, [], 'le deck rouvert liste plus d\'une version');
+    assert.equal(again?.capabilities.name, 'Venu', `le deck rouvert ne liste pas Venu : ${JSON.stringify(again)}`);
+    assert.deepEqual([again.install, again.guides], [true, {}], 'le deck rouvert redemande l\'approbation du guide');
+    const reask = dialog(p);
+    await reask.waitFor();
+    await p.waitForSelector('.received-dialog[data-armed]');
+    assert.equal(await reask.locator('pre').count(), 0, 'le guide approuvé se montre encore');
+    await reask.getByRole('button', { name: 'Ajouter à ma bibliothèque' }).click();
+    await reask.waitFor({ state: 'detached' });
+    assert.deepEqual((await snapshot(p, received)).received_to_review, [], 'le deck liste encore Venu une fois ajouté');
+    assert.ok((await api(p, TAB, { cmd: 'packs', kind: 'widgets' })).some((x) => x.name === 'Venu'), 'Venu absent de la bibliothèque une fois ajouté');
   } finally {
     if (received !== null) await post(p, '/api/workspace', { cmd: 'close', tab: received, discard: true });
     const left = (await api(p, TAB, { cmd: 'packs', kind: 'widgets' })).find((x) => x.name === 'Venu');

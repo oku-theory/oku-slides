@@ -71,6 +71,7 @@ local-agent-engine-failed = Het model van de lokale agent is mislukt.
 local-agent-retry = Probeer het opnieuw, of kies een andere agent in het agentpaneel.
 agent-stopped = De agent is gestopt.
 agent-failed = De agent heeft het verzoek geweigerd: { $message }
+agent-error-work-dir = De privéwerkmap van de agent voor dit tabblad kon niet worden voorbereid.
 agent-tool-failed = Het hulpmiddel is onverwacht mislukt.
 
 agent-turn-tools = { $tools ->

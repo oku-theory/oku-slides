@@ -404,7 +404,7 @@ ui-about-close = Zamknij
 
 ui-shortcut-theme = motyw, motywy, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Wskazówki dla agentów
 ui-guides-edit = Jak edytować
 ui-guides-use = Jak używać
@@ -415,17 +415,32 @@ ui-guides-origin-received = Otrzymane
 ui-guides-approve = Zatwierdź tę wskazówkę
 ui-guides-awaiting = Nie jest wysyłana do agenta, dopóki jej nie zatwierdzisz.
 ui-guides-awaiting-mixed = Aby ją zatwierdzić, cofnij swoje zmiany w tych przewodnikach albo przepisz lub wyczyść przewodnik, który wciąż czeka.
-ui-guides-install-title = Ta prezentacja zawiera wskazówki dla agentów
-ui-guides-install-intro = Trafiają do agenta dopiero po zatwierdzeniu. Najpierw je przeczytaj.
-ui-guides-install-approve = Zatwierdź wskazówki
-ui-guides-install-later = Później
-ui-guides-install-items = { $count ->
-    [one] { $count } element
-    [few] { $count } elementy
-    [many] { $count } elementów
-   *[other] { $count } elementy
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = Ta prezentacja zawiera pakiety lub motywy
+ui-received-intro = Sprawdź, co zawiera każdy z nich. Nic nie trafi do biblioteki ani żadna wskazówka do agenta bez Twojego zatwierdzenia.
+ui-received-offline = Pakiety i motywy nie mogą czytać Twoich plików ani sieci.
+ui-received-add = Dodaj do mojej biblioteki
+ui-received-approve = Zatwierdź wskazówki
+ui-received-dismiss = OK
+ui-received-later = Później
+ui-received-install = Zostanie dodany do biblioteki
+ui-received-kind-widgets = Widżety
+ui-received-kind-layouts = Układy
+ui-received-kind-theme = Motyw
+ui-received-relation-new-pack = Nowy pakiet
+ui-received-relation-new-version = Nowa wersja
+ui-received-relation-held = Już w Twojej bibliotece
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Przestrzeń nazw: { $namespace }
+ui-received-items = Zawartość: { $names }
+ui-received-more = { $names } i { $count } więcej
+ui-received-requires = Wymaga: { $names }
+ui-received-tokens = Tokeny: { $names }
+ui-received-fonts = Czcionki: { $names }
+ui-received-profiles = { $count ->
+    [one] { $count } profil układu
+    [few] { $count } profile układu
+    [many] { $count } profili układu
+   *[other] { $count } profilu układu
   }
-ui-guides-install-requires = Wymaga: { $names }
-ui-guides-kind-widgets = Widżety
-ui-guides-kind-layouts = Układy
-ui-guides-kind-theme = Motyw
+ui-received-code = Kod Typst: { NUMBER($kb) } KB

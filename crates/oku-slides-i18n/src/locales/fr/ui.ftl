@@ -402,7 +402,7 @@ ui-about-close = Fermer
 # Mots qui, seuls dans une consigne, ouvrent le sélecteur de thème ; séparés par des virgules, anglais compris.
 ui-shortcut-theme = thème, thèmes, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Guides pour les agents
 ui-guides-edit = Comment modifier
 ui-guides-use = Comment utiliser
@@ -413,15 +413,30 @@ ui-guides-origin-received = Reçu
 ui-guides-approve = Approuver ce guide
 ui-guides-awaiting = Pas envoyé à l'agent tant que vous ne l'approuvez pas.
 ui-guides-awaiting-mixed = Pour l'approuver, annulez vos modifications de ces guides, ou réécrivez ou videz le guide encore en attente.
-ui-guides-install-title = Ce deck apporte des guides pour les agents
-ui-guides-install-intro = Ils ne parviennent à l'agent qu'une fois approuvés. Lisez-les d'abord.
-ui-guides-install-approve = Approuver les guides
-ui-guides-install-later = Plus tard
-ui-guides-install-items = { $count ->
-    [one] { $count } élément
-   *[other] { $count } éléments
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = Ce deck apporte des packs ou des thèmes
+ui-received-intro = Vérifiez ce que chacun contient. Rien n'entre dans votre bibliothèque et aucun guide ne parvient à l'agent avant votre validation.
+ui-received-offline = Les packs et les thèmes ne peuvent lire ni vos fichiers ni le réseau.
+ui-received-add = Ajouter à ma bibliothèque
+ui-received-approve = Approuver les guides
+ui-received-dismiss = OK
+ui-received-later = Plus tard
+ui-received-install = Sera ajouté à votre bibliothèque
+ui-received-kind-widgets = Widgets
+ui-received-kind-layouts = Layouts
+ui-received-kind-theme = Thème
+ui-received-relation-new-pack = Nouveau pack
+ui-received-relation-new-version = Nouvelle version
+ui-received-relation-held = Déjà dans votre bibliothèque
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Espace de noms : { $namespace }
+ui-received-items = Contenu : { $names }
+ui-received-more = { $names } et { $count } de plus
+ui-received-requires = Requiert : { $names }
+ui-received-tokens = Jetons : { $names }
+ui-received-fonts = Polices : { $names }
+ui-received-profiles = { $count ->
+    [one] { $count } profil de mise en page
+   *[other] { $count } profils de mise en page
   }
-ui-guides-install-requires = Requiert { $names }
-ui-guides-kind-widgets = Widgets
-ui-guides-kind-layouts = Layouts
-ui-guides-kind-theme = Thème
+ui-received-code = Code Typst : { NUMBER($kb) } Ko

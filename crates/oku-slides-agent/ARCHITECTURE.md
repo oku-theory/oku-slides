@@ -27,8 +27,7 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `events` : `AgentEvent`, `AgentState`, `PlanItem`; `from_update` maps ACP updates (with `turn`); `turns` : `Turns`, reducer to A2UI turn surfaces (`TurnOut`).
 - `turn` (puts the session's guides block, when `agent_guides` returns one, before the context block; returns the reply's `Usage`; `prompt_images`: "Pasted images" block, image blocks if `SessionCaps.image` and under
   `[paste] prompt_*` limits), `permission` (ACP option to `PermissionChoice`), `config` (`Launch`, its `path`
-  the child's `PATH` and lookup, `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`:
-  tests only), `settings_port` (`AppSettings`).
+  the child's `PATH` and lookup, `READY_WITHIN`, `for_preset`: a built-in preset relaunches this binary with `--local-agent`; `Launch.env`: tests only), `settings_port` (`AppSettings`).
 - `voice_port` : `AppVoice`, the one writer of dictation and agent choice (`VoicePort`; `diagnosis`: `AgentChoice::diagnosis`, the dictation's microphone, engine, files, language); `fallback`: `turn_route` (`route_read` off the lock, then `route_apply` under it: `TurnRoute` by the pure `decide`, `Main` if another agent was chosen since, the link switched only while the tab prompts alone); `agent_switch`
   (`PromptGuard` per prompting tab, deferred switch by epoch); `stt_watch` (400 ms `Stt` fingerprint);
   `voice_refresh` (one panel per revision for every tab's box, `Voice` and `Availability` on change, `Fallback` cleared once it ends).
@@ -41,8 +40,9 @@ Idle, no agent runs. A tab's first `Prompt` launches the agent (killed if not re
 `READY_WITHIN`), then opens or resumes the tab's session (one thread per tab). The MCP hub
 numbers turns (`SurfaceHub::begin_turn`); the actor stamps what it emits, and `link` stamps ACP
 updates with the hub's open turn, so the reducer survives `broadcast` lag. A stopped agent fails
-every tab's turn; the next prompt relaunches it. Dropping the last `Link` stops the agent. The agent has
-no `fs` or `terminal` capability (only `oku-slides-mcp` tools); one without MCP over HTTP is refused.
+every tab's turn; the next prompt relaunches it. Dropping the last `Link` stops the agent. The process runs in
+`<data>/agent-process` (`Launch.process_dir`, emptied by the `Link`'s storage at each launch), each session in its tab's `work/` (`Session::agent_work_dir`;
+none: the turn fails; `AgentWorkDir::prepare` strips agent config names out of the lock before every new, resumed or loaded session; the keeper empties it for a new conversation), never the deck's folder. No `fs` or `terminal` capability (only `oku-slides-mcp` tools); one without MCP over HTTP is refused.
 
 ## Dependencies
 

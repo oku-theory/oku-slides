@@ -253,6 +253,21 @@ impl PackLibrary {
         by_kind!(self, files.kind(), l => l.receive_version(id, files))
     }
 
+    /// Checks that a received version could be added, writing nothing (see [`Library::check_receive`]).
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::receive_version`] would before any write.
+    pub(crate) fn check_receive(&self, id: Uuid, files: &PackFiles) -> Result<()> {
+        self.check_kinds(id, files)?;
+        by_kind!(self, files.kind(), l => l.check_receive(id, files))
+    }
+
+    /// Whether either kind's library has a version of pack `id`, built-in included.
+    pub(crate) fn knows(&self, id: Uuid) -> bool {
+        self.widgets.knows(id) || self.layouts.knows(id)
+    }
+
     /// Makes version `v` current for pack `id`.
     ///
     /// # Errors

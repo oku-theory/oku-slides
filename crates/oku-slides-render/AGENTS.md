@@ -11,6 +11,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Sanitize every table param with parse_table before Typst; on bad data render null and warn, never refuse the deck. (spec:2026-10-08-widget-tableau-design)
 - Decide pack trust only with is_trusted_pack: namespace base and a version listed in packs/base/versions.txt, never namespace or id alone. (plan:2026-10-18-packs-lot2-base)
 - Exempt packs from blame for bounded failures only with is_never_blamed: trusted packs and any widgets pack under the base namespace. (t-1053)
+- Keep the Typst world closed: serve only in-memory files, never a package or a path on disk. (t-1414)
 
 ## Pitfalls
 

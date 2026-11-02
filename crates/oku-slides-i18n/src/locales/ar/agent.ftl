@@ -71,6 +71,7 @@ local-agent-engine-failed = فشل نموذج الوكيل المحلي.
 local-agent-retry = حاول مرة أخرى، أو اختر وكيلًا آخر في لوحة الوكيل.
 agent-stopped = توقف الوكيل.
 agent-failed = رفض الوكيل الطلب: { $message }
+agent-error-work-dir = تعذّر تجهيز مجلد العمل الخاص بالوكيل لعلامة التبويب هذه.
 agent-tool-failed = تعذّر تنفيذ الأداة بشكل غير متوقع.
 
 agent-turn-tools = { $tools ->

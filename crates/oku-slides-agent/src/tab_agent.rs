@@ -18,10 +18,11 @@ use oku_slides_mcp::SurfaceHub;
 use oku_slides_platform::config::PromptImageLimits;
 use oku_slides_session::agent::{AgentUi, AttachmentRef, TabSession};
 use oku_slides_session::{DocumentKind, Session};
+use snafu::IntoError;
 use tokio::sync::{broadcast, mpsc};
 
 use crate::agent_switch::PromptGuard;
-use crate::error::{AgentError, RequestSnafu, StoppedSnafu};
+use crate::error::{AgentError, RequestSnafu, StoppedSnafu, WorkDirSnafu, WorkDirTaskSnafu};
 use crate::keeper::{Keep, Keeper};
 use crate::link::{Link, Live, Route};
 use crate::session_model::{Offered, model_options};
@@ -221,6 +222,15 @@ struct Known {
     session: Option<(String, Option<String>)>,
 }
 
+/// What a tab's ACP session is opened with: its working folder and tool server.
+#[derive(Debug, Clone)]
+struct Setup {
+    /// The tab's working folder, the session's `cwd`.
+    cwd: PathBuf,
+    /// The tab's MCP tool server.
+    tools: McpServer,
+}
+
 /// L'acteur de l'onglet.
 struct TabAgent {
     ctx: Ctx,
@@ -298,16 +308,17 @@ impl TabAgent {
         };
         let opened = match known.session {
             Some((id, _)) if self.live.contains(&(live.generation, id.clone())) => Ok((SessionId::new(id), false)),
-            Some((id, agent)) => match self.reopen(&live, n, &id, agent.as_deref()).await {
-                Ok(Reopened::Resumed(id)) => Ok((id, false)),
-                Ok(Reopened::NotTried) => self.open(&live, n).await.map(|id| (id, true)),
-                Ok(Reopened::Refused) => {
-                    self.memory_lost(n);
-                    self.open(&live, n).await.map(|id| (id, true))
-                }
-                Err(e) => Err(e),
-            },
-            None => self.open(&live, n).await.map(|id| (id, true)),
+            known => {
+                // No working folder: the turn fails, never another folder in its place.
+                let setup = match self.setup().await {
+                    Ok(setup) => setup,
+                    Err(e) => {
+                        self.failed(n, &e);
+                        return None;
+                    }
+                };
+                self.open_or_reopen(&live, n, known, &setup).await
+            }
         };
         let (id, fresh) = match opened {
             Ok(x) => x,
@@ -347,32 +358,54 @@ impl TabAgent {
         Known { agent, session }
     }
 
-    /// Dossier du document et serveur d'outils de l'onglet.
-    async fn setup(&self) -> (PathBuf, McpServer) {
+    /// The tab's ACP session for turn `turn`: resumed if `known` and the agent can, else a new one.
+    ///
+    /// Returns it and whether it is new.
+    async fn open_or_reopen(
+        &mut self,
+        live: &Live,
+        turn: u32,
+        known: Option<(String, Option<String>)>,
+        setup: &Setup,
+    ) -> agent_client_protocol::Result<(SessionId, bool)> {
+        let Some((id, agent)) = known else { return self.open(live, turn, setup).await.map(|id| (id, true)) };
+        match self.reopen(live, turn, &id, agent.as_deref(), setup).await? {
+            Reopened::Resumed(id) => Ok((id, false)),
+            Reopened::NotTried => self.open(live, turn, setup).await.map(|id| (id, true)),
+            Reopened::Refused => {
+                self.memory_lost(turn);
+                self.open(live, turn, setup).await.map(|id| (id, true))
+            }
+        }
+    }
+
+    /// The tab's working folder (the session's `cwd`) and tool server.
+    ///
+    /// The folder is the tab's own, empty at first (`Session::agent_work_dir`), never the
+    /// deck's folder nor the data folder: what sits next to a deck never configures the agent.
+    /// Before each new, resumed or loaded session, the config names an earlier turn may have
+    /// written there are removed (`AgentWorkDir::prepare`), once the session lock is released.
+    async fn setup(&self) -> Result<Setup, AgentError> {
         let tab = self.ctx.tab.clone();
-        let dir = match tokio::task::spawn_blocking(move || tab.with(|s| s.document_dir())).await {
+        let prepared = tokio::task::spawn_blocking(move || {
+            tab.with(|s| s.agent_work_dir()).and_then(|work| work).and_then(|work| work.prepare())
+        });
+        let cwd = match prepared.await {
             Ok(Ok(dir)) => dir,
-            Ok(Err(e)) => {
-                tracing::warn!(error = %e.one_line(), "dossier du document illisible : dossier par défaut");
-                None
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "dossier du document perdu : dossier par défaut");
-                None
-            }
+            Ok(Err(source)) => return Err(WorkDirSnafu.into_error(source).into()),
+            Err(source) => return Err(WorkDirTaskSnafu.into_error(source).into()),
         };
-        let cwd = dir.unwrap_or_else(|| self.link.fallback_cwd());
         let tools = McpServer::Http(
             McpServerHttp::new("oku-slides", self.tools.url.clone())
                 .headers(vec![HttpHeader::new("Authorization", self.tools.authorization.clone())]),
         );
-        (cwd, tools)
+        Ok(Setup { cwd, tools })
     }
 
     /// Nouvelle session ACP de l'onglet, ouverte pour le tour `turn`.
-    async fn open(&mut self, live: &Live, turn: u32) -> agent_client_protocol::Result<SessionId> {
-        let (cwd, tools) = self.setup().await;
-        let r = live.cx.send_request(NewSessionRequest::new(cwd).mcp_servers(vec![tools])).block_task().await?;
+    async fn open(&mut self, live: &Live, turn: u32, setup: &Setup) -> agent_client_protocol::Result<SessionId> {
+        let request = NewSessionRequest::new(setup.cwd.clone()).mcp_servers(vec![setup.tools.clone()]);
+        let r = live.cx.send_request(request).block_task().await?;
         self.adopt(live, turn, &r.session_id, false, r.config_options.as_deref());
         Ok(r.session_id)
     }
@@ -412,12 +445,13 @@ impl TabAgent {
         turn: u32,
         id: &str,
         agent: Option<&str>,
+        setup: &Setup,
     ) -> agent_client_protocol::Result<Reopened> {
         if agent != Some(self.link.agent_id().as_str()) || !(live.caps.resume || live.caps.load) {
             return Ok(Reopened::NotTried);
         }
         let id = SessionId::new(id.to_owned());
-        let (cwd, tools) = self.setup().await;
+        let Setup { cwd, tools } = setup.clone();
         // La route n'est posée qu'après la réponse : le rejeu de `session/load` est ignoré
         // (et, s'il arrive après, par la garde de la route jusqu'au premier prompt).
         let asked = if live.caps.resume {

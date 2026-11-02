@@ -71,6 +71,7 @@ local-agent-engine-failed = 本地智能体的模型出错了。
 local-agent-retry = 请重试，或在智能体面板中选择其他智能体。
 agent-stopped = 智能体已停止。
 agent-failed = 智能体拒绝了请求：{ $message }
+agent-error-work-dir = 无法为此标签页准备智能体的专用工作文件夹。
 agent-tool-failed = 该工具意外失败。
 
 agent-turn-tools = { $tools }个工具

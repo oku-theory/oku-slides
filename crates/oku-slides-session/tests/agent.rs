@@ -834,8 +834,3 @@ fn turn_groups_every_apply_into_one_undo() {
     s.undo().unwrap();
     assert_that!(s.snapshot().can_undo).is_false();
 }
-
-#[test]
-fn document_dir_of_unsaved_deck_is_none() {
-    assert_that!(session().document_dir()).is_none();
-}

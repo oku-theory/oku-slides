@@ -11,6 +11,10 @@
 //! A pinned pack or theme with a use guide shows it folded and read-only (plain text, clipped,
 //! with its origin); one awaiting approval shows its edit guide too, since `approve_guides`,
 //! from the button of a received guide not yet approved, approves both.
+//! A received version the library lacks and may take offers `add_to_library` (context `id`,
+//! `version`), which installs it without approving its guides; a pack the library does not
+//! know yet shows that action in place of `open_pack`, whose tab would be refused; a blocked
+//! one shows neither, nor does a received theme the library lacks show `open_theme`.
 
 use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
 use oku_slides_core::{GuideKind, Namespace, PackKind, PackVersion};
@@ -23,6 +27,7 @@ use crate::agent::bounds::clip;
 use crate::agent::forms::{Place, lit, surface};
 use crate::deck_packs::{DeckPacksView, Drift, PinnedPackView, ThemeSectionView};
 use crate::deck_packs_guide::PinnedGuideView;
+use crate::guide_approvals::VersionRef;
 use crate::theme_picker::picked_theme;
 use crate::{Result, Session};
 
@@ -77,6 +82,13 @@ pub enum PacksEvent {
         /// The pinned version.
         version: PackVersion,
     },
+    /// Add a received version the deck pins to the user's library.
+    AddToLibrary {
+        /// Id of the pack or theme.
+        id: Uuid,
+        /// The pinned version.
+        version: PackVersion,
+    },
 }
 
 /// Le nom d'une sorte dans les ids et les contextes.
@@ -97,6 +109,11 @@ pub fn packs_event(name: &str, context: &Map<String, Value>) -> Option<PacksEven
         let namespace = context.get("namespace").and_then(Value::as_str).and_then(Namespace::parse)?;
         Some((kind, namespace))
     };
+    let version = || -> Option<(Uuid, PackVersion)> {
+        let id = context.get("id").and_then(Value::as_str).and_then(|s| Uuid::parse_str(s).ok())?;
+        let version = context.get("version").and_then(Value::as_str).and_then(PackVersion::from_hex)?;
+        Some((id, version))
+    };
     match name {
         "add_pack" => pack().map(|(kind, namespace)| PacksEvent::AddPack { kind, namespace }),
         "remove_pack" => pack().map(|(kind, namespace)| PacksEvent::RemovePack { kind, namespace }),
@@ -104,11 +121,8 @@ pub fn packs_event(name: &str, context: &Map<String, Value>) -> Option<PacksEven
         "make_current" => pack().map(|(kind, namespace)| PacksEvent::MakeCurrent { kind, namespace }),
         "theme" => picked_theme(context).map(|theme| PacksEvent::Theme { theme }),
         "theme_update" => Some(PacksEvent::ThemeUpdate),
-        "approve_guides" => {
-            let id = context.get("id").and_then(Value::as_str).and_then(|s| Uuid::parse_str(s).ok())?;
-            let version = context.get("version").and_then(Value::as_str).and_then(PackVersion::from_hex)?;
-            Some(PacksEvent::ApproveGuides { id, version })
-        }
+        "approve_guides" => version().map(|(id, version)| PacksEvent::ApproveGuides { id, version }),
+        "add_to_library" => version().map(|(id, version)| PacksEvent::AddToLibrary { id, version }),
         _ => None,
     }
 }
@@ -116,6 +130,11 @@ pub fn packs_event(name: &str, context: &Map<String, Value>) -> Option<PacksEven
 /// L'évènement `name` sur le pack `p`.
 fn pack_action(name: &str, p: &PinnedPackView) -> Action {
     Action::event(name, [("kind", lit(json!(kind_name(p.kind)))), ("namespace", lit(json!(p.namespace.as_str())))])
+}
+
+/// The `add_to_library` event for version `version` (hexadecimal) of pack or theme `id`.
+fn add_action(id: Uuid, version: &str) -> Action {
+    Action::event("add_to_library", [("id", lit(json!(id.to_string()))), ("version", lit(json!(version)))])
 }
 
 /// The `open_pack` event for pack `p`.
@@ -198,7 +217,20 @@ impl Builder {
         if let Some(g) = &p.guide {
             body.extend(self.guide(&format!("{id}/"), g, l));
         }
-        let mut actions = vec![self.push(open)];
+        let mut actions = Vec::new();
+        if let Some(r) = &p.installable {
+            let action = add_action(r.id, r.version.hex());
+            actions.push(self.push(Component::button(
+                sub("add-to-library"),
+                l.tr("packs-add-to-library"),
+                true,
+                action,
+            )));
+        }
+        // A pack the library does not know yet opens no tab (`PackNotInstalled`): it is added first.
+        if p.openable && (p.installable.is_none() || drift.is_some()) {
+            actions.push(self.push(open));
+        }
         if drift.is_some() {
             let action = pack_action("use_mine", p);
             actions.push(self.push(Component::button(sub("use-mine"), l.tr("packs-use-mine"), true, action)));
@@ -291,6 +323,15 @@ impl Builder {
             let action = Action::event("open_theme", [("theme", lit(json!(id.to_string())))]);
             children.push(self.push(Component::button("theme-open", l.tr("packs-theme-open"), false, action)));
         }
+        if let Some(r) = &t.installable {
+            let action = add_action(r.id, r.version.hex());
+            children.push(self.push(Component::button(
+                "theme-add-to-library",
+                l.tr("packs-add-to-library"),
+                true,
+                action,
+            )));
+        }
         if t.outdated {
             let update = Component::button("theme-update", l.tr("packs-use-mine"), true, Action::named("theme_update"));
             children.push(self.push(update));
@@ -337,6 +378,7 @@ impl Session {
             PacksEvent::Theme { theme } => self.pick_theme(&theme),
             PacksEvent::ThemeUpdate => self.update_deck_theme(),
             PacksEvent::ApproveGuides { id, version } => self.approve_pinned_guides(id, version),
+            PacksEvent::AddToLibrary { id, version } => self.install_received(&[VersionRef { id, version }]),
         }
     }
 }

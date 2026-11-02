@@ -71,6 +71,7 @@ local-agent-engine-failed = लोकल एजेंट का मॉडल व
 local-agent-retry = फिर से कोशिश करें, या एजेंट पैनल में कोई दूसरा एजेंट चुनें।
 agent-stopped = एजेंट रुक गया।
 agent-failed = एजेंट ने अनुरोध अस्वीकार कर दिया: { $message }
+agent-error-work-dir = इस टैब के लिए एजेंट का निजी कार्य फ़ोल्डर तैयार नहीं किया जा सका।
 agent-tool-failed = टूल अप्रत्याशित रूप से विफल हो गया।
 
 agent-turn-tools = { $tools ->

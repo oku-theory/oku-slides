@@ -404,7 +404,7 @@ ui-about-close = Закрыть
 
 ui-shortcut-theme = тема, темы, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Руководства для агентов
 ui-guides-edit = Как редактировать
 ui-guides-use = Как использовать
@@ -415,17 +415,32 @@ ui-guides-origin-received = Полученное
 ui-guides-approve = Одобрить это руководство
 ui-guides-awaiting = Не передаётся агенту, пока вы его не одобрите.
 ui-guides-awaiting-mixed = Чтобы одобрить, отмените свои правки этих руководств или перепишите либо очистите руководство, которое всё ещё ждёт.
-ui-guides-install-title = Эта презентация содержит руководства для агентов
-ui-guides-install-intro = Агент получит их только после вашего одобрения. Сначала прочитайте их.
-ui-guides-install-approve = Одобрить руководства
-ui-guides-install-later = Позже
-ui-guides-install-items = { $count ->
-    [one] { $count } элемент
-    [few] { $count } элемента
-    [many] { $count } элементов
-   *[other] { $count } элемента
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = Эта презентация содержит пакеты или темы
+ui-received-intro = Проверьте, что содержит каждый. Ничего не попадёт в библиотеку и ни одно руководство не дойдёт до агента без вашего подтверждения.
+ui-received-offline = Пакеты и темы не могут читать ваши файлы или сеть.
+ui-received-add = Добавить в мою библиотеку
+ui-received-approve = Одобрить руководства
+ui-received-dismiss = ОК
+ui-received-later = Позже
+ui-received-install = Будет добавлен в вашу библиотеку
+ui-received-kind-widgets = Виджеты
+ui-received-kind-layouts = Макеты
+ui-received-kind-theme = Тема
+ui-received-relation-new-pack = Новый пакет
+ui-received-relation-new-version = Новая версия
+ui-received-relation-held = Уже в вашей библиотеке
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Пространство имён: { $namespace }
+ui-received-items = Содержимое: { $names }
+ui-received-more = { $names } и ещё { $count }
+ui-received-requires = Требуется: { $names }
+ui-received-tokens = Токены: { $names }
+ui-received-fonts = Шрифты: { $names }
+ui-received-profiles = { $count ->
+    [one] { $count } профиль макета
+    [few] { $count } профиля макета
+    [many] { $count } профилей макета
+   *[other] { $count } профиля макета
   }
-ui-guides-install-requires = Требуется: { $names }
-ui-guides-kind-widgets = Виджеты
-ui-guides-kind-layouts = Макеты
-ui-guides-kind-theme = Тема
+ui-received-code = Код Typst: { NUMBER($kb) } КБ

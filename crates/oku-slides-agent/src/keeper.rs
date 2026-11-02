@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use oku_slides_mcp::SurfaceHub;
-use oku_slides_session::Session;
 use oku_slides_session::agent::TabSession;
 use tokio::sync::{mpsc, oneshot, watch};
 
@@ -183,8 +182,19 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, aside: &mut Aside, k: Keep) {
         }
         Keep::Forget(reply) => {
             *aside = None;
-            let gone = tab.with(Session::forget_conversation);
-            // Dans l'ordre de la file : une fin de tour arrivée après l'oubli ne trouve plus son tour.
+            let gone = tab.with(|s| (s.forget_conversation(), s.agent_work_dir()));
+            // Out of the session lock, before the reply: the next session starts in an empty folder.
+            match gone.as_ref().map(|(_, work)| work) {
+                Ok(Ok(work)) => {
+                    if let Err(e) = work.empty() {
+                        tracing::warn!(error = %e.one_line(), "agent working folder not emptied");
+                    }
+                }
+                Ok(Err(e)) => tracing::debug!(error = %e.one_line(), "no agent working folder to empty"),
+                Err(_) => {}
+            }
+            let gone = gone.map(|(session, _)| session);
+            // In queue order: a turn end arriving after the forget no longer finds its turn.
             hub.clear_thread();
             if reply.send(gone.as_ref().ok().cloned().flatten()).is_err() {
                 tracing::debug!("oubli : l'acteur est parti (onglet fermé)");

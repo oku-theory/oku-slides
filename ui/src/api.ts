@@ -115,8 +115,8 @@ export interface Snapshot {
   host_params: HostParams;
   /** The edited pack's or theme's agent guides; `null` outside a pack or theme tab. */
   guides: GuidesView | null;
-  /** Received versions the deck pins whose guides await the user's approval (asked at install). */
-  guides_to_approve: GuidesReview[];
+  /** Received versions the library lacks or whose guides await approval, to validate (t-1414). */
+  received_to_review: ReceivedReview[];
 }
 
 /** The two agent guides of a pack or theme, as written in the session's version. */
@@ -152,16 +152,52 @@ export interface VersionRef {
   version: string;
 }
 
-/** A received version awaiting the user's approval, with what it holds. */
-export interface GuidesReview {
+/** What a pack or theme version holds, read from its files alone. */
+export interface Capabilities {
+  kind: "widgets" | "layouts" | "theme";
+  /** Name from the manifest, cleaned for display. */
+  name: string;
+  namespace: string;
+  /** One-sentence description; empty if absent. */
+  description: string;
+  /** Widget or layout names, `_commun` excluded; empty for a theme. */
+  items: string[];
+  /** Namespaces a pack requires, or the themes a theme extends. */
+  requires: string[];
+  /** Packs: component token paths; themes: token group names. */
+  tokens: string[];
+  /** Font families named in the tokens. */
+  fonts: string[];
+  /** Number of layout profiles the import can pick. */
+  profiles: number;
+  /** Total bytes of the Typst sources (0 for a theme). */
+  code_bytes: number;
+}
+
+/** Full lengths of the capability lists, which hold at most 50 names each. */
+export interface CapabilityTotals {
+  items: number;
+  requires: number;
+  tokens: number;
+  fonts: number;
+}
+
+/** How a received version relates to the user's library. */
+export type ReceivedRelation = "new_pack" | "new_version" | "held";
+
+/** A version the open deck brings, to validate before it enters the library. */
+export interface ReceivedReview {
   id: string;
   version: string;
-  kind: "widgets" | "layouts" | "theme";
-  name: string;
-  /** How many widgets or layouts it holds. */
-  items: number;
-  /** The namespaces it requires (a theme's parents). */
-  requires: string[];
+  capabilities: Capabilities;
+  /** How many names each capability list had before the cap. */
+  totals: CapabilityTotals;
+  relation: ReceivedRelation;
+  /** True when `acceptReceived` adds it to the library. */
+  install: boolean;
+  /** Why it stays in the deck, as a full localized sentence; then `install` is false. */
+  blocker: string | null;
+  /** Its guides as the agent would read them; empty when none await approval. */
   guides: Guides;
 }
 
@@ -603,7 +639,8 @@ type Request =
   | { cmd: "set_widget"; name: string; source: string; pack?: string }
   | { cmd: "set_guide"; which: GuideKind; text: string }
   | { cmd: "approve_guides"; versions: VersionRef[] }
-  | { cmd: "later_guides"; versions: VersionRef[] }
+  | { cmd: "accept_received"; versions: VersionRef[] }
+  | { cmd: "later_received"; versions: VersionRef[] }
   | { cmd: "remove_widget"; name: string; pack?: string }
   | { cmd: "rename_widget"; from: string; to: string; pack?: string }
   | { cmd: "duplicate_widget"; from: string; to?: string; pack?: string }
@@ -824,8 +861,10 @@ export function tabApi(tab: string) {
     setGuide: (which: GuideKind, text: string) => call<Snapshot>({ cmd: "set_guide", which, text }),
     /** Approves the guides of these received versions for good. */
     approveGuides: (versions: VersionRef[]) => call<Snapshot>({ cmd: "approve_guides", versions }),
-    /** Puts the approval of these versions off for this tab; the deck asks again when reopened. */
-    laterGuides: (versions: VersionRef[]) => call<Snapshot>({ cmd: "later_guides", versions }),
+    /** Adds these received versions to the library and approves their guides, as validated. */
+    acceptReceived: (versions: VersionRef[]) => call<Snapshot>({ cmd: "accept_received", versions }),
+    /** Puts the review of these versions off for this tab; the deck asks again when reopened. */
+    laterReceived: (versions: VersionRef[]) => call<Snapshot>({ cmd: "later_received", versions }),
     removeWidget: (name: string, pack?: string) => call<WidgetStatus[]>({ cmd: "remove_widget", name, pack }),
     renameWidget: (from: string, to: string, pack?: string) => call<WidgetStatus[]>({ cmd: "rename_widget", from, to, pack }),
     /** Copies an item under a fresh name the session picks; answers that name and the statuses. */

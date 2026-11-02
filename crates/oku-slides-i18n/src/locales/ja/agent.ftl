@@ -71,6 +71,7 @@ local-agent-engine-failed = ローカルのエージェントのモデルが失�
 local-agent-retry = もう一度お試しいただくか、エージェントのパネルで別のエージェントを選んでください。
 agent-stopped = エージェントが停止しました。
 agent-failed = エージェントが要求を拒否しました: { $message }
+agent-error-work-dir = このタブのエージェント専用の作業フォルダーを準備できませんでした。
 agent-tool-failed = ツールが予期せず失敗しました。
 
 agent-turn-tools = { $tools }個のツール

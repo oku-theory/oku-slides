@@ -395,7 +395,7 @@ ui-about-close = Đóng
 
 ui-shortcut-theme = chủ đề, giao diện, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Hướng dẫn cho tác nhân AI
 ui-guides-edit = Cách chỉnh sửa
 ui-guides-use = Cách sử dụng
@@ -406,12 +406,27 @@ ui-guides-origin-received = Nhận được
 ui-guides-approve = Phê duyệt hướng dẫn này
 ui-guides-awaiting = Không gửi cho tác nhân AI cho đến khi bạn phê duyệt.
 ui-guides-awaiting-mixed = Để phê duyệt, hãy hoàn tác các chỉnh sửa của bạn trên các hướng dẫn này, hoặc viết lại hay xóa trống hướng dẫn vẫn đang chờ.
-ui-guides-install-title = Bản trình bày này kèm hướng dẫn cho tác nhân AI
-ui-guides-install-intro = Chúng chỉ đến tác nhân AI sau khi bạn phê duyệt. Hãy đọc trước.
-ui-guides-install-approve = Phê duyệt hướng dẫn
-ui-guides-install-later = Để sau
-ui-guides-install-items = { $count } mục
-ui-guides-install-requires = Yêu cầu { $names }
-ui-guides-kind-widgets = Widget
-ui-guides-kind-layouts = Bố cục
-ui-guides-kind-theme = Chủ đề
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = Bản trình bày này kèm gói hoặc chủ đề
+ui-received-intro = Hãy kiểm tra nội dung của từng mục. Không có gì vào thư viện của bạn và không hướng dẫn nào đến tác nhân AI cho đến khi bạn xác nhận.
+ui-received-offline = Gói và chủ đề không thể đọc tệp của bạn hay truy cập mạng.
+ui-received-add = Thêm vào thư viện của tôi
+ui-received-approve = Phê duyệt hướng dẫn
+ui-received-dismiss = OK
+ui-received-later = Để sau
+ui-received-install = Sẽ được thêm vào thư viện của bạn
+ui-received-kind-widgets = Widget
+ui-received-kind-layouts = Bố cục
+ui-received-kind-theme = Chủ đề
+ui-received-relation-new-pack = Gói mới
+ui-received-relation-new-version = Phiên bản mới
+ui-received-relation-held = Đã có trong thư viện của bạn
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Không gian tên: { $namespace }
+ui-received-items = Nội dung: { $names }
+ui-received-more = { $names } và { $count } mục khác
+ui-received-requires = Yêu cầu: { $names }
+ui-received-tokens = Token: { $names }
+ui-received-fonts = Phông chữ: { $names }
+ui-received-profiles = { $count } hồ sơ bố cục
+ui-received-code = Mã Typst: { NUMBER($kb) } KB

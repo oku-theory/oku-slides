@@ -402,7 +402,7 @@ ui-about-close = Close
 # Words that, alone in an agent prompt, open the theme picker; comma-separated, the English ones included.
 ui-shortcut-theme = theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Guides for agents
 ui-guides-edit = How to edit
 ui-guides-use = How to use
@@ -413,15 +413,30 @@ ui-guides-origin-received = Received
 ui-guides-approve = Approve this guide
 ui-guides-awaiting = Not sent to the agent until you approve it.
 ui-guides-awaiting-mixed = To approve it, undo your edits to these guides, or rewrite or clear the guide still awaiting.
-ui-guides-install-title = This deck brings guides for agents
-ui-guides-install-intro = They reach the agent only once you approve them. Read them first.
-ui-guides-install-approve = Approve guides
-ui-guides-install-later = Later
-ui-guides-install-items = { $count ->
-    [one] { $count } item
-   *[other] { $count } items
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = This deck brings packs or themes
+ui-received-intro = Check what each one holds. Nothing enters your library and no guide reaches the agent until you validate.
+ui-received-offline = Packs and themes cannot read your files or the network.
+ui-received-add = Add to my library
+ui-received-approve = Approve guides
+ui-received-dismiss = OK
+ui-received-later = Later
+ui-received-install = Will be added to your library
+ui-received-kind-widgets = Widgets
+ui-received-kind-layouts = Layouts
+ui-received-kind-theme = Theme
+ui-received-relation-new-pack = New pack
+ui-received-relation-new-version = New version
+ui-received-relation-held = Already in your library
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Namespace: { $namespace }
+ui-received-items = Contents: { $names }
+ui-received-more = { $names } and { $count } more
+ui-received-requires = Requires: { $names }
+ui-received-tokens = Tokens: { $names }
+ui-received-fonts = Fonts: { $names }
+ui-received-profiles = { $count ->
+    [one] { $count } layout profile
+   *[other] { $count } layout profiles
   }
-ui-guides-install-requires = Requires { $names }
-ui-guides-kind-widgets = Widgets
-ui-guides-kind-layouts = Layouts
-ui-guides-kind-theme = Theme
+ui-received-code = Typst code: { NUMBER($kb) } KB

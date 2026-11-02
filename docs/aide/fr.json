@@ -476,6 +476,22 @@
       }
      },
      {
+      "id": "b-agent-dossier",
+      "kind": "base/card",
+      "params": {
+       "title": "Son propre dossier, vide",
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "L'agent travaille dans un dossier privé et vide de son onglet et n'atteint le deck que par les outils d'Oku Slides : il ne voit pas les fichiers à côté du deck (collez plutôt les images), ni un CLAUDE.md ou un AGENTS.md rangé là. Ses propres réglages s'appliquent toujours, modes de permission compris : laissez-le demander."
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
       "id": "b-agent-confirme",
       "kind": "base/card",
       "params": {

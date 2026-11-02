@@ -118,7 +118,7 @@ fn previous_base_rebuilt_has_the_previous_shipped_digest() {
 fn guide_origin_deck_pinning_the_previous_base_is_builtin_and_asks_nothing() {
     let (_d, s, old) = deck_pinning_previous_base();
     let origin = s.guide_origin(BASE_PACK, &old.version(), false);
-    assert_that!((origin, s.guides_to_approve().len())).is_equal_to((GuideOrigin::Builtin, 0));
+    assert_that!((origin, s.received_to_review().len())).is_equal_to((GuideOrigin::Builtin, 0));
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn guide_origin_deck_pinning_the_previous_papier_is_builtin_outdated_and_asks_no
     s.refresh_pack_updates();
     let origin = s.guide_origin(PAPIER_THEME, &old.version(), true);
     let outdated = s.deck_packs().unwrap().theme.outdated;
-    assert_that!((origin, s.guides_to_approve().len(), outdated)).is_equal_to((GuideOrigin::Builtin, 0, true));
+    assert_that!((origin, s.received_to_review().len(), outdated)).is_equal_to((GuideOrigin::Builtin, 0, true));
 }
 
 #[test]
@@ -193,7 +193,11 @@ fn guide_active_received_copy_of_base_with_its_shipped_guides_is_active_and_stil
     let copy = base_copy(None);
     let (_d, s) = deck_pinning(&copy);
     let v = copy.version();
-    let got = (s.guide_origin(BASE_PACK, &v, false), s.guide_active(BASE_PACK, &v, false), s.guides_to_approve().len());
+    let got = (
+        s.guide_origin(BASE_PACK, &v, false),
+        s.guide_active(BASE_PACK, &v, false),
+        s.snapshot().received_to_review.iter().filter(|r| !r.guides.is_empty()).count(),
+    );
     assert_that!(got).is_equal_to((GuideOrigin::Received, true, 0));
 }
 

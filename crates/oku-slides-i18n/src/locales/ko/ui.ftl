@@ -395,7 +395,7 @@ ui-about-close = 닫기
 
 ui-shortcut-theme = 테마, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = 에이전트 가이드
 ui-guides-edit = 편집 방법
 ui-guides-use = 사용 방법
@@ -406,12 +406,27 @@ ui-guides-origin-received = 받음
 ui-guides-approve = 이 가이드 승인
 ui-guides-awaiting = 승인하기 전에는 에이전트에 전달되지 않습니다.
 ui-guides-awaiting-mixed = 승인하려면 이 가이드에 대한 편집을 취소하거나, 아직 대기 중인 가이드를 다시 쓰거나 비우세요.
-ui-guides-install-title = 이 프레젠테이션에는 에이전트용 가이드가 있습니다
-ui-guides-install-intro = 승인해야만 에이전트에 전달됩니다. 먼저 읽어 보세요.
-ui-guides-install-approve = 가이드 승인
-ui-guides-install-later = 나중에
-ui-guides-install-items = { $count }개
-ui-guides-install-requires = 필요: { $names }
-ui-guides-kind-widgets = 위젯
-ui-guides-kind-layouts = 레이아웃
-ui-guides-kind-theme = 테마
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = 이 프레젠테이션에는 팩이나 테마가 있습니다
+ui-received-intro = 각각의 내용을 확인하세요. 확인하기 전에는 라이브러리에 아무것도 추가되지 않고 가이드도 에이전트에 전달되지 않습니다.
+ui-received-offline = 팩과 테마는 파일이나 네트워크를 읽을 수 없습니다.
+ui-received-add = 내 라이브러리에 추가
+ui-received-approve = 가이드 승인
+ui-received-dismiss = 확인
+ui-received-later = 나중에
+ui-received-install = 라이브러리에 추가됩니다
+ui-received-kind-widgets = 위젯
+ui-received-kind-layouts = 레이아웃
+ui-received-kind-theme = 테마
+ui-received-relation-new-pack = 새 팩
+ui-received-relation-new-version = 새 버전
+ui-received-relation-held = 이미 라이브러리에 있음
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = 네임스페이스: { $namespace }
+ui-received-items = 내용: { $names }
+ui-received-more = { $names } 외 { $count }개
+ui-received-requires = 필요: { $names }
+ui-received-tokens = 토큰: { $names }
+ui-received-fonts = 글꼴: { $names }
+ui-received-profiles = 레이아웃 프로필 { $count }개
+ui-received-code = Typst 코드: { NUMBER($kb) } KB

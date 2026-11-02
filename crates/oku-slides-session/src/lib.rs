@@ -69,7 +69,6 @@ mod example_text;
 mod fields;
 mod files;
 mod guide_approvals;
-mod guide_install;
 mod guide_origin;
 mod guides_edit;
 mod help;
@@ -108,6 +107,8 @@ mod preview_span;
 mod preview_theme;
 mod probed_widgets;
 mod quit_barrier;
+mod received_held;
+mod received_review;
 mod render_fonts;
 mod request;
 mod resume;
@@ -166,7 +167,6 @@ pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use guide_approvals::{GuideApprovals, VersionRef};
-pub use guide_install::GuidesReview;
 pub use guide_origin::GuideOrigin;
 pub use items::{ItemView, ListView};
 pub use library::{Library, builtin_versions};
@@ -180,6 +180,7 @@ pub use present::PresentRefusal;
 pub use preview_span::PreviewSpan;
 pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use quit_barrier::{QuitBarrier, QuitStart};
+pub use received_review::{CapabilityTotals, ReceivedRelation, ReceivedReview};
 pub use request::{Request, UiOrder, View};
 pub use search::SearchHit;
 pub use tab_document::TabDocument;
@@ -405,8 +406,10 @@ pub struct Session {
     widget_limits: widgets_edit::WidgetLimits,
     /// Maximum length of an agent guide, in characters (`[render] max_guide_chars`).
     guide_limit: usize,
-    /// Versions whose guide approval the user put off in this tab; in memory, never resumed.
-    guides_later: std::collections::BTreeSet<VersionRef>,
+    /// Received versions whose review the user put off in this tab; in memory, never resumed.
+    received_later: std::collections::BTreeSet<VersionRef>,
+    /// The received reviews last computed, keyed on what they depend on (`received_review.rs`).
+    received_cache: received_review::ReviewCache,
     /// Digest of the guides block last sent to the agent; `None`: none sent (`agent/guides.rs`).
     guides_sent: Option<[u8; 32]>,
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
@@ -576,7 +579,8 @@ impl Session {
             themes_notice: None,
             widget_limits: widgets_edit::WidgetLimits::of(&settings.render),
             guide_limit: settings.render.max_guide_chars,
-            guides_later: std::collections::BTreeSet::new(),
+            received_later: std::collections::BTreeSet::new(),
+            received_cache: received_review::ReviewCache::default(),
             guides_sent: None,
             widget_edit: false,
             widget_session: None,
@@ -871,7 +875,7 @@ impl Session {
             can_present: self.can_present().is_ok(),
             host_params: self.registry.host_params(),
             guides: self.guides_view(),
-            guides_to_approve: self.guides_to_approve(),
+            received_to_review: self.received_to_review(),
         }
     }
 

@@ -71,6 +71,7 @@ local-agent-engine-failed = স্থানীয় এজেন্টের �
 local-agent-retry = আবার চেষ্টা করুন, অথবা এজেন্ট প্যানেলে অন্য একটি এজেন্ট বেছে নিন।
 agent-stopped = এজেন্ট বন্ধ হয়ে গেছে।
 agent-failed = এজেন্ট অনুরোধটি প্রত্যাখ্যান করেছে: { $message }
+agent-error-work-dir = এই ট্যাবের জন্য এজেন্টের ব্যক্তিগত কাজের ফোল্ডার প্রস্তুত করা যায়নি।
 agent-tool-failed = টুলটি অপ্রত্যাশিতভাবে ব্যর্থ হয়েছে।
 
 agent-turn-tools = { $tools ->

@@ -23,6 +23,7 @@ pub mod turn_view;
 mod usage_panel;
 pub(crate) mod usage_table;
 pub mod variants;
+mod work_dir;
 
 pub use attachments::{AttachmentRef, PasteReason};
 pub use bounds::{DETAIL_CHARS, LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options, clip};
@@ -41,6 +42,7 @@ pub(crate) use tabs::record_in;
 pub use tabs::{Sessions, TabGate, TabOpen, TabSession};
 pub use turn_view::{TurnState, TurnView};
 pub use usage_panel::usage_panel;
+pub use work_dir::{AGENT_CONFIG_NAMES, AgentWorkDir};
 
 /// Tours gardés au plus par fil (réducteur des tours, hub, reprise).
 pub const KEPT_TURNS: usize = 50;

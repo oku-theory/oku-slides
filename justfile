@@ -108,10 +108,26 @@ e2e port="4872": install
     cd ui && E2E_URL="http://127.0.0.1:$port/" E2E_AGENT_LOG="$log" bun run e2e
 
 # Vérifications : format, clippy, types TypeScript, polices en LFS
-check: install fonts-lfs agents-lint commit-lint
+check: install fonts-lfs agents-lint commit-lint render-offline-deps
     cargo fmt --all --check
     cargo clippy --workspace --all-targets -- -D warnings
     cd ui && bun run typecheck
+
+# Render worker dependency tree, not runtime: no HTTP client nor typst-kit package/download feature (t-1414)
+render-offline-deps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tree=$(cargo tree --locked -p oku-slides-render-worker -e normal,features --prefix none)
+    bad=0
+    crates=$(grep -E '^(ureq|reqwest|hyper|isahc|curl|attohttpc|surf|h2) v' <<< "$tree" | sort -u || true)
+    if [ -n "$crates" ]; then
+      echo "✗ oku-slides-render-worker tire un client HTTP :"; echo "$crates"; bad=1
+    fi
+    features=$(grep -E '^typst-kit feature "(system-downloader|universe-packages|system-packages|system-files|http-server)"' <<< "$tree" | sort -u || true)
+    if [ -n "$features" ]; then
+      echo "✗ oku-slides-render-worker active une fonction réseau ou paquets de typst-kit :"; echo "$features"; bad=1
+    fi
+    exit $bad
 
 # Polices de l'index : des pointeurs Git LFS, jamais le binaire (ajout sans git-lfs)
 fonts-lfs:

@@ -398,7 +398,7 @@ ui-about-close = 关闭
 
 ui-shortcut-theme = 主题, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = 智能体指南
 ui-guides-edit = 如何编辑
 ui-guides-use = 如何使用
@@ -409,12 +409,27 @@ ui-guides-origin-received = 已接收
 ui-guides-approve = 批准此指南
 ui-guides-awaiting = 在你批准之前不会发送给智能体。
 ui-guides-awaiting-mixed = 要批准，请撤销你对这些指南的修改，或重写或清空仍在等待的指南。
-ui-guides-install-title = 此演示文稿附带智能体指南
-ui-guides-install-intro = 只有在你批准后，它们才会交给智能体。请先阅读。
-ui-guides-install-approve = 批准指南
-ui-guides-install-later = 稍后
-ui-guides-install-items = { $count }项
-ui-guides-install-requires = 需要：{ $names }
-ui-guides-kind-widgets = 小组件
-ui-guides-kind-layouts = 版式
-ui-guides-kind-theme = 主题
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = 此演示文稿附带包或主题
+ui-received-intro = 请查看每一项的内容。在你确认之前，任何内容都不会进入你的库，也没有指南会交给智能体。
+ui-received-offline = 包和主题无法读取你的文件或访问网络。
+ui-received-add = 添加到我的库
+ui-received-approve = 批准指南
+ui-received-dismiss = 好
+ui-received-later = 稍后
+ui-received-install = 将添加到你的库
+ui-received-kind-widgets = 小组件
+ui-received-kind-layouts = 版式
+ui-received-kind-theme = 主题
+ui-received-relation-new-pack = 新包
+ui-received-relation-new-version = 新版本
+ui-received-relation-held = 已在你的库中
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = 命名空间：{ $namespace }
+ui-received-items = 内容：{ $names }
+ui-received-more = { $names } 等另外{ $count }项
+ui-received-requires = 需要：{ $names }
+ui-received-tokens = 令牌：{ $names }
+ui-received-fonts = 字体：{ $names }
+ui-received-profiles = 版式配置{ $count }个
+ui-received-code = Typst 代码：{ NUMBER($kb) } KB

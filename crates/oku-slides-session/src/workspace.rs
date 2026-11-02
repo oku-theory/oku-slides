@@ -68,6 +68,10 @@ pub struct Workspace {
     discard_at_quit: HashSet<String>,
     /// The user's library, where the drafts closed tabs created empty are collected.
     library: PackLibrary,
+    /// The folder [`Workspace::new_in`] made for `dir`, removed on drop.
+    ///
+    /// Last field: dropped after the tabs, whose resume writers finish first.
+    own_dir: Option<own_dir::OwnDir>,
 }
 
 impl std::fmt::Debug for Workspace {
@@ -85,7 +89,29 @@ impl Workspace {
     ///
     /// Fails if the tab's session cannot be built (unreadable file, rendering).
     pub fn new(fonts: Fonts, platform: &Platform, file: Option<&Path>) -> Result<Self> {
-        let mut ws = Self::empty(fonts, platform, None);
+        Self::first_tab(Self::empty(fonts, platform, None), file)
+    }
+
+    /// Like [`Workspace::new`], but writing its tabs' state in a new folder under `parent`.
+    ///
+    /// For the development server: each tab gets a folder of its own, so its
+    /// agent works in an empty folder of that tab (t-1413). The folder is
+    /// random, used by this workspace only and removed when it is dropped:
+    /// two servers on one data folder never touch each other's. It is never
+    /// read back: every launch starts as [`Workspace::new`] does.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the folder cannot be created, or as [`Workspace::new`].
+    pub fn new_in(fonts: Fonts, platform: &Platform, file: Option<&Path>, parent: &Path) -> Result<Self> {
+        let own = own_dir::OwnDir::create(&platform.storage, parent)?;
+        let mut ws = Self::empty(fonts, platform, Some(own.path().to_path_buf()));
+        ws.own_dir = Some(own);
+        Self::first_tab(ws, file)
+    }
+
+    /// Adds tab `t-1` to the empty `ws`, with `file` open or blank.
+    fn first_tab(mut ws: Self, file: Option<&Path>) -> Result<Self> {
         let pending = ws.pending(None, file.map_or(Opening::Blank, |f| Opening::File(resolve(f))), TabPlace::End);
         let session = pending.build()?;
         ws.insert_tab(None, pending.id, session, &TabPlace::End, true);
@@ -112,6 +138,7 @@ impl Workspace {
             layout_generation: 0,
             discard_at_quit: HashSet::new(),
             library: PackLibrary::user(platform),
+            own_dir: None,
         }
     }
 
@@ -412,6 +439,9 @@ mod deck_packs_close;
 
 #[path = "workspace_usage.rs"]
 mod usage;
+
+#[path = "workspace_own_dir.rs"]
+mod own_dir;
 
 pub use clip::Clip;
 pub use ids::is_window_label;

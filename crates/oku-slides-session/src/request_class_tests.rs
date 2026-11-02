@@ -102,6 +102,19 @@ fn writes_edited_draft_classifies_every_request(#[case] request: Request, #[case
 #[case::save_copy(Request::SaveCopy { path: PathBuf::from("/x") }, false)]
 #[case::use_pack_copy(Request::UsePackCopy { from: Uuid::nil(), pack: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
 #[case::use_theme_version(Request::UseThemeVersion { theme: Uuid::nil(), version: version(), deck_uid: "d".into() }, false)]
+#[case::accept_received(Request::AcceptReceived { versions: Vec::new() }, false)]
+#[case::later_received(Request::LaterReceived { versions: Vec::new() }, true)]
 fn theme_tab_allows_only_the_draft_requests(#[case] request: Request, #[case] allows: bool) {
     assert_that!(request.theme_tab_allows()).is_equal_to(allows);
+}
+
+#[rstest]
+#[case::accept_received(Request::AcceptReceived { versions: Vec::new() }, true)]
+#[case::later_received(Request::LaterReceived { versions: Vec::new() }, false)]
+#[case::approve_guides(Request::ApproveGuides { versions: Vec::new() }, false)]
+fn changes_deck_of_received_review_requests_refreshes_only_after_install(
+    #[case] request: Request,
+    #[case] changes: bool,
+) {
+    assert_that!(request.changes_deck()).is_equal_to(changes);
 }

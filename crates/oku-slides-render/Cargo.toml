@@ -34,6 +34,7 @@ rstest.workspace = true
 png.workspace = true
 oku-slides-import.workspace = true
 zip.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

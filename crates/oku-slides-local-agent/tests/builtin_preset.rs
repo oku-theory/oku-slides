@@ -58,6 +58,8 @@ async fn stack(dir: &Path, script: Value) -> (Stack, Relayed) {
         session
             .open(&PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json")))
             .unwrap_or_else(|e| panic!("ouverture : {e}"));
+        // A tab's resume folder: the agent works in its `work/`, never next to the deck.
+        assert!(session.resume(data.join("tabs").join("local")), "reprise de l'onglet");
         (session, platform)
     })
     .await

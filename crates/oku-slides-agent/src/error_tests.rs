@@ -90,3 +90,30 @@ fn unusable_needs_download_interpolates_gigabytes_in_french() {
     let text = Unusable::LocalNeedsDownload { size: 2_497_281_120 }.localize(&Localizer::new(Some("fr")));
     assert_that!(text).contains("2,5 Go");
 }
+
+/// A real storage error: a folder asked under a file.
+fn storage_error() -> oku_slides_platform::storage::StorageError {
+    let dir = tempfile::Builder::new().prefix("oku-slides-agent-error-").tempdir().unwrap();
+    let file = dir.path().join("file");
+    std::fs::write(&file, "x").unwrap();
+    let storage = oku_slides_platform::storage::Storage::local().unwrap();
+    storage.create_dir_all(&file.join("sub")).unwrap_err()
+}
+
+#[test]
+fn process_dir_error_is_not_unusable_and_localized_as_work_dir() {
+    let e: AgentError = super::ProcessDirSnafu { path: "/x" }.into_error(storage_error()).into();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.unusable()).is_none();
+    assert_that!(e.localize(&fr)).is_equal_to(fr.tr("agent-error-work-dir"));
+}
+
+#[tokio::test]
+async fn process_dir_task_error_is_not_unusable_and_localized_as_work_dir() {
+    let task = tokio::spawn(std::future::pending::<()>());
+    task.abort();
+    let e: AgentError = super::ProcessDirTaskSnafu.into_error(task.await.unwrap_err()).into();
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.unusable()).is_none();
+    assert_that!(e.localize(&fr)).is_equal_to(fr.tr("agent-error-work-dir"));
+}

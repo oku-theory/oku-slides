@@ -57,3 +57,8 @@ mod issue_1383_request_strings_in_errors;
 mod issue_1385_full_import_queue_tells_the_user;
 mod issue_1402_undone_agent_copy_drops_its_mark;
 mod issue_1403_undone_writes_move_the_agent_mark;
+mod issue_1413_serve_dirs_kept_apart;
+mod issue_1414_blocked_version_leaves_the_review;
+mod issue_1414_child_theme_of_blocked_parent;
+mod issue_1414_new_version_widget_write;
+mod issue_1414_silent_install;

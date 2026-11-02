@@ -30,6 +30,11 @@ fn adopt_pins_keeps_a_received_version_received() {
     s.library.set_current(id, &v0.version()).unwrap();
     s.open(&path).unwrap();
     s.adopt_pins();
+    // Adopting never installs a received version (t-1414): only the user's validation does.
+    assert_that!(s.library.lists(id, &v1.version())).is_false();
+    let versions = vec![crate::guide_approvals::VersionRef { id, version: v1.version() }];
+    s.handle(crate::Request::AcceptReceived { versions }).unwrap();
+    s.adopt_pins();
     assert_that!(s.library.is_received(id, &v1.version())).is_true();
     assert_that!(s.library.current(id)).is_equal_to(Some(v0.version()));
 }

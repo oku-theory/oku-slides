@@ -310,8 +310,13 @@ pub enum Request {
         /// The versions approved.
         versions: Vec<VersionRef>,
     },
-    /// Puts the approval of these versions off for this tab; the deck asks again when reopened.
-    LaterGuides {
+    /// Adds these received versions to the library and approves their guides, as the user validated.
+    AcceptReceived {
+        /// The versions validated.
+        versions: Vec<VersionRef>,
+    },
+    /// Puts the review of these received versions off for this tab; the deck asks again when reopened.
+    LaterReceived {
         /// The versions set aside.
         versions: Vec<VersionRef>,
     },
@@ -478,7 +483,8 @@ impl Session {
                     | Request::UseThemeVersion { .. }
                     | Request::SaveTheme { .. }
                     | Request::ApproveGuides { .. }
-                    | Request::LaterGuides { .. }
+                    | Request::AcceptReceived { .. }
+                    | Request::LaterReceived { .. }
             ),
             !matches!(
                 req,
@@ -524,7 +530,8 @@ impl Session {
                 self.note(format!("user edited the {} guide", which.as_str()));
             }
             Request::ApproveGuides { versions } => self.approve_guides(&versions)?,
-            Request::LaterGuides { versions } => self.guides_later.extend(versions),
+            Request::AcceptReceived { versions } => self.accept_received(&versions)?,
+            Request::LaterReceived { versions } => self.put_off_received(&versions),
             Request::RemoveWidget { pack, name } => {
                 let statuses = self.remove_widget(pack.as_ref(), &name)?;
                 self.persist(true);

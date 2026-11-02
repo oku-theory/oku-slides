@@ -9,11 +9,12 @@ use std::collections::BTreeSet;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use oku_slides_core::{GuideKind, Namespace, PackVersion, SourceBundle};
+use oku_slides_core::{CapabilityKind, GuideKind, Namespace, PackVersion, SourceBundle};
 
 use super::bounds::{clip, label};
-use crate::guide_install::{HeldKind, HeldVersion, guides_of, name_of};
 use crate::guide_origin::GuideOrigin;
+use crate::received_held::HeldVersion;
+use crate::received_review::{guides_of, name_of};
 use crate::{Mode, Session};
 
 /// The guides block of a turn, and the received guides it holds.
@@ -99,7 +100,7 @@ impl Session {
     /// The entry for guide `role` of a held version, `None` when that guide is empty.
     fn entry_of(&self, role: GuideKind, held: &HeldVersion<'_>) -> Option<Entry> {
         let text = guides_of(held.files).get(role).to_owned();
-        let theme = held.kind == HeldKind::Theme;
+        let theme = held.kind == CapabilityKind::Theme;
         (!text.is_empty()).then(|| Entry {
             role,
             kind: held.kind.as_str(),
@@ -120,7 +121,7 @@ impl Session {
         let held = Session::held_in(sources);
         let mut out: Vec<Entry> = held
             .iter()
-            .filter(|h| h.kind != HeldKind::Theme && Some(h.id) != skip)
+            .filter(|h| h.kind != CapabilityKind::Theme && Some(h.id) != skip)
             .filter_map(|h| self.entry_of(GuideKind::Use, h))
             .collect();
         if let (true, Some(theme)) = (themes, sources.deck().theme.as_ref()) {
@@ -142,7 +143,7 @@ impl Session {
                 if !text.is_empty() {
                     out.push(Entry {
                         role: GuideKind::Edit,
-                        kind: HeldKind::of(t.kind).as_str(),
+                        kind: CapabilityKind::from(t.kind).as_str(),
                         id: t.id,
                         version: t.version.clone(),
                         name: name_of(&t.files),
@@ -168,7 +169,7 @@ impl Session {
             let (origin, active) = self.draft_guide_trust(draft, GuideKind::Edit);
             out.push(Entry {
                 role: GuideKind::Edit,
-                kind: HeldKind::Theme.as_str(),
+                kind: CapabilityKind::Theme.as_str(),
                 id: draft.base.id,
                 version: draft.base.version.clone(),
                 name: draft.name.clone(),
@@ -208,7 +209,7 @@ impl Session {
             let (id, version) = (stored.manifest.id, stored.version);
             out.push(Entry {
                 role,
-                kind: HeldKind::Theme.as_str(),
+                kind: CapabilityKind::Theme.as_str(),
                 id,
                 name: name_of(&stored.files),
                 namespace: ns.as_str().to_owned(),
@@ -281,7 +282,7 @@ fn theme_chain<'a, 'h>(
     if !seen.insert(ns.clone()) {
         return Vec::new();
     }
-    let Some(this) = held.iter().find(|h| h.kind == HeldKind::Theme && h.namespace == ns) else {
+    let Some(this) = held.iter().find(|h| h.kind == CapabilityKind::Theme && h.namespace == ns) else {
         return Vec::new();
     };
     let mut out: Vec<_> = this.requires.iter().flat_map(|parent| theme_chain(held, parent, seen)).collect();

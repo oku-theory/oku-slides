@@ -293,6 +293,9 @@ impl State {
     async fn initialize(&self, req: InitializeRequest) -> InitializeResponse {
         self.log("initialize", &serde_json::to_value(&req).unwrap_or_default());
         self.log("pid", &serde_json::json!(std::process::id()));
+        // Where the host started it: the tests check it is never the app's own folder.
+        let cwd = std::env::current_dir().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
+        self.log("cwd", &serde_json::json!(cwd));
         if self.script.hang_initialize {
             std::future::pending::<()>().await;
         }

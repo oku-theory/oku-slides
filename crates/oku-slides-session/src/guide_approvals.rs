@@ -83,6 +83,11 @@ impl GuideApprovals {
         self.set.lock().unwrap_or_else(PoisonError::into_inner).contains(&(id, v.clone()))
     }
 
+    /// How many versions are approved: a generation, since approvals only grow.
+    pub(crate) fn count(&self) -> usize {
+        self.set.lock().unwrap_or_else(PoisonError::into_inner).len()
+    }
+
     /// Approves `versions`, then writes the whole set once.
     ///
     /// Without a path the approvals stay in memory. On a failed write nothing is approved.

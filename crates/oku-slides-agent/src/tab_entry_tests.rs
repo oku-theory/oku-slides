@@ -21,6 +21,10 @@ use crate::turns::Turns;
 use crate::voice_port::AppVoice;
 use crate::{AgentState, Launch, Link};
 
+/// One storage for every test launch, never dropped: dropping its runtime in an async test panics.
+static STORAGE: std::sync::LazyLock<oku_slides_platform::storage::Storage> =
+    std::sync::LazyLock::new(|| oku_slides_platform::storage::Storage::local().unwrap());
+
 /// Un évènement qui ne se sérialise jamais.
 struct Broken;
 
@@ -82,14 +86,17 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(session)));
     // Un agent lancé laisserait cette trace : la consigne lui serait parvenue.
     let launched = dir.path().join("launched");
-    let link = Link::new(Launch {
-        command: "sh".into(),
-        args: vec!["-c".into(), format!("touch '{}'", launched.display())],
-        env: Vec::new(),
-        path: None,
-        fallback_cwd: dir.path().to_owned(),
-        ready_within: Duration::from_secs(5),
-    });
+    let link = Link::new(
+        Launch {
+            command: "sh".into(),
+            args: vec!["-c".into(), format!("touch '{}'", launched.display())],
+            env: Vec::new(),
+            path: None,
+            process_dir: dir.path().join("agent-process"),
+            ready_within: Duration::from_secs(5),
+        },
+        STORAGE.clone(),
+    );
     let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
     let settings = Arc::new(AppSettings::new(&platform, None));
@@ -160,14 +167,17 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
         tokio::task::spawn_blocking(move || tab.document_kind().unwrap_err()).await.unwrap()
     };
     let launched = dir.path().join("launched");
-    let link = Link::new(Launch {
-        command: "sh".into(),
-        args: vec!["-c".into(), format!("touch '{}'", launched.display())],
-        env: Vec::new(),
-        path: None,
-        fallback_cwd: dir.path().to_owned(),
-        ready_within: Duration::from_secs(5),
-    });
+    let link = Link::new(
+        Launch {
+            command: "sh".into(),
+            args: vec!["-c".into(), format!("touch '{}'", launched.display())],
+            env: Vec::new(),
+            path: None,
+            process_dir: dir.path().join("agent-process"),
+            ready_within: Duration::from_secs(5),
+        },
+        STORAGE.clone(),
+    );
     let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
     let mut mcp = hub.subscribe();
@@ -229,14 +239,17 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
 async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::TempDir) {
     let dir = tempfile::Builder::new().prefix("oku-slides-tab-entry-").tempdir().unwrap();
     let (platform, tab) = closed_tab(dir.path().to_owned()).await;
-    let link = Link::new(Launch {
-        command: "true".into(),
-        args: Vec::new(),
-        env: Vec::new(),
-        path: None,
-        fallback_cwd: dir.path().to_owned(),
-        ready_within: Duration::from_secs(5),
-    });
+    let link = Link::new(
+        Launch {
+            command: "true".into(),
+            args: Vec::new(),
+            env: Vec::new(),
+            path: None,
+            process_dir: dir.path().join("agent-process"),
+            ready_within: Duration::from_secs(5),
+        },
+        STORAGE.clone(),
+    );
     let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link)), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice);
     let keeper = Keeper::spawn(tab.clone(), hub.clone());

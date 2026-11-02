@@ -71,6 +71,7 @@ local-agent-engine-failed = โมเดลของเอเจนต์ใน�
 local-agent-retry = ลองอีกครั้ง หรือเลือกเอเจนต์ตัวอื่นในแผงเอเจนต์
 agent-stopped = เอเจนต์หยุดทำงานแล้ว
 agent-failed = เอเจนต์ปฏิเสธคำขอ: { $message }
+agent-error-work-dir = ไม่สามารถเตรียมโฟลเดอร์ทำงานส่วนตัวของเอเจนต์สำหรับแท็บนี้ได้
 agent-tool-failed = เครื่องมือทำงานล้มเหลวโดยไม่คาดคิด
 
 agent-turn-tools = เครื่องมือ { $tools } รายการ

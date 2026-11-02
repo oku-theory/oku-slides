@@ -94,13 +94,14 @@ impl AgentChoice {
     /// Le lancement de `preset`. Un agent intégré sans binaire d'app a une commande vide :
     /// un prompt échoue au lancement comme un programme absent, et `availability` en donne la raison.
     pub(crate) fn launch_of(preset: &oku_slides_platform::config::AgentPreset, platform: &Platform) -> Launch {
-        let cwd = platform.settings.paths.data();
-        let launch = Launch::for_preset(preset, platform.program.as_deref(), cwd.clone()).unwrap_or(Launch {
+        // Never the data folder itself: it holds config.toml and the guide approvals.
+        let process_dir = platform.settings.paths.data().join(crate::config::AGENT_PROCESS_DIR);
+        let launch = Launch::for_preset(preset, platform.program.as_deref(), process_dir.clone()).unwrap_or(Launch {
             command: String::new(),
             args: Vec::new(),
             env: Vec::new(),
             path: None,
-            fallback_cwd: cwd,
+            process_dir,
             ready_within: crate::READY_WITHIN,
         });
         Launch { path: Some(platform.program_path.clone()), ..launch }

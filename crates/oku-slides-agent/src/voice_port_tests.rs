@@ -54,8 +54,10 @@ pub(crate) fn build(with_stt: bool, tweak: impl FnOnce(&mut oku_slides_session::
     tweak(&mut settings);
     let platform = oku_slides_session::Platform::with_settings(settings).unwrap();
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build().unwrap();
-    let choice =
-        Arc::new(AgentChoice::new(&platform, crate::Link::new(AgentChoice::launch_of(&preset("Faux"), &platform))));
+    let choice = Arc::new(AgentChoice::new(
+        &platform,
+        crate::Link::new(AgentChoice::launch_of(&preset("Faux"), &platform), platform.storage.clone()),
+    ));
     let stt = with_stt.then(|| Stt::new(&platform));
     T { voice: AppVoice::new(stt.clone(), choice, rt.handle().clone()), stt, data, _rt: rt, _dir: dir }
 }

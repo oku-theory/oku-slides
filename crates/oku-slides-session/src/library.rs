@@ -149,6 +149,26 @@ fn choose<M: VersionManifest>(entry: &PackEntry<M>, builtin: Option<&PackVersion
     }
 }
 
+/// Refuses a new version of `id` whose namespace differs from that of its `known` versions.
+///
+/// A version already known passes: it is not new. Built-in versions count, so every
+/// version of a pack keeps its namespace (`NamespaceChanged`).
+fn same_namespace<M: VersionManifest>(
+    id: Uuid,
+    known: &[Indexed<M>],
+    manifest: &M,
+    version: &PackVersion,
+) -> Result<()> {
+    if known.iter().any(|s| s.version == *version) {
+        return Ok(());
+    }
+    // Toutes les versions d'un pack, intégré compris, héritent de son espace de noms.
+    if let (Some(expected), Some(found)) = (known.first().and_then(|s| s.manifest.namespace()), manifest.namespace()) {
+        ensure!(expected == found, NamespaceChangedSnafu { id, expected: expected.as_str(), found: found.as_str() });
+    }
+    Ok(())
+}
+
 /// Bibliothèque : versions intégrées et versions de l'utilisateur, d'une sorte.
 ///
 /// Ses clones partagent un même index ; deux instances distinctes (autre
@@ -440,8 +460,25 @@ impl<K: LibraryKind> Library<K> {
         self.add(id, files, Origin::Received)
     }
 
-    fn add(&self, id: Uuid, files: &PackFiles, origin: Origin) -> Result<bool> {
-        let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
+    /// Checks that version `files` of `id` could be added, without writing anything.
+    ///
+    /// The checks of [`Self::add_version`], in its order: a library folder, a readable
+    /// manifest of `id`, a library scope, a free namespace, and the namespace of the
+    /// pack's known versions. A version the library already lists passes.
+    ///
+    /// # Errors
+    ///
+    /// Fails like [`Self::add_version`] for rejected files (`NoLibraryDir`, manifest,
+    /// `PackIdMismatch`, `DeckOnly`, `NamespaceReserved`, `NamespaceTaken`, `NamespaceChanged`).
+    pub(crate) fn check_receive(&self, id: Uuid, files: &PackFiles) -> Result<()> {
+        let manifest = self.checked_manifest(id, files)?;
+        let mut index = self.fresh();
+        same_namespace(id, &self.entry(&mut index, id).versions, &manifest, &files.version())
+    }
+
+    /// The manifest of `files` for `id`, once the checks made before taking the index pass.
+    fn checked_manifest(&self, id: Uuid, files: &PackFiles) -> Result<K::Manifest> {
+        self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
         let manifest = K::Manifest::from_files(files)?;
         ensure!(manifest.id() == id, PackIdMismatchSnafu { id, found: manifest.id() });
         ensure!(manifest.scope().is_library(), DeckOnlySnafu { id });
@@ -456,6 +493,12 @@ impl<K: LibraryKind> Library<K> {
                 return NamespaceTakenSnafu { namespace: ns.as_str(), owner: owner.to_string() }.fail()?;
             }
         }
+        Ok(manifest)
+    }
+
+    fn add(&self, id: Uuid, files: &PackFiles, origin: Origin) -> Result<bool> {
+        let dir = self.pack_dir(id).context(NoLibraryDirSnafu { kind: K::DIR })?;
+        let manifest = self.checked_manifest(id, files)?;
         // Une sorte sans widgets les perdrait à l'écriture, mais ils compteraient dans l'empreinte.
         debug_assert!(K::PACK_KIND.is_some() || files.widgets().is_empty(), "widgets given to a kind without widgets");
         let version = files.version();
@@ -466,15 +509,7 @@ impl<K: LibraryKind> Library<K> {
         if known.iter().any(|s| s.version == version) {
             return Ok(false);
         }
-        // Toutes les versions d'un pack, intégré compris, héritent de son espace de noms.
-        if let (Some(expected), Some(found)) =
-            (known.first().and_then(|s| s.manifest.namespace()), manifest.namespace())
-        {
-            ensure!(
-                expected == found,
-                NamespaceChangedSnafu { id, expected: expected.as_str(), found: found.as_str() }
-            );
-        }
+        same_namespace(id, known, &manifest, &version)?;
         let first = known.is_empty();
         let at = dir.join(VERSIONS_DIR).join(version.hex());
         // La marque d'abord : une version complète n'est jamais lue sans elle.

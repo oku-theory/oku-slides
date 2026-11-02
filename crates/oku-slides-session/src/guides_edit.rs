@@ -10,7 +10,7 @@ use oku_slides_core::{GuideKind, PackManifest};
 
 use crate::agent::bounds::label;
 use crate::error::{GuideHasNulSnafu, GuideTooLongSnafu, PackManifestSnafu, WrongDocumentSnafu};
-use crate::guide_install::name_of;
+use crate::received_review::name_of;
 use crate::views::GuidesView;
 use crate::{Mode, Result, Session};
 

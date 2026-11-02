@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
@@ -18,6 +17,7 @@ use agent_client_protocol::schema::v1::{
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo};
 use oku_slides_mcp::SurfaceHub;
+use oku_slides_platform::storage::Storage;
 use sha2::{Digest, Sha256};
 use snafu::IntoError;
 use tokio::process::Child;
@@ -25,7 +25,10 @@ use tokio::sync::{Mutex, broadcast, oneshot, watch};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tokio_util::sync::CancellationToken;
 
-use crate::error::{AgentError, NoHttpSnafu, NoProgramSnafu, NotFoundSnafu, SpawnSnafu, StoppedSnafu, Unusable};
+use crate::error::{
+    AgentError, NoHttpSnafu, NoProgramSnafu, NotFoundSnafu, ProcessDirSnafu, ProcessDirTaskSnafu, SpawnSnafu,
+    StoppedSnafu, Unusable,
+};
 use crate::events::from_update;
 use crate::permission::choice;
 use crate::session_model::{ModelBoard, Offered, model_options};
@@ -155,6 +158,8 @@ struct Inner {
     stderr: StderrTail,
     /// Arrête la connexion courante quand `Inner` est lâché.
     shutdown: CancellationToken,
+    /// Empties each launch's process folder (`Launch.process_dir`).
+    storage: Storage,
 }
 
 #[derive(Debug, Default)]
@@ -174,19 +179,19 @@ impl Link {
     ///
     /// Without a preset id, its turns record no usage (tests).
     #[must_use]
-    pub fn new(launch: Launch) -> Self {
-        Self::build(None, launch, None)
+    pub fn new(launch: Launch, storage: Storage) -> Self {
+        Self::build(None, launch, None, storage)
     }
 
     /// The link of preset `preset`, asking each session for `model`.
     ///
     /// The model is used only if the agent offers it.
     #[must_use]
-    pub fn for_preset(preset: &str, launch: Launch, model: Option<String>) -> Self {
-        Self::build(Some(preset.to_owned()), launch, model)
+    pub fn for_preset(preset: &str, launch: Launch, model: Option<String>, storage: Storage) -> Self {
+        Self::build(Some(preset.to_owned()), launch, model, storage)
     }
 
-    fn build(preset: Option<String>, launch: Launch, model: Option<String>) -> Self {
+    fn build(preset: Option<String>, launch: Launch, model: Option<String>, storage: Storage) -> Self {
         Self {
             inner: Arc::new(Inner {
                 launch: StdMutex::new(Current { launch, epoch: 0, preset, model }),
@@ -198,6 +203,7 @@ impl Link {
                 usage: Arc::default(),
                 stderr: StderrTail::new(oku_slides_platform::telemetry::home().map(str::to_owned)),
                 shutdown: CancellationToken::new(),
+                storage,
             }),
         }
     }
@@ -332,11 +338,6 @@ impl Link {
         state.live.as_ref().filter(|l| !l.closed.is_cancelled() && l.epoch == epoch).map(|l| l.generation)
     }
 
-    /// Dossier de travail d'une session sans document enregistré.
-    pub(crate) fn fallback_cwd(&self) -> PathBuf {
-        self.launch_now().0.fallback_cwd
-    }
-
     /// La connexion courante, ou une nouvelle (sous-processus lancé et
     /// poignée de main faite) si la précédente est finie ou d'un autre agent.
     pub(crate) async fn connect(&self) -> Result<Live, AgentError> {
@@ -430,10 +431,20 @@ impl Link {
         epoch: u64,
         stop: CancellationToken,
     ) -> Result<Live, AgentError> {
-        let Launch { command, args, env, ready_within, path, .. } = launch;
+        let Launch { command, args, env, ready_within, path, process_dir } = launch;
         // Presets are checked at load: only the built-in one without the app binary has no command.
         if command.is_empty() {
             return Err(NoProgramSnafu.build().into());
+        }
+        // Never the app's own folder (the repository in `just dev`): some agents read config there.
+        // Emptied at each launch: what an earlier agent wrote there never configures this one.
+        let (dir, storage) = (process_dir.clone(), self.inner.storage.clone());
+        match tokio::task::spawn_blocking(move || storage.delete_dir(&dir).and_then(|()| storage.create_dir_all(&dir)))
+            .await
+        {
+            Ok(Ok(())) => {}
+            Ok(Err(source)) => return Err(ProcessDirSnafu { path: process_dir }.into_error(source).into()),
+            Err(source) => return Err(ProcessDirTaskSnafu.into_error(source).into()),
         }
         let path = match path {
             // The login shell's `PATH` may still be resolving (a few seconds at most).
@@ -456,6 +467,7 @@ impl Link {
         let mut child = command_line
             .args(&args)
             .envs(env.iter().map(|(k, v)| (k, v)))
+            .current_dir(&process_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

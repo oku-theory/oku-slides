@@ -71,6 +71,7 @@ local-agent-engine-failed = Модель локального агента да�
 local-agent-retry = Спробуйте ще раз або виберіть іншого агента на панелі агента.
 agent-stopped = Агент зупинився.
 agent-failed = Агент відхилив запит: { $message }
+agent-error-work-dir = Не вдалося підготувати особисту робочу теку агента для цієї вкладки.
 agent-tool-failed = Інструмент несподівано завершився з помилкою.
 
 agent-turn-tools = { $tools ->

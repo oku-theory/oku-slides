@@ -7,14 +7,14 @@
 use serde::Serialize;
 use uuid::Uuid;
 
-use oku_slides_core::{GuideKind, Guides, PackFiles, PackVersion};
+use oku_slides_core::{CapabilityKind, GuideKind, Guides, PackFiles, PackVersion};
 
 use oku_slides_render::BuiltinPack;
 
 use crate::guide_approvals::VersionRef;
-use crate::guide_install::{HeldKind, guides_of};
 use crate::library::{builtin_owner, builtin_versions};
 use crate::library_kind::LibraryKind;
+use crate::received_review::guides_of;
 use crate::theme::{Themes, shipped_theme_versions};
 use crate::views::GuidesView;
 use crate::{Result, Session};
@@ -51,7 +51,7 @@ fn inherits_unapproved(guides: &Guides, before: Option<&Predecessor>) -> bool {
 /// Reads the shipped history (`versions.txt` of each built-in pack, `themes/versions.txt`),
 /// so a deck pinning a built-in from an earlier release stays built-in after an upgrade.
 /// The id must be the built-in's own: another pack claiming a shipped digest is not built-in.
-fn is_shipped(id: Uuid, version: &PackVersion, theme: bool) -> bool {
+pub(crate) fn is_shipped(id: Uuid, version: &PackVersion, theme: bool) -> bool {
     let hex = version.hex();
     if theme {
         Themes::builtins().iter().filter(|b| b.manifest.id == id).any(|b| {
@@ -208,7 +208,7 @@ impl Session {
                 let pinned = self.held_versions().into_iter().filter(|h| {
                     h.id == r.id
                         && *h.version != r.version
-                        && (h.kind == HeldKind::Theme) == theme
+                        && (h.kind == CapabilityKind::Theme) == theme
                         && guides_of(h.files) == guides
                         && self.guide_origin(h.id, h.version, theme) == GuideOrigin::Received
                 });

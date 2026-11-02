@@ -10,7 +10,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Switch the agent only under the AppVoice lock after re-checking; then persist the active agent, never the requested one. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Never quote user data in localized agent command errors; keep the details in Display for logs. (plan:2026-10-10-agent-panneau-configuration)
 - Route a resumed session only after its load reply; ignore its replay updates until its first prompt. (spec:2026-10-08-sessions-par-perspective-design)
-- Never advertise fs or terminal capabilities to the ACP agent; it acts only through MCP tools. (spec:2026-09-26-agent-vocal-design)
+- Never advertise fs or terminal capabilities to the ACP agent; it acts only through MCP tools. Give the ACP session the tab's work dir, never the deck folder or the data dir, stripped of AGENT_CONFIG_NAMES before every new, resumed or loaded session, and empty agent-process at each launch. (spec:2026-09-26-agent-vocal-design, spec:2026-11-01-agent-sandbox-and-received-packs-design, t-1413)
 - Reject set_draft when the draft exceeds 256 KiB of UTF-8 or its origin exceeds 64 bytes. (spec:2026-10-09-agent-detachable-design)
 - Never let follow or set_draft start a tab agent; without one, refuse set_draft with a localized error. The host prefill may start a tab's entry, never its ACP agent, and never overwrites a non-empty draft. (spec:2026-10-09-agent-detachable-design, t-1277)
 - Open the turn as soon as the prompt arrives, before any step that can fail, so errors show in it. (plan:2026-10-03-agent-a2ui)

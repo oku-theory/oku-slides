@@ -150,7 +150,7 @@
 .theme-panel-head .caption { display: flex; align-items: center; gap: var(--space-2); }
 .theme-panel > .host-settings { width: auto; }
 
-/* ---- Guides for agents: the section of a theme tab, a tab of a pack's Commun, and the install dialog ---- */
+/* ---- Guides for agents: the section of a theme tab, a tab of a pack's Commun, and the received dialog ---- */
 .guides-section { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-4); max-height: 40vh; overflow-y: auto; background: var(--paper-100); border-radius: var(--radius-md); box-shadow: var(--edge-light), var(--shadow-object); }
 .guides-section[open] > summary { margin-bottom: var(--space-2); }
 .guide-panel { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) calc(10px * var(--elev-sheet)); }
@@ -167,9 +167,13 @@
 .guide-field textarea:focus { box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent); }
 .guide-field .caption { display: flex; justify-content: space-between; gap: var(--space-2); }
 .guides-approval { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.guides-install { width: min(640px, 92vw); }
-.guides-install-title { margin: 0; font: inherit; font-weight: 600; }
-.guides-review { display: flex; flex-direction: column; gap: var(--space-1); }
-.guides-review-name { margin: 0; font: inherit; font-weight: 600; }
-.guides-review .caption { margin: 0; }
+/* The title and the actions row stay put; only the body between them scrolls. */
+.received-dialog { width: min(640px, 92vw); max-height: 90vh; overflow: hidden; }
+.received-body { display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.received-dialog > .import-actions { flex: none; }
+.received-title { margin: 0; font: inherit; font-weight: 600; }
+.received-review { display: flex; flex-direction: column; gap: var(--space-1); }
+.received-name { margin: 0; font: inherit; font-weight: 600; }
+.received-review .caption, .received-description, .received-offline { margin: 0; overflow-wrap: anywhere; }
+.received-blocker { color: var(--danger); }
 .guide-text { margin: 0; padding: var(--space-2); max-height: 30vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/16px var(--mono, monospace); background: color-mix(in oklab, var(--paper-100) 85%, var(--ink-muted) 10%); border-radius: 5px; }

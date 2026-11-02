@@ -398,7 +398,7 @@ ui-about-close = बंद करें
 
 ui-shortcut-theme = थीम, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = एजेंट के लिए गाइड
 ui-guides-edit = संपादन कैसे करें
 ui-guides-use = उपयोग कैसे करें
@@ -409,12 +409,27 @@ ui-guides-origin-received = प्राप्त
 ui-guides-approve = इस गाइड को मंज़ूर करें
 ui-guides-awaiting = आपके मंज़ूर करने तक एजेंट को नहीं भेजी जाती।
 ui-guides-awaiting-mixed = मंज़ूर करने के लिए इन गाइडों में अपने बदलाव पूर्ववत करें, या अभी भी प्रतीक्षारत गाइड को फिर से लिखें या खाली करें।
-ui-guides-install-title = यह प्रस्तुति एजेंट के लिए गाइड लाती है
-ui-guides-install-intro = आपके मंज़ूर करने के बाद ही ये एजेंट तक पहुँचती हैं। पहले इन्हें पढ़ें।
-ui-guides-install-approve = गाइड मंज़ूर करें
-ui-guides-install-later = बाद में
-ui-guides-install-items = { $count } आइटम
-ui-guides-install-requires = आवश्यक: { $names }
-ui-guides-kind-widgets = विजेट
-ui-guides-kind-layouts = लेआउट
-ui-guides-kind-theme = थीम
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = यह प्रस्तुति पैक या थीम लाती है
+ui-received-intro = देखें कि हर एक में क्या है। आपकी पुष्टि से पहले न कुछ आपकी लाइब्रेरी में जाएगा, न कोई गाइड एजेंट तक पहुँचेगी।
+ui-received-offline = पैक और थीम आपकी फ़ाइलें या नेटवर्क नहीं पढ़ सकते।
+ui-received-add = मेरी लाइब्रेरी में जोड़ें
+ui-received-approve = गाइड मंज़ूर करें
+ui-received-dismiss = ठीक है
+ui-received-later = बाद में
+ui-received-install = आपकी लाइब्रेरी में जोड़ा जाएगा
+ui-received-kind-widgets = विजेट
+ui-received-kind-layouts = लेआउट
+ui-received-kind-theme = थीम
+ui-received-relation-new-pack = नया पैक
+ui-received-relation-new-version = नया संस्करण
+ui-received-relation-held = पहले से आपकी लाइब्रेरी में
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = नेमस्पेस: { $namespace }
+ui-received-items = सामग्री: { $names }
+ui-received-more = { $names } और { $count } अन्य
+ui-received-requires = आवश्यक: { $names }
+ui-received-tokens = टोकन: { $names }
+ui-received-fonts = फ़ॉन्ट: { $names }
+ui-received-profiles = { $count } लेआउट प्रोफ़ाइल
+ui-received-code = Typst कोड: { NUMBER($kb) } KB

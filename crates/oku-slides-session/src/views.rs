@@ -137,8 +137,8 @@ pub struct Snapshot<'a> {
     pub host_params: BTreeMap<String, BTreeMap<oku_slides_core::HostType, String>>,
     /// The edited pack's or theme's agent guides; `None` outside a pack or theme tab.
     pub guides: Option<GuidesView>,
-    /// Received versions the deck pins whose guides await the user's approval (asked at install).
-    pub guides_to_approve: Vec<crate::guide_install::GuidesReview>,
+    /// Received versions the deck holds that await the user's validation: install, guides, or both.
+    pub received_to_review: Vec<crate::received_review::ReceivedReview>,
 }
 
 /// The guides of the pack or theme a tab edits, with the length they may reach.

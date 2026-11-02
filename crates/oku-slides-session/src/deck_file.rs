@@ -157,8 +157,7 @@ impl Session {
         let notice = opened.notice(&self.localizer);
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
         self.load(opened.sources, pdf.then(|| path.to_owned()))?;
-        // Les versions reçues entrent en silence ; leur relation à ma version se lit dans le panneau des packs.
-        self.receive_packs();
+        // Received versions stay in the deck until the user validates them (`received_to_review`).
         self.refresh_pack_updates();
         tracing::info!(path = %path.display(), pdf, modified_elsewhere, "{}", self.localizer.tr("log-document-opened"));
         // Après l'avis d'un pack cassé, s'il y en a un.

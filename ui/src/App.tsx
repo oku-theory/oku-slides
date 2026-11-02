@@ -13,7 +13,7 @@ import { findElement, pickSlide, previewLook, slideToFetch } from "./deck";
 import LayoutPicker from "./LayoutPicker";
 import WidgetPicker from "./WidgetPicker";
 import type { WidgetChoice } from "./widgetChoices";
-import GuidesInstallDialog from "./GuidesInstallDialog";
+import ReceivedDialog from "./ReceivedDialog";
 import ImportDialog from "./ImportDialog";
 import type { ImportJob } from "./useImportJob";
 import type { WaitingPicks } from "./useImportPick";
@@ -231,9 +231,10 @@ export default function App({
   // A pack tab's delete confirmation (`PackPanels`).
   const [confirming, setConfirming] = useState(false);
   // An app dialog (layouts, add, import, a confirmation) or a window one is open: nothing behind it reacts.
-  // The deck brought guides for agents the user has not approved: asked at once, nothing behind reacts.
-  const guidesToApprove = snap?.guides_to_approve ?? [];
-  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming || guidesToApprove.length > 0;
+  // Packs and themes the deck brings that the library lacks, or whose guides await approval:
+  // asked at once, nothing behind reacts.
+  const receivedToReview = snap?.received_to_review ?? [];
+  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming || receivedToReview.length > 0;
   // The last widget added from the grid: it reopens on it (A then Enter adds it again).
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   // The grid's previews, kept across openings (key: pack versions, look and language).
@@ -523,9 +524,10 @@ export default function App({
         />
       )}
 
-      {guidesToApprove.length > 0 && <GuidesInstallDialog api={api} reviews={guidesToApprove} run={run} />}
+      {receivedToReview.length > 0 && <ReceivedDialog api={api} reviews={receivedToReview} run={run} />}
 
-      <SlotView slot={agentSlots.modal} />
+      {/* The received dialog stays on top: the agent's modal waits until it closes. */}
+      {receivedToReview.length === 0 && <SlotView slot={agentSlots.modal} />}
 
       {presenting && (
         <Presenter mode={presenting} slides={snap.slides} current={current} svg={svgs.svg} onShow={showSlide} onExit={() => setPresenting(null)} />

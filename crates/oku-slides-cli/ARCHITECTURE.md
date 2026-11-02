@@ -32,10 +32,11 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 
 ## Dev server (`serve.rs`, `guard.rs`, `sse.rs`)
 
-`Shared` holds a `Workspace`, the agent `Stack` and `Stt`; `serve_connections` runs with
-`Limits` from `[serve]`. `handle` calls `guard::check` first (ADR-0003; off loopback also
-the launch `Token` of the printed URL, by Bearer header or cookie), then routes `POST
-/api`, `/api/workspace`, `/api/stt`, `/api/agent`, `GET /api/events` (SSE: `Clients`,
+`Shared` holds a `Workspace` (`new_in`: its tabs, agents' `work/` included, in a random folder of
+`<data>/serve` per process, removed at exit, never read back), the agent `Stack` and `Stt`;
+`serve_connections` runs with `Limits` from `[serve]`. `handle` calls `guard::check` first (ADR-0003;
+off loopback also the launch `Token` of the printed URL, by Bearer header or cookie), then routes
+`POST /api`, `/api/workspace`, `/api/stt`, `/api/agent`, `GET /api/events` (SSE: `Clients`,
 `SseBody`), and static files from `--ui` (default `ui/dist`). Ctrl-C stops it in `GRACE`.
 
 ## Extension points
@@ -45,6 +46,5 @@ the launch `Token` of the printed URL, by Bearer header or cookie), then routes 
 
 ## Dependencies
 
-`oku-slides-core`, `oku-slides-render`, `oku-slides-render-worker`, `oku-slides-pdf`,
-`oku-slides-session`, `oku-slides-import`, `oku-slides-agent` (`oku-slides-reference` in tests),
-`oku-slides-stt`, `oku-slides-platform` (feature `listen`), `oku-slides-i18n`.
+`oku-slides-core`, `oku-slides-render`, `oku-slides-render-worker`, `oku-slides-pdf`, `oku-slides-session`, `oku-slides-import`,
+`oku-slides-agent` (`oku-slides-reference` in tests), `oku-slides-stt`, `oku-slides-platform` (feature `listen`), `oku-slides-i18n`.

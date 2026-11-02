@@ -16,6 +16,10 @@ use crate::tab_entry::Out;
 use crate::voice_port::AppVoice;
 use crate::{Launch, Link};
 
+/// One storage for every test launch, never dropped: dropping its runtime in an async test panics.
+static STORAGE: std::sync::LazyLock<oku_slides_platform::storage::Storage> =
+    std::sync::LazyLock::new(|| oku_slides_platform::storage::Storage::local().unwrap());
+
 const REQUEST: &str = "Passe les titres en bleu.";
 
 /// A starter over `sessions`, whose agent would leave `launched` if it ever started.
@@ -73,14 +77,17 @@ async fn fixture(known: bool) -> Fixture {
     .await
     .unwrap();
     let launched = dir.path().join("launched");
-    let link = Link::new(Launch {
-        command: "sh".into(),
-        args: vec!["-c".into(), format!("touch '{}'", launched.display())],
-        env: Vec::new(),
-        path: None,
-        fallback_cwd: dir.path().to_owned(),
-        ready_within: Duration::from_secs(5),
-    });
+    let link = Link::new(
+        Launch {
+            command: "sh".into(),
+            args: vec!["-c".into(), format!("touch '{}'", launched.display())],
+            env: Vec::new(),
+            path: None,
+            process_dir: dir.path().join("agent-process"),
+            ready_within: Duration::from_secs(5),
+        },
+        STORAGE.clone(),
+    );
     let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let (out_tx, rx) = mpsc::unbounded_channel();
     let starter = Starter::new(StarterParts {

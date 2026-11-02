@@ -80,7 +80,8 @@ fn build_selected(command: &str, local: Local, selected: &str) -> T {
     };
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build().unwrap();
     let preset = platform.settings.agent.active().clone();
-    let link = crate::Link::for_preset(selected, AgentChoice::launch_of(&preset, &platform), None);
+    let link =
+        crate::Link::for_preset(selected, AgentChoice::launch_of(&preset, &platform), None, platform.storage.clone());
     let choice = Arc::new(AgentChoice::new(&platform, link));
     T { voice: AppVoice::new(None, choice, rt.handle().clone()), data, _rt: rt, _dir: dir }
 }

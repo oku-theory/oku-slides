@@ -89,8 +89,7 @@ impl Session {
         // Parties illisibles journalisées comme avant ; les constats de
         // validation ne sont pas des pertes.
         log_issues(&issues, &self.localizer, IssuesAt::Merge);
-        // Les versions d'un fichier fusionné entrent aussi en silence, sans bandeau.
-        self.receive_packs();
+        // A merged file's versions stay in the deck too, listed for review (`received_to_review`).
         // Deux `set_theme` concurrents laissent l'union des épinglages : la fermeture est refaite.
         match crate::deck_theme::repair_theme_closure(&self.themes, &mut self.doc.sources) {
             Ok(repaired) => self.doc.dirty |= repaired,

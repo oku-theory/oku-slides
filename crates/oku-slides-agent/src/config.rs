@@ -1,10 +1,13 @@
-//! Comment lancer l'agent (un seul sous-processus pour l'app).
+//! How to launch the agent (one subprocess for the app).
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use oku_slides_platform::ProgramPath;
 use oku_slides_platform::config::{AgentPreset, Builtin};
+
+/// The agent process's working folder, under the data folder.
+pub(crate) const AGENT_PROCESS_DIR: &str = "agent-process";
 
 /// Délai pour qu'un agent lancé soit prêt : large, `npx` peut d'abord le télécharger.
 pub const READY_WITHIN: Duration = Duration::from_secs(120);
@@ -21,8 +24,10 @@ pub struct Launch {
     pub env: Vec<(String, String)>,
     /// The `PATH` where `command` is looked up, also the agent's own; `None`: the process's.
     pub path: Option<ProgramPath>,
-    /// Dossier de travail d'une session quand son document n'est pas enregistré.
-    pub fallback_cwd: PathBuf,
+    /// The agent process's working folder: the app's own, `<data>/agent-process`.
+    ///
+    /// Emptied through the link's storage before each launch; a session's own folder is its tab's.
+    pub process_dir: PathBuf,
     /// Au-delà, le lancement est abandonné (sous-processus tué) : l'agent est arrêté.
     pub ready_within: Duration,
 }
@@ -32,14 +37,14 @@ impl Launch {
     ///
     /// `None` : agent intégré et pas de binaire de l'app connu (tests, outils).
     #[must_use]
-    pub fn for_preset(preset: &AgentPreset, program: Option<&Path>, fallback_cwd: PathBuf) -> Option<Self> {
+    pub fn for_preset(preset: &AgentPreset, program: Option<&Path>, process_dir: PathBuf) -> Option<Self> {
         let (command, args) = match preset.builtin {
             None => (preset.command.clone(), preset.args.clone()),
             Some(Builtin::Local) => {
                 (program?.to_string_lossy().into_owned(), vec![oku_slides_platform::LOCAL_AGENT_FLAG.to_owned()])
             }
         };
-        Some(Self { command, args, env: Vec::new(), path: None, fallback_cwd, ready_within: READY_WITHIN })
+        Some(Self { command, args, env: Vec::new(), path: None, process_dir, ready_within: READY_WITHIN })
     }
 }
 

@@ -12,6 +12,7 @@
 //! Un seul écrivain par dossier : le fil. Le rendre (fin de session, onglet
 //! fermé) écrit d'abord ce qui reste, et plus rien ensuite.
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 
@@ -80,6 +81,8 @@ pub(crate) struct Writer {
     thread: Option<JoinHandle<()>>,
     /// Sans fil (création impossible) : écriture sur place, comme avant.
     inline: Option<Resume>,
+    /// The tab's resume folder, where the thread writes.
+    dir: PathBuf,
 }
 
 impl std::fmt::Debug for Writer {
@@ -93,15 +96,21 @@ impl Writer {
     /// reste sur place (journalisé).
     pub(crate) fn new(resume: Resume) -> Self {
         let shared = Arc::new(Shared::default());
+        let dir = resume.dir.clone();
         let fallback = resume.clone();
         let theirs = Arc::clone(&shared);
         match std::thread::Builder::new().name("oku-resume".into()).spawn(move || run(&resume, &theirs)) {
-            Ok(thread) => Self { shared, thread: Some(thread), inline: None },
+            Ok(thread) => Self { shared, thread: Some(thread), inline: None, dir },
             Err(e) => {
                 tracing::warn!(error = %e, "fil de reprise non créé : écriture sur place");
-                Self { shared, thread: None, inline: Some(fallback) }
+                Self { shared, thread: None, inline: Some(fallback), dir }
             }
         }
+    }
+
+    /// The tab's resume folder this writer writes into.
+    pub(crate) fn dir(&self) -> &Path {
+        &self.dir
     }
 
     /// Dépose un état à écrire ; ne bloque pas (sauf repli sur place).

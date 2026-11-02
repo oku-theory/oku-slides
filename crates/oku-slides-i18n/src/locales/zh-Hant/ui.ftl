@@ -398,7 +398,7 @@ ui-about-close = 關閉
 
 ui-shortcut-theme = 主題, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = AI 代理指南
 ui-guides-edit = 如何編輯
 ui-guides-use = 如何使用
@@ -409,12 +409,27 @@ ui-guides-origin-received = 已接收
 ui-guides-approve = 核准此指南
 ui-guides-awaiting = 在你核准之前不會傳送給 AI 代理。
 ui-guides-awaiting-mixed = 要核准，請復原你對這些指南的修改，或重寫或清空仍在等待的指南。
-ui-guides-install-title = 此簡報附帶 AI 代理指南
-ui-guides-install-intro = 只有在你核准後，它們才會交給 AI 代理。請先閱讀。
-ui-guides-install-approve = 核准指南
-ui-guides-install-later = 稍後
-ui-guides-install-items = { $count }項
-ui-guides-install-requires = 需要：{ $names }
-ui-guides-kind-widgets = 小工具
-ui-guides-kind-layouts = 版面配置
-ui-guides-kind-theme = 主題
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = 此簡報附帶套件或主題
+ui-received-intro = 請查看每一項的內容。在你確認之前，任何內容都不會加入你的資料庫，也沒有指南會交給 AI 代理。
+ui-received-offline = 套件和主題無法讀取你的檔案或存取網路。
+ui-received-add = 加入我的資料庫
+ui-received-approve = 核准指南
+ui-received-dismiss = 好
+ui-received-later = 稍後
+ui-received-install = 將加入你的資料庫
+ui-received-kind-widgets = 小工具
+ui-received-kind-layouts = 版面配置
+ui-received-kind-theme = 主題
+ui-received-relation-new-pack = 新套件
+ui-received-relation-new-version = 新版本
+ui-received-relation-held = 已在你的資料庫中
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = 命名空間：{ $namespace }
+ui-received-items = 內容：{ $names }
+ui-received-more = { $names } 等另外{ $count }項
+ui-received-requires = 需要：{ $names }
+ui-received-tokens = 權杖：{ $names }
+ui-received-fonts = 字型：{ $names }
+ui-received-profiles = 版面配置設定檔{ $count }個
+ui-received-code = Typst 程式碼：{ NUMBER($kb) } KB

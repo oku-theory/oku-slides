@@ -11,7 +11,7 @@ use snafu::ensure;
 
 use crate::error::NotPinnedSnafu;
 use crate::guide_approvals::VersionRef;
-use crate::guide_install::guides_of;
+use crate::received_review::guides_of;
 use crate::{GuideOrigin, Request, Result, Session};
 
 /// The guides of a pinned version the panel shows, with where they came from.

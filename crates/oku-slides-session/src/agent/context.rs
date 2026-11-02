@@ -4,7 +4,6 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -144,11 +143,6 @@ impl Session {
     /// An action done without the agent, which it learns at the next turn.
     pub fn note(&mut self, text: impl Into<String>) {
         self.agent_notes.push(text.into());
-    }
-
-    /// The document's folder (the ACP session's `cwd`); `None` when it is not saved.
-    pub fn document_dir(&self) -> Option<PathBuf> {
-        self.doc.path.as_ref().and_then(|p| p.parent()).map(ToOwned::to_owned)
     }
 
     /// The context block sent with the instruction; empties the notes.

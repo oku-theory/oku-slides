@@ -25,11 +25,13 @@ use crate::error::{
     PackAlreadyCurrentSnafu, PackNotMakeCurrentSnafu, PackOpenInTabSnafu, ThemeNotOutdatedSnafu, UnknownNamespaceSnafu,
     UnknownPackSnafu,
 };
+use crate::guide_approvals::VersionRef;
 use crate::library::draft_lock;
 use crate::library_index::library_writes;
 use crate::pack::{PackInfo, PackManifest, Relation};
 use crate::pack_lease::pack_leased;
 use crate::pack_receive::is_deck_only;
+use crate::received_review::ReceivedReview;
 use crate::theme::default_namespace;
 use crate::theme_schema::token_paths;
 use crate::{Mode, PackLibrary, Result, Session};
@@ -72,6 +74,7 @@ impl Drift {
 
 /// Un pack épinglé : identité, relation à la bibliothèque, refus de retrait.
 #[derive(Debug)]
+#[expect(clippy::struct_excessive_bools, reason = "independent flags the packs panel reads (api.ts)")]
 pub struct PinnedPackView {
     /// The pack's id, as the deck's pin names it.
     pub id: Uuid,
@@ -95,12 +98,18 @@ pub struct PinnedPackView {
     pub remove_refusal: Option<OpError>,
     /// Its use guide, folded and read-only in the panel; `None` without one.
     pub guide: Option<PinnedGuideView>,
+    /// The pinned version when received, lacking from the library and installable: the panel offers it.
+    pub installable: Option<VersionRef>,
+    /// True when a pack tab can open it: deck-only, or a pack the library knows.
+    pub openable: bool,
 }
 
 /// Le thème du deck dans le panneau.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ThemeSectionView {
-    /// The id of the deck's theme pin; `None` without one (no "Open" button).
+    /// The id of the deck's theme when a tab can open it, else `None` (no "Open" button).
+    ///
+    /// `None` without a theme pin, or for a received theme the library lacks (`UnknownTheme`).
     pub id: Option<Uuid>,
     /// L'espace de noms du thème avec lequel le deck se rend.
     pub active: Namespace,
@@ -116,6 +125,8 @@ pub struct ThemeSectionView {
     pub outdated: bool,
     /// The pinned theme's use guide; `None` without one.
     pub guide: Option<PinnedGuideView>,
+    /// The pinned theme version when received, lacking from the library and installable.
+    pub installable: Option<VersionRef>,
 }
 
 impl Session {
@@ -127,16 +138,22 @@ impl Session {
     pub fn deck_packs(&self) -> Result<DeckPacksView> {
         self.ensure_deck_mode()?;
         let deck = self.deck();
+        let installable: Vec<VersionRef> =
+            self.received_reviews().iter().filter(|r| r.install).map(ReceivedReview::version_ref).collect();
         let pinned = |kind: PackKind| -> Vec<PinnedPackView> {
-            deck.pins(kind).iter().map(|(ns, pin)| self.pinned_view(kind, ns, pin)).collect()
+            let view = |(ns, pin): (&Namespace, &PackPin)| {
+                let mut view = self.pinned_view(kind, ns, pin);
+                let this = VersionRef { id: pin.id, version: pin.version.clone() };
+                view.installable = installable.contains(&this).then_some(this);
+                view
+            };
+            deck.pins(kind).iter().map(view).collect()
         };
         let addable = PackKind::ALL.into_iter().map(|kind| (kind, self.addable(kind))).collect();
-        Ok(DeckPacksView {
-            layouts: pinned(PackKind::Layouts),
-            widgets: pinned(PackKind::Widgets),
-            addable,
-            theme: self.theme_section()?,
-        })
+        let mut theme = self.theme_section()?;
+        theme.installable = self.deck_theme_pin().map(|p| VersionRef { id: p.id, version: p.version.clone() });
+        theme.installable = theme.installable.filter(|r| installable.contains(r));
+        Ok(DeckPacksView { layouts: pinned(PackKind::Layouts), widgets: pinned(PackKind::Widgets), addable, theme })
     }
 
     /// Adds the current version of a library pack to the deck.
@@ -393,6 +410,9 @@ impl Session {
             library_has_pinned: !deck_only && self.library.version(pin.id, &pin.version).is_some(),
             remove_refusal: remove_pack_refusal(self.deck(), kind, ns),
             guide: self.pinned_guide(pin.id, &pin.version, self.user_blobs().packs.get(&pin.version), false),
+            installable: None,
+            // A received pack the library lacks opens no tab (`PackNotInstalled`).
+            openable: deck_only || self.library.knows(pin.id),
         }
     }
 
@@ -432,7 +452,7 @@ impl Session {
         let extends = deck.themes.get(&active).map(|pin| pin.extends.iter().map(named).collect()).unwrap_or_default();
         let overrides = deck.tokens.as_object().map_or(0, |t| token_paths(&self.token_schema(deck), t).len());
         Ok(ThemeSectionView {
-            id: self.deck_theme_pin().map(|pin| pin.id),
+            id: self.deck_theme_pin().map(|pin| pin.id).filter(|id| self.themes.knows(*id)),
             name: named(&active),
             active,
             extends,
@@ -442,6 +462,7 @@ impl Session {
             guide: self
                 .deck_theme_pin()
                 .and_then(|pin| self.pinned_guide(pin.id, &pin.version, self.embedded_theme_files(pin), true)),
+            installable: None,
         })
     }
 }

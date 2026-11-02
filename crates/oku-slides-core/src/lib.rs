@@ -24,6 +24,7 @@
 //! - [`is_hex_color`]: hexadecimal form of token colors; [`color_names`]: the color names a deck uses.
 //! - [`WidgetRegistry`]: schema of the widgets declared in Typst, read from the render probe (hosts: [`WidgetRegistry::host_params`]; block height: [`Grow`]; label and description: [`LocalizedText`]).
 //! - [`Guides`], [`GuideKind`]: the agent's edit and use guides in a pack or theme manifest.
+//! - [`Capabilities`]: what a pack or theme version holds, read from its files alone ([`CapabilityKind`]).
 //! - [`PackKind`]: the kind of a pack (element `widgets`, slide `layouts`); [`LayoutProfile`]: preset of a layout for import.
 //! - [`kinds`]: the kinds of the built-in `base` and `essentiel` packs, the only place they are written.
 //! - [`media`]: actual type of a media file ([`media::sniff`]) and raster dimensions read from its header.
@@ -32,6 +33,7 @@
 //! - [`UsageLedger`]: the deck's agent usage, one [`UsageRecord`] per turn, add-only, checked on read; [`aggregate`] sums it into a [`UsageReport`].
 
 mod canonical;
+mod capabilities;
 mod color;
 pub mod error;
 mod fields;
@@ -65,6 +67,7 @@ pub mod validate;
 pub mod widget;
 
 pub use canonical::canonicalize;
+pub use capabilities::{Capabilities, CapabilityKind};
 pub use color::{color_names, is_hex_color};
 pub use error::{
     HeadingLevelError, ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind,

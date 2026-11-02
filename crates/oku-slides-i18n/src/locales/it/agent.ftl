@@ -71,6 +71,7 @@ local-agent-engine-failed = Il modello dell'agente locale non ha funzionato.
 local-agent-retry = Riprova, oppure scegli un altro agente nel pannello dell'agente.
 agent-stopped = L'agente si è fermato.
 agent-failed = L'agente ha rifiutato la richiesta: { $message }
+agent-error-work-dir = Impossibile preparare la cartella di lavoro privata dell'agente per questa scheda.
 agent-tool-failed = Lo strumento ha avuto un errore imprevisto.
 
 agent-turn-tools = { $tools ->

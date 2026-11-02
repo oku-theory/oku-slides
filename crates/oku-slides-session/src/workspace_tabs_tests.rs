@@ -32,6 +32,54 @@ fn new_workspace_with_file_opens_it_in_the_first_tab() {
     assert_that!(w.tabs[0].info.pristine).is_false();
 }
 
+/// A `new_in` workspace on `parent`, and its first tab's prepared work folder.
+fn served(data: &Data, parent: &Path) -> (Mutex<Workspace>, PathBuf) {
+    let ws = Mutex::new(Workspace::new_in(Fonts::default(), &workspace_platform(&data.0), None, parent).unwrap());
+    let (work, _) = Workspace::with_session(&ws, "t-1", |s| s.agent_work_dir());
+    let work = work.unwrap().unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let dir = work.prepare().unwrap_or_else(|e| panic!("{}", e.one_line()));
+    (ws, dir)
+}
+
+#[test]
+fn new_in_gives_first_tab_a_work_dir_in_its_own_folder() {
+    let data = Data::new();
+    let parent = data.0.join("serve");
+    let (_ws, work) = served(&data, &parent);
+    let own = work.ancestors().nth(3).unwrap();
+    assert_that!(own.parent()).is_equal_to(Some(parent.as_path()));
+    assert_that!(work).is_equal_to(own.join(TABS_DIR).join("t-1").join(crate::resume_agent::AGENT_WORK_DIR));
+}
+
+#[test]
+fn new_in_twice_on_one_parent_keeps_each_others_files() {
+    let data = Data::new();
+    let parent = data.0.join("serve");
+    let (first, first_work) = served(&data, &parent);
+    std::fs::write(first_work.join("notes.txt"), "first").unwrap();
+    let (second, second_work) = served(&data, &parent);
+    std::fs::write(second_work.join("notes.txt"), "second").unwrap();
+    assert_that!(second_work).is_not_equal_to(&first_work);
+    assert_that!(first_work.join("notes.txt").exists()).is_true();
+    drop(second);
+    assert_that!(first_work.join("notes.txt").exists()).is_true();
+    assert_that!(second_work.exists()).is_false();
+    drop(first);
+}
+
+#[test]
+fn new_in_dropped_removes_only_its_own_folder() {
+    let data = Data::new();
+    let parent = data.0.join("serve");
+    let other = parent.join("other-process").join(TABS_DIR).join("t-1");
+    std::fs::create_dir_all(&other).unwrap();
+    let (ws, work) = served(&data, &parent);
+    let own = work.ancestors().nth(3).unwrap().to_path_buf();
+    drop(ws);
+    assert_that!(own.exists()).is_false();
+    assert_that!(other.is_dir()).is_true();
+}
+
 /// Un deck vierge enregistré a un fichier : il n'est plus remplacé.
 #[test]
 fn open_tab_after_saving_the_blank_deck_adds_a_tab() {

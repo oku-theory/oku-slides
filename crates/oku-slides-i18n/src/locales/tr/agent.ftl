@@ -71,6 +71,7 @@ local-agent-engine-failed = Yerel ajanın modeli başarısız oldu.
 local-agent-retry = Yeniden deneyin ya da ajan panelinden başka bir ajan seçin.
 agent-stopped = Ajan durdu.
 agent-failed = Ajan isteği reddetti: { $message }
+agent-error-work-dir = Bu sekme için ajanın özel çalışma klasörü hazırlanamadı.
 agent-tool-failed = Araç beklenmedik biçimde başarısız oldu.
 
 agent-turn-tools = { $tools } araç

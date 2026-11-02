@@ -20,6 +20,8 @@ use crate::{Request, Session};
 #[case("make_current", json!({"kind": "widgets", "namespace": "acme"}), Some(PacksEvent::MakeCurrent { kind: PackKind::Widgets, namespace: ns("acme") }))]
 #[case("theme", json!({"theme": "pro"}), Some(PacksEvent::Theme { theme: ns("pro") }))]
 #[case("theme_update", json!({}), Some(PacksEvent::ThemeUpdate))]
+#[case("add_to_library", json!({"id": "00000000-0000-0000-0000-000000000001", "version": "ab".repeat(32)}), Some(PacksEvent::AddToLibrary { id: uuid::Uuid::from_u128(1), version: oku_slides_core::PackVersion::from_hex(&"ab".repeat(32)).unwrap() }))]
+#[case("add_to_library", json!({"id": "nope"}), None)]
 #[case("open_theme", json!({"theme": "00000000-0000-0000-0000-000000000000"}), None)]
 #[case("open_pack", json!({"pack": "00000000-0000-0000-0000-000000000000"}), None)]
 #[case("add_pack", json!({"kind": "themes", "namespace": "acme"}), None)]
@@ -165,6 +167,8 @@ fn deck_packs_panel_ids_stay_unique_for_namespaces_like_fixed_ids() {
         remove_refusal: None,
         id: uuid::Uuid::from_u128(1),
         guide: None,
+        installable: None,
+        openable: true,
     };
     view.widgets.extend(["title", "add", "acme", "acme-body"].map(card));
     view.addable.insert(PackKind::Widgets, vec![(ns("other"), "Other".to_owned())]);
@@ -370,7 +374,8 @@ fn packs_action_approve_guides_approves_the_version_and_the_button_goes() {
     let surface = deck_packs_panel(&s.deck_packs().unwrap(), &Localizer::new(Some("en")));
     let ids = component_ids(&surface);
     assert_that!(ids.contains(&format!("widgets/{}/guide-approve", pack.namespace))).is_false();
-    assert_that!(s.snapshot().guides_to_approve).is_empty();
+    // Still to add to the library (t-1414), but no guide awaits any more.
+    assert_that!(s.snapshot().received_to_review.iter().all(|r| r.guides.is_empty())).is_true();
 }
 
 #[test]
@@ -386,8 +391,8 @@ fn packs_action_approve_guides_refuses_a_version_the_deck_does_not_pin() {
 fn packs_action_approve_guides_has_the_effect_of_the_request() {
     let (_me, _them, mut s, _id) = opened_with_received_guide("use me");
     let versions: Vec<VersionRef> =
-        s.snapshot().guides_to_approve.iter().map(|r| VersionRef { id: r.id, version: r.version.clone() }).collect();
-    s.handle(Request::LaterGuides { versions: versions.clone() }).unwrap();
+        s.snapshot().received_to_review.iter().map(|r| VersionRef { id: r.id, version: r.version.clone() }).collect();
+    s.handle(Request::LaterReceived { versions: versions.clone() }).unwrap();
     let r = &versions[0];
     s.packs_action(PacksEvent::ApproveGuides { id: r.id, version: r.version.clone() }).unwrap();
     assert_that!(s.guide_active(r.id, &r.version, false)).is_true();
@@ -409,6 +414,70 @@ fn deck_packs_panel_theme_guide_rows_use_theme_ids() {
     assert_that!(text_of(&surface, "theme-guide-edit-text")).is_equal_to("theme edit".to_owned());
     let event = &component(&surface, "theme-guide-approve")["action"]["event"];
     assert_that!(event["name"].as_str()).is_equal_to(Some("approve_guides"));
+}
+
+#[test]
+fn packs_panel_add_to_library_installs_version() {
+    let (_me, _them, mut s, id) = opened_with_received_guide("use me");
+    let pack = brought(&s);
+    let surface = deck_packs_panel(&s.deck_packs().unwrap(), &Localizer::new(Some("en")));
+    let button = component(&surface, &format!("widgets/{}/add-to-library", pack.namespace));
+    let event = &button["action"]["event"];
+    assert_that!(event["name"].as_str()).is_equal_to(Some("add_to_library"));
+    let parsed = packs_event("add_to_library", event["context"].as_object().unwrap());
+    assert_that!(component_ids(&surface).contains(&format!("widgets/{}/open", pack.namespace))).is_false();
+    s.packs_action(parsed.unwrap()).unwrap();
+    let version = oku_slides_core::PackVersion::from_hex(&pack.version).unwrap();
+    assert_that!(s.library.is_received(id, &version)).is_true();
+    // Adding is not approving: the guide still awaits the user's approval.
+    assert_that!(s.guide_active(id, &version, false)).is_false();
+    let after = deck_packs_panel(&s.deck_packs().unwrap(), &Localizer::new(Some("en")));
+    let ids = component_ids(&after);
+    assert_that!(ids.contains(&format!("widgets/{}/add-to-library", pack.namespace))).is_false();
+    assert_that!(ids.contains(&format!("widgets/{}/open", pack.namespace))).is_true();
+}
+
+/// A blocked received pack the library does not know: neither "Add to my library" nor "Open".
+#[test]
+fn deck_packs_panel_blocked_received_pack_offers_no_open() {
+    use crate::received_review::received_review_tests::{pack_files, received_deck, reopen};
+    let theirs = uuid::Uuid::new_v4();
+    let (d, _s) = received_deck(&[pack_files(theirs, "shared", "")]);
+    let mine = uuid::Uuid::new_v4();
+    session_on(d.me.path()).library.add_version(mine, &pack_files(mine, "shared", "")).unwrap();
+    let s = reopen(&d);
+    let ids = component_ids(&deck_packs_panel(&s.deck_packs().unwrap(), &Localizer::new(Some("en"))));
+    let shown = |part: &str| ids.contains(&format!("widgets/shared/{part}"));
+    assert_that!((shown("name"), shown("add-to-library"), shown("open"))).is_equal_to((true, false, false));
+}
+
+/// A received theme the library lacks opens no theme tab (`UnknownTheme`): no "Open".
+#[test]
+fn deck_packs_panel_received_theme_not_installed_offers_no_open() {
+    let me = fresh_dir("oku-slides-panel-theme-");
+    let mut s = crate::test_support::opened_on(me.path());
+    let id = uuid::Uuid::new_v4();
+    let manifest = crate::ThemeManifest {
+        id,
+        name: "Brought".into(),
+        namespace: ns("brought"),
+        extends: Vec::new(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T10:00:00Z".into(),
+        tokens: serde_json::Map::new(),
+        guides: Guides::default(),
+    };
+    let files = manifest.to_files().unwrap();
+    let pin = oku_slides_core::ThemePin { id, version: files.version(), extends: Vec::new() };
+    s.doc.sources.add_theme(files);
+    let themes = std::collections::BTreeMap::from([(ns("brought"), pin)]);
+    s.apply("Theme", vec![oku_slides_core::Op::SetTheme { theme: Some(ns("brought")), themes }], None).unwrap();
+    let view = s.deck_packs().unwrap();
+    let ids = component_ids(&deck_packs_panel(&view, &Localizer::new(Some("en"))));
+    assert_that!(view.theme.id).is_none();
+    assert_that!((ids.contains(&"theme-open".to_owned()), ids.contains(&"theme-add-to-library".to_owned())))
+        .is_equal_to((false, true));
 }
 
 #[test]

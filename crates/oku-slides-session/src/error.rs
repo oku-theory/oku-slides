@@ -48,6 +48,12 @@ pub enum SessionErrorKind {
     UnknownPack,
     /// Version de pack introuvable.
     PackVersionMissing,
+    /// A received pack the library lacks: the user adds it first.
+    PackNotInstalled,
+    /// A received version to add that the open deck does not hold.
+    NotHeld,
+    /// A received theme whose parent the library still lacks.
+    ReceivedParentMissing,
     /// Pack du deck seul, que la bibliothèque n'enregistre pas.
     DeckOnly,
     /// Pack dont la version du deck ne peut devenir ma version courante.
@@ -138,6 +144,8 @@ pub enum SessionErrorKind {
     CannotPresent,
     /// Requête réservée à l'aide.
     NotHelp,
+    /// A tab without a resume folder has no working folder for its agent.
+    NoWorkDir,
     /// Annuler un tour de l'agent qui n'est plus la dernière modification du deck.
     TurnNotOnTop,
     /// Thème inconnu.
@@ -219,6 +227,12 @@ pub(crate) enum SessionInner {
     UnknownPack { id: uuid::Uuid, backtrace: Backtrace },
     #[snafu(display("version {version} of pack {id} not found"))]
     PackVersionMissing { id: uuid::Uuid, version: oku_slides_core::PackVersion, backtrace: Backtrace },
+    #[snafu(display("pack {} is not in the library yet", label(pack)))]
+    PackNotInstalled { pack: String, backtrace: Backtrace },
+    #[snafu(display("this deck does not hold the version of {} to add", label(pack)))]
+    NotHeld { pack: String, backtrace: Backtrace },
+    #[snafu(display("theme {} extends {}, which is not in the library", label(theme), label(parent)))]
+    ReceivedParentMissing { theme: String, parent: String, backtrace: Backtrace },
     #[snafu(display("invalid manifest for pack {id}"))]
     PackJson { id: uuid::Uuid, source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid manifest for pack {id}"))]
@@ -323,6 +337,8 @@ pub(crate) enum SessionInner {
     CannotPresent { reason: crate::PresentRefusal, backtrace: Backtrace },
     #[snafu(display("this tab is not the help"))]
     NotHelp { backtrace: Backtrace },
+    #[snafu(display("this tab has no resume folder for the agent's working folder"))]
+    NoWorkDir { backtrace: Backtrace },
     #[snafu(display("agent turn {turn} is no longer the last change"))]
     TurnNotOnTop { turn: u32, backtrace: Backtrace },
     #[snafu(display("unknown theme: {}", label(theme)))]
@@ -399,16 +415,17 @@ impl SessionError {
             FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import,
             InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged,
             NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable,
-            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
-            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
-            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
-            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
-            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
-            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
-            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
-            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
-            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
-            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
+            NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
+            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
+            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
+            PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing, Registry, Render, RequiresCycle,
+            Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
+            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing,
+            TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue,
+            TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField,
+            UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow,
+            Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch,
+            WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } | GuideApprovalsWrite { .. } => SessionErrorKind::File,
@@ -436,6 +453,9 @@ impl SessionError {
             NoLibraryDir { .. } => SessionErrorKind::NoLibraryDir,
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
             PackVersionMissing { .. } => SessionErrorKind::PackVersionMissing,
+            PackNotInstalled { .. } => SessionErrorKind::PackNotInstalled,
+            NotHeld { .. } => SessionErrorKind::NotHeld,
+            ReceivedParentMissing { .. } => SessionErrorKind::ReceivedParentMissing,
             DeckOnly { .. } => SessionErrorKind::DeckOnly,
             PackNotMakeCurrent { .. } => SessionErrorKind::PackNotMakeCurrent,
             PackAlreadyCurrent { .. } => SessionErrorKind::PackAlreadyCurrent,
@@ -481,6 +501,7 @@ impl SessionError {
             ReadOnly { .. } => SessionErrorKind::ReadOnly,
             CannotPresent { .. } => SessionErrorKind::CannotPresent,
             NotHelp { .. } => SessionErrorKind::NotHelp,
+            NoWorkDir { .. } => SessionErrorKind::NoWorkDir,
             TurnNotOnTop { .. } => SessionErrorKind::TurnNotOnTop,
             UnknownTheme { .. } => SessionErrorKind::UnknownTheme,
             ThemeCycle { .. } => SessionErrorKind::ThemeCycle,
@@ -630,16 +651,17 @@ impl Localize for SessionError {
             FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import,
             InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged,
             NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable,
-            NotEditingPack, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch,
-            PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotMakeCurrent,
-            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
-            Pdf, Read, ReadOnly, Registry, Render, RequiresCycle, Response, SingleDocument, Sources, TargetExists,
-            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
-            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
-            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
-            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
-            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
-            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
+            NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
+            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
+            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
+            PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing, Registry, Render, RequiresCycle,
+            Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
+            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing,
+            TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue,
+            TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField,
+            UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow,
+            Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch,
+            WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -662,6 +684,12 @@ impl Localize for SessionError {
             BuiltinPack { .. } => l.tr("session-builtin-pack"),
             NoLibraryDir { .. } => l.tr("session-no-library-dir"),
             UnknownPack { id, .. } => l.tr_with("session-unknown-pack", &[("id", id.to_string().into())]),
+            PackNotInstalled { pack, .. } => l.tr_with("session-pack-not-installed", &[("pack", pack.as_str().into())]),
+            NotHeld { pack, .. } => l.tr_with("session-version-not-held", &[("pack", label(pack).into())]),
+            ReceivedParentMissing { theme, parent, .. } => l.tr_with(
+                "session-received-parent-missing",
+                &[("theme", label(theme).into()), ("parent", label(parent).into())],
+            ),
             PackVersionMissing { id, version, .. } => l.tr_with(
                 "session-pack-version-missing",
                 &[("id", id.to_string().into()), ("version", version.as_str().into())],
@@ -753,6 +781,7 @@ impl Localize for SessionError {
             ReadOnly { .. } => l.tr("session-read-only"),
             CannotPresent { reason, .. } => l.tr(reason.key()),
             NotHelp { .. } => l.tr("session-not-help"),
+            NoWorkDir { .. } => l.tr("session-no-work-dir"),
             TurnNotOnTop { .. } => l.tr("session-turn-not-on-top"),
             UnknownTheme { theme, .. } => l.tr_with("session-unknown-theme", &[("theme", label(theme).into())]),
             ThemeCycle { chain, .. } => l.tr_with("session-theme-cycle", &[("chain", chain.as_str().into())]),

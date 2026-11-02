@@ -401,7 +401,7 @@ ui-about-close = Sluiten
 
 ui-shortcut-theme = thema, thema's, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = Gidsen voor agents
 ui-guides-edit = Bewerken
 ui-guides-use = Gebruiken
@@ -412,15 +412,30 @@ ui-guides-origin-received = Ontvangen
 ui-guides-approve = Deze gids goedkeuren
 ui-guides-awaiting = Pas naar de agent gestuurd na jouw goedkeuring.
 ui-guides-awaiting-mixed = Om goed te keuren: maak je wijzigingen aan deze gidsen ongedaan, of herschrijf of leeg de gids die nog wacht.
-ui-guides-install-title = Deze presentatie brengt gidsen voor agents mee
-ui-guides-install-intro = Ze bereiken de agent pas na jouw goedkeuring. Lees ze eerst.
-ui-guides-install-approve = Gidsen goedkeuren
-ui-guides-install-later = Later
-ui-guides-install-items = { $count ->
-    [one] { $count } item
-   *[other] { $count } items
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = Deze presentatie brengt pakketten of thema's mee
+ui-received-intro = Controleer wat elk bevat. Niets komt in je bibliotheek en geen gids bereikt de agent voordat je bevestigt.
+ui-received-offline = Pakketten en thema's kunnen je bestanden en het netwerk niet lezen.
+ui-received-add = Toevoegen aan mijn bibliotheek
+ui-received-approve = Gidsen goedkeuren
+ui-received-dismiss = OK
+ui-received-later = Later
+ui-received-install = Wordt aan je bibliotheek toegevoegd
+ui-received-kind-widgets = Widgets
+ui-received-kind-layouts = Lay-outs
+ui-received-kind-theme = Thema
+ui-received-relation-new-pack = Nieuw pakket
+ui-received-relation-new-version = Nieuwe versie
+ui-received-relation-held = Al in je bibliotheek
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = Naamruimte: { $namespace }
+ui-received-items = Inhoud: { $names }
+ui-received-more = { $names } en nog { $count }
+ui-received-requires = Vereist: { $names }
+ui-received-tokens = Tokens: { $names }
+ui-received-fonts = Lettertypen: { $names }
+ui-received-profiles = { $count ->
+    [one] { $count } lay-outprofiel
+   *[other] { $count } lay-outprofielen
   }
-ui-guides-install-requires = Vereist { $names }
-ui-guides-kind-widgets = Widgets
-ui-guides-kind-layouts = Lay-outs
-ui-guides-kind-theme = Thema
+ui-received-code = Typst-code: { NUMBER($kb) } kB

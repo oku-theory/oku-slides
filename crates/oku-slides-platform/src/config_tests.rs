@@ -160,6 +160,26 @@ fn defaults_agent_presets_are_claude_codex_gemini_local_with_claude_selected() {
     assert_that!(s.agent.locked).is_false();
 }
 
+/// A preset edit must never slip in a flag that skips the agent's permission requests (t-1413).
+#[rstest]
+#[case::claude_skip("--dangerously-skip-permissions")]
+#[case::gemini_yolo("--yolo")]
+#[case::codex_full_auto("--full-auto")]
+#[case::codex_approval("--ask-for-approval")]
+#[case::approval_never("never")]
+#[case::claude_bypass_mode("bypassPermissions")]
+#[case::claude_accept_edits_mode("acceptEdits")]
+fn default_presets_never_skip_permission_requests(#[case] flag: &str) {
+    let s = Settings::defaults().unwrap();
+    let carrying: Vec<&str> = s
+        .agent
+        .presets()
+        .filter(|(_, p)| p.command.contains(flag) || p.args.iter().any(|a| a.contains(flag)))
+        .map(|(id, _)| id)
+        .collect();
+    assert_that!(carrying).is_empty();
+}
+
 #[test]
 fn config_file_preset_is_added_without_dropping_the_defaults() {
     let dir = tempfile::tempdir().unwrap();

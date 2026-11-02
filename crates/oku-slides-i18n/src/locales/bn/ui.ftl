@@ -398,7 +398,7 @@ ui-about-close = বন্ধ করুন
 
 ui-shortcut-theme = থিম, theme, themes
 
-# Agent guides: the section of a pack or theme tab, and the install dialog.
+# Agent guides: the section of a pack or theme tab.
 ui-guides-title = এজেন্টের জন্য নির্দেশিকা
 ui-guides-edit = কীভাবে সম্পাদনা করবেন
 ui-guides-use = কীভাবে ব্যবহার করবেন
@@ -409,12 +409,27 @@ ui-guides-origin-received = প্রাপ্ত
 ui-guides-approve = এই নির্দেশিকা অনুমোদন করুন
 ui-guides-awaiting = আপনি অনুমোদন না করা পর্যন্ত এজেন্টকে পাঠানো হয় না।
 ui-guides-awaiting-mixed = অনুমোদন করতে এই গাইডগুলিতে আপনার সম্পাদনা পূর্বাবস্থায় ফেরান, অথবা এখনও অপেক্ষমাণ গাইডটি নতুন করে লিখুন বা খালি করুন।
-ui-guides-install-title = এই উপস্থাপনা এজেন্টের জন্য নির্দেশিকা নিয়ে এসেছে
-ui-guides-install-intro = আপনি অনুমোদন করলেই এগুলো এজেন্টের কাছে যাবে। আগে পড়ে নিন।
-ui-guides-install-approve = নির্দেশিকা অনুমোদন করুন
-ui-guides-install-later = পরে
-ui-guides-install-items = { $count }টি উপাদান
-ui-guides-install-requires = প্রয়োজন: { $names }
-ui-guides-kind-widgets = উইজেট
-ui-guides-kind-layouts = লেআউট
-ui-guides-kind-theme = থিম
+# The received dialog: what a deck brings, validated before it enters the library.
+ui-received-title = এই উপস্থাপনা প্যাক বা থিম নিয়ে এসেছে
+ui-received-intro = প্রতিটিতে কী আছে দেখে নিন। আপনি নিশ্চিত না করা পর্যন্ত কিছুই আপনার লাইব্রেরিতে যাবে না, কোনো নির্দেশিকাও এজেন্টের কাছে যাবে না।
+ui-received-offline = প্যাক ও থিম আপনার ফাইল বা নেটওয়ার্ক পড়তে পারে না।
+ui-received-add = আমার লাইব্রেরিতে যোগ করুন
+ui-received-approve = নির্দেশিকা অনুমোদন করুন
+ui-received-dismiss = ঠিক আছে
+ui-received-later = পরে
+ui-received-install = আপনার লাইব্রেরিতে যোগ হবে
+ui-received-kind-widgets = উইজেট
+ui-received-kind-layouts = লেআউট
+ui-received-kind-theme = থিম
+ui-received-relation-new-pack = নতুন প্যাক
+ui-received-relation-new-version = নতুন সংস্করণ
+ui-received-relation-held = ইতিমধ্যে আপনার লাইব্রেরিতে আছে
+ui-received-kind-line = { $kind } · { $relation }
+ui-received-namespace = নেমস্পেস: { $namespace }
+ui-received-items = বিষয়বস্তু: { $names }
+ui-received-more = { $names } এবং আরও { $count }টি
+ui-received-requires = প্রয়োজন: { $names }
+ui-received-tokens = টোকেন: { $names }
+ui-received-fonts = ফন্ট: { $names }
+ui-received-profiles = { $count }টি লেআউট প্রোফাইল
+ui-received-code = Typst কোড: { NUMBER($kb) } KB

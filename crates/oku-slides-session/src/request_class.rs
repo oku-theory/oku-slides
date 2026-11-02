@@ -14,7 +14,8 @@ impl Request {
     ///
     /// `Save` too: a file changed on disk is merged first. History (except
     /// the version list): the deck shown changes. `SavePack` and `SaveTheme`
-    /// too: the library changes, the packs panel rereads it (`prune`). A theme
+    /// too: the library changes, the packs panel rereads it (`prune`), as with
+    /// `AcceptReceived`. A theme
     /// tab's draft steps too (extends, rename): the specimen deck takes a step.
     /// Exhaustive on purpose: a new request must say whether it changes the deck.
     /// `SetPreviewTheme` does not: the slides are unchanged (`apply_silent_ops` persists).
@@ -52,7 +53,8 @@ impl Request {
             | Self::DataEdit { .. }
             | Self::UsePackVersion { .. }
             | Self::UsePackCopy { .. }
-            | Self::UseThemeVersion { .. } => true,
+            | Self::UseThemeVersion { .. }
+            | Self::AcceptReceived { .. } => true,
             Self::Snapshot
             | Self::Slide { .. }
             | Self::Search { .. }
@@ -72,7 +74,7 @@ impl Request {
             | Self::WidgetSource { .. }
             | Self::SetPreviewTheme { .. }
             | Self::ApproveGuides { .. }
-            | Self::LaterGuides { .. }
+            | Self::LaterReceived { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }
@@ -213,7 +215,8 @@ impl Request {
             | Self::UsePackVersion { .. }
             | Self::UsePackCopy { .. }
             | Self::ApproveGuides { .. }
-            | Self::LaterGuides { .. }
+            | Self::AcceptReceived { .. }
+            | Self::LaterReceived { .. }
             | Self::UseThemeVersion { .. } => false,
         }
     }
@@ -242,7 +245,7 @@ impl Request {
             | Self::EditThemeExtends { .. }
             | Self::SetGuide { .. }
             | Self::ApproveGuides { .. }
-            | Self::LaterGuides { .. }
+            | Self::LaterReceived { .. }
             | Self::SaveTheme { .. } => true,
             Self::Save { .. }
             | Self::SetPreviewTheme { .. }
@@ -276,6 +279,7 @@ impl Request {
             | Self::DeletePack { .. }
             | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
+            | Self::AcceptReceived { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }

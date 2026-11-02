@@ -1,14 +1,14 @@
-//! t-328 : un deck reçu avec le même id de pack mais un autre contenu ne
-//! change jamais la version courante de la bibliothèque.
+//! t-328: a received deck with the same pack id but other content never changes
+//! the library's current version, even once the user adds the received version.
 //!
-//! Avant t-328, un pack était un dossier nommé par son slug : recevoir un
-//! deck dont le pack portait le même nom revenait à remplacer le sien.
+//! Before t-328, a pack was a folder named by its slug: receiving a deck whose
+//! pack had the same name replaced the user's own.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use oku_slides_core::{Guides, Namespace, Op, PackFiles, PackPin, PackVersion};
-use oku_slides_session::{BASE_PACK, PackLibrary, PackManifest, Request, Storage, builtin_versions};
+use oku_slides_session::{BASE_PACK, PackLibrary, PackManifest, Request, Storage, VersionRef, builtin_versions};
 use speculoos::prelude::*;
 use uuid::Uuid;
 
@@ -66,17 +66,18 @@ fn received_deck_with_the_same_pack_id_never_changes_the_current_version() {
     let (me, them) = (data_dir(), data_dir());
     let id = Uuid::new_v4();
     let mine = version(id, "Charte", None, "2026-10-01T10:00:00Z");
-    // La sienne est plus récente et porte le même nom : rien n'en fait la mienne.
+    // Theirs is newer and has the same name: nothing makes it mine, not even adding it.
     let theirs = version(id, "Charte", None, "2026-10-05T10:00:00Z");
     let path = received(&them, id, &theirs);
     library(&me).add_version(id, &mine).unwrap_or_else(|e| panic!("{e}"));
     let mut s = session_in(&me);
     s.open(&path).unwrap_or_else(|e| panic!("{e}"));
-    s.open(&path).unwrap_or_else(|e| panic!("{e}"));
     s.handle(Request::Merge { path: path.clone() }).unwrap_or_else(|e| panic!("{e}"));
+    let versions = vec![VersionRef { id, version: theirs.version() }];
+    s.handle(Request::AcceptReceived { versions }).unwrap_or_else(|e| panic!("{e}"));
     let lib = library(&me);
-    assert_that!(lib.current(id)).is_equal_to(Some(mine.version()));
     assert_that!(lib.versions(id).len()).is_equal_to(2);
+    assert_that!(lib.current(id)).is_equal_to(Some(mine.version()));
     let pinned = s.deck().widgets.get(&namespace(id)).map(|r| r.version.clone());
     assert_that!(pinned).is_equal_to(Some(theirs.version()));
 }

@@ -34,10 +34,10 @@ fn choice(platform: &Platform) -> AgentChoice {
         args: Vec::new(),
         env: Vec::new(),
         path: None,
-        fallback_cwd: platform.settings.paths.data(),
+        process_dir: platform.settings.paths.data().join(crate::config::AGENT_PROCESS_DIR),
         ready_within: std::time::Duration::from_secs(1),
     };
-    AgentChoice::new(platform, Link::new(launch))
+    AgentChoice::new(platform, Link::new(launch, platform.storage.clone()))
 }
 
 fn fr() -> Localizer {
@@ -411,4 +411,12 @@ fn launch_of_carries_the_program_path() {
     let launch = AgentChoice::launch_of(&AgentPreset::new("Bare", "agent-acp", Vec::new()), &platform);
     let path = launch.path.as_ref().and_then(|p| p.get()).map(std::ffi::OsStr::to_owned);
     assert_that!(path).is_equal_to(Some("/login/bin".into()));
+}
+
+#[test]
+fn launch_of_runs_the_agent_in_the_agent_process_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let platform = bare_command_platform(dir.path(), None);
+    let launch = AgentChoice::launch_of(&AgentPreset::new("Bare", "agent-acp", Vec::new()), &platform);
+    assert_that!(launch.process_dir).is_equal_to(platform.settings.paths.data().join("agent-process"));
 }

@@ -674,6 +674,8 @@ fn packs_view() -> crate::DeckPacksView {
         remove_refusal: None,
         id: uuid::Uuid::from_u128(0xac3e),
         guide: None,
+        installable: None,
+        openable: true,
     });
     view.addable.insert(oku_slides_core::PackKind::Widgets, vec![(crate::test_support::ns("hifi"), "Hi-fi".into())]);
     view.theme.outdated = true;
