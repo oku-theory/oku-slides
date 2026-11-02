@@ -31,7 +31,8 @@ export const messagesOf = (components: unknown[], data: unknown = {}) =>
 /**
  * Mounts surface `s`; returns its host, the actions and errors received, and `extend`.
  * `wrap` surrounds it (a context provider, for instance); `respond` sees each action as it is
- * sent, like the app's router. `extend` sends more messages to the mounted surface.
+ * sent, like the app's router. `extend` sends more messages to the mounted surface; `unmount`
+ * removes it, as closing its tab does.
  */
 export async function mountSurface(
   messages: A2uiMessage[],
@@ -57,5 +58,10 @@ export async function mountSurface(
     sent = [...sent, ...more];
     await render();
   };
-  return { host, actions, errors, extend };
+  const unmount = async () => {
+    mounted = null;
+    await act(async () => root.unmount());
+    host.remove();
+  };
+  return { host, actions, errors, extend, unmount };
 }

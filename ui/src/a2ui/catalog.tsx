@@ -20,6 +20,7 @@ import { ActionOutcomeContext, sendWithOutcome } from "./actionOutcome";
 import { QuickHintsContext } from "./quickHints";
 import { ListTable, type ListRow } from "./ListTable";
 import { RichTextField } from "./RichTextField";
+import { useSettledChange } from "./settledChange";
 import { StagePreviewContext } from "./stagePreview";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { svgSrc } from "./svgSrc";
@@ -380,7 +381,7 @@ function useCommit<T>(value: T | undefined, send: (v: T) => void) {
   };
 }
 
-/** L'évènement natif `change` d'un champ : la valeur validée (curseur lâché, sélecteur fermé). */
+/** A field's native `change` event: the committed value (slider released). */
 function useNativeChange(onChange: (value: string) => void) {
   const ref = useRef<HTMLInputElement>(null);
   const handler = useRef(onChange);
@@ -490,8 +491,8 @@ const Slider = createComponentImplementation(SliderApi, ({ props }) => {
 });
 
 /**
- * Une couleur : pastilles de la palette, ou sélecteur libre (validé à sa fermeture). La valeur
- * peut être le nom d'une couleur du thème (`accent`) : montré tel quel ; choisir écrit un hex.
+ * A color: palette swatches, or a free picker sent once it settles (t-213). The value may
+ * be a theme color name (`accent`), shown as is; picking writes a hex.
  */
 const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
   const named = !!props.value && !props.value.startsWith("#");
@@ -501,7 +502,9 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
     props.setValue(c);
     props.action?.();
   });
-  const ref = useNativeChange(pick);
+  const { ref, cancel } = useSettledChange(pick);
+  // A newer value, from a swatch or the host, drops the picker's pending one.
+  useEffect(() => cancel(), [props.value, cancel]);
   const help = useFieldHelp(props.help);
   return (
     <Field variant="note" label={props.label} as="div" help={help.node}>
@@ -514,7 +517,10 @@ const ColorField = createComponentImplementation(ColorFieldApi, ({ props }) => {
             style={{ background: c }}
             aria-label={c}
             aria-pressed={c === props.value}
-            onClick={() => pick(c)}
+            onClick={() => {
+              cancel();
+              pick(c);
+            }}
           />
         ))}
         <input

@@ -17,6 +17,12 @@ const { SlideThumbsContext } = await import("./slideThumbs");
 const { QuickHintsContext } = await import("./quickHints");
 const { t } = await import("../i18n");
 const { expectIconOnly } = await import("../test/iconOnly");
+const { SETTLE_MS } = await import("./settledChange");
+
+/** Waits `ms` inside act, so timers that fire meanwhile update the surface. */
+const wait = (ms: number) => act(() => new Promise<void>((done) => setTimeout(done, ms)));
+/** Lets a settling field's pause elapse, so its pending value is sent. */
+const settle = () => wait(SETTLE_MS + 50);
 
 /** Monte une surface d'un composant racine ; renvoie son hôte et les actions reçues. `hints` : elle reçoit les touches rapides. */
 const mount = (root: Record<string, unknown>, data: unknown = {}, hints = false) =>
@@ -197,7 +203,58 @@ describe("rendu du catalogue v3", () => {
     expect(picker.value).toBe("#303030");
     expect(actions).toHaveLength(0);
     await fire(picker, "change", "#303030");
+    await settle();
     expect(actions.map((a) => a.context)).toEqual([{ value: "#303030" }]);
+  });
+
+  test("ColorField : a burst of change events (WebKit panel) sends one action after a pause", async () => {
+    // t-213: WKWebView fires change on every move in NSColorPanel, not only when it closes.
+    const { host, actions } = await mount(colorField, { c: "#c2573a" });
+    const picker = host.querySelector('input[type="color"]') as HTMLInputElement;
+    for (const v of ["#101010", "#202020", "#303030"]) {
+      await fire(picker, "input", v);
+      await fire(picker, "change", v);
+    }
+    expect(actions).toHaveLength(0);
+    await settle();
+    expect(actions.map((a) => a.context)).toEqual([{ value: "#303030" }]);
+  });
+
+  test("ColorField : each change restarts the pause", async () => {
+    const { host, actions } = await mount(colorField, { c: "#c2573a" });
+    const picker = host.querySelector('input[type="color"]') as HTMLInputElement;
+    await fire(picker, "change", "#101010");
+    await wait(SETTLE_MS * 0.6);
+    await fire(picker, "change", "#202020");
+    await wait(SETTLE_MS * 0.6);
+    expect(actions).toHaveLength(0);
+    await settle();
+    expect(actions.map((a) => a.context)).toEqual([{ value: "#202020" }]);
+  });
+
+  test("ColorField : a swatch clicked during the pause wins over the pending picker color", async () => {
+    const { host, actions } = await mount(colorField, { c: "#c2573a" });
+    await fire(host.querySelector('input[type="color"]') as HTMLInputElement, "change", "#404040");
+    await click(host.querySelectorAll(".swatch")[1]);
+    await settle();
+    expect(actions.map((a) => a.context)).toEqual([{ value: "#1f4e79" }]);
+  });
+
+  test("ColorField : closing the surface during the pause still sends the picker color", async () => {
+    const { host, actions, unmount } = await mount(colorField, { c: "#c2573a" });
+    await fire(host.querySelector('input[type="color"]') as HTMLInputElement, "change", "#404040");
+    await unmount();
+    expect(actions.map((a) => a.context)).toEqual([{ value: "#404040" }]);
+  });
+
+  test("ColorField : leaving the picker sends the pending color at once", async () => {
+    const { host, actions } = await mount(colorField, { c: "#c2573a" });
+    const picker = host.querySelector('input[type="color"]') as HTMLInputElement;
+    await fire(picker, "change", "#404040");
+    await act(async () => picker.dispatchEvent(new Event("blur")));
+    expect(actions.map((a) => a.context)).toEqual([{ value: "#404040" }]);
+    await settle();
+    expect(actions).toHaveLength(1);
   });
 
   test("ColorField : un contexte d'action avec un tableau littéral (chemin d'un jeton) part tel quel", async () => {
@@ -206,6 +263,7 @@ describe("rendu du catalogue v3", () => {
     const field = { ...colorField, action: { event: { name: "token", context } } };
     const { host, actions } = await mount(field, { c: "#c2573a" });
     await fire(host.querySelector('input[type="color"]') as HTMLInputElement, "change", "#ff0000");
+    await settle();
     expect(actions.map((a) => a.context)).toEqual([{ token: ["color", "accent"], action: "set", value: "#ff0000" }]);
   });
 
