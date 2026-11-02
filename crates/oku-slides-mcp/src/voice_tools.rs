@@ -14,7 +14,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::{IntoError, ResultExt};
 
-use crate::tool_error::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, VoiceSnafu};
+use crate::tool_error::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, TurnOverSnafu, VoiceSnafu};
 use crate::tools::Tools;
 use crate::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
 
@@ -60,11 +60,21 @@ fn refusal(kind: VoiceErrorKind) -> ToolError {
 }
 
 impl Tools {
-    /// Ouvre la boîte hors tour ; elle reste jusqu'à ce que l'utilisateur la ferme.
-    pub(crate) async fn show_dictation(&self) -> CallToolResult {
+    /// Opens the settings box as a card the user opens from the call's turn.
+    pub(crate) async fn show_dictation(&self, turn: Option<u32>) -> CallToolResult {
+        let turn = match self.box_turn(turn) {
+            Ok(turn) => turn,
+            Err(e) => return self.fail_with(&e),
+        };
         let hub = self.hub.clone();
-        let shown = tokio::task::spawn_blocking(move || hub.show_settings()).await.context(TaskSnafu);
-        self.reply(shown, |()| self.json_result(&json!({ "shown": HOST_VOICE })))
+        let shown = tokio::task::spawn_blocking(move || hub.show_settings(Some(turn))).await.context(TaskSnafu);
+        self.reply(shown, |shown| {
+            if shown {
+                self.json_result(&json!({ "shown": HOST_VOICE }))
+            } else {
+                self.fail_with(&TurnOverSnafu.build())
+            }
+        })
     }
 
     /// Change des réglages de la dictée ; passer à l'API ou à un modèle absent est confirmé.

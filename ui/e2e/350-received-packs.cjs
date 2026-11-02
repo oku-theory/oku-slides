@@ -8,14 +8,14 @@ const assert = require('node:assert/strict');
 const { mkdirSync } = require('node:fs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
-const { closePackTabs } = require('./lib/atelier.cjs');
+const { closePackTabs, closePacksPanel, openPacksPopover } = require('./lib/atelier.cjs');
 const { deleteLibraryPack } = require('./lib/packs.cjs');
 const { writeDeckBringingPack } = require('./lib/foreignDeck.cjs');
 const { until } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
 const NAME = 'Apport';
-const PANEL = '.agent-dock [data-surface-id="host-packs"]';
+const PANEL = '.agent-popover [data-surface-id="host-packs"]';
 const SHOTS = process.env.E2E_SHOTS ?? path.resolve(__dirname, '..', '..', '.superpowers', 'sdd', 'agent-sandbox');
 
 const api = (p, tab, req) => post(p, '/api', { tab, req });
@@ -69,11 +69,12 @@ async function openFile(p, file) {
     await p.waitForSelector('.stage img');
 
     // 3. "Packs du deck" offers to add it; the button adds it to the library.
-    await p.getByRole('button', { name: /^Packs du deck/ }).click();
+    await openPacksPopover(p);
     const add = p.locator(`${PANEL} [data-component-id="widgets/${review.capabilities.namespace}/add-to-library"]`);
     await add.getByRole('button', { name: 'Ajouter à ma bibliothèque' }).click();
     await until(p, async () => (await inLibrary(p)) !== undefined, `${NAME} absent de la bibliothèque après « Ajouter à ma bibliothèque »`);
     await add.waitFor({ state: 'detached' });
+    await closePacksPanel(p);
   } finally {
     if (received !== null) await post(p, '/api/workspace', { cmd: 'close', tab: received, discard: true });
     const left = await inLibrary(p);

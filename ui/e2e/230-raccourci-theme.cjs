@@ -1,6 +1,6 @@
-// Raccourci « thème » : la consigne seule ouvre le sélecteur de l'hôte au dock, sans agent ;
-// survoler un thème le montre sur la scène, cliquer ou presser son chiffre l'applique, annuler
-// revient au précédent. Contre `oku-slides serve` lancé par `just e2e` (après 220 : journal créé).
+// "Theme" shortcut: the prompt alone opens the host's picker as a popover, without the agent;
+// hovering a theme shows it on the stage, a click or its digit applies it, undo goes back to the
+// previous one. Runs against `oku-slides serve` started by `just e2e` (after 220: log created).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post, activeSnapshot } = require('./lib/http.cjs');
@@ -11,7 +11,7 @@ const LOG = process.env.E2E_AGENT_LOG;
 
 const prompts = (from) => logSince(LOG, from).filter((m) => m.method === 'session/prompt');
 const themeNs = async (p) => (await activeSnapshot(p)).theme ?? null;
-const picker = (p) => p.locator('.agent-dock [data-surface-id="host-theme-picker"]');
+const picker = (p) => p.locator('.agent-popover [data-surface-id="host-theme-picker"]');
 const cards = (p) => picker(p).locator('.theme-choice');
 /** Les noms des cartes actives ; jamais d'exception, une liste vide s'il n'y en a pas. */
 const activeNames = (p) => picker(p).locator('.theme-choice[aria-pressed="true"] bdi').allInnerTexts();
@@ -42,7 +42,7 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   const from = logOffset(LOG);
   const before = await themeNs(p);
 
-  // 1. « Thème. » tapé dans le brouillon ouvre le sélecteur au dock ; un seul thème est actif.
+  // 1. « Thème. » typed in the draft opens the picker as a popover; one theme is active.
   await say(p, 'Thème.');
   await cards(p).first().waitFor();
   assert.ok((await cards(p).count()) >= 2, 'au moins deux thèmes');
@@ -66,7 +66,7 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   await until(p, async () => (await themeNs(p)) !== before, 'le thème du deck doit changer');
   await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify([name]), 'la carte choisie doit être active');
 
-  // 4. ⌘Z (focus hors du dock) rend le thème précédent, et l'active redevient celle du début.
+  // 4. ⌘Z (focus outside the popover) gives the previous theme back, the active one as at the start.
   await blur(p);
   await p.keyboard.press('ControlOrMeta+z');
   await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");

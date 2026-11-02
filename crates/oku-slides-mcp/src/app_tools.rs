@@ -144,7 +144,7 @@ impl Tools {
         // Après `seek`, la version montrée (le rang demandé est borné à la dernière).
         let done = self
             .with_session(move |s| {
-                s.handle(req)?;
+                s.handle_by_agent(req)?;
                 Ok(s.snapshot().history.map(|h| json!({ "index": h.index, "count": h.count })))
             })
             .await;

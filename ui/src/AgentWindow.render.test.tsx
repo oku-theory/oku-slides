@@ -277,4 +277,20 @@ describe("AgentWindow", () => {
       open.mockRestore();
     }
   });
+  test("AgentWindow a receipt's trace is sent to the main window as reveal", async () => {
+    const m = await mountWindow();
+    await m.send({ to: "agent", kind: "context", tab: "t-1", context: ctx() });
+    const receipt: Surface = {
+      id: "report-4", place: "thread", live: false, question: false,
+      messages: [
+        { version: "v0.9", createSurface: { surfaceId: "report-4", catalogId: CATALOG_ID } },
+        { version: "v0.9", updateComponents: { surfaceId: "report-4", components: [
+          { id: "root", component: "Button", label: "Ventes", action: { event: { name: "trace", context: { slide: "s1", element: "e1", pane: true } } } },
+        ] } },
+      ] as unknown as Surface["messages"],
+    };
+    await act(async () => m.handlers().onMcp({ kind: "surfaces", list: [receipt] }));
+    await act(async () => m.el.querySelector<HTMLButtonElement>('[data-surface-id="report-4"] button')?.click());
+    expect(m.transport.sent).toContainEqual({ to: "main", kind: "reveal", tab: "t-1", target: { slide: "s1", element: "e1", pane: true } });
+  });
 });

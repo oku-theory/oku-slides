@@ -1090,6 +1090,17 @@
         {
          "runs": [
           {
+           "t": "⌘⇧E",
+           "highlight": 1
+          },
+          {
+           "t": "  Show or hide the inspector"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "⌘C",
            "highlight": 1
           },

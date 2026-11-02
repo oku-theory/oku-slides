@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use oku_slides_i18n::Localize;
-use oku_slides_mcp::{HubError, McpEvent, SurfaceAction};
+use oku_slides_mcp::{HubError, McpEvent, ShowOutcome, SurfaceAction};
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentUi, AttachmentRef, Sessions};
 use oku_slides_stt::Stt;
@@ -131,6 +131,13 @@ pub enum AgentCommand {
         /// The target tab.
         tab: String,
     },
+    /// The interface opens the theme picker on the slide shown: the surface goes to this tab.
+    ShowThemes {
+        /// The target tab.
+        tab: String,
+        /// The slide each theme shows; `None`: the first one.
+        slide: Option<String>,
+    },
     /// The interface opens the dictation and agent settings box.
     ShowSettings {
         /// The target tab.
@@ -159,6 +166,7 @@ impl AgentCommand {
             | Self::PasteImage { tab, .. }
             | Self::RemoveImage { tab, .. }
             | Self::ShowPacks { tab }
+            | Self::ShowThemes { tab, .. }
             | Self::ShowSettings { tab }
             | Self::Availability { tab } => tab,
         }
@@ -282,6 +290,7 @@ impl Stack {
                 });
             }
             AgentCommand::ShowPacks { tab } => return self.show_packs(&tab),
+            AgentCommand::ShowThemes { tab, slide } => return self.show_themes(&tab, slide.as_deref()),
             // Starts the tab (tools, keeper; not the ACP agent): a reopened tab gets its thread back.
             // The agent's state first, then the thread (shown by the keeper, after its replay).
             AgentCommand::Resync { tab } => {
@@ -313,7 +322,8 @@ impl Stack {
             // Démarre l'onglet (outils, gardien ; pas l'agent ACP) : la boîte va au hub de l'onglet.
             AgentCommand::ShowSettings { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };
-                t.hub.show_settings();
+                // Opened by the user: no turn, so the box cannot leave the thread.
+                t.hub.show_settings(None);
             }
             AgentCommand::PasteImage { tab, data } => {
                 let l = self.platform.live_localizer.current();
@@ -367,9 +377,10 @@ impl Stack {
         // Outside deck mode, or if it fails (logged), the instruction goes to the agent.
         let ui = self.platform.live_localizer.current();
         if images.is_empty() && is_spoken_theme_shortcut(text, &ui, || self.voice.dictation_locale()) {
-            match t.hub.show_themes(slide) {
-                Ok(true) => return Ok(None),
-                Ok(false) => {}
+            match t.hub.show_themes(slide, None) {
+                Ok(ShowOutcome::Shown) => return Ok(None),
+                // No turn given: only the mode can refuse it.
+                Ok(ShowOutcome::OutOfMode | ShowOutcome::TurnOver) => {}
                 Err(e) => {
                     tracing::warn!(tab, error = %snafu::Report::from_error(&e), "sélecteur de thème impossible");
                 }
@@ -414,15 +425,36 @@ impl Stack {
     /// Starts the tab (tools, keeper; not the ACP agent): the panel goes to the tab's hub.
     fn show_packs(&self, tab: &str) -> Result<(), String> {
         let Some(t) = self.open(tab) else { return Ok(()) };
-        match t.hub.show_packs() {
-            Ok(true) => Ok(()),
-            // The button exists only in deck mode: a mode change got ahead of it.
-            Ok(false) => {
+        match t.hub.show_packs(None) {
+            Ok(ShowOutcome::Shown) => Ok(()),
+            // The button exists only in deck mode: a mode change got ahead of it. No turn given,
+            // so `TurnOver` cannot come.
+            Ok(ShowOutcome::OutOfMode | ShowOutcome::TurnOver) => {
                 tracing::debug!(tab, "panneau des packs hors du mode deck : ignoré");
                 Ok(())
             }
             Err(e) => {
                 tracing::info!(tab, error = %snafu::Report::from_error(&e), "panneau des packs impossible");
+                Err(e.localize(&self.platform.live_localizer.current()))
+            }
+        }
+    }
+
+    /// Shows the theme picker on `slide` in the tab; the error is localized.
+    ///
+    /// Starts the tab (tools, keeper; not the ACP agent): the picker goes to the tab's hub.
+    fn show_themes(&self, tab: &str, slide: Option<&str>) -> Result<(), String> {
+        let Some(t) = self.open(tab) else { return Ok(()) };
+        match t.hub.show_themes(slide, None) {
+            Ok(ShowOutcome::Shown) => Ok(()),
+            // The button exists only in deck mode: a mode change got ahead of it. No turn given,
+            // so `TurnOver` cannot come.
+            Ok(ShowOutcome::OutOfMode | ShowOutcome::TurnOver) => {
+                tracing::debug!(tab, "sélecteur de thème hors du mode deck : ignoré");
+                Ok(())
+            }
+            Err(e) => {
+                tracing::info!(tab, error = %snafu::Report::from_error(&e), "sélecteur de thème impossible");
                 Err(e.localize(&self.platform.live_localizer.current()))
             }
         }

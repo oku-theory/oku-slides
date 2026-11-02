@@ -17,7 +17,7 @@ with the UI context; agent updates become A2UI turn surfaces.
 - `tab_entry` : one tab; `Agent::run` reads its kind, builds that kind's tools then starts its agent, queueing
   commands until then; holds the draft (`TabLink`: text, pasted images, `session`; `prefill_draft`). Closing it closes its `SurfaceHub`.
 - `drafts_port` : `Starter` starts a tab's entry (`Stack::open`); `StackDrafts`, its `DraftPort` (weak), prefills a tab's empty draft, never its agent.
-- `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes; `fallback_turn`: routes before `connect` (notice line, `AgentEvent::Fallback`, guarded model download with progress, one re-route after a launch failure).
+- `tab_agent` : `AgentHandle`, the per-tab actor (ACP session, `ToolsAccess`); `reopen` resumes; a turn's end hands its traces to the hub before `TurnEnded`; `fallback_turn`: routes before `connect` (notice line, `AgentEvent::Fallback`, guarded model download with progress, one re-route after a launch failure).
 - `paste` : `paste_image` (base64, `[paste] max_draft_images`, `Session::paste_image`), the draft's images, `resolve_images` (ids of a prompt).
 - `link` : `Link`, the shared ACP connection: subprocess, handshake, notifications and permission requests routed
   by epoch and `SessionId`; `Link::switch` changes agent, its preset id and wanted model; `failure`: last launch failure of this epoch (`Unusable`),

@@ -87,6 +87,15 @@ agent-turn-ended = จบรอบ ({ $stop })
 agent-choice-cancelled = ยกเลิกคำถามแล้ว
 agent-choice-answered = ✓ { $answer }
 agent-report-why = ทำไม
+agent-trace = { $name }: { $count ->
+   *[other] การเปลี่ยนแปลง { $count } รายการ
+}
+agent-trace-data = { $name }: เปลี่ยนข้อมูลแล้ว
+agent-trace-removed = { $name }: ไม่มีอยู่แล้ว
+agent-trace-more = { $count ->
+   *[other] และอีก { $count } รายการ
+}
+agent-trace-title = องค์ประกอบที่เปลี่ยนแปลง
 
 agent-error-file = ไม่สามารถอ่านหรือเขียนไฟล์ได้
 agent-error-unexpected-action = การกระทำที่ไม่คาดคิด: { $action }
@@ -126,6 +135,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] โปรดบอกผู้ใช้ให้ทำต่อที่นั่น เพราะเอเจนต์ของแท็บนั้นไม่รู้จักคำขอนี้
 } แท็บนี้ยังคงเหมือนเดิม
 agent-error-turn-over = รอบของการเรียกนี้สิ้นสุดแล้ว: ไม่มีสิ่งใดแสดง
+agent-error-no-box-turn = ไม่มีรอบให้ผูกกล่องนี้: ไม่มีสิ่งใดแสดง
 agent-error-no-file = งานนำเสนอยังไม่มีไฟล์: โปรดระบุพาธแบบสัมบูรณ์
 agent-error-path-relative = พาธต้องเป็นแบบสัมบูรณ์
 agent-error-path-parent = พาธต้องไม่มี “..”

@@ -23,8 +23,8 @@ fn report_spec(title: &str, actions: &[&str]) -> Report {
 /// Le reçu et sa version sans actions, comme `Session::report_surface` sans slide.
 fn receipt_of(h: &Harness, id: &str, spec: &Report) -> ReceiptSurfaces {
     let plain = (!spec.actions.is_empty())
-        .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, None, &h.localizer));
-    ReceiptSurfaces { surface: receipt(id, spec, None, &h.localizer), plain }
+        .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, None, &[], &h.localizer));
+    ReceiptSurfaces { surface: receipt(id, spec, None, &[], &h.localizer), plain }
 }
 
 #[tokio::test(flavor = "multi_thread")]

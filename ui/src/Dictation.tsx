@@ -362,6 +362,8 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
             className="token ghost"
             label={t("ui-dictation-settings")}
             icon={GearIcon}
+            aria-haspopup="dialog"
+            data-popover-anchor="host-voice"
             disabled={state !== "idle"}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => handlers.current.onSettings?.()}

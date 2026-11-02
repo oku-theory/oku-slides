@@ -1,4 +1,4 @@
-// Panneau « Packs du deck » (t-1116) : ouvert par la barre d'outils au dock, ses trois sections,
+// Panneau « Packs du deck » (t-1116) : ouvert par la barre d'outils en popover, ses trois sections,
 // les refus de retrait (base, pack employé), l'ajout d'un pack de widgets de la bibliothèque, qui
 // devient une section de la grille d'ajout et s'annule par ⌘Z, une carte de base ajoutée avec son
 // texte de départ, et le thème choisi dans le panneau, annulé par ⌘Z. "Nouveau pack de widgets" in the main menu
@@ -14,7 +14,7 @@ const { stageSvg } = require('./lib/stage.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
-const PANEL = '.agent-dock [data-surface-id="host-packs"]';
+const PANEL = '.agent-popover [data-surface-id="host-packs"]';
 
 const api = (p, req) => post(p, '/api', { tab: TAB, req });
 const snapshot = (p) => api(p, { cmd: 'snapshot' });
@@ -38,9 +38,21 @@ async function activate(p, tab) {
 /** The options of the panel's "Ajouter un pack" for widget packs; none when it is absent. */
 const addable = (p) => part(p, 'widgets-add').locator('option').allTextContents();
 
-/** Ouvre le panneau par la barre d'outils et attend ses sections. */
+/**
+ * Opens the panel from the toolbar unless it already shows (a reload gives an open popover back), and
+ * waits for its sections. A popover given back right before the click is closed by it (the button
+ * toggles): then one more click.
+ */
 async function openPanel(p) {
-  await packsButton(p).click();
+  for (let i = 0; i < 2; i++) {
+    if ((await p.locator(PANEL).count()) === 0) await packsButton(p).click();
+    try {
+      await part(p, 'theme-pick').waitFor({ timeout: 3000 });
+      return;
+    } catch {
+      // Toggled closed: try again.
+    }
+  }
   await part(p, 'theme-pick').waitFor();
 }
 
@@ -76,7 +88,7 @@ async function openGrid(p) {
   await closePackTabs(p);
   await p.waitForSelector('.stage img');
 
-  // 1. Le bouton de la barre ouvre le panneau au dock : Layouts, Widgets, Thème.
+  // 1. The toolbar button opens the panel as a popover: Layouts, Widgets, Theme.
   await openPanel(p);
   assert.equal(await text(p, 'title'), 'Packs du deck');
   assert.equal(await text(p, 'layouts-title'), 'Layouts');
@@ -103,7 +115,7 @@ async function openGrid(p) {
     await add.selectOption({ label: 'Acme' });
     await until(p, async () => (await snapshot(p)).widgets[pack.namespace] !== undefined, "Acme n'est pas épinglé par le deck");
     await untilValue(p, () => text(p, `widgets/${pack.namespace}/name`), (t) => t === 'Acme', "Acme n'apparaît pas dans le panneau");
-    // Sa propre section dans la grille d'ajout.
+    // Sa propre section dans la grille d'ajout (the click on the slide closes the popover).
     await selectSlideAccepting(p, 'base/card');
     let picker = await openGrid(p);
     await picker.getByRole('group', { name: 'Acme', exact: true }).waitFor();
@@ -113,6 +125,7 @@ async function openGrid(p) {
     await blur(p);
     await p.keyboard.press('Control+z');
     await until(p, async () => (await snapshot(p)).widgets[pack.namespace] === undefined, "⌘Z ne retire pas Acme du deck");
+    await openPanel(p);
     await part(p, `widgets/${pack.namespace}`).waitFor({ state: 'detached' });
     picker = await openGrid(p);
     assert.equal(await picker.getByRole('group', { name: 'Acme', exact: true }).count(), 0, 'Acme reste dans la grille');
@@ -140,6 +153,7 @@ async function openGrid(p) {
   const start = (await snapshot(p)).theme_name;
   assert.match(start ?? '', /^Papier/, `le deck ne part pas de Papier : ${start}`);
   const paper = await untilValue(p, () => stageSvg(p), (svg) => svg !== '', 'scène vide');
+  await openPanel(p);
   await part(p, 'theme-pick').locator('select').selectOption({ label: 'Pro' });
   await until(p, async () => (await snapshot(p)).theme_name === 'Pro', "le thème du deck ne passe pas à Pro");
   await untilValue(p, () => stageSvg(p), (svg) => svg !== '' && svg !== paper, 'la scène ne change pas avec Pro');

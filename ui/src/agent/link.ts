@@ -7,6 +7,7 @@ import type { AgentUi } from "../api";
 import { inTauri, listenTauri } from "../api";
 import { REAL_TIMERS, type Timers } from "../debounce";
 import { randomId } from "../randomId";
+import type { TraceTarget } from "./trace";
 
 export const AGENT_LABEL = "agent";
 
@@ -36,7 +37,9 @@ export type LinkMessage =
   | { to: "main"; kind: "insert"; tab: string; id: string; text: string }
   | { to: "main"; kind: "insert-cancel"; tab: string; id: string }
   | { to: "agent"; kind: "insert-ack"; tab: string; id: string; ok: boolean }
-  | { to: "agent"; kind: "shortcut"; tab: string; key: LinkShortcut };
+  | { to: "agent"; kind: "shortcut"; tab: string; key: LinkShortcut }
+  /** A receipt trace clicked in the agent window: the main window shows its element. */
+  | { to: "main"; kind: "reveal"; tab: string; target: TraceTarget };
 
 /** Un transport : diffuse à toutes les pages, celle qui envoie comprise. */
 export interface LinkTransport {
@@ -56,6 +59,7 @@ export const MAX_LINK_TEXT = 256 * 1024;
 const Id = z.string().max(64);
 const Label = z.string().max(256);
 const Ui = z.object({ slide: Id.nullable(), element: Id.nullable(), field: Label.nullable(), editing: z.boolean(), widget: Label.nullable() });
+const Target = z.object({ slide: Id.min(1), element: Id.min(1), pane: z.boolean() });
 const Context = z.object({ editing: z.boolean(), ui: Ui, staged: Id.nullable(), keysOff: z.boolean(), look: Id });
 const Message = z.discriminatedUnion("kind", [
   z.object({ to: z.literal("agent"), kind: z.literal("context"), tab: Id, context: Context }),
@@ -64,6 +68,7 @@ const Message = z.discriminatedUnion("kind", [
   z.object({ to: z.literal("main"), kind: z.literal("insert-cancel"), tab: Id, id: Id }),
   z.object({ to: z.literal("agent"), kind: z.literal("insert-ack"), tab: Id, id: Id, ok: z.boolean() }),
   z.object({ to: z.literal("agent"), kind: z.literal("shortcut"), tab: Id, key: z.enum(["auto", "draft", "type"]) }),
+  z.object({ to: z.literal("main"), kind: z.literal("reveal"), tab: Id, target: Target }),
 ]);
 
 /** Le message, s'il a la forme d'un `LinkMessage` (schéma zod) ; sinon null. */

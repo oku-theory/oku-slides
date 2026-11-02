@@ -117,14 +117,19 @@ impl Ctx {
         let _ = self.events.send(event);
     }
 
-    /// Ferme le tour d'annulation, quoi qu'il soit arrivé (verrou synchrone : hors thread async).
-    pub async fn end_turn(&self) {
+    /// Closes undo turn `turn`, whatever happened (synchronous lock: off the async thread).
+    ///
+    /// Its traces go to the hub before `TurnEnded` is emitted: its fallback receipt lists them.
+    pub async fn end_turn(&self, turn: u32) {
         // The received-guide note belongs to the turn: every exit path ends here.
         self.hub.set_permission_note(None);
         let tab = self.tab.clone();
-        let closed = tokio::task::spawn_blocking(move || tab.with(Session::end_turn)).await;
-        if let Ok(Err(e)) = closed {
-            tracing::warn!(tab = %self.tab.tab(), error = %e.one_line(), "fin de tour : session introuvable");
+        match tokio::task::spawn_blocking(move || tab.with(Session::end_turn)).await {
+            Ok(Ok(traces)) => self.hub.note_turn_traces(turn, traces),
+            Ok(Err(e)) => {
+                tracing::warn!(tab = %self.tab.tab(), error = %e.one_line(), "fin de tour : session introuvable");
+            }
+            Err(e) => tracing::warn!(tab = %self.tab.tab(), error = %e, "fin de tour : tâche interrompue"),
         }
     }
 }
@@ -520,7 +525,7 @@ impl TabAgent {
         let id = self.ctx.hub.next_id("note");
         let l = self.ctx.localizer.current();
         let text = l.tr("agent-memory-lost");
-        if let Some(card) = oku_slides_session::agent::receipt::fallback(&id, &text, &[], &l) {
+        if let Some(card) = oku_slides_session::agent::receipt::fallback(&id, &text, &[], &[], &l) {
             if !self.ctx.hub.show_static(turn, card) {
                 tracing::debug!(turn, "carte « mémoire perdue » refusée : tour déjà clos");
             }

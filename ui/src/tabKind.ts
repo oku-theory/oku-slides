@@ -14,6 +14,11 @@ export function tabKind(snap: Snapshot): TabKind {
   return "deck";
 }
 
+/** A deck tab in deck mode (no pack, theme, help or history): it can show the inspector and the data pane. */
+export function isDeckTab(snap: Snapshot | null): boolean {
+  return !!snap && tabKind(snap) === "deck";
+}
+
 /** The kind a tab's document gives it in the bar; a deck-only pack is a pack, an unknown kind a deck. */
 export function documentKind(doc: TabDocument | undefined): "deck" | "pack" | "theme" | "help" {
   switch (doc?.kind) {

@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use snafu::ResultExt;
 
 use super::error::{HubError, HubInner, IncompleteSnafu, SessionSnafu};
-use super::{McpEvent, PacksShown, Shown, SurfaceHub};
+use super::{McpEvent, PacksShown, ShowOutcome, Shown, SurfaceHub};
 
 /// La vue du panneau ; `None` hors du mode deck.
 fn view_in_deck_mode(s: &mut Session) -> oku_slides_session::Result<Option<DeckPacksView>> {
@@ -18,31 +18,36 @@ fn view_in_deck_mode(s: &mut Session) -> oku_slides_session::Result<Option<DeckP
 }
 
 impl SurfaceHub {
-    /// Shows the deck's packs panel, alone; `false` outside deck mode.
+    /// Shows the deck's packs panel, alone, in `turn` (an agent's chip; `None`: opened by the user).
     ///
-    /// Reads the library under the session lock: call it off the runtime threads.
+    /// `OutOfMode` outside deck mode, `TurnOver` when `turn` left the thread. Reads the library under the
+    /// session lock: call it off the runtime threads.
     ///
     /// # Errors
     ///
     /// Fails if the session refuses: tab closed or packs library unreadable.
-    pub fn show_packs(&self) -> Result<bool, HubError> {
+    pub fn show_packs(&self, turn: Option<u32>) -> Result<ShowOutcome, HubError> {
         let view = self.session.with(view_in_deck_mode).and_then(|r| r).context(SessionSnafu)?;
-        let Some(view) = view else { return Ok(false) };
-        let surface = self.packs_surface(&view);
-        let shown = Shown::Packs(PacksShown { last: surface.clone() });
-        self.show_alone(surface, shown, |s| matches!(s, Shown::Packs(_)));
-        Ok(true)
+        let Some(view) = view else { return Ok(ShowOutcome::OutOfMode) };
+        let surface = self.packs_surface(&view, turn);
+        let shown = Shown::Packs(PacksShown { last: surface.clone(), turn });
+        Ok(self.show_alone(surface, shown, |s| matches!(s, Shown::Packs(_))))
     }
 
-    /// La surface du panneau, traduite dans la langue courante.
-    fn packs_surface(&self, view: &DeckPacksView) -> Surface {
-        deck_packs_panel(view, &self.localizer.current())
+    /// The panel's surface in `turn`, translated into the current language.
+    fn packs_surface(&self, view: &DeckPacksView, turn: Option<u32>) -> Surface {
+        Surface { turn, ..deck_packs_panel(view, &self.localizer.current()) }
     }
 
-    /// Applique une action du panneau, puis le refait.
+    /// Applies an action of the panel, then rebuilds it in its `turn`.
     ///
-    /// Un contexte mal formé est `Incomplete` ; la session revérifie tout le reste.
-    pub(super) fn apply_packs(&self, context: &Map<String, Value>, name: &str) -> Result<PacksShown, HubInner> {
+    /// A malformed context is `Incomplete`; the session checks everything else again.
+    pub(super) fn apply_packs(
+        &self,
+        context: &Map<String, Value>,
+        name: &str,
+        turn: Option<u32>,
+    ) -> Result<PacksShown, HubInner> {
         let Some(event) = packs_event(name, context) else {
             tracing::warn!(action = name, "action du panneau des packs mal formée");
             return IncompleteSnafu { key: name }.fail();
@@ -50,9 +55,9 @@ impl SurfaceHub {
         self.session.with(|s| s.packs_action(event)).and_then(|r| r).context(SessionSnafu)?;
         self.emit(McpEvent::Changed);
         let view = self.session.with(|s| s.deck_packs()).and_then(|r| r).context(SessionSnafu)?;
-        let surface = self.packs_surface(&view);
+        let surface = self.packs_surface(&view, turn);
         self.emit(McpEvent::Surface { surface: surface.clone() });
-        Ok(PacksShown { last: surface })
+        Ok(PacksShown { last: surface, turn })
     }
 
     /// Ferme le panneau hors du mode deck ; le refait s'il a changé.
@@ -60,9 +65,10 @@ impl SurfaceHub {
     /// Appelée par `prune`. Relit `state` après la session : un panneau fermé
     /// entre-temps n'est jamais rouvert.
     pub(super) fn refresh_packs(&self) {
-        if !matches!(self.state().shows.get(HOST_PACKS), Some(Shown::Packs(_))) {
-            return;
-        }
+        let turn = match self.state().shows.get(HOST_PACKS) {
+            Some(Shown::Packs(shown)) => shown.turn,
+            _ => return,
+        };
         let view = match self.session.with(view_in_deck_mode).and_then(|r| r) {
             Ok(view) => view,
             Err(e) => {
@@ -70,9 +76,13 @@ impl SurfaceHub {
                 return;
             }
         };
-        let surface = view.as_ref().map(|v| self.packs_surface(v));
+        let surface = view.as_ref().map(|v| self.packs_surface(v, turn));
         let mut state = self.state();
+        // Shown again meanwhile (another turn): that show sent its own panel.
         let Some(Shown::Packs(shown)) = state.shows.get(HOST_PACKS) else { return };
+        if shown.turn != turn {
+            return;
+        }
         match surface {
             None => {
                 state.shows.remove(HOST_PACKS);
@@ -80,7 +90,7 @@ impl SurfaceHub {
             }
             Some(surface) if surface == shown.last => {}
             Some(surface) => {
-                state.shows.insert(HOST_PACKS.to_owned(), Shown::Packs(PacksShown { last: surface.clone() }));
+                state.shows.insert(HOST_PACKS.to_owned(), Shown::Packs(PacksShown { last: surface.clone(), turn }));
                 self.record_and_send(&mut state, McpEvent::Surface { surface });
             }
         }

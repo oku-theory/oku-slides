@@ -1,9 +1,9 @@
 /**
- * Une surface de réglages de l'hôte, en fiche : en mode pack (« Paramètres de <widget> »),
- * posée sous l'aperçu qu'elle règle plutôt qu'au dock de l'agent ; ou, agent détaché, les données
- * du graphique ou du tableau sélectionné dans la colonne de droite. La surface et le routage de
- * ses actions viennent de `useHostSettings`, `useDataSettings` ou `useThemeSettings` ; elle est
- * reconstruite à chaque relecture, donc pas annoncée.
+ * A host settings surface, as a card: in pack mode (« Paramètres de <widget> »), under the preview
+ * it sets rather than at the agent's dock; in a deck tab, the selected element's settings in the
+ * inspector and its chart's or table's data in the data pane. The surface and the routing of its
+ * actions come from `useHostSettings`, `useElementSettings`, `useDataSettings` or `useThemeSettings`;
+ * it is rebuilt at each reread, so not announced.
  */
 import { lazy, Suspense } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";

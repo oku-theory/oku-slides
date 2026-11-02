@@ -32,26 +32,34 @@ describe("quickTarget", () => {
   });
 });
 
-describe("quickTarget, sélecteur de thème", () => {
-  test("le sélecteur de thème du dock prend les touches", () => {
-    const picker = real("host-theme-picker");
-    expect(quickTarget({ dock: [settings, picker] })).toEqual({ surface: picker, kind: "dock" });
+describe("quickTarget, theme picker", () => {
+  const picker = () => ({ ...real("host-theme-picker"), place: "popover" as const });
+
+  test("quickTarget with the picker open as a popover gives it the keys", () => {
+    expect(quickTarget({ dock: [settings], popover: picker() })).toEqual({ surface: picker(), kind: "popover" });
   });
 
-  test("une question du dock passe avant le sélecteur de thème", () => {
+  test("quickTarget with a dock question and the picker popover gives the question", () => {
     const q = ask("ask-8");
-    expect(quickTarget({ dock: [real("host-theme-picker"), q] })).toEqual({ surface: q, kind: "dock" });
+    expect(quickTarget({ dock: [q], popover: picker() })).toEqual({ surface: q, kind: "dock" });
   });
 
-  test("le sélecteur de thème passe avant le tiroir des variantes", () => {
-    const picker = real("host-theme-picker");
-    expect(quickTarget({ drawer: real("show-6"), dock: [picker] })).toEqual({ surface: picker, kind: "dock" });
+  test("quickTarget with the picker popover and a drawer gives the picker", () => {
+    expect(quickTarget({ drawer: real("show-6"), dock: [], popover: picker() })).toEqual({ surface: picker(), kind: "popover" });
+  });
+
+  test("quickTarget with the picker in the dock ignores it", () => {
+    expect(quickTarget({ dock: [picker()] })).toBeNull();
+  });
+
+  test("quickTarget with another popover open gives it no keys", () => {
+    expect(quickTarget({ dock: [], popover: { ...picker(), id: "host-packs" } })).toBeNull();
   });
 });
 
 describe("answerTarget", () => {
   test("le sélecteur de thème ne reçoit jamais une consigne", () => {
-    expect(answerTarget(quickTarget({ dock: [real("host-theme-picker")] }))).toBeNull();
+    expect(answerTarget(quickTarget({ dock: [], popover: real("host-theme-picker") }))).toBeNull();
   });
 
   // Une consigne (dictée ou tapée) répond à la question qui reçoit les touches 1–4, jamais à une autre.

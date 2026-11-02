@@ -93,6 +93,17 @@ agent-turn-ended = Runde beendet ({ $stop }).
 agent-choice-cancelled = Frage abgebrochen
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Warum
+agent-trace = { $name }: { $count ->
+    [one] { $count } Änderung
+   *[other] { $count } Änderungen
+}
+agent-trace-data = { $name }: Daten geändert
+agent-trace-removed = { $name }: existiert nicht mehr
+agent-trace-more = { $count ->
+    [one] und { $count } weiteres
+   *[other] und { $count } weitere
+}
+agent-trace-title = Geänderte Elemente
 
 agent-error-file = Die Datei konnte nicht gelesen oder geschrieben werden.
 agent-error-unexpected-action = Unerwartete Aktion: { $action }.
@@ -132,6 +143,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Sag dem Nutzer, dort weiterzumachen: Der Agent dieses Tabs kennt diese Anfrage nicht.
 } Dieser Tab bleibt, wie er ist.
 agent-error-turn-over = Der Durchgang dieses Aufrufs ist vorbei: Es wurde nichts angezeigt.
+agent-error-no-box-turn = Kein Durchgang, dem dieses Feld zugeordnet werden kann: Es wurde nichts angezeigt.
 agent-error-no-file = Die Präsentation hat noch keine Datei: Gib einen absoluten Pfad an.
 agent-error-path-relative = Der Pfad muss absolut sein.
 agent-error-path-parent = Der Pfad darf kein „..“ enthalten.

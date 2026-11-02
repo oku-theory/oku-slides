@@ -1,6 +1,6 @@
 // Le panneau de l'agent : un morceau de réponse ne re-rend ni `App` ni la scène (t-208).
 
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import "../test/dom";
 import type { InterfaceChange, McpEvent, Surface } from "../api";
 import { CATALOG_ID } from "../a2ui/catalog";
@@ -15,6 +15,8 @@ const { createSlot, SlotView } = await import("./slot");
 const { routeSurfaces } = await import("./surfaces");
 const { ARMING_MS } = await import("../modalFrame");
 const { t } = await import("../i18n");
+const { AGENT_WINDOW_PLACES, DETACHED_MAIN_PLACES } = await import("./useQuickKeys");
+const { realSurface } = await import("../a2ui/fixtures/agentSurfaces");
 
 type Root = ReturnType<typeof createRoot>;
 let mounted: { root: Root; host: HTMLElement } | null = null;
@@ -60,9 +62,21 @@ async function mount({
   promptFails = false,
   mode = DRIVE,
   keyPlaces,
-  hostSurfaces,
   fallback,
-}: { promptFails?: boolean; mode?: ThreadMode; keyPlaces?: QuickTarget["kind"][]; hostSurfaces?: Surface[]; fallback?: string | null } = {}) {
+  offersInline,
+  inspector = true,
+  anchors = [],
+}: {
+  promptFails?: boolean;
+  mode?: ThreadMode;
+  keyPlaces?: QuickTarget["kind"][];
+  fallback?: string | null;
+  offersInline?: boolean;
+  /** The tab can show the inspector (a deck tab): it gets `onOpenInspector`. */
+  inspector?: boolean;
+  /** Extra `data-popover-anchor` buttons the window renders (the tools tray's). */
+  anchors?: string[];
+} = {}) {
   let voices = 0;
   const fallbacks: (string | null)[] = [];
   const renders = { app: 0, stage: 0, pile: 0 };
@@ -77,6 +91,7 @@ async function mount({
   let newConversations = 0;
   const follows: number[] = [];
   const actions: string[] = [];
+  const hostActions: string[] = [];
   const drafts: { text: string | null; origin: string | null }[] = [];
   const agent = {
     prompt: async (...args: unknown[]) => {
@@ -92,9 +107,11 @@ async function mount({
     setDraft: async () => {},
     showSettings: async () => {},
   };
-  const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot() };
+  const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot() };
+  let inspectorOpens = 0;
+  let select: (id: string | null) => void = () => {};
   const handle = createRef<import("./AgentPanel").AgentHandle>();
-  const focus: [string, string | null][] = [];
+  const focus: string[] = [];
   const presented: string[] = [];
   const interfaces: InterfaceChange[] = [];
   let histories = 0;
@@ -112,6 +129,8 @@ async function mount({
   const App = () => {
     renders.app++;
     const [status, setStatus] = useState(IDLE_AGENT);
+    const [selected, setSelected] = useState<string | null>(null);
+    select = setSelected;
     return createElement(
       "div",
       { "data-busy": String(status.busy), "data-modal": String(status.modal), "data-ready": String(status.ready) },
@@ -123,22 +142,24 @@ async function mount({
         agent,
         mode,
         keyPlaces,
-        hostSurfaces,
         route,
         ui: UI,
         onDraft: (e: { text: string | null; origin: string | null }) => void drafts.push(e),
         onVoice: () => void voices++,
         onFallback: (reason: string | null) => void fallbacks.push(reason),
         fallback,
+        offersInline,
+        selected,
+        onOpenInspector: inspector ? () => void inspectorOpens++ : undefined,
         keysOff: false,
         thread: true,
         thumbs: { cached: () => null, svg: () => null, current: () => undefined },
         slots,
         handle,
-        onHostAction: () => false,
+        onHostAction: (s: Surface, a: { name: string }) => (hostActions.push(`${s.id}:${a.name}`), false),
         onStatus: setStatus,
         onChanged: () => void changed++,
-        onFocus: (slide: string, element: string | null) => void focus.push([slide, element]),
+        onFocus: (slide: string) => void focus.push(slide),
         onWidgetTouched: () => {},
         onPresent: (mode: string) => void presented.push(mode),
         onInterface: (change: InterfaceChange) => void interfaces.push(change),
@@ -147,6 +168,10 @@ async function mount({
         subscribe,
       }),
       createElement("div", { className: "modal-probe" }, createElement(SlotView, { slot: slots.modal })),
+      createElement("button", { className: "packs-probe", "data-popover-anchor": "host-packs" }),
+      ...anchors.map((name) => createElement("button", { key: name, "data-popover-anchor": name })),
+      createElement("div", { className: "popover-probe" }, createElement(SlotView, { slot: slots.popover })),
+      createElement("aside", { className: "inspector-probe" }, createElement(SlotView, { slot: slots.inspector })),
     );
   };
   const host = document.createElement("div");
@@ -163,7 +188,8 @@ async function mount({
   const until = async (cond: () => boolean) => {
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
-  return { host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptArgs, resyncs: () => resyncs, newConversations: () => newConversations, follows, actions, voices: () => voices, fallbacks };
+  const reselect = async (id: string | null) => act(async () => select(id));
+  return { inspectorOpens: () => inspectorOpens, reselect, host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptArgs, resyncs: () => resyncs, newConversations: () => newConversations, follows, actions, hostActions, voices: () => voices, fallbacks };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -210,9 +236,9 @@ test("AgentPanel un tour en cours est transmis à App (occupé)", async () => {
 
 test("AgentPanel transmet focus et changements, et relit le deck à l'abonnement prêt", async () => {
   const p = await mount();
-  await p.mcp({ kind: "focus", slide: "s2", element: "e9" });
+  await p.mcp({ kind: "focus", slide: "s2" });
   await p.mcp({ kind: "changed" });
-  expect(p.focus).toEqual([["s2", "e9"]]);
+  expect(p.focus).toEqual(["s2"]);
   expect(p.changed()).toBe(1);
   await act(async () => p.handlers().onReady?.());
   expect(p.changed()).toBe(2);
@@ -382,20 +408,166 @@ test("AgentPanel quick digit inside the voice box answers no question", async ()
   }
 });
 
-test("AgentPanel host surfaces open the dock, before the agent's settings", async () => {
-  const data = surface("host-data", "Données", {});
-  const p = await mount({ hostSurfaces: [data] });
-  await p.mcp({ kind: "surfaces", list: [dock] });
-  await p.until(() => (p.host.querySelector(".agent-dock")?.textContent ?? "").includes("Régler"));
-  const ids = [...p.host.querySelectorAll(".agent-dock-item")].map((e) => e.getAttribute("data-surface-id"));
-  expect(ids).toEqual(["host-data", "set-1"]);
+
+describe("AgentPanel popovers", () => {
+  /** The packs box: turnless when the user opened it, in `turn` when an agent tool did. */
+  const packs = (turn?: number): Surface => surface("host-packs", "Fermer", { place: "popover", turn });
+  const turnOf = (n: number) => surface(`turn-${n}`, "Tour", { live: false, turn: n });
+
+  test("AgentPanel with a turnless popover opens it next to its anchor", async () => {
+    const { host, mcp, until } = await mount();
+    await mcp({ kind: "surface", surface: packs() });
+    await until(() => !!host.querySelector(".agent-popover"));
+    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+    expect(host.querySelector(".agent-thread .agent-offer")).toBeNull();
+  });
+
+  test("AgentPanel popover on Escape dismisses it on the hub", async () => {
+    const { host, mcp, actions } = await mount();
+    await mcp({ kind: "surface", surface: packs() });
+    await act(async () => {
+      host.querySelector(".agent-popover [data-surface-id]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    });
+    expect(actions).toEqual(["host-packs:dismiss"]);
+  });
+
+  test("AgentPanel popover on a second click of its anchor dismisses it", async () => {
+    const { host, mcp, actions } = await mount();
+    await mcp({ kind: "surface", surface: packs() });
+    let reached = 0;
+    const anchor = host.querySelector(".packs-probe") as HTMLButtonElement;
+    anchor.addEventListener("click", () => reached++);
+    await act(async () => anchor.click());
+    expect([actions, reached]).toEqual([["host-packs:dismiss"], 0]);
+  });
+
+  test("AgentPanel popover click goes to the host first (it opens pack and theme tabs)", async () => {
+    const { host, mcp, until, hostActions } = await mount();
+    await mcp({ kind: "surface", surface: packs() });
+    await until(() => !!host.querySelector(".agent-popover button"));
+    await act(async () => (host.querySelector(".agent-popover button") as HTMLButtonElement).click());
+    expect(hostActions).toEqual(["host-packs:ok"]);
+  });
+
+  test("AgentPanel with an agent-opened box shows a chip, not the popover", async () => {
+    const { host, mcp } = await mount();
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: packs(3) });
+    expect([!!host.querySelector(".agent-turn .agent-offer"), !!host.querySelector(".agent-popover")]).toEqual([true, false]);
+  });
+
+  test("AgentPanel turnless popover after a chip-opened one opens at its own button", async () => {
+    const { host, mcp, until } = await mount();
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: packs(3) });
+    await act(async () => (host.querySelector(".agent-offer") as HTMLButtonElement).click());
+    await mcp({ kind: "close_surface", id: "host-packs" });
+    await mcp({ kind: "surface", surface: packs() });
+    await until(() => !!host.querySelector(".agent-popover"));
+    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+  });
+
+  test("AgentPanel popover opened from a button gone since opens at its own button", async () => {
+    const { host, mcp, until } = await mount();
+    const inspector = document.createElement("button");
+    inspector.setAttribute("data-popover-anchor", "host-packs@inspector");
+    document.body.append(inspector);
+    await act(async () => inspector.click());
+    inspector.remove();
+    await mcp({ kind: "surface", surface: packs() });
+    await until(() => !!host.querySelector(".agent-popover"));
+    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+  });
+
+  test("AgentPanel chip click opens the offer next to the chip", async () => {
+    const { host, mcp } = await mount();
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: packs(3) });
+    await act(async () => (host.querySelector(".agent-offer") as HTMLButtonElement).click());
+    await act(async () => new Promise((r) => setTimeout(r, 0)));
+    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+  });
 });
 
-test("AgentPanel a host surface folds behind the settings line while a question waits", async () => {
-  const data = surface("host-data", "Données", {});
-  const ask = surface("ask-1", "Oui", { question: true });
-  const p = await mount({ hostSurfaces: [data] });
-  await p.mcp({ kind: "surfaces", list: [ask] });
-  await p.until(() => (p.host.querySelector(".agent-dock")?.textContent ?? "").includes("Oui"));
-  expect(p.host.querySelector('[data-surface-id="host-data"]')?.textContent).not.toContain("Données");
+describe("AgentPanel inspector offers", () => {
+  /** The agent's settings offered in the inspector, filed in turn 3. */
+  const params = surface("show-4", "Régler", { place: "inspector", turn: 3 });
+  const turnOf = (n: number) => surface(`turn-${n}`, "Tour", { live: false, turn: n });
+  const chip = (host: HTMLElement) => host.querySelector(".agent-turn .agent-offer") as HTMLButtonElement;
+  const inInspector = (host: HTMLElement) => !!host.querySelector('.inspector-probe [data-surface-id="show-4"]');
+
+  test("AgentPanel offer chip click fills the inspector slot and opens the inspector", async () => {
+    const { host, mcp, until, inspectorOpens } = await mount();
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: params });
+    await act(async () => chip(host).click());
+    await until(() => inInspector(host));
+    expect([inInspector(host), inspectorOpens(), !!host.querySelector('.agent-thread [data-surface-id="show-4"]')]).toEqual([true, 1, false]);
+  });
+
+  test("AgentPanel offer in the inspector closes when the selection changes", async () => {
+    const { host, mcp, until, reselect } = await mount();
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: params });
+    await act(async () => chip(host).click());
+    await until(() => inInspector(host));
+    const before = inInspector(host);
+    await reselect("e-2");
+    expect([before, inInspector(host)]).toEqual([true, false]);
+  });
+
+  test("AgentPanel offer chip in the agent window opens under its chip, not in the inspector", async () => {
+    const { host, mcp, until, inspectorOpens } = await mount({ offersInline: true });
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: params });
+    await act(async () => chip(host).click());
+    await until(() => !!host.querySelector('.agent-offer-item [data-surface-id="show-4"]'));
+    expect([!!host.querySelector('.agent-offer-item [data-surface-id="show-4"]'), inInspector(host), inspectorOpens()]).toEqual([true, false, 0]);
+  });
+});
+
+describe("AgentPanel theme picker keys with the agent detached", () => {
+  /** The theme picker the user opened from the tools tray: a turnless popover. */
+  const picker = (): Surface => ({ ...realSurface("host-theme-picker"), place: "popover", live: true, turn: undefined });
+
+  test("AgentPanel in the main window, detached, gives the shown picker digits", async () => {
+    const m = await mount({ keyPlaces: DETACHED_MAIN_PLACES, anchors: ["host-theme-picker"] });
+    await m.mcp({ kind: "surface", surface: picker() });
+    await m.until(() => !!m.host.querySelector('.popover-probe [data-surface-id="host-theme-picker"]'));
+    await keyFrom(document.body, "1", "Digit1");
+    expect(m.actions.map((a) => a.split(":")[0])).toEqual(["host-theme-picker"]);
+  });
+
+  test("AgentPanel in the agent window, without the picker's anchor, takes no digit for it", async () => {
+    const m = await mount({ keyPlaces: AGENT_WINDOW_PLACES });
+    await m.mcp({ kind: "surface", surface: picker() });
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
+    await keyFrom(document.body, "1", "Digit1");
+    expect([!!m.host.querySelector(".agent-popover"), m.actions]).toEqual([false, []]);
+  });
+
+  test("AgentPanel with the picker's anchor gone takes no digit for it", async () => {
+    const m = await mount();
+    await m.mcp({ kind: "surface", surface: picker() });
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
+    await keyFrom(document.body, "1", "Digit1");
+    expect(m.actions).toEqual([]);
+  });
+});
+
+describe("AgentPanel inspector offer where the tab cannot show the inspector", () => {
+  const params = surface("show-4", "Régler", { place: "inspector", turn: 3 });
+  const turnOf = (n: number) => surface(`turn-${n}`, "Tour", { live: false, turn: n });
+
+  test("AgentPanel offer chip without an inspector opens under its chip", async () => {
+    const { host, mcp, until } = await mount({ inspector: false });
+    await mcp({ kind: "surface", surface: turnOf(3) });
+    await mcp({ kind: "surface", surface: params });
+    await act(async () => (host.querySelector(".agent-turn .agent-offer") as HTMLButtonElement).click());
+    await until(() => !!host.querySelector('.agent-offer-item [data-surface-id="show-4"]'));
+    expect([
+      !!host.querySelector('.agent-offer-item [data-surface-id="show-4"]'),
+      !!host.querySelector('.inspector-probe [data-surface-id="show-4"]'),
+    ]).toEqual([true, false]);
+  });
 });

@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use oku_slides_i18n::{LiveLocalizer, Localizer};
 use oku_slides_session::agent::forms::{self, AskChoice};
+use oku_slides_session::agent::receipt::{Report, receipt};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
-use oku_slides_session::agent::{KEPT_TURNS, SavedConversation, Sessions, Surface, TabSession};
+use oku_slides_session::agent::{KEPT_TURNS, SavedConversation, Sessions, Surface, TabSession, Trace, TraceName};
 use speculoos::prelude::*;
 
 use super::{McpEvent, SurfaceHub, THREAD_BYTES};
@@ -136,6 +137,27 @@ fn restore_shows_saved_thread_frozen_without_actions() {
     let kept = hub.visible_surfaces();
     assert_that!(ids(&kept)).is_equal_to(vec!["turn-3".to_owned(), "report-3".to_owned()]);
     assert_that!(kept.iter().any(|s| s.live || s.question || s.has_actions())).is_false();
+}
+
+#[test]
+fn restored_receipt_keeps_traces_as_text() {
+    let hub = hub();
+    let spec =
+        Report { title: "Fait".into(), facts: vec!["a".into()], slide: None, swatch: None, why: None, actions: vec![] };
+    let trace = Trace {
+        slide: "s-1".into(),
+        element: "e-1".into(),
+        name: TraceName::Text("Ventes".into()),
+        changes: 2,
+        removed: false,
+        data: false,
+    };
+    let mut card = receipt("report-3", &spec, None, &[trace], &fr());
+    card.turn = Some(3);
+    hub.restore(Some(saved(vec![turn(3), card])));
+    let kept = serde_json::to_string(&hub.visible_surfaces()).unwrap_or_else(|e| panic!("surfaces en JSON : {e}"));
+    assert_that!((kept.contains("\"text\":\"Ventes : 2 modifications\""), kept.contains("\"trace\"")))
+        .is_equal_to((true, false));
 }
 
 #[test]
@@ -275,6 +297,27 @@ fn thread_snapshot_returns_closed_turns_only() {
     let kept = hub.thread_snapshot().unwrap_or_default();
     assert_that!(ids(&kept)).is_equal_to(vec![format!("turn-{a}"), "report-2".to_owned()]);
     assert_that!(kept.iter().any(Surface::has_actions)).is_false();
+}
+
+/// Live settings offered in the inspector, filed in turn `n` (a stand-in: any live surface there).
+fn offered_params(id: &str, n: u32) -> Surface {
+    let mut s = forms::frozen_choice(id, "Apparence", None, &fr());
+    s.place = oku_slides_session::agent::Place::Inspector;
+    s.live = true;
+    s.turn = Some(n);
+    s
+}
+
+#[test]
+fn thread_snapshot_keeps_frozen_params() {
+    let hub = hub();
+    let a = hub.begin_turn();
+    hub.emit(McpEvent::Surface { surface: turn(a) });
+    hub.emit(McpEvent::Surface { surface: offered_params("show-2", a) });
+    hub.freeze("show-2");
+    hub.end_turn(a, "");
+    let kept = hub.thread_snapshot().unwrap_or_default();
+    assert_that!(ids(&kept)).is_equal_to(vec![format!("turn-{a}"), "show-2".to_owned()]);
 }
 
 #[test]

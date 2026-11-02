@@ -93,6 +93,17 @@ agent-turn-ended = Beurt beëindigd ({ $stop }).
 agent-choice-cancelled = Vraag geannuleerd
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Waarom
+agent-trace = { $name }: { $count ->
+    [one] { $count } wijziging
+   *[other] { $count } wijzigingen
+}
+agent-trace-data = { $name }: gegevens gewijzigd
+agent-trace-removed = { $name }: bestaat niet meer
+agent-trace-more = { $count ->
+    [one] en { $count } andere
+   *[other] en { $count } andere
+}
+agent-trace-title = Gewijzigde elementen
 
 agent-error-file = Het bestand kon niet worden gelezen of geschreven.
 agent-error-unexpected-action = Onverwachte actie: { $action }.
@@ -132,6 +143,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Zeg de gebruiker daar verder te gaan: de agent van dat tabblad kent dit verzoek niet.
 } Dit tabblad blijft zoals het is.
 agent-error-turn-over = De beurt van deze aanroep is voorbij: er is niets getoond.
+agent-error-no-box-turn = Geen beurt om dit vak aan te koppelen: er werd niets getoond.
 agent-error-no-file = De presentatie heeft nog geen bestand: geef een absoluut pad op.
 agent-error-path-relative = Het pad moet absoluut zijn.
 agent-error-path-parent = Het pad mag geen “..” bevatten.

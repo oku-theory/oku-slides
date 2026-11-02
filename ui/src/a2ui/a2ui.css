@@ -102,8 +102,6 @@
 /* Au plus 45 % du panneau entier (`.notes`, conteneur de taille), quelle que soit la hauteur du fil ;
    il cède sa place si le fil est plus court, puis défile. */
 .agent-dock { flex: 0 1 auto; max-height: 45cqh; overflow: auto; display: flex; flex-direction: column; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--a2ui-border); }
-.agent-dock .a2ui-hint[aria-expanded] { all: unset; cursor: pointer; font: 400 12px/16px var(--sans); color: var(--ink-muted); }
-.agent-dock .a2ui-hint[aria-expanded]:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
 @media (prefers-reduced-motion: no-preference) { .agent-turn > div { animation: agent-in 160ms ease-out; } }
 @keyframes agent-in { from { opacity: 0; transform: translateY(4px); } }
 /* Fil ou dock vide : aucune place (hors du flux, donc hors du `gap` du panneau), mais présent dans

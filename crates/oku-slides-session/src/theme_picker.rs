@@ -120,7 +120,7 @@ pub fn theme_picker(cards: &[ThemeCard], active: &Namespace, l: &Localizer) -> S
             },
         ));
     }
-    surface(HOST_THEME_PICKER, Place::Thread, None, components, json!({}))
+    surface(HOST_THEME_PICKER, Place::Popover, None, components, json!({}))
 }
 
 /// L'espace de noms du thème d'un choix ; `None` s'il manque ou n'en est pas un.

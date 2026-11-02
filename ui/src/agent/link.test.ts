@@ -105,6 +105,15 @@ describe("agent-link", () => {
     expect(parseLink({ to: "main", kind: "insert", tab: "t-1", text: 3 })).toBeNull();
   });
 
+  test("parseLink keeps a reveal message", () => {
+    const m = { to: "main", kind: "reveal", tab: "t-1", target: { slide: "s1", element: "e1", pane: false } };
+    expect(parseLink(m)).toEqual(m);
+  });
+
+  test("parseLink drops a reveal without its pane", () => {
+    expect(parseLink({ to: "main", kind: "reveal", tab: "t-1", target: { slide: "s1", element: "e1" } })).toBeNull();
+  });
+
   test("parseLink garde un message bien formé", () => {
     const m = { to: "main", kind: "hello", tab: "t-1" };
     expect(parseLink(m)).toEqual(m);

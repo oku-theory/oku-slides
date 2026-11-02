@@ -11,6 +11,16 @@
       ],
       "chunks": ["Image posée."]
     },
+    "modifie le graphique des ventes": {
+      "mcp": [
+        { "tool": "apply", "args": { "label": "Ventes de janvier", "ops": [
+          { "op": "set_data", "target": { "slide": "s-ventes", "element": "e-ventes" }, "param": "option",
+            "change": { "op": "set_cell", "row": 1, "col": 1, "value": 9 } }
+        ] } },
+        { "tool": "report", "args": { "title": "Graphique mis à jour", "facts": ["2 séries"] } }
+      ],
+      "chunks": ["Graphique modifié."]
+    },
     "ouvre l'atelier": { "mcp": [{ "tool": "open_pack", "args": {} }], "chunks": ["Atelier ouvert."] },
     "ouvre le thème": { "mcp": [{ "tool": "open_theme", "args": { "theme": "papier" } }], "chunks": ["Thème ouvert."] },
     "ouvre le thème avec une demande": {
@@ -50,7 +60,7 @@
       "plan": [{ "content": "Lire la slide", "status": "completed" }, { "content": "Proposer des reformulations", "status": "in_progress" }],
       "tool_calls": [{ "id": "t1", "title": "Lire la slide" }],
       "mcp": [
-        { "tool": "focus", "args": { "slide": "s-libre", "element": "e-texte" } },
+        { "tool": "focus", "args": { "slide": "s-libre" } },
         { "tool": "ask_rewrite", "args": { "slide": "s-libre", "owner": "e-texte", "proposals": ["Un bloc bien placé", "Un bloc libre"] } }
       ],
       "chunks": ["Texte reformulé."]

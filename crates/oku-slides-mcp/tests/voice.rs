@@ -24,8 +24,13 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
 }
 
 async fn show(h: &Harness) {
+    show_in(h, None).await;
+}
+
+/// Shows the box as from turn `turn` (`None`: opened by the user).
+async fn show_in(h: &Harness, turn: Option<u32>) -> bool {
     let hub = h.hub.clone();
-    blocking(move || hub.show_settings()).await;
+    blocking(move || hub.show_settings(turn)).await
 }
 
 async fn refresh(h: &Harness) {
@@ -62,11 +67,71 @@ fn data_of(e: &McpEvent) -> Value {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_settings_puts_the_box_live_outside_any_turn() {
+async fn show_settings_from_command_has_no_turn() {
     let h = start().await;
     show(&h).await;
     let s = h.hub.surfaces().into_iter().find(|s| s.id == HOST_VOICE).unwrap();
     assert_that!((s.live, s.turn)).is_equal_to((true, None));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_box_is_a_popover() {
+    let h = start().await;
+    show(&h).await;
+    let s = h.hub.surfaces().into_iter().find(|s| s.id == HOST_VOICE).unwrap();
+    assert_that!(s.place).is_equal_to(oku_slides_session::agent::Place::Popover);
+}
+
+/// The turn of the shown settings box.
+fn box_turn(h: &Harness) -> Option<u32> {
+    h.hub.surfaces().into_iter().find(|s| s.id == HOST_VOICE).and_then(|s| s.turn)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_from_tool_carries_the_open_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    call_within(&server(&h).await, "show_dictation", json!({})).await;
+    assert_that!(box_turn(&h)).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_late_tool_call_carries_the_last_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    call_within(&server(&h).await, "show_dictation", json!({})).await;
+    assert_that!(box_turn(&h)).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_refresh_after_action_keeps_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    show_in(&h, Some(n)).await;
+    lock(&h.voice.view).dictation.as_mut().unwrap().model = "api".into();
+    let mut rx = h.hub.subscribe();
+    act(&h, "model", json!({"id": "api"})).await.unwrap();
+    let turn = match rx.try_recv() {
+        Ok(McpEvent::Surface { surface }) => surface.turn,
+        other => panic!("the whole box expected, got {other:?}"),
+    };
+    assert_that!(turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_refresh_with_a_new_layout_keeps_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    show_in(&h, Some(n)).await;
+    lock(&h.voice.view).dictation.as_mut().unwrap().model = "api".into();
+    let mut rx = h.hub.subscribe();
+    refresh(&h).await;
+    let turn = match rx.try_recv() {
+        Ok(McpEvent::Surface { surface }) => surface.turn,
+        other => panic!("the whole box expected, got {other:?}"),
+    };
+    assert_that!(turn).is_equal_to(Some(n));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -260,8 +325,27 @@ fn agent_tab(confirmed: bool) -> Origin {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_dictation_tool_returns_the_box_id_at_once() {
     let h = start().await;
+    h.hub.begin_turn();
     let r = call_within(&server(&h).await, "show_dictation", json!({})).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "shown": "host-voice" }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_dictation_tool_with_no_turn_at_all_says_so_in_french() {
+    let h = start().await;
+    let r = call_within(&server(&h).await, "show_dictation", json!({})).await;
+    assert_that!((r.is_error, text_of(&r)))
+        .is_equal_to((Some(true), "Aucun tour auquel rattacher cette boîte : rien n'a été affiché.".to_owned()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_in_a_turn_gone_from_the_thread_is_turn_over() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    h.hub.clear_thread();
+    let hub = h.hub.clone();
+    assert_that!(blocking(move || hub.show_settings(Some(n))).await).is_false();
 }
 
 #[tokio::test(flavor = "multi_thread")]

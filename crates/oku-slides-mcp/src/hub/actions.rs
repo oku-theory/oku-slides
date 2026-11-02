@@ -77,8 +77,8 @@ impl SurfaceHub {
             (Shown::Themes(picker), name) if name == oku_slides_session::THEME_EVENT => {
                 self.apply_theme(picker, &action.context).map(|p| After::Replace(Shown::Themes(p)))
             }
-            (Shown::Packs(_), name) if name != "dismiss" => {
-                self.apply_packs(&action.context, name).map(|p| After::Replace(Shown::Packs(p)))
+            (Shown::Packs(packs), name) if name != "dismiss" => {
+                self.apply_packs(&action.context, name, packs.turn).map(|p| After::Replace(Shown::Packs(p)))
             }
             (Shown::Params(spec), "param") => {
                 self.apply_param(&action.surface, spec, &action.context).map(|()| After::Keep { changed: true })

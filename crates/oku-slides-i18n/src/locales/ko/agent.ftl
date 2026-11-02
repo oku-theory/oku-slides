@@ -87,6 +87,15 @@ agent-turn-ended = 턴 종료 ({ $stop }).
 agent-choice-cancelled = 질문이 취소되었습니다
 agent-choice-answered = ✓ { $answer }
 agent-report-why = 이유
+agent-trace = { $name }: { $count ->
+   *[other] 변경 { $count }건
+}
+agent-trace-data = { $name }: 데이터 변경됨
+agent-trace-removed = { $name }: 더 이상 없음
+agent-trace-more = { $count ->
+   *[other] 외 { $count }개
+}
+agent-trace-title = 변경된 요소
 
 agent-error-file = 파일을 읽거나 쓸 수 없습니다.
 agent-error-unexpected-action = 예기치 않은 동작: { $action }.
@@ -126,6 +135,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] 사용자에게 그곳에서 계속하도록 안내하세요. 그 탭의 에이전트는 이 요청을 모릅니다.
 } 이 탭은 그대로 유지됩니다.
 agent-error-turn-over = 이 호출의 턴이 끝났습니다. 아무것도 표시되지 않았습니다.
+agent-error-no-box-turn = 이 상자를 연결할 턴이 없습니다: 아무것도 표시되지 않았습니다.
 agent-error-no-file = 프레젠테이션에 아직 파일이 없습니다. 절대 경로를 지정하세요.
 agent-error-path-relative = 경로는 절대 경로여야 합니다.
 agent-error-path-parent = 경로에 “..”가 포함되면 안 됩니다.

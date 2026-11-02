@@ -93,6 +93,17 @@ agent-turn-ended = Turno terminado ({ $stop }).
 agent-choice-cancelled = Pregunta cancelada
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Por qué
+agent-trace = { $name }: { $count ->
+    [one] { $count } cambio
+   *[other] { $count } cambios
+}
+agent-trace-data = { $name }: datos modificados
+agent-trace-removed = { $name }: ya no existe
+agent-trace-more = { $count ->
+    [one] y { $count } más
+   *[other] y { $count } más
+}
+agent-trace-title = Elementos modificados
 
 agent-error-file = No se pudo leer ni escribir el archivo.
 agent-error-unexpected-action = Acción inesperada: { $action }.
@@ -132,6 +143,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Dile al usuario que continúe allí: el agente de esa pestaña no conoce esta petición.
 } Esta pestaña se queda como está.
 agent-error-turn-over = El turno de esta llamada ha terminado: no se mostró nada.
+agent-error-no-box-turn = No hay ningún turno al que vincular este cuadro: no se mostró nada.
 agent-error-no-file = La presentación aún no tiene archivo: indica una ruta absoluta.
 agent-error-path-relative = La ruta debe ser absoluta.
 agent-error-path-parent = La ruta no debe contener «..».

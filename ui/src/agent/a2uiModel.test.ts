@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import type { Surface } from "../api";
-import { dataModel } from "./a2uiModel";
+import { dataModel, firstText } from "./a2uiModel";
 
 const surface = (messages: unknown[]) => ({ id: "turn-1", messages }) as unknown as Surface;
 const write = (path: string | undefined, value: unknown) => ({ version: "v0.9", updateDataModel: { surfaceId: "turn-1", path, value } });
@@ -34,4 +34,20 @@ test("dataModel consecutive nested writes on one root key clone it once", () => 
   } finally {
     spy.mockRestore();
   }
+});
+
+const parts = (components: unknown[]) => ({ version: "v0.9", updateComponents: { surfaceId: "turn-1", components } });
+
+test("firstText with a literal title gives it", () => {
+  const s = surface([parts([{ id: "root", component: "Column", children: ["t"] }, { id: "t", component: "Text", text: " Packs " }])]);
+  expect(firstText(s)).toBe("Packs");
+});
+
+test("firstText with a bound title reads the data model", () => {
+  const s = surface([parts([{ id: "t", component: "Text", text: { path: "/title" } }]), write(undefined, { title: "Thèmes" })]);
+  expect(firstText(s)).toBe("Thèmes");
+});
+
+test("firstText without a Text gives an empty string", () => {
+  expect(firstText(surface([parts([{ id: "b", component: "Button" }])]))).toBe("");
 });

@@ -64,6 +64,7 @@ mod deck_theme_edit;
 mod deck_usage;
 mod deck_widgets;
 mod document_kind;
+mod element_panel;
 mod error;
 mod example_text;
 mod fields;
@@ -394,6 +395,8 @@ pub struct Session {
     agent_notes: Vec<String>,
     /// Étapes d'annulation du deck prises par les derniers tours de l'agent (`agent::turn_undo`).
     turn_steps: agent::turn_undo::TurnSteps,
+    /// Elements the agent's tools changed, per turn (`agent::turn_touches`).
+    turn_touches: agent::turn_touches::TurnTouches,
     /// La conversation de l'agent de l'onglet (`agent::conversation`).
     conversation: Option<agent::SavedConversation>,
     /// Épinglages (packs et thème) plus anciens que la bibliothèque (`deck_packs`), recalculés quand ils changent.
@@ -573,6 +576,7 @@ impl Session {
             resume: None,
             agent_notes: Vec::new(),
             turn_steps: agent::turn_undo::TurnSteps::default(),
+            turn_touches: agent::turn_touches::TurnTouches::default(),
             conversation: None,
             pack_updates: 0,
             pack_updates_pins: None,

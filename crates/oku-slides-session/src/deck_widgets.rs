@@ -339,8 +339,20 @@ impl Session {
         Ok(())
     }
 
-    /// `apply` once its ops passed the callers' filter.
-    fn apply_ops(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+    /// `apply` once its ops passed the callers' filter; inside an agent call, records the
+    /// elements it touched once it succeeded (`agent::turn_touches`).
+    fn apply_ops(&mut self, label: &str, ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+        // Before the ops run: a removed element's widget is read from the deck before them.
+        let pending = self.turn_touches.recording().then(|| self.touches_of_batch(&ops));
+        self.apply_ops_inner(label, ops, merge)?;
+        if let Some(touches) = pending {
+            self.turn_touches.record_all(touches);
+        }
+        Ok(())
+    }
+
+    /// The body of `apply_ops`.
+    fn apply_ops_inner(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
         // A theme tab's ops are its draft's: `ensure_caller_ops` already kept only those.

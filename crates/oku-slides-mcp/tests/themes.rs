@@ -6,8 +6,8 @@ mod common;
 use common::{action, next_surface, start, start_pack_tab, theme_tab_session, wait_event};
 use oku_slides_a2ui::{ComponentKind, ServerBody};
 use oku_slides_core::Namespace;
-use oku_slides_mcp::{HubErrorKind, McpEvent};
-use oku_slides_session::agent::Surface;
+use oku_slides_mcp::{HubErrorKind, McpEvent, ShowOutcome};
+use oku_slides_session::agent::{Place, Surface};
 use oku_slides_session::{HOST_THEME_PICKER, PRO_NAMESPACE};
 use serde_json::json;
 use speculoos::prelude::*;
@@ -38,8 +38,14 @@ fn active_names(s: &Surface) -> Vec<String> {
 }
 
 fn show(h: &common::Harness) -> bool {
-    tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre")))
+    show_in(h, None)
+}
+
+/// Shows the picker as from turn `turn` (`None`: opened by the user).
+fn show_in(h: &common::Harness, turn: Option<u32>) -> bool {
+    tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre"), turn))
         .unwrap_or_else(|e| panic!("sélecteur de thème : {e}"))
+        == ShowOutcome::Shown
 }
 
 fn pick(h: &common::Harness, theme: &str) -> Result<(), oku_slides_mcp::HubError> {
@@ -51,7 +57,38 @@ fn open(h: &common::Harness) -> bool {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_themes_puts_the_picker_live_outside_any_turn() {
+async fn show_themes_box_is_a_popover() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    show(&h);
+    assert_that!(next_surface(&mut rx).await.place).is_equal_to(Place::Popover);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_refresh_after_pick_keeps_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    let mut rx = h.hub.subscribe();
+    show_in(&h, Some(n));
+    next_surface(&mut rx).await;
+    pick(&h, PRO_NAMESPACE).unwrap();
+    assert_that!(next_surface(&mut rx).await.turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_prune_refresh_keeps_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    let mut rx = h.hub.subscribe();
+    show_in(&h, Some(n));
+    next_surface(&mut rx).await;
+    tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(&pro_namespace()).unwrap());
+    tokio::task::block_in_place(|| h.hub.prune());
+    assert_that!(next_surface(&mut rx).await.turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_from_command_has_no_turn() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     assert_that!(show(&h)).is_true();
@@ -253,22 +290,58 @@ async fn shown(h: &common::Harness, args: serde_json::Value) {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_returns_the_picker_id_at_once() {
     let h = start().await;
+    h.hub.begin_turn();
     let r = call_show_themes(&h, json!({})).await;
     assert_that!(common::json_of(&r)).is_equal_to(json!({ "shown": HOST_THEME_PICKER }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_themes_tool_puts_the_picker_live_outside_any_turn() {
+async fn show_themes_from_tool_carries_the_open_turn() {
     let h = start().await;
+    let n = h.hub.begin_turn();
     let mut rx = h.hub.subscribe();
     shown(&h, json!({})).await;
     let surface = next_surface(&mut rx).await;
-    assert_that!((surface.id.as_str(), surface.live, surface.turn)).is_equal_to((HOST_THEME_PICKER, true, None));
+    assert_that!((surface.id.as_str(), surface.live, surface.turn)).is_equal_to((HOST_THEME_PICKER, true, Some(n)));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_late_tool_call_carries_the_last_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    let mut rx = h.hub.subscribe();
+    shown(&h, json!({})).await;
+    assert_that!(next_surface(&mut rx).await.turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_tool_with_no_turn_at_all_says_so_in_french() {
+    let h = start().await;
+    let r = call_show_themes(&h, json!({})).await;
+    let said = (r.is_error, common::text_of(&r), open(&h));
+    assert_that!(said).is_equal_to((
+        Some(true),
+        "Aucun tour auquel rattacher cette boîte : rien n'a été affiché.".to_owned(),
+        false,
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_in_a_turn_gone_from_the_thread_is_turn_over() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    h.hub.clear_thread();
+    let outcome =
+        tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre"), Some(n))).unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(outcome).is_equal_to(ShowOutcome::TurnOver);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_renders_the_given_slide() {
     let h = start().await;
+    h.hub.begin_turn();
     let mut rx = h.hub.subscribe();
     shown(&h, json!({ "slide": "s-libre" })).await;
     let slides = shown_slides(&next_surface(&mut rx).await);
@@ -277,17 +350,18 @@ async fn show_themes_tool_renders_the_given_slide() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_themes_tool_keeps_the_picker_after_the_turn_closes() {
+async fn show_themes_tool_keeps_the_picker_after_the_turn_ends() {
     let h = start().await;
     let n = h.hub.begin_turn();
     shown(&h, json!({})).await;
-    h.hub.close_turn(n);
+    h.hub.end_turn(n, "");
     assert_that!(open(&h)).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_pick_is_noted_for_the_agent() {
     let h = start().await;
+    h.hub.begin_turn();
     shown(&h, json!({})).await;
     pick(&h, PRO_NAMESPACE).unwrap();
     let ctx = h.session.lock().unwrap().agent_context(&oku_slides_session::agent::AgentUi::default());
@@ -297,6 +371,7 @@ async fn show_themes_tool_pick_is_noted_for_the_agent() {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_themes_tool_outside_deck_mode_says_so_in_french() {
     let h = common::kinds::start_help_tab().await;
+    h.hub.begin_turn();
     let r = call_show_themes(&h, json!({})).await;
     let said = (r.is_error, common::text_of(&r), open(&h));
     let want = (Some(true), h.localizer.tr("agent-error-themes-deck-mode"), false);

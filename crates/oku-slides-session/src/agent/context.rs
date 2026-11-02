@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use oku_slides_core::{Namespace, PackPin};
 
+use super::Trace;
 use super::bounds::{clip, label};
 use crate::widgets_edit::parse_name;
 use crate::{Mode, Session};
@@ -122,13 +123,14 @@ impl Session {
             stash.sources.begin_group(&label);
         }
         self.turn_steps_begin(turn);
+        self.turn_touches.begin(turn);
     }
 
-    /// Closes the turn's group, on the deck set aside too (pack mode, history).
+    /// Closes the turn's group, on the deck set aside too (pack mode, history); returns its traces.
     ///
     /// A deck-pack tab's outbox becomes due (`mark_due`); an owner deck asks
-    /// for its links' parked sends (`pull_links`).
-    pub fn end_turn(&mut self) {
+    /// for its links' parked sends (`pull_links`). No turn open: no traces.
+    pub fn end_turn(&mut self) -> Vec<Trace> {
         self.end_widget_session();
         self.doc.sources.end_group();
         if let Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } = &mut self.mode {
@@ -138,6 +140,7 @@ impl Session {
         // A deck-pack tab's saves of the turn go to its owner; an owner pulls its parked ones.
         self.mark_due();
         self.pull_links();
+        self.turn_touches.end().map(|turn| self.traces(turn)).unwrap_or_default()
     }
 
     /// An action done without the agent, which it learns at the next turn.

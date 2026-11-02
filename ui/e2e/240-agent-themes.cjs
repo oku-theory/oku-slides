@@ -1,10 +1,11 @@
-// L'agent ouvre le sélecteur de thème de l'hôte (outil `show_themes`) : il arrive au dock, reste
-// ouvert après la fin du tour, un clic applique le thème et le choix est noté pour l'agent.
-// Contre `oku-slides serve` lancé par `just e2e` (faux agent « Faux », journal dans E2E_AGENT_LOG).
+// The agent opens the host's theme picker (`show_themes` tool): a chip in its turn opens it as a
+// popover, it stays open after the turn ends, a click applies the theme and the pick is noted for
+// the agent. Runs against `oku-slides serve` started by `just e2e` (fake agent, log in E2E_AGENT_LOG).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post, activeSnapshot } = require('./lib/http.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
+const { prompt } = require('./lib/agent.cjs');
 const { logOffset, logSince, mcpResults } = require('./lib/agentLog.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const LOG = process.env.E2E_AGENT_LOG;
@@ -14,9 +15,10 @@ const prompts = (from) => logSince(LOG, from).filter((m) => m.method === 'sessio
 /** Les résultats MCP (`mcp/result`) de `tool` notés depuis `from`. */
 const results = (tool, from) => mcpResults(LOG, from, tool);
 const themeNs = async (p) => (await activeSnapshot(p)).theme ?? null;
-const picker = (p) => p.locator('.agent-dock [data-surface-id="host-theme-picker"]');
+const picker = (p) => p.locator('.agent-popover [data-surface-id="host-theme-picker"]');
+/** The chip the agent's box shows in its turn. */
+const chip = (p) => p.locator('.agent-turn .agent-offer', { hasText: /^Ouvrir/ });
 const cards = (p) => picker(p).locator('.theme-choice');
-const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text, ui: {} });
 
 (async () => {
   assert.ok(LOG, 'E2E_AGENT_LOG manquant : lancer par just e2e');
@@ -32,12 +34,16 @@ const prompt = (p, text) => post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', t
   const from = logOffset(LOG);
   const before = await themeNs(p);
 
-  // 1. L'agent appelle show_themes : l'outil répond tout de suite, le sélecteur arrive au dock.
+  // 1. The agent calls show_themes: the tool answers at once, a chip shows in the turn; nothing
+  // opens until it is clicked (the agent never opens what the user looks at).
   await prompt(p, 'propose les thèmes');
   const outs = await untilValue(p, () => results('show_themes', from), (o) => o.length > 0, 'show_themes doit répondre', 15000);
   const out = JSON.parse(outs[0]);
   assert.ok(!out.isError, `show_themes en erreur : ${outs[0].slice(0, 300)}`);
   assert.deepEqual(JSON.parse(out.content[0].text), { shown: 'host-theme-picker' });
+  await chip(p).waitFor();
+  assert.equal(await picker(p).count(), 0, 'the picker waits for its chip');
+  await chip(p).click();
   await cards(p).first().waitFor();
   assert.ok((await cards(p).count()) >= 2, 'au moins deux thèmes');
 

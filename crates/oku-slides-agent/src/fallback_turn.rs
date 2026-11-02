@@ -277,7 +277,7 @@ impl TabAgent {
     /// Shows (or replaces) the line `id` of turn `n`.
     fn line(&self, n: u32, id: &str, text: &str) {
         let l = self.ctx.localizer.current();
-        let Some(card) = receipt::fallback(id, text, &[], &l) else {
+        let Some(card) = receipt::fallback(id, text, &[], &[], &l) else {
             tracing::debug!("ligne du repli vide : non montrée");
             return;
         };

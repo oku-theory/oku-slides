@@ -113,3 +113,10 @@ fn ui_state_without_preview_span_reads_full() {
     let ui: UiState = serde_json::from_str(r#"{"slide":null,"code":false}"#).unwrap();
     assert_that!(ui.preview_span).is_equal_to(PreviewSpan::Full);
 }
+
+/// A `state.json` written before the inspector reads both panes closed.
+#[test]
+fn ui_state_without_inspector_reads_false() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"ghosts":true}"#).unwrap();
+    assert_that!((ui.inspector, ui.data_pane)).is_equal_to((false, false));
+}

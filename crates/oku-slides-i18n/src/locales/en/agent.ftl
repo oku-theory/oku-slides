@@ -93,6 +93,17 @@ agent-turn-ended = Turn ended ({ $stop }).
 agent-choice-cancelled = Question cancelled
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Why
+agent-trace = { $name }: { $count ->
+    [one] { $count } change
+   *[other] { $count } changes
+}
+agent-trace-data = { $name }: data changed
+agent-trace-removed = { $name }: no longer exists
+agent-trace-more = { $count ->
+    [one] and { $count } other
+   *[other] and { $count } others
+}
+agent-trace-title = Elements changed
 
 # Errors of the agent's tools and cards (sent to the agent or shown in a card).
 agent-error-file = The file could not be read or written.
@@ -133,6 +144,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Tell the user to continue there: that tab's agent does not know this request.
 } This tab stays as it is.
 agent-error-turn-over = The turn of this call is over: nothing was shown.
+agent-error-no-box-turn = No turn to attach this box to: nothing was shown.
 agent-error-no-file = The presentation has no file yet: give an absolute path.
 agent-error-path-relative = The path must be absolute.
 agent-error-path-parent = The path must not contain “..”.

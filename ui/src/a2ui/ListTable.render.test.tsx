@@ -11,7 +11,7 @@ const { mountSurface, messagesOf } = await import("../test/surface");
 const { ActionOutcomeContext } = await import("./actionOutcome");
 const { NumberLangContext } = await import("./numberLang");
 const { deferred } = await import("../test/widgetApi");
-const { ListTable, popoverPlace, edgeScroll } = await import("./ListTable");
+const { ListTable, edgeScroll } = await import("./ListTable");
 const { createRoot } = await import("react-dom/client");
 const { expectIconOnly } = await import("../test/iconOnly");
 
@@ -442,13 +442,6 @@ describe("ListTable", () => {
     expect(changes()).toEqual([
       { op: "set_field", item: "d0", field: "texte", value: [rows[0].texte[0], { runs: [{ t: "Trois" }] }] },
     ]);
-  });
-
-  test("popoverPlace : sous la cellule, ramené à gauche plutôt que de déborder du tableau", () => {
-    const box = { left: 100, top: 50, width: 300 } as DOMRect;
-    expect(popoverPlace(box, { left: 150, bottom: 90 } as DOMRect, 200)).toEqual({ left: 50, top: 40 });
-    expect(popoverPlace(box, { left: 350, bottom: 120 } as DOMRect, 200)).toEqual({ left: 100, top: 70 });
-    expect(popoverPlace(box, { left: 100, bottom: 90 } as DOMRect, 400)).toEqual({ left: 0, top: 40 });
   });
 
   test("ListTable : colonne asset en lecture seule", async () => {

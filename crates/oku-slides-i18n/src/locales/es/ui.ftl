@@ -165,7 +165,6 @@ ui-agent-state-working = El agente está trabajando…
 ui-agent-fallback = Agente local (respaldo)
 ui-agent-fallback-reason = Agente local (respaldo): { $reason }
 ui-agent-dock = En curso
-ui-agent-dock-settings = Ajustes
 ui-agent-jump = ↓ Turno actual
 ui-agent-tool-input = Argumentos
 ui-agent-tool-output = Resultado
@@ -439,3 +438,15 @@ ui-received-profiles = { $count ->
    *[other] { $count } perfiles de diseño
   }
 ui-received-code = Código Typst: { NUMBER($kb) } KB
+ui-trace-gone = Este elemento ya no existe
+ui-inspector = Inspector
+ui-inspector-close = Cerrar el inspector
+ui-inspector-data = Datos
+ui-inspector-packs = Paquetes
+ui-inspector-no-theme = Sin tema
+ui-inspector-offer = Propuesto por el agente
+ui-data-pane = Datos
+ui-data-pane-close = Cerrar los datos
+ui-themes = Temas
+ui-offer-open = Abrir: { $title }
+ui-offer-settings = Ajustes propuestos: { $title }

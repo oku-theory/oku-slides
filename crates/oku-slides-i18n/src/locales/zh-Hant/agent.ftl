@@ -87,6 +87,15 @@ agent-turn-ended = 本輪結束（{ $stop }）。
 agent-choice-cancelled = 問題已取消
 agent-choice-answered = ✓ { $answer }
 agent-report-why = 原因
+agent-trace = { $name }：{ $count ->
+   *[other] { $count }處變更
+}
+agent-trace-data = { $name }：資料已變更
+agent-trace-removed = { $name }：已不存在
+agent-trace-more = { $count ->
+   *[other] 及其他{ $count }項
+}
+agent-trace-title = 已變更的元素
 
 agent-error-file = 無法讀取或寫入該檔案。
 agent-error-unexpected-action = 非預期的動作：{ $action }。
@@ -126,6 +135,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] 請讓使用者在那裡繼續：該分頁的代理不知道此請求。
 } 此分頁保持不變。
 agent-error-turn-over = 此呼叫所屬的回合已結束：未顯示任何內容。
+agent-error-no-box-turn = 沒有可關聯此方塊的回合：未顯示任何內容。
 agent-error-no-file = 簡報還沒有檔案：請提供絕對路徑。
 agent-error-path-relative = 路徑必須是絕對路徑。
 agent-error-path-parent = 路徑不能包含「..」。

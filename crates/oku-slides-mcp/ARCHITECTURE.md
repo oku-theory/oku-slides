@@ -1,7 +1,7 @@
 # oku-slides-mcp
 
 Serves the agent's MCP tools for one tab (HTTP on `127.0.0.1`, random bearer token per launch)
-and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and dock.
+and holds the tab's A2UI surfaces (`SurfaceHub`): thread, dock, popovers and inspector offers.
 
 ## Modules
 
@@ -15,7 +15,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `deck-layouts` is named; writes refused in a turn that moved to another tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
   `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`, its list paged by `history_page`; opening it,
   `present` and `set_interface` emit an event the shown tab applies), `a2ui_tools` (`a2ui_examples`: the playbook's agent reference, cached), `surface_tools` (`report`, `render`, `ask_*`,
-  `show_*`; `show_themes`/`show_packs` open the hub's own boxes), `import_tools` (`import_report`, `import_diff`: import
+  `show_*`; `show_themes`/`show_packs` open the hub's own boxes, filed in `agent_turn`), `import_tools` (`import_report`, `import_diff`: import
   tuning; `ReferenceJob` in a blocking task), `voice_tools` (seven tools, checked before asking, no API target argument), `diagnose_tools` (`diagnose`, every kind: `VoicePort::diagnosis`, the log ring (the tab's lines and those of no tab), the tab's last errors; capped, secrets and home redacted once more, escapes and controls stripped; `ToolServer` registers its token as a secret), `usage_tools` (`usage`, `show_usage`: the linked deck's ledger as JSON capped at 1000 rows, a thread box capped at 100; not in help tabs).
 - `tool_error` : `ToolError`, `say_to_agent`; `Tools::fail_with` logs it whole and tells the agent a localized message in
   the current interface language (`LiveLocalizer`, also read by the hub). `error` : `McpError`, `say_session`; `paths` (agent-given paths).
@@ -26,7 +26,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`) shown in the agent thread and d
   `hub/actions` (`SurfaceAction`, `act`, `prune`); the hub builds two boxes itself: `hub/themes`
   (`show_themes`, cached cards) and `hub/packs` (`show_packs`, re-sent by `prune` only when changed); `hub/error`;
   `hub/settings` a third box (`show_settings`, one send path, refreshed by the stack, never by `prune`).
-- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `STATIC_PER_TURN`, `reserve_tab`: one pack or theme tab move per turn; `tab_gate`: its verdict), freezing answered questions, eviction past `KEPT_TURNS`.
+- `hub_turns` : thread turns (`begin_turn`, `close_turn`, `show_static`, `note_turn_traces` for the fallback receipt, `STATIC_PER_TURN`, `reserve_tab`: one pack or theme tab move per turn; `tab_gate`: its verdict), freezing answered questions, eviction past `KEPT_TURNS`.
 - `hub_thread` : the tab's one thread (`in_thread`), shown surfaces, `restore` and `thread_snapshot`; the agent's tab keeper persists it.
 
 ## Turn of a tool call

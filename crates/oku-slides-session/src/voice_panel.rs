@@ -85,10 +85,10 @@ impl VoicePanel {
         Self { components, data }
     }
 
-    /// La surface à montrer, dans le fil, vivante.
+    /// The surface to show, as a live popover.
     #[must_use]
     pub fn surface(&self) -> Surface {
-        surface(HOST_VOICE, Place::Thread, None, self.components.clone(), self.data.clone())
+        surface(HOST_VOICE, Place::Popover, None, self.components.clone(), self.data.clone())
     }
 
     /// Les deux boîtes ont les mêmes composants : seules les données ont pu changer.

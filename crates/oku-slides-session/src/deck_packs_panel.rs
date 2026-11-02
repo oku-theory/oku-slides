@@ -357,7 +357,7 @@ pub fn deck_packs_panel(view: &DeckPacksView, l: &Localizer) -> Surface {
     b.push(close.icon(ButtonIcon::Close).build());
     let root = Component::column("root", &["title", "layouts", "widgets", "theme", "close"]);
     let components = std::iter::once(root).chain(b.components).collect();
-    surface(HOST_PACKS, Place::Thread, None, components, json!({ "theme": view.theme.active.as_str() }))
+    surface(HOST_PACKS, Place::Popover, None, components, json!({ "theme": view.theme.active.as_str() }))
 }
 
 impl Session {

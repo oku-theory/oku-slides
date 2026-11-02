@@ -2,11 +2,13 @@
 //! a pas fait (sa dernière narration, première phrase en titre).
 //!
 //! Les boutons de suite envoient l'action `suggest {prompt}` à l'interface (comme ceux de `render`).
+//! Under the card, the turn's traces: a button per element the agent changed (action
+//! `trace {slide, element, pane}`, handled by the interface only), a caption for one gone.
 //!
 //! La slide d'un reçu est une référence (identifiant, empreinte de sa page au moment du reçu) que
 //! l'interface résout en miniature : le reçu ne porte jamais le rendu de la slide (t-450).
 
-use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic, SlideRef};
+use oku_slides_a2ui::{Action, Component, ComponentKind, Dynamic, SlideRef, TextVariant};
 use oku_slides_i18n::Localizer;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -16,8 +18,9 @@ use snafu::{OptionExt, ensure};
 use super::bounds::{LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_hex, check_text};
 use super::forms::{Place, Surface, lit, surface};
 use super::turn_view::first_line;
-use super::{AgentFormReason, check_len};
+use super::{AgentFormReason, TRACE_EVENT, TRACES_SHOWN, Trace, TraceName, check_len};
 use crate::error::{AgentFormSnafu, NoSlideSnafu};
+use crate::param_fields::kind_name;
 use crate::views::PageHash;
 use crate::{Result, Session};
 
@@ -57,8 +60,57 @@ pub const FACTS: (usize, usize) = (1, 4);
 /// Bornes du nombre de suites d'un reçu.
 pub const ACTIONS: (usize, usize) = (0, 4);
 
-/// Le reçu : carte, puis « pourquoi » replié, puis les suites.
-pub fn receipt(id: &str, spec: &Report, slide: Option<&SlideRef>, l: &Localizer) -> Surface {
+/// The name a trace's chip shows: its text, or its kind's localized name.
+fn trace_name(name: &TraceName, l: &Localizer) -> String {
+    match name {
+        TraceName::Text(text) => text.clone(),
+        TraceName::Kind { kind, label } => kind_name(kind, label.as_ref(), l),
+    }
+}
+
+/// "object: summary": gone, data changed, or the number of changes.
+fn trace_label(t: &Trace, l: &Localizer) -> String {
+    let name = trace_name(&t.name, l);
+    if t.removed {
+        l.tr_with("agent-trace-removed", &[("name", name.into())])
+    } else if t.data {
+        l.tr_with("agent-trace-data", &[("name", name.into())])
+    } else {
+        l.tr_with("agent-trace", &[("name", name.into()), ("count", i64::from(t.changes).into())])
+    }
+}
+
+/// The row of traces (`traces`), its components pushed to `components`; `None` without traces.
+fn traces_row(traces: &[Trace], components: &mut Vec<Component>, l: &Localizer) -> Option<String> {
+    if traces.is_empty() {
+        return None;
+    }
+    let mut ids = Vec::new();
+    for (i, t) in traces.iter().take(TRACES_SHOWN).enumerate() {
+        let id = format!("trace-{i}");
+        let label = trace_label(t, l);
+        components.push(if t.removed {
+            Component::text(&id, label, Some(TextVariant::Caption))
+        } else {
+            let context =
+                [("slide", lit(json!(t.slide))), ("element", lit(json!(t.element))), ("pane", lit(json!(t.data)))];
+            Component::button(&id, label, false, Action::event(TRACE_EVENT, context))
+        });
+        ids.push(id);
+    }
+    let more = traces.len().saturating_sub(TRACES_SHOWN);
+    if more > 0 {
+        let text = l.tr_with("agent-trace-more", &[("count", more.into())]);
+        components.push(Component::text("traces-more", text, Some(TextVariant::Caption)));
+        ids.push("traces-more".into());
+    }
+    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+    components.push(Component::row("traces", &refs));
+    Some("traces".into())
+}
+
+/// The receipt: the card, then its traces, the folded "why", then the follow-ups.
+pub fn receipt(id: &str, spec: &Report, slide: Option<&SlideRef>, traces: &[Trace], l: &Localizer) -> Surface {
     let mut body = vec!["card".to_owned()];
     let mut components = vec![Component::new(
         "card",
@@ -69,6 +121,7 @@ pub fn receipt(id: &str, spec: &Report, slide: Option<&SlideRef>, l: &Localizer)
             swatch: spec.swatch.clone(),
         },
     )];
+    body.extend(traces_row(traces, &mut components, l));
     if let Some(why) = spec.why.as_deref().filter(|w| !w.trim().is_empty()) {
         components.push(Component::new(
             "why",
@@ -120,42 +173,42 @@ fn sentence_end(text: &str) -> usize {
 /// Fallback receipt: the first sentence of `narration` as title, the rest folded.
 ///
 /// `written` (the turn's guide writes, `Session::guide_write_fact`) become its facts. Without
-/// narration, the first of them is the title; with neither, there is no receipt.
-pub fn fallback(id: &str, narration: &str, written: &[String], l: &Localizer) -> Option<Surface> {
+/// narration, the first of them is the title; with neither, `agent-trace-title` titles the
+/// traces, and without traces either there is no receipt. `traces` follow the card, as in
+/// [`receipt`].
+pub fn fallback(id: &str, narration: &str, written: &[String], traces: &[Trace], l: &Localizer) -> Option<Surface> {
     let text = narration.trim();
     if text.is_empty() {
-        let (title, facts) = written.split_first()?;
-        let spec = Report {
-            title: title.clone(),
-            facts: facts.to_vec(),
-            slide: None,
-            swatch: None,
-            why: None,
-            actions: Vec::new(),
+        let (title, facts) = match written.split_first() {
+            Some((title, facts)) => (title.clone(), facts.to_vec()),
+            None if !traces.is_empty() => (l.tr("agent-trace-title"), Vec::new()),
+            None => return None,
         };
-        return Some(receipt(id, &spec, None, l));
+        let spec = Report { title, facts, slide: None, swatch: None, why: None, actions: Vec::new() };
+        return Some(receipt(id, &spec, None, traces, l));
     }
     let end = sentence_end(text);
     let first = text[..end].trim();
     let title = first_line(first, NOTE_CHARS);
-    // Un titre coupé ne perd rien : la phrase entière reste dans l'explication.
+    // A cut title loses nothing: the whole sentence stays in the explanation.
     let rest = if title == first { text[end..].trim() } else { text };
     let spec = Report {
         title,
         slide: None,
         swatch: None,
-        // Borné comme un `why` d'agent : une narration très longue ne devient pas une carte démesurée.
+        // Bounded like an agent's `why`: a very long narration does not become an oversized card.
         why: (!rest.is_empty()).then(|| rest.chars().take(WHY_MAX).collect()),
         actions: Vec::new(),
         facts: written.to_vec(),
     };
-    Some(receipt(id, &spec, None, l))
+    Some(receipt(id, &spec, None, traces, l))
 }
 
 impl Session {
     /// `report` surface: bounds checked, blank facts dropped, slide named by its page hash.
     ///
-    /// The turn's guide writes (`written`) follow the agent's facts, outside its bounds.
+    /// The turn's guide writes (`written`) follow the agent's facts, outside its bounds; the open
+    /// turn's traces follow the card, in the plain copy too.
     ///
     /// # Errors
     ///
@@ -198,9 +251,11 @@ impl Session {
         };
         let facts = facts.into_iter().chain(written.iter().cloned()).collect();
         let spec = Report { facts, ..spec.clone() };
-        let surface = receipt(id, &spec, slide.as_ref(), &self.localizer);
-        let plain = (!spec.actions.is_empty())
-            .then(|| receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, slide.as_ref(), &self.localizer));
+        let traces = self.open_traces();
+        let surface = receipt(id, &spec, slide.as_ref(), &traces, &self.localizer);
+        let plain = (!spec.actions.is_empty()).then(|| {
+            receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, slide.as_ref(), &traces, &self.localizer)
+        });
         Ok(ReceiptSurfaces { surface, plain })
     }
 

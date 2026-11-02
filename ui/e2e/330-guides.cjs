@@ -10,14 +10,14 @@ const assert = require('node:assert/strict');
 const { mkdirSync } = require('node:fs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
-const { closePackTabs, openPackTab, packTabShown } = require('./lib/atelier.cjs');
+const { closePackTabs, closePacksPanel, openPackTab, openPacksPopover, packTabShown } = require('./lib/atelier.cjs');
 const { createLibraryWidgetPack, deleteLibraryPack } = require('./lib/packs.cjs');
 const { writeDeckBringingPack } = require('./lib/foreignDeck.cjs');
 const { logOffset, logSince } = require('./lib/agentLog.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
-const PANEL = '.agent-dock [data-surface-id="host-packs"]';
+const PANEL = '.agent-popover [data-surface-id="host-packs"]';
 const SHOTS = process.env.E2E_SHOTS ?? path.resolve(__dirname, '..', '..', '.superpowers', 'sdd', '2026-10-31-agent-guides');
 const OWN_GUIDE = 'Poser une carte par idée, jamais deux titres.';
 const BROUGHT_GUIDE = 'Citer la source sous chaque chiffre.';
@@ -38,9 +38,9 @@ async function activate(p, tab) {
   await p.reload();
 }
 
-/** Opens "Packs du deck" from the toolbar of the active tab. */
+/** Opens the "Packs du deck" popover from the toolbar of the active tab. */
 async function openPanel(p) {
-  await p.getByRole('button', { name: /^Packs du deck/ }).click();
+  await openPacksPopover(p);
   await part(p, 'title').waitFor();
 }
 
@@ -134,6 +134,7 @@ async function openFile(p, file) {
     // « Approuver ce guide » approves it for good: the button goes.
     await approve.getByRole('button').click();
     await approve.waitFor({ state: 'detached' });
+    await closePacksPanel(p);
 
     // 3. The agent's first turn in this tab carries the guides block with the guide.
     const from = logOffset(log);

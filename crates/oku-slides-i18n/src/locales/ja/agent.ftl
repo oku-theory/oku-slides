@@ -87,6 +87,15 @@ agent-turn-ended = ターン終了（{ $stop }）。
 agent-choice-cancelled = 質問はキャンセルされました
 agent-choice-answered = ✓ { $answer }
 agent-report-why = 理由
+agent-trace = { $name }：{ $count ->
+   *[other] { $count }件の変更
+}
+agent-trace-data = { $name }：データを変更
+agent-trace-removed = { $name }：存在しません
+agent-trace-more = { $count ->
+   *[other] ほか{ $count }件
+}
+agent-trace-title = 変更された要素
 
 agent-error-file = ファイルを読み書きできませんでした。
 agent-error-unexpected-action = 予期しない操作：{ $action }。
@@ -126,6 +135,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] ユーザーにそこで続けるよう伝えてください。そのタブのエージェントはこの依頼を知りません。
 } このタブはそのままです。
 agent-error-turn-over = この呼び出しのターンは終了しました。何も表示されていません。
+agent-error-no-box-turn = このボックスを関連付けるターンがありません：何も表示されませんでした。
 agent-error-no-file = プレゼンテーションにはまだファイルがありません。絶対パスを指定してください。
 agent-error-path-relative = パスは絶対パスである必要があります。
 agent-error-path-parent = パスに「..」を含めることはできません。

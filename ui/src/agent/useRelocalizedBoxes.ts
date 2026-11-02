@@ -6,10 +6,10 @@ import { errorText, type Surface } from "../api";
 import { onLocaleChange } from "../i18n";
 
 /**
- * Redemande chaque boîte montrée dont `reshow` connaît l'identifiant quand la langue change.
+ * Asks again for each shown turnless box `reshow` knows when the locale changes.
  *
- * L'écouteur lit les surfaces à jour : l'interface est remontée juste après le changement, mais
- * les écouteurs de la langue passent avant. `enabled` : seul le panneau qui montre le fil
+ * The listener reads the current surfaces: the UI is remounted right after the change, but
+ * locale listeners run first. `enabled`: only the panel that shows the thread
  * redemande (agent détaché, la fenêtre principale garde un panneau monté sans fil).
  */
 export function useRelocalizedBoxes(
@@ -26,7 +26,8 @@ export function useRelocalizedBoxes(
         const now = latest.current;
         if (!now.enabled) return;
         // Une `Map` : aucune clé héritée du prototype ne passe pour une boîte.
-        for (const s of now.surfaces) now.reshow.get(s.id)?.().catch((e) => now.say(errorText(e), true));
+        // A box an agent turn opened keeps its chip: reshowing it by command would drop its turn.
+        for (const s of now.surfaces) if (s.turn === undefined) now.reshow.get(s.id)?.().catch((e) => now.say(errorText(e), true));
       }),
     [],
   );

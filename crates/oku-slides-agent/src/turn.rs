@@ -133,7 +133,7 @@ pub(crate) async fn run(
             }
         }
     };
-    ctx.end_turn().await;
+    ctx.end_turn(turn).await;
     let response = response?;
     ctx.emit(AgentEvent::TurnEnded { turn, stop: as_text(&response.stop_reason) });
     ctx.emit(AgentEvent::idle());

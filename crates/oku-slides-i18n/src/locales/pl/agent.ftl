@@ -97,6 +97,21 @@ agent-turn-ended = Tura zakończona ({ $stop }).
 agent-choice-cancelled = Pytanie anulowane
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Dlaczego
+agent-trace = { $name }: { $count ->
+    [one] { $count } zmiana
+    [few] { $count } zmiany
+    [many] { $count } zmian
+   *[other] { $count } zmiany
+}
+agent-trace-data = { $name }: zmieniono dane
+agent-trace-removed = { $name }: już nie istnieje
+agent-trace-more = { $count ->
+    [one] i { $count } inny
+    [few] i { $count } inne
+    [many] i { $count } innych
+   *[other] i { $count } innych
+}
+agent-trace-title = Zmienione elementy
 
 agent-error-file = Nie udało się odczytać ani zapisać pliku.
 agent-error-unexpected-action = Nieoczekiwana akcja: { $action }.
@@ -136,6 +151,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Powiedz użytkownikowi, aby kontynuował tam: agent tej karty nie zna tego żądania.
 } Ta karta pozostaje bez zmian.
 agent-error-turn-over = Tura tego wywołania dobiegła końca: nic nie zostało wyświetlone.
+agent-error-no-box-turn = Brak tury, do której można dołączyć to okno: nic nie zostało pokazane.
 agent-error-no-file = Prezentacja nie ma jeszcze pliku: podaj ścieżkę bezwzględną.
 agent-error-path-relative = Ścieżka musi być bezwzględna.
 agent-error-path-parent = Ścieżka nie może zawierać „..”.

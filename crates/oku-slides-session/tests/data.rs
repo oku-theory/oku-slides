@@ -5,25 +5,11 @@
 #[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
 mod common;
 
-use common::{req, session};
+use common::{ok, req, session, with_element};
 use oku_slides_core::kinds;
 use oku_slides_session::Session;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
-
-fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
-    r.unwrap_or_else(|e| panic!("échec inattendu : {e:?}"))
-}
-
-/// Ajoute l'élément `element` à la slide 2 d'un deck neuf ; rend l'id de la slide.
-fn with_element(s: &mut Session, element: Value) -> String {
-    ok(s.new_deck());
-    let slide = s.snapshot().slides[1].id.to_string();
-    let mut add = json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" } });
-    add["element"] = element;
-    ok(s.handle(req(json!({ "cmd": "apply", "label": "ajout", "ops": [add] }))));
-    slide
-}
 
 fn chart(series: Value) -> Value {
     let mut element = json!({ "id": "g", "kind": kinds::base::CHART, "params": { "option": {

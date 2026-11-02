@@ -52,11 +52,11 @@ fn deck_packs_panel_refusal_is_the_op_error_text() {
 }
 
 #[test]
-fn deck_packs_panel_is_a_live_thread_surface() {
+fn deck_packs_panel_is_a_live_popover_surface() {
     let view = session().deck_packs().unwrap();
     let surface = deck_packs_panel(&view, &Localizer::new(Some("en")));
     assert_that!((surface.id.as_str(), surface.live)).is_equal_to((HOST_PACKS, true));
-    assert_that!(serde_json::to_value(&surface).unwrap()["place"].as_str()).is_equal_to(Some("thread"));
+    assert_that!(serde_json::to_value(&surface).unwrap()["place"].as_str()).is_equal_to(Some("popover"));
 }
 
 #[test]

@@ -46,7 +46,8 @@ pub use draft::NoDrafts;
 pub use draft::{DraftPort, MAX_REQUEST_BYTES, Prefill};
 pub use error::McpError;
 pub use hub::{
-    Answer, Freeze, HubError, HubErrorKind, McpEvent, STATIC_PER_TURN, SurfaceAction, SurfaceHub, THREAD_BYTES,
+    Answer, Freeze, HubError, HubErrorKind, McpEvent, STATIC_PER_TURN, ShowOutcome, SurfaceAction, SurfaceHub,
+    THREAD_BYTES,
 };
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};

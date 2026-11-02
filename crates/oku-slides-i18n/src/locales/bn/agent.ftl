@@ -93,6 +93,17 @@ agent-turn-ended = পালা শেষ ({ $stop })।
 agent-choice-cancelled = প্রশ্ন বাতিল করা হয়েছে
 agent-choice-answered = ✓ { $answer }
 agent-report-why = কেন
+agent-trace = { $name }: { $count ->
+    [one] { $count }টি পরিবর্তন
+   *[other] { $count }টি পরিবর্তন
+}
+agent-trace-data = { $name }: ডেটা পরিবর্তিত
+agent-trace-removed = { $name }: আর নেই
+agent-trace-more = { $count ->
+    [one] এবং আরও { $count }টি
+   *[other] এবং আরও { $count }টি
+}
+agent-trace-title = পরিবর্তিত উপাদান
 
 agent-error-file = ফাইলটি পড়া বা লেখা যায়নি।
 agent-error-unexpected-action = অপ্রত্যাশিত কাজ: { $action }।
@@ -132,6 +143,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] ব্যবহারকারীকে সেখানে চালিয়ে যেতে বলুন: ওই ট্যাবের এজেন্ট এই অনুরোধ জানে না।
 } এই ট্যাব যেমন আছে তেমনই থাকে।
 agent-error-turn-over = এই কলের পালা শেষ হয়ে গেছে: কিছুই দেখানো হয়নি।
+agent-error-no-box-turn = এই বাক্সটি যুক্ত করার মতো কোনো পালা নেই: কিছুই দেখানো হয়নি।
 agent-error-no-file = উপস্থাপনার এখনও কোনো ফাইল নেই: একটি সম্পূর্ণ পাথ দিন।
 agent-error-path-relative = পাথটি সম্পূর্ণ (absolute) হতে হবে।
 agent-error-path-parent = পাথে “..” থাকা চলবে না।

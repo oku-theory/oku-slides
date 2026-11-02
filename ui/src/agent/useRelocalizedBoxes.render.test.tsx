@@ -56,6 +56,13 @@ test("useRelocalizedBoxes reshows the voice box on a locale change", async () =>
   expect(asked).toBe(1);
 });
 
+test("useRelocalizedBoxes with an agent-opened box keeps it as it is", async () => {
+  let asked = 0;
+  await mount([{ ...surface(HOST_PACKS), turn: 2 }], only(HOST_PACKS, async () => void asked++));
+  applyMessages({ locale: "de", resources: [], chosen: "de" });
+  expect(asked).toBe(0);
+});
+
 test("useRelocalizedBoxes ignores a box absent from reshow", async () => {
   let asked = 0;
   await mount([surface(HOST_VOICE)], only(HOST_PACKS, async () => void asked++));

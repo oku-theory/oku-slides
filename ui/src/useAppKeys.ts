@@ -12,6 +12,7 @@ import { t } from "./i18n";
 import type { PresentMode } from "./present";
 import { presentShortcut } from "./present";
 import { slideTarget } from "./slideKeys";
+import { isDeckTab } from "./tabKind";
 import type { FieldKey } from "./stageFields";
 import { fieldKey, primaryFieldOf } from "./stageFields";
 import type { useFileActions } from "./useFileActions";
@@ -81,8 +82,9 @@ export function useAppKeys({
         present(presentMode);
         return;
       }
-      // The ghosts toggle everywhere, history included.
-      if (keptUi.handleKey(e)) return;
+      // The ghosts toggle everywhere, history included; the inspector in a deck tab only.
+      const deckTab = isDeckTab(snap);
+      if (keptUi.handleKey(e, deckTab)) return;
       if (snap?.history) {
         // Lecture seule : ← / → (⇧ : par session) parcourent les versions ;
         // les raccourcis d'édition, qui prennent aussi les flèches, sont inertes.

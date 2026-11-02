@@ -37,7 +37,7 @@ import { panelOpen } from "./panelOpen";
 import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
 import { SlotView } from "./agent/slot";
-import type { QuickTarget } from "./agent/useQuickKeys";
+import { DETACHED_MAIN_PLACES } from "./agent/useQuickKeys";
 import { Latest } from "./latest";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
@@ -49,6 +49,10 @@ import ThemePanels from "./ThemePanels";
 import HostSettings from "./HostSettings";
 import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { useDataSettings } from "./useDataSettings";
+import { useElementSettings } from "./useElementSettings";
+import { useInspector } from "./useInspector";
+import { Inspector } from "./Inspector";
+import { DataPane } from "./DataPane";
 import Presenter from "./Presenter";
 import { usePageEvents } from "./usePageEvents";
 import SlideNav from "./SlideNav";
@@ -56,6 +60,8 @@ import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
 import { applyInterface } from "./interfaceChange";
 import { useAgentLink, useAgentWiring } from "./useAgentWiring";
+import { useTrace } from "./useTrace";
+import { fromA2ui } from "./agent/quick";
 import { useAppKeys } from "./useAppKeys";
 import { type Clip, type ClipRef, useClipboard, useClipboardEvents } from "./useClipboard";
 import { useSlideOps } from "./useSlideOps";
@@ -64,9 +70,6 @@ import { useCloseGuard } from "./closeGuards";
 import { usePackWidgets } from "./usePackWidgets";
 import { ToolsTray } from "./ToolsTray";
 import { createPreviewCache } from "./widgetPreviewCache";
-
-/** Agent détaché : le dock n'est pas à l'écran, ses touches rapides ne le visent pas. */
-const MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal"];
 
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
@@ -255,18 +258,34 @@ export default function App({
 
   // The settings of a pack tab's selected item, at its example values.
   const host = useHostSettings(api, snap, item.selected, run, say);
-  // The selected chart's or table's data (resolved in the view), at the agent's dock; not in a
-  // pack tab, where no stage shows, nor in a theme tab (useDataSettings).
+  // The selected element's settings (inspector) and its chart's or table's data (data pane), resolved
+  // in the view; not in a pack tab, where no stage shows, nor in a theme tab (useSelectionSurface).
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
-  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab, run, say);
-  const dataSurfaces = useMemo(() => (data.surface ? [data.surface] : []), [data.surface]);
+  // Each read only while its place is open.
+  const element = useElementSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab || !keptUi.inspector, run, say);
+  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab || !keptUi.dataPane, run, say);
+  /** The inspector's and data pane's surface actions: host surfaces, never sent to the agent. */
+  const paneAction = (s: Surface, a: A2uiClientAction) => element.onAction(s, a) || data.onAction(s, a);
 
+  // The slide shown: a pack tab's item slide, else the deck's current one.
+  const shownSlide = packTab ? item.slide : current;
   const {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
     agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
   } = useAgentWiring({
-    tab, snap, view, current: packTab ? item.slide : current, selected, editing, editField, packItem: item.selected, packTab, importJob, showSlide,
-    setSelected,
+    tab, snap, view, current: shownSlide, selected, editing, editField, packItem: item.selected, packTab, importJob, showSlide,
+  });
+
+  const inspector = useInspector({
+    snap, keptUi, selected: selectedElement, onPacks: () => void agent.showPacks().catch((e) => say(errorText(e), true)),
+    // The agent offer opened from its chip: App re-renders only when it comes or goes.
+    offer: agentStatus.offer ? <SlotView slot={agentSlots.inspector} /> : undefined,
+  });
+  // A receipt's trace: its slide shows, its element is selected, then the inspector or the data pane
+  // opens (also from the agent window).
+  const trace = useTrace({
+    snap, view, current: shownSlide, editing, show: showSlide, select: setSelected,
+    onPane: inspector.onPane, onInspector: inspector.onInspector, say,
   });
 
   /** The packs panel's "Open" on a theme or pack row: this tab asks the workspace for its tab. */
@@ -311,7 +330,7 @@ export default function App({
   const pasted = usePastedImages(dictation.draft.state.images, agent.pasteImage, (m) => say(m, true));
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
-  useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab, deckLook });
+  useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab, deckLook, reveal: trace.reveal });
 
   const [previewStore] = useState(createStagePreviewStore);
   // The notes column, where a theme tab's panel goes (`ThemePanels`).
@@ -342,8 +361,8 @@ export default function App({
   return (
     <NumberLangContext.Provider value={snap.lang ?? null}>
     <StagePreviewContext.Provider value={previewStore}>
-    {/* Agent détaché : la colonne de droite se replie, sauf pour montrer les données sélectionnées. */}
-    <div className={`table${agentDetached && !themeTab && !data.surface ? " agent-detached" : ""}`}>
+    {/* Detached agent: the right column folds away. */}
+    <div className={`table${agentDetached && !themeTab ? " agent-detached" : ""}`}>
       {history ? (
         <HistoryBar
           history={history}
@@ -382,6 +401,7 @@ export default function App({
         keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
         run={run} onAdd={openAdd}
         onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
+        onThemes={() => void agent.showThemes(view?.slide.id ?? null).catch((e) => say(errorText(e), true))}
         onHistory={() => void openHistory()}
         thumbs={{ open: thumbsOpen, onToggle: toggleThumbs }}
       />
@@ -389,7 +409,7 @@ export default function App({
 
       {/* The sheet, at the centre; a pack tab has its own (`PackPanels`). */}
       {!packTab && (
-      <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
+      <main className={`sheet-area${readOnly ? " read-only" : ""}${inspector.open ? " inspector-open" : ""}`}>
         <div className="stage-panel">
         <div className="stage-box">
         {view && view.slide.id === current ? (
@@ -432,21 +452,24 @@ export default function App({
         )}
         </div>
         <SlotView slot={agentSlots.drawer} />
+        {inspector.pane && (
+          <DataPane data={data} onAction={paneAction} onError={(e) => say(errorText(e), true)} onClose={inspector.closePane} />
+        )}
+        {inspector.open && (
+          <Inspector element={element} {...inspector.props} onAction={paneAction} onError={(e) => say(errorText(e), true)} />
+        )}
       </main>
       )}
 
       {/* Cartes à droite de la feuille. */}
       {/* A theme tab: its panel comes in (ThemePanels), then the agent thread, then the composer (pack.css). */}
       <aside ref={setNotes} className={`notes${themeTab ? " theme-active" : ""}`} aria-label={t("ui-notes")}>
-        {/* Agent détaché : pas de dock ici, les données sélectionnées se montrent seules. */}
-        {agentDetached && data.surface && (
-          <HostSettings surface={data.surface} onAction={onSurfaceAction} outcome={data.outcome} onError={(m) => say(m, true)} />
-        )}
         <AgentPanel
           tab={tab} agent={agent} mode={agentMode} route={route} ui={agentUiNow}
-          keysOff={!!editing || dialogOpen || packTab} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? MAIN_PLACES : undefined}
+          selected={selected} onOpenInspector={inspector.available ? inspector.onInspector : undefined}
+          keysOff={!!editing || dialogOpen || packTab} thread={!snap.read_only && !agentDetached} keyPlaces={agentDetached ? DETACHED_MAIN_PLACES : undefined}
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
-          hostSurfaces={dataSurfaces} onHostAction={(s, a) => openRow(s, a) || host.onAction(s, a) || data.onAction(s, a)} onStatus={setAgentStatus}
+          onHostAction={(s, a) => trace(s, fromA2ui(a)) || openRow(s, a) || host.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
           onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
           onWidgetTouched={item.touched} say={say}
@@ -532,6 +555,9 @@ export default function App({
       {presenting && (
         <Presenter mode={presenting} slides={snap.slides} current={current} svg={svgs.svg} onShow={showSlide} onExit={() => setPresenting(null)} />
       )}
+
+      {/* The agent's popovers, each placed next to its opener. */}
+      <SlotView slot={agentSlots.popover} />
 
       {toastNode}
     </div>

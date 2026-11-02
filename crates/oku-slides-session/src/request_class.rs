@@ -51,6 +51,8 @@ impl Request {
             | Self::EditExampleList { .. }
             | Self::HostToken { .. }
             | Self::DataEdit { .. }
+            | Self::ElementParam { .. }
+            | Self::ElementList { .. }
             | Self::UsePackVersion { .. }
             | Self::UsePackCopy { .. }
             | Self::UseThemeVersion { .. }
@@ -64,6 +66,7 @@ impl Request {
             | Self::HostSettings { .. }
             | Self::HostTheme { .. }
             | Self::DataPanel { .. }
+            | Self::ElementPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
             | Self::DeletePack { .. }
@@ -109,6 +112,8 @@ impl Request {
                 | Self::ReorderWidgets { .. }
                 | Self::HostToken { .. }
                 | Self::DataEdit { .. }
+                | Self::ElementParam { .. }
+                | Self::ElementList { .. }
                 | Self::SetExampleValue { .. }
                 | Self::EditExampleList { .. }
                 | Self::UsePackVersion { .. }
@@ -171,6 +176,8 @@ impl Request {
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
             | Self::DataEdit { .. }
+            | Self::ElementParam { .. }
+            | Self::ElementList { .. }
             | Self::SavePack { as_new: false }
             | Self::SetGuide { .. }
             | Self::SetWidget { .. }
@@ -195,6 +202,7 @@ impl Request {
             | Self::HostSettings { .. }
             | Self::HostTheme { .. }
             | Self::DataPanel { .. }
+            | Self::ElementPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
             | Self::SavePack { as_new: true }
@@ -269,11 +277,14 @@ impl Request {
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::DataEdit { .. }
+            | Self::ElementParam { .. }
+            | Self::ElementList { .. }
             | Self::UsePackVersion { .. }
             | Self::UsePackCopy { .. }
             | Self::UseThemeVersion { .. }
             | Self::HostSettings { .. }
             | Self::DataPanel { .. }
+            | Self::ElementPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
             | Self::DeletePack { .. }

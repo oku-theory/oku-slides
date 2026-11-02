@@ -6,20 +6,22 @@
 // route : un état réduit à des valeurs simples (`onStatus`, appelé quand elles changent) et une
 // poignée (`handle`) pour envoyer une consigne, une action de surface ou arrêter le tour.
 
-import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { AgentUi, InterfaceChange, McpEvent, PastedImage, Surface } from "../api";
 import type { PresentMode } from "../present";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
+import { t } from "../i18n";
+import { firstText } from "./a2uiModel";
 import { AgentThread } from "./AgentThread";
 import { subscribeHost } from "./events";
 import type { QuickAction } from "./quick";
 import { fromA2ui } from "./quick";
 import { withRewriteParagraphs } from "./rewrite";
 import type { Slot } from "./slot";
-import { HOST_PACKS, HOST_VOICE, agentBusy, sendThenPrompt, surfacesReducer, type Routed } from "./surfaces";
+import { HOST_PACKS, HOST_THEME_PICKER, HOST_VOICE, agentBusy, chipAnchor, sendThenPrompt, surfacesReducer, type Routed } from "./surfaces";
 import { useAgentThread, type AgentThreadState } from "./useAgentThread";
 import { useFollowThread } from "./useFollowThread";
 import { useRelocalizedBoxes } from "./useRelocalizedBoxes";
@@ -29,6 +31,11 @@ import { answerTarget, quickTarget, useQuickKeys, type QuickTarget } from "./use
 const AgentSheet = lazy(() => import("./AgentSheet").then((m) => ({ default: m.AgentSheet })));
 const VariantDrawer = lazy(() => import("./VariantDrawer").then((m) => ({ default: m.VariantDrawer })));
 const ConfirmModal = lazy(() => import("./ConfirmModal").then((m) => ({ default: m.ConfirmModal })));
+const AgentPopover = lazy(() => import("./AgentPopover").then((m) => ({ default: m.AgentPopover })));
+const AgentSurfaceBox = lazy(() => import("./AgentSurfaceBox").then((m) => ({ default: m.AgentSurfaceBox })));
+
+/** The surface an anchor name opens (`host-packs@inspector` opens `host-packs`). */
+const anchoredId = (name: string) => name.split("@")[0];
 
 /** L'agent d'un onglet, tel que l'appelle le panneau. */
 export type AgentApi = ReturnType<typeof agentApi>;
@@ -47,9 +54,11 @@ export interface AgentStatusView {
   sheetId: string | null;
   /** Un agent répond (`useAgentThread`) : une consigne peut partir. */
   ready: boolean;
+  /** An agent offer opened from its chip fills the inspector slot. */
+  offer: boolean;
 }
 
-export const IDLE_AGENT: AgentStatusView = { modal: false, busy: false, cancellable: false, sheet: null, sheetId: null, ready: false };
+export const IDLE_AGENT: AgentStatusView = { modal: false, busy: false, cancellable: false, sheet: null, sheetId: null, ready: false, offer: false };
 
 /** Ce que `App` demande à l'agent. */
 export interface AgentHandle {
@@ -72,6 +81,10 @@ export interface AgentSlots {
   drawer: Slot;
   /** Fenêtre de confirmation, par-dessus tout. */
   modal: Slot;
+  /** The open popovers, each next to its opener. */
+  popover: Slot;
+  /** The agent offer opened from its chip, first in the inspector. */
+  inspector: Slot;
 }
 
 /** Le rôle du panneau : il pilote le fil de l'onglet (`drive`, une fois l'instantané chargé) ou le suit (`follow`). */
@@ -108,14 +121,13 @@ export interface AgentPanelProps {
   thumbs: SlideThumbs;
   slots: AgentSlots;
   handle: Ref<AgentHandle>;
-  /** Surfaces de l'hôte posées en tête du dock (données du graphique ou du tableau sélectionné). */
-  hostSurfaces?: readonly Surface[];
   /** Une action de réglages de l'hôte (widget, données, thème) ; `true` si elle a été prise. */
   onHostAction: (s: Surface, a: A2uiClientAction) => boolean;
   onStatus: (status: AgentStatusView) => void;
   /** Le deck a pu changer (outils de l'agent, abonnement prêt) : à relire. */
   onChanged: () => void;
-  onFocus: (slide: string, element: string | null) => void;
+  /** The agent shows a slide (`focus`); it never selects. */
+  onFocus: (slide: string) => void;
   onWidgetTouched: (name: string, removed: boolean) => void;
   /** L'agent lance la présentation (fenêtre de l'agent : rien, la principale s'en charge). */
   onPresent: (mode: PresentMode) => void;
@@ -134,10 +146,18 @@ export interface AgentPanelProps {
   onUndoTurn?: (turn: number) => void;
   /** Pour les tests : l'abonnement aux évènements de l'hôte. */
   subscribe?: typeof subscribeHost;
+  /** A chip-opened offer renders under its chip, in the thread (the agent window). */
+  offersInline?: boolean;
+  /** The selected element; a change closes an offer opened in the inspector. */
+  selected: string | null;
+  /**
+   * Opens the inspector for an offer opened from its chip; absent (the agent window, a tab that cannot
+   * show the inspector), an inspector offer opens under its chip.
+   */
+  onOpenInspector?: () => void;
 }
 
-const ALL_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal", "dock"];
-const NO_SURFACES: readonly Surface[] = [];
+const ALL_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal", "dock", "popover"];
 
 /** Ce que lit l'abonnement, posé une fois par onglet : toujours la dernière version. */
 interface Latest {
@@ -154,6 +174,7 @@ export function AgentPanel(props: AgentPanelProps) {
   const driven = useAgentThread(agent, props.mode.kind === "drive" && props.mode.loaded, onSurfaceEvent);
   const followed = useFollowThread(agent);
   // Les boîtes de l'hôte montrées suivent la langue de l'interface ; un seul panneau les redemande.
+  // Only turnless ones: a command reopens a box without its turn, which would drop an agent's chip.
   const reshow = useMemo(
     () =>
       new Map<string, () => Promise<void>>([
@@ -163,6 +184,23 @@ export function AgentPanel(props: AgentPanelProps) {
     [agent],
   );
   useRelocalizedBoxes(surfaces, reshow, say, props.thread);
+  /** The offer opened from its chip in the thread; it closes when its surface goes. */
+  const [offer, setOffer] = useState<string | null>(null);
+  /** The popovers shown at an anchor in this window (`AgentPopover` reports it): only they get keys. */
+  const [placed, setPlaced] = useState<ReadonlySet<string>>(() => new Set());
+  const onPlaced = useMemo(
+    () => (id: string, shown: boolean) =>
+      setPlaced((set) => {
+        if (set.has(id) === shown) return set;
+        const next = new Set(set);
+        if (shown) next.add(id);
+        else next.delete(id);
+        return next;
+      }),
+    [],
+  );
+  /** The anchor name each box was last opened from (the tray's or the inspector's Packs button). */
+  const [anchors, setAnchors] = useState<ReadonlyMap<string, string>>(() => new Map());
   const threadState: AgentThreadState = props.mode.kind === "follow" ? followed : driven;
   const latest = useRef<Latest | null>(null);
   latest.current = { props, threadState };
@@ -172,10 +210,42 @@ export function AgentPanel(props: AgentPanelProps) {
   // Une fiche s'affiche sous son élément si celui-ci est sur la slide affichée,
   // sinon dans le fil ; le tiroir sous la scène ; la fenêtre par-dessus tout.
   const routed = useMemo(() => props.route(surfaces), [surfaces, props.route]);
-  const { stage: sheet, drawer, modal } = routed;
-  // Les surfaces de l'hôte d'abord : des réglages, avant ceux de l'agent et la question.
-  const hostSurfaces = props.hostSurfaces ?? NO_SURFACES;
-  const dock = useMemo(() => (hostSurfaces.length === 0 ? routed.dock : [...hostSurfaces, ...routed.dock]), [hostSurfaces, routed.dock]);
+  const { stage: sheet, drawer, modal, dock, popovers, offers } = routed;
+  const opened = offers.find((o) => o.surface.id === offer)?.surface;
+  // In the agent window every opened offer renders under its chip; in the main window, a popover
+  // next to its chip and settings in the inspector, under the chip when the tab cannot show it.
+  const inline = !!props.offersInline;
+  const canInspect = !!props.onOpenInspector;
+  const inlineOffer = (s: Surface) => inline || (s.place === "inspector" && !canInspect);
+  const inspectorOffer = opened && !inlineOffer(opened) && opened.place === "inspector" ? opened : undefined;
+  // An offer whose surface went (dismissed, frozen, its turn evicted) is no longer open.
+  useEffect(() => {
+    if (offer !== null && !opened) setOffer(null);
+  }, [offer, opened]);
+  // Selecting another element closes the offer shown in the inspector.
+  const offerInInspector = useRef(false);
+  offerInInspector.current = !!inspectorOffer;
+  const lastSelected = useRef(props.selected);
+  useEffect(() => {
+    if (lastSelected.current === props.selected) return;
+    lastSelected.current = props.selected;
+    if (offerInInspector.current) setOffer(null);
+  }, [props.selected]);
+  const floating = useMemo(() => (opened && !inline && opened.place === "popover" ? [...popovers, opened] : popovers), [popovers, opened, inline]);
+  // A box that closed forgets where it opened from: the next one starts from its own button.
+  const shownPopovers = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    const now = new Set(popovers.map((s) => s.id));
+    const gone = [...shownPopovers.current].filter((id) => !now.has(id));
+    shownPopovers.current = now;
+    if (gone.length === 0) return;
+    setAnchors((m) => {
+      if (!gone.some((id) => m.has(id))) return m;
+      const next = new Map(m);
+      for (const id of gone) next.delete(id);
+      return next;
+    });
+  }, [popovers]);
   const cancel = () => void agent.cancel().catch((err) => say(String(err), true));
   const subscribe = props.subscribe ?? subscribeHost;
   useEffect(
@@ -186,7 +256,7 @@ export function AgentPanel(props: AgentPanelProps) {
           if (e.kind === "surfaces") countResync();
           const p = latest.current!.props;
           if (e.kind === "changed") p.onChanged();
-          if (e.kind === "focus") p.onFocus(e.slide, e.element);
+          if (e.kind === "focus") p.onFocus(e.slide);
           if (e.kind === "widget_touched") p.onWidgetTouched(e.name, e.removed);
           if (e.kind === "present") p.onPresent(e.mode);
           if (e.kind === "interface") p.onInterface(e.change);
@@ -222,7 +292,8 @@ export function AgentPanel(props: AgentPanelProps) {
       },
     );
   };
-  const keysTarget = quickTarget({ modal, sheet, drawer, dock });
+  // The picker gets keys only in the window that shows it at its anchor (the main one, detached or not).
+  const keysTarget = quickTarget({ modal, sheet, drawer, dock, popover: floating.find((s) => s.id === HOST_THEME_PICKER && placed.has(s.id)) });
   /**
    * La surface qui reçoit les touches 1–4, Entrée, Échap et montre leur rappel ; aucune pendant
    * l'édition d'un texte, le pointage ou un widget actif. Une consigne répond toujours à `keysTarget`.
@@ -247,6 +318,52 @@ export function AgentPanel(props: AgentPanelProps) {
     void sendThenPrompt(action, () => sendAction(s, action), promptAgent);
   };
   useQuickKeys(keyed, sendAction);
+  /** Dismissals sent and not yet answered: a second close of the same box sends nothing. */
+  const closing = useRef(new Set<string>());
+  /** Closes a popover: the hub dismisses it (its chip goes too), and the chip's offer clears. */
+  const closePopover = (s: Surface) => {
+    if (s.id === offer) setOffer(null);
+    if (closing.current.has(s.id)) return;
+    closing.current.add(s.id);
+    void sendAction(s, { name: "dismiss", context: {} }).finally(() => closing.current.delete(s.id));
+  };
+  /**
+   * A chip opens its offer; a second click on an inline one folds it. An inspector offer opens
+   * the inspector (a second click keeps it: the inspector closes on its own button).
+   */
+  const onOpenOffer = (id: string) => {
+    const surface = offers.find((o) => o.surface.id === id)?.surface;
+    if (surface && !inlineOffer(surface) && surface.place === "inspector") {
+      setOffer(id);
+      props.onOpenInspector?.();
+      return;
+    }
+    const folds = !!surface && inlineOffer(surface);
+    setOffer((open) => (open === id && folds ? null : id));
+  };
+  // An opener's click: it closes its open popover (a second click), else notes where it opened from.
+  const latestOpen = useRef({ floating, closePopover });
+  latestOpen.current = { floating, closePopover };
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const el = e.target instanceof Element ? e.target.closest("[data-popover-anchor]") : null;
+      const name = el?.getAttribute("data-popover-anchor");
+      if (!name) return;
+      const id = anchoredId(name);
+      const open = latestOpen.current.floating.find((s) => s.id === id);
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        latestOpen.current.closePopover(open);
+        return;
+      }
+      // A chip opens its offer, never the box the user asks for: its anchor is not noted.
+      if (name === chipAnchor(id)) return;
+      setAnchors((m) => (m.get(id) === name ? m : new Map(m).set(id, name)));
+    };
+    window.addEventListener("click", onClick, true);
+    return () => window.removeEventListener("click", onClick, true);
+  }, []);
   useImperativeHandle(props.handle, () => ({ prompt: (text, images) => promptAgent(text, answerTarget(keysTarget), images), onSurfaceAction, cancel }));
 
   // `App` ne se re-rend que si l'une de ces valeurs change.
@@ -257,26 +374,30 @@ export function AgentPanel(props: AgentPanelProps) {
   // Des valeurs simples seulement : une surface patchée est un nouvel objet à chaque morceau.
   const hasModal = !!modal;
   const cancellable = busy;
+  const hasOffer = !!inspectorOffer;
   useLayoutEffect(
     () => {
       const sheetAt = sheetOwner === null ? null : sheetField === undefined ? { owner: sheetOwner } : { owner: sheetOwner, field: sheetField };
-      onStatus({ modal: hasModal, busy, cancellable, sheet: sheetAt, sheetId, ready });
+      onStatus({ modal: hasModal, busy, cancellable, sheet: sheetAt, sheetId, ready, offer: hasOffer });
     },
-    [onStatus, hasModal, busy, cancellable, sheetOwner, sheetField, sheetId, ready],
+    [onStatus, hasModal, busy, cancellable, sheetOwner, sheetField, sheetId, ready, hasOffer],
   );
 
   // Les surfaces hors du fil, posées dans les places de `App` (vues `SlotView`).
   // Les rappels des surfaces posées : stables, ils lisent la dernière version (`latestSurface`).
   const onError = (m: string) => say(m, true);
-  const latestSurface = useRef({ sendAction, onError });
-  latestSurface.current = { sendAction, onError };
+  const latestSurface = useRef({ sendAction, onError, closePopover, onSurfaceAction });
+  latestSurface.current = { sendAction, onError, closePopover, onSurfaceAction };
   const stable = useMemo(
     () => ({
-      onAction: (s: Surface, a: QuickAction) => void latestSurface.current.sendAction(s, a),
+      onAction: (s: Surface, a: A2uiClientAction) => void latestSurface.current.sendAction(s, fromA2ui(a)),
       onError: (m: string) => latestSurface.current.onError(m),
     }),
     [],
   );
+  const closeStable = useMemo(() => (s: Surface) => latestSurface.current.closePopover(s), []);
+  // A popover's clicks go as the thread's do: the host first (a packs row opens its tab).
+  const popoverAction = useMemo(() => (s: Surface, a: A2uiClientAction) => latestSurface.current.onSurfaceAction(s, a), []);
   const keysTo = keyed?.surface.id ?? null;
   // Reconstruites seulement quand une surface ou la cible des touches change.
   const nodes = useMemo(() => {
@@ -285,18 +406,51 @@ export function AgentPanel(props: AgentPanelProps) {
       sheet: sheet?.anchor ? <Suspense fallback={null}><AgentSheet key={sheet.id} {...surfaceProps(sheet)} /></Suspense> : null,
       drawer: drawer ? <Suspense fallback={null}><VariantDrawer key={drawer.id} {...surfaceProps(drawer)} /></Suspense> : null,
       modal: modal ? <Suspense fallback={null}><ConfirmModal key={modal.id} {...surfaceProps(modal)} /></Suspense> : null,
+      // A chip's offer opens next to its chip; a box the user opened, next to the button clicked.
+      popover: floating.length === 0 ? null : (
+        <Suspense fallback={null}>
+          {floating.map((s) => (
+            <AgentPopover
+              key={s.id}
+              {...surfaceProps(s)}
+              anchor={s.turn === undefined ? (anchors.get(s.id) ?? s.id) : chipAnchor(s.id)}
+              fallback={s.turn === undefined ? s.id : undefined}
+              onAction={popoverAction}
+              onClose={() => closeStable(s)}
+              onPlaced={(shown) => onPlaced(s.id, shown)}
+            />
+          ))}
+        </Suspense>
+      ),
+      // An inspector offer's clicks go as the thread's do: the host first, then the agent.
+      inspector: inspectorOffer ? (
+        <Suspense fallback={null}>
+          <AgentSurfaceBox
+            key={inspectorOffer.id}
+            {...surfaceProps(inspectorOffer)}
+            onAction={popoverAction}
+            className="agent-offer-box"
+            role="group"
+            label={t("ui-offer-settings", { title: firstText(inspectorOffer) || t("ui-agent-thread") })}
+          />
+        </Suspense>
+      ) : null,
     };
-  }, [sheet, drawer, modal, keysTo, stable]);
+  }, [sheet, drawer, modal, floating, anchors, inspectorOffer, keysTo, stable, closeStable, popoverAction, onPlaced]);
   useLayoutEffect(() => {
     slots.sheet.set(nodes.sheet);
     slots.drawer.set(nodes.drawer);
     slots.modal.set(nodes.modal);
+    slots.popover.set(nodes.popover);
+    slots.inspector.set(nodes.inspector);
   }, [slots, nodes]);
   useLayoutEffect(
     () => () => {
       slots.sheet.set(null);
       slots.drawer.set(null);
       slots.modal.set(null);
+      slots.popover.set(null);
+      slots.inspector.set(null);
     },
     [slots],
   );
@@ -309,6 +463,9 @@ export function AgentPanel(props: AgentPanelProps) {
         turns={routed.turns}
         loose={routed.loose}
         dock={dock}
+        offers={offers}
+        openOffer={opened && inlineOffer(opened) ? opened.id : null}
+        onOpenOffer={onOpenOffer}
         keysTo={keysTo}
         resyncs={resyncs}
         onAction={onSurfaceAction}

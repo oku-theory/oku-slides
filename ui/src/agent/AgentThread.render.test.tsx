@@ -248,55 +248,19 @@ describe("fil de l'agent par tours", () => {
     expect(host.querySelector(".agent-entry, .postit")).toBeNull();
   });
 
-  test("une action d'une surface du dock part avec son identifiant", async () => {
-    const { host, actions } = await mount([surface("show-9", "thread", { live: true, turn: 1 })]);
-    await act(async () => (host.querySelector('.agent-dock [data-surface-id="show-9"] button.btn') as HTMLElement).click());
+  test("a live thread settings surface's action goes with its id", async () => {
+    const { host, actions } = await mount([realSurface("turn-3"), surface("show-9", "thread", { live: true, turn: 3 })]);
+    await act(async () => (host.querySelector('.agent-turn [data-surface-id="show-9"] button.btn') as HTMLElement).click());
     expect(actions).toEqual([["show-9", "ok"]]);
   });
 
-  test("une question replie les réglages du dock, qu'un clic rouvre", async () => {
-    const { host } = await mount([surface("show-9", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
-    const toggle = host.querySelector('.agent-dock [data-surface-id="show-9"] button[aria-expanded]') as HTMLButtonElement;
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(host.querySelector('[data-surface-id="show-9"] button.btn')).toBeNull();
-    await act(async () => toggle.click());
-    expect(host.querySelector('[data-surface-id="show-9"] button.btn')).not.toBeNull();
-  });
-
-  test("une question replie la carte du widget (host-widget) derrière « réglages », qu'un clic rouvre", async () => {
-    const { host } = await mount([surface("host-widget", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
-    const item = '.agent-dock [data-surface-id="host-widget"]';
-    const toggle = host.querySelector(`${item} button[aria-expanded]`) as HTMLButtonElement;
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(host.querySelector(`${item} button.btn`)).toBeNull();
-    expect(host.querySelector('.agent-dock [data-surface-id="ask-8"]')).not.toBeNull();
-    await act(async () => toggle.click());
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(host.querySelector(`${item} button.btn`)).not.toBeNull();
-  });
-
-  test("la carte de l'hôte au dock n'est pas annoncée à chaque reconstruction, la question l'est", async () => {
-    const { host } = await mount([surface("host-widget", "thread", { live: true, turn: 1 }), realSurface("ask-8")]);
-    expect(host.querySelector('.agent-dock [data-surface-id="host-widget"]')?.getAttribute("aria-live")).toBe("off");
-    expect(host.querySelector('.agent-dock [data-surface-id="ask-8"]')?.getAttribute("aria-live")).not.toBe("off");
-  });
-
-  test("le sélecteur de thème reste ouvert et annoncé à côté d'une question", async () => {
-    const { host } = await mount([realSurface("host-theme-picker"), realSurface("ask-8")]);
-    const item = host.querySelector('.agent-dock [data-surface-id="host-theme-picker"]') as HTMLElement;
-    expect(item.querySelector("button[aria-expanded]")).toBeNull();
-    expect(item.children.length).toBeGreaterThan(0);
-    expect(item.getAttribute("aria-live")).not.toBe("off");
-  });
-
-  test("à une nouvelle question, les réglages ouverts se replient à nouveau", async () => {
-    const settings = surface("show-9", "thread", { live: true, turn: 3 });
-    const { host, rerender } = await mount([settings, realSurface("ask-8")]);
-    await act(async () => (host.querySelector('[data-surface-id="show-9"] button[aria-expanded]') as HTMLElement).click());
-    expect(host.querySelector('[data-surface-id="show-9"] button.btn')).not.toBeNull();
-    const next = { ...realSurface("ask-8"), id: "ask-10" };
-    await rerender([settings, next]);
-    expect(host.querySelector('[data-surface-id="show-9"] button.btn')).toBeNull();
+  test("a waiting question leaves the live settings of a turn shown, outside the dock", async () => {
+    const { host } = await mount([realSurface("turn-3"), surface("show-9", "thread", { live: true, turn: 3 }), realSurface("ask-8")]);
+    expect([
+      !!host.querySelector('.agent-turn [data-surface-id="show-9"] button.btn'),
+      !!host.querySelector('.agent-dock [data-surface-id="show-9"]'),
+      !!host.querySelector('.agent-dock [data-surface-id="ask-8"]'),
+    ]).toEqual([true, false, true]);
   });
 
   test("« Tour en cours » ramène en bas et se cache", async () => {
@@ -492,5 +456,72 @@ describe("annuler un tour depuis son reçu", () => {
     setMessages("de", [await ftl("en"), await ftl("de")]);
     const { host } = await mount([realSurface("turn-3"), realSurface("report-8")], "idle", { undoTurn: 3, onUndoTurn: () => {} });
     expect(undoButton(host)?.textContent).toContain("Diese Runde rückgängig machen");
+  });
+});
+
+describe("AgentThread offers", () => {
+  /** A live box an agent turn opened, titled `title`, at `place`. */
+  const offered = (id: string, place: Surface["place"], title: string): Surface => ({
+    id,
+    place,
+    turn: 1,
+    live: true,
+    question: false,
+    messages: [
+      { version: "v0.9", createSurface: { surfaceId: id, catalogId: CATALOG_ID } },
+      { version: "v0.9", updateComponents: { surfaceId: id, components: [{ id: "root", component: "Text", text: title }] } },
+    ] as unknown as Surface["messages"],
+  });
+
+  async function mountOffers(list: Surface[], openOffer: string | null = null) {
+    const opened: string[] = [];
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    const routed = routeSurfaces(list, null);
+    await act(async () => {
+      root.render(
+        createElement(AgentThread, {
+          ...routed,
+          state: "idle",
+          openOffer,
+          onOpenOffer: (id: string) => opened.push(id),
+          onAction: () => {},
+          onNewConversation: () => {},
+          onError: () => {},
+        }),
+      );
+    });
+    await act(async () => new Promise((r) => setTimeout(r, 0)));
+    return { host, opened };
+  }
+
+  test("AgentThread with a popover offer shows its chip in its turn", async () => {
+    const { host } = await mountOffers([surface("turn-1", "thread", { turn: 1 }), offered("host-packs", "popover", "Packs")]);
+    const chip = host.querySelector(".agent-turn .agent-offer");
+    expect([chip?.textContent, chip?.getAttribute("data-popover-anchor")]).toEqual(["ui-offer-open", "host-packs@chip"]);
+  });
+
+  test("AgentThread with an inspector offer labels its chip as offered settings", async () => {
+    const { host } = await mountOffers([offered("show-2", "inspector", "Fond")]);
+    expect(host.querySelector(".agent-turn .agent-offer")?.textContent).toBe("ui-offer-settings");
+  });
+
+  test("AgentThread chip click opens its offer", async () => {
+    const { host, opened } = await mountOffers([offered("host-packs", "popover", "Packs")]);
+    await act(async () => (host.querySelector(".agent-offer") as HTMLButtonElement).click());
+    expect(opened).toEqual(["host-packs"]);
+  });
+
+  test("AgentThread with an inline offer open renders it under its chip", async () => {
+    const { host } = await mountOffers([offered("show-2", "inspector", "Fond")], "show-2");
+    expect(host.querySelector(".agent-turn .agent-offer + [data-surface-id='show-2']")?.textContent).toContain("Fond");
+  });
+
+  test("AgentThread chip label carries the offer's title", async () => {
+    setMessages("en", [await ftl("en")]);
+    const { host } = await mountOffers([offered("host-packs", "popover", "Packs")]);
+    expect(host.querySelector(".agent-offer")?.textContent).toBe(t("ui-offer-open", { title: "Packs" }));
   });
 });

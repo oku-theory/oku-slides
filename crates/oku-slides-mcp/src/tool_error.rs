@@ -35,6 +35,8 @@ pub(crate) enum ToolError {
     NoTurn { tool: &'static str, backtrace: Backtrace },
     #[snafu(display("the turn of this call is over: nothing was shown"))]
     TurnOver { backtrace: Backtrace },
+    #[snafu(display("no turn to attach this box to: nothing was shown"))]
+    NoBoxTurn { backtrace: Backtrace },
     #[snafu(display("file already open in another tab"))]
     OpenElsewhere { backtrace: Backtrace },
     #[snafu(display("no file yet: give an absolute path"))]
@@ -106,10 +108,10 @@ impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
             A2uiElsewhere, A2uiHostOnly, A2uiUnknown, Arguments, ContinueInOtherTab, Denied, EmptyDictationChange,
-            EmptyInterface, HistoryIndex, HistoryNotOpened, Hub, NoFile, NoPack, NoTurn, NotShown, OpenElsewhere,
-            PackChange, PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Playbook, Response, RewriteText,
-            Session, Setting, SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver, UnexpectedAction,
-            UnknownLocale, UnknownTool, UsageBadRange, UsageNoDeck, Voice,
+            EmptyInterface, HistoryIndex, HistoryNotOpened, Hub, NoBoxTurn, NoFile, NoPack, NoTurn, NotShown,
+            OpenElsewhere, PackChange, PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Playbook, Response,
+            RewriteText, Session, Setting, SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver,
+            UnexpectedAction, UnknownLocale, UnknownTool, UsageBadRange, UsageNoDeck, Voice,
         };
         match self {
             Arguments { source, .. } => {
@@ -122,6 +124,7 @@ impl Localize for ToolError {
             Denied { .. } => l.tr("agent-error-denied"),
             NoTurn { tool, .. } => l.tr_with("agent-error-no-turn", &[("tool", (*tool).into())]),
             TurnOver { .. } => l.tr("agent-error-turn-over"),
+            NoBoxTurn { .. } => l.tr("agent-error-no-box-turn"),
             OpenElsewhere { .. } => l.tr("agent-open-elsewhere"),
             NoFile { .. } => l.tr("agent-error-no-file"),
             PathRelative { .. } => l.tr("agent-error-path-relative"),

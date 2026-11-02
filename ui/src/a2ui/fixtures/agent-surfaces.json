@@ -1121,6 +1121,100 @@
     ]
   },
   {
+    "id": "report-10",
+    "place": "thread",
+    "turn": 3,
+    "live": false,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "report-10",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "report-10",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "children": [
+                "card",
+                "traces"
+              ]
+            },
+            {
+              "id": "card",
+              "component": "Receipt",
+              "title": "Slide 4 : fond bleu nuit",
+              "facts": [
+                "titre en blanc",
+                "surtitre bleu clair"
+              ],
+              "swatch": "#00154e"
+            },
+            {
+              "id": "trace-0",
+              "component": "Button",
+              "label": "Ventes du trimestre : 2 modifications",
+              "action": {
+                "event": {
+                  "name": "trace",
+                  "context": {
+                    "element": "e-2",
+                    "pane": false,
+                    "slide": "s-4"
+                  }
+                }
+              }
+            },
+            {
+              "id": "trace-1",
+              "component": "Button",
+              "label": "Chiffre d'affaires : données modifiées",
+              "action": {
+                "event": {
+                  "name": "trace",
+                  "context": {
+                    "element": "e-3",
+                    "pane": true,
+                    "slide": "s-4"
+                  }
+                }
+              }
+            },
+            {
+              "id": "trace-2",
+              "component": "Text",
+              "text": "Ancienne note : n'existe plus",
+              "variant": "caption"
+            },
+            {
+              "id": "traces",
+              "component": "Row",
+              "children": [
+                "trace-0",
+                "trace-1",
+                "trace-2"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "report-10",
+          "value": {}
+        }
+      }
+    ]
+  },
+  {
     "id": "render-9",
     "place": "thread",
     "turn": 3,
@@ -1431,8 +1525,90 @@
     ]
   },
   {
-    "id": "host-theme-picker",
+    "id": "host-element",
     "place": "thread",
+    "live": true,
+    "question": false,
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "host-element",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "host-element",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "child": "body"
+            },
+            {
+              "id": "body",
+              "component": "Column",
+              "children": [
+                "title",
+                "f0"
+              ]
+            },
+            {
+              "id": "title",
+              "component": "Text",
+              "text": "Paramètres de Forme",
+              "variant": "h4"
+            },
+            {
+              "id": "f0",
+              "component": "Select",
+              "label": "Forme",
+              "value": {
+                "path": "/f0"
+              },
+              "options": [
+                {
+                  "id": "a",
+                  "label": "Deux colonnes"
+                },
+                {
+                  "id": "b",
+                  "label": "Citation",
+                  "hint": "sobre"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "param",
+                  "context": {
+                    "field": 0,
+                    "key": "shape",
+                    "value": {
+                      "path": "/f0"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "host-element",
+          "value": {
+            "f0": "a"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "host-theme-picker",
+    "place": "popover",
     "live": true,
     "question": false,
     "messages": [
@@ -1534,7 +1710,7 @@
   },
   {
     "id": "host-packs",
-    "place": "thread",
+    "place": "popover",
     "live": true,
     "question": false,
     "messages": [
@@ -2190,7 +2366,7 @@
   },
   {
     "id": "host-voice",
-    "place": "thread",
+    "place": "popover",
     "live": true,
     "question": false,
     "messages": [
@@ -2612,7 +2788,7 @@
   },
   {
     "id": "host-voice",
-    "place": "thread",
+    "place": "popover",
     "live": true,
     "question": false,
     "messages": [
@@ -2927,7 +3103,7 @@
   },
   {
     "id": "host-voice",
-    "place": "thread",
+    "place": "popover",
     "live": true,
     "question": false,
     "messages": [
@@ -3246,7 +3422,7 @@
   },
   {
     "id": "host-voice",
-    "place": "thread",
+    "place": "popover",
     "live": true,
     "question": false,
     "messages": [

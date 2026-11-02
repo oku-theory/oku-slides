@@ -2,7 +2,7 @@ use oku_slides_i18n::Localizer;
 use serde_json::json;
 use speculoos::prelude::*;
 
-use crate::agent::{AskConfirm, Surface, forms};
+use crate::agent::{AskConfirm, Surface, TRACE_EVENT, forms};
 
 /// Une surface quelconque avec un modèle de données racine (vide).
 fn surface() -> Surface {
@@ -205,4 +205,25 @@ fn apply_patch_nested_removal_drops_the_key() {
     };
     s.apply_patch(&[delete]);
     assert_that!(root_value(&s)).is_equal_to(json!({"steps": [{"n": 0}]}));
+}
+
+#[test]
+fn without_actions_keeps_trace_labels_as_text() {
+    let mut s = forms::confirm("c", &AskConfirm { message: "Ok ?".into(), danger: false }, &Localizer::new(Some("fr")));
+    if let oku_slides_a2ui::ServerBody::UpdateComponents(u) = &mut s.messages[1].body {
+        u.components = vec![
+            oku_slides_a2ui::Component::row("root", &["t"]),
+            oku_slides_a2ui::Component::button(
+                "t",
+                "Ventes : 1 modification",
+                false,
+                oku_slides_a2ui::Action::named(TRACE_EVENT),
+            ),
+        ];
+    }
+    let json = serde_json::to_value(s.without_actions()).unwrap();
+    assert_that!(json["messages"][1]["updateComponents"]["components"].clone()).is_equal_to(json!([
+        {"id": "root", "component": "Row", "children": ["t"]},
+        {"id": "t", "component": "Text", "text": "Ventes : 1 modification", "variant": "caption"}
+    ]));
 }

@@ -170,6 +170,7 @@ temporary directory to keep your own data untouched.
 | ⌘T, ⌘W, ⌘⇧N | New tab, close tab, new window |
 | ⌃Tab, ⌃⇧Tab | Next, previous tab |
 | ⌘⇧G | Show the guides |
+| ⌘⇧E | Show or hide the inspector |
 | ⌘K | Type an instruction for the agent |
 | ⌘1…⌘9 | Go to tab n (⌘9: the last one) |
 | ⌘? | App help (read-only deck in French or English, otherwise English; `docs/aide/`) |
@@ -180,7 +181,7 @@ deck's widget packs.
 ### Charts, tables, widgets
 
 - **Charts**: a subset of ECharts options rendered to SVG (`oku-slides-chart`); the
-  data is edited in a grid in the side panel.
+  data is edited in a grid in the data pane under the stage (the inspector's Data button).
 - **Tables**: the same data grid; header row, first column as header, striped rows
   and per-column alignment (automatic puts numbers at the end). A chart converts to
   a table and back.

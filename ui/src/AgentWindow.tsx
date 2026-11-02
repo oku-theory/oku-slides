@@ -18,8 +18,10 @@ import { AgentPanel, IDLE_AGENT, type AgentApi, type AgentHandle, type ThreadMod
 import { draftActions } from "./agent/draftActions";
 import { subscribeHost } from "./agent/events";
 import { insertWithAck, linkTransport, onlyFor, type LinkContext, type LinkShortcut, type LinkTransport } from "./agent/link";
-import { createSlot } from "./agent/slot";
-import { routeStaged } from "./agent/surfaces";
+import { createSlot, SlotView } from "./agent/slot";
+import { isReceipt, routeStaged } from "./agent/surfaces";
+import { fromA2ui } from "./agent/quick";
+import { traceTarget } from "./agent/trace";
 import { agentTarget } from "./agent/target";
 import { useDraft } from "./agent/useDraft";
 import { useAgentAvailability } from "./agent/useAgentAvailability";
@@ -28,12 +30,11 @@ import { useAppearance } from "./useAppearance";
 import { bumpVoiceSeq } from "./voiceSeq";
 import { panelOpen } from "./panelOpen";
 import type { DictationMode } from "./agent/keys";
-import type { QuickTarget } from "./agent/useQuickKeys";
+import { AGENT_WINDOW_PLACES } from "./agent/useQuickKeys";
 
 /** Numéro du prochain raccourci relayé : jamais remis à zéro, même quand l'onglet suivi change. */
 let remoteSeq = 0;
 const FOLLOW: ThreadMode = { kind: "follow" };
-const DOCK_ONLY: QuickTarget["kind"][] = ["dock"];
 const NO_UI: AgentUi = { slide: null, element: null, field: null, editing: false, widget: null };
 const NOOP = () => {};
 /** Délai avant de relire l'instantané quand le contexte change (vocabulaire, miniatures). */
@@ -160,8 +161,10 @@ export function AgentWindowFor({
   const [remote, setRemote] = useState<{ seq: number; key: LinkShortcut } | undefined>();
   const [status, setStatus] = useState(IDLE_AGENT);
   const handle = useRef<AgentHandle>(null);
-  // Jamais affichés : fiches, tiroir et fenêtre restent dans la fenêtre principale.
-  const [slots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }));
+  // Never shown: sheets, drawer and modal stay in the main window. The popover slot holds the
+  // dictation gear's box, which opens in the window showing the gear.
+  // The inspector slot stays empty: chip-opened offers render under their chip here (`offersInline`).
+  const [slots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot() }));
   const { say, node: toastNode } = useToast();
 
   const draft = useDraft(host.agent.setDraft);
@@ -260,15 +263,22 @@ export function AgentWindowFor({
         mode={FOLLOW}
         route={route}
         ui={context?.ui ?? NO_UI}
+        selected={context?.ui.element ?? null}
         keysOff={context?.keysOff ?? false}
-        keyPlaces={DOCK_ONLY}
+        keyPlaces={AGENT_WINDOW_PLACES}
         thread
         thumbs={thumbs}
         slots={slots}
         handle={handle}
         // Host settings (widget, target) stay in the main window; the packs panel's "Open" on the
-        // theme or pack row asks the workspace for its tab, as the main window does.
+        // theme or pack row asks the workspace for its tab, as the main window does. A receipt's
+        // trace acts in the main window, over the link.
         onHostAction={(s, a) => {
+          const target = isReceipt(s) ? traceTarget(fromA2ui(a)) : null;
+          if (target) {
+            transport.send({ to: "main", kind: "reveal", tab, target });
+            return true;
+          }
           const open = panelOpen(s, a);
           if (open === null) return false;
           const opened = open.kind === "theme" ? workspace.openTheme(tab, open.id) : workspace.openPack(tab, open.id, null);
@@ -290,6 +300,7 @@ export function AgentWindowFor({
         say={say}
         subscribe={host.subscribe}
         onAttach={attach}
+        offersInline
       />
       <DictationDraft
         text={draft.state.text}
@@ -307,6 +318,7 @@ export function AgentWindowFor({
         onDiscard={draft.close}
       />
       {dictation(actions.onDictated)}
+      <SlotView slot={slots.popover} />
       {toastNode}
     </div>
   );

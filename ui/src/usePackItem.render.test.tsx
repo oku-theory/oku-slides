@@ -39,7 +39,7 @@ function snapOf(o: {
     widgets: { deck: { id: "p", version } },
     history: history ? {} : null,
     slides: items.map((n, i) => ({ id: itemSlide(kind, n), kind: "essentiel/content", title: null, page: i + 1, hash: `h${i}` })),
-    ui: { slide, ghosts: false, pile: null, notes: null, widget, code: false, folded: [], preview_span: "full" },
+    ui: { slide, ghosts: false, pile: null, notes: null, widget, code: false, folded: [], preview_span: "full", inspector: false, data_pane: false },
     guides: guides ? { guides: {}, max_chars: 100, id: "id-1", version: "v1", origin: "local", approved: true, approvable: false, kept_awaiting: false } : null,
   } as unknown as Snapshot;
 }

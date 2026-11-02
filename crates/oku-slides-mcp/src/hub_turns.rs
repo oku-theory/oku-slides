@@ -2,7 +2,7 @@
 
 use oku_slides_core::GuideKind;
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
-use oku_slides_session::agent::{KEPT_TURNS, Surface};
+use oku_slides_session::agent::{KEPT_TURNS, Place, Surface, Trace};
 
 use uuid::Uuid;
 
@@ -223,7 +223,9 @@ impl SurfaceHub {
         true
     }
 
-    /// Fige la surface `id` : elle quitte le dock pour son tour, en lecture seule, avec ses dernières valeurs.
+    /// Freezes surface `id`: read-only in its turn of the thread, with its last values.
+    ///
+    /// An inspector offer goes back to the thread too, where its turn shows it.
     pub fn freeze(&self, id: &str) {
         let frozen = {
             let mut state = self.state();
@@ -234,6 +236,7 @@ impl SurfaceHub {
             // En lecture seule : ses actions n'auraient plus de destinataire.
             let mut frozen = open.without_actions();
             frozen.live = false;
+            frozen.place = Place::Thread;
             *open = frozen.clone();
             let turn = frozen.turn;
             state.shows.insert(id.to_owned(), Shown::Static { turn, plain: None, expired: false, report: false });
@@ -330,7 +333,7 @@ impl SurfaceHub {
         }
         self.mark_guide_writes_listed(turn, facts.len());
         let id = self.next_id("report");
-        let shown = fallback(&id, "", &facts, &self.localizer.current())
+        let shown = fallback(&id, "", &facts, &[], &self.localizer.current())
             .is_some_and(|card| self.put_static(turn, card, Admit::InThread));
         if !shown {
             tracing::debug!(turn, "late guide writes not shown: the turn left the thread");
@@ -342,28 +345,40 @@ impl SurfaceHub {
         self.state().reported.contains(&turn)
     }
 
+    /// The traces of turn `turn`, as its tab closed it, for its fallback receipt (`end_turn`).
+    pub fn note_turn_traces(&self, turn: u32, traces: Vec<Trace>) {
+        let mut state = self.state();
+        // Only a turn of the thread gets a receipt: an evicted or cleared one keeps nothing.
+        if state.live_turns.contains(&turn) && !traces.is_empty() {
+            state.traces.insert(turn, traces);
+        }
+    }
+
     /// Fin du tour `turn` : plus de tour en cours, et reçu de repli si l'agent n'en a pas fait.
+    ///
+    /// The fallback lists the turn's traces (`note_turn_traces`), dropped here either way.
     pub fn end_turn(&self, turn: u32, narration: &str) {
-        {
-            // Plus de tour ouvert : un appel tardif de ce tour est refusé (voir `turn`).
+        let traces = {
+            // No open turn any more: a late call of this turn is refused (see `turn`).
             let mut state = self.state();
             if state.turn == Some(turn) {
                 state.turn = None;
             }
-        }
+            state.traces.remove(&turn).unwrap_or_default()
+        };
         if self.has_report(turn) {
             // Writes the report could not list (made after it, or while it was built).
             self.show_unlisted_guide_writes(turn);
             return;
         }
         let written = self.guide_writes(turn);
-        if narration.trim().is_empty() && written.is_empty() {
+        if narration.trim().is_empty() && written.is_empty() && traces.is_empty() {
             return;
         }
         self.mark_guide_writes_listed(turn, written.len());
         let id = self.next_id("report");
-        if let Some(surface) = fallback(&id, narration, &written, &self.localizer.current()) {
-            // Le tour n'est plus ouvert, mais son reçu de repli y va tant qu'il est dans le fil.
+        if let Some(surface) = fallback(&id, narration, &written, &traces, &self.localizer.current()) {
+            // The turn is closed, but its fallback receipt goes to it while it is in the thread.
             self.put_report(turn, ReceiptSurfaces { surface, plain: None }, Admit::InThread);
         }
     }
@@ -382,6 +397,7 @@ impl SurfaceHub {
             state.reported.remove(&n);
             state.guide_writes.remove(&n);
             state.guide_listed.remove(&n);
+            state.traces.remove(&n);
             Self::thread_ids(&state, |t| t == n)
         };
         self.close_all(ids);
@@ -404,6 +420,7 @@ impl SurfaceHub {
                 state.reported.remove(t);
                 state.guide_writes.remove(t);
                 state.guide_listed.remove(t);
+                state.traces.remove(t);
             }
             ids
         };

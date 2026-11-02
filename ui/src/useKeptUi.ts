@@ -1,5 +1,6 @@
 // The interface state the host keeps for the resume: current slide, the stage's ghosts,
-// column widths, widget code (shown, width), folded sections, a pack tab's selected item and preview slot.
+// column widths, widget code (shown, width), folded sections, a pack tab's selected item and preview slot,
+// and whether a deck tab's inspector and data pane are open.
 
 import { useEffect, useState } from "react";
 import type { PileSectionName, PreviewSpan, UiOrder, UiState } from "./api";
@@ -43,6 +44,11 @@ export function viewToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean;
   return (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "g";
 }
 
+/** Whether the key is ⌘⇧E (Ctrl+Shift+E elsewhere), which shows or hides a deck tab's inspector. */
+export function inspectorToggle(e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }): boolean {
+  return (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "e";
+}
+
 type KeyLike = Parameters<typeof viewToggle>[0] & { preventDefault(): void };
 
 /** Largeurs choisies aux séparateurs, en px ; `null` : largeur par défaut. */
@@ -68,8 +74,18 @@ export interface KeptUi {
   setPreviewSpan: (span: PreviewSpan) => void;
   /** Montre ou cache les repères des champs vides (demandé par l'agent). */
   setGhosts: (on: boolean) => void;
-  /** Prend ⌘⇧G (et empêche l'action par défaut) ; dit s'il a pris la touche. */
-  handleKey: (e: KeyLike) => boolean;
+  /** A deck tab's inspector column is open. */
+  inspector: boolean;
+  /** Opens or closes the inspector (and has the host keep it). */
+  setInspector: (open: boolean) => void;
+  /** A deck tab's data pane under the stage is open. */
+  dataPane: boolean;
+  /** Opens or closes the data pane (and has the host keep it). */
+  setDataPane: (open: boolean) => void;
+  /**
+   * Takes ⌘⇧G, and ⌘⇧E in a deck tab (`deck`), preventing the default; says whether it took the key.
+   */
+  handleKey: (e: KeyLike, deck?: boolean) => boolean;
 }
 
 /**
@@ -92,6 +108,8 @@ export function useKeptUi(
   const [code, setCode] = useState(false);
   const [folded, setFoldedList] = useState<PileSectionName[]>([]);
   const [previewSpan, setPreviewSpan] = useState<PreviewSpan>("full");
+  const [inspector, setInspector] = useState(false);
+  const [dataPane, setDataPane] = useState(false);
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
   const [restored, setRestored] = useState(false);
@@ -102,23 +120,30 @@ export function useKeptUi(
     setCode(kept.code);
     setFoldedList(kept.folded);
     setPreviewSpan(kept.preview_span);
+    setInspector(kept.inspector);
+    setDataPane(kept.data_pane);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    send(save, { slide: current, ghosts, ...columns, widget: item.widget, code, folded, preview_span: previewSpan }, timers);
+    const ui = { slide: current, ghosts, ...columns, widget: item.widget, code, folded, preview_span: previewSpan, inspector, data_pane: dataPane };
+    send(save, ui, timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
-  }, [restored, current, ghosts, columns, item.widget, code, folded, previewSpan]);
+  }, [restored, current, ghosts, columns, item.widget, code, folded, previewSpan, inspector, dataPane]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
     setFoldedList((list) => (list.includes(section) === fold ? list : fold ? [...list, section] : list.filter((s) => s !== section)));
-  const handleKey = (e: KeyLike) => {
-    if (!viewToggle(e)) return false;
+  const handleKey = (e: KeyLike, deck = false) => {
+    const toggle = viewToggle(e) ? setGhosts : deck && inspectorToggle(e) ? setInspector : null;
+    if (!toggle) return false;
     e.preventDefault();
-    setGhosts((v) => !v);
+    toggle((v) => !v);
     return true;
   };
-  return { ghosts, columns, setColumns, code, setCode, folded, setFolded, previewSpan, setPreviewSpan, setGhosts, handleKey };
+  return {
+    ghosts, columns, setColumns, code, setCode, folded, setFolded, previewSpan, setPreviewSpan, setGhosts,
+    inspector, setInspector, dataPane, setDataPane, handleKey,
+  };
 }

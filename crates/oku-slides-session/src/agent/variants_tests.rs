@@ -70,3 +70,50 @@ fn params_surface_with_a_pinless_set_theme_template_is_accepted() {
     };
     assert_that!(s.params_surface("p-1", &spec).map(drop)).is_ok();
 }
+
+/// A one-field `show_params` spec on `s`'s first slide.
+fn theme_params(s: &crate::Session) -> super::super::forms::ShowParams {
+    let field: super::super::forms::ParamField = serde_json::from_value(json!({
+        "label": "Thème", "kind": "text", "value": "papier",
+        "op_template": { "op": "set_var", "key": "theme", "value": "$value" }
+    }))
+    .unwrap();
+    super::super::forms::ShowParams {
+        title: "Thème".into(), slide: s.deck().slides[0].id.clone(), fields: vec![field]
+    }
+}
+
+/// The place of `s`'s `show_params` surface.
+fn params_place(s: &crate::Session) -> super::super::forms::Place {
+    s.params_surface("p-1", &theme_params(s)).unwrap().place
+}
+
+#[test]
+fn params_surface_in_deck_mode_is_in_the_inspector() {
+    let mut s = crate::test_support::session();
+    s.begin_turn(1, "x");
+    assert_that!(params_place(&s)).is_equal_to(super::super::forms::Place::Inspector);
+}
+
+#[rstest::rstest]
+#[case::pack(crate::DocumentKind::Pack)]
+#[case::theme(crate::DocumentKind::Theme)]
+#[case::help(crate::DocumentKind::Help)]
+fn params_surface_in_pack_or_theme_tab_stays_in_the_thread(#[case] kind: crate::DocumentKind) {
+    let data = crate::test_support::fresh_dir("oku-slides-params-place-");
+    let mut s = crate::test_support::session_on(data.path());
+    match kind {
+        crate::DocumentKind::Pack => s.open_pack_tab_here(crate::pack::ESSENTIEL_PACK, None).unwrap(),
+        crate::DocumentKind::Theme => s.open_theme_here(crate::theme::PAPIER_THEME).unwrap(),
+        crate::DocumentKind::Help => s.open_help("fr", None).unwrap(),
+        crate::DocumentKind::Deck => {}
+    }
+    s.begin_turn(1, "x");
+    assert_that!(params_place(&s)).is_equal_to(super::super::forms::Place::Thread);
+}
+
+#[test]
+fn params_surface_without_turn_stays_in_the_thread() {
+    let s = crate::test_support::session();
+    assert_that!(params_place(&s)).is_equal_to(super::super::forms::Place::Thread);
+}

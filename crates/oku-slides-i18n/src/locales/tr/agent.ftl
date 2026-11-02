@@ -87,6 +87,17 @@ agent-turn-ended = Tur bitti ({ $stop }).
 agent-choice-cancelled = Soru iptal edildi
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Neden
+agent-trace = { $name }: { $count ->
+    [one] { $count } değişiklik
+   *[other] { $count } değişiklik
+}
+agent-trace-data = { $name }: veriler değişti
+agent-trace-removed = { $name }: artık yok
+agent-trace-more = { $count ->
+    [one] ve { $count } diğeri
+   *[other] ve { $count } diğeri
+}
+agent-trace-title = Değiştirilen öğeler
 
 agent-error-file = Dosya okunamadı veya yazılamadı.
 agent-error-unexpected-action = Beklenmeyen eylem: { $action }.
@@ -126,6 +137,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Kullanıcıya orada devam etmesini söyleyin: o sekmenin ajanı bu isteği bilmiyor.
 } Bu sekme olduğu gibi kalır.
 agent-error-turn-over = Bu çağrının turu bitti: hiçbir şey gösterilmedi.
+agent-error-no-box-turn = Bu kutunun bağlanacağı bir tur yok: hiçbir şey gösterilmedi.
 agent-error-no-file = Sunumun henüz bir dosyası yok: mutlak bir yol verin.
 agent-error-path-relative = Yol mutlak olmalıdır.
 agent-error-path-parent = Yol “..” içermemelidir.

@@ -87,6 +87,15 @@ agent-turn-ended = 本轮结束（{ $stop }）。
 agent-choice-cancelled = 问题已取消
 agent-choice-answered = ✓ { $answer }
 agent-report-why = 原因
+agent-trace = { $name }：{ $count ->
+   *[other] { $count }处更改
+}
+agent-trace-data = { $name }：数据已更改
+agent-trace-removed = { $name }：已不存在
+agent-trace-more = { $count ->
+   *[other] 及其他{ $count }项
+}
+agent-trace-title = 已更改的元素
 
 agent-error-file = 无法读取或写入该文件。
 agent-error-unexpected-action = 意外的操作：{ $action }。
@@ -126,6 +135,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] 请让用户在那里继续：该标签页的智能体不知道此请求。
 } 此标签页保持不变。
 agent-error-turn-over = 此调用所在的轮次已结束：未显示任何内容。
+agent-error-no-box-turn = 没有可关联此框的回合：未显示任何内容。
 agent-error-no-file = 演示文稿还没有文件：请提供绝对路径。
 agent-error-path-relative = 路径必须是绝对路径。
 agent-error-path-parent = 路径不能包含“..”。

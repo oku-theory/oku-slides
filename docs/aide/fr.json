@@ -1090,6 +1090,17 @@
         {
          "runs": [
           {
+           "t": "⌘⇧E",
+           "highlight": 1
+          },
+          {
+           "t": "  Afficher ou masquer l'inspecteur"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "⌘C",
            "highlight": 1
           },

@@ -57,7 +57,7 @@ pub(crate) struct SetSettingArgs {
 impl Tools {
     /// Asks the user, then runs `req`; `Changed` if it succeeds.
     pub(crate) async fn guarded(&self, message: String, danger: bool, req: Request) -> CallToolResult {
-        self.guarded_with(message, danger, move |s| s.handle(req).map(|_| ())).await
+        self.guarded_with(message, danger, move |s| s.handle_by_agent(req).map(|_| ())).await
     }
 
     /// Demande à l'utilisateur, puis appelle `f` sur la session de l'onglet ;
@@ -299,7 +299,7 @@ impl Tools {
         if !self.hub.confirm(message, false).await {
             return self.denied();
         }
-        let done = self.with_session(move |s| s.handle(Request::EditTheme { id: info.id, name, ops })).await;
+        let done = self.with_session(move |s| s.handle_by_agent(Request::EditTheme { id: info.id, name, ops })).await;
         self.reply(done, |edited| {
             self.hub.emit(McpEvent::Changed);
             text(edited)

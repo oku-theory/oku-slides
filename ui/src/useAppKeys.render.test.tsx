@@ -45,7 +45,9 @@ async function mount({ snap = SNAP, packTab = true, canAdd = false }: { snap?: S
   const present = mock((_mode: string) => {});
   const goToSlide = mock((_id: string) => {});
   const api = { undo, redo: undo } as unknown as TabApi;
-  const keptUi = { handleKey: () => false } as unknown as KeptUi;
+  /** The `deck` flag of each key handed to the kept UI: true lets ⌘⇧E toggle the inspector. */
+  const deckKeys: boolean[] = [];
+  const keptUi = { handleKey: (_e: unknown, deck = false) => (deckKeys.push(deck), false) } as unknown as KeptUi;
   function Probe() {
     useAppKeys({
       api, snap, view: null, current: snap.slides[0].id, selected: null, editing: null, presenting: null,
@@ -60,7 +62,7 @@ async function mount({ snap = SNAP, packTab = true, canAdd = false }: { snap?: S
   const root = createRoot(host);
   mounted = { root, host };
   await act(async () => root.render(createElement(Probe)));
-  return { host, undo, goToSlide, present, openAdd };
+  return { host, undo, goToSlide, present, openAdd, deckKeys };
 }
 
 const press = (target: EventTarget, init: KeyboardEventInit) =>
@@ -144,5 +146,25 @@ describe("useAppKeys present", () => {
     const { present } = await mount({ snap: deck(false), packTab: false });
     await press(document.body, { key: "Enter", metaKey: true });
     expect(present).not.toHaveBeenCalled();
+  });
+});
+
+describe("useAppKeys inspector toggle", () => {
+  const inspectorKey = { key: "e", code: "KeyE", metaKey: true, shiftKey: true };
+
+  test("useAppKeys cmd shift E in a deck tab may toggle the inspector", async () => {
+    const { deckKeys } = await mount({ snap: DECK, packTab: false });
+    await press(document.body, inspectorKey);
+    expect(deckKeys).toEqual([true]);
+  });
+
+  test.each([
+    ["a read-only deck", { ...DECK, read_only: true } as Snapshot],
+    ["history", { ...DECK, history: {} } as unknown as Snapshot],
+    ["a pack tab", SNAP],
+  ])("useAppKeys cmd shift E in %s never toggles the inspector", async (_, snap) => {
+    const { deckKeys } = await mount({ snap, packTab: snap === SNAP });
+    await press(document.body, inspectorKey);
+    expect(deckKeys).not.toContain(true);
   });
 });

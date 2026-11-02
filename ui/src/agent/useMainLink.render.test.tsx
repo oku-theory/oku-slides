@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import "../test/dom";
 import { memoryTransport } from "../test/link";
 import type { LinkContext } from "./link";
+import type { TraceTarget } from "./trace";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
@@ -18,15 +19,16 @@ const context: LinkContext = { editing: false, ui: { slide: "s1", element: null,
 async function mountLink({ detached = true, insert = (_t: string) => true } = {}) {
   const transport = memoryTransport();
   const written: string[] = [];
+  const revealed: TraceTarget[] = [];
   const Probe = ({ d, c }: { d: boolean; c: LinkContext }) => {
-    useMainLink({ tab: "t-1", detached: d, context: c, insert: (t) => (written.push(t), insert(t)), transport });
+    useMainLink({ tab: "t-1", detached: d, context: c, insert: (t) => (written.push(t), insert(t)), reveal: (x) => revealed.push(x), transport });
     return null;
   };
   const root = createRoot(document.createElement("div"));
   await act(async () => root.render(createElement(Probe, { d: detached, c: context })));
   cleanup = async () => act(async () => root.unmount());
   const rerender = (d: boolean, c: LinkContext) => act(async () => root.render(createElement(Probe, { d, c })));
-  return { transport, written, rerender };
+  return { transport, written, revealed, rerender };
 }
 
 const press = (init: KeyboardEventInit) => act(async () => void window.dispatchEvent(new KeyboardEvent("keydown", init)));
@@ -69,6 +71,13 @@ describe("useMainLink", () => {
     await act(async () => m.transport.send({ to: "main", kind: "insert-cancel", tab: "t-1", id: "i-9" }));
     await act(async () => m.transport.send({ to: "main", kind: "insert", tab: "t-1", id: "i-9", text: "tard" }));
     expect(m.written).toEqual([]);
+  });
+
+  test("useMainLink detached: reveal shows the trace target", async () => {
+    const m = await mountLink();
+    const target = { slide: "s1", element: "e1", pane: true };
+    await act(async () => m.transport.send({ to: "main", kind: "reveal", tab: "t-1", target }));
+    expect(m.revealed).toEqual([target]);
   });
 
   test("useMainLink détaché : insert d'un autre onglet ignoré", async () => {

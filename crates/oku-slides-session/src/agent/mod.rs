@@ -4,6 +4,7 @@
 //! client (`oku-slides-agent`) go through here.
 //! Guides of the packs and themes a tab uses: `guides` (`AgentGuides`).
 //! Pasted images: `attachments` (`AttachmentRef`).
+//! What the agent's tools changed in a turn: `turn_touches`, resolved by `traces` (`Trace`).
 
 mod address;
 pub mod attachments;
@@ -18,6 +19,8 @@ pub mod receipt;
 pub mod render;
 mod surface_ops;
 mod tabs;
+mod traces;
+pub(crate) mod turn_touches;
 pub(crate) mod turn_undo;
 pub mod turn_view;
 mod usage_panel;
@@ -40,6 +43,7 @@ pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
 pub(crate) use tabs::record_in;
 pub use tabs::{Sessions, TabGate, TabOpen, TabSession};
+pub use traces::{TRACE_EVENT, TRACES_SHOWN, Trace, TraceName};
 pub use turn_view::{TurnState, TurnView};
 pub use usage_panel::usage_panel;
 pub use work_dir::{AGENT_CONFIG_NAMES, AgentWorkDir};

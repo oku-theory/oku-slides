@@ -93,6 +93,17 @@ agent-turn-ended = बारी समाप्त ({ $stop })।
 agent-choice-cancelled = प्रश्न रद्द किया गया
 agent-choice-answered = ✓ { $answer }
 agent-report-why = क्यों
+agent-trace = { $name }: { $count ->
+    [one] { $count } बदलाव
+   *[other] { $count } बदलाव
+}
+agent-trace-data = { $name }: डेटा बदला गया
+agent-trace-removed = { $name }: अब मौजूद नहीं है
+agent-trace-more = { $count ->
+    [one] और { $count } अन्य
+   *[other] और { $count } अन्य
+}
+agent-trace-title = बदले गए तत्व
 
 agent-error-file = फ़ाइल पढ़ी या लिखी नहीं जा सकी।
 agent-error-unexpected-action = अनपेक्षित क्रिया: { $action }।
@@ -132,6 +143,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] उपयोगकर्ता से वहीं जारी रखने को कहें: उस टैब का एजेंट इस अनुरोध को नहीं जानता।
 } यह टैब जैसा है वैसा ही रहता है।
 agent-error-turn-over = इस कॉल का टर्न समाप्त हो चुका है: कुछ नहीं दिखाया गया।
+agent-error-no-box-turn = इस बॉक्स को जोड़ने के लिए कोई बारी नहीं है: कुछ भी नहीं दिखाया गया।
 agent-error-no-file = प्रस्तुति की अभी कोई फ़ाइल नहीं है: पूर्ण पथ दें।
 agent-error-path-relative = पथ पूर्ण होना चाहिए।
 agent-error-path-parent = पथ में “..” नहीं होना चाहिए।

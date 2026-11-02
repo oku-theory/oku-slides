@@ -6,8 +6,10 @@ import { join } from "node:path";
 import { contrast, luminance } from "./color";
 
 const own = (f: string) => readFileSync(join(import.meta.dir, f), "utf8");
-/** The app's sheets, loaded in turn by main.tsx (styles.css continued by import.css and pack.css). */
-const APP = ["styles.css", "import.css", "pack.css"].map(own).join("\n");
+/** The app's sheets, loaded in turn by main.tsx (styles.css continued by import.css, pack.css and inspector.css). */
+const APP = ["styles.css", "import.css", "pack.css", "inspector.css"].map(own).join("\n");
+/** The sheet's grid: stage, drawer and data pane in the first column, the inspector in the second. */
+const GRID = own("inspector.css");
 const css = [APP, ...["glass.css", "a2ui/a2ui.css"].map(own)].join("\n");
 
 test("aucun style post-it ne reste dans les feuilles de style", () => {
@@ -110,14 +112,37 @@ test("les boutons slide précédente / suivante restent discrets hors survol", (
 test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu de la recouvrir", () => {
   const drawer = ruleOf(APP, ".sheet-area > .variant-drawer");
   expect(drawer).toBeDefined();
-  expect(drawer).toMatch(/grid-row:\s*2/);
   expect(drawer).toMatch(/overflow-y:\s*auto/);
+  expect(ruleOf(GRID, ".sheet-area > .variant-drawer")).toMatch(/grid-column:\s*1;\s*grid-row:\s*2/);
   expect(APP).not.toMatch(/\.variant-drawer\s*\{[^}]*position:\s*absolute/);
-  const area = ruleOf(APP, ".sheet-area");
-  expect(area).toMatch(/display:\s*grid/);
-  // La scène prend ce qui reste ; le tiroir, sa hauteur.
-  expect(area).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto/);
-  expect(ruleOf(APP, ".sheet-area > .stage-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
+  expect(ruleOf(APP, ".sheet-area")).toMatch(/display:\s*grid/);
+  // La scène prend ce qui reste ; le tiroir puis le volet des données, leur hauteur.
+  expect(ruleOf(GRID, ".sheet-area")).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto/);
+  expect(ruleOf(GRID, ".sheet-area > .stage-panel, .sheet-area > .widget-pane")).toMatch(/grid-column:\s*1;\s*grid-row:\s*1/);
+});
+
+test("the data pane sits under the stage in the sheet's grid, never over it", () => {
+  const pane = ruleOf(GRID, ".sheet-area > .data-pane");
+  expect(pane).toMatch(/grid-column:\s*1;\s*grid-row:\s*3/);
+  expect(pane).toMatch(/max-height:\s*40vh/);
+  expect(APP).not.toMatch(/\.data-pane\s*\{[^}]*position:\s*absolute/);
+});
+
+test("the inspector is a column beside the stage, its width given only when open", () => {
+  expect(ruleOf(GRID, ".sheet-area")).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)\s+var\(--inspector-w,\s*0px\)/);
+  expect(ruleOf(GRID, ".sheet-area.inspector-open")).toMatch(/--inspector-w:\s*280px/);
+  expect(ruleOf(GRID, ".sheet-area > .inspector")).toMatch(/grid-column:\s*2;\s*grid-row:\s*1 \/ 4/);
+});
+
+test("below 1100 px the inspector overlays the stage instead of taking a column", () => {
+  const narrow = GRID.match(/@media \(max-width: 1100px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  expect(ruleOf(narrow, ".sheet-area.inspector-open")).toMatch(/--inspector-w:\s*0px/);
+  const overlay = ruleOf(narrow, ".sheet-area > .inspector") ?? "";
+  expect(overlay).toMatch(/position:\s*absolute/);
+  expect(overlay).toMatch(/inset-inline-end:\s*0/);
+  expect(overlay).toMatch(/width:\s*280px/);
+  // Over the stage and drawer only: the data pane's close button stays reachable.
+  expect(overlay).toMatch(/grid-row:\s*1 \/ 3/);
 });
 
 /** The `color.bg`-style token values of the built-in default theme (Papier), the source of the app's defaults. */

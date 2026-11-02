@@ -53,3 +53,10 @@ export function read(model: Record<string, unknown>, path: string): unknown {
 
 export const isPath = (v: unknown): v is { path: string } =>
   !!v && typeof v === "object" && typeof (v as { path?: unknown }).path === "string";
+
+/** The text of the surface's first `Text` component, its binding read; `""` without one. */
+export function firstText(s: Surface): string {
+  const c = components(s).find((x) => x.component === "Text");
+  const value = c && (isPath(c.text) ? read(dataModel(s), c.text.path) : c.text);
+  return typeof value === "string" ? value.trim() : "";
+}

@@ -47,6 +47,14 @@ function wrapTarget(root: HTMLElement, back: boolean): HTMLElement | null {
   return null;
 }
 
+/** Modal frames open now: a popover leaves them Escape. */
+let openModals = 0;
+
+/** Whether a modal frame (`useModalFrame`, active) is open in this window. */
+export function modalOpen(): boolean {
+  return openModals > 0;
+}
+
 /** Les réglages du cadre. */
 export interface ModalOptions {
   /** Faux : le cadre n'est pas modal. Rien n'est pris (ni focus, ni touches, ni clics). */
@@ -79,9 +87,11 @@ export function useModalFrame(ref: RefObject<HTMLElement | null>, { active = tru
 
   useEffect(() => {
     if (!active) return;
+    openModals++;
     const previous = document.activeElement as HTMLElement | null;
     ref.current?.focus();
     return () => {
+      openModals--;
       // Rendre le focus seulement s'il est encore ici (ou perdu) et que l'élément existe toujours.
       const now = document.activeElement;
       if (previous?.isConnected && (!now || now === document.body || ref.current?.contains(now))) previous.focus();

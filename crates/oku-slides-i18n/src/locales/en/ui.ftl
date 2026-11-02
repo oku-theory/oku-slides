@@ -165,7 +165,6 @@ ui-agent-state-working = The agent is working…
 ui-agent-fallback = Local agent (fallback)
 ui-agent-fallback-reason = Local agent (fallback): { $reason }
 ui-agent-dock = In progress
-ui-agent-dock-settings = Settings
 ui-agent-jump = ↓ Current turn
 ui-agent-tool-input = Arguments
 ui-agent-tool-output = Result
@@ -440,3 +439,15 @@ ui-received-profiles = { $count ->
    *[other] { $count } layout profiles
   }
 ui-received-code = Typst code: { NUMBER($kb) } KB
+ui-trace-gone = This element no longer exists
+ui-inspector = Inspector
+ui-inspector-close = Close the inspector
+ui-inspector-data = Data
+ui-inspector-packs = Packs
+ui-inspector-no-theme = No theme
+ui-inspector-offer = Offered by the agent
+ui-data-pane = Data
+ui-data-pane-close = Close the data
+ui-themes = Themes
+ui-offer-open = Open: { $title }
+ui-offer-settings = Settings offered: { $title }

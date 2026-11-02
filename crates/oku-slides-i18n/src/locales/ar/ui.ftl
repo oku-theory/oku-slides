@@ -177,7 +177,6 @@ ui-agent-state-working = الوكيل يعمل…
 ui-agent-fallback = الوكيل المحلي (بديل)
 ui-agent-fallback-reason = الوكيل المحلي (بديل): { $reason }
 ui-agent-dock = قيد التنفيذ
-ui-agent-dock-settings = الإعدادات
 ui-agent-jump = ↓ الدور الحالي
 ui-agent-tool-input = الوسائط
 ui-agent-tool-output = النتيجة
@@ -448,3 +447,15 @@ ui-received-profiles = { $count ->
    *[other] { $count } ملفات تخطيط
   }
 ui-received-code = شيفرة Typst: { NUMBER($kb) } ك.ب
+ui-trace-gone = لم يعد هذا العنصر موجودًا
+ui-inspector = المفتّش
+ui-inspector-close = إغلاق المفتّش
+ui-inspector-data = البيانات
+ui-inspector-packs = الحزم
+ui-inspector-no-theme = بلا سمة
+ui-inspector-offer = مقترح من الوكيل
+ui-data-pane = البيانات
+ui-data-pane-close = إغلاق البيانات
+ui-themes = السمات
+ui-offer-open = فتح: { $title }
+ui-offer-settings = إعدادات مقترحة: { $title }

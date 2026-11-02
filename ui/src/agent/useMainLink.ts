@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 import { dictationShortcut, typingShortcut } from "./keys";
 import { onlyFor, type LinkContext, type LinkShortcut, type LinkTransport } from "./link";
+import type { TraceTarget } from "./trace";
 
 export interface MainLinkInput {
   tab: string;
@@ -12,13 +13,15 @@ export interface MainLinkInput {
   context: LinkContext;
   /** Écrit le texte dicté au curseur ; `false` : plus d'édition en cours. */
   insert: (text: string) => boolean;
+  /** Shows a receipt trace's element clicked in the agent window (`useTrace`). */
+  reveal: (target: TraceTarget) => void;
   transport: LinkTransport;
 }
 
-/** Agent détaché : publie le contexte, répond à hello et insert, relaie ⌘D / ⌘⇧D / ⌘K bruts. */
-export function useMainLink({ tab, detached, context, insert, transport }: MainLinkInput): void {
-  const latest = useRef({ context, insert });
-  latest.current = { context, insert };
+/** Agent détaché : publie le contexte, répond à hello, insert et reveal, relaie ⌘D / ⌘⇧D / ⌘K bruts. */
+export function useMainLink({ tab, detached, context, insert, reveal, transport }: MainLinkInput): void {
+  const latest = useRef({ context, insert, reveal });
+  latest.current = { context, insert, reveal };
   // Clé du contexte, calculée seulement détaché : une égalité profonde en guise de dépendance.
   const contextKey = detached ? JSON.stringify(context) : "";
   useEffect(() => {
@@ -31,6 +34,7 @@ export function useMainLink({ tab, detached, context, insert, transport }: MainL
     const cancelled: string[] = [];
     return transport.listen(onlyFor("main", tab, (m) => {
       if (m.kind === "hello") transport.send({ to: "agent", kind: "context", tab, context: latest.current.context });
+      if (m.kind === "reveal") latest.current.reveal(m.target);
       if (m.kind === "insert-cancel") {
         cancelled.push(m.id);
         if (cancelled.length > 64) cancelled.shift();

@@ -76,15 +76,12 @@ pub(crate) struct ThemeExtendsArgs {
 pub(crate) struct FocusArgs {
     /// Id of the slide to show.
     pub slide: String,
-    /// Id of an element of that slide to show; absent: the slide alone.
-    #[serde(default)]
-    pub element: Option<String>,
 }
 
 impl Tools {
-    /// A request that changes the session; `Changed` if it succeeds.
+    /// A request of the agent that changes the session (traced in its turn); `Changed` if it succeeds.
     pub(crate) async fn change(&self, req: Request) -> CallToolResult {
-        let done = self.with_session(move |s| s.handle(req).map(|_| ())).await;
+        let done = self.with_session(move |s| s.handle_by_agent(req).map(|_| ())).await;
         let ok = done.is_ok();
         let result = self.reply(done, |()| {
             self.hub.emit(McpEvent::Changed);
@@ -185,8 +182,8 @@ impl Tools {
 
     pub(crate) fn focus(&self, args: Value) -> CallToolResult {
         match self.parse::<FocusArgs>(args) {
-            Ok(FocusArgs { slide, element }) => {
-                self.hub.emit(McpEvent::Focus { slide, element });
+            Ok(FocusArgs { slide }) => {
+                self.hub.emit(McpEvent::Focus { slide });
                 self.json_result(&json!({ "ok": true }))
             }
             Err(r) => r,

@@ -3,9 +3,8 @@
 import { useRef } from "react";
 import { QuickHintsContext } from "../a2ui/quickHints";
 import { SurfaceView } from "../a2ui/SurfaceView";
+import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
-import type { QuickAction } from "./quick";
-import { fromA2ui } from "./quick";
 import { useModalFrame } from "../modalFrame";
 
 /** Ce que reçoit une surface de l'agent : sa description et où envoyer ses actions. */
@@ -13,7 +12,8 @@ export interface SurfaceProps {
   surface: Surface;
   /** La surface reçoit les touches rapides (`useQuickKeys`) : ses chiffres 1–4 et le rappel des touches s'affichent. */
   hints: boolean;
-  onAction: (surface: Surface, action: QuickAction) => void;
+  /** The raw A2UI action: the panel may handle it as the host's before sending it. */
+  onAction: (surface: Surface, action: A2uiClientAction) => void;
   onError: (message: string) => void;
 }
 
@@ -34,7 +34,7 @@ export function AgentSurfaceBox({
   label,
   caption,
   modal = false,
-}: SurfaceProps & { className: string; role: "dialog" | "alertdialog"; label: string; caption?: string; modal?: boolean }) {
+}: SurfaceProps & { className: string; role: "dialog" | "alertdialog" | "group"; label: string; caption?: string; modal?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const { onClickCapture } = useModalFrame(ref, { active: modal });
 
@@ -45,13 +45,13 @@ export function AgentSurfaceBox({
       className={`${className} agent-keys`}
       role={role}
       aria-label={label}
-      aria-modal={modal || undefined}
+      aria-modal={modal}
       data-surface-id={surface.id}
       onPointerDown={(e) => e.stopPropagation()}
       onClickCapture={onClickCapture}
     >
       <QuickHintsContext.Provider value={hints}>
-        <SurfaceView surfaceId={surface.id} messages={surface.messages} onAction={(a) => onAction(surface, fromA2ui(a))} onError={onError} />
+        <SurfaceView surfaceId={surface.id} messages={surface.messages} onAction={(a) => onAction(surface, a)} onError={onError} />
       </QuickHintsContext.Provider>
       {hints && caption && <p className="caption">{caption}</p>}
     </div>

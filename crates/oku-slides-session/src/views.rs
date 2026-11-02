@@ -175,14 +175,19 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// What the interface has the host keep: slide, ghosts, columns, item and code.
+/// What the interface has the host keep: slide, ghosts, columns, item, code and panes.
 ///
 /// The current slide, ghosts, column widths, a pack tab's selected item, the widget source
-/// code shown and its width, and the pile's folded sections. Unknown fields of an older
+/// code shown and its width, the pile's folded sections, and whether the inspector and the
+/// data pane are open. Unknown fields of an older
 /// `state.json` (`board`, `code_place`, `code_height`, removed by t-526; `case`, removed by t-541;
 /// `widgets`, the widget sub-tabs removed by t-1244; `grid`, shown only while dragging since
 /// t-1283) are ignored when read.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent interface toggles, kept as JSON booleans in state.json and the ui request"
+)]
 pub struct UiState {
     /// Id of the current slide; none if the deck is empty.
     #[serde(default)]
@@ -208,6 +213,12 @@ pub struct UiState {
     /// Folded sections of the pile (thumbnails); all open by default.
     #[serde(default)]
     pub folded: Vec<PileSection>,
+    /// A deck tab's inspector column is open; closed by default and in an older `state.json`.
+    #[serde(default)]
+    pub inspector: bool,
+    /// A deck tab's data pane under the stage is open; closed by default and in an older `state.json`.
+    #[serde(default)]
+    pub data_pane: bool,
 }
 
 /// A foldable section of the interface: the slide or layout thumbnails.

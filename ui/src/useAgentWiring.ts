@@ -13,6 +13,7 @@ import { agentUi } from "./agent/ui";
 import { useAgentAvailability } from "./agent/useAgentAvailability";
 import { useAgentFocus } from "./agent/useAgentFocus";
 import { useMainLink } from "./agent/useMainLink";
+import type { TraceTarget } from "./agent/trace";
 import type { ImportJob } from "./useImportJob";
 import { anchorBox } from "./stageFields";
 import type { useDictation } from "./useDictation";
@@ -33,8 +34,10 @@ interface AgentWiringContext {
   packTab: boolean;
   importJob: ImportJob | null;
   showSlide: (id: string) => void;
-  setSelected: (id: string | null) => void;
 }
+
+/** An agent focus never changes the selection. */
+const KEEP_SELECTION = () => {};
 
 /** Where anchored cards land: on the slide shown, nowhere in a pack tab (no stage). */
 export function stageAnchors(view: SlideView | null, current: string | null, packTab: boolean) {
@@ -46,13 +49,12 @@ export function stageAnchors(view: SlideView | null, current: string | null, pac
 /** L'état de l'agent pour cet onglet, et la poignée vers son panneau. */
 export function useAgentWiring({
   tab, snap, view, current, selected, editing, editField, packItem, packTab, importJob, showSlide,
-  setSelected,
 }: AgentWiringContext) {
   // --- Agent ------------------------------------------------------------------
   // Son état vit dans `AgentPanel` : un morceau de réponse ne re-rend pas `App`. `App` n'en reçoit
   // que des valeurs simples (`agentStatus`) et une poignée (consigne, action, arrêt du tour).
   const [agent] = useState(() => agentApi(tab));
-  const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot() }));
+  const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot() }));
   const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
   const agentAvailability = useAgentAvailability(agent, importJob !== null);
   // Les fiches ancrées se posent sous leur élément, sur la slide affichée.
@@ -69,8 +71,10 @@ export function useAgentWiring({
   const promptAgent = (text: string, images: string[]) => agentHandle.current?.prompt(text, images) ?? Promise.resolve(false);
   const cancelAgent = () => agentHandle.current?.cancel();
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => agentHandle.current?.onSurfaceAction(s, a);
-  // Un focus de l'agent pendant l'édition d'un texte attend la fin de l'édition.
-  const onAgentFocus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: setSelected });
+  // An agent focus shows its slide only (the agent never selects); during text editing it waits
+  // for the edit to end. The select path serves traces only (`useTrace`).
+  const focus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: KEEP_SELECTION });
+  const onAgentFocus = (slide: string) => focus(slide, null);
   return {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
     agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
@@ -89,12 +93,14 @@ interface AgentLinkContext {
   /** A pack tab: its editor takes the keys, the agent's quick keys stay off. */
   packTab: boolean;
   deckLook: string;
+  /** Shows a receipt trace clicked in the agent window. */
+  reveal: (target: TraceTarget) => void;
 }
 
 /** Le lien avec la fenêtre détachée de l'agent. Elle apprend d'ici l'onglet, et y écrit. */
 export function useAgentLink({
   tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab,
-  deckLook,
+  deckLook, reveal,
 }: AgentLinkContext) {
   const [transport] = useState(() => linkTransport());
   const linkContext = useMemo<LinkContext>(
@@ -110,5 +116,5 @@ export function useAgentLink({
       packTab, deckLook,
     ],
   );
-  useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, transport });
+  useMainLink({ tab, detached: !!agentDetached, context: linkContext, insert: dictation.insertText, reveal, transport });
 }

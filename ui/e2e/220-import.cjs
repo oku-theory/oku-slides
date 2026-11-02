@@ -10,7 +10,7 @@
 // (the MCP results are read there). The witness (office2pdf) really runs: long waits.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const { closePacksPanel, openAtelier, openThemeTab } = require('./lib/atelier.cjs');
+const { closePacksPanel, openAtelier, openPacksPopover, openThemeTab } = require('./lib/atelier.cjs');
 const agentLog = require('./lib/agentLog.cjs');
 const path = require('node:path');
 const { post } = require('./lib/http.cjs');
@@ -170,12 +170,14 @@ const noTurnSince = async (p, from, ms) => {
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
   assert.ok(packBefore, 'le deck importé épingle son pack de layouts');
   // The deck's overrides that the import wrote (deck.tokens), counted on the theme row of "Packs du deck".
-  const PACKS = '[data-surface-id="host-packs"]';
+  const PACKS = '.agent-popover [data-surface-id="host-packs"]';
   const deckOverrides = async () => {
-    await p.getByRole('button', { name: /^Packs du deck/ }).click();
+    await openPacksPopover(p);
     const row = p.locator(`${PACKS} [data-component-id="theme-overrides"]`);
     await row.waitFor();
-    return (await row.innerText()).replace(/[⁨⁩]/g, '').trim();
+    const read = (await row.innerText()).replace(/[⁨⁩]/g, '').trim();
+    await closePacksPanel(p);
+    return read;
   };
   const overridesAtImport = await deckOverrides();
   assert.match(overridesAtImport, /^[1-9]\d* surcharges? du deck$/, `l'import n'écrit pas de jetons dans deck.tokens : « ${overridesAtImport} »`);

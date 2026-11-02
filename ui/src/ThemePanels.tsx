@@ -47,7 +47,7 @@ export default function ThemePanels({ api, snap, keptUi, current, run, say, svg,
       <ThemeTabHeader theming={snap.theming} dirty={snap.dirty} onFinish={onClose} />
       <ToolsTray
         api={api} snap={snap} item={null} keptUi={keptUi} mainMenu={mainMenu} themeTab
-        run={run} onAdd={null} onPacks={noop} onHistory={noop} thumbs={null}
+        run={run} onAdd={null} onPacks={noop} onThemes={noop} onHistory={noop} thumbs={null}
       />
       <PileColumn
         title={t("ui-pile-layouts")}

@@ -19,18 +19,22 @@ use serde_json::{Value, json};
 
 use crate::text::paragraphs_to_text;
 
-/// Où l'interface place une surface.
+/// Where the interface places a surface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Place {
-    /// Fiche ancrée sous un élément de la slide.
+    /// A card anchored under an element of the slide.
     Sheet,
-    /// Dans le fil de l'agent : dans son tour, ou au dock si vivante.
+    /// In the agent thread: in its turn, or at the dock while live.
     Thread,
-    /// Tiroir sous la scène (variantes).
+    /// A drawer under the stage (variants).
     Drawer,
-    /// Fenêtre modale (confirmation, permission).
+    /// A modal window (confirmation, permission).
     Modal,
+    /// Popover next to the button that opens it.
+    Popover,
+    /// In the inspector, opened from its chip in the thread.
+    Inspector,
 }
 
 /// Une surface prête à afficher : ses messages A2UI et sa place.

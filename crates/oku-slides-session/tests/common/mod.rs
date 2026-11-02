@@ -3,7 +3,7 @@
 
 use oku_slides_core::Guides;
 use oku_slides_session::{Fonts, Platform, Request, Session, Settings};
-use serde_json::json;
+use serde_json::{Value, json};
 
 /// Un dossier de données neuf, supprimé à la fin du test (t-145).
 ///
@@ -184,4 +184,20 @@ pub fn no_user_themes() -> oku_slides_session::ThemeLibrary {
 pub fn theme_name(ns: &oku_slides_core::Namespace) -> Option<&'static str> {
     use oku_slides_session::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE, PRO_NAMESPACE};
     [PAPIER_NAMESPACE, PRO_NAMESPACE, NEUTRE_NAMESPACE].into_iter().find(|n| *n == ns.as_str())
+}
+
+#[allow(dead_code, reason = "lu par certains binaires de test seulement")]
+pub fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
+    r.unwrap_or_else(|e| panic!("échec inattendu : {e:?}"))
+}
+
+/// Ajoute l'élément `element` à la slide 2 d'un deck neuf ; rend l'id de la slide.
+#[allow(dead_code, reason = "lu par certains binaires de test seulement")]
+pub fn with_element(s: &mut Session, element: Value) -> String {
+    ok(s.new_deck());
+    let slide = s.snapshot().slides[1].id.to_string();
+    let mut add = json!({ "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" } });
+    add["element"] = element;
+    ok(s.handle(req(json!({ "cmd": "apply", "label": "ajout", "ops": [add] }))));
+    slide
 }

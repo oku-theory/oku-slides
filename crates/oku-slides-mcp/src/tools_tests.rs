@@ -148,6 +148,13 @@ fn open_theme_description_shares_open_pack_limit() {
 }
 
 #[test]
+fn show_params_description_says_a_deck_tab_shows_a_card_from_the_turn_in_the_inspector() {
+    let d = tool_description("show_params");
+    assert_that!(d.as_str())
+        .contains("In a deck tab it shows as a card the user opens from your turn, in the inspector");
+}
+
+#[test]
 fn packs_description_names_no_tool_a_pack_or_theme_tab_lacks() {
     let d = tool_description("packs");
     assert_that!(d.as_str()).contains("A deck or help tab opens one in its own tab.");

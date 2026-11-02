@@ -256,6 +256,10 @@ export interface UiState {
   folded: PileSectionName[];
   /** A pack tab's preview slot for element widgets; full by default. */
   preview_span: PreviewSpan;
+  /** A deck tab's inspector column is open; closed by default. */
+  inspector: boolean;
+  /** A deck tab's data pane under the stage is open; closed by default. */
+  data_pane: boolean;
 }
 
 /** The share of the grid an element widget's preview spans. */
@@ -622,6 +626,9 @@ type Request =
   | { cmd: "host_settings"; widget: string | null }
   | { cmd: "data_panel"; slide: string; element: string }
   | { cmd: "data_edit"; slide: string; element: string; edit: DataEdit }
+  | { cmd: "element_panel"; slide: string; element: string }
+  | { cmd: "element_param"; slide: string; element: string; key: string; value: unknown }
+  | { cmd: "element_list"; slide: string; element: string; key: string; change: ListOp }
   // Demandées par l'agent (outils MCP) ; l'interface passe par `data_edit`.
   | { cmd: "chart_kind"; label: string; slide: string; element: string; kind: string }
   | { cmd: "show_as"; label: string; slide: string; element: string; view: View }
@@ -702,7 +709,7 @@ export interface PastedImage {
 }
 
 /** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
-export type Place = "sheet" | "thread" | "drawer" | "modal";
+export type Place = "sheet" | "thread" | "drawer" | "modal" | "popover" | "inspector";
 
 /**
  * Où l'agent pose une fiche (session, `agent::Anchor`) : l'élément `owner` de la slide, ou son
@@ -734,7 +741,7 @@ export type McpEvent =
   | { kind: "changed" }
   | { kind: "surface"; surface: Surface }
   | { kind: "close_surface"; id: string }
-  | { kind: "focus"; slide: string; element: string | null }
+  | { kind: "focus"; slide: string }
   | { kind: "surfaces"; list: Surface[] }
   | { kind: "surface_patch"; id: string; messages: A2uiMessage[] }
   | { kind: "widget_touched"; name: string; removed: boolean }
@@ -762,6 +769,7 @@ type AgentCommand =
   | { cmd: "paste_image"; tab: string; data: string }
   | { cmd: "remove_image"; tab: string; id: string }
   | { cmd: "show_packs"; tab: string }
+  | { cmd: "show_themes"; tab: string; slide: string | null }
   | { cmd: "show_settings"; tab: string }
   | { cmd: "availability"; tab: string };
 
@@ -792,6 +800,8 @@ export function agentApi(tab: string) {
     setDraft: (text: string | null, origin: string) => agentCall({ cmd: "set_draft", tab, text, origin }),
     /** Ouvre le panneau des packs du deck (surface `host-packs` du hub de l'onglet). */
     showPacks: () => agentCall({ cmd: "show_packs", tab }),
+    /** Opens the theme picker on `slide` (`null`: the first one). */
+    showThemes: (slide: string | null) => agentCall({ cmd: "show_themes", tab, slide }),
     /** Demande si l'agent est utilisable (évènement `availability` pour cet onglet). */
     availability: () => agentCall({ cmd: "availability", tab }),
     /** Ouvre la boîte des réglages de la dictée et de l'agent. */
@@ -817,6 +827,14 @@ export function tabApi(tab: string) {
     dataPanel: (slide: string, element: string) => call<Surface | null>({ cmd: "data_panel", slide, element }),
     /** Applique une modification de la surface `host-data` : une étape d'annulation. */
     dataEdit: (slide: string, element: string, edit: DataEdit) => call<Snapshot>({ cmd: "data_edit", slide, element, edit }),
+    /** `host-element` surface: the settings of `element`; `null` for an unknown element or outside an editable deck. */
+    elementPanel: (slide: string, element: string) => call<Surface | null>({ cmd: "element_panel", slide, element }),
+    /** Sets the param `key` of the element (`null` clears it): one undo step. */
+    elementParam: (slide: string, element: string, key: string, value: unknown) =>
+      call<Snapshot>({ cmd: "element_param", slide, element, key, value }),
+    /** Changes the list `key` of the element (`param/item/column` for a nested list): one undo step. */
+    elementList: (slide: string, element: string, key: string, change: ListOp) =>
+      call<Snapshot>({ cmd: "element_list", slide, element, key, change }),
     /** Règle une valeur d'exemple d'un widget, dans le pack (mode pack). */
     setExampleValue: (name: string, param: string, value: unknown) =>
       call<Snapshot>({ cmd: "set_example_value", name, param, value }),

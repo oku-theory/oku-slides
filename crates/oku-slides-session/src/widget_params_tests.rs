@@ -278,7 +278,7 @@ fn bounded(min: f64, max: f64) -> crate::agent::ParamField {
         bind: None,
     };
     let shown = oku_slides_core::ParamValue::Value(json!(min));
-    super::field("acme/card", &p, Some(&shown), &oku_slides_i18n::Localizer::new(Some("fr"))).unwrap()
+    crate::param_fields::field("acme/card", &p, Some(&shown), &oku_slides_i18n::Localizer::new(Some("fr"))).unwrap()
 }
 
 #[rstest]

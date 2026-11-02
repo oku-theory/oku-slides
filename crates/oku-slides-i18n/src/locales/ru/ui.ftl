@@ -171,7 +171,6 @@ ui-agent-state-working = Агент работает…
 ui-agent-fallback = Локальный агент (запасной)
 ui-agent-fallback-reason = Локальный агент (запасной): { $reason }
 ui-agent-dock = В процессе
-ui-agent-dock-settings = Настройки
 ui-agent-jump = ↓ Текущий ход
 ui-agent-tool-input = Аргументы
 ui-agent-tool-output = Результат
@@ -444,3 +443,15 @@ ui-received-profiles = { $count ->
    *[other] { $count } профиля макета
   }
 ui-received-code = Код Typst: { NUMBER($kb) } КБ
+ui-trace-gone = Этот элемент больше не существует
+ui-inspector = Инспектор
+ui-inspector-close = Закрыть инспектор
+ui-inspector-data = Данные
+ui-inspector-packs = Пакеты
+ui-inspector-no-theme = Без темы
+ui-inspector-offer = Предложено агентом
+ui-data-pane = Данные
+ui-data-pane-close = Закрыть данные
+ui-themes = Темы
+ui-offer-open = Открыть: { $title }
+ui-offer-settings = Предложенные настройки: { $title }

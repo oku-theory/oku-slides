@@ -486,9 +486,27 @@ fn every_form() -> Vec<super::Surface> {
         "report-8",
         &report,
         Some(&oku_slides_a2ui::SlideRef { id: "s-4".into(), hash: "0123456789abcdef0123456789abcdef".into() }),
+        &[],
         &l,
     );
     report8.turn = Some(3);
+    // A receipt's traces: two elements still there (one with changed data), one removed since.
+    let trace = |element: &str, name: &str| crate::agent::Trace {
+        slide: "s-4".into(),
+        element: element.into(),
+        name: crate::agent::TraceName::Text(name.into()),
+        changes: 2,
+        removed: false,
+        data: false,
+    };
+    let traces = [
+        trace("e-2", "Ventes du trimestre"),
+        crate::agent::Trace { data: true, ..trace("e-3", "Chiffre d'affaires") },
+        crate::agent::Trace { removed: true, ..trace("e-4", "Ancienne note") },
+    ];
+    let spec10 = crate::agent::receipt::Report { actions: Vec::new(), why: None, ..report.clone() };
+    let mut report10 = crate::agent::receipt::receipt("report-10", &spec10, None, &traces, &l);
+    report10.turn = Some(3);
     let render_spec = crate::agent::Render {
         components: serde_json::from_value(json!([
             {"id": "root", "component": "Card", "child": "col", "tone": "accent"},
@@ -579,6 +597,18 @@ fn every_form() -> Vec<super::Surface> {
     let host_keys = ["source".to_owned(), "body".to_owned(), "etapes".to_owned()];
     let host_notes = ["logo : non réglable dans l'aperçu".to_owned()];
     let host_extras = FormExtras { keys: &host_keys, notes: &host_notes, closable: false };
+    // Settings of a deck element: keyed fields, no note, no close button.
+    let element = ShowParams {
+        title: "Paramètres de Forme".into(),
+        slide: "s-4".into(),
+        fields: vec![ParamField {
+            op_template: serde_json::Value::Null,
+            options: options(),
+            ..field("Forme", FieldKind::Select, json!("a"))
+        }],
+    };
+    let element_keys = ["shape".to_owned()];
+    let element_extras = FormExtras { keys: &element_keys, notes: &[], closable: false };
     vec![
         choice("ask-1", &AskChoice { question: "Quelle mise en page ?".into(), options: options(), anchor }, &l),
         confirm("ask-2", &AskConfirm { message: "Remplacer le fichier ?".into(), danger: true }, &l),
@@ -610,8 +640,10 @@ fn every_form() -> Vec<super::Surface> {
         ask7,
         ask8,
         report8,
+        report10,
         render9,
         params_with("host-widget", &host, &host_extras, &[], &l),
+        params_with("host-element", &element, &element_extras, &[], &l),
         crate::theme_picker(
             &[
                 crate::ThemeCard {

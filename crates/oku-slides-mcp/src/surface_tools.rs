@@ -10,13 +10,14 @@ use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use snafu::{IntoError, ResultExt};
+use snafu::{IntoError, OptionExt, ResultExt, ensure};
 
 use crate::McpEvent;
+use crate::ShowOutcome;
 use crate::hub::{Answer, Freeze};
 use crate::tool_error::{
-    HubSnafu, NoTurnSnafu, PacksDeckModeSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu, TaskSnafu,
-    ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
+    HubSnafu, NoBoxTurnSnafu, NoTurnSnafu, PacksDeckModeSnafu, ParagraphsSnafu, RewriteTextSnafu, SessionSnafu,
+    TaskSnafu, ThemesDeckModeSnafu, ToolError, TurnOverSnafu, UnexpectedActionSnafu,
 };
 use crate::tools::Tools;
 
@@ -152,7 +153,7 @@ impl Tools {
             let done = self
                 .with_session(move |s| {
                     let ops = s.rewrite_ops(&spec, &t, p)?;
-                    s.apply(&label, ops, None)
+                    s.apply_by_agent(&label, ops, None)
                 })
                 .await;
             if let Err(e) = done {
@@ -198,52 +199,66 @@ impl Tools {
         })
     }
 
-    /// Le sélecteur de thème de l'hôte, ouvert hors tour : il reste après la fin du tour.
+    /// Opens the host's theme picker as a card the user opens from the call's turn.
     ///
-    /// Comme `show_variants`, l'appel n'est rangé dans aucun tour : un appel tardif l'ouvre aussi.
-    ///
-    /// Les miniatures se rendent sous le verrou de session : hors du fil async.
-    pub(crate) async fn show_themes(&self, args: Value) -> CallToolResult {
+    /// A late call goes to the thread's last turn (`SurfaceHub::agent_turn`). The thumbnails
+    /// render under the session lock: off the async threads.
+    pub(crate) async fn show_themes(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let spec: ShowThemesArgs = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
-        // Une slide inconnue est refusée : le sélecteur ne retombe jamais en silence sur la première.
+        // An unknown slide is refused: the picker never silently falls back to the first one.
         if let Some(id) = spec.slide.clone()
             && let Err(e) = self.with_session(move |s| s.check_slide(&id)).await
         {
             return self.fail_with(&e);
         }
+        let turn = match self.box_turn(turn) {
+            Ok(turn) => turn,
+            Err(e) => return self.fail_with(&e),
+        };
         let hub = self.hub.clone();
-        let shown = tokio::task::spawn_blocking(move || hub.show_themes(spec.slide.as_deref()))
+        let shown = tokio::task::spawn_blocking(move || hub.show_themes(spec.slide.as_deref(), Some(turn)))
             .await
             .context(TaskSnafu)
             .and_then(|r| r.map_err(Box::new).context(HubSnafu));
-        self.reply(shown, |shown| {
-            if shown {
-                self.json_result(&json!({ "shown": HOST_THEME_PICKER }))
-            } else {
-                self.fail_with(&ThemesDeckModeSnafu.build())
-            }
+        self.reply(shown, |shown| match shown {
+            ShowOutcome::Shown => self.json_result(&json!({ "shown": HOST_THEME_PICKER })),
+            ShowOutcome::OutOfMode => self.fail_with(&ThemesDeckModeSnafu.build()),
+            ShowOutcome::TurnOver => self.fail_with(&TurnOverSnafu.build()),
         })
     }
 
-    /// Le panneau des packs du deck, ouvert hors tour comme le sélecteur de thème.
+    /// Opens the deck's packs panel as a card the user opens from the call's turn.
     ///
-    /// Il lit la bibliothèque sous le verrou de session : hors du fil async.
-    pub(crate) async fn show_packs(&self) -> CallToolResult {
+    /// It reads the library under the session lock: off the async threads.
+    pub(crate) async fn show_packs(&self, turn: Option<u32>) -> CallToolResult {
+        let turn = match self.box_turn(turn) {
+            Ok(turn) => turn,
+            Err(e) => return self.fail_with(&e),
+        };
         let hub = self.hub.clone();
-        let shown = tokio::task::spawn_blocking(move || hub.show_packs())
+        let shown = tokio::task::spawn_blocking(move || hub.show_packs(Some(turn)))
             .await
             .context(TaskSnafu)
             .and_then(|r| r.map_err(Box::new).context(HubSnafu));
-        self.reply(shown, |shown| {
-            if shown {
-                self.json_result(&json!({ "shown": HOST_PACKS }))
-            } else {
-                self.fail_with(&PacksDeckModeSnafu.build())
-            }
+        self.reply(shown, |shown| match shown {
+            ShowOutcome::Shown => self.json_result(&json!({ "shown": HOST_PACKS })),
+            ShowOutcome::OutOfMode => self.fail_with(&PacksDeckModeSnafu.build()),
+            ShowOutcome::TurnOver => self.fail_with(&TurnOverSnafu.build()),
         })
+    }
+
+    /// The turn an agent box goes to (`SurfaceHub::agent_turn`).
+    ///
+    /// # Errors
+    ///
+    /// `NoBoxTurn` when the thread has no turn at all, `TurnOver` once the turn left it.
+    pub(crate) fn box_turn(&self, turn: Option<u32>) -> Result<u32, ToolError> {
+        let turn = self.hub.agent_turn(turn).context(NoBoxTurnSnafu)?;
+        ensure!(self.hub.in_thread(turn), TurnOverSnafu);
+        Ok(turn)
     }
 
     pub(crate) async fn report(&self, turn: Option<u32>, args: Value) -> CallToolResult {

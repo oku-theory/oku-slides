@@ -33,6 +33,19 @@ async fn apply_inside_turn_joins_the_turn_group() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn apply_tool_edit_appears_in_the_turn_traces() {
+    let h = start().await;
+    h.session.lock().unwrap().begin_turn(1, "fond");
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let style = json!({ "op": "set_style", "slide": "s-libre", "element": "e-fond", "style": {} });
+    let r = call(&c, "apply", json!({ "ops": [style] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    let traces = h.session.lock().unwrap().end_turn();
+    assert_that!(traces.into_iter().map(|t| (t.slide, t.element)).collect::<Vec<_>>())
+        .is_equal_to(vec![("s-libre".to_owned(), "e-fond".to_owned())]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn apply_invalid_op_returns_error_with_path() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
@@ -150,17 +163,15 @@ async fn apply_move_element_through_mcp_keeps_the_concurrent_edit() {
     assert_that!(bold_in(deck, "s-libre", "dup")).is_equal_to(Some(false));
 }
 
+/// The agent never selects: an element it still names is ignored, only the slide shows.
 #[tokio::test(flavor = "multi_thread")]
-async fn focus_emits_focus_event_without_changing_deck() {
+async fn focus_tool_shows_the_slide_without_selecting() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     call(&c, "focus", json!({ "slide": "s-libre", "element": "e-texte" })).await;
     match wait_event(&mut rx, Some).await {
-        McpEvent::Focus { slide, element } => {
-            assert_that!(slide.as_str()).is_equal_to("s-libre");
-            assert_that!(element.as_deref()).is_equal_to(Some("e-texte"));
-        }
+        McpEvent::Focus { slide } => assert_that!(slide.as_str()).is_equal_to("s-libre"),
         other => panic!("évènement inattendu : {other:?}"),
     }
 }
@@ -209,6 +220,7 @@ async fn add_pack_emits_changed() {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_packs_tool_shows_the_panel() {
     let h = start().await;
+    h.hub.begin_turn();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "show_packs", json!({})).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "shown": oku_slides_session::HOST_PACKS }));
@@ -218,6 +230,7 @@ async fn show_packs_tool_shows_the_panel() {
 #[tokio::test(flavor = "multi_thread")]
 async fn show_packs_tool_outside_deck_mode_is_refused() {
     let h = common::kinds::start_help_tab().await;
+    h.hub.begin_turn();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "show_packs", json!({})).await;
     assert_that!(r.is_error).is_equal_to(Some(true));

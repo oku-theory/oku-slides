@@ -19,6 +19,7 @@ import { useFieldHelp } from "../primitives";
 import { useNumberLang } from "./numberLang";
 import { RichTextField } from "./RichTextField";
 import { lift, subMarkdown, subRows, type Change, type Row } from "./listNested";
+import { popoverPlace } from "../popoverPlace";
 import "./ListTable.css";
 
 /** Une colonne du tableau (miroir de `ListColumn` côté Rust). */
@@ -508,11 +509,6 @@ function openCell(where: string, rows: ListRow[], columns: readonly ListColumn[]
 function rowName(row: ListRow, columns: readonly ListColumn[], rows: ListRow[]): string {
   const text = columns.find((c) => c.kind === "text" && typeof row[c.key] === "string" && row[c.key] !== "");
   return text ? String(row[text.key]) : String(rows.findIndex((r) => r.id === row.id) + 1);
-}
-
-/** Place du popover dans le tableau `box` : sous la cellule, à son bord gauche, sans déborder à droite. */
-export function popoverPlace(box: DOMRect, cell: DOMRect, width: number): { left: number; top: number } {
-  return { left: Math.max(0, Math.min(cell.left - box.left, box.width - width)), top: cell.bottom - box.top };
 }
 
 /** Texte brut de paragraphes (repli sans markdown de la session). */

@@ -9,11 +9,11 @@ use serde::Deserialize;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
-use super::forms::{self, FieldKind, ParamField, ShowParams, ShowVariants, Surface};
+use super::forms::{self, FieldKind, ParamField, Place, ShowParams, ShowVariants, Surface};
 use super::{AgentFormReason, check_len, check_options};
 use crate::deck_theme::fill_op_closures;
 use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
-use crate::{Result, Session};
+use crate::{Mode, Result, Session};
 
 /// Profondeur maximale d'un gabarit : au-delà, on le laisse tel quel plutôt
 /// que de récurser indéfiniment sur une valeur JSON forgée par l'agent.
@@ -130,7 +130,9 @@ impl Session {
 
     /// `show_params` surface.
     ///
-    /// Each template is filled with its current value and tried on a clone of the deck.
+    /// Each template is filled with its current value and tried on a clone of the deck. In a deck
+    /// tab during a turn, it is offered in the inspector; elsewhere (pack, theme, help or history,
+    /// or no open turn), it stays in the thread.
     ///
     /// # Errors
     ///
@@ -150,7 +152,11 @@ impl Session {
             apply_all(&mut deck, ops, &self.registry).map_err(|e| refused(format!("fields[{i}]"), e))?;
         }
         let palette = self.slide_palette();
-        Ok(forms::params(id, spec, &palette, &self.localizer))
+        let mut surface = forms::params(id, spec, &palette, &self.localizer);
+        if matches!(self.mode, Mode::Deck) && self.turn_touches.open().is_some() {
+            surface.place = Place::Inspector;
+        }
+        Ok(surface)
     }
 
     /// `show_variants` surface: each variant applied to a clone, rendered, then dropped.

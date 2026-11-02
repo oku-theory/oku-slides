@@ -1,11 +1,12 @@
-// Données du graphique ou du tableau sélectionné, en une surface `host-data` construite par la
-// session et montrée au dock de l'agent. Chaque modification part vers l'élément de la surface
-// affichée, jamais vers la sélection courante ; un refus relit la surface.
+// The selected chart's or table's data, in a `host-data` surface built by the session and shown
+// in the data pane under the stage. Each change goes to the element of the surface shown, never
+// to the current selection; a refusal rereads the surface.
 
 import type { Element, Snapshot, TabApi } from "./api";
 import type { DataEdit } from "./chart/dataEdit";
 import { ownPanel } from "./hostParams";
-import { type HostSettings, useSessionSurface } from "./useHostSettings";
+import type { HostSettings } from "./useHostSettings";
+import { useSelectionSurface } from "./useSelectionSurface";
 
 /** Surface des données du graphique ou du tableau sélectionné. */
 export const HOST_DATA = "host-data";
@@ -18,8 +19,8 @@ const isEdit = (v: unknown): v is DataEdit =>
 
 /**
  * The `host-data` surface of `selected` on `slide`, read for a chart or a table
- * (`ownPanel`, from `host_params`) outside read-only, history and theme tabs; `off`
- * removes it (a pack tab, which shows no stage). Reread when the element, the render or undo change.
+ * (`ownPanel`, from `host_params`) where `useSelectionSurface` reads; `off` removes it
+ * (a pack tab, which shows no stage).
  */
 export function useDataSettings(
   api: TabApi,
@@ -30,16 +31,16 @@ export function useDataSettings(
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
   say: (m: string, error?: boolean) => void,
 ): HostSettings {
-  const hash = snap?.slides.find((s) => s.id === slide)?.hash;
   const data = !!snap && ownPanel(snap.host_params, selected?.kind) !== null;
-  return useSessionSurface({
+  return useSelectionSurface({
     ids: IDS,
-    active: data && !!slide && !!selected && !snap.read_only && !snap.history && !snap.theming && !off,
-    scope: { slide: slide ?? "", element: selected?.id ?? "" },
-    // Un refus force la relecture (`sync`) : le modèle porte la valeur refusée.
-    key: [slide, selected?.id, hash, snap?.undo_label, snap?.redo_label].join("|"),
-    fetch: (scope) => api.dataPanel(scope.slide, scope.element),
-    send: (scope, { name, context }) =>
+    api,
+    snap,
+    slide,
+    selected,
+    off: off || !data,
+    fetch: (api, scope) => api.dataPanel(scope.slide, scope.element),
+    send: (api, scope, { name, context }) =>
       name === "data" && isEdit(context.edit) ? api.dataEdit(scope.slide, scope.element, context.edit) : null,
     run,
     say,

@@ -148,6 +148,35 @@ pub enum Request {
         /// Change sent by the `host-data` surface.
         edit: crate::DataEdit,
     },
+    /// Surface `host-element` (or `null`): the settings of the element `element`.
+    ElementPanel {
+        /// Id of the slide that holds the element.
+        slide: String,
+        /// Id of the element.
+        element: String,
+    },
+    /// Sets the param `key` of `element` (one undo step); `null` removes it.
+    ElementParam {
+        /// Id of the slide that holds the element.
+        slide: String,
+        /// Id of the element.
+        element: String,
+        /// Name of the param.
+        key: String,
+        /// New value; core checks it against the param's type.
+        value: serde_json::Value,
+    },
+    /// Applies a list change to the param `key` of `element` (one undo step).
+    ElementList {
+        /// Id of the slide that holds the element.
+        slide: String,
+        /// Id of the element.
+        element: String,
+        /// Name of the list param, or `param/item/column` for a nested list.
+        key: String,
+        /// The change to the list.
+        change: oku_slides_core::ListOp,
+    },
     /// Change le type d'un graphique ; ses données sont converties. Annulable.
     ChartKind {
         /// Label of the undo step.
@@ -478,6 +507,8 @@ impl Session {
                     | Request::RenameEditedTheme { .. }
                     | Request::HostToken { .. }
                     | Request::DataEdit { .. }
+                    | Request::ElementParam { .. }
+                    | Request::ElementList { .. }
                     | Request::UsePackVersion { .. }
                     | Request::UsePackCopy { .. }
                     | Request::UseThemeVersion { .. }
@@ -513,6 +544,7 @@ impl Session {
             Request::HostSettings { widget } => return json(&self.host_settings(widget.as_deref())),
             Request::HostTheme { filter } => return json(&self.host_theme(&filter)?),
             Request::DataPanel { slide, element } => return json(&self.data_panel(&slide, &element)),
+            Request::ElementPanel { slide, element } => return json(&self.element_panel(&slide, &element)),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
             Request::Layouts => return json(&self.layouts_view()?),
@@ -576,6 +608,12 @@ impl Session {
                 self.edit_example_list(&name, &param, change)?;
             }
             Request::DataEdit { slide, element, edit } => self.data_edit(slide, &element, edit)?,
+            Request::ElementParam { slide, element, key, value } => {
+                self.element_param(&slide, &element, &key, value)?;
+            }
+            Request::ElementList { slide, element, key, change } => {
+                self.element_list(&slide, &element, &key, change)?;
+            }
             Request::ChartKind { label, slide, element, kind } => self.set_chart_kind(&label, slide, &element, kind)?,
             Request::ShowAs { label, slide, element, view } => self.show_as(&label, slide, &element, view)?,
             Request::Undo => self.undo()?,

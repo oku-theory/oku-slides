@@ -97,6 +97,21 @@ agent-turn-ended = Хід завершено ({ $stop }).
 agent-choice-cancelled = Запитання скасовано
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Чому
+agent-trace = { $name }: { $count ->
+    [one] { $count } зміна
+    [few] { $count } зміни
+    [many] { $count } змін
+   *[other] { $count } зміни
+}
+agent-trace-data = { $name }: дані змінено
+agent-trace-removed = { $name }: більше не існує
+agent-trace-more = { $count ->
+    [one] і ще { $count }
+    [few] і ще { $count }
+    [many] і ще { $count }
+   *[other] і ще { $count }
+}
+agent-trace-title = Змінені елементи
 
 agent-error-file = Не вдалося прочитати або записати файл.
 agent-error-unexpected-action = Неочікувана дія: { $action }.
@@ -136,6 +151,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Скажіть користувачеві продовжити там: агент тієї вкладки не знає цього запиту.
 } Ця вкладка лишається як є.
 agent-error-turn-over = Хід цього виклику завершено: нічого не показано.
+agent-error-no-box-turn = Немає ходу, до якого можна прив'язати це вікно: нічого не показано.
 agent-error-no-file = Презентація ще не має файлу: вкажіть абсолютний шлях.
 agent-error-path-relative = Шлях має бути абсолютним.
 agent-error-path-parent = Шлях не повинен містити «..».

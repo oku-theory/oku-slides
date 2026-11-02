@@ -1,9 +1,9 @@
 //! Transformations d'une surface déjà construite : mise à jour de sa copie, gel en lecture seule.
 
-use oku_slides_a2ui::{Component, ComponentKind, ServerBody, ServerMessage, UpdateDataModel};
+use oku_slides_a2ui::{Component, ComponentKind, ServerBody, ServerMessage, TextVariant, UpdateDataModel};
 use serde_json::Value;
 
-use super::Surface;
+use super::{Surface, TRACE_EVENT};
 
 impl Surface {
     /// Applique des messages de mise à jour à la copie de l'hôte (resynchronisation).
@@ -53,6 +53,8 @@ impl Surface {
 
     /// La même surface, en lecture seule : champs sans action, boutons retirés (et retirés
     /// de leurs parents ; un parent à enfant unique dont l'enfant disparaît disparaît aussi).
+    /// A trace button (`TRACE_EVENT`) keeps its label as a caption: a restored receipt still says
+    /// what the agent changed.
     #[must_use]
     pub fn without_actions(&self) -> Surface {
         let mut s = self.clone();
@@ -61,6 +63,13 @@ impl Surface {
             let mut removed: Vec<String> = Vec::new();
             let mut kept = Vec::with_capacity(u.components.len());
             for c in std::mem::take(&mut u.components) {
+                if let ComponentKind::Button { label, action, .. } = &c.kind
+                    && action.event.name == TRACE_EVENT
+                {
+                    let kind = ComponentKind::Text { text: label.clone(), variant: Some(TextVariant::Caption) };
+                    kept.push(Component { id: c.id, kind });
+                    continue;
+                }
                 match c.kind.without_action() {
                     Some(kind) => kept.push(Component { id: c.id, kind }),
                     None => removed.push(c.id),

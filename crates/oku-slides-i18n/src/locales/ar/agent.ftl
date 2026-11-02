@@ -101,6 +101,25 @@ agent-turn-ended = انتهى الدور ({ $stop }).
 agent-choice-cancelled = أُلغي السؤال
 agent-choice-answered = ✓ { $answer }
 agent-report-why = لماذا
+agent-trace = { $name }: { $count ->
+    [zero] { $count } تعديل
+    [one] { $count } تعديل
+    [two] { $count } تعديلان
+    [few] { $count } تعديلات
+    [many] { $count } تعديلًا
+   *[other] { $count } تعديل
+}
+agent-trace-data = { $name }: تم تعديل البيانات
+agent-trace-removed = { $name }: لم يعد موجودًا
+agent-trace-more = { $count ->
+    [zero] و{ $count } أخرى
+    [one] و{ $count } آخر
+    [two] و{ $count } آخران
+    [few] و{ $count } أخرى
+    [many] و{ $count } أخرى
+   *[other] و{ $count } أخرى
+}
+agent-trace-title = العناصر المعدّلة
 
 agent-error-file = تعذّرت قراءة الملف أو الكتابة فيه.
 agent-error-unexpected-action = إجراء غير متوقع: { $action }.
@@ -140,6 +159,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] أخبر المستخدم بالمتابعة هناك: فوكيل علامة التبويب تلك لا يعرف هذا الطلب.
 } تبقى علامة التبويب هذه كما هي.
 agent-error-turn-over = انتهى دور هذا الاستدعاء: لم يُعرض شيء.
+agent-error-no-box-turn = لا يوجد دور لإرفاق هذا المربع به: لم يُعرض شيء.
 agent-error-no-file = ليس للعرض التقديمي ملف بعد: أعطِ مسارًا مطلقًا.
 agent-error-path-relative = يجب أن يكون المسار مطلقًا.
 agent-error-path-parent = يجب ألا يحتوي المسار على «..».

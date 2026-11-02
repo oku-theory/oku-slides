@@ -14,23 +14,25 @@ type Focus = { slide: string; element: string | null };
  * celle d'alors ne l'a pas (l'agent vient de le créer) ; introuvable, la sélection reste en place.
  * `editing`, `slides`, `current` et `view` sont lus par des références : un abonnement posé une fois
  * peut appeler une ancienne version du rappel.
+ * `onMissing` is called where an unknown slide or an element absent from a fresh view is ignored.
  */
-export function useAgentFocus({ slides, view, current, editing, show, select }: {
+export function useAgentFocus({ slides, view, current, editing, show, select, onMissing }: {
   slides: SlideSummary[] | undefined;
   view: SlideView | null;
   current: string | null;
   editing: string | null;
   show: (slide: string) => void;
   select: (element: string | null) => void;
+  onMissing?: () => void;
 }): (slide: string, element: string | null) => void {
-  const seen = useRef({ editing, slides, current, view });
-  seen.current = { editing, slides, current, view };
+  const seen = useRef({ editing, slides, current, view, onMissing });
+  seen.current = { editing, slides, current, view, onMissing };
   /** Le dernier focus reçu pendant l'édition, et la slide affichée à ce moment. */
   const deferred = useRef<{ focus: Focus; from: string | null } | null>(null);
   /** Le focus appliqué dont l'élément attend une vue de sa slide ; `stale` : la vue affichée à sa réception. */
   const [want, setWant] = useState<(Focus & { stale: SlideView | null }) | null>(null);
   const apply = (f: Focus) => {
-    if (!seen.current.slides?.some((s) => s.id === f.slide)) return;
+    if (!seen.current.slides?.some((s) => s.id === f.slide)) return seen.current.onMissing?.();
     show(f.slide);
     setWant({ ...f, stale: seen.current.view });
   };
@@ -55,6 +57,7 @@ export function useAgentFocus({ slides, view, current, editing, show, select }: 
     } else if (view !== want.stale) {
       // Une vue plus récente que le focus ne l'a pas non plus : identifiant inconnu, ignoré.
       setWant(null);
+      seen.current.onMissing?.();
     }
   }, [want, view, current]);
   return (slide, element) => {

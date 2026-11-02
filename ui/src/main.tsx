@@ -10,6 +10,7 @@ import { currentScheme, followScheme, loadScheme } from "./scheme";
 import "./styles.css";
 import "./import.css";
 import "./pack.css";
+import "./inspector.css";
 import "./a2ui/a2ui.css";
 import "./glass.css";
 

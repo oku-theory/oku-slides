@@ -1,4 +1,4 @@
-// Le fil de l'agent : ses tours (surfaces A2UI de l'hôte) et le dock des surfaces vivantes.
+// The agent thread: its turns (the host's A2UI surfaces) and the dock of live questions.
 
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -6,9 +6,28 @@ import { QuickHintsContext } from "../a2ui/quickHints";
 import type { AgentState, Surface } from "../api";
 import { t } from "../i18n";
 import { Icon } from "../icons";
+import { Button } from "../primitives";
 import { AgentDock } from "./AgentDock";
 import { useSpeech } from "./speech";
-import { isReceipt, type Routed } from "./surfaces";
+import { firstText } from "./a2uiModel";
+import { chipAnchor, isReceipt, type Routed } from "./surfaces";
+
+/** The chip of an offer: a popover opens next to it, settings in the inspector (under it in the agent window). */
+function OfferChip({ surface, onOpen }: { surface: Surface; onOpen: (id: string) => void }) {
+  const title = firstText(surface) || t("ui-agent-thread");
+  const popover = surface.place === "popover";
+  return (
+    <Button
+      ghost
+      className="agent-offer"
+      data-popover-anchor={popover ? chipAnchor(surface.id) : undefined}
+      aria-haspopup={popover ? "dialog" : undefined}
+      onClick={() => onOpen(surface.id)}
+    >
+      {t(popover ? "ui-offer-open" : "ui-offer-settings", { title })}
+    </Button>
+  );
+}
 
 // @a2ui ne se charge qu'avec la première surface (comme les réglages du dock).
 const SurfaceView = lazy(() => import("../a2ui/SurfaceView").then((m) => ({ default: m.SurfaceView })));
@@ -29,6 +48,9 @@ export function AgentThread({
   turns,
   loose,
   dock,
+  offers = [],
+  openOffer = null,
+  onOpenOffer,
   keysTo,
   resyncs = 0,
   onAction,
@@ -58,7 +80,11 @@ export function AgentThread({
   onUndoTurn?: (turn: number) => void;
   /** Why the local agent stands in for the selected one: a badge in the header while set. */
   fallback?: string | null;
-} & Pick<Routed, "turns" | "loose" | "dock">) {
+  /** The offer opened under its chip (`AgentPanel` decides which open inline), else `null`. */
+  openOffer?: string | null;
+  /** A chip's click: opens its offer. */
+  onOpenOffer?: (id: string) => void;
+} & Pick<Routed, "turns" | "loose" | "dock"> & Partial<Pick<Routed, "offers">>) {
   const scroller = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
   const pinnedRef = useRef(pinned);
@@ -145,6 +171,14 @@ export function AgentThread({
                   {threadView(s)}
                 </div>
               ))}
+              {offers
+                .filter((o) => o.turn === turn)
+                .map(({ surface: s }) => (
+                  <div key={s.id} className="agent-offer-item">
+                    <OfferChip surface={s} onOpen={(id) => onOpenOffer?.(id)} />
+                    {openOffer === s.id && <div data-surface-id={s.id}>{threadView(s)}</div>}
+                  </div>
+                ))}
               {undoable(turn, surfaces) && (
                 <button type="button" className="token ghost agent-undo-turn" onClick={() => onUndoTurn?.(turn)}>
                   {Icon.undo}

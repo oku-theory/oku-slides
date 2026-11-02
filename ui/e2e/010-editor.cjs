@@ -59,8 +59,8 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto(URL);
 
-  // 0. Sélectionner ne déplace ni ne réduit la slide (les données d'un tableau s'ouvrent au dock de
-  // l'agent, pas sous la slide) : sinon le 2e clic d'un double-clic tombe à côté du champ.
+  // 0. Selecting neither moves nor shrinks the slide (nothing opens on selection: the inspector and the
+  // data pane wait to be opened); otherwise a double-click's second click lands beside the field.
   // Les flèches slide précédente / suivante restent à mi-hauteur de la slide.
   const stageBox = () => p.locator('.stage').boundingBox();
   const navOffset = () => p.evaluate(() => {
@@ -81,7 +81,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
       assert.ok(still.height >= box.height - 1 && still.width < box.width - 1, `${size} : slide pas bornée par la hauteur de sa boîte`);
     }
     assert.ok(Math.abs(await navOffset()) <= 1, `${size} : flèches hors de la mi-hauteur de la slide`);
-    // Relevée pendant 500 ms : ni la sélection ni l'ouverture des données au dock ne la déplacent.
+    // Sampled for 500 ms: the selection does not move it.
     // Chaque appel suit un point de synchronisation positif et en précède un.
     const unmoved = async (what) => {
       for (let i = 0; i < 20; i++) {
@@ -97,13 +97,26 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     await p.keyboard.press('Escape');
     await p.waitForSelector('.target.selected', { state: 'detached' });
     await unmoved('à la désélection');
-    // Le tableau : ses données s'ouvrent au dock de l'agent ; le texte ensuite les retire.
+    // The table: selecting it opens nothing; its data opens from the inspector into the data
+    // pane, which follows the selection (the text has none); once both close, the slide is back.
     await p.click('.target[aria-label="Tableau"]');
-    await p.waitForSelector('.agent-dock [data-surface-id="host-data"] .table-panel');
     await unmoved('à la sélection du tableau');
+    await p.click('.tools-tray .inspector-toggle');
+    await p.locator('.inspector').getByRole('button', { name: 'Données', exact: true }).click();
+    await p.waitForSelector('.data-pane [data-surface-id="host-data"] .table-panel');
+    // Deselected (Escape, the focus off the Data button): the pane, still open, has nothing to show. In
+    // the low window the pane leaves the slide too little room to click a field under it.
+    await p.evaluate(() => document.activeElement?.blur());
+    await p.keyboard.press('Escape');
+    await p.waitForSelector('.data-pane [data-surface-id="host-data"]', { state: 'detached' });
+    await p.click('.target[aria-label="Tableau"]');
+    await p.waitForSelector('.data-pane [data-surface-id="host-data"] .table-panel');
+    await p.locator('.data-pane').getByRole('button', { name: 'Fermer les données', exact: true }).click();
+    await p.waitForSelector('.data-pane', { state: 'detached' });
+    await p.click('.tools-tray .inspector-toggle');
+    await p.waitForSelector('.inspector', { state: 'detached' });
     await p.click('.field[aria-label="Corps"] >> nth=0');
-    await p.waitForSelector('.agent-dock [data-surface-id="host-data"]', { state: 'detached' });
-    await unmoved('du tableau au texte');
+    await unmoved('inspecteur et données refermés');
   };
   // Un tableau sur la slide 4, retiré (annulé) après l'étape 0.
   const tabled = await post(p, '/api', {

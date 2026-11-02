@@ -133,6 +133,8 @@ impl Session {
         self.import = None;
         // Un autre replica : ses rangs d'étapes ne sont plus ceux des tours notés.
         self.turn_steps = crate::agent::turn_undo::TurnSteps::default();
+        // Another document: the turns' touches no longer name its elements.
+        self.turn_touches.clear();
         if let Some(fonts) = fonts {
             self.install_fonts(fonts);
         }

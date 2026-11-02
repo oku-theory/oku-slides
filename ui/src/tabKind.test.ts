@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Snapshot, TabDocument } from "./api";
-import { documentKind, tabKind } from "./tabKind";
+import { documentKind, isDeckTab, tabKind } from "./tabKind";
 
 /** A snapshot reduced to the fields `tabKind` reads. */
 const snap = (over: Partial<Pick<Snapshot, "history" | "read_only" | "theming" | "editing">>) =>
@@ -18,6 +18,18 @@ describe("tabKind", () => {
     ["help over theme", snap({ read_only: true, theming: some }), "help"],
     ["theme over pack", snap({ theming: some, editing: some }), "theme"],
   ])("tabKind of %s rends %s", (_, s, kind) => expect(tabKind(s)).toBe(kind));
+});
+
+describe("isDeckTab", () => {
+  test.each([
+    ["a plain snapshot", snap({}), true],
+    ["a history view", snap({ history: some }), false],
+    ["a read-only help deck", snap({ read_only: true }), false],
+    ["a theme draft", snap({ theming: some }), false],
+    ["a pack edit", snap({ editing: some }), false],
+  ])("isDeckTab of %s is %p", (_, s, deck) => expect(isDeckTab(s)).toBe(deck));
+
+  test("isDeckTab without a snapshot is false", () => expect(isDeckTab(null)).toBe(false));
 });
 
 describe("documentKind", () => {

@@ -7,15 +7,30 @@ use common::{
     action, component_ids, last_surface, next_surface, start, start_pack_tab, start_with_library_widget_pack,
 };
 use oku_slides_a2ui::{ComponentKind, Dynamic, ServerBody};
-use oku_slides_mcp::HubErrorKind;
-use oku_slides_session::agent::Surface;
+use oku_slides_mcp::{HubErrorKind, ShowOutcome};
+use oku_slides_session::agent::{Place, Surface};
 use oku_slides_session::pack::ESSENTIEL_PACK;
 use oku_slides_session::{HOST_PACKS, HOST_THEME_PICKER, PAPIER_NAMESPACE, PRO_NAMESPACE};
 use serde_json::json;
 use speculoos::prelude::*;
 
 fn show(h: &common::Harness) -> bool {
-    tokio::task::block_in_place(|| h.hub.show_packs()).unwrap_or_else(|e| panic!("panneau des packs : {e}"))
+    show_in(h, None)
+}
+
+/// Shows the panel as from turn `turn` (`None`: opened by the user).
+fn show_in(h: &common::Harness, turn: Option<u32>) -> bool {
+    let outcome = tokio::task::block_in_place(|| h.hub.show_packs(turn));
+    outcome.unwrap_or_else(|e| panic!("panneau des packs : {e}")) == ShowOutcome::Shown
+}
+
+/// The agent calls the `show_packs` tool; the call must succeed.
+async fn call_show_packs(h: &common::Harness) {
+    let c = common::client(h.server.url(), Some(h.server.authorization()))
+        .await
+        .unwrap_or_else(|e| panic!("client MCP : {e}"));
+    let r = common::call(&c, "show_packs", json!({})).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
 }
 
 fn open(h: &common::Harness) -> bool {
@@ -23,12 +38,93 @@ fn open(h: &common::Harness) -> bool {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_packs_puts_the_panel_live_outside_any_turn() {
+async fn show_packs_from_command_has_no_turn() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     assert_that!(show(&h)).is_true();
     let surface = next_surface(&mut rx).await;
     assert_that!((surface.id.as_str(), surface.live, surface.turn)).is_equal_to((HOST_PACKS, true, None));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_box_is_a_popover() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    show(&h);
+    assert_that!(next_surface(&mut rx).await.place).is_equal_to(Place::Popover);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_from_tool_carries_the_open_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    let mut rx = h.hub.subscribe();
+    call_show_packs(&h).await;
+    assert_that!(next_surface(&mut rx).await.turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_late_tool_call_carries_the_last_turn() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    let mut rx = h.hub.subscribe();
+    call_show_packs(&h).await;
+    assert_that!(next_surface(&mut rx).await.turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_tool_with_no_turn_at_all_says_so_in_french() {
+    let h = start().await;
+    let c = common::client(h.server.url(), Some(h.server.authorization()))
+        .await
+        .unwrap_or_else(|e| panic!("client MCP : {e}"));
+    let r = common::call(&c, "show_packs", json!({})).await;
+    let said = (r.is_error, common::text_of(&r), open(&h));
+    assert_that!(said).is_equal_to((
+        Some(true),
+        "Aucun tour auquel rattacher cette boîte : rien n'a été affiché.".to_owned(),
+        false,
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_in_a_turn_gone_from_the_thread_is_turn_over() {
+    let h = start().await;
+    let n = h.hub.begin_turn();
+    h.hub.end_turn(n, "");
+    h.hub.clear_thread();
+    let outcome = tokio::task::block_in_place(|| h.hub.show_packs(Some(n))).unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(outcome).is_equal_to(ShowOutcome::TurnOver);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_refresh_after_action_keeps_turn() {
+    let h = start_with_library_widget_pack("acme").await;
+    let n = h.hub.begin_turn();
+    show_in(&h, Some(n));
+    let mut rx = h.hub.subscribe();
+    tokio::task::block_in_place(|| {
+        h.hub.act(action(HOST_PACKS, "add_pack", &json!({ "kind": "widgets", "namespace": "acme" })))
+    })
+    .unwrap_or_else(|e| panic!("ajout : {e}"));
+    assert_that!(last_surface(&mut rx, HOST_PACKS).turn).is_equal_to(Some(n));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_prune_refresh_keeps_turn() {
+    let h = start_with_library_widget_pack("acme").await;
+    let n = h.hub.begin_turn();
+    show_in(&h, Some(n));
+    let mut rx = h.hub.subscribe();
+    let ns = oku_slides_core::Namespace::parse("acme").unwrap_or_else(|| panic!("espace de noms"));
+    tokio::task::block_in_place(|| {
+        let mut s = h.session.lock().unwrap_or_else(|e| panic!("session : {e}"));
+        s.add_library_pack(oku_slides_core::PackKind::Widgets, &ns)
+    })
+    .unwrap_or_else(|e| panic!("ajout : {e}"));
+    tokio::task::block_in_place(|| h.hub.prune());
+    assert_that!(last_surface(&mut rx, HOST_PACKS).turn).is_equal_to(Some(n));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -143,9 +239,9 @@ fn active_cards(s: &Surface) -> Vec<String> {
 
 /// Le sélecteur de thème et le panneau des packs, montrés ensemble.
 fn show_both(h: &common::Harness) {
-    let picker = tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre")))
+    let picker = tokio::task::block_in_place(|| h.hub.show_themes(Some("s-libre"), None))
         .unwrap_or_else(|e| panic!("sélecteur de thème : {e}"));
-    assert_that!((picker, show(h))).is_equal_to((true, true));
+    assert_that!((picker, show(h))).is_equal_to((ShowOutcome::Shown, true));
 }
 
 #[tokio::test(flavor = "multi_thread")]

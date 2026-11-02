@@ -165,7 +165,6 @@ ui-agent-state-working = De agent is bezig…
 ui-agent-fallback = Lokale agent (reserve)
 ui-agent-fallback-reason = Lokale agent (reserve): { $reason }
 ui-agent-dock = Bezig
-ui-agent-dock-settings = Instellingen
 ui-agent-jump = ↓ Huidige beurt
 ui-agent-tool-input = Argumenten
 ui-agent-tool-output = Resultaat
@@ -439,3 +438,15 @@ ui-received-profiles = { $count ->
    *[other] { $count } lay-outprofielen
   }
 ui-received-code = Typst-code: { NUMBER($kb) } kB
+ui-trace-gone = Dit element bestaat niet meer
+ui-inspector = Inspector
+ui-inspector-close = Inspector sluiten
+ui-inspector-data = Gegevens
+ui-inspector-packs = Pakketten
+ui-inspector-no-theme = Geen thema
+ui-inspector-offer = Aangeboden door de agent
+ui-data-pane = Gegevens
+ui-data-pane-close = Gegevens sluiten
+ui-themes = Thema's
+ui-offer-open = Openen: { $title }
+ui-offer-settings = Aangeboden instellingen: { $title }

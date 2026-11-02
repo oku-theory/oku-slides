@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 
 use oku_slides_core::GuideKind;
 use oku_slides_i18n::LiveLocalizer;
-use oku_slides_session::agent::{ShowParams, ShowVariants, Surface, TabSession};
+use oku_slides_session::agent::{ShowParams, ShowVariants, Surface, TabSession, Trace};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tokio::sync::broadcast;
@@ -44,12 +44,10 @@ pub enum McpEvent {
         /// Id of the closed surface.
         id: String,
     },
-    /// Show a slide (and an element).
+    /// Show a slide; the agent never selects (the user's selection stays).
     Focus {
         /// Id of the slide to show.
         slide: String,
-        /// Id of the element to select, if any.
-        element: Option<String>,
     },
     /// Every open surface, in opening order.
     ///
@@ -101,6 +99,17 @@ pub enum Answer {
     Cancelled,
 }
 
+/// What asking the hub to show one of its own boxes did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShowOutcome {
+    /// The box is shown.
+    Shown,
+    /// Not shown: the tab is not in the box's mode (deck mode for themes and packs).
+    OutOfMode,
+    /// Not shown: the box's turn left the thread (evicted or cleared).
+    TurnOver,
+}
+
 /// Surface persistante et ce qu'il faut pour appliquer ses actions.
 #[derive(Debug)]
 enum Shown {
@@ -123,25 +132,31 @@ enum Shown {
     },
 }
 
-/// Le sélecteur de thème montré : un choix ou `prune` le refait sans rien rendre.
+/// The shown theme picker: a pick or `prune` rebuilds it without rendering anything.
 #[derive(Debug, Clone)]
 struct ThemePicker {
     cards: Vec<oku_slides_session::ThemeCard>,
     active: oku_slides_core::Namespace,
+    /// The agent turn that opened it (its chip); `None`: opened by the user.
+    turn: Option<u32>,
 }
 
-/// Le panneau des packs montré : `prune` ne le renvoie que s'il change.
+/// The shown packs panel: `prune` resends it only when it changes.
 #[derive(Debug, Clone)]
 struct PacksShown {
-    /// La dernière surface envoyée.
+    /// The last surface sent.
     last: Surface,
+    /// The agent turn that opened it (its chip); `None`: opened by the user.
+    turn: Option<u32>,
 }
 
-/// La boîte des réglages montrée : un rafraîchissement ne part que si elle change.
+/// The shown settings box: a refresh goes out only when it changes.
 #[derive(Debug, Clone)]
 struct SettingsShown {
-    /// Le dernier panneau envoyé.
+    /// The last panel sent.
     last: oku_slides_session::VoicePanel,
+    /// The agent turn that opened it (its chip); `None`: opened by the user.
+    turn: Option<u32>,
 }
 
 #[derive(Debug, Default)]
@@ -170,6 +185,8 @@ struct HubState {
     guide_writes: HashMap<u32, Vec<(GuideKind, String)>>,
     /// How many of a turn's guide writes a receipt or card already lists.
     guide_listed: HashMap<u32, usize>,
+    /// The traces of an ended turn, for its fallback receipt (`note_turn_traces`).
+    traces: HashMap<u32, Vec<Trace>>,
     /// The one tab move a turn may make, once claimed (`reserve_tab`).
     tab_claim: Option<turns::TabClaim>,
     /// The turn that moved to another tab (`note_elsewhere`).
@@ -319,24 +336,35 @@ impl SurfaceHub {
         self.show_alone(surface, Shown::Variants(spec), |s| matches!(s, Shown::Variants(_)));
     }
 
-    /// Affiche `surface` à la place des surfaces de la même famille (`same`).
-    fn show_alone(&self, surface: Surface, shown: Shown, same: impl Fn(&Shown) -> bool) {
-        let old = self.take_shown(same);
-        self.state().shows.insert(surface.id.clone(), shown);
+    /// The turn an agent-opened box is filed in: the call's turn, else the thread's last one.
+    ///
+    /// `turn` is the one read when the call arrived ([`turn`](Self::turn)): a late call between
+    /// turns still shows as a chip, in the last turn of the thread. `None`: no turn at all.
+    pub fn agent_turn(&self, turn: Option<u32>) -> Option<u32> {
+        turn.or_else(|| self.state().live_turns.last().copied())
+    }
+
+    /// Shows `surface` in place of the surfaces of the same family (`same`).
+    ///
+    /// `TurnOver`, and nothing shown, when the surface's turn is no longer in the thread.
+    fn show_alone(&self, surface: Surface, shown: Shown, same: impl Fn(&Shown) -> bool) -> ShowOutcome {
+        let old = {
+            let mut state = self.state();
+            if surface.turn.is_some_and(|t| !state.live_turns.contains(&t)) {
+                return ShowOutcome::TurnOver;
+            }
+            let ids: Vec<String> = state.shows.iter().filter(|(_, s)| same(s)).map(|(id, _)| id.clone()).collect();
+            for id in &ids {
+                state.shows.remove(id);
+            }
+            state.shows.insert(surface.id.clone(), shown);
+            ids
+        };
         for id in old.into_iter().filter(|id| *id != surface.id) {
             self.emit(McpEvent::CloseSurface { id });
         }
         self.emit(McpEvent::Surface { surface });
-    }
-
-    /// Retire des surfaces persistantes celles que `which` désigne ; rend leurs identifiants.
-    fn take_shown(&self, which: impl Fn(&Shown) -> bool) -> Vec<String> {
-        let mut state = self.state();
-        let ids: Vec<String> = state.shows.iter().filter(|(_, s)| which(s)).map(|(id, _)| id.clone()).collect();
-        for id in &ids {
-            state.shows.remove(id);
-        }
-        ids
+        ShowOutcome::Shown
     }
 }
 

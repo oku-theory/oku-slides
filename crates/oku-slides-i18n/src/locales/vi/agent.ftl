@@ -87,6 +87,15 @@ agent-turn-ended = Kết thúc lượt ({ $stop }).
 agent-choice-cancelled = Câu hỏi đã bị hủy
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Tại sao
+agent-trace = { $name }: { $count ->
+   *[other] { $count } thay đổi
+}
+agent-trace-data = { $name }: đã đổi dữ liệu
+agent-trace-removed = { $name }: không còn tồn tại
+agent-trace-more = { $count ->
+   *[other] và { $count } mục khác
+}
+agent-trace-title = Phần tử đã thay đổi
 
 agent-error-file = Không thể đọc hoặc ghi tệp.
 agent-error-unexpected-action = Hành động không mong đợi: { $action }.
@@ -126,6 +135,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Hãy bảo người dùng tiếp tục ở đó: tác nhân của thẻ đó không biết yêu cầu này.
 } Thẻ này vẫn giữ nguyên.
 agent-error-turn-over = Lượt của lệnh gọi này đã kết thúc: không có gì được hiển thị.
+agent-error-no-box-turn = Không có lượt nào để gắn hộp này: không có gì được hiển thị.
 agent-error-no-file = Bản trình bày chưa có tệp: hãy cung cấp đường dẫn tuyệt đối.
 agent-error-path-relative = Đường dẫn phải là đường dẫn tuyệt đối.
 agent-error-path-parent = Đường dẫn không được chứa “..”.

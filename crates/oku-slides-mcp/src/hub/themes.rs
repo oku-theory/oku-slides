@@ -3,34 +3,40 @@
 //! Le seul `show_*` que le hub construit lui-même : il le refait après un choix ou
 //! un changement du deck (`prune`), à partir des cartes gardées, sans rien rendre.
 
+use oku_slides_session::agent::Surface;
 use oku_slides_session::{HOST_THEME_PICKER, picked_theme, theme_picker};
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
 use super::error::{HubError, HubInner, IncompleteSnafu, SessionSnafu};
-use super::{McpEvent, Shown, SurfaceHub, ThemePicker};
+use super::{McpEvent, ShowOutcome, Shown, SurfaceHub, ThemePicker};
 
 impl SurfaceHub {
-    /// Shows the theme picker on `slide`; `false` outside deck mode.
+    /// Shows the theme picker on `slide` in `turn` (an agent's chip; `None`: opened by the user).
     ///
-    /// The thumbnails render with no session lock held (a [`ThemeJob`](oku_slides_session::ThemeJob)),
-    /// but still block: call it off the runtime threads.
+    /// `OutOfMode` outside deck mode, `TurnOver` when `turn` left the thread. The thumbnails
+    /// render with no session lock held (a [`ThemeJob`](oku_slides_session::ThemeJob)), but still
+    /// block: call it off the runtime threads.
     ///
     /// # Errors
     ///
     /// Fails if the session refuses: tab closed, no active theme or no preview slot.
-    pub fn show_themes(&self, slide: Option<&str>) -> Result<bool, HubError> {
+    pub fn show_themes(&self, slide: Option<&str>, turn: Option<u32>) -> Result<ShowOutcome, HubError> {
         let job = self.session.with(|s| s.theme_job(slide)).and_then(|r| r).context(SessionSnafu)?;
-        let Some(job) = job else { return Ok(false) };
+        let Some(job) = job else { return Ok(ShowOutcome::OutOfMode) };
         let (choices, slot) = job.run();
         // Tab closed meanwhile: the slot is dropped with the error, the picker still shows.
         if let Err(e) = self.session.with(|s| s.restore_preview_slot(slot)) {
             tracing::debug!(error = %e, "emplacement d'aperçu non rendu : session fermée");
         }
-        let surface = theme_picker(&choices.cards, &choices.active, &self.localizer.current());
-        let picker = ThemePicker { cards: choices.cards, active: choices.active };
-        self.show_alone(surface, Shown::Themes(picker), |s| matches!(s, Shown::Themes(_)));
-        Ok(true)
+        let picker = ThemePicker { cards: choices.cards, active: choices.active, turn };
+        let surface = self.picker_surface(&picker);
+        Ok(self.show_alone(surface, Shown::Themes(picker), |s| matches!(s, Shown::Themes(_))))
+    }
+
+    /// The picker's surface in its turn, translated into the current language.
+    fn picker_surface(&self, picker: &ThemePicker) -> Surface {
+        Surface { turn: picker.turn, ..theme_picker(&picker.cards, &picker.active, &self.localizer.current()) }
     }
 
     /// Applique le thème choisi, puis refait le sélecteur avec lui actif.
@@ -42,8 +48,8 @@ impl SurfaceHub {
         let ns = picked_theme(context).context(IncompleteSnafu { key: oku_slides_session::THEME_EVENT })?;
         self.session.with(|s| s.pick_theme(&ns)).and_then(|r| r).context(SessionSnafu)?;
         self.emit(McpEvent::Changed);
-        let next = ThemePicker { cards: picker.cards.clone(), active: ns };
-        self.emit(McpEvent::Surface { surface: theme_picker(&next.cards, &next.active, &self.localizer.current()) });
+        let next = ThemePicker { cards: picker.cards.clone(), active: ns, turn: picker.turn };
+        self.emit(McpEvent::Surface { surface: self.picker_surface(&next) });
         Ok(next)
     }
 
@@ -86,8 +92,9 @@ impl SurfaceHub {
         if active == picker.active {
             return;
         }
-        let surface = theme_picker(&picker.cards, &active, &self.localizer.current());
-        state.shows.insert(HOST_THEME_PICKER.to_owned(), Shown::Themes(ThemePicker { active, ..picker }));
+        let next = ThemePicker { active, ..picker };
+        let surface = self.picker_surface(&next);
+        state.shows.insert(HOST_THEME_PICKER.to_owned(), Shown::Themes(next));
         self.record_and_send(&mut state, McpEvent::Surface { surface });
     }
 }

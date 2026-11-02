@@ -7,7 +7,7 @@ mod common;
 use common::*;
 use oku_slides_mcp::{Answer, Freeze};
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
-use oku_slides_session::agent::{AskChoice, Render, Surface, forms, render};
+use oku_slides_session::agent::{AskChoice, Render, Surface, Trace, TraceName, forms, render};
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -91,7 +91,7 @@ fn render_surface(id: &str) -> Surface {
 }
 
 fn receipt(id: &str, narration: &str, h: &Harness) -> ReceiptSurfaces {
-    let surface = fallback(id, narration, &[], &h.localizer).unwrap_or_else(|| panic!("reçu de repli vide"));
+    let surface = fallback(id, narration, &[], &[], &h.localizer).unwrap_or_else(|| panic!("reçu de repli vide"));
     ReceiptSurfaces { surface, plain: None }
 }
 
@@ -145,4 +145,76 @@ async fn hub_thread_question_late_from_a_closed_turn_is_cancelled_unseen() {
     assert_that!(answer).is_equal_to(Answer::Cancelled);
     assert_that!(h.hub.surfaces()).is_empty();
     assert_that!(h.hub.has_pending_ask()).is_false();
+}
+
+/// A trace of `e-fond` (`s-libre`), named "Fond".
+fn fond_trace() -> Trace {
+    Trace {
+        slide: "s-libre".into(),
+        element: "e-fond".into(),
+        name: TraceName::Text("Fond".into()),
+        changes: 1,
+        removed: false,
+        data: false,
+    }
+}
+
+/// The contexts of the `trace` buttons found anywhere in `v`.
+fn trace_buttons(v: &Value) -> Vec<Value> {
+    match v {
+        Value::Object(o) => {
+            let own = (o.get("component") == Some(&json!("Button")))
+                .then(|| o.get("action").and_then(|a| a.get("event")))
+                .flatten()
+                .filter(|e| e.get("name") == Some(&json!("trace")))
+                .and_then(|e| e.get("context").cloned());
+            own.into_iter().chain(o.values().flat_map(trace_buttons)).collect()
+        }
+        Value::Array(a) => a.iter().flat_map(trace_buttons).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The open surfaces of turn `turn`, as JSON.
+fn turn_value(h: &Harness, turn: u32) -> Value {
+    let surfaces: Vec<_> = h.hub.surfaces().into_iter().filter(|s| s.turn == Some(turn)).collect();
+    serde_json::to_value(&surfaces).unwrap_or_else(|e| panic!("surfaces en JSON : {e}"))
+}
+
+fn fond_context() -> Value {
+    json!({ "slide": "s-libre", "element": "e-fond", "pane": false })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn fallback_receipt_lists_the_turn_traces() {
+    let h = start().await;
+    let turn = h.hub.begin_turn();
+    h.hub.note_turn_traces(turn, vec![fond_trace()]);
+    h.hub.end_turn(turn, "Fond posé.");
+    assert_that!(trace_buttons(&turn_value(&h, turn))).is_equal_to(vec![fond_context()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn traces_only_turn_gets_a_fallback_receipt() {
+    let h = start().await;
+    let turn = h.hub.begin_turn();
+    h.hub.note_turn_traces(turn, vec![fond_trace()]);
+    h.hub.end_turn(turn, "  ");
+    assert_that!(trace_buttons(&turn_value(&h, turn))).is_equal_to(vec![fond_context()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn late_guide_card_has_no_traces() {
+    let h = start().await;
+    let turn = h.hub.begin_turn();
+    h.hub.note_turn_traces(turn, vec![fond_trace()]);
+    h.hub.end_turn(turn, "Fond posé.");
+    h.hub.note_guide_write(turn, oku_slides_core::GuideKind::Use, "use guide written".into());
+    let card = h
+        .hub
+        .surfaces()
+        .into_iter()
+        .find(|s| serde_json::to_string(s).is_ok_and(|j| j.contains("use guide written")))
+        .map(|s| serde_json::to_value(&s).unwrap_or_else(|e| panic!("carte en JSON : {e}")));
+    assert_that!(card.as_ref().map(trace_buttons)).is_equal_to(Some(Vec::new()));
 }

@@ -3,6 +3,7 @@ use oku_slides_i18n::Localizer;
 use speculoos::prelude::*;
 
 use super::{NextStep, Report, fallback, receipt};
+use crate::agent::{TRACES_SHOWN, Trace, TraceName};
 
 fn fr() -> Localizer {
     Localizer::new(Some("fr"))
@@ -22,7 +23,7 @@ fn full() -> Report {
 #[test]
 fn receipt_full_matches_snapshot() {
     let slide = SlideRef { id: "s-4".into(), hash: "0123456789abcdef0123456789abcdef".into() };
-    let s = receipt("report-1", &full(), Some(&slide), &fr());
+    let s = receipt("report-1", &full(), Some(&slide), &[], &fr());
     assert_that!(s.live).is_false();
     insta::assert_json_snapshot!(s);
 }
@@ -37,7 +38,7 @@ fn receipt_minimal_has_no_disclosure_nor_actions() {
         why: None,
         actions: vec![],
     };
-    let json = serde_json::to_string(&receipt("report-1", &spec, None, &fr())).unwrap();
+    let json = serde_json::to_string(&receipt("report-1", &spec, None, &[], &fr())).unwrap();
     assert_that!(json).does_not_contain("Disclosure");
     assert_that!(json).does_not_contain("suggest");
 }
@@ -46,14 +47,14 @@ fn receipt_minimal_has_no_disclosure_nor_actions() {
 fn receipt_action_sends_its_prompt_or_label() {
     let mut spec = full();
     spec.actions.push(NextStep { label: "Plus grand".into(), prompt: None });
-    let json = serde_json::to_string(&receipt("report-1", &spec, None, &fr())).unwrap();
+    let json = serde_json::to_string(&receipt("report-1", &spec, None, &[], &fr())).unwrap();
     assert_that!(json).contains("Essaie un vert sapin");
     assert_that!(json.matches("Plus grand").count()).is_equal_to(2);
 }
 
 #[test]
 fn receipt_fallback_takes_first_sentence_as_title() {
-    let s = fallback("report-1", "La slide 4 a un fond bleu nuit. Le titre est blanc.", &[], &fr()).unwrap();
+    let s = fallback("report-1", "La slide 4 a un fond bleu nuit. Le titre est blanc.", &[], &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json).contains("\"title\":\"La slide 4 a un fond bleu nuit.\"");
     assert_that!(json).contains("Le titre est blanc.");
@@ -61,13 +62,13 @@ fn receipt_fallback_takes_first_sentence_as_title() {
 
 #[test]
 fn receipt_fallback_does_not_split_on_a_decimal_point() {
-    let s = fallback("report-1", "Le titre passe à 4.5 cm. Le reste suit.", &[], &fr()).unwrap();
+    let s = fallback("report-1", "Le titre passe à 4.5 cm. Le reste suit.", &[], &[], &fr()).unwrap();
     assert_that!(serde_json::to_string(&s).unwrap()).contains("\"title\":\"Le titre passe à 4.5 cm.\"");
 }
 
 #[test]
 fn receipt_fallback_without_terminator_takes_the_whole_line() {
-    let s = fallback("report-1", "Fond posé\nPuis le titre", &[], &fr()).unwrap();
+    let s = fallback("report-1", "Fond posé\nPuis le titre", &[], &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json).contains("\"title\":\"Fond posé\"");
     assert_that!(json).contains("Puis le titre");
@@ -76,7 +77,7 @@ fn receipt_fallback_without_terminator_takes_the_whole_line() {
 #[test]
 fn receipt_fallback_long_first_sentence_keeps_it_whole_in_why() {
     let long = format!("{}.", "mot ".repeat(60).trim());
-    let s = fallback("report-1", &long, &[], &fr()).unwrap();
+    let s = fallback("report-1", &long, &[], &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json).contains("…");
     assert_that!(json).contains(&long);
@@ -85,14 +86,14 @@ fn receipt_fallback_long_first_sentence_keeps_it_whole_in_why() {
 #[test]
 fn receipt_fallback_why_is_capped() {
     let long = format!("Titre. {}", "x".repeat(crate::agent::WHY_MAX * 2));
-    let s = fallback("report-1", &long, &[], &fr()).unwrap();
+    let s = fallback("report-1", &long, &[], &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json.len()).is_less_than(crate::agent::WHY_MAX + 2000);
 }
 
 #[test]
 fn receipt_fallback_without_narration_is_none() {
-    assert_that!(fallback("report-1", "   ", &[], &fr())).is_none();
+    assert_that!(fallback("report-1", "   ", &[], &[], &fr())).is_none();
 }
 
 /// t-458 : une slide sans page rendue (son rendu a échoué, le dernier rendu installé ne la connaît
@@ -135,13 +136,13 @@ fn card_facts(surface: &crate::agent::forms::Surface) -> Vec<String> {
 
 #[test]
 fn fallback_lists_the_guide_writes_as_facts() {
-    let s = fallback("report-1", "Guide écrit.", &["guide 1".into()], &fr()).unwrap();
+    let s = fallback("report-1", "Guide écrit.", &["guide 1".into()], &[], &fr()).unwrap();
     assert_that!(card_facts(&s)).is_equal_to(vec!["guide 1".to_owned()]);
 }
 
 #[test]
 fn fallback_without_narration_titles_the_first_guide_write() {
-    let s = fallback("report-1", "  ", &["guide 1".into(), "guide 2".into()], &fr()).unwrap();
+    let s = fallback("report-1", "  ", &["guide 1".into(), "guide 2".into()], &[], &fr()).unwrap();
     let title = card(&s)["title"].as_str().map(str::to_owned);
     assert_that!((title, card_facts(&s))).is_equal_to((Some("guide 1".to_owned()), vec!["guide 2".to_owned()]));
 }
@@ -152,4 +153,83 @@ fn report_surface_appends_the_guide_writes_after_four_facts() {
     let spec = Report { facts: vec!["a".into(), "b".into(), "c".into(), "d".into()], slide: None, ..full() };
     let r = s.report_surface("report-1", &spec, &["guide".into()]).unwrap();
     assert_that!(card_facts(&r.surface)).is_equal_to(["a", "b", "c", "d", "guide"].map(String::from).to_vec());
+}
+
+fn trace(name: &str) -> Trace {
+    Trace {
+        slide: "s-1".into(),
+        element: format!("e-{name}"),
+        name: TraceName::Text(name.into()),
+        changes: 1,
+        removed: false,
+        data: false,
+    }
+}
+
+/// The components of a surface, as JSON.
+fn components(s: &crate::agent::Surface) -> Vec<serde_json::Value> {
+    let json = serde_json::to_value(s).unwrap();
+    json["messages"][1]["updateComponents"]["components"].as_array().cloned().unwrap_or_default()
+}
+
+/// The `component` type of each `trace-N` component, in order.
+fn trace_kinds(s: &crate::agent::Surface) -> Vec<String> {
+    components(s)
+        .iter()
+        .filter(|c| c["id"].as_str().is_some_and(|id| id.starts_with("trace-")))
+        .map(|c| c["component"].as_str().unwrap_or_default().to_owned())
+        .collect()
+}
+
+fn minimal() -> Report {
+    Report { title: "Fait".into(), facts: vec!["ok".into()], slide: None, swatch: None, why: None, actions: vec![] }
+}
+
+#[test]
+fn receipt_one_trace_button_per_element() {
+    let s = receipt("report-1", &minimal(), None, &[trace("a"), trace("b")], &fr());
+    assert_that!(trace_kinds(&s)).is_equal_to(vec!["Button".to_owned(), "Button".to_owned()]);
+}
+
+#[test]
+fn receipt_removed_trace_is_caption() {
+    let s = receipt("report-1", &minimal(), None, &[Trace { removed: true, ..trace("a") }], &fr());
+    assert_that!(trace_kinds(&s)).is_equal_to(vec!["Text".to_owned()]);
+}
+
+#[test]
+fn receipt_more_than_six_traces_adds_a_more_caption() {
+    let traces: Vec<Trace> = (0..8).map(|i| trace(&format!("t{i}"))).collect();
+    let s = receipt("report-1", &minimal(), None, &traces, &fr());
+    let more = components(&s).into_iter().find(|c| c["id"] == "traces-more").map(|c| c["text"].clone());
+    assert_that!((trace_kinds(&s).len(), more)).is_equal_to((TRACES_SHOWN, Some(serde_json::json!("et 2 autres"))));
+}
+
+#[test]
+fn receipt_plain_copy_keeps_trace_buttons() {
+    let mut s = crate::test_support::session();
+    s.begin_turn(1, "consigne");
+    let style: oku_slides_core::Op = serde_json::from_value(serde_json::json!(
+        { "op": "set_style", "slide": "s-libre", "element": "e-fond", "style": {} }))
+    .unwrap();
+    s.apply_by_agent("agent", vec![style], None).unwrap();
+    let spec = Report { actions: vec![NextStep { label: "Encore".into(), prompt: None }], ..minimal() };
+    let built = s.report_surface("report-1", &spec, &[]).unwrap();
+    let plain = built.plain.unwrap();
+    assert_that!((trace_kinds(&built.surface), trace_kinds(&plain)))
+        .is_equal_to((vec!["Button".to_owned()], vec!["Button".to_owned()]));
+}
+
+#[rstest::rstest]
+#[case::one_change(Trace { changes: 1, ..trace("Ventes") }, "Ventes : 1 modification")]
+#[case::two_changes(Trace { changes: 2, ..trace("Ventes") }, "Ventes : 2 modifications")]
+#[case::data(Trace { changes: 3, data: true, ..trace("Ventes") }, "Ventes : données modifiées")]
+#[case::removed(Trace { removed: true, data: true, ..trace("Ventes") }, "Ventes : n'existe plus")]
+fn receipt_trace_labels_fr(#[case] t: Trace, #[case] expected: &str) {
+    let s = receipt("report-1", &minimal(), None, &[t], &fr());
+    let shown = components(&s)
+        .into_iter()
+        .find(|c| c["id"] == "trace-0")
+        .map(|c| if c["component"] == "Button" { c["label"].clone() } else { c["text"].clone() });
+    assert_that!(shown).is_equal_to(Some(serde_json::json!(expected)));
 }

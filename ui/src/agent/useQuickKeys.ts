@@ -12,26 +12,33 @@ import type { Routed } from "./surfaces";
 import { HOST_THEME_PICKER, HOST_VOICE, isQuestion } from "./surfaces";
 import { ARMING_MS } from "../modalFrame";
 
-/** La surface qui reçoit les touches, et sa sorte (`dock` : une question du fil ou le sélecteur de thème de l'hôte). */
+/** The surface that gets the keys, and its kind (`dock`: a thread question; `popover`: the host's theme picker, shown). */
 export interface QuickTarget {
   surface: Surface;
-  kind: "sheet" | "drawer" | "modal" | "dock";
+  kind: "sheet" | "drawer" | "modal" | "dock" | "popover";
 }
 
+/** The main window's places while the agent is detached: its dock is in the agent window. */
+export const DETACHED_MAIN_PLACES: QuickTarget["kind"][] = ["sheet", "drawer", "modal", "popover"];
 /**
- * La surface qui reçoit les touches : la fenêtre, sinon la fiche, sinon une question du
- * dock (elle bloque l'agent, le tiroir non), sinon le sélecteur de thème de l'hôte (1–4,
- * Échap avec le focus dans le dock), sinon le tiroir. Plusieurs questions au dock : la dernière,
- * au plus près du micro. Une consigne répond à une question (`answerTarget`), jamais au sélecteur.
- * Les autres réglages du dock n'en reçoivent pas : leurs champs ont leurs propres touches.
+ * The agent window's places: its dock, and a popover only once it shows there (`quickTarget` gets
+ * only a placed one); sheets, the drawer and modals stay in the main window.
  */
-export function quickTarget({ modal, sheet, drawer, dock }: Pick<Routed, "modal" | "drawer" | "dock"> & { sheet?: Surface }): QuickTarget | null {
+export const AGENT_WINDOW_PLACES: QuickTarget["kind"][] = ["dock", "popover"];
+
+/**
+ * The surface that gets the quick keys: the modal, else the sheet, else a dock question
+ * (it blocks the agent, the drawer does not), else the host's theme picker when it is the open
+ * popover shown in this window (1–4; the caller passes it only once placed at its anchor), else the drawer. Several dock questions: the last, nearest the mic.
+ * A prompt answers a question (`answerTarget`), never the picker.
+ * Other settings get none: their fields have their own keys.
+ */
+export function quickTarget({ modal, sheet, drawer, dock, popover }: Pick<Routed, "modal" | "drawer" | "dock"> & { sheet?: Surface; popover?: Surface }): QuickTarget | null {
   if (modal) return { surface: modal, kind: "modal" };
   if (sheet) return { surface: sheet, kind: "sheet" };
   const question = dock.filter(isQuestion).at(-1);
   if (question) return { surface: question, kind: "dock" };
-  const picker = dock.find((s) => s.id === HOST_THEME_PICKER);
-  if (picker) return { surface: picker, kind: "dock" };
+  if (popover?.id === HOST_THEME_PICKER) return { surface: popover, kind: "popover" };
   return drawer ? { surface: drawer, kind: "drawer" } : null;
 }
 
@@ -70,6 +77,8 @@ export function useQuickKeys(target: QuickTarget | null, onAction: (s: Surface, 
     const onKey = (e: KeyboardEvent) => {
       // La boîte des réglages garde ses touches (focus clavier) : rien ne va à la question ouverte.
       if (e.target instanceof Element && e.target.closest(`[data-surface-id="${HOST_VOICE}"]`)) return;
+      // Escape in a popover closes it (`AgentPopover`), never the surface that has the keys.
+      if (e.key === "Escape" && e.target instanceof Element && e.target.closest(".agent-popover")) return;
       const { target: t, onAction: send } = state.current;
       if (!t || e.defaultPrevented || editable(e.target)) return;
       const key = quickKey(e);
@@ -80,6 +89,10 @@ export function useQuickKeys(target: QuickTarget | null, onAction: (s: Surface, 
       } else if (t.kind === "dock" && (key === "Enter" || key === "e" || (key === "Escape" && !inDock(e.target)))) {
         // Une question du dock reste pendant qu'on édite : Entrée et Échap gardent leur sens dans
         // l'app (éditer, désélectionner). Échap l'abandonne quand le focus est dans le dock.
+        return;
+      } else if (t.kind === "popover" && (key === "Enter" || key === "e" || key === "Escape")) {
+        // The picker takes its digits only: Enter and Escape keep their app meaning, and
+        // `AgentPopover` closes it on Escape with the focus inside.
         return;
       } else if (key === "e") {
         const input = document.querySelector<HTMLInputElement>(`[data-surface-id="${CSS.escape(t.surface.id)}"] input`);

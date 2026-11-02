@@ -2,6 +2,7 @@
 
 import "../test/dom";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
 import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 import type { QuickAction } from "./quick";
@@ -41,7 +42,7 @@ function Harness({ target, send, keysOn }: { target: QuickTarget; send: (s: Surf
       onError: () => {},
     });
   }
-  return createElement(COMPONENT[target.kind], { key: target.surface.id, surface: target.surface, hints: !!keyed, onAction: send, onError: () => {} });
+  return createElement(COMPONENT[target.kind], { key: target.surface.id, surface: target.surface, hints: !!keyed, onAction: (s: Surface, a: A2uiClientAction) => send(s, fromA2ui(a)), onError: () => {} });
 }
 
 type Root = ReturnType<typeof createRoot>;
@@ -341,7 +342,7 @@ describe("fenêtre de confirmation", () => {
 });
 
 describe("réglages du fil", () => {
-  test("une surface show-… vivante rend dans le dock, ses touches ignorées de l'app", async () => {
+  test("a live show-… thread surface renders in its turn, not in the dock", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -352,6 +353,6 @@ describe("réglages du fil", () => {
       root.render(createElement(AgentThread, { state: "idle", turns, loose, dock, onAction: () => {}, onNewConversation: () => {}, onError: () => {} }));
     });
     await act(async () => new Promise((r) => setTimeout(r, 0)));
-    expect(host.querySelector('.agent-dock.agent-keys [data-surface-id="show-6"]')).not.toBeNull();
+    expect([!!host.querySelector('.agent-turn [data-surface-id="show-6"]'), !!host.querySelector('.agent-dock [data-surface-id="show-6"]')]).toEqual([true, false]);
   });
 });

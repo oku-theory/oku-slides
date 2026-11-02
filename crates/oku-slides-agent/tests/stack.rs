@@ -617,6 +617,39 @@ async fn prompt_theme_shows_the_picker_on_the_slide_shown() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn prompt_theme_shortcut_box_has_no_turn() {
+    let (stack, rx, _log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "Thème." }))))
+        .unwrap();
+    let shown = wait_for(&rx, is_picker).await;
+    assert_that!(shown.1["event"]["surface"].get("turn").cloned()).is_none();
+}
+
+#[test]
+fn show_themes_command_deserializes_with_its_tab() {
+    assert_that!(cmd(json!({ "cmd": "show_themes", "tab": "t", "slide": null })).tab().to_owned())
+        .is_equal_to("t".to_owned());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_command_passes_the_slide() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let show = json!({ "cmd": "show_themes", "tab": "t-1", "slide": "s-libre" });
+    tokio::task::block_in_place(|| stack.handle(cmd(show))).unwrap_or_else(|e| panic!("show_themes : {e}"));
+    let shown = wait_for(&rx, is_picker).await;
+    assert_that!(first_card_slide(&shown.1)).is_equal_to(Some("s-libre".to_owned()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_themes_from_command_has_no_turn() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    let show = json!({ "cmd": "show_themes", "tab": "t-1", "slide": null });
+    tokio::task::block_in_place(|| stack.handle(cmd(show))).unwrap_or_else(|e| panic!("show_themes : {e}"));
+    let shown = wait_for(&rx, is_picker).await;
+    assert_that!(shown.1["event"]["surface"].get("turn").cloned()).is_none();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn prompt_theme_sends_nothing_to_the_agent() {
     let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "chunks": ["ok"] }] }), &["t-1"]).await;
     tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "Thème." }))))
@@ -708,6 +741,29 @@ async fn show_packs_relays_the_packs_panel_to_its_tab() {
     })
     .await;
     assert_that!(ev["tab"].clone()).is_equal_to(json!("t-1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_packs_from_command_has_no_turn() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_packs", "tab": "t-1" }))))
+        .unwrap_or_else(|e| panic!("show_packs : {e}"));
+    let (_, ev) = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-packs"
+    })
+    .await;
+    assert_that!(ev["event"]["surface"].get("turn").cloned()).is_none();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_from_command_has_no_turn() {
+    let (stack, rx) = stack_with_sink(json!({ "turns": [] }), &["t-1"]).await;
+    tokio::task::block_in_place(|| stack.handle(cmd(json!({ "cmd": "show_settings", "tab": "t-1" })))).unwrap();
+    let (_, ev) = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-voice"
+    })
+    .await;
+    assert_that!(ev["event"]["surface"].get("turn").cloned()).is_none();
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -1,14 +1,14 @@
-// Données d'un graphique et d'un tableau au dock de l'agent (surface `host-data`) : le graphique
-// sélectionné y montre sa grille ; une cellule, son type, puis « Afficher en tableau » et une
-// option du tableau changent le deck. L'élément est retiré à la fin : la suite garde la slide d'origine.
-// Contre `oku-slides serve fixtures/roadmap.json`. Lancer : just e2e
-// (avant 160-widgets.cjs : l'onglet est encore en mode deck).
+// A chart's and a table's data in the data pane (surface `host-data`), opened from the inspector:
+// the selected chart shows its grid there; a cell, its type, then "Show as table" and a table option
+// change the deck. The pane and the inspector close and the element is removed at the end: the suite
+// keeps the original layout and slide. Against `oku-slides serve fixtures/roadmap.json`. Run: just e2e
+// (before 160-widgets.cjs: the tab is still in deck mode).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
 const { until } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
-const DATA = '.agent-dock [data-surface-id="host-data"]';
+const DATA = '.data-pane [data-surface-id="host-data"]';
 const ID = 'e2e-chart';
 
 const api = (p, req) => post(p, '/api', { tab: 't-1', req });
@@ -39,15 +39,18 @@ const element = async (p) => (await view(p)).slide.params.blocks.find((e) => e.i
   await p.reload();
   await p.waitForSelector('.stage img');
 
-  // 1. Sélection du graphique : ses données au dock, rien sous la slide.
+  // 1. The chart selected, then the inspector and its Data button: its data in the pane, under the slide.
   const order = (await api(p, { cmd: 'snapshot' })).slides.map((s) => s.id);
   await p.click(`.slide-strip .thumb >> nth=${order.indexOf('s-constat')}`);
   await until(p, async () => (await view(p)).targets.some((t) => t.id === ID), 'le graphique est une cible');
   const at = (await view(p)).targets.findIndex((t) => t.id === ID);
   await p.locator('.overlay .target').nth(at).click({ position: { x: 4, y: 4 } });
+  await p.click('.tools-tray .inspector-toggle');
+  await p.locator('.inspector').getByRole('button', { name: 'Données', exact: true }).click();
   const chart = p.locator(`${DATA} .chart-panel`);
   await chart.waitFor({ timeout: 15000 });
-  assert.equal(await p.locator('.sheet-area .chart-panel').count(), 0, 'pas de grille sous la slide');
+  assert.equal(await p.locator('.sheet-area > .data-pane .chart-panel').count(), 1, 'the grid is in the data pane');
+  assert.equal(await p.locator('.agent-dock [data-surface-id="host-data"]').count(), 0, "nothing at the agent's dock");
 
   // 2. Une cellule : Jan / Ventes passe à 9 (validée en quittant le champ).
   const cell = chart.locator('input.cdg-number').first();
@@ -68,7 +71,11 @@ const element = async (p) => (await view(p)).slide.params.blocks.find((e) => e.i
   await table.getByRole('button', { name: 'Lignes zébrées', exact: true }).click();
   await until(p, async () => (await element(p))?.params.data.striped === true, "l'option zébrée n'est pas posée");
 
-  // L'élément retiré : la slide d'origine pour la suite.
+  // The pane and the inspector closed, then the element removed: the suite starts from the original layout and slide.
+  await p.locator('.data-pane').getByRole('button', { name: 'Fermer les données', exact: true }).click();
+  await p.waitForSelector('.data-pane', { state: 'detached' });
+  await p.click('.tools-tray .inspector-toggle');
+  await p.waitForSelector('.inspector', { state: 'detached' });
   const removed = await api(p, { cmd: 'apply', label: 'retrait', merge: null, ops: [{ op: 'remove_element', slide: 's-constat', element: ID }] });
   assert.ok(!removed.error, JSON.stringify(removed));
   await p.waitForSelector(DATA, { state: 'detached' });

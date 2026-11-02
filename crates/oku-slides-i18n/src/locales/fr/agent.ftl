@@ -93,6 +93,17 @@ agent-turn-ended = Tour terminé ({ $stop }).
 agent-choice-cancelled = Question annulée
 agent-choice-answered = ✓ { $answer }
 agent-report-why = Pourquoi
+agent-trace = { $name } : { $count ->
+    [one] { $count } modification
+   *[other] { $count } modifications
+}
+agent-trace-data = { $name } : données modifiées
+agent-trace-removed = { $name } : n'existe plus
+agent-trace-more = { $count ->
+    [one] et { $count } autre
+   *[other] et { $count } autres
+}
+agent-trace-title = Éléments modifiés
 
 agent-error-file = Le fichier n'a pas pu être lu ou écrit.
 agent-error-unexpected-action = Action inattendue : { $action }.
@@ -132,6 +143,7 @@ agent-theme-opened-in-tab = { $shown ->
   *[none] Dites à l'utilisateur de continuer là : l'agent de cet onglet ne connaît pas cette demande.
 } Cet onglet reste tel quel.
 agent-error-turn-over = Le tour de cet appel est terminé : rien n'a été affiché.
+agent-error-no-box-turn = Aucun tour auquel rattacher cette boîte : rien n'a été affiché.
 agent-error-no-file = La présentation n'a pas encore de fichier : donnez un chemin absolu.
 agent-error-path-relative = Le chemin doit être absolu.
 agent-error-path-parent = Le chemin ne doit pas contenir « .. ».

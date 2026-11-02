@@ -10,6 +10,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
+const { prompt } = require('./lib/agent.cjs');
 const { waitSurfaceAction } = require('./lib/surfaceAction.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
@@ -17,14 +18,13 @@ const SECRET = 'oku-e2e-secret-1144';
 const KEY_VAR = 'OKU_E2E_DICTATION_KEY';
 /** Un port local fermé : aucun audio ne quitte jamais la machine. */
 const CLOSED_URL = 'http://127.0.0.1:9/v1';
-const BOX = '.agent-dock [data-surface-id="host-voice"]';
+const BOX = '.agent-popover [data-surface-id="host-voice"]';
 const part = (id) => `${BOX} [data-component-id="${id}"]`;
 const chip = (p, id, name) => p.locator(`${part(id)} .chip`, { hasText: new RegExp(`^\\s*${name}\\s*$`) });
 const apiChip = (p) => p.locator(`${part('d-models')} .chip`, { hasText: /^\s*API\b/ });
 const isChosen = async (c) => (await c.getAttribute('aria-checked')) === 'true';
 const untilChosen = (p, id, name) => until(p, () => isChosen(chip(p, id, name)), `« ${name} » devrait être choisi`);
 const status = (p) => post(p, '/api/stt', { cmd: 'status' });
-const prompt = (p, text, tab = 't-1') => post(p, '/api/agent', { cmd: 'prompt', tab, text, ui: {} });
 /** Le ⚙ de la barre de dictée. */
 const gear = (p) => p.locator('.device.dictation button[aria-label="Réglages"]');
 const micTitle = (p) => p.locator('.device.dictation .mic').first().getAttribute('title');
@@ -83,7 +83,7 @@ const openBox = async (p) => {
   let startModel = null;
   let failed = null;
   try {
-    // 2. Le ⚙ ouvre la boîte dans le dock ; le modèle choisi au départ est retenu par son libellé.
+    // 2. The ⚙ opens the box as a popover; the model chosen at the start is kept by its label.
     await gear(p).click();
     await p.waitForSelector(BOX);
     startModel = (await p.locator(`${part('d-models')} .chip[aria-checked="true"]`).textContent())?.trim() ?? null;
@@ -155,7 +155,7 @@ const openBox = async (p) => {
     assert.ok(log.length > 0, "journal de l'agent vide");
     assert.ok(!log.includes(SECRET), "la clé dans le journal de l'agent");
 
-    // 9. Fermer : la boîte quitte le dock.
+    // 9. Fermer : le popover se ferme.
     await p.locator(`${part('close')} button`).click();
     await p.waitForSelector(BOX, { state: 'detached' });
   } catch (e) {

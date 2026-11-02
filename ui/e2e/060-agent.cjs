@@ -7,10 +7,10 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post } = require('./lib/http.cjs');
 const { until } = require('./lib/until.cjs');
+const { prompt } = require('./lib/agent.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 
 const api = (p, req, tab = 't-1') => post(p, '/api', { tab, req });
-const prompt = (p, text, tab = 't-1') => post(p, '/api/agent', { cmd: 'prompt', tab, text, ui: {} });
 /** Le compteur d'outils du résumé d'un tour (« ▸ 2 outils · 0 s » : le premier nombre, quelle que soit la langue). */
 const toolCount = async (turn) => {
   const summary = turn.locator('.a2ui-timeline-summary');

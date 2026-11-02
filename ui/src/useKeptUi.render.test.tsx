@@ -9,7 +9,8 @@ import { manualTimers } from "./test/timers";
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { UI_RESEND_DELAY_MS, useKeptUi, viewToggle } = await import("./useKeptUi");
+const { UI_RESEND_DELAY_MS, inspectorToggle, useKeptUi, viewToggle } = await import("./useKeptUi");
+const { appKeyScope } = await import("./appKeyScope");
 
 type Hook = ReturnType<typeof useKeptUi>;
 let mounted: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
@@ -25,7 +26,7 @@ type Item = Pick<UiState, "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", ghosts: true, pile: 200, notes: null, widget: null, code: true,
-  folded: ["layouts"], preview_span: "third" };
+  folded: ["layouts"], preview_span: "third", inspector: true, data_pane: false };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
@@ -115,7 +116,7 @@ test("useKeptUi setColumns saves the new widths with the rest of the state", asy
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", ghosts: true, pile: null, notes: 540, widget: null, code: true,
-    folded: ["layouts"], preview_span: "third" });
+    folded: ["layouts"], preview_span: "third", inspector: true, data_pane: false });
 });
 
 test("useKeptUi premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -291,6 +292,51 @@ describe("viewToggle", () => {
   test("viewToggle G without shift or without modifier toggles nothing", () => {
     expect([viewToggle(key("g", { meta: true })), viewToggle(key("G", { shift: true }))]).toEqual([false, false]);
   });
+});
+
+describe("inspectorToggle", () => {
+  test("inspectorToggle cmd shift E toggles, whatever the case WebKit reports", () => {
+    expect([inspectorToggle(key("E", { meta: true, shift: true })), inspectorToggle(key("e", { meta: true, shift: true }))]).toEqual([true, true]);
+  });
+
+  test("inspectorToggle ctrl shift E toggles", () => {
+    expect(inspectorToggle(key("E", { ctrl: true, shift: true }))).toBe(true);
+  });
+
+  test("inspectorToggle cmd E without shift toggles nothing", () => {
+    expect(inspectorToggle(key("e", { meta: true }))).toBe(false);
+  });
+
+  test("inspectorToggle cmd shift E while editing text does not reach the app", () => {
+    const e = { ...key("E", { meta: true, shift: true }), altKey: false, target: null };
+    expect(appKeyScope({ modal: false, dialog: false, editing: true }, e)).toBe("none");
+  });
+});
+
+test("useKeptUi handleKey in a deck tab toggles the inspector and saves it", async () => {
+  const { out } = await mount();
+  const e = key("E", { meta: true, shift: true });
+  let handled = false;
+  await act(async () => { handled = out.hook!.handleKey(e, true); });
+  expect([handled, e.prevented, out.hook!.inspector, out.kept.at(-1)?.inspector]).toEqual([true, true, false, false]);
+});
+
+test("useKeptUi handleKey outside a deck tab leaves the inspector alone", async () => {
+  const { out } = await mount();
+  const e = key("E", { meta: true, shift: true });
+  expect([out.hook!.handleKey(e, false), e.prevented, out.hook!.inspector]).toEqual([false, false, true]);
+});
+
+test("useKeptUi first snapshot restores the inspector and data pane kept by the host", async () => {
+  const { out } = await mount({ ...kept, data_pane: true });
+  expect([out.hook!.inspector, out.hook!.dataPane]).toEqual([true, true]);
+});
+
+test("useKeptUi setDataPane and setInspector save both with the rest", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setDataPane(true); });
+  await act(async () => { out.hook!.setInspector(false); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", inspector: false, data_pane: true });
 });
 
 test("useKeptUi first snapshot restores the preview slot kept by the host", async () => {

@@ -937,3 +937,16 @@ async fn hub_close_turn_closes_live_params_of_that_turn() {
     assert_that!(open_ids(&h)).is_empty();
     assert_that!(h.hub.act(action(&id, "dismiss", &json!({})))).is_err();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn frozen_params_surface_returns_to_the_thread() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let n = h.hub.begin_turn();
+    lock(&h.session).begin_turn(n, "réglages");
+    let id = json_of(&call(&c, "show_params", params_args()).await)["shown"].as_str().unwrap().to_owned();
+    let place = |h: &Harness| h.hub.surfaces().into_iter().find(|s| s.id == id).map(|s| s.place);
+    assert_that!(place(&h)).is_equal_to(Some(forms::Place::Inspector));
+    h.hub.act(action(&id, "dismiss", &json!({}))).unwrap();
+    assert_that!(place(&h)).is_equal_to(Some(forms::Place::Thread));
+}

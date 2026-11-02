@@ -1,0 +1,36 @@
+/* The sheet's grid, after styles.css: the stage (or a pack tab's item view), the variants drawer and
+   the data pane in the first column; the inspector, when open, in a second column of its own. */
+.sheet-area {
+  grid-template-columns: minmax(0, 1fr) var(--inspector-w, 0px);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+}
+.sheet-area.inspector-open { --inspector-w: 280px; }
+.sheet-area > .stage-panel, .sheet-area > .widget-pane { grid-column: 1; grid-row: 1; }
+.sheet-area > .variant-drawer { grid-column: 1; grid-row: 2; }
+/* Under the stage and the drawer: at most 40 % of the window, scrolling on its own. */
+.sheet-area > .data-pane { grid-column: 1; grid-row: 3; max-height: 40vh; overflow-y: auto; }
+.sheet-area > .inspector { grid-column: 2; grid-row: 1 / 4; overflow-y: auto; }
+
+/* The inspector and the data pane: a sheet laid on the table, a header with a close button. */
+.inspector, .data-pane {
+  display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 0; box-sizing: border-box;
+  padding: var(--space-2); background: var(--paper-100); border-radius: var(--radius-md);
+  box-shadow: var(--edge-light), var(--shadow-object);
+}
+.inspector { margin-inline-start: var(--space-4); }
+.data-pane { margin: var(--space-2) var(--space-4) 0; }
+.inspector-head, .data-pane-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.pane-title { font-size: 12px; font-weight: 600; color: var(--ink-muted); padding-inline-start: var(--space-2); }
+/* The settings take the pane's width; the pane draws the card. */
+.inspector .host-settings, .data-pane .host-settings { width: auto; padding: 0; background: none; box-shadow: none; }
+.inspector-offer { display: flex; flex-direction: column; gap: var(--space-2); padding-block-end: var(--space-2); border-block-end: 1px solid color-mix(in oklab, var(--edge) 55%, transparent); }
+.inspector-deck { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-2); }
+.inspector-theme { margin: 0; font-weight: 600; }
+.inspector-data { align-self: flex-start; margin-inline-start: var(--space-2); }
+
+/* A narrow window: the inspector overlays the stage and drawer (rows 1 and 2, its containing block)
+   instead of taking a column from them; the data pane below stays uncovered. */
+@media (max-width: 1100px) {
+  .sheet-area.inspector-open { --inspector-w: 0px; }
+  .sheet-area > .inspector { position: absolute; inset-block: 0; inset-inline-end: 0; width: 280px; z-index: 5; margin: 0; grid-row: 1 / 3; }
+}

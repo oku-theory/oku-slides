@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { HOST_PACKS, HOST_VOICE, byPlace, isHostSettings, isRequestedBox, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
+import { HOST_PACKS, byPlace, isQuestion, routeStaged, routeSurfaces, sendThenPrompt, suggestedPrompt, surfacesReducer } from "./surfaces";
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { Surface } from "../api";
-import { realSurface as real } from "../a2ui/fixtures/agentSurfaces";
 
 const s = (id: string, place: Surface["place"]): Surface => ({ id, place, live: false, question: false, messages: [] });
 
@@ -36,7 +35,7 @@ describe("surfaces de l'agent", () => {
   test("changed et focus ne touchent pas aux surfaces", () => {
     const list = [s("a", "thread")];
     expect(surfacesReducer(list, { kind: "changed" })).toBe(list);
-    expect(surfacesReducer(list, { kind: "focus", slide: "s-1", element: null })).toBe(list);
+    expect(surfacesReducer(list, { kind: "focus", slide: "s-1" })).toBe(list);
   });
 
   test("surfaces remplace la liste entière", () => {
@@ -131,11 +130,9 @@ test("surface_patch ajoute les messages et garde les précédents tels quels", (
 /** Une surface du fil (`thread`), figée par défaut. */
 const ts = (id: string, extra: Partial<Surface>): Surface => ({ id, place: "thread", live: false, question: false, messages: [], ...extra });
 
-test("routeSurfaces met au dock les surfaces vivantes du fil, la question en dernier", () => {
-  const params = ts("show-1", { live: true, turn: 1 });
-  const ask = ts("ask-2", { live: true, turn: 1, question: true });
-  const r = routeSurfaces([ask, params], null);
-  expect(r.dock.map((x) => x.id)).toEqual(["show-1", "ask-2"]);
+test("routeSurfaces keeps the dock's live questions in arrival order", () => {
+  const [a, b] = [ts("ask-1", { live: true, turn: 1, question: true }), ts("ask-2", { live: true, turn: 1, question: true })];
+  expect(routeSurfaces([a, b], null).dock).toEqual([a, b]);
 });
 
 test("routeSurfaces range les surfaces figées par tour, celle du tour d'abord", () => {
@@ -188,32 +185,63 @@ describe("sendThenPrompt", () => {
   });
 });
 
-test("isHostSettings ne compte pas le sélecteur de thème", () => {
-  expect(isHostSettings(real("host-theme-picker"))).toBe(false);
-});
+describe("routeSurfaces", () => {
+  /** A live box of the hub (`host-packs`) or an agent offer, at `place`. */
+  const box = (id: string, place: Surface["place"], extra: Partial<Surface> = {}): Surface => ({ id, place, live: true, question: false, messages: [], ...extra });
 
-test("isHostSettings compte les réglages de l'hôte", () => {
-  expect(isHostSettings(real("host-widget"))).toBe(true);
-});
+  test("a live turnless popover goes to popovers", () => {
+    const packs = box(HOST_PACKS, "popover");
+    const r = routeSurfaces([packs], null);
+    expect([r.popovers, r.offers, r.loose, r.dock]).toEqual([[packs], [], [], []]);
+  });
 
-/** Le panneau des packs : la fixture n'en a pas, ses messages ne comptent pas ici. */
-const packsPanel = () => ({ ...real("host-widget"), id: HOST_PACKS });
+  test("a live popover with a turn is an offer of its turn, and that turn exists", () => {
+    const packs = box(HOST_PACKS, "popover", { turn: 2 });
+    const r = routeSurfaces([packs], null);
+    expect([r.offers, r.popovers, r.turns]).toEqual([[{ turn: 2, surface: packs }], [], [{ turn: 2, surfaces: [] }]]);
+  });
 
-test("isHostSettings with the packs panel gives false", () => {
-  expect(isHostSettings(packsPanel())).toBe(false);
-});
+  test("a live inspector surface with a turn is an offer of its turn", () => {
+    const params = box("show-3", "inspector", { turn: 1 });
+    expect(routeSurfaces([ts("turn-1", { turn: 1 }), params], null).offers).toEqual([{ turn: 1, surface: params }]);
+  });
 
-test("isRequestedBox with the packs panel or the theme picker gives true", () => {
-  expect([packsPanel(), ...["host-theme-picker", "host-widget", "ask-1"].map(real)].map(isRequestedBox)).toEqual([true, true, false, false]);
-});
+  test("a live inspector surface without a turn goes to loose", () => {
+    const params = box("show-3", "inspector");
+    const r = routeSurfaces([params], null);
+    expect([r.loose, r.offers, r.popovers]).toEqual([[params], [], []]);
+  });
 
-/** La boîte des réglages de la dictée et de l'agent. */
-const voiceBox = () => ({ ...real("host-widget"), id: HOST_VOICE });
+  test("a frozen popover or inspector surface goes to its turn", () => {
+    const [p, i] = [box("host-voice", "popover", { live: false, turn: 1 }), box("show-2", "inspector", { live: false, turn: 1 })];
+    expect(routeSurfaces([p, i], null).turns).toEqual([{ turn: 1, surfaces: [p, i] }]);
+  });
 
-test("isRequestedBox with the voice box is true", () => {
-  expect(isRequestedBox(voiceBox())).toBe(true);
-});
+  test("a frozen turnless popover or inspector surface goes to loose", () => {
+    const [p, i] = [box("host-voice", "popover", { live: false }), box("show-2", "inspector", { live: false })];
+    expect(routeSurfaces([p, i], null).loose).toEqual([p, i]);
+  });
 
-test("isHostSettings with the voice box is false", () => {
-  expect(isHostSettings(voiceBox())).toBe(false);
+  test("a live question goes to the dock", () => {
+    const ask = ts("ask-2", { live: true, turn: 1, question: true });
+    expect(routeSurfaces([ask], null).dock).toEqual([ask]);
+  });
+
+  test("dock holds live questions only", () => {
+    const ask = ts("ask-2", { live: true, turn: 1, question: true });
+    const params = ts("show-1", { live: true, turn: 1 });
+    expect(routeSurfaces([params, ask], null).dock).toEqual([ask]);
+  });
+
+  test("a live thread settings surface (pack or theme tab) stays in its turn", () => {
+    const params = ts("show-1", { live: true, turn: 1 });
+    const r = routeSurfaces([ts("turn-1", { turn: 1 }), params], null);
+    expect([r.turns.map((x) => x.surfaces.map((y) => y.id)), r.dock, r.loose]).toEqual([[["turn-1", "show-1"]], [], []]);
+  });
+
+  test("a live turnless thread settings surface goes to loose", () => {
+    const params = ts("show-1", { live: true });
+    const r = routeSurfaces([params], null);
+    expect([r.loose, r.dock]).toEqual([[params], []]);
+  });
 });

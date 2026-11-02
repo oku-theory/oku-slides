@@ -66,7 +66,7 @@ async function closePackTabs(p) {
  * Opens a theme tab from `tab` and returns it: over HTTP for `theme` (an id), else by the
  * "Ouvrir" button on the theme row of `tab`'s "Packs du deck" (opened from the toolbar). Waits
  * for an active theme tab, then reloads the page (serve pushes no view) and waits for its panel.
- * The packs panel stays in `tab`'s dock: `closePacksPanel` closes it once back there.
+ * The packs popover stays open in `tab`: `closePacksPanel` closes it once back there.
  */
 async function openThemeTab(p, tab, theme = null) {
   if (theme) {
@@ -75,8 +75,8 @@ async function openThemeTab(p, tab, theme = null) {
   } else {
     await post(p, '/api/workspace', { cmd: 'activate', tab });
     await p.reload();
-    await p.getByRole('button', { name: /^Packs du deck/ }).click();
-    await p.locator('[data-surface-id="host-packs"] [data-component-id="theme-open"]').getByRole('button', { name: 'Ouvrir', exact: true }).click();
+    await openPacksPopover(p);
+    await p.locator(`${PACKS} [data-component-id="theme-open"]`).getByRole('button', { name: 'Ouvrir', exact: true }).click();
   }
   let opened = null;
   await until(p, async () => {
@@ -111,15 +111,38 @@ async function openEssentiel(p) {
   return tab;
 }
 
+/** The "Packs du deck" box, open as a popover. */
+const PACKS = '.agent-popover [data-surface-id="host-packs"]';
+
 /**
- * Closes the "Packs du deck" panel that `openThemeTab` left in the opener's dock, once back on the opener.
- * Later specs expect an empty dock.
+ * Opens "Packs du deck" from the toolbar unless it already shows (a reload gives an open popover
+ * back). A popover given back right before the click is closed by it (the button toggles): then
+ * one more click.
+ */
+async function openPacksPopover(p) {
+  const panel = p.locator(PACKS);
+  for (let i = 0; i < 2; i++) {
+    if ((await panel.count()) === 0) await p.getByRole('button', { name: /^Packs du deck/ }).click();
+    try {
+      await panel.waitFor({ timeout: 3000 });
+      return;
+    } catch {
+      // Toggled closed: try again.
+    }
+  }
+  await panel.waitFor();
+}
+
+/**
+ * Closes the "Packs du deck" popover that `openThemeTab` left open in the opener, once back on the
+ * opener: Escape in the popover. Later specs expect nothing open.
  */
 async function closePacksPanel(p) {
-  const panel = p.locator('.agent-dock [data-surface-id="host-packs"]');
+  const panel = p.locator(PACKS);
   await panel.waitFor();
-  await panel.locator('[data-component-id="close"]').getByRole('button').click();
+  await panel.focus();
+  await p.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
 }
 
-module.exports = { packTabShown, openAtelier, closePackTabs, openPackTab, openEssentiel, openThemeTab, closePacksPanel };
+module.exports = { packTabShown, openAtelier, closePackTabs, openPackTab, openEssentiel, openThemeTab, closePacksPanel, openPacksPopover };
