@@ -1,13 +1,13 @@
 # release-plz (workflow .github/workflows/release-plz.yml, t-1184): opens the release PR, then on
 # merge tags v<version>, which starts the Release workflow. No crate goes to crates.io (git_only:
 # the released version is read from tags). Only oku-slides-app is tracked: the other crates
-# inherit the same [workspace.package] version.
+# inherit the same [workspace.package] version. git_only is set on the app alone: on the whole
+# workspace, release-plz looks every crate up at the last tag and fails on one added since.
 # release-plz only counts commits that touch a crate, so ui/ commits would be missed. The version
 # and CHANGELOG.md therefore come from git-cliff (cliff.toml, release-prepare.sh), written to the
 # working tree before release-plz runs: hence allow_dirty, and changelog_update off here.
 
 [workspace]
-git_only = true
 release = false
 allow_dirty = true
 changelog_update = false
@@ -24,5 +24,6 @@ workflow builds the packages for the four platforms.
 
 [[package]]
 name = "oku-slides-app"
+git_only = true
 release = true
 git_tag_name = "v{{ version }}"
