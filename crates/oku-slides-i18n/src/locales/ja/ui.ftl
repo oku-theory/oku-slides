@@ -406,6 +406,7 @@ ui-guides-origin-local = 自分用
 ui-guides-origin-received = 受信
 ui-guides-approve = このガイドを承認
 ui-guides-awaiting = 承認するまでエージェントには送られません。
+ui-guides-awaiting-mixed = 承認するには、これらのガイドへの編集を取り消すか、承認待ちのガイドを書き直すか空にしてください。
 ui-guides-install-title = このデッキにはエージェント向けのガイドが含まれています
 ui-guides-install-intro = 承認するまでエージェントには渡りません。先にお読みください。
 ui-guides-install-approve = ガイドを承認

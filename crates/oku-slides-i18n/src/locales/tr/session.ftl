@@ -89,6 +89,14 @@ session-undo-edited-theme = Temayı değiştir: { $name }
 session-undo-theme-extends = Genişletilen temaları değiştir
 session-undo-theme-rename = Temayı yeniden adlandır
 session-undo-theme-guide = Temanın kılavuzunu düzenle
+session-receipt-guide-written = { $which ->
+        [edit] Düzenleme kılavuzu
+       *[use] Kullanım kılavuzu
+    } (“{ $name }”) yazıldı ({ $chars } karakter)
+session-receipt-guide-cleared = { $which ->
+        [edit] Düzenleme kılavuzu
+       *[use] Kullanım kılavuzu
+    } (“{ $name }”) boşaltıldı
 session-help-deck = Yardım sunumu okunamıyor
 session-agent-form = Ajanın isteği geçersiz: { $reason }
 session-agent-form-too-long = { $at }: { $count } karakter, en fazla { $max }

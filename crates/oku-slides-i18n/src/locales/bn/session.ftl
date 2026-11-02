@@ -89,6 +89,14 @@ session-undo-edited-theme = থিম বদলান: { $name }
 session-undo-theme-extends = প্রসারিত থিম বদলান
 session-undo-theme-rename = থিমের নাম বদলান
 session-undo-theme-guide = থিমের নির্দেশিকা সম্পাদনা
+session-receipt-guide-written = { $which ->
+        [edit] সম্পাদনার গাইড
+       *[use] ব্যবহারের গাইড
+    } — “{ $name }” লেখা হয়েছে ({ $chars } অক্ষর)
+session-receipt-guide-cleared = { $which ->
+        [edit] সম্পাদনার গাইড
+       *[use] ব্যবহারের গাইড
+    } — “{ $name }” খালি করা হয়েছে
 session-help-deck = সহায়িকার উপস্থাপনা পড়া যায়নি
 session-agent-form = এজেন্টের অনুরোধ অবৈধ: { $reason }
 session-agent-form-too-long = { $at }: { $count }টি অক্ষর, সর্বোচ্চ { $max }

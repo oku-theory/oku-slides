@@ -49,6 +49,25 @@ Today a deck's agent learns about packs only from the static instruction files
    separate `guides/*.md` files in the version (a third file kind through `PackFiles`,
    `canonical()`, Storage, zip and `receive_version`); a side-car outside the version (not
    versioned, not carried by a received pack).
+11. **One approval covers the marked versions carrying the same guides (user, 2026-11-01,
+    t-1421).** A library write that keeps an unapproved received guide unchanged is marked
+    received, so every edit of such a version adds a version that asks again. Approving
+    version V of an id also approves the received-marked library versions of the same id whose
+    guides (edit and use) equal V's, and the received versions of that id the open deck pins
+    (a deck-only pack's edits never reach the library). Rejected: freezing library writes while a kept guide
+    awaits approval (blocks unrelated widget edits).
+12. **Shipped guides need no approval (user, 2026-11-01, t-1422).** A received version whose
+    guides are byte for byte those the app ships for the same built-in id is active: its
+    origin stays `received` (its files are not the app's), its guides need no approval. Only
+    the current built-in's guides are in the app; earlier releases are known by digest only.
+13. **A turn's receipt lists its guide writes (user, 2026-11-01, t-1423).** Each `set_guide`
+    write the agent makes in a turn adds one localized fact line to that turn's receipt
+    (`report` or fallback): which pack or theme, which guide, how many characters.
+    The hub keeps them by turn and counts those a receipt lists. A write no receipt lists (it
+    came after the `report`, or after the turn ended) shows at once in a card of that turn, so
+    no agent write goes unseen. Only writes that change a guide count; a later write of the same
+    guide replaces an unlisted one; an emptied guide reads "cleared". A turn with guide writes
+    but no narration still gets a fallback receipt.
 
 ## Format
 
@@ -97,9 +116,11 @@ read-only or history tab refused like other writes). An empty text clears the gu
   in the data directory (one file for packs and themes, so a version held only by a deck can
   be approved). Read once per session start and on change; a failed read is logged and
   counts as nothing approved; a failed write is an error of the approving request.
-- A guide is **active** if its origin is `builtin` or `local`, or `received` and approved.
+- A guide is **active** if its origin is `builtin` or `local`, or `received` and approved,
+  or `received` with exactly the guides the app ships for that built-in id (decision 12).
 - `Request::ApproveGuides { versions: Vec<{ id, version }> }` approves both guides of each
-  version. Approving changes the guides digest (below), so they reach the agent at the next
+  version, and of each received version of the same id with equal guides, marked in the
+  library or pinned by the open deck (decision 11). Approving changes the guides digest (below), so they reach the agent at the next
   turn.
 - At install (decision 10): `Snapshot.guides_to_approve` lists the versions the open deck
   pins (packs and themes) whose guides are non-empty, origin `received`, not approved and not

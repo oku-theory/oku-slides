@@ -403,6 +403,7 @@ ui-guides-origin-local = ของคุณ
 ui-guides-origin-received = ที่ได้รับ
 ui-guides-approve = อนุมัติคู่มือนี้
 ui-guides-awaiting = จะไม่ส่งให้เอเจนต์จนกว่าคุณจะอนุมัติ
+ui-guides-awaiting-mixed = หากต้องการอนุมัติ ให้เลิกทำการแก้ไขคู่มือเหล่านี้ หรือเขียนใหม่หรือล้างคู่มือที่ยังรออนุมัติ
 ui-guides-install-title = งานนำเสนอนี้มีคู่มือสำหรับเอเจนต์
 ui-guides-install-intro = คู่มือจะถึงเอเจนต์ต่อเมื่อคุณอนุมัติเท่านั้น โปรดอ่านก่อน
 ui-guides-install-approve = อนุมัติคู่มือ

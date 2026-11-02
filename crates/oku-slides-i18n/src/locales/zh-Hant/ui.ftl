@@ -406,6 +406,7 @@ ui-guides-origin-local = 自有
 ui-guides-origin-received = 已接收
 ui-guides-approve = 核准此指南
 ui-guides-awaiting = 在你核准之前不會傳送給 AI 代理。
+ui-guides-awaiting-mixed = 要核准，請復原你對這些指南的修改，或重寫或清空仍在等待的指南。
 ui-guides-install-title = 此簡報附帶 AI 代理指南
 ui-guides-install-intro = 只有在你核准後，它們才會交給 AI 代理。請先閱讀。
 ui-guides-install-approve = 核准指南

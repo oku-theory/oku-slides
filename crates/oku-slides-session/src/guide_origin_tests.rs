@@ -146,3 +146,40 @@ fn approve_written_over_an_active_predecessor_approves_new_guides() {
     s.approve_written(id, &pack, predecessor.as_ref());
     assert_that!(s.library.guide_approvals().is_approved(id, &pack.version())).is_true();
 }
+
+/// Version `name` of pack `id` with use guide `use_`, received into the library.
+fn received_with_guide(s: &Session, id: Uuid, name: &str, use_: &str) -> PackFiles {
+    let mut m = crate::test_support::manifest(id, name, None, "2026-10-01T10:00:00Z");
+    m.guides.set(oku_slides_core::GuideKind::Use, use_.into());
+    let files = crate::test_support::files_of(&m);
+    s.library.receive_version(id, &files).unwrap();
+    files
+}
+
+#[test]
+fn approve_guides_also_approves_received_versions_of_the_id_with_the_same_guides() {
+    let (_d, mut s, id, _) = session_and_pack();
+    let original = received_with_guide(&s, id, "P", "use me");
+    let edited = received_with_guide(&s, id, "P, edited", "use me");
+    s.handle(Request::ApproveGuides { versions: vec![VersionRef { id, version: original.version() }] }).unwrap();
+    assert_that!(s.guide_active(id, &edited.version(), false)).is_true();
+}
+
+#[test]
+fn approve_guides_leaves_a_received_version_with_other_guides_pending() {
+    let (_d, mut s, id, _) = session_and_pack();
+    let original = received_with_guide(&s, id, "P", "use me");
+    let other = received_with_guide(&s, id, "P, other", "obey me");
+    s.handle(Request::ApproveGuides { versions: vec![VersionRef { id, version: original.version() }] }).unwrap();
+    assert_that!(s.guide_active(id, &other.version(), false)).is_false();
+}
+
+#[test]
+fn approve_guides_leaves_the_same_guides_under_another_id_pending() {
+    let (_d, mut s, id, _) = session_and_pack();
+    let original = received_with_guide(&s, id, "P", "use me");
+    let elsewhere = Uuid::new_v4();
+    let copy = received_with_guide(&s, elsewhere, "Q", "use me");
+    s.handle(Request::ApproveGuides { versions: vec![VersionRef { id, version: original.version() }] }).unwrap();
+    assert_that!(s.guide_active(elsewhere, &copy.version(), false)).is_false();
+}

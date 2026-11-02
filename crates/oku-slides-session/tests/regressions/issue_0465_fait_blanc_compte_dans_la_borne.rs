@@ -19,7 +19,7 @@ fn issue_0465_blank_fact_does_not_count_against_the_bound() {
         why: None,
         actions: Vec::new(),
     };
-    let r = s.report_surface("report-1", &spec).unwrap_or_else(|e| panic!("quatre faits et un blanc : {e}"));
+    let r = s.report_surface("report-1", &spec, &[]).unwrap_or_else(|e| panic!("quatre faits et un blanc : {e}"));
     let json = serde_json::to_value(&r.surface).unwrap_or_else(|e| panic!("{e}"));
     let facts = json["messages"]
         .as_array()

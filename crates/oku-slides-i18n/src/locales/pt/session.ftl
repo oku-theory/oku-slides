@@ -89,6 +89,14 @@ session-undo-edited-theme = Alterar o tema: { $name }
 session-undo-theme-extends = Alterar os temas estendidos
 session-undo-theme-rename = Renomear o tema
 session-undo-theme-guide = Editar o guia do tema
+session-receipt-guide-written = { $which ->
+        [edit] Guia de edição
+       *[use] Guia de uso
+    } de “{ $name }” escrito ({ $chars } caracteres)
+session-receipt-guide-cleared = { $which ->
+        [edit] Guia de edição
+       *[use] Guia de uso
+    } de “{ $name }” esvaziado
 session-help-deck = Não é possível ler a apresentação de ajuda
 session-agent-form = O pedido do agente é inválido: { $reason }
 session-agent-form-too-long = { $at }: { $count } caracteres, no máximo { $max }

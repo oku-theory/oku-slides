@@ -441,7 +441,7 @@ impl Session {
             outdated: self.theme_relation() == Some(Drift::Older),
             guide: self
                 .deck_theme_pin()
-                .and_then(|pin| self.pinned_guide(pin.id, &pin.version, self.theme_files(pin).as_ref(), true)),
+                .and_then(|pin| self.pinned_guide(pin.id, &pin.version, self.embedded_theme_files(pin), true)),
         })
     }
 }

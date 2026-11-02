@@ -406,6 +406,7 @@ ui-guides-origin-local = 自有
 ui-guides-origin-received = 已接收
 ui-guides-approve = 批准此指南
 ui-guides-awaiting = 在你批准之前不会发送给智能体。
+ui-guides-awaiting-mixed = 要批准，请撤销你对这些指南的修改，或重写或清空仍在等待的指南。
 ui-guides-install-title = 此演示文稿附带智能体指南
 ui-guides-install-intro = 只有在你批准后，它们才会交给智能体。请先阅读。
 ui-guides-install-approve = 批准指南

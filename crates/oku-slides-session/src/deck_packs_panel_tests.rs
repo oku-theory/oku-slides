@@ -410,3 +410,13 @@ fn deck_packs_panel_theme_guide_rows_use_theme_ids() {
     let event = &component(&surface, "theme-guide-approve")["action"]["event"];
     assert_that!(event["name"].as_str()).is_equal_to(Some("approve_guides"));
 }
+
+#[test]
+fn deck_packs_theme_guide_held_only_by_the_library_is_not_shown_like_the_agent_block() {
+    let mut s = session();
+    let version = s.deck_theme_pin().unwrap().version.clone();
+    s.doc.sources.themes.remove(&version);
+    assert_that!(s.deck_packs().unwrap().theme.guide).is_none();
+    let block = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
+    assert_that!(block.as_str()).does_not_contain("kind=\"theme\"");
+}

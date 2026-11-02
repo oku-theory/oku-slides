@@ -89,6 +89,14 @@ session-undo-edited-theme = Zmień motyw: { $name }
 session-undo-theme-extends = Zmień rozszerzane motywy
 session-undo-theme-rename = Zmień nazwę motywu
 session-undo-theme-guide = Edytuj przewodnik motywu
+session-receipt-guide-written = { $which ->
+        [edit] Przewodnik edycji
+       *[use] Przewodnik użycia
+    } „{ $name }” zapisany ({ $chars } znaków)
+session-receipt-guide-cleared = { $which ->
+        [edit] Przewodnik edycji
+       *[use] Przewodnik użycia
+    } „{ $name }” wyczyszczony
 session-help-deck = Nie można odczytać prezentacji pomocy
 session-agent-form = Żądanie agenta jest nieprawidłowe: { $reason }
 session-agent-form-too-long = { $at }: znaków: { $count }, najwyżej { $max }

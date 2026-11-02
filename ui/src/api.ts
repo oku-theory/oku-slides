@@ -142,6 +142,8 @@ export interface GuidesView {
   approved: boolean;
   /** Approve may be offered: the version awaits, and `guides` are the ones it would approve. */
   approvable: boolean;
+  /** A theme draft's guide kept from an awaiting base, beside one written here: no Approve. */
+  kept_awaiting: boolean;
 }
 
 /** One version of a pack or theme, by id and digest. */

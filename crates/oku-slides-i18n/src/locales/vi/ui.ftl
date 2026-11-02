@@ -403,6 +403,7 @@ ui-guides-origin-local = Của bạn
 ui-guides-origin-received = Nhận được
 ui-guides-approve = Phê duyệt hướng dẫn này
 ui-guides-awaiting = Không gửi cho tác nhân AI cho đến khi bạn phê duyệt.
+ui-guides-awaiting-mixed = Để phê duyệt, hãy hoàn tác các chỉnh sửa của bạn trên các hướng dẫn này, hoặc viết lại hay xóa trống hướng dẫn vẫn đang chờ.
 ui-guides-install-title = Bản trình bày này kèm hướng dẫn cho tác nhân AI
 ui-guides-install-intro = Chúng chỉ đến tác nhân AI sau khi bạn phê duyệt. Hãy đọc trước.
 ui-guides-install-approve = Phê duyệt hướng dẫn

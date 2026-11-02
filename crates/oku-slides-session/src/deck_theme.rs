@@ -369,10 +369,16 @@ impl Session {
     /// Les fichiers de la version `pin` : embarqués (document montré, puis deck
     /// mis de côté), sinon dans la bibliothèque.
     pub(crate) fn theme_files(&self, pin: &ThemePin) -> Option<PackFiles> {
-        let embedded = self
-            .embedded_themes()
-            .find_map(|themes| themes.get(&pin.version).filter(|files| manifest_of(pin, files).is_ok()));
-        embedded.cloned().or_else(|| self.themes.version(pin.id, &pin.version))
+        self.embedded_theme_files(pin).cloned().or_else(|| self.themes.version(pin.id, &pin.version))
+    }
+
+    /// The files of version `pin` the deck embeds (shown document, then the deck set aside).
+    ///
+    /// What the deck renders with and its agent reads guides from: the packs panel shows
+    /// the theme guide from here too, never from the library.
+    pub(crate) fn embedded_theme_files(&self, pin: &ThemePin) -> Option<&PackFiles> {
+        self.embedded_themes()
+            .find_map(|themes| themes.get(&pin.version).filter(|files| manifest_of(pin, files).is_ok()))
     }
 
     /// Les versions de thème embarquées : document montré, puis deck mis de côté.

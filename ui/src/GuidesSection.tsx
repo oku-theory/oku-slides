@@ -9,6 +9,7 @@
  * and is off while a field holds unsaved text: a click would approve the version being replaced.
  * In a pack's Commun, each guide is a `GuidePanel` and the caller places one `Approval` under them,
  * also off until both guides were shown.
+ * A theme draft mixing written and kept guides (`kept_awaiting`) gets a line saying how to approve.
  * Guide text is untrusted: it is only ever a text node, never Markdown or HTML.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -84,6 +85,8 @@ export function Approval({ api, view, run, blocked }: { api: TabApi; view: Guide
   return (
     <div className="guides-approval">
       <span className="caption">{t("ui-guides-awaiting")}</span>
+      {/* A theme draft mixing written and kept guides awaits without a button: say how to approve. */}
+      {view.kept_awaiting && <span className="caption">{t("ui-guides-awaiting-mixed")}</span>}
       {view.approvable && (
         <Button
           primary

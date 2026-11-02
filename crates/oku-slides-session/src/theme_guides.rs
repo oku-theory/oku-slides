@@ -63,7 +63,9 @@ impl Session {
             let pending = ROLES
                 .iter()
                 .any(|k| !written(draft, Some(start), *k) && !draft.guides.get(*k).is_empty() && !base_active);
-            if !pending {
+            if pending {
+                view.kept_awaiting = true;
+            } else {
                 view.origin = GuideOrigin::Local;
             }
         }

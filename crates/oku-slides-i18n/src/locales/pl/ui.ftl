@@ -412,6 +412,7 @@ ui-guides-origin-local = Twoje
 ui-guides-origin-received = Otrzymane
 ui-guides-approve = Zatwierdź tę wskazówkę
 ui-guides-awaiting = Nie jest wysyłana do agenta, dopóki jej nie zatwierdzisz.
+ui-guides-awaiting-mixed = Aby ją zatwierdzić, cofnij swoje zmiany w tych przewodnikach albo przepisz lub wyczyść przewodnik, który wciąż czeka.
 ui-guides-install-title = Ta prezentacja zawiera wskazówki dla agentów
 ui-guides-install-intro = Trafiają do agenta dopiero po zatwierdzeniu. Najpierw je przeczytaj.
 ui-guides-install-approve = Zatwierdź wskazówki

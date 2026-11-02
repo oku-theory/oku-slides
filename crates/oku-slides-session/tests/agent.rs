@@ -59,7 +59,7 @@ fn report_surface_on_a_slide_carries_its_reference_not_its_svg() {
         why: None,
         actions: vec![oku_slides_session::agent::NextStep { label: "Encore".into(), prompt: None }],
     };
-    let r = s.report_surface("report-1", &spec).unwrap();
+    let r = s.report_surface("report-1", &spec, &[]).unwrap();
     for surface in [&r.surface, r.plain.as_ref().unwrap()] {
         let json = serde_json::to_value(surface).unwrap();
         let text = json.to_string();
@@ -104,7 +104,7 @@ fn report(title: &str, facts: &[&str], swatch: Option<&str>) -> Report {
 #[case::blank_facts(report("Fait", &["  ", "", "\t"], None), "facts: must not be empty")]
 fn report_surface_out_of_bounds_returns_agent_form(#[case] spec: Report, #[case] reason: &str) {
     let mut s = session();
-    let err = s.report_surface("report-1", &spec).unwrap_err();
+    let err = s.report_surface("report-1", &spec, &[]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SessionErrorKind::AgentForm);
     assert_that!(err.localize(english())).contains(reason);
 }
@@ -113,7 +113,7 @@ fn report_surface_out_of_bounds_returns_agent_form(#[case] spec: Report, #[case]
 #[test]
 fn report_surface_drops_blank_facts_among_others() {
     let mut s = session();
-    let r = s.report_surface("report-1", &report("Fait", &["a", "  ", "b", "\t"], None)).unwrap();
+    let r = s.report_surface("report-1", &report("Fait", &["a", "  ", "b", "\t"], None), &[]).unwrap();
     let json = serde_json::to_value(&r.surface).unwrap();
     assert_that!(receipt_card(&json)["facts"].clone()).is_equal_to(json!(["a", "b"]));
 }
@@ -124,7 +124,7 @@ fn report_surface_drops_blank_facts_among_others() {
 #[case::eight_digits("#00154eCC")]
 fn report_surface_with_a_hex_swatch_shows_it(#[case] swatch: &str) {
     let mut s = session();
-    let r = s.report_surface("report-1", &report(&"x".repeat(120), &["a"], Some(swatch))).unwrap();
+    let r = s.report_surface("report-1", &report(&"x".repeat(120), &["a"], Some(swatch)), &[]).unwrap();
     let json = serde_json::to_value(&r.surface).unwrap();
     assert_that!(receipt_card(&json)["swatch"].clone()).is_equal_to(json!(swatch));
     assert_that!(r.plain).is_none();

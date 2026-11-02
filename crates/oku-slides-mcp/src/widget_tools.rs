@@ -111,7 +111,7 @@ impl Tools {
     ///
     /// Once `open_pack` or `open_theme` opened or focused a pack or theme tab in `turn` (its claim
     /// counts as soon as it is granted), this tab leaves its widgets alone: the request continues there.
-    fn continues_elsewhere(&self, turn: Option<u32>) -> Option<CallToolResult> {
+    pub(crate) fn continues_elsewhere(&self, turn: Option<u32>) -> Option<CallToolResult> {
         turn.filter(|turn| self.hub.writes_elsewhere(*turn)).map(|_| self.fail_with(&ContinueInOtherTabSnafu.build()))
     }
 

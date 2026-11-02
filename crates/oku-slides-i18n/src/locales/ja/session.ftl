@@ -89,6 +89,14 @@ session-undo-edited-theme = テーマを変更：{ $name }
 session-undo-theme-extends = 継承元テーマを変更
 session-undo-theme-rename = テーマの名前を変更
 session-undo-theme-guide = テーマのガイドを編集
+session-receipt-guide-written = { $which ->
+        [edit] 編集ガイド
+       *[use] 使用ガイド
+    } (「{ $name }」)を書きました({ $chars }文字)
+session-receipt-guide-cleared = { $which ->
+        [edit] 編集ガイド
+       *[use] 使用ガイド
+    } (「{ $name }」)を空にしました
 session-help-deck = ヘルプのプレゼンテーションを読み込めません
 session-agent-form = エージェントのリクエストが無効です：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }文字（最大 { $max }文字）

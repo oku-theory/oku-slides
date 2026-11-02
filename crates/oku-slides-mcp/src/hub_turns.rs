@@ -1,5 +1,6 @@
 //! Thread turns: numbers, filing (in the call's turn), freezing, eviction, expiry of follow-ups.
 
+use oku_slides_core::GuideKind;
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
 use oku_slides_session::agent::{KEPT_TURNS, Surface};
 
@@ -285,6 +286,57 @@ impl SurfaceHub {
         true
     }
 
+    /// Records a guide write of turn `turn`, which a receipt or a card of that turn lists.
+    ///
+    /// A later write of the same guide replaces one no receipt lists yet. A write that comes
+    /// once the turn has its receipt, or has ended, is shown at once in a card of its own.
+    pub fn note_guide_write(&self, turn: u32, which: GuideKind, fact: String) {
+        let late = {
+            let mut state = self.state();
+            let listed = state.guide_listed.get(&turn).copied().unwrap_or(0);
+            let writes = state.guide_writes.entry(turn).or_default();
+            match writes.iter_mut().skip(listed).find(|(k, _)| *k == which) {
+                Some(unlisted) => unlisted.1 = fact,
+                None => writes.push((which, fact)),
+            }
+            state.turn != Some(turn) || state.reported.contains(&turn)
+        };
+        if late {
+            self.show_unlisted_guide_writes(turn);
+        }
+    }
+
+    /// The lines of turn `turn`'s guide writes no receipt lists yet, in write order.
+    pub fn guide_writes(&self, turn: u32) -> Vec<String> {
+        let state = self.state();
+        let listed = state.guide_listed.get(&turn).copied().unwrap_or(0);
+        let writes = state.guide_writes.get(&turn).map_or(&[][..], Vec::as_slice);
+        writes.iter().skip(listed).map(|(_, fact)| fact.clone()).collect()
+    }
+
+    /// Counts the first `count` unlisted guide writes of turn `turn` as listed by its receipt.
+    pub fn mark_guide_writes_listed(&self, turn: u32, count: usize) {
+        let mut state = self.state();
+        let total = state.guide_writes.get(&turn).map_or(0, Vec::len);
+        let listed = state.guide_listed.entry(turn).or_insert(0);
+        *listed = listed.saturating_add(count).min(total);
+    }
+
+    /// Shows the guide writes of turn `turn` that no receipt lists, in a card of that turn.
+    fn show_unlisted_guide_writes(&self, turn: u32) {
+        let facts = self.guide_writes(turn);
+        if facts.is_empty() {
+            return;
+        }
+        self.mark_guide_writes_listed(turn, facts.len());
+        let id = self.next_id("report");
+        let shown = fallback(&id, "", &facts, &self.localizer.current())
+            .is_some_and(|card| self.put_static(turn, card, Admit::InThread));
+        if !shown {
+            tracing::debug!(turn, "late guide writes not shown: the turn left the thread");
+        }
+    }
+
     /// Le tour `turn` a-t-il son reçu ?
     pub fn has_report(&self, turn: u32) -> bool {
         self.state().reported.contains(&turn)
@@ -299,11 +351,18 @@ impl SurfaceHub {
                 state.turn = None;
             }
         }
-        if self.has_report(turn) || narration.trim().is_empty() {
+        if self.has_report(turn) {
+            // Writes the report could not list (made after it, or while it was built).
+            self.show_unlisted_guide_writes(turn);
             return;
         }
+        let written = self.guide_writes(turn);
+        if narration.trim().is_empty() && written.is_empty() {
+            return;
+        }
+        self.mark_guide_writes_listed(turn, written.len());
         let id = self.next_id("report");
-        if let Some(surface) = fallback(&id, narration, &self.localizer.current()) {
+        if let Some(surface) = fallback(&id, narration, &written, &self.localizer.current()) {
             // Le tour n'est plus ouvert, mais son reçu de repli y va tant qu'il est dans le fil.
             self.put_report(turn, ReceiptSurfaces { surface, plain: None }, Admit::InThread);
         }
@@ -321,6 +380,8 @@ impl SurfaceHub {
             let mut state = self.state();
             state.live_turns.remove(&n);
             state.reported.remove(&n);
+            state.guide_writes.remove(&n);
+            state.guide_listed.remove(&n);
             Self::thread_ids(&state, |t| t == n)
         };
         self.close_all(ids);
@@ -341,6 +402,8 @@ impl SurfaceHub {
             }
             for t in &turns {
                 state.reported.remove(t);
+                state.guide_writes.remove(t);
+                state.guide_listed.remove(t);
             }
             ids
         };

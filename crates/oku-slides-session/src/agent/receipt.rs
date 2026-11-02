@@ -117,11 +117,23 @@ fn sentence_end(text: &str) -> usize {
     text.len()
 }
 
-/// Reçu de repli : la première phrase de `narration` en titre, le reste replié.
-pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
+/// Fallback receipt: the first sentence of `narration` as title, the rest folded.
+///
+/// `written` (the turn's guide writes, `Session::guide_write_fact`) become its facts. Without
+/// narration, the first of them is the title; with neither, there is no receipt.
+pub fn fallback(id: &str, narration: &str, written: &[String], l: &Localizer) -> Option<Surface> {
     let text = narration.trim();
     if text.is_empty() {
-        return None;
+        let (title, facts) = written.split_first()?;
+        let spec = Report {
+            title: title.clone(),
+            facts: facts.to_vec(),
+            slide: None,
+            swatch: None,
+            why: None,
+            actions: Vec::new(),
+        };
+        return Some(receipt(id, &spec, None, l));
     }
     let end = sentence_end(text);
     let first = text[..end].trim();
@@ -130,12 +142,12 @@ pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
     let rest = if title == first { text[end..].trim() } else { text };
     let spec = Report {
         title,
-        facts: Vec::new(),
         slide: None,
         swatch: None,
         // Borné comme un `why` d'agent : une narration très longue ne devient pas une carte démesurée.
         why: (!rest.is_empty()).then(|| rest.chars().take(WHY_MAX).collect()),
         actions: Vec::new(),
+        facts: written.to_vec(),
     };
     Some(receipt(id, &spec, None, l))
 }
@@ -143,11 +155,13 @@ pub fn fallback(id: &str, narration: &str, l: &Localizer) -> Option<Surface> {
 impl Session {
     /// `report` surface: bounds checked, blank facts dropped, slide named by its page hash.
     ///
+    /// The turn's guide writes (`written`) follow the agent's facts, outside its bounds.
+    ///
     /// # Errors
     ///
     /// Fails (`AgentForm`) on an empty title, facts all blank or out of bounds, or text rejected by
     /// the bounds.
-    pub fn report_surface(&mut self, id: &str, spec: &Report) -> Result<ReceiptSurfaces> {
+    pub fn report_surface(&mut self, id: &str, spec: &Report, written: &[String]) -> Result<ReceiptSurfaces> {
         ensure!(
             !spec.title.trim().is_empty(),
             AgentFormSnafu { reason: AgentFormReason::Empty { at: "title".into() } }
@@ -182,6 +196,7 @@ impl Session {
             }
             None => None,
         };
+        let facts = facts.into_iter().chain(written.iter().cloned()).collect();
         let spec = Report { facts, ..spec.clone() };
         let surface = receipt(id, &spec, slide.as_ref(), &self.localizer);
         let plain = (!spec.actions.is_empty())

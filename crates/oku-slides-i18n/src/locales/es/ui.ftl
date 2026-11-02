@@ -409,6 +409,7 @@ ui-guides-origin-local = Tuya
 ui-guides-origin-received = Recibida
 ui-guides-approve = Aprobar esta guía
 ui-guides-awaiting = No se envía al agente hasta que la apruebes.
+ui-guides-awaiting-mixed = Para aprobarla, deshaz tus cambios en estas guías, o reescribe o vacía la guía que sigue pendiente.
 ui-guides-install-title = Esta presentación trae guías para agentes
 ui-guides-install-intro = Solo llegan al agente cuando las apruebas. Léelas primero.
 ui-guides-install-approve = Aprobar guías

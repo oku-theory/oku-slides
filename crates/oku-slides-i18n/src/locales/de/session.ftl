@@ -89,6 +89,14 @@ session-undo-edited-theme = Design ändern: { $name }
 session-undo-theme-extends = Erweiterte Designs ändern
 session-undo-theme-rename = Design umbenennen
 session-undo-theme-guide = Leitfaden des Designs bearbeiten
+session-receipt-guide-written = { $which ->
+        [edit] Bearbeitungsleitfaden
+       *[use] Nutzungsleitfaden
+    } von „{ $name }“ geschrieben ({ $chars } Zeichen)
+session-receipt-guide-cleared = { $which ->
+        [edit] Bearbeitungsleitfaden
+       *[use] Nutzungsleitfaden
+    } von „{ $name }“ geleert
 session-help-deck = Die Hilfe-Präsentation ist nicht lesbar
 session-agent-form = Die Anfrage des Agenten ist ungültig: { $reason }
 session-agent-form-too-long = { $at }: { $count } Zeichen, höchstens { $max }

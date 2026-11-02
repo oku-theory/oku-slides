@@ -1,7 +1,8 @@
 //! Where a pack or theme version came from, and whether its guides may reach the agent.
 //!
 //! A built-in or local version is trusted; a received one (from a deck, or
-//! held only by a deck) needs the user's approval, version by version.
+//! held only by a deck) needs the user's approval, version by version, unless
+//! its guides are the ones the app ships for that id.
 
 use serde::Serialize;
 use uuid::Uuid;
@@ -10,13 +11,13 @@ use oku_slides_core::{GuideKind, Guides, PackFiles, PackVersion};
 
 use oku_slides_render::BuiltinPack;
 
-use crate::Session;
 use crate::guide_approvals::VersionRef;
-use crate::guide_install::guides_of;
-use crate::library::builtin_owner;
+use crate::guide_install::{HeldKind, guides_of};
+use crate::library::{builtin_owner, builtin_versions};
 use crate::library_kind::LibraryKind;
 use crate::theme::{Themes, shipped_theme_versions};
 use crate::views::GuidesView;
+use crate::{Result, Session};
 
 /// Where a version of a pack or theme came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -64,6 +65,17 @@ fn is_shipped(id: Uuid, version: &PackVersion, theme: bool) -> bool {
     }
 }
 
+/// The guides the app ships now for built-in `id`; `None` for any other id.
+///
+/// Only the current built-in's text is in the app: earlier releases are known by digest only.
+fn shipped_guides(id: Uuid, theme: bool) -> Option<&'static Guides> {
+    if theme {
+        Themes::builtins().iter().find(|b| b.manifest.id == id).map(|b| &b.manifest.guides)
+    } else {
+        builtin_versions().iter().find(|b| b.manifest.id == id).map(|b| &b.manifest.guides)
+    }
+}
+
 impl GuideOrigin {
     /// The origin's name, as serde writes it.
     #[must_use]
@@ -100,14 +112,27 @@ impl Session {
     /// Taken before the write, while the version's files are still held; `None` when no files
     /// are found (a brand-new pack has none).
     pub(crate) fn predecessor(&self, id: Uuid, version: &PackVersion, theme: bool) -> Option<Predecessor> {
+        let guides = self.version_guides(id, version, theme)?;
+        Some(Predecessor { guides, active: self.guide_active(id, version, theme) })
+    }
+
+    /// The guides of `version` of `id`: from the shown document's files, else the library's.
+    fn version_guides(&self, id: Uuid, version: &PackVersion, theme: bool) -> Option<Guides> {
         let sources = &self.doc.sources;
         let held = if theme { sources.themes.get(version) } else { sources.packs.get(version) };
-        let files = match held {
-            Some(f) => f.clone(),
-            None if theme => self.themes.version(id, version)?,
-            None => self.library.version(id, version)?,
-        };
-        Some(Predecessor { guides: guides_of(&files), active: self.guide_active(id, version, theme) })
+        match held {
+            Some(f) => Some(guides_of(f)),
+            None if theme => self.themes.version(id, version).map(|f| guides_of(&f)),
+            None => self.library.version(id, version).map(|f| guides_of(&f)),
+        }
+    }
+
+    /// True if `version` of built-in `id` holds exactly the guides the app ships for `id`.
+    ///
+    /// Such guides are the app's own text, whatever else the version changed.
+    fn ships_its_guides(&self, id: Uuid, version: &PackVersion, theme: bool) -> bool {
+        let Some(shipped) = shipped_guides(id, theme) else { return false };
+        self.version_guides(id, version, theme).is_some_and(|g| g == *shipped)
     }
 
     /// Marks the library write of `files` received if it only carries an unapproved guide forward.
@@ -148,18 +173,69 @@ impl Session {
         }
     }
 
+    /// Approves `versions`, and the received versions of each id with the same guides.
+    ///
+    /// A write that keeps a received guide unchanged is marked received (`taint_inherited`), so
+    /// edits pile up marked versions: approving that text once approves every one carrying it,
+    /// in the library and among the open deck's pins (a deck-only pack's edits).
+    ///
+    /// # Errors
+    ///
+    /// `GuideApprovalsWrite` when the approvals file cannot be written.
+    pub(crate) fn approve_guides(&self, versions: &[VersionRef]) -> Result<()> {
+        let mut all = versions.to_vec();
+        for r in versions {
+            for theme in [false, true] {
+                let Some(guides) = self.version_guides(r.id, &r.version, theme).filter(|g| !g.is_empty()) else {
+                    continue;
+                };
+                let held: Vec<(PackVersion, Guides, bool)> = if theme {
+                    self.themes
+                        .versions(r.id)
+                        .into_iter()
+                        .map(|v| (v.version, guides_of(&v.files), v.received))
+                        .collect()
+                } else {
+                    self.library
+                        .versions(r.id)
+                        .into_iter()
+                        .map(|v| (v.version, guides_of(&v.files), v.received))
+                        .collect()
+                };
+                let kin = held.into_iter().filter(|(v, g, received)| *received && *v != r.version && *g == guides);
+                all.extend(kin.map(|(version, _, _)| VersionRef { id: r.id, version }));
+                // A deck-only pack is never in the library: its edits are versions only the deck holds.
+                let pinned = self.held_versions().into_iter().filter(|h| {
+                    h.id == r.id
+                        && *h.version != r.version
+                        && (h.kind == HeldKind::Theme) == theme
+                        && guides_of(h.files) == guides
+                        && self.guide_origin(h.id, h.version, theme) == GuideOrigin::Received
+                });
+                all.extend(pinned.map(|h| VersionRef { id: h.id, version: h.version.clone() }).collect::<Vec<_>>());
+            }
+        }
+        self.library.guide_approvals().approve(&all)
+    }
+
     /// True if the guides of the version may reach the agent: trusted, or approved by the user.
+    ///
+    /// A received version whose guides are those the app ships for its built-in id is active
+    /// too: its origin stays received, its guides need no approval.
     pub(crate) fn guide_active(&self, id: Uuid, version: &PackVersion, theme: bool) -> bool {
         self.guide_origin(id, version, theme) != GuideOrigin::Received
             || self.library.guide_approvals().is_approved(id, version)
+            || self.ships_its_guides(id, version, theme)
     }
 
     /// The guides view of the edited version `version` of `id`, with its origin and approval.
     ///
     /// Approvable when received and not approved: `guides` must then be that version's.
+    /// Shipped guides of a received version count as approved.
     pub(crate) fn guides_view_of(&self, id: Uuid, version: &PackVersion, theme: bool, guides: Guides) -> GuidesView {
         let origin = self.guide_origin(id, version, theme);
-        let approved = self.library.guide_approvals().is_approved(id, version);
+        let approved = self.library.guide_approvals().is_approved(id, version)
+            || (origin == GuideOrigin::Received && self.ships_its_guides(id, version, theme));
         GuidesView {
             guides,
             max_chars: self.guide_limit,
@@ -168,6 +244,7 @@ impl Session {
             origin,
             approved,
             approvable: origin == GuideOrigin::Received && !approved,
+            kept_awaiting: false,
         }
     }
 }

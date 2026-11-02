@@ -406,6 +406,7 @@ ui-guides-origin-local = Von Ihnen
 ui-guides-origin-received = Empfangen
 ui-guides-approve = Diesen Leitfaden genehmigen
 ui-guides-awaiting = Wird erst an den Agenten gesendet, wenn Sie ihn genehmigen.
+ui-guides-awaiting-mixed = Um ihn zu genehmigen, machen Sie Ihre Änderungen an diesen Leitfäden rückgängig, oder schreiben Sie den noch wartenden Leitfaden neu oder leeren Sie ihn.
 ui-guides-install-title = Diese Präsentation bringt Leitfäden für Agenten mit
 ui-guides-install-intro = Sie erreichen den Agenten erst nach Ihrer Genehmigung. Lesen Sie sie zuerst.
 ui-guides-install-approve = Leitfäden genehmigen

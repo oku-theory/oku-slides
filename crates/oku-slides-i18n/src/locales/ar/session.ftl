@@ -89,6 +89,14 @@ session-undo-edited-theme = تغيير السمة: { $name }
 session-undo-theme-extends = تغيير السمات الموسَّعة
 session-undo-theme-rename = إعادة تسمية السمة
 session-undo-theme-guide = تعديل دليل السمة
+session-receipt-guide-written = { $which ->
+        [edit] دليل التعديل
+       *[use] دليل الاستخدام
+    } لـ «{ $name }» مكتوب ({ $chars } حرفًا)
+session-receipt-guide-cleared = { $which ->
+        [edit] دليل التعديل
+       *[use] دليل الاستخدام
+    } لـ «{ $name }» مُسح
 session-help-deck = تعذّرت قراءة عرض التعليمات
 session-agent-form = طلب الوكيل غير صالح: { $reason }
 session-agent-form-too-long = { $at }: { $count } حرفًا، والحد الأقصى { $max }

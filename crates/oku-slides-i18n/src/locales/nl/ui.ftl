@@ -409,6 +409,7 @@ ui-guides-origin-local = Van jou
 ui-guides-origin-received = Ontvangen
 ui-guides-approve = Deze gids goedkeuren
 ui-guides-awaiting = Pas naar de agent gestuurd na jouw goedkeuring.
+ui-guides-awaiting-mixed = Om goed te keuren: maak je wijzigingen aan deze gidsen ongedaan, of herschrijf of leeg de gids die nog wacht.
 ui-guides-install-title = Deze presentatie brengt gidsen voor agents mee
 ui-guides-install-intro = Ze bereiken de agent pas na jouw goedkeuring. Lees ze eerst.
 ui-guides-install-approve = Gidsen goedkeuren

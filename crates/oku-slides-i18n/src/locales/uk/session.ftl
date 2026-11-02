@@ -89,6 +89,14 @@ session-undo-edited-theme = Змінити тему: { $name }
 session-undo-theme-extends = Змінити розширювані теми
 session-undo-theme-rename = Перейменувати тему
 session-undo-theme-guide = Редагувати посібник теми
+session-receipt-guide-written = { $which ->
+        [edit] Посібник із редагування
+       *[use] Посібник із використання
+    } «{ $name }» записано ({ $chars } символів)
+session-receipt-guide-cleared = { $which ->
+        [edit] Посібник із редагування
+       *[use] Посібник із використання
+    } «{ $name }» очищено
 session-help-deck = Не вдається прочитати презентацію довідки
 session-agent-form = Запит агента недійсний: { $reason }
 session-agent-form-too-long = { $at }: символів: { $count }, не більше { $max }

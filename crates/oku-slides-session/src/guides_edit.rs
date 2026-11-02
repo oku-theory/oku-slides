@@ -8,7 +8,9 @@ use snafu::{ResultExt, ensure};
 
 use oku_slides_core::{GuideKind, PackManifest};
 
+use crate::agent::bounds::label;
 use crate::error::{GuideHasNulSnafu, GuideTooLongSnafu, PackManifestSnafu, WrongDocumentSnafu};
+use crate::guide_install::name_of;
 use crate::views::GuidesView;
 use crate::{Mode, Result, Session};
 
@@ -36,17 +38,42 @@ impl Session {
     ///
     /// The list counts as sent only if the agent held it all before the write: a change the
     /// user made since the last send (an approval, an edit, a pin) still goes next turn.
+    /// True if the guide changed: the turn's receipt lists only such writes.
     ///
     /// # Errors
     ///
     /// Those of [`Session::set_guide`].
-    pub fn set_guide_by_agent(&mut self, which: GuideKind, text: String) -> Result<()> {
+    pub fn set_guide_by_agent(&mut self, which: GuideKind, text: String) -> Result<bool> {
         let current = self.guides_sent_current();
+        let before = self.guides_view().map(|v| v.guides.get(which).to_owned());
+        let changed = before.as_deref() != Some(text.as_str());
         self.set_guide(which, text)?;
         if current {
             self.mark_guides_sent();
         }
-        Ok(())
+        Ok(changed)
+    }
+
+    /// The receipt line of a guide write: which guide, of what, how long.
+    ///
+    /// The turn's receipt lists one per `set_guide` the agent made; an empty guide reads
+    /// cleared. The name goes through `bounds::label`; an unreadable pack is named by nothing
+    /// rather than failing the write.
+    #[must_use]
+    pub fn guide_write_fact(&self, which: GuideKind, chars: usize) -> String {
+        let name = match &self.mode {
+            Mode::Theme { edit, .. } => edit.draft.name.clone(),
+            _ => self.widget_target(None).map_or_else(
+                |e| {
+                    tracing::warn!(error = %e.one_line(), "edited pack unreadable: its guide write is unnamed");
+                    String::new()
+                },
+                |t| name_of(&t.files),
+            ),
+        };
+        let args = [("which", which.as_str().into()), ("name", label(&name).into()), ("chars", chars.into())];
+        let key = if chars == 0 { "session-receipt-guide-cleared" } else { "session-receipt-guide-written" };
+        self.localizer.tr_with(key, &args)
     }
 
     /// The longest guide a write may store, in characters (`[render] max_guide_chars`).

@@ -91,7 +91,7 @@ fn render_surface(id: &str) -> Surface {
 }
 
 fn receipt(id: &str, narration: &str, h: &Harness) -> ReceiptSurfaces {
-    let surface = fallback(id, narration, &h.localizer).unwrap_or_else(|| panic!("reçu de repli vide"));
+    let surface = fallback(id, narration, &[], &h.localizer).unwrap_or_else(|| panic!("reçu de repli vide"));
     ReceiptSurfaces { surface, plain: None }
 }
 

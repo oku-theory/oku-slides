@@ -216,6 +216,15 @@ fn deck_widget_write_after_approval_approves_the_new_version() {
     assert_that!(s.snapshot().guides_to_approve).is_empty();
 }
 
+#[test]
+fn approve_guides_of_the_received_version_after_a_deck_widget_write_approves_the_written_one() {
+    let (_d, mut s) = opened_deck_with_deck_pack_guide("hostile");
+    let original = refs(&s.snapshot().guides_to_approve);
+    write_deck_widget(&mut s);
+    s.handle(Request::ApproveGuides { versions: original }).unwrap();
+    assert_that!(s.snapshot().guides_to_approve).is_empty();
+}
+
 /// A deck pinning a theme the library only received, which carries a use guide.
 fn deck_pinning_received_theme() -> (tempfile::TempDir, Session, Uuid) {
     use crate::library_kind::LibraryKind;
@@ -281,4 +290,49 @@ fn pack_tab_saving_a_received_library_pack_keeps_its_unchanged_guide_received() 
     let view = tab.snapshot().guides.unwrap();
     assert_that!(view.version == files.version()).is_false();
     assert_that!((view.origin, view.guides.use_.as_str())).is_equal_to((crate::GuideOrigin::Received, "hostile"));
+}
+
+#[test]
+fn approve_guides_of_another_version_with_other_guides_leaves_the_pinned_one_pending() {
+    let (_d, mut s) = opened_deck_with_deck_pack_guide("hostile");
+    let pinned = refs(&s.snapshot().guides_to_approve);
+    let files = s.doc.sources.packs[&pinned[0].version].clone();
+    let mut m = files.manifest().clone();
+    m.insert("guides".into(), serde_json::json!({ "use": "other" }));
+    let other = oku_slides_core::PackFiles::new(files.kind(), m, files.widgets().clone());
+    s.doc.sources.add_pack(other.clone());
+    let versions = vec![VersionRef { id: pinned[0].id, version: other.version() }];
+    s.handle(Request::ApproveGuides { versions }).unwrap();
+    assert_that!(refs(&s.snapshot().guides_to_approve)).is_equal_to(pinned);
+}
+
+/// Version `name` of theme `id` with use guide `use_`, received into the theme library.
+fn received_theme(s: &Session, id: Uuid, name: &str, use_: &str) -> oku_slides_core::PackFiles {
+    let manifest = crate::ThemeManifest {
+        id,
+        name: name.into(),
+        namespace: crate::test_support::ns("brought"),
+        extends: Vec::new(),
+        description: String::new(),
+        parent: None,
+        created: "2026-10-01T10:00:00Z".into(),
+        tokens: serde_json::Map::new(),
+        guides: Guides { edit: String::new(), use_: use_.into() },
+    };
+    let files = manifest.to_files().unwrap();
+    s.themes.receive_version(id, &files).unwrap();
+    files
+}
+
+#[test]
+fn approve_guides_of_a_received_theme_approves_its_received_versions_with_the_same_guides() {
+    let me = fresh_dir("oku-slides-install-me-");
+    let mut s = opened_on(me.path());
+    let id = Uuid::new_v4();
+    let original = received_theme(&s, id, "Brought", "use me");
+    let edited = received_theme(&s, id, "Brought, edited", "use me");
+    let other = received_theme(&s, id, "Brought, other", "obey me");
+    s.handle(Request::ApproveGuides { versions: vec![VersionRef { id, version: original.version() }] }).unwrap();
+    let active = (s.guide_active(id, &edited.version(), true), s.guide_active(id, &other.version(), true));
+    assert_that!(active).is_equal_to((true, false));
 }

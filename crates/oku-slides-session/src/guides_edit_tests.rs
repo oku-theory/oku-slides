@@ -123,3 +123,21 @@ fn guide_with_nul_error_is_localized_in_french() {
     let e = s.set_guide(GuideKind::Use, "a\0".into()).unwrap_err();
     assert_that!(e.localize(&Localizer::new(Some("fr"))).as_str()).contains("caractère nul");
 }
+
+#[test]
+fn guide_write_fact_in_pack_tab_names_the_pack_the_guide_and_its_length() {
+    let (_d, mut s) = essentiel_pack_tab();
+    s.set_guide(GuideKind::Edit, "Keep the grid.".into()).unwrap();
+    let fact = s.guide_write_fact(GuideKind::Edit, 14);
+    assert_that!((fact.contains("Essentiel"), fact.contains("14"), fact.contains("édition")))
+        .is_equal_to((true, true, true));
+}
+
+#[test]
+fn guide_write_fact_in_theme_tab_names_the_draft() {
+    let data = fresh_dir("oku-slides-guides-");
+    let mut s = session_on(data.path());
+    s.open_theme_here(crate::PAPIER_THEME).unwrap();
+    let name = s.edited_theme_name().unwrap();
+    assert_that!(s.guide_write_fact(GuideKind::Use, 3)).contains(name.as_str());
+}

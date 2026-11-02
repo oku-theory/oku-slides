@@ -97,7 +97,7 @@ impl Tools {
             "select_item" => self.select_item(args).await,
             "set_preview_theme" => self.set_preview_theme(args).await,
             "rename_theme" => self.rename_theme(args).await,
-            "set_guide" => self.set_guide(args).await,
+            "set_guide" => self.set_guide(turn, args).await,
             "save_theme" => self.save_theme().await,
             "delete_pack" => self.delete_pack(args).await,
             "edit_theme" => self.edit_theme(args).await,

@@ -89,6 +89,14 @@ session-undo-edited-theme = เปลี่ยนธีม: { $name }
 session-undo-theme-extends = เปลี่ยนธีมที่ขยาย
 session-undo-theme-rename = เปลี่ยนชื่อธีม
 session-undo-theme-guide = แก้ไขคู่มือของธีม
+session-receipt-guide-written = { $which ->
+        [edit] คู่มือการแก้ไข
+       *[use] คู่มือการใช้งาน
+    } ของ “{ $name }” เขียนแล้ว ({ $chars } อักขระ)
+session-receipt-guide-cleared = { $which ->
+        [edit] คู่มือการแก้ไข
+       *[use] คู่มือการใช้งาน
+    } ของ “{ $name }” ล้างแล้ว
 session-help-deck = อ่านงานนำเสนอความช่วยเหลือไม่ได้
 session-agent-form = คำขอของเอเจนต์ไม่ถูกต้อง: { $reason }
 session-agent-form-too-long = { $at }: { $count } อักขระ ไม่เกิน { $max }

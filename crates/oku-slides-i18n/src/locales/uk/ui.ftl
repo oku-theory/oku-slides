@@ -412,6 +412,7 @@ ui-guides-origin-local = Ваш
 ui-guides-origin-received = Отриманий
 ui-guides-approve = Схвалити цей посібник
 ui-guides-awaiting = Не передається агенту, доки ви його не схвалите.
+ui-guides-awaiting-mixed = Щоб схвалити, скасуйте свої правки цих посібників або перепишіть чи очистьте посібник, який досі чекає.
 ui-guides-install-title = Ця презентація містить посібники для агентів
 ui-guides-install-intro = Агент отримає їх лише після вашого схвалення. Спершу прочитайте їх.
 ui-guides-install-approve = Схвалити посібники

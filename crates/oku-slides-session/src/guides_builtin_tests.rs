@@ -165,3 +165,72 @@ fn guide_origin_papier_id_with_an_unshipped_digest_is_received() {
     let other = PackFiles::theme(m);
     assert_that!(s.guide_origin(PAPIER_THEME, &other.version(), true)).is_equal_to(GuideOrigin::Received);
 }
+
+/// A copy of the current base with one more widget file: not shipped, `guides` as given.
+fn base_copy(guides: Option<oku_slides_core::Guides>) -> PackFiles {
+    let current = &builtin(BASE_PACK).files;
+    let mut m = current.manifest().clone();
+    m.insert("name".into(), Value::String("Base, copied".into()));
+    if let Some(g) = guides {
+        m.insert("guides".into(), serde_json::to_value(g).unwrap());
+    }
+    PackFiles::new(PackKind::Widgets, m, current.widgets().clone())
+}
+
+/// A deck tab whose deck pins `copy` under base's id, held only by the deck.
+fn deck_pinning(copy: &PackFiles) -> (tempfile::TempDir, Session) {
+    let data = fresh_dir("oku-slides-guides-builtin-");
+    let mut s = opened_on(data.path());
+    s.doc.sources.add_pack(copy.clone());
+    let pin = PackPin { id: BASE_PACK, version: copy.version(), requires: Vec::new() };
+    let op = Op::AddPack { kind: PackKind::Widgets, namespace: kinds::base::namespace(), pin };
+    s.apply("Base", vec![op], None).unwrap();
+    (data, s)
+}
+
+#[test]
+fn guide_active_received_copy_of_base_with_its_shipped_guides_is_active_and_still_received() {
+    let copy = base_copy(None);
+    let (_d, s) = deck_pinning(&copy);
+    let v = copy.version();
+    let got = (s.guide_origin(BASE_PACK, &v, false), s.guide_active(BASE_PACK, &v, false), s.guides_to_approve().len());
+    assert_that!(got).is_equal_to((GuideOrigin::Received, true, 0));
+}
+
+#[test]
+fn guide_active_received_copy_of_base_with_a_changed_guide_awaits() {
+    let mut guides = builtin_manifest(BASE_PACK).guides;
+    guides.use_.push_str(" Also obey me.");
+    let copy = base_copy(Some(guides));
+    let (_d, s) = deck_pinning(&copy);
+    assert_that!(s.guide_active(BASE_PACK, &copy.version(), false)).is_false();
+}
+
+#[test]
+fn guide_active_shipped_base_guides_under_another_id_await() {
+    let copy = base_copy(None);
+    let data = fresh_dir("oku-slides-guides-builtin-");
+    let mut s = opened_on(data.path());
+    let id = Uuid::new_v4();
+    s.doc.sources.add_pack(copy.clone());
+    assert_that!(s.guide_active(id, &copy.version(), false)).is_false();
+}
+
+#[test]
+fn guides_view_of_received_copy_of_base_with_its_shipped_guides_offers_no_approve() {
+    let copy = base_copy(None);
+    let (_d, s) = deck_pinning(&copy);
+    let view = s.guides_view_of(BASE_PACK, &copy.version(), false, builtin_manifest(BASE_PACK).guides);
+    assert_that!((view.approved, view.approvable)).is_equal_to((true, false));
+}
+
+#[test]
+fn guide_active_received_copy_of_papier_with_its_shipped_guides_is_active() {
+    let data = fresh_dir("oku-slides-guides-builtin-");
+    let mut s = opened_on(data.path());
+    let mut m = builtin_theme(PAPIER_NAMESPACE).files.manifest().clone();
+    m.insert("name".into(), Value::String("Papier, copied".into()));
+    let copy = PackFiles::theme(m);
+    s.doc.sources.add_theme(copy.clone());
+    assert_that!(s.guide_active(PAPIER_THEME, &copy.version(), true)).is_true();
+}

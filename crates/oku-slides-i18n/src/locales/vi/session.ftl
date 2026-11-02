@@ -89,6 +89,14 @@ session-undo-edited-theme = Đổi chủ đề: { $name }
 session-undo-theme-extends = Đổi các chủ đề được mở rộng
 session-undo-theme-rename = Đổi tên chủ đề
 session-undo-theme-guide = Sửa hướng dẫn của chủ đề
+session-receipt-guide-written = { $which ->
+        [edit] Hướng dẫn chỉnh sửa
+       *[use] Hướng dẫn sử dụng
+    } của “{ $name }” đã được viết ({ $chars } ký tự)
+session-receipt-guide-cleared = { $which ->
+        [edit] Hướng dẫn chỉnh sửa
+       *[use] Hướng dẫn sử dụng
+    } của “{ $name }” đã được xóa trống
 session-help-deck = Không đọc được bản trình bày trợ giúp
 session-agent-form = Yêu cầu của tác nhân AI không hợp lệ: { $reason }
 session-agent-form-too-long = { $at }: { $count } ký tự, tối đa { $max }

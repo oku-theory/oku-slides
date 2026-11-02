@@ -406,6 +406,7 @@ ui-guides-origin-local = আপনার
 ui-guides-origin-received = প্রাপ্ত
 ui-guides-approve = এই নির্দেশিকা অনুমোদন করুন
 ui-guides-awaiting = আপনি অনুমোদন না করা পর্যন্ত এজেন্টকে পাঠানো হয় না।
+ui-guides-awaiting-mixed = অনুমোদন করতে এই গাইডগুলিতে আপনার সম্পাদনা পূর্বাবস্থায় ফেরান, অথবা এখনও অপেক্ষমাণ গাইডটি নতুন করে লিখুন বা খালি করুন।
 ui-guides-install-title = এই উপস্থাপনা এজেন্টের জন্য নির্দেশিকা নিয়ে এসেছে
 ui-guides-install-intro = আপনি অনুমোদন করলেই এগুলো এজেন্টের কাছে যাবে। আগে পড়ে নিন।
 ui-guides-install-approve = নির্দেশিকা অনুমোদন করুন

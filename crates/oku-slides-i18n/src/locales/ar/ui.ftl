@@ -418,6 +418,7 @@ ui-guides-origin-local = خاص بك
 ui-guides-origin-received = مستلم
 ui-guides-approve = الموافقة على هذا الدليل
 ui-guides-awaiting = لا يُرسل إلى الوكيل حتى توافق عليه.
+ui-guides-awaiting-mixed = للموافقة عليه، تراجع عن تعديلاتك على هذه الأدلة، أو أعد كتابة الدليل الذي ما زال بانتظار الموافقة أو امسحه.
 ui-guides-install-title = يأتي هذا العرض بأدلة للوكلاء
 ui-guides-install-intro = لا تصل إلى الوكيل إلا بعد موافقتك. اقرأها أولاً.
 ui-guides-install-approve = الموافقة على الأدلة

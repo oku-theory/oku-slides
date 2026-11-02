@@ -89,6 +89,14 @@ session-undo-edited-theme = 更改主题：{ $name }
 session-undo-theme-extends = 更改继承的主题
 session-undo-theme-rename = 重命名主题
 session-undo-theme-guide = 编辑主题指南
+session-receipt-guide-written = { $which ->
+        [edit] 编辑指南
+       *[use] 使用指南
+    } (“{ $name }”)已写入({ $chars }个字符)
+session-receipt-guide-cleared = { $which ->
+        [edit] 编辑指南
+       *[use] 使用指南
+    } (“{ $name }”)已清空
 session-help-deck = 无法读取帮助演示文稿
 session-agent-form = 智能体的请求无效：{ $reason }
 session-agent-form-too-long = { $at }：{ $count }个字符，最多 { $max }个

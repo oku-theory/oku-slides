@@ -250,3 +250,98 @@ async fn set_guide_on_a_pack_tab_stores_it_and_is_not_echoed_back() {
     assert_that!(stored).is_equal_to(Some("Keep widgets small.".to_owned()));
     assert_that!(echoed).is_false();
 }
+
+/// The line the receipt shows for an edit-guide write of `chars` characters in `tab`.
+fn edit_guide_fact(ws: &std::sync::Arc<std::sync::Mutex<Workspace>>, tab: &str, chars: usize) -> String {
+    tokio::task::block_in_place(|| {
+        Workspace::with_session(ws, tab, |s| s.guide_write_fact(oku_slides_core::GuideKind::Edit, chars))
+            .0
+            .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    })
+}
+
+/// The JSON of the hub's surfaces whose id starts with `report`.
+fn receipts_json(h: &Harness) -> String {
+    let receipts: Vec<_> = h.hub.surfaces().into_iter().filter(|s| s.id.starts_with("report")).collect();
+    serde_json::to_string(&receipts).unwrap_or_else(|e| panic!("receipts: {e}"))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_in_a_turn_lists_the_write_in_the_fallback_receipt() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let turn = h.hub.begin_turn();
+    let r = call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    h.hub.end_turn(turn, "Guide written.");
+    assert_that!(receipts_json(&h)).contains(edit_guide_fact(&ws, &tab, 19).as_str());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_then_report_lists_the_write_after_the_agents_facts() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    let w = call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    assert_that!(w.is_error).is_not_equal_to(Some(true));
+    let r = call(&c, "report", json!({ "title": "Guide", "facts": ["a", "b", "c", "d"] })).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(receipts_json(&h)).contains(edit_guide_fact(&ws, &tab, 19).as_str());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_after_the_report_shows_the_write_in_a_card_of_the_turn() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    h.hub.begin_turn();
+    call(&c, "report", json!({ "title": "Done", "facts": ["a"] })).await;
+    let w = call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    assert_that!(w.is_error).is_not_equal_to(Some(true));
+    assert_that!(receipts_json(&h)).contains(edit_guide_fact(&ws, &tab, 19).as_str());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_after_the_turn_ended_shows_the_write_in_a_card_of_the_turn() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let turn = h.hub.begin_turn();
+    h.hub.end_turn(turn, "");
+    // A call that read its turn before the end, as an in-flight `set_guide` does.
+    let changed = tokio::task::block_in_place(|| {
+        Workspace::with_session(&ws, &tab, |s| s.set_guide_by_agent(oku_slides_core::GuideKind::Edit, "late".into()))
+            .0
+            .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+    });
+    assert_that!(changed.map_err(|e| e.to_string())).is_equal_to(Ok(true));
+    h.hub.note_guide_write(turn, oku_slides_core::GuideKind::Edit, edit_guide_fact(&ws, &tab, 4));
+    assert_that!(receipts_json(&h)).contains(edit_guide_fact(&ws, &tab, 4).as_str());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_with_unchanged_text_is_not_listed() {
+    let (h, _ws, _tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let turn = h.hub.begin_turn();
+    call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    h.hub.mark_guide_writes_listed(turn, 1);
+    call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    assert_that!(h.hub.guide_writes(turn)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_twice_in_a_turn_lists_the_last_write_of_that_guide_only() {
+    let (h, ws, tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    let turn = h.hub.begin_turn();
+    call(&c, "set_guide", json!({ "which": "edit", "text": "First." })).await;
+    call(&c, "set_guide", json!({ "which": "edit", "text": "Second one." })).await;
+    assert_that!(h.hub.guide_writes(turn)).is_equal_to(vec![edit_guide_fact(&ws, &tab, 11)]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_guide_outside_a_turn_lists_nothing_in_the_next_turn() {
+    let (h, _ws, _tab) = start_in_pack_tab().await;
+    let c = server(&h).await;
+    call(&c, "set_guide", json!({ "which": "edit", "text": "Keep widgets small." })).await;
+    let turn = h.hub.begin_turn();
+    assert_that!(h.hub.guide_writes(turn)).is_empty();
+}

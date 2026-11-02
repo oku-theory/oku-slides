@@ -523,7 +523,7 @@ impl Session {
                 self.set_guide(which, text)?;
                 self.note(format!("user edited the {} guide", which.as_str()));
             }
-            Request::ApproveGuides { versions } => self.library.guide_approvals().approve(&versions)?,
+            Request::ApproveGuides { versions } => self.approve_guides(&versions)?,
             Request::LaterGuides { versions } => self.guides_later.extend(versions),
             Request::RemoveWidget { pack, name } => {
                 let statuses = self.remove_widget(pack.as_ref(), &name)?;

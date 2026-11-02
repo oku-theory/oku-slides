@@ -406,6 +406,7 @@ ui-guides-origin-local = आपका
 ui-guides-origin-received = प्राप्त
 ui-guides-approve = इस गाइड को मंज़ूर करें
 ui-guides-awaiting = आपके मंज़ूर करने तक एजेंट को नहीं भेजी जाती।
+ui-guides-awaiting-mixed = मंज़ूर करने के लिए इन गाइडों में अपने बदलाव पूर्ववत करें, या अभी भी प्रतीक्षारत गाइड को फिर से लिखें या खाली करें।
 ui-guides-install-title = यह प्रस्तुति एजेंट के लिए गाइड लाती है
 ui-guides-install-intro = आपके मंज़ूर करने के बाद ही ये एजेंट तक पहुँचती हैं। पहले इन्हें पढ़ें।
 ui-guides-install-approve = गाइड मंज़ूर करें

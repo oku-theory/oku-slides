@@ -371,6 +371,7 @@ describe("WidgetTab, disposition", () => {
   const guides = (origin: GuidesView["origin"] = "local", approved = true): GuidesView => ({
     guides: { edit: "E", use: "U" }, max_chars: 100, id: "id-1", version: "v1", origin, approved,
     approvable: origin === "received" && !approved,
+    kept_awaiting: false,
   });
   const tabIds = (host: HTMLElement) => tabs(host).map((b) => b.id);
   const selectedTab = (host: HTMLElement) => tabs(host).find((b) => b.getAttribute("aria-selected") === "true")?.id;

@@ -254,11 +254,12 @@ impl Tools {
         let Some(turn) = turn else { return self.no_turn("report") };
         let id = self.hub.next_id("report");
         let built = {
-            let (spec, id) = (spec.clone(), id.clone());
-            self.with_session(move |s| s.report_surface(&id, &spec)).await
+            let (spec, id, written) = (spec.clone(), id.clone(), self.hub.guide_writes(turn));
+            self.with_session(move |s| Ok((s.report_surface(&id, &spec, &written)?, written.len()))).await
         };
-        self.reply(built, |report| {
+        self.reply(built, |(report, listed)| {
             if self.hub.show_report(turn, report) {
+                self.hub.mark_guide_writes_listed(turn, listed);
                 self.json_result(&json!({ "shown": id }))
             } else {
                 self.no_turn("report")

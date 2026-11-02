@@ -403,6 +403,7 @@ ui-guides-origin-local = 내 것
 ui-guides-origin-received = 받음
 ui-guides-approve = 이 가이드 승인
 ui-guides-awaiting = 승인하기 전에는 에이전트에 전달되지 않습니다.
+ui-guides-awaiting-mixed = 승인하려면 이 가이드에 대한 편집을 취소하거나, 아직 대기 중인 가이드를 다시 쓰거나 비우세요.
 ui-guides-install-title = 이 프레젠테이션에는 에이전트용 가이드가 있습니다
 ui-guides-install-intro = 승인해야만 에이전트에 전달됩니다. 먼저 읽어 보세요.
 ui-guides-install-approve = 가이드 승인

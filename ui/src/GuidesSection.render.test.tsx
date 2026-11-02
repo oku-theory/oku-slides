@@ -24,8 +24,8 @@ afterEach(async () => {
 });
 
 const run = (p: Promise<Snapshot>) => p.then(() => null);
-const view = (guides: Guides, origin: GuidesView["origin"] = "local", approved = true, approvable?: boolean): GuidesView =>
-  ({ guides, max_chars: 100, id: "id-1", version: "v1", origin, approved, approvable: approvable ?? (origin === "received" && !approved) });
+const view = (guides: Guides, origin: GuidesView["origin"] = "local", approved = true, approvable?: boolean, kept_awaiting = false): GuidesView =>
+  ({ guides, max_chars: 100, id: "id-1", version: "v1", origin, approved, approvable: approvable ?? (origin === "received" && !approved), kept_awaiting });
 
 /** The "Approve this guide" button, if shown. */
 const approveButton = (host: HTMLElement) =>
@@ -126,4 +126,19 @@ test("GuidesSection shows no Approve when the session says the shown text is not
   const host = await render(spyApi([]), view({ use: "u" }, "received", false, false));
   expect(host.textContent).toContain("Not sent to the agent until you approve it.");
   expect(approveButton(host)).toBeUndefined();
+});
+
+test("GuidesSection awaiting with a kept guide says how to approve", async () => {
+  const host = await render(spyApi([]), view({ edit: "mine", use: "kept" }, "received", false, false, true));
+  expect(host.querySelector(".guides-approval")?.textContent).toContain("undo your edits");
+});
+
+test("GuidesSection awaiting without a kept guide shows no reason", async () => {
+  const host = await render(spyApi([]), view({ use: "kept" }, "received", false, false));
+  expect(host.querySelector(".guides-approval")?.textContent).not.toContain("undo your edits");
+});
+
+test("GuidesSection awaiting and approvable shows no reason", async () => {
+  const host = await render(spyApi([]), view({ use: "kept" }, "received", false));
+  expect(host.querySelector(".guides-approval")?.textContent).not.toContain("undo your edits");
 });

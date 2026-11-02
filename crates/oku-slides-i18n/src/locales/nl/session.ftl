@@ -89,6 +89,14 @@ session-undo-edited-theme = Thema wijzigen: { $name }
 session-undo-theme-extends = Uitgebreide thema's wijzigen
 session-undo-theme-rename = Thema hernoemen
 session-undo-theme-guide = Handleiding van het thema bewerken
+session-receipt-guide-written = { $which ->
+        [edit] Bewerkgids
+       *[use] Gebruiksgids
+    } van ‘{ $name }’ geschreven ({ $chars } tekens)
+session-receipt-guide-cleared = { $which ->
+        [edit] Bewerkgids
+       *[use] Gebruiksgids
+    } van ‘{ $name }’ geleegd
 session-help-deck = De helppresentatie is onleesbaar
 session-agent-form = Het verzoek van de agent is ongeldig: { $reason }
 session-agent-form-too-long = { $at }: { $count } tekens, hoogstens { $max }

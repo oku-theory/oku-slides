@@ -412,6 +412,7 @@ ui-guides-origin-local = Ваше
 ui-guides-origin-received = Полученное
 ui-guides-approve = Одобрить это руководство
 ui-guides-awaiting = Не передаётся агенту, пока вы его не одобрите.
+ui-guides-awaiting-mixed = Чтобы одобрить, отмените свои правки этих руководств или перепишите либо очистите руководство, которое всё ещё ждёт.
 ui-guides-install-title = Эта презентация содержит руководства для агентов
 ui-guides-install-intro = Агент получит их только после вашего одобрения. Сначала прочитайте их.
 ui-guides-install-approve = Одобрить руководства

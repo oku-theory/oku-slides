@@ -53,7 +53,7 @@ fn receipt_action_sends_its_prompt_or_label() {
 
 #[test]
 fn receipt_fallback_takes_first_sentence_as_title() {
-    let s = fallback("report-1", "La slide 4 a un fond bleu nuit. Le titre est blanc.", &fr()).unwrap();
+    let s = fallback("report-1", "La slide 4 a un fond bleu nuit. Le titre est blanc.", &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json).contains("\"title\":\"La slide 4 a un fond bleu nuit.\"");
     assert_that!(json).contains("Le titre est blanc.");
@@ -61,13 +61,13 @@ fn receipt_fallback_takes_first_sentence_as_title() {
 
 #[test]
 fn receipt_fallback_does_not_split_on_a_decimal_point() {
-    let s = fallback("report-1", "Le titre passe à 4.5 cm. Le reste suit.", &fr()).unwrap();
+    let s = fallback("report-1", "Le titre passe à 4.5 cm. Le reste suit.", &[], &fr()).unwrap();
     assert_that!(serde_json::to_string(&s).unwrap()).contains("\"title\":\"Le titre passe à 4.5 cm.\"");
 }
 
 #[test]
 fn receipt_fallback_without_terminator_takes_the_whole_line() {
-    let s = fallback("report-1", "Fond posé\nPuis le titre", &fr()).unwrap();
+    let s = fallback("report-1", "Fond posé\nPuis le titre", &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json).contains("\"title\":\"Fond posé\"");
     assert_that!(json).contains("Puis le titre");
@@ -76,7 +76,7 @@ fn receipt_fallback_without_terminator_takes_the_whole_line() {
 #[test]
 fn receipt_fallback_long_first_sentence_keeps_it_whole_in_why() {
     let long = format!("{}.", "mot ".repeat(60).trim());
-    let s = fallback("report-1", &long, &fr()).unwrap();
+    let s = fallback("report-1", &long, &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json).contains("…");
     assert_that!(json).contains(&long);
@@ -85,14 +85,14 @@ fn receipt_fallback_long_first_sentence_keeps_it_whole_in_why() {
 #[test]
 fn receipt_fallback_why_is_capped() {
     let long = format!("Titre. {}", "x".repeat(crate::agent::WHY_MAX * 2));
-    let s = fallback("report-1", &long, &fr()).unwrap();
+    let s = fallback("report-1", &long, &[], &fr()).unwrap();
     let json = serde_json::to_string(&s).unwrap();
     assert_that!(json.len()).is_less_than(crate::agent::WHY_MAX + 2000);
 }
 
 #[test]
 fn receipt_fallback_without_narration_is_none() {
-    assert_that!(fallback("report-1", "   ", &fr())).is_none();
+    assert_that!(fallback("report-1", "   ", &[], &fr())).is_none();
 }
 
 /// t-458 : une slide sans page rendue (son rendu a échoué, le dernier rendu installé ne la connaît
@@ -108,7 +108,7 @@ fn report_surface_on_a_slide_without_a_rendered_page_has_no_slide_reference() {
     // Les sources changent sans rendu : le rendu installé reste celui d'avant, sans cette slide.
     s.doc.sources.apply(deck, "Sans rendu", None).unwrap();
     let spec = Report { slide: Some("s-sans-page".into()), ..full() };
-    let r = s.report_surface("report-1", &spec).unwrap();
+    let r = s.report_surface("report-1", &spec, &[]).unwrap();
     for surface in [&r.surface, r.plain.as_ref().unwrap()] {
         let json = serde_json::to_value(surface).unwrap();
         let messages = json["messages"].as_array().unwrap();
@@ -118,4 +118,38 @@ fn report_surface_on_a_slide_without_a_rendered_page_has_no_slide_reference() {
         assert_that!(card.get("slide")).is_none();
         assert_that!(card["title"].as_str()).is_equal_to(Some(full().title.as_str()));
     }
+}
+
+/// The receipt card of `surface`, as JSON.
+fn card(surface: &crate::agent::forms::Surface) -> serde_json::Value {
+    let json = serde_json::to_value(surface).unwrap();
+    let messages = json["messages"].as_array().unwrap();
+    let mut components = messages.iter().filter_map(|m| m["updateComponents"]["components"].as_array()).flatten();
+    components.find(|c| c["id"] == "card").unwrap().clone()
+}
+
+/// The fact texts of `surface`'s receipt card.
+fn card_facts(surface: &crate::agent::forms::Surface) -> Vec<String> {
+    card(surface)["facts"].as_array().unwrap().iter().map(|f| f.as_str().unwrap().to_owned()).collect()
+}
+
+#[test]
+fn fallback_lists_the_guide_writes_as_facts() {
+    let s = fallback("report-1", "Guide écrit.", &["guide 1".into()], &fr()).unwrap();
+    assert_that!(card_facts(&s)).is_equal_to(vec!["guide 1".to_owned()]);
+}
+
+#[test]
+fn fallback_without_narration_titles_the_first_guide_write() {
+    let s = fallback("report-1", "  ", &["guide 1".into(), "guide 2".into()], &fr()).unwrap();
+    let title = card(&s)["title"].as_str().map(str::to_owned);
+    assert_that!((title, card_facts(&s))).is_equal_to((Some("guide 1".to_owned()), vec!["guide 2".to_owned()]));
+}
+
+#[test]
+fn report_surface_appends_the_guide_writes_after_four_facts() {
+    let mut s = crate::lib_tests_support::session_with_fixture();
+    let spec = Report { facts: vec!["a".into(), "b".into(), "c".into(), "d".into()], slide: None, ..full() };
+    let r = s.report_surface("report-1", &spec, &["guide".into()]).unwrap();
+    assert_that!(card_facts(&r.surface)).is_equal_to(["a", "b", "c", "d", "guide"].map(String::from).to_vec());
 }

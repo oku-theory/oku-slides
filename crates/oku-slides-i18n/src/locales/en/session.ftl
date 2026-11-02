@@ -89,6 +89,14 @@ session-undo-edited-theme = Change theme: { $name }
 session-undo-theme-extends = Change extended themes
 session-undo-theme-rename = Rename the theme
 session-undo-theme-guide = Edit the theme's guide
+session-receipt-guide-written = { $which ->
+        [edit] Edit guide
+       *[use] Use guide
+    } of “{ $name }” written ({ $chars } characters)
+session-receipt-guide-cleared = { $which ->
+        [edit] Edit guide
+       *[use] Use guide
+    } of “{ $name }” cleared
 session-help-deck = The help presentation is unreadable
 session-agent-form = The agent's request is invalid: { $reason }
 session-agent-form-too-long = { $at }: { $count } characters, at most { $max }

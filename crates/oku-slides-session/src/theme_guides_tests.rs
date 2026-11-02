@@ -154,3 +154,16 @@ fn guides_view_theme_tab_rewrite_undone_offers_approve_again() {
     let view = s.snapshot().guides.unwrap();
     assert_that!((view.approvable, view.guides.edit.as_str())).is_equal_to((true, "hostile E1"));
 }
+
+#[test]
+fn guides_view_theme_tab_rewritten_edit_with_kept_received_use_is_kept_awaiting() {
+    let (_d, mut s) = received_theme_tab("hostile E1", "hostile U1");
+    s.set_guide(GuideKind::Edit, "mine E2".into()).unwrap();
+    assert_that!(s.snapshot().guides.unwrap().kept_awaiting).is_true();
+}
+
+#[test]
+fn guides_view_theme_tab_untouched_received_draft_is_not_kept_awaiting() {
+    let (_d, s) = received_theme_tab("hostile E1", "hostile U1");
+    assert_that!(s.snapshot().guides.unwrap().kept_awaiting).is_false();
+}

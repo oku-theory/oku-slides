@@ -158,6 +158,8 @@ pub struct GuidesView {
     pub approved: bool,
     /// Approve may be offered: the version awaits, and `guides` are the ones it would approve.
     pub approvable: bool,
+    /// A theme draft's guide kept from an awaiting base, beside one written here: no Approve.
+    pub kept_awaiting: bool,
 }
 
 /// La version que montre l'historique, et ce qui a changé depuis.

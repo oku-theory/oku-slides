@@ -406,6 +406,7 @@ ui-guides-origin-local = Sizin
 ui-guides-origin-received = Alınan
 ui-guides-approve = Bu kılavuzu onayla
 ui-guides-awaiting = Onaylayana kadar ajana gönderilmez.
+ui-guides-awaiting-mixed = Onaylamak için bu kılavuzlardaki düzenlemelerinizi geri alın ya da hâlâ bekleyen kılavuzu yeniden yazın veya boşaltın.
 ui-guides-install-title = Bu sunum ajanlar için kılavuzlar getiriyor
 ui-guides-install-intro = Siz onaylayana kadar ajana ulaşmazlar. Önce okuyun.
 ui-guides-install-approve = Kılavuzları onayla

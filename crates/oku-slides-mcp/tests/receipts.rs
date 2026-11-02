@@ -226,3 +226,31 @@ async fn render_tool_outside_a_turn_is_refused() {
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(text_of(&r)).is_equal_to("Aucun tour en cours : render ne s'affiche que pendant un tour.".to_owned());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_close_turn_forgets_the_turns_guide_writes() {
+    let h = start().await;
+    let turn = h.hub.begin_turn();
+    h.hub.note_guide_write(turn, oku_slides_core::GuideKind::Use, "use guide written".into());
+    h.hub.close_turn(turn);
+    assert_that!(h.hub.guide_writes(turn)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_clear_thread_forgets_the_guide_writes() {
+    let h = start().await;
+    let turn = h.hub.begin_turn();
+    h.hub.note_guide_write(turn, oku_slides_core::GuideKind::Use, "use guide written".into());
+    h.hub.clear_thread();
+    assert_that!(h.hub.guide_writes(turn)).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hub_end_turn_without_narration_shows_the_guide_writes() {
+    let h = start().await;
+    let turn = h.hub.begin_turn();
+    h.hub.note_guide_write(turn, oku_slides_core::GuideKind::Use, "use guide written".into());
+    h.hub.end_turn(turn, "");
+    let json = serde_json::to_string(&h.hub.surfaces()).unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(json).contains("use guide written");
+}

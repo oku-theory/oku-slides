@@ -471,7 +471,7 @@ impl TabAgent {
         let id = self.ctx.hub.next_id("note");
         let l = self.ctx.localizer.current();
         let text = l.tr("agent-memory-lost");
-        if let Some(card) = oku_slides_session::agent::receipt::fallback(&id, &text, &l) {
+        if let Some(card) = oku_slides_session::agent::receipt::fallback(&id, &text, &[], &l) {
             if !self.ctx.hub.show_static(turn, card) {
                 tracing::debug!(turn, "carte « mémoire perdue » refusée : tour déjà clos");
             }

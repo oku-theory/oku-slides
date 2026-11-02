@@ -19,6 +19,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use oku_slides_core::GuideKind;
 use oku_slides_i18n::LiveLocalizer;
 use oku_slides_session::agent::{ShowParams, ShowVariants, Surface, TabSession};
 use serde::Serialize;
@@ -165,6 +166,10 @@ struct HubState {
     live_turns: BTreeSet<u32>,
     /// Tours qui ont leur reçu (`show_report`) : pas de reçu de repli pour eux.
     reported: HashSet<u32>,
+    /// The receipt lines of the agent's guide writes, by turn (`note_guide_write`).
+    guide_writes: HashMap<u32, Vec<(GuideKind, String)>>,
+    /// How many of a turn's guide writes a receipt or card already lists.
+    guide_listed: HashMap<u32, usize>,
     /// The one tab move a turn may make, once claimed (`reserve_tab`).
     tab_claim: Option<turns::TabClaim>,
     /// The turn that moved to another tab (`note_elsewhere`).

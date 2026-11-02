@@ -82,19 +82,26 @@ impl Tools {
     ///
     /// It goes through `set_guide_by_agent`, so the user-write note is not recorded and the
     /// guide is not echoed back to the agent. Answers the stored text's length and the cap.
-    pub(crate) async fn set_guide(&self, args: Value) -> CallToolResult {
+    /// Within a turn, the write is noted for the turn's receipt.
+    pub(crate) async fn set_guide(&self, turn: Option<u32>, args: Value) -> CallToolResult {
         let SetGuideArgs { which, text } = match self.parse(args) {
             Ok(a) => a,
             Err(r) => return r,
         };
+        if let Some(refused) = self.continues_elsewhere(turn) {
+            return refused;
+        }
         let chars = text.chars().count();
         let done = self
             .with_session(move |s| {
-                s.set_guide_by_agent(which, text)?;
-                Ok(s.guide_limit())
+                let fact = s.set_guide_by_agent(which, text)?.then(|| s.guide_write_fact(which, chars));
+                Ok((s.guide_limit(), fact))
             })
             .await;
-        self.reply(done, |max_chars| {
+        self.reply(done, |(max_chars, fact)| {
+            if let (Some(turn), Some(fact)) = (turn, fact) {
+                self.hub.note_guide_write(turn, which, fact);
+            }
             self.hub.emit(McpEvent::Changed);
             self.json_result(&json!({ "chars": chars, "max_chars": max_chars }))
         })

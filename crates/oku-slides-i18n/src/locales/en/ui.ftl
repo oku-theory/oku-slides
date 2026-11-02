@@ -410,6 +410,7 @@ ui-guides-origin-local = Yours
 ui-guides-origin-received = Received
 ui-guides-approve = Approve this guide
 ui-guides-awaiting = Not sent to the agent until you approve it.
+ui-guides-awaiting-mixed = To approve it, undo your edits to these guides, or rewrite or clear the guide still awaiting.
 ui-guides-install-title = This deck brings guides for agents
 ui-guides-install-intro = They reach the agent only once you approve them. Read them first.
 ui-guides-install-approve = Approve guides
