@@ -230,7 +230,7 @@ jobs:
           [[ "$key" =~ ^[A-Za-z0-9+/=]+$ ]] || { echo "::error::throwaway key unreadable"; exit 1; }
           echo "TAURI_SIGNING_PRIVATE_KEY=$key" >> "$GITHUB_ENV"
 
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # TAURI_SIGNING_PRIVATE_KEY comes from the previous step (throwaway, no password). This
@@ -244,7 +244,7 @@ jobs:
           # Paquets de mise à jour ici seulement : `just build` reste sans clé.
           args: --config '{"bundle":{"createUpdaterArtifacts":true}}'
           # `latest.json` (lu par l'app) : chaque plateforme y ajoute la sienne.
-          uploadUpdaterJson: true
+          includeUpdaterJson: true
           # Windows : l'installeur NSIS, pas le MSI.
           updaterJsonPreferNsis: true
           # `__VERSION__`: tauri-action replaces it with [workspace.package]'s version (Cargo.toml),

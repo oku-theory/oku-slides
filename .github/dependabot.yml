@@ -15,3 +15,7 @@ updates:
     ignore:
       # Its ref is the frozen Rust version of release builds, raised with the local toolchain.
       - dependency-name: dtolnay/rust-toolchain
+      # v1 writes API asset URLs into a draft's latest.json, which release-fetch.sh refuses
+      # and the updater cannot download (t-1511): stay on v0 until the release scripts follow.
+      - dependency-name: tauri-apps/tauri-action
+        update-types: ["version-update:semver-major"]
