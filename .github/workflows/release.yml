@@ -244,7 +244,7 @@ jobs:
           # Paquets de mise à jour ici seulement : `just build` reste sans clé.
           args: --config '{"bundle":{"createUpdaterArtifacts":true}}'
           # `latest.json` (lu par l'app) : chaque plateforme y ajoute la sienne.
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           # Windows : l'installeur NSIS, pas le MSI.
           updaterJsonPreferNsis: true
           # `__VERSION__`: tauri-action replaces it with [workspace.package]'s version (Cargo.toml),

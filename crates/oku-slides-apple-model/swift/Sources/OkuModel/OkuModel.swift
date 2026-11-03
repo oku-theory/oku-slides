@@ -94,6 +94,10 @@ public func okuModelAvailability() -> Int32 {
 private func classify(_ error: Error) -> (Int32, String) {
     let message = String(describing: error)
     if error is CancellationError { return (errCancelled, message) }
+    // LanguageModelError exists only in the macOS 27 SDK (Swift 6.4); older SDKs, such as the
+    // release runners' Xcode 26, do not know the type, so `#available` alone does not compile.
+    // Release builds thus skip this branch: on macOS 27 such errors map to errFailed (t-1510).
+    #if compiler(>=6.4)
     if #available(macOS 27.0, *), let e = error as? LanguageModelError {
         switch e {
         case .contextSizeExceeded: return (errContextOverflow, message)
@@ -101,6 +105,7 @@ private func classify(_ error: Error) -> (Int32, String) {
         default: return (errFailed, message)
         }
     }
+    #endif
     if let e = error as? LanguageModelSession.GenerationError {
         switch e {
         case .exceededContextWindowSize: return (errContextOverflow, message)

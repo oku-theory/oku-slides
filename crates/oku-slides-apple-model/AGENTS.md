@@ -12,6 +12,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Pitfalls
 
 - Keep FoundationModels weak-linked through #available alone; local-agent's weak_link test checks LC_LOAD_WEAK_DYLIB, since a build.rs link-arg never reaches binaries. (plan:2026-11-01-lot-l-local-agent, t-1462)
+- Guard APIs absent from the release runners' SDK at compile time with #if; #available alone only checks at run time. (t-1509)
 
 ## Testing
 
