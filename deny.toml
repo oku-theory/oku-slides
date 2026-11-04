@@ -10,12 +10,14 @@ all-features = true
 # RUSTSEC-2026-0192 (ttf-parser unmaintained): Typst 0.15, fontdb, rustybuzz and
 # office2pdf depend on it; the import reads font names, rights and metrics with it
 # (fonts/face.rs). Follow Typst's migration (t-890).
-# RUSTSEC-2026-0367/0368/0369 (zip < 9): only `ZipArchive::extract` and
-# `ZipStreamReader::extract` are affected (SUID bits, symlinks out of the directory).
+# RUSTSEC-2026-0367/0368/0369/0429 (zip < 9): only `ZipArchive::extract` and
+# `ZipStreamReader::extract` are affected (SUID bits, symlinks out of the directory, abort
+# on a symlink entry with a large declared size, t-1512).
 # The workspace and office2pdf 0.10 are on zip 9 (t-899); the one zip < 9 left is 2.4.2
-# via mel_spec 0.3.4 → ndarray-npy 0.9.1 (dictation), which reads entries one by one and
-# never calls `extract` (checked in its sources, t-897). mel_spec 0.5 still pulls
-# ndarray-npy 0.9: remove when ndarray-npy moves to zip 9.
+# via mel_spec 0.3.4 → ndarray-npy 0.9.1 (dictation), which never calls `extract` (t-897);
+# mel_spec only uses ndarray-npy in its #[cfg(test)] modules, so zip 2.4.2 never runs (t-1512).
+# mel_spec 0.5 still pulls ndarray-npy 0.9, ct2rs 0.10 requires mel_spec 0.3, and ndarray-npy
+# 0.10 is on zip 6: remove when ndarray-npy moves to zip 9.
 # Keep .cargo/audit.toml in line with this list.
 ignore = [
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained, pulled by Typst; the import follows Typst's migration" },
@@ -24,6 +26,7 @@ ignore = [
     { id = "RUSTSEC-2026-0367", reason = "zip 2.4.2 via mel_spec → ndarray-npy (dictation), which never calls extract" },
     { id = "RUSTSEC-2026-0368", reason = "zip 2.4.2 via mel_spec → ndarray-npy (dictation), which never calls extract" },
     { id = "RUSTSEC-2026-0369", reason = "zip 2.4.2 via mel_spec → ndarray-npy (dictation), which never calls extract" },
+    { id = "RUSTSEC-2026-0429", reason = "zip 2.4.2 via mel_spec → ndarray-npy, used only in mel_spec tests; extract never called" },
 ]
 unmaintained = "workspace"
 
