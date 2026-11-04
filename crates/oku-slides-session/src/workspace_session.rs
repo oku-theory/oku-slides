@@ -156,10 +156,9 @@ impl Workspace {
                 }
             }
         }
-        if t.info == info {
-            return false;
-        }
+        // A new dirty revision alone is kept but changes nothing shown: no redraw, no layout write.
+        let shown_same = TabInfo { dirty_revision: t.info.dirty_revision, ..info.clone() } == t.info;
         t.info = info;
-        true
+        !shown_same
     }
 }

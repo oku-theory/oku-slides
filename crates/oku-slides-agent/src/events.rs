@@ -1,7 +1,7 @@
 //! Ce que l'agent fait, pour le fil de l'interface.
 
 use agent_client_protocol::schema::v1::{ContentBlock, SessionUpdate, ToolCallContent};
-use oku_slides_session::agent::{AttachmentRef, DETAIL_CHARS, PromptImage, clip};
+use oku_slides_session::agent::{AttachmentRef, DETAIL_CHARS, PromptImage, SpokenFailure, clip};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -110,6 +110,9 @@ pub enum AgentEvent {
         turn: u32,
         /// The localized message.
         message: String,
+        /// What the read-aloud says: host-only, built from the error's variant, never sent.
+        #[serde(skip)]
+        spoken: SpokenFailure,
     },
     /// New conversation: the tab's thread starts over.
     Conversation,

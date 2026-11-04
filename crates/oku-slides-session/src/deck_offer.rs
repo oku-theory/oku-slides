@@ -204,7 +204,7 @@ impl Session {
         embed_packs(&mut self.doc.sources, packs);
         let label_text = self.localizer.tr_with("pack-adopt-label", &[("name", switch.name.as_str().into())]);
         self.doc.sources.apply(deck, &label_text, None).context(SourcesSnafu)?;
-        self.doc.dirty = true;
+        self.mark_dirty();
         self.sync_widgets()?;
         self.refresh_pack_updates();
         match self.rerender() {

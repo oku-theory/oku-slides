@@ -1,8 +1,8 @@
-//! Dictée phrase par phrase (Whisper, API) : phrases closes en qualité finale,
-//! aperçu de la phrase en cours (Whisper seulement).
+//! Phrase-by-phrase dictation (Whisper, API): closed phrases at final quality,
+//! a preview of the current phrase (Whisper only).
 //!
-//! `listen_loop` (lib.rs) envoie des [`Job`] ; ce fil les transcrit dans l'ordre,
-//! les phrases closes avant l'aperçu.
+//! `listen_loop` (listen.rs) sends [`Job`]s; this thread transcribes them in order, closed
+//! phrases first, then utterance closes ([`Job::Flush`]), then the preview.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, mpsc};
@@ -13,13 +13,16 @@ use oku_slides_i18n::Localize;
 use crate::api::{ApiConfig, ApiTranscriber};
 use crate::error::ZeroSettingSnafu;
 use crate::phrase_engine::PhraseEngine;
+use crate::utterance::Spoken;
 use crate::vad::{Phrase, Segmenter};
-use crate::{Config, Model, State, Stt, SttError, Transcriber, context_of, keep};
+use crate::{Config, Inner, Model, State, Stt, SttError, Transcriber, Transcript, context_of, keep};
 
 /// Travail pour le fil de transcription.
 pub(crate) enum Job {
-    /// Phrase close : texte définitif, rangé à l'indice donné.
-    Final { index: usize, audio: Vec<f32> },
+    /// A closed phrase: final text, stored at absolute phrase `index`; dropped if `epoch` is stale.
+    Final { index: usize, audio: Vec<f32>, epoch: u64 },
+    /// Listening: closes the utterance of the phrases before index `upto`, keeping the later ones.
+    Flush { upto: usize, epoch: u64 },
     /// Phrase en cours : aperçu.
     Preview { audio: Vec<f32> },
     /// Fin de la dictée : assembler le texte.
@@ -44,6 +47,25 @@ pub(crate) fn engine_key(config: &Config) -> EngineKey {
 }
 
 impl Stt {
+    /// Stores the text of final phrase `index`, unless its utterance was discarded meanwhile.
+    fn store_final(&self, g: &mut Inner, index: usize, epoch: u64, result: Result<Transcript, SttError>) {
+        match result {
+            Ok(_) if g.epoch != epoch => {}
+            Ok(t) => {
+                // La première phrase fixe la langue pour la suite.
+                if g.detected.is_none() && g.config.language.is_none() {
+                    g.detected.clone_from(&t.language);
+                }
+                g.phrases.set(index, keep(&t));
+                g.partial.clear();
+            }
+            Err(e) => {
+                tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "transcription");
+                g.error = Some(e.localize(&self.localizer));
+            }
+        }
+    }
+
     /// Moteur chargé une fois (et gardé tant qu'on ne change ni de modèle ni d'API).
     pub(crate) fn engine(&self) -> Result<Arc<dyn PhraseEngine>, SttError> {
         static LOADING: Mutex<()> = Mutex::new(());
@@ -78,17 +100,22 @@ impl Stt {
         Ok(engine)
     }
 
-    pub(crate) fn send_final(&self, seg: &Segmenter, phrase: Phrase, jobs: &mpsc::Sender<Job>) {
+    /// Queues a closed phrase for transcription; false when it is too short to keep.
+    pub(crate) fn send_final(&self, seg: &Segmenter, phrase: Phrase, jobs: &mpsc::Sender<Job>) -> bool {
         // Un simple claquement ne fait pas une phrase.
         if phrase.seconds() < self.settings.min_phrase_secs {
-            return;
+            return false;
         }
-        let index = {
+        let (index, epoch) = {
             let mut g = self.state();
-            g.phrases.push(None);
-            g.phrases.len() - 1
+            (g.phrases.push(Spoken { text: None, start: phrase.start, end: phrase.end }), g.epoch)
         };
-        jobs.send(Job::Final { index, audio: seg.slice(phrase).to_vec() }).ok();
+        let Some(index) = index else {
+            tracing::error!("phrase indices exhausted: phrase dropped");
+            return false;
+        };
+        jobs.send(Job::Final { index, audio: seg.slice(phrase).to_vec(), epoch }).ok();
+        true
     }
 
     /// Transcription : phrases closes en qualité finale, aperçu de la phrase en cours.
@@ -119,9 +146,11 @@ impl Stt {
                 }
                 continue;
             }
+            // Closed phrases first, then utterance closes in order, then the latest preview.
             let pick = pending
                 .iter()
                 .position(|j| matches!(j, Job::Final { .. }))
+                .or_else(|| pending.iter().position(|j| matches!(j, Job::Flush { .. })))
                 .or_else(|| pending.iter().rposition(|j| matches!(j, Job::Preview { .. })))
                 .unwrap_or(0);
             let job = pending.remove(pick);
@@ -137,26 +166,16 @@ impl Stt {
                 (lang, context_of(&g.vocabulary, &g.committed()))
             };
             match job {
-                Job::Final { index, audio } => {
+                Job::Final { index, audio, epoch } => {
+                    if self.state().epoch != epoch {
+                        continue; // discarded utterance: not worth transcribing
+                    }
                     let result = engine.transcribe(&audio, language.as_deref(), Some(&context), false);
                     let mut g = self.state();
                     if g.session != session {
                         return;
                     }
-                    match result {
-                        Ok(t) => {
-                            // La première phrase fixe la langue pour la suite.
-                            if g.detected.is_none() && g.config.language.is_none() {
-                                g.detected.clone_from(&t.language);
-                            }
-                            g.phrases[index] = Some(keep(&t));
-                            g.partial.clear();
-                        }
-                        Err(e) => {
-                            tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "transcription");
-                            g.error = Some(e.localize(&self.localizer));
-                        }
-                    }
+                    self.store_final(&mut g, index, epoch, result);
                 }
                 Job::Preview { audio } => {
                     let result = engine.transcribe(&audio, language.as_deref(), Some(&context), true);
@@ -169,6 +188,16 @@ impl Stt {
                         && g.state == State::Recording
                     {
                         g.partial = keep(&t);
+                    }
+                }
+                Job::Flush { upto, epoch } => {
+                    let mut g = self.state();
+                    if g.session != session {
+                        return;
+                    }
+                    if g.epoch == epoch {
+                        let spoken = g.phrases.take_upto(upto);
+                        g.close_utterance(&spoken, self.settings.min_phrase_secs);
                     }
                 }
                 Job::Done => {

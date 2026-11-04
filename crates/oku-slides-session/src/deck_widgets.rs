@@ -417,7 +417,7 @@ impl Session {
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
-        self.doc.dirty = true;
+        self.mark_dirty();
         // Des épinglages changés (`AddPack`, `RemovePack`, `SetTheme`) : la pastille des packs se recalcule.
         self.refresh_pack_updates_if_pins_changed();
         self.persist(true);

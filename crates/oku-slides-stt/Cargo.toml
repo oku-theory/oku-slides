@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-stt"
-description = "Dictée d'Oku Slides : micro, détection de la voix, Whisper (CTranslate2) ou moteur d'Apple (macOS 26+)."
+description = "Oku Slides speech: dictation (microphone, voice detection, Whisper, Apple or API) and OS voices."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,6 +11,9 @@ publish.workspace = true
 default = []
 # macOS : calcul matriciel par Accelerate, le framework d'Apple.
 accelerate = ["ct2rs/accelerate"]
+# e2e only (`fake_source.rs`): listening hears lines appended to `stt.fake_utterances`. Turned on
+# by `just e2e` alone, through oku-slides-cli/e2e-fakes; a release build refuses to compile it.
+e2e-fakes = ["oku-slides-platform/e2e-fakes"]
 
 [dependencies]
 sys-locale.workspace = true
@@ -39,6 +42,10 @@ cpal.workspace = true
 # symboles du runtime Swift non résolus (LNK2019 sous Windows).
 [target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }
+
+# Windows only: the OS voice (speak/windows.rs).
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
 
 [dev-dependencies]
 tiny_http.workspace = true

@@ -8,6 +8,9 @@
 //! - [`SettingsPort`] : réglages lus et écrits, fournis par l'hôte.
 //! - [`VoicePort`] : la dictée et l'agent de l'app, pour la boîte des réglages.
 //! - [`DraftPort`]: the opened tab's draft, prefilled with the user's request.
+//! - [`Lexicon`]: the spoken command words of the user's languages, matched whole.
+//! - [`HeardUtterance`]: a hands-free utterance, as the host voice router hands it on.
+//! - [`TunePort`]: starts the fine-tuning turn of a tab the agent imported.
 //!
 //! Dépend de `oku-slides-session` ; utilisé par `oku-slides-agent`.
 
@@ -20,9 +23,12 @@ mod edit_tools;
 mod error;
 mod guarded_tools;
 mod handler;
+mod heard;
 mod history_page;
+mod host_tools;
 mod hub;
 mod import_tools;
+mod lexicon;
 mod open_tools;
 mod paths;
 mod read_tools;
@@ -34,24 +40,32 @@ mod tab_tools;
 mod tool_error;
 mod tool_kinds;
 mod tools;
+mod tune_port;
+mod undo_tools;
 mod usage_tools;
 mod voice;
 mod voice_tools;
 mod widget_tools;
+mod workspace_tools;
 
-pub use app_tools::{InterfaceChange, PresentMode, SchemeChoice};
+pub use app_tools::{FoldedChange, InterfaceChange, PresentCommand, PresentMode, SchemeChoice};
 pub use diagnosis::{AgentDiagnosis, Diagnosis, DictationDiagnosis};
 #[cfg(any(test, feature = "test-support"))]
 pub use draft::NoDrafts;
 pub use draft::{DraftPort, MAX_REQUEST_BYTES, Prefill};
 pub use error::McpError;
+pub use heard::HeardUtterance;
 pub use hub::{
-    Answer, Freeze, HubError, HubErrorKind, McpEvent, STATIC_PER_TURN, ShowOutcome, SurfaceAction, SurfaceHub,
-    THREAD_BYTES,
+    ARMING, AfterTurn, Answer, AnswerOutcome, CLOSE_DECISION_TTL, CloseDecision, CloseTarget, Freeze, HubError,
+    HubErrorKind, McpEvent, STATIC_PER_TURN, ShowOutcome, SurfaceAction, SurfaceHub, THREAD_BYTES,
 };
+pub use lexicon::{ConfirmVerb, Lexicon, Nav, YesNo};
 pub use server::ToolServer;
 pub use settings::{Applied, SettingsPort};
 pub use tools::{Tools, tool_descriptions_for, tool_names, tool_names_for};
+#[cfg(any(test, feature = "test-support"))]
+pub use tune_port::NoTune;
+pub use tune_port::{TunePort, TuneRefusal};
 #[cfg(any(test, feature = "test-support"))]
 pub use voice::NoVoice;
 pub use voice::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};

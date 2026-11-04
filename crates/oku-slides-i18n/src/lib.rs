@@ -11,6 +11,7 @@
 //! - [`platform_keys`], [`pc_keys`] : les raccourcis dans la notation de la plateforme.
 //! - [`fold`]: case and accent folding, to compare spoken or typed text.
 //! - [`theme_shortcuts`]: the theme shortcut's words in every shipped language.
+//! - [`voice_forms`]: the folded spoken forms of a command word in one locale.
 //! - [`is_hidden_control`], [`is_line_control`], [`clean_arg`]: bidi controls and invisible
 //!   characters removed, line controls turned into spaces, in every interpolated string
 //!   ([`Localizer::tr_with`]).
@@ -24,6 +25,7 @@ mod keys;
 mod live;
 mod message;
 mod shortcut;
+mod voice;
 
 use std::sync::LazyLock;
 
@@ -33,6 +35,7 @@ pub use keys::{pc_keys, platform_keys};
 pub use live::LiveLocalizer;
 pub use message::{Arg, Message};
 pub use shortcut::{THEME_SHORTCUT, theme_shortcuts};
+pub use voice::voice_forms;
 
 use fluent_bundle::FluentResource;
 use fluent_bundle::concurrent::FluentBundle;
@@ -51,6 +54,7 @@ macro_rules! locale {
                 include_str!(concat!("locales/", $lang, "/cli.ftl")),
                 include_str!(concat!("locales/", $lang, "/chart.ftl")),
                 include_str!(concat!("locales/", $lang, "/agent.ftl")),
+                include_str!(concat!("locales/", $lang, "/voice.ftl")),
                 // Toujours en dernier : voir `ui_messages`.
                 include_str!(concat!("locales/", $lang, "/ui.ftl")),
             ] as &[&str],

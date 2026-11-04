@@ -23,7 +23,7 @@ fn until_end(events: &mpsc::Receiver<Event>) -> Option<Event> {
 }
 
 #[test]
-#[ignore = "macOS 26 et langue française installée : just test-apple"]
+#[ignore = "needs macOS 26 with French installed: just test-apple"]
 fn cancel_after_done_is_harmless() {
     let (mut stream, events) = AppleEngine.open("fr", &[]);
     stream.push(&fixture());
@@ -34,7 +34,7 @@ fn cancel_after_done_is_harmless() {
 }
 
 #[test]
-#[ignore = "macOS 26 et langue française installée : just test-apple"]
+#[ignore = "needs macOS 26 with French installed: just test-apple"]
 fn cancel_after_finish_ends_the_stream() {
     let (mut stream, events) = AppleEngine.open("fr", &[]);
     stream.push(&fixture());
@@ -45,7 +45,7 @@ fn cancel_after_finish_ends_the_stream() {
 }
 
 #[test]
-#[ignore = "macOS 26 et langue française installée : just test-apple"]
+#[ignore = "needs macOS 26 with French installed: just test-apple"]
 fn drop_without_finish_ends_the_stream() {
     let (mut stream, events) = AppleEngine.open("fr", &[]);
     stream.push(&fixture()[..16_000]);
@@ -54,13 +54,13 @@ fn drop_without_finish_ends_the_stream() {
 }
 
 #[test]
-#[ignore = "macOS 26 et langue française installée : just test-apple"]
+#[ignore = "needs macOS 26 with French installed: just test-apple"]
 fn installed_french_is_ready() {
     assert_that!(AppleEngine.availability("fr")).is_equal_to(Availability::Ready);
 }
 
 #[test]
-#[ignore = "macOS 26 et langue française installée : just test-apple"]
+#[ignore = "needs macOS 26 with French installed: just test-apple"]
 fn unknown_language_is_unsupported() {
     assert_that!(AppleEngine.availability("xx")).is_equal_to(Availability::Unsupported);
 }

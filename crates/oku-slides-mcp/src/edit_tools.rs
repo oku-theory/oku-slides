@@ -73,9 +73,11 @@ pub(crate) struct ThemeExtendsArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct FocusArgs {
-    /// Id of the slide to show.
-    pub slide: String,
+    /// Id of the slide to show; absent: deselect, the shown slide stays. The agent never selects.
+    #[serde(default)]
+    pub slide: Option<String>,
 }
 
 impl Tools {
@@ -155,19 +157,29 @@ impl Tools {
         &self,
         f: impl FnOnce(&mut oku_slides_session::Session) -> oku_slides_session::Result<()> + Send + 'static,
     ) -> CallToolResult {
+        match self.on_packs(f).await {
+            Ok(()) => self.packs_changed().await,
+            Err(e) => self.fail_with(&e),
+        }
+    }
+
+    /// Runs `f` on the session off the async threads; a session refusal is a `PackChange`.
+    pub(crate) async fn on_packs<T: Send + 'static>(
+        &self,
+        f: impl FnOnce(&mut oku_slides_session::Session) -> oku_slides_session::Result<T> + Send + 'static,
+    ) -> Result<T, crate::tool_error::ToolError> {
         let session = self.session.clone();
-        let done = match tokio::task::spawn_blocking(move || session.with(f).and_then(|r| r)).await {
+        match tokio::task::spawn_blocking(move || session.with(f).and_then(|r| r)).await {
             Ok(done) => done.map_err(|e| PackChangeSnafu.into_error(e)),
             Err(e) => Err(crate::tool_error::TaskSnafu.into_error(e)),
-        };
-        let ok = done.is_ok();
-        let result = self.reply(done, |()| {
-            self.hub.emit(McpEvent::Changed);
-            self.json_result(&json!({ "ok": true }))
-        });
-        if ok {
-            self.prune_surfaces().await;
         }
+    }
+
+    /// After a change of the deck's packs: `Changed`, then a prune (t-1133); answers `{ok: true}`.
+    pub(crate) async fn packs_changed(&self) -> CallToolResult {
+        self.hub.emit(McpEvent::Changed);
+        let result = self.json_result(&json!({ "ok": true }));
+        self.prune_surfaces().await;
         result
     }
 
@@ -180,6 +192,7 @@ impl Tools {
         self.change(Request::SetEditedThemeExtends { extends }).await
     }
 
+    /// Shows a slide, never selecting (the user's selection stays); without one, deselects on the shown slide.
     pub(crate) fn focus(&self, args: Value) -> CallToolResult {
         match self.parse::<FocusArgs>(args) {
             Ok(FocusArgs { slide }) => {

@@ -539,6 +539,15 @@ impl SessionError {
         }
     }
 
+    /// The kind of a failed import, for a [`SessionErrorKind::Import`] error.
+    #[must_use]
+    pub fn import_kind(&self) -> Option<crate::import::ImportErrorKind> {
+        match &*self.0 {
+            SessionInner::Import { source, .. } => Some(source.kind()),
+            _ => None,
+        }
+    }
+
     /// L'erreur de transaction, si une opération a été refusée.
     #[must_use]
     pub fn transaction(&self) -> Option<&oku_slides_core::TransactionError> {

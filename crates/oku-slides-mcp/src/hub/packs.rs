@@ -56,7 +56,7 @@ impl SurfaceHub {
         self.emit(McpEvent::Changed);
         let view = self.session.with(|s| s.deck_packs()).and_then(|r| r).context(SessionSnafu)?;
         let surface = self.packs_surface(&view, turn);
-        self.emit(McpEvent::Surface { surface: surface.clone() });
+        self.emit(McpEvent::surface(surface.clone()));
         Ok(PacksShown { last: surface, turn })
     }
 
@@ -91,7 +91,7 @@ impl SurfaceHub {
             Some(surface) if surface == shown.last => {}
             Some(surface) => {
                 state.shows.insert(HOST_PACKS.to_owned(), Shown::Packs(PacksShown { last: surface.clone(), turn }));
-                self.record_and_send(&mut state, McpEvent::Surface { surface });
+                self.record_and_send(&mut state, McpEvent::surface(surface));
             }
         }
     }

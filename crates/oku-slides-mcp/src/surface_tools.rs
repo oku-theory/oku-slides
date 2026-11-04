@@ -2,8 +2,8 @@
 
 use oku_slides_core::Paragraph;
 use oku_slides_session::agent::{
-    Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, check_len, check_options,
-    forms, render,
+    Anchor, AskChoice, AskConfirm, AskRewrite, Render, Report, ShowParams, ShowVariants, SpokenText, check_len,
+    check_options, forms, render,
 };
 use oku_slides_session::{HOST_PACKS, HOST_THEME_PICKER};
 use rust_mcp_sdk::schema::CallToolResult;
@@ -79,6 +79,8 @@ impl Tools {
         }
         let id = self.hub.next_id("ask");
         let surface = forms::choice(&id, &spec, &self.localizer.current());
+        let labels: Vec<&str> = spec.options.iter().map(|o| o.label.as_str()).collect();
+        let spoken = SpokenText::question(&spec.question, &labels, &self.localizer.current());
         let answer = if spec.anchor.is_none() {
             let (question, options, l) = (spec.question.clone(), spec.options.clone(), self.localizer.current());
             let freeze: Freeze = Box::new(move |a| {
@@ -95,9 +97,9 @@ impl Tools {
                 };
                 forms::frozen_choice(&id, &question, label.as_deref(), &l)
             });
-            self.hub.ask_then(turn, surface, freeze).await
+            self.hub.ask_aloud(turn, surface, Some(freeze), spoken).await
         } else {
-            self.hub.ask(surface).await
+            self.hub.ask_aloud(None, surface, None, spoken).await
         };
         self.answered(answer, |_, ctx| self.json_result(&json!({ "choice": ctx.get("choice") })))
     }
@@ -107,8 +109,12 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let surface = forms::confirm(&self.hub.next_id("ask"), &spec, &self.localizer.current());
-        self.answered(self.hub.ask(surface).await, |_, ctx| {
+        let l = self.localizer.current();
+        let danger = spec.danger.then(|| l.tr("agent-surface-confirm-danger"));
+        // The agent's own question, as `ask_choice` reads its question, then how to answer it.
+        let spoken = SpokenText::agent_confirm(&spec.message, danger.as_deref(), &l);
+        let surface = forms::confirm(&self.hub.next_id("ask"), &spec.message, danger, None, &l);
+        self.answered(self.hub.ask_aloud(None, surface, None, spoken).await, |_, ctx| {
             self.json_result(&json!({ "confirmed": ctx.get("confirmed") == Some(&Value::Bool(true)) }))
         })
     }

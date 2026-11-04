@@ -2,17 +2,19 @@
 //!
 //! A deck's agent that opens a pack or theme tab passes the user's request to that tab's
 //! draft ([`StackDrafts`]): the tab's entry starts (tools, keeper; never its ACP agent) and an
-//! empty draft takes the text. The user reviews and sends it; no turn starts here.
+//! empty draft takes the text. The user reviews and sends it; no turn starts here. It also
+//! pages another tab: a `Focus` event on that tab's hub, which its pages follow.
 
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
-use oku_slides_mcp::{DraftPort, Prefill};
+use oku_slides_mcp::{DraftPort, McpEvent, Prefill, TunePort};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{Sessions, TabSession};
+use oku_slides_session::agent::{AgentWorkspace, AppPort, Sessions, TabSession};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
 use crate::Link;
+use crate::after_turn::AfterTx;
 use crate::settings_port::AppSettings;
 use crate::tab_entry::{Out, TabEntry, TabLink, TabPorts};
 use crate::table::Table;
@@ -41,6 +43,14 @@ pub(crate) struct StarterParts {
     pub settings: Arc<AppSettings>,
     /// The voice and agent port given to each tab.
     pub voice: Arc<AppVoice>,
+    /// The host's workspace port given to each tab.
+    pub workspace: Arc<dyn AgentWorkspace>,
+    /// Starts an imported tab's fine-tuning turn, for each tab's `import`.
+    pub tune: Arc<dyn TunePort>,
+    /// The host's app port given to each tab.
+    pub app: Arc<dyn AppPort>,
+    /// Where each tab's actor sends its ended turns' app actions.
+    pub after: AfterTx,
     /// The agent's link to the interface.
     pub link: Link,
     /// The runtime the tabs' tasks run on.
@@ -49,6 +59,8 @@ pub(crate) struct StarterParts {
     pub out_tx: mpsc::UnboundedSender<Out>,
     /// The stack's table of started tabs.
     pub table: Arc<Mutex<Table>>,
+    /// The read-aloud, handed each tab's surfaces; `None` without a voice.
+    pub reader: Option<crate::reader::ReaderTx>,
 }
 
 impl Starter {
@@ -56,10 +68,25 @@ impl Starter {
     ///
     /// Weak because the stack's table holds the tabs, whose tools hold the port.
     pub fn new(parts: StarterParts) -> Arc<Self> {
-        let StarterParts { sessions, platform, settings, voice, link, rt, out_tx, table } = parts;
+        let StarterParts {
+            sessions,
+            platform,
+            settings,
+            voice,
+            workspace,
+            tune,
+            app,
+            after,
+            link,
+            rt,
+            out_tx,
+            table,
+            reader,
+        } = parts;
         Arc::new_cyclic(|starter: &Weak<Self>| {
             let drafts = Arc::new(StackDrafts { starter: starter.clone() });
-            Self { sessions, platform, ports: TabPorts { settings, voice, drafts }, link, rt, out_tx, table }
+            let tab_ports = TabPorts { settings, voice, drafts, workspace, tune, app, after, reader };
+            Self { sessions, platform, ports: tab_ports, link, rt, out_tx, table }
         })
     }
 
@@ -105,6 +132,18 @@ impl DraftPort for StackDrafts {
         }
         let Some(link) = starter.open(tab) else { return Prefill::Unavailable };
         if link.prefill_draft(&starter.out_tx, text) { Prefill::Set } else { Prefill::Kept }
+    }
+
+    /// False once the stack is gone or for an unknown or closed tab, looked up first.
+    fn page(&self, tab: &str, slide: String) -> bool {
+        let Some(starter) = self.starter.upgrade() else { return false };
+        if let Err(e) = starter.sessions.document_kind(tab) {
+            tracing::debug!(tab, error = %e.one_line(), "page: unknown tab");
+            return false;
+        }
+        let Some(link) = starter.open(tab) else { return false };
+        link.hub.emit(McpEvent::Focus { slide: Some(slide) });
+        true
     }
 }
 

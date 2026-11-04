@@ -101,6 +101,8 @@ pub enum VoiceErrorKind {
     BadApiHeaders,
     /// Adresse et variable de l'API : réservées à l'utilisateur.
     ApiReservedToUser,
+    /// Only the user turns hands-free listening on.
+    HandsFreeReservedToUser,
     /// L'état a changé depuis la question : il faudrait confirmer à nouveau.
     Changed,
     /// Rien à télécharger pour l'agent choisi.
@@ -115,6 +117,12 @@ pub enum VoiceErrorKind {
     UnknownAgentModel,
     /// The model choice could not be saved.
     AgentModelNotSaved,
+    /// A read-aloud rate outside 0.5 to 2.
+    BadRate,
+    /// A read-aloud voice the interface language does not offer.
+    UnknownVoice,
+    /// No read-aloud voice here: it cannot be turned on.
+    SpeechUnavailable,
 }
 
 impl VoiceErrorKind {
@@ -136,6 +144,7 @@ impl VoiceErrorKind {
             Self::BadApiVersion => "voice-error-bad-api-version",
             Self::BadApiHeaders => "voice-error-bad-api-headers",
             Self::ApiReservedToUser => "voice-error-api-reserved",
+            Self::HandsFreeReservedToUser => "voice-error-hands-free-reserved",
             Self::Changed => "voice-error-changed",
             Self::NothingToDownload => "voice-error-nothing-to-download",
             Self::UnknownAgent => "agent-error-unknown-agent",
@@ -143,6 +152,9 @@ impl VoiceErrorKind {
             Self::AgentNotSaved => "agent-error-agent-not-saved",
             Self::UnknownAgentModel => "agent-error-unknown-model",
             Self::AgentModelNotSaved => "agent-error-model-not-saved",
+            Self::BadRate => "voice-error-bad-rate",
+            Self::UnknownVoice => "voice-error-unknown-voice",
+            Self::SpeechUnavailable => "voice-error-speech-unavailable",
         }
     }
 }
@@ -194,6 +206,8 @@ pub trait VoicePort: Send + Sync + std::fmt::Debug {
     fn apply(&self, event: VoiceEvent, origin: Origin) -> Result<VoiceApplied, VoiceError>;
     /// The selected agent and the dictation, for the `diagnose` tool; text redacted (`~` for home).
     fn diagnosis(&self) -> Diagnosis;
+    /// Lists the OS voices again at the next view; the settings box calls it as it opens.
+    fn refresh_voices(&self) {}
 }
 
 /// Un port sans dictée ni agent, pour les tests qui n'y touchent pas.

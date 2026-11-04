@@ -255,11 +255,7 @@ fn turn_patches_applied_to_the_sent_model_give_the_new_one(
     #[case] sent: serde_json::Value,
     #[case] data: serde_json::Value,
 ) {
-    let mut s = crate::agent::forms::confirm(
-        "turn-3",
-        &crate::agent::AskConfirm { message: "Ok ?".into(), danger: false },
-        &fr(),
-    );
+    let mut s = crate::agent::forms::confirm("turn-3", "Ok ?", None, None, &fr());
     s.apply_patch(&[oku_slides_a2ui::ServerMessage::set_data_model("turn-3", sent.clone())]);
     s.apply_patch(&super::turn_patches(3, &sent, &data));
     let json = serde_json::to_value(&s).unwrap();

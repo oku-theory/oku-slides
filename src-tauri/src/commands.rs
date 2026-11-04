@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::PoisonError;
 use std::sync::atomic::Ordering;
 
-use oku_slides_agent::AgentCommand;
+use oku_slides_agent::{AgentCommand, CloseDecision, ReportFrom};
 use oku_slides_session::{Request, Workspace, WorkspaceRequest};
 use oku_slides_stt::{Status, Stt, SttRequest};
 use tauri::ipc::Response;
@@ -220,14 +220,30 @@ pub async fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Result<Statu
 /// variante) applique au deck par `AppSessions`, qui verrouille l'espace de
 /// travail et redessine les barres d'onglets (`windows::emit_view`).
 #[tauri::command]
-pub async fn agent(app: AppHandle, req: AgentCommand) -> Result<(), String> {
+pub async fn agent(app: AppHandle, window: tauri::WebviewWindow, req: AgentCommand) -> Result<(), String> {
+    let label = window.label().to_owned();
     blocking(&app, move |_, state| {
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
         }
-        state.stack.handle(req)
+        let from = ReportFrom::of(&state.workspace, &req, Some(&label));
+        state.stack.handle_from(req, &from)
     })
     .await
+}
+
+/// The agent's close decision `id`, taken once by the window it targets.
+///
+/// Off the main thread (`blocking`): the hub table is locked. Another window, an
+/// unknown, expired or already taken id all give `None`: the page then asks.
+#[tauri::command]
+pub async fn take_close_decision(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    id: String,
+) -> Result<Option<CloseDecision>, String> {
+    let label = window.label().to_owned();
+    blocking(&app, move |_, state| Ok(state.stack.take_close_decision(&label, &id))).await
 }
 
 /// `candidate` est-il plus récent que le dernier focus appliqué ?

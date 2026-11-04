@@ -128,6 +128,30 @@ impl Session {
         }
     }
 
+    /// The help shows slide `id`, kept for its page; `false` outside the help or for an unknown id.
+    ///
+    /// Only the interface state changes: the help stays read-only, nothing is undoable or saved.
+    pub(crate) fn show_help_slide(&mut self, id: &str) -> bool {
+        if self.help().is_none() || self.deck().slide(id).is_none() {
+            return false;
+        }
+        self.ui.slide = Some(id.to_owned());
+        true
+    }
+
+    /// The help's search for `query`, at most `max` hits, titles first; `None` outside the help.
+    pub(crate) fn search_help(&self, query: &str, max: usize) -> Option<Vec<crate::agent::HelpHit>> {
+        self.help()?;
+        let hits = self.search(query).into_iter().take(max);
+        Some(hits.map(|h| crate::agent::HelpHit { slide: h.slide.to_owned(), title: h.title }).collect())
+    }
+
+    /// The help's first slide; `None` outside the help or for an empty one.
+    pub(crate) fn first_help_slide(&self) -> Option<String> {
+        self.help()?;
+        self.deck().slides.first().map(|s| s.id.clone())
+    }
+
     /// Refuse (`ReadOnly`) ce qui changerait l'aide.
     pub(crate) fn ensure_not_help(&self) -> Result<()> {
         snafu::ensure!(self.help().is_none(), ReadOnlySnafu);

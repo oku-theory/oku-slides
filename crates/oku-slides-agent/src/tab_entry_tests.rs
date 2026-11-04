@@ -51,7 +51,13 @@ fn emit_wraps_the_event_with_its_tab() {
 }
 
 fn prompt() -> Command {
-    Command::Prompt(Instruction { text: "perdue".into(), ui: AgentUi::default(), tune: false, images: Vec::new() })
+    Command::Prompt(Instruction {
+        text: "perdue".into(),
+        ui: AgentUi::default(),
+        tune: false,
+        images: Vec::new(),
+        origin: oku_slides_session::agent::TurnOrigin::Typed,
+    })
 }
 
 /// Onglet fermé, commandes encore en file : `next` rend `None`, jamais la commande (sélection `biased`).
@@ -97,7 +103,7 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         },
         STORAGE.clone(),
     );
-    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
+    let voice = AppVoice::new(None, None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
     let settings = Arc::new(AppSettings::new(&platform, None));
     let mut mcp = hub.subscribe();
@@ -111,6 +117,10 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         keeper: keeper.clone(),
         voice,
         drafts: Arc::new(oku_slides_mcp::NoDrafts),
+        workspace: Arc::new(oku_slides_session::agent::NoWorkspace),
+        tune: Arc::new(oku_slides_mcp::NoTune),
+        app: Arc::new(oku_slides_session::agent::UnavailableApp),
+        after: std::sync::mpsc::channel().0,
         prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
     };
     let (out, mut sent) = mpsc::unbounded_channel();
@@ -178,7 +188,7 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
         },
         STORAGE.clone(),
     );
-    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
+    let voice = AppVoice::new(None, None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice.clone());
     let mut mcp = hub.subscribe();
     let keeper = Keeper::spawn(tab.clone(), hub.clone());
@@ -191,6 +201,10 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
         keeper: keeper.clone(),
         voice,
         drafts: Arc::new(oku_slides_mcp::NoDrafts),
+        workspace: Arc::new(oku_slides_session::agent::NoWorkspace),
+        tune: Arc::new(oku_slides_mcp::NoTune),
+        app: Arc::new(oku_slides_session::agent::UnavailableApp),
+        after: std::sync::mpsc::channel().0,
         prompt_limits: PromptImageLimits { max_bytes: 0, max_side: 0, total_bytes: 0 },
     };
     let (out, _sent) = mpsc::unbounded_channel();
@@ -218,7 +232,7 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
     .unwrap();
     let shown: Vec<String> = std::iter::from_fn(|| mcp.try_recv().ok())
         .filter_map(|e| match e {
-            McpEvent::Surface { surface } => Some(serde_json::to_string(&surface).unwrap()),
+            McpEvent::Surface { surface, .. } => Some(serde_json::to_string(&surface).unwrap()),
             McpEvent::SurfacePatch { messages, .. } => Some(serde_json::to_string(&messages).unwrap()),
             _ => None,
         })
@@ -250,7 +264,7 @@ async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::
         },
         STORAGE.clone(),
     );
-    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link)), Handle::current());
+    let voice = AppVoice::new(None, None, Arc::new(AgentChoice::new(&platform, link)), Handle::current());
     let hub = oku_slides_mcp::SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), voice);
     let keeper = Keeper::spawn(tab.clone(), hub.clone());
     let (cmds, _rx) = mpsc::unbounded_channel();

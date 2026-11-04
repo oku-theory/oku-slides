@@ -105,7 +105,7 @@ async fn show_themes_twice_replaces_the_picker_without_closing_it() {
     show(&h);
     let event = wait_event(&mut rx, |e| match e {
         McpEvent::CloseSurface { id } => Some(format!("close {id}")),
-        McpEvent::Surface { surface } => Some(format!("show {}", surface.id)),
+        McpEvent::Surface { surface, .. } => Some(format!("show {}", surface.id)),
         _ => None,
     })
     .await;

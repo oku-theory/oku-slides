@@ -526,6 +526,10 @@ impl Session {
                     | Request::HistoryClose
             ),
         );
+        // An edit, even a refused one, makes an agent's close decision stale (`dirty_revision`).
+        if req.changes_deck() {
+            self.note_edit();
+        }
         // La séance des widgets du mode deck finit à la première autre modification.
         if req.ends_widget_session() {
             self.end_widget_session();

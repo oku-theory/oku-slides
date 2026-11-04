@@ -20,9 +20,9 @@ const viewOf = (id: string, added: string[]) =>
   ({ slide: { id, kind: "essentiel/content", params: { body: [`${id}-e1`, ...added].map((e) => ({ id: e, kind: "base/text" })) } } }) as unknown as SlideView;
 
 /** Un onglet réduit : slide courante (sa vue suit), sélection, édition ; rend le rappel `focus`. */
-async function mount() {
+async function mount(agentOnly = false) {
   let out: {
-    focus: (slide: string, element: string | null) => void;
+    focus: (slide: string | null, element: string | null) => void;
     current: string;
     selected: string | null;
     setEditing: (k: string | null) => void;
@@ -38,7 +38,10 @@ async function mount() {
     const [added, setAdded] = useState<string[]>([]);
     // Une vue par slide affichée et par contenu, comme celle qu'App relit.
     const view = useMemo(() => viewOf(current, added), [current, added]);
-    const focus = useAgentFocus({ slides, view, current, editing, show: setCurrent, select: setSelected });
+    // `agentOnly`: as the agent's wiring, a focus never selects and only deselects without a slide.
+    const select = agentOnly ? () => {} : setSelected;
+    const deselect = agentOnly ? () => setSelected(null) : undefined;
+    const focus = useAgentFocus({ slides, view, current, editing, show: setCurrent, select, deselect });
     out = { focus, current, selected, setEditing, setCurrent, setSelected, setAdded };
     return null;
   };
@@ -118,5 +121,23 @@ test("useAgentFocus un focus différé est abandonné si l'utilisateur change de
   await act(async () => h.state().setCurrent("s3"));
   await act(async () => h.state().setEditing(null));
   expect(h.state().current).toBe("s3");
+  expect(h.state().selected).toBeNull();
+});
+
+test("useAgentFocus focus without slide deselects only", async () => {
+  const h = await mount();
+  await act(async () => h.state().focus("s2", "s2-e1"));
+  await act(async () => h.state().focus(null, null));
+  expect(h.state().current).toBe("s2");
+  expect(h.state().selected).toBeNull();
+});
+
+test("useAgentFocus with a deselect callback keeps the selection on a slide focus, clears it without one", async () => {
+  const h = await mount(true);
+  await act(async () => h.state().setSelected("s1-e1"));
+  await act(async () => h.state().focus("s1", null));
+  expect(h.state().selected).toBe("s1-e1");
+  await act(async () => h.state().focus(null, null));
+  expect(h.state().current).toBe("s1");
   expect(h.state().selected).toBeNull();
 });

@@ -110,7 +110,8 @@ impl Updates {
         }
     }
 
-    fn status(&self) -> UpdateStatus {
+    /// The offer, install under way and "Later", as the windows see them.
+    pub(crate) fn status(&self) -> UpdateStatus {
         let offer = self.found.lock().unwrap_or_else(PoisonError::into_inner).as_ref().map(|(_, o)| o.clone());
         let later = self.later.lock().unwrap_or_else(PoisonError::into_inner).clone();
         UpdateStatus::new(offer, self.installing.load(Ordering::SeqCst), later.as_deref())
@@ -239,21 +240,25 @@ pub async fn update_status(updates: State<'_, Updates>) -> Result<UpdateStatus, 
 
 /// Check asked by the user (menu); forgets "Later" first. No `offer`: the app is up to date.
 #[tauri::command]
-pub async fn check_update(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    updates: State<'_, Updates>,
-) -> Result<UpdateStatus, String> {
+pub async fn check_update(app: AppHandle, state: State<'_, AppState>) -> Result<UpdateStatus, String> {
+    check_asked(&app).await.map_err(|e| refuse(&state, &e))
+}
+
+/// A check someone asked for (menu, agent): forgets "Later" first, then checks.
+pub(crate) async fn check_asked(app: &AppHandle) -> Result<UpdateStatus, UpdateError> {
+    let Some(updates) = app.try_state::<Updates>() else {
+        return Err(RefusedSnafu { why: "not ready" }.build().into());
+    };
     *updates.later.lock().unwrap_or_else(PoisonError::into_inner) = None;
     // Shown again even if the check below fails.
-    changed(&app);
+    changed(app);
     with_marks(&updates.marks, |m| {
         if let Err(e) = m.clear_later() {
             tracing::warn!(error = %one_line(&e), "« Plus tard » non oublié sur le disque");
         }
     })
     .await;
-    check(&app).await.map_err(|e| refuse(&state, &e))
+    check(app).await
 }
 
 /// "Later": puts `version` off, if it is still the offer; the status that follows.
@@ -263,6 +268,11 @@ pub async fn later_update(
     updates: State<'_, Updates>,
     version: String,
 ) -> Result<UpdateStatus, String> {
+    Ok(put_off(&app, &updates, version).await)
+}
+
+/// Puts `version` off if it is still the offer; the status that follows.
+pub(crate) async fn put_off(app: &AppHandle, updates: &Updates, version: String) -> UpdateStatus {
     // Decided under the offer's lock: a newer offer found meanwhile was never shown, so it is
     // not put off, and a check cannot replace the offer between the test and the mark.
     let accepted = {
@@ -274,7 +284,7 @@ pub async fn later_update(
         current
     };
     if accepted {
-        changed(&app);
+        changed(app);
         with_marks(&updates.marks, move |m| {
             if let Err(e) = m.set_later(&version) {
                 tracing::warn!(error = %one_line(&e), "« Plus tard » gardé pour cette session seulement");
@@ -282,7 +292,12 @@ pub async fn later_update(
         })
         .await;
     }
-    Ok(updates.status())
+    updates.status()
+}
+
+/// The stage `e` failed at, which tells the agent's refusal.
+pub(crate) fn stage(e: &UpdateError) -> UpdateStage {
+    stage_of(&e.0)
 }
 
 /// The failed-install notice, localized, for the first window that asks; then `None`.
@@ -311,7 +326,8 @@ pub async fn install_update(app: AppHandle, state: State<'_, AppState>) -> Resul
     install(&app).await.map_err(|e| refuse(&state, &e))
 }
 
-async fn install(app: &AppHandle) -> Result<(), UpdateError> {
+/// Downloads, then saves the workspace, installs and restarts; for any caller, window or agent.
+pub(crate) async fn install(app: &AppHandle) -> Result<(), UpdateError> {
     let Some(updates) = app.try_state::<Updates>() else {
         return Err(RefusedSnafu { why: "not ready" }.build().into());
     };

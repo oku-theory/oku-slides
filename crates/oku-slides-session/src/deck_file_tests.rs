@@ -54,3 +54,32 @@ fn load_document_still_adopts_its_default_packs() {
     let base = oku_slides_core::kinds::base::namespace();
     assert_that!(s.deck().widgets.contains_key(&base)).is_true();
 }
+
+#[test]
+fn dirty_revision_grows_on_edit_and_clears_on_save() {
+    use crate::lib_tests_support::{data_dir, fixture_path, session_in};
+    let data = data_dir();
+    let mut s = session_in(&data.0);
+    s.open(&fixture_path()).unwrap_or_else(|e| panic!("open: {e}"));
+    assert_that!(s.dirty_revision()).is_none();
+    let slide = s.deck().slides[2].id.clone();
+    let title = |text: &str| oku_slides_core::Op::SetParam {
+        target: oku_slides_core::Target { slide: slide.clone(), element: None },
+        param: "title".into(),
+        value: serde_json::json!(text),
+    };
+    s.apply("Renommer", vec![title("Un")], None).unwrap_or_else(|e| panic!("apply: {e}"));
+    let first = s.dirty_revision();
+    s.apply("Renommer", vec![title("Deux")], None).unwrap_or_else(|e| panic!("apply: {e}"));
+    let second = s.dirty_revision();
+    assert_that!(first).is_some();
+    assert_that!(second).is_some();
+    assert_that!(second > first).is_true();
+    std::fs::create_dir_all(&data.0).unwrap_or_else(|e| panic!("dir: {e}"));
+    s.save(Some(&data.0.join("essai.oku-slides.pdf"))).unwrap_or_else(|e| panic!("save: {e}"));
+    assert_that!(s.dirty_revision()).is_none();
+    assert_that!(s.tab_info().dirty_revision).is_none();
+    s.apply("Renommer", vec![title("Trois")], None).unwrap_or_else(|e| panic!("apply: {e}"));
+    assert_that!(s.dirty_revision() > second).is_true();
+    assert_that!(s.tab_info().dirty_revision).is_equal_to(s.dirty_revision());
+}

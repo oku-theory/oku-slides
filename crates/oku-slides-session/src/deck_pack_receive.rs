@@ -236,7 +236,7 @@ impl Session {
             stored.expect = version;
             stored.last_seq = Some(send.seq);
         }
-        self.doc.dirty = true;
+        self.mark_dirty();
         let shown = self.show_received();
         self.persist(true);
         shown.map(|()| Received::Applied)

@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { subscribeHost, subscribeSse, subscribeTauri } from "./events";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { PRESENT_SLIDE_MAX, subscribeHost, subscribeSse, subscribeTauri } from "./events";
 import type { Listen } from "./events";
 import type { AgentEvent, McpEvent } from "../api";
+import { NOTES_MIN, PILE_MAX, PILE_MIN } from "../columns";
 
 const TAB = "t-1";
 
@@ -120,6 +121,99 @@ describe("évènements en SSE (développement)", () => {
     expect(FakeSource.last.closed).toBe(true);
   });
 
+  test("focus with an empty slide is dropped, a deselect delivered", () => {
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    FakeSource.last.emit("mcp", envelope(TAB, { kind: "focus", slide: "" }));
+    FakeSource.last.emit("mcp", envelope(TAB, { kind: "focus", slide: null }));
+    expect(r.mcp).toEqual([{ kind: "focus", slide: null }]);
+    expect(r.errors).toEqual([]);
+  });
+
+  test("interface event outside the static bounds is dropped with a warning naming only its kind", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    const change = (over: Record<string, unknown>) => ({
+      scheme: null,
+      locale: null,
+      guides: null,
+      folded: null,
+      pile: null,
+      notes: null,
+      code: null,
+      ...over,
+    });
+    const send = (over: Record<string, unknown>) =>
+      FakeSource.last.emit("mcp", envelope(TAB, { kind: "interface", change: change(over) }));
+    send({ pile: PILE_MAX + 1 });
+    send({ pile: PILE_MIN - 1 });
+    send({ notes: NOTES_MIN - 1 });
+    send({ locale: "x".repeat(40) });
+    send({ scheme: "blue" });
+    send({ pile: PILE_MIN, notes: NOTES_MIN, locale: "fr" });
+    expect(r.mcp).toEqual([{ kind: "interface", change: change({ pile: PILE_MIN, notes: NOTES_MIN, locale: "fr" }) }]);
+    expect(warn.mock.calls.length).toBe(5);
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("xxxx");
+    warn.mockRestore();
+  });
+
+  test("focus with an oversized slide id is dropped", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    FakeSource.last.emit("mcp", envelope(TAB, { kind: "focus", slide: "s".repeat(PRESENT_SLIDE_MAX + 1) }));
+    FakeSource.last.emit("mcp", envelope(TAB, { kind: "focus", slide: "s-2" }));
+    expect(r.mcp).toEqual([{ kind: "focus", slide: "s-2" }]);
+    warn.mockRestore();
+  });
+
+  test("present show with oversized slide id is dropped", () => {
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    const show = (slide: string) => envelope(TAB, { kind: "present", command: { action: "show", slide } });
+    FakeSource.last.emit("mcp", show("s".repeat(PRESENT_SLIDE_MAX + 1)));
+    FakeSource.last.emit("mcp", show("s-2"));
+    expect(r.mcp).toEqual([{ kind: "present", command: { action: "show", slide: "s-2" } }]);
+    expect(r.errors).toEqual([]);
+  });
+
+  test("close event with invalid ids is dropped", () => {
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    const id = "0b0c4b52-2b7c-4a43-9df2-6c2b8f0e6b11";
+    const close = (target: unknown, decision: string) => envelope(TAB, { kind: "close", target, decision });
+    FakeSource.last.emit("mcp", close({ kind: "tab", tab: "t-x" }, id));
+    FakeSource.last.emit("mcp", close({ kind: "window", window: "t-1" }, id));
+    FakeSource.last.emit("mcp", close({ kind: "tab", tab: "t-2" }, "not-a-uuid"));
+    FakeSource.last.emit("mcp", close({ kind: "tab", tab: "t-2", window: "w-1" }, id));
+    FakeSource.last.emit("mcp", close({ kind: "tab", tab: "t-2" }, id));
+    expect(r.mcp).toEqual([{ kind: "close", target: { kind: "tab", tab: "t-2" }, decision: id }]);
+    expect(r.errors).toEqual([]);
+  });
+
+  test("close event ids follow the host's 18-digit bound", () => {
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    const id = "0b0c4b52-2b7c-4a43-9df2-6c2b8f0e6b11";
+    const close = (tab: string) => envelope(TAB, { kind: "close", target: { kind: "tab", tab }, decision: id });
+    FakeSource.last.emit("mcp", close(`t-${"9".repeat(19)}`));
+    FakeSource.last.emit("mcp", close(`t-${"9".repeat(18)}`));
+    expect(r.mcp).toEqual([{ kind: "close", target: { kind: "tab", tab: `t-${"9".repeat(18)}` }, decision: id }]);
+  });
+
+  test.each([
+    ["an unknown action", { action: "jump" }],
+    ["a start without mode", { action: "start" }],
+    ["no command", undefined],
+  ])("present with %s is dropped", (_name, command) => {
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    FakeSource.last.emit("mcp", envelope(TAB, { kind: "present", command }));
+    expect(r.mcp).toEqual([]);
+    expect(r.errors).toEqual([]);
+  });
+
   test("se désabonner ferme le flux", () => {
     const stop = subscribeSse("/api/events", TAB, recorder().handlers);
     stop();
@@ -172,6 +266,18 @@ describe("évènements Tauri", () => {
     f.callbacks.get("oku-slides:agent")?.({ payload: JSON.stringify({ tab: TAB }) });
     expect(r.agent).toEqual([]);
     expect(r.errors).toHaveLength(2);
+  });
+
+  test("present with an invalid command is dropped, a valid one delivered", async () => {
+    const f = fakeListen();
+    const r = recorder();
+    subscribeTauri(async () => f.listen, TAB, r.handlers);
+    await settle();
+    const present = (command: unknown) => ({ payload: envelope(TAB, { kind: "present", command }) });
+    f.callbacks.get("oku-slides:mcp")?.(present({ action: "start", mode: "fullscreen" }));
+    f.callbacks.get("oku-slides:mcp")?.(present({ action: "next" }));
+    expect(r.mcp).toEqual([{ kind: "present", command: { action: "next" } }]);
+    expect(r.errors).toEqual([]);
   });
 
   test("onReady une fois les deux écoutes en place", async () => {

@@ -36,6 +36,20 @@
       "chunks": ["Voici les thèmes."]
     },
     "suite des thèmes": { "chunks": ["Thème noté."] },
+    "lis le reçu": {
+      "mcp": [{ "tool": "report", "args": { "title": "Reçu lu à voix haute", "facts": ["Diapo deux changée"] } }],
+      "chunks": ["Reçu montré."]
+    },
+    "lis le reçu présenté": {
+      "mcp": [{ "tool": "report", "args": { "title": "Reçu pendant la présentation", "facts": ["Diapo trois"] } }],
+      "chunks": ["Reçu montré."]
+    },
+    "lis le reçu témoin": {
+      "mcp": [{ "tool": "report", "args": { "title": "Reçu témoin", "facts": ["Après la présentation"] } }],
+      "chunks": ["Reçu montré."]
+    },
+    "lis plus vite": { "mcp": [{ "tool": "set_speech", "args": { "rate": 1.5 } }], "chunks": ["Lecture plus rapide."] },
+    "lis normalement": { "mcp": [{ "tool": "set_speech", "args": { "rate": 1 } }], "chunks": ["Lecture normale."] },
     "pose la base de coût": { "chunks": ["Base posée."], "usage": [12, 10, 2], "cost": { "amount": 0.1, "currency": "USD" } },
     "compte les tokens": { "chunks": ["Compté."], "usage": [5432, 4321, 1111], "cost": { "amount": 0.4321, "currency": "USD" } },
     "combien a coûté ce deck": { "mcp": [{ "tool": "show_usage", "args": { "by": "tab" } }], "chunks": ["Voici l'usage."] },
@@ -45,6 +59,45 @@
     "remets le schéma du système": { "mcp": [{ "tool": "set_interface", "args": { "scheme": "system" } }], "chunks": ["Schéma du système."] },
     "affiche les repères": { "mcp": [{ "tool": "set_interface", "args": { "guides": true } }], "chunks": ["Repères affichés."] },
     "masque les repères": { "mcp": [{ "tool": "set_interface", "args": { "guides": false } }], "chunks": ["Repères masqués."] },
+    "replie les diapositives et ouvre le code": {
+      "mcp": [{ "tool": "set_interface", "args": { "folded": { "slides": true }, "code": true } }],
+      "chunks": ["Diapositives repliées."]
+    },
+    "déplie les diapositives et ferme le code": {
+      "mcp": [{ "tool": "set_interface", "args": { "folded": { "slides": false }, "code": false } }],
+      "chunks": ["Diapositives dépliées."]
+    },
+    "ajoute une diapositive titre": { "chunks": ["Diapositive notée."] },
+    "attends mon signal": { "wait_cancel": true, "chunks": [] },
+    "bonjour tout le monde": { "chunks": ["Bonjour."] },
+    "retitre le deck pour annuler": {
+      "mcp": [{ "tool": "apply", "args": { "ops": [{ "op": "set_deck_param", "key": "title", "value": "Titre à annuler" }] } }],
+      "chunks": ["Titre changé."]
+    },
+    "annule le dernier changement": { "mcp": [{ "tool": "undo", "args": {} }], "chunks": ["Changement annulé."] },
+    "rétablis le changement": { "mcp": [{ "tool": "redo", "args": { "steps": 1 } }], "chunks": ["Changement rétabli."] },
+    "montre la slide libre": { "mcp": [{ "tool": "focus", "args": { "slide": "s-libre" } }], "chunks": ["Slide montrée."] },
+    "désélectionne tout": { "mcp": [{ "tool": "focus", "args": {} }], "chunks": ["Sélection levée."] },
+    "annule un tour inconnu": { "mcp": [{ "tool": "undo_turn", "args": { "turn": 999999 } }], "chunks": ["Tour non annulé."] },
+    "mets à jour un pack inconnu": { "mcp": [{ "tool": "pack_update", "args": { "pack": "inconnu", "action": "use_mine" } }], "chunks": ["Pack non mis à jour."] },
+    "rattache l'agent": { "mcp": [{ "tool": "window", "args": { "action": "attach_agent" } }], "chunks": ["Agent non rattaché."] },
+    "cherche les mises à jour": { "mcp": [{ "tool": "update", "args": { "action": "check" } }], "chunks": ["Mises à jour cherchées."] },
+    "après le rechargement": { "chunks": ["Toujours à l'écoute."] },
+    "ouvre l'aide sur la dictée": { "mcp": [{ "tool": "help", "args": { "query": "dictée" } }], "chunks": ["Aide ouverte."] },
+    "quitte l'application": { "mcp": [{ "tool": "quit", "args": {} }], "chunks": ["Je ne peux pas quitter ici."] },
+    "repars de zéro": { "mcp": [{ "tool": "new_conversation", "args": {} }], "chunks": ["On repart de zéro."] },
+    "importe la présentation": {
+      "mcp": [{ "tool": "import", "args": { "path": "${OKU_SLIDES_PATHS__DECKS}/e2e-390/e2e-390.pptx", "mode": "hifi" } }],
+      "chunks": ["Présentation importée."]
+    },
+    "liste les onglets": {
+      "mcp": [{ "tool": "tabs", "args": {} }],
+      "chunks": ["Onglets listés."]
+    },
+    "fusionne la copie": {
+      "mcp": [{ "tool": "merge", "args": { "path": "${OKU_SLIDES_PATHS__DECKS}/e2e-350/copie.oku-slides.pdf" } }],
+      "chunks": ["Copie fusionnée."]
+    },
     "Peaufiner la présentation importée": {
       "tool_calls": [{ "id": "i1", "title": "Lire le rapport d'import" }, { "id": "i2", "title": "Comparer la slide 7" }],
       "mcp": [
@@ -53,6 +106,16 @@
         { "tool": "report", "args": { "title": "Import peaufiné", "facts": ["slide 7 comparée à l'original"], "slide": "s7" } }
       ],
       "chunks": ["Import comparé."]
+    }
+  },
+  "by_prefix": {
+    "active l'onglet ": {
+      "mcp": [{ "tool": "tab", "args": { "action": "activate", "tab": "${ARG}" } }],
+      "chunks": ["Onglet affiché."]
+    },
+    "ferme l'onglet ": {
+      "mcp": [{ "tool": "tab", "args": { "action": "close", "tab": "${ARG}" } }],
+      "chunks": ["Onglet fermé."]
     }
   },
   "turns": [

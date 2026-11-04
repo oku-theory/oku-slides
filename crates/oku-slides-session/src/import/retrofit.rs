@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::{Map, Value};
-use snafu::{ResultExt, ensure};
+use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_core::tokens::effective_tokens;
 use oku_slides_core::{
@@ -28,6 +28,7 @@ use oku_slides_platform::Platform;
 
 use super::error::{
     BadPackSnafu, BadThemeSnafu, LibrarySnafu, NotLayoutPackSnafu, PresentationSnafu, Result, SourcesSnafu,
+    UnknownThemeSnafu,
 };
 use super::{Input, PackLookup, Prepared};
 use crate::deck_closure::closure_with_files;
@@ -61,6 +62,21 @@ fn layout_pack(platform: &Platform, library: &PackLibrary, wanted: &str, lookup:
     };
     ensure!(files.kind() == PackKind::Layouts, NotLayoutPackSnafu { pack: wanted });
     Ok(files)
+}
+
+/// Checks that each of `wanted` names a library layout pack and `theme` a library theme.
+///
+/// The app's lookup, before anything is read: the same refusals as [`prepare`]'s.
+pub(super) fn check(platform: &Platform, wanted: &[String], theme: Option<&str>) -> Result<()> {
+    let library = PackLibrary::user(platform);
+    for name in wanted {
+        layout_pack(platform, &library, name, PackLookup::Library)?;
+    }
+    if let Some(wanted) = theme {
+        crate::library_lookup::find_theme(&ThemeLibrary::user(platform), wanted)
+            .context(UnknownThemeSnafu { theme: wanted })?;
+    }
+    Ok(())
 }
 
 /// Le retrofit de `input` sur les packs de layouts `wanted` (vide : `essentiel`) et le thème `theme`.

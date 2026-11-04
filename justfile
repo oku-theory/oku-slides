@@ -72,6 +72,8 @@ playbook file=deck: (web file "--open" "/playbook.html")
 # Tests Rust (hors app Tauri) et tests de l'interface
 test:
     cargo nextest run --workspace --exclude oku-slides-app
+    # Dictation with its e2e fakes (fake_source.rs), apart: never unified into the workspace build.
+    cargo nextest run -p oku-slides-stt --features e2e-fakes
     # Tests de rendu (DOM happy-dom) dans leur propre processus : cache de modules à part.
     cd ui && bun run test
 
@@ -86,7 +88,8 @@ e2e port="4872": install
     port="${port#port=}"
     [[ "$port" =~ ^[0-9]+$ ]] || { echo "e2e : port invalide « $port »" >&2; exit 2; }
     (cd ui && bun run build && bunx playwright install chromium)
-    cargo build -q -p oku-slides-cli -p oku-slides-agent --bin oku-slides --bin oku-slides-fake-agent
+    # The server hears the utterances appended to `$tmp/utterances.txt` (e2e fakes, Q16): debug only.
+    cargo build -q -p oku-slides-cli -p oku-slides-agent --bin oku-slides --bin oku-slides-fake-agent --features oku-slides-cli/e2e-fakes
     bin="$(cd "${CARGO_TARGET_DIR:-target}" && pwd)/debug"
     # Un serveur d'une autre session sur ce port fausserait tout : refusé.
     if curl -s -o /dev/null "http://127.0.0.1:$port/"; then echo "e2e : port $port déjà pris" >&2; exit 2; fi
@@ -94,6 +97,12 @@ e2e port="4872": install
     export OKU_SLIDES_PATHS__DATA="$tmp/data" OKU_SLIDES_PATHS__DECKS="$tmp/decks"
     # La clé factice de la dictée par API (210-settings-box) : la spec vérifie qu'elle ne sort jamais.
     export OKU_E2E_DICTATION_KEY=oku-e2e-secret-1144
+    # Hands-free (340-hands-free): `e2e/lib/say.cjs` appends what the user says to this file.
+    utterances="$tmp/utterances.txt"
+    export OKU_SLIDES_STT__FAKE_UTTERANCES="$utterances"
+    # Read-aloud (410-read-aloud): the fake voice appends each speech to this file, never the speakers.
+    speech="$tmp/speech.txt"
+    export OKU_SLIDES_STT__FAKE_SPEECH="$speech"
     mkdir -p "$tmp/data"
     # Le journal du faux agent (`--log`) : les specs y lisent le résultat des appels MCP (220-import).
     log="$tmp/fake-agent.log"
@@ -105,13 +114,38 @@ e2e port="4872": install
     server=$!
     trap 'kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; rm -rf "$tmp"' EXIT
     for _ in $(seq 1 50); do curl -sf -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.2; done
-    cd ui && E2E_URL="http://127.0.0.1:$port/" E2E_AGENT_LOG="$log" bun run e2e
+    # E2E_DECKS: the run's decks dir, where specs write files the fake agent reads (`${…}` args).
+    cd ui && E2E_URL="http://127.0.0.1:$port/" E2E_AGENT_LOG="$log" E2E_UTTERANCES="$utterances" E2E_SPEECH="$speech" E2E_DECKS="$tmp/decks" bun run e2e
 
 # Vérifications : format, clippy, types TypeScript, polices en LFS
-check: install fonts-lfs agents-lint commit-lint render-offline-deps
+check: install fonts-lfs agents-lint commit-lint release-fakes-guard fakes-dev-deps-guard render-offline-deps
     cargo fmt --all --check
     cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy -p oku-slides-stt -p oku-slides-cli --all-targets --features oku-slides-cli/e2e-fakes -- -D warnings
     cd ui && bun run typecheck
+
+# The app never builds with the e2e fakes (Q16): a file must never stand in for the microphone
+release-fakes-guard:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Inverted on the bottom of the chain: a forward tree hides features a crate's own table enables.
+    tree="$(cargo tree -e features,normal,build --target all -p oku-slides-app -i oku-slides-platform)"
+    if grep -q "e2e-fakes" <<<"$tree"; then echo "✗ the oku-slides-app build enables e2e-fakes" >&2; exit 1; fi
+
+# The e2e fakes are turned on only from the `just e2e` command line, never by a dependency entry (Q16)
+fakes-dev-deps-guard:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bad=0
+    while IFS= read -r f; do
+      # Dev tables (plain, per target or per dependency) and [workspace.dependencies], which a
+      # dev entry can inherit: no e2e-fakes in them.
+      if awk '/^\[/ { dev = ($0 ~ /^\[[^]#]*dev-dependencies[].]/ || $0 ~ /^\[workspace\.dependencies[].]/) } dev && /e2e-fakes/ { found = 1 } END { exit !found }' "$f"; then
+        echo "✗ $f: e2e-fakes in a dev or workspace dependency table" >&2
+        bad=1
+      fi
+    done < <(git ls-files -- 'Cargo.toml' '*/Cargo.toml')
+    exit $bad
 
 # Render worker dependency tree, not runtime: no HTTP client nor typst-kit package/download feature (t-1414)
 render-offline-deps:

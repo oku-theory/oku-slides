@@ -305,3 +305,46 @@ fn retrofit_onto_a_library_pack_without_base_pins_base() {
     assert_that!(deck.widgets.contains_key(&kinds::base::namespace())).is_true();
     assert_that!(oku_slides_core::validate(deck, &imported.widgets.registry, None).is_empty()).is_true();
 }
+
+/// The import error kind `check_target` refuses `target` with, if it does.
+fn check_kind(data: &std::path::Path, target: &ImportTarget) -> Option<ImportErrorKind> {
+    match check_target(&platform(settings_on(data)), target) {
+        Ok(()) => None,
+        Err(e) => match e.kind() {
+            crate::SessionErrorKind::Import => e.import_kind(),
+            other => panic!("not an import refusal: {other:?}"),
+        },
+    }
+}
+
+#[test]
+fn check_target_accepts_library_layouts_and_theme() {
+    let data = fresh_dir("oku-slides-import-check-");
+    assert_that!(check_kind(data.path(), &retrofit(&["Essentiel"], Some("pro")))).is_none();
+}
+
+#[test]
+fn check_target_refuses_an_unknown_pack() {
+    let data = fresh_dir("oku-slides-import-check-pack-");
+    assert_that!(check_kind(data.path(), &retrofit(&["inconnu"], None)))
+        .is_equal_to(Some(ImportErrorKind::UnknownPack));
+}
+
+#[test]
+fn check_target_refuses_a_widget_pack() {
+    let data = fresh_dir("oku-slides-import-check-widgets-");
+    assert_that!(check_kind(data.path(), &retrofit(&["base"], None))).is_equal_to(Some(ImportErrorKind::NotLayoutPack));
+}
+
+#[test]
+fn check_target_refuses_an_unknown_theme() {
+    let data = fresh_dir("oku-slides-import-check-theme-");
+    let kind = check_kind(data.path(), &retrofit(&[], Some("inconnu")));
+    assert_that!(kind).is_equal_to(Some(ImportErrorKind::UnknownTheme));
+}
+
+#[test]
+fn check_target_of_a_hifi_import_checks_nothing() {
+    let data = fresh_dir("oku-slides-import-check-hifi-");
+    assert_that!(check_kind(data.path(), &ImportTarget::Hifi { witness: None })).is_none();
+}

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::local_agent::Unavailable;
 use oku_slides_platform::storage::StorageError;
+use oku_slides_session::agent::SpokenFailure;
 use snafu::{Backtrace, Snafu};
 
 /// L'agent n'a pas pu servir la consigne.
@@ -40,6 +41,23 @@ impl AgentError {
     /// L'erreur et ses causes, sur une ligne (journaux).
     pub fn one_line(&self) -> String {
         oku_slides_platform::errors::one_line(self)
+    }
+
+    /// What the read-aloud says of this failure: chosen by variant, never from its message.
+    #[must_use]
+    pub fn spoken(&self) -> SpokenFailure {
+        match &self.0 {
+            AgentInner::NotFound { .. }
+            | AgentInner::NoProgram { .. }
+            | AgentInner::Spawn { .. }
+            | AgentInner::NoHttp { .. }
+            | AgentInner::WorkDir { .. }
+            | AgentInner::WorkDirTask { .. }
+            | AgentInner::ProcessDir { .. }
+            | AgentInner::ProcessDirTask { .. } => SpokenFailure::NoStart,
+            AgentInner::Stopped { .. } => SpokenFailure::Stopped,
+            AgentInner::Request { .. } => SpokenFailure::Refused,
+        }
     }
 
     /// Pourquoi l'agent est inutilisable, si cette erreur le dit.

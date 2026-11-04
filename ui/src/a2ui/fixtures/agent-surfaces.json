@@ -121,7 +121,8 @@
               "component": "Column",
               "children": [
                 "message",
-                "buttons"
+                "buttons",
+                "heard"
               ]
             },
             {
@@ -141,7 +142,7 @@
             {
               "id": "yes",
               "component": "Button",
-              "label": "Oui, le faire",
+              "label": "Remplacer",
               "primary": true,
               "danger": true,
               "action": {
@@ -165,6 +166,12 @@
                   }
                 }
               }
+            },
+            {
+              "id": "heard",
+              "component": "Text",
+              "text": "Entendu : « oui »",
+              "variant": "caption"
             }
           ]
         }
@@ -2399,9 +2406,14 @@
                 "d-api-azure-note",
                 "d-language",
                 "d-silence",
+                "d-hands-free",
                 "d-note",
                 "d-progress",
                 "d-cancel",
+                "s-read-aloud",
+                "s-voice",
+                "s-rate",
+                "s-in-presentation",
                 "a-title",
                 "a-agents",
                 "a-progress",
@@ -2666,6 +2678,25 @@
               }
             },
             {
+              "id": "d-hands-free",
+              "component": "Switch",
+              "label": "Écoute mains libres",
+              "help": "Chaque phrase part à l'agent dès que vous marquez une pause. L'écoute démarre en pause à chaque lancement.",
+              "value": {
+                "path": "/hands_free"
+              },
+              "action": {
+                "event": {
+                  "name": "hands_free",
+                  "context": {
+                    "on": {
+                      "path": "/hands_free"
+                    }
+                  }
+                }
+              }
+            },
+            {
               "id": "d-note",
               "component": "Text",
               "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
@@ -2685,6 +2716,111 @@
               "action": {
                 "event": {
                   "name": "cancel_download"
+                }
+              }
+            },
+            {
+              "id": "s-read-aloud",
+              "component": "Switch",
+              "label": "Lecture à voix haute",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "value": {
+                "path": "/read_aloud"
+              },
+              "action": {
+                "event": {
+                  "name": "read_aloud",
+                  "context": {
+                    "on": {
+                      "path": "/read_aloud"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-voice",
+              "component": "Select",
+              "label": "Voix",
+              "value": {
+                "path": "/speech_voice"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Automatique"
+                },
+                {
+                  "id": "v-fr",
+                  "label": "Amélie"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_voice",
+                  "context": {
+                    "id": {
+                      "path": "/speech_voice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-rate",
+              "component": "Select",
+              "label": "Débit",
+              "value": {
+                "path": "/speech_rate"
+              },
+              "options": [
+                {
+                  "id": "0.75",
+                  "label": "×0,75"
+                },
+                {
+                  "id": "1",
+                  "label": "×1"
+                },
+                {
+                  "id": "1.25",
+                  "label": "×1,25"
+                },
+                {
+                  "id": "1.5",
+                  "label": "×1,5"
+                },
+                {
+                  "id": "2",
+                  "label": "×2"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_rate",
+                  "context": {
+                    "value": {
+                      "path": "/speech_rate"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-in-presentation",
+              "component": "Switch",
+              "label": "Lire à voix haute pendant une présentation, après « Oku »",
+              "value": {
+                "path": "/speech_in_presentation"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_in_presentation",
+                  "context": {
+                    "on": {
+                      "path": "/speech_in_presentation"
+                    }
+                  }
                 }
               }
             },
@@ -2774,13 +2910,18 @@
             "model": "api",
             "language": "",
             "silence": "1.5",
+            "hands_free": false,
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
               "api_version": "",
               "headers": ""
-            }
+            },
+            "read_aloud": false,
+            "speech_voice": "",
+            "speech_rate": "1",
+            "speech_in_presentation": false
           }
         }
       }
@@ -2814,9 +2955,14 @@
                 "d-unavailable",
                 "d-language",
                 "d-silence",
+                "d-hands-free",
                 "d-note",
                 "d-progress",
                 "d-download",
+                "s-read-aloud",
+                "s-voice",
+                "s-rate",
+                "s-in-presentation",
                 "a-title",
                 "a-agents",
                 "a-progress",
@@ -2978,6 +3124,25 @@
               }
             },
             {
+              "id": "d-hands-free",
+              "component": "Switch",
+              "label": "Écoute mains libres",
+              "help": "Chaque phrase part à l'agent dès que vous marquez une pause. L'écoute démarre en pause à chaque lancement.",
+              "value": {
+                "path": "/hands_free"
+              },
+              "action": {
+                "event": {
+                  "name": "hands_free",
+                  "context": {
+                    "on": {
+                      "path": "/hands_free"
+                    }
+                  }
+                }
+              }
+            },
+            {
               "id": "d-note",
               "component": "Text",
               "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
@@ -2999,6 +3164,111 @@
                   "name": "download",
                   "context": {
                     "model": "large"
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-read-aloud",
+              "component": "Switch",
+              "label": "Lecture à voix haute",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "value": {
+                "path": "/read_aloud"
+              },
+              "action": {
+                "event": {
+                  "name": "read_aloud",
+                  "context": {
+                    "on": {
+                      "path": "/read_aloud"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-voice",
+              "component": "Select",
+              "label": "Voix",
+              "value": {
+                "path": "/speech_voice"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Automatique"
+                },
+                {
+                  "id": "v-fr",
+                  "label": "Amélie"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_voice",
+                  "context": {
+                    "id": {
+                      "path": "/speech_voice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-rate",
+              "component": "Select",
+              "label": "Débit",
+              "value": {
+                "path": "/speech_rate"
+              },
+              "options": [
+                {
+                  "id": "0.75",
+                  "label": "×0,75"
+                },
+                {
+                  "id": "1",
+                  "label": "×1"
+                },
+                {
+                  "id": "1.25",
+                  "label": "×1,25"
+                },
+                {
+                  "id": "1.5",
+                  "label": "×1,5"
+                },
+                {
+                  "id": "2",
+                  "label": "×2"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_rate",
+                  "context": {
+                    "value": {
+                      "path": "/speech_rate"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-in-presentation",
+              "component": "Switch",
+              "label": "Lire à voix haute pendant une présentation, après « Oku »",
+              "value": {
+                "path": "/speech_in_presentation"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_in_presentation",
+                  "context": {
+                    "on": {
+                      "path": "/speech_in_presentation"
+                    }
                   }
                 }
               }
@@ -3089,13 +3359,18 @@
             "model": "large",
             "language": "",
             "silence": "off",
+            "hands_free": false,
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
               "api_version": "",
               "headers": ""
-            }
+            },
+            "read_aloud": false,
+            "speech_voice": "",
+            "speech_rate": "1",
+            "speech_in_presentation": false
           }
         }
       }
@@ -3129,8 +3404,13 @@
                 "d-unavailable",
                 "d-language",
                 "d-silence",
+                "d-hands-free",
                 "d-note",
                 "d-progress",
+                "s-read-aloud",
+                "s-voice",
+                "s-rate",
+                "s-in-presentation",
                 "a-title",
                 "a-agents",
                 "a-local-reason",
@@ -3292,6 +3572,25 @@
               }
             },
             {
+              "id": "d-hands-free",
+              "component": "Switch",
+              "label": "Écoute mains libres",
+              "help": "Chaque phrase part à l'agent dès que vous marquez une pause. L'écoute démarre en pause à chaque lancement.",
+              "value": {
+                "path": "/hands_free"
+              },
+              "action": {
+                "event": {
+                  "name": "hands_free",
+                  "context": {
+                    "on": {
+                      "path": "/hands_free"
+                    }
+                  }
+                }
+              }
+            },
+            {
               "id": "d-note",
               "component": "Text",
               "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
@@ -3302,6 +3601,111 @@
               "component": "Text",
               "text": {
                 "path": "/progress/dictation"
+              }
+            },
+            {
+              "id": "s-read-aloud",
+              "component": "Switch",
+              "label": "Lecture à voix haute",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "value": {
+                "path": "/read_aloud"
+              },
+              "action": {
+                "event": {
+                  "name": "read_aloud",
+                  "context": {
+                    "on": {
+                      "path": "/read_aloud"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-voice",
+              "component": "Select",
+              "label": "Voix",
+              "value": {
+                "path": "/speech_voice"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Automatique"
+                },
+                {
+                  "id": "v-fr",
+                  "label": "Amélie"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_voice",
+                  "context": {
+                    "id": {
+                      "path": "/speech_voice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-rate",
+              "component": "Select",
+              "label": "Débit",
+              "value": {
+                "path": "/speech_rate"
+              },
+              "options": [
+                {
+                  "id": "0.75",
+                  "label": "×0,75"
+                },
+                {
+                  "id": "1",
+                  "label": "×1"
+                },
+                {
+                  "id": "1.25",
+                  "label": "×1,25"
+                },
+                {
+                  "id": "1.5",
+                  "label": "×1,5"
+                },
+                {
+                  "id": "2",
+                  "label": "×2"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_rate",
+                  "context": {
+                    "value": {
+                      "path": "/speech_rate"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-in-presentation",
+              "component": "Switch",
+              "label": "Lire à voix haute pendant une présentation, après « Oku »",
+              "value": {
+                "path": "/speech_in_presentation"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_in_presentation",
+                  "context": {
+                    "on": {
+                      "path": "/speech_in_presentation"
+                    }
+                  }
+                }
               }
             },
             {
@@ -3408,13 +3812,18 @@
             "model": "turbo",
             "language": "",
             "silence": "1.5",
+            "hands_free": false,
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
               "key_env": "OPENAI_API_KEY",
               "api_version": "",
               "headers": ""
-            }
+            },
+            "read_aloud": false,
+            "speech_voice": "",
+            "speech_rate": "1",
+            "speech_in_presentation": false
           }
         }
       }
@@ -3448,8 +3857,13 @@
                 "d-unavailable",
                 "d-language",
                 "d-silence",
+                "d-hands-free",
                 "d-note",
                 "d-progress",
+                "s-read-aloud",
+                "s-voice",
+                "s-rate",
+                "s-in-presentation",
                 "a-title",
                 "a-agents",
                 "a-model",
@@ -3610,6 +4024,25 @@
               }
             },
             {
+              "id": "d-hands-free",
+              "component": "Switch",
+              "label": "Écoute mains libres",
+              "help": "Chaque phrase part à l'agent dès que vous marquez une pause. L'écoute démarre en pause à chaque lancement.",
+              "value": {
+                "path": "/hands_free"
+              },
+              "action": {
+                "event": {
+                  "name": "hands_free",
+                  "context": {
+                    "on": {
+                      "path": "/hands_free"
+                    }
+                  }
+                }
+              }
+            },
+            {
               "id": "d-note",
               "component": "Text",
               "text": "Seuls les passages parlés sont transcrits, phrase par phrase, pendant que vous parlez.",
@@ -3620,6 +4053,111 @@
               "component": "Text",
               "text": {
                 "path": "/progress/dictation"
+              }
+            },
+            {
+              "id": "s-read-aloud",
+              "component": "Switch",
+              "label": "Lecture à voix haute",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "value": {
+                "path": "/read_aloud"
+              },
+              "action": {
+                "event": {
+                  "name": "read_aloud",
+                  "context": {
+                    "on": {
+                      "path": "/read_aloud"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-voice",
+              "component": "Select",
+              "label": "Voix",
+              "value": {
+                "path": "/speech_voice"
+              },
+              "options": [
+                {
+                  "id": "",
+                  "label": "Automatique"
+                },
+                {
+                  "id": "v-fr",
+                  "label": "Amélie"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_voice",
+                  "context": {
+                    "id": {
+                      "path": "/speech_voice"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-rate",
+              "component": "Select",
+              "label": "Débit",
+              "value": {
+                "path": "/speech_rate"
+              },
+              "options": [
+                {
+                  "id": "0.75",
+                  "label": "×0,75"
+                },
+                {
+                  "id": "1",
+                  "label": "×1"
+                },
+                {
+                  "id": "1.25",
+                  "label": "×1,25"
+                },
+                {
+                  "id": "1.5",
+                  "label": "×1,5"
+                },
+                {
+                  "id": "2",
+                  "label": "×2"
+                }
+              ],
+              "action": {
+                "event": {
+                  "name": "speech_rate",
+                  "context": {
+                    "value": {
+                      "path": "/speech_rate"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-in-presentation",
+              "component": "Switch",
+              "label": "Lire à voix haute pendant une présentation, après « Oku »",
+              "value": {
+                "path": "/speech_in_presentation"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_in_presentation",
+                  "context": {
+                    "on": {
+                      "path": "/speech_in_presentation"
+                    }
+                  }
+                }
               }
             },
             {
@@ -3752,6 +4290,7 @@
             "model": "turbo",
             "language": "",
             "silence": "1.5",
+            "hands_free": false,
             "api": {
               "url": "https://api.openai.com/v1",
               "model": "gpt-4o-transcribe",
@@ -3759,6 +4298,10 @@
               "api_version": "",
               "headers": ""
             },
+            "read_aloud": false,
+            "speech_voice": "",
+            "speech_rate": "1",
+            "speech_in_presentation": false,
             "agent_model": "mini"
           }
         }

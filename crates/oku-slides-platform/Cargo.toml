@@ -35,6 +35,10 @@ listen = ["dep:axum", "dep:hyper", "dep:hyper-util", "tokio/net", "tokio/sync", 
 # Téléchargement des modèles épinglés (dictée, agent local) : client HTTP et SHA-256.
 download = ["dep:ureq", "dep:sha2", "dep:hex"]
 
+# e2e fakes (`stt.fake_utterances`): only `just e2e` turns it on, through oku-slides-cli/e2e-fakes.
+# Without it the settings are refused at load; `just check` fails if the app pulls it in.
+e2e-fakes = []
+
 [dev-dependencies]
 tiny_http.workspace = true
 sha2.workspace = true

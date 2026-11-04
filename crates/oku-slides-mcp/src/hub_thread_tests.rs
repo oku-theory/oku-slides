@@ -98,7 +98,7 @@ fn ids(list: &[Surface]) -> Vec<String> {
 /// Ouvre puis clôt un tour avec sa surface.
 fn closed_turn(hub: &SurfaceHub) -> u32 {
     let n = hub.begin_turn();
-    hub.emit(McpEvent::Surface { surface: turn(n) });
+    hub.emit(McpEvent::surface(turn(n)));
     hub.end_turn(n, "");
     n
 }
@@ -271,7 +271,7 @@ fn surface_outside_any_turn_is_shown() {
     let hub = hub();
     let mut free = turn(1);
     free.turn = None;
-    hub.emit(McpEvent::Surface { surface: free });
+    hub.emit(McpEvent::surface(free));
     assert_that!(hub.visible_surfaces()).has_length(1);
 }
 
@@ -279,7 +279,7 @@ fn surface_outside_any_turn_is_shown() {
 fn surface_of_a_turn_never_filed_is_not_shown() {
     let hub = hub();
     let mut rx = hub.subscribe();
-    hub.emit(McpEvent::Surface { surface: turn(42) });
+    hub.emit(McpEvent::surface(turn(42)));
     assert_that!(rx.try_recv().is_err()).is_true();
     assert_that!(hub.visible_surfaces()).is_empty();
 }
@@ -288,12 +288,12 @@ fn surface_of_a_turn_never_filed_is_not_shown() {
 fn thread_snapshot_returns_closed_turns_only() {
     let hub = hub();
     let a = hub.begin_turn();
-    hub.emit(McpEvent::Surface { surface: turn(a) });
-    hub.emit(McpEvent::Surface { surface: question("ask-1", a) });
-    hub.emit(McpEvent::Surface { surface: answered("report-2", a) });
+    hub.emit(McpEvent::surface(turn(a)));
+    hub.emit(McpEvent::surface(question("ask-1", a)));
+    hub.emit(McpEvent::surface(answered("report-2", a)));
     hub.end_turn(a, "");
     let open = hub.begin_turn();
-    hub.emit(McpEvent::Surface { surface: turn(open) });
+    hub.emit(McpEvent::surface(turn(open)));
     let kept = hub.thread_snapshot().unwrap_or_default();
     assert_that!(ids(&kept)).is_equal_to(vec![format!("turn-{a}"), "report-2".to_owned()]);
     assert_that!(kept.iter().any(Surface::has_actions)).is_false();
@@ -312,8 +312,8 @@ fn offered_params(id: &str, n: u32) -> Surface {
 fn thread_snapshot_keeps_frozen_params() {
     let hub = hub();
     let a = hub.begin_turn();
-    hub.emit(McpEvent::Surface { surface: turn(a) });
-    hub.emit(McpEvent::Surface { surface: offered_params("show-2", a) });
+    hub.emit(McpEvent::surface(turn(a)));
+    hub.emit(McpEvent::surface(offered_params("show-2", a)));
     hub.freeze("show-2");
     hub.end_turn(a, "");
     let kept = hub.thread_snapshot().unwrap_or_default();
@@ -329,7 +329,7 @@ fn big_turn(hub: &SurfaceHub, kib: usize) -> u32 {
     let n = hub.begin_turn();
     let mut big = turn(n);
     big.set_value("narration", &serde_json::Value::String("x".repeat(kib * 1024)));
-    hub.emit(McpEvent::Surface { surface: big });
+    hub.emit(McpEvent::surface(big));
     hub.end_turn(n, "");
     n
 }

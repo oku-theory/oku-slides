@@ -4,7 +4,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
-- Check a prompt for an answer first, then for a shortcut word, before any agent launch; a shortcut never interrupts a turn. (spec:2026-10-19-raccourci-theme-design, t-1071)
+- Check a typed prompt for an answer first, then for a shortcut word, before any agent launch; a shortcut never interrupts a turn. Route utterances only in the host voice router, before any agent launch: stop, then the wake phrase, then the focus gate, then a shortcut word (not while presenting), then an answer, then the presentation lexicon, else a prompt; while a tab presents, voice reaches its agent only after the wake phrase and a nav word goes to the page at once. Drop an utterance begun while the read-aloud spoke (Speaker::hears); read aloud only the focused tab, muted while it presents unless in_presentation and a Wake turn; a turn failure reads only its variant's host template (SpokenFailure), never the error message. (spec:2026-10-19-raccourci-theme-design, t-1071, plan:2026-11-01-lot-m-hands-free, t-998, t-1002)
 - Refuse agent and agent.* keys in settings writes; an agent's agent switch goes through VoicePort, applied when no prompt runs. (spec:2026-10-23-reglages-dictee-a2ui-design, t-786)
 - Hold a PromptGuard from AppVoice while a tab prompts the ACP agent, across a queued prompt. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Switch the agent only under the AppVoice lock after re-checking; then persist the active agent, never the requested one. (spec:2026-10-23-reglages-dictee-a2ui-design)

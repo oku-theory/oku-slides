@@ -71,6 +71,9 @@ pub enum WorkspaceRequest {
     OpenHelp {
         /// Fenêtre d'arrivée d'un nouvel onglet.
         window: String,
+        /// The help slide to show, new tab or reused; absent or unknown: unchanged.
+        #[serde(default)]
+        slide: Option<String>,
     },
     /// L'onglet qui tient déjà le deck de `path` sous un autre fichier :
     /// `{ "tab": "t-3" | null, "title": … | null }` ; ne change rien.

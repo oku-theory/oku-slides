@@ -1,6 +1,7 @@
 // Closing one tab: guards, stalls, saves, the opener offer, and the deps builder.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { closeFlowDeps, closeTabFlow } from "./closeFlow";
+import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
+import { redeem } from "./closeDecision";
 import { isolate, setMessages } from "./i18n";
 import { OFFER, T0, deferred, fake, linkedOf, packEditing, snap, tabOf, themeTabOf, themeTabView } from "./test/closeFlowFake";
 import { resetMessages } from "./test/messages";
@@ -512,5 +513,55 @@ describe("closeTabFlow, the copy offer (t-1207)", () => {
       "takeCopy t-1 p c v2 d1",
       "refresh",
     ]);
+  });
+});
+
+describe("close flows, the agent's close decision", () => {
+  /** The decision id the agent's close event carries. */
+  const ID = "0b0c4b52-2b7c-4a43-9df2-6c2b8f0e6b11";
+  /** A dirty pack tab at dirty revision `revision`, whose save leaves it dirty: closing it asks ASK_QUIT. */
+  const stuckPack = (id: string, revision: number) => ({ ...tabOf(id, true, true), dirty_revision: revision });
+  const stillDirty = async () => snap({ dirty: true, editing: packEditing() });
+
+  test("closeTabFlow with redeemed decision answers discard and still saves", async () => {
+    const f = fake([stuckPack("a", 4)]);
+    f.state.snapshot = stillDirty;
+    f.state.decisions.set(ID, { discard: true, revisions: [["a", 4]] });
+    const deps = { ...f.deps(), decide: await redeem(f.take, ID, f.input.freshView) };
+    expect(await closeTabFlow("a", deps)).toBe(true);
+    expect(f.log).toContain("savePack a");
+    expect(f.questions).toEqual([]);
+    expect(f.log.at(-1)).toBe("close a true");
+  });
+
+  test("closeTabFlow forged close without decision shows the dialog", async () => {
+    const f = fake([stuckPack("a", 4)]);
+    f.state.snapshot = stillDirty;
+    const deps = { ...f.deps(), decide: await redeem(f.take, ID, f.input.freshView) };
+    expect(await closeTabFlow("a", deps)).toBe(true);
+    expect(f.log).toContain(`take ${ID}`);
+    expect(f.log).toContain(ASK_QUIT);
+  });
+
+  test("closeTabFlow decision with stale dirty revision asks again", async () => {
+    const f = fake([stuckPack("a", 5)]);
+    f.state.snapshot = stillDirty;
+    f.state.decisions.set(ID, { discard: true, revisions: [["a", 4]] });
+    f.state.answers = [false];
+    const deps = { ...f.deps(), decide: await redeem(f.take, ID, f.input.freshView) };
+    expect(await closeTabFlow("a", deps)).toBe(false);
+    expect(f.log).toContain(ASK_QUIT);
+    expect(f.log).not.toContain("close a true");
+  });
+
+  test("closeWindowFlow decision with one stale tab asks for that tab", async () => {
+    const f = fake([stuckPack("a", 2), stuckPack("b", 3)]);
+    f.state.snapshot = stillDirty;
+    f.state.decisions.set(ID, { discard: true, revisions: [["a", 2], ["b", 2]] });
+    const deps = { ...f.deps(), decide: await redeem(f.take, ID, f.input.freshView) };
+    expect(await closeWindowFlow("a", deps)).toBe(true);
+    expect(f.questions).toHaveLength(1);
+    expect(f.log.indexOf(ASK_QUIT)).toBeGreaterThan(f.log.indexOf("activate b"));
+    expect(f.log.at(-1)).toBe("closeWindow a,b");
   });
 });

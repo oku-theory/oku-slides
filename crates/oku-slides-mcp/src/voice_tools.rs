@@ -6,7 +6,8 @@
 use oku_slides_i18n::Localizer;
 use oku_slides_session::agent::bounds::clip;
 use oku_slides_session::{
-    DictationLanguage, DictationPatch, HOST_VOICE, ModelKind, ModelView, VoiceEvent, model_label, size_text,
+    DictationLanguage, DictationPatch, HOST_VOICE, ModelKind, ModelView, SpeechPatch, VoiceEvent, model_label,
+    size_text,
 };
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
@@ -14,9 +15,11 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::{IntoError, ResultExt};
 
-use crate::tool_error::{EmptyDictationChangeSnafu, TaskSnafu, ToolError, TurnOverSnafu, VoiceSnafu};
+use crate::tool_error::{
+    EmptyDictationChangeSnafu, EmptySpeechChangeSnafu, TaskSnafu, ToolError, TurnOverSnafu, VoiceSnafu,
+};
 use crate::tools::Tools;
-use crate::{ApiTarget, Checked, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
+use crate::{ApiTarget, Checked, ConfirmVerb, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
 
 /// Argument keys that would target the API address, variables, Azure version or headers.
 const API_TARGET_KEYS: [&str; 9] =
@@ -36,6 +39,23 @@ pub(crate) struct SetDictationArgs {
     pub silence: Option<f32>,
     /// Model of the transcription service.
     pub api_model: Option<String>,
+    /// Hands-free listening: false turns it off; only the user turns it on.
+    #[serde(default)]
+    pub hands_free: Option<bool>,
+}
+
+/// Read-aloud settings to change; absent: unchanged.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SetSpeechArgs {
+    /// Read the shown tab's receipts, questions and errors aloud.
+    pub read_aloud: Option<bool>,
+    /// A voice id from the settings tool; "" picks the language's first voice.
+    pub voice: Option<String>,
+    /// Speaking rate, from 0.5 to 2; 1 is the system's own.
+    pub rate: Option<f32>,
+    /// Also read, while presenting, the answer to a request begun with the wake phrase.
+    pub in_presentation: Option<bool>,
 }
 
 /// A dictation model.
@@ -87,6 +107,10 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
+        // An always-on microphone is the user's choice alone: a prompt injection must not start it.
+        if a.hands_free == Some(true) {
+            return self.fail_with(&refusal(VoiceErrorKind::HandsFreeReservedToUser));
+        }
         let patch = DictationPatch {
             model: a.model,
             language: a
@@ -99,6 +123,7 @@ impl Tools {
             api_key_env: None,
             api_version: None,
             api_headers: None,
+            hands_free: a.hands_free,
         };
         if patch.is_empty() {
             return self.fail_with(&EmptyDictationChangeSnafu.build());
@@ -113,8 +138,8 @@ impl Tools {
         }
         let l = self.localizer.current();
         let question = match (&checked.api, &checked.download) {
-            (Some(t), _) => Some((api_question(t, &l), true)),
-            (None, Some((m, api_model))) => Some((download_question(m, api_model, &l), false)),
+            (Some(t), _) => Some((api_question(t, &l), Some(ConfirmVerb::UseApi))),
+            (None, Some((m, api_model))) => Some((download_question(m, api_model, &l), None)),
             (None, None) => None,
         };
         let confirmed = question.is_some();
@@ -138,6 +163,20 @@ impl Tools {
         }
     }
 
+    /// Changes the read-aloud settings at once; nothing to confirm.
+    pub(crate) async fn set_speech(&self, args: Value) -> CallToolResult {
+        let a: SetSpeechArgs = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let patch =
+            SpeechPatch { read_aloud: a.read_aloud, voice: a.voice, rate: a.rate, in_presentation: a.in_presentation };
+        if patch.is_empty() {
+            return self.fail_with(&EmptySpeechChangeSnafu.build());
+        }
+        self.apply_voice(VoiceEvent::Speech(patch), false).await
+    }
+
     /// Télécharge un modèle ou une langue de dictée, après confirmation.
     pub(crate) async fn download_dictation_model(&self, args: Value) -> CallToolResult {
         let a: ModelArg = match self.parse(args) {
@@ -154,7 +193,7 @@ impl Tools {
             tracing::error!("modèle de dictée vérifié sans téléchargement");
             return self.fail_with(&refusal(VoiceErrorKind::Installed));
         };
-        if !self.hub.confirm(download_question(m, api_model, &self.localizer.current()), false).await {
+        if !self.hub.confirm(download_question(m, api_model, &self.localizer.current()), None).await {
             return self.denied();
         }
         self.apply_voice(event, true).await
@@ -191,7 +230,7 @@ impl Tools {
             }
             None => l.tr_with("agent-confirm-agent-builtin", &[("name", name.into())]),
         };
-        if !self.hub.confirm(message, false).await {
+        if !self.hub.confirm(message, None).await {
             return self.denied();
         }
         self.apply_voice(event, true).await
@@ -210,7 +249,7 @@ impl Tools {
         let l = self.localizer.current();
         if !self
             .hub
-            .confirm(l.tr_with("agent-confirm-agent-model", &[("size", size_text(size, &l).into())]), false)
+            .confirm(l.tr_with("agent-confirm-agent-model", &[("size", size_text(size, &l).into())]), None)
             .await
         {
             return self.denied();

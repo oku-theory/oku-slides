@@ -7,7 +7,7 @@ use oku_slides_session::agent::{Sessions, Surface, TabSession};
 use speculoos::prelude::*;
 use tokio::task::JoinHandle;
 
-use super::{Answer, McpEvent, SurfaceHub};
+use super::{Answer, AnswerOutcome, McpEvent, SurfaceHub};
 
 /// Aucune session : ces tests ne touchent qu'aux questions, `f` n'est jamais appelée.
 #[derive(Debug)]
@@ -67,7 +67,7 @@ async fn asked(hub: &Arc<SurfaceHub>, id: &str) -> JoinHandle<Answer> {
         let (hub, surface) = (hub.clone(), choice(id));
         async move { hub.ask(surface).await }
     });
-    while !matches!(rx.recv().await, Ok(McpEvent::Surface { surface }) if surface.id == id) {}
+    while !matches!(rx.recv().await, Ok(McpEvent::Surface { surface, .. }) if surface.id == id) {}
     task
 }
 
@@ -86,7 +86,7 @@ async fn answer_given_question_answers_it_and_not_another_pending_one() {
     let first = asked(&hub, "ask-a").await;
     let last = asked(&hub, "ask-b").await;
 
-    assert_that!(hub.answer("ask-a", "la deuxième")).is_true();
+    assert_that!(hub.answer("ask-a", "la deuxième")).is_equal_to(AnswerOutcome::Answered);
 
     let answer = first.await.unwrap();
     assert_that!(answer_text(&answer)).is_equal_to(Some("la deuxième"));
@@ -101,11 +101,11 @@ async fn answer_question_no_longer_pending_is_refused_and_answers_nothing() {
     let hub = hub();
     let first = asked(&hub, "ask-a").await;
     let last = asked(&hub, "ask-b").await;
-    assert_that!(hub.answer("ask-a", "oui")).is_true();
+    assert_that!(hub.answer("ask-a", "oui")).is_equal_to(AnswerOutcome::Answered);
     assert_that!(answer_text(&first.await.unwrap())).is_equal_to(Some("oui"));
 
-    assert_that!(hub.answer("ask-a", "encore")).is_false();
-    assert_that!(hub.answer("ask-z", "inconnue")).is_false();
+    assert_that!(hub.answer("ask-a", "encore")).is_equal_to(AnswerOutcome::NotAQuestion);
+    assert_that!(hub.answer("ask-z", "inconnue")).is_equal_to(AnswerOutcome::NotAQuestion);
     tokio::task::yield_now().await;
 
     // Toujours en attente, et non annulée : sa tâche court encore et elle reste affichée.
@@ -183,7 +183,7 @@ async fn permission_surface(hub: &Arc<SurfaceHub>) -> Surface {
         async move { hub.permission("Run tool", &[]).await }
     });
     let surface = loop {
-        if let Ok(McpEvent::Surface { surface }) = rx.recv().await {
+        if let Ok(McpEvent::Surface { surface, .. }) = rx.recv().await {
             break surface;
         }
     };
@@ -206,4 +206,21 @@ async fn permission_with_a_note_set_shows_it_and_without_one_does_not() {
 
     hub.set_permission_note(None);
     assert_that!(has_note(&permission_surface(&hub).await)).is_false();
+}
+
+#[test]
+fn presenting_older_seq_ignored() {
+    let hub = hub();
+    hub.set_presenting(Some(crate::PresentMode::Window), 2);
+    hub.set_presenting(None, 1);
+    hub.set_presenting(None, 2);
+    assert_that!(hub.presenting()).is_equal_to(Some(crate::PresentMode::Window));
+}
+
+#[test]
+fn presenting_newer_seq_replaces() {
+    let hub = hub();
+    hub.set_presenting(Some(crate::PresentMode::Window), 2);
+    hub.set_presenting(None, 3);
+    assert_that!(hub.presenting()).is_none();
 }

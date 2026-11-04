@@ -19,6 +19,7 @@ const COMMANDS: &[&str] = &[
     "quit_ready",
     "stt",
     "agent",
+    "take_close_decision",
     "update_status",
     "check_update",
     "install_update",

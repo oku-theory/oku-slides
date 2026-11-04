@@ -38,7 +38,14 @@ fn main() -> color_eyre::Result<()> {
     // Les outils et l'agent vivent dans ce runtime tokio, construit à la main
     // (comme `oku-slides serve`) pour pouvoir arrêter la pile avant lui.
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    let stack = Stack::start(sessions, &platform, None, runtime.handle().clone());
+    let stack = Stack::start(
+        sessions,
+        &platform,
+        oku_slides_agent::Voices::default(),
+        Arc::new(oku_slides_session::agent::NoWorkspace),
+        Arc::new(oku_slides_session::agent::UnavailableApp),
+        runtime.handle().clone(),
+    );
 
     let (tx, mut rx) = mpsc::unbounded_channel::<(&'static str, String)>();
     stack.forward(move |name, json| {

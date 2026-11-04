@@ -1,17 +1,66 @@
-//! Questions en attente (`ask_*`, confirmations, permissions) : ouverture, réponse, relâche.
+//! Pending questions (`ask_*`, confirmations, permissions): opening, answering, release.
 
-use oku_slides_session::agent::{PermissionChoice, Surface, forms};
-use serde_json::{Map, Value};
+use std::time::Instant;
+
+use oku_slides_session::agent::{PermissionChoice, Place, SpokenText, Surface, forms};
+use serde_json::Value;
 use tokio::sync::oneshot;
 
-use super::{Answer, Freeze, HubState, McpEvent, SurfaceHub};
+use super::{Answer, AnswerOutcome, Freeze, HubState, McpEvent, SurfaceHub};
+use crate::ConfirmVerb;
+
+/// What a pending question is: it says what may answer it.
+#[derive(Debug, Clone)]
+pub(super) enum AskKind {
+    /// The agent's own question (`ask_*`): a typed or spoken reply answers it as text.
+    Agent,
+    /// A guarded confirmation: only a click or a host-routed utterance answers it.
+    Confirm {
+        /// The question, as shown.
+        message: String,
+        /// The verb a danger confirmation's button shows and the user must say.
+        verb: Option<ConfirmVerb>,
+    },
+    /// An ACP permission: a click, or a host-routed utterance by option kind, never label.
+    Permission {
+        /// The title, as the agent gave it.
+        title: String,
+        /// The options in the agent's order.
+        options: Vec<PermissionChoice>,
+        /// The note shown under the title.
+        note: Option<String>,
+    },
+}
 
 #[derive(Debug)]
 pub(super) struct PendingAsk {
     pub(super) id: String,
     pub(super) tx: oneshot::Sender<Answer>,
-    /// Question du fil figée une fois répondue (`ask_then`) : elle garde sa place dans la liste.
+    /// A thread question frozen once answered (`ask_then`): it keeps its place in the list.
     frozen: bool,
+    /// What it is, and so what may answer it.
+    pub(super) kind: AskKind,
+    /// Where the interface shows it: the voice target follows the same priority.
+    pub(super) place: Place,
+    /// The slide a sheet is anchored on: the page stages it only on that slide.
+    pub(super) slide: Option<String>,
+    /// When it became answerable by voice: when it was shown.
+    pub(super) armed_from: Instant,
+}
+
+impl PendingAsk {
+    /// Its surface again, with `line` under the buttons; `None` for the agent's own questions.
+    pub(super) fn with_line(&self, line: &str, l: &oku_slides_i18n::Localizer) -> Option<Surface> {
+        match &self.kind {
+            AskKind::Agent => None,
+            AskKind::Confirm { message, verb } => {
+                Some(forms::confirm(&self.id, message, verb.map(|v| l.tr(v.label_key())), Some(line), l))
+            }
+            AskKind::Permission { title, options, note } => {
+                Some(forms::permission(&self.id, title, options, note.as_deref(), Some(line), l))
+            }
+        }
+    }
 }
 
 /// Ferme (ou fige) la surface `id` à la sortie de `ask`, y compris si le futur
@@ -48,7 +97,7 @@ impl HubState {
     /// Retire la question `i` ; sa surface quitte aussitôt la liste des
     /// ouvertes (le `CloseSurface` de `CloseOnDrop` suit, sans effet de plus),
     /// sauf une question gelée : sa version figée la remplace à sa place.
-    fn take_ask(&mut self, i: usize) -> PendingAsk {
+    pub(super) fn take_ask(&mut self, i: usize) -> PendingAsk {
         let ask = self.asks.remove(i);
         if !ask.frozen {
             self.open.retain(|s| s.id != ask.id);
@@ -81,17 +130,36 @@ impl SurfaceHub {
     /// Onglet fermé (`close`) : `Cancelled` tout de suite, sans rien afficher.
     /// Question hors du fil (fiche, fenêtre) : elle n'est rangée dans aucun tour.
     pub async fn ask(&self, surface: Surface) -> Answer {
-        self.ask_with(None, surface, None).await
+        self.ask_with(None, surface, None, AskKind::Agent, None).await
     }
 
     /// Question du fil posée par un appel du tour `turn` (`None` : arrivé hors tour) ;
     /// `freeze` la remplace, figée, dans ce tour. Si `turn` n'est plus le tour ouvert (appel
     /// tardif d'un tour clos), `Cancelled` tout de suite, sans rien afficher.
     pub async fn ask_then(&self, turn: Option<u32>, surface: Surface, freeze: Freeze) -> Answer {
-        self.ask_with(turn, surface, Some(freeze)).await
+        self.ask_with(turn, surface, Some(freeze), AskKind::Agent, None).await
     }
 
-    async fn ask_with(&self, turn: Option<u32>, mut surface: Surface, freeze: Option<Freeze>) -> Answer {
+    /// The agent's question read aloud as it opens: [`ask_then`](Self::ask_then) with `freeze`,
+    /// else [`ask`](Self::ask) (`turn` is then `None`).
+    pub async fn ask_aloud(
+        &self,
+        turn: Option<u32>,
+        surface: Surface,
+        freeze: Option<Freeze>,
+        spoken: SpokenText,
+    ) -> Answer {
+        self.ask_with(turn, surface, freeze, AskKind::Agent, Some(spoken)).await
+    }
+
+    async fn ask_with(
+        &self,
+        turn: Option<u32>,
+        mut surface: Surface,
+        freeze: Option<Freeze>,
+        kind: AskKind,
+        spoken: Option<SpokenText>,
+    ) -> Answer {
         let (tx, rx) = oneshot::channel();
         let id = surface.id.clone();
         {
@@ -100,11 +168,20 @@ impl SurfaceHub {
                 return Answer::Cancelled;
             }
             surface.turn = turn;
-            state.asks.push(PendingAsk { id: id.clone(), tx, frozen: freeze.is_some() });
+            let ask = PendingAsk {
+                id: id.clone(),
+                tx,
+                frozen: freeze.is_some(),
+                kind,
+                place: surface.place,
+                slide: surface.anchor.as_ref().map(|a| a.slide.clone()),
+                armed_from: Instant::now(),
+            };
+            state.asks.push(ask);
             // Sous le même verrou : deux questions parallèles entrent dans `open` (et partent vers
             // l'interface) dans l'ordre où elles sont enregistrées ; une question en attente est
             // toujours affichée.
-            self.record_and_send(&mut state, McpEvent::Surface { surface });
+            self.record_and_send(&mut state, McpEvent::surface_aloud(surface, spoken));
         }
         let mut guard = CloseOnDrop { hub: self, id, turn, freeze, answer: None };
         let answer = rx.await.unwrap_or(Answer::Cancelled);
@@ -117,14 +194,32 @@ impl SurfaceHub {
         !self.state().asks.is_empty()
     }
 
-    /// Une consigne (dictée ou tapée) en réponse à la question `id`, celle que l'interface
-    /// désigne ; `false` si elle n'attend plus (répondue, annulée, inconnue) : aucune autre
-    /// n'est répondue à sa place.
-    pub fn answer(&self, id: &str, text: &str) -> bool {
-        let Some(ask) = self.state().take_ask_id(id) else { return false };
-        let mut context = Map::new();
-        context.insert("text".into(), Value::String(text.to_owned()));
-        ask.tx.send(Answer::Action { name: "answer".into(), context }).is_ok()
+    /// Answers a typed reply; never confirms a guard or picks a permission.
+    ///
+    /// The reply goes to the question `id` the interface names, never another one:
+    /// `NotAQuestion` if it no longer waits (answered, cancelled, unknown). The agent's own
+    /// questions take it as text; a guarded confirmation or a permission stays open and says
+    /// "say it or click": typed text cannot be told from a draft the agent prefilled.
+    pub fn answer(&self, id: &str, text: &str) -> AnswerOutcome {
+        let l = self.localizer.current();
+        let ask = {
+            let mut state = self.state();
+            let Some(i) = state.asks.iter().position(|a| a.id == id) else { return AnswerOutcome::NotAQuestion };
+            if !matches!(state.asks[i].kind, AskKind::Agent) {
+                self.show_line(&mut state, i, &l.tr("agent-surface-say-or-click"), &l);
+                return AnswerOutcome::KeptOpen;
+            }
+            state.take_ask(i)
+        };
+        // Its waiting future may be gone (cancelled call): the reply is then not an answer.
+        if ask.tx.send(Answer::text(text)).is_ok() { AnswerOutcome::Answered } else { AnswerOutcome::NotAQuestion }
+    }
+
+    /// Shows question `i` again with `line` under its buttons, under the state lock.
+    pub(super) fn show_line(&self, state: &mut HubState, i: usize, line: &str, l: &oku_slides_i18n::Localizer) {
+        if let Some(surface) = state.asks.get(i).and_then(|a| a.with_line(line, l)) {
+            self.record_and_send(state, McpEvent::surface(surface));
+        }
     }
 
     /// Libère toutes les questions en attente (Échap, nouveau tour, nouvelle conversation).
@@ -159,25 +254,36 @@ impl SurfaceHub {
         }
     }
 
-    /// Confirmation d'un outil non annulable ; `true` seulement sur « confirmer ».
-    pub async fn confirm(&self, message: String, danger: bool) -> bool {
+    /// Confirms a tool that cannot be undone; `true` only on "confirm".
+    ///
+    /// With `danger`, its button shows the verb, and a spoken yes must say it too.
+    pub async fn confirm(&self, message: String, danger: Option<ConfirmVerb>) -> bool {
         let id = self.next_id("confirm");
-        let surface =
-            forms::confirm(&id, &oku_slides_session::agent::AskConfirm { message, danger }, &self.localizer.current());
+        let l = self.localizer.current();
+        let verb = danger.map(|v| l.tr(v.label_key()));
+        let surface = forms::confirm(&id, &message, verb.clone(), None, &l);
+        // Read: the template and the verb only, never the message (it may name a tab or a path).
+        let spoken = SpokenText::confirm(verb.as_deref(), &l);
         matches!(
-            self.ask(surface).await,
+            self.ask_with(None, surface, None, AskKind::Confirm { message, verb: danger }, Some(spoken)).await,
             Answer::Action { name, context } if name == "confirm" && context.get("confirmed") == Some(&Value::Bool(true))
         )
     }
 
-    /// Permission demandée par l'agent (ACP) : l'index de l'option choisie, dans
-    /// l'ordre de l'agent. Seul un clic sur une option répond : Échap, une
-    /// nouvelle conversation ou une consigne en réponse (`answer`, action nommée
-    /// `answer`) donnent `None`, que la connexion transmet comme un refus.
+    /// An ACP permission asked by the agent: the chosen option's index, in the agent's order.
+    ///
+    /// A click on an option answers, or a yes or no said at the microphone (allow-once,
+    /// reject-once: by kind, never by label). Escape or a new conversation give `None`, which
+    /// the connection sends as a refusal; a typed reply leaves it open.
     pub async fn permission(&self, title: &str, options: &[PermissionChoice]) -> Option<usize> {
         let id = self.next_id("permission");
         let note = self.state().permission_note.clone();
-        match self.ask(forms::permission(&id, title, options, note.as_deref(), &self.localizer.current())).await {
+        let l = self.localizer.current();
+        let surface = forms::permission(&id, title, options, note.as_deref(), None, &l);
+        let kind = AskKind::Permission { title: title.to_owned(), options: options.to_vec(), note };
+        // Read: the template alone, never the agent's title nor its option labels.
+        let spoken = SpokenText::permission(&l);
+        match self.ask_with(None, surface, None, kind, Some(spoken)).await {
             Answer::Action { name, context } if name == "permission" => Self::index(&context, "index").ok(),
             _ => None,
         }

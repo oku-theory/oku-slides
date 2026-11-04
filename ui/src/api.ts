@@ -1,6 +1,7 @@
-// Accès à l'hôte : requêtes par onglet, agent et dictée. Les types décrivent le JSON de
-// l'hôte. L'espace de travail (`workspaceApi.ts`), la requête elle-même (`hostCall.ts`) et
-// les choix de fichier (`filePick.ts`) et les mises à jour (`updateApi.ts`) vivent à côté, réexportés ici par leur nom.
+// Host access: per-tab requests and the agent. The types describe the host's JSON. The
+// workspace (`workspaceApi.ts`), the request itself (`hostCall.ts`), file picks (`filePick.ts`)
+// and updates (`updateApi.ts`) live beside it, re-exported here by name; dictation lives in
+// `voiceApi.ts`, imported from there.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
 import type { DataOp } from "./chart/chartTypes";
@@ -8,7 +9,7 @@ import type { DataEdit } from "./chart/dataEdit";
 import type { Cell, ZoneView } from "./grid";
 import { locale } from "./i18n";
 import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin, ThemeTabView } from "./packTypes";
-import type { PresentMode } from "./present";
+import type { PresentCommand, PresentMode } from "./present";
 import type { View } from "./table/ShowAsButton";
 import { host } from "./hostCall";
 
@@ -484,72 +485,6 @@ export interface SlotRef {
   param: string;
 }
 
-// --- Dictée ---------------------------------------------------------------
-
-export type SttModel = "apple" | "turbo" | "large" | "base" | "api";
-export type SttState = "idle" | "downloading" | "recording" | "transcribing";
-
-/** OpenAI or Azure OpenAI dictation service; never the key here, only its variable's name. */
-export interface SttApiConfig {
-  url: string;
-  model: string;
-  /** Name of the variable holding the key, required; never the key itself. */
-  key_env: string;
-  /** Azure OpenAI `api-version`; empty: the OpenAI API. */
-  api_version: string;
-  /** Custom headers; an `env` value names a variable, never its value. */
-  headers: { name: string; value: { literal: string } | { env: string } }[];
-}
-
-export interface SttConfig {
-  model: SttModel;
-  language: string | null;
-  /** Arrêter l'écoute seule après un silence de `silence` secondes. */
-  auto_stop: boolean;
-  silence: number;
-  /** Version des réglages (tenue par l'hôte). */
-  version: number;
-  api: SttApiConfig;
-}
-
-export interface SttStatus {
-  state: SttState;
-  /** First API variable not set, by name only. */
-  api_missing: string | null;
-  config: SttConfig;
-  /** `available` faux : le modèle ne gère pas la langue choisie. */
-  models: { id: SttModel; label: string; size: number; installed: boolean; available: boolean }[];
-  download: { model: SttModel; received: number; total: number } | null;
-  level: number;
-  /** Voix détectée en ce moment. */
-  speaking: boolean;
-  /** Phrases déjà transcrites (définitives) et phrase en cours (aperçu). */
-  committed: string;
-  partial: string;
-  detected: string | null;
-  /** Secondes avant l'arrêt automatique, pendant un silence. */
-  stop_in: number | null;
-  text: string | null;
-  seq: number;
-  seconds: number;
-  error: string | null;
-}
-
-type SttRequest =
-  | { cmd: "status" }
-  | { cmd: "start"; vocabulary: string[] }
-  | { cmd: "stop" }
-  | { cmd: "cancel" };
-
-const sttCall = (req: SttRequest) => host<SttStatus>("stt", { req }, "/api/stt", req);
-
-export const stt = {
-  status: () => sttCall({ cmd: "status" }),
-  start: (vocabulary: string[]) => sttCall({ cmd: "start", vocabulary }),
-  stop: () => sttCall({ cmd: "stop" }),
-  cancel: () => sttCall({ cmd: "cancel" }),
-};
-
 /** Style d'un élément (`Style` du cœur) : propriétés posées par `set_style`, remplacées par `replace_style`. */
 export type ElementStyle = Record<string, unknown>;
 
@@ -741,13 +676,31 @@ export type McpEvent =
   | { kind: "changed" }
   | { kind: "surface"; surface: Surface }
   | { kind: "close_surface"; id: string }
-  | { kind: "focus"; slide: string }
+  | { kind: "focus"; slide: string | null }
   | { kind: "surfaces"; list: Surface[] }
   | { kind: "surface_patch"; id: string; messages: A2uiMessage[] }
   | { kind: "widget_touched"; name: string; removed: boolean }
-  | { kind: "present"; mode: PresentMode }
+  | { kind: "present"; command: PresentCommand }
   | { kind: "open_history" }
-  | { kind: "interface"; change: InterfaceChange };
+  | { kind: "interface"; change: InterfaceChange }
+  | { kind: "close"; target: CloseTarget; decision: string };
+
+/** What an agent's close covers (`hub::CloseTarget`): one tab, or a window. */
+export type CloseTarget = { kind: "tab"; tab: string } | { kind: "window"; window: string };
+
+/**
+ * The user's spoken close decision (`hub::CloseDecision`), redeemed once by its window.
+ *
+ * `revisions`: each covered tab's dirty revision when the user confirmed; null: only while clean.
+ */
+export interface CloseDecision {
+  discard: boolean;
+  revisions: [string, number | null][];
+}
+
+/** Takes the agent's close decision `id` for window `window`; null: unknown, taken, expired or not its own. */
+export const takeCloseDecision = (id: string, window: string) =>
+  host<CloseDecision | null>("take_close_decision", { id }, "/api/close-decision", { id }, { "X-Oku-Window": window });
 
 /** Ce que l'agent change dans l'interface (`set_interface`) ; `null` : inchangé. */
 export interface InterfaceChange {
@@ -755,6 +708,13 @@ export interface InterfaceChange {
   /** Code d'une langue livrée, ou `system`. */
   locale: string | null;
   guides: boolean | null;
+  /** Pile sections to fold (`true`) or open (`false`); `null` in a section: unchanged. */
+  folded: { slides: boolean | null; layouts: boolean | null } | null;
+  /** Widths in px, within the static bounds; the page narrows them to the window. */
+  pile: number | null;
+  notes: number | null;
+  /** A pack item's Code tab (`true`) or Settings tab. */
+  code: boolean | null;
 }
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
@@ -771,9 +731,13 @@ type AgentCommand =
   | { cmd: "show_packs"; tab: string }
   | { cmd: "show_themes"; tab: string; slide: string | null }
   | { cmd: "show_settings"; tab: string }
-  | { cmd: "availability"; tab: string };
+  | { cmd: "availability"; tab: string }
+  | { cmd: "context"; tab: string; page: string; ui: AgentUiSent; seq: number; has_focus: boolean }
+  | { cmd: "presenting"; tab: string; page: string; mode: PresentMode | null; seq: number };
 
-const agentCall = (req: AgentCommand) => host<void>("agent", { req }, "/api/agent", req);
+/** `window`: the sending window's label, which the dev server checks against the tab's holder. */
+const agentCall = (req: AgentCommand, window?: string) =>
+  host<void>("agent", { req }, "/api/agent", req, window ? { "X-Oku-Window": window } : {});
 
 /** Consigne, arrêt du tour, nouvelle conversation, réponse à une surface, liste des surfaces. */
 export function agentApi(tab: string) {
@@ -806,6 +770,15 @@ export function agentApi(tab: string) {
     availability: () => agentCall({ cmd: "availability", tab }),
     /** Ouvre la boîte des réglages de la dictée et de l'agent. */
     showSettings: () => agentCall({ cmd: "show_settings", tab }),
+    /**
+     * What window `window`'s page shows of the tab, for routing utterances: numbered `seq` in
+     * page `page`; the host accepts it only from the window holding the tab.
+     */
+    context: (page: string, ui: AgentUi, seq: number, hasFocus: boolean, window: string) =>
+      agentCall({ cmd: "context", tab, page, ui: { ...ui, locale: locale() }, seq, has_focus: hasFocus }, window),
+    /** Where window `window`'s page presents the tab (`null`: it stopped), numbered like `context`. */
+    presenting: (page: string, mode: PresentMode | null, seq: number, window: string) =>
+      agentCall({ cmd: "presenting", tab, page, mode, seq }, window),
   };
 }
 

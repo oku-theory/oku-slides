@@ -1,0 +1,89 @@
+# OS voices of read-aloud off macOS (t-1002, Q11). Nobody here runs Windows or Linux: this job is the
+# only place the WinRT speech code and the spd-say driver of oku-slides-stt are compiled, and the
+# Linux one tested (speak::). `just ci` stays the full gate, on macOS; release.yml builds the apps.
+# Runs on every push to main or PR touching Rust code, and by hand from the Actions tab.
+name: Voice check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "**/Cargo.toml"
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/**
+      - .github/workflows/voice-check.yml
+  pull_request:
+    paths:
+      - "crates/**"
+      - "**/Cargo.toml"
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/**
+      - .github/workflows/voice-check.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voice-check-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  windows:
+    name: Speech (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Whisper and the audio crates build C and C++ with CMake (on the runner image); aws-lc-sys
+      # assembles with NASM, absent there: its prebuilt objects replace it, as in release.yml.
+      # CTranslate2 builds with the static CRT (/MT): the whole binary follows it (LNK2038).
+      - name: CMake, NASM and static CRT
+        shell: bash
+        run: |
+          cmake --version
+          echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+
+      # Same pin as release.yml and rust-toolchain.toml (t-1201).
+      - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: voice-check-windows
+
+      - name: Check
+        run: cargo check -p oku-slides-stt
+
+  linux:
+    name: Speech (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # ALSA headers for the microphone crates; speech-dispatcher brings spd-say, the Linux voice.
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev speech-dispatcher
+
+      - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: voice-check-linux
+
+      - name: Check
+        run: cargo check -p oku-slides-stt
+
+      - name: Speech tests
+        run: "cargo test -p oku-slides-stt speak::"

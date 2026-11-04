@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SttStatus } from "./api";
-import { stt } from "./api";
+import type { SttStatus } from "./voiceApi";
+import { stt } from "./voiceApi";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { IconButton } from "./primitives";
+import { IconButton, IconToggle } from "./primitives";
+import { useDictationActive } from "./dictationActive";
+import { voiceContext } from "./voiceContextStore";
 import { useVoiceSeq } from "./voiceSeq";
 import type { DictationMode } from "./agent/keys";
 import { dictationShortcut, shortcutAction, typingShortcut } from "./agent/keys";
@@ -42,6 +44,18 @@ function transcript(committed: string, partial: string, n = 160): [string, strin
   const c = room === 0 ? "" : tail(committed, room);
   return [c, p];
 }
+
+/** The hands-free status, a fixed string: never what was heard (that stays in the host). */
+const handsFreeStatus = (on: boolean) => (
+  <span className="dictation-state" role="status" aria-live="polite">{t(on ? "ui-hands-free-on" : "ui-hands-free-paused")}</span>
+);
+
+/** The body while listening hands-free: its status line alone. */
+const handsFreeLine = (on: boolean) => (
+  <div className="dictation-body">
+    <div className="dictation-line">{handsFreeStatus(on)}</div>
+  </div>
+);
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
@@ -133,10 +147,12 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
   }, [settingsSeq, send]);
 
   // Sondage tant que quelque chose se passe (téléchargement, écoute, transcription).
+  // Hands-free listening shows a steady status only: a slow poll is enough.
   const busy = status && status.state !== "idle";
   useEffect(() => {
     if (!busy) return;
-    const timer = window.setInterval(() => send(stt.status()), status?.state === "downloading" ? 400 : 90);
+    const slow = status?.state === "downloading" || status?.state === "listening";
+    const timer = window.setInterval(() => send(stt.status()), slow ? 400 : 90);
     return () => window.clearInterval(timer);
   }, [busy, status?.state, send]);
 
@@ -144,10 +160,23 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     if (status?.state === "idle") setLevels((l) => l.map(() => 0));
   }, [status?.state]);
 
+  // In a presentation an active push-to-talk takes Escape before the Presenter (t-998).
+  useDictationActive(status?.state === "recording" || status?.state === "downloading");
+
   const toggle = useCallback(
     (next: DictationMode) => {
       if (!status) return;
-      if (status.state === "idle") {
+      // Hands-free on: the mic and ⌘D pause or resume listening; push-to-talk otherwise.
+      if (status.config.hands_free && (status.state === "idle" || status.state === "listening")) {
+        const resume = status.state === "idle";
+        const asked = resume ? stt.listen(vocabulary) : stt.stop();
+        send(asked);
+        // Recorded once the host answered: a refused resume is not resumed (`send` reports it).
+        asked.then(
+          () => voiceContext.setResumed(resume),
+          () => {},
+        );
+      } else if (status.state === "idle") {
         setMode(next);
         modeRef.current = next;
         send(stt.start(vocabulary));
@@ -194,7 +223,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
       } else if (e.key === "Escape" && now && (now.state === "recording" || now.state === "downloading")) {
         // Échap arrête une écoute ; arrêter l'agent est l'affaire d'`App`, en dernier recours.
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         post(stt.cancel());
       }
     };
@@ -230,6 +259,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
   const langs = languages(status.config.model === "apple" ? status.detected : null);
   const language = langs.find(([code]) => code === status.config.language)?.[1] ?? status.config.language;
   const { state } = status;
+  const handsFree = status.config.hands_free && (state === "idle" || state === "listening");
   // Le mode ne se montre que pendant une dictée : au repos, le micro est en mode auto.
   const shownMode = state === "idle" ? "auto" : mode;
 
@@ -284,6 +314,8 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
         </div>
       </div>
     );
+  } else if (state === "listening") {
+    body = handsFreeLine(true);
   } else {
     // Au repos, rien que le micro : où va le texte et les réglages sont dans son
     // infobulle ; seuls l'agent au travail et un modèle à télécharger (ou
@@ -297,8 +329,9 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     const toDownload = model && model.id !== "api" && model.available && !model.installed;
     const unavailable = model && !model.available;
     const keyMissing = model?.id === "api" && !model.installed;
-    body = (agentBusy || toDownload || unavailable || keyMissing) && (
+    body = (handsFree || agentBusy || toDownload || unavailable || keyMissing) && (
       <div className="dictation-body">
+        {handsFree && handsFreeStatus(false)}
         {agentBusy && (
           // L'état en clair, le raccourci pour l'arrêter en dessous, en petit.
           <div className="dictation-agent">
@@ -327,7 +360,17 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
 
   return (
     <div className={`device object dictation ${state}${shownMode === "draft" ? " draft" : ""}`} aria-label={t("ui-dictation")}>
-      <button
+      {handsFree ? (
+        // The steady indicator: pressed while listening, it pauses; released, it resumes.
+        <IconToggle
+          className="mic hands-free"
+          label={t("ui-hands-free-pause")}
+          pressed={state === "listening"}
+          icon={MicIcon}
+          keepFocus
+          onToggle={() => toggle("auto")}
+        />
+      ) : <button
         className={`mic${state === "recording" ? " live" : ""}`}
         aria-label={t(state === "recording" ? "ui-dictation-finish" : "ui-dictation-start")}
         title={state === "recording" ? t("ui-dictation-finish-title") : [t("ui-dictation-start-title"), idleDetails].filter(Boolean).join("\n")}
@@ -338,7 +381,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
       >
         {state === "recording" ? StopIcon : MicIcon}
         {state === "recording" && <span className="mic-ring" style={{ transform: `scale(${1 + status.level * 0.5})` }} />}
-      </button>
+      </button>}
       {/* Un seul micro : ce bouton n'apparaît que pour arrêter un tour de l'agent. */}
       {agentBusy && (
         <button
@@ -364,7 +407,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
             icon={GearIcon}
             aria-haspopup="dialog"
             data-popover-anchor="host-voice"
-            disabled={state !== "idle"}
+            disabled={state !== "idle" && state !== "listening"}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => handlers.current.onSettings?.()}
           />

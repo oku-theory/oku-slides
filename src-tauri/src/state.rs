@@ -38,7 +38,7 @@ pub struct AppState {
     /// (et le rappel de `forward`) → `AppHandle` → `AppState` forment un
     /// cycle, jamais lâché. Aucun risque de le lâcher dans un contexte async
     /// (voir `Stack`) ; `shutdown` arrête les agents (`Stack::shutdown`).
-    pub stack: Stack,
+    pub stack: Arc<Stack>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -75,7 +75,8 @@ impl AppState {
 
     /// Lance le fine-tuning par l'agent de l'onglet importé `tab`.
     pub fn tune(&self, tab: &str) {
-        self.stack.tune(tab);
+        // The tab itself says why an unusable agent did not start.
+        let _started = self.stack.tune(tab);
     }
 }
 

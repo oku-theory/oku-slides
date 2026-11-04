@@ -655,3 +655,45 @@ fn agent_settings_preset_launch_error_speaks_the_fluent_message_in_french() {
     assert_that!(err.localize(&fr)).is_equal_to(expected);
     assert_that!(agent.preset("x")).is_none();
 }
+
+#[cfg(not(feature = "e2e-fakes"))]
+#[test]
+fn fake_utterances_without_feature_is_refused() {
+    let err = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_UTTERANCES", "/tmp/dit.txt")])).unwrap_err();
+    assert_that!(snafu::Report::from_error(&err).to_string()).contains(FAKE_UTTERANCES);
+}
+
+#[cfg(not(feature = "e2e-fakes"))]
+#[test]
+fn fake_speech_without_feature_is_refused() {
+    let err = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_SPEECH", "/tmp/lu.txt")])).unwrap_err();
+    assert_that!(snafu::Report::from_error(&err).to_string()).contains(FAKE_SPEECH);
+}
+
+#[cfg(not(feature = "e2e-fakes"))]
+#[test]
+fn fake_mic_without_feature_is_refused() {
+    let err = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_MIC", "/tmp/voix.wav")])).unwrap_err();
+    assert_that!(snafu::Report::from_error(&err).to_string()).contains(FAKE_MIC);
+}
+
+#[cfg(feature = "e2e-fakes")]
+#[test]
+fn fake_mic_with_feature_is_read() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_MIC", "/tmp/voix.wav")])).unwrap();
+    assert_that!(s.stt.fake_mic).is_equal_to(Some(PathBuf::from("/tmp/voix.wav")));
+}
+
+#[cfg(feature = "e2e-fakes")]
+#[test]
+fn fake_speech_with_feature_is_read() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_SPEECH", "/tmp/lu.txt")])).unwrap();
+    assert_that!(s.stt.fake_speech).is_equal_to(Some(PathBuf::from("/tmp/lu.txt")));
+}
+
+#[cfg(feature = "e2e-fakes")]
+#[test]
+fn fake_utterances_with_feature_is_read() {
+    let s = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_UTTERANCES", "/tmp/dit.txt")])).unwrap();
+    assert_that!(s.stt.fake_utterances).is_equal_to(Some(PathBuf::from("/tmp/dit.txt")));
+}

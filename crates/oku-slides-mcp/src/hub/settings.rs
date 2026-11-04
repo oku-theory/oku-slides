@@ -18,6 +18,8 @@ impl SurfaceHub {
     /// `false`, and nothing shown, when `turn` left the thread (the box has no mode). May block:
     /// the port reads the disk.
     pub fn show_settings(&self, turn: Option<u32>) -> bool {
+        // Voices installed since the last view show up as the box opens.
+        self.voice.refresh_voices();
         let panel = VoicePanel::build(&self.voice.view(), &self.localizer.current());
         let surface = Surface { turn, ..panel.surface() };
         let shown = Shown::Settings(SettingsShown { last: panel, turn });
@@ -58,7 +60,7 @@ impl SurfaceHub {
         let event = if !whole && shown.last.same_layout(panel) {
             McpEvent::SurfacePatch { id: HOST_VOICE.to_owned(), messages: panel.data_messages() }
         } else {
-            McpEvent::Surface { surface: Surface { turn, ..panel.surface() } }
+            McpEvent::surface(Surface { turn, ..panel.surface() })
         };
         state.shows.insert(HOST_VOICE.to_owned(), Shown::Settings(SettingsShown { last: panel.clone(), turn }));
         self.record_and_send(&mut state, event);

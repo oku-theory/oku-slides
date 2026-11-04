@@ -171,7 +171,7 @@ fn threads_is_between_one_and_eight() {
 
 /// Avec un vrai modèle : `OKU_SLIDES_TEST_WHISPER_MODEL=<dossier> cargo nextest run --run-ignored all`.
 #[test]
-#[ignore = "demande un modèle CTranslate2 (OKU_SLIDES_TEST_WHISPER_MODEL)"]
+#[ignore = "needs a CTranslate2 model (OKU_SLIDES_TEST_WHISPER_MODEL)"]
 fn transcriber_real_model_transcribes_without_error() {
     let Some(dir) = std::env::var_os("OKU_SLIDES_TEST_WHISPER_MODEL") else { return };
     let storage = Storage::local().unwrap();

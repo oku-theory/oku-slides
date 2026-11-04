@@ -1,5 +1,6 @@
 //! The workspace as the agent sees it: a tab's session ([`Sessions`]),
-//! a file opened beside it, and a pack opened from it.
+//! a file opened beside it, a pack opened from it, and the dev server's workspace port
+//! ([`AgentWorkspace`]: the focus its pages report, its window's tabs, imports, help).
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -9,8 +10,12 @@ use oku_slides_platform::storage::resolve;
 use snafu::{OptionExt, ensure};
 use uuid::Uuid;
 
-use crate::agent::{Sessions, TabGate, TabOpen};
+use crate::agent::{
+    AgentWorkspace, CloseScope, CloseTabs, FocusSource, FocusedTab, HelpOpen, Sessions, TabGate, TabListing, TabOpen,
+    WorkspaceRefusal,
+};
 use crate::error::{Result, UnknownTabSnafu, UnknownWindowSnafu};
+use crate::import::ImportTarget;
 use crate::{DocumentKind, Session};
 
 use super::{Opening, TabPlace, Workspace};
@@ -115,6 +120,86 @@ impl Sessions for Mutex<Workspace> {
 
     fn record_usage(&self, owner: &str, record: UsageRecord) -> Result<()> {
         Workspace::record_usage(self, owner, record)
+    }
+}
+
+/// The dev server has no OS windows: the focus is the one its pages report.
+///
+/// The tab of the last page that reported having the focus, while it is open; a page of it that
+/// reports losing the focus clears it. Good for routing only: [`FocusSource::PageReported`].
+/// Its pages follow the workspace's changes; they have no agent window to detach.
+impl AgentWorkspace for Mutex<Workspace> {
+    fn focused_tab(&self) -> Option<FocusedTab> {
+        let w = Workspace::lock(self);
+        let (tab, focused) = w.page_focus.as_ref().filter(|(t, _)| w.tabs.contains_key(t.as_str()))?;
+        Some(FocusedTab { tab: tab.clone(), source: FocusSource::PageReported, focused: *focused })
+    }
+
+    fn unsaved_tabs(&self) -> usize {
+        Workspace::lock(self).unsaved_tabs()
+    }
+
+    /// A focused page names its tab; the page losing it keeps its tab, unfocused.
+    fn page_focus(&self, tab: &str, has_focus: bool) {
+        let mut w = Workspace::lock(self);
+        let kept = w.page_focus.as_ref().is_some_and(|(t, _)| t == tab);
+        if has_focus || kept {
+            w.page_focus = Some((tab.to_owned(), has_focus));
+        }
+    }
+
+    fn tabs(&self, tab: &str) -> std::result::Result<Vec<TabListing>, WorkspaceRefusal> {
+        Workspace::agent_tabs(self, tab)
+    }
+
+    fn dirty_revisions(&self, tab: &str, scope: CloseScope<'_>) -> std::result::Result<CloseTabs, WorkspaceRefusal> {
+        Workspace::agent_dirty_revisions(self, tab, scope)
+    }
+
+    fn activate(
+        &self,
+        tab: &str,
+        target: &str,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> std::result::Result<TabOpen, WorkspaceRefusal> {
+        Workspace::agent_activate(self, tab, target, gate)
+    }
+
+    fn reorder(&self, tab: &str, target: &str, index: usize) -> std::result::Result<(), WorkspaceRefusal> {
+        Workspace::agent_reorder(self, tab, target, index)
+    }
+
+    fn move_tab(
+        &self,
+        tab: &str,
+        target: &str,
+        window: Option<&str>,
+        index: Option<usize>,
+    ) -> std::result::Result<(), WorkspaceRefusal> {
+        Workspace::agent_move(self, tab, target, window, index)
+    }
+
+    fn new_window(&self, tab: &str) -> std::result::Result<(), WorkspaceRefusal> {
+        Workspace::agent_new_window(self, tab)
+    }
+
+    fn import_tab(
+        &self,
+        tab: &str,
+        path: &Path,
+        target: ImportTarget,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> std::result::Result<TabOpen, WorkspaceRefusal> {
+        Workspace::agent_import(self, tab, path, target, gate)
+    }
+
+    fn open_help(
+        &self,
+        tab: &str,
+        query: Option<&str>,
+        gate: &mut dyn FnMut(TabGate) -> bool,
+    ) -> std::result::Result<HelpOpen, WorkspaceRefusal> {
+        Workspace::agent_help(self, tab, query, gate)
     }
 }
 

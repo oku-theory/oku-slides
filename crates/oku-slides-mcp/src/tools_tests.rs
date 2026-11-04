@@ -193,19 +193,25 @@ const DECK_TOOLS: &[&str] = &[
     "download_dictation_model",
     "edit_theme",
     "focus",
+    "help",
     "history",
+    "import",
     "import_diff",
     "import_report",
     "layouts",
     "merge",
     "move",
     "new",
+    "new_conversation",
     "open",
     "open_pack",
     "open_theme",
+    "pack_update",
     "packs",
     "present",
     "preview_widget",
+    "quit",
+    "redo",
     "remove_pack",
     "remove_widget",
     "render",
@@ -217,6 +223,7 @@ const DECK_TOOLS: &[&str] = &[
     "set_dictation",
     "set_interface",
     "set_setting",
+    "set_speech",
     "set_widget",
     "settings",
     "show_as",
@@ -227,11 +234,17 @@ const DECK_TOOLS: &[&str] = &[
     "show_usage",
     "show_variants",
     "slide",
+    "tab",
+    "tabs",
     "theme_tokens",
+    "undo",
+    "undo_turn",
+    "update",
     "usage",
     "widget_source",
     "widget_sources",
     "widgets",
+    "window",
 ];
 
 /// The tools of a pack tab, sorted.
@@ -249,9 +262,13 @@ const PACK_TOOLS: &[&str] = &[
     "download_dictation_model",
     "duplicate_widget",
     "focus",
+    "help",
     "layouts",
+    "new_conversation",
     "packs",
     "preview_widget",
+    "quit",
+    "redo",
     "remove_widget",
     "render",
     "render_slide",
@@ -265,6 +282,7 @@ const PACK_TOOLS: &[&str] = &[
     "set_interface",
     "set_preview_theme",
     "set_setting",
+    "set_speech",
     "set_widget",
     "set_widget_trial",
     "settings",
@@ -273,11 +291,17 @@ const PACK_TOOLS: &[&str] = &[
     "show_usage",
     "show_variants",
     "slide",
+    "tab",
+    "tabs",
     "theme_tokens",
+    "undo",
+    "undo_turn",
+    "update",
     "usage",
     "widget_source",
     "widget_sources",
     "widgets",
+    "window",
 ];
 
 /// The tools of a theme tab, sorted.
@@ -293,6 +317,10 @@ const THEME_TOOLS: &[&str] = &[
     "download_agent_model",
     "download_dictation_model",
     "focus",
+    "help",
+    "new_conversation",
+    "quit",
+    "redo",
     "rename_theme",
     "render",
     "render_slide",
@@ -303,6 +331,7 @@ const THEME_TOOLS: &[&str] = &[
     "set_guide",
     "set_interface",
     "set_setting",
+    "set_speech",
     "set_theme_extends",
     "settings",
     "show_dictation",
@@ -310,8 +339,14 @@ const THEME_TOOLS: &[&str] = &[
     "show_usage",
     "show_variants",
     "slide",
+    "tab",
+    "tabs",
     "theme_tokens",
+    "undo",
+    "undo_turn",
+    "update",
     "usage",
+    "window",
 ];
 
 #[rstest]
@@ -346,13 +381,16 @@ fn list_for_no_tool_approves_or_postpones_guides(#[case] kind: DocumentKind) {
     }
 }
 
-/// A help tab lists the deck's tools but the usage ones: it belongs to no deck.
+/// A help tab lists the deck's tools but the usage ones (it belongs to no deck) and the undo ones (read-only).
 #[test]
-fn list_for_help_is_the_deck_tools_without_usage() {
+fn list_for_help_is_the_deck_tools_without_usage_or_undo() {
     let mut names: Vec<String> = list_for(DocumentKind::Help).into_iter().map(|t| t.name).collect();
     names.sort();
-    let expected: Vec<String> =
-        DECK_TOOLS.iter().filter(|n| !matches!(**n, "usage" | "show_usage")).map(|n| (*n).to_owned()).collect();
+    let expected: Vec<String> = DECK_TOOLS
+        .iter()
+        .filter(|n| !matches!(**n, "usage" | "show_usage" | "undo" | "redo" | "undo_turn"))
+        .map(|n| (*n).to_owned())
+        .collect();
     assert_that!(names).is_equal_to(expected);
 }
 

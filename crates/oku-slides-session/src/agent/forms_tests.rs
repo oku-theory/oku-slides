@@ -6,15 +6,14 @@ use speculoos::prelude::*;
 use serde_json::{Value, json};
 
 use super::{
-    Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind,
-    Place, ShowParams, ShowVariants, Surface, Variant, choice, confirm, params, params_with, permission, rewrite,
-    variants,
+    Anchor, AskChoice, AskRewrite, FieldKind, FormExtras, ParamField, PermissionChoice, PermissionKind, Place,
+    ShowParams, ShowVariants, Surface, Variant, choice, confirm, params, params_with, permission, rewrite, variants,
 };
 
 #[test]
 fn surface_json_round_trips() {
     let l = Localizer::new(Some("fr"));
-    let s = confirm("c-1", &AskConfirm { message: "Sûr ?".into(), danger: false }, &l);
+    let s = confirm("c-1", "Sûr ?", None, None, &l);
     let back: Surface = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
     assert_that!(back).is_equal_to(&s);
 }
@@ -253,9 +252,28 @@ fn frozen_choice_without_answer_says_cancelled() {
     assert_that!(serde_json::to_string(&s).unwrap()).contains("Question annulée");
 }
 
+/// The yes button of a danger confirmation shows the verb the user must say.
+#[rstest]
+#[case::en("en", "Merge")]
+#[case::fr("fr", "Fusionner")]
+fn confirm_danger_button_label_is_verb(#[case] locale: &str, #[case] want: &str) {
+    let l = Localizer::new(Some(locale));
+    let s = confirm("ask-3", "Fusionner ?", Some(l.tr("agent-surface-verb-merge")), None, &l);
+    assert_that!(buttons(&s).first()).is_equal_to(Some(&btn(want.into(), true, true, None)));
+}
+
+/// The heard line shows under the buttons, as plain text.
+#[test]
+fn confirm_with_line_shows_it_under_the_buttons() {
+    let s = confirm("ask-3", "Fusionner ?", None, Some("Entendu : « oui »"), &fr());
+    let json = serde_json::to_string(&s).unwrap();
+    assert_that!(json).contains("Entendu : « oui »");
+    assert_that!(json).contains(r#""children":["message","buttons","heard"]"#);
+}
+
 #[test]
 fn confirm_is_a_modal_with_two_buttons() {
-    let s = confirm("ask-3", &AskConfirm { message: "Remplacer le fichier ?".into(), danger: true }, &fr());
+    let s = confirm("ask-3", "Remplacer le fichier ?", Some(fr().tr("agent-surface-confirm-danger")), None, &fr());
     assert_that!(s.place).is_equal_to(Place::Modal);
     insta::assert_json_snapshot!(s);
 }
@@ -325,6 +343,7 @@ fn permission_orders_buttons_from_safest_and_keeps_the_agent_index() {
             ("Refuser", PermissionKind::RejectOnce),
         ]),
         None,
+        None,
         &fr(),
     );
     assert_that!(buttons(&s)).is_equal_to(vec![
@@ -342,6 +361,7 @@ fn permission_without_allow_once_has_no_primary() {
         "Écrire ?",
         &choices(&[("Toujours autoriser", PermissionKind::AllowAlways), ("Refuser", PermissionKind::RejectOnce)]),
         None,
+        None,
         &fr(),
     );
     assert_that!(buttons(&s)).is_equal_to(vec![
@@ -353,14 +373,21 @@ fn permission_without_allow_once_has_no_primary() {
 #[test]
 fn permission_misleading_label_still_gets_the_always_tag() {
     // Un agent qui présente « toujours » comme « une fois » : la mention de l'app le trahit.
-    let s =
-        permission("perm-1", "Écrire ?", &choices(&[("Autoriser une fois", PermissionKind::AllowAlways)]), None, &fr());
+    let s = permission(
+        "perm-1",
+        "Écrire ?",
+        &choices(&[("Autoriser une fois", PermissionKind::AllowAlways)]),
+        None,
+        None,
+        &fr(),
+    );
     assert_that!(buttons(&s)).is_equal_to(vec![btn("Autoriser une fois · pour toujours".into(), false, true, Some(0))]);
 }
 
 #[test]
 fn permission_unknown_kind_is_engaging_and_never_primary() {
-    let s = permission("perm-1", "Écrire ?", &choices(&[("Pour la session", PermissionKind::Other)]), None, &fr());
+    let s =
+        permission("perm-1", "Écrire ?", &choices(&[("Pour la session", PermissionKind::Other)]), None, None, &fr());
     assert_that!(buttons(&s)).is_equal_to(vec![btn("Pour la session".into(), false, true, Some(0))]);
 }
 
@@ -371,6 +398,7 @@ fn permission_primary_is_the_first_of_several_allow_once() {
         "Écrire ?",
         &choices(&[("Ce fichier", PermissionKind::AllowOnce), ("Ce dossier", PermissionKind::AllowOnce)]),
         None,
+        None,
         &fr(),
     );
     assert_that!(buttons(&s).iter().map(|b| b.primary).collect::<Vec<_>>()).is_equal_to(vec![true, false]);
@@ -378,20 +406,20 @@ fn permission_primary_is_the_first_of_several_allow_once() {
 
 #[test]
 fn permission_without_title_says_what_it_asks() {
-    let s = permission("perm-1", " ", &choices(&[("Refuser", PermissionKind::RejectOnce)]), None, &fr());
+    let s = permission("perm-1", " ", &choices(&[("Refuser", PermissionKind::RejectOnce)]), None, None, &fr());
     assert_that!(title_of(&s)).is_equal_to("L'agent demande une permission".to_owned());
 }
 
 #[test]
 fn danger_confirm_marks_its_yes_button_danger() {
-    let s = confirm("ask-3", &AskConfirm { message: "Remplacer ?".into(), danger: true }, &fr());
+    let s = confirm("ask-3", "Remplacer ?", Some(fr().tr("agent-surface-confirm-danger")), None, &fr());
     assert_that!(buttons(&s).iter().map(|b| (b.primary, b.danger)).collect::<Vec<_>>())
         .is_equal_to(vec![(true, true), (false, false)]);
 }
 
 #[test]
 fn calm_confirm_has_no_danger_button() {
-    let s = confirm("ask-4", &AskConfirm { message: "Continuer ?".into(), danger: false }, &fr());
+    let s = confirm("ask-4", "Continuer ?", None, None, &fr());
     assert_that!(buttons(&s).iter().any(|b| b.danger)).is_false();
 }
 
@@ -611,7 +639,13 @@ fn every_form() -> Vec<super::Surface> {
     let element_extras = FormExtras { keys: &element_keys, notes: &[], closable: false };
     vec![
         choice("ask-1", &AskChoice { question: "Quelle mise en page ?".into(), options: options(), anchor }, &l),
-        confirm("ask-2", &AskConfirm { message: "Remplacer le fichier ?".into(), danger: true }, &l),
+        confirm(
+            "ask-2",
+            "Remplacer le fichier ?",
+            Some(l.tr("agent-surface-verb-replace")),
+            Some(&l.tr_with("agent-surface-heard", &[("text", "oui".into())])),
+            &l,
+        ),
         permission(
             "perm-3",
             "Écrire le fichier ?",
@@ -620,6 +654,7 @@ fn every_form() -> Vec<super::Surface> {
                 ("Autoriser une fois", PermissionKind::AllowOnce),
                 ("Refuser", PermissionKind::RejectOnce),
             ]),
+            None,
             None,
             &l,
         ),
@@ -765,7 +800,7 @@ fn texts(s: &super::Surface) -> Vec<String> {
 #[test]
 fn permission_with_note_shows_it_under_the_title() {
     let note = "This turn includes the received guide of X.";
-    let s = permission("p", "Run tool", &choices(&[("Allow", PermissionKind::AllowOnce)]), Some(note), &fr());
+    let s = permission("p", "Run tool", &choices(&[("Allow", PermissionKind::AllowOnce)]), Some(note), None, &fr());
     assert_that!(texts(&s)).contains(note.to_owned());
     let json = serde_json::to_value(&s).expect("surface en JSON");
     let components = json["messages"][1]["updateComponents"]["components"].as_array().expect("components").clone();
@@ -775,7 +810,7 @@ fn permission_with_note_shows_it_under_the_title() {
 
 #[test]
 fn permission_without_note_has_no_note_component() {
-    let s = permission("p", "Run tool", &choices(&[("Allow", PermissionKind::AllowOnce)]), None, &fr());
+    let s = permission("p", "Run tool", &choices(&[("Allow", PermissionKind::AllowOnce)]), None, None, &fr());
     let json = serde_json::to_value(&s).expect("surface en JSON");
     let components = json["messages"][1]["updateComponents"]["components"].as_array().expect("components").clone();
     assert_that!(components.iter().any(|c| c["id"] == "note")).is_false();

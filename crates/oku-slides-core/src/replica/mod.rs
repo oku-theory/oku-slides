@@ -457,6 +457,26 @@ impl DeckReplica {
         self.undo.in_group()
     }
 
+    /// The open group's label; `None` when no group is open.
+    #[must_use]
+    pub fn group(&self) -> Option<&str> {
+        self.undo.group()
+    }
+
+    /// The id of the step the open group made, kept while that step is undone.
+    #[must_use]
+    pub fn group_step(&self) -> Option<u64> {
+        self.undo.group_step()
+    }
+
+    /// Reopens group `label` whose own step is `step`, joining it again when it is on top.
+    ///
+    /// An undo or redo closes the open group; this brings it back so its next
+    /// application joins its own step instead of opening a second one.
+    pub fn resume_group(&mut self, label: &str, step: Option<u64>) {
+        self.undo.resume_group(label, step);
+    }
+
     /// Undo steps stacked since creation, never decremented.
     ///
     /// An application that does not increase it joined the top step

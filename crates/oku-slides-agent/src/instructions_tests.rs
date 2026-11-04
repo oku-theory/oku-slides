@@ -86,13 +86,17 @@ fn deck_instructions_pass_the_request_to_the_opened_tab_draft() {
         .contains("as their request argument: it waits in that tab's draft for the user to review and send");
 }
 
-/// The interface and dictation tools are in every kind's core.
+/// The interface, dictation, help and quit tools are in every kind's core.
 #[rstest]
-#[case("`set_interface` (scheme, locale, guides)")]
+#[case("`set_interface` (scheme, locale, guides, and the layout: folded thumbnails, pile and thread widths")]
 #[case("`show_dictation`")]
 #[case("`set_dictation`")]
+#[case("`set_speech` changes the read-aloud")]
 #[case("`select_agent`")]
 #[case("`download_dictation_model`")]
+#[case("`help` opens the help at a topic")]
+#[case("`new_conversation` starts over once your reply ends")]
+#[case("`quit` asks the user")]
 fn core_instructions_name_the_interface_and_dictation_tools(#[case] listed: &str) {
     let at = INSTRUCTIONS.find("You also run the app");
     assert_that!(at).is_some();

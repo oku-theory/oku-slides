@@ -5,7 +5,7 @@ use speculoos::prelude::*;
 
 use oku_slides_i18n::Localizer;
 
-use super::{HOST_PACKS, PacksEvent, deck_packs_panel, packs_event};
+use super::{HOST_PACKS, PackUpdate, PacksEvent, deck_packs_panel, packs_event, packs_event_for};
 use crate::deck_packs::deck_packs_tests::{component, component_ids, opened_on_newer, received_file, text_of};
 use crate::guide_approvals::VersionRef;
 use crate::lib_tests_support::session_with_fixture;
@@ -488,4 +488,33 @@ fn deck_packs_theme_guide_held_only_by_the_library_is_not_shown_like_the_agent_b
     assert_that!(s.deck_packs().unwrap().theme.guide).is_none();
     let block = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
     assert_that!(block.as_str()).does_not_contain("kind=\"theme\"");
+}
+
+#[rstest]
+#[case::use_mine(PackUpdate::UseMine, "use-mine")]
+#[case::make_current(PackUpdate::MakeCurrent, "make-current")]
+fn packs_event_for_drifted_pack_is_its_button_event(#[case] action: PackUpdate, #[case] button: &str) {
+    let (_me, _them, s, _theirs, _mine) = opened_on_newer();
+    let view = s.deck_packs().unwrap();
+    let pack = view.widgets.iter().find(|p| p.drift.is_some()).unwrap();
+    let surface = deck_packs_panel(&view, &Localizer::new(Some("en")));
+    let sent = component(&surface, &format!("widgets/{}/{button}", pack.namespace))["action"]["event"].clone();
+    let clicked = packs_event(sent["name"].as_str().unwrap(), sent["context"].as_object().unwrap());
+    assert_that!(packs_event_for(&view, pack.namespace.as_str(), action)).is_equal_to(clicked.clone());
+    assert_that!(packs_event_for(&view, &pack.id.to_string(), action)).is_equal_to(clicked);
+}
+
+#[rstest]
+#[case::use_mine(PackUpdate::UseMine)]
+#[case::make_current(PackUpdate::MakeCurrent)]
+fn packs_event_for_current_pack_is_none(#[case] action: PackUpdate) {
+    let view = session().deck_packs().unwrap();
+    assert_that!(packs_event_for(&view, "base", action)).is_none();
+}
+
+#[test]
+fn packs_event_for_unknown_pack_is_none() {
+    let (_me, _them, s, _theirs, _mine) = opened_on_newer();
+    let view = s.deck_packs().unwrap();
+    assert_that!(packs_event_for(&view, "nowhere", PackUpdate::UseMine)).is_none();
 }

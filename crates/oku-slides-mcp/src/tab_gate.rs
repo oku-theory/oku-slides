@@ -15,7 +15,7 @@ enum Refusal {
     Limit,
 }
 
-/// What the agent's gate answered while a pack or theme tab opened.
+/// What the agent's gate answered while a tab opened, showed or moved.
 #[derive(Debug, Default)]
 pub(crate) struct TabVerdict {
     /// Why the last gate refused, if it did; a later grant clears it.
@@ -78,11 +78,19 @@ impl TabVerdict {
         target: TabTarget,
         outcome: &oku_slides_session::Result<TabOpen>,
     ) {
+        let moved = matches!(outcome, Ok(TabOpen::Opened { .. } | TabOpen::Focused { .. }));
+        self.settle_moved(hub, turn, target, moved);
+    }
+
+    /// Notes writes elsewhere once the claim is `spent`; else gives back the claim, if held.
+    ///
+    /// The caller decides what spends it: a move, or a lost task that may have moved a tab.
+    pub(crate) fn settle_moved(&self, hub: &SurfaceHub, turn: Option<u32>, target: TabTarget, spent: bool) {
         let Some(turn) = turn else { return };
-        match outcome {
-            Ok(TabOpen::Opened { .. } | TabOpen::Focused { .. }) => hub.note_elsewhere(turn),
-            _ if self.claimed => hub.release_tab(turn, target),
-            _ => {}
+        if spent {
+            hub.note_elsewhere(turn);
+        } else if self.claimed {
+            hub.release_tab(turn, target);
         }
     }
 }

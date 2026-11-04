@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fitIn } from "./bounds";
-import { type Columns, columnBounds } from "./columns";
+import bounds from "../../fixtures/ui/layout-bounds.json";
+import { type Columns, NOTES_MIN, PILE_MAX, PILE_MIN, columnBounds } from "./columns";
 
 /** Largeurs bornées de la pile et du fil, comme au séparateur de chacune. */
 const fitColumns = (table: number, pile: number, notes: number): Columns => ({
@@ -32,5 +33,9 @@ describe("columnBounds", () => {
 
   test("columnBounds largeurs fractionnaires les arrondit", () => {
     expect(fitColumns(1440, 240.6, 500.4)).toEqual({ pile: 241, notes: 500 });
+  });
+
+  test("layout bounds fixture matches columns", () => {
+    expect(bounds).toEqual({ pile_min: PILE_MIN, pile_max: PILE_MAX, notes_min: NOTES_MIN });
   });
 });

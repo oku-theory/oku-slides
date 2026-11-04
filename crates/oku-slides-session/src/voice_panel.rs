@@ -76,6 +76,9 @@ impl VoicePanel {
         if let Some(d) = &view.dictation {
             dictation(d, l, &mut b, &mut data);
         }
+        if let Some(speech) = &view.speech {
+            speech::section(speech, l, &mut b, &mut data);
+        }
         agents(&view.agents, l, &mut b, &mut data);
         let close = Component::button_builder("close", l.tr("agent-surface-close"), Action::named("dismiss"));
         b.push(close.icon(ButtonIcon::Close).build());
@@ -197,6 +200,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
     data["model"] = json!(d.model);
     data["language"] = json!(d.language.clone().unwrap_or_default());
     data["silence"] = json!(if d.auto_stop { secs_value(d.silence) } else { "off".to_owned() });
+    data["hands_free"] = json!(d.hands_free);
     data["api"] = json!({
         "url": d.api.url,
         "model": d.api.model,
@@ -256,6 +260,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
 
     b.push(Component::new("d-language", language_select(d, chosen, l)));
     b.push(Component::new("d-silence", silence_select(d, l)));
+    b.push(Component::new("d-hands-free", hands_free_switch(l)));
     b.text("d-note", l.tr("voice-phrases-note"), TextVariant::Caption);
 
     b.bound("d-progress", "/progress/dictation");
@@ -334,6 +339,16 @@ fn silence_select(d: &DictationView, l: &Localizer) -> ComponentKind {
         value: Dynamic::path("/silence"),
         options: silences,
         action: Some(Action::event("silence", [("value", Dynamic::path("/silence"))])),
+    }
+}
+
+/// The hands-free switch: its label is the accessible name Voice Control presses.
+fn hands_free_switch(l: &Localizer) -> ComponentKind {
+    ComponentKind::Switch {
+        label: Dynamic::Literal(l.tr("voice-hands-free")),
+        help: Some(Dynamic::Literal(l.tr("voice-hands-free-help"))),
+        value: Dynamic::path("/hands_free"),
+        action: Some(Action::event("hands_free", [("on", Dynamic::path("/hands_free"))])),
     }
 }
 
@@ -426,6 +441,9 @@ fn agent_models(models: &AgentModelsView, l: &Localizer, b: &mut Builder, data: 
         }
     }
 }
+
+#[path = "voice_panel_speech.rs"]
+mod speech;
 
 #[cfg(test)]
 #[path = "voice_panel_tests.rs"]

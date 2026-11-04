@@ -52,6 +52,8 @@ fn families_of_a_pack_tool_is_packs(#[case] tool: &str) {
 
 #[rstest]
 #[case("show_packs", &[Family::Edit][..])]
+#[case("pack_update", &[Family::Packs][..])]
+#[case("update", &[Family::Configure][..])]
 #[case("add_pack", &[Family::Edit][..])]
 #[case("remove_pack", &[Family::Edit][..])]
 #[case("set_theme_extends", &[Family::Packs][..])]
@@ -74,6 +76,7 @@ fn families_no_mcp_tool_name_contains_template() {
 #[rstest]
 #[case("show_dictation")]
 #[case("set_dictation")]
+#[case("set_speech")]
 #[case("download_dictation_model")]
 #[case("cancel_dictation_download")]
 #[case("select_agent")]

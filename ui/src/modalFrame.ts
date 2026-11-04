@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, RefObject } from "react";
+import { presenting } from "./present";
 
 /** Délai avant qu'une fenêtre n'accepte une touche ou un clic. Une frappe en cours ne la valide pas. */
 export const ARMING_MS = 500;
@@ -114,7 +115,7 @@ export function useModalFrame(ref: RefObject<HTMLElement | null>, { active = tru
         if (!target) return;
         e.preventDefault();
         target.focus();
-      } else if (e.key === "Escape" && escape.current) {
+      } else if (e.key === "Escape" && escape.current && !presenting()) {
         e.preventDefault();
         e.stopPropagation();
         if (Date.now() - openedAt.current >= ARMING_MS) escape.current();

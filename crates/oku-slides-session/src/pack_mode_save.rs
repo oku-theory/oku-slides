@@ -273,6 +273,8 @@ impl Session {
             embed_packs(&mut preview.sources, packs);
             preview.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
             preview.dirty = true;
+            // A field, not `note_edit`: `preview` still borrows the mode.
+            self.edit_seq = self.edit_seq.saturating_add(1);
             // The step that now holds the pin: the one that brought `old`, or another
             // (a new merge key, an agent turn's group, a step after an undo).
             let step = preview.sources.replica().undo_step();

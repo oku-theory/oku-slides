@@ -4,19 +4,24 @@
 //! client (`oku-slides-agent`) go through here.
 //! Guides of the packs and themes a tab uses: `guides` (`AgentGuides`).
 //! Pasted images: `attachments` (`AttachmentRef`).
+//! The focused tab, its window's tabs and windows, for the agent host: `workspace_port` (`AgentWorkspace`).
+//! Updates and quitting, asked of the app: `app_port` (`AppPort`).
 //! What the agent's tools changed in a turn: `turn_touches`, resolved by `traces` (`Trace`).
 
 mod address;
+pub mod app_port;
 pub mod attachments;
 pub mod bounds;
 pub mod context;
 pub mod conversation;
 pub mod diff;
 pub mod forms;
+mod forms_confirm;
 pub mod guides;
 pub mod reason;
 pub mod receipt;
 pub mod render;
+pub mod spoken;
 mod surface_ops;
 mod tabs;
 mod traces;
@@ -27,10 +32,12 @@ mod usage_panel;
 pub(crate) mod usage_table;
 pub mod variants;
 mod work_dir;
+pub mod workspace_port;
 
+pub use app_port::{AppPort, AppRefusal, UnavailableApp, UpdateAction, UpdateState};
 pub use attachments::{AttachmentRef, PasteReason};
 pub use bounds::{DETAIL_CHARS, LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options, clip};
-pub use context::AgentUi;
+pub use context::{AgentUi, TurnOrigin, UI_TEXT_MAX};
 pub use conversation::SavedConversation;
 pub use forms::{
     Anchor, AskChoice, AskConfirm, AskRewrite, FieldKind, ParamField, PermissionChoice, PermissionKind, Place,
@@ -41,12 +48,17 @@ pub use oku_slides_a2ui::{PromptImage, ServerMessage, StepStatus, TimelineStep, 
 pub use reason::AgentFormReason;
 pub use receipt::{NextStep, ReceiptSurfaces, Report};
 pub use render::Render;
+pub use spoken::{SPOKEN_MAX, SpokenFailure, SpokenKind, SpokenText};
 pub(crate) use tabs::record_in;
 pub use tabs::{Sessions, TabGate, TabOpen, TabSession};
 pub use traces::{TRACE_EVENT, TRACES_SHOWN, Trace, TraceName};
 pub use turn_view::{TurnState, TurnView};
 pub use usage_panel::usage_panel;
 pub use work_dir::{AGENT_CONFIG_NAMES, AgentWorkDir};
+pub use workspace_port::{
+    AgentWorkspace, CloseScope, CloseTabs, FocusSource, FocusedTab, HELP_HITS, HelpHit, HelpOpen, NoWorkspace,
+    TabListing, TabRevision, WorkspaceRefusal,
+};
 
 /// Tours gardés au plus par fil (réducteur des tours, hub, reprise).
 pub const KEPT_TURNS: usize = 50;

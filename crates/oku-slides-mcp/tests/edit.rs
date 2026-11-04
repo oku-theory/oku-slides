@@ -163,16 +163,24 @@ async fn apply_move_element_through_mcp_keeps_the_concurrent_edit() {
     assert_that!(bold_in(deck, "s-libre", "dup")).is_equal_to(Some(false));
 }
 
-/// The agent never selects: an element it still names is ignored, only the slide shows.
+/// The agent never selects: naming an element is refused, so the agent learns it at once.
 #[tokio::test(flavor = "multi_thread")]
-async fn focus_tool_shows_the_slide_without_selecting() {
+async fn focus_tool_with_an_element_is_refused() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let r = call(&c, "focus", json!({ "slide": "s-libre", "element": "e-texte" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn focus_tool_shows_the_slide() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    call(&c, "focus", json!({ "slide": "s-libre", "element": "e-texte" })).await;
+    call(&c, "focus", json!({ "slide": "s-libre" })).await;
     match wait_event(&mut rx, Some).await {
-        McpEvent::Focus { slide } => assert_that!(slide.as_str()).is_equal_to("s-libre"),
-        other => panic!("évènement inattendu : {other:?}"),
+        McpEvent::Focus { slide } => assert_that!(slide.as_deref()).is_equal_to(Some("s-libre")),
+        other => panic!("unexpected event: {other:?}"),
     }
 }
 

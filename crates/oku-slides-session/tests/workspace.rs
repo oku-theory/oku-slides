@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use oku_slides_session::{
-    Fonts, Platform, Request, SessionErrorKind, Settings, TabDocument, Workspace, WorkspaceRequest, WorkspaceView,
+    Fonts, Platform, Request, SessionErrorKind, Settings, TabDocument, WindowView, Workspace, WorkspaceRequest,
+    WorkspaceView,
 };
 use serde_json::json;
 use speculoos::prelude::*;
@@ -129,7 +130,13 @@ fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     let b = resumed(&data);
     let after = view(&b);
     assert_that!(after.focused).is_equal_to(&before.focused);
-    assert_that!(after.windows).is_equal_to(&before.windows);
+    // Dirty revisions restart with each launch: everything else comes back as it was.
+    let unrevised = |windows: &[WindowView]| {
+        let mut windows = windows.to_vec();
+        windows.iter_mut().flat_map(|w| &mut w.tabs).for_each(|t| t.info.dirty_revision = None);
+        windows
+    };
+    assert_that!(unrevised(&after.windows)).is_equal_to(unrevised(&before.windows));
     let pack = &view(&b).windows[1].tabs[1].info.document;
     assert_that!(matches!(pack, TabDocument::Pack { .. })).is_true();
     // Le deck revient tel quel ; la pile d'annulation ne survit pas au relancement.

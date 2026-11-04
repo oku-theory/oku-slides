@@ -197,5 +197,18 @@ fn history_tab_info_shows_the_current_deck() {
     let before = s.tab_info();
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     s.handle(req(json!({ "cmd": "history_seek", "index": 0 }))).unwrap();
-    assert_that!(s.tab_info()).is_equal_to(&before);
+    // Opening and seeking count as edits of the dirty revision; what the bar shows stays.
+    let shown = oku_slides_session::TabInfo { dirty_revision: before.dirty_revision, ..s.tab_info() };
+    assert_that!(shown).is_equal_to(&before);
+}
+
+#[test]
+fn history_restore_called_directly_bumps_the_dirty_revision() {
+    let mut s = edited_session();
+    let before = s.dirty_revision();
+    s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
+    s.handle(req(json!({ "cmd": "history_seek", "index": 0 }))).unwrap();
+    s.history_restore().unwrap();
+    assert_that!(before).is_some();
+    assert_that!(s.dirty_revision()).is_some().is_greater_than(before.unwrap());
 }

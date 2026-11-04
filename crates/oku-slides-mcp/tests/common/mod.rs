@@ -4,6 +4,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
+pub mod app;
+mod harness;
 pub mod kinds;
 pub mod other_tabs;
 pub mod refusals;
@@ -26,6 +28,12 @@ use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 use tokio_util::sync::CancellationToken;
+
+#[allow(unused_imports, reason = "each test file uses only some of the harness variants")]
+pub use harness::{
+    ClosedTabs, Gate, GatedTabs, HiddenTab, OneFileElsewhere, start_closed, start_gated, start_hidden,
+    start_with_one_file_elsewhere,
+};
 
 /// Un dossier neuf, supprimé au `drop`.
 ///
@@ -88,6 +96,8 @@ pub struct FakeVoice {
     pub view: Mutex<VoiceView>,
     /// What `diagnosis` answers.
     pub diagnosis: Mutex<Diagnosis>,
+    /// How many times the OS voices were asked to be read again.
+    pub voices_refreshed: Mutex<u32>,
 }
 
 impl FakeVoice {
@@ -120,6 +130,10 @@ impl VoicePort for FakeVoice {
     fn diagnosis(&self) -> Diagnosis {
         lock(&self.diagnosis).clone()
     }
+
+    fn refresh_voices(&self) {
+        *lock(&self.voices_refreshed) += 1;
+    }
 }
 
 /// Draft port of the tests: records each prefill and answers `answer` (`Set` by default).
@@ -129,6 +143,10 @@ pub struct RecordingDrafts {
     pub calls: Mutex<Vec<(String, String)>>,
     /// The answer to the next prefills; `None`: `Set`.
     pub answer: Mutex<Option<Prefill>>,
+    /// `(tab, slide)` of each page, in order.
+    pub pages: Mutex<Vec<(String, String)>>,
+    /// True: no page shows the tab, every page is refused.
+    pub no_page: Mutex<bool>,
 }
 
 impl RecordingDrafts {
@@ -136,12 +154,42 @@ impl RecordingDrafts {
     pub fn calls(&self) -> Vec<(String, String)> {
         lock(&self.calls).clone()
     }
+    /// The pages so far, `(tab, slide)`.
+    pub fn pages(&self) -> Vec<(String, String)> {
+        lock(&self.pages).clone()
+    }
 }
 
 impl DraftPort for RecordingDrafts {
     fn prefill(&self, tab: &str, text: String) -> Prefill {
         lock(&self.calls).push((tab.to_owned(), text));
         lock(&self.answer).unwrap_or(Prefill::Set)
+    }
+
+    fn page(&self, tab: &str, slide: String) -> bool {
+        lock(&self.pages).push((tab.to_owned(), slide));
+        !*lock(&self.no_page)
+    }
+}
+
+/// A tune port that records each tab it is asked to fine-tune.
+#[derive(Debug, Default)]
+pub struct RecordingTune {
+    /// The tabs asked, in order.
+    pub calls: Mutex<Vec<String>>,
+}
+
+impl RecordingTune {
+    /// The tabs asked so far.
+    pub fn calls(&self) -> Vec<String> {
+        lock(&self.calls).clone()
+    }
+}
+
+impl oku_slides_mcp::TunePort for RecordingTune {
+    fn tune(&self, tab: &str) -> Result<(), oku_slides_mcp::TuneRefusal> {
+        lock(&self.calls).push(tab.to_owned());
+        Ok(())
     }
 }
 
@@ -157,7 +205,11 @@ pub struct Harness {
     pub settings: Arc<MemorySettings>,
     /// The draft port `open_pack` and `open_theme` pass the request to.
     pub drafts: Arc<RecordingDrafts>,
+    /// The port `import` starts the fine-tuning turn through.
+    pub tune: Arc<RecordingTune>,
     pub cancel: CancellationToken,
+    /// The app port the tools ask for updates (unused when started on the dev server's).
+    pub app: Arc<app::FakeApp>,
     pub localizer: Arc<oku_slides_i18n::Localizer>,
     /// La langue courante de l'interface, à changer à chaud.
     pub live: oku_slides_i18n::LiveLocalizer,
@@ -227,14 +279,16 @@ pub async fn start_pack_tab(pack: uuid::Uuid) -> Harness {
     start_with((platform, data), session.clone(), session, "t-1").await
 }
 
-/// Starts the server for a tab whose sessions `sessions` provides.
+/// Starts the server for a tab whose sessions `sessions` provides, in `serve`'s host.
 ///
 /// The tools are those of the tab's kind ([`kinds::kind_of`]).
-async fn start_with(
+async fn start_on(
     (platform, data): (Platform, tempfile::TempDir),
     sessions: Arc<dyn Sessions>,
     session: Arc<Mutex<Session>>,
     tab: &str,
+    serve: Host,
+    workspace: Arc<dyn oku_slides_session::agent::AgentWorkspace>,
 ) -> Harness {
     let localizer = platform.localizer.clone();
     let tab = TabSession::new(tab, sessions);
@@ -244,10 +298,73 @@ async fn start_with(
     let settings = Arc::new(MemorySettings::default());
     let drafts = Arc::new(RecordingDrafts::default());
     let kind = kinds::kind_of(&tab, &session).await;
-    let tools = Tools::new(tab.clone(), hub.clone(), settings.clone(), drafts.clone(), &platform, kind);
+    let tune = Arc::new(RecordingTune::default());
+    let app = Arc::new(app::FakeApp::default());
+    let port: Arc<dyn oku_slides_session::agent::AppPort> = match serve {
+        Host::App => app.clone(),
+        Host::Serve => Arc::new(oku_slides_session::agent::UnavailableApp),
+    };
+    let tools = Tools::new(
+        tab.clone(),
+        hub.clone(),
+        settings.clone(),
+        drafts.clone(),
+        workspace,
+        tune.clone(),
+        port,
+        &platform,
+        kind,
+    );
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
-    Harness { server, hub, voice, session, tab, settings, drafts, cancel, localizer, live, data }
+    Harness { server, hub, voice, session, tab, settings, drafts, tune, cancel, app, localizer, live, data }
+}
+
+/// Which host the tools run in: the app (a [`app::FakeApp`]) or the dev server.
+#[derive(Debug, Clone, Copy)]
+enum Host {
+    App,
+    Serve,
+}
+
+/// [`start`] as the dev server runs it: no updater, no quit (`UnavailableApp`).
+pub async fn start_on_serve() -> Harness {
+    let (platform, session, data) = prepared().await;
+    let session = Arc::new(Mutex::new(session));
+    start_on((platform, data), session.clone(), session, "t-1", Host::Serve, no_workspace()).await
+}
+
+/// Starts the server for a tab whose sessions `sessions` provides, in the app.
+async fn start_with(
+    host: (Platform, tempfile::TempDir),
+    sessions: Arc<dyn Sessions>,
+    session: Arc<Mutex<Session>>,
+    tab: &str,
+) -> Harness {
+    start_on(host, sessions, session, tab, Host::App, no_workspace()).await
+}
+
+/// [`start_with`] whose tools change tabs and windows through `workspace`.
+async fn start_with_workspace(
+    host: (Platform, tempfile::TempDir),
+    sessions: Arc<dyn Sessions>,
+    session: Arc<Mutex<Session>>,
+    tab: &str,
+    workspace: Arc<dyn oku_slides_session::agent::AgentWorkspace>,
+) -> Harness {
+    start_on(host, sessions, session, tab, Host::App, workspace).await
+}
+
+/// [`start`] whose tools change tabs and windows through `workspace`, a test's fake.
+pub async fn start_with_port(workspace: Arc<dyn oku_slides_session::agent::AgentWorkspace>) -> Harness {
+    let (platform, session, data) = prepared().await;
+    let session = Arc::new(Mutex::new(session));
+    start_on((platform, data), session.clone(), session, "t-1", Host::App, workspace).await
+}
+
+/// The workspace port of a host with no tab bar: every change refused.
+fn no_workspace() -> Arc<dyn oku_slides_session::agent::AgentWorkspace> {
+    Arc::new(oku_slides_session::agent::NoWorkspace)
 }
 
 pub async fn start() -> Harness {
@@ -330,262 +447,6 @@ pub async fn start_imported(
     start_with((platform, data), session.clone(), session, "t-1").await
 }
 
-/// A `Sessions` that always refuses the tab: a real workspace, asked about
-/// a tab it does not have (closed on the host side).
-#[derive(Debug)]
-pub struct ClosedTabs(Mutex<oku_slides_session::Workspace>);
-
-impl Sessions for ClosedTabs {
-    /// Always-closed tab: `f` is never called.
-    fn with(&self, _tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        self.0.with("onglet-ferme", f)
-    }
-
-    /// Always-closed tab: refused (`UnknownTab`).
-    fn open_pack(
-        &self,
-        _tab: &str,
-        pack: uuid::Uuid,
-        widget: Option<&str>,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.0.open_pack("onglet-ferme", pack, widget, gate)
-    }
-
-    /// Always-closed tab: refused (`UnknownTab`).
-    fn open_theme(
-        &self,
-        _tab: &str,
-        theme: uuid::Uuid,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.0.open_theme("onglet-ferme", theme, gate)
-    }
-
-    /// Always-closed tab: refused (`UnknownTab`).
-    fn document_kind(&self, _tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
-        self.0.document_kind("onglet-ferme")
-    }
-
-    fn usage_owner(&self, _tab: &str) -> Option<String> {
-        self.0.usage_owner("onglet-ferme")
-    }
-}
-
-/// Un `Sessions` où un seul fichier, `open`, est ouvert dans un autre onglet.
-#[derive(Debug)]
-pub struct OneFileElsewhere {
-    session: Arc<Mutex<Session>>,
-    open: std::path::PathBuf,
-}
-
-impl Sessions for OneFileElsewhere {
-    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        self.session.with(tab, f)
-    }
-
-    fn open_elsewhere(&self, _tab: &str, path: &std::path::Path) -> bool {
-        path == self.open
-    }
-
-    fn open_pack(
-        &self,
-        tab: &str,
-        pack: uuid::Uuid,
-        widget: Option<&str>,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.session.open_pack(tab, pack, widget, gate)
-    }
-
-    fn open_theme(
-        &self,
-        tab: &str,
-        theme: uuid::Uuid,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.session.open_theme(tab, theme, gate)
-    }
-
-    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
-        self.session.document_kind(tab)
-    }
-
-    fn usage_owner(&self, tab: &str) -> Option<String> {
-        self.session.usage_owner(tab)
-    }
-}
-
-/// Un serveur dont seul `open` est ouvert dans un autre onglet (voir [`OneFileElsewhere`]).
-pub async fn start_with_one_file_elsewhere(open: std::path::PathBuf) -> Harness {
-    let (platform, session, data) = prepared().await;
-    let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), Arc::new(OneFileElsewhere { session: session.clone(), open }), session, "t-1").await
-}
-
-/// Un `Sessions` dont l'onglet est derrière un autre dans sa fenêtre : il n'est pas affiché.
-#[derive(Debug)]
-pub struct HiddenTab(Arc<Mutex<Session>>);
-
-impl Sessions for HiddenTab {
-    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        self.0.with(tab, f)
-    }
-
-    fn shown(&self, _tab: &str) -> bool {
-        false
-    }
-
-    fn open_pack(
-        &self,
-        tab: &str,
-        pack: uuid::Uuid,
-        widget: Option<&str>,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.0.open_pack(tab, pack, widget, gate)
-    }
-
-    fn open_theme(
-        &self,
-        tab: &str,
-        theme: uuid::Uuid,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.0.open_theme(tab, theme, gate)
-    }
-
-    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
-        self.0.document_kind(tab)
-    }
-
-    fn usage_owner(&self, tab: &str) -> Option<String> {
-        self.0.usage_owner(tab)
-    }
-}
-
-/// Un serveur pour un onglet caché (voir [`HiddenTab`]).
-pub async fn start_hidden() -> Harness {
-    let (platform, session, data) = prepared().await;
-    let session = Arc::new(Mutex::new(session));
-    start_with((platform, data), Arc::new(HiddenTab(session.clone())), session, "t-1").await
-}
-
-/// Un `Sessions` qui retient le prochain accès à la session jusqu'à ce que le test le relâche
-/// (voir [`Gate`]) : de quoi faire durer un appel d'outil pendant que les tours changent.
-#[derive(Debug)]
-pub struct GatedTabs {
-    session: Arc<Mutex<Session>>,
-    hold: Mutex<Option<Hold>>,
-}
-
-#[derive(Debug)]
-struct Hold {
-    entered: tokio::sync::oneshot::Sender<()>,
-    release: std::sync::mpsc::Receiver<()>,
-}
-
-/// Côté test d'un accès retenu : `entered` l'attend, `release` le laisse passer.
-#[derive(Debug)]
-pub struct Gate {
-    entered: tokio::sync::oneshot::Receiver<()>,
-    release: std::sync::mpsc::Sender<()>,
-}
-
-impl Gate {
-    /// Attend que l'accès retenu soit commencé (l'outil est donc déjà appelé).
-    pub async fn entered(&mut self) {
-        tokio::time::timeout(std::time::Duration::from_secs(10), &mut self.entered)
-            .await
-            .unwrap_or_else(|_| panic!("aucun accès à la session"))
-            .unwrap_or_else(|e| panic!("accès retenu perdu : {e}"));
-    }
-
-    /// Laisse passer l'accès retenu.
-    pub fn release(self) {
-        let _ = self.release.send(());
-    }
-}
-
-impl GatedTabs {
-    /// Retient le prochain accès à la session.
-    pub fn hold_next(&self) -> Gate {
-        let (entered_tx, entered) = tokio::sync::oneshot::channel();
-        let (release, release_rx) = std::sync::mpsc::channel();
-        *self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner) =
-            Some(Hold { entered: entered_tx, release: release_rx });
-        Gate { entered, release }
-    }
-}
-
-impl Sessions for GatedTabs {
-    fn with(&self, tab: &str, f: &mut dyn FnMut(&mut Session)) -> oku_slides_session::Result<()> {
-        let hold = self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
-        if let Some(hold) = hold {
-            let _ = hold.entered.send(());
-            let _ = hold.release.recv();
-        }
-        self.session.with(tab, f)
-    }
-
-    /// Applies the hold, then opens in the inner session.
-    fn open_pack(
-        &self,
-        tab: &str,
-        pack: uuid::Uuid,
-        widget: Option<&str>,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        let hold = self.hold.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
-        if let Some(hold) = hold {
-            let _ = hold.entered.send(());
-            let _ = hold.release.recv();
-        }
-        self.session.open_pack(tab, pack, widget, gate)
-    }
-
-    fn open_theme(
-        &self,
-        tab: &str,
-        theme: uuid::Uuid,
-        gate: &mut dyn FnMut(TabGate) -> bool,
-    ) -> oku_slides_session::Result<TabOpen> {
-        self.session.open_theme(tab, theme, gate)
-    }
-
-    fn document_kind(&self, tab: &str) -> oku_slides_session::Result<oku_slides_session::DocumentKind> {
-        self.session.document_kind(tab)
-    }
-
-    fn usage_owner(&self, tab: &str) -> Option<String> {
-        self.session.usage_owner(tab)
-    }
-}
-
-/// Un serveur dont les accès à la session peuvent être retenus (voir [`GatedTabs`]).
-pub async fn start_gated() -> (Harness, Arc<GatedTabs>) {
-    let (platform, session, data) = prepared().await;
-    let session = Arc::new(Mutex::new(session));
-    let tabs = Arc::new(GatedTabs { session: session.clone(), hold: Mutex::default() });
-    let h = start_with((platform, data), tabs.clone(), session, "t-1").await;
-    (h, tabs)
-}
-
-/// Un serveur dont l'onglet est fermé : tout outil sur la session échoue.
-pub async fn start_closed() -> Harness {
-    let (platform, session, data) = prepared().await;
-    let (platform, workspace) = tokio::task::spawn_blocking(move || {
-        let workspace = oku_slides_session::Workspace::new(Fonts::default(), &platform, None)
-            .unwrap_or_else(|e| panic!("espace de travail de test : {e}"));
-        (platform, workspace)
-    })
-    .await
-    .unwrap_or_else(|e| panic!("tâche bloquante de l'espace de travail : {e}"));
-    let session = Arc::new(Mutex::new(session));
-    let sessions: Arc<dyn Sessions> = Arc::new(ClosedTabs(Mutex::new(workspace)));
-    start_with((platform, data), sessions, session, "t-1").await
-}
-
 struct Noop;
 #[async_trait]
 impl ClientHandler for Noop {}
@@ -661,7 +522,7 @@ pub async fn wait_event<T>(
 /// Prochaine surface poussée par le hub.
 pub async fn next_surface(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> oku_slides_session::agent::Surface {
     wait_event(rx, |e| match e {
-        McpEvent::Surface { surface } => Some(surface),
+        McpEvent::Surface { surface, .. } => Some(surface),
         _ => None,
     })
     .await
@@ -693,16 +554,25 @@ pub async fn tool_description(c: &Arc<ClientRuntime>, name: &str) -> String {
     tool.description.unwrap_or_default()
 }
 
-/// Le texte d'une confirmation et son drapeau `danger` (`forms::confirm`).
+/// A confirmation's text and its `danger` flag (`forms::confirm`).
 pub fn confirmation_of(surface: &Surface) -> (String, bool) {
+    let text = component_of(surface, "message")["text"].as_str().unwrap_or_default().to_owned();
+    (text, component_of(surface, "yes")["danger"] == Value::Bool(true))
+}
+
+/// The label of a confirmation's yes button, the verb to say for a danger one.
+pub fn confirm_button_label(surface: &Surface) -> String {
+    component_of(surface, "yes")["label"].as_str().unwrap_or_default().to_owned()
+}
+
+/// Component `id` of `surface`, as JSON; `Null` when absent.
+fn component_of(surface: &Surface, id: &str) -> Value {
     let json = serde_json::to_value(surface).unwrap_or_else(|e| panic!("surface : {e}"));
-    let components = json["messages"]
+    json["messages"]
         .as_array()
         .and_then(|m| m.iter().find_map(|m| m["updateComponents"]["components"].as_array().cloned()))
-        .unwrap_or_default();
-    let find = |id: &str| components.iter().find(|c| c["id"] == id).cloned().unwrap_or_default();
-    let text = find("message")["text"].as_str().unwrap_or_default().to_owned();
-    (text, find("yes")["danger"] == Value::Bool(true))
+        .and_then(|c| c.into_iter().find(|c| c["id"] == id))
+        .unwrap_or_default()
 }
 
 /// Répond à la confirmation `surface` : oui ou non.
@@ -832,7 +702,7 @@ pub fn last_surface(
 ) -> oku_slides_session::agent::Surface {
     let mut last = None;
     while let Ok(event) = rx.try_recv() {
-        if let McpEvent::Surface { surface } = event
+        if let McpEvent::Surface { surface, .. } = event
             && surface.id == id
         {
             last = Some(surface);

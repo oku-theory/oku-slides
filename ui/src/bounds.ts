@@ -1,5 +1,5 @@
-// Bornes d'une taille réglée à un séparateur (Divider) : chaque panneau dit
-// les siennes (bandBounds, codeBounds, columnBounds), le séparateur y borne le geste.
+// Bounds of a size set at a divider (Divider): each panel gives its own (columnBounds),
+// and the divider clamps the gesture to them.
 
 /** Taille la plus petite et la plus grande permises, en px ; `min <= max`. */
 export interface Bounds {

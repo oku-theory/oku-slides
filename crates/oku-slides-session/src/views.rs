@@ -175,11 +175,11 @@ pub struct HistoryView<'a> {
     pub changes: &'a SlideChanges,
 }
 
-/// What the interface has the host keep: slide, ghosts, columns, item, code and panes.
+/// What the interface has the host keep: slide, ghosts, columns, item, tab and panes.
 ///
-/// The current slide, ghosts, column widths, a pack tab's selected item, the widget source
-/// code shown and its width, the pile's folded sections, and whether the inspector and the
-/// data pane are open. Unknown fields of an older
+/// The current slide, ghosts, the pile and thread widths, a pack tab's selected item, whether
+/// its Code tab is open, its preview slot, the pile's folded sections, and whether the inspector
+/// and the data pane are open. Unknown fields of an older
 /// `state.json` (`board`, `code_place`, `code_height`, removed by t-526; `case`, removed by t-541;
 /// `widgets`, the widget sub-tabs removed by t-1244; `grid`, shown only while dragging since
 /// t-1283) are ignored when read.
@@ -192,13 +192,13 @@ pub struct UiState {
     /// Id of the current slide; none if the deck is empty.
     #[serde(default)]
     pub slide: Option<String>,
-    /// Fantômes visibles : zone, widgets et champs annotés.
+    /// Ghosts shown: the zone, widgets and annotated fields.
     #[serde(default)]
     pub ghosts: bool,
-    /// Largeur de la pile en px, choisie au séparateur ; `None` : largeur par défaut.
+    /// The pile's width in px, set at its divider; `None`: the default width.
     #[serde(default)]
     pub pile: Option<u32>,
-    /// Largeur du fil de l'agent en px, choisie au séparateur ; `None` : largeur par défaut.
+    /// The agent thread's width in px, set at its divider; `None`: the default width.
     #[serde(default)]
     pub notes: Option<u32>,
     /// The selected item of the edited pack in pack mode, `_commun` included; `None`: none.
@@ -275,6 +275,11 @@ pub struct TabInfo {
     pub title: String,
     /// Unsaved work: the deck, the edited pack, or a save its owner has not taken.
     pub dirty: bool,
+    /// Grows at each edit while unsaved, `None` while clean (`Session::dirty_revision`).
+    ///
+    /// Live only: never read back from a saved layout, so a resumed tab starts at `None`.
+    #[serde(default, skip_deserializing)]
+    pub dirty_revision: Option<u64>,
     /// A new deck never touched: opening a file replaces it.
     pub pristine: bool,
     /// Id of the deck's theme: help opened from this tab takes it.

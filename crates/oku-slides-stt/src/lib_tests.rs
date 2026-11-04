@@ -245,12 +245,13 @@ fn transcribe_loop_api_commits_the_api_text() {
     let _applied = stt.configure(api_config(&url, "HOME"));
     let session = {
         let mut g = stt.state();
-        g.phrases.push(None);
+        g.phrases.push(crate::utterance::Spoken { text: None, start: 0, end: 1600 });
         g.state = State::Transcribing;
         g.session
     };
     let (jobs, rx) = mpsc::channel();
-    jobs.send(Job::Final { index: 0, audio: vec![0.0; 1600] }).unwrap();
+    let epoch = stt.state().epoch;
+    jobs.send(Job::Final { index: 0, audio: vec![0.0; 1600], epoch }).unwrap();
     jobs.send(Job::Done).unwrap();
     stt.transcribe_loop(session, &rx, &Arc::new(AtomicBool::new(false)));
     assert_that!(stt.status().text).is_equal_to(Some("Bonjour.".to_owned()));

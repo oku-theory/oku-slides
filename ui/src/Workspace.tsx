@@ -6,7 +6,8 @@ import App from "./App";
 import { APP_VERSION, RELEASES } from "./appInfo";
 import TabBar from "./TabBar";
 import UpdateBar, { UpdateNoticeBar } from "./UpdateBar";
-import { closeStays, errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
+import { closeStays, errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, takeCloseDecision, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
+import { AgentCloseContext, redeem, type AgentClose } from "./closeDecision";
 import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
 import { runAllCloseGuards, runCloseGuard } from "./closeGuards";
 import { listenQuit } from "./quitAnswer";
@@ -22,6 +23,7 @@ import { ERROR_MS } from "./useToast";
 import { useConfirm } from "./useConfirm";
 import { useTransient } from "./useTransient";
 import { useUpdate } from "./useUpdate";
+import { useVoiceContext } from "./useVoiceContext";
 import { showBroadcast } from "./workspaceBroadcast";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
@@ -127,6 +129,8 @@ export default function Workspace() {
   const shared = useSharedClip(label, setError);
 
   const win = view?.windows.find((w) => w.label === label);
+  // Hands-free: this window reports what its active tab shows, and asks listening back.
+  useVoiceContext(win?.active ?? null, win ? label : null);
   // L'avis de fusion, montré par l'`App` de l'onglet actif (celui de la
   // fusion, ou l'actif d'ici si elle a eu lieu dans une autre fenêtre) ; ses
   // effets passent avant celui-ci, qui l'oublie une fois montré.
@@ -166,6 +170,26 @@ export default function Workspace() {
     },
     [run, label],
   );
+
+  /**
+   * The agent's close of a tab of this window, or of this window: its decision redeemed from the
+   * host (once, by this window), then the same flow as a click; a target elsewhere is ignored.
+   */
+  const agentCloseNow = async (target: Parameters<AgentClose>[0], id: string) => {
+    const w = winRef.current;
+    if (label === null || !w) return;
+    const ours = target.kind === "tab" ? w.tabs.some((x) => x.id === target.tab) : target.window === label;
+    if (!ours) return;
+    const decide = await redeem((x) => takeCloseDecision(x, label), id, freshView);
+    if (target.kind === "tab") await closeTabFlow(target.tab, { ...flowDeps(label), decide });
+    else await closeWindowFlow(w.active, { ...flowDeps(label), decide });
+  };
+  const agentCloseRef = useRef(agentCloseNow);
+  agentCloseRef.current = agentCloseNow;
+  // Stable for the panels: the latest render's runner, read when an event comes.
+  const agentClose = useCallback<AgentClose>((target, id) => {
+    agentCloseRef.current(target, id).catch((e) => alive.current && setError(errorText(e)));
+  }, []);
 
   // « Annuler » sur un onglet arrête tout. A deck-pack tab keeps its owner open.
   const closeOthers = async (id: string) => {
@@ -308,35 +332,38 @@ export default function Workspace() {
       )}
       <div className="workspace-body">
         {/* En développement, `onChange` relit la vue sans relancer le snapshot : pas de boucle. */}
-        <App
-          key={win.active}
-          tab={win.active}
-          clip={shared.clip}
-          clipGen={shared.gen}
-          onCopy={shared.share}
-          agentDetached={view.agent_detached}
-          nonce={nonce}
-          notice={mergeNotice}
-          onOpen={onOpen}
-          importJob={imports.job?.shown ? imports.job : null}
-          onImportPick={imports.pick}
-          onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
-          onImportClose={imports.close}
-          importWaiting={waitingPicks}
-          onHelp={() => run(workspace.openHelp(label))}
-          onAbout={() => setAbout(true)}
-          windowDialog={about || asker.asking}
-          updates={appUpdates}
-          onClose={closeStays(view, label, win.active, inTauri) ? undefined : () => void closeTab(win.active)}
-          onOpenPack={async (pack, widget) => {
-            const v = await run(workspace.openPack(win.active, pack, widget));
-            return v?.windows.find((w) => w.label === label)?.active === win.active;
-          }}
-          onOpenTheme={(theme) => void run(workspace.openTheme(win.active, theme))}
-          onNewPack={(kind) => void run(workspace.newPack(win.active, kind))}
-          onNewTheme={() => void run(workspace.newTheme(win.active))}
-          onChange={inTauri ? undefined : reread}
-        />
+        <AgentCloseContext.Provider value={agentClose}>
+          <App
+            key={win.active}
+            tab={win.active}
+            windowLabel={label}
+            clip={shared.clip}
+            clipGen={shared.gen}
+            onCopy={shared.share}
+            agentDetached={view.agent_detached}
+            nonce={nonce}
+            notice={mergeNotice}
+            onOpen={onOpen}
+            importJob={imports.job?.shown ? imports.job : null}
+            onImportPick={imports.pick}
+            onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
+            onImportClose={imports.close}
+            importWaiting={waitingPicks}
+            onHelp={() => run(workspace.openHelp(label))}
+            onAbout={() => setAbout(true)}
+            windowDialog={about || asker.asking}
+            updates={appUpdates}
+            onClose={closeStays(view, label, win.active, inTauri) ? undefined : () => void closeTab(win.active)}
+            onOpenPack={async (pack, widget) => {
+              const v = await run(workspace.openPack(win.active, pack, widget));
+              return v?.windows.find((w) => w.label === label)?.active === win.active;
+            }}
+            onOpenTheme={(theme) => void run(workspace.openTheme(win.active, theme))}
+            onNewPack={(kind) => void run(workspace.newPack(win.active, kind))}
+            onNewTheme={() => void run(workspace.newTheme(win.active))}
+            onChange={inTauri ? undefined : reread}
+          />
+        </AgentCloseContext.Provider>
       </div>
       <TabBar
         view={view}

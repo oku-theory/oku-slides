@@ -8,8 +8,9 @@ use std::time::{Duration, Instant};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::{Settings, SttSettings};
 
+use crate::phrase_engine::PhraseEngine;
 use crate::stream::{Availability, Event, Stream, StreamEngine};
-use crate::{Status, Stt, locale};
+use crate::{Config, Model, Status, Stt, SttError, Transcript, locale};
 
 /// Un dossier neuf, créé atomiquement sous un nom aléatoire (t-273).
 ///
@@ -17,6 +18,15 @@ use crate::{Status, Stt, locale};
 /// (nextest lance un processus par test). Supprimé au `drop`.
 pub(crate) fn fresh_dir(prefix: &str) -> tempfile::TempDir {
     tempfile::Builder::new().prefix(prefix).tempdir().unwrap_or_else(|e| panic!("dossier de test impossible : {e}"))
+}
+
+/// When a [`ScriptedEngine`] stream sends its finals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FinalsAt {
+    /// At `finish`, as a dictation ends.
+    Finish,
+    /// At the first `push` (listening: the stream is never finished).
+    FirstPush,
 }
 
 /// Un moteur en continu factice : français seulement, rejoue `finals` à `finish`.
@@ -28,6 +38,8 @@ pub(crate) struct ScriptedEngine {
     pub hang: bool,
     /// Le premier `push` rend une erreur du moteur.
     pub fail: bool,
+    /// When `finals` are sent.
+    pub finals_at: FinalsAt,
     /// Délai avant les événements de `install` (laisse voir une annulation).
     pub install_delay: Duration,
     /// `install` envoie `Progress` sans fin, sans jamais `Done`.
@@ -46,6 +58,7 @@ impl ScriptedEngine {
             finals: finals.iter().map(|s| (*s).to_owned()).collect(),
             hang: false,
             fail: false,
+            finals_at: FinalsAt::Finish,
             install_delay: Duration::ZERO,
             install_progress_forever: false,
             pushed: Arc::default(),
@@ -97,6 +110,7 @@ impl StreamEngine for ScriptedEngine {
             finals: self.finals.clone(),
             hang: self.hang,
             fail: self.fail,
+            finals_at: self.finals_at,
             pushed: self.pushed.clone(),
             cancelled: self.cancelled.clone(),
             kept: self.kept.clone(),
@@ -111,9 +125,21 @@ struct ScriptedStream {
     finals: Vec<String>,
     hang: bool,
     fail: bool,
+    finals_at: FinalsAt,
     pushed: Arc<AtomicUsize>,
     cancelled: Arc<AtomicBool>,
     kept: Arc<Mutex<Vec<mpsc::Sender<Event>>>>,
+}
+
+impl ScriptedStream {
+    /// The scripted finals, one second each from the stream's start.
+    fn send_finals(&self) {
+        let mut start = 0.0;
+        for text in &self.finals {
+            self.tx.send(Event::Final { text: text.clone(), start, end: start + 1.0 }).ok();
+            start += 1.0;
+        }
+    }
 }
 
 impl Stream for ScriptedStream {
@@ -125,14 +151,15 @@ impl Stream for ScriptedStream {
                 Event::Partial(" bonjour ".into())
             };
             self.tx.send(event).ok();
+            if self.finals_at == FinalsAt::FirstPush {
+                self.send_finals();
+            }
         }
     }
 
     fn finish(&mut self) {
-        let mut start = 0.0;
-        for text in &self.finals {
-            self.tx.send(Event::Final { text: text.clone(), start, end: start + 1.0 }).ok();
-            start += 1.0;
+        if self.finals_at == FinalsAt::Finish {
+            self.send_finals();
         }
         if self.hang {
             self.kept.lock().unwrap_or_else(PoisonError::into_inner).push(self.tx.clone());
@@ -238,4 +265,103 @@ pub(crate) fn fake_api_with(
         }
     });
     (url, rx)
+}
+
+/// A phrase engine answering `motN.` for its N-th final phrase, after `delay`.
+#[derive(Debug, Default)]
+pub(crate) struct CountingEngine {
+    /// Final phrases transcribed so far.
+    pub calls: AtomicUsize,
+    /// Time each final phrase takes.
+    pub delay: Duration,
+}
+
+impl PhraseEngine for CountingEngine {
+    fn transcribe(
+        &self,
+        _audio: &[f32],
+        _language: Option<&str>,
+        _context: Option<&str>,
+        quick: bool,
+    ) -> Result<Transcript, SttError> {
+        if quick {
+            return Ok(Transcript { text: String::new(), language: Some("fr".into()), no_speech: 0.0 });
+        }
+        std::thread::sleep(self.delay);
+        let n = self.calls.fetch_add(1, Ordering::Relaxed);
+        Ok(Transcript { text: format!("mot{n}."), language: Some("fr".into()), no_speech: 0.0 })
+    }
+}
+
+/// A part of a fake microphone recording.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Part {
+    /// The French speech fixture (`fixtures/stt/dictee-fr.wav`, 5.7 s).
+    Speech,
+    /// Silence, in seconds.
+    Silence(f32),
+}
+
+/// The speech fixture, 16 kHz mono.
+const SPEECH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/stt/dictee-fr.wav");
+
+/// A WAV of `parts` at 16 kHz in `dir`, as the microphone (then silence forever).
+pub(crate) fn speech_wav(dir: &Path, parts: &[Part]) -> PathBuf {
+    let speech: Vec<i16> = hound::WavReader::open(SPEECH)
+        .unwrap_or_else(|e| panic!("fixture : {e}"))
+        .samples::<i16>()
+        .map(|s| s.unwrap_or_else(|e| panic!("fixture : {e}")))
+        .collect();
+    let path = dir.join("voix.wav");
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: 16_000,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap_or_else(|e| panic!("wav : {e}"));
+    for part in parts {
+        let samples = match part {
+            Part::Speech => speech.clone(),
+            Part::Silence(secs) => vec![0; crate::num::samples(*secs)],
+        };
+        for s in samples {
+            writer.write_sample(s).unwrap_or_else(|e| panic!("wav : {e}"));
+        }
+    }
+    writer.finalize().unwrap_or_else(|e| panic!("wav : {e}"));
+    path
+}
+
+/// Whisper Base listening on `parts`, its engine faked; `stt.apple = false`, silence `silence` s.
+pub(crate) fn listening_stt(dir: &Path, parts: &[Part], silence: f32) -> (Stt, Arc<CountingEngine>) {
+    listening_stt_with(dir, parts, silence, Duration::ZERO)
+}
+
+/// [`listening_stt`] whose engine takes `delay` per final phrase.
+pub(crate) fn listening_stt_with(
+    dir: &Path,
+    parts: &[Part],
+    silence: f32,
+    delay: Duration,
+) -> (Stt, Arc<CountingEngine>) {
+    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
+    settings.paths.models = Some(dir.join("models"));
+    settings.i18n.locale = Some("fr".into());
+    // Never the real hub: a download started by a test fails at once.
+    "http://127.0.0.1:9".clone_into(&mut settings.models.hub_url);
+    settings.models.download_retries = 0;
+    settings.stt.apple = false;
+    settings.stt.fake_mic = Some(speech_wav(dir, parts));
+    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
+    let installed = Model::Base.path(&dir.join("models"));
+    std::fs::create_dir_all(&installed).unwrap_or_else(|e| panic!("modèle : {e}"));
+    std::fs::write(installed.join(oku_slides_platform::models::COMPLETE), b"")
+        .unwrap_or_else(|e| panic!("modèle : {e}"));
+    let stt = Stt::new(&platform);
+    let config = Config { model: Model::Base, language: Some("fr".into()), silence, ..Config::default() };
+    assert!(stt.configure(config.clone()), "réglages refusés");
+    let engine = Arc::new(CountingEngine { delay, ..CountingEngine::default() });
+    stt.state().engine = Some((crate::dictation_whisper::engine_key(&config), engine.clone()));
+    (stt, engine)
 }

@@ -1,6 +1,9 @@
 //! La vue de référence de la boîte des réglages, pour les tests d'autres crates.
 
-use crate::voice_view::{AgentPresetView, AgentsView, ApiView, DictationView, ModelKind, ModelView, VoiceView};
+use crate::voice_view::{
+    AgentPresetView, AgentsView, ApiView, DictationView, ModelKind, ModelView, SpeechStatusView, SpeechView,
+    SpeechVoiceView, VoiceView,
+};
 
 /// La vue de référence : Turbo installé, Large à télécharger, Base indisponible, API sans clé.
 #[must_use]
@@ -20,6 +23,7 @@ pub fn voice_view_fixture() -> VoiceView {
             detected: None,
             auto_stop: true,
             silence: 1.5,
+            hands_free: false,
             api: ApiView {
                 url: "https://api.openai.com/v1".into(),
                 model: "gpt-4o-transcribe".into(),
@@ -44,5 +48,14 @@ pub fn voice_view_fixture() -> VoiceView {
             pending: None,
             models: None,
         },
+        speech: Some(SpeechView {
+            read_aloud: false,
+            voice: None,
+            rate: 1.0,
+            in_presentation: false,
+            status: SpeechStatusView::Ready {
+                voices: vec![SpeechVoiceView { id: "v-fr".into(), name: "Amélie".into() }],
+            },
+        }),
     }
 }

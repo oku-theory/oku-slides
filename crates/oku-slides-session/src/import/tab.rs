@@ -34,7 +34,7 @@ impl Session {
         if let Some(compiled) = &self.compiled {
             note_overflows(compiled.layout(), state.report_mut());
         }
-        self.doc.dirty = true;
+        self.mark_dirty();
         self.import = Some(state);
         self.persist(true);
         Ok(())

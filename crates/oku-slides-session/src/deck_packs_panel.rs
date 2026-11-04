@@ -127,6 +127,41 @@ pub fn packs_event(name: &str, context: &Map<String, Value>) -> Option<PacksEven
     }
 }
 
+/// An update the packs panel offers on a pinned pack, as its buttons do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PackUpdate {
+    /// Move the deck to my current version ("Use mine").
+    UseMine,
+    /// Make the deck's version my current one ("Make current").
+    MakeCurrent,
+}
+
+/// Does the panel show the `action` button on pack `p`?
+fn offers(p: &PinnedPackView, action: PackUpdate) -> bool {
+    // A deck-only pack has no relation: no version buttons.
+    p.drift.is_some()
+        && match action {
+            PackUpdate::UseMine => true,
+            PackUpdate::MakeCurrent => p.library_has_pinned && !p.builtin,
+        }
+}
+
+/// The panel's event for `action` on pinned pack `pack`, as its button sends it.
+///
+/// `pack` is the namespace the deck pins it under, or its id. `None` when no card of
+/// `view` shows that button: no such pack, or no such update offered.
+#[must_use]
+pub fn packs_event_for(view: &DeckPacksView, pack: &str, action: PackUpdate) -> Option<PacksEvent> {
+    let named = |p: &&PinnedPackView| p.namespace.as_str() == pack || p.id.to_string() == pack;
+    let p = view.layouts.iter().chain(&view.widgets).filter(named).find(|p| offers(p, action))?;
+    let (kind, namespace) = (p.kind, p.namespace.clone());
+    Some(match action {
+        PackUpdate::UseMine => PacksEvent::UseMine { kind, namespace },
+        PackUpdate::MakeCurrent => PacksEvent::MakeCurrent { kind, namespace },
+    })
+}
+
 /// L'évènement `name` sur le pack `p`.
 fn pack_action(name: &str, p: &PinnedPackView) -> Action {
     Action::event(name, [("kind", lit(json!(kind_name(p.kind)))), ("namespace", lit(json!(p.namespace.as_str())))])
@@ -231,14 +266,14 @@ impl Builder {
         if p.openable && (p.installable.is_none() || drift.is_some()) {
             actions.push(self.push(open));
         }
-        if drift.is_some() {
+        if offers(p, PackUpdate::UseMine) {
             let action = pack_action("use_mine", p);
             actions.push(self.push(Component::button(sub("use-mine"), l.tr("packs-use-mine"), true, action)));
-            if p.library_has_pinned && !p.builtin {
-                let action = pack_action("make_current", p);
-                let label = l.tr("packs-make-current");
-                actions.push(self.push(Component::button(sub("make-current"), label, false, action)));
-            }
+        }
+        if offers(p, PackUpdate::MakeCurrent) {
+            let action = pack_action("make_current", p);
+            let label = l.tr("packs-make-current");
+            actions.push(self.push(Component::button(sub("make-current"), label, false, action)));
         }
         match &p.remove_refusal {
             None => {

@@ -11,6 +11,7 @@ import { quickAction, quickKey } from "./quick";
 import type { Routed } from "./surfaces";
 import { HOST_THEME_PICKER, HOST_VOICE, isQuestion } from "./surfaces";
 import { ARMING_MS } from "../modalFrame";
+import { presenting } from "../present";
 
 /** The surface that gets the keys, and its kind (`dock`: a thread question; `popover`: the host's theme picker, shown). */
 export interface QuickTarget {
@@ -83,6 +84,8 @@ export function useQuickKeys(target: QuickTarget | null, onAction: (s: Surface, 
       if (!t || e.defaultPrevented || editable(e.target)) return;
       const key = quickKey(e);
       if (!key) return;
+      // A presentation owns Escape (t-998): it must not dismiss a question behind it.
+      if (key === "Escape" && presenting()) return;
       if (key === "Enter" && e.target instanceof Element && e.target.closest("button")) return;
       if (t.kind === "modal") {
         if (key !== "Escape" || Date.now() - (openedAt.current?.at ?? 0) < ARMING_MS) return;

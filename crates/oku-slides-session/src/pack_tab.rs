@@ -390,6 +390,7 @@ impl Session {
         Some(TabInfo {
             title: label(&edit.name),
             dirty: self.doc.dirty || self.unsent(),
+            dirty_revision: self.dirty_revision(),
             pristine: false,
             theme: preview.theme.as_ref().and_then(|ns| preview.themes.get(ns)).map(|pin| pin.id),
             document,

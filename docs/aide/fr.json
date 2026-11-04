@@ -452,6 +452,109 @@
    }
   },
   {
+   "id": "s-mains-libres",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Ergonomie",
+    "title": "Mains libres",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-mains-libres",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "L'activer",
+           "bold": true
+          },
+          {
+           "t": " : cochez « Écoute mains libres » dans les réglages de la dictée (le ⚙ de la barre de dictée). Vous seul l'activez ; l'agent peut seulement la couper. Chaque lancement démarre en pause : un appui sur le micro ou ⌘D, et la barre affiche « À l'écoute, mains libres »."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Parler à l'agent",
+           "bold": true
+          },
+          {
+           "t": " : chaque phrase part vers l'agent dès que vous marquez une pause, sans passer par le brouillon. Parler pendant qu'il travaille interrompt sa réponse ; « stop » l'annule sans nouvelle demande. Les sons très courts sont ignorés."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Répondre à voix haute",
+           "bold": true
+          },
+          {
+           "t": " : dites oui ou non à une question. Une question risquée demande son verbe (« fusionner », « supprimer », « remplacer », « quitter »…), comme Oku le dit en la lisant. Une permission accepte oui (autoriser une fois) ou non (refuser une fois), jamais une option « toujours ». Pour un choix ou des variantes, dites « la deuxième » ou l'option. Tout le reste laisse la question ouverte et affiche ce qui a été entendu. Quand aucune fenêtre d'Oku n'est au premier plan, seuls « stop » et les phrases qui commencent par « Oku » sont entendus."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Présenter",
+           "bold": true
+          },
+          {
+           "t": " : dites « suivante », « précédente », « première diapo », « dernière diapo » ou « quitter ». Commencez une phrase par « Oku, … » pour vous adresser à l'agent ; rien d'autre de ce que vous dites pendant l'exposé ne lui parvient."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Lecture à voix haute",
+           "bold": true
+          },
+          {
+           "t": " : Oku lit chaque compte rendu, question et erreur de l'onglet affiché avec la voix du système, et l'écoute se met en pause pendant qu'il parle. La voix et le débit se règlent dans la boîte des réglages. Pendant une présentation, il se tait, sauf si vous l'autorisez à répondre après « Oku »."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Sans clavier ni souris",
+           "bold": true
+          },
+          {
+           "t": " : demandez à l'agent de changer d'onglet, de les réordonner, de les déplacer ou de les fermer, d'ouvrir ou de fermer une fenêtre, d'ouvrir l'aide sur un sujet, d'annuler ou de rétablir, de commencer une nouvelle conversation, de chercher une mise à jour ou de quitter. Fermer et quitter vous demandent d'abord, et quitter est refusé tant qu'un onglet a du travail non enregistré."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Limites connues",
+           "bold": true
+          },
+          {
+           "t": " : tant qu'une fenêtre d'Oku est au premier plan, toute voix que capte le micro (une vidéo, un appel, quelqu'un dans la pièce) peut lancer les outils qui ne demandent pas de confirmation. Quand Oku est en arrière-plan, une phrase qui commence par « Oku » parvient quand même à l'agent. Dans la version navigateur (oku-slides serve), les actions risquées ne se confirment jamais à la voix : cliquez sur le bouton."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "s-agent",
    "kind": "essentiel/content",
    "params": {
@@ -1717,7 +1820,7 @@
            "bold": true
           },
           {
-           "t": " : un fichier WAV rejoué à la place du micro."
+           "t": " : un fichier WAV rejoué à la place du micro (versions de test seulement : les autres le refusent au démarrage)."
           }
          ],
          "list": "bullet"

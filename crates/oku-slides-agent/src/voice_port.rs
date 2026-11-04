@@ -9,7 +9,7 @@
 //! taken under `switch`. Order when they nest: `saving` → `switch` → `AgentChoice.active` →
 //! `AgentChoice.models` → the `Link` locks; the `ModelBoard` state lock is a leaf.
 
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, Weak};
 
 use oku_slides_i18n::Localizer;
 use oku_slides_mcp::{
@@ -20,7 +20,7 @@ use oku_slides_session::{
     ModelKind, ModelView, VoiceEvent, VoiceView,
 };
 use oku_slides_stt::{
-    ApiAccessProblem, Config, Model, ModelInfo, SILENCE_RANGE, State, Status, Stt, api_access_problem,
+    ApiAccessProblem, Config, Model, ModelInfo, SILENCE_RANGE, Speaker, State, Status, Stt, api_access_problem,
     format_api_headers, normalized_url, parse_api_headers, url_host, valid_api_headers, valid_api_model,
     valid_api_version, valid_key_env,
 };
@@ -86,6 +86,7 @@ fn dictation_view(s: &Status) -> DictationView {
         detected: s.detected.clone(),
         auto_stop: config.auto_stop,
         silence: config.silence,
+        hands_free: config.hands_free,
         api: ApiView {
             url: config.api.url.clone(),
             model: config.api.model.clone(),
@@ -100,7 +101,7 @@ fn dictation_view(s: &Status) -> DictationView {
             received: d.received,
             total: d.total,
         }),
-        idle: s.state == State::Idle,
+        idle: s.state.accepts_settings(),
     }
 }
 
@@ -120,7 +121,7 @@ fn dictation_diagnosis(stt: &Stt) -> DictationDiagnosis {
 /// Vérifie `patch` sur l'état `status` ; rend ce qu'il faut confirmer et les réglages qui en résultent.
 fn check_patch(status: &Status, patch: &DictationPatch, origin: &Origin) -> Result<(Checked, Config), VoiceError> {
     let agent = matches!(origin, Origin::Agent { .. });
-    if status.state != State::Idle {
+    if !status.state.accepts_settings() {
         return Err(refused(VoiceErrorKind::Busy));
     }
     if agent && patch.touches_api_target() {
@@ -155,6 +156,7 @@ fn check_patch(status: &Status, patch: &DictationPatch, origin: &Origin) -> Resu
         }
         new.silence = silence;
     }
+    hands_free::check_hands_free(patch, agent, &mut new)?;
     if let Some(url) = &patch.api_url {
         new.api.url = normalized_url(url).ok_or_else(|| refused(VoiceErrorKind::BadUrl))?;
     }
@@ -233,7 +235,7 @@ fn check_download(status: &Status, id: &str) -> Result<(Checked, Model), VoiceEr
     if info.installed {
         return Err(refused(VoiceErrorKind::Installed));
     }
-    if status.state != State::Idle {
+    if !status.state.accepts_settings() {
         return Err(refused(VoiceErrorKind::Busy));
     }
     let download = Some((model_view(info), status.config.api.model.clone()));
@@ -245,6 +247,8 @@ fn check_download(status: &Status, id: &str) -> Result<(Checked, Model), VoiceEr
 pub(crate) struct AppVoice {
     /// La dictée de l'hôte ; `None` sans moteur de dictée.
     stt: Option<Stt>,
+    /// The read-aloud's voice; `None` without one (it is then unavailable).
+    speaker: Option<Speaker>,
     /// L'agent choisi.
     choice: Arc<AgentChoice>,
     /// Les requêtes en cours et le changement d'agent en attente : le verrou d'état.
@@ -260,10 +264,11 @@ pub(crate) struct AppVoice {
 }
 
 impl AppVoice {
-    /// La dictée `stt` et le choix `choice` ; la veille de la dictée démarre aussitôt.
-    pub(crate) fn new(stt: Option<Stt>, choice: Arc<AgentChoice>, rt: Handle) -> Arc<Self> {
+    /// Dictation `stt`, voice `speaker` and choice `choice`; the dictation watch starts at once.
+    pub(crate) fn new(stt: Option<Stt>, speaker: Option<Speaker>, choice: Arc<AgentChoice>, rt: Handle) -> Arc<Self> {
         let voice = Arc::new_cyclic(|me| Self {
             stt: stt.clone(),
+            speaker,
             choice,
             switch: AgentSwitch::default(),
             revision: watch::channel(0).0,
@@ -460,30 +465,12 @@ impl AppVoice {
         Ok((stt, Checked::default()))
     }
 
-    fn apply_patch(&self, patch: &DictationPatch, origin: &Origin) -> Result<VoiceApplied, VoiceError> {
-        let stt = self.stt()?;
-        let applied = {
-            let _edit = self.edit.lock().unwrap_or_else(PoisonError::into_inner);
-            let (checked, config) = check_patch(&stt.status(), patch, origin)?;
-            confirmed(&checked, origin)?;
-            if checked.unchanged {
-                return Ok(VoiceApplied::Unchanged);
-            }
-            stt.configure(config)
-        };
-        if !applied {
-            return Err(refused(VoiceErrorKind::Busy));
-        }
-        self.bump();
-        Ok(VoiceApplied::Now)
-    }
-
     fn apply_download(&self, id: &str, origin: &Origin) -> Result<VoiceApplied, VoiceError> {
         let stt = self.stt()?;
         let (checked, model) = check_download(&stt.status(), id)?;
         confirmed(&checked, origin)?;
         if !stt.download(model, false) {
-            let busy = stt.status().state != State::Idle;
+            let busy = !stt.status().state.accepts_settings();
             return Err(refused(if busy { VoiceErrorKind::Busy } else { VoiceErrorKind::Installed }));
         }
         self.bump();
@@ -565,7 +552,13 @@ impl VoicePort for AppVoice {
         let mut agents = self.choice.agents_view();
         agents.busy = busy;
         agents.pending = pending;
-        VoiceView { dictation, agents }
+        VoiceView { dictation, agents, speech: self.speech_view() }
+    }
+
+    fn refresh_voices(&self) {
+        if let Some(speaker) = &self.speaker {
+            speaker.refresh_voices();
+        }
     }
 
     fn check(&self, event: &VoiceEvent, origin: &Origin) -> Result<Checked, VoiceError> {
@@ -577,6 +570,7 @@ impl VoicePort for AppVoice {
             VoiceEvent::DownloadAgentModel => self.check_agent_model(),
             VoiceEvent::CancelAgentModelDownload => self.check_cancel_agent_model(),
             VoiceEvent::SelectAgentModel { id } => self.check_model_choice(id).map(|(_, c)| c),
+            VoiceEvent::Speech(patch) => self.check_speech(patch).map(|(c, _, _)| c),
         }
     }
 
@@ -606,6 +600,7 @@ impl VoicePort for AppVoice {
             }
             // Only the box sends it: no tool of the agent chooses its model.
             VoiceEvent::SelectAgentModel { id } => self.select_model(&id),
+            VoiceEvent::Speech(patch) => self.apply_speech(&patch),
         }
     }
 
@@ -613,6 +608,12 @@ impl VoicePort for AppVoice {
         Diagnosis { agent: self.choice.diagnosis(), dictation: self.stt.as_ref().map(dictation_diagnosis) }
     }
 }
+
+#[path = "voice_port_hands_free.rs"]
+mod hands_free;
+
+#[path = "voice_port_speech.rs"]
+mod speech;
 
 #[cfg(test)]
 #[path = "voice_port_tests.rs"]

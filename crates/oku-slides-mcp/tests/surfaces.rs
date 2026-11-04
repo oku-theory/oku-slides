@@ -5,7 +5,7 @@ mod common;
 use common::*;
 use oku_slides_core::kinds;
 use oku_slides_i18n::{Localize, english};
-use oku_slides_mcp::{HubErrorKind, McpEvent};
+use oku_slides_mcp::{AnswerOutcome, HubErrorKind, McpEvent};
 use oku_slides_session::agent::{AskChoice, forms};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -71,7 +71,7 @@ async fn ask_choice_dismissed_returns_cancelled_and_freezes_the_question() {
     h.hub.act(action(&surface.id, "dismiss", &json!({}))).unwrap();
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "cancelled": true }));
     let frozen = wait_event(&mut rx, |e| match e {
-        McpEvent::Surface { surface } if surface.id == surface_id && !surface.live => Some(surface),
+        McpEvent::Surface { surface, .. } if surface.id == surface_id && !surface.live => Some(surface),
         _ => None,
     })
     .await;
@@ -89,7 +89,7 @@ async fn answer_turns_the_prompt_into_answer_text() {
     });
     let asked = next_surface(&mut rx).await;
     assert_that!(h.hub.has_pending_ask()).is_true();
-    assert_that!(h.hub.answer(&asked.id, "la deuxième")).is_true();
+    assert_that!(h.hub.answer(&asked.id, "la deuxième")).is_equal_to(AnswerOutcome::Answered);
     assert_that!(json_of(&pending.await.unwrap())).is_equal_to(json!({ "answer_text": "la deuxième" }));
     assert_that!(h.hub.has_pending_ask()).is_false();
 }
@@ -581,7 +581,7 @@ async fn close_releases_every_waiting_tool() {
 async fn ask_after_close_is_cancelled_without_opening_a_surface() {
     let h = start().await;
     h.hub.close();
-    let confirmed = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.confirm("Sûr ?".into(), false)).await;
+    let confirmed = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.confirm("Sûr ?".into(), None)).await;
     assert_that!(confirmed).is_equal_to(Ok(false));
     let permission = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.permission("?", &[])).await;
     assert_that!(permission).is_equal_to(Ok(None));
@@ -647,12 +647,8 @@ async fn widgets_tool_lists_base_card_with_its_params() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_surface_patch_updates_the_open_copy_sent_on_resync() {
     let h = start().await;
-    let s = forms::confirm(
-        "ask-1",
-        &oku_slides_session::agent::AskConfirm { message: "Ok ?".into(), danger: false },
-        &h.localizer,
-    );
-    h.hub.emit(McpEvent::Surface { surface: s });
+    let s = forms::confirm("ask-1", "Ok ?", None, None, &h.localizer);
+    h.hub.emit(McpEvent::surface(s));
     h.hub.emit(McpEvent::SurfacePatch {
         id: "ask-1".into(),
         messages: vec![oku_slides_a2ui::ServerMessage::set_data_model("ask-1", json!({"x": 1}))],
@@ -867,7 +863,7 @@ async fn hub_surface_of_a_cleared_turn_is_ignored() {
     // Le relais, en retard, émet encore la surface du tour effacé.
     let mut late = forms::frozen_choice("turn-late", "Q", Some("A"), &h.localizer);
     late.turn = Some(n);
-    h.hub.emit(McpEvent::Surface { surface: late });
+    h.hub.emit(McpEvent::surface(late));
     assert_that!(open_ids(&h)).is_empty();
 }
 
@@ -885,12 +881,8 @@ async fn hub_close_turn_closes_only_that_turn() {
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_clear_thread_keeps_surfaces_outside_turns() {
     let h = start().await;
-    let confirm = forms::confirm(
-        "c",
-        &oku_slides_session::agent::AskConfirm { message: "Ok ?".into(), danger: false },
-        &h.localizer,
-    );
-    h.hub.emit(McpEvent::Surface { surface: confirm });
+    let confirm = forms::confirm("c", "Ok ?", None, None, &h.localizer);
+    h.hub.emit(McpEvent::surface(confirm));
     let n = h.hub.begin_turn();
     h.hub.show_static(n, forms::frozen_choice("a", "Q", Some("A"), &h.localizer));
     h.hub.clear_thread();
@@ -936,6 +928,18 @@ async fn hub_close_turn_closes_live_params_of_that_turn() {
     h.hub.close_turn(n);
     assert_that!(open_ids(&h)).is_empty();
     assert_that!(h.hub.act(action(&id, "dismiss", &json!({})))).is_err();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_variants_opens_a_drawer_the_hub_reports() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    assert_that!(h.hub.has_variants()).is_false();
+    let variant = |t: &str| json!({ "label": t, "ops": [{ "op": "set_param", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "body", "value": [{ "runs": [{ "t": t }] }] }] });
+    call(&c, "show_variants", json!({ "slide": "s-libre", "variants": [variant("Un"), variant("Deux")] })).await;
+    next_surface(&mut rx).await;
+    assert_that!(h.hub.has_variants()).is_true();
 }
 
 #[tokio::test(flavor = "multi_thread")]

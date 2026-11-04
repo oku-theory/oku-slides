@@ -115,6 +115,6 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-copy-edited-theme", &[("name", label(&name).into())]);
-        self.guarded(message, false, Request::SaveTheme { as_new: true }).await
+        self.guarded(message, None, Request::SaveTheme { as_new: true }).await
     }
 }

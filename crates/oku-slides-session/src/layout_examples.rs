@@ -166,7 +166,7 @@ impl Session {
         self.render_deck(&deck)?;
         self.adopt_session_version(deck, files, &edit, false, AdoptStep::Op(label, merge, moves))?;
         self.rerender()?;
-        self.doc.dirty = true;
+        self.mark_dirty();
         self.persist(true);
         Ok(true)
     }

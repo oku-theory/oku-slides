@@ -13,11 +13,11 @@ use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, LOCATION, SET_COOKIE, WWW_
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use color_eyre::eyre::Result;
-use oku_slides_agent::{AgentCommand, Stack};
+use oku_slides_agent::{AgentCommand, ReportFrom, Stack, Voices};
 use oku_slides_platform::{Limits, Platform, serve_connections};
 use oku_slides_render::Fonts;
 use oku_slides_session::{Localize, Workspace, WorkspaceOutcome, WorkspaceRequest};
-use oku_slides_stt::Stt;
+use oku_slides_stt::{Speaker, Stt};
 
 use crate::guard::{self, Access, Refusal, Token};
 use crate::out::Out;
@@ -53,8 +53,33 @@ const MAX_BODY: u64 = 64 * 1024 * 1024;
 /// ses tâches : au-delà, elles sont abandonnées.
 const GRACE: Duration = Duration::from_secs(5);
 
+/// The header naming the page's window, for page reports (`ReportFrom`); the app reads its label.
+const WINDOW_HEADER: &str = "x-oku-window";
+
+/// The longest window label read from [`WINDOW_HEADER`], in bytes; a longer one names no window.
+const WINDOW_LABEL_MAX: usize = 64;
+
+/// The window a page names in [`WINDOW_HEADER`], if valid text within [`WINDOW_LABEL_MAX`].
+///
+/// No host window exists here: the page says which one it is, the trust level of the
+/// page-reported focus (`FocusSource::PageReported`), which danger confirmations refuse.
+fn page_window(headers: &axum::http::HeaderMap) -> Option<String> {
+    let label = headers.get(WINDOW_HEADER)?.to_str().ok()?;
+    (label.len() <= WINDOW_LABEL_MAX).then(|| label.to_owned())
+}
+
 /// Les routes de l'API servies en POST.
-const API: [&str; 4] = ["/api", "/api/workspace", "/api/stt", "/api/agent"];
+const API: [&str; 5] = ["/api", "/api/workspace", "/api/stt", "/api/agent", "/api/close-decision"];
+
+/// The longest close decision id read, in bytes: a UUID is 36.
+const CLOSE_ID_MAX: usize = 64;
+
+/// The page's `/api/close-decision` body: the id from the agent's close event.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CloseDecisionRequest {
+    id: String,
+}
 
 /// `req` ferme le dernier onglet de la seule fenêtre : plus rien à afficher.
 fn would_empty(ws: &Mutex<Workspace>, req: &WorkspaceRequest) -> bool {
@@ -113,7 +138,7 @@ fn token_url(host: &str, port: u16, token: &Token) -> String {
 struct Shared {
     /// L'espace de travail, partagé avec l'agent (`Sessions`).
     workspace: Arc<Mutex<Workspace>>,
-    stack: Stack,
+    stack: Arc<Stack>,
     stt: Stt,
     clients: Clients,
     platform: Platform,
@@ -130,7 +155,9 @@ struct Shared {
 
 impl Shared {
     /// Traite une requête `/api*` : statut et corps JSON. Bloquant.
-    fn api(&self, url: &str, body: &[u8]) -> (StatusCode, String) {
+    ///
+    /// `window`: the window the page names ([`page_window`]), for its page reports.
+    fn api(&self, url: &str, body: &[u8], window: Option<&str>) -> (StatusCode, String) {
         let l = &self.platform.localizer;
         let bad_request = |e: serde_json::Error| {
             let reason = e.to_string();
@@ -183,7 +210,8 @@ impl Shared {
                         Ok(WorkspaceOutcome::Applied(json)) => (StatusCode::OK, json),
                         // Un onglet importé à fine-tuner : son tour part, puis la vue, comme un fichier ouvert.
                         Ok(WorkspaceOutcome::Tune { json, tab }) => {
-                            self.stack.tune(&tab);
+                            // The tab itself says why an unusable agent did not start.
+                            let _started = self.stack.tune(&tab);
                             (StatusCode::OK, json)
                         }
                         Ok(WorkspaceOutcome::LastWindow(_)) => last_window(),
@@ -193,10 +221,31 @@ impl Shared {
                 Err(e) => bad_request(e),
             },
             "/api/agent" => match serde_json::from_slice::<AgentCommand>(body) {
-                Ok(cmd) => match self.stack.handle(cmd) {
-                    Ok(()) => (StatusCode::OK, "{}".to_owned()),
-                    Err(e) => (StatusCode::BAD_REQUEST, serde_json::json!({ "error": e }).to_string()),
-                },
+                Ok(cmd) => {
+                    // The same holder check as the app's, on the window the page names.
+                    let from = ReportFrom::of(&self.workspace, &cmd, window);
+                    match self.stack.handle_from(cmd, &from) {
+                        Ok(()) => (StatusCode::OK, "{}".to_owned()),
+                        Err(e) => (StatusCode::BAD_REQUEST, serde_json::json!({ "error": e }).to_string()),
+                    }
+                }
+                Err(e) => bad_request(e),
+            },
+            // Taken once, by the window the decision targets; any other asks again (`null`).
+            "/api/close-decision" => match serde_json::from_slice::<CloseDecisionRequest>(body) {
+                Ok(CloseDecisionRequest { id }) => {
+                    let decision = window
+                        .filter(|_| id.len() <= CLOSE_ID_MAX)
+                        .and_then(|w| self.stack.take_close_decision(w, &id));
+                    match serde_json::to_string(&decision) {
+                        Ok(json) => (StatusCode::OK, json),
+                        // Cannot happen with these fields; the page then asks, as with no decision.
+                        Err(e) => {
+                            tracing::warn!(error = %e, "close decision not serialized");
+                            (StatusCode::OK, "null".to_owned())
+                        }
+                    }
+                }
                 Err(e) => bad_request(e),
             },
             _ => match serde_json::from_slice::<oku_slides_stt::SttRequest>(body) {
@@ -267,6 +316,7 @@ async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
         }
     }
     let url = parts.uri.path().to_owned();
+    let window = page_window(&parts.headers);
     if parts.method == Method::GET && url == "/api/events" {
         return match shared.clients.subscribe() {
             Some(events) => {
@@ -303,7 +353,7 @@ async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
         // Le traitement bloque (rendu, disque) : hors des fils du runtime.
         tokio::task::spawn_blocking(move || {
             let _one = one;
-            let (status, reply) = worker.api(&url, &body);
+            let (status, reply) = worker.api(&url, &body, window.as_deref());
             json(status, reply)
         })
         .await
@@ -372,7 +422,13 @@ pub fn serve(
     out.line("cli-models-dir", &[("dir", stt.models_dir().display().to_string().into())])?;
     let clients = Clients::default();
     let sessions: Arc<dyn oku_slides_session::agent::Sessions> = workspace.clone();
-    let stack = Stack::start(sessions, platform, Some(stt.clone()), runtime.handle().clone());
+    let focus: Arc<dyn oku_slides_session::agent::AgentWorkspace> = workspace.clone();
+    // The dev server is no app: no updater, no quit (`UnavailableApp`).
+    let app = Arc::new(oku_slides_session::agent::UnavailableApp);
+    // One read-aloud voice for the process; without a run loop, its watchdog ends each speech (R40).
+    let speaker = Speaker::for_platform(platform, Some(stt.clone()));
+    let voices = Voices { stt: Some(stt.clone()), speaker: Some(speaker) };
+    let stack = Stack::start(sessions, platform, voices, focus, app, runtime.handle().clone());
     {
         let c = clients.clone();
         stack.forward(move |name, json| c.send(name, &json));

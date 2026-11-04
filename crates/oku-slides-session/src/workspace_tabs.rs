@@ -107,8 +107,15 @@ pub(super) enum Opening {
     Blank,
     /// Le deck de ce fichier (chemin résolu).
     File(PathBuf),
-    /// L'aide dans cette langue, au thème du deck d'où on l'ouvre.
-    Help { locale: &'static str, theme: Option<uuid::Uuid> },
+    /// The help in this language, in the theme of the deck it is opened from.
+    Help {
+        /// The help's language.
+        locale: &'static str,
+        /// The theme of the deck it is opened from.
+        theme: Option<uuid::Uuid>,
+        /// The slide it shows, new or reused; `None`: unchanged.
+        slide: Option<String>,
+    },
     /// Un import (en boîte : la cible est lourde, `Step` reste petit).
     Import(Box<ImportOpening>),
     /// A pack tab; its seed and lease are passed to [`Pending::build_pack`].
@@ -224,7 +231,12 @@ impl Pending {
         match &self.opening {
             Opening::Blank => {}
             Opening::File(path) => session.open(path)?,
-            Opening::Help { locale, theme } => session.open_help(locale, *theme)?,
+            Opening::Help { locale, theme, slide } => {
+                session.open_help(locale, *theme)?;
+                if let Some(slide) = slide {
+                    session.show_help_slide(slide);
+                }
+            }
             Opening::Import(i) => {
                 // Les polices de la présentation sont cherchées aussi parmi celles du système, comme dans la CLI ;
                 // le pack cible, dans la bibliothèque seulement (jamais un dossier venu de l'interface) ;
@@ -390,7 +402,12 @@ impl Workspace {
 
     /// Ouvre l'aide de `window` : son onglet s'il existe déjà (au thème du
     /// deck d'où on vient), sinon un nouvel onglet.
-    pub(super) fn open_help(ws: &Mutex<Self>, mut w: MutexGuard<'_, Self>, window: String) -> Result<Step> {
+    pub(super) fn open_help(
+        ws: &Mutex<Self>,
+        mut w: MutexGuard<'_, Self>,
+        window: String,
+        slide: Option<String>,
+    ) -> Result<Step> {
         // Comme `OpenTab` : refusé une fois la fin engagée.
         if w.is_closed() {
             return Err(UnknownWindowSnafu { label: window }.build().into());
@@ -406,9 +423,12 @@ impl Workspace {
             if let Some(theme) = theme {
                 Self::retheme_help(ws, &id, theme);
             }
+            if let Some(slide) = &slide {
+                Self::show_help_slide(ws, &id, slide);
+            }
             return Self::lock(ws).view_json().map(Step::Done);
         }
-        Ok(Step::Build(Box::new(w.help_pending(window, locale, theme))))
+        Ok(Step::Build(Box::new(w.help_pending(window, locale, theme, slide))))
     }
 
     /// Inserts a tab built outside the lock (the second half of `apply`);
@@ -461,16 +481,24 @@ impl Workspace {
             Opening::Help { locale, .. } => w.tab_with_help(locale),
         };
         if let Some(existing) = existing {
-            // Always activated, whatever `activate` says: only file and help openings reach this
-            // branch, and they use `Activate::Always`; `Activate::IfShown` is for pack and theme tabs.
-            let activated = w.activate(&existing);
+            // Only file and help openings reach this branch: an agent's help (`IfShown`) is
+            // activated only while its requester is shown, as a new tab would be.
+            let shown = match &activate {
+                Activate::Always => true,
+                Activate::IfShown(requester) => w.tab_shown(requester),
+            };
+            let activated = if shown { w.activate(&existing) } else { Ok(()) };
             w.save_layout();
             let (json, trash) = (w.view_json(), w.trash());
             drop(w);
             // The session built for nothing goes to the trash, even on an error.
             trash.empty(vec![(id, Tab::new(session))]);
             activated?;
-            return json.map(|json| (WorkspaceOutcome::Applied(json), existing, true));
+            // The help asked at a slide joins the tab already open at that slide.
+            if let Opening::Help { slide: Some(slide), .. } = &opening {
+                Self::show_help_slide(ws, &existing, slide);
+            }
+            return json.map(|json| (WorkspaceOutcome::Applied(json), existing, shown));
         }
         let (window, place, opener) = w.resolve_place(window, place);
         let activated = match &activate {

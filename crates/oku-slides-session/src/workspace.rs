@@ -68,6 +68,8 @@ pub struct Workspace {
     discard_at_quit: HashSet<String>,
     /// The user's library, where the drafts closed tabs created empty are collected.
     library: PackLibrary,
+    /// The dev server's tab whose page last reported the focus, and whether it still has it.
+    page_focus: Option<(String, bool)>,
     /// The folder [`Workspace::new_in`] made for `dir`, removed on drop.
     ///
     /// Last field: dropped after the tabs, whose resume writers finish first.
@@ -138,6 +140,7 @@ impl Workspace {
             layout_generation: 0,
             discard_at_quit: HashSet::new(),
             library: PackLibrary::user(platform),
+            page_focus: None,
             own_dir: None,
         }
     }
@@ -276,7 +279,7 @@ impl Workspace {
                 WorkspaceRequest::ImportTab { window, path, target, tune } => {
                     w.import_tab(window, &path, target, tune)?
                 }
-                WorkspaceRequest::OpenHelp { window } => match Self::open_help(ws, w, window)? {
+                WorkspaceRequest::OpenHelp { window, slide } => match Self::open_help(ws, w, window, slide)? {
                     Step::Done(json) => return Ok(WorkspaceOutcome::Applied(json)),
                     Step::Build(pending) => *pending,
                 },
@@ -394,6 +397,9 @@ mod help;
 
 #[path = "workspace_agent.rs"]
 mod agent;
+
+#[path = "workspace_agent_tabs.rs"]
+mod agent_tabs;
 
 #[path = "workspace_layout.rs"]
 mod layout;

@@ -42,6 +42,15 @@ fn preset(name: &str) -> AgentPreset {
 
 /// Une plateforme de test à deux agents (`faux` choisi, `bis`), retouchée par `tweak`.
 pub(crate) fn build(with_stt: bool, tweak: impl FnOnce(&mut oku_slides_session::Settings)) -> T {
+    build_with(with_stt, None, tweak)
+}
+
+/// [`build`], with the read-aloud voice `engine` when given.
+pub(crate) fn build_with(
+    with_stt: bool,
+    engine: Option<Arc<dyn oku_slides_stt::SpeechEngine>>,
+    tweak: impl FnOnce(&mut oku_slides_session::Settings),
+) -> T {
     let dir = tempfile::Builder::new().prefix("oku-voice-").tempdir().unwrap();
     let data = dir.path().to_path_buf();
     let mut settings = oku_slides_session::Settings::defaults().unwrap();
@@ -59,7 +68,8 @@ pub(crate) fn build(with_stt: bool, tweak: impl FnOnce(&mut oku_slides_session::
         crate::Link::new(AgentChoice::launch_of(&preset("Faux"), &platform), platform.storage.clone()),
     ));
     let stt = with_stt.then(|| Stt::new(&platform));
-    T { voice: AppVoice::new(stt.clone(), choice, rt.handle().clone()), stt, data, _rt: rt, _dir: dir }
+    let speaker = engine.map(|e| oku_slides_stt::Speaker::new(e, stt.clone()));
+    T { voice: AppVoice::new(stt.clone(), speaker, choice, rt.handle().clone()), stt, data, _rt: rt, _dir: dir }
 }
 
 pub(crate) fn voice_with_stt() -> T {
@@ -415,6 +425,37 @@ fn dictation_event_without_stt_is_no_dictation() {
     let t = voice_without_stt();
     let r = t.voice.check(&VoiceEvent::CancelDictationDownload, &Origin::User);
     assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::NoDictation);
+}
+
+/// The dictation state of a fresh box, in `state`.
+fn status_in(state: oku_slides_stt::State) -> Status {
+    let mut status = voice_with_stt().stt.unwrap().status();
+    status.state = state;
+    status
+}
+
+#[test]
+fn voice_port_listening_keeps_download_button() {
+    let mut view = dictation_view(&status_in(oku_slides_stt::State::Listening));
+    assert_that!(view.idle).is_true();
+    view.model = "large".into();
+    let mut voice = voice_with_stt().voice.view();
+    voice.dictation = Some(view);
+    let panel = oku_slides_session::VoicePanel::build(&voice, &Localizer::new(Some("fr")));
+    assert_that!(format!("{panel:?}")).contains("\"d-download\"");
+}
+
+#[rstest]
+#[case::idle(oku_slides_stt::State::Idle, true)]
+#[case::listening(oku_slides_stt::State::Listening, true)]
+#[case::recording(oku_slides_stt::State::Recording, false)]
+#[case::transcribing(oku_slides_stt::State::Transcribing, false)]
+#[case::downloading(oku_slides_stt::State::Downloading, false)]
+fn check_patch_and_download_accept_listening(#[case] state: oku_slides_stt::State, #[case] accepted: bool) {
+    let status = status_in(state);
+    let patch = DictationPatch { silence: Some(2.0), ..Default::default() };
+    assert_that!(check_patch(&status, &patch, &Origin::User).is_ok()).is_equal_to(accepted);
+    assert_that!(check_download(&status, "large").is_ok()).is_equal_to(accepted);
 }
 
 #[test]

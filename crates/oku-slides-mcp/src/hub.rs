@@ -12,19 +12,19 @@
 //! `emit` prend `state` (liste des surfaces ouvertes) : jamais appelé
 //! avec `state` déjà tenu (sous le verrou : `record_and_send`).
 //!
-//! Une consigne qui répond à une question (`answer`) nomme cette question :
-//! l'interface la désigne, la même qui reçoit ses touches 1–4 (`quickTarget`).
-//! Le hub ne devine pas laquelle, il ne voit pas la slide affichée.
+//! A typed reply (`answer`) names its question: the interface picks it, the one that takes
+//! its keys 1–4 (`quickTarget`). A host-routed utterance (`answer_voice`) goes to the hub's own
+//! target, with the same priority: modal, sheet, dock question, then the variant drawer.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use oku_slides_core::GuideKind;
 use oku_slides_i18n::LiveLocalizer;
-use oku_slides_session::agent::{ShowParams, ShowVariants, Surface, TabSession, Trace};
+use oku_slides_session::agent::{ShowParams, ShowVariants, SpokenText, Surface, TabSession, Trace, TurnOrigin};
 use serde::Serialize;
 use serde_json::{Map, Value};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 
 use crate::VoicePort;
 
@@ -38,16 +38,20 @@ pub enum McpEvent {
     Surface {
         /// The surface to show.
         surface: Surface,
+        /// What the read-aloud says as it opens; host-only, never sent to the page.
+        #[serde(skip)]
+        spoken: Option<SpokenText>,
     },
     /// A surface closes: the interface removes it.
     CloseSurface {
         /// Id of the closed surface.
         id: String,
     },
-    /// Show a slide; the agent never selects (the user's selection stays).
+    /// Show a slide, the agent never selects (the user's selection stays); no slide: deselect,
+    /// the shown slide stays.
     Focus {
-        /// Id of the slide to show.
-        slide: String,
+        /// Id of the slide to show; `None` keeps the shown one.
+        slide: Option<String>,
     },
     /// Every open surface, in opening order.
     ///
@@ -71,10 +75,10 @@ pub enum McpEvent {
         /// True if the file was deleted, false if it was written.
         removed: bool,
     },
-    /// Start the presentation in the tab.
+    /// Start or steer the presentation in the tab.
     Present {
-        /// Screen or window.
-        mode: crate::PresentMode,
+        /// What the presentation does.
+        command: crate::PresentCommand,
     },
     /// Open the history as its own command would: input committed, save sent first.
     OpenHistory,
@@ -83,6 +87,27 @@ pub enum McpEvent {
         /// The requested changes; absent means unchanged.
         change: crate::InterfaceChange,
     },
+    /// Close a tab or a window through the page's own flows; sent live, never kept nor replayed.
+    Close {
+        /// What closes.
+        target: CloseTarget,
+        /// The id the page redeems once (`SurfaceHub::take_close_decision`) for its discard question.
+        decision: String,
+    },
+}
+
+impl McpEvent {
+    /// A surface opening silently, or replacing the one with the same id.
+    #[must_use]
+    pub fn surface(surface: Surface) -> Self {
+        Self::Surface { surface, spoken: None }
+    }
+
+    /// A surface opening with what the read-aloud says of it.
+    #[must_use]
+    pub fn surface_aloud(surface: Surface, spoken: Option<SpokenText>) -> Self {
+        Self::Surface { surface, spoken }
+    }
 }
 
 /// The user's answer to an `ask_*` surface.
@@ -97,6 +122,15 @@ pub enum Answer {
     },
     /// Surface abandoned: Escape, new turn, tab or conversation closed, or its turn already over.
     Cancelled,
+}
+
+impl Answer {
+    /// A reply given as text (`answer {text}`): typed, or spoken to the agent's own question.
+    pub(crate) fn text(text: &str) -> Self {
+        let mut context = Map::new();
+        context.insert("text".into(), Value::String(text.to_owned()));
+        Self::Action { name: "answer".into(), context }
+    }
 }
 
 /// What asking the hub to show one of its own boxes did.
@@ -193,6 +227,14 @@ struct HubState {
     elsewhere: Option<u32>,
     /// Shown with every permission request of the turn (it carries a received guide).
     permission_note: Option<String>,
+    /// The last turn begun and how it began (`begin_turn_from`).
+    origin: Option<(u32, TurnOrigin)>,
+    /// Where the tab's page presents, from its reports, with the host's number of the last one.
+    presenting: Option<(u64, Option<crate::PresentMode>)>,
+    /// What runs once a turn ends, recorded by its tools (`after_turn`), with that turn.
+    after_turn: Option<(u32, Vec<turns::AfterTurn>)>,
+    /// Confirmed closes, oldest first, until their page redeems them (`hub/close`).
+    closes: Vec<close::StoredClose>,
 }
 
 /// Les surfaces de l'agent : ouvertes, attendues, fermées.
@@ -205,18 +247,56 @@ pub struct SurfaceHub {
     voice: Arc<dyn VoicePort>,
     events: broadcast::Sender<McpEvent>,
     state: Mutex<HubState>,
+    /// The last turn whose end is done, receipt included (`end_turn`); 0 before any.
+    ended: watch::Sender<u32>,
 }
 
 impl SurfaceHub {
     /// Le hub de l'onglet de `session` ; `voice` fournit la boîte des réglages.
     pub fn new(session: TabSession, localizer: LiveLocalizer, voice: Arc<dyn VoicePort>) -> Arc<Self> {
         let (events, _) = broadcast::channel(64);
-        Arc::new(Self { session, localizer, voice, events, state: Mutex::new(HubState::default()) })
+        let ended = watch::Sender::new(0);
+        Arc::new(Self { session, localizer, voice, events, state: Mutex::new(HubState::default()), ended })
+    }
+
+    /// Waits until turn `turn` has ended, its receipt shown, `within` at most; false on timeout.
+    pub async fn turn_ended(&self, turn: u32, within: std::time::Duration) -> bool {
+        let mut rx = self.ended.subscribe();
+        matches!(tokio::time::timeout(within, rx.wait_for(|last| *last >= turn)).await, Ok(Ok(_)))
+    }
+
+    /// Notes that turn `turn` has ended, receipt included; an older turn changes nothing.
+    pub(crate) fn note_ended(&self, turn: u32) {
+        self.ended.send_if_modified(|last| {
+            let newer = turn > *last;
+            if newer {
+                *last = turn;
+            }
+            newer
+        });
     }
 
     /// Sets the note every permission request shows, `None` clears it (turn start and end).
     pub fn set_permission_note(&self, note: Option<String>) {
         self.state().permission_note = note;
+    }
+
+    /// Records where the tab's page presents (`None`: it does not), unless `seq` is not newer.
+    ///
+    /// The host numbers these writes after ordering the page's reports by (page, seq) itself;
+    /// a write that lost a race to a newer one is ignored.
+    pub fn set_presenting(&self, mode: Option<crate::PresentMode>, seq: u64) {
+        let mut state = self.state();
+        if state.presenting.is_some_and(|(last, _)| seq <= last) {
+            return;
+        }
+        state.presenting = Some((seq, mode));
+    }
+
+    /// Where the tab's page last said it presents; `None` when it does not.
+    #[must_use]
+    pub fn presenting(&self) -> Option<crate::PresentMode> {
+        self.state().presenting.and_then(|(_, mode)| mode)
     }
 
     /// Identifiant de l'onglet dont ce hub sert les surfaces.
@@ -248,11 +328,11 @@ impl SurfaceHub {
     fn record_and_send(&self, state: &mut HubState, mut event: McpEvent) {
         let send = match &mut event {
             // Le relais, en retard, peut émettre la surface d'un tour effacé par une nouvelle conversation.
-            McpEvent::Surface { surface } if surface.turn.is_some_and(|t| !state.live_turns.contains(&t)) => {
+            McpEvent::Surface { surface, .. } if surface.turn.is_some_and(|t| !state.live_turns.contains(&t)) => {
                 tracing::debug!(surface = %surface.id, "surface d'un tour effacé : ignorée");
                 return;
             }
-            McpEvent::Surface { surface } => {
+            McpEvent::Surface { surface, .. } => {
                 match state.open.iter_mut().find(|s| s.id == surface.id) {
                     Some(open) => *open = surface.clone(),
                     None => state.open.push(surface.clone()),
@@ -280,6 +360,7 @@ impl SurfaceHub {
             | McpEvent::Present { .. }
             | McpEvent::OpenHistory
             | McpEvent::Interface { .. }
+            | McpEvent::Close { .. }
             | McpEvent::WidgetTouched { .. } => true,
         };
         if send {
@@ -327,8 +408,14 @@ impl SurfaceHub {
         for id in previous {
             self.freeze(&id);
         }
-        self.emit(McpEvent::Surface { surface });
+        self.emit(McpEvent::surface(surface));
         true
+    }
+
+    /// True while a variant drawer is shown: a spoken pick may answer it.
+    #[must_use]
+    pub fn has_variants(&self) -> bool {
+        self.state().shows.values().any(|s| matches!(s, Shown::Variants(_)))
     }
 
     /// Tiroir de variantes ; remplace le précédent.
@@ -363,7 +450,7 @@ impl SurfaceHub {
         for id in old.into_iter().filter(|id| *id != surface.id) {
             self.emit(McpEvent::CloseSurface { id });
         }
-        self.emit(McpEvent::Surface { surface });
+        self.emit(McpEvent::surface(surface));
         ShowOutcome::Shown
     }
 }
@@ -374,7 +461,13 @@ pub use actions::SurfaceAction;
 mod asks;
 use asks::PendingAsk;
 
+mod voice_answer;
+pub use voice_answer::{ARMING, AnswerOutcome};
+
 mod themes;
+
+mod close;
+pub use close::{CLOSE_DECISION_TTL, CloseDecision, CloseTarget};
 
 mod packs;
 
@@ -385,7 +478,7 @@ pub use error::{HubError, HubErrorKind};
 
 #[path = "hub_turns.rs"]
 mod turns;
-pub use turns::{Freeze, STATIC_PER_TURN};
+pub use turns::{AfterTurn, Freeze, STATIC_PER_TURN};
 pub(crate) use turns::{Reserve, TabTarget};
 
 #[path = "hub_thread.rs"]

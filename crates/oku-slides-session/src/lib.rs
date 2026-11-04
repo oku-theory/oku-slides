@@ -90,6 +90,8 @@ mod library_packs;
 mod merge;
 mod namespace_slug;
 pub mod pack;
+#[cfg(any(test, feature = "test-support"))]
+pub mod pack_fixture;
 mod pack_lease;
 mod pack_library;
 mod pack_mode;
@@ -159,7 +161,7 @@ pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};
 pub use deck_packs::{DeckPacksView, Drift};
 pub use deck_packs_guide::PinnedGuideView;
-pub use deck_packs_panel::{HOST_PACKS, PacksEvent, deck_packs_panel, packs_event};
+pub use deck_packs_panel::{HOST_PACKS, PackUpdate, PacksEvent, deck_packs_panel, packs_event, packs_event_for};
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
 pub use document_kind::DocumentKind;
@@ -206,8 +208,9 @@ pub use voice_panel::{
 };
 pub use voice_view::{
     AgentModelView, AgentModelsView, AgentPresetView, AgentsView, ApiView, DICTATION_LANGUAGES, DictationLanguage,
-    DictationPatch, DictationView, DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, VoiceEvent,
-    VoiceView, voice_event,
+    DictationPatch, DictationView, DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, SPEECH_RATES,
+    SpeechPatch, SpeechStatusView, SpeechView, SpeechVoiceView, VoiceEvent, VoiceView, read_aloud_after_hands_free,
+    voice_event,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};
@@ -362,6 +365,8 @@ pub struct Session {
     variant_renderer: Option<RenderSlot>,
     /// Bumped whenever `variant_renderer` is reset: a slot lent out before comes back stale.
     preview_epoch: u64,
+    /// Grows at each edit, never back: the tab's dirty revision while unsaved (`dirty_revision`).
+    edit_seq: u64,
     /// Rendu du deck, ouvert au premier rendu (voir `render_fonts`).
     renderer: Option<RenderSlot>,
     /// Polices livrées avec l'app, et celles du rendu (app + deck).
@@ -566,6 +571,7 @@ impl Session {
             seed_cache: add_grid::SeedCache::default(),
             variant_renderer: None,
             preview_epoch: 0,
+            edit_seq: 0,
             app_fonts,
             compiled: None,
             svg_cache: HashMap::new(),
@@ -714,6 +720,7 @@ impl Session {
         TabInfo {
             title: self.document_name(deck),
             dirty: self.unsaved(),
+            dirty_revision: self.dirty_revision(),
             pristine: matches!(self.mode, Mode::Deck)
                 && deck.blank
                 && deck.path.is_none()

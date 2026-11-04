@@ -124,6 +124,15 @@ http = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 # Pont Swift du moteur de dictée d'Apple (build.rs de oku-slides-stt).
 swift-rs = "1.0.8"
+# Windows OS voice (oku-slides-stt speak/windows.rs): WinRT speech synthesis played by a MediaPlayer.
+windows = { version = "0.62", default-features = false, features = [
+  "Media_SpeechSynthesis",
+  "Media_Playback",
+  "Media_Core",
+  "Storage_Streams",
+  "Foundation",
+  "Foundation_Collections",
+] }
 # Agent local de repli (moteur Gguf, Apple silicon) : llama.cpp avec Metal. Audit du lot 3
 # (t-1022) : MIT / Apache-2.0, minos 12.0, +6 Mo. `common` : grammaires GBNF ; pas d'openmp.
 llama-cpp-2 = { version = "=0.1.158", default-features = false, features = ["metal", "common"] }

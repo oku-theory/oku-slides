@@ -19,6 +19,8 @@ use serde_json::{Value, json};
 
 use crate::text::paragraphs_to_text;
 
+pub use super::forms_confirm::{HEARD, PermissionChoice, PermissionKind, confirm, permission};
+
 /// Where the interface places a surface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -318,7 +320,7 @@ pub(crate) fn data_surface(id: &str, title: String, data: ComponentKind) -> Surf
 }
 
 /// `s`, marquée comme une question (elle attend la réponse de l'utilisateur).
-fn question(mut s: Surface) -> Surface {
+pub(crate) fn question(mut s: Surface) -> Surface {
     s.question = true;
     s
 }
@@ -345,111 +347,6 @@ pub fn choice(id: &str, spec: &AskChoice, l: &Localizer) -> Surface {
     ];
     let place = if spec.anchor.is_some() { Place::Sheet } else { Place::Thread };
     question(surface(id, place, spec.anchor.clone(), components, json!({ "choice": "" })))
-}
-
-/// `ask_confirm` : fenêtre modale, confirmer ou annuler.
-pub fn confirm(id: &str, spec: &AskConfirm, l: &Localizer) -> Surface {
-    let yes = if spec.danger { "agent-surface-confirm-danger" } else { "agent-surface-confirm" };
-    let answer = |v: bool| Action::event("confirm", [("confirmed", lit(json!(v)))]);
-    let components = vec![
-        Component::card("root", "body"),
-        Component::column("body", &["message", "buttons"]),
-        Component::text("message", spec.message.clone(), Some(TextVariant::Body)),
-        Component::row("buttons", &["yes", "no"]),
-        Component::button_builder("yes", l.tr(yes), answer(true)).primary(true).danger(spec.danger).build(),
-        Component::button("no", l.tr("agent-surface-cancel"), false, answer(false)),
-    ];
-    question(surface(id, Place::Modal, None, components, json!({})))
-}
-
-/// La nature d'une option de permission (ACP `PermissionOptionKind`).
-///
-/// Seule « autoriser une fois » peut être le bouton principal. « Toujours
-/// autoriser » et une nature inconnue sont marquées comme engageantes ;
-/// refuser, même pour toujours, n'accorde rien.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PermissionKind {
-    /// Autoriser cette fois seulement.
-    AllowOnce,
-    /// Autoriser et s'en souvenir.
-    AllowAlways,
-    /// Refuser cette fois.
-    RejectOnce,
-    /// Refuser et s'en souvenir.
-    RejectAlways,
-    /// Une nature que cette version ne connaît pas : traitée comme engageante
-    /// (elle pourrait autoriser durablement). À revoir quand le schéma ACP change.
-    Other,
-}
-
-impl PermissionKind {
-    /// Rang d'affichage : la plus sûre d'abord, les plus engageantes en dernier
-    /// (Tab ne tombe pas d'abord sur « toujours autoriser »).
-    fn rank(self) -> u8 {
-        match self {
-            Self::AllowOnce => 0,
-            Self::RejectOnce => 1,
-            Self::RejectAlways => 2,
-            Self::Other => 3,
-            Self::AllowAlways => 4,
-        }
-    }
-
-    fn engages(self) -> bool {
-        matches!(self, Self::AllowAlways | Self::Other)
-    }
-}
-
-/// Une option de permission, telle que l'agent la propose.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PermissionChoice {
-    /// Libellé, écrit par l'agent.
-    pub name: String,
-    /// Nature ACP : elle seule décide de l'ordre, du bouton principal et du style.
-    pub kind: PermissionKind,
-}
-
-/// Permission demandée par l'agent (ACP) : un bouton par option (Échap : `dismiss`).
-///
-/// Les libellés viennent de l'agent ; le reste non. Les boutons sont rangés du
-/// plus sûr au plus engageant ; le principal est la première option
-/// « autoriser une fois » (aucun s'il n'y en a pas) ; « toujours autoriser »
-/// est marquée engageante et reçoit une mention traduite par l'app (« pour
-/// toujours »), pour qu'un libellé trompeur de l'agent se voie. Chaque bouton
-/// renvoie l'index de l'option dans l'ordre de l'agent.
-///
-/// `note`, when given, shows under the title (the received guides the turn carries).
-pub fn permission(id: &str, title: &str, options: &[PermissionChoice], note: Option<&str>, l: &Localizer) -> Surface {
-    let mut order: Vec<usize> = (0..options.len()).collect();
-    order.sort_by_key(|&i| options[i].kind.rank());
-    let primary = options.iter().position(|o| o.kind == PermissionKind::AllowOnce);
-    let ids: Vec<String> = order.iter().map(|i| format!("option-{i}")).collect();
-    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-    let title = if title.trim().is_empty() { l.tr("agent-surface-permission-title") } else { title.to_owned() };
-    let mut components = vec![
-        Component::card("root", "body"),
-        Component::column(
-            "body",
-            if note.is_some() { &["title", "note", "buttons"][..] } else { &["title", "buttons"] },
-        ),
-        Component::text("title", title, Some(TextVariant::H4)),
-        Component::row("buttons", &refs),
-    ];
-    if let Some(note) = note {
-        components.push(Component::text("note", note, None));
-    }
-    for (&i, bid) in order.iter().zip(&ids) {
-        let option = &options[i];
-        let label = if option.kind == PermissionKind::AllowAlways {
-            format!("{} · {}", option.name, l.tr("agent-surface-permission-always"))
-        } else {
-            option.name.clone()
-        };
-        let action = Action::event("permission", [("index", lit(json!(i)))]);
-        let button = Component::button_builder(bid, label, action).primary(primary == Some(i));
-        components.push(button.danger(option.kind.engages()).build());
-    }
-    question(surface(id, Place::Modal, None, components, json!({})))
 }
 
 /// `ask_rewrite` : l'original et les propositions, différences surlignées.

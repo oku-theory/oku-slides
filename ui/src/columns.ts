@@ -9,6 +9,7 @@ export interface Columns {
   notes: number;
 }
 
+// The static bounds, equal to fixtures/ui/layout-bounds.json and the Rust `set_interface` (tests tie them).
 export const PILE_MIN = 180;
 export const PILE_MAX = 360;
 export const NOTES_MIN = 300;
@@ -27,4 +28,10 @@ export function columnBounds(side: keyof Columns, table: number, pile: number): 
   const piles = span(PILE_MIN, Math.min(PILE_MAX, table - NOTES_MIN - SHEET_MIN));
   if (side === "pile") return piles;
   return span(NOTES_MIN, table - fitIn(piles, pile) - SHEET_MIN);
+}
+
+/** The grid's live widths: the table, its column 1 (pile) and 3 (thread); 0 without a table. */
+export function measureColumns(el: HTMLElement | null): Columns & { table: number } {
+  const cols = el ? getComputedStyle(el).gridTemplateColumns.split(" ").map(parseFloat) : [];
+  return { table: el?.clientWidth ?? 0, pile: cols[0] || 0, notes: cols[2] || 0 };
 }

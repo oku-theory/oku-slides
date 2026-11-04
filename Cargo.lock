@@ -5986,6 +5986,7 @@ dependencies = [
 name = "oku-slides-app"
 version = "9.0.1"
 dependencies = [
+ "async-trait",
  "color-eyre",
  "oku-slides-agent",
  "oku-slides-local-agent",
@@ -6304,6 +6305,7 @@ dependencies = [
 name = "oku-slides-session"
 version = "9.0.1"
 dependencies = [
+ "async-trait",
  "fontdb",
  "hex",
  "insta",
@@ -6366,6 +6368,7 @@ dependencies = [
  "tower",
  "tracing",
  "url",
+ "windows 0.62.2",
 ]
 
 [[package]]

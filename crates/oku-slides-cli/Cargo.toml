@@ -11,6 +11,11 @@ publish.workspace = true
 name = "oku-slides"
 path = "src/main.rs"
 
+[features]
+default = []
+# e2e fakes (Q16): `just e2e` alone builds the server with it; never a dev-dependency.
+e2e-fakes = ["oku-slides-stt/e2e-fakes"]
+
 [dependencies]
 oku-slides-core.workspace = true
 oku-slides-render.workspace = true

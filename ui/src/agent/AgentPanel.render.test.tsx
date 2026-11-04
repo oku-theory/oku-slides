@@ -6,6 +6,7 @@ import type { InterfaceChange, McpEvent, Surface } from "../api";
 import { CATALOG_ID } from "../a2ui/catalog";
 import type { HostHandlers } from "./events";
 import type { ThreadMode } from "./AgentPanel";
+import type { PresentCommand } from "../present";
 import type { QuickTarget } from "./useQuickKeys";
 
 const { act, createElement, createRef, useState } = await import("react");
@@ -111,8 +112,8 @@ async function mount({
   let inspectorOpens = 0;
   let select: (id: string | null) => void = () => {};
   const handle = createRef<import("./AgentPanel").AgentHandle>();
-  const focus: string[] = [];
-  const presented: string[] = [];
+  const focus: (string | null)[] = [];
+  const presented: PresentCommand[] = [];
   const interfaces: InterfaceChange[] = [];
   let histories = 0;
   let changed = 0;
@@ -159,9 +160,9 @@ async function mount({
         onHostAction: (s: Surface, a: { name: string }) => (hostActions.push(`${s.id}:${a.name}`), false),
         onStatus: setStatus,
         onChanged: () => void changed++,
-        onFocus: (slide: string) => void focus.push(slide),
+        onFocus: (slide: string | null) => void focus.push(slide),
         onWidgetTouched: () => {},
-        onPresent: (mode: string) => void presented.push(mode),
+        onPresent: (command: PresentCommand) => void presented.push(command),
         onInterface: (change: InterfaceChange) => void interfaces.push(change),
         onOpenHistory: () => void histories++,
         say: (m: string) => void said.push(m),
@@ -246,13 +247,14 @@ test("AgentPanel transmet focus et changements, et relit le deck à l'abonnement
 
 test("AgentPanel transmet la présentation demandée par l'agent", async () => {
   const p = await mount();
-  await p.mcp({ kind: "present", mode: "window" });
-  expect(p.presented).toEqual(["window"]);
+  await p.mcp({ kind: "present", command: { action: "start", mode: "window" } });
+  await p.mcp({ kind: "present", command: { action: "next" } });
+  expect(p.presented).toEqual([{ action: "start", mode: "window" }, { action: "next" }]);
 });
 
 test("AgentPanel transmet les changements d'interface demandés par l'agent", async () => {
   const p = await mount();
-  const change: InterfaceChange = { scheme: "dark", locale: null, guides: true };
+  const change: InterfaceChange = { scheme: "dark", locale: null, guides: true, folded: null, pile: null, notes: null, code: null };
   await p.mcp({ kind: "interface", change });
   expect(p.interfaces).toEqual([change]);
 });

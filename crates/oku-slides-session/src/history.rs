@@ -277,6 +277,7 @@ impl Session {
         // validation ne sont pas des pertes.
         crate::files::log_issues(&issues, &self.localizer, crate::files::IssuesAt::Restore);
         stash.dirty = true;
+        self.note_edit();
         // La version restaurée peut avoir un autre ensemble de modèles : `back_to_deck` le suit.
         self.back_to_deck(stash)?;
         self.refresh_pack_updates_if_pins_changed();

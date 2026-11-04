@@ -34,6 +34,8 @@ interface AgentWiringContext {
   packTab: boolean;
   importJob: ImportJob | null;
   showSlide: (id: string) => void;
+  /** Clears the selection: an agent focus without a slide (t-999). */
+  setSelected: (id: string | null) => void;
 }
 
 /** An agent focus never changes the selection. */
@@ -48,7 +50,7 @@ export function stageAnchors(view: SlideView | null, current: string | null, pac
 
 /** L'état de l'agent pour cet onglet, et la poignée vers son panneau. */
 export function useAgentWiring({
-  tab, snap, view, current, selected, editing, editField, packItem, packTab, importJob, showSlide,
+  tab, snap, view, current, selected, editing, editField, packItem, packTab, importJob, showSlide, setSelected,
 }: AgentWiringContext) {
   // --- Agent ------------------------------------------------------------------
   // Son état vit dans `AgentPanel` : un morceau de réponse ne re-rend pas `App`. `App` n'en reçoit
@@ -71,10 +73,11 @@ export function useAgentWiring({
   const promptAgent = (text: string, images: string[]) => agentHandle.current?.prompt(text, images) ?? Promise.resolve(false);
   const cancelAgent = () => agentHandle.current?.cancel();
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => agentHandle.current?.onSurfaceAction(s, a);
-  // An agent focus shows its slide only (the agent never selects); during text editing it waits
-  // for the edit to end. The select path serves traces only (`useTrace`).
-  const focus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: KEEP_SELECTION });
-  const onAgentFocus = (slide: string) => focus(slide, null);
+  // An agent focus shows its slide only (the agent never selects); without a slide it deselects.
+  // During text editing it waits for the edit to end. The select path serves traces only (`useTrace`).
+  const deselect = () => setSelected(null);
+  const focus = useAgentFocus({ slides: snap?.slides, view, current, editing, show: showSlide, select: KEEP_SELECTION, deselect });
+  const onAgentFocus = (slide: string | null) => focus(slide, null);
   return {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
     agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,

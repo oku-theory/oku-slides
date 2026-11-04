@@ -3,8 +3,8 @@ use snafu::IntoError;
 use speculoos::prelude::*;
 
 use super::{
-    ContinueInOtherTabSnafu, EmptyDictationChangeSnafu, HubSnafu, TabLimitSnafu, TabNoTurnSnafu, TaskSnafu, ToolError,
-    UsageNoDeckSnafu, VoiceSnafu,
+    ContinueInOtherTabSnafu, EmptyDictationChangeSnafu, EmptySpeechChangeSnafu, HubSnafu, LayoutMinSnafu,
+    LayoutRangeSnafu, TabLimitSnafu, TabNoTurnSnafu, TaskSnafu, ToolError, UsageNoDeckSnafu, VoiceSnafu,
 };
 
 /// Les clés des erreurs des outils et des cartes (`ToolError`, `HubError`, `say_session`, `say_to_agent`).
@@ -41,9 +41,20 @@ const KEYS: &[&str] = &[
     "agent-error-history-index",
     "agent-error-locale",
     "agent-error-empty-interface",
+    "agent-error-layout-range",
+    "agent-error-layout-min",
     "agent-error-not-shown",
     "agent-error-empty-dictation",
     "agent-error-usage-no-deck",
+    "agent-error-undo-open-turn",
+    "agent-error-app-unavailable",
+    "agent-error-app-closing",
+    "agent-error-app-no-offer",
+    "agent-error-app-failed",
+    "agent-error-after-turn-taken",
+    "agent-error-no-pack-update",
+    "agent-confirm-update-install",
+    "agent-after-turn-quit-unsaved",
     "agent-confirm-dictation-api",
     "agent-confirm-dictation-download",
     "agent-confirm-dictation-language",
@@ -88,6 +99,10 @@ fn argument_detail_drops_the_position() {
 
 #[rstest::rstest]
 #[case::empty(EmptyDictationChangeSnafu.build(), "Rien à changer : donnez au moins un réglage de la dictée.")]
+#[case::empty_speech(
+    EmptySpeechChangeSnafu.build(),
+    "Rien à changer : donnez au moins un réglage de lecture à voix haute."
+)]
 #[case::voice(
     VoiceSnafu.into_error(Box::new(crate::VoiceError::new(crate::VoiceErrorKind::NothingToCancel))),
     "Aucun téléchargement n'est en cours"
@@ -152,4 +167,26 @@ fn usage_no_deck_localized_in_french_is_its_key() {
     assert_that!(UsageNoDeckSnafu.build().localize(&fr)).is_equal_to(fr.tr("agent-error-usage-no-deck"));
     assert_that!(fr.tr("agent-error-usage-no-deck"))
         .is_not_equal_to(Localizer::new(Some("en")).tr("agent-error-usage-no-deck"));
+}
+
+/// A layout width refused by `set_interface` names its field and bounds in French (t-1001).
+#[rstest::rstest]
+#[case::range(
+    LayoutRangeSnafu { field: "pile", min: 180_u32, max: 360_u32 }.build(),
+    "agent-error-layout-range",
+    vec![("field", "pile".into()), ("min", 180.into()), ("max", 360.into())],
+)]
+#[case::min(
+    LayoutMinSnafu { field: "notes", min: 300_u32 }.build(),
+    "agent-error-layout-min",
+    vec![("field", "notes".into()), ("min", 300.into())],
+)]
+fn layout_bounds_error_localized_in_french_is_its_key(
+    #[case] e: ToolError,
+    #[case] key: &str,
+    #[case] args: Vec<(&str, oku_slides_i18n::FluentValue<'static>)>,
+) {
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(e.localize(&fr)).is_equal_to(fr.tr_with(key, &args));
+    assert_that!(fr.tr_with(key, &args)).is_not_equal_to(english().tr_with(key, &args));
 }

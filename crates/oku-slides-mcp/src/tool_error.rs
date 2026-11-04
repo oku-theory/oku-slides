@@ -59,9 +59,9 @@ pub(crate) enum ToolError {
     HistoryNotOpened { backtrace: Backtrace },
     #[snafu(display("the deck pins no pack"))]
     NoPack { backtrace: Backtrace },
-    #[snafu(display("the turn already moved to a pack or theme tab"))]
+    #[snafu(display("the turn already opened, showed or moved a tab"))]
     TabLimit { backtrace: Backtrace },
-    #[snafu(display("a pack or theme tab opens or takes the focus only during a turn"))]
+    #[snafu(display("a tab opens, shows or moves only during a turn"))]
     TabNoTurn { backtrace: Backtrace },
     #[snafu(display("this turn continues in the tab it opened or showed"))]
     ContinueInOtherTab { backtrace: Backtrace },
@@ -71,8 +71,18 @@ pub(crate) enum ToolError {
     UnknownLocale { backtrace: Backtrace },
     #[snafu(display("empty interface change"))]
     EmptyInterface { backtrace: Backtrace },
+    #[snafu(display("{field} outside {min}..={max} px"))]
+    LayoutRange { field: &'static str, min: u32, max: u32, backtrace: Backtrace },
+    #[snafu(display("{field} below {min} px"))]
+    LayoutMin { field: &'static str, min: u32, backtrace: Backtrace },
     #[snafu(display("the tab is not the one shown in its window"))]
     NotShown { backtrace: Backtrace },
+    #[snafu(display("the tab's page does not present"))]
+    NotPresenting { backtrace: Backtrace },
+    #[snafu(display("present show needs the id of a slide of the deck"))]
+    PresentSlide { backtrace: Backtrace },
+    #[snafu(display("undo_turn cannot undo the turn it runs in"))]
+    UndoOpenTurn { backtrace: Backtrace },
     #[snafu(display("the theme picker opens in deck mode only"))]
     ThemesDeckMode { backtrace: Backtrace },
     #[snafu(display("the deck packs panel opens in deck mode only"))]
@@ -89,9 +99,18 @@ pub(crate) enum ToolError {
     Hub { source: Box<crate::HubError>, backtrace: Backtrace },
     #[snafu(display("nothing to change in the dictation"))]
     EmptyDictationChange { backtrace: Backtrace },
+    #[snafu(display("nothing to change in the read-aloud"))]
+    EmptySpeechChange { backtrace: Backtrace },
     /// Mis en boîte : un refus du port de la dictée ou de l'agent, dit par sa propre sorte.
     #[snafu(display("the voice port refused the call"))]
     Voice { source: Box<crate::VoiceError>, backtrace: Backtrace },
+    /// The host's app port refused: no updater here, closing, or no offer.
+    #[snafu(display("the app refused the call"))]
+    App { source: oku_slides_session::agent::AppRefusal, backtrace: Backtrace },
+    #[snafu(display("this turn already ends with quitting or installing"))]
+    AfterTurnTaken { backtrace: Backtrace },
+    #[snafu(display("the packs panel offers no such update for this pack"))]
+    NoPackUpdate { backtrace: Backtrace },
     #[snafu(display("unknown catalog component {name}"))]
     A2uiUnknown { name: String, known: String, backtrace: Backtrace },
     #[snafu(display("{name} is shown by {tool}, not render"))]
@@ -100,6 +119,21 @@ pub(crate) enum ToolError {
     A2uiHostOnly { name: String, backtrace: Backtrace },
     #[snafu(display("the playbook reference could not be built"))]
     Playbook { source: &'static oku_slides_a2ui::PlaybookError, backtrace: Backtrace },
+    #[snafu(display("an import reads a .pptx file"))]
+    ImportExtension { backtrace: Backtrace },
+    #[snafu(display("a hi-fi import takes no pack or theme"))]
+    ImportHifiTarget { backtrace: Backtrace },
+    #[snafu(display("{count} tabs hold unsaved work: not quitting"))]
+    QuitUnsaved { count: usize, backtrace: Backtrace },
+    #[snafu(display("the last window does not close; quit instead"))]
+    LastWindow { backtrace: Backtrace },
+    #[snafu(display("reorder needs the tab's new index"))]
+    TabIndex { backtrace: Backtrace },
+    #[snafu(display("only reorder and move take an index, and only move a window"))]
+    TabUnused { backtrace: Backtrace },
+    /// The host's workspace refused a change of its tabs or windows.
+    #[snafu(display("the workspace refused the call"))]
+    Workspace { source: oku_slides_session::agent::WorkspaceRefusal, backtrace: Backtrace },
     #[snafu(display("response not serializable"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
 }
@@ -107,11 +141,13 @@ pub(crate) enum ToolError {
 impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
-            A2uiElsewhere, A2uiHostOnly, A2uiUnknown, Arguments, ContinueInOtherTab, Denied, EmptyDictationChange,
-            EmptyInterface, HistoryIndex, HistoryNotOpened, Hub, NoBoxTurn, NoFile, NoPack, NoTurn, NotShown,
-            OpenElsewhere, PackChange, PackId, PacksDeckMode, Paragraphs, PathParent, PathRelative, Playbook, Response,
-            RewriteText, Session, Setting, SettingLocked, TabLimit, TabNoTurn, Task, ThemesDeckMode, TurnOver,
-            UnexpectedAction, UnknownLocale, UnknownTool, UsageBadRange, UsageNoDeck, Voice,
+            A2uiElsewhere, A2uiHostOnly, A2uiUnknown, AfterTurnTaken, App, Arguments, ContinueInOtherTab, Denied,
+            EmptyDictationChange, EmptyInterface, EmptySpeechChange, HistoryIndex, HistoryNotOpened, Hub,
+            ImportExtension, ImportHifiTarget, LastWindow, LayoutMin, LayoutRange, NoBoxTurn, NoFile, NoPack,
+            NoPackUpdate, NoTurn, NotPresenting, NotShown, OpenElsewhere, PackChange, PackId, PacksDeckMode,
+            Paragraphs, PathParent, PathRelative, Playbook, PresentSlide, QuitUnsaved, Response, RewriteText, Session,
+            Setting, SettingLocked, TabIndex, TabLimit, TabNoTurn, TabUnused, Task, ThemesDeckMode, TurnOver,
+            UndoOpenTurn, UnexpectedAction, UnknownLocale, UnknownTool, UsageBadRange, UsageNoDeck, Voice, Workspace,
         };
         match self {
             Arguments { source, .. } => {
@@ -144,7 +180,17 @@ impl Localize for ToolError {
             HistoryIndex { .. } => l.tr("agent-error-history-index"),
             UnknownLocale { .. } => l.tr("agent-error-locale"),
             EmptyInterface { .. } => l.tr("agent-error-empty-interface"),
+            LayoutRange { field, min, max, .. } => l.tr_with(
+                "agent-error-layout-range",
+                &[("field", (*field).into()), ("min", (*min).into()), ("max", (*max).into())],
+            ),
+            LayoutMin { field, min, .. } => {
+                l.tr_with("agent-error-layout-min", &[("field", (*field).into()), ("min", (*min).into())])
+            }
             NotShown { .. } => l.tr("agent-error-not-shown"),
+            NotPresenting { .. } => l.tr("agent-error-not-presenting"),
+            PresentSlide { .. } => l.tr("agent-error-present-slide"),
+            UndoOpenTurn { .. } => l.tr("agent-error-undo-open-turn"),
             ThemesDeckMode { .. } => l.tr("agent-error-themes-deck-mode"),
             PacksDeckMode { .. } => l.tr("agent-error-packs-deck-mode"),
             UsageNoDeck { .. } => l.tr("agent-error-usage-no-deck"),
@@ -161,7 +207,11 @@ impl Localize for ToolError {
                 _ => source.localize(l),
             },
             EmptyDictationChange { .. } => l.tr("agent-error-empty-dictation"),
+            EmptySpeechChange { .. } => l.tr("agent-error-empty-speech"),
             Voice { source, .. } => source.localize(l),
+            App { source, .. } => source.localize(l),
+            AfterTurnTaken { .. } => l.tr("agent-error-after-turn-taken"),
+            NoPackUpdate { .. } => l.tr("agent-error-no-pack-update"),
             A2uiUnknown { name, known, .. } => l.tr_with(
                 "agent-error-a2ui-unknown",
                 &[("name", name.as_str().into()), ("known", known.as_str().into())],
@@ -170,6 +220,18 @@ impl Localize for ToolError {
                 l.tr_with("agent-error-a2ui-elsewhere", &[("name", name.as_str().into()), ("tool", (*tool).into())])
             }
             A2uiHostOnly { name, .. } => l.tr_with("agent-error-a2ui-host-only", &[("name", name.as_str().into())]),
+            ImportExtension { .. } => l.tr("agent-error-import-extension"),
+            ImportHifiTarget { .. } => l.tr("agent-error-import-hifi-target"),
+            // A count, never the tabs' titles.
+            QuitUnsaved { count, .. } => l.tr_with("agent-error-quit-unsaved", &[("count", (*count).into())]),
+            LastWindow { .. } => l.tr("agent-error-window-last"),
+            TabIndex { .. } => l.tr("agent-error-tab-index"),
+            TabUnused { .. } => l.tr("agent-error-tab-unused"),
+            // A failed import or build is told as the session's own error, without its path.
+            Workspace { source, .. } => match source.session_error() {
+                Some(refused) => say_to_agent(refused, l),
+                None => source.localize(l),
+            },
             Response { .. } => l.tr("session-response"),
         }
     }

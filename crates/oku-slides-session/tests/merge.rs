@@ -48,6 +48,18 @@ fn merge_file_brings_the_other_copy_changes() {
 }
 
 #[test]
+fn merge_file_bumps_the_dirty_revision_of_an_already_dirty_deck() {
+    let dir = data_dir();
+    let (mut a, other) = saved_deck_and_modified_copy(&dir, "lea.oku-slides.pdf");
+    a.handle(retitle_third_slide("Avant")).unwrap_or_else(|e| panic!("retitle refused: {}", e.one_line()));
+    let before = a.dirty_revision();
+    a.merge_file(&other).unwrap_or_else(|e| panic!("merge refused: {}", e.one_line()));
+    // A close confirmed before the merge must see the deck as changed since.
+    assert_that!(before).is_some();
+    assert_that!(a.dirty_revision() > before).is_true();
+}
+
+#[test]
 fn merge_request_returns_the_merged_snapshot_with_the_notice_once() {
     let dir = data_dir();
     let (mut a, other) = saved_deck_and_modified_copy(&dir, "marc.oku-slides.pdf");

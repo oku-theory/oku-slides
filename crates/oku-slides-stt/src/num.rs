@@ -59,3 +59,10 @@ pub(crate) fn trunc_u64(x: f64) -> u64 {
 pub(crate) fn narrow_f32(x: f64) -> f32 {
     x as f32
 }
+
+/// `x` rounded to the nearest `i32`, saturated at the bounds; NaN gives 0.
+#[cfg(any(test, target_os = "linux"))]
+#[expect(clippy::cast_possible_truncation, reason = "rounded first; `as` saturates, and NaN gives 0")]
+pub(crate) fn round_i32(x: f32) -> i32 {
+    x.round() as i32
+}

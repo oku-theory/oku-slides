@@ -31,14 +31,14 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
   and `~/Documents/Oku Slides`. Set `OKU_SLIDES_PATHS__DATA` and `OKU_SLIDES_PATHS__DECKS`
   to a **fresh** temp dir per run (also in subagent prompts): a reused dir restores the
   previous run's tabs and fails e2e specs falsely. `just e2e` handles this itself.
-- In a worktree, the launch.json preview serves the main checkout's `ui/dist`, and the first
-  `just test` or nextest builds cold (own build dir, over 10 min): run it in the background.
+- In a worktree, the launch.json preview serves the main checkout's `ui/dist`, and the first `just test` or nextest builds cold (own build dir, over 10 min): run it in the background.
 - UI tests: only `*.render.test.tsx` (happy-dom) run in a second Bun process; every other `*.test.ts(x)`
   runs in the first, with no DOM (importing `@a2ui/react` needs one). e2e specs are `ui/e2e/NNN-name.cjs`, run in number
   order against one shared server (later specs rely on earlier ones); helpers go in `e2e/lib/`.
   They read French labels (system locale, not forced); `E2E_AGENT_LOG` = the fake agent's log.
 - `.cargo/config.toml` `MACOSX_DEPLOYMENT_TARGET` must equal `bundle.macOS.minimumSystemVersion`
   in `src-tauri/tauri.conf.json`, or typst rebuilds on every `just dev` / `just test` switch.
+- The workspace `windows` 0.62 entry (default features off, for the stt Windows voice) lists exactly `Media_SpeechSynthesis`, `Media_Playback`, `Media_Core`, `Storage_Streams`, `Foundation`, `Foundation_Collections`: a new WinRT API needs its feature added there, and only a Windows build compiles it.
 - Git LFS holds `assets/fonts/*.{ttf,otf}` and `fixtures/import/*.pdf`: commit pointers, never binaries.
 - After merging `main` into a worktree, run `bun install` in `ui/` if its deps changed, or `tsc` fails; right before squashing, `git fetch` and check `main` again (other sessions push often) and merge once more if it moved.
 

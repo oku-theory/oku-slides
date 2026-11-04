@@ -309,6 +309,23 @@ impl SourceBundle {
         self.replica.end_group();
     }
 
+    /// The open undo group's label (see [`DeckReplica::group`]).
+    #[must_use]
+    pub fn group(&self) -> Option<&str> {
+        self.replica.group()
+    }
+
+    /// The open group's own step (see [`DeckReplica::group_step`]).
+    #[must_use]
+    pub fn group_step(&self) -> Option<u64> {
+        self.replica.group_step()
+    }
+
+    /// Reopens an undo group (see [`DeckReplica::resume_group`]).
+    pub fn resume_group(&mut self, label: &str, step: Option<u64>) {
+        self.replica.resume_group(label, step);
+    }
+
     /// Étapes d'annulation empilées (voir [`DeckReplica::undo_steps`]).
     #[must_use]
     pub fn undo_steps(&self) -> u64 {

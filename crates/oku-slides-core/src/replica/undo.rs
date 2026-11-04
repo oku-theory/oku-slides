@@ -55,6 +55,8 @@ pub(super) struct Undo {
     redo: Vec<Step>,
     /// Libellé du groupe ouvert, et si l'étape du sommet lui appartient déjà.
     group: Option<(String, bool)>,
+    /// The id of the step the open group made, kept while it is undone (see [`Undo::resume_group`]).
+    group_step: Option<u64>,
     limit: usize,
     /// Étapes empilées depuis la création (jamais décrémenté) : une
     /// application qui ne l'augmente pas a rejoint l'étape du sommet.
@@ -76,7 +78,16 @@ impl Undo {
             }
             UndoItemMeta::new()
         })));
-        let mut undo = Self { manager, pushed, undo: Vec::new(), redo: Vec::new(), group: None, limit: 0, steps: 0 };
+        let mut undo = Self {
+            manager,
+            pushed,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            group: None,
+            group_step: None,
+            limit: 0,
+            steps: 0,
+        };
         undo.set_limit(DEFAULT_LIMIT);
         undo
     }
@@ -101,6 +112,7 @@ impl Undo {
                 self.steps += 1;
                 self.undo.push(Step { id: self.steps, label: group.clone(), items, merge: None });
                 *open = true;
+                self.group_step = Some(self.steps);
             }
             None => match (merge, self.undo.last_mut()) {
                 (Some(k), Some(top)) if top.merge.as_deref() == Some(k) => top.items += items,
@@ -134,10 +146,24 @@ impl Undo {
 
     pub(super) fn begin_group(&mut self, label: &str) {
         self.group = Some((label.to_owned(), false));
+        self.group_step = None;
     }
 
     pub(super) fn end_group(&mut self) {
         self.group = None;
+        self.group_step = None;
+    }
+
+    /// Reopens group `label` whose own step is `step`; joined again while that step is on top.
+    pub(super) fn resume_group(&mut self, label: &str, step: Option<u64>) {
+        let joined = step.is_some() && self.top_undo_id() == step;
+        self.group = Some((label.to_owned(), joined));
+        self.group_step = step;
+    }
+
+    /// The id of the step the open group made, if it made one.
+    pub(super) fn group_step(&self) -> Option<u64> {
+        self.group.as_ref().and(self.group_step)
     }
 
     /// Vide les deux piles ; un groupe ouvert le reste, sans étape au sommet.
@@ -149,6 +175,7 @@ impl Undo {
         if let Some((_, open)) = &mut self.group {
             *open = false;
         }
+        self.group_step = None;
     }
 
     /// Étapes empilées depuis la création ; inchangé par une fusion.
@@ -158,6 +185,11 @@ impl Undo {
 
     pub(super) fn in_group(&self) -> bool {
         self.group.is_some()
+    }
+
+    /// The open group's label, if a group is open.
+    pub(super) fn group(&self) -> Option<&str> {
+        self.group.as_ref().map(|(label, _)| label.as_str())
     }
 
     /// Une annulation ou un rétablissement coupe la fusion : l'étape restée au
@@ -246,3 +278,7 @@ impl Undo {
 #[cfg(test)]
 #[path = "undo_tests.rs"]
 mod undo_tests;
+
+#[cfg(test)]
+#[path = "undo_group_tests.rs"]
+mod undo_group_tests;

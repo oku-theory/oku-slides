@@ -6,13 +6,14 @@
 // route : un état réduit à des valeurs simples (`onStatus`, appelé quand elles changent) et une
 // poignée (`handle`) pour envoyer une consigne, une action de surface ou arrêter le tour.
 
-import { Suspense, lazy, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Suspense, lazy, useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { AgentUi, InterfaceChange, McpEvent, PastedImage, Surface } from "../api";
-import type { PresentMode } from "../present";
+import type { PresentCommand } from "../present";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
+import { AgentCloseContext } from "../closeDecision";
 import { t } from "../i18n";
 import { firstText } from "./a2uiModel";
 import { AgentThread } from "./AgentThread";
@@ -126,11 +127,11 @@ export interface AgentPanelProps {
   onStatus: (status: AgentStatusView) => void;
   /** Le deck a pu changer (outils de l'agent, abonnement prêt) : à relire. */
   onChanged: () => void;
-  /** The agent shows a slide (`focus`); it never selects. */
-  onFocus: (slide: string) => void;
+  /** The agent shows a slide (`focus`), or deselects without one; it never selects. */
+  onFocus: (slide: string | null) => void;
   onWidgetTouched: (name: string, removed: boolean) => void;
   /** L'agent lance la présentation (fenêtre de l'agent : rien, la principale s'en charge). */
-  onPresent: (mode: PresentMode) => void;
+  onPresent: (command: PresentCommand) => void;
   /** L'agent change l'interface (fenêtre de l'agent : rien, la principale s'en charge). */
   onInterface: (change: InterfaceChange) => void;
   /** L'agent ouvre l'historique (fenêtre de l'agent : rien, la principale s'en charge). */
@@ -204,6 +205,10 @@ export function AgentPanel(props: AgentPanelProps) {
   const threadState: AgentThreadState = props.mode.kind === "follow" ? followed : driven;
   const latest = useRef<Latest | null>(null);
   latest.current = { props, threadState };
+  // An agent's close runs in the workspace window; a detached agent window has none and ignores it.
+  const closeRunner = useContext(AgentCloseContext);
+  const agentClose = useRef(closeRunner);
+  agentClose.current = closeRunner;
   const { state: agentState, ready } = threadState;
   /** Listes entières reçues (`surfaces`, après un abonnement ou une reconnexion) : le fil ne les relit pas. */
   const [resyncs, countResync] = useReducer((n: number) => n + 1, 0);
@@ -258,9 +263,10 @@ export function AgentPanel(props: AgentPanelProps) {
           if (e.kind === "changed") p.onChanged();
           if (e.kind === "focus") p.onFocus(e.slide);
           if (e.kind === "widget_touched") p.onWidgetTouched(e.name, e.removed);
-          if (e.kind === "present") p.onPresent(e.mode);
+          if (e.kind === "present") p.onPresent(e.command);
           if (e.kind === "interface") p.onInterface(e.change);
           if (e.kind === "open_history") p.onOpenHistory();
+          if (e.kind === "close") agentClose.current?.(e.target, e.decision);
         },
         onAgent: (e) => {
           latest.current!.threadState.onAgentEvent(e);

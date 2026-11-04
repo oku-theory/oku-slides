@@ -2,11 +2,11 @@ use oku_slides_i18n::Localizer;
 use serde_json::json;
 use speculoos::prelude::*;
 
-use crate::agent::{AskConfirm, Surface, TRACE_EVENT, forms};
+use crate::agent::{Surface, TRACE_EVENT, forms};
 
 /// Une surface quelconque avec un modèle de données racine (vide).
 fn surface() -> Surface {
-    forms::confirm("show-5", &AskConfirm { message: "Ok ?".into(), danger: false }, &Localizer::new(Some("fr")))
+    forms::confirm("show-5", "Ok ?", None, None, &Localizer::new(Some("fr")))
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn without_actions_on_params_removes_buttons_and_actions() {
 
 #[test]
 fn without_actions_drops_a_card_whose_only_child_was_a_button() {
-    let s = forms::confirm("c", &AskConfirm { message: "Ok ?".into(), danger: false }, &Localizer::new(Some("fr")));
+    let s = forms::confirm("c", "Ok ?", None, None, &Localizer::new(Some("fr")));
     let mut s = s;
     // Une carte autour d'un seul bouton, sous la racine.
     if let oku_slides_a2ui::ServerBody::UpdateComponents(u) = &mut s.messages[1].body {
@@ -122,7 +122,7 @@ fn without_actions_drops_a_card_whose_only_child_was_a_button() {
 
 #[test]
 fn without_actions_keeps_a_root_button_as_an_empty_column() {
-    let mut s = forms::confirm("c", &AskConfirm { message: "Ok ?".into(), danger: false }, &Localizer::new(Some("fr")));
+    let mut s = forms::confirm("c", "Ok ?", None, None, &Localizer::new(Some("fr")));
     if let oku_slides_a2ui::ServerBody::UpdateComponents(u) = &mut s.messages[1].body {
         u.components =
             vec![oku_slides_a2ui::Component::button("root", "Ok", false, oku_slides_a2ui::Action::named("suggest"))];
@@ -209,7 +209,7 @@ fn apply_patch_nested_removal_drops_the_key() {
 
 #[test]
 fn without_actions_keeps_trace_labels_as_text() {
-    let mut s = forms::confirm("c", &AskConfirm { message: "Ok ?".into(), danger: false }, &Localizer::new(Some("fr")));
+    let mut s = forms::confirm("c", "Ok ?", None, None, &Localizer::new(Some("fr")));
     if let oku_slides_a2ui::ServerBody::UpdateComponents(u) = &mut s.messages[1].body {
         u.components = vec![
             oku_slides_a2ui::Component::row("root", &["t"]),

@@ -1,12 +1,13 @@
 //! The user's request, passed by `open_pack` or `open_theme` to the opened tab's draft.
 //!
 //! The request is agent-written data: it only waits in that tab's composer, for the user to
-//! review and send. Nothing here starts a turn.
+//! review and send. Nothing here starts a turn. The same port pages another tab: `help` moves
+//! a reused help tab's live page to its new hit ([`DraftPort::page`]).
 
 /// The longest request passed to a draft, in UTF-8 bytes; a longer one is never truncated.
 pub const MAX_REQUEST_BYTES: usize = 2048;
 
-/// Implement this trait to let a deck's agent prefill another tab's draft.
+/// Implement this trait to let a deck's agent prefill another tab's draft, or page it.
 ///
 /// The host sets the draft of tab `tab` to `text` only when that draft is empty; it never
 /// starts the tab's agent nor sends the text.
@@ -15,6 +16,14 @@ pub trait DraftPort: Send + Sync + std::fmt::Debug {
     ///
     /// Blocking (it may start the tab's entry): call it off the async threads.
     fn prefill(&self, tab: &str, text: String) -> Prefill;
+
+    /// Shows slide `slide` on tab `tab`'s pages, as that tab's own `focus` does; true if sent.
+    ///
+    /// Blocking, as [`DraftPort::prefill`]. The default sends nothing: a host without pages.
+    fn page(&self, tab: &str, slide: String) -> bool {
+        let _ = (tab, slide);
+        false
+    }
 }
 
 /// What a [`DraftPort::prefill`] did to the target tab's draft.

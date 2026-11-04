@@ -1,10 +1,11 @@
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::local_agent::Unavailable;
+use oku_slides_session::agent::SpokenFailure;
 use rstest::rstest;
 use snafu::IntoError;
 use speculoos::prelude::*;
 
-use super::{AgentError, NoHttpSnafu, NotFoundSnafu, SpawnSnafu, StoppedSnafu, Unusable};
+use super::{AgentError, NoHttpSnafu, NotFoundSnafu, RequestSnafu, SpawnSnafu, StoppedSnafu, Unusable};
 
 fn io(kind: std::io::ErrorKind) -> std::io::Error {
     std::io::Error::from(kind)
@@ -89,6 +90,17 @@ fn unusable_from_unavailable_keeps_the_state(#[case] u: Unavailable, #[case] exp
 fn unusable_needs_download_interpolates_gigabytes_in_french() {
     let text = Unusable::LocalNeedsDownload { size: 2_497_281_120 }.localize(&Localizer::new(Some("fr")));
     assert_that!(text).contains("2,5 Go");
+}
+
+#[rstest]
+#[case::not_found(NotFoundSnafu { command: "/Users/x/agent" }.into_error(io(std::io::ErrorKind::NotFound)).into(), SpokenFailure::NoStart)]
+#[case::spawn(SpawnSnafu { command: "/Users/x/agent" }.into_error(io(std::io::ErrorKind::PermissionDenied)).into(), SpokenFailure::NoStart)]
+#[case::no_http(NoHttpSnafu.build().into(), SpokenFailure::NoStart)]
+#[case::no_program(crate::error::NoProgramSnafu.build().into(), SpokenFailure::NoStart)]
+#[case::stopped(StoppedSnafu { message: "SECRET-77" }.build().into(), SpokenFailure::Stopped)]
+#[case::request(RequestSnafu { message: "SECRET-77" }.build().into(), SpokenFailure::Refused)]
+fn spoken_of_an_error_follows_its_variant(#[case] e: AgentError, #[case] spoken: SpokenFailure) {
+    assert_that!(e.spoken()).is_equal_to(spoken);
 }
 
 /// A real storage error: a folder asked under a file.

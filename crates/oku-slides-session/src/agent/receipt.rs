@@ -17,6 +17,7 @@ use snafu::{OptionExt, ensure};
 
 use super::bounds::{LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_hex, check_text};
 use super::forms::{Place, Surface, lit, surface};
+use super::spoken::SpokenText;
 use super::turn_view::first_line;
 use super::{AgentFormReason, TRACE_EVENT, TRACES_SHOWN, Trace, TraceName, check_len};
 use crate::error::{AgentFormSnafu, NoSlideSnafu};
@@ -249,14 +250,15 @@ impl Session {
             }
             None => None,
         };
-        let facts = facts.into_iter().chain(written.iter().cloned()).collect();
+        let facts: Vec<String> = facts.into_iter().chain(written.iter().cloned()).collect();
+        let spoken = SpokenText::receipt(&spec.title, &facts, &self.localizer);
         let spec = Report { facts, ..spec.clone() };
         let traces = self.open_traces();
         let surface = receipt(id, &spec, slide.as_ref(), &traces, &self.localizer);
         let plain = (!spec.actions.is_empty()).then(|| {
             receipt(id, &Report { actions: Vec::new(), ..spec.clone() }, slide.as_ref(), &traces, &self.localizer)
         });
-        Ok(ReceiptSurfaces { surface, plain })
+        Ok(ReceiptSurfaces { surface, plain, spoken })
     }
 
     /// La slide `id` telle que rendue maintenant ; `None` tant qu'elle n'a pas de page rendue.
@@ -274,6 +276,8 @@ pub struct ReceiptSurfaces {
     pub surface: Surface,
     /// The same receipt without actions, shown once the turn is over.
     pub plain: Option<Surface>,
+    /// What the read-aloud says of it: its title and first facts.
+    pub spoken: Option<SpokenText>,
 }
 
 #[cfg(test)]

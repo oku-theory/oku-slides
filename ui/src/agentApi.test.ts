@@ -39,3 +39,17 @@ test("prompt remplace une langue périmée portée par l'appelant", async () => 
   const stale = { ...UI, locale: "fr" } as AgentUi;
   expect((await sentPrompt(stale)).ui.locale).toBe("de");
 });
+
+test("agentApi context names its window to the dev server, with the page and the seq", async () => {
+  setMessages("fr", []);
+  let sent: { body: unknown; window: string | null } = { body: null, window: null };
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    sent = { body: JSON.parse(String(init?.body)), window: new Headers(init?.headers).get("X-Oku-Window") };
+    return new Response("{}", { status: 200 });
+  }) as unknown as typeof fetch;
+  await agentApi("t-1").context("p-1", UI, 3, true, "w-1");
+  expect(sent).toEqual({
+    body: { cmd: "context", tab: "t-1", page: "p-1", ui: { ...UI, locale: "fr" }, seq: 3, has_focus: true },
+    window: "w-1",
+  });
+});

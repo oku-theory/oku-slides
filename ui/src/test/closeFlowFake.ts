@@ -1,6 +1,6 @@
 // A fake workspace for the close flow tests: every call noted in one log, answers set per test.
 
-import { errorText, type OpenerOffer, type Snapshot, type TabApi, type TabDocument, type TabInfo, type WindowView, type WorkspaceView } from "../api";
+import { errorText, type CloseDecision, type OpenerOffer, type Snapshot, type TabApi, type TabDocument, type TabInfo, type WindowView, type WorkspaceView } from "../api";
 import { type CloseFlowInput, closeFlowDeps } from "../closeFlow";
 import type { PackMode, ThemePin, ThemeTabView } from "../packTypes";
 import type { Question } from "../useConfirm";
@@ -20,6 +20,7 @@ export const tabOf = (id: string, dirty = false, pack = false): TabInfo => ({
   title: id,
   dirty,
   pristine: false,
+  dirty_revision: dirty ? 1 : null,
   theme: null,
   document: pack ? { kind: "pack", pack: "p" } : DECK,
 });
@@ -83,6 +84,15 @@ export function fake(tabs: TabInfo[]) {
     duringCloseWindow: async () => {},
     /** The host refuses closeWindow. */
     windowRefused: false,
+    /** The agent's close decisions the host holds, by id; each is taken once. */
+    decisions: new Map<string, CloseDecision>(),
+  };
+  /** The host's redeemer: decision `id` once, then null. */
+  const take = async (id: string): Promise<CloseDecision | null> => {
+    log.push(`take ${id}`);
+    const decision = state.decisions.get(id) ?? null;
+    state.decisions.delete(id);
+    return decision;
   };
   /** Every tab of every window. */
   const allTabs = () => [...state.tabs, ...state.otherWindows.flatMap((w) => w.tabs)];
@@ -159,7 +169,7 @@ export function fake(tabs: TabInfo[]) {
     },
     setError: (e) => log.push(`report ${e}`),
   };
-  return { log, questions, state, input, deps: () => closeFlowDeps(input), guardCalls };
+  return { log, questions, state, input, deps: () => closeFlowDeps(input), guardCalls, take };
 }
 
 /** A promise resolved from outside. */

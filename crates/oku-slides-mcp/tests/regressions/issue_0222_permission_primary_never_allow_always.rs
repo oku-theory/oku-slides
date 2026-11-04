@@ -2,7 +2,7 @@
 //! l'agent, souvent « toujours autoriser ». Une frappe ou un clic distrait
 //! accordait une permission durable.
 
-use oku_slides_mcp::SurfaceAction;
+use oku_slides_mcp::{AnswerOutcome, SurfaceAction};
 use oku_slides_session::agent::{PermissionChoice, PermissionKind};
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
@@ -57,8 +57,10 @@ async fn permission_never_offers_allow_always_as_the_default() {
     assert_that!(asking.await.unwrap_or_else(|e| panic!("{e}"))).is_equal_to(Some(0));
 }
 
+/// t-997: a typed reply to a permission keeps it open ("say it or click"), so a typed or
+/// agent-prefilled "yes, always" grants nothing; only a click or the host's voice route answers.
 #[tokio::test(flavor = "multi_thread")]
-async fn dictated_answer_never_grants_a_permission() {
+async fn typed_answer_never_grants_a_permission_and_keeps_it_open() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     let asking = tokio::spawn({
@@ -66,6 +68,9 @@ async fn dictated_answer_never_grants_a_permission() {
         async move { hub.permission("Écrire le fichier ?", &choices()).await }
     });
     let asked = next_surface(&mut rx).await;
-    assert_that!(h.hub.answer(&asked.id, "oui, toujours")).is_true();
+    assert_that!(h.hub.answer(&asked.id, "oui, toujours")).is_equal_to(AnswerOutcome::KeptOpen);
+    tokio::task::yield_now().await;
+    assert_that!(asking.is_finished()).is_false();
+    h.hub.cancel_asks();
     assert_that!(asking.await.unwrap_or_else(|e| panic!("{e}"))).is_none();
 }

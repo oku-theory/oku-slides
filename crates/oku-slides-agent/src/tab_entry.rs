@@ -5,9 +5,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Instant;
 
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_mcp::{DraftPort, McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools};
+use oku_slides_mcp::{DraftPort, McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools, TunePort};
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::agent::{AttachmentRef, TabSession};
+use oku_slides_session::agent::{AgentWorkspace, AppPort, AttachmentRef, SpokenFailure, TabSession};
 use oku_slides_session::{DocumentKind, Platform};
 use serde::Serialize;
 use tokio::runtime::Handle;
@@ -15,6 +15,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{broadcast, mpsc};
 use tokio_util::sync::CancellationToken;
 
+use crate::after_turn::AfterTx;
 use crate::keeper::{Keep, Keeper};
 use crate::settings_port::AppSettings;
 use crate::tab_agent::{ActorParts, Command, Instruction};
@@ -147,7 +148,7 @@ impl TabLink {
     }
 }
 
-/// What the stack shares with each tab: settings, voice and agent choice, and the drafts port.
+/// What the stack shares with each tab: settings, voice and agent choice, drafts and workspace.
 #[derive(Debug, Clone)]
 pub(crate) struct TabPorts {
     /// The settings `set_setting` reads and writes.
@@ -156,6 +157,16 @@ pub(crate) struct TabPorts {
     pub voice: Arc<AppVoice>,
     /// Where `open_pack` and `open_theme` pass the user's request: another tab's draft.
     pub drafts: Arc<dyn DraftPort>,
+    /// The host's workspace: the focused tab, an import's new tab.
+    pub workspace: Arc<dyn AgentWorkspace>,
+    /// Starts an imported tab's fine-tuning turn (`import` with `tune`).
+    pub tune: Arc<dyn TunePort>,
+    /// The app itself: the `update` tool's checks.
+    pub app: Arc<dyn AppPort>,
+    /// Where the tab's actor sends its ended turns' quit or install.
+    pub after: AfterTx,
+    /// The read-aloud: the tab's relay hands it each surface that opens; `None` without a voice.
+    pub reader: Option<crate::reader::ReaderTx>,
 }
 
 /// A started tab; dropping it stops its agent and its tools.
@@ -192,7 +203,8 @@ impl TabEntry {
             let _rt = rt.enter();
             Keeper::spawn(session.clone(), hub.clone())
         };
-        rt.spawn(relay_mcp(tab.clone(), mcp, Arc::downgrade(&hub), out.clone(), closed.clone()));
+        let relay_to = McpRelay { tab: tab.clone(), hub: Arc::downgrade(&hub), out: out.clone(), reader: ports.reader };
+        rt.spawn(relay_mcp(relay_to, mcp, closed.clone()));
         let tab_session = session.clone();
         let agent = Agent {
             session,
@@ -202,6 +214,10 @@ impl TabEntry {
             keeper: keeper.clone(),
             voice: ports.voice,
             drafts: ports.drafts,
+            workspace: ports.workspace,
+            tune: ports.tune,
+            app: ports.app,
+            after: ports.after,
             prompt_limits: platform.settings.paste.prompt_limits(),
         };
         let relay = Relay {
@@ -247,13 +263,16 @@ impl Drop for TabEntry {
 /// relire à l'interface et `surfaces` lui redonne la liste entière. Faible :
 /// le relais ne doit pas garder le hub (et son émetteur) en vie, sinon `recv`
 /// ne rendrait jamais `Closed`. S'arrête à la fermeture de l'onglet (`closed`).
-async fn relay_mcp(
+/// Where a tab's hub events go: the interface, and the read-aloud.
+struct McpRelay {
     tab: String,
-    mut rx: broadcast::Receiver<McpEvent>,
     hub: std::sync::Weak<SurfaceHub>,
     out: mpsc::UnboundedSender<Out>,
-    closed: CancellationToken,
-) {
+    reader: Option<crate::reader::ReaderTx>,
+}
+
+async fn relay_mcp(to: McpRelay, mut rx: broadcast::Receiver<McpEvent>, closed: CancellationToken) {
+    let McpRelay { tab, hub, out, reader } = to;
     loop {
         let received = tokio::select! {
             biased;
@@ -261,7 +280,14 @@ async fn relay_mcp(
             r = rx.recv() => r,
         };
         match received {
-            Ok(e) => emit(&out, "mcp", &tab, &e),
+            Ok(e) => {
+                if let Some(reader) = &reader
+                    && let Some(heard) = crate::reader::heard_of(&tab, &hub, &e)
+                {
+                    reader.hear(heard);
+                }
+                emit(&out, "mcp", &tab, &e);
+            }
             Err(RecvError::Lagged(_)) => {
                 emit(&out, "mcp", &tab, &McpEvent::Changed);
                 // Les évènements encore en file rejouent ensuite par-dessus : sans
@@ -315,7 +341,8 @@ impl Relay {
         // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).
         for out in self.turns.apply(e, Instant::now(), &self.localizer.current()) {
             match out {
-                TurnOut::Show(surface) => self.hub.emit(McpEvent::Surface { surface }),
+                TurnOut::Show(surface) => self.hub.emit(McpEvent::surface(surface)),
+                TurnOut::ShowAloud(surface, spoken) => self.hub.emit(McpEvent::surface_aloud(surface, Some(spoken))),
                 TurnOut::Patch { id, messages } => self.hub.emit(McpEvent::SurfacePatch { id, messages }),
                 TurnOut::Evict(n) => self.hub.close_turn(n),
                 TurnOut::Ended { turn, narration } => {
@@ -356,6 +383,14 @@ struct Agent {
     voice: Arc<AppVoice>,
     /// The other tabs' drafts, for the tools' `open_pack` and `open_theme`.
     drafts: Arc<dyn DraftPort>,
+    /// The host's workspace, for the tools.
+    workspace: Arc<dyn AgentWorkspace>,
+    /// The host's fine-tuning starter, for the tools' `import`.
+    tune: Arc<dyn TunePort>,
+    /// The host's app port, for the tools.
+    app: Arc<dyn AppPort>,
+    /// Where the actor sends its ended turns' quit or install.
+    after: AfterTx,
     /// Bounds of the images sent to the agent as image blocks.
     prompt_limits: PromptImageLimits,
 }
@@ -413,7 +448,17 @@ impl Agent {
                 return Err(Box::new(|l: &Localizer| l.tr("agent-tools-unavailable")));
             }
         };
-        let tools = Tools::new(self.session.clone(), self.hub.clone(), settings, self.drafts.clone(), platform, kind);
+        let tools = Tools::new(
+            self.session.clone(),
+            self.hub.clone(),
+            settings,
+            self.drafts.clone(),
+            self.workspace.clone(),
+            self.tune.clone(),
+            self.app.clone(),
+            platform,
+            kind,
+        );
         match ToolServer::start(tools, cancel.clone()).await {
             Ok(server) => Ok((server, kind)),
             Err(e) => {
@@ -435,15 +480,15 @@ impl Agent {
         self.keeper.restored().await;
         // Each prompt gets the error in the thread, in the language of the moment.
         while let Some(cmd) = next(&cancel, &mut rx).await {
-            if let Command::Prompt(Instruction { text, images, .. }) = cmd {
-                let n = self.hub.begin_turn();
+            if let Command::Prompt(Instruction { text, images, origin, .. }) = cmd {
+                let n = self.hub.begin_turn_from(origin);
                 relay.emit(&AgentEvent::UserText {
                     turn: n,
                     text,
                     images: images.iter().map(AttachmentRef::shown).collect(),
                 });
                 let message = say(&self.localizer.current());
-                relay.emit(&AgentEvent::Error { turn: n, message });
+                relay.emit(&AgentEvent::Error { turn: n, message, spoken: SpokenFailure::NoTools });
             }
         }
     }
@@ -467,6 +512,7 @@ impl Agent {
             keeper: self.keeper,
             prompt_limits: self.prompt_limits,
             kind,
+            after: Some(self.after),
         };
         let agent = AgentHandle::spawn_counted(parts, self.voice);
         // Subscribed before the first command: no event of the agent is lost.

@@ -157,7 +157,11 @@ impl SurfaceHub {
     }
 
     fn apply_variant(&self, spec: &ShowVariants, context: &Map<String, Value>) -> Result<(), super::error::HubInner> {
-        let i = Self::index(context, "index")?;
+        self.apply_variant_at(spec, Self::index(context, "index")?)
+    }
+
+    /// Applies variant `i` of `spec` as one undo step, clicked or picked by voice.
+    pub(super) fn apply_variant_at(&self, spec: &ShowVariants, i: usize) -> Result<(), super::error::HubInner> {
         let variant = spec.variants.get(i).context(NoVariantSnafu { index: i })?;
         self.session
             .with(|s| -> oku_slides_session::Result<()> {

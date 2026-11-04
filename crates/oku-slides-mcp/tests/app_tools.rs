@@ -9,7 +9,7 @@ use std::sync::PoisonError;
 
 use common::other_tabs::start_other_tabs;
 use common::*;
-use oku_slides_mcp::{InterfaceChange, McpEvent, PresentMode, SchemeChoice, SurfaceAction};
+use oku_slides_mcp::{FoldedChange, InterfaceChange, McpEvent, SchemeChoice, SurfaceAction};
 use oku_slides_session::Request;
 use rstest::rstest;
 use rust_mcp_sdk::schema::CallToolResult;
@@ -91,15 +91,6 @@ fn title(h: &Harness) -> Option<String> {
 async fn next_interface(rx: &mut Receiver<McpEvent>) -> InterfaceChange {
     wait_event(rx, |e| match e {
         McpEvent::Interface { change } => Some(change),
-        _ => None,
-    })
-    .await
-}
-
-/// Le mode du prochain évènement de présentation du hub.
-async fn next_present(rx: &mut Receiver<McpEvent>) -> PresentMode {
-    wait_event(rx, |e| match e {
-        McpEvent::Present { mode } => Some(mode),
         _ => None,
     })
     .await
@@ -396,72 +387,6 @@ async fn history_seek_without_index_is_refused_in_the_user_language() {
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-history-index"));
 }
 
-// --- present ----------------------------------------------------------------
-
-#[tokio::test(flavor = "multi_thread")]
-async fn present_emits_present_event_with_its_mode() {
-    let h = start().await;
-    let mut rx = h.hub.subscribe();
-    direct(&h, "present", json!({ "mode": "window" })).await;
-    assert_that!(next_present(&mut rx).await).is_equal_to(PresentMode::Window);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn present_without_mode_presents_on_screen() {
-    let h = start().await;
-    let mut rx = h.hub.subscribe();
-    direct(&h, "present", json!({})).await;
-    assert_that!(next_present(&mut rx).await).is_equal_to(PresentMode::Screen);
-}
-
-/// A mode where the page does not present.
-#[derive(Debug, Clone, Copy)]
-enum NoPresent {
-    History,
-    Help,
-    NoSlide,
-}
-
-/// A harness whose session is in `mode`; help is a help tab (read-only).
-async fn start_in(mode: NoPresent) -> Harness {
-    if let NoPresent::Help = mode {
-        return common::kinds::start_help_tab().await;
-    }
-    let h = start().await;
-    match mode {
-        NoPresent::History => {
-            handle(&h, Request::HistoryOpen);
-        }
-        NoPresent::Help => {}
-        NoPresent::NoSlide => {
-            let ids: Vec<String> = snapshot(&h, |s| s.slides.iter().map(|s| s.id.to_owned()).collect());
-            let ops: Vec<Value> = ids.iter().map(|id| json!({ "op": "remove_slide", "slide": id })).collect();
-            handle(&h, req(json!({ "cmd": "apply", "label": "Vider", "ops": ops })));
-        }
-    }
-    h
-}
-
-#[rstest]
-#[case::history(NoPresent::History, "session-present-history")]
-#[case::help(NoPresent::Help, "session-present-help")]
-#[case::no_slide(NoPresent::NoSlide, "session-present-no-slide")]
-#[tokio::test(flavor = "multi_thread")]
-async fn present_where_the_page_cannot_present_is_refused_with_its_reason(#[case] mode: NoPresent, #[case] key: &str) {
-    let h = start_in(mode).await;
-    let mut rx = h.hub.subscribe();
-    let r = direct(&h, "present", json!({})).await;
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr(key));
-    assert_that!(no_page_event(&mut rx)).is_true();
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn present_on_a_hidden_tab_is_refused_in_the_user_language() {
-    let h = start_hidden().await;
-    let r = direct(&h, "present", json!({})).await;
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-not-shown"));
-}
-
 // --- set_interface ----------------------------------------------------------
 
 #[tokio::test(flavor = "multi_thread")]
@@ -473,7 +398,71 @@ async fn set_interface_emits_the_requested_changes_only() {
         scheme: Some(SchemeChoice::Dark),
         locale: None,
         guides: Some(true),
+        ..InterfaceChange::default()
     });
+}
+
+/// A layout field alone is a change (t-1001): pile, notes, code or one folded section.
+#[rstest]
+#[case::pile(json!({ "pile": 240 }), InterfaceChange { pile: Some(240), ..InterfaceChange::default() })]
+#[case::notes(json!({ "notes": 480 }), InterfaceChange { notes: Some(480), ..InterfaceChange::default() })]
+#[case::code(json!({ "code": true }), InterfaceChange { code: Some(true), ..InterfaceChange::default() })]
+#[case::folded(
+    json!({ "folded": { "layouts": false } }),
+    InterfaceChange { folded: Some(FoldedChange { layouts: Some(false), ..FoldedChange::default() }), ..InterfaceChange::default() },
+)]
+#[tokio::test(flavor = "multi_thread")]
+async fn set_interface_layout_only_is_not_empty(#[case] args: Value, #[case] expected: InterfaceChange) {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let r = direct(&h, "set_interface", args).await;
+    assert_that!(r.is_error).is_not_equal_to(Some(true));
+    assert_that!(next_interface(&mut rx).await).is_equal_to(expected);
+}
+
+/// An empty folded object asks nothing: refused as an empty change.
+#[tokio::test(flavor = "multi_thread")]
+async fn set_interface_empty_folded_is_refused_as_empty() {
+    let h = start().await;
+    let r = direct(&h, "set_interface", json!({ "folded": {} })).await;
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-empty-interface"));
+}
+
+/// A pile width outside 180..=360 (`fixtures/ui/layout-bounds.json`) is refused, nothing emitted.
+#[rstest]
+#[case::narrow(100)]
+#[case::wide(400)]
+#[tokio::test(flavor = "multi_thread")]
+async fn set_interface_pile_out_of_static_bounds_refused(#[case] pile: u32) {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let r = direct(&h, "set_interface", json!({ "pile": pile })).await;
+    let params = [("field", "pile".into()), ("min", 180.into()), ("max", 360.into())];
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr_with("agent-error-layout-range", &params));
+    assert_that!(no_page_event(&mut rx)).is_true();
+}
+
+/// A thread width below 300 (`fixtures/ui/layout-bounds.json`) is refused, nothing emitted.
+#[tokio::test(flavor = "multi_thread")]
+async fn set_interface_notes_below_static_min_refused() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let r = direct(&h, "set_interface", json!({ "notes": 200 })).await;
+    let params = [("field", "notes".into()), ("min", 300.into())];
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr_with("agent-error-layout-min", &params));
+    assert_that!(no_page_event(&mut rx)).is_true();
+}
+
+/// One folded section asked leaves the other unchanged: it goes out as `null`.
+#[tokio::test(flavor = "multi_thread")]
+async fn set_interface_folded_partial_keeps_other() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    direct(&h, "set_interface", json!({ "folded": { "slides": true } })).await;
+    let sent = serde_json::to_value(next_interface(&mut rx).await).unwrap_or_else(|e| panic!("change : {e}"));
+    assert_that!(sent.get("folded")).is_equal_to(Some(&json!({ "slides": true, "layouts": null })));
 }
 
 /// Revue t-988 : l'interface ne reçoit qu'un code livré.
@@ -512,6 +501,8 @@ async fn set_interface_with_nothing_to_change_is_refused() {
 #[rstest]
 #[case::language(json!({ "language": "fr" }))]
 #[case::retired_grid(json!({ "grid": true }))]
+#[case::folded_unknown_section(json!({ "folded": { "params": true } }))]
+#[case::retired_code_width(json!({ "code_width": 640 }))]
 #[tokio::test(flavor = "multi_thread")]
 async fn set_interface_with_an_unknown_field_is_refused_and_emits_nothing(#[case] args: Value) {
     let h = start().await;
@@ -569,20 +560,4 @@ async fn open_pack_on_a_single_document_host_is_refused_as_single_document() {
     let refused = snapshot(&h, |s| s.editing.is_none());
     assert_that!(refused).is_true();
     assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("session-single-document"));
-}
-
-// --- contrat avec l'interface -------------------------------------------------
-
-/// Revue t-988 : la forme JSON des évènements, telle que `ui/src/api.ts` la lit.
-#[test]
-fn mcp_event_page_events_serialize_as_the_ui_reads_them() {
-    let change = InterfaceChange { guides: Some(true), ..InterfaceChange::default() };
-    let events =
-        [McpEvent::Present { mode: PresentMode::Window }, McpEvent::Interface { change }, McpEvent::OpenHistory];
-    let json: Vec<Value> = events.iter().map(|e| serde_json::to_value(e).unwrap_or(Value::Null)).collect();
-    assert_that!(json).is_equal_to(vec![
-        json!({ "kind": "present", "mode": "window" }),
-        json!({ "kind": "interface", "change": { "scheme": null, "locale": null, "guides": true } }),
-        json!({ "kind": "open_history" }),
-    ]);
 }

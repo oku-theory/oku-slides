@@ -49,7 +49,7 @@ export function IconButton({ label, icon, className, ...rest }: Omit<ButtonHTMLA
  *
  * Fermé à dessein : son libellé est à la fois son nom (`aria-label`) et son infobulle.
  */
-export function IconToggle({ label, pressed, onToggle, icon, className, disabled }: {
+export function IconToggle({ label, pressed, onToggle, icon, className, disabled, keepFocus }: {
   /** Nom accessible et infobulle. */
   label: string;
   /** Enfoncé : `aria-pressed` et la classe `on`. */
@@ -59,6 +59,8 @@ export function IconToggle({ label, pressed, onToggle, icon, className, disabled
   icon: ReactNode;
   className?: string;
   disabled?: boolean;
+  /** A click leaves the focus where it is: a text being edited stays open. */
+  keepFocus?: boolean;
 }) {
   return (
     <button
@@ -68,6 +70,7 @@ export function IconToggle({ label, pressed, onToggle, icon, className, disabled
       aria-pressed={pressed}
       className={classes(className, pressed && "on") || undefined}
       disabled={disabled}
+      onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
       onClick={onToggle}
     >
       {icon}

@@ -26,7 +26,7 @@ output are in French.
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server, and the PPTX import pipeline the CLI and the app share |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
-| `crates/oku-slides-stt` | Dictation: microphone, voice detection, Apple's engine (macOS 26+) or local Whisper (CTranslate2) |
+| `crates/oku-slides-stt` | Speech: dictation (microphone, voice detection, Apple's engine on macOS 26+, local Whisper or an API) and OS voice (macOS, Windows, `spd-say`) |
 | `crates/oku-slides-a2ui` | A2UI v0.9 surfaces (component catalog), shared by the panel and the agent |
 | `crates/oku-slides-mcp` | Agent MCP tools (local HTTP, token): reading, `apply`, surfaces, confirmations |
 | `crates/oku-slides-agent` | Voice agent: ACP client (agent as a subprocess), turns, stack for the app and the server; fake agent for tests |
@@ -278,7 +278,7 @@ The draft only talks to the agent; a pause never decides for you.
 
 ```sh
 just transcribe voice.wav turbo fr                # split into sentences, transcribe, measure
-OKU_SLIDES_STT__FAKE_MIC=voice.wav just serve     # simulate the mic in the interface
+OKU_SLIDES_STT__FAKE_MIC=voice.wav cargo run -p oku-slides-cli --features e2e-fakes -- --fonts assets/fonts serve fixtures/roadmap.json  # simulate the mic (e2e-fakes builds only)
 just test-apple                                   # Apple's engine for real (macOS 26, French installed)
 ```
 
@@ -371,11 +371,12 @@ deck languages are passed in its context, and it answers in yours.
 - **Everything undoes**: one agent turn is a single ⌘Z entry.
 - **What cannot be undone** (saving, opening, deleting a pack, changing an app setting
   other than the plain dictation ones) waits for your confirmation, like the permissions the
-  agent requests: a click, never Enter, and never “always allow” by default.
+  agent requests: a click or, hands-free, a spoken answer (“yes” plus the action's verb for a
+  risky one, only while the app window has the focus); never Enter, and never “always allow”.
 - **Decisions**: the agent asks its questions in a card under the element (choices,
   rewordings: `1`–`4`, Enter, `E` to edit, Esc), proposes variants rendered in a
   drawer under the sheet, and live settings in a sticky note. A question can be
-  answered by voice, through the draft.
+  answered by voice: through the draft, or hands-free by saying the answer.
 - **Conversation**: one per tab, restored with the tab at next launch; tabs work at the
   same time. “New conversation” starts from scratch. ⌘⇧D during a turn stops it.
 - **Detached window**: ⧉ at the top of the thread (or Window ▸ Agent in a Separate Window, on macOS) opens
@@ -487,7 +488,7 @@ the next change in the box. A file that does not parse is kept aside as
 | `OKU_SLIDES_PATHS__MODELS` | Dictation models folder |
 | `OKU_SLIDES_PATHS__FONTS` | Extra fonts (TTF/OTF) |
 | `OKU_SLIDES_STT__APPLE` | `false`: Whisper only |
-| `OKU_SLIDES_STT__FAKE_MIC` | WAV file replayed instead of the microphone |
+| `OKU_SLIDES_STT__FAKE_MIC` | WAV file replayed instead of the microphone; refused at load without the `e2e-fakes` feature |
 | `OKU_SLIDES_STT__VAD__PAUSE` | Pause that ends a sentence (s), like any `[stt.vad]` key |
 | `OKU_SLIDES_SERVE__PORT` | Dev server port |
 | `OKU_SLIDES_I18N__LOCALE` | Interface language (`en`, `fr`, `de`, `ja`…); default: the system's |

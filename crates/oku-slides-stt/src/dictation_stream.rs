@@ -16,7 +16,7 @@ use crate::error::{
     AnalyzerSnafu, AssetInstallSnafu, CancelledSnafu, FinishTimeoutSnafu, LocaleUnsupportedSnafu, ZeroSettingSnafu,
 };
 use crate::stream::{Availability, Event, Stream};
-use crate::{Download, Inner, Model, SAMPLE_RATE, State, Stt, SttError, TimedPhrase, join};
+use crate::{Download, Inner, Mode, Model, SAMPLE_RATE, State, Stt, SttError, TimedPhrase, join};
 #[cfg(any(test, target_os = "macos"))]
 use crate::{clean, results};
 
@@ -60,8 +60,8 @@ impl Stt {
                 }
                 #[cfg(any(test, target_os = "macos"))]
                 Ok(event) => {
-                    let Inner { phrases, partial, .. } = &mut *g;
-                    results::apply(phrases, partial, &event);
+                    let Inner { phrases, partial, clock, .. } = &mut *g;
+                    results::apply(phrases, partial, &event, clock.stream_base);
                 }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => {
@@ -104,8 +104,10 @@ impl Stt {
         g.reset();
     }
 
-    /// Télécharge la langue du moteur d'Apple (par le système), puis reprend la dictée.
-    pub(crate) fn download_language(&self, then_start: bool) -> bool {
+    /// Downloads the Apple engine's language (through the system), then starts `then`.
+    ///
+    /// Listening stops for it and starts again after it, whatever its result.
+    pub(crate) fn download_language(&self, then: Option<Mode>) -> bool {
         let tag = {
             let mut g = self.state();
             let Some((tag, _)) = g.apple.clone() else {
@@ -114,12 +116,12 @@ impl Stt {
                 self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
                 return false;
             };
-            if g.state != State::Idle {
+            if !g.state.accepts_settings() {
                 return false;
             }
+            g.pause_for_download(then);
             g.state = State::Downloading;
             g.download = Some(Download { model: Model::Apple, received: 0, total: 0 });
-            g.start_after_download = then_start;
             tag
         };
         self.cancel_download.store(false, Ordering::Relaxed);
@@ -127,8 +129,8 @@ impl Stt {
         std::thread::spawn(move || {
             let result = me.install(&tag);
             me.refresh_apple();
-            if me.finish_download(Model::Apple, result) {
-                me.begin_recording();
+            if let Some(mode) = me.finish_download(Model::Apple, result) {
+                me.begin_recording(mode, State::Idle);
             }
         });
         true

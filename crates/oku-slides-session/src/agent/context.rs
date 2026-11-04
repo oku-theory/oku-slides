@@ -18,8 +18,14 @@ use crate::{Mode, Session};
 /// Length of the instruction's start in the undo label.
 const LABEL_CHARS: usize = 40;
 
+/// The longest id or name an [`AgentUi`] field may hold, in UTF-8 bytes.
+pub const UI_TEXT_MAX: usize = 256;
+
 /// What the interface shows when the instruction is given.
+///
+/// Page-supplied: unknown fields are refused, and [`AgentUi::within_limits`] bounds the texts.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AgentUi {
     /// Id of the displayed slide.
     #[serde(default)]
@@ -39,6 +45,28 @@ pub struct AgentUi {
     /// The language the interface shows: it changes live, the session keeps the one it started with.
     #[serde(default)]
     pub locale: Option<String>,
+}
+
+impl AgentUi {
+    /// True if every id and name fits [`UI_TEXT_MAX`] bytes and the locale a language tag's length.
+    #[must_use]
+    pub fn within_limits(&self) -> bool {
+        let fits = |t: &Option<String>, max: usize| t.as_ref().is_none_or(|t| t.len() <= max);
+        [&self.slide, &self.element, &self.field, &self.widget].into_iter().all(|t| fits(t, UI_TEXT_MAX))
+            && fits(&self.locale, LANG_TAG_MAX)
+    }
+}
+
+/// How a turn began, kept with the turn: the read-aloud reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TurnOrigin {
+    /// Typed or dictated into the draft, then sent.
+    #[default]
+    Typed,
+    /// A hands-free utterance.
+    Voice,
+    /// A hands-free utterance that began with the wake phrase.
+    Wake,
 }
 
 /// The instruction's start, cut at 40 characters ("…" included), without invisible characters.
@@ -237,6 +265,10 @@ impl Session {
                     let _ = writeln!(out, "widget: {}", w.as_str());
                 }
             }
+        }
+        // The finished turn whose changes are on top of the undo stack: what `undo_turn` takes.
+        if let Some(turn) = self.undo_turn() {
+            let _ = writeln!(out, "undoable_turn: {turn}");
         }
         if !self.agent_notes.is_empty() {
             out.push_str("since_last_turn:\n");

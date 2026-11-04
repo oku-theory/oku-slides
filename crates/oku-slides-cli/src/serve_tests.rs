@@ -68,7 +68,10 @@ fn shared_on(data: &std::path::Path) -> (super::Shared, tokio::runtime::Runtime)
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap_or_else(|e| panic!("{e}"));
     let sessions: Arc<dyn oku_slides_session::agent::Sessions> = workspace.clone();
     let stt = super::Stt::new(&platform);
-    let stack = super::Stack::start(sessions, &platform, Some(stt.clone()), rt.handle().clone());
+    let focus: Arc<dyn oku_slides_session::agent::AgentWorkspace> = workspace.clone();
+    let app = Arc::new(oku_slides_session::agent::UnavailableApp);
+    let voices = oku_slides_agent::Voices { stt: Some(stt.clone()), speaker: None };
+    let stack = super::Stack::start(sessions, &platform, voices, focus, app, rt.handle().clone());
     let shared = super::Shared {
         workspace,
         stack,
@@ -87,7 +90,7 @@ fn shared_on(data: &std::path::Path) -> (super::Shared, tokio::runtime::Runtime)
 fn import_alto(s: &super::Shared) -> String {
     let pptx = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import/alto-wealth.pptx");
     let req = serde_json::json!({ "cmd": "import_tab", "window": "w-1", "path": pptx, "mode": "hifi" });
-    let (status, body) = s.api("/api/workspace", req.to_string().as_bytes());
+    let (status, body) = s.api("/api/workspace", req.to_string().as_bytes(), None);
     assert_that!(status).named(&body).is_equal_to(super::StatusCode::OK);
     super::Workspace::lock(&s.workspace).tab_ids().into_iter().next().unwrap_or_else(|| panic!("a tab"))
 }
@@ -102,7 +105,7 @@ fn open_deck_pack(s: &super::Shared, deck: &str) -> String {
     .flatten()
     .unwrap_or_else(|| panic!("the import's deck pack"));
     let req = serde_json::json!({ "cmd": "open_pack", "tab": deck, "pack": pack });
-    let (status, body) = s.api("/api/workspace", req.to_string().as_bytes());
+    let (status, body) = s.api("/api/workspace", req.to_string().as_bytes(), None);
     assert_that!(status).named(&body).is_equal_to(super::StatusCode::OK);
     let tabs = super::Workspace::lock(&s.workspace).tab_ids();
     tabs.into_iter().find(|t| t != deck).unwrap_or_else(|| panic!("a deck-pack tab"))
@@ -116,7 +119,7 @@ fn api_forward_runs_after_change_on_the_owner() {
     let tab = open_deck_pack(&s, &deck);
     let rename = serde_json::json!({ "op": "set_deck_param", "key": "title", "value": "Modèles" });
     let edit = serde_json::json!({ "tab": tab, "req": { "cmd": "apply", "label": "Nom", "ops": [rename] } });
-    assert_that!(s.api("/api", edit.to_string().as_bytes()).0).is_equal_to(super::StatusCode::OK);
+    assert_that!(s.api("/api", edit.to_string().as_bytes(), None).0).is_equal_to(super::StatusCode::OK);
     // `api` itself, minus the agent: the request, then `drain_owners` handing each owner to `after_change`.
     let save = serde_json::from_value(serde_json::json!({ "cmd": "save_pack", "as_new": false })).unwrap();
     let (result, _) = super::Workspace::request(&s.workspace, &tab, save);
@@ -135,8 +138,100 @@ fn close_of_an_owner_whose_links_are_all_tabs_is_409() {
     let deck = import_alto(&s);
     let tab = open_deck_pack(&s, &deck);
     let close = serde_json::json!({ "cmd": "close", "tab": deck });
-    let (status, _) = s.api("/api/workspace", close.to_string().as_bytes());
+    let (status, _) = s.api("/api/workspace", close.to_string().as_bytes(), None);
     assert_that!(status).is_equal_to(super::StatusCode::CONFLICT);
     assert_that!(super::Workspace::lock(&s.workspace).tab_ids()).is_equal_to(vec![deck, tab]);
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_focus_is_page_reported() {
+    use oku_slides_session::agent::{AgentWorkspace, FocusSource};
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    let from = oku_slides_agent::ReportFrom::Holder { window: "w-1".into() };
+    let report = |seq: u64, has_focus: bool| {
+        let v =
+            serde_json::json!({ "cmd": "context", "tab": "t-1", "page": "p-1", "seq": seq, "has_focus": has_focus });
+        serde_json::from_value(v).unwrap_or_else(|e| panic!("{e}"))
+    };
+    assert_that!(s.workspace.focused_tab()).is_none();
+    assert_that!(s.stack.handle_from(report(1, true), &from)).is_ok();
+    let focused = || s.workspace.focused_tab().map(|f| (f.tab, f.source, f.focused));
+    assert_that!(focused()).is_equal_to(Some(("t-1".to_owned(), FocusSource::PageReported, true)));
+    // The page lost the focus: its tab stays the one the user left, unfocused.
+    assert_that!(s.stack.handle_from(report(2, false), &from)).is_ok();
+    assert_that!(focused()).is_equal_to(Some(("t-1".to_owned(), FocusSource::PageReported, false)));
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_context_from_window_holding_tab_is_accepted_and_from_another_refused() {
+    use oku_slides_session::agent::{AgentWorkspace, FocusSource};
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    let new_window = serde_json::json!({ "cmd": "new_window" }).to_string();
+    assert_that!(s.api("/api/workspace", new_window.as_bytes(), None).0).is_equal_to(super::StatusCode::OK);
+    let report = |seq: u64| {
+        serde_json::json!({ "cmd": "context", "tab": "t-1", "page": "p-1", "seq": seq, "has_focus": true }).to_string()
+    };
+    // `w-2` holds `t-2`, not `t-1`: refused, and the focus stays unknown.
+    let (status, body) = s.api("/api/agent", report(1).as_bytes(), Some("w-2"));
+    assert_that!(status).named(&body).is_equal_to(super::StatusCode::BAD_REQUEST);
+    assert_that!(s.workspace.focused_tab()).is_none();
+    // Naming no window is refused the same way.
+    assert_that!(s.api("/api/agent", report(2).as_bytes(), None).0).is_equal_to(super::StatusCode::BAD_REQUEST);
+    let (status, body) = s.api("/api/agent", report(3).as_bytes(), Some("w-1"));
+    assert_that!(status).named(&body).is_equal_to(super::StatusCode::OK);
+    let focused = s.workspace.focused_tab().map(|f| (f.tab, f.source));
+    assert_that!(focused).is_equal_to(Some(("t-1".to_owned(), FocusSource::PageReported)));
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_context_for_tab_no_window_holds_is_ignored_with_200() {
+    use oku_slides_session::agent::AgentWorkspace;
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    // A report that flew while its tab closed: no window holds `t-9`.
+    let report = serde_json::json!({ "cmd": "context", "tab": "t-9", "page": "p-1", "seq": 1, "has_focus": true });
+    let (status, body) = s.api("/api/agent", report.to_string().as_bytes(), Some("w-1"));
+    assert_that!(status).named(&body).is_equal_to(super::StatusCode::OK);
+    assert_that!(s.workspace.focused_tab()).is_none();
+    rt.block_on(s.stack.shutdown());
+}
+
+#[rstest::rstest]
+#[case::named(Some("w-1"), Some("w-1"))]
+#[case::absent(None, None)]
+#[case::too_long(Some("w-0123456789012345678901234567890123456789012345678901234567890123"), None)]
+fn page_window_reads_a_short_label_only(#[case] header: Option<&str>, #[case] expected: Option<&str>) {
+    let mut headers = axum::http::HeaderMap::new();
+    if let Some(label) = header {
+        headers.insert(super::WINDOW_HEADER, label.parse().unwrap_or_else(|e| panic!("{e}")));
+    }
+    assert_that!(super::page_window(&headers)).is_equal_to(expected.map(str::to_owned));
+}
+
+#[rstest::rstest]
+#[case::no_window(r#"{"id":"0b0c4b52-2b7c-4a43-9df2-6c2b8f0e6b11"}"#, None)]
+#[case::unknown_id(r#"{"id":"0b0c4b52-2b7c-4a43-9df2-6c2b8f0e6b11"}"#, Some("w-1"))]
+#[case::not_an_id(r#"{"id":"t-1"}"#, Some("w-1"))]
+fn serve_close_decision_nobody_stored_is_null(#[case] body: &str, #[case] window: Option<&str>) {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(dir.path());
+    let (status, reply) = s.api("/api/close-decision", body.as_bytes(), window);
+    assert_that!(status).is_equal_to(super::StatusCode::OK);
+    assert_that!(reply.as_str()).is_equal_to("null");
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_close_decision_with_an_unknown_field_is_a_bad_request() {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(dir.path());
+    let body = r#"{"id":"x","discard":true}"#;
+    assert_that!(s.api("/api/close-decision", body.as_bytes(), Some("w-1")).0)
+        .is_equal_to(super::StatusCode::BAD_REQUEST);
     rt.block_on(s.stack.shutdown());
 }

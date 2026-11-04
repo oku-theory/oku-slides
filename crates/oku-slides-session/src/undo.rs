@@ -28,6 +28,26 @@ thread_local! {
     pub(crate) static FAIL_OPPOSITE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// An open undo group: its label and the step it made, if any.
+type OpenGroup = Option<(String, Option<u64>)>;
+
+/// The open group of `sources`, before a step.
+fn open_group(sources: &SourceBundle) -> OpenGroup {
+    sources.group().map(|label| (label.to_owned(), sources.group_step()))
+}
+
+/// Reopens `group` if the step closed it; a refusal before the step left it open as it was.
+///
+/// The group joins its own step again when that step is back on top (a redo of
+/// it, or a refused undo taken back), so the turn stays one step.
+fn resume(sources: &mut SourceBundle, group: OpenGroup) {
+    if let Some((label, step)) = group
+        && sources.group().is_none()
+    {
+        sources.resume_group(&label, step);
+    }
+}
+
 impl Session {
     /// Undoes through the replica; a failed render keeps the state and returns the error.
     ///
@@ -55,22 +75,65 @@ impl Session {
         self.replay(SourceBundle::redo, SourceBundle::undo)
     }
 
-    /// Plays `do_step`; takes it back with `opposite` when it moved a linked pack's pins.
+    /// Is there a step of the tab's document left to undo?
+    #[must_use]
+    pub fn can_undo(&self) -> bool {
+        self.doc.sources.replica().can_undo()
+    }
+
+    /// Is there an undone step of the tab's document left to redo?
+    #[must_use]
+    pub fn can_redo(&self) -> bool {
+        self.doc.sources.replica().can_redo()
+    }
+
+    /// Plays `do_step`; an open turn's group is reopened after it, whatever the outcome.
+    ///
+    /// The replica ends an open group on an undo or redo; reopened, the turn's next
+    /// edit joins its own step, or opens one under its label, so the turn stays one step (t-999).
     fn replay(&mut self, do_step: Step, opposite: Step) -> Result<()> {
+        let group = open_group(&self.doc.sources);
+        let stash_group = self.set_aside().and_then(open_group);
+        let done = self.replay_step(do_step, opposite);
+        resume(&mut self.doc.sources, group);
+        if let Some(stash) = self.set_aside_mut() {
+            resume(stash, stash_group);
+        }
+        done
+    }
+
+    /// The deck set aside (a pack tab's preview, history's stash), if any.
+    fn set_aside(&self) -> Option<&SourceBundle> {
+        match &self.mode {
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => Some(&stash.sources),
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => None,
+        }
+    }
+
+    /// The deck set aside, to change.
+    fn set_aside_mut(&mut self) -> Option<&mut SourceBundle> {
+        match &mut self.mode {
+            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => Some(&mut stash.sources),
+            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => None,
+        }
+    }
+
+    /// Plays `do_step`; takes it back with `opposite` when it moved a linked pack's pins.
+    fn replay_step(&mut self, do_step: Step, opposite: Step) -> Result<()> {
         // A step may bring a session version back into the library: the editor needs its lease.
         self.ensure_pack_lease()?;
         self.end_widget_session();
         self.ensure_document_editable()?;
         let before = self.linked_pins();
         // The replica ends an open turn group on an undo or redo: the deck set aside's too.
-        if let Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } = &mut self.mode {
-            stash.sources.end_group();
+        if let Some(stash) = self.set_aside_mut() {
+            stash.end_group();
         }
         if do_step(&mut self.doc.sources).context(SourcesSnafu)? {
             if let Err(refused) = self.stop_at_linked_pins(&before) {
                 return Err(self.take_back(opposite, &before, refused));
             }
-            self.doc.dirty = true;
+            self.mark_dirty();
             self.realign_pack()?;
             self.realign_theme_edit();
             self.sync_widgets()?;
@@ -102,7 +165,7 @@ impl Session {
             Err(e) => tracing::error!(error = %e, "refused undo or redo not taken back"),
         }
         // The deck stays moved: it is dirty, and its widgets and view follow it.
-        self.doc.dirty = true;
+        self.mark_dirty();
         if let Err(e) = self.sync_widgets().and_then(|()| self.rerender()) {
             tracing::error!(error = %e.one_line(), "deck not shown again after a failed take-back");
         }

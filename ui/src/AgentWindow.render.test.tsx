@@ -3,8 +3,10 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import "./test/dom";
 import { memoryTransport } from "./test/link";
-import type { Snapshot, Surface, SttStatus } from "./api";
-import { stt, workspace } from "./api";
+import type { Snapshot, Surface } from "./api";
+import type { SttStatus } from "./voiceApi";
+import { workspace } from "./api";
+import { stt } from "./voiceApi";
 import { CATALOG_ID } from "./a2ui/catalog";
 import type { HostHandlers } from "./agent/events";
 import type { LinkContext } from "./agent/link";
@@ -151,10 +153,10 @@ describe("AgentWindow", () => {
     spyOn(stt, "status").mockImplementation(() =>
       Promise.resolve({
         state: "idle",
-        config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] } },
+        config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false } },
         models: [{ id: "turbo", label: "Turbo", size: 1, installed: true, available: true }],
         download: null, level: 0, speaking: false, committed: "", partial: "", detected: null,
-        stop_in: null, text: null, seq: 0, seconds: 0, error: null, api_missing: null,
+        stop_in: null, text: null, seq: 0, seconds: 0, error: null, api_missing: null, suspended: false,
       } as SttStatus),
     );
   /** Le ⚙ de la dictée, une fois la fenêtre prête et l'état de la dictée reçu ; `null` s'il manque. */

@@ -452,6 +452,109 @@
    }
   },
   {
+   "id": "s-mains-libres",
+   "kind": "essentiel/content",
+   "params": {
+    "kicker": "Getting around",
+    "title": "Hands-free",
+    "layout": "default",
+    "blocks": [
+     {
+      "id": "b-mains-libres",
+      "kind": "base/text",
+      "params": {
+       "body": [
+        {
+         "runs": [
+          {
+           "t": "Turning it on",
+           "bold": true
+          },
+          {
+           "t": ": check “Hands-free listening” in the dictation settings (the ⚙ of the dictation bar). Only you turn it on; the agent can only turn it off. Each launch starts paused: press the mic or ⌘D once, and the bar shows “Listening hands-free”."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Talking to the agent",
+           "bold": true
+          },
+          {
+           "t": ": each sentence goes to the agent as soon as you pause, without the draft. Speaking while it works interrupts its reply; “stop” cancels it without a new request. Very short sounds are ignored."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Answering out loud",
+           "bold": true
+          },
+          {
+           "t": ": say yes or no to a question. A risky one needs its verb (“merge”, “delete”, “replace”, “quit”…), as Oku says when it reads it. A permission takes yes (allow once) or no (reject once), never an “always” option. For choices and variants, say “the second” or the option. Anything else keeps the question open and shows what was heard. When no Oku window is in front, only “stop” and sentences starting with “Oku” are heard."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Presenting",
+           "bold": true
+          },
+          {
+           "t": ": say “next”, “previous”, “first slide”, “last slide” or “exit”. Start a sentence with “Oku, …” to ask the agent; nothing else you say during the talk reaches it."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Read aloud",
+           "bold": true
+          },
+          {
+           "t": ": Oku reads each receipt, question and error of the shown tab with the system voice, and listening pauses while it speaks. Voice and rate are in the settings box. During a presentation it stays silent, unless you allow it to answer after “Oku”."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Without keyboard or mouse",
+           "bold": true
+          },
+          {
+           "t": ": ask the agent to switch, reorder, move or close tabs, open or close a window, open the help on a topic, undo or redo, start a new conversation, check for updates or quit. Closing and quitting ask you first, and quitting is refused while a tab holds unsaved work."
+          }
+         ],
+         "list": "bullet"
+        },
+        {
+         "runs": [
+          {
+           "t": "Known limits",
+           "bold": true
+          },
+          {
+           "t": ": while an Oku window is in front, any voice the microphone picks up (a video, a call, someone in the room) can run tools that ask no confirmation. When Oku is in the background, a sentence starting with “Oku” still reaches the agent. In the browser version (oku-slides serve), risky actions are never confirmed by voice: click the button instead."
+          }
+         ],
+         "list": "bullet"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "s-agent",
    "kind": "essentiel/content",
    "params": {
@@ -1717,7 +1820,7 @@
            "bold": true
           },
           {
-           "t": ": a WAV file replayed instead of the microphone."
+           "t": ": a WAV file replayed instead of the microphone (test builds only: other builds refuse it at startup)."
           }
          ],
          "list": "bullet"

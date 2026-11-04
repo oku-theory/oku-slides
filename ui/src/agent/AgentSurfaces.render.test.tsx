@@ -279,6 +279,14 @@ describe("fenêtre de confirmation", () => {
     expect(document.activeElement).toBe(dialog);
   });
 
+  test("se dit armée (data-armed) une fois la garde passée : la voix attend ce moment aussi", async () => {
+    const { host } = await mount("modal", real("ask-2"));
+    const dialog = () => host.querySelector('[role="alertdialog"]');
+    expect(dialog()?.hasAttribute("data-armed")).toBe(false);
+    await act(async () => new Promise((r) => setTimeout(r, ARMING_MS + 20)));
+    expect(dialog()?.getAttribute("data-armed")).toBe("true");
+  });
+
   test("Entrée et les chiffres ne confirment pas : il faut un geste délibéré", async () => {
     const { sent } = await mount("modal", real("perm-3"));
     now += ARMING_MS + 1;

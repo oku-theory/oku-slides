@@ -9,7 +9,7 @@ use oku_slides_session::{Fonts, PackLibrary, Platform, Session, Workspace, Works
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use super::{Harness, lock, platform, start_with};
+use super::{Harness, lock, platform, start_with, start_with_workspace};
 
 /// The library pack `acme`.
 pub const ACME: Uuid = Uuid::from_u128(0xac3e_0000_0000_4000_8000_0000_0000_0001);
@@ -20,11 +20,18 @@ const BADGE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
 #let widget = widget("badge", params: (label: p.plain()),
   (args, ctx) => field(ctx, "label", args.label))
 "#;
+/// The library layout pack `maison`, holding one slide layout.
+pub const MAISON: Uuid = Uuid::from_u128(0xac3e_0000_0000_4000_8000_0000_0000_0003);
+/// The one layout of `maison`: a slide widget with a `title` text.
+const COUVERTURE: &str = r#"#import "/oku-slides/lib.typ": widget, field, params as p
+#let widget = widget("couverture", category: "slide", params: (title: p.plain()),
+  (args, ctx) => field(ctx, "title", args.title))
+"#;
 /// The library pack `beta`.
 pub const BETA: Uuid = Uuid::from_u128(0xac3e_0000_0000_4000_8000_0000_0000_0002);
 
-/// Adds a library widget pack `namespace` (requiring `base`) under `id`, holding `widgets`.
-fn add_library_pack(platform: &Platform, id: Uuid, namespace: &str, widgets: &[(&str, &str)]) {
+/// Adds a library pack of `kind`, `namespace` (requiring `base`) under `id`, holding `widgets`.
+fn add_library_pack(platform: &Platform, kind: PackKind, (id, namespace): (Uuid, &str), widgets: &[(&str, &str)]) {
     let ns = |s: &str| Namespace::parse(s).unwrap_or_else(|| panic!("invalid namespace: {s}"));
     let manifest = oku_slides_session::PackManifest {
         id,
@@ -49,7 +56,7 @@ fn add_library_pack(platform: &Platform, id: Uuid, namespace: &str, widgets: &[(
             (file, (*source).to_owned())
         })
         .collect();
-    let files = manifest.to_files(PackKind::Widgets, widgets).unwrap_or_else(|e| panic!("manifest: {e}"));
+    let files = manifest.to_files(kind, widgets).unwrap_or_else(|e| panic!("manifest: {e}"));
     PackLibrary::user(platform).add_version(id, &files).unwrap_or_else(|e| panic!("library pack: {e}"));
 }
 
@@ -57,8 +64,8 @@ fn add_library_pack(platform: &Platform, id: Uuid, namespace: &str, widgets: &[(
 async fn workspace() -> (Platform, tempfile::TempDir, Arc<Mutex<Workspace>>) {
     tokio::task::spawn_blocking(|| {
         let (platform, data) = platform();
-        add_library_pack(&platform, ACME, "acme", &[(ACME_WIDGET, BADGE)]);
-        add_library_pack(&platform, BETA, "beta", &[]);
+        add_library_pack(&platform, PackKind::Widgets, (ACME, "acme"), &[(ACME_WIDGET, BADGE)]);
+        add_library_pack(&platform, PackKind::Widgets, (BETA, "beta"), &[]);
         let workspace =
             Workspace::new(Fonts::default(), &platform, None).unwrap_or_else(|e| panic!("test workspace: {e}"));
         (platform, data, Arc::new(Mutex::new(workspace)))
@@ -73,6 +80,22 @@ pub async fn start_on_workspace() -> (Harness, Arc<Mutex<Workspace>>) {
     let session = Arc::new(Mutex::new(placeholder(&platform).await));
     let sessions: Arc<dyn Sessions> = ws.clone();
     (start_with((platform, data), sessions, session, "t-1").await, ws)
+}
+
+/// [`start_on_workspace`] whose tools also change tabs through the workspace (`import`).
+///
+/// Its library also holds the layout pack `maison` ([`MAISON`]).
+pub async fn start_on_agent_workspace() -> (Harness, Arc<Mutex<Workspace>>) {
+    let (platform, data, ws) = workspace().await;
+    let library = platform.clone();
+    tokio::task::spawn_blocking(move || {
+        add_library_pack(&library, PackKind::Layouts, (MAISON, "maison"), &[("couverture", COUVERTURE)]);
+    })
+    .await
+    .unwrap_or_else(|e| panic!("library blocking task: {e}"));
+    let session = Arc::new(Mutex::new(placeholder(&platform).await));
+    let sessions: Arc<dyn Sessions> = ws.clone();
+    (start_with_workspace((platform, data), sessions, session, "t-1", ws.clone()).await, ws)
 }
 
 /// A server bound to the deck tab `t-1` of a real workspace, holding the import of fixture `name`.
@@ -123,13 +146,13 @@ pub fn document_of(ws: &Arc<Mutex<Workspace>>, tab: &str) -> Option<oku_slides_s
     view.windows.iter().flat_map(|w| &w.tabs).find(|t| t.id == tab).map(|t| t.info.document.clone())
 }
 
-/// A server bound to a help tab opened beside the deck tab `t-1`; the help tab's id.
+/// A server bound to a help tab opened beside the deck tab `t-1`, its port the workspace; the help tab's id.
 pub async fn start_in_help_tab() -> (Harness, Arc<Mutex<Workspace>>, String) {
     let (platform, data, ws) = workspace().await;
     let tab = new_tab_by(&ws, json!({ "cmd": "open_help", "window": first_window(&ws) })).await;
     let session = Arc::new(Mutex::new(placeholder(&platform).await));
     let sessions: Arc<dyn Sessions> = ws.clone();
-    (start_with((platform, data), sessions, session, &tab).await, ws, tab)
+    (start_with_workspace((platform, data), sessions, session, &tab, ws.clone()).await, ws, tab)
 }
 
 /// The item a pack tab `tab` selects (its `UiState.widget`), read in its session.

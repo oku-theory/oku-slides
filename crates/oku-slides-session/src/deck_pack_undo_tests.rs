@@ -132,3 +132,18 @@ fn owner_refused_redo_cuts_the_merge_of_the_step_below() {
     apply_valid(&mut owner, LINKED_TAB);
     assert_that!(owner.doc.sources.undo_steps()).is_equal_to(steps + 1);
 }
+
+#[test]
+fn refused_undo_inside_agent_turn_keeps_one_step() {
+    let data = fresh_dir("oku-slides-deck-pack-undo-");
+    let mut owner = opened_on(data.path());
+    let steps = owner.doc.sources.undo_steps();
+    owner.begin_turn(3, "mise en page");
+    ok(owner.set_widget(None, "cover", slide_widget("cover")), "turn's layout");
+    let layouts = pin(&owner, "deck-layouts").unwrap();
+    link(&mut owner, LINKED_TAB, layouts.id);
+    assert_stopped(&mut owner, Request::Undo, SessionErrorKind::UndoInPackTab);
+    ok(owner.apply("Titre", vec![rename_title("Après le refus")], None), "rename");
+    owner.end_turn();
+    assert_that!(owner.doc.sources.undo_steps()).is_equal_to(steps + 1);
+}

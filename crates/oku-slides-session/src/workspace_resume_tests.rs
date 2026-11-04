@@ -35,7 +35,15 @@ fn deck(path: Option<&str>, uid: Option<&str>) -> TabDocument {
 }
 
 fn info_of(document: TabDocument) -> TabInfo {
-    TabInfo { title: "t".to_owned(), dirty: false, pristine: false, theme: None, document, created: None }
+    TabInfo {
+        title: "t".to_owned(),
+        dirty: false,
+        dirty_revision: None,
+        pristine: false,
+        theme: None,
+        document,
+        created: None,
+    }
 }
 
 #[test]
@@ -173,7 +181,7 @@ fn saved_layout_entry_carries_the_legacy_keys(
     #[case] help: Value,
 ) {
     let expected = json!({
-        "title": "t", "dirty": false, "pristine": false, "theme": null,
+        "title": "t", "dirty": false, "dirty_revision": null, "pristine": false, "theme": null,
         "document": written, "created": null, "path": path, "deck_uid": deck_uid, "help": help,
     });
     assert_that!(saved_entry(document)).is_equal_to(expected);

@@ -21,6 +21,8 @@ private let kindError: Int32 = 4
 private let errAnalyzer = 1.0
 private let errLocale = 2.0
 private let errAsset = 3.0
+// Speech recognition not allowed: `ERR_DENIED` in stream.rs, kept so both sides list the same codes.
+private let errDenied = 4.0
 
 /// Retour vers Rust : des événements, puis `free` une seule fois.
 final class Sink: @unchecked Sendable {

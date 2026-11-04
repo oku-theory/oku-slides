@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use oku_slides_i18n::Localize;
 use oku_slides_platform::local_agent::AGENT_MODEL;
-use oku_slides_session::agent::receipt;
+use oku_slides_session::agent::{SpokenFailure, receipt};
 use oku_slides_session::{LocalModelView, agent_download_progress, gigabytes_text, local_failure_text};
 use tokio::sync::mpsc;
 
@@ -212,7 +212,7 @@ impl TabAgent {
                 ],
             );
             let yes = tokio::select! {
-                yes = self.ctx.hub.confirm(message, false) => yes,
+                yes = self.ctx.hub.confirm(message, None) => yes,
                 next = rx.recv() => {
                     self.ctx.hub.cancel_asks();
                     return Download::Interrupted(next);
@@ -296,11 +296,12 @@ impl TabAgent {
         self.ctx.emit(AgentEvent::Fallback { reason });
     }
 
-    /// Turn `n` fails with the localized `message`.
+    /// Turn `n` fails with the localized `message`, read aloud as the agent not starting.
     fn fail_with(&self, n: u32, message: String) {
         tracing::warn!(tab = %self.ctx.tab.tab(), message, "agent : échec avant le lancement");
         self.ctx.hub.cancel_asks();
-        self.ctx.emit(AgentEvent::Error { turn: n, message });
+        // Every failure before the launch is one of the agent not starting.
+        self.ctx.emit(AgentEvent::Error { turn: n, message, spoken: SpokenFailure::NoStart });
         self.ctx.emit(AgentEvent::idle());
     }
 

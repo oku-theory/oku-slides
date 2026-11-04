@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use oku_slides_i18n::Localizer;
+use oku_slides_session::agent::SpokenFailure;
 use speculoos::prelude::*;
 
 use super::{KEPT_TURNS, TurnOut, Turns};
@@ -442,7 +443,11 @@ fn turns_error_right_after_user_text_fails_and_ends_that_turn() {
     let mut t = Turns::default();
     let now = Instant::now();
     t.apply(&user(1), now, &fr());
-    let out = t.apply(&AgentEvent::Error { turn: 1, message: "Agent introuvable".into() }, now, &fr());
+    let out = t.apply(
+        &AgentEvent::Error { turn: 1, message: "Agent introuvable".into(), spoken: SpokenFailure::NoStart },
+        now,
+        &fr(),
+    );
     assert_that!(data(&t)["outcome"].as_str().unwrap()).is_equal_to("Agent introuvable");
     assert_that!(data(&t)["collapsed"].as_bool().unwrap()).is_true();
     // Le tour est clos pour le hub aussi (sans reçu de repli : la narration est vide).

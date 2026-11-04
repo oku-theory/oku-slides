@@ -16,11 +16,12 @@ use agent_client_protocol::schema::v1::{
 use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::SurfaceHub;
 use oku_slides_platform::config::PromptImageLimits;
-use oku_slides_session::agent::{AgentUi, AttachmentRef, TabSession};
+use oku_slides_session::agent::{AgentUi, AttachmentRef, TabSession, TurnOrigin};
 use oku_slides_session::{DocumentKind, Session};
 use snafu::IntoError;
 use tokio::sync::{broadcast, mpsc};
 
+use crate::after_turn::AfterTx;
 use crate::agent_switch::PromptGuard;
 use crate::error::{AgentError, RequestSnafu, StoppedSnafu, WorkDirSnafu, WorkDirTaskSnafu};
 use crate::keeper::{Keep, Keeper};
@@ -58,6 +59,8 @@ pub(crate) struct Instruction {
     pub tune: bool,
     /// Les images collées envoyées avec la consigne.
     pub images: Vec<AttachmentRef>,
+    /// How the turn began: typed, a hands-free utterance, or one after the wake phrase.
+    pub origin: TurnOrigin,
 }
 
 /// Where to reach the tab's MCP tool server.
@@ -90,6 +93,8 @@ pub(crate) struct Ctx {
     pub prompt_limits: PromptImageLimits,
     /// The tab's document kind, read once when its agent started (its tools are that kind's).
     pub kind: DocumentKind,
+    /// Where ended turns' quit or install go; `None` outside the stack (logged and dropped).
+    pub after: Option<AfterTx>,
 }
 
 /// What a tab's actor starts from.
@@ -110,6 +115,8 @@ pub(crate) struct ActorParts {
     pub prompt_limits: PromptImageLimits,
     /// The tab's document kind, the one its tools were built for.
     pub kind: DocumentKind,
+    /// Where its ended turns' quit or install go; `None` outside the stack.
+    pub after: Option<AfterTx>,
 }
 
 impl Ctx {
@@ -161,7 +168,7 @@ impl AgentHandle {
         prompt_limits: PromptImageLimits,
         kind: DocumentKind,
     ) -> Self {
-        Self::start(ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits, kind }, None)
+        Self::start(ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits, kind, after: None }, None)
     }
 
     /// As [`AgentHandle::spawn`]; each request to the agent holds a guard of `voice`.
@@ -170,17 +177,17 @@ impl AgentHandle {
     }
 
     fn start(parts: ActorParts, voice: Option<Arc<AppVoice>>) -> Self {
-        let ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits, kind } = parts;
+        let ActorParts { tab, hub, tools, link, localizer, keeper, prompt_limits, kind, after } = parts;
         let (tx, rx) = mpsc::unbounded_channel();
         let (events, _) = broadcast::channel(256);
-        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, voice, prompt_limits, kind };
+        let ctx = Ctx { tab, hub, localizer, events: events.clone(), keeper, voice, prompt_limits, kind, after };
         tokio::spawn(TabAgent { ctx, tools, link, live: HashSet::new(), on_local: false }.run(rx));
         Self { tx, events }
     }
 
     /// Une consigne pour la conversation de l'onglet.
     pub fn prompt(&self, text: String, ui: AgentUi) {
-        self.instruct(Instruction { text, ui, tune: false, images: Vec::new() });
+        self.instruct(Instruction { text, ui, tune: false, images: Vec::new(), origin: TurnOrigin::Typed });
     }
 
     /// Une consigne, ordinaire ou de fine-tuning.
@@ -298,7 +305,7 @@ impl TabAgent {
     /// Joue un tour ; rend la consigne arrivée pendant le tour, à jouer ensuite.
     async fn prompt(&mut self, rx: &mut mpsc::UnboundedReceiver<Command>, instruction: Instruction) -> Option<Command> {
         // Le tour existe avant toute étape qui peut échouer (connexion, session) : son erreur s'y affiche.
-        let n = self.ctx.hub.begin_turn();
+        let n = self.ctx.hub.begin_turn_from(instruction.origin);
         self.ctx.emit(AgentEvent::UserText {
             turn: n,
             text: instruction.text.clone(),
@@ -337,8 +344,13 @@ impl TabAgent {
         match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, live.caps.image, prompting)
             .await
         {
-            Ok((pending, usage)) => {
+            Ok((mut pending, usage)) => {
                 crate::usage_board::record_turn(&self.ctx, &self.link, live.generation, &id, usage.as_ref()).await;
+                // The one drain point of the turn's after-turn list: its reply is out. A tool's new
+                // conversation joins the turn's own `Pending`, as the user's does.
+                let (hub, after, tab) = (&self.ctx.hub, self.ctx.after.as_ref(), self.ctx.tab.tab());
+                pending.new_conversation |=
+                    crate::after_turn::drain_after_reply(hub, after, tab, n, !pending.cut).await;
                 if pending.new_conversation {
                     self.new_conversation().await;
                 }
@@ -549,8 +561,11 @@ impl TabAgent {
     /// Le tour `turn` a échoué : l'erreur s'affiche dans ce tour.
     fn failed(&self, turn: u32, e: &AgentError) {
         tracing::warn!(tab = %self.ctx.tab.tab(), error = %e.one_line(), "agent : échec");
+        // A failed turn runs nothing it recorded.
+        self.ctx.hub.drop_after_turn();
         self.ctx.hub.cancel_asks();
-        self.ctx.emit(AgentEvent::Error { turn, message: e.localize(&self.ctx.localizer.current()) });
+        let message = e.localize(&self.ctx.localizer.current());
+        self.ctx.emit(AgentEvent::Error { turn, message, spoken: e.spoken() });
         self.ctx.emit(AgentEvent::idle());
     }
 }

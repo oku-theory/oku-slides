@@ -28,6 +28,7 @@ import { useAgentAvailability } from "./agent/useAgentAvailability";
 import { AttachButton } from "./agent/AttachButton";
 import { useAppearance } from "./useAppearance";
 import { bumpVoiceSeq } from "./voiceSeq";
+import { useListenAtMount } from "./useVoiceContext";
 import { panelOpen } from "./panelOpen";
 import type { DictationMode } from "./agent/keys";
 import { AGENT_WINDOW_PLACES } from "./agent/useQuickKeys";
@@ -327,6 +328,8 @@ export function AgentWindowFor({
 /** La page de la fenêtre de l'agent : suit la vue de l'espace de travail. */
 export default function AgentWindow() {
   const [view, setView] = useState<WorkspaceView | null>(null);
+  // Hands-free: listening asked back, never a context (the main window reports it).
+  useListenAtMount();
   // L'écoute d'abord, la vue de départ ensuite : aucune diffusion perdue entre les deux.
   useEffect(() => {
     let alive = true;

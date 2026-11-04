@@ -425,6 +425,9 @@ body:has(.col-divider.active) { cursor: col-resize; user-select: none; -webkit-u
 .mic:disabled { opacity: 0.6; cursor: default; }
 .mic.live { background: var(--app-danger, #b3261e); color: white; }
 .mic > svg { position: relative; z-index: 1; }
+/* Hands-free: a steady ring while listening (never the microphone level), none while paused. */
+.mic.hands-free { background: var(--accent-soft); color: var(--accent); }
+.mic.hands-free.on { background: var(--accent-fill); color: var(--on-accent); outline: 3px solid color-mix(in oklab, var(--accent) 35%, transparent); outline-offset: 2px; }
 .mic-ring {
   position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
   background: color-mix(in oklab, var(--app-danger, #b3261e) 22%, transparent); transition: transform 90ms linear;

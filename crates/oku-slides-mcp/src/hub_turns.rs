@@ -2,7 +2,7 @@
 
 use oku_slides_core::GuideKind;
 use oku_slides_session::agent::receipt::{ReceiptSurfaces, fallback};
-use oku_slides_session::agent::{KEPT_TURNS, Place, Surface, Trace};
+use oku_slides_session::agent::{KEPT_TURNS, Place, Surface, Trace, TurnOrigin};
 
 use uuid::Uuid;
 
@@ -28,6 +28,12 @@ pub(crate) enum TabTarget {
     Pack(Uuid),
     /// A theme's tab.
     Theme(Uuid),
+    /// The new tab of one `import` call: a fresh id per call, so two imports never share a claim.
+    Import(Uuid),
+    /// An open tab the agent activates, reorders or moves (`tab`): the number of its id `t-<n>`.
+    Tab(u64),
+    /// The help tab, opened or shown (`help`).
+    Help,
 }
 
 impl std::fmt::Display for TabTarget {
@@ -35,6 +41,9 @@ impl std::fmt::Display for TabTarget {
         match self {
             Self::Pack(id) => write!(f, "pack {id}"),
             Self::Theme(id) => write!(f, "theme {id}"),
+            Self::Import(id) => write!(f, "import {id}"),
+            Self::Tab(n) => write!(f, "tab t-{n}"),
+            Self::Help => write!(f, "help"),
         }
     }
 }
@@ -48,6 +57,29 @@ pub(crate) struct TabClaim {
     pub(super) target: TabTarget,
     /// The claims granted on it and not given back.
     pub(super) claims: u32,
+}
+
+/// What a turn's tools ask to run once the turn has ended, never inside a tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AfterTurn {
+    /// The conversation starts over, once the turn's receipt is shown.
+    NewConversation,
+    /// The app quits, if no tab gained unsaved work meanwhile.
+    Quit,
+    /// The app installs its update and restarts.
+    Install,
+    /// The agent's own tab closes, alone or with its window, if no covered tab changed meanwhile.
+    CloseOwn {
+        /// The confirmed close decision (`SurfaceHub::store_close`), announced once the turn ended.
+        decision: Uuid,
+    },
+}
+
+impl AfterTurn {
+    /// Quitting, installing and closing the agent's own tab end it: a turn records one at most.
+    fn ends_app(self) -> bool {
+        matches!(self, Self::Quit | Self::Install | Self::CloseOwn { .. })
+    }
 }
 
 /// What replaces a thread question once answered (or cancelled).
@@ -73,11 +105,17 @@ impl SurfaceHub {
     /// reducer (`TurnOut::Evict`) still calls `close_turn` on a turn already
     /// evicted here: redundant, but harmless (`close_turn` is idempotent).
     pub fn begin_turn(&self) -> u32 {
+        self.begin_turn_from(TurnOrigin::Typed)
+    }
+
+    /// Opens a turn in the thread, as [`Self::begin_turn`], and keeps how it began.
+    pub fn begin_turn_from(&self, origin: TurnOrigin) -> u32 {
         let (n, old) = {
             let mut state = self.state();
             state.turns = state.turns.saturating_add(1);
             let n = state.turns;
             state.turn = Some(n);
+            state.origin = Some((n, origin));
             state.live_turns.insert(n);
             let excess = state.live_turns.len().saturating_sub(KEPT_TURNS);
             (n, state.live_turns.iter().copied().take(excess).collect::<Vec<_>>())
@@ -87,6 +125,12 @@ impl SurfaceHub {
         }
         self.expire_actions();
         n
+    }
+
+    /// How turn `turn` began, while it is the last turn begun.
+    #[must_use]
+    pub fn turn_origin(&self, turn: u32) -> Option<TurnOrigin> {
+        self.state().origin.filter(|(n, _)| *n == turn).map(|(_, origin)| origin)
     }
 
     /// The open turn, `None` between turns: the token a tool call takes when it arrives.
@@ -181,6 +225,71 @@ impl SurfaceHub {
         open && !state.closed && state.live_turns.contains(&turn)
     }
 
+    /// Records `action` to run once turn `turn` has ended; `false` when refused.
+    ///
+    /// Refused outside the open turn, and for a second quit, install or own close in one turn: the first
+    /// one recorded wins. A new conversation is kept once.
+    #[must_use]
+    pub fn after_turn(&self, turn: u32, action: AfterTurn) -> bool {
+        let mut state = self.state();
+        if !Self::admits(&state, turn, Admit::Open) {
+            return false;
+        }
+        let slot = &mut state.after_turn;
+        if slot.as_ref().is_none_or(|(t, _)| *t != turn) {
+            *slot = Some((turn, Vec::new()));
+        }
+        let Some((_, actions)) = slot.as_mut() else { return false };
+        if action.ends_app() && actions.iter().any(|a| a.ends_app()) {
+            return false;
+        }
+        if !actions.contains(&action) {
+            actions.push(action);
+        }
+        true
+    }
+
+    /// True once turn `turn` recorded a quit, an install or its own tab's close.
+    #[must_use]
+    pub fn ends_app_after(&self, turn: u32) -> bool {
+        self.state().after_turn.as_ref().is_some_and(|(t, a)| *t == turn && a.iter().any(|a| a.ends_app()))
+    }
+
+    /// True once turn `turn` recorded anything to run after it, a new conversation included.
+    #[must_use]
+    pub fn records_after(&self, turn: u32) -> bool {
+        self.state().after_turn.as_ref().is_some_and(|(t, a)| *t == turn && !a.is_empty())
+    }
+
+    /// Takes what turn `turn` recorded, in recording order; empty for any other turn.
+    pub fn take_after_turn(&self, turn: u32) -> Vec<AfterTurn> {
+        let mut state = self.state();
+        match state.after_turn.take() {
+            Some((t, actions)) if t == turn => actions,
+            other => {
+                state.after_turn = other;
+                Vec::new()
+            }
+        }
+    }
+
+    /// Forgets everything recorded: the turn was stopped, cancelled or failed.
+    pub fn drop_after_turn(&self) {
+        self.state().after_turn = None;
+    }
+
+    /// Shows `text` in a card of turn `turn`, while that turn is in the thread.
+    ///
+    /// For what happened once the turn ended: an after-turn action dropped or refused.
+    pub fn after_turn_notice(&self, turn: u32, text: &str) {
+        let id = self.next_id("note");
+        let shown = fallback(&id, text, &[], &[], &self.localizer.current())
+            .is_some_and(|card| self.put_static(turn, card, Admit::InThread));
+        if !shown {
+            tracing::debug!(turn, "after-turn notice not shown: the turn left the thread");
+        }
+    }
+
     /// Une composition `render` dans le tour `turn` de son appel.
     ///
     /// Refusée (`false`) si l'onglet est fermé ou si `turn` n'est plus le tour ouvert (appel
@@ -219,7 +328,7 @@ impl SurfaceHub {
             same.into_iter().take(excess).collect::<Vec<_>>()
         };
         self.close_all(oldest);
-        self.emit(McpEvent::Surface { surface });
+        self.emit(McpEvent::surface(surface));
         true
     }
 
@@ -242,7 +351,7 @@ impl SurfaceHub {
             state.shows.insert(id.to_owned(), Shown::Static { turn, plain: None, expired: false, report: false });
             frozen
         };
-        self.emit(McpEvent::Surface { surface: frozen });
+        self.emit(McpEvent::surface(frozen));
     }
 
     /// Le reçu du tour `turn` de son appel ; remplace un reçu déjà montré pour ce tour.
@@ -254,7 +363,7 @@ impl SurfaceHub {
     }
 
     fn put_report(&self, turn: u32, report: ReceiptSurfaces, admit: Admit) -> bool {
-        let ReceiptSurfaces { mut surface, plain } = report;
+        let ReceiptSurfaces { mut surface, plain, spoken } = report;
         let old: Vec<String> = {
             let mut state = self.state();
             if !Self::admits(&state, turn, admit) {
@@ -285,7 +394,7 @@ impl SurfaceHub {
         for id in old {
             self.emit(McpEvent::CloseSurface { id });
         }
-        self.emit(McpEvent::Surface { surface });
+        self.emit(McpEvent::surface_aloud(surface, spoken));
         true
     }
 
@@ -356,8 +465,14 @@ impl SurfaceHub {
 
     /// Fin du tour `turn` : plus de tour en cours, et reçu de repli si l'agent n'en a pas fait.
     ///
-    /// The fallback lists the turn's traces (`note_turn_traces`), dropped here either way.
+    /// Once done, [`SurfaceHub::turn_ended`] answers for `turn`. The fallback lists the turn's
+    /// traces (`note_turn_traces`), dropped here either way.
     pub fn end_turn(&self, turn: u32, narration: &str) {
+        self.close_open_turn(turn, narration);
+        self.note_ended(turn);
+    }
+
+    fn close_open_turn(&self, turn: u32, narration: &str) {
         let traces = {
             // No open turn any more: a late call of this turn is refused (see `turn`).
             let mut state = self.state();
@@ -379,7 +494,8 @@ impl SurfaceHub {
         let id = self.next_id("report");
         if let Some(surface) = fallback(&id, narration, &written, &traces, &self.localizer.current()) {
             // The turn is closed, but its fallback receipt goes to it while it is in the thread.
-            self.put_report(turn, ReceiptSurfaces { surface, plain: None }, Admit::InThread);
+            // Built from the agent's narration: never read aloud.
+            self.put_report(turn, ReceiptSurfaces { surface, plain: None, spoken: None }, Admit::InThread);
         }
     }
 
@@ -460,7 +576,7 @@ impl SurfaceHub {
                 .collect()
         };
         for surface in plains {
-            self.emit(McpEvent::Surface { surface });
+            self.emit(McpEvent::surface(surface));
         }
     }
 }

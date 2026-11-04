@@ -242,6 +242,18 @@ impl Workspace {
         self.layout.windows.iter().any(|w| w.active == tab)
     }
 
+    /// How many tabs hold unsaved work, as their cached info (the tab bar) says.
+    ///
+    /// Dormant tabs count from their saved info: none is woken.
+    pub fn unsaved_tabs(&self) -> usize {
+        self.tabs.values().filter(|t| t.info.dirty).count()
+    }
+
+    /// The active tab of window `label`; `None` for an unknown window.
+    pub fn active_tab(&self, label: &str) -> Option<&str> {
+        self.layout.windows.iter().find(|w| w.label == label).map(|w| w.active.as_str())
+    }
+
     /// Label de la fenêtre qui porte l'onglet `tab`.
     pub fn tab_window(&self, tab: &str) -> Option<&str> {
         self.layout.windows.iter().find(|w| w.tabs.iter().any(|t| t == tab)).map(|w| w.label.as_str())

@@ -22,6 +22,7 @@
     "allow-quit-ready",
     "allow-stt",
     "allow-agent",
+    "allow-take-close-decision",
     "allow-update-status",
     "allow-check-update",
     "allow-install-update",

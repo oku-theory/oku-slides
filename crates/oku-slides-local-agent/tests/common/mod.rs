@@ -120,6 +120,9 @@ pub async fn start(script: Value) -> Harness {
         hub.clone(),
         Arc::new(NoSettings),
         Arc::new(oku_slides_mcp::NoDrafts),
+        Arc::new(oku_slides_session::agent::NoWorkspace),
+        Arc::new(oku_slides_mcp::NoTune),
+        Arc::new(oku_slides_session::agent::UnavailableApp),
         &platform,
         kind,
     );
@@ -165,7 +168,7 @@ pub async fn receipt(rx: &mut broadcast::Receiver<oku_slides_mcp::McpEvent>) -> 
     tokio::time::timeout(Duration::from_secs(20), async {
         loop {
             match rx.recv().await {
-                Ok(oku_slides_mcp::McpEvent::Surface { surface }) if surface.id.starts_with("report") => {
+                Ok(oku_slides_mcp::McpEvent::Surface { surface, .. }) if surface.id.starts_with("report") => {
                     return surface;
                 }
                 Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}

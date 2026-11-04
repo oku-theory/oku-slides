@@ -389,6 +389,7 @@ fn voice_panel_every_action_parses_back_into_an_event() {
         "model",
         "language",
         "silence",
+        "hands_free",
         "api",
         "download",
         "cancel_download",
@@ -396,6 +397,10 @@ fn voice_panel_every_action_parses_back_into_an_event() {
         "download_agent_model",
         "cancel_agent_model_download",
         "agent_model",
+        "read_aloud",
+        "speech_voice",
+        "speech_rate",
+        "speech_in_presentation",
     ]
     .into_iter()
     .map(String::from)
@@ -446,4 +451,63 @@ fn voice_panel_unknown_models_show_a_note_without_select(#[case] chosen: Option<
     let expected = fr().tr_with(key, &[("model", chosen.unwrap_or_default().into())]);
     assert_that!(ids(&p)).does_not_contain("a-model".to_owned());
     assert_that!(component(&p, "a-model-note")["text"].clone()).is_equal_to(json!(expected));
+}
+
+#[rstest]
+#[case::en(en())]
+#[case::fr(fr())]
+fn voice_panel_hands_free_switch_is_labelled_by_its_key(#[case] l: Localizer) {
+    let c = component(&VoicePanel::build(&voice_view_fixture(), &l), "d-hands-free");
+    assert_that!(c["component"].clone()).is_equal_to(json!("Switch"));
+    assert_that!(c["label"].clone()).is_equal_to(json!(l.tr("voice-hands-free")));
+    assert_that!(c["action"]["event"]["name"].clone()).is_equal_to(json!("hands_free"));
+}
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn voice_panel_hands_free_switch_shows_the_setting(#[case] on: bool) {
+    let p = VoicePanel::build(&with(|d| d.hands_free = on), &en());
+    assert_that!(data(&p)["hands_free"].clone()).is_equal_to(json!(on));
+    assert_that!(component(&p, "d-hands-free")["value"].clone()).is_equal_to(json!({ "path": "/hands_free" }));
+}
+
+/// The fixture with its read-aloud set by `f`.
+fn speech(f: impl FnOnce(&mut SpeechView)) -> VoiceView {
+    let mut v = voice_view_fixture();
+    f(v.speech.as_mut().unwrap());
+    v
+}
+
+#[rstest]
+#[case::en(en())]
+#[case::fr(fr())]
+fn speech_unavailable_disables_switch_with_reason(#[case] l: Localizer) {
+    let reason = l.tr("stt-voice-no-voice");
+    let view = speech(|s| s.status = SpeechStatusView::Unavailable { reason: reason.clone() });
+    let p = VoicePanel::build(&view, &l);
+    assert_that!(ids(&p).iter().filter(|id| id.starts_with("s-") && *id != "s-unavailable").count()).is_equal_to(0);
+    let expected = l.tr_with("voice-read-aloud-unavailable", &[("reason", reason.into())]);
+    assert_that!(component(&p, "s-unavailable")["text"].clone()).is_equal_to(json!(expected));
+}
+
+#[test]
+fn voice_panel_read_aloud_section_shows_the_settings() {
+    let p = VoicePanel::build(
+        &speech(|s| {
+            s.read_aloud = true;
+            s.voice = Some("v-fr".into());
+            s.rate = 1.1;
+        }),
+        &fr(),
+    );
+    let d = data(&p);
+    assert_that!((d["read_aloud"].clone(), d["speech_voice"].clone(), d["speech_rate"].clone())).is_equal_to((
+        json!(true),
+        json!("v-fr"),
+        json!("1.1"),
+    ));
+    assert_that!(option_ids(&component(&p, "s-voice"))).is_equal_to(vec![String::new(), "v-fr".to_owned()]);
+    assert_that!(option_ids(&component(&p, "s-rate"))).contains("1.1".to_owned());
+    assert_that!(component(&p, "s-read-aloud")["label"].clone()).is_equal_to(json!(fr().tr("voice-read-aloud")));
 }

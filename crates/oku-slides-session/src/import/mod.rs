@@ -148,6 +148,27 @@ pub struct ImportRequest {
     pub system_fonts: bool,
 }
 
+/// Checks a retrofit target's layout packs and theme in the library, before anything is read.
+///
+/// The app's lookup (the library, never a folder), for a caller that refuses before asking the
+/// user; a hi-fi target has nothing to check.
+///
+/// # Errors
+///
+/// The import's own refusals: `UnknownPack`, `NotLayoutPack`, `UnknownTheme`.
+///
+/// # Blocking
+///
+/// Reads the pack and theme libraries.
+pub fn check_target(platform: &Platform, target: &ImportTarget) -> crate::Result<()> {
+    match target {
+        ImportTarget::Retrofit { layouts, theme } => {
+            Ok(retrofit::check(platform, layouts, theme.as_deref()).context(crate::error::ImportSnafu)?)
+        }
+        ImportTarget::Hifi { .. } => Ok(()),
+    }
+}
+
 /// Un import appliqué, pas encore rendu ni enregistré.
 #[derive(Debug)]
 pub struct Imported {

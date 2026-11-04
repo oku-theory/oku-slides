@@ -6,9 +6,10 @@ import type { Timers } from "./debounce";
 import { REAL_TIMERS } from "./debounce";
 import type { Screen } from "./fullscreen";
 import { windowScreen } from "./fullscreen";
+import { dictationActive } from "./dictationActive";
 import { t } from "./i18n";
-import type { PresentMode } from "./present";
-import { presentKey } from "./present";
+import type { PresentMode, SubscribeSlideCommands } from "./present";
+import { commandAction, presentKey } from "./present";
 import { slideStep } from "./slideKeys";
 import "./Presenter.css";
 
@@ -45,6 +46,8 @@ interface Props {
   svg: (id: string, hash: string) => string | null;
   onShow: (id: string) => void;
   onExit: () => void;
+  /** The host's steering commands (the agent's `present`, a spoken nav word); absent: none. */
+  commands?: SubscribeSlideCommands;
   /** Le plein écran de la fenêtre (tests). */
   screen?: Screen;
   timers?: Timers;
@@ -67,6 +70,7 @@ export default function Presenter({
   svg,
   onShow,
   onExit,
+  commands,
   screen = windowScreen,
   timers = REAL_TIMERS,
   titleBar = inTauri && isMac,
@@ -78,8 +82,8 @@ export default function Presenter({
   const next = slides[index + 1];
   if (next) svg(next.id, next.hash);
 
-  const latest = useRef({ index, count: slides.length, onShow, onExit });
-  latest.current = { index, count: slides.length, onShow, onExit };
+  const latest = useRef({ index, slides, count: slides.length, onShow, onExit });
+  latest.current = { index, slides, count: slides.length, onShow, onExit };
   const show = (to: number | null) => {
     if (to !== null) latest.current.onShow(slides[to].id);
   };
@@ -88,6 +92,8 @@ export default function Presenter({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const { index, count, onShow, onExit } = latest.current;
+      // An active push-to-talk takes Escape first (t-998): Dictation cancels it, the next press exits.
+      if (e.key === "Escape" && dictationActive() > 0) return;
       const action = presentKey(e, index, count);
       if (!action) return;
       e.preventDefault();
@@ -98,6 +104,17 @@ export default function Presenter({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [slides]);
+
+  // The host's commands go the way of the keys: a slide id the snapshot lacks stays put.
+  useEffect(() => {
+    if (!commands) return;
+    return commands((c) => {
+      const { index, slides, onShow, onExit } = latest.current;
+      const action = commandAction(c, index, slides);
+      if (action.kind === "exit") onExit();
+      else if (action.kind === "show") onShow(slides[action.index].id);
+    });
+  }, [commands]);
 
   // Plein écran le temps de la présentation ; quitté seulement s'il est de nous.
   useEffect(() => {

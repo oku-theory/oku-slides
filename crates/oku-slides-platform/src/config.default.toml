@@ -180,7 +180,7 @@ apple = true
 apple_finish_timeout_secs = 5.0
 # Attente maximale d'une réponse de l'API de dictée (s).
 api_timeout_secs = 30.0
-# Micro simulé : rejoue ce fichier WAV au lieu du micro (tests, démos).
+# Simulated microphone: replays this WAV file instead (e2e-fakes builds only, refused otherwise).
 # fake_mic = "voix.wav"
 
 [stt.vad]

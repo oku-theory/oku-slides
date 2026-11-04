@@ -46,7 +46,17 @@ pub(crate) async fn deck_tools(dir: &std::path::Path, cancel: &CancellationToken
     let kind = session.document_kind();
     let tab = TabSession::new("t-1", Arc::new(Mutex::new(session)));
     let hub = SurfaceHub::new(tab.clone(), platform.live_localizer.clone(), Arc::new(oku_slides_mcp::NoVoice));
-    let tools = Tools::new(tab, hub, Arc::new(NoSettings), Arc::new(oku_slides_mcp::NoDrafts), &platform, kind);
+    let tools = Tools::new(
+        tab,
+        hub,
+        Arc::new(NoSettings),
+        Arc::new(oku_slides_mcp::NoDrafts),
+        Arc::new(oku_slides_session::agent::NoWorkspace),
+        Arc::new(oku_slides_mcp::NoTune),
+        Arc::new(oku_slides_session::agent::UnavailableApp),
+        &platform,
+        kind,
+    );
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap();
     let access = McpAccess { url: server.url().to_owned(), authorization: server.authorization() };
     let listed = McpTools::connect(&access).await.unwrap().list().await.unwrap();

@@ -19,7 +19,8 @@ use oku_slides_session::agent::turn_view::{
     TurnState, TurnView, first_line, turn_data, turn_id, turn_patches, turn_surface,
 };
 use oku_slides_session::agent::{
-    LABEL_MAX, NOTE_CHARS, PromptImage, ServerMessage, StepStatus, Surface, TimelineStep, ToolCallDetail, WHY_MAX, clip,
+    LABEL_MAX, NOTE_CHARS, PromptImage, ServerMessage, SpokenText, StepStatus, Surface, TimelineStep, ToolCallDetail,
+    WHY_MAX, clip,
 };
 use serde_json::Value;
 
@@ -39,6 +40,8 @@ pub(crate) const CALLS_MAX: usize = 60;
 pub(crate) enum TurnOut {
     /// Ouvrir (ou remplacer) la surface d'un tour.
     Show(Surface),
+    /// Show a turn's surface again, already patched, with what the read-aloud says of it (a failure).
+    ShowAloud(Surface, SpokenText),
     /// Mettre à jour la surface d'un tour (une écriture par clé changée).
     Patch { id: String, messages: Vec<ServerMessage> },
     /// Fermer les surfaces du tour évincé.
@@ -369,6 +372,7 @@ impl Turns {
             return out;
         }
         let mut ended = None;
+        let mut failed = None;
         match e {
             AgentEvent::Chunk { text, .. } => {
                 // Au-delà de `WHY_MAX` caractères, la suite ne s'affiche plus nulle part : on ne la garde pas
@@ -417,9 +421,12 @@ impl Turns {
                 let secs = t.secs(now);
                 ended = Some(t.finish(TurnState::Done { secs }));
             }
-            AgentEvent::Error { message, .. } => {
+            AgentEvent::Error { message, spoken, .. } => {
                 let secs = t.secs(now);
                 t.finish(TurnState::Failed { message: message.clone(), secs });
+                // Read by its host template alone (the message may hold agent text or a path),
+                // after its patch: the surface again, with its speech.
+                failed = Some(SpokenText::error(*spoken, l));
                 // Pas de reçu de repli pour un échec, mais le hub doit savoir que le tour est clos.
                 ended = Some(String::new());
             }
@@ -432,6 +439,9 @@ impl Turns {
             | AgentEvent::Voice => return out,
         }
         out.extend(t.patch(l));
+        if let Some(spoken) = failed {
+            out.push(TurnOut::ShowAloud(turn_surface(&t.view, l), spoken));
+        }
         if let Some(narration) = ended {
             out.push(TurnOut::Ended { turn: n, narration });
         }

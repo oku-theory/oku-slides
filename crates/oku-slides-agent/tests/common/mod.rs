@@ -2,6 +2,15 @@
 //! onglet, un faux agent partagé.
 #![allow(dead_code, reason = "chaque fichier de test n'utilise qu'une partie de l'outillage")]
 
+pub mod app;
+mod stack;
+
+#[allow(unused_imports, reason = "each test file uses only some of the stack builders")]
+pub use stack::{
+    TestStack, stack_locked, stack_resumed, stack_resumed_from, stack_with_builtin, stack_with_command,
+    stack_with_fallback, stack_with_sink, stack_with_sink_and_log, stack_with_speaker, stack_with_two_agents,
+};
+
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -11,7 +20,7 @@ use oku_slides_agent::{AgentEvent, AgentHandle, AgentState, Keeper, Launch, Link
 use oku_slides_mcp::{Applied, SettingsPort, SurfaceHub, ToolServer, Tools};
 use oku_slides_platform::config::{AgentPreset, Builtin};
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
-use oku_slides_session::agent::{Surface, TabSession};
+use oku_slides_session::agent::{AgentWorkspace, FocusSource, FocusedTab, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use serde_json::{Value, json};
 use tokio::sync::broadcast;
@@ -213,6 +222,9 @@ async fn start_tabs_ready_within(
             hub.clone(),
             Arc::new(NoSettings),
             Arc::new(oku_slides_mcp::NoDrafts),
+            Arc::new(oku_slides_session::agent::NoWorkspace),
+            Arc::new(oku_slides_mcp::NoTune),
+            Arc::new(oku_slides_session::agent::UnavailableApp),
             &platform,
             kind,
         );
@@ -302,7 +314,7 @@ pub async fn wait_surface(
 ) -> oku_slides_session::agent::Surface {
     tokio::time::timeout(Duration::from_secs(20), async {
         loop {
-            if let Ok(oku_slides_mcp::McpEvent::Surface { surface }) = rx.recv().await {
+            if let Ok(oku_slides_mcp::McpEvent::Surface { surface, .. }) = rx.recv().await {
                 return surface;
             }
         }
@@ -444,346 +456,78 @@ impl oku_slides_session::agent::Sessions for TabSessions {
     }
 }
 
+/// The test host's windows: each one's active tab, the front one, and whether it has the focus.
+#[derive(Debug, Default)]
+pub struct FakeWorkspace(Mutex<FakeWindows>);
+
+#[derive(Debug, Default)]
+struct FakeWindows {
+    active: std::collections::BTreeMap<String, String>,
+    front: Option<String>,
+    focused: bool,
+    unsaved: usize,
+}
+
+impl FakeWorkspace {
+    fn windows(&self) -> std::sync::MutexGuard<'_, FakeWindows> {
+        self.0.lock().unwrap_or_else(|e| panic!("fenêtres : {e}"))
+    }
+
+    /// Window `window` shows `tab`.
+    pub fn show(&self, window: &str, tab: &str) {
+        self.windows().active.insert(window.to_owned(), tab.to_owned());
+    }
+
+    /// Window `window` gets the focus.
+    pub fn focus(&self, window: &str) {
+        let mut w = self.windows();
+        w.front = Some(window.to_owned());
+        w.focused = true;
+    }
+
+    /// Window `w-1` shows `tab` and gets the focus.
+    pub fn focus_tab(&self, tab: &str) {
+        self.show("w-1", tab);
+        self.focus("w-1");
+    }
+
+    /// No window has the focus any more: the app is in the background.
+    pub fn background(&self) {
+        self.windows().focused = false;
+    }
+
+    /// From now on, `n` tabs hold unsaved work.
+    pub fn set_unsaved(&self, n: usize) {
+        self.windows().unsaved = n;
+    }
+}
+
+impl AgentWorkspace for FakeWorkspace {
+    fn focused_tab(&self) -> Option<FocusedTab> {
+        let w = self.windows();
+        let tab = w.active.get(w.front.as_deref()?)?.clone();
+        Some(FocusedTab { tab, source: FocusSource::Host, focused: w.focused })
+    }
+
+    fn unsaved_tabs(&self) -> usize {
+        self.windows().unsaved
+    }
+}
+
+/// A closed utterance numbered `seq`, as the dictation hands it to the voice router.
+pub fn utterance(seq: u64, text: &str) -> oku_slides_stt::Utterance {
+    let now = std::time::Instant::now();
+    oku_slides_stt::Utterance {
+        seq: oku_slides_stt::UtteranceSeq(seq),
+        text: text.to_owned(),
+        started: now,
+        ended: now,
+        speech_secs: 1.0,
+    }
+}
+
 /// Ce que `Stack::forward` a relayé : `(canal, JSON lu)`.
 pub type Relayed = Arc<Mutex<Vec<(&'static str, Value)>>>;
-
-/// Une pile de test et son dossier (scénario, journal, données), supprimé
-/// après elle.
-pub struct TestStack {
-    // Déclarée avant `dir` : la pile s'arrête avant que son dossier soit supprimé.
-    stack: oku_slides_agent::Stack,
-    sessions: Arc<TabSessions>,
-    /// Pile reprise : une fois arrêtée par `shutdown`, son dossier sert à un redémarrage.
-    resumed: bool,
-    /// Le dossier est gardé au `drop` (pile reprise arrêtée).
-    kept: AtomicBool,
-    /// Le dossier de la pile précédente dont celle-ci a repris la session ; supprimé avec elle.
-    adopted: Option<PathBuf>,
-    dir: Option<tempfile::TempDir>,
-}
-
-impl TestStack {
-    /// `f` sur la session de `tab`, hors du fil async (le stockage de la session bloque).
-    pub fn on_session<R>(&self, tab: &str, f: impl FnOnce(&mut Session) -> R) -> R {
-        tokio::task::block_in_place(|| {
-            let mut all = self.sessions.0.lock().unwrap_or_else(|e| panic!("sessions : {e}"));
-            f(all.get_mut(tab).unwrap_or_else(|| panic!("onglet inconnu : {tab}")))
-        })
-    }
-
-    /// Arrête la pile (`Stack::shutdown`), puis écrit et lâche les sessions.
-    ///
-    /// Une pile reprise garde ensuite son dossier : [`stack_resumed_from`] le reprend
-    /// et le supprime à son tour.
-    pub async fn shutdown(&self) {
-        self.stack.shutdown().await;
-        let sessions = self.sessions.clone();
-        // Lâchées hors du contexte async : leur dernier état de reprise est écrit avant.
-        tokio::task::spawn_blocking(move || {
-            let gone = std::mem::take(&mut *sessions.0.lock().unwrap_or_else(|e| panic!("sessions : {e}")));
-            drop(gone);
-        })
-        .await
-        .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
-        self.kept.store(self.resumed, Ordering::SeqCst);
-    }
-}
-
-impl Drop for TestStack {
-    fn drop(&mut self) {
-        if self.resumed {
-            // Une session reprise écrit encore en partant : avant que son dossier soit supprimé.
-            let gone = std::mem::take(&mut *self.sessions.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
-            drop(gone);
-        }
-        if let Some(dir) = self.adopted.take()
-            && let Err(e) = std::fs::remove_dir_all(&dir)
-        {
-            eprintln!("dossier de la pile précédente non supprimé ({}) : {e}", dir.display());
-        }
-        if self.kept.load(Ordering::SeqCst)
-            && let Some(dir) = self.dir.take()
-        {
-            // Gardé pour `stack_resumed_from`, qui le supprimera.
-            let _kept = dir.keep();
-        }
-    }
-}
-
-impl std::ops::Deref for TestStack {
-    type Target = oku_slides_agent::Stack;
-    fn deref(&self) -> &oku_slides_agent::Stack {
-        &self.stack
-    }
-}
-
-/// Ce qu'une pile reprise écrit d'abord dans la session de `t-1` (avec l'empreinte de l'agent).
-type Seed = Box<dyn FnOnce(&mut Session, &str) + Send>;
-
-/// Comment naît la session de `t-1` dans une pile de test.
-enum First {
-    /// Ouverte sur la fixture, comme les autres onglets.
-    Fixture,
-    /// Ouverte dans un dossier de reprise neuf où `seed` écrit (avec l'empreinte de l'agent), puis reprise.
-    Seeded(Seed),
-    /// Reprise d'un dossier déjà rempli par une pile précédente.
-    From(PathBuf),
-}
-
-/// Une pile sur le faux agent (`script`), une session par onglet de `tabs`,
-/// relayée dans une liste ; et le journal du faux agent.
-pub async fn stack_with_sink_and_log(script: Value, tabs: &[&str]) -> (TestStack, Relayed, PathBuf) {
-    let (stack, seen, log, _) = build_stack(script, tabs, First::Fixture).await;
-    (stack, seen, log)
-}
-
-/// Une pile dont la session `t-1` a été reprise d'un dossier où `seed` a déjà écrit.
-///
-/// `seed` reçoit la session et l'empreinte de l'agent de la pile ; la session est ensuite
-/// lâchée puis reprise du même dossier, comme après un redémarrage. Rend aussi ce dossier.
-pub async fn stack_resumed(
-    script: Value,
-    seed: impl FnOnce(&mut Session, &str) + Send + 'static,
-) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    build_stack(script, &["t-1"], First::Seeded(Box::new(seed))).await
-}
-
-/// La même pile, sans `seed`, reprise du dossier `resume` d'une pile reprise arrêtée.
-pub async fn stack_resumed_from(script: Value, resume: PathBuf) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    build_stack(script, &["t-1"], First::From(resume)).await
-}
-
-/// Une pile à deux faux agents, `faux` (actif) et `bis` ; rend aussi le dossier de données.
-pub async fn stack_with_two_agents(script: Value, bis: Value, tabs: &[&str]) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    let (stack, seen, log, _) = build_stack_with(script, Some(bis), tabs, First::Fixture, Options::default()).await;
-    let data = log.parent().unwrap_or_else(|| panic!("dossier")).to_owned();
-    (stack, seen, log, data)
-}
-
-/// Comme [`stack_with_two_agents`] sur `t-1`, choix imposé par l'environnement (`locked`).
-pub async fn stack_locked(script: Value, bis: Value) -> (TestStack, Relayed) {
-    let options = Options { locked: true, ..Options::default() };
-    let (stack, seen, _, _) = build_stack_with(script, Some(bis), &["t-1"], First::Fixture, options).await;
-    (stack, seen)
-}
-
-/// Une pile sur `t-1` dont l'agent actif lance `command` (avec les arguments du faux agent).
-pub async fn stack_with_command(script: Value, command: &str) -> (TestStack, Relayed) {
-    let options = Options { command: Some(command.to_owned()), ..Options::default() };
-    let (stack, seen, _, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
-    (stack, seen)
-}
-
-/// Une pile de test dont l'agent choisi est le préréglage intégré, sans programme d'app.
-pub async fn stack_with_builtin(script: Value) -> (TestStack, Relayed) {
-    let options = Options { builtin: true, ..Options::default() };
-    let (stack, seen, _, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
-    (stack, seen)
-}
-
-/// A stack on `t-1` whose selected agent `faux` runs `command` (the fake agent if `None`) on
-/// `script`, with a built-in `local` preset: the fake agent again, on `local_script` (log
-/// `log-local.jsonl`, returned), through a launcher standing for the app binary.
-///
-/// `ready`: the local engine is the fake one (ready), else Gguf without its model. The launcher
-/// is a shell script: on Unix only.
-pub async fn stack_with_fallback(
-    script: Value,
-    command: Option<&str>,
-    local_script: Value,
-    ready: bool,
-) -> (TestStack, Relayed, PathBuf) {
-    let local = Some(LocalOptions { script: local_script, ready });
-    let options = Options { command: command.map(str::to_owned), local, ..Options::default() };
-    let (stack, seen, log, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
-    let local_log = log.with_file_name("log-local.jsonl");
-    (stack, seen, local_log)
-}
-
-/// The fake agent launched as the app binary would be for the built-in preset (`--local-agent`).
-fn local_launcher(dir: &Path, script: &Value) -> PathBuf {
-    let (script_path, log) = (dir.join("script-local.json"), dir.join("log-local.jsonl"));
-    std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario local : {e}"));
-    let fake = env!("CARGO_BIN_EXE_oku-slides-fake-agent");
-    let launcher = dir.join("oku-slides-app");
-    let body =
-        format!("#!/bin/sh\nexec '{fake}' --script '{}' --log '{}' \"$@\"\n", script_path.display(), log.display());
-    std::fs::write(&launcher, body).unwrap_or_else(|e| panic!("lanceur local : {e}"));
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755))
-            .unwrap_or_else(|e| panic!("droits du lanceur : {e}"));
-    }
-    launcher
-}
-
-/// The engine of a ready local agent: the fake one, in debug builds only.
-fn ready_engine() -> oku_slides_platform::config::LocalEngine {
-    #[cfg(debug_assertions)]
-    return oku_slides_platform::config::LocalEngine::Fake;
-    #[cfg(not(debug_assertions))]
-    return oku_slides_platform::config::LocalEngine::Gguf;
-}
-
-/// Une pile de test ; la session de `t-1` naît selon `first`. Rend aussi son dossier de reprise.
-async fn build_stack(script: Value, tabs: &[&str], first: First) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    build_stack_with(script, None, tabs, first, Options::default()).await
-}
-
-/// Les réglages de l'agent d'une pile de test.
-#[derive(Default)]
-struct Options {
-    /// Le choix de l'agent est imposé par l'environnement.
-    locked: bool,
-    /// Le programme de l'agent actif `faux` ; absent : le faux agent.
-    command: Option<String>,
-    /// L'agent actif est le préréglage intégré (sans programme).
-    builtin: bool,
-    /// A built-in `local` preset besides the selected one, run by the fake agent.
-    local: Option<LocalOptions>,
-}
-
-/// The built-in `local` preset of a test stack.
-struct LocalOptions {
-    /// The fake agent's script when it runs as the local agent.
-    script: Value,
-    /// The local engine is ready (fake), else Gguf without its model.
-    ready: bool,
-}
-
-/// Les arguments du faux agent sur `script`, journal dans `log`.
-fn fake_args(script: &Path, log: &Path) -> Vec<String> {
-    vec!["--script".into(), script.to_string_lossy().into_owned(), "--log".into(), log.to_string_lossy().into_owned()]
-}
-
-/// Adds the built-in `local` preset to `settings`; returns the app binary standing in for it.
-fn with_local(settings: &mut Settings, local: &LocalOptions) -> PathBuf {
-    settings.local_agent.engine =
-        if local.ready { ready_engine() } else { oku_slides_platform::config::LocalEngine::Gguf };
-    settings
-        .agent
-        .insert_preset("local", AgentPreset::builtin("Local", Builtin::Local))
-        .unwrap_or_else(|e| panic!("agent local : {e}"));
-    local_launcher(settings.paths.data.as_deref().unwrap_or_else(|| panic!("dossier")), &local.script)
-}
-
-/// Comme [`build_stack`] ; `bis` : scénario d'un second faux agent, `bis` (journal `log-bis.jsonl`) ;
-/// `options` : choix imposé, programme de l'agent actif.
-async fn build_stack_with(
-    script: Value,
-    bis: Option<Value>,
-    tabs: &[&str],
-    first: First,
-    options: Options,
-) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    let Options { locked, command: active, builtin, local } = options;
-    let dir = test_dir("oku-slides-stack-");
-    let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
-    let data = dir.path().to_owned();
-    std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
-    // Exactement ce que la pile lance : l'empreinte est celle de son agent.
-    let command = env!("CARGO_BIN_EXE_oku-slides-fake-agent");
-    let active = active.unwrap_or_else(|| command.to_owned());
-    let args = fake_args(&script_path, &log);
-    let args_bis = bis.map(|bis| {
-        let script_bis = dir.path().join("script-bis.json");
-        std::fs::write(&script_bis, bis.to_string()).unwrap_or_else(|e| panic!("scénario bis : {e}"));
-        fake_args(&script_bis, &dir.path().join("log-bis.jsonl"))
-    });
-    let fingerprint = agent_fingerprint(&active, &args);
-    let (resume, adopted) = match &first {
-        First::From(resume) => (resume.clone(), resume.parent().map(Path::to_path_buf)),
-        First::Fixture | First::Seeded(_) => (data.join("resume-t-1"), None),
-    };
-    let resumed = !matches!(first, First::Fixture);
-    let names: Vec<String> = tabs.iter().map(|t| (*t).to_owned()).collect();
-    let resume_dir = resume.clone();
-    let tabs_data = data.clone();
-    let (sessions, platform) = tokio::task::spawn_blocking(move || {
-        let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
-        settings.paths.data = Some(data);
-        // Jamais dans le vrai dossier Documents : les decks sans fichier restent ici.
-        settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
-        settings.i18n.locale = Some("fr".into());
-        // Jamais le vrai dépôt des modèles : un téléchargement de test échoue aussitôt (port refusé).
-        settings.models.hub_url = "http://127.0.0.1:9".into();
-        settings.models.download_retries = 0;
-        // Gguf, not auto: Apple's model, ready on some test Macs, would leave nothing to download.
-        settings.local_agent.engine = oku_slides_platform::config::LocalEngine::Gguf;
-        let preset =
-            if builtin { AgentPreset::builtin("Faux", Builtin::Local) } else { AgentPreset::new("Faux", active, args) };
-        let agent = &mut settings.agent;
-        agent.insert_preset("faux", preset).unwrap_or_else(|e| panic!("agent faux : {e}"));
-        agent.select("faux").unwrap_or_else(|e| panic!("agent faux : {e}"));
-        if let Some(args_bis) = args_bis {
-            agent
-                .insert_preset("bis", AgentPreset::new("Bis", command, args_bis))
-                .unwrap_or_else(|e| panic!("agent bis : {e}"));
-        }
-        settings.agent.locked = locked;
-        let launcher = local.map(|local| with_local(&mut settings, &local));
-        let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
-        let platform = match launcher {
-            Some(program) => platform.with_program(program),
-            None => platform,
-        };
-        let fixture = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"));
-        let new = || Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session : {e}"));
-        // Each tab resumes in its own folder: its agent works in `work/` there.
-        let opened = |name: &str| {
-            let mut session = new();
-            session.open(&fixture).unwrap_or_else(|e| panic!("ouverture : {e}"));
-            assert!(session.resume(tab_resume_dir(&tabs_data, name)), "reprise de l'onglet");
-            session
-        };
-        let sessions = TabSessions::closed_on(&platform);
-        let mut first = Some(first);
-        for name in names {
-            let session = match first.take_if(|_| name == "t-1") {
-                None | Some(First::Fixture) => opened(&name),
-                Some(First::Seeded(seed)) => {
-                    let mut first = new();
-                    assert!(first.resume(resume_dir.clone()));
-                    first.open(&fixture).unwrap_or_else(|e| panic!("ouverture : {e}"));
-                    seed(&mut first, &fingerprint);
-                    // Lâchée : ce qui reste à écrire pour la reprise l'est d'abord.
-                    drop(first);
-                    let mut session = new();
-                    assert!(session.resume(resume_dir.clone()));
-                    session
-                }
-                Some(First::From(resume)) => {
-                    let mut session = new();
-                    assert!(session.resume(resume));
-                    session
-                }
-            };
-            sessions.0.lock().unwrap_or_else(|e| panic!("sessions : {e}")).insert(name, session);
-        }
-        (Arc::new(sessions), platform)
-    })
-    .await
-    .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
-    let shared: Arc<dyn oku_slides_session::agent::Sessions> = sessions.clone();
-    let stack = oku_slides_agent::Stack::start(shared, &platform, None, tokio::runtime::Handle::current());
-    // `Storage` possède un runtime : sa dernière copie ne doit pas être lâchée
-    // dans le test (contexte async), là où la pile l'est.
-    std::mem::forget(platform);
-    let seen: Relayed = Arc::default();
-    let sink = seen.clone();
-    stack.forward(move |channel, json| {
-        let value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("JSON relayé : {e}"));
-        sink.lock().unwrap_or_else(|e| panic!("relais : {e}")).push((channel, value));
-    });
-    let stack = TestStack { stack, sessions, resumed, kept: AtomicBool::new(false), adopted, dir: Some(dir) };
-    (stack, seen, log, resume)
-}
-
-pub async fn stack_with_sink(script: Value, tabs: &[&str]) -> (TestStack, Relayed) {
-    let (stack, seen, _) = stack_with_sink_and_log(script, tabs).await;
-    (stack, seen)
-}
 
 /// Le tour `n` de l'onglet `tab` est fini : sa surface (canal `mcp`) ne court plus.
 pub async fn wait_turn_done(rx: &Relayed, tab: &str, n: u32) -> (&'static str, Value) {

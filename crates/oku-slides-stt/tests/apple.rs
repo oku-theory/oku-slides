@@ -15,7 +15,7 @@ use common::workdir;
 const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/stt/dictee-fr.wav");
 
 #[test]
-#[ignore = "macOS 26 et langue française installée : just test-apple"]
+#[ignore = "needs macOS 26 with French installed: just test-apple"]
 fn apple_transcribes_french_fixture_quickly() {
     let dir = workdir("apple");
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));

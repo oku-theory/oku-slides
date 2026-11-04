@@ -49,7 +49,7 @@ impl SurfaceHub {
         self.session.with(|s| s.pick_theme(&ns)).and_then(|r| r).context(SessionSnafu)?;
         self.emit(McpEvent::Changed);
         let next = ThemePicker { cards: picker.cards.clone(), active: ns, turn: picker.turn };
-        self.emit(McpEvent::Surface { surface: self.picker_surface(&next) });
+        self.emit(McpEvent::surface(self.picker_surface(&next)));
         Ok(next)
     }
 
@@ -95,6 +95,6 @@ impl SurfaceHub {
         let next = ThemePicker { active, ..picker };
         let surface = self.picker_surface(&next);
         state.shows.insert(HOST_THEME_PICKER.to_owned(), Shown::Themes(next));
-        self.record_and_send(&mut state, McpEvent::Surface { surface });
+        self.record_and_send(&mut state, McpEvent::surface(surface));
     }
 }

@@ -87,11 +87,13 @@ pub struct DictationView {
     pub auto_stop: bool,
     /// La durée du silence, en secondes.
     pub silence: f32,
+    /// Hands-free listening is on; every launch still starts paused.
+    pub hands_free: bool,
     /// Les réglages du service distant.
     pub api: ApiView,
     /// Le téléchargement en cours, s'il y en a un.
     pub download: Option<DownloadView>,
-    /// Aucune dictée n'écoute ni ne transcrit.
+    /// Settings and downloads apply now: no dictation, or hands-free listening.
     pub idle: bool,
 }
 
@@ -195,6 +197,59 @@ pub struct AgentsView {
     pub models: Option<AgentModelsView>,
 }
 
+/// The speaking rates the box offers, as factors of the OS default.
+pub const SPEECH_RATES: [f32; 5] = [0.75, 1.0, 1.25, 1.5, 2.0];
+
+/// An OS voice the read-aloud may use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpeechVoiceView {
+    /// Its id, passed back to the engine.
+    pub id: String,
+    /// Its name, as the OS gives it.
+    pub name: String,
+}
+
+/// Whether the OS voice can read the interface language.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpeechStatusView {
+    /// These voices speak it, never none.
+    Ready {
+        /// The voices of the interface language.
+        voices: Vec<SpeechVoiceView>,
+    },
+    /// No voice can read it.
+    Unavailable {
+        /// Why, already in the interface language: the one translated text of the view.
+        reason: String,
+    },
+}
+
+/// The read-aloud as the box shows it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpeechView {
+    /// Answers are read aloud: on only once set so.
+    pub read_aloud: bool,
+    /// The chosen voice id; `None`: the first voice of the language.
+    pub voice: Option<String>,
+    /// The speaking rate.
+    pub rate: f32,
+    /// Read a wake-phrase request's answer while presenting.
+    pub in_presentation: bool,
+    /// Whether a voice can read the interface language.
+    pub status: SpeechStatusView,
+}
+
+impl SpeechView {
+    /// Why nothing can be read aloud; `None` when a voice is ready.
+    #[must_use]
+    pub fn reason(&self) -> Option<&str> {
+        match &self.status {
+            SpeechStatusView::Ready { .. } => None,
+            SpeechStatusView::Unavailable { reason } => Some(reason),
+        }
+    }
+}
+
 /// Tout ce que montre la boîte.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct VoiceView {
@@ -202,6 +257,37 @@ pub struct VoiceView {
     pub dictation: Option<DictationView>,
     /// Les agents.
     pub agents: AgentsView,
+    /// The read-aloud; `None` without an OS voice host.
+    pub speech: Option<SpeechView>,
+}
+
+/// The read-aloud switch once hands-free is turned on: on the first time, else unchanged.
+///
+/// `None` means never set; any choice of the user's stays.
+#[must_use]
+pub fn read_aloud_after_hands_free(read_aloud: Option<bool>, hands_free_on: bool) -> Option<bool> {
+    if hands_free_on { read_aloud.or(Some(true)) } else { read_aloud }
+}
+
+/// Read-aloud settings to change; what stays `None` does not move.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SpeechPatch {
+    /// Read answers aloud.
+    pub read_aloud: Option<bool>,
+    /// The voice id; empty: the first voice of the language.
+    pub voice: Option<String>,
+    /// The speaking rate, a factor of the OS default.
+    pub rate: Option<f32>,
+    /// Read a wake-phrase request's answer while presenting.
+    pub in_presentation: Option<bool>,
+}
+
+impl SpeechPatch {
+    /// No setting is asked for.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 /// La langue de la dictée demandée par un changement.
@@ -224,6 +310,8 @@ pub struct DictationPatch {
     pub auto_stop: Option<bool>,
     /// La durée du silence, en secondes.
     pub silence: Option<f32>,
+    /// Hands-free listening; the agent may only turn it off.
+    pub hands_free: Option<bool>,
     /// L'adresse du service distant.
     pub api_url: Option<String>,
     /// Le modèle du service distant.
@@ -276,13 +364,17 @@ pub enum VoiceEvent {
         /// The model's value id, offered by the agent.
         id: String,
     },
+    /// Change the read-aloud settings.
+    Speech(SpeechPatch),
 }
 
 /// L'évènement d'une action de la boîte et de son contexte ; `None` si mal formé.
 #[must_use]
 pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEvent> {
     let text = |key: &str| context.get(key).and_then(Value::as_str).map(str::to_owned);
+    let flag = |key: &str| context.get(key).and_then(Value::as_bool);
     let patch = |p: DictationPatch| Some(VoiceEvent::Dictation(p));
+    let speech = |p: SpeechPatch| Some(VoiceEvent::Speech(p));
     match name {
         "model" => patch(DictationPatch { model: Some(text("id")?), ..Default::default() }),
         "language" => {
@@ -297,6 +389,7 @@ pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEven
                 patch(DictationPatch { auto_stop: Some(true), silence: Some(secs), ..Default::default() })
             }
         },
+        "hands_free" => patch(DictationPatch { hands_free: Some(flag("on")?), ..Default::default() }),
         "api" => {
             let value = text("value")?;
             let mut p = DictationPatch::default();
@@ -316,6 +409,13 @@ pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEven
         "download_agent_model" => Some(VoiceEvent::DownloadAgentModel),
         "cancel_agent_model_download" => Some(VoiceEvent::CancelAgentModelDownload),
         "agent_model" => Some(VoiceEvent::SelectAgentModel { id: text("id").filter(|id| !id.is_empty())? }),
+        "read_aloud" => speech(SpeechPatch { read_aloud: Some(flag("on")?), ..Default::default() }),
+        "speech_voice" => speech(SpeechPatch { voice: Some(text("id")?), ..Default::default() }),
+        "speech_rate" => {
+            let rate = text("value")?.parse::<f32>().ok().filter(|r| r.is_finite())?;
+            speech(SpeechPatch { rate: Some(rate), ..Default::default() })
+        }
+        "speech_in_presentation" => speech(SpeechPatch { in_presentation: Some(flag("on")?), ..Default::default() }),
         _ => None,
     }
 }

@@ -32,6 +32,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
 import { useDictation } from "./useDictation";
+import { useContextWriter } from "./useVoiceContext";
 import { acceptsElements, canAdd } from "./slideTools";
 import { panelOpen } from "./panelOpen";
 import { NumberLangContext } from "./a2ui/numberLang";
@@ -55,10 +56,11 @@ import { Inspector } from "./Inspector";
 import { DataPane } from "./DataPane";
 import Presenter from "./Presenter";
 import { usePageEvents } from "./usePageEvents";
+import { usePresentReports } from "./usePresentReports";
 import SlideNav from "./SlideNav";
 import TitleField from "./TitleField";
 import { AppMenu } from "./AppMenu";
-import { applyInterface } from "./interfaceChange";
+import { applyInterface, layoutCommands } from "./interfaceChange";
 import { useAgentLink, useAgentWiring } from "./useAgentWiring";
 import { useTrace } from "./useTrace";
 import { fromA2ui } from "./agent/quick";
@@ -74,9 +76,11 @@ import { createPreviewCache } from "./widgetPreviewCache";
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose, importWaiting,
-  onHelp, onAbout, windowDialog = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange,
+  onHelp, onAbout, windowDialog = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange, windowLabel = null,
 }: {
   tab: string;
+  /** This window's label: its page reports with it (`usePresentReports`); `null`: unknown yet. */
+  windowLabel?: string | null;
   /** L'élément copié, ici ou dans une autre fenêtre : il se colle dans un autre onglet. */
   clip: ClipRef;
   /** Croît à chaque copie venue d'une autre fenêtre. */
@@ -274,6 +278,7 @@ export default function App({
     agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
   } = useAgentWiring({
     tab, snap, view, current: shownSlide, selected, editing, editField, packItem: item.selected, packTab, importJob, showSlide,
+    setSelected,
   });
 
   const inspector = useInspector({
@@ -304,13 +309,14 @@ export default function App({
   const { presenting, setPresenting, present, openHistory } = usePageEvents({
     api, snapRef, stage, autosave, run, setSelected, setEditing,
   });
+  const presentWiring = usePresentReports(tab, windowLabel, presenting, present);
 
   /** Ce que l'agent change dans l'interface (`set_interface`), par le chemin des commandes de l'app. */
   const onInterface = (c: InterfaceChange) =>
     applyInterface(c, {
       changeScheme,
       changeLocale,
-      setGhosts: keptUi.setGhosts,
+      ...layoutCommands(keptUi),
       fail: (err) => say(errorText(err), true),
     });
 
@@ -331,6 +337,8 @@ export default function App({
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab, deckLook, reveal: trace.reveal });
+  // What hands-free routing needs of this tab, reported by the window (`useVoiceContext`).
+  useContextWriter(tab, agentUiNow);
 
   const [previewStore] = useState(createStagePreviewStore);
   // The notes column, where a theme tab's panel goes (`ThemePanels`).
@@ -471,7 +479,7 @@ export default function App({
           onDetach={inTauri && !agentDetached ? () => void workspace.detachAgent().catch((e) => say(errorText(e), true)) : undefined} thumbs={slideThumbs} slots={agentSlots} handle={agentHandle}
           onHostAction={(s, a) => trace(s, fromA2ui(a)) || openRow(s, a) || host.onAction(s, a)} onStatus={setAgentStatus}
           onChanged={() => void run(api.snapshot())} onFocus={onAgentFocus}
-          onPresent={present} onInterface={onInterface} onOpenHistory={() => void openHistory()}
+          onPresent={presentWiring.onCommand} onInterface={onInterface} onOpenHistory={() => void openHistory()}
           onWidgetTouched={item.touched} say={say}
           onDraft={dictation.draft.onHost}
           onVoice={bumpVoiceSeq} onAvailability={agentAvailability.onAvailability}
@@ -553,7 +561,7 @@ export default function App({
       {receivedToReview.length === 0 && <SlotView slot={agentSlots.modal} />}
 
       {presenting && (
-        <Presenter mode={presenting} slides={snap.slides} current={current} svg={svgs.svg} onShow={showSlide} onExit={() => setPresenting(null)} />
+        <Presenter mode={presenting} slides={snap.slides} current={current} svg={svgs.svg} onShow={showSlide} onExit={() => setPresenting(null)} commands={presentWiring.commands} />
       )}
 
       {/* The agent's popovers, each placed next to its opener. */}

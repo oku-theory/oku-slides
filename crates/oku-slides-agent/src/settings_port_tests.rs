@@ -90,3 +90,36 @@ fn read_with_dictation_hides_its_config_version() {
     let v = AppSettings::new(&p, Some(oku_slides_stt::Stt::new(&p))).read();
     assert_that!((v.contains_key("dictation.model"), v.contains_key("dictation.version"))).is_equal_to((true, false));
 }
+
+fn speech_platform() -> (Platform, tempfile::TempDir) {
+    let (mut settings, dir) = (Settings::defaults().unwrap(), tempfile::tempdir().unwrap());
+    settings.paths.data = Some(dir.path().to_owned());
+    settings.paths.decks = Some(dir.path().join("decks"));
+    settings.paths.models = Some(dir.path().join("models"));
+    settings.stt.apple = false;
+    settings.i18n.locale = Some("fr".into());
+    (Platform::with_settings(settings).unwrap(), dir)
+}
+
+#[rstest::rstest]
+#[case::ready(true, "ready", None)]
+#[case::unavailable(false, "unavailable", Some("stt-voice-no-engine"))]
+fn settings_reports_speech_status(#[case] voice: bool, #[case] status: &str, #[case] reason: Option<&str>) {
+    let (p, _dir) = speech_platform();
+    let stt = oku_slides_stt::Stt::new(&p);
+    let engine: Arc<dyn oku_slides_stt::SpeechEngine> = Arc::new(crate::hand_voice::HandVoice::default());
+    let speaker = voice.then(|| oku_slides_stt::Speaker::new(engine, Some(stt.clone())));
+    let v = AppSettings::new(&p, Some(stt)).with_speaker(speaker).read();
+    assert_that!(v.get("speech.status")).is_equal_to(Some(&json!(status)));
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(v.get("speech.reason").cloned()).is_equal_to(reason.map(|k| json!(fr.tr(k))));
+    assert_that!(v.get("speech.read_aloud")).is_equal_to(Some(&json!(false)));
+    assert_that!(v.contains_key("dictation.read_aloud") || v.contains_key("dictation.speech")).is_false();
+}
+
+#[test]
+fn write_speech_key_is_refused() {
+    let (p, _dir) = platform();
+    assert_that!(AppSettings::new(&p, None).write("speech.rate", &json!(2)))
+        .is_equal_to(Err("the read-aloud is set through set_speech".to_owned()));
+}

@@ -128,7 +128,7 @@ async fn keeper_forget_after_a_queued_write_leaves_nothing() {
     let h = start(json!({ "turns": [] })).await;
     let t = h.tab("t-1");
     let n = t.hub.begin_turn();
-    t.hub.emit(oku_slides_mcp::McpEvent::Surface { surface: frozen_turn(n) });
+    t.hub.emit(oku_slides_mcp::McpEvent::surface(frozen_turn(n)));
     t.hub.end_turn(n, "");
     t.keeper.send(Keep::Thread(n));
     assert_that!(t.keeper.forget().await).is_none();

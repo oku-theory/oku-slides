@@ -2,182 +2,47 @@
 //! gardé) sur la connexion ACP partagée, et le relais des évènements vers
 //! l'interface, enveloppés `{tab, event}`.
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 use std::time::Duration;
 
 use oku_slides_i18n::Localize;
-use oku_slides_mcp::{HubError, McpEvent, ShowOutcome, SurfaceAction};
+use oku_slides_mcp::{AnswerOutcome, CloseDecision, HubError, McpEvent, ShowOutcome, SurfaceAction, SurfaceHub};
 use oku_slides_session::Platform;
-use oku_slides_session::agent::{AgentUi, AttachmentRef, Sessions};
-use oku_slides_stt::Stt;
+use oku_slides_session::agent::{AgentUi, AgentWorkspace, AppPort, AttachmentRef, Sessions, TurnOrigin};
+use oku_slides_stt::{Speaker, Stt};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
+use crate::agent_command::{AgentCommand, MAX_DRAFT_BYTES, MAX_ORIGIN_BYTES};
 use crate::choice::AgentChoice;
 use crate::command_error::{CommandError, DraftTooLongSnafu, NoAgentSnafu, OriginTooLongSnafu};
 use crate::drafts_port::{Starter, StarterParts};
 use crate::keeper::{Keep, Keeper};
+use crate::page_reports::{PageContext, PageReports, ReportFrom};
 use crate::settings_port::AppSettings;
 use crate::shortcut::is_spoken_theme_shortcut;
 use crate::tab_agent::{Command, Instruction};
 use crate::tab_entry::{Out, TabLink, emit};
 use crate::table::Table;
+use crate::tune_port::StackTune;
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, Link};
-
-/// Taille maximale d'un brouillon, en octets UTF-8.
-pub const MAX_DRAFT_BYTES: usize = 256 * 1024;
-/// Taille maximale de l'origine d'un brouillon (identifiant de vue), en octets.
-pub const MAX_ORIGIN_BYTES: usize = 64;
-
-/// A command from the interface to a tab's agent.
-///
-/// JSON `{"cmd": …, "tab": …}`, the same for Tauri and HTTP.
-#[derive(Debug, serde::Deserialize)]
-#[serde(tag = "cmd", rename_all = "snake_case")]
-pub enum AgentCommand {
-    /// An instruction for the tab's agent.
-    ///
-    /// With pasted images (`images`), it is never taken for an answer to a question nor for a
-    /// shortcut word.
-    Prompt {
-        /// The target tab.
-        tab: String,
-        /// The instruction, as spoken or typed.
-        text: String,
-        /// What the interface shows with the instruction: slide, selected element and field.
-        #[serde(default)]
-        ui: AgentUi,
-        /// The question this instruction answers: the one receiving keys 1–4
-        /// (`quickTarget`). Absent, or a question no longer waiting: an ordinary instruction.
-        #[serde(default)]
-        answer: Option<String>,
-        /// The pasted images sent with the instruction (draft ids `sha256:…`).
-        #[serde(default)]
-        images: Vec<String>,
-    },
-    /// Fine-tunes the imported tab: a turn in the tab's conversation, starting the agent.
-    ///
-    /// The thread shows the localized text `agent-tune-prompt`, in the interface's current
-    /// language; this text is also the last block of the prompt, after the hidden import
-    /// instructions. Reserved to the host ([`Stack::tune`], when the import asks for
-    /// fine-tuning: `WorkspaceOutcome::Tune`): never read from the interface channel.
-    #[serde(skip_deserializing)]
-    Tune {
-        /// The imported tab.
-        tab: String,
-    },
-    /// Interrupts the tab's running turn.
-    Cancel {
-        /// The target tab.
-        tab: String,
-    },
-    /// Starts a new conversation in the tab: the thread starts over.
-    NewConversation {
-        /// The target tab.
-        tab: String,
-    },
-    /// The user acts on a surface (button, choice, form).
-    SurfaceAction {
-        /// The tab showing the surface.
-        tab: String,
-        /// Id of the surface.
-        surface: String,
-        /// Name of the action.
-        name: String,
-        /// Form values at the time of the action.
-        #[serde(default)]
-        context: serde_json::Map<String, serde_json::Value>,
-    },
-    /// The (re)subscribed interface asks for the tab's kept thread and its open surfaces.
-    Resync {
-        /// The target tab.
-        tab: String,
-    },
-    /// Another view of the tab (the agent window) subscribes.
-    ///
-    /// Replays the state, the draft, then the tab's thread; never starts the tab.
-    Follow {
-        /// The followed tab.
-        tab: String,
-    },
-    /// The tab's draft; `None`: closed. Refused if the tab has no started agent.
-    SetDraft {
-        /// The target tab.
-        tab: String,
-        /// The draft's text; `None` closes it.
-        text: Option<String>,
-        /// The view writing it, returned with the echo.
-        origin: Option<String>,
-    },
-    /// A pasted image (`data`: its bytes in base64), added to the tab's draft.
-    ///
-    /// Refused without a started agent, beyond `[paste] max_draft_images`, or by the session.
-    PasteImage {
-        /// The target tab.
-        tab: String,
-        /// The image bytes, in base64.
-        data: String,
-    },
-    /// Removes image `id` from the draft.
-    RemoveImage {
-        /// The target tab.
-        tab: String,
-        /// Id of the image to remove.
-        id: String,
-    },
-    /// The interface opens the deck's packs panel: the surface goes to this tab.
-    ShowPacks {
-        /// The target tab.
-        tab: String,
-    },
-    /// The interface opens the theme picker on the slide shown: the surface goes to this tab.
-    ShowThemes {
-        /// The target tab.
-        tab: String,
-        /// The slide each theme shows; `None`: the first one.
-        slide: Option<String>,
-    },
-    /// The interface opens the dictation and agent settings box.
-    ShowSettings {
-        /// The target tab.
-        tab: String,
-    },
-    /// The interface asks whether the agent is usable (`availability` event to this tab).
-    Availability {
-        /// The target tab.
-        tab: String,
-    },
-}
-
-impl AgentCommand {
-    /// The target tab.
-    #[must_use]
-    pub fn tab(&self) -> &str {
-        match self {
-            Self::Prompt { tab, .. }
-            | Self::Tune { tab, .. }
-            | Self::Cancel { tab }
-            | Self::NewConversation { tab }
-            | Self::SurfaceAction { tab, .. }
-            | Self::Resync { tab }
-            | Self::Follow { tab }
-            | Self::SetDraft { tab, .. }
-            | Self::PasteImage { tab, .. }
-            | Self::RemoveImage { tab, .. }
-            | Self::ShowPacks { tab }
-            | Self::ShowThemes { tab, .. }
-            | Self::ShowSettings { tab }
-            | Self::Availability { tab } => tab,
-        }
-    }
-}
 
 /// Clé Fluent du texte du fil pour le fine-tuning d'un import.
 const TUNE_PROMPT: &str = "agent-tune-prompt";
 
 /// Attente de l'arrêt de l'agent ACP à la fin de l'app (`Stack::shutdown`).
 const SHUTDOWN_WITHIN: Duration = Duration::from_secs(2);
+
+/// The host's dictation and read-aloud voice, both optional, for [`Stack::start`].
+#[derive(Debug, Clone, Default)]
+pub struct Voices {
+    /// The dictation: the settings box, the `settings` tool and the voice router.
+    pub stt: Option<Stt>,
+    /// The process-wide read-aloud voice; `None`: nothing is read aloud.
+    pub speaker: Option<Speaker>,
+}
 
 /// Les agents des onglets d'un hôte, sur un seul agent ACP ; chaque onglet
 /// démarre à sa première commande et s'arrête à sa fermeture (ou avec la pile).
@@ -189,7 +54,7 @@ pub struct Stack {
     link: Link,
     /// Starts the tabs' entries; its drafts port reaches back to it weakly.
     starter: Arc<Starter>,
-    platform: Platform,
+    pub(crate) platform: Platform,
     rt: Handle,
     table: Arc<Mutex<Table>>,
     out_tx: mpsc::UnboundedSender<Out>,
@@ -197,58 +62,121 @@ pub struct Stack {
     /// L'agent choisi : celui du prochain lancement, sa disponibilité, le panneau.
     choice: Arc<AgentChoice>,
     /// La dictée et l'agent de l'app : la boîte des réglages de chaque onglet.
-    voice: Arc<AppVoice>,
+    pub(crate) voice: Arc<AppVoice>,
+    /// The host's workspace: the tab that has the focus.
+    pub(crate) workspace: Arc<dyn AgentWorkspace>,
+    /// The app itself: updates, and quitting or installing once a turn has ended.
+    pub(crate) app: Arc<dyn AppPort>,
+    /// What each tab's page last reported: context, presenting.
+    pub(crate) reports: PageReports,
+    /// Set by [`Stack::shutdown`]: the voice router ends.
+    closing: AtomicBool,
+    /// The read-aloud voice: the router drops what the microphone heard of it.
+    pub(crate) speaker: Option<Speaker>,
 }
 
 impl Stack {
-    /// Rien ne démarre ici : les outils et le gardien d'un onglet démarrent
-    /// à sa première commande, `resync` compris ; l'agent ACP au premier
-    /// prompt ; tout dans `rt`. `stt` : la dictée de l'hôte, pour la boîte des réglages
-    /// et l'outil `settings`. Seules la veille de la dictée et le suivi de la boîte partent ici.
-    pub fn start(sessions: Arc<dyn Sessions>, platform: &Platform, stt: Option<Stt>, rt: Handle) -> Self {
+    /// The agent stack; tabs, tools and agents start lazily.
+    ///
+    /// Nothing starts here: a tab's tools and guard start at its first command,
+    /// `resync` included; the ACP agent at the first prompt; all in `rt`. `stt`: the host's
+    /// dictation, for the settings box and the `settings` tool. Only the dictation watch and
+    /// the box's follow-up start here,
+    /// with the voice router over the dictation's utterances, and the after-turn thread.
+    /// `workspace` tells the focused tab; `app` answers updates and quits after a turn.
+    /// `speaker`, the process's read-aloud voice, starts the reader of the focused tab.
+    pub fn start(
+        sessions: Arc<dyn Sessions>,
+        platform: &Platform,
+        voices: Voices,
+        workspace: Arc<dyn AgentWorkspace>,
+        app: Arc<dyn AppPort>,
+        rt: Handle,
+    ) -> Arc<Self> {
+        let Voices { stt, speaker } = voices;
         let a = platform.settings.agent.active();
         let model = a.builtin.is_none().then(|| a.model.clone()).flatten();
         let launch = AgentChoice::launch_of(a, platform);
         let link = Link::for_preset(platform.settings.agent.selected(), launch, model, platform.storage.clone());
         let (out_tx, out_rx) = mpsc::unbounded_channel();
         let choice = Arc::new(AgentChoice::new(platform, link.clone()));
-        let voice = AppVoice::new(stt.clone(), choice.clone(), rt.clone());
+        let voice = AppVoice::new(stt.clone(), speaker.clone(), choice.clone(), rt.clone());
+        // The reader's thread ends once the last tab relay is gone: never joined.
+        let reader = speaker
+            .clone()
+            .map(|s| crate::reader::spawn(crate::reader::Reader::new(s, stt.clone(), workspace.clone())).0);
         let table = Arc::new(Mutex::new(Table::default()));
+        let utterances = stt.as_ref().map(Stt::utterances);
+        let (after_tx, after_rx) = std::sync::mpsc::channel();
         crate::voice_refresh::spawn(&rt, Arc::downgrade(&voice), Arc::downgrade(&table), out_tx.clone());
-        let starter = Starter::new(StarterParts {
-            sessions,
-            platform: platform.clone(),
-            settings: Arc::new(AppSettings::new(platform, stt)),
-            voice: voice.clone(),
-            link: link.clone(),
-            rt: rt.clone(),
-            out_tx: out_tx.clone(),
-            table: table.clone(),
+        // The tabs' tune port reaches back to the stack weakly: the stack's table holds the tabs.
+        let stack = Arc::new_cyclic(|this: &Weak<Self>| {
+            let starter = Starter::new(StarterParts {
+                sessions,
+                platform: platform.clone(),
+                settings: Arc::new(AppSettings::new(platform, stt.clone()).with_speaker(speaker.clone())),
+                voice: voice.clone(),
+                workspace: workspace.clone(),
+                tune: Arc::new(StackTune { stack: this.clone() }),
+                app: app.clone(),
+                after: after_tx,
+                link: link.clone(),
+                rt: rt.clone(),
+                out_tx: out_tx.clone(),
+                table: table.clone(),
+                reader,
+            });
+            Self {
+                speaker,
+                choice,
+                voice,
+                workspace,
+                app,
+                reports: PageReports::default(),
+                closing: AtomicBool::new(false),
+                link,
+                starter,
+                platform: platform.clone(),
+                rt,
+                table,
+                out_tx,
+                out_rx: Mutex::new(Some(out_rx)),
+            }
         });
-        Self {
-            choice,
-            voice,
-            link,
-            starter,
-            platform: platform.clone(),
-            rt,
-            table,
-            out_tx,
-            out_rx: Mutex::new(Some(out_rx)),
+        stack.run_after_turns(after_rx);
+        match utterances {
+            // The thread ends by itself once the stack closes: never joined.
+            Some(Ok(rx)) => drop(stack.route_utterances(rx)),
+            Some(Err(e)) => tracing::warn!(error = %snafu::Report::from_error(&e), "voice router without utterances"),
+            None => {}
         }
+        stack
     }
 
     /// Handles an interface command; the interface reads the error.
     ///
-    /// May block (a click in the settings box may write `config.toml`, the box reads the
-    /// model's state): call it off the runtime threads; a "theme" shortcut renders up to 12
-    /// thumbnails, 4 s at most.
+    /// A page report ([`AgentCommand::is_page_report`]) is refused: it goes through
+    /// [`Stack::handle_from`], with its sender checked. May block (a click in the settings box may
+    /// write `config.toml`, the box reads the model's state): call it off the runtime threads; a
+    /// "theme" shortcut renders up to 12 thumbnails, 4 s at most.
     ///
     /// # Errors
     ///
     /// Returns the localized message when the command is refused: rejected instruction, draft or
     /// pasted image, refused surface action, no started agent, or packs panel failure.
     pub fn handle(&self, cmd: AgentCommand) -> Result<(), String> {
+        self.handle_from(cmd, &ReportFrom::Other)
+    }
+
+    /// Handles an interface command sent by `from`, as the host checked it.
+    ///
+    /// Only page reports read `from`; the rest is as [`Stack::handle`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Stack::handle`]; a page report from another window, over its limits or with the
+    /// last number is refused too.
+    pub fn handle_from(&self, cmd: AgentCommand, from: &ReportFrom) -> Result<(), String> {
         if self.is_closed(cmd.tab()) {
             tracing::debug!(tab = cmd.tab(), "commande pour un onglet fermé : ignorée");
             return Ok(());
@@ -256,21 +184,22 @@ impl Stack {
         match cmd {
             AgentCommand::Prompt { tab, text, ui, answer, images } => {
                 if let Some((t, images)) = self.route_prompt(&tab, answer, &text, ui.slide.as_deref(), &images)? {
-                    t.send(Command::Prompt(Instruction { text, ui, tune: false, images }));
+                    t.send(Command::Prompt(Instruction { text, ui, tune: false, images, origin: TurnOrigin::Typed }));
                 }
             }
             AgentCommand::Tune { tab } => {
                 let Some(t) = self.open(&tab) else { return Ok(()) };
                 let text = self.platform.live_localizer.current().tr(TUNE_PROMPT);
                 let ui = AgentUi::default();
-                t.send(Command::Prompt(Instruction { text, ui, tune: true, images: Vec::new() }));
+                t.send(Command::Prompt(Instruction {
+                    text,
+                    ui,
+                    tune: true,
+                    images: Vec::new(),
+                    origin: TurnOrigin::Typed,
+                }));
             }
-            AgentCommand::Cancel { tab } => {
-                if let Some(t) = self.tab(&tab) {
-                    t.hub.cancel_asks();
-                    t.send(Command::Cancel);
-                }
-            }
+            AgentCommand::Cancel { tab } => self.cancel(&tab),
             // Un onglet sans agent n'a aucune surface de tour à fermer : rien à faire pour lui.
             AgentCommand::NewConversation { tab } => {
                 if let Some(t) = self.tab(&tab) {
@@ -348,15 +277,42 @@ impl Stack {
             AgentCommand::Availability { tab } => {
                 emit(&self.out_tx, "agent", &tab, &AgentEvent::Availability { unusable: self.availability() });
             }
+            AgentCommand::Context { tab, page, ui, seq, has_focus } => {
+                self.context_report(&tab, from, &page, seq, PageContext { ui, has_focus })?;
+            }
+            AgentCommand::Presenting { tab, page, mode, seq } => {
+                self.presenting_report(&tab, from, &page, seq, mode)?;
+            }
         }
         Ok(())
+    }
+
+    /// Cancels `tab`'s turn, releases its questions and drops its after-turn actions; only that tab.
+    pub(crate) fn cancel(&self, tab: &str) {
+        if let Some(t) = self.tab(tab) {
+            t.hub.drop_after_turn();
+            t.hub.cancel_asks();
+            t.send(Command::Cancel);
+        }
+    }
+
+    /// True once [`Stack::shutdown`] began.
+    pub(crate) fn is_closing(&self) -> bool {
+        self.closing.load(Ordering::SeqCst)
+    }
+
+    /// How turn `turn` of `tab` began, while it is that tab's last turn; for the read-aloud.
+    #[must_use]
+    pub fn turn_origin(&self, tab: &str, turn: u32) -> Option<TurnOrigin> {
+        self.tab(tab).and_then(|t| t.hub.turn_origin(turn))
     }
 
     /// Routes an instruction: answer, theme shortcut, or the agent with its images.
     ///
     /// Returns the tab and resolved images of an instruction that goes to the agent; `None` when
-    /// nothing goes to the agent: tab closed, question answered or theme picker shown.
-    fn route_prompt(
+    /// nothing goes to the agent: tab closed, question answered or kept open (a guard or a
+    /// permission typed to), or theme picker shown.
+    pub(crate) fn route_prompt(
         &self,
         tab: &str,
         answer: Option<String>,
@@ -369,8 +325,15 @@ impl Stack {
         // An answer to the designated question, never to another one. If it no longer waits
         // (answered or cancelled in the meantime), the instruction is not lost: it goes like any
         // instruction (a new turn; during a turn, it interrupts then replaces it).
-        if images.is_empty() && answer.is_some_and(|id| t.hub.answer(&id, text)) {
-            return Ok(None);
+        // A guarded confirmation or a permission keeps it open ("say it or click"): no prompt,
+        // and the running turn goes on.
+        if images.is_empty()
+            && let Some(id) = answer
+        {
+            match t.hub.answer(&id, text) {
+                AnswerOutcome::Answered | AnswerOutcome::KeptOpen => return Ok(None),
+                AnswerOutcome::NotAQuestion => {}
+            }
         }
         // "Theme" shortcut, in the interface or the dictation language: the host's picker, with
         // no turn nor agent; a running turn goes on.
@@ -460,20 +423,24 @@ impl Stack {
         }
     }
 
-    /// Lance le tour de fine-tuning de l'onglet importé `tab` (voir [`AgentCommand::Tune`]).
+    /// Starts the fine-tuning turn of the imported tab `tab` (see [`AgentCommand::Tune`]); `true` if it started.
     ///
-    /// Pour l'hôte, quand un import demande le fine-tuning ; démarre l'agent de l'onglet.
-    /// Refused only if neither the selected agent nor the local one can run (a model download
-    /// included): nothing starts, and the tab gets the reason (`AgentEvent::Availability`), as
-    /// after a failed launch. Peut bloquer (lit le disque) : à appeler hors des fils du runtime.
-    pub fn tune(&self, tab: &str) {
+    /// For the host, when an import asks for its fine-tuning; starts the tab's agent. Refused
+    /// only if neither the selected agent nor the local one can run (a model download included):
+    /// nothing starts, and the tab gets the reason (`AgentEvent::Availability`), as after a failed
+    /// launch; a refused command is logged. May block (reads the disk): call it off the runtime threads.
+    pub fn tune(&self, tab: &str) -> bool {
         if let Some(reason) = self.availability() {
-            tracing::warn!(tab, reason, "fine-tuning de l'import non lancé : agent inutilisable");
+            tracing::warn!(tab, reason, "import fine-tuning not started: agent unusable");
             emit(&self.out_tx, "agent", tab, &AgentEvent::Availability { unusable: Some(reason) });
-            return;
+            return false;
         }
-        if let Err(e) = self.handle(AgentCommand::Tune { tab: tab.to_owned() }) {
-            tracing::warn!(tab, error = %e, "fine-tuning de l'import non lancé");
+        match self.handle(AgentCommand::Tune { tab: tab.to_owned() }) {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::warn!(tab, error = %e, "import fine-tuning not started");
+                false
+            }
         }
     }
 
@@ -487,6 +454,15 @@ impl Stack {
         self.voice.availability()
     }
 
+    /// Takes close decision `id` once, for a page of `window`, from the hub of the tab holding it.
+    ///
+    /// `None` when no tab holds it, or when it is pending, expired or another window's.
+    #[must_use]
+    pub fn take_close_decision(&self, window: &str, id: &str) -> Option<CloseDecision> {
+        let hubs: Vec<Arc<SurfaceHub>> = self.table().tabs.values().map(|e| e.link.hub.clone()).collect();
+        hubs.iter().find_map(|hub| hub.take_close_decision(window, id))
+    }
+
     /// Le deck de l'onglet a changé depuis l'interface (voir
     /// `Request::changes_deck`) : fermer les surfaces orphelines.
     pub fn after_change(&self, tab: &str) {
@@ -495,10 +471,13 @@ impl Stack {
         }
     }
 
-    /// L'onglet est fermé : son agent s'arrête (tour annulé, questions
-    /// relâchées), ses outils aussi.
+    /// The tab is closed: its agent stops (turn cancelled, questions released), its tools too.
     pub fn tab_closed(&self, tab: &str) {
         self.voice.tab_closed(tab);
+        self.reports.forget_tab(tab);
+        if let Some(t) = self.tab(tab) {
+            self.copy_presenting(&t.hub);
+        }
         let gone = {
             let mut table = self.table();
             table.closed.insert(tab.to_owned());
@@ -512,6 +491,8 @@ impl Stack {
     /// écrites, puis l'agent ACP est tué (chacun attendu au plus 2 s) ; toute
     /// commande ensuite est ignorée.
     pub async fn shutdown(&self) {
+        // The voice router ends at its next poll: no utterance is routed after this.
+        self.closing.store(true, Ordering::SeqCst);
         // Plus aucun changement d'agent : un choix en attente tombe.
         self.voice.shutdown();
         // Le `.part` du modèle (2,5 Go) ne doit pas grossir après la fin de l'app.
@@ -567,15 +548,15 @@ impl Stack {
         self.table.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// L'onglet s'il a déjà un agent ; le verrou n'est pas gardé.
-    fn tab(&self, tab: &str) -> Option<TabLink> {
+    /// The tab's link if it already has an agent; the lock is not held.
+    pub(crate) fn tab(&self, tab: &str) -> Option<TabLink> {
         self.table().tabs.get(tab).map(|e| e.link.clone())
     }
 
     /// The tab, with its entry started if it has none; `None` if closed (or the app over).
     ///
     /// Checked under the lock the entry would be inserted under.
-    fn open(&self, tab: &str) -> Option<TabLink> {
+    pub(crate) fn open(&self, tab: &str) -> Option<TabLink> {
         self.starter.open(tab)
     }
 }

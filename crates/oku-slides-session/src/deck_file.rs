@@ -171,6 +171,25 @@ impl Session {
         Ok(())
     }
 
+    /// The tab's dirty revision: grows at each edit, `None` while it holds no unsaved work.
+    ///
+    /// An agent's close decision holds it; a later edit makes that decision stale.
+    #[must_use]
+    pub fn dirty_revision(&self) -> Option<u64> {
+        self.unsaved().then_some(self.edit_seq)
+    }
+
+    /// Marks the document dirty: one more edit.
+    pub(crate) fn mark_dirty(&mut self) {
+        self.doc.dirty = true;
+        self.note_edit();
+    }
+
+    /// Counts one more edit, dirty or not yet: the dirty revision grows.
+    pub(crate) fn note_edit(&mut self) {
+        self.edit_seq = self.edit_seq.saturating_add(1);
+    }
+
     /// Écrit en `.oku-slides.pdf` (`path` déjà normalisé, voir `save_path`) :
     /// PDF + blob des sources, écriture atomique.
     pub(crate) fn write_to(&mut self, path: PathBuf) -> Result<()> {

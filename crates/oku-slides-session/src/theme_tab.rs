@@ -217,6 +217,7 @@ impl Session {
         Some(TabInfo {
             title: label(&edit.draft.name),
             dirty: self.doc.dirty,
+            dirty_revision: self.dirty_revision(),
             pristine: false,
             theme: Some(edit.draft.base.id),
             document: TabDocument::Theme { theme: edit.draft.base.id },

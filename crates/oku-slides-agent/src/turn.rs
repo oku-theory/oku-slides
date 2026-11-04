@@ -17,13 +17,15 @@ use crate::{AgentEvent, AgentState};
 ///
 /// That is a new conversation (once, even if an instruction follows) and/or the
 /// last instruction received (a later `Cancel` cancels it, but not the new
-/// conversation).
+/// conversation). The `new_conversation` tool's, drained once the reply is out, joins it.
 #[derive(Debug, Default)]
 pub(crate) struct Pending {
-    /// The conversation starts over after the turn.
+    /// The conversation starts over after the turn: asked by the user or the agent's tool.
     pub new_conversation: bool,
     /// The last instruction received during the turn, played next.
     pub prompt: Option<Instruction>,
+    /// The turn was stopped (a cancel, or a new instruction): its after-turn actions are dropped.
+    pub cut: bool,
 }
 
 /// Plays turn `turn` of `instruction`.
@@ -50,7 +52,7 @@ pub(crate) async fn run(
     see_images: bool,
     prompting: impl FnOnce(),
 ) -> agent_client_protocol::Result<(Pending, Option<Usage>)> {
-    let Instruction { text, ui, tune, images } = instruction;
+    let Instruction { text, ui, tune, images, .. } = instruction;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
     let blocking = tokio::task::spawn_blocking(move || {
@@ -133,6 +135,7 @@ pub(crate) async fn run(
             }
         }
     };
+    pending.cut = cancel_sent;
     ctx.end_turn(turn).await;
     let response = response?;
     ctx.emit(AgentEvent::TurnEnded { turn, stop: as_text(&response.stop_reason) });

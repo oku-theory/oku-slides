@@ -11,13 +11,13 @@ use serde_json::{Value, json};
 
 use snafu::{IntoError, ResultExt};
 
-use crate::McpEvent;
 use crate::paths::checked;
 use crate::settings::writable;
 use crate::tool_error::{
     DeniedSnafu, NoFileSnafu, OpenElsewhereSnafu, SessionSnafu, SettingLockedSnafu, TaskSnafu, ToolError,
 };
 use crate::tools::{Tools, text};
+use crate::{ConfirmVerb, McpEvent};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SaveArgs {
@@ -56,7 +56,7 @@ pub(crate) struct SetSettingArgs {
 
 impl Tools {
     /// Asks the user, then runs `req`; `Changed` if it succeeds.
-    pub(crate) async fn guarded(&self, message: String, danger: bool, req: Request) -> CallToolResult {
+    pub(crate) async fn guarded(&self, message: String, danger: Option<ConfirmVerb>, req: Request) -> CallToolResult {
         self.guarded_with(message, danger, move |s| s.handle_by_agent(req).map(|_| ())).await
     }
 
@@ -65,7 +65,7 @@ impl Tools {
     async fn guarded_with(
         &self,
         message: String,
-        danger: bool,
+        danger: Option<ConfirmVerb>,
         f: impl FnOnce(&mut Session) -> oku_slides_session::Result<()> + Send + 'static,
     ) -> CallToolResult {
         if !self.hub.confirm(message, danger).await {
@@ -168,7 +168,7 @@ impl Tools {
         };
         let key = if exists { "agent-confirm-save-over" } else { "agent-confirm-save" };
         let message = self.localizer.current().tr_with(key, &[("path", shown.into())]);
-        self.guarded(message, exists, Request::Save { path, overwrite: false }).await
+        self.guarded(message, exists.then_some(ConfirmVerb::Replace), Request::Save { path, overwrite: false }).await
     }
 
     /// Ouvre le fichier dans un autre onglet (ou montre celui qui l'a) ;
@@ -184,7 +184,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
-        if !self.hub.confirm(message, false).await {
+        if !self.hub.confirm(message, None).await {
             return self.denied();
         }
         let session = self.session.clone();
@@ -208,7 +208,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-move", &[("path", path.display().to_string().into())]);
-        self.guarded(message, false, Request::Move { path }).await
+        self.guarded(message, None, Request::Move { path }).await
     }
 
     /// Écrit une copie du deck à `path` ; le deck garde son fichier.
@@ -223,7 +223,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-save-copy", &[("path", path.display().to_string().into())]);
-        self.guarded_with(message, false, move |s| s.save_copy_new(&path)).await
+        self.guarded_with(message, None, move |s| s.save_copy_new(&path)).await
     }
 
     /// Fusionne un autre `.oku-slides.pdf` du même deck ; ne s'annule pas.
@@ -242,13 +242,13 @@ impl Tools {
         }
         let message =
             self.localizer.current().tr_with("agent-confirm-merge", &[("path", path.display().to_string().into())]);
-        self.guarded(message, true, Request::Merge { path }).await
+        self.guarded(message, Some(ConfirmVerb::Merge), Request::Merge { path }).await
     }
 
     pub(crate) async fn new_deck(&self) -> CallToolResult {
         let dirty = self.dirty().await;
         let message = self.localizer.current().tr(if dirty { "agent-confirm-new-dirty" } else { "agent-confirm-new" });
-        let result = self.guarded_with(message, dirty, Session::new_deck).await;
+        let result = self.guarded_with(message, dirty.then_some(ConfirmVerb::Discard), Session::new_deck).await;
         self.prune_if_done(&result).await;
         result
     }
@@ -260,7 +260,7 @@ impl Tools {
             Err(e) => return self.fail_with(&e),
         };
         let message = self.localizer.current().tr_with("agent-confirm-copy-pack", &[("name", label(&name).into())]);
-        self.guarded(message, false, Request::SavePack { as_new: true }).await
+        self.guarded(message, None, Request::SavePack { as_new: true }).await
     }
 
     pub(crate) async fn delete_pack(&self, args: Value) -> CallToolResult {
@@ -277,7 +277,7 @@ impl Tools {
             .flatten()
             .unwrap_or_else(|| pack.to_string());
         let message = self.localizer.current().tr_with("agent-confirm-delete-pack", &[("name", name.into())]);
-        self.guarded(message, true, Request::DeletePack { pack }).await
+        self.guarded(message, Some(ConfirmVerb::Delete), Request::DeletePack { pack }).await
     }
 
     /// Nouvelle version d'un thème, ou variante d'un thème intégré, en mode deck :
@@ -296,7 +296,7 @@ impl Tools {
         };
         let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
         let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
-        if !self.hub.confirm(message, false).await {
+        if !self.hub.confirm(message, None).await {
             return self.denied();
         }
         let done = self.with_session(move |s| s.handle_by_agent(Request::EditTheme { id: info.id, name, ops })).await;
@@ -319,7 +319,7 @@ impl Tools {
             "agent-confirm-setting",
             &[("key", key.as_str().into()), ("old", old.to_string().into()), ("new", value.to_string().into())],
         );
-        if !self.hub.confirm(message, false).await {
+        if !self.hub.confirm(message, None).await {
             return self.denied();
         }
         let written = self.settings_write(key, value).await;

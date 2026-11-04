@@ -1,5 +1,4 @@
-//! Erreurs de la dictée : micro, fichier audio, modèle, transcription,
-//! téléchargement.
+//! Speech errors: microphone, audio file, model, transcription, download, OS voice.
 
 use std::path::PathBuf;
 
@@ -7,6 +6,8 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::models::{DownloadError, DownloadErrorKind};
 use oku_slides_platform::storage::StorageError;
 use snafu::{Backtrace, Snafu};
+
+use crate::speak::UnavailableReason;
 
 /// Erreur d'une bibliothèque qui n'expose pas de type précis (CTranslate2,
 /// tokenizers).
@@ -38,6 +39,17 @@ pub enum SttErrorKind {
     Cancelled,
     /// Autorisation refusée (reconnaissance vocale).
     Permission,
+    /// The utterance receiver was already handed out.
+    ReceiverTaken,
+    /// No OS voice can speak.
+    ///
+    /// No engine, no voice for the language, or a silent daemon.
+    VoiceUnavailable {
+        /// Why no voice can speak.
+        reason: UnavailableReason,
+    },
+    /// The OS voice failed to speak, or the speaking rate was refused.
+    VoiceFailed,
 }
 
 #[derive(Debug, Snafu)]
@@ -97,6 +109,8 @@ pub(crate) enum SttInner {
     FinishTimeout { backtrace: Backtrace },
     #[snafu(display("this model is installed by the system"))]
     NotDownloadable { backtrace: Backtrace },
+    #[snafu(display("the utterance receiver was already handed out"))]
+    ReceiverTaken { backtrace: Backtrace },
     #[snafu(display("dictation API key missing: environment variable {var} is not set"))]
     ApiKeyMissing { var: String, backtrace: Backtrace },
     #[snafu(display("dictation API key unusable: environment variable {var} holds a non-header value"))]
@@ -113,6 +127,24 @@ pub(crate) enum SttInner {
     ApiClient { source: Box<async_openai::error::OpenAIError>, backtrace: Backtrace },
     #[snafu(display("dictation API runtime did not start"))]
     ApiRuntime { source: std::io::Error, backtrace: Backtrace },
+    #[snafu(display("no OS voice can speak: {reason:?}"))]
+    VoiceUnavailable { reason: UnavailableReason, backtrace: Backtrace },
+    #[snafu(display("the OS voice failed ({step})"))]
+    VoiceFailed { step: &'static str, backtrace: Backtrace },
+    #[snafu(display("speaking rate {rate} outside 0.5..=2"))]
+    VoiceRate { rate: f32, backtrace: Backtrace },
+    /// Only `spd-say` (Linux) runs a program.
+    #[cfg(any(test, target_os = "linux"))]
+    #[snafu(display("the speech program did not start"))]
+    VoiceSpawn { source: std::io::Error, backtrace: Backtrace },
+    /// Only the WinRT voice reports an `HRESULT`.
+    #[cfg(windows)]
+    #[snafu(display("the Windows voice failed ({step}, HRESULT {code:#010x})"))]
+    VoiceWinRt { step: &'static str, code: i32, backtrace: Backtrace },
+    /// Only the e2e fake voice writes a log.
+    #[cfg(feature = "e2e-fakes")]
+    #[snafu(display("the fake voice log cannot be written"))]
+    VoiceLog { source: StorageError, backtrace: Backtrace },
 }
 
 impl SttError {
@@ -121,12 +153,18 @@ impl SttError {
     pub fn kind(&self) -> SttErrorKind {
         #[cfg(any(test, target_os = "macos"))]
         use SttInner::SpeechDenied;
+        #[cfg(feature = "e2e-fakes")]
+        use SttInner::VoiceLog;
+        #[cfg(any(test, target_os = "linux"))]
+        use SttInner::VoiceSpawn;
+        #[cfg(windows)]
+        use SttInner::VoiceWinRt;
         use SttInner::{
             Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
             AssetInstall, AudioFile, Cancelled, Download, Features, FinishTimeout, LocaleUnsupported, MelFilters,
             MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile,
-            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, Transcribe,
-            UnsupportedFormat, Wav, ZeroSetting,
+            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, ReceiverTaken,
+            Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
         };
         match *self.0 {
             NoMicrophone { .. }
@@ -159,10 +197,19 @@ impl SttError {
             | ApiClient { .. }
             | ApiRuntime { .. } => SttErrorKind::Transcription,
             Cancelled { .. } => SttErrorKind::Cancelled,
+            ReceiverTaken { .. } => SttErrorKind::ReceiverTaken,
             Download { ref source, .. } if source.kind() == DownloadErrorKind::Cancelled => SttErrorKind::Cancelled,
             Download { .. } | AssetInstall { .. } => SttErrorKind::Download,
             #[cfg(any(test, target_os = "macos"))]
             SpeechDenied { .. } => SttErrorKind::Permission,
+            VoiceUnavailable { reason, .. } => SttErrorKind::VoiceUnavailable { reason },
+            VoiceFailed { .. } | VoiceRate { .. } => SttErrorKind::VoiceFailed,
+            #[cfg(any(test, target_os = "linux"))]
+            VoiceSpawn { .. } => SttErrorKind::VoiceFailed,
+            #[cfg(windows)]
+            VoiceWinRt { .. } => SttErrorKind::VoiceFailed,
+            #[cfg(feature = "e2e-fakes")]
+            VoiceLog { .. } => SttErrorKind::VoiceFailed,
         }
     }
 }
@@ -171,12 +218,18 @@ impl Localize for SttError {
     fn localize(&self, l: &Localizer) -> String {
         #[cfg(any(test, target_os = "macos"))]
         use SttInner::SpeechDenied;
+        #[cfg(feature = "e2e-fakes")]
+        use SttInner::VoiceLog;
+        #[cfg(any(test, target_os = "linux"))]
+        use SttInner::VoiceSpawn;
+        #[cfg(windows)]
+        use SttInner::VoiceWinRt;
         use SttInner::{
             Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
             AssetInstall, AudioFile, Cancelled, Download, Features, FinishTimeout, LocaleUnsupported, MelFilters,
             MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile,
-            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, Transcribe,
-            UnsupportedFormat, Wav, ZeroSetting,
+            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, ReceiverTaken,
+            Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
         };
         match &*self.0 {
             NoMicrophone { .. } => l.tr("stt-microphone-missing"),
@@ -219,11 +272,21 @@ impl Localize for SttError {
             },
             AssetInstall { .. } => l.tr("stt-download"),
             Cancelled { .. } => l.tr("stt-cancelled"),
+            ReceiverTaken { .. } => l.tr("stt-receiver-taken"),
             #[cfg(any(test, target_os = "macos"))]
             SpeechDenied { .. } => l.tr("stt-speech-denied"),
             LocaleUnsupported { locale, .. } => {
                 l.tr_with("stt-locale-unsupported", &[("language", locale.as_str().into())])
             }
+            VoiceUnavailable { reason, .. } => reason.localize(l),
+            VoiceFailed { .. } => l.tr("stt-voice-failed"),
+            VoiceRate { .. } => l.tr("stt-voice-rate"),
+            #[cfg(any(test, target_os = "linux"))]
+            VoiceSpawn { .. } => l.tr("stt-voice-failed"),
+            #[cfg(windows)]
+            VoiceWinRt { .. } => l.tr("stt-voice-failed"),
+            #[cfg(feature = "e2e-fakes")]
+            VoiceLog { .. } => l.tr("stt-voice-failed"),
         }
     }
 }

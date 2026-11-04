@@ -80,7 +80,7 @@ fn open_help_built_twice_concurrently_keeps_a_single_help_tab() {
     let (first, second) = {
         let mut w = Workspace::lock(&ws);
         let locale = w.help_language();
-        (w.help_pending("w-1".into(), locale, None), w.help_pending("w-1".into(), locale, None))
+        (w.help_pending("w-1".into(), locale, None, None), w.help_pending("w-1".into(), locale, None, None))
     };
     let (a, b) = (first.build().unwrap(), second.build().unwrap());
     Workspace::finish(&ws, first, a).unwrap();
@@ -163,4 +163,72 @@ fn open_help_open_in_another_window_activates_it_and_focuses_that_window() {
     let helps: usize =
         v.windows.iter().map(|w| w.tabs.iter().filter(|t| t.info.document.help_locale().is_some()).count()).sum();
     assert_that!(helps).is_equal_to(1);
+}
+
+/// The slide help tab `tab` shows (its kept `UiState.slide`).
+fn shown_slide(ws: &Mutex<Workspace>, tab: &str) -> Option<String> {
+    let (out, _) = Workspace::with_session(ws, tab, |s| s.snapshot().ui.slide.clone());
+    out.unwrap_or_else(|e| panic!("tab {tab}: {e}"))
+}
+
+#[test]
+fn open_help_at_a_slide_opens_the_new_tab_there() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1", "slide": "s-dicter"}));
+    let help = help_tab(&view(&ws)).id.clone();
+    assert_that!(shown_slide(&ws, &help).as_deref()).is_equal_to(Some("s-dicter"));
+}
+
+#[test]
+fn open_help_reused_tab_shows_the_slide_asked() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1"}));
+    send(&ws, json!({"cmd": "activate", "tab": "t-1"}));
+    send(&ws, json!({"cmd": "open_help", "window": "w-1", "slide": "s-agent"}));
+    let v = view(&ws);
+    let help = help_tab(&v).id.clone();
+    assert_that!(v.windows[0].active).is_equal_to(help.clone());
+    assert_that!(shown_slide(&ws, &help).as_deref()).is_equal_to(Some("s-agent"));
+}
+
+#[test]
+fn open_help_at_an_unknown_slide_keeps_the_shown_one() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    send(&ws, json!({"cmd": "open_help", "window": "w-1", "slide": "s-agent"}));
+    send(&ws, json!({"cmd": "open_help", "window": "w-1", "slide": "s-nulle-part"}));
+    let help = help_tab(&view(&ws)).id.clone();
+    assert_that!(shown_slide(&ws, &help).as_deref()).is_equal_to(Some("s-agent"));
+}
+
+/// Built while another open inserted the help tab: the build joins that tab, at its slide.
+#[test]
+fn help_reused_tab_on_dedupe_path_sets_slide() {
+    let data = fresh_dir("oku-slides-workspace-help-");
+    let ws = workspace(data.path(), "fr");
+    let (first, second) = {
+        let mut w = Workspace::lock(&ws);
+        let locale = w.help_language();
+        let first = w.help_pending("w-1".into(), locale, None, None);
+        (first, w.help_pending("w-1".into(), locale, None, Some("s-dicter".into())))
+    };
+    let (a, b) = (
+        first.build().unwrap_or_else(|e| panic!("first: {e}")),
+        second.build().unwrap_or_else(|e| panic!("second: {e}")),
+    );
+    let (_, kept) = Workspace::finish(&ws, first, a).unwrap_or_else(|e| panic!("finish: {e}"));
+    let (_, joined) = Workspace::finish(&ws, second, b).unwrap_or_else(|e| panic!("finish: {e}"));
+    assert_that!(joined).is_equal_to(kept.clone());
+    assert_that!(shown_slide(&ws, &kept).as_deref()).is_equal_to(Some("s-dicter"));
+}
+
+#[test]
+fn searched_outside_the_help_logs_the_bug() {
+    let mut s = crate::test_support::session();
+    let mut found = None;
+    let log = crate::test_support::logged(|| found = Some(super::searched(&mut s, Some("dictée"))));
+    assert_that!(found).is_equal_to(Some((Vec::new(), None)));
+    assert_that!(log).contains("help search outside the help");
 }

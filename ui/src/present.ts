@@ -29,5 +29,50 @@ export function presentKey(e: Keys, index: number, count: number): PresentAction
   return to === null ? { kind: "stay" } : { kind: "show", index: to };
 }
 
+/**
+ * What the host asks of the presentation (`McpEvent::Present`, mirrored from the mcp crate):
+ * start it, or steer the one running.
+ */
+export type PresentCommand =
+  | { action: "start"; mode: PresentMode }
+  | { action: "show"; slide: string }
+  | { action: "next" }
+  | { action: "previous" }
+  | { action: "first" }
+  | { action: "last" }
+  | { action: "exit" };
+
+/** A command that steers a running presentation. */
+export type SlideCommand = Exclude<PresentCommand, { action: "start" }>;
+
+/** Subscribes to the steering commands; returns the unsubscribe. */
+export type SubscribeSlideCommands = (l: (c: SlideCommand) => void) => () => void;
+
+/**
+ * What `c` does from slide `index` of `slides`: `stay` at an edge, and for a slide id missing
+ * from the snapshot (the host checked it against a newer deck, or an older one).
+ */
+export function commandAction(c: SlideCommand, index: number, slides: readonly { id: string }[]): PresentAction {
+  const last = slides.length - 1;
+  const to = (i: number): PresentAction => (i === index || i < 0 || i > last ? { kind: "stay" } : { kind: "show", index: i });
+  switch (c.action) {
+    case "exit":
+      return { kind: "exit" };
+    case "next":
+      return to(index + 1);
+    case "previous":
+      return to(index - 1);
+    case "first":
+      return to(0);
+    case "last":
+      return to(last);
+    case "show":
+      return to(slides.findIndex((s) => s.id === c.slide));
+  }
+}
+
 /** Les touches de `slideTarget`, Espace compris. */
 const NAV_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown", " ", "Home", "End"]);
+
+/** True during a presentation: Escape belongs to it, no modal or question takes it. */
+export const presenting = (): boolean => document.querySelector(".presenter") !== null;

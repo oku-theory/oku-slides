@@ -5,11 +5,13 @@
 // tab list they read next says whether a tab is dirty; a first stall refuses the close and asks
 // nothing, a second one within 30 s asks whether to close anyway. A tab's kind and read-only
 // state come from its live snapshot when one is read, never from an error kind. A deck tab's
-// deck-pack tabs (linkedTabs) are saved before it closes: the host closes them with it.
+// deck-pack tabs (linkedTabs) are saved before it closes: the host closes them with it. An
+// agent's close passes its redeemed decision (`decide`): it answers a tab's discard question only.
 
 import { errorText, linkedTabs, type OpenerOffer, type Snapshot, type TabApi, type TabInfo, type WorkspaceView } from "./api";
 import type { workspace } from "./api";
 import { discardQuestion, mayClose } from "./close";
+import { confirmFor, type Decide } from "./closeDecision";
 import { isolate, t } from "./i18n";
 import type { Confirm } from "./useConfirm";
 
@@ -42,6 +44,8 @@ interface CloseFlowDeps {
   stalls: Map<string, number>;
   /** The clock (Date.now in the app; injected in tests). */
   now: () => number;
+  /** An agent's close: its decision, which may answer a tab's discard question (closeDecision). */
+  decide?: Decide;
 }
 
 /** What closing a window needs: CloseFlowDeps plus tab activation. */
@@ -245,7 +249,7 @@ async function flushLinked(id: string, view: WorkspaceView, tabs: TabInfo[], add
       if (after === "discard") verdict = "discard";
       continue;
     }
-    if (!(await deps.confirm(discardQuestion(t("ui-confirm-quit-pack"))))) return null;
+    if (!(await confirmFor(deps.confirm, deps.decide, linked.id)(discardQuestion(t("ui-confirm-quit-pack"))))) return null;
     givenUp.add(linked.id);
     verdict = "discard";
   }
@@ -281,7 +285,7 @@ async function liveVerdict(tab: TabInfo, deps: CloseFlowDeps): Promise<{ verdict
     }
   }
   try {
-    return { verdict: await mayClose(tab, snap, api, { confirm: deps.confirm }), snap };
+    return { verdict: await mayClose(tab, snap, api, { confirm: confirmFor(deps.confirm, deps.decide, tab.id) }), snap };
   } catch (e) {
     deps.report(e);
     return false;
@@ -451,7 +455,7 @@ export async function closeWindowFlow(active: string | null, deps: CloseWindowDe
         if (unread === "discard") discarded.push(tab.id);
         continue;
       }
-      const verdict = await mayClose(tab, snap, api, { confirm: deps.confirm });
+      const verdict = await mayClose(tab, snap, api, { confirm: confirmFor(deps.confirm, deps.decide, tab.id) });
       if (verdict === null) return await stay();
       if (verdict === "discard" || links === "discard") discarded.push(tab.id);
     }

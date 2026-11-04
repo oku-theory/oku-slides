@@ -6,11 +6,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use oku_slides_i18n::{LiveLocalizer, Localize};
 use oku_slides_mcp::{Applied, SettingsPort};
 use oku_slides_platform::config_write::write_value;
 use oku_slides_platform::storage::Storage;
 use oku_slides_session::{Platform, Settings};
-use oku_slides_stt::{Stt, SttRequest};
+use oku_slides_stt::{Speaker, SpeechStatus, Stt, SttRequest, UnavailableReason};
 use serde_json::{Value, json};
 
 /// Implémentation de [`SettingsPort`] pour l'app et `oku-slides serve`.
@@ -20,6 +21,9 @@ pub struct AppSettings {
     storage: Storage,
     config_file: PathBuf,
     stt: Option<Stt>,
+    /// The read-aloud's voice: its status and reason.
+    speaker: Option<Speaker>,
+    localizer: LiveLocalizer,
 }
 
 impl std::fmt::Debug for AppSettings {
@@ -37,6 +41,37 @@ impl AppSettings {
             storage: platform.storage.clone(),
             config_file: platform.settings.config_file(),
             stt,
+            speaker: None,
+            localizer: platform.live_localizer.clone(),
+        }
+    }
+
+    /// The same settings, with the read-aloud voice `speaker` for its status.
+    #[must_use]
+    pub fn with_speaker(mut self, speaker: Option<Speaker>) -> Self {
+        self.speaker = speaker;
+        self
+    }
+
+    /// The `speech.*` keys: the read-aloud settings, and whether a voice reads the interface language.
+    fn read_speech(&self, out: &mut BTreeMap<String, Value>) {
+        if let Some(stt) = &self.stt {
+            let (read_aloud, config) = stt.speech_settings();
+            out.insert("speech.read_aloud".into(), json!(read_aloud == Some(true)));
+            out.insert("speech.voice".into(), json!(config.voice));
+            out.insert("speech.rate".into(), json!(config.rate));
+            out.insert("speech.in_presentation".into(), json!(config.in_presentation));
+        }
+        let l = self.localizer.current();
+        let unavailable = SpeechStatus::Unavailable { reason: UnavailableReason::NoEngine };
+        match self.speaker.as_ref().map_or(unavailable, |s| s.status(l.locale())) {
+            SpeechStatus::Ready { .. } => {
+                out.insert("speech.status".into(), json!("ready"));
+            }
+            SpeechStatus::Unavailable { reason } => {
+                out.insert("speech.status".into(), json!("unavailable"));
+                out.insert("speech.reason".into(), json!(reason.localize(&l)));
+            }
         }
     }
 }
@@ -47,11 +82,13 @@ impl SettingsPort for AppSettings {
         if let Some(stt) = &self.stt
             && let Ok(Value::Object(config)) = serde_json::to_value(stt.handle(SttRequest::Status).config)
         {
-            // `version` sert à la migration des réglages, pas à l'agent.
-            for (k, v) in config.into_iter().filter(|(k, _)| k != "version") {
+            // `version` serves the settings migration, not the agent; the read-aloud is `speech.*`.
+            for (k, v) in config.into_iter().filter(|(k, _)| !matches!(k.as_str(), "version" | "read_aloud" | "speech"))
+            {
                 out.insert(format!("dictation.{k}"), v);
             }
         }
+        self.read_speech(&mut out);
         out.insert("history.limit".into(), json!(self.settings.history.limit));
         let vad = &self.settings.stt.vad;
         for (k, v) in [
@@ -77,6 +114,9 @@ impl SettingsPort for AppSettings {
         // La dictée a un seul auteur de réglages : `AppVoice`, par `VoicePort`.
         if key.starts_with("dictation.") {
             return Err("dictation is set through set_dictation".to_owned());
+        }
+        if key.starts_with("speech.") {
+            return Err("the read-aloud is set through set_speech".to_owned());
         }
         write_value(&self.storage, &self.config_file, key, value).map_err(|e| e.to_string())?;
         Ok(Applied::NextLaunch)

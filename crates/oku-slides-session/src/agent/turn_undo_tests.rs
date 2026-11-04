@@ -4,7 +4,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use crate::test_support::{fresh_dir, opened_on, session};
-use crate::{Request, Session, SessionErrorKind};
+use crate::{Mode, Request, Session, SessionErrorKind};
 
 /// Nouveau titre de la troisième slide.
 fn title_op(s: &Session, title: &str) -> Op {
@@ -148,4 +148,68 @@ fn undo_after_a_tune_turn_restores_the_imported_deck_then_undoes_the_import() {
     assert_that!(s.deck()).is_equal_to(&imported);
     s.undo().unwrap();
     assert_that!(s.deck().slides.is_empty()).is_true();
+}
+
+#[test]
+fn undo_inside_agent_turn_undoes_previous_step() {
+    let mut s = session();
+    manual_edit(&mut s, "À la main");
+    let before = s.deck().clone();
+    manual_edit(&mut s, "Avant le tour");
+    s.begin_turn(6, "annule puis retitre");
+    s.handle(Request::Undo).unwrap();
+    assert_that!(s.deck()).is_equal_to(&before);
+    manual_edit(&mut s, "Un");
+    manual_edit(&mut s, "Deux");
+    s.end_turn();
+    // The turn's edits after its undo stay one step, still the turn's.
+    assert_that!(s.undo_turn()).is_equal_to(Some(6));
+    s.undo().unwrap();
+    assert_that!(s.deck()).is_equal_to(&before);
+}
+
+#[test]
+fn agent_context_after_an_agent_turn_names_the_undoable_turn() {
+    let mut s = session();
+    agent_turn(&mut s, 4, "Par l'agent");
+    s.begin_turn(5, "suite");
+    let context = s.agent_context(&crate::agent::AgentUi::default());
+    assert_that!(context.as_str()).contains("undoable_turn: 4\n");
+}
+
+#[test]
+fn agent_context_after_a_manual_edit_names_no_undoable_turn() {
+    let mut s = session();
+    agent_turn(&mut s, 4, "Par l'agent");
+    manual_edit(&mut s, "À la main");
+    let context = s.agent_context(&crate::agent::AgentUi::default());
+    assert_that!(context.as_str()).does_not_contain("undoable_turn");
+}
+
+#[test]
+fn redo_inside_agent_turn_of_its_own_step_keeps_one_step() {
+    let mut s = session();
+    let before = s.deck().clone();
+    let steps = s.doc.sources.undo_steps();
+    s.begin_turn(6, "retitre, annule, rétablit");
+    manual_edit(&mut s, "Un");
+    s.handle(Request::Undo).unwrap();
+    s.handle(Request::Redo).unwrap();
+    manual_edit(&mut s, "Deux");
+    s.end_turn();
+    assert_that!(s.doc.sources.undo_steps()).is_equal_to(steps + 1);
+    s.handle(Request::UndoTurn { turn: 6 }).unwrap();
+    assert_that!(s.deck()).is_equal_to(&before);
+}
+
+#[test]
+fn undo_in_pack_mode_inside_turn_reopens_preview_group() {
+    let data = fresh_dir("oku-slides-turn-undo-");
+    let mut opener = opened_on(data.path());
+    let mut t = crate::test_support_packs::pack_tab_from(&mut opener, data.path(), crate::ESSENTIEL_PACK);
+    t.begin_turn(2, "annule");
+    t.handle(Request::Undo).unwrap();
+    let Mode::Pack { preview, .. } = &t.mode else { panic!("pack mode expected") };
+    assert_that!(preview.sources.group().is_some()).is_true();
+    assert_that!(t.doc.sources.group().is_some()).is_true();
 }

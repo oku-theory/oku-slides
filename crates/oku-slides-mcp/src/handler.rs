@@ -14,6 +14,7 @@ use serde_json::Value;
 
 use crate::tool_error::UnknownToolSnafu;
 use crate::tools::{Tools, kinds_of, list_for};
+use crate::undo_tools::Direction;
 
 #[async_trait]
 impl ServerHandler for Tools {
@@ -77,7 +78,17 @@ impl Tools {
             "set_widget_trial" => self.set_widget_trial(args).await,
             "import_report" => self.import_report().await,
             "import_diff" => self.import_diff(args).await,
+            "import" => self.import(turn, args).await,
+            "tabs" => self.tabs().await,
+            "tab" => self.tab(turn, args).await,
+            "window" => self.window(turn, args).await,
+            "help" => self.help(turn, args).await,
+            "new_conversation" => self.new_conversation(turn),
+            "quit" => self.quit(turn).await,
             "focus" => self.focus(args),
+            "undo" => self.undo_redo(Direction::Undo, args).await,
+            "redo" => self.undo_redo(Direction::Redo, args).await,
+            "undo_turn" => self.undo_turn(turn, args).await,
             "a2ui_examples" => self.a2ui_examples(args),
             "ask_choice" => self.ask_choice(turn, args).await,
             "ask_confirm" => self.ask_confirm(args).await,
@@ -103,8 +114,11 @@ impl Tools {
             "delete_pack" => self.delete_pack(args).await,
             "edit_theme" => self.edit_theme(args).await,
             "set_setting" => self.set_setting(args).await,
+            "update" => self.update(turn, args).await,
+            "pack_update" => self.pack_update(args).await,
             "show_dictation" => self.show_dictation(turn).await,
             "set_dictation" => self.set_dictation(args).await,
+            "set_speech" => self.set_speech(args).await,
             "download_dictation_model" => self.download_dictation_model(args).await,
             "cancel_dictation_download" => self.cancel_dictation_download().await,
             "select_agent" => self.select_agent(args).await,

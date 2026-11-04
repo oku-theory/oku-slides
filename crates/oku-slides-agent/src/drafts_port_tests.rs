@@ -88,17 +88,22 @@ async fn fixture(known: bool) -> Fixture {
         },
         STORAGE.clone(),
     );
-    let voice = AppVoice::new(None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
+    let voice = AppVoice::new(None, None, Arc::new(AgentChoice::new(&platform, link.clone())), Handle::current());
     let (out_tx, rx) = mpsc::unbounded_channel();
     let starter = Starter::new(StarterParts {
         sessions,
         platform: platform.clone(),
         settings: Arc::new(AppSettings::new(&platform, None)),
         voice,
+        workspace: Arc::new(oku_slides_session::agent::NoWorkspace),
+        tune: Arc::new(oku_slides_mcp::NoTune),
+        app: Arc::new(oku_slides_session::agent::UnavailableApp),
+        after: std::sync::mpsc::channel().0,
         link,
         rt: Handle::current(),
         out_tx,
         table: Arc::default(),
+        reader: None,
     });
     Fixture { starter, rx, launched, platform, _dir: dir }
 }
@@ -196,4 +201,31 @@ async fn prefill_once_the_stack_is_gone_returns_unavailable() {
     let drafts = f.drafts();
     f.finish().await;
     assert_that!(prefill(&drafts, "t-2", REQUEST).await).is_equal_to(Prefill::Unavailable);
+}
+
+/// `drafts.page`, off the runtime's threads as the tools call it.
+async fn page(drafts: &Arc<dyn DraftPort>, tab: &str, slide: &str) -> bool {
+    let (drafts, tab, slide) = (drafts.clone(), tab.to_owned(), slide.to_owned());
+    tokio::task::spawn_blocking(move || drafts.page(&tab, slide)).await.unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn page_on_a_known_tab_sends_focus_to_its_hub() {
+    let f = fixture(true).await;
+    let mut rx = f.starter.open("t-2").unwrap().hub.subscribe();
+    assert_that!(page(&f.drafts(), "t-2", "s-dicter").await).is_true();
+    let sent = std::iter::from_fn(|| rx.try_recv().ok()).find_map(|e| match e {
+        oku_slides_mcp::McpEvent::Focus { slide } => Some(slide),
+        _ => None,
+    });
+    assert_that!(sent).is_equal_to(Some(Some("s-dicter".to_owned())));
+    f.finish().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn page_on_an_unknown_tab_returns_false_and_starts_nothing() {
+    let f = fixture(false).await;
+    assert_that!(page(&f.drafts(), "t-404", "s-dicter").await).is_false();
+    assert_that!(started(&f, "t-404")).is_false();
+    f.finish().await;
 }

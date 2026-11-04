@@ -27,6 +27,12 @@ pub(crate) enum CommandInner {
     ImageNotBase64 { source: base64::DecodeError, backtrace: Backtrace },
     #[snafu(display("pasted image {id} is no longer kept"))]
     ImageGone { id: String, backtrace: Backtrace },
+    #[snafu(display("page report from a window that does not hold the tab"))]
+    ReportElsewhere { backtrace: Backtrace },
+    #[snafu(display("page report over its size limits"))]
+    UiTooLarge { backtrace: Backtrace },
+    #[snafu(display("page report number {seq} is out of range"))]
+    SeqExhausted { seq: u64, backtrace: Backtrace },
     /// Cause boxée : l'erreur de session grossirait toute `CommandError`.
     #[snafu(display("pasted image refused by the session"))]
     PasteRefused {
@@ -46,6 +52,9 @@ impl Localize for CommandError {
             CommandInner::TooManyImages { .. } => l.tr("agent-error-too-many-images"),
             CommandInner::ImageNotBase64 { .. } => l.tr("agent-error-image-not-base64"),
             CommandInner::ImageGone { .. } => l.tr("agent-error-image-gone"),
+            CommandInner::ReportElsewhere { .. } => l.tr("agent-error-report-elsewhere"),
+            CommandInner::UiTooLarge { .. } => l.tr("agent-error-ui-too-large"),
+            CommandInner::SeqExhausted { .. } => l.tr("agent-error-seq-exhausted"),
             CommandInner::PasteRefused { source, .. } => source.localize(l),
         }
     }

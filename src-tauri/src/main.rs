@@ -23,13 +23,17 @@
 //! The agent (`oku-slides-agent::Stack`): one per tab, sessions through `AppSessions`; command
 //! `agent`, events `oku-slides:mcp` and `oku-slides:agent` emitted to every window.
 //!
-//! `updates` looks for new versions and installs them. Each window may call only the commands its
+//! `updates` looks for new versions and installs them; `app_port` lets the agent check, put off,
+//! install (after its turn) and quit. Each window may call only the commands its
 //! capability grants (`capabilities/*.json`, checked by `build.rs`, t-980).
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod agent_window;
+mod app_port;
+mod app_workspace;
 mod commands;
+mod host_focus;
 mod menu;
 mod pending;
 mod quit;
@@ -43,11 +47,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
 
-use oku_slides_agent::Stack;
+use oku_slides_agent::{Stack, Voices};
 use oku_slides_session::{Fonts, Platform, Storage, Workspace};
-use oku_slides_stt::Stt;
+use oku_slides_stt::{Speaker, Stt};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+use host_focus::HostFocus;
 use pending::Pending;
 use state::{AppSessions, AppState};
 
@@ -134,7 +139,27 @@ fn window_event(window: &tauri::Window, event: &WindowEvent) {
                 saver.changed();
             }
         }
-        WindowEvent::Focused(true) => commands::focused(window.app_handle(), window.label()),
+        WindowEvent::Focused(true) => {
+            if let Some(focus) = window.app_handle().try_state::<Arc<HostFocus>>() {
+                focus.gained(window.label());
+            }
+            commands::focused(window.app_handle(), window.label());
+        }
+        // The voice router hears only stop and wake once no window has the focus.
+        WindowEvent::Focused(false) => {
+            if let Some(focus) = window.app_handle().try_state::<Arc<HostFocus>>() {
+                focus.lost(window.label());
+            }
+        }
+        // Its page reports go with it: a page of a later window starts over.
+        WindowEvent::Destroyed => {
+            if let Some(focus) = window.app_handle().try_state::<Arc<HostFocus>>() {
+                focus.lost(window.label());
+            }
+            if let Some(state) = window.app_handle().try_state::<AppState>() {
+                state.stack.window_destroyed(window.label());
+            }
+        }
         // Never a native close: the host (last window) or the page decides.
         WindowEvent::CloseRequested { api, .. } => {
             api.prevent_close();
@@ -216,7 +241,15 @@ fn main() -> color_eyre::Result<()> {
             // Les outils et l'agent vivent dans le runtime tokio de Tauri.
             let rt = tauri::async_runtime::handle().inner().clone();
             let sessions = AppSessions::new(app.handle().clone(), Arc::clone(&workspace));
-            let stack = Stack::start(Arc::new(sessions), &platform, Some(stt.clone()), rt);
+            let focus = Arc::new(HostFocus::new(Arc::clone(&workspace)));
+            app.manage(Arc::clone(&focus));
+            let agent_workspace =
+                Arc::new(app_workspace::AppWorkspace::new(app.handle().clone(), Arc::clone(&workspace), focus));
+            let host = Arc::new(app_port::TauriApp::new(app.handle().clone()));
+            // One read-aloud voice for the whole process, reading the focused tab.
+            let voices =
+                Voices { stt: Some(stt.clone()), speaker: Some(Speaker::for_platform(&platform, Some(stt.clone()))) };
+            let stack = Stack::start(Arc::new(sessions), &platform, voices, agent_workspace, host, rt);
             let handle = app.handle().clone();
             stack.forward(move |name, json| {
                 if let Err(e) = handle.emit(&format!("oku-slides:{name}"), json) {
@@ -277,6 +310,7 @@ fn main() -> color_eyre::Result<()> {
             quit::quit_ready,
             commands::stt,
             commands::agent,
+            commands::take_close_decision,
             updates::update_status,
             updates::check_update,
             updates::install_update,

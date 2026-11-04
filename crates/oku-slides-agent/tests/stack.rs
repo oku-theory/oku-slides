@@ -120,6 +120,31 @@ async fn prompt_answering_a_waiting_question_answers_it_instead_of_new_turn() {
     assert_that!(common::logged(&log, "session/prompt")).has_length(1);
 }
 
+/// t-997 (Q2): a typed reply to a guarded confirmation keeps it open and says "say it or
+/// click": no prompt, no cancel, the turn goes on until a click answers.
+#[tokio::test(flavor = "multi_thread")]
+async fn typed_reply_to_guard_keeps_turn_running() {
+    let merge = json!({ "tool": "merge", "args": { "path": "/nowhere/copie.oku-slides.pdf" } });
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{ "mcp": [merge] }] }), &["t-1"]).await;
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "fusionne" }))).unwrap();
+    let asked = wait_for(&rx, |(_, v)| is_tool_surface(v, "t-1", "confirm-")).await;
+    let id = asked.1["event"]["surface"]["id"].as_str().unwrap().to_owned();
+    stack.handle(cmd(json!({ "cmd": "prompt", "tab": "t-1", "text": "oui, fusionner", "answer": id }))).unwrap();
+    let hint = wait_for(&rx, |(_, v)| {
+        is_tool_surface(v, "t-1", "confirm-") && v["event"]["surface"].to_string().contains("\"heard\"")
+    })
+    .await;
+    assert_that!(hint.1["event"]["surface"]["id"].as_str()).is_equal_to(Some(id.as_str()));
+    assert_that!(logged(&log, "session/prompt")).has_length(1);
+    assert_that!(logged(&log, "session/cancel")).is_empty();
+    assert_that!(logged(&log, "mcp/result")).is_empty();
+    // A click still answers it: the turn then ends with the tool refused.
+    let no = json!({ "cmd": "surface_action", "tab": "t-1", "surface": id, "name": "confirm", "context": { "confirmed": false } });
+    stack.handle(cmd(no)).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    assert_that!(logged(&log, "mcp/result")).has_length(1);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn prompt_answering_a_question_no_longer_waiting_runs_as_an_instruction() {
     let ask = json!({ "tool": "ask_choice", "args": { "question": "Laquelle ?", "options": [

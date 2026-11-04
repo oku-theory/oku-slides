@@ -387,6 +387,8 @@ impl Session {
         pin_all(&mut user, &mut preview.sources, packs)?;
         preview.sources.apply(user, &label, Some(&merge)).context(SourcesSnafu)?;
         preview.dirty = true;
+        // A field, not `note_edit`: `preview` still borrows the mode.
+        self.edit_seq = self.edit_seq.saturating_add(1);
         // Restored to the library above: whichever step now pins it, a later save keeps it there.
         scratch.adopt_step = None;
         // A deck-pack tab's owner takes the version the step brought back.

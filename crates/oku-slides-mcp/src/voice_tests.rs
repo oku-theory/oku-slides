@@ -29,13 +29,17 @@ fn voice_error_every_kind_has_a_translation(
         VoiceErrorKind::BadApiVersion,
         VoiceErrorKind::BadApiHeaders,
         VoiceErrorKind::ApiReservedToUser,
+        VoiceErrorKind::HandsFreeReservedToUser,
         VoiceErrorKind::Changed,
         VoiceErrorKind::NothingToDownload,
         VoiceErrorKind::UnknownAgent,
         VoiceErrorKind::AgentLocked,
         VoiceErrorKind::AgentNotSaved,
         VoiceErrorKind::UnknownAgentModel,
-        VoiceErrorKind::AgentModelNotSaved
+        VoiceErrorKind::AgentModelNotSaved,
+        VoiceErrorKind::BadRate,
+        VoiceErrorKind::UnknownVoice,
+        VoiceErrorKind::SpeechUnavailable
     )]
     kind: VoiceErrorKind,
 ) {

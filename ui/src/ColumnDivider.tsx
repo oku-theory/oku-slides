@@ -3,7 +3,7 @@
 // Les largeurs sont posées sur la table (--pile-w, --notes-w), que lit sa grille.
 
 import { useLayoutEffect, useRef } from "react";
-import { type Columns, columnBounds } from "./columns";
+import { type Columns, columnBounds, measureColumns } from "./columns";
 import Divider from "./Divider";
 import { t } from "./i18n";
 import type { ColumnWidths } from "./useKeptUi";
@@ -64,12 +64,7 @@ export function ColumnDividers({ columns, onChange }: { columns: ColumnWidths; o
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `show` ne lit que la table
   }, [columns.pile, columns.notes]);
 
-  /** Largeurs effectives de la grille : colonnes 1 (pile) et 3 (fil). */
-  const measure = () => {
-    const el = tableEl();
-    const cols = el ? getComputedStyle(el).gridTemplateColumns.split(" ").map(parseFloat) : [];
-    return { table: el?.clientWidth ?? 0, pile: cols[0] || 0, notes: cols[2] || 0 };
-  };
+  const measure = () => measureColumns(tableEl());
 
   return (
     // Sans boîte : les séparateurs sont des cases de la grille de la table.

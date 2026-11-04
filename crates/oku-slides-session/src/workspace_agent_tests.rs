@@ -35,3 +35,13 @@ fn document_kind_through_the_sessions_trait_reads_the_workspace() {
     let sessions: &dyn Sessions = &*f.ws;
     assert_that!(sessions.document_kind(&tab)).is_ok().is_equal_to(DocumentKind::Pack);
 }
+
+#[test]
+fn unsaved_tabs_counts_a_tab_once_edited() {
+    let f = packs();
+    let ws: &dyn crate::agent::AgentWorkspace = &*f.ws;
+    let title = oku_slides_core::Op::SetDeckParam { key: "title".into(), value: "Brouillon".into() };
+    f.with("t-1", |s| s.apply("Titre", vec![title], None)).unwrap_or_else(|e| panic!("edit: {}", e.one_line()));
+    assert_that!(f.dirty("t-1")).is_true();
+    assert_that!(ws.unsaved_tabs()).is_equal_to(1);
+}

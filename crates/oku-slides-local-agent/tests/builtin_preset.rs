@@ -36,7 +36,7 @@ fn program(dir: &Path, script: &Path) -> PathBuf {
 }
 
 /// The stack on the built-in preset `local`, one session on the roadmap fixture, relayed into a list.
-async fn stack(dir: &Path, script: Value) -> (Stack, Relayed) {
+async fn stack(dir: &Path, script: Value) -> (Arc<Stack>, Relayed) {
     let script_path = dir.join("script.json");
     std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("scénario : {e}"));
     let program = program(dir, &script_path);
@@ -65,7 +65,14 @@ async fn stack(dir: &Path, script: Value) -> (Stack, Relayed) {
     .await
     .unwrap_or_else(|e| panic!("tâche bloquante : {e}"));
     let sessions: Arc<dyn oku_slides_session::agent::Sessions> = Arc::new(Mutex::new(session));
-    let stack = Stack::start(sessions, &platform, None, tokio::runtime::Handle::current());
+    let stack = Stack::start(
+        sessions,
+        &platform,
+        oku_slides_agent::Voices::default(),
+        Arc::new(oku_slides_session::agent::NoWorkspace),
+        Arc::new(oku_slides_session::agent::UnavailableApp),
+        tokio::runtime::Handle::current(),
+    );
     // `Storage` owns a runtime: its last copy must not drop inside the async test.
     std::mem::forget(platform);
     let seen: Relayed = Arc::default();

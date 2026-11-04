@@ -6,9 +6,9 @@ use speculoos::prelude::*;
 use super::{Harness, text_of};
 
 /// The fr text of `agent-error-tab-no-turn`.
-pub const NO_TURN_FR: &str = "N'ouvrez ou n'affichez un onglet de pack ou de thème qu'en répondant à l'utilisateur.";
+pub const NO_TURN_FR: &str = "N'ouvrez, n'affichez ou ne déplacez un onglet qu'en répondant à l'utilisateur.";
 /// The fr text of `agent-error-tab-limit`.
-pub const LIMIT_FR: &str = "Vous avez déjà ouvert ou affiché un onglet de pack ou de thème dans ce tour ; terminez-y, ou demandez à l'utilisateur avant d'en changer.";
+pub const LIMIT_FR: &str = "Vous avez déjà ouvert, affiché ou déplacé un onglet dans ce tour ; terminez-y, ou demandez à l'utilisateur avant d'en changer.";
 /// The fr text of `agent-error-continue-in-other-tab`.
 pub const CONTINUE_FR: &str = "Cette demande se poursuit dans l'onglet que vous avez ouvert ou affiché : demandez à l'utilisateur d'y continuer ; cet onglet ne modifie plus de widget pour l'instant.";
 

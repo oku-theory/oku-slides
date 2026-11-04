@@ -18,3 +18,14 @@ fn fingerprint_follows_the_state() {
     recording.state = oku_slides_stt::State::Recording;
     assert_that!(Fingerprint::of(&recording)).is_not_equal_to(Fingerprint::of(&status));
 }
+
+/// The box does not show a suspension: each read-aloud speech must not rebuild it twice.
+#[test]
+fn stt_watch_suspended_change_keeps_box() {
+    let status = voice_with_stt().stt.unwrap().status();
+    let mut paused = status.clone();
+    paused.state = oku_slides_stt::State::Listening;
+    let mut suspended = paused.clone();
+    suspended.suspended = true;
+    assert_that!(Fingerprint::of(&suspended)).is_equal_to(Fingerprint::of(&paused));
+}

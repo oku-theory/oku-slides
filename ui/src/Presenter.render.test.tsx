@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
 import { manualTimers } from "./test/timers";
 import type { Screen } from "./fullscreen";
-import type { PresentMode } from "./present";
+import type { PresentMode, SlideCommand } from "./present";
 
 // Voir ./a2ui/catalog.render.test.tsx : React se charge après le DOM.
 const { act, createElement, StrictMode } = await import("react");
@@ -41,7 +41,20 @@ function fakeScreen(wasFull = false) {
   return { screen, calls, left: () => leftCb?.() };
 }
 
-async function mount({ current = "a", mode = "window" as PresentMode, screen = fakeScreen().screen, strict = false, titleBar = false } = {}) {
+/** A hand-driven command source: `send` delivers one steering command to the subscribers. */
+function fakeCommands() {
+  const listeners = new Set<(c: SlideCommand) => void>();
+  return {
+    subscribe: (l: (c: SlideCommand) => void) => {
+      listeners.add(l);
+      return () => void listeners.delete(l);
+    },
+    send: (c: SlideCommand) => act(async () => listeners.forEach((l) => l(c))),
+    count: () => listeners.size,
+  };
+}
+
+async function mount({ current = "a", mode = "window" as PresentMode, screen = fakeScreen().screen, strict = false, titleBar = false, commands = fakeCommands() } = {}) {
   const shown: string[] = [];
   const asked: string[] = [];
   const exits: number[] = [];
@@ -63,6 +76,7 @@ async function mount({ current = "a", mode = "window" as PresentMode, screen = f
         },
         onShow: (id: string) => shown.push(id),
         onExit: () => exits.push(1),
+        commands: commands.subscribe,
         screen,
         timers,
         titleBar,
@@ -70,7 +84,7 @@ async function mount({ current = "a", mode = "window" as PresentMode, screen = f
     ),
   );
   const root$ = host.querySelector<HTMLElement>(".presenter")!;
-  return { host, root: root$, shown, asked, exits, timers };
+  return { host, root: root$, shown, asked, exits, timers, commands };
 }
 
 /** Laisse finir les entrées et sorties du plein écran, chaînées l'une après l'autre. */
@@ -227,4 +241,41 @@ describe("Presenter", () => {
     await act(async () => void (await new Promise((r) => setTimeout(r, 3200))));
     expect(calls).toEqual(["enter", "enter"]);
   }, 10000);
+
+  test.each([
+    ["next", "shows c", { action: "next" }, "c"],
+    ["previous", "shows a", { action: "previous" }, "a"],
+    ["first", "shows a", { action: "first" }, "a"],
+    ["last", "shows c", { action: "last" }, "c"],
+    ["show", "shows a", { action: "show", slide: "a" }, "a"],
+    ["show unknown", "stays", { action: "show", slide: "zz" }, null],
+    ["show shown", "stays", { action: "show", slide: "b" }, null],
+    ["exit", "exits", { action: "exit" }, "exit"],
+  ] as [string, string, SlideCommand, string | null][])("Presenter %s event %s", async (_name, _result, command, expected) => {
+    const p = await mount({ current: "b" });
+    await p.commands.send(command);
+    if (expected === "exit") {
+      expect(p.exits).toEqual([1]);
+      expect(p.shown).toEqual([]);
+    } else {
+      expect(p.exits).toEqual([]);
+      expect(p.shown).toEqual(expected === null ? [] : [expected]);
+    }
+  });
+
+  test("Presenter next event at the last slide stays", async () => {
+    const p = await mount({ current: "c" });
+    await p.commands.send({ action: "next" });
+    expect(p.shown).toEqual([]);
+  });
+
+  test("Presenter stops listening to commands once unmounted", async () => {
+    const p = await mount();
+    expect(p.commands.count()).toBe(1);
+    const m = mounted!;
+    mounted = null;
+    await act(async () => m.root.unmount());
+    m.host.remove();
+    expect(p.commands.count()).toBe(0);
+  });
 });

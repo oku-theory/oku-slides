@@ -83,7 +83,7 @@ fn build_selected(command: &str, local: Local, selected: &str) -> T {
     let link =
         crate::Link::for_preset(selected, AgentChoice::launch_of(&preset, &platform), None, platform.storage.clone());
     let choice = Arc::new(AgentChoice::new(&platform, link));
-    T { voice: AppVoice::new(None, choice, rt.handle().clone()), data, _rt: rt, _dir: dir }
+    T { voice: AppVoice::new(None, None, choice, rt.handle().clone()), data, _rt: rt, _dir: dir }
 }
 
 fn build(command: &str, local: Local) -> T {

@@ -2,15 +2,20 @@
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-/** Requête à l'hôte : commande Tauri, ou `POST` en développement. */
-export async function host<T>(command: string, args: Record<string, unknown>, endpoint: string, body: unknown): Promise<T> {
+/**
+ * A request to the host: a Tauri command, or a `POST` to the dev server.
+ *
+ * `headers` go to the dev server only (the page's window, `X-Oku-Window`); Tauri knows the
+ * sending window itself.
+ */
+export async function host<T>(command: string, args: Record<string, unknown>, endpoint: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
   if (inTauri) {
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<T>(command, args);
   }
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   // Un refus (403) ou une page d'erreur du proxy peuvent arriver sans corps

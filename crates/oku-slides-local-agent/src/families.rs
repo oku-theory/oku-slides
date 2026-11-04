@@ -50,7 +50,7 @@ impl Family {
             Family::Files => "open, create, save, copy, move or merge deck files, or browse their history",
             Family::Packs => "create or edit widget packs, slide layouts and theme designs",
             Family::Configure => {
-                "app settings: interface, dictation and model download, the app agent (Claude, Codex…), usage, cost"
+                "app settings: interface, dictation, model download, the app agent, usage, cost; tabs, windows, quit"
             }
             Family::Troubleshoot => "diagnose an error, a failed render or import, or why something fails",
             Family::AskReport => "ask the user a question or report back",
@@ -63,28 +63,35 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
     use Family::{AskReport, Configure, Edit, Files, Packs, Present, Troubleshoot};
     match tool {
         "apply" | "slide" | "focus" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants"
-        | "show_themes" | "show_packs" | "add_pack" | "remove_pack" => &[Edit],
+        | "show_themes" | "show_packs" | "add_pack" | "remove_pack" | "undo" | "redo" | "undo_turn" => &[Edit],
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
         "present" => &[Present],
-        "open" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
+        "open" | "import" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
         "layouts" => &[Edit, Packs],
         "packs" | "open_pack" | "open_theme" | "save_pack" | "delete_pack" | "edit_theme" | "theme_tokens"
         | "widget_source" | "widget_sources" | "set_widget" | "remove_widget" | "set_widget_trial"
         | "preview_widget" | "set_theme_extends" | "select_item" | "set_preview_theme" | "rename_theme"
-        | "save_theme" | "set_guide" | "duplicate_widget" | "reorder_widgets" => &[Packs],
-        "settings" => &[Configure, Troubleshoot],
+        | "save_theme" | "set_guide" | "duplicate_widget" | "reorder_widgets" | "pack_update" => &[Packs],
+        "settings" | "help" => &[Configure, Troubleshoot],
         "set_setting"
         | "set_interface"
         | "show_dictation"
         | "set_dictation"
+        | "set_speech"
         | "download_dictation_model"
         | "cancel_dictation_download"
         | "select_agent"
         | "download_agent_model"
         | "cancel_agent_model_download"
         | "usage"
-        | "show_usage" => &[Configure],
+        | "show_usage"
+        | "update"
+        | "tabs"
+        | "tab"
+        | "window"
+        | "new_conversation"
+        | "quit" => &[Configure],
         "import_report" | "import_diff" | "diagnose" => &[Troubleshoot],
         "ask_choice" | "ask_confirm" | "ask_rewrite" | "report" | "render" | "a2ui_examples" => &[AskReport],
         _ => &[],

@@ -38,6 +38,11 @@
 //! (`{ "amount", "currency" }`) is sent as is, as the session's cumulative cost, in a
 //! `usage_update` after its chunks: the scenario writes the running total, never a turn's share.
 //! A cost with `after_reply` is sent after the prompt reply instead (background work).
+//! In a step's `mcp` args, `${NAME}` in a string becomes that environment variable (an unset one
+//! stays as written): a path under the run's fresh `OKU_SLIDES_PATHS__DECKS`, say.
+//! `by_prefix` (`{ "<prefix>": Turn }`) plays that turn when no `by_prompt` matches and the prompt
+//! starts with the prefix (the longest one wins), outside the numbering too; in its `mcp` args
+//! `${ARG}` becomes the rest of the prompt, trimmed: a tab id the scenario cannot know ahead.
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -103,6 +108,9 @@ struct Script {
     /// Tour joué quand le texte du prompt est exactement cette clé (avant le choix par numéro).
     #[serde(default)]
     by_prompt: HashMap<String, Turn>,
+    /// Turn played when the prompt starts with this key, `${ARG}` in its args the rest of it.
+    #[serde(default)]
+    by_prefix: HashMap<String, Turn>,
     /// Attente avant de répondre à `session/new`, en millisecondes.
     #[serde(default)]
     new_session_delay_ms: u64,
@@ -143,6 +151,7 @@ impl Script {
             unknown_sessions: false,
             replay: Vec::new(),
             by_prompt: HashMap::new(),
+            by_prefix: HashMap::new(),
             new_session_delay_ms: 0,
             load_delay_ms: 0,
             late_replay_ms: None,
@@ -368,7 +377,8 @@ impl State {
             ContentBlock::Text(t) => Some(t.text.as_str()),
             _ => None,
         });
-        let by_prompt = said.and_then(|t| self.script.by_prompt.get(t)).cloned();
+        let by_prompt = said
+            .and_then(|t| self.script.by_prompt.get(t).cloned().or_else(|| prefixed_turn(&self.script.by_prefix, t)));
         // A turn picked by its text stays out of the other turns' numbering.
         let index_in_session = {
             let mut turns = self.turns.lock().unwrap_or_else(PoisonError::into_inner);
@@ -448,6 +458,61 @@ async fn run_step(mcp: Option<&(String, String)>, step: &McpStep) -> String {
     }
 }
 
+/// The `by_prefix` turn the prompt `said` starts with (the longest prefix), `${ARG}` filled in.
+fn prefixed_turn(by_prefix: &HashMap<String, Turn>, said: &str) -> Option<Turn> {
+    let (prefix, turn) = by_prefix.iter().filter(|(p, _)| said.starts_with(p.as_str())).max_by_key(|(p, _)| p.len())?;
+    let arg = said[prefix.len()..].trim();
+    let mut turn = turn.clone();
+    for step in &mut turn.mcp {
+        step.args = with_arg(&step.args, arg);
+    }
+    Some(turn)
+}
+
+/// Every string in `value`, each `${ARG}` replaced by `arg`.
+fn with_arg(value: &Value, arg: &str) -> Value {
+    match value {
+        Value::String(s) => Value::String(s.replace("${ARG}", arg)),
+        Value::Array(items) => Value::Array(items.iter().map(|v| with_arg(v, arg)).collect()),
+        Value::Object(fields) => Value::Object(fields.iter().map(|(k, v)| (k.clone(), with_arg(v, arg))).collect()),
+        other => other.clone(),
+    }
+}
+
+/// Every string in `value`, each `${NAME}` replaced by that environment variable.
+fn expand_env(value: &Value) -> Value {
+    match value {
+        Value::String(s) => Value::String(expand_str(s)),
+        Value::Array(items) => Value::Array(items.iter().map(expand_env).collect()),
+        Value::Object(fields) => Value::Object(fields.iter().map(|(k, v)| (k.clone(), expand_env(v))).collect()),
+        other => other.clone(),
+    }
+}
+
+/// `s` with each `${NAME}` replaced by that environment variable; an unset one stays as written.
+fn expand_str(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some((before, after)) = rest.split_once("${") {
+        out.push_str(before);
+        let Some((name, tail)) = after.split_once('}') else {
+            out.push_str("${");
+            rest = after;
+            break;
+        };
+        if let Ok(value) = std::env::var(name) {
+            out.push_str(&value);
+        } else {
+            out.push_str("${");
+            out.push_str(name);
+            out.push('}');
+        }
+        rest = tail;
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Appelle un outil MCP et renvoie son résultat en JSON (texte).
 async fn call_tool(url: &str, auth: &str, tool: &str, args: &Value) -> String {
     let transport = StreamableTransportOptions {
@@ -474,6 +539,7 @@ async fn call_tool(url: &str, auth: &str, tool: &str, args: &Value) -> String {
     if let Err(e) = client.clone().start().await {
         return format!("mcp start failed: {e}");
     }
+    let args = expand_env(args);
     let params = CallToolRequestParams::new(tool).with_arguments(args.as_object().cloned().unwrap_or_default());
     let out = match client.request_tool_call(params).await {
         Ok(r) => serde_json::to_string(&r).unwrap_or_default(),

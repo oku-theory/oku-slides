@@ -49,7 +49,7 @@ fn shown(h: &Harness) -> bool {
 }
 
 fn is_box(e: &McpEvent) -> bool {
-    matches!(e, McpEvent::Surface { surface } if surface.id == HOST_VOICE)
+    matches!(e, McpEvent::Surface { surface, .. } if surface.id == HOST_VOICE)
 }
 
 fn is_patch(e: &McpEvent) -> bool {
@@ -59,11 +59,18 @@ fn is_patch(e: &McpEvent) -> bool {
 /// Le modèle de données d'une boîte ou d'un patch de la boîte.
 fn data_of(e: &McpEvent) -> Value {
     let messages = match e {
-        McpEvent::Surface { surface } => serde_json::to_value(&surface.messages).unwrap_or_default(),
+        McpEvent::Surface { surface, .. } => serde_json::to_value(&surface.messages).unwrap_or_default(),
         McpEvent::SurfacePatch { messages, .. } => serde_json::to_value(messages).unwrap_or_default(),
         _ => Value::Null,
     };
     messages.as_array().and_then(|m| m.iter().find_map(|m| m.get("updateDataModel").cloned())).unwrap_or_default()["value"].clone()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn show_settings_reads_the_os_voices_again() {
+    let h = start().await;
+    show(&h).await;
+    assert_that!(*lock(&h.voice.voices_refreshed)).is_equal_to(1);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -113,7 +120,7 @@ async fn show_settings_refresh_after_action_keeps_turn() {
     let mut rx = h.hub.subscribe();
     act(&h, "model", json!({"id": "api"})).await.unwrap();
     let turn = match rx.try_recv() {
-        Ok(McpEvent::Surface { surface }) => surface.turn,
+        Ok(McpEvent::Surface { surface, .. }) => surface.turn,
         other => panic!("the whole box expected, got {other:?}"),
     };
     assert_that!(turn).is_equal_to(Some(n));
@@ -128,7 +135,7 @@ async fn show_settings_refresh_with_a_new_layout_keeps_turn() {
     let mut rx = h.hub.subscribe();
     refresh(&h).await;
     let turn = match rx.try_recv() {
-        Ok(McpEvent::Surface { surface }) => surface.turn,
+        Ok(McpEvent::Surface { surface, .. }) => surface.turn,
         other => panic!("the whole box expected, got {other:?}"),
     };
     assert_that!(turn).is_equal_to(Some(n));

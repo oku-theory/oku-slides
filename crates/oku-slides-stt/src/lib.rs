@@ -1,4 +1,6 @@
-//! Oku Slides dictation: microphone → voice detection → engine → text.
+//! Oku Slides speech: dictation (microphone → voice detection → engine → text) and OS voices.
+//!
+//! The OS voices that read answers aloud live in `speak/` ([`SpeechEngine`]).
 //!
 //! Three engines, two of them on the machine:
 //! - Apple (macOS 26+): SpeechAnalyzer transcribes continuously, as the
@@ -25,9 +27,13 @@ mod api_http;
 #[cfg(target_os = "macos")]
 mod apple;
 mod audio;
+mod capture;
 mod dictation_stream;
 mod dictation_whisper;
 mod error;
+#[cfg(feature = "e2e-fakes")]
+mod fake_source;
+mod listen;
 mod locale;
 mod microphone;
 mod models;
@@ -36,9 +42,13 @@ mod phrase_engine;
 #[cfg(any(test, target_os = "macos"))]
 mod results;
 mod saved_config;
+mod speak;
+mod speaker;
+mod speech_config;
 mod stream;
 #[cfg(test)]
 mod test_support;
+mod utterance;
 mod vad;
 mod whisper;
 
@@ -47,7 +57,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
@@ -57,22 +67,31 @@ pub use api_extra::{
     ApiAccessProblem, ApiHeader, HeaderValue, LegacyQueryParam, api_access_problem, format_api_headers,
     parse_api_headers, valid_api_access, valid_api_headers,
 };
-use audio::SAMPLE_RATE_F32;
 pub use audio::{SAMPLE_RATE, resample};
-use dictation_stream::{Held, cancel_held};
+use dictation_stream::Held;
 use dictation_whisper::{EngineKey, Job, engine_key};
-use error::{ApiConfigSnafu, ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
+use error::ReceiverTakenSnafu;
 pub use error::{SttError, SttErrorKind};
 pub use microphone::{Microphone, ModelFiles};
 pub use models::{Model, download};
-use num::{count_f32, seconds};
+use num::seconds;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::{ModelsSettings, SttSettings};
 use oku_slides_platform::storage::Storage;
 use phrase_engine::PhraseEngine;
+#[cfg(feature = "e2e-fakes")]
+pub use speak::fake::FakeSpeechEngine;
+pub use speak::{
+    NoSpeechEngine, SpeechDone, SpeechEngine, SpeechId, SpeechRate, SpeechStatus, UnavailableReason, VoiceInfo,
+    system_speech_engine,
+};
+pub use speaker::{
+    SPEECH_GUARD, SPEECH_HOLD, Speaker, SpeakerClock, Speech, SpeechConfig, SpeechEnded, SystemClock, watchdog,
+};
 use stream::{Availability, Stream, StreamEngine};
-use vad::Segmenter;
+use utterance::{ListenClock, Phrases};
+pub use utterance::{SuspendGuard, Utterance, UtteranceSeq};
 pub use whisper::{Transcriber, Transcript};
 
 /// Where dictation stands, for the UI.
@@ -88,6 +107,25 @@ pub enum State {
     Recording,
     /// Listening stopped: the last sentence is being transcribed.
     Transcribing,
+    /// Listening hands-free: each closed utterance goes to the host.
+    Listening,
+}
+
+impl State {
+    /// Settings and model downloads may apply in this state.
+    #[must_use]
+    pub fn accepts_settings(self) -> bool {
+        matches!(self, State::Idle | State::Listening)
+    }
+}
+
+/// What a capture is for: one dictation, or hands-free listening.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    /// One dictation, its text assembled at the end.
+    Dictate,
+    /// Listening: utterances closed on silence, until stopped.
+    Listen,
 }
 
 /// Durées de silence acceptées pour l'arrêt seul (s).
@@ -112,6 +150,12 @@ pub struct Config {
     pub version: u32,
     /// Réglages de l'API de transcription (modèle `Api`).
     pub api: ApiConfig,
+    /// Hands-free listening chosen by the user; never started by itself at launch.
+    pub hands_free: bool,
+    /// Read answers aloud; `None` until set, turned on when hands-free is first turned on.
+    pub read_aloud: Option<bool>,
+    /// The read-aloud voice, rate and presentation rule.
+    pub speech: SpeechConfig,
 }
 
 impl Default for Config {
@@ -123,6 +167,9 @@ impl Default for Config {
             silence: 1.5,
             version: 0,
             api: ApiConfig::default(),
+            hands_free: false,
+            read_aloud: None,
+            speech: SpeechConfig::default(),
         }
     }
 }
@@ -203,6 +250,8 @@ pub struct Status {
     pub error: Option<String>,
     /// First API variable not set, by name only; `None` when all are.
     pub api_missing: Option<String>,
+    /// Listening is suspended by at least one [`SuspendGuard`].
+    pub suspended: bool,
 }
 
 /// Requêtes de l'interface (même forme pour Tauri et HTTP).
@@ -215,6 +264,12 @@ pub enum SttRequest {
     Status,
     /// Démarre la dictée ; `vocabulary` aide la reconnaissance (titres du deck, noms propres).
     Start {
+        /// Terms to recognize, from most to least useful.
+        #[serde(default)]
+        vocabulary: Vec<String>,
+    },
+    /// Starts hands-free listening; `vocabulary` as for `Start`.
+    Listen {
         /// Terms to recognize, from most to least useful.
         #[serde(default)]
         vocabulary: Vec<String>,
@@ -239,8 +294,10 @@ struct Inner {
     download: Option<Download>,
     level: f32,
     speaking: bool,
-    /// Textes des phrases closes, dans l'ordre (None : pas encore transcrite).
-    phrases: Vec<Option<String>>,
+    /// A phrase is open in the segmenter: the user is mid-sentence, pauses between words included.
+    phrase_open: bool,
+    /// Closed phrases not yet handed out, in order (text `None`: not transcribed yet).
+    phrases: Phrases,
     partial: String,
     detected: Option<String>,
     stop_in: Option<f32>,
@@ -250,7 +307,10 @@ struct Inner {
     started: Option<Instant>,
     /// Vocabulaire de la dictée en cours.
     vocabulary: Vec<String>,
-    start_after_download: bool,
+    /// What starts once the download succeeds, if anything (a capture asked for from idle).
+    start_after_download: Option<Mode>,
+    /// The download paused listening: it resumes whatever the result (ruling R6).
+    listen_after_download: bool,
     engine: Option<(EngineKey, Arc<dyn PhraseEngine>)>,
     /// Modèles présents sur le disque (dans l'ordre de `Model::ALL`) : lus au
     /// démarrage et après un téléchargement, pas à chaque sondage.
@@ -260,35 +320,67 @@ struct Inner {
     session: u64,
     /// Langue du moteur d'Apple et sa disponibilité (None : aucune langue connue).
     apple: Option<(String, Availability)>,
+    /// The single sender of utterances, kept across capture restarts.
+    utterances: mpsc::Sender<Utterance>,
+    /// Its receiver, until the host takes it ([`Stt::utterances`]).
+    receiver: Option<mpsc::Receiver<Utterance>>,
+    /// Live [`SuspendGuard`]s.
+    suspends: u32,
+    /// Changes when the utterance in progress is discarded: its late results are dropped.
+    epoch: u64,
+    /// Origin of the listening sample offsets, rebased at each resume.
+    clock: ListenClock,
 }
 
 impl Inner {
     fn committed(&self) -> String {
-        join(self.phrases.iter().flatten())
+        self.phrases.committed()
     }
 
     /// Fin d'une dictée : le texte assemblé est rendu, retour au repos.
     fn complete(&mut self) {
         self.text = Some(self.committed());
         self.seq += 1;
-        self.phrases.clear();
+        self.phrases.discard();
         self.partial.clear();
         self.state = State::Idle;
         self.stop_in = None;
         self.level = 0.0;
         self.speaking = false;
+        self.phrase_open = false;
         self.session += 1;
+    }
+
+    /// Before a download: stops listening, to resume it afterwards, or keeps `then` for a success.
+    fn pause_for_download(&mut self, then: Option<Mode>) {
+        if self.state == State::Listening {
+            self.reset();
+            self.listen_after_download = true;
+            self.start_after_download = None;
+        } else {
+            self.start_after_download = then;
+        }
+    }
+
+    /// Ends the current capture of a listening that goes on: the state stays `Listening`.
+    ///
+    /// The old capture threads see the new session and stop; nothing can start in between.
+    fn restart_listening(&mut self) {
+        self.session += 1;
+        self.phrases.discard();
+        self.partial.clear();
     }
 
     /// Dictée abandonnée : retour au repos, sans texte.
     fn reset(&mut self) {
         self.state = State::Idle;
         self.started = None;
-        self.phrases.clear();
+        self.phrases.discard();
         self.partial.clear();
         self.stop_in = None;
         self.level = 0.0;
         self.speaking = false;
+        self.phrase_open = false;
         self.session += 1;
     }
 }
@@ -350,6 +442,7 @@ impl Stt {
             })
             .flatten();
         let config = migrate(config, apple_supported, resolved.is_some());
+        let (utterances, receiver) = mpsc::channel();
         let stt = Self {
             inner: Arc::new(Mutex::new(Inner {
                 state: State::Idle,
@@ -357,7 +450,8 @@ impl Stt {
                 download: None,
                 level: 0.0,
                 speaking: false,
-                phrases: Vec::new(),
+                phrase_open: false,
+                phrases: Phrases::default(),
                 partial: String::new(),
                 detected: None,
                 stop_in: None,
@@ -366,11 +460,17 @@ impl Stt {
                 error: None,
                 started: None,
                 vocabulary: Vec::new(),
-                start_after_download: false,
+                start_after_download: None,
+                listen_after_download: false,
                 engine: None,
                 session: 0,
                 installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
                 apple: None,
+                utterances,
+                receiver: Some(receiver),
+                suspends: 0,
+                epoch: 0,
+                clock: ListenClock { origin: Instant::now(), stream_base: 0 },
             })),
             dir,
             settings: Arc::new(platform.settings.stt.clone()),
@@ -442,6 +542,7 @@ impl Stt {
         match req {
             SttRequest::Status => {}
             SttRequest::Start { vocabulary } => self.start(vocabulary),
+            SttRequest::Listen { vocabulary } => self.listen(vocabulary),
             SttRequest::Stop => self.stop(),
             SttRequest::Cancel => self.cancel(),
         }
@@ -459,6 +560,8 @@ impl Stt {
     #[must_use]
     pub fn status(&self) -> Status {
         let g = self.state();
+        // Utterance text stays in the host: never in the state shown.
+        let listening = g.state == State::Listening;
         Status {
             state: g.state,
             config: g.config.clone(),
@@ -471,8 +574,8 @@ impl Stt {
             download: g.download.clone(),
             level: g.level,
             speaking: g.speaking,
-            committed: g.committed(),
-            partial: g.partial.clone(),
+            committed: if listening { String::new() } else { g.committed() },
+            partial: if listening { String::new() } else { g.partial.clone() },
             detected: g.detected.clone(),
             stop_in: g.stop_in,
             text: g.text.clone(),
@@ -480,315 +583,78 @@ impl Stt {
             seconds: g.started.map_or(0.0, |t| t.elapsed().as_secs_f32()),
             error: g.error.clone(),
             api_missing: g.config.api.missing_variable().map(str::to_owned),
+            suspended: g.suspends > 0,
         }
     }
 
-    /// Applique et enregistre les réglages ; faux si la dictée est occupée.
+    /// Applies and saves the settings; false while dictation is busy.
+    ///
+    /// `read_aloud` and `speech` are kept from the live state: only
+    /// [`Stt::configure_speech`] writes them, so a stale snapshot never reverts them.
+    /// While listening, capture stops, the settings apply, then listening starts again
+    /// without the utterance in progress.
     #[must_use = "faux : la dictée était occupée, rien n'a changé"]
     pub fn configure(&self, mut config: Config) -> bool {
         config.silence = config.silence.clamp(*SILENCE_RANGE.start(), *SILENCE_RANGE.end());
         config.version = CONFIG_VERSION;
-        {
+        let restart = {
             let mut g = self.state();
-            if g.state != State::Idle {
+            if !g.state.accepts_settings() {
                 return false;
             }
+            config.read_aloud = g.config.read_aloud;
+            config.speech = g.config.speech.clone();
+            let restart = (g.state == State::Listening).then(|| {
+                g.restart_listening();
+                g.vocabulary.clone()
+            });
             if g.engine.as_ref().is_some_and(|(k, _)| *k != engine_key(&config)) {
                 g.engine = None; // libère la mémoire de l'ancien modèle, ou l'ancienne API
             }
-            let saved = if self.savable {
-                serde_json::to_vec_pretty(&config).map_err(|e| e.to_string()).and_then(|json| {
-                    self.storage
-                        .write(&saved_config::path(&self.dir), json)
-                        .map_err(|e| oku_slides_platform::errors::one_line(&e))
-                })
-            } else {
-                Err("an unreadable config.json is in the way".to_owned())
-            };
-            if let Err(e) = saved {
-                // Les réglages restent en vigueur pour cette session.
-                tracing::warn!(error = %e, "réglages de la dictée non enregistrés");
-            }
+            self.save(&config);
             g.config = config;
-        }
+            restart
+        };
         self.refresh_apple();
+        if let Some(vocabulary) = restart {
+            // Still `Listening` meanwhile, so a Start in between is refused.
+            self.launch(vocabulary, Mode::Listen, State::Listening);
+        }
         true
     }
 
-    /// Démarre la dictée (téléchargement du modèle d'abord s'il manque).
-    pub fn start(&self, vocabulary: Vec<String>) {
-        let (model, apple, api) = {
-            let mut g = self.state();
-            if g.state != State::Idle {
-                return;
-            }
-            g.error = None;
-            g.vocabulary = vocabulary;
-            (g.config.model, g.apple.clone(), g.config.api.clone())
-        };
-        if model == Model::Apple {
-            match apple {
-                Some((_, a)) if a.is_ready() => self.begin_recording(),
-                Some(_) => {
-                    // Rien à dire de plus : l'échec est déjà signalé dans l'état.
-                    let _started = self.download(Model::Apple, true);
-                }
-                None => self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into()),
-            }
-            return;
-        }
-        if model == Model::Api {
-            if !valid_api_access(&api) {
-                self.report(&ApiConfigSnafu.build().into());
-            } else if let Some(var) = api.missing_variable() {
-                self.report(&ApiKeyMissingSnafu { var }.build().into());
-            } else {
-                self.begin_recording();
-            }
-            return;
-        }
-        if model.is_installed(&self.storage, &self.dir) {
-            self.begin_recording();
+    /// Writes `config` to `config.json`; a failure is logged, the settings stay for this session.
+    fn save(&self, config: &Config) {
+        let saved = if self.savable {
+            serde_json::to_vec_pretty(config).map_err(|e| e.to_string()).and_then(|json| {
+                self.storage
+                    .write(&saved_config::path(&self.dir), json)
+                    .map_err(|e| oku_slides_platform::errors::one_line(&e))
+            })
         } else {
-            // Rien à dire de plus : l'échec est déjà signalé dans l'état.
-            let _started = self.download(model, true);
-        }
-    }
-
-    /// Lance le téléchargement d'un modèle ; faux si rien n'a démarré.
-    #[must_use = "faux : rien n'a démarré (occupée, déjà installé, API)"]
-    pub fn download(&self, model: Model, then_start: bool) -> bool {
-        if model == Model::Apple {
-            return self.download_language(then_start);
-        }
-        if model == Model::Api {
-            self.report(&NotDownloadableSnafu.build().into());
-            return false;
-        }
-        {
-            let mut g = self.state();
-            if g.state != State::Idle || model.is_installed(&self.storage, &self.dir) {
-                return false;
-            }
-            g.state = State::Downloading;
-            g.download = Some(Download { model, received: 0, total: model.size() });
-            g.start_after_download = then_start;
-        }
-        self.cancel_download.store(false, Ordering::Relaxed);
-        let (me, dir, cancel) = (self.clone(), self.dir.clone(), self.cancel_download.clone());
-        std::thread::spawn(move || {
-            let mut last = Instant::now();
-            let result = models::download(model, &dir, &me.models, &me.storage, |received, total| {
-                if last.elapsed() > Duration::from_millis(100) {
-                    last = Instant::now();
-                    me.state().download = Some(Download { model, received, total });
-                }
-                !cancel.load(Ordering::Relaxed)
-            });
-            let start = me.finish_download(model, result.map(|_| ()));
-            if start {
-                me.begin_recording();
-            }
-        });
-        true
-    }
-
-    /// Fin d'un téléchargement : état, message, et reprise de la dictée demandée.
-    fn finish_download(&self, model: Model, result: Result<(), SttError>) -> bool {
-        let mut g = self.state();
-        g.download = None;
-        g.state = State::Idle;
-        g.installed = Model::ALL.map(|m| m.is_installed(&self.storage, &self.dir));
-        match result {
-            Ok(()) => {
-                tracing::info!(?model, "{}", self.localizer.tr("log-model-downloaded"));
-                std::mem::take(&mut g.start_after_download)
-            }
-            Err(e) if e.kind() == SttErrorKind::Cancelled => false,
-            Err(e) => {
-                tracing::warn!(?model, error = %snafu::Report::from_error(&e), "téléchargement du modèle");
-                g.error = Some(e.localize(&self.localizer));
-                false
-            }
-        }
-    }
-
-    fn begin_recording(&self) {
-        let recorder = match audio::Recorder::start(self.settings.fake_mic.as_deref(), &self.storage) {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(error = %snafu::Report::from_error(&e), "micro indisponible");
-                self.state().error = Some(e.localize(&self.localizer));
-                return;
-            }
+            Err("an unreadable config.json is in the way".to_owned())
         };
-        let (session, model, apple, vocabulary) = {
-            let mut g = self.state();
-            g.session += 1;
-            g.state = State::Recording;
-            g.phrases.clear();
-            g.partial.clear();
-            g.detected = None;
-            if g.config.model == Model::Apple {
-                g.detected = g.apple.as_ref().map(|(tag, _)| locale::language(tag));
-            }
-            g.stop_in = None;
-            g.started = Some(Instant::now());
-            (g.session, g.config.model, g.apple.clone(), g.vocabulary.clone())
-        };
-        let sink = match (model, apple) {
-            (Model::Apple, Some((tag, _))) => {
-                let timeout = match self.apple_finish_timeout() {
-                    Ok(timeout) => timeout,
-                    Err(e) => {
-                        self.state().reset();
-                        self.report(&e);
-                        return;
-                    }
-                };
-                let (stream, events) = self.streaming.open(&tag, &vocabulary);
-                let held = Held::default();
-                let (worker, worker_held) = (self.clone(), held.clone());
-                std::thread::spawn(move || worker.stream_loop(session, &events, &worker_held, timeout));
-                Sink::Stream { stream, held }
-            }
-            (Model::Apple, None) => {
-                // `start` l'empêche ; par prudence, pas d'écoute sans langue.
-                self.state().reset();
-                self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
-                return;
-            }
-            _ => {
-                let (jobs, rx) = mpsc::channel();
-                let busy = Arc::new(AtomicBool::new(false));
-                let worker = self.clone();
-                let worker_busy = busy.clone();
-                std::thread::spawn(move || worker.transcribe_loop(session, &rx, &worker_busy));
-                Sink::Whisper { jobs, busy, previews: model.previews() }
-            }
-        };
-        let listener = self.clone();
-        std::thread::spawn(move || listener.listen_loop(session, recorder, sink));
+        if let Err(e) = saved {
+            // Les réglages restent en vigueur pour cette session.
+            tracing::warn!(error = %e, "réglages de la dictée non enregistrés");
+        }
     }
 
     fn alive(&self, session: u64) -> bool {
         self.state().session == session
     }
 
-    /// Écoute : micro → 16 kHz → détection de la voix → moteur.
-    fn listen_loop(&self, session: u64, mut recorder: audio::Recorder, mut sink: Sink) {
-        let s = &self.settings;
-        let mut seg = Segmenter::new(s.vad);
-        let mut resampler: Option<audio::Resampler> = None;
-        let mut fresh = Vec::new();
-        let mut previewed = 0usize;
-        loop {
-            std::thread::sleep(Duration::from_millis(s.tick_ms.get()));
-            let (state, auto_stop, silence_limit) = {
-                let g = self.state();
-                if g.session != session {
-                    drop(g);
-                    // Dictée abandonnée : le moteur en continu s'arrête aussi.
-                    if let Sink::Stream { stream, .. } = &mut sink {
-                        stream.cancel();
-                    }
-                    return;
-                }
-                (g.state, g.config.auto_stop, g.config.silence)
-            };
-            self.pull(&recorder, &mut resampler, &mut fresh, &mut seg, &mut sink);
-
-            if state != State::Recording {
-                // Arrêt demandé : derniers échantillons, dernière phrase.
-                recorder.finish();
-                self.pull(&recorder, &mut resampler, &mut fresh, &mut seg, &mut sink);
-                match sink {
-                    Sink::Whisper { jobs, .. } => {
-                        if let Some(phrase) = seg.close() {
-                            self.send_final(&seg, phrase, &jobs);
-                        }
-                        jobs.send(Job::Done).ok();
-                    }
-                    Sink::Stream { mut stream, held } => {
-                        stream.finish();
-                        // Confié au fil des résultats ; s'il est déjà parti, on l'annule ici.
-                        *held.lock().unwrap_or_else(PoisonError::into_inner) = Some(stream);
-                        if !self.alive(session) {
-                            cancel_held(&held);
-                        }
-                    }
-                }
-                return;
-            }
-
-            // Aperçu de la phrase en cours (Whisper local), quand le fil de transcription est libre.
-            let current = seg.current();
-            if let Sink::Whisper { jobs, busy, previews: true } = &sink
-                && let Some(p) = current
-                && !busy.load(Ordering::Relaxed)
-                && count_f32(p.end.saturating_sub(previewed.max(p.start))) >= s.preview_step_secs * SAMPLE_RATE_F32
-            {
-                previewed = p.end;
-                busy.store(true, Ordering::Relaxed);
-                jobs.send(Job::Preview { audio: seg.slice(p).to_vec() }).ok();
-            }
-
-            // Arrêt automatique après un silence (ou si rien n'est dit).
-            let silence = seg.silence();
-            let limit = if seg.heard { silence_limit } else { s.nothing_heard_secs };
-            let stop_in = (auto_stop && current.is_none() && seg.heard && silence > s.countdown_after_secs)
-                .then(|| (limit - silence).max(0.0));
-            let stop = auto_stop && silence >= limit;
-            {
-                let mut g = self.state();
-                g.level = recorder.level();
-                g.speaking = seg.speaking;
-                g.stop_in = stop_in;
-                // L'aperçu de Whisper suit la phrase en cours ; celui du moteur en continu, ses résultats.
-                if current.is_none() && matches!(sink, Sink::Whisper { .. }) {
-                    g.partial.clear();
-                }
-                if stop && g.state == State::Recording {
-                    g.state = State::Transcribing;
-                    g.started = None;
-                }
-            }
-        }
-    }
-
-    /// Échantillons arrivés : 16 kHz, détection de la voix, puis le moteur.
-    fn pull(
-        &self,
-        recorder: &audio::Recorder,
-        resampler: &mut Option<audio::Resampler>,
-        fresh: &mut Vec<f32>,
-        seg: &mut Segmenter,
-        sink: &mut Sink,
-    ) {
-        let (samples, rate) = recorder.take();
-        if samples.is_empty() {
-            return;
-        }
-        fresh.clear();
-        resampler.get_or_insert_with(|| audio::Resampler::new(rate)).push(&samples, fresh);
-        let phrases = seg.push(fresh);
-        match sink {
-            Sink::Whisper { jobs, .. } => {
-                for phrase in phrases {
-                    self.send_final(seg, phrase, jobs);
-                }
-            }
-            Sink::Stream { stream, .. } => stream.push(fresh),
-        }
-    }
-
     /// Termine l'écoute ; la dernière phrase est transcrite puis le texte assemblé.
+    ///
+    /// Ends listening too, discarding the utterance in progress.
     pub fn stop(&self) {
         let mut g = self.state();
         if g.state == State::Recording {
             g.state = State::Transcribing;
             g.started = None;
             g.stop_in = None;
+        } else if g.state == State::Listening {
+            g.reset();
         }
     }
 
@@ -796,10 +662,33 @@ impl Stt {
     pub fn cancel(&self) {
         self.cancel_download.store(true, Ordering::Relaxed);
         let mut g = self.state();
-        if matches!(g.state, State::Recording | State::Transcribing) {
+        if matches!(g.state, State::Recording | State::Transcribing | State::Listening) {
             g.reset();
         }
-        g.start_after_download = false;
+        g.start_after_download = None;
+    }
+
+    /// Hands out the utterance receiver once; a second call is an error (`ReceiverTaken`).
+    ///
+    /// # Errors
+    ///
+    /// `ReceiverTaken` once the receiver was handed out.
+    pub fn utterances(&self) -> Result<mpsc::Receiver<Utterance>, SttError> {
+        self.state().receiver.take().ok_or_else(|| ReceiverTakenSnafu.build().into())
+    }
+
+    /// True while hands-free listens and a phrase is open: the user is mid-sentence.
+    ///
+    /// Pauses between words keep it true; it ends when the voice detection closes the phrase.
+    #[must_use]
+    pub fn user_speaking(&self) -> bool {
+        let g = self.state();
+        g.state == State::Listening && g.phrase_open
+    }
+
+    /// Drops captured samples and the utterance in progress until the guard drops.
+    pub fn suspend(&self) -> SuspendGuard {
+        SuspendGuard::new(Arc::downgrade(&self.inner))
     }
 
     /// Transcribes a complete audio (mono 16 kHz) like a dictation.

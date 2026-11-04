@@ -441,8 +441,23 @@ pub struct SttSettings {
     pub min_phrase_secs: f32,
     /// Silence (s) after which the stop countdown is shown.
     pub countdown_after_secs: f32,
-    /// Rejoue ce fichier WAV au lieu du micro.
+    /// Tests and e2e builds only: this WAV file is replayed instead of the microphone.
+    ///
+    /// Without the `e2e-fakes` feature the setting is refused at load ([`FAKE_MIC`]); tests set
+    /// the field in code.
     pub fake_mic: Option<PathBuf>,
+    /// e2e builds only: listening hears the lines appended to this file, not the microphone.
+    ///
+    /// Without the `e2e-fakes` feature the setting is refused at load ([`FAKE_UTTERANCES`]).
+    #[cfg(feature = "e2e-fakes")]
+    #[serde(default)]
+    pub fake_utterances: Option<PathBuf>,
+    /// e2e builds only: the read-aloud writes each speech to this file, not the speakers.
+    ///
+    /// Without the `e2e-fakes` feature the setting is refused at load ([`FAKE_SPEECH`]).
+    #[cfg(feature = "e2e-fakes")]
+    #[serde(default)]
+    pub fake_speech: Option<PathBuf>,
     /// Proposer le moteur de dictée d'Apple (macOS 26+).
     pub apple: bool,
     /// Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
@@ -560,8 +575,32 @@ impl Settings {
         if let Ok(raw) = config.get::<agent::RawAgentSettings>("agent") {
             raw.check().map_err(|e| config::ConfigError::Message(e.to_string())).context(ConfigSnafu)?;
         }
+        refuse_fakes(&config)?;
         config.try_deserialize().context(ConfigSnafu)
     }
+}
+
+/// The fake utterance source setting, honoured only by builds with the `e2e-fakes` feature.
+pub const FAKE_UTTERANCES: &str = "stt.fake_utterances";
+
+/// The fake voice setting, honoured only by builds with the `e2e-fakes` feature.
+pub const FAKE_SPEECH: &str = "stt.fake_speech";
+
+/// The fake microphone setting, honoured only by builds with the `e2e-fakes` feature.
+pub const FAKE_MIC: &str = "stt.fake_mic";
+
+/// Refuses e2e fakes in a build without them: a file must never stand in for the microphone.
+fn refuse_fakes(config: &config::Config) -> Result<(), ConfigError> {
+    if cfg!(feature = "e2e-fakes") {
+        return Ok(());
+    }
+    let Some(key) =
+        [FAKE_MIC, FAKE_UTTERANCES, FAKE_SPEECH].into_iter().find(|k| config.get::<config::Value>(k).is_ok())
+    else {
+        return Ok(());
+    };
+    let message = format!("{key} needs a build with the e2e-fakes feature");
+    Err(config::ConfigError::Message(message)).context(ConfigSnafu)
 }
 
 impl PathSettings {

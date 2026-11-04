@@ -1,7 +1,7 @@
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 
-use super::{AgentUi, declared_language, turn_label};
+use super::{AgentUi, UI_TEXT_MAX, declared_language, turn_label};
 use crate::agent::clip;
 use crate::test_support::{add_user_theme, fresh_dir, ns, opened_on};
 
@@ -244,4 +244,24 @@ fn agent_context_of_a_theme_tab_names_the_theme() {
     let context = s.agent_context(&AgentUi::default());
     assert_that!(context.as_str()).contains(format!("theme: {name}\n").as_str());
     assert_that!(context.as_str()).does_not_contain("preview theme:");
+}
+
+#[test]
+fn agent_ui_unknown_field_is_refused() {
+    let parsed = serde_json::from_value::<AgentUi>(json!({ "slide": "s-1", "extra": 1 }));
+    assert_that!(parsed.is_err()).is_true();
+}
+
+#[test]
+fn agent_ui_within_limits_accepts_short_ids() {
+    let ui = AgentUi { slide: Some("s-1".into()), locale: Some("fr".into()), ..AgentUi::default() };
+    assert_that!(ui.within_limits()).is_true();
+}
+
+#[rstest::rstest]
+#[case::slide(AgentUi { slide: Some("s".repeat(UI_TEXT_MAX + 1)), ..AgentUi::default() })]
+#[case::widget(AgentUi { widget: Some("w".repeat(UI_TEXT_MAX + 1)), ..AgentUi::default() })]
+#[case::locale(AgentUi { locale: Some("x".repeat(36)), ..AgentUi::default() })]
+fn agent_ui_within_limits_refuses_long_texts(#[case] ui: AgentUi) {
+    assert_that!(ui.within_limits()).is_false();
 }

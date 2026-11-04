@@ -76,3 +76,27 @@ fn no_stream_engine_open_reports_unsupported_language() {
     let event = events.recv().unwrap();
     assert_that!(matches!(event, Event::Failed(e) if e.kind() == SttErrorKind::Model)).is_true();
 }
+
+/// The Swift bridge, read at build time: its codes must equal `raw` (G16).
+const SWIFT: &str = include_str!("../swift/Sources/OkuSpeech/OkuSpeech.swift");
+
+#[rstest::rstest]
+#[case::partial(format!("private let kindPartial: Int32 = {}", raw::PARTIAL))]
+#[case::final_text(format!("private let kindFinal: Int32 = {}", raw::FINAL))]
+#[case::progress(format!("private let kindProgress: Int32 = {}", raw::PROGRESS))]
+#[case::done(format!("private let kindDone: Int32 = {}", raw::DONE))]
+#[case::error(format!("private let kindError: Int32 = {}", raw::ERROR))]
+#[case::analyzer(format!("private let errAnalyzer = {:?}", raw::ERR_ANALYZER))]
+#[case::locale(format!("private let errLocale = {:?}", raw::ERR_LOCALE))]
+#[case::asset(format!("private let errAsset = {:?}", raw::ERR_ASSET))]
+#[case::denied(format!("private let errDenied = {:?}", raw::ERR_DENIED))]
+fn swift_error_codes_match_stream_raw(#[case] line: String) {
+    assert_that!(SWIFT.lines().any(|l| l.trim() == line)).is_true();
+}
+
+#[test]
+fn swift_error_codes_match_stream_raw_no_extra_code() {
+    let declared =
+        SWIFT.lines().filter(|l| l.starts_with("private let kind") || l.starts_with("private let err")).count();
+    assert_that!(declared).is_equal_to(9);
+}

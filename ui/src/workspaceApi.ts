@@ -17,6 +17,8 @@ export interface TabInfo {
   id: string;
   title: string;
   dirty: boolean;
+  /** Grows at each edit while unsaved; null while clean. Checked against the agent's close decision. */
+  dirty_revision: number | null;
   /** A new deck never touched: opening a file replaces it. */
   pristine: boolean;
   /** Id of the deck's theme, or null. */
@@ -144,7 +146,7 @@ type WorkspaceRequest =
   | { cmd: "new_tab"; window: string }
   | { cmd: "open_tab"; window: string; path: string }
   | ({ cmd: "import_tab"; window: string; path: string; tune?: boolean } & ImportTarget)
-  | { cmd: "open_help"; window: string }
+  | { cmd: "open_help"; window: string; slide?: string }
   | { cmd: "same_deck"; path: string }
   | { cmd: "carry_assets"; from: string; to: string; element: Element }
   | { cmd: "clip" }

@@ -2,8 +2,7 @@
 
 import "./test/dom";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import type { SttState, SttStatus } from "./api";
-import { stt } from "./api";
+import { fakeStt } from "./test/sttSpy";
 import type { DictationMode } from "./agent/keys";
 import type { LinkShortcut } from "./agent/link";
 import { t } from "./i18n";
@@ -15,60 +14,8 @@ const { createRoot } = await import("react-dom/client");
 const { default: Dictation } = await import("./Dictation");
 const { expectIconOnly } = await import("./test/iconOnly");
 const { bumpVoiceSeq } = await import("./voiceSeq");
-
-/** Un faux moteur : `start` écoute, `stop` rend `heard` (seq + 1), `cancel` revient au repos. */
-function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
-  let current: SttStatus = {
-    state: "idle",
-    config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] } },
-    models: [{ id: "turbo", label: "Large v3 Turbo (rapide)", size: 1, installed: true, available: true }],
-    download: null,
-    level: 0,
-    speaking: false,
-    committed: "",
-    partial: "",
-    detected: null,
-    stop_in: null,
-    text: null,
-    seq: 0,
-    seconds: 0,
-    error: null,
-    api_missing: null,
-    ...change,
-  };
-  const set = (state: SttState, change: Partial<SttStatus> = {}) => {
-    current = { ...current, state, ...change };
-    return Promise.resolve(current);
-  };
-  const calls: string[] = [];
-  const starts: string[][] = [];
-  // Une réponse retenue : le prochain `stt.status()` attend que le test la rende.
-  let held: Promise<SttStatus> | null = null;
-  const statusSpy = spyOn(stt, "status").mockImplementation(() => {
-    const p = held ?? Promise.resolve(current);
-    held = null;
-    return p;
-  });
-  const spies = [
-    statusSpy,
-    spyOn(stt, "start").mockImplementation((vocabulary: string[]) => (calls.push("start"), starts.push(vocabulary), set("recording"))),
-    spyOn(stt, "stop").mockImplementation(() => (calls.push("stop"), set("idle", { seq: current.seq + 1, text: heard }))),
-    spyOn(stt, "cancel").mockImplementation(() => (calls.push("cancel"), set("idle"))),
-  ];
-  return {
-    calls,
-    starts,
-    statusCalls: () => statusSpy.mock.calls.length,
-    current: (): SttStatus => current,
-    /** Retient la réponse du prochain `stt.status()` ; `resolve` la rend, fusionnée sur l'état courant. */
-    defer(): { resolve(s: Partial<SttStatus>): void } {
-      let resolve: (s: SttStatus) => void = () => {};
-      held = new Promise((r) => (resolve = r));
-      return { resolve: (change) => resolve({ ...current, ...change }) };
-    },
-    restore: () => spies.forEach((s) => s.mockRestore()),
-  };
-}
+const { voiceContext } = await import("./voiceContextStore");
+const { stt } = await import("./voiceApi");
 
 // Remise à zéro même si une assertion échoue en cours de test.
 afterEach(resetMessages);
@@ -286,7 +233,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple language to download shows no size", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] } },
+      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false } },
       models: [{ ...apple(true), installed: false }],
     });
     const { host } = await mount();
@@ -296,7 +243,7 @@ describe("modèle Apple", () => {
   test("Dictation Apple chosen but unavailable says why", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] } },
+      config: { model: "apple", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false } },
       models: [apple(false)],
     });
     const { host } = await mount();
@@ -343,7 +290,7 @@ describe("raccourci relayé", () => {
 });
 
 const apiModel = (installed: boolean) => ({ id: "api" as const, label: "API (gpt-4o-transcribe)", size: 0, installed, available: true });
-const apiConfig = { model: "api" as const, language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] } };
+const apiConfig = { model: "api" as const, language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false };
 
 describe("modèle API", () => {
   test("Dictation API without key says so in the idle caption", async () => {
@@ -402,5 +349,78 @@ describe("réglages de l'hôte", () => {
     first.resolve({ config: { ...engine.current().config, language: "en" } });
     await settle();
     expect(m.host.querySelector(".mic")?.getAttribute("title") ?? "").toContain("Français");
+  });
+});
+
+describe("hands-free", () => {
+  afterEach(() => voiceContext.setResumed(false));
+
+  /** The engine listening hands-free, `change` on top. */
+  function listeningEngine(change: Parameters<typeof fakeStt>[1] = {}) {
+    engine.restore();
+    engine = fakeStt("bonjour", change);
+    engine.listening();
+  }
+  const indicator = (host: HTMLElement) => host.querySelector(".mic.hands-free") as HTMLButtonElement;
+  const status = (host: HTMLElement) => host.querySelector('[role="status"]')?.textContent;
+
+  test("Dictation listening shows steady indicator with label", async () => {
+    listeningEngine({ level: 0.8, speaking: true });
+    const { host } = await mount();
+    expect(indicator(host).getAttribute("aria-label")).toBe(t("ui-hands-free-pause"));
+    expect(indicator(host).getAttribute("aria-pressed")).toBe("true");
+    // Steady: no ring following the microphone level, no wave.
+    expect(host.querySelector(".mic-ring")).toBeNull();
+    expect(host.querySelector(".wave")).toBeNull();
+    expect(status(host)).toBe(t("ui-hands-free-on"));
+  });
+
+  test("Dictation live region never holds utterance text", async () => {
+    listeningEngine({ committed: "ajoute une slide", partial: "titre" });
+    const { host } = await mount();
+    const live = [...host.querySelectorAll("[aria-live]")].map((e) => e.textContent);
+    expect(live).toEqual([t("ui-hands-free-on")]);
+    expect(host.textContent).not.toContain("ajoute une slide");
+  });
+
+  test("Dictation mic while listening pauses", async () => {
+    listeningEngine();
+    voiceContext.setResumed(true);
+    const { host } = await mount();
+    await act(async () => indicator(host).click());
+    await settle();
+    expect(engine.calls).toEqual(["stop"]);
+    expect(indicator(host).getAttribute("aria-pressed")).toBe("false");
+    expect(status(host)).toBe(t("ui-hands-free-paused"));
+    expect(voiceContext.resumed()).toBe(false);
+    await act(async () => indicator(host).click());
+    await settle();
+    expect(engine.calls).toEqual(["stop", "listen"]);
+    expect(voiceContext.resumed()).toBe(true);
+  });
+
+  test("Dictation resume the host refuses is not recorded as resumed", async () => {
+    listeningEngine();
+    const { host } = await mount();
+    await act(async () => indicator(host).click());
+    await settle();
+    spyOn(stt, "listen").mockImplementation(() => Promise.reject(new Error("no microphone")));
+    await act(async () => indicator(host).click());
+    await settle();
+    expect(voiceContext.resumed()).toBe(false);
+  });
+
+  test("Dictation ⌘D while listening pauses, then resumes", async () => {
+    listeningEngine();
+    await mount();
+    await press("d", { meta: true });
+    await press("d", { meta: true });
+    expect(engine.calls).toEqual(["stop", "listen"]);
+  });
+
+  test("Dictation ⌘D with hands-free off still dictates", async () => {
+    await mount();
+    await press("d", { meta: true });
+    expect(engine.calls).toEqual(["start"]);
   });
 });

@@ -36,7 +36,7 @@ export function AgentSurfaceBox({
   modal = false,
 }: SurfaceProps & { className: string; role: "dialog" | "alertdialog" | "group"; label: string; caption?: string; modal?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { onClickCapture } = useModalFrame(ref, { active: modal });
+  const { onClickCapture, armed } = useModalFrame(ref, { active: modal });
 
   return (
     <div
@@ -46,6 +46,7 @@ export function AgentSurfaceBox({
       role={role}
       aria-label={label}
       aria-modal={modal}
+      data-armed={(modal && armed) || undefined}
       data-surface-id={surface.id}
       onPointerDown={(e) => e.stopPropagation()}
       onClickCapture={onClickCapture}

@@ -6,17 +6,22 @@ import { findElement } from "../deck";
 
 type Focus = { slide: string; element: string | null };
 
+/** A focus as the agent sends it: no slide (and no element) deselects on the shown slide. */
+type Asked = { slide: string | null; element: string | null };
+
 /**
  * Le rappel d'un focus de l'agent. Pendant l'édition d'un texte, il est différé : seul le dernier
  * reçu compte, appliqué quand l'édition se termine (validation ou annulation), sauf si l'utilisateur
  * a changé de slide entre-temps ; l'agent ne change pas de slide sous le curseur. Une slide inconnue
  * du deck est ignorée. L'élément est cherché dans une vue de sa slide plus récente que le focus si
  * celle d'alors ne l'a pas (l'agent vient de le créer) ; introuvable, la sélection reste en place.
+ * Sans slide, le focus désélectionne seulement : la slide affichée reste (t-999).
  * `editing`, `slides`, `current` et `view` sont lus par des références : un abonnement posé une fois
  * peut appeler une ancienne version du rappel.
  * `onMissing` is called where an unknown slide or an element absent from a fresh view is ignored.
+ * `deselect` (default: `select(null)`) clears the selection for a focus without a slide.
  */
-export function useAgentFocus({ slides, view, current, editing, show, select, onMissing }: {
+export function useAgentFocus({ slides, view, current, editing, show, select, onMissing, deselect }: {
   slides: SlideSummary[] | undefined;
   view: SlideView | null;
   current: string | null;
@@ -24,17 +29,24 @@ export function useAgentFocus({ slides, view, current, editing, show, select, on
   show: (slide: string) => void;
   select: (element: string | null) => void;
   onMissing?: () => void;
-}): (slide: string, element: string | null) => void {
-  const seen = useRef({ editing, slides, current, view, onMissing });
-  seen.current = { editing, slides, current, view, onMissing };
+  deselect?: () => void;
+}): (slide: string | null, element: string | null) => void {
+  const seen = useRef({ editing, slides, current, view, onMissing, deselect });
+  seen.current = { editing, slides, current, view, onMissing, deselect };
   /** Le dernier focus reçu pendant l'édition, et la slide affichée à ce moment. */
-  const deferred = useRef<{ focus: Focus; from: string | null } | null>(null);
+  const deferred = useRef<{ focus: Asked; from: string | null } | null>(null);
   /** Le focus appliqué dont l'élément attend une vue de sa slide ; `stale` : la vue affichée à sa réception. */
   const [want, setWant] = useState<(Focus & { stale: SlideView | null }) | null>(null);
-  const apply = (f: Focus) => {
-    if (!seen.current.slides?.some((s) => s.id === f.slide)) return seen.current.onMissing?.();
-    show(f.slide);
-    setWant({ ...f, stale: seen.current.view });
+  const apply = (f: Asked) => {
+    if (f.slide === null) {
+      setWant(null);
+      const { deselect: d } = seen.current;
+      return d ? d() : select(null);
+    }
+    const slide = f.slide;
+    if (!seen.current.slides?.some((s) => s.id === slide)) return seen.current.onMissing?.();
+    show(slide);
+    setWant({ slide, element: f.element, stale: seen.current.view });
   };
   useEffect(() => {
     const d = deferred.current;

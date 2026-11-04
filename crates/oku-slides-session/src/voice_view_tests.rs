@@ -68,12 +68,30 @@ fn ctx(v: Value) -> Map<String, Value> {
     json!({"field": "headers", "value": "api-key: $K"}),
     Some(VoiceEvent::Dictation(DictationPatch { api_headers: Some("api-key: $K".into()), ..Default::default() }))
 )]
+#[case(
+    "hands_free",
+    json!({"on": true}),
+    Some(VoiceEvent::Dictation(DictationPatch { hands_free: Some(true), ..Default::default() }))
+)]
+#[case(
+    "hands_free",
+    json!({"on": false}),
+    Some(VoiceEvent::Dictation(DictationPatch { hands_free: Some(false), ..Default::default() }))
+)]
 #[case("download", json!({"model": "base"}), Some(VoiceEvent::DownloadDictation { model: "base".into() }))]
 #[case("cancel_download", json!({}), Some(VoiceEvent::CancelDictationDownload))]
 #[case("select", json!({"id": "bis"}), Some(VoiceEvent::SelectAgent { id: "bis".into() }))]
 #[case("download_agent_model", json!({}), Some(VoiceEvent::DownloadAgentModel))]
 #[case("cancel_agent_model_download", json!({}), Some(VoiceEvent::CancelAgentModelDownload))]
 #[case("agent_model", json!({"id": "gpt-5"}), Some(VoiceEvent::SelectAgentModel { id: "gpt-5".into() }))]
+#[case("read_aloud", json!({"on": true}), Some(VoiceEvent::Speech(SpeechPatch { read_aloud: Some(true), ..Default::default() })))]
+#[case("speech_voice", json!({"id": "v-fr"}), Some(VoiceEvent::Speech(SpeechPatch { voice: Some("v-fr".into()), ..Default::default() })))]
+#[case("speech_rate", json!({"value": "1.25"}), Some(VoiceEvent::Speech(SpeechPatch { rate: Some(1.25), ..Default::default() })))]
+#[case(
+    "speech_in_presentation",
+    json!({"on": false}),
+    Some(VoiceEvent::Speech(SpeechPatch { in_presentation: Some(false), ..Default::default() }))
+)]
 fn voice_event_known_action_parses(#[case] name: &str, #[case] context: Value, #[case] expected: Option<VoiceEvent>) {
     assert_that!(voice_event(name, &ctx(context))).is_equal_to(expected);
 }
@@ -93,6 +111,11 @@ fn voice_event_known_action_parses(#[case] name: &str, #[case] context: Value, #
 #[case("api", json!({"field": "key", "value": "x"}))]
 #[case("api", json!({"field": "api_version"}))]
 #[case("api", json!({"field": "url"}))]
+#[case("hands_free", json!({}))]
+#[case("hands_free", json!({"on": "true"}))]
+#[case("read_aloud", json!({"on": "yes"}))]
+#[case("speech_rate", json!({"value": "inf"}))]
+#[case("speech_voice", json!({}))]
 #[case("dismiss", json!({}))]
 #[case("nope", json!({}))]
 fn voice_event_malformed_action_is_none(#[case] name: &str, #[case] context: Value) {
@@ -115,4 +138,18 @@ fn dictation_patch_touches_api_target_with_url_or_variable(#[case] p: DictationP
 #[case(DictationPatch { auto_stop: Some(true), ..Default::default() }, false)]
 fn dictation_patch_is_empty_only_without_fields(#[case] p: DictationPatch, #[case] empty: bool) {
     assert_that!(p.is_empty()).is_equal_to(empty);
+}
+
+#[rstest]
+#[case(None, true, Some(true))]
+#[case(Some(false), true, Some(false))]
+#[case(Some(true), true, Some(true))]
+#[case(None, false, None)]
+#[case(Some(false), false, Some(false))]
+fn read_aloud_on_at_first_hands_free_only(
+    #[case] before: Option<bool>,
+    #[case] hands_free_on: bool,
+    #[case] after: Option<bool>,
+) {
+    assert_that!(read_aloud_after_hands_free(before, hands_free_on)).is_equal_to(after);
 }

@@ -383,6 +383,7 @@ fn shown_drafts_names_the_pack_and_theme_tabs_only() {
     let info = |document: crate::TabDocument| crate::TabInfo {
         title: String::new(),
         dirty: false,
+        dirty_revision: None,
         pristine: false,
         theme: None,
         document,

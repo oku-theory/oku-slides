@@ -8,6 +8,7 @@
 - Derive LOCALES and ENGLISH_NAMES from the single locales macro list; never keep two lists. (t-782)
 - Keep code tokens and Fluent variables unchanged when reviewing or editing translations. (plan:2026-10-04-suivis-listes, t-535)
 - Add every new Fluent key to all 20 locales, in the same key order everywhere. (spec:2026-10-08-widget-tableau-design)
+- Put no placeable in the spoken-command messages of voice.ftl (yes, no, ordinals, verbs…); a form may stay equal across locales (oku), and each locale lists its own, never borrowing English. (plan:2026-11-01-lot-m-hands-free)
 - Keep is_hidden_control and is_line_control equal to HIDDEN and LINE in ui/src/i18n.ts; clean arguments only in tr_with and t(). (t-959, t-981, t-1379)
 - Keep tr_with free of isolation marks; only the UI t() isolates string arguments, since agent, CLI and logs read Rust text. (t-1380)
 
