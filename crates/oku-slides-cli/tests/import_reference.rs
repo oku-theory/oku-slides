@@ -304,11 +304,11 @@ fn import_hifi_with_reference_soffice_scores_against_real_libreoffice() {
 //   (s6/17, at 10.24 pt: LibreOffice breaks "the agent" one line earlier than Oku and office2pdf,
 //   which share Typst's shaping: not settled); p. 8 8.76 (the cards of pillars 2 and 3, whose
 //   overflowing `normAutofit` lists it shrinks, PowerPoint not: the source does not say, unmarked);
-// - libreoffice and kitchen: p. 1 3.47 and 3.68 (the table, 18.9 before t-955); p. 2 35.4 (the
-//   chart, 46.09 before t-1384 dropped the gridlines and took the source's bar width; since t-1493
-//   the axis tops at 18 like LibreOffice's and the bars reach its heights, 33.6 when they stopped
-//   short, but Oku spreads the categories about 10 px wider, which taller bars show more; the
-//   slide's mean gap fell from 0.67 to 0.58 on LibreOffice 26.8.2.2); p. 3 at most 0.1.
+// - libreoffice and kitchen: p. 1 3.47 and 3.68 (the table, 18.9 before t-955); p. 2 19.9 (the
+//   chart, 46.09 before t-1384 dropped the gridlines and took the source's bar width, 33.6 before
+//   t-1493 gave it LibreOffice's automatic scale and 35.4 before t-1514 its 2 % plot inset: the
+//   title stands 2 px higher and LibreOffice draws a hairline for T2, the category without values; the slide's
+//   mean gap went 0.67, 0.58, 0.46 on LibreOffice 26.8.2.2); p. 3 at most 0.1.
 // The Calibri Light titles (14.7 to 29) and libreoffice's SmartArt (21, whose text names neither
 // color nor font) are suspect; kitchen's (1.68 and 3.45, named by the `defaultTextStyle`) no
 // longer is since t-936.

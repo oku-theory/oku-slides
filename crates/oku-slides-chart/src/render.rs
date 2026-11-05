@@ -21,6 +21,11 @@ use crate::numbers::{NumberFormat, numeric_texts};
 use crate::option::ChartOption;
 use crate::theme::{ChartTheme, color, transparent};
 
+/// Share of the chart's size left around its plot area, as in LibreOffice (t-1514).
+const PLOT_INSET: f32 = 0.02;
+/// Least margin around the plot area: charts-rs's own, which its top axis label overhangs.
+const MIN_PLOT_MARGIN: f32 = 5.0;
+
 /// Taille du cadre du graphique, en points (1 pt Typst = 1 unité SVG).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Size {
@@ -272,6 +277,9 @@ impl ChartsRsRenderer {
         let t = &self.theme;
         base.width = size.width;
         base.height = size.height;
+        let inset = |side: f32| (side * PLOT_INSET).max(MIN_PLOT_MARGIN);
+        let (dx, dy) = (inset(size.width), inset(size.height));
+        base.margin = charts_rs::Box { left: dx, top: dy, right: dx, bottom: dy };
         // Bottom and left in charts-rs, as `xAxis` and `yAxis` (horizontal bars too).
         base.x_axis_hidden = !model.axes_show.x;
         base.y_axis_hidden = !model.axes_show.y;

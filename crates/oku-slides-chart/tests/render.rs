@@ -606,3 +606,43 @@ fn render_value_interval_labels_each_tick() {
     let ticks = ["0", "5", "10", "15", "20"].iter().all(|t| svg.contains(&format!(">\n{t}\n<")));
     assert_that!((ticks, svg.contains(">\n4\n<"))).is_equal_to((true, false));
 }
+
+/// Left and right edges of the filled bars of an SVG, in drawing order.
+fn bar_edges(svg: &str) -> Vec<(f32, f32)> {
+    svg.split("<rect")
+        .skip(1)
+        .filter(|r| r.contains("data-series"))
+        .filter_map(|r| Some((attr(r, "x")?, attr(r, "x")? + attr(r, "width")?)))
+        .collect()
+}
+
+#[test]
+fn render_plot_area_insets_two_percent_of_the_chart_like_libreoffice() {
+    let svg = render(&json!({
+        "legend": { "show": false },
+        "dataset": { "source": [["Mois", "Ventes"], ["Jan", 3], ["Fév", 5], ["Mar", 7]] },
+        "xAxis": { "type": "category", "show": false }, "yAxis": { "type": "value", "show": false },
+        "series": [{ "type": "bar" }]
+    }));
+    let edges = bar_edges(&svg);
+    // charts-rs keeps a 5 pt band margin inside the plot area, which starts 2 % of 640 in.
+    let (first, last) = (edges.first().map_or(0.0, |e| e.0), edges.last().map_or(0.0, |e| e.1));
+    assert_that!(first).is_close_to(12.8 + 5.0, 0.11);
+    assert_that!(last).is_close_to(640.0 - 12.8 - 5.0, 0.11);
+}
+
+#[test]
+fn render_short_chart_without_header_keeps_its_top_axis_label_inside() {
+    let option = json!({
+        "legend": { "show": false },
+        "dataset": { "source": [["M", "V"], ["a", 3], ["b", 7]] },
+        "xAxis": { "type": "category" },
+        "series": [{ "type": "bar" }]
+    });
+    let option = parse_option(&option).unwrap_or_else(|e| panic!("{e}"));
+    let size = Size { width: 300.0, height: 120.0 };
+    let svg = ChartsRsRenderer::default().render(&option, size).unwrap_or_else(|e| panic!("{e}"));
+    for (top, bottom) in text_extents(&svg) {
+        asserting(&format!("text from {top} to {bottom}")).that(&(top >= 0.0 && bottom <= size.height)).is_true();
+    }
+}

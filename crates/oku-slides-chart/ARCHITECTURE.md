@@ -11,7 +11,7 @@ Graphiques (options ECharts → SVG) et tableaux (modèle seul : le rendu est fa
 - `parse_option` valide les options ECharts (sous-ensemble v1) ;
 - `canonicalize` range les données dans `dataset` avant stockage ;
 - `apply_option_patch` (merge patch, hors `dataset`) édite et renvoie son inverse ; `chart_data` applique une `DataOp`, sans inverse ;
-- `ChartRenderer` (charts-rs) produit le SVG.
+- `ChartRenderer` (charts-rs) produces the SVG, its plot area inset by 2 % of the chart on each side as in LibreOffice, 5 pt at least (t-1514).
 - `scale`: a value axis `interval` becomes exact bounds and a split count; without it, missing bounds follow PowerPoint's and
   LibreOffice's automatic scale (5 % margin, 1/2/5 step, at most 10 ticks, t-1493); `splitLine.show: false` hides the grid (transparent stroke);
   `bar_gap` resizes charts-rs's bar `<rect>`s (and their value labels) to `barCategoryGap`, which charts-rs 1.1 lacks (t-1384).
