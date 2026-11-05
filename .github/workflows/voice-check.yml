@@ -63,7 +63,9 @@ jobs:
 
   linux:
     name: Speech (Linux)
-    runs-on: ubuntu-latest
+    # Pinned: on ubuntu-latest (26.04 since October 2026) CTranslate2's per-CPU kernels are missing
+    # from its archive and the stt test binaries fail to link; 24.04 links (t-1490).
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
