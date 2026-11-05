@@ -26,6 +26,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Do not rely on RLIMIT_AS or RLIMIT_DATA for memory limits; macOS ignores them, so poll worker memory instead. (spec:2026-09-29-compilation-bornee-design)
 - Keep render worker stdout free of anything but protocol frames; the worker redirects stdout to stderr. (t-341)
 - Keep allow default (LibreOffice needs the launchservicesd lookup) and the /tmp OSL_PIPE socket rule in worker.sb. (spec:2026-10-17-render-worker-sandbox-design, t-912)
+- Keep (deny network*) in worker.sb: the received dialog's offline line relies on it, and sandbox tests pin it. (t-1499)
 - Read a Windows process identity with a fresh sysinfo System; a cached entry keeps the handle and a stale start time. (t-1471)
 - Pass every Seatbelt path parameter through storage::canonical; Seatbelt matches real paths, so /var never matches /private/var. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 

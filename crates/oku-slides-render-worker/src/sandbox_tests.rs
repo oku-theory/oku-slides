@@ -67,10 +67,16 @@ fn sandbox_exec_of_the_allowed_soffice_succeeds() {
     assert_that!(out.status.success()).is_true();
 }
 
-#[test]
-fn sandbox_ip_connection_is_denied() {
-    // Hors bac à sable : « Connection refused » ; dedans, refusé avant tout paquet.
-    let out = bash(&sandbox(), "exec 3<>/dev/tcp/127.0.0.1/9");
+/// The received dialog says packs and themes cannot reach the network (`ui-received-offline`):
+/// `(deny network*)` in worker.sb refuses every IP socket before any packet leaves (t-1499).
+#[rstest::rstest]
+#[case::loopback_tcp("/dev/tcp/127.0.0.1/9")]
+#[case::remote_tcp("/dev/tcp/192.0.2.1/443")]
+#[case::remote_udp_dns("/dev/udp/192.0.2.1/53")]
+#[case::remote_tcp_ipv6("/dev/tcp/2001:db8::1/443")]
+fn sandbox_ip_connection_is_denied(#[case] target: &str) {
+    // Outside the sandbox: refused, unreachable or timed out; inside, denied up front.
+    let out = bash(&sandbox(), &format!("exec 3<>{target}"));
     assert_that!(stderr(&out)).contains("Operation not permitted");
 }
 
