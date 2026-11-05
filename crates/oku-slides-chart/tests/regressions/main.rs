@@ -3,3 +3,4 @@
 
 mod issue_0677_chart_columns_duplicates;
 mod issue_1203_non_ascii_color;
+mod issue_1515_waterfall_small_values_axis_labels;
