@@ -5,6 +5,13 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [10.0.1] - 2026-11-05
+
+### Other
+
+- bump Swatinem/rust-cache from 2.9.2 to 2.9.3 in the actions group
+- *(render-worker)* widen three timing budgets for Windows runners (t-1528)
+
 ## [10.0.0] - 2026-11-05
 
 ### Added
