@@ -5,6 +5,34 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [10.0.0] - 2026-11-05
+
+### Added
+
+- *(stt,i18n,session,mcp,agent,ui,app)* [**breaking**] hands-free voice control, lots 2 to 8 (t-996, t-997, t-998, t-999, t-1000, t-1001, t-1002)
+
+### Fixed
+
+- *(ci)* pin tauri-action back to v0 for draft release signing (t-1511)
+- *(ci)* ignore RUSTSEC-2026-0429, zip 2.4.2 never runs (t-1512)
+- *(chart)* automatic value scale like PowerPoint and LibreOffice (t-1493)
+- *(chart)* inset the plot area by 2 % like LibreOffice (t-1514)
+
+### Changed
+
+- *(ui)* split api.ts by concept (t-1501)
+
+### Documentation
+
+- *(agents)* keep the root AGENTS.md within 130 lines (t-1511)
+
+### Other
+
+- *(render-worker)* pin worker.sb's network denial for remote hosts (t-1499)
+- *(chart)* waterfall under 0.5 labels each tick once (t-1515)
+- pin the Linux voice-check job to ubuntu-24.04 (t-1490)
+- *(render-worker)* give the two loop tests a 2 s budget (t-1516)
+
 ## [9.0.1] - 2026-11-03
 
 ### Fixed
