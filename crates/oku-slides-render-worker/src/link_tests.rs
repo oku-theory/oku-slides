@@ -52,7 +52,8 @@ fn link_in_process_probe_that_loops_times_out_and_restarts() {
     let err = link.call(&looping_probe(), &[]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(RenderErrorKind::Timeout);
     assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_secs(2));
-    // La requête suivante relance un travailleur neuf.
+    // The next request restarts a fresh worker; its Hello missed 300 ms on Windows (t-1528).
+    link.settings.timeout_ms = 10_000;
     link.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).unwrap();
     assert_that!(link.restarts).is_equal_to(1);
 }

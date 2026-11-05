@@ -210,7 +210,8 @@ fn remote_compiled_of_previous_worker_is_stale_and_its_release_is_dropped() {
 
 #[test]
 fn remote_reference_of_previous_worker_is_stale() {
-    let w = worker(3_000);
+    // A real Office2Pdf render: a loaded Windows runner took over 3 s; the app uses 10 s (t-1528).
+    let w = worker(10_000);
     let pptx = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/import/libreoffice.pptx")).unwrap();
     let old = w.reference(&crate::ReferenceWitness::Office2Pdf, &pptx, &Fonts::default(), None).unwrap();
     force_restart(&w, "boucle-r");
@@ -358,7 +359,8 @@ fn looping_file(name: &str) -> String {
 
 #[test]
 fn probe_pack_of_looping_files_spends_one_timeout_and_leaves_the_rest_unprobed() {
-    let w = worker_without_budget(300);
+    // Each call restarts the worker after its loop; 300 ms did not fit that on Windows (t-1516, t-1528).
+    let w = worker_without_budget(2_000);
     let (a, b, c) = (looping_file("a"), looping_file("b"), looping_file("c"));
     let pack = PackWidgets::new("boucles", ns("boucles"), PackKind::Widgets, files(&[("a", &a), ("b", &b), ("c", &c)]))
         .unwrap();
