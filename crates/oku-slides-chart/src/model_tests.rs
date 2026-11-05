@@ -100,8 +100,8 @@ fn normalize_waterfall_rounds_the_axis_above_the_highest_running_sum() {
         "series": [{ "type": "waterfall" }]
     }))
     .unwrap();
-    // Sommes courantes : 3, 2, 6, total 6 → 10.
-    assert_that!((w.value_min, w.value_max)).is_equal_to((None, Some(10.0)));
+    // Running sums 3, 2, 6, total 6: 6.3 with the 5 % margin, ticked by 1 → 7.
+    assert_that!((w.value_min, w.value_max)).is_equal_to((Some(0.0), Some(7.0)));
 }
 
 #[test]
@@ -111,8 +111,8 @@ fn normalize_waterfall_going_below_zero_rounds_the_axis_down() {
         "series": [{ "type": "waterfall" }]
     }))
     .unwrap();
-    // Sommes courantes : 2, puis −3 → axe de −5 à 2,5 (jamais pile sur une barre).
-    assert_that!((w.value_min, w.value_max)).is_equal_to((Some(-5.0), Some(2.5)));
+    // Running sums 2 then −3, widened by 5 % of 5 on each side, ticked by 1: −4 to 3.
+    assert_that!((w.value_min, w.value_max)).is_equal_to((Some(-4.0), Some(3.0)));
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn normalize_waterfall_total_rows_ignore_their_value_for_the_axis() {
         "series": [{ "type": "waterfall" }]
     }))
     .unwrap();
-    assert_that!(w.value_max).is_equal_to(Some(5.0));
+    assert_that!(w.value_max).is_equal_to(Some(3.5));
 }
 
 fn two_bars(extra: &serde_json::Value) -> ChartOption {

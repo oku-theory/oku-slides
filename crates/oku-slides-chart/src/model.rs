@@ -417,8 +417,8 @@ fn waterfall(option: &ChartOption, table: Option<&Table<'_>>) -> Result<Waterfal
     let steps = t.numbers(col);
     let totals = t.rows.iter().map(|r| r.get(col + 1).is_some_and(Cell::is_checked)).collect::<Vec<_>>();
     let val_axis = option.y_axis.as_ref();
-    // charts-rs arrête l'axe pile sur la barre la plus haute : son étiquette
-    // serait coupée. L'axe s'arrondit donc au-delà des sommes courantes.
+    // Where the engine keeps its own scale (no automatic step), charts-rs stops the
+    // axis right at the highest bar and cuts its label: round beyond the running sums.
     let (low, high) = running_extent(&steps, &totals);
     let scale = value_scale(val_axis, low, high);
     Ok(Waterfall {

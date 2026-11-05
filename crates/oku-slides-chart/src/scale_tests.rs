@@ -9,9 +9,69 @@ fn axis(min: Option<f64>, max: Option<f64>, interval: Option<f64>) -> Axis {
 }
 
 #[test]
-fn value_scale_without_interval_keeps_the_written_bounds() {
-    let scale = value_scale(Some(&axis(Some(2.0), None, None)), -3.0, 17.0);
-    assert_that!(scale).is_equal_to(ValueScale { min: Some(2.0), max: None, splits: None });
+fn value_scale_both_bounds_without_interval_keeps_them() {
+    let scale = value_scale(Some(&axis(Some(2.0), Some(30.0), None)), -3.0, 17.0);
+    assert_that!(scale).is_equal_to(ValueScale { min: Some(2.0), max: Some(30.0), splits: None });
+}
+
+#[rstest]
+#[case::stack_of_16_5(0.0, 16.5, (0.0, 18.0, 9))]
+#[case::ten(0.0, 10.0, (0.0, 12.0, 6))]
+#[case::seven(0.0, 7.0, (0.0, 8.0, 8))]
+#[case::max_on_a_tick_rises(0.0, 18.0, (0.0, 20.0, 10))]
+#[case::hundred(0.0, 100.0, (0.0, 120.0, 6))]
+#[case::ninety(0.0, 90.0, (0.0, 100.0, 10))]
+#[case::tenths(0.0, 0.9, (0.0, 1.0, 10))]
+#[case::hundredths_tick_by_tenths(0.0, 0.42, (0.0, 0.5, 5))]
+#[case::padded_top_a_hair_over_a_tick(0.0, 9.523_809_523_809_526, (0.0, 10.0, 10))]
+#[case::negative(-16.5, 0.0, (-18.0, 0.0, 9))]
+#[case::both_signs(-5.0, 16.5, (-10.0, 20.0, 6))]
+fn value_scale_automatic_pads_five_percent_and_ticks_at_most_ten(
+    #[case] low: f64,
+    #[case] high: f64,
+    #[case] expected: (f64, f64, usize),
+) {
+    let scale = value_scale(None, low, high);
+    let (lo, hi, splits) = expected;
+    assert_that!((scale.min.unwrap_or(f64::NAN) - lo).abs()).is_less_than(1e-9);
+    assert_that!((scale.max.unwrap_or(f64::NAN) - hi).abs()).is_less_than(1e-9);
+    assert_that!(scale.splits).is_equal_to(Some(splits));
+}
+
+#[test]
+fn value_scale_automatic_keeps_a_written_min() {
+    let scale = value_scale(Some(&axis(Some(0.0), None, None)), 0.0, 16.5);
+    assert_that!(scale).is_equal_to(ValueScale { min: Some(0.0), max: Some(18.0), splits: Some(9) });
+}
+
+#[rstest]
+#[case::max_on_the_grid(None, Some(20.0), (0.0, 16.5), ValueScale { min: Some(0.0), max: Some(20.0), splits: Some(10) })]
+#[case::negative_max_on_the_grid(None, Some(-2.0), (-16.5, 0.0), ValueScale { min: Some(-18.0), max: Some(-2.0), splits: Some(8) })]
+#[case::max_off_the_grid(None, Some(17.0), (0.0, 16.5), ValueScale { min: None, max: Some(17.0), splits: None })]
+#[case::min_off_the_grid(Some(1.0), None, (0.0, 16.5), ValueScale { min: Some(1.0), max: None, splits: None })]
+#[case::min_beyond_the_data(Some(10.0), None, (0.0, 5.0), ValueScale { min: Some(10.0), max: None, splits: None })]
+fn value_scale_automatic_with_one_written_bound(
+    #[case] min: Option<f64>,
+    #[case] max: Option<f64>,
+    #[case] data: (f64, f64),
+    #[case] expected: ValueScale,
+) {
+    let scale = value_scale(Some(&axis(min, max, None)), data.0, data.1);
+    assert_that!(scale).is_equal_to(expected);
+}
+
+#[rstest]
+#[case::thousandths(0.004)]
+#[case::beyond_f32(3.0e38)]
+fn value_scale_automatic_out_of_reach_leaves_the_engine_scale(#[case] high: f64) {
+    let scale = value_scale(None, 0.0, high);
+    assert_that!(scale).is_equal_to(ValueScale::default());
+}
+
+#[test]
+fn value_scale_automatic_without_data_leaves_the_engine_scale() {
+    let scale = value_scale(None, 0.0, 0.0);
+    assert_that!(scale).is_equal_to(ValueScale::default());
 }
 
 #[rstest]
