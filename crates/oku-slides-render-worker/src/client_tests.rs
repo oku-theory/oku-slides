@@ -329,7 +329,9 @@ fn probe_pack_keeps_a_bounded_number_of_probes_per_file() {
 
 #[test]
 fn probe_pack_with_a_file_that_loops_gives_a_diagnostic_and_accuses_nothing() {
-    let w = worker_without_budget(300);
+    // The loop always times out; the budget must also cover the restart and the next file,
+    // which a loaded Windows runner did not fit in 300 ms (t-1516).
+    let w = worker_without_budget(2_000);
     let pack = PackWidgets::new(
         "boucle",
         ns("boucle"),
@@ -415,7 +417,8 @@ fn probe_pack_with_a_file_over_max_widget_kib_does_not_load_it() {
 
 #[test]
 fn trial_slot_render_that_loops_times_out_and_accuses_nothing() {
-    let w = worker(300);
+    // Same budget as above: `set_widgets` after the timeout restarts the worker (t-1516).
+    let w = worker(2_000);
     let pack = looping_layouts();
     let probe = w.probe_pack(&pack).unwrap();
     let kept = probe.pack.clone().unwrap();
