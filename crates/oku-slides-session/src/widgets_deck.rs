@@ -56,6 +56,7 @@ use crate::pack_lease::pack_leased;
 use crate::pack_mode_save::adopt_merge_key;
 use crate::pack_receive::is_deck_only;
 use crate::received_held::HeldVersion;
+use crate::sources_budget::files_bytes;
 use crate::widgets_edit::WidgetTarget;
 use crate::{Result, Session};
 
@@ -259,6 +260,9 @@ impl Session {
         let files = manifest.to_files(t.kind, widgets).context(PackJsonSnafu { id: t.id })?;
         let version = files.version();
         let embedded = self.doc.sources.packs.contains_key(&version);
+        if !embedded {
+            self.ensure_sources_room(files_bytes(&files))?;
+        }
         self.doc.sources.add_pack(files.clone());
         let label = self.localizer.tr_with("widgets-edit-label", &[("name", manifest.name.as_str().into())]);
         let merge = adopt_merge_key(t.id, parent.as_ref());

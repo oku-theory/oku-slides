@@ -12,7 +12,7 @@ use tokio::task::JoinHandle;
 use super::{ARMING, AnswerOutcome, armed};
 use crate::hub::Shown;
 use crate::hub::tests::hub;
-use crate::{ConfirmVerb, HeardUtterance, Lexicon, McpEvent, SurfaceHub};
+use crate::{ConfirmAction, ConfirmAsk, ConfirmVerb, HeardUtterance, Lexicon, McpEvent, SurfaceHub};
 
 fn fr() -> Lexicon {
     Lexicon::for_locales("fr", None)
@@ -33,11 +33,11 @@ async fn next_surface(rx: &mut broadcast::Receiver<McpEvent>) -> Surface {
 }
 
 /// A guarded confirmation, shown; its task and surface.
-async fn confirming(hub: &Arc<SurfaceHub>, verb: Option<ConfirmVerb>) -> (JoinHandle<bool>, Surface) {
+async fn confirming(hub: &Arc<SurfaceHub>, ask: ConfirmAsk) -> (JoinHandle<bool>, Surface) {
     let mut rx = hub.subscribe();
     let task = tokio::spawn({
         let hub = hub.clone();
-        async move { hub.confirm("Fusionner la copie ?".into(), verb).await }
+        async move { hub.confirm("Fusionner la copie ?".into(), ask).await }
     });
     (task, next_surface(&mut rx).await)
 }
@@ -93,7 +93,7 @@ fn armed_boundaries(#[case] offset_ms: i64, #[case] want: bool) {
 #[tokio::test]
 async fn confirm_danger_without_verb_keeps_open_with_heard() {
     let hub = hub();
-    let (task, surface) = confirming(&hub, Some(ConfirmVerb::Merge)).await;
+    let (task, surface) = confirming(&hub, ConfirmAsk::Danger(ConfirmVerb::Merge)).await;
     let (outcome, shown) = answer(&hub, &said("oui"), Some(FocusSource::Host));
     assert_that!(outcome).is_equal_to(AnswerOutcome::KeptOpen);
     assert_that!(shown.unwrap_or_default()).contains("Entendu : « oui »");
@@ -104,7 +104,7 @@ async fn confirm_danger_without_verb_keeps_open_with_heard() {
 #[tokio::test]
 async fn confirm_danger_with_verb_from_host_confirms() {
     let hub = hub();
-    let (task, _) = confirming(&hub, Some(ConfirmVerb::Merge)).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Danger(ConfirmVerb::Merge)).await;
     let (outcome, _) = answer(&hub, &said("oui, fusionner"), Some(FocusSource::Host));
     assert_that!(outcome).is_equal_to(AnswerOutcome::Answered);
     assert_that!(task.await.unwrap()).is_true();
@@ -113,7 +113,7 @@ async fn confirm_danger_with_verb_from_host_confirms() {
 #[tokio::test]
 async fn confirm_unfocused_window_keeps_open() {
     let hub = hub();
-    let (task, _) = confirming(&hub, Some(ConfirmVerb::Merge)).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Danger(ConfirmVerb::Merge)).await;
     let (outcome, shown) = answer(&hub, &said("oui, fusionner"), None);
     assert_that!(outcome).is_equal_to(AnswerOutcome::KeptOpen);
     assert_that!(shown.unwrap_or_default()).contains("Cliquez sur le bouton pour confirmer.");
@@ -124,7 +124,7 @@ async fn confirm_unfocused_window_keeps_open() {
 #[tokio::test]
 async fn plain_confirm_page_reported_focus_keeps_open() {
     let hub = hub();
-    let (task, _) = confirming(&hub, None).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Plain(ConfirmAction::Save)).await;
     let (outcome, shown) = answer(&hub, &said("oui"), Some(FocusSource::PageReported));
     assert_that!(outcome).is_equal_to(AnswerOutcome::KeptOpen);
     assert_that!(shown.unwrap_or_default()).contains("Cliquez sur le bouton pour confirmer.");
@@ -134,7 +134,7 @@ async fn plain_confirm_page_reported_focus_keeps_open() {
 #[tokio::test]
 async fn confirm_page_reported_focus_keeps_open() {
     let hub = hub();
-    let (task, _) = confirming(&hub, Some(ConfirmVerb::Merge)).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Danger(ConfirmVerb::Merge)).await;
     let (outcome, shown) = answer(&hub, &said("oui, fusionner"), Some(FocusSource::PageReported));
     assert_that!(outcome).is_equal_to(AnswerOutcome::KeptOpen);
     assert_that!(shown.unwrap_or_default()).contains("Cliquez sur le bouton pour confirmer.");
@@ -144,7 +144,7 @@ async fn confirm_page_reported_focus_keeps_open() {
 #[tokio::test]
 async fn confirm_no_refuses_whatever_the_focus() {
     let hub = hub();
-    let (task, _) = confirming(&hub, Some(ConfirmVerb::Merge)).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Danger(ConfirmVerb::Merge)).await;
     let (outcome, _) = answer(&hub, &said("non"), Some(FocusSource::PageReported));
     assert_that!(outcome).is_equal_to(AnswerOutcome::Answered);
     assert_that!(task.await.unwrap()).is_false();
@@ -153,7 +153,7 @@ async fn confirm_no_refuses_whatever_the_focus() {
 #[tokio::test]
 async fn confirm_said_before_armed_keeps_open_too_early() {
     let hub = hub();
-    let (task, _) = confirming(&hub, None).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Plain(ConfirmAction::Save)).await;
     let early = HeardUtterance { seq: 2, text: "oui".into(), started: Instant::now() };
     let (outcome, shown) = answer(&hub, &early, Some(FocusSource::Host));
     assert_that!(outcome).is_equal_to(AnswerOutcome::KeptOpen);
@@ -164,7 +164,7 @@ async fn confirm_said_before_armed_keeps_open_too_early() {
 #[tokio::test]
 async fn plain_confirm_bare_yes_confirms() {
     let hub = hub();
-    let (task, _) = confirming(&hub, None).await;
+    let (task, _) = confirming(&hub, ConfirmAsk::Plain(ConfirmAction::Save)).await;
     let (outcome, _) = answer(&hub, &said("oui"), Some(FocusSource::Host));
     assert_that!(outcome).is_equal_to(AnswerOutcome::Answered);
     assert_that!(task.await.unwrap()).is_true();
@@ -173,7 +173,7 @@ async fn plain_confirm_bare_yes_confirms() {
 #[tokio::test]
 async fn confirm_typed_reply_keeps_it_open_with_say_or_click() {
     let hub = hub();
-    let (task, surface) = confirming(&hub, None).await;
+    let (task, surface) = confirming(&hub, ConfirmAsk::Plain(ConfirmAction::Save)).await;
     let mut rx = hub.subscribe();
     assert_that!(hub.answer(&surface.id, "oui")).is_equal_to(AnswerOutcome::KeptOpen);
     let shown = serde_json::to_string(&next_surface(&mut rx).await).unwrap_or_default();
@@ -184,7 +184,7 @@ async fn confirm_typed_reply_keeps_it_open_with_say_or_click() {
 #[tokio::test]
 async fn answer_voice_on_closed_question_is_not_a_question() {
     let hub = hub();
-    let (task, surface) = confirming(&hub, None).await;
+    let (task, surface) = confirming(&hub, ConfirmAsk::Plain(ConfirmAction::Save)).await;
     hub.cancel_asks();
     assert_that!(task.await.unwrap()).is_false();
     let (outcome, shown) = answer(&hub, &said("oui"), Some(FocusSource::Host));

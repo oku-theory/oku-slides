@@ -1,9 +1,10 @@
 //! OS voices that read Oku's answers aloud, one engine per OS.
 //!
 //! - macOS: `AVSpeechSynthesizer` through the Swift bridge (`apple.rs`, every `unsafe` block in
-//!   `apple_ffi.rs`).
+//!   `apple_ffi.rs`), or played by the duplex audio engine (`crate::duplex`); both are a
+//!   `bridged::BridgedVoice`.
 //! - Windows: the `WinRT` `SpeechSynthesizer` played by a `MediaPlayer` (`windows.rs`).
-//! - Linux: `spd-say`, the Speech Dispatcher client (`linux.rs`).
+//! - Linux: Speech Dispatcher over its SSIP socket (`linux.rs`, the protocol in `ssip.rs`).
 //! - e2e: a voice that writes what it would say to a file (`fake.rs`, feature `e2e-fakes`).
 //!
 //! No voice is bundled, no cloud service called, no SSML passed: the text is spoken as plain
@@ -13,11 +14,15 @@
 #[cfg(target_os = "macos")]
 mod apple;
 #[cfg(any(test, target_os = "macos"))]
-mod apple_ffi;
+pub(crate) mod apple_ffi;
+#[cfg(any(test, target_os = "macos"))]
+pub(crate) mod bridged;
 #[cfg(feature = "e2e-fakes")]
 pub(crate) mod fake;
-#[cfg(any(test, target_os = "linux"))]
+#[cfg(any(all(test, unix), target_os = "linux"))]
 mod linux;
+#[cfg(any(all(test, unix), target_os = "linux"))]
+mod ssip;
 #[cfg(windows)]
 mod windows;
 
@@ -235,8 +240,7 @@ fn system() -> Arc<dyn SpeechEngine> {
 
 #[cfg(target_os = "linux")]
 fn system() -> Arc<dyn SpeechEngine> {
-    // Looked up on `PATH`: a sandboxed build (AppImage, Flatpak) that cannot see it is unavailable.
-    Arc::new(linux::SpdSay::new("spd-say".into()))
+    Arc::new(linux::SpeechDispatcher::from_env())
 }
 
 #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]

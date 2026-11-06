@@ -66,12 +66,15 @@ impl Harness {
         self.dir.path()
     }
 
-    /// The working folder `tab`'s agent gets, under its resume folder, as its session names it.
+    /// The working folder of `tab`'s current conversation: `work/<uuid>` under its resume folder.
+    ///
+    /// Minted by the session if the conversation has none yet, as the agent's setup would.
     pub fn work_dir(&self, tab: &str) -> PathBuf {
-        let session = self.session(tab).lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut session = self.session(tab).lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let work = session.agent_work_dir().unwrap_or_else(|e| panic!("work dir of {tab}: {}", e.one_line()));
-        let path = work.path().to_path_buf();
-        assert!(path.starts_with(tab_resume_dir(self.dir.path(), tab)), "{} outside the tab's folder", path.display());
+        let saved = session.conversation().and_then(|c| c.work).unwrap_or_else(|| panic!("no saved work of {tab}"));
+        let path = tab_resume_dir(self.dir.path(), tab).join("work").join(saved.to_string());
+        assert_eq!(work.path(), path, "the session's folder is the saved conversation's");
         path
     }
 
@@ -220,11 +223,12 @@ async fn start_tabs_ready_within(
         let tools = Tools::new(
             tab.clone(),
             hub.clone(),
-            Arc::new(NoSettings),
-            Arc::new(oku_slides_mcp::NoDrafts),
-            Arc::new(oku_slides_session::agent::NoWorkspace),
-            Arc::new(oku_slides_mcp::NoTune),
-            Arc::new(oku_slides_session::agent::UnavailableApp),
+            oku_slides_mcp::HostPorts {
+                settings: Arc::new(NoSettings),
+                tabs: Arc::new(oku_slides_mcp::NoTabs),
+                workspace: Arc::new(oku_slides_session::agent::NoWorkspace),
+                app: Arc::new(oku_slides_session::agent::UnavailableApp),
+            },
             &platform,
             kind,
         );

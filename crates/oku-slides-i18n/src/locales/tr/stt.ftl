@@ -1,6 +1,8 @@
 stt-microphone-missing = Mikrofon bulunamadı
 stt-microphone-unusable = Mikrofon kullanılamıyor
 stt-microphone-silent = Mikrofon yanıt vermiyor
+stt-duplex-echo = Bu mikrofon için yankı engelleme açılamıyor
+stt-duplex-start = Yankı engellemeli ses motoru başlamıyor
 stt-audio-format = Desteklenmeyen ses biçimi: { $format }
 stt-audio-file = Ses dosyası okunamıyor
 stt-model = Dikte modeli okunamıyor
@@ -22,6 +24,7 @@ stt-voice-no-voice = Bu dili konuşan bir sistem sesi yok
 stt-voice-daemon = Konuşma hizmeti (Speech Dispatcher) yanıt vermiyor
 stt-voice-failed = Sistem sesi metni okuyamadı
 stt-voice-rate = Okuma hızı normal hızın 0,5 ile 2 katı arasında olmalıdır
+speech-barge-in-unavailable-os = Oku konuşurken araya girmek yankı engelleme gerektirir; yalnızca macOS'ta kullanılabilir.
 
 stt-model-turbo = Large v3 Turbo (çok dilli, 818 MB)
 stt-model-large = Large v3 (çok dilli, 3,1 GB)

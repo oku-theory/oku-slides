@@ -396,16 +396,16 @@ impl TabAgent {
         }
     }
 
-    /// The tab's working folder (the session's `cwd`) and tool server.
+    /// The conversation's working folder (the session's `cwd`) and tool server.
     ///
-    /// The folder is the tab's own, empty at first (`Session::agent_work_dir`), never the
+    /// The folder is the conversation's own, empty at first (`Session::agent_work_dir`), never the
     /// deck's folder nor the data folder: what sits next to a deck never configures the agent.
     /// Before each new, resumed or loaded session, the config names an earlier turn may have
     /// written there are removed (`AgentWorkDir::prepare`), once the session lock is released.
     async fn setup(&self) -> Result<Setup, AgentError> {
         let tab = self.ctx.tab.clone();
         let prepared = tokio::task::spawn_blocking(move || {
-            tab.with(|s| s.agent_work_dir()).and_then(|work| work).and_then(|work| work.prepare())
+            tab.with(Session::agent_work_dir).and_then(|work| work).and_then(|work| work.prepare())
         });
         let cwd = match prepared.await {
             Ok(Ok(dir)) => dir,

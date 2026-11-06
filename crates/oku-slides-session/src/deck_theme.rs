@@ -30,6 +30,7 @@ use crate::error::{
     RenderSnafu, SourcesSnafu, ThemeClosureSnafu, ThemeIdMismatchSnafu, ThemeJsonSnafu, ThemeVersionMissingSnafu,
     theme_chain_error,
 };
+use crate::sources_budget::new_files_bytes;
 use crate::theme::{ThemeLibrary, ThemeManifest, default_namespace};
 use crate::theme_closure::{Closure, repaired_closure, theme_closure};
 use crate::{Mode, Result, Session, new_renderer};
@@ -159,7 +160,7 @@ pub(crate) fn fill_op_closures(
 
 /// Résout les `SetTheme` de `ops` ([`fill_op_closures`]) et embarque dans `sources` chaque version épinglée.
 ///
-/// La session et l'import (le plan hi-fi pose Neutre sans épinglages) passent par ici.
+/// The import goes through here (the hi-fi plan sets Neutre without pins); it checks the sources budget afterwards.
 pub(crate) fn embed_op_closures(themes: &ThemeLibrary, sources: &mut SourceBundle, ops: &mut [Op]) -> Result<()> {
     for f in fill_op_closures(themes, &sources.themes, ops)? {
         sources.add_theme(f);
@@ -355,9 +356,16 @@ impl Session {
         self.apply(&label, vec![Op::SetTheme { theme: Some(ns.clone()), themes: BTreeMap::new() }], None)
     }
 
-    /// Résout les `SetTheme` de `ops` avant leur application (voir [`embed_op_closures`]).
+    /// Resolves the `SetTheme` of `ops` and embeds their versions (see [`fill_op_closures`]).
+    ///
+    /// Versions past the sources budget are refused (`SourcesOverBudget`), none embedded.
     pub(crate) fn embed_op_themes(&mut self, ops: &mut [Op]) -> Result<()> {
-        embed_op_closures(&self.themes, &mut self.doc.sources, ops)
+        let files = fill_op_closures(&self.themes, &self.doc.sources.themes, ops)?;
+        self.ensure_sources_room(new_files_bytes(&self.doc.sources.themes, &files))?;
+        for f in files {
+            self.doc.sources.add_theme(f);
+        }
+        Ok(())
     }
 
     /// Le manifeste de la version `pin`, embarquée dans le document montré ou

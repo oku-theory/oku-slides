@@ -153,7 +153,7 @@ describe("AgentWindow", () => {
     spyOn(stt, "status").mockImplementation(() =>
       Promise.resolve({
         state: "idle",
-        config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false } },
+        config: { model: "turbo", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false, barge_in: true } },
         models: [{ id: "turbo", label: "Turbo", size: 1, installed: true, available: true }],
         download: null, level: 0, speaking: false, committed: "", partial: "", detected: null,
         stop_in: null, text: null, seq: 0, seconds: 0, error: null, api_missing: null, suspended: false,

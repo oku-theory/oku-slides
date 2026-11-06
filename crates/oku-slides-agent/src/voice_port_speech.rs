@@ -58,6 +58,10 @@ pub(super) fn check_speech(
     if let Some(on) = patch.in_presentation {
         new.in_presentation = on;
     }
+    if let Some(on) = patch.barge_in {
+        // A preference, kept where barge-in is unavailable: the speaker then mutes as before.
+        new.barge_in = on;
+    }
     let read_aloud = match patch.read_aloud {
         Some(true) if voices.is_none() => return Err(refused(VoiceErrorKind::SpeechUnavailable)),
         Some(on) => Some(on),
@@ -78,6 +82,8 @@ impl AppVoice {
             voice: config.voice,
             rate: config.rate,
             in_presentation: config.in_presentation,
+            barge_in: config.barge_in,
+            barge_in_unavailable: stt.barge_in_unavailable(&l),
             status,
         })
     }

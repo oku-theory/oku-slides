@@ -428,3 +428,51 @@ fn tokens_long_unspaced_utterance_segments_in_bounded_time() {
     // Quadratic segmentation takes many seconds here; bounded by the longest piece, milliseconds.
     assert_that!((pieces, began.elapsed() < std::time::Duration::from_secs(2))).is_equal_to((20_000, true));
 }
+
+#[rstest]
+#[case::en_um("en", "um, themes")]
+#[case::en_please("en", "Theme, please.")]
+fn theme_shortcut_with_filler_matches(#[case] locale: &str, #[case] said: &str) {
+    assert_that!(Lexicon::for_locales(locale, None).theme_shortcut(said)).is_true();
+}
+
+#[rstest]
+#[case::bare("Thème.")]
+#[case::filler("euh, thèmes")]
+fn theme_shortcut_fr_matches(#[case] said: &str) {
+    assert_that!(Lexicon::for_locales("fr", None).theme_shortcut(said)).is_true();
+}
+
+#[rstest]
+#[case::bare("テーマ")]
+#[case::polite_unspaced("テーマお願いします")]
+fn theme_shortcut_ja_unspaced_matches(#[case] said: &str) {
+    assert_that!(Lexicon::for_locales("ja", None).theme_shortcut(said)).is_true();
+}
+
+#[test]
+fn theme_shortcut_missing_locale_does_not_fall_back_to_english() {
+    assert_that!(Lexicon::from_locales(&["xx"]).theme_shortcut("themes")).is_false();
+}
+
+#[rstest]
+#[case::sentence("en", "change the theme to dark")]
+#[case::other_word("en", "slides")]
+#[case::filler_only("en", "um")]
+#[case::ja_in_en("en", "テーマ")]
+fn theme_shortcut_otherwise_is_false(#[case] locale: &str, #[case] said: &str) {
+    assert_that!(Lexicon::for_locales(locale, None).theme_shortcut(said)).is_false();
+}
+
+#[test]
+fn every_confirm_action_has_a_key_in_every_locale() {
+    for locale in available() {
+        let own = oku_slides_i18n::Localizer::new(Some(locale));
+        asserting(&format!("{locale}: voice-say-confirm-action missing"))
+            .that(&own.has("voice-say-confirm-action"))
+            .is_true();
+        for action in ConfirmAction::ALL {
+            asserting(&format!("{locale}: {} missing", action.key())).that(&own.has(action.key())).is_true();
+        }
+    }
+}

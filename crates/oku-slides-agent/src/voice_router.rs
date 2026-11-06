@@ -20,7 +20,7 @@ use oku_slides_session::agent::{FocusSource, TurnOrigin};
 use oku_slides_stt::Utterance;
 
 use crate::Stack;
-use crate::shortcut::is_spoken_theme_shortcut;
+use crate::stack::show_theme_shortcut;
 use crate::tab_agent::{Command, Instruction};
 
 /// How long the router waits for an utterance before checking the stack is still there.
@@ -35,7 +35,7 @@ pub(crate) enum VoiceRoute {
     Answer { tab: String, heard: HeardUtterance },
     /// A presentation command.
     Nav { tab: String, nav: Nav },
-    /// A theme shortcut word: the host's picker, no turn.
+    /// A theme shortcut word: the host's picker, no turn; `text` goes to the agent out of deck mode.
     Shortcut { tab: String, text: String },
     /// A prompt for the tab's agent; `origin` says whether the wake phrase began it.
     Prompt { tab: String, text: String, origin: TurnOrigin },
@@ -71,16 +71,11 @@ pub(crate) struct VoiceTarget {
     pub drawer: bool,
 }
 
-/// Routes `u` to `target`; `is_shortcut` tells a theme shortcut word.
+/// Routes `u` to `target`; the lexicon tells its command words, the theme shortcut included.
 ///
 /// Order: stop, wake phrase, focus gating, shortcut (not while presenting), open question or
 /// drawer, filler-only noise, presentation (nav, else dropped), prompt.
-pub(crate) fn route_voice(
-    u: &Utterance,
-    target: Option<&VoiceTarget>,
-    lexicon: &Lexicon,
-    is_shortcut: &dyn Fn(&str) -> bool,
-) -> VoiceRoute {
+pub(crate) fn route_voice(u: &Utterance, target: Option<&VoiceTarget>, lexicon: &Lexicon) -> VoiceRoute {
     let Some(t) = target else { return VoiceRoute::Drop(DropReason::NoTarget) };
     let text = u.text.trim();
     let tab = t.tab.clone();
@@ -101,7 +96,7 @@ pub(crate) fn route_voice(
     if t.focus.is_none() {
         return VoiceRoute::Drop(DropReason::Background);
     }
-    if !t.presenting && is_shortcut(text) {
+    if !t.presenting && lexicon.theme_shortcut(text) {
         return VoiceRoute::Shortcut { tab, text: text.to_owned() };
     }
     if t.open_question || t.drawer {
@@ -188,12 +183,16 @@ impl Stack {
             tracing::debug!(seq, "voice: dropped, heard during the read-aloud");
             return;
         }
+        // Begun just after, but repeating words of a recent speech: its echo, not the user.
+        if self.speaker.as_ref().is_some_and(|s| s.echoes(&u.text, u.started)) {
+            tracing::debug!(seq, "voice: dropped, an echo of the read-aloud");
+            return;
+        }
         let target = self.voice_target();
         let ui = self.platform.live_localizer.current();
         let dictation = self.voice.dictation_locale();
         let lexicon = Lexicon::for_locales(ui.locale(), dictation);
-        let is_shortcut = |text: &str| is_spoken_theme_shortcut(text, &ui, || dictation);
-        match route_voice(u, target.as_ref(), &lexicon, &is_shortcut) {
+        match route_voice(u, target.as_ref(), &lexicon) {
             VoiceRoute::Stop { tab } => {
                 tracing::debug!(seq, "voice: stop");
                 self.cancel(&tab);
@@ -203,7 +202,7 @@ impl Stack {
                 self.voice_answer(&tab, heard, &lexicon, focus, presenting);
             }
             VoiceRoute::Nav { tab, nav } => self.voice_nav(seq, &tab, nav),
-            VoiceRoute::Shortcut { tab, text } => self.voice_prompt(seq, &tab, text, TurnOrigin::Voice),
+            VoiceRoute::Shortcut { tab, text } => self.voice_shortcut(seq, &tab, text),
             VoiceRoute::Prompt { tab, text, origin } => self.voice_prompt(seq, &tab, text, origin),
             VoiceRoute::Drop(reason) => tracing::debug!(seq, ?reason, "voice: dropped"),
         }
@@ -265,7 +264,20 @@ impl Stack {
         t.hub.emit(McpEvent::Present { command: PresentCommand::from(nav) });
     }
 
-    /// A voice prompt to `tab`, with its page's last context; a shortcut word shows the picker.
+    /// The theme picker in `tab`, at once: the lexicon matched, so the raw text is not matched again.
+    ///
+    /// Out of deck mode, or if it fails (logged), the text goes to the agent as a prompt.
+    fn voice_shortcut(&self, seq: u64, tab: &str, text: String) {
+        let Some(t) = self.open(tab) else { return };
+        let slide = self.reports.last_context(tab).and_then(|c| c.ui.slide);
+        if show_theme_shortcut(&t, tab, slide.as_deref()) {
+            tracing::debug!(seq, "voice: theme shortcut");
+        } else {
+            self.voice_prompt(seq, tab, text, TurnOrigin::Voice);
+        }
+    }
+
+    /// A voice prompt to `tab`, with its page's last context; a typed-rule shortcut word shows the picker.
     fn voice_prompt(&self, seq: u64, tab: &str, text: String, origin: TurnOrigin) {
         let ui = self.reports.last_context(tab).map(|c| c.ui).unwrap_or_default();
         match self.route_prompt(tab, None, &text, ui.slide.as_deref(), &[]) {

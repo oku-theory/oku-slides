@@ -26,6 +26,7 @@ use crate::error::{
 use crate::library::builtin_versions;
 use crate::library_packs::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
+use crate::sources_budget::files_bytes;
 use crate::{Result, Session};
 
 /// A deck with no pack at all pins `base` and `essentiel`, and their requirements.
@@ -141,7 +142,8 @@ impl Session {
     ///
     /// Déjà embarquée, elle est seulement vérifiée ; sinon elle vient de la
     /// bibliothèque (absente : `PackVersionMissing`). Une version qui ne
-    /// correspond pas à l'épinglage est refusée, sans rien embarquer.
+    /// correspond pas à l'épinglage est refusée, sans rien embarquer ; one past
+    /// the sources budget too (`SourcesOverBudget`).
     pub(crate) fn embed_from_library(&mut self, ns: &Namespace, pin: &PackPin) -> Result<()> {
         if let Some(files) = self.doc.sources.packs.get(&pin.version) {
             return check_pack_id(ns, pin, files);
@@ -151,6 +153,7 @@ impl Session {
             .version(pin.id, &pin.version)
             .context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
         check_pack_id(ns, pin, &files)?;
+        self.ensure_sources_room(files_bytes(&files))?;
         self.doc.sources.add_pack(files);
         Ok(())
     }

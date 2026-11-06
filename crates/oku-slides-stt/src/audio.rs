@@ -1,5 +1,6 @@
-//! Capture du micro (cpal) dans un fil dédié : le flux audio reste sur ce
-//! fil (il n'est pas `Send` partout), les échantillons sont partagés.
+//! Microphone capture: cpal on its own thread (the stream is not `Send` everywhere), a WAV
+//! replayed in its place, or frames pushed by another source (the macOS duplex, `duplex.rs`);
+//! the samples are shared.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -37,6 +38,8 @@ pub struct Recorder {
     pub captured: Arc<Mutex<Captured>>,
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
+    /// What pushes frames into `captured` from outside (the duplex), kept until `finish`.
+    feeder: Option<Box<dyn std::fmt::Debug + Send>>,
 }
 
 /// Les échantillons partagés, même si un fil a paniqué en les tenant : ce
@@ -100,10 +103,18 @@ impl Recorder {
             drop(stream);
         });
         match ready_rx.recv_timeout(Duration::from_secs(5)) {
-            Ok(Ok(())) => Ok(Self { captured, stop, thread: Some(thread) }),
+            Ok(Ok(())) => Ok(Self { captured, stop, thread: Some(thread), feeder: None }),
             Ok(Err(e)) => Err(e),
             Err(_) => MicrophoneTimeoutSnafu.fail()?,
         }
+    }
+
+    /// A recorder whose frames `feeder` pushes into `captured`, until [`Recorder::finish`].
+    ///
+    /// No thread: dropping `feeder` must stop the frames.
+    #[cfg(any(test, target_os = "macos"))]
+    pub(crate) fn fed(captured: Arc<Mutex<Captured>>, feeder: impl std::fmt::Debug + Send + 'static) -> Self {
+        Self { captured, stop: Arc::new(AtomicBool::new(false)), thread: None, feeder: Some(Box::new(feeder)) }
     }
 
     /// Arrête la capture (les derniers échantillons restent à prendre).
@@ -112,6 +123,7 @@ impl Recorder {
         if let Some(t) = self.thread.take() {
             t.join().ok();
         }
+        drop(self.feeder.take());
     }
 
     /// Échantillons arrivés depuis le dernier appel, et leur débit.
@@ -208,6 +220,19 @@ fn open_stream(captured: Arc<Mutex<Captured>>) -> Result<cpal::Stream, SttError>
     Ok(stream.context(MicrophoneStreamSnafu)?)
 }
 
+/// The level shown for `chunk`, not empty: its RMS times 4, at most 1.
+pub(crate) fn level_of(chunk: &[f32]) -> f32 {
+    let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / count_f32(chunk.len())).sqrt();
+    (rms * 4.0).min(1.0)
+}
+
+/// Pushes `frames`, mono at `rate` hertz, as a microphone callback would.
+#[cfg(any(test, target_os = "macos"))]
+pub(crate) fn push_frames(captured: &Arc<Mutex<Captured>>, frames: &[f32], rate: u32) {
+    lock(captured).rate = rate;
+    push_samples(captured, &mut frames.iter().copied());
+}
+
 fn push_samples(captured: &Arc<Mutex<Captured>>, mono: &mut dyn Iterator<Item = f32>) {
     {
         let mut c = lock(captured);
@@ -215,8 +240,7 @@ fn push_samples(captured: &Arc<Mutex<Captured>>, mono: &mut dyn Iterator<Item = 
         c.samples.extend(mono);
         let chunk = &c.samples[start..];
         if !chunk.is_empty() {
-            let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / count_f32(chunk.len())).sqrt();
-            c.level = (rms * 4.0).min(1.0);
+            c.level = level_of(chunk);
         }
     }
 }

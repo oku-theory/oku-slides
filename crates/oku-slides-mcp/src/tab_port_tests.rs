@@ -2,7 +2,7 @@ use oku_slides_i18n::{Localize, Localizer};
 use rstest::rstest;
 use speculoos::prelude::*;
 
-use super::{NoTune, TunePort, TuneRefusal};
+use super::{NoTabs, Prefill, TabPort, TuneRefusal};
 
 #[rstest]
 #[case::unavailable(TuneRefusal::unavailable(), "agent-error-tune-unavailable")]
@@ -15,6 +15,16 @@ fn tune_refusal_key_is_translated_in_french(#[case] refusal: TuneRefusal, #[case
 }
 
 #[test]
-fn no_tune_refuses_unavailable() {
-    assert_that!(NoTune.tune("t-2").err().map(|e| e.key())).is_equal_to(Some("agent-error-tune-unavailable"));
+fn no_tabs_tune_refuses_unavailable() {
+    assert_that!(NoTabs.tune("t-2").err().map(|e| e.key())).is_equal_to(Some("agent-error-tune-unavailable"));
+}
+
+#[test]
+fn no_tabs_prefill_returns_unavailable() {
+    assert_that!(NoTabs.prefill("t-2", "x".to_owned())).is_equal_to(Prefill::Unavailable);
+}
+
+#[test]
+fn no_tabs_page_returns_false() {
+    assert_that!(NoTabs.page("t-2", "s-1".to_owned())).is_false();
 }

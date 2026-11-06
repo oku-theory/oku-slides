@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { memoryTransport } from "../test/link";
 import { manualTimers } from "../test/timers";
-import { MAX_LINK_TEXT, channelTransport, insertWithAck, onlyFor, parseLink, type LinkMessage } from "./link";
+import { MAX_LINK_TEXT, channelTransport, insertWithAck, onlyFor, parseLink, relayLink, type LinkMessage } from "./link";
 
 /** Une fenêtre principale qui accuse chaque `insert` de `tab` avec `ok`. */
 function answering(t: ReturnType<typeof memoryTransport>, tab: string, ok: boolean) {
@@ -165,5 +165,12 @@ describe("agent-link", () => {
 
   test("parseLink contexte à l'empreinte trop longue : écarté", () => {
     expect(parseLink(context("x".repeat(65)))).toBeNull();
+  });
+
+  test("relayLink: the Tauri transport sends through the host's agent_link command", async () => {
+    const calls: [string, unknown][] = [];
+    const m: LinkMessage = { to: "main", kind: "hello", tab: "t-1" };
+    await relayLink(m, async (command, args) => void calls.push([command, args]));
+    expect(calls).toEqual([["agent_link", { msg: m }]]);
   });
 });

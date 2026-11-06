@@ -14,6 +14,8 @@ accelerate = ["ct2rs/accelerate"]
 # e2e only (`fake_source.rs`): listening hears lines appended to `stt.fake_utterances`. Turned on
 # by `just e2e` alone, through oku-slides-cli/e2e-fakes; a release build refuses to compile it.
 e2e-fakes = ["oku-slides-platform/e2e-fakes"]
+# Test helpers shared with other crates' tests (`hand_voice`): a hand-driven voice and clock.
+test-support = []
 
 [dependencies]
 sys-locale.workspace = true
@@ -53,6 +55,15 @@ speculoos.workspace = true
 rstest.workspace = true
 hound.workspace = true
 tempfile.workspace = true
+
+# macOS only: the duplex hardware test runs the main run loop (AVFoundation's callbacks need it).
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2-core-foundation.workspace = true
+
+# Its own `main`: the main thread runs the run loop, which libtest keeps for itself.
+[[test]]
+name = "duplex"
+harness = false
 
 [lints]
 workspace = true

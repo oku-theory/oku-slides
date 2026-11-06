@@ -142,3 +142,29 @@ fn classify_pack_requests(#[case] v: serde_json::Value, #[case] expected: (bool,
     let r = req(v);
     assert_that!((classify(&r), broadcast(&r))).is_equal_to((expected, None));
 }
+
+#[test]
+fn validate_link_object_accepts() {
+    let hello = serde_json::json!({"to": "main", "kind": "hello", "tab": "t-1"});
+    assert_that!(validate_link(&hello)).is_ok();
+}
+
+#[test]
+fn validate_link_array_refuses() {
+    assert_that!(validate_link(&serde_json::json!([{"to": "main", "kind": "hello", "tab": "t-1"}]))).is_err();
+}
+
+#[test]
+fn validate_link_oversized_refuses() {
+    let text = "a".repeat(MAX_LINK_BYTES);
+    let insert = serde_json::json!({"to": "main", "kind": "insert", "tab": "t-1", "id": "i-1", "text": text});
+    assert_that!(validate_link(&insert)).is_err();
+}
+
+/// The longest draft, every byte escaped to six in JSON, still goes through: inserting it must work.
+#[test]
+fn validate_link_largest_insert_accepts() {
+    let text = "\u{1}".repeat(oku_slides_agent::MAX_DRAFT_BYTES);
+    let insert = serde_json::json!({"to": "main", "kind": "insert", "tab": "t-1", "id": "i-1", "text": text});
+    assert_that!(validate_link(&insert)).is_ok();
+}

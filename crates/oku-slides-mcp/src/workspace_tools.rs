@@ -29,7 +29,7 @@ use crate::tool_error::{
     TabUnusedSnafu, TaskSnafu, ToolError, WorkspaceSnafu,
 };
 use crate::tools::Tools;
-use crate::{AfterTurn, CloseDecision, CloseTarget, ConfirmVerb, McpEvent};
+use crate::{AfterTurn, CloseDecision, CloseTarget, ConfirmAsk, ConfirmVerb, McpEvent};
 
 /// `tab`: what to do with one tab of this tab's window.
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -179,7 +179,7 @@ impl Tools {
             ("agent-confirm-close-tab", ConfirmVerb::Close)
         };
         let message = self.localizer.current().tr_with(key, &[("tab", label(&tab.title).into())]);
-        if !self.hub.confirm(message, Some(verb)).await {
+        if !self.hub.confirm(message, ConfirmAsk::Danger(verb)).await {
             return self.denied();
         }
         let target = CloseTarget::Tab { tab: target };
@@ -224,7 +224,7 @@ impl Tools {
         } else {
             (l.tr_with("agent-confirm-discard-window", &[("tabs", dirty.join(", ").into())]), ConfirmVerb::Discard)
         };
-        if !self.hub.confirm(message, Some(verb)).await {
+        if !self.hub.confirm(message, ConfirmAsk::Danger(verb)).await {
             return self.denied();
         }
         let target = CloseTarget::Window { window: covered.window.clone() };
@@ -291,8 +291,8 @@ impl Tools {
                 let Some(slide) = first else {
                     return self.json_result(&json!({ "ok": true, "tab": tab, "shown": shown, "hits": hits }));
                 };
-                let (drafts, target) = (self.drafts.clone(), tab.clone());
-                let paged = tokio::task::spawn_blocking(move || drafts.page(&target, slide)).await;
+                let (tabs, target) = (self.tabs.clone(), tab.clone());
+                let paged = tokio::task::spawn_blocking(move || tabs.page(&target, slide)).await;
                 let paged = paged.unwrap_or_else(|e| {
                     tracing::warn!(error = %e, "help: paging the help tab failed");
                     false
@@ -341,7 +341,7 @@ impl Tools {
             return self.fail_with(&QuitUnsavedSnafu { count: unsaved }.build());
         }
         let message = self.localizer.current().tr("agent-confirm-quit");
-        if !self.hub.confirm(message, Some(ConfirmVerb::Quit)).await {
+        if !self.hub.confirm(message, ConfirmAsk::Danger(ConfirmVerb::Quit)).await {
             return self.denied();
         }
         match self.record_after_turn(turn, AfterTurn::Quit) {

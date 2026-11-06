@@ -6351,6 +6351,7 @@ dependencies = [
  "http",
  "mel_spec",
  "ndarray",
+ "objc2-core-foundation",
  "oku-slides-i18n",
  "oku-slides-platform",
  "reqwest 0.13.5",

@@ -3,6 +3,7 @@
 use speculoos::prelude::*;
 
 use super::*;
+use crate::speak::{SpeechEngine, SpeechRate, SpeechStatus, UnavailableReason};
 
 #[test]
 fn apple_lists_at_least_one_voice() {

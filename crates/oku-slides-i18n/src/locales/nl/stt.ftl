@@ -1,6 +1,8 @@
 stt-microphone-missing = Geen microfoon gevonden
 stt-microphone-unusable = De microfoon kan niet worden gebruikt
 stt-microphone-silent = De microfoon reageert niet
+stt-duplex-echo = Echo-onderdrukking kan voor deze microfoon niet worden ingeschakeld
+stt-duplex-start = De audio-engine met echo-onderdrukking start niet
 stt-audio-format = Niet-ondersteunde audio-indeling: { $format }
 stt-audio-file = Onleesbaar audiobestand
 stt-model = Het dicteermodel kan niet worden gelezen
@@ -22,6 +24,7 @@ stt-voice-no-voice = Geen enkele systeemstem spreekt deze taal
 stt-voice-daemon = De spraakdienst (Speech Dispatcher) antwoordt niet
 stt-voice-failed = De systeemstem kon de tekst niet voorlezen
 stt-voice-rate = De spreeksnelheid moet tussen 0,5 en 2 keer de normale snelheid liggen
+speech-barge-in-unavailable-os = Door Oku heen praten vereist echo-onderdrukking, alleen beschikbaar op macOS.
 
 stt-model-turbo = Large v3 Turbo (meertalig, 818 MB)
 stt-model-large = Large v3 (meertalig, 3,1 GB)

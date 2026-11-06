@@ -97,11 +97,48 @@ async fn utterance_begun_while_read_aloud_speaks_is_dropped() {
         voice: None,
         rate: oku_slides_stt::SpeechRate::default(),
         ended: None,
+        asks: false,
     });
     assert_that!(speaker.settle(std::time::Duration::from_secs(10))).is_true();
     voice.send(utterance(2, "diapositive ajoutée")).unwrap();
     // Sentinel: begun before the speech, so heard; the echo before it never prompts.
     voice.send(before).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let sent = prompts(&log);
+    assert_that!((sent.len(), sent[0].contains("ajoute une diapo"))).is_equal_to((1, true));
+}
+
+/// Words of the read-aloud heard once listening resumed never reach the agent (`Speaker::echoes`).
+#[tokio::test(flavor = "multi_thread")]
+async fn on_utterance_echo_of_speech_is_dropped() {
+    use oku_slides_stt::hand_voice::{HandClock, HandEngine};
+    use oku_slides_stt::{SPEECH_GUARD, SpeakerClock};
+
+    let (engine, clock) = (std::sync::Arc::new(HandEngine::default()), HandClock::new());
+    let speaker = oku_slides_stt::Speaker::with_clock(engine.clone(), None, clock.clone());
+    let (stack, rx, log) = common::stack_with_speaker(json!({ "turns": [{}, {}] }), &["t-1"], speaker.clone()).await;
+    stack.workspace.focus_tab("t-1");
+    let voice = stack.voice();
+    speaker.say(oku_slides_stt::Speech {
+        text: "Diapositive ajoutée sur le thème bleu".into(),
+        lang: "fr".into(),
+        voice: None,
+        rate: oku_slides_stt::SpeechRate::default(),
+        ended: None,
+        asks: false,
+    });
+    assert_that!(speaker.settle(std::time::Duration::from_secs(10))).is_true();
+    engine.done(1);
+    assert_that!(speaker.settle(std::time::Duration::from_secs(10))).is_true();
+    clock.advance(SPEECH_GUARD);
+    speaker.tick();
+    assert_that!(speaker.settle(std::time::Duration::from_secs(10))).is_true();
+    let at = |seq: u64, text: &str| oku_slides_stt::Utterance { started: clock.now(), ..utterance(seq, text) };
+    // Begun after the guard, so heard; but it repeats the speech: an echo.
+    assert_that!(speaker.hears(clock.now())).is_true();
+    voice.send(at(1, "diapositive ajoutée sur le thème")).unwrap();
+    // Sentinel: the user's own words, routed after the echo.
+    voice.send(at(2, "ajoute une diapo")).unwrap();
     wait_turn_done(&rx, "t-1", 1).await;
     let sent = prompts(&log);
     assert_that!((sent.len(), sent[0].contains("ajoute une diapo"))).is_equal_to((1, true));
@@ -401,4 +438,23 @@ async fn presenting_cleared_nav_word_is_a_prompt(#[case] destroyed: bool) {
     wait_turn_done(&rx, "t-1", 1).await;
     assert_that!(present_commands(&rx)).is_empty();
     assert_that!(prompts(&log)[0].contains("suivant")).is_true();
+}
+
+/// A spoken theme shortcut behind a filler word ("euh, thème") shows the picker, with no turn.
+#[tokio::test(flavor = "multi_thread")]
+async fn voice_filler_theme_shortcut_shows_the_picker_without_a_turn() {
+    let (stack, rx, log) = stack_with_sink_and_log(json!({ "turns": [{}] }), &["t-1"]).await;
+    stack.workspace.focus_tab("t-1");
+    let voice = stack.voice();
+    voice.send(utterance(1, "euh, thème")).unwrap();
+    let shown = wait_for(&rx, |(ch, v)| {
+        *ch == "mcp" && v["event"]["kind"] == "surface" && v["event"]["surface"]["id"] == "host-theme-picker"
+    })
+    .await;
+    // Sentinel: the first prompt the agent gets is the next utterance, routed after the shortcut.
+    voice.send(utterance(2, "mets le titre en rouge")).unwrap();
+    wait_turn_done(&rx, "t-1", 1).await;
+    let sent = prompts(&log);
+    assert_that!((shown.1["event"]["surface"].get("turn").is_none(), sent.len(), sent[0].contains("rouge")))
+        .is_equal_to((true, 1, true));
 }

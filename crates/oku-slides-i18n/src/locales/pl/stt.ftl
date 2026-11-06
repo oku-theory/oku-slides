@@ -1,6 +1,8 @@
 stt-microphone-missing = Nie znaleziono mikrofonu
 stt-microphone-unusable = Nie można użyć mikrofonu
 stt-microphone-silent = Mikrofon nie odpowiada
+stt-duplex-echo = Nie można włączyć tłumienia echa dla tego mikrofonu
+stt-duplex-start = Silnik audio z tłumieniem echa nie uruchamia się
 stt-audio-format = Nieobsługiwany format dźwięku: { $format }
 stt-audio-file = Nieczytelny plik dźwiękowy
 stt-model = Nie można odczytać modelu dyktowania
@@ -22,6 +24,7 @@ stt-voice-no-voice = Żaden głos systemowy nie mówi w tym języku
 stt-voice-daemon = Usługa mowy (Speech Dispatcher) nie odpowiada
 stt-voice-failed = Głos systemowy nie mógł odczytać tekstu
 stt-voice-rate = Tempo mowy musi wynosić od 0,5 do 2 razy normalnego tempa
+speech-barge-in-unavailable-os = Mówienie, gdy Oku mówi, wymaga tłumienia echa, dostępnego tylko w macOS.
 
 stt-model-turbo = Large v3 Turbo (wielojęzyczny, 818 MB)
 stt-model-large = Large v3 (wielojęzyczny, 3,1 GB)

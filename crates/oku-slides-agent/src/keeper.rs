@@ -182,16 +182,16 @@ fn apply(tab: &TabSession, hub: &SurfaceHub, aside: &mut Aside, k: Keep) {
         }
         Keep::Forget(reply) => {
             *aside = None;
-            let gone = tab.with(|s| (s.forget_conversation(), s.agent_work_dir()));
-            // Out of the session lock, before the reply: the next session starts in an empty folder.
-            match gone.as_ref().map(|(_, work)| work) {
-                Ok(Ok(work)) => {
-                    if let Err(e) = work.empty() {
-                        tracing::warn!(error = %e.one_line(), "agent working folder not emptied");
-                    }
-                }
-                Ok(Err(e)) => tracing::debug!(error = %e.one_line(), "no agent working folder to empty"),
-                Err(_) => {}
+            let gone = tab.with(|s| {
+                let work = s.conversation_work_dir();
+                (s.forget_conversation(), work)
+            });
+            // Out of the session lock, before the reply: the forgotten conversation's folder goes,
+            // the next one gets its own.
+            if let Ok((_, Some(work))) = gone.as_ref()
+                && let Err(e) = work.remove()
+            {
+                tracing::warn!(error = %e.one_line(), "agent working folder not removed");
             }
             let gone = gone.map(|(session, _)| session);
             // In queue order: a turn end arriving after the forget no longer finds its turn.

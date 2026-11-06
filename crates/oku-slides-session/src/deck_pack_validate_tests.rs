@@ -209,8 +209,8 @@ fn mismatched(owner: &mut Session, case: Mismatch) -> DeckPackSend {
             send
         }
         Mismatch::OverBudget => {
-            let total = source_bytes(&owner.doc.sources).unwrap();
-            owner.source_limits.total_bytes = total + 1;
+            let total = crate::sources_budget::source_bytes(&owner.doc.sources).unwrap();
+            owner.source_limits.total_bytes = usize::try_from(total).unwrap() + 1;
             send
         }
     }

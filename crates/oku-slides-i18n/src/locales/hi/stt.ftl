@@ -1,6 +1,8 @@
 stt-microphone-missing = कोई माइक्रोफ़ोन नहीं मिला
 stt-microphone-unusable = माइक्रोफ़ोन का उपयोग नहीं किया जा सकता
 stt-microphone-silent = माइक्रोफ़ोन प्रतिक्रिया नहीं दे रहा
+stt-duplex-echo = इस माइक्रोफ़ोन के लिए इको रद्दीकरण चालू नहीं किया जा सकता
+stt-duplex-start = इको रद्दीकरण वाला ऑडियो इंजन शुरू नहीं होता
 stt-audio-format = असमर्थित ऑडियो फ़ॉर्मैट: { $format }
 stt-audio-file = ऑडियो फ़ाइल पढ़ी नहीं जा सकती
 stt-model = डिक्टेशन मॉडल पढ़ा नहीं जा सकता
@@ -22,6 +24,7 @@ stt-voice-no-voice = कोई भी सिस्टम आवाज़ यह 
 stt-voice-daemon = वाक् सेवा (Speech Dispatcher) जवाब नहीं दे रही
 stt-voice-failed = सिस्टम आवाज़ पाठ नहीं पढ़ सकी
 stt-voice-rate = पढ़ने की गति सामान्य गति के 0.5 से 2 गुना के बीच होनी चाहिए
+speech-barge-in-unavailable-os = Oku के बोलते समय बीच में बोलने के लिए इको रद्दीकरण चाहिए, जो केवल macOS पर उपलब्ध है।
 
 stt-model-turbo = Large v3 Turbo (बहुभाषी, 818 MB)
 stt-model-large = Large v3 (बहुभाषी, 3.1 GB)

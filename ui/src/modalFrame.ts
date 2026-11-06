@@ -1,7 +1,7 @@
 // Le cadre commun des fenêtres modales : focus pris et rendu, Tab qui tourne à l'intérieur,
 // Échap, et la garde des premières 500 ms (le clic ou la frappe qui a ouvert la fenêtre).
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent, RefObject } from "react";
 import { presenting } from "./present";
 
@@ -99,10 +99,28 @@ export function useModalFrame(ref: RefObject<HTMLElement | null>, { active = tru
     };
   }, [active]);
 
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Restart the guard: also when the window comes back, as the click that focuses it must not validate.
+  const rearm = useCallback(() => {
+    openedAt.current = Date.now();
+    setArmed(false);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setArmed(true), ARMING_MS);
+  }, []);
+
   useEffect(() => {
     if (!active) return;
-    const timer = setTimeout(() => setArmed(true), ARMING_MS);
-    return () => clearTimeout(timer);
+    rearm();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") rearm();
+    };
+    window.addEventListener("focus", rearm);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(timer.current);
+      window.removeEventListener("focus", rearm);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [active]);
 
   useEffect(() => {

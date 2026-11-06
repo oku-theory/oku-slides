@@ -33,7 +33,7 @@ use crate::tool_error::{
     ImportExtensionSnafu, ImportHifiTargetSnafu, ResponseSnafu, SessionSnafu, TaskSnafu, ToolError, WorkspaceSnafu,
 };
 use crate::tools::{Tools, png};
-use crate::{ConfirmVerb, McpEvent};
+use crate::{ConfirmAsk, ConfirmVerb, McpEvent};
 
 /// `import`: the presentation to import and how.
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -152,7 +152,7 @@ impl Tools {
         }
         let shown_path = path.display().to_string();
         let message = self.localizer.current().tr_with("agent-confirm-import", &[("path", shown_path.into())]);
-        if !self.hub.confirm(message, Some(ConfirmVerb::Import)).await {
+        if !self.hub.confirm(message, ConfirmAsk::Danger(ConfirmVerb::Import)).await {
             verdict.settle_moved(&self.hub, turn, claim, false);
             return self.denied();
         }
@@ -224,10 +224,10 @@ impl Tools {
             .context(WorkspaceSnafu)
     }
 
-    /// Starts tab `tab`'s fine-tuning turn through the [`crate::TunePort`]; `false` when refused.
+    /// Starts tab `tab`'s fine-tuning turn through the [`crate::TabPort`]; `false` when refused.
     async fn start_tune(&self, tab: &str) -> bool {
-        let (tune, target) = (Arc::clone(&self.tune), tab.to_owned());
-        match tokio::task::spawn_blocking(move || tune.tune(&target)).await {
+        let (tabs, target) = (Arc::clone(&self.tabs), tab.to_owned());
+        match tokio::task::spawn_blocking(move || tabs.tune(&target)).await {
             Ok(Ok(())) => true,
             Ok(Err(e)) => {
                 tracing::warn!(tab, error = %snafu::Report::from_error(&e), "import: no fine-tuning turn");

@@ -188,7 +188,7 @@ fn read_doc_without_deck_loro_returns_error() {
 }
 
 fn conv() -> SavedConversation {
-    SavedConversation { agent: None, session: Some("s".into()), thread: Vec::new() }
+    SavedConversation { agent: None, session: Some("s".into()), thread: Vec::new(), work: None }
 }
 
 fn written(job: Job) -> Option<SavedConversation> {

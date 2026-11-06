@@ -401,6 +401,7 @@ fn voice_panel_every_action_parses_back_into_an_event() {
         "speech_voice",
         "speech_rate",
         "speech_in_presentation",
+        "speech_barge_in",
     ]
     .into_iter()
     .map(String::from)
@@ -510,4 +511,22 @@ fn voice_panel_read_aloud_section_shows_the_settings() {
     assert_that!(option_ids(&component(&p, "s-voice"))).is_equal_to(vec![String::new(), "v-fr".to_owned()]);
     assert_that!(option_ids(&component(&p, "s-rate"))).contains("1.1".to_owned());
     assert_that!(component(&p, "s-read-aloud")["label"].clone()).is_equal_to(json!(fr().tr("voice-read-aloud")));
+}
+
+#[test]
+fn voice_panel_barge_in_switch_shows_the_setting() {
+    let p = VoicePanel::build(&speech(|s| s.barge_in = false), &fr());
+    assert_that!((component(&p, "s-barge-in")["label"].clone(), data(&p)["speech_barge_in"].clone()))
+        .is_equal_to((json!(fr().tr("voice-barge-in")), json!(false)));
+}
+
+#[rstest]
+#[case::en(en())]
+#[case::fr(fr())]
+fn voice_panel_barge_in_unavailable_shows_reason_without_switch(#[case] l: Localizer) {
+    let reason = l.tr("speech-barge-in-unavailable-os");
+    let p = VoicePanel::build(&speech(|s| s.barge_in_unavailable = Some(reason.clone())), &l);
+    let expected = l.tr_with("voice-barge-in-unavailable", &[("reason", reason.into())]);
+    assert_that!((ids(&p).contains(&"s-barge-in".to_owned()), component(&p, "s-barge-in-unavailable")["text"].clone()))
+        .is_equal_to((false, json!(expected)));
 }

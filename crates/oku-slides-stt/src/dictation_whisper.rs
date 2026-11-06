@@ -129,6 +129,8 @@ impl Stt {
                     g.error = Some(e.localize(&self.localizer));
                     g.state = State::Idle;
                     g.session += 1;
+                    // The duplex closes with the capture: its voice no longer reads Oku.
+                    g.barge = None;
                 }
                 return;
             }

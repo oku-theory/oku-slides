@@ -14,8 +14,8 @@ pub mod workspace_harness;
 use async_trait::async_trait;
 use oku_slides_core::Guides;
 use oku_slides_mcp::{
-    Applied, Checked, Diagnosis, DraftPort, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub,
-    ToolServer, Tools, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
+    Applied, Checked, Diagnosis, HostPorts, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub,
+    TabPort, ToolServer, Tools, TuneRefusal, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
 };
 use oku_slides_session::agent::{Sessions, Surface, TabGate, TabOpen, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
@@ -136,9 +136,9 @@ impl VoicePort for FakeVoice {
     }
 }
 
-/// Draft port of the tests: records each prefill and answers `answer` (`Set` by default).
+/// Tab port of the tests: records each prefill, page and tune.
 #[derive(Debug, Default)]
-pub struct RecordingDrafts {
+pub struct RecordingTabs {
     /// `(tab, text)` of each prefill, in order.
     pub calls: Mutex<Vec<(String, String)>>,
     /// The answer to the next prefills; `None`: `Set`.
@@ -147,9 +147,11 @@ pub struct RecordingDrafts {
     pub pages: Mutex<Vec<(String, String)>>,
     /// True: no page shows the tab, every page is refused.
     pub no_page: Mutex<bool>,
+    /// The tabs asked to fine-tune, in order.
+    pub tunes: Mutex<Vec<String>>,
 }
 
-impl RecordingDrafts {
+impl RecordingTabs {
     /// The prefills so far.
     pub fn calls(&self) -> Vec<(String, String)> {
         lock(&self.calls).clone()
@@ -158,9 +160,13 @@ impl RecordingDrafts {
     pub fn pages(&self) -> Vec<(String, String)> {
         lock(&self.pages).clone()
     }
+    /// The tabs asked to fine-tune so far.
+    pub fn tunes(&self) -> Vec<String> {
+        lock(&self.tunes).clone()
+    }
 }
 
-impl DraftPort for RecordingDrafts {
+impl TabPort for RecordingTabs {
     fn prefill(&self, tab: &str, text: String) -> Prefill {
         lock(&self.calls).push((tab.to_owned(), text));
         lock(&self.answer).unwrap_or(Prefill::Set)
@@ -170,25 +176,9 @@ impl DraftPort for RecordingDrafts {
         lock(&self.pages).push((tab.to_owned(), slide));
         !*lock(&self.no_page)
     }
-}
 
-/// A tune port that records each tab it is asked to fine-tune.
-#[derive(Debug, Default)]
-pub struct RecordingTune {
-    /// The tabs asked, in order.
-    pub calls: Mutex<Vec<String>>,
-}
-
-impl RecordingTune {
-    /// The tabs asked so far.
-    pub fn calls(&self) -> Vec<String> {
-        lock(&self.calls).clone()
-    }
-}
-
-impl oku_slides_mcp::TunePort for RecordingTune {
-    fn tune(&self, tab: &str) -> Result<(), oku_slides_mcp::TuneRefusal> {
-        lock(&self.calls).push(tab.to_owned());
+    fn tune(&self, tab: &str) -> Result<(), TuneRefusal> {
+        lock(&self.tunes).push(tab.to_owned());
         Ok(())
     }
 }
@@ -203,10 +193,8 @@ pub struct Harness {
     /// Le même onglet, tel que le voient les outils et le hub.
     pub tab: TabSession,
     pub settings: Arc<MemorySettings>,
-    /// The draft port `open_pack` and `open_theme` pass the request to.
-    pub drafts: Arc<RecordingDrafts>,
-    /// The port `import` starts the fine-tuning turn through.
-    pub tune: Arc<RecordingTune>,
+    /// The tab port `open_pack`, `open_theme`, `help` and `import` act on other tabs through.
+    pub tabs: Arc<RecordingTabs>,
     pub cancel: CancellationToken,
     /// The app port the tools ask for updates (unused when started on the dev server's).
     pub app: Arc<app::FakeApp>,
@@ -296,9 +284,8 @@ async fn start_on(
     let voice = Arc::new(FakeVoice::new());
     let hub = SurfaceHub::new(tab.clone(), live.clone(), voice.clone());
     let settings = Arc::new(MemorySettings::default());
-    let drafts = Arc::new(RecordingDrafts::default());
+    let tabs = Arc::new(RecordingTabs::default());
     let kind = kinds::kind_of(&tab, &session).await;
-    let tune = Arc::new(RecordingTune::default());
     let app = Arc::new(app::FakeApp::default());
     let port: Arc<dyn oku_slides_session::agent::AppPort> = match serve {
         Host::App => app.clone(),
@@ -307,17 +294,13 @@ async fn start_on(
     let tools = Tools::new(
         tab.clone(),
         hub.clone(),
-        settings.clone(),
-        drafts.clone(),
-        workspace,
-        tune.clone(),
-        port,
+        HostPorts { settings: settings.clone(), tabs: tabs.clone(), workspace, app: port },
         &platform,
         kind,
     );
     let cancel = CancellationToken::new();
     let server = ToolServer::start(tools, cancel.clone()).await.unwrap_or_else(|e| panic!("serveur de test : {e}"));
-    Harness { server, hub, voice, session, tab, settings, drafts, tune, cancel, app, localizer, live, data }
+    Harness { server, hub, voice, session, tab, settings, tabs, cancel, app, localizer, live, data }
 }
 
 /// Which host the tools run in: the app (a [`app::FakeApp`]) or the dev server.

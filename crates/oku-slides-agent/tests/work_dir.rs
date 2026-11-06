@@ -1,4 +1,4 @@
-//! Where the agent works: each ACP session in its tab's empty folder, the process in `agent-process`.
+//! Where the agent works: each ACP session in its conversation's folder, the process in `agent-process`.
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
@@ -134,14 +134,33 @@ async fn launch_with_stale_agent_process_dir_empties_it() {
     assert_that!(names(&h.process_dir())).is_empty();
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn new_conversation_empties_work_dir() {
-    let h = start(json!({ "turns": [{ "chunks": ["ok"] }] })).await;
-    prompt_once(&h).await;
-    std::fs::write(h.work_dir("t-1").join("scratch.md"), "stale").unwrap_or_else(|e| panic!("{e}"));
+/// Starts a new conversation on `t-1` and waits until it is done.
+async fn new_conversation(h: &Harness) {
     let t = h.tab("t-1");
     let mut rx = t.agent.subscribe();
     t.agent.new_conversation();
     until(&mut rx, |e| matches!(e, oku_slides_agent::AgentEvent::Conversation)).await;
-    assert_that!(names(&h.work_dir("t-1"))).is_empty();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn new_conversation_removes_old_work_dir() {
+    let h = start(json!({ "turns": [{ "chunks": ["ok"] }] })).await;
+    prompt_once(&h).await;
+    let old = h.work_dir("t-1");
+    std::fs::write(old.join("scratch.md"), "stale").unwrap_or_else(|e| panic!("{e}"));
+    new_conversation(&h).await;
+    assert_that!(old.exists()).is_false();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn new_conversation_then_prompt_cwd_is_new_work_dir() {
+    let h = start(json!({ "turns": [{ "chunks": ["ok"] }, { "chunks": ["encore"] }] })).await;
+    prompt_once(&h).await;
+    let old = h.work_dir("t-1");
+    new_conversation(&h).await;
+    prompt_once(&h).await;
+    let new = h.work_dir("t-1");
+    assert_that!(cwds(&h.log, "session/new")).is_equal_to(vec![old.clone(), new.clone()]);
+    assert_that!(new).is_not_equal_to(&old);
+    assert_that!(new.is_dir()).is_true();
 }

@@ -211,6 +211,29 @@ fn with_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<t
     }
 }
 
+/// Registers the app commands, exactly those of `build.rs`'s `COMMANDS`.
+fn with_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    builder.invoke_handler(tauri::generate_handler![
+        commands::request,
+        commands::workspace,
+        tab_drag::drag_tab_over,
+        tab_drag::drag_tab_leave,
+        tab_drag::drop_tab,
+        commands::quit,
+        quit::quit_ready,
+        commands::stt,
+        commands::agent,
+        commands::agent_link,
+        commands::take_close_decision,
+        updates::update_status,
+        updates::check_update,
+        updates::install_update,
+        updates::open_release_page,
+        updates::later_update,
+        updates::take_update_notice
+    ])
+}
+
 fn main() -> color_eyre::Result<()> {
     // Relancé en processus de rendu (`--render-worker`) : sert le tube, puis termine.
     oku_slides_render_worker::exit_if_worker();
@@ -232,7 +255,7 @@ fn main() -> color_eyre::Result<()> {
         let localizer = platform.localizer.clone();
         builder.menu(move |app| menu::build(app, &localizer))
     };
-    let app = builder
+    let app = with_commands(builder)
         .setup(move |app| {
             let fonts = app_fonts(&platform.storage, &font_dirs(app.handle(), &platform));
             let workspace = Workspace::resume(fonts, &platform, &platform.settings.paths.data().join("resume"))?;
@@ -300,24 +323,6 @@ fn main() -> color_eyre::Result<()> {
             commands::open_files(app.handle(), files);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::request,
-            commands::workspace,
-            tab_drag::drag_tab_over,
-            tab_drag::drag_tab_leave,
-            tab_drag::drop_tab,
-            commands::quit,
-            quit::quit_ready,
-            commands::stt,
-            commands::agent,
-            commands::take_close_decision,
-            updates::update_status,
-            updates::check_update,
-            updates::install_update,
-            updates::open_release_page,
-            updates::later_update,
-            updates::take_update_notice
-        ])
         .build(tauri::generate_context!())?;
     app.run(|app_handle, event| {
         // Filet de sécurité : Quitter depuis le Dock, ou une fermeture de

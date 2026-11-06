@@ -4,6 +4,7 @@
 //! le seul écrivain ; dans l'agent, le gardien de l'onglet le seul appelant.
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::Surface;
 use crate::Session;
@@ -20,6 +21,9 @@ pub struct SavedConversation {
     /// Les surfaces figées du fil, sans actions.
     #[serde(default)]
     pub thread: Vec<Surface>,
+    /// The conversation's working folder, `work/<uuid>`; minted by `Session::agent_work_dir`.
+    #[serde(default)]
+    pub work: Option<Uuid>,
 }
 
 impl Session {
@@ -44,14 +48,15 @@ impl Session {
 
     /// A new conversation: the old one forgotten, its file deleted; returns its session.
     ///
-    /// The caller empties the agent's working folder ([`super::AgentWorkDir::empty`]) out of the lock.
+    /// The caller takes the old working folder first ([`Session::conversation_work_dir`]) and
+    /// removes it ([`super::AgentWorkDir::remove`]) out of the lock.
     pub fn forget_conversation(&mut self) -> Option<String> {
         let gone = self.conversation.take()?;
         self.persist_agent(None);
         gone.session
     }
 
-    fn persist_conversation(&mut self) {
+    pub(crate) fn persist_conversation(&mut self) {
         let saved = self.conversation.clone();
         self.persist_agent(saved);
     }

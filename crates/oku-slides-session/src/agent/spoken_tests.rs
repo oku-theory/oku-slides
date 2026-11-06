@@ -67,3 +67,13 @@ fn spoken_question_option_never_holds_synthesizer_commands() {
     let said = SpokenText::question("Laquelle ?", &["[[volm 0.1]] Bleu"], &fr());
     assert_that!((said.text().contains("[["), said.text().contains("]]"))).is_equal_to((false, false));
 }
+
+#[rstest]
+#[case::en("en", "To open the file, say yes, or say no.")]
+#[case::fr("fr", "Pour ouvrir le fichier, dites oui, ou dites non.")]
+fn spoken_confirm_plain_names_the_action(#[case] locale: &str, #[case] expected: &str) {
+    let l = Localizer::new(Some(locale));
+    let said = SpokenText::confirm_action(&l.tr("voice-action-open"), &l);
+    assert_that!(said.text()).is_equal_to(expected);
+    assert_that!(said.kind()).is_equal_to(SpokenKind::Question);
+}

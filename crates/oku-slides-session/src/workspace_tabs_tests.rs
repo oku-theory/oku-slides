@@ -35,7 +35,7 @@ fn new_workspace_with_file_opens_it_in_the_first_tab() {
 /// A `new_in` workspace on `parent`, and its first tab's prepared work folder.
 fn served(data: &Data, parent: &Path) -> (Mutex<Workspace>, PathBuf) {
     let ws = Mutex::new(Workspace::new_in(Fonts::default(), &workspace_platform(&data.0), None, parent).unwrap());
-    let (work, _) = Workspace::with_session(&ws, "t-1", |s| s.agent_work_dir());
+    let (work, _) = Workspace::with_session(&ws, "t-1", crate::Session::agent_work_dir);
     let work = work.unwrap().unwrap_or_else(|e| panic!("{}", e.one_line()));
     let dir = work.prepare().unwrap_or_else(|e| panic!("{}", e.one_line()));
     (ws, dir)
@@ -46,9 +46,10 @@ fn new_in_gives_first_tab_a_work_dir_in_its_own_folder() {
     let data = Data::new();
     let parent = data.0.join("serve");
     let (_ws, work) = served(&data, &parent);
-    let own = work.ancestors().nth(3).unwrap();
+    let own = work.ancestors().nth(4).unwrap();
     assert_that!(own.parent()).is_equal_to(Some(parent.as_path()));
-    assert_that!(work).is_equal_to(own.join(TABS_DIR).join("t-1").join(crate::resume_agent::AGENT_WORK_DIR));
+    let folders = own.join(TABS_DIR).join("t-1").join(crate::resume_agent::AGENT_WORK_DIR);
+    assert_that!(work.parent()).is_equal_to(Some(folders.as_path()));
 }
 
 #[test]

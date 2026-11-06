@@ -9,9 +9,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use snafu::IntoError;
 
-use crate::McpEvent;
 use crate::tool_error::SessionSnafu;
 use crate::tools::Tools;
+use crate::{ConfirmAction, ConfirmAsk, McpEvent};
 
 /// `select_item`: the item to select.
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -115,6 +115,6 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-copy-edited-theme", &[("name", label(&name).into())]);
-        self.guarded(message, None, Request::SaveTheme { as_new: true }).await
+        self.guarded(message, ConfirmAsk::Plain(ConfirmAction::CopyTheme), Request::SaveTheme { as_new: true }).await
     }
 }

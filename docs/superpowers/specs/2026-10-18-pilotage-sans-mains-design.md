@@ -280,8 +280,7 @@ The user can look away: Oku reads out what they would otherwise have to read on 
 
 ## Open questions
 
-- Barge-in while Oku speaks: lot 8 mutes the mic while speaking; talking over it needs echo
-  cancellation (macOS voice-processing audio unit, WebRTC AEC elsewhere). Decide after lot 8.
+- Barge-in while Oku speaks: decided, see "Amendments (2026-11-05)".
 - Wake phrase outside presentations: lot 2 sends every utterance; a wake phrase may be needed
   in noisy rooms. Decide after lot 2 is in use.
 - The bootstrap gesture (first enabling of hands-free) stays a click or macOS Voice Control
@@ -362,3 +361,15 @@ The second plan review (15 reviewers, draft 2) adds these points:
 - **`quit` is refused while a tab holds unsaved work**, and that is checked again when it runs
   after the turn. Stop drops every action queued after the turn.
 - **The spec's `say` is the STT crate's `Speaker`**, one per process.
+
+## Amendments (2026-11-05)
+
+- **Barge-in on macOS only** (t-1491, plan `docs/superpowers/plans/2026-11-05-lot-o-backlog.md`).
+  Hands-free listening with the `speech.barge_in` setting on (default on) captures through one
+  voice-processing `AVAudioEngine` that also plays Oku's speech, so Apple's echo canceller removes
+  it. While Oku speaks, listening is not suspended and has no deaf window; the speaker polls
+  `Stt::user_speaking` every 50 ms and cuts the speech when the user talks; the utterance then
+  goes through the normal router, the self-echo filter included. Off macOS, with the setting
+  off, or when the duplex does not start (no main run loop, as in `oku-slides serve`), the
+  lot 8 behaviour stays (muted while speaking) and the settings box and `settings` tool say why.
+  No WebRTC echo canceller elsewhere: it would add a native dependency for a gain not yet asked.

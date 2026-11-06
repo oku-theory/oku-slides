@@ -1,6 +1,8 @@
 stt-microphone-missing = Kein Mikrofon gefunden
 stt-microphone-unusable = Das Mikrofon kann nicht verwendet werden
 stt-microphone-silent = Das Mikrofon reagiert nicht
+stt-duplex-echo = Die Echounterdrückung kann für dieses Mikrofon nicht aktiviert werden
+stt-duplex-start = Die Audio-Engine mit Echounterdrückung startet nicht
 stt-audio-format = Nicht unterstütztes Audioformat: { $format }
 stt-audio-file = Audiodatei nicht lesbar
 stt-model = Das Diktiermodell kann nicht gelesen werden
@@ -22,6 +24,7 @@ stt-voice-no-voice = Keine Systemstimme spricht diese Sprache
 stt-voice-daemon = Der Sprachdienst (Speech Dispatcher) antwortet nicht
 stt-voice-failed = Die Systemstimme konnte den Text nicht vorlesen
 stt-voice-rate = Die Sprechgeschwindigkeit muss zwischen dem 0,5- und 2-Fachen der normalen Geschwindigkeit liegen
+speech-barge-in-unavailable-os = Oku ins Wort zu fallen erfordert Echounterdrückung, die es nur unter macOS gibt.
 
 stt-model-turbo = Large v3 Turbo (mehrsprachig, 818 MB)
 stt-model-large = Large v3 (mehrsprachig, 3,1 GB)

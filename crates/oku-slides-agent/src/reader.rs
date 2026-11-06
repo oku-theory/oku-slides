@@ -111,8 +111,16 @@ impl Reader {
             tracing::warn!(rate = config.rate, "saved speech rate out of range: the system's own applies");
             SpeechRate::default()
         });
-        let speech =
-            Speech { text: spoken.text().to_owned(), lang: spoken.lang().to_owned(), voice: config.voice, rate, ended };
+        // A question's words are the user's answers: never taken for an echo of it.
+        let asks = spoken.kind() == SpokenKind::Question;
+        let speech = Speech {
+            text: spoken.text().to_owned(),
+            lang: spoken.lang().to_owned(),
+            voice: config.voice,
+            rate,
+            ended,
+            asks,
+        };
         // A new speech cuts the one in progress: a question never waits behind a receipt.
         self.speaker.say(speech);
     }

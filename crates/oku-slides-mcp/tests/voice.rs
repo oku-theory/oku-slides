@@ -9,7 +9,8 @@ use oku_slides_mcp::{
     ApiTarget, HubErrorKind, McpEvent, Origin, SurfaceAction, VoiceApplied, VoiceErrorKind, VoicePort,
 };
 use oku_slides_session::{
-    AgentPresetView, DictationLanguage, DictationPatch, DownloadView, HOST_VOICE, VoiceEvent, VoicePanel, VoiceView,
+    AgentPresetView, DictationLanguage, DictationPatch, DownloadView, HOST_VOICE, SpeechPatch, VoiceEvent, VoicePanel,
+    VoiceView,
 };
 use rstest::rstest;
 use serde_json::{Map, Value, json};
@@ -360,6 +361,15 @@ async fn set_dictation_plain_fields_apply_at_once() {
     let h = start().await;
     let r = call_within(&server(&h).await, "set_dictation", json!({"language": "auto", "silence": 2.0})).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "now" }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_speech_barge_in_applies_at_once() {
+    let h = start().await;
+    let r = call_within(&server(&h).await, "set_speech", json!({"barge_in": false})).await;
+    let patch = SpeechPatch { barge_in: Some(false), ..Default::default() };
+    assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "now" }));
+    assert_that!(*lock(&h.voice.applied)).is_equal_to(vec![(VoiceEvent::Speech(patch), agent_tab(false))]);
 }
 
 #[tokio::test(flavor = "multi_thread")]

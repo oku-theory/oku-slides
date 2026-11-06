@@ -519,7 +519,7 @@
            "bold": true
           },
           {
-           "t": ": Oku reads each receipt, question and error of the shown tab with the system voice, and listening pauses while it speaks. Voice and rate are in the settings box. During a presentation it stays silent, unless you allow it to answer after “Oku”."
+           "t": ": Oku reads each receipt, question and error of the shown tab with the system voice, and listening pauses while it speaks, unless on macOS you let yourself talk over it (“Talk over Oku to interrupt it”): then speaking cuts it short. Voice and rate are in the settings box. During a presentation it stays silent, unless you allow it to answer after “Oku”."
           }
          ],
          "list": "bullet"

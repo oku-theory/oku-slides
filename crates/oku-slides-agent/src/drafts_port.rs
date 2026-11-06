@@ -1,13 +1,13 @@
-//! Starting a tab's entry, and the host's [`DraftPort`] built on it.
+//! Starting a tab's entry, and the prefill and paging the host's tab port builds on it.
 //!
 //! A deck's agent that opens a pack or theme tab passes the user's request to that tab's
-//! draft ([`StackDrafts`]): the tab's entry starts (tools, keeper; never its ACP agent) and an
-//! empty draft takes the text. The user reviews and sends it; no turn starts here. It also
-//! pages another tab: a `Focus` event on that tab's hub, which its pages follow.
+//! draft ([`Starter::prefill`]): the tab's entry starts (tools, keeper; never its ACP agent) and
+//! an empty draft takes the text. The user reviews and sends it; no turn starts here. It also
+//! pages another tab ([`Starter::page`]): a `Focus` event on that tab's hub, which its pages follow.
 
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, PoisonError};
 
-use oku_slides_mcp::{DraftPort, McpEvent, Prefill, TunePort};
+use oku_slides_mcp::{McpEvent, Prefill, TabPort};
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentWorkspace, AppPort, Sessions, TabSession};
 use tokio::runtime::Handle;
@@ -20,12 +20,12 @@ use crate::tab_entry::{Out, TabEntry, TabLink, TabPorts};
 use crate::table::Table;
 use crate::voice_port::AppVoice;
 
-/// What starts a tab's entry, shared by the stack and its drafts port.
+/// What starts a tab's entry, shared by the stack and its tab port.
 #[derive(Debug)]
 pub(crate) struct Starter {
     sessions: Arc<dyn Sessions>,
     platform: Platform,
-    /// The ports each started tab receives, [`StackDrafts`] included.
+    /// The ports each started tab receives.
     ports: TabPorts,
     link: Link,
     rt: Handle,
@@ -45,8 +45,8 @@ pub(crate) struct StarterParts {
     pub voice: Arc<AppVoice>,
     /// The host's workspace port given to each tab.
     pub workspace: Arc<dyn AgentWorkspace>,
-    /// Starts an imported tab's fine-tuning turn, for each tab's `import`.
-    pub tune: Arc<dyn TunePort>,
+    /// Other tabs' draft, page and fine-tuning turn, for each tab's tools.
+    pub tabs: Arc<dyn TabPort>,
     /// The host's app port given to each tab.
     pub app: Arc<dyn AppPort>,
     /// Where each tab's actor sends its ended turns' app actions.
@@ -64,9 +64,7 @@ pub(crate) struct StarterParts {
 }
 
 impl Starter {
-    /// A starter whose tabs' drafts port reaches back to it, weakly.
-    ///
-    /// Weak because the stack's table holds the tabs, whose tools hold the port.
+    /// A starter whose tabs receive `parts`' ports.
     pub fn new(parts: StarterParts) -> Arc<Self> {
         let StarterParts {
             sessions,
@@ -74,7 +72,7 @@ impl Starter {
             settings,
             voice,
             workspace,
-            tune,
+            tabs,
             app,
             after,
             link,
@@ -83,11 +81,8 @@ impl Starter {
             table,
             reader,
         } = parts;
-        Arc::new_cyclic(|starter: &Weak<Self>| {
-            let drafts = Arc::new(StackDrafts { starter: starter.clone() });
-            let tab_ports = TabPorts { settings, voice, drafts, workspace, tune, app, after, reader };
-            Self { sessions, platform, ports: tab_ports, link, rt, out_tx, table }
-        })
+        let tab_ports = TabPorts { settings, voice, tabs, workspace, app, after, reader };
+        Arc::new(Self { sessions, platform, ports: tab_ports, link, rt, out_tx, table })
     }
 
     /// The tab, started if it has no entry yet; `None` if closed or the app over.
@@ -112,36 +107,30 @@ impl Starter {
     }
 }
 
-/// The host's [`DraftPort`]: prefills another tab's draft, starting its entry if needed.
-#[derive(Debug)]
-pub(crate) struct StackDrafts {
-    starter: Weak<Starter>,
-}
-
-impl DraftPort for StackDrafts {
-    /// `Unavailable` once the stack is gone or for an unknown or closed tab.
+impl Starter {
+    /// Prefills `tab`'s draft with `text`, starting its entry if needed.
     ///
-    /// Otherwise `Set` when the draft took the text, `Kept` when it held one already.
-    ///
-    /// The tab is looked up first, so an unknown one never gets an entry.
-    fn prefill(&self, tab: &str, text: String) -> Prefill {
-        let Some(starter) = self.starter.upgrade() else { return Prefill::Unavailable };
-        if let Err(e) = starter.sessions.document_kind(tab) {
+    /// `Unavailable` for an unknown or closed tab; otherwise `Set` when the draft took the text,
+    /// `Kept` when it held one already. The tab is looked up first, so an unknown one never gets
+    /// an entry. Blocking: call it off the async threads.
+    pub fn prefill(&self, tab: &str, text: String) -> Prefill {
+        if let Err(e) = self.sessions.document_kind(tab) {
             tracing::debug!(tab, error = %e.one_line(), "draft prefill: unknown tab");
             return Prefill::Unavailable;
         }
-        let Some(link) = starter.open(tab) else { return Prefill::Unavailable };
-        if link.prefill_draft(&starter.out_tx, text) { Prefill::Set } else { Prefill::Kept }
+        let Some(link) = self.open(tab) else { return Prefill::Unavailable };
+        if link.prefill_draft(&self.out_tx, text) { Prefill::Set } else { Prefill::Kept }
     }
 
-    /// False once the stack is gone or for an unknown or closed tab, looked up first.
-    fn page(&self, tab: &str, slide: String) -> bool {
-        let Some(starter) = self.starter.upgrade() else { return false };
-        if let Err(e) = starter.sessions.document_kind(tab) {
+    /// Shows slide `slide` on `tab`'s pages; false for an unknown or closed tab, looked up first.
+    ///
+    /// Blocking, as [`Starter::prefill`].
+    pub fn page(&self, tab: &str, slide: String) -> bool {
+        if let Err(e) = self.sessions.document_kind(tab) {
             tracing::debug!(tab, error = %e.one_line(), "page: unknown tab");
             return false;
         }
-        let Some(link) = starter.open(tab) else { return false };
+        let Some(link) = self.open(tab) else { return false };
         link.hub.emit(McpEvent::Focus { slide: Some(slide) });
         true
     }

@@ -53,6 +53,8 @@ pub fn voice_view_fixture() -> VoiceView {
             voice: None,
             rate: 1.0,
             in_presentation: false,
+            barge_in: true,
+            barge_in_unavailable: None,
             status: SpeechStatusView::Ready {
                 voices: vec![SpeechVoiceView { id: "v-fr".into(), name: "Amélie".into() }],
             },

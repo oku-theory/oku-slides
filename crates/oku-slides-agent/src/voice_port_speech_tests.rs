@@ -7,12 +7,12 @@ use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::super::voice_port_tests::{T, build_with};
-use crate::hand_voice::HandVoice;
+use oku_slides_stt::hand_voice::HandEngine;
 
 /// A French box with a hand voice (`with_voice`) or none.
 fn box_fr(with_voice: bool) -> T {
     let engine: Option<Arc<dyn oku_slides_stt::SpeechEngine>> =
-        with_voice.then(|| Arc::new(HandVoice::default()) as Arc<dyn oku_slides_stt::SpeechEngine>);
+        with_voice.then(|| Arc::new(HandEngine::default()) as Arc<dyn oku_slides_stt::SpeechEngine>);
     build_with(true, engine, |_| {})
 }
 
@@ -42,15 +42,12 @@ fn set_speech_saves_and_the_box_shows_it() {
         voice: Some("v-fr2".into()),
         rate: Some(1.5),
         in_presentation: Some(true),
+        barge_in: Some(false),
     };
     assert_that!(t.voice.apply(speech(patch.clone()), agent()).ok()).is_equal_to(Some(VoiceApplied::Now));
     let view = t.voice.view().speech.unwrap();
-    assert_that!((view.read_aloud, view.voice.as_deref(), view.rate, view.in_presentation)).is_equal_to((
-        true,
-        Some("v-fr2"),
-        1.5,
-        true,
-    ));
+    assert_that!((view.read_aloud, view.voice.as_deref(), view.rate, view.in_presentation, view.barge_in))
+        .is_equal_to((true, Some("v-fr2"), 1.5, true, false));
     assert_that!(t.voice.apply(speech(patch), agent()).ok()).is_equal_to(Some(VoiceApplied::Unchanged));
 }
 
@@ -87,4 +84,21 @@ fn hands_free_on_turns_read_aloud_on_the_first_time_only(#[case] before: Option<
     let hands_free = VoiceEvent::Dictation(DictationPatch { hands_free: Some(true), ..Default::default() });
     t.voice.apply(hands_free, Origin::User).unwrap();
     assert_that!(stt.speech_settings().0).is_equal_to(after);
+}
+
+#[test]
+fn set_speech_barge_in_off_saved_without_voice() {
+    // A preference: kept even where no voice reads aloud, for when one appears.
+    let t = box_fr(false);
+    let patch = SpeechPatch { barge_in: Some(false), ..Default::default() };
+    assert_that!(t.voice.apply(speech(patch), agent()).ok()).is_equal_to(Some(VoiceApplied::Now));
+    assert_that!(t.voice.view().speech.map(|s| s.barge_in)).is_equal_to(Some(false));
+}
+
+#[test]
+fn speech_view_barge_in_availability_follows_the_os() {
+    let view = box_fr(true).voice.view().speech.unwrap();
+    let fr = Localizer::new(Some("fr"));
+    let expected = (!cfg!(target_os = "macos")).then(|| fr.tr("speech-barge-in-unavailable-os"));
+    assert_that!((view.barge_in, view.barge_in_unavailable)).is_equal_to((true, expected));
 }

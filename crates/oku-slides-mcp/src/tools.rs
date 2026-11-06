@@ -21,7 +21,20 @@ use snafu::ResultExt;
 
 use crate::tool_error::{ArgumentsSnafu, ResponseSnafu, SessionSnafu, SettingSnafu, TaskSnafu, ToolError};
 use crate::tool_kinds::Kinds;
-use crate::{Applied, DraftPort, SettingsPort, SurfaceHub, TunePort};
+use crate::{Applied, SettingsPort, SurfaceHub, TabPort};
+
+/// The host ports a tab's tools use, passed once at agent start.
+#[derive(Debug, Clone)]
+pub struct HostPorts {
+    /// The settings `set_setting` reads and writes.
+    pub settings: Arc<dyn SettingsPort>,
+    /// Other tabs: the draft `open_pack` and `open_theme` prefill, `help`'s paging, `import`'s tune.
+    pub tabs: Arc<dyn TabPort>,
+    /// The host's workspace: the focused tab, the window's tabs, an import's new tab.
+    pub workspace: Arc<dyn AgentWorkspace>,
+    /// The app itself: updates, quitting after the turn.
+    pub app: Arc<dyn AppPort>,
+}
 
 /// The agent's tools for one tab, served by [`crate::ToolServer`].
 #[derive(Clone)]
@@ -29,12 +42,11 @@ pub struct Tools {
     pub(crate) session: TabSession,
     pub(crate) hub: Arc<SurfaceHub>,
     pub(crate) settings: Arc<dyn SettingsPort>,
-    /// Where `open_pack` and `open_theme` pass the user's request: the opened tab's draft.
-    pub(crate) drafts: Arc<dyn DraftPort>,
+    /// Other tabs: where `open_pack` and `open_theme` pass the user's request (the opened
+    /// tab's draft), `help` pages the reused tab, `import` starts the fine-tuning turn.
+    pub(crate) tabs: Arc<dyn TabPort>,
     /// The host's workspace: the focused tab, the window's tabs, an import's new tab.
     pub(crate) workspace: Arc<dyn AgentWorkspace>,
-    /// Starts an imported tab's fine-tuning turn (`import` with `tune`).
-    pub(crate) tune: Arc<dyn TunePort>,
     /// The app itself: updates, quitting after the turn.
     pub(crate) app: Arc<dyn AppPort>,
     pub(crate) storage: Storage,
@@ -58,33 +70,25 @@ impl std::fmt::Debug for Tools {
 impl Tools {
     /// The tools of `session`'s tab, a tab of `kind`, with settings and limits from `platform`.
     ///
-    /// Only the tools of `kind` are listed and served; any other is `UnknownTool`. `drafts`
-    /// receives the user's request when `open_pack` or `open_theme` moves to another tab;
-    /// `workspace` tells which tab has the focus and opens an import's tab, whose fine-tuning
-    /// `tune` starts; `app` answers updates.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the tab, its hub and the host's five ports, passed once at agent start"
-    )]
+    /// Only the tools of `kind` are listed and served; any other is `UnknownTool`. `ports.tabs`
+    /// receives the user's request when `open_pack` or `open_theme` moves to another tab, and
+    /// starts an import's fine-tuning; `ports.workspace` tells which tab has the focus and
+    /// opens an import's tab; `ports.app` answers updates.
     pub fn new(
         session: TabSession,
         hub: Arc<SurfaceHub>,
-        settings: Arc<dyn SettingsPort>,
-        drafts: Arc<dyn DraftPort>,
-        workspace: Arc<dyn AgentWorkspace>,
-        tune: Arc<dyn TunePort>,
-        app: Arc<dyn AppPort>,
+        ports: HostPorts,
         platform: &Platform,
         kind: DocumentKind,
     ) -> Self {
+        let HostPorts { settings, tabs, workspace, app } = ports;
         let serve = &platform.settings.serve;
         Self {
             session,
             hub,
             settings,
-            drafts,
+            tabs,
             workspace,
-            tune,
             app,
             storage: platform.storage.clone(),
             localizer: platform.live_localizer.clone(),
@@ -371,7 +375,7 @@ pub(crate) fn list_all() -> &'static [(Tool, Kinds)] {
             (tool::<crate::app_tools::InterfaceChange>("set_interface", "Change the interface right away, as its own commands do; give at least one field, omitted ones stay as they are. scheme: light, dark or system; locale: a shipped language code (en, fr, de…) or system; guides: show the dashed outlines of empty fields; folded: fold (true) or open (false) the slides or layouts thumbnails; pile and notes: widths in px of the pile (180-360) and the agent thread (at least 300), narrowed to fit the window; code: a pack item's Code tab (true) or Settings tab (false). Refused unless this tab is the one shown in its window."), Kinds::ALL),
             (tool::<NoArgs>("show_dictation", "Opens the dictation and app agent settings box as a card the user opens from your turn, kept until the user closes it. It shows the recognition model, spoken language, auto stop, the dictation API, model downloads and the app agent. Returns {shown}."), Kinds::ALL),
             (tool::<crate::voice_tools::SetDictationArgs>("set_dictation", "Change dictation settings, except the API address and key variable, which only the user sets in the box. Fields: model, language (a code or \"auto\"), auto_stop, silence (0.5–10 s), api_model; switching to api or to a model to download asks the user. Returns {applied: now | unchanged}."), Kinds::ALL),
-            (tool::<crate::voice_tools::SetSpeechArgs>("set_speech", "Change the read-aloud settings: read_aloud, voice (an id from `settings`, \"\" for automatic), rate (0.5–2), in_presentation. Applied at once; returns {applied: now | unchanged}."), Kinds::ALL),
+            (tool::<crate::voice_tools::SetSpeechArgs>("set_speech", "Change the read-aloud settings: read_aloud, voice (an id from `settings`, \"\" for automatic), rate (0.5–2), in_presentation, barge_in (talk over Oku to cut it; macOS). Applied at once; returns {applied: now | unchanged}."), Kinds::ALL),
             (tool::<crate::voice_tools::ModelArg>("download_dictation_model", "Download a dictation model or Apple language after the user confirms. Returns {applied}."), Kinds::ALL),
             (tool::<NoArgs>("cancel_dictation_download", "Stop the dictation model download in progress; refused when none runs."), Kinds::ALL),
             (tool::<crate::voice_tools::AgentArg>("select_agent", "Switch the app agent to a preset id (see settings) after the user confirms; it takes effect once no reply runs. Returns {applied: now | when_idle | unchanged}."), Kinds::ALL),

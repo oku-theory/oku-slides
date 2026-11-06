@@ -134,7 +134,7 @@ async fn import_tune_starts_tune_through_port() {
     h.hub.begin_turn();
     let r = guarded(&h, "import", json!({ "path": path, "mode": "hifi", "tune": true }), true).await;
     let tab = tab_of(&r);
-    assert_that!(h.tune.calls()).is_equal_to(vec![tab]);
+    assert_that!(h.tabs.tunes()).is_equal_to(vec![tab]);
     assert_that!(json_of(&r)["tune"].as_bool()).is_equal_to(Some(true));
 }
 

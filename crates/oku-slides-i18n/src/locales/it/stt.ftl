@@ -1,6 +1,8 @@
 stt-microphone-missing = Nessun microfono trovato
 stt-microphone-unusable = Impossibile usare il microfono
 stt-microphone-silent = Il microfono non risponde
+stt-duplex-echo = Impossibile attivare la cancellazione dell'eco per questo microfono
+stt-duplex-start = Il motore audio con cancellazione dell'eco non si avvia
 stt-audio-format = Formato audio non supportato: { $format }
 stt-audio-file = File audio illeggibile
 stt-model = Impossibile leggere il modello di dettatura
@@ -22,6 +24,7 @@ stt-voice-no-voice = Nessuna voce di sistema parla questa lingua
 stt-voice-daemon = Il servizio vocale (Speech Dispatcher) non risponde
 stt-voice-failed = La voce di sistema non è riuscita a leggere il testo
 stt-voice-rate = La velocità di lettura deve essere compresa tra 0,5 e 2 volte quella normale
+speech-barge-in-unavailable-os = Parlare sopra Oku richiede la cancellazione dell'eco, disponibile solo su macOS.
 
 stt-model-turbo = Large v3 Turbo (multilingue, 818 MB)
 stt-model-large = Large v3 (multilingue, 3,1 GB)

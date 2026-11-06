@@ -49,11 +49,12 @@ pub(crate) async fn deck_tools(dir: &std::path::Path, cancel: &CancellationToken
     let tools = Tools::new(
         tab,
         hub,
-        Arc::new(NoSettings),
-        Arc::new(oku_slides_mcp::NoDrafts),
-        Arc::new(oku_slides_session::agent::NoWorkspace),
-        Arc::new(oku_slides_mcp::NoTune),
-        Arc::new(oku_slides_session::agent::UnavailableApp),
+        oku_slides_mcp::HostPorts {
+            settings: Arc::new(NoSettings),
+            tabs: Arc::new(oku_slides_mcp::NoTabs),
+            workspace: Arc::new(oku_slides_session::agent::NoWorkspace),
+            app: Arc::new(oku_slides_session::agent::UnavailableApp),
+        },
         &platform,
         kind,
     );

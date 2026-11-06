@@ -237,6 +237,9 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
     apply_all(&mut deck, ops, &widgets.registry).context(OpSnafu)?;
     let label = platform.live_localizer.current().tr("session-import-label");
     bundle.apply(deck, &label, None).context(SourcesSnafu)?;
+    // The whole deck must reopen: packs, themes and history join the plan's estimate here.
+    let limits = crate::files::source_limits(&platform.settings);
+    crate::sources_budget::ensure_room(&bundle, limits, 0).context(LibrarySnafu)?;
     let ids: HashSet<String> = bundle.assets.keys().cloned().collect();
     let issues = validate(bundle.deck(), &widgets.registry, Some(&ids));
     let fonts = fonts.with(bundle.fonts.values().cloned());

@@ -1,178 +1,216 @@
-//! The Linux voice: `spd-say`, the Speech Dispatcher client, one child process per speech.
+//! The Linux voice: Speech Dispatcher, spoken to over its SSIP socket, one connection per speech.
 //!
-//! Each speech runs `spd-say -w -N oku-slides -y VOICE -r RATE -- TEXT`, stdin null, a NUL in
-//! the text spoken as a space:
-//! - `-w` keeps the child alive as long as the speech, so its exit is DONE;
-//! - `-N` names the client `oku-slides`;
-//! - `--` ends the options, so a text starting with `-` is spoken, never parsed;
-//! - never `-C`, which would cancel the other clients' speech.
+//! The socket is `unix_socket:<path>` from `$SPEECHD_ADDRESS`, else
+//! `$XDG_RUNTIME_DIR/speech-dispatcher/speechd.sock`, as libspeechd finds it. An absent socket
+//! starts the daemon as libspeechd does (`speech-dispatcher --spawn`, bounded in time): a
+//! missing program is `NoEngine`, a daemon that does not start or answer is `DaemonSilent`.
 //!
-//! A cut kills our own child only; a waiter thread per speech reaps it and calls DONE once.
-//! Voices come from `spd-say -L`, bounded in time: a missing program is `NoEngine`, a daemon
-//! that fails, hangs or lists nothing is `DaemonSilent`. Once `-L` exits, its output is read
-//! after at most [`EOF_GRACE`], even if an autospawned daemon still holds the pipe; the reader
-//! thread then ends with that daemon.
+//! Each speech opens its own connection (`ssip.rs`): the text goes over the socket as data, never
+//! in an argv or a log. A waiter thread reads the connection's events and calls DONE once, on
+//! END or CANCELED of its message, when the daemon goes away, or [`CUT_GRACE`] after a cut the
+//! daemon never confirms. A cut writes `CANCEL self` on that connection: only our own messages
+//! stop, never another client's.
 
-use std::io::Read;
+use std::os::unix::net::UnixStream;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex, PoisonError, mpsc};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use snafu::IntoError;
 
+use super::ssip::{Event, EventKind, Ssip, cancel};
 use super::{
     SpeechDone, SpeechEngine, SpeechId, SpeechRate, SpeechStatus, UnavailableReason, VoiceInfo, chosen, for_language,
 };
-use crate::error::{SttError, VoiceSpawnSnafu, VoiceUnavailableSnafu};
+use crate::error::{SttError, VoiceIoSnafu, VoiceUnavailableSnafu};
 
-/// The client name Speech Dispatcher shows for our speech.
-const CLIENT: &str = "oku-slides";
+/// How long the daemon may take to answer one command before it counts as silent.
+const REPLY_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// How long `spd-say -L` may take before the daemon counts as silent.
-const LIST_TIMEOUT: Duration = Duration::from_secs(3);
+/// How long `speech-dispatcher --spawn` may take to start the daemon.
+const SPAWN_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// How long the listing waits for EOF once `spd-say -L` exited, before reading what came.
-const EOF_GRACE: Duration = Duration::from_millis(200);
+/// How often a waiter looks up from its connection, and a spawn from its child.
+const POLL: Duration = Duration::from_millis(50);
 
-/// How often a waiter checks whether its child has exited.
-const POLL: Duration = Duration::from_millis(20);
+/// How long a waiter waits for the daemon to confirm a cut before calling DONE anyway.
+const CUT_GRACE: Duration = Duration::from_secs(1);
 
-/// The largest voice list read (bytes): a few hundred voices take a few KiB.
-const MAX_LIST_BYTES: u64 = 1 << 20;
-
-/// One speech in progress: its id and its child, shared with its waiter.
+/// One speech in progress: its id, the connection to cancel it on, and when it was cut.
 #[derive(Debug)]
 struct Running {
     id: SpeechId,
-    child: Arc<Mutex<Child>>,
+    control: UnixStream,
+    cut: Arc<OnceLock<Instant>>,
 }
 
-/// What `spd-say -L` answered.
+/// The Speech Dispatcher voice.
 #[derive(Debug)]
-enum Listed {
-    /// The voices of the current output module.
-    Voices(Vec<VoiceInfo>),
-    /// The program could not start.
-    Missing,
-    /// The program failed, hung, or listed nothing.
-    Silent,
-}
-
-/// The `spd-say` voice.
-#[derive(Debug)]
-pub(crate) struct SpdSay {
-    /// The `spd-say` program, a path or a name looked up on `PATH`.
-    program: PathBuf,
+pub(crate) struct SpeechDispatcher {
+    /// The daemon's socket; `None` when `$SPEECHD_ADDRESS` names no Unix socket.
+    socket: Option<PathBuf>,
+    /// The `speech-dispatcher` program that starts the daemon, a path or a name on `PATH`.
+    spawner: PathBuf,
+    /// The user part of our client name.
+    user: String,
     /// The speech last started, until it ends, is cut or is replaced.
     current: Arc<Mutex<Option<Running>>>,
 }
 
-impl SpdSay {
-    /// A voice that runs `program` as `spd-say`.
-    pub(crate) fn new(program: PathBuf) -> Self {
-        Self { program, current: Arc::new(Mutex::new(None)) }
+impl SpeechDispatcher {
+    /// A voice that talks to the daemon at `socket`, started by `spawner` when absent.
+    pub(crate) fn new(socket: Option<PathBuf>, spawner: PathBuf, user: String) -> Self {
+        Self { socket, spawner, user, current: Arc::new(Mutex::new(None)) }
     }
 
-    /// The voices `spd-say -L` lists, within [`LIST_TIMEOUT`].
-    fn list(&self) -> Listed {
-        let spawned = Command::new(&self.program)
-            .arg("-L")
+    /// The voice of this session, found as libspeechd finds it.
+    #[cfg(target_os = "linux")]
+    pub(crate) fn from_env() -> Self {
+        let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+        // glib's `g_get_user_runtime_dir`, which the daemon uses too: the cache dir without it.
+        let runtime = var("XDG_RUNTIME_DIR")
+            .or_else(|| var("XDG_CACHE_HOME"))
+            .map(PathBuf::from)
+            .or_else(|| var("HOME").map(|home| Path::new(&home).join(".cache")));
+        let socket = socket_path(var("SPEECHD_ADDRESS").as_deref(), runtime);
+        if socket.is_none() {
+            tracing::warn!("SPEECHD_ADDRESS names no Unix socket: the Linux voice is unavailable");
+        }
+        let user = var("USER").or_else(|| var("LOGNAME")).unwrap_or_default();
+        // Looked up on `PATH`: a sandboxed build (AppImage, Flatpak) that cannot see it is unavailable.
+        Self::new(socket, "speech-dispatcher".into(), user)
+    }
+
+    /// A connection to the daemon, started first if its socket is absent.
+    fn open(&self) -> Result<UnixStream, UnavailableReason> {
+        let Some(path) = &self.socket else { return Err(UnavailableReason::DaemonSilent) };
+        let stream = match UnixStream::connect(path) {
+            Ok(stream) => stream,
+            Err(e) if matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused) => {
+                self.spawn(path)?;
+                UnixStream::connect(path).map_err(|_| UnavailableReason::DaemonSilent)?
+            }
+            Err(e) => {
+                tracing::debug!(error = %e, "speech daemon socket");
+                return Err(UnavailableReason::DaemonSilent);
+            }
+        };
+        let timeouts = stream.set_read_timeout(Some(REPLY_TIMEOUT)).and(stream.set_write_timeout(Some(REPLY_TIMEOUT)));
+        timeouts.map_err(|_| UnavailableReason::DaemonSilent)?;
+        Ok(stream)
+    }
+
+    /// Starts the daemon on `path` as libspeechd's autospawn does, within [`SPAWN_TIMEOUT`].
+    fn spawn(&self, path: &Path) -> Result<(), UnavailableReason> {
+        let spawned = Command::new(&self.spawner)
+            .args(["--spawn", "--communication-method", "unix_socket", "--socket-path"])
+            .arg(path)
             .stdin(Stdio::null())
-            .stdout(Stdio::piped())
+            .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn();
-        let Ok(mut child) = spawned else { return Listed::Missing };
-        let Some(stdout) = child.stdout.take() else { return reap_silent(child) };
-        let read = Arc::new(Mutex::new(Vec::new()));
-        let (eof_tx, eof_rx) = mpsc::channel();
-        // Read on its own thread: a full pipe must not block the timeout, and a daemon that
-        // inherits the pipe (autospawn) must not hold the listing past the child's exit.
-        let sink = Arc::clone(&read);
-        let reader = std::thread::Builder::new().name("oku-voice-list".into()).spawn(move || {
-            let copied = catch_unwind(AssertUnwindSafe(|| copy_bounded(stdout, &sink)));
-            if copied.is_err() {
-                tracing::error!("voice list reader panicked");
-            }
-            eof_tx.send(()).ok();
-        });
-        if reader.is_err() {
-            return reap_silent(child);
-        }
-        let Some(deadline) = Instant::now().checked_add(LIST_TIMEOUT) else { return reap_silent(child) };
+        let mut child = match spawned {
+            Ok(child) => child,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(UnavailableReason::NoEngine),
+            Err(_) => return Err(UnavailableReason::DaemonSilent),
+        };
+        let deadline = Instant::now().checked_add(SPAWN_TIMEOUT);
         loop {
             match child.try_wait() {
-                Ok(Some(status)) if status.success() => break,
-                Ok(None) if Instant::now() < deadline => std::thread::sleep(POLL),
-                _ => return reap_silent(child),
+                Ok(Some(status)) if status.success() => return Ok(()),
+                Ok(None) if deadline.is_some_and(|d| Instant::now() < d) => std::thread::sleep(POLL),
+                _ => {
+                    child.kill().ok();
+                    child.wait().ok();
+                    return Err(UnavailableReason::DaemonSilent);
+                }
             }
         }
-        // The child exited: what it wrote is in the pipe; EOF follows unless someone else holds it.
-        let left = deadline.saturating_duration_since(Instant::now());
-        eof_rx.recv_timeout(left.min(EOF_GRACE)).ok();
-        let bytes = read.lock().unwrap_or_else(PoisonError::into_inner).clone();
-        match parse_voices(&String::from_utf8_lossy(&bytes)) {
-            voices if voices.is_empty() => Listed::Silent,
-            voices => Listed::Voices(voices),
-        }
     }
-}
 
-/// Appends what `from` gives to `into`, up to [`MAX_LIST_BYTES`], until EOF or an error.
-fn copy_bounded(mut from: impl Read, into: &Mutex<Vec<u8>>) {
-    let mut chunk = [0_u8; 4096];
-    while let Ok(n) = from.read(&mut chunk) {
-        let Some(fresh) = chunk.get(..n).filter(|f| !f.is_empty()) else { return };
-        let mut g = into.lock().unwrap_or_else(PoisonError::into_inner);
-        let room = usize::try_from(MAX_LIST_BYTES).unwrap_or(usize::MAX).saturating_sub(g.len());
-        g.extend_from_slice(fresh.get(..room.min(fresh.len())).unwrap_or_default());
-    }
-}
-
-/// Kills and reaps a listing child that failed or hung: the daemon is silent.
-fn reap_silent(mut child: Child) -> Listed {
-    child.kill().ok();
-    child.wait().ok();
-    Listed::Silent
-}
-
-/// The voices of a `spd-say -L` listing: `NAME LANGUAGE VARIANT` under a header line.
-///
-/// A name may hold spaces: the language and the variant are the last two columns.
-fn parse_voices(text: &str) -> Vec<VoiceInfo> {
-    text.lines()
-        .filter_map(|line| {
-            let words: Vec<&str> = line.split_whitespace().collect();
-            let [name @ .., lang, _variant] = words.as_slice() else { return None };
-            if name.is_empty() || (name == ["NAME"] && *lang == "LANGUAGE") {
-                return None;
-            }
-            let name = name.join(" ");
-            Some(VoiceInfo { id: name.clone(), name, lang: (*lang).to_owned() })
+    /// The voices of the daemon's current synthesizer.
+    fn list(&self) -> Result<Vec<VoiceInfo>, UnavailableReason> {
+        let stream = self.open()?;
+        let listed = Ssip::connect(stream, &self.user).and_then(|mut ssip| {
+            let voices = ssip.voices();
+            ssip.quit();
+            voices
+        });
+        listed.map_err(|e| {
+            tracing::debug!(error = %e, "speech daemon voice list");
+            UnavailableReason::DaemonSilent
         })
-        .collect()
+    }
+
+    /// Takes speech `id` out of `current` if it is still the one there.
+    fn take(&self, id: SpeechId) -> Option<Running> {
+        let mut g = self.current.lock().unwrap_or_else(PoisonError::into_inner);
+        if g.as_ref().is_some_and(|r| r.id == id) { g.take() } else { None }
+    }
 }
 
-/// The `-r` argument: 0 is the default rate, ±100 twice faster or slower.
+/// `socket` of `$SPEECHD_ADDRESS` (`unix_socket[:<path>]`), else the default under `runtime`.
+///
+/// Another method (`inet_socket`) is not supported: `None`.
+pub(crate) fn socket_path(address: Option<&str>, runtime: Option<PathBuf>) -> Option<PathBuf> {
+    let default = || runtime.map(|dir| dir.join("speech-dispatcher").join("speechd.sock"));
+    let Some(address) = address else { return default() };
+    let (method, path) = address.split_once(':').unwrap_or((address, ""));
+    match (method, path) {
+        ("unix_socket", "") => default(),
+        ("unix_socket", path) => Some(PathBuf::from(path)),
+        _ => None,
+    }
+}
+
+/// The `RATE` value: 0 is the default rate, ±100 twice faster or slower.
 fn rate_arg(rate: SpeechRate) -> i32 {
     crate::num::round_i32(rate.get().log2() * 100.0).clamp(-100, 100)
 }
 
-/// The unavailable error for a listing that did not give voices.
+/// Whether `text` has nothing to say: only whitespace and NULs (spoken as spaces).
+fn silent(text: &str) -> bool {
+    text.chars().all(|c| c.is_whitespace() || c == '\0')
+}
+
+/// The unavailable error for a daemon that cannot be reached.
 fn unavailable(reason: UnavailableReason) -> SttError {
     VoiceUnavailableSnafu { reason }.build().into()
 }
 
-/// Waits for speech `id`'s child to exit, then clears it from `current` and calls DONE.
-fn wait(child: &Mutex<Child>, current: &Mutex<Option<Running>>, id: SpeechId, done: SpeechDone) {
-    loop {
-        let exited = !matches!(child.lock().unwrap_or_else(PoisonError::into_inner).try_wait(), Ok(None));
-        if exited {
-            break;
-        }
-        std::thread::sleep(POLL);
+/// Cancels a speech: marks it cut, then sends `CANCEL self` on its connection.
+fn cut(running: &Running) {
+    running.cut.set(Instant::now()).ok();
+    if let Err(e) = cancel(&running.control) {
+        // The daemon is gone: the waiter reads the end of the connection and calls DONE.
+        tracing::debug!(error = %e, "speech daemon CANCEL");
     }
+}
+
+/// Reads `ssip` until message `msg` ends or is cancelled, then clears `id` and calls DONE.
+fn wait(
+    mut ssip: Ssip<UnixStream>,
+    msg: u64,
+    cut: &OnceLock<Instant>,
+    current: &Mutex<Option<Running>>,
+    id: SpeechId,
+    done: SpeechDone,
+) {
+    loop {
+        match ssip.read_event() {
+            Ok(Some(Event { msg: m, kind: EventKind::End | EventKind::Cancel })) if m == msg => break,
+            Ok(None) if cut.get().is_some_and(|at| at.elapsed() >= CUT_GRACE) => break,
+            // Another message's event, a BEGIN, or nothing yet.
+            Ok(_) => {}
+            Err(e) => {
+                tracing::debug!(error = %e, id = id.get(), "speech connection ended");
+                break;
+            }
+        }
+    }
+    ssip.quit();
     {
         let mut g = current.lock().unwrap_or_else(PoisonError::into_inner);
         if g.as_ref().is_some_and(|r| r.id == id) {
@@ -182,17 +220,12 @@ fn wait(child: &Mutex<Child>, current: &Mutex<Option<Running>>, id: SpeechId, do
     done.call(id);
 }
 
-/// Kills a child we started; one that already exited is left to its waiter.
-fn kill(running: &Running) {
-    running.child.lock().unwrap_or_else(PoisonError::into_inner).kill().ok();
-}
-
-impl SpeechEngine for SpdSay {
+impl SpeechEngine for SpeechDispatcher {
     fn status(&self, lang: &str) -> SpeechStatus {
         match self.list() {
-            Listed::Voices(voices) => for_language(lang, voices),
-            Listed::Missing => SpeechStatus::Unavailable { reason: UnavailableReason::NoEngine },
-            Listed::Silent => SpeechStatus::Unavailable { reason: UnavailableReason::DaemonSilent },
+            Ok(voices) if voices.is_empty() => SpeechStatus::Unavailable { reason: UnavailableReason::DaemonSilent },
+            Ok(voices) => for_language(lang, voices),
+            Err(reason) => SpeechStatus::Unavailable { reason },
         }
     }
 
@@ -204,67 +237,64 @@ impl SpeechEngine for SpdSay {
         rate: SpeechRate,
         done: SpeechDone,
     ) -> Result<(), SttError> {
-        // The voice comes from `status`, already listed. A voice removed since is unverified:
-        // speech-dispatcher may fall back to its default voice (t-1490).
+        // The voice comes from `status`, already listed. For a voice removed since, Speech
+        // Dispatcher silently reads with another voice of its own choice.
         let voice = chosen(voice)?;
-        let mut command = Command::new(&self.program);
-        command.args(["-w", "-N", CLIENT, "-y", voice, "-r", &rate_arg(rate).to_string(), "--"]);
-        // A NUL cannot pass in an argument: it becomes a space, as on macOS, so all is spoken.
-        command.arg(text.replace('\0', " "));
-        let child = command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
-        let child = match child {
-            Ok(child) => Arc::new(Mutex::new(child)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Err(unavailable(UnavailableReason::NoEngine)),
-            Err(e) => return Err(VoiceSpawnSnafu.into_error(e).into()),
-        };
-        let previous = self
-            .current
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .replace(Running { id, child: Arc::clone(&child) });
+        if silent(text) {
+            // Nothing to say: the daemon would still queue an empty line and report it later.
+            // The speech in progress is cut, and this one is done here, without the daemon.
+            let previous = self.current.lock().unwrap_or_else(PoisonError::into_inner).take();
+            if let Some(previous) = previous {
+                cut(&previous);
+            }
+            done.call(id);
+            return Ok(());
+        }
+        let stream = self.open().map_err(unavailable)?;
+        let control = stream.try_clone().map_err(|e| VoiceIoSnafu { step: "connect" }.into_error(e))?;
+        let mut ssip = Ssip::connect(stream, &self.user)?;
+        let msg = ssip.speak(text, voice, rate_arg(rate))?;
+        // The waiter looks up every POLL to see whether a cut went unconfirmed.
+        if let Err(e) = control.set_read_timeout(Some(POLL)) {
+            cancel(&control).ok();
+            return Err(VoiceIoSnafu { step: "connect" }.into_error(e).into());
+        }
+        let cut_at = Arc::new(OnceLock::new());
+        let running = Running { id, control, cut: Arc::clone(&cut_at) };
+        let previous = self.current.lock().unwrap_or_else(PoisonError::into_inner).replace(running);
         if let Some(previous) = previous {
-            kill(&previous);
+            cut(&previous);
         }
         let current = Arc::clone(&self.current);
-        let waiter = Arc::clone(&child);
         let spawned = std::thread::Builder::new().name("oku-voice".into()).spawn(move || {
-            if catch_unwind(AssertUnwindSafe(|| wait(&waiter, &current, id, done))).is_err() {
+            if catch_unwind(AssertUnwindSafe(|| wait(ssip, msg, &cut_at, &current, id, done))).is_err() {
                 tracing::error!(id = id.get(), "voice waiter panicked");
             }
         });
         if let Err(e) = spawned {
             // No waiter: the speech is cut, and `done` was dropped with the closure.
             if let Some(running) = self.take(id) {
-                kill(&running);
+                cut(&running);
             }
-            child.lock().unwrap_or_else(PoisonError::into_inner).wait().ok();
-            return Err(VoiceSpawnSnafu.into_error(e).into());
+            return Err(VoiceIoSnafu { step: "waiter" }.into_error(e).into());
         }
         Ok(())
     }
 
     fn stop(&self, id: SpeechId) -> Result<(), SttError> {
         if let Some(running) = self.take(id) {
-            kill(&running);
+            cut(&running);
         }
         Ok(())
     }
 }
 
-impl SpdSay {
-    /// Takes speech `id` out of `current` if it is still the one there.
-    fn take(&self, id: SpeechId) -> Option<Running> {
-        let mut g = self.current.lock().unwrap_or_else(PoisonError::into_inner);
-        if g.as_ref().is_some_and(|r| r.id == id) { g.take() } else { None }
-    }
-}
-
-impl Drop for SpdSay {
+impl Drop for SpeechDispatcher {
     fn drop(&mut self) {
-        // Speech outlives no engine: its child is killed, its waiter still calls DONE.
+        // Speech outlives no engine: it is cancelled, its waiter still calls DONE.
         let running = self.current.lock().unwrap_or_else(PoisonError::into_inner).take();
         if let Some(running) = running {
-            kill(&running);
+            cut(&running);
         }
     }
 }

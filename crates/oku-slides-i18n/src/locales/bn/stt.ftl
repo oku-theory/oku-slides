@@ -1,6 +1,8 @@
 stt-microphone-missing = কোনো মাইক্রোফোন পাওয়া যায়নি
 stt-microphone-unusable = মাইক্রোফোন ব্যবহার করা যাচ্ছে না
 stt-microphone-silent = মাইক্রোফোন সাড়া দিচ্ছে না
+stt-duplex-echo = এই মাইক্রোফোনের জন্য প্রতিধ্বনি বাতিলকরণ চালু করা যাচ্ছে না
+stt-duplex-start = প্রতিধ্বনি বাতিলকরণসহ অডিও ইঞ্জিন চালু হচ্ছে না
 stt-audio-format = অসমর্থিত অডিও ফরম্যাট: { $format }
 stt-audio-file = অডিও ফাইল পড়া যাচ্ছে না
 stt-model = ডিক্টেশন মডেল পড়া যাচ্ছে না
@@ -22,6 +24,7 @@ stt-voice-no-voice = কোনো সিস্টেম কণ্ঠ এই ভ�
 stt-voice-daemon = বাক্‌ পরিষেবা (Speech Dispatcher) সাড়া দিচ্ছে না
 stt-voice-failed = সিস্টেম কণ্ঠ লেখাটি পড়তে পারেনি
 stt-voice-rate = পড়ার গতি স্বাভাবিক গতির 0.5 থেকে 2 গুণের মধ্যে হতে হবে
+speech-barge-in-unavailable-os = Oku কথা বলার সময় মাঝখানে কথা বলতে প্রতিধ্বনি বাতিলকরণ লাগে, যা কেবল macOS-এ পাওয়া যায়।
 
 stt-model-turbo = Large v3 Turbo (বহুভাষিক, 818 MB)
 stt-model-large = Large v3 (বহুভাষিক, 3.1 GB)

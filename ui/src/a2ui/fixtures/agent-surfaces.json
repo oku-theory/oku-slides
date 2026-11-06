@@ -2414,6 +2414,7 @@
                 "s-voice",
                 "s-rate",
                 "s-in-presentation",
+                "s-barge-in",
                 "a-title",
                 "a-agents",
                 "a-progress",
@@ -2723,7 +2724,7 @@
               "id": "s-read-aloud",
               "component": "Switch",
               "label": "Lecture à voix haute",
-              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. Sur macOS, si parler par-dessus Oku est activé, parler le coupe ; ailleurs, l'écoute s'interrompt pendant la lecture.",
               "value": {
                 "path": "/read_aloud"
               },
@@ -2819,6 +2820,25 @@
                   "context": {
                     "on": {
                       "path": "/speech_in_presentation"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-barge-in",
+              "component": "Switch",
+              "label": "Parler par-dessus Oku pour l'interrompre",
+              "help": "L'écoute reste ouverte pendant qu'Oku parle ; parler le coupe.",
+              "value": {
+                "path": "/speech_barge_in"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_barge_in",
+                  "context": {
+                    "on": {
+                      "path": "/speech_barge_in"
                     }
                   }
                 }
@@ -2921,7 +2941,8 @@
             "read_aloud": false,
             "speech_voice": "",
             "speech_rate": "1",
-            "speech_in_presentation": false
+            "speech_in_presentation": false,
+            "speech_barge_in": true
           }
         }
       }
@@ -2963,6 +2984,7 @@
                 "s-voice",
                 "s-rate",
                 "s-in-presentation",
+                "s-barge-in",
                 "a-title",
                 "a-agents",
                 "a-progress",
@@ -3172,7 +3194,7 @@
               "id": "s-read-aloud",
               "component": "Switch",
               "label": "Lecture à voix haute",
-              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. Sur macOS, si parler par-dessus Oku est activé, parler le coupe ; ailleurs, l'écoute s'interrompt pendant la lecture.",
               "value": {
                 "path": "/read_aloud"
               },
@@ -3268,6 +3290,25 @@
                   "context": {
                     "on": {
                       "path": "/speech_in_presentation"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-barge-in",
+              "component": "Switch",
+              "label": "Parler par-dessus Oku pour l'interrompre",
+              "help": "L'écoute reste ouverte pendant qu'Oku parle ; parler le coupe.",
+              "value": {
+                "path": "/speech_barge_in"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_barge_in",
+                  "context": {
+                    "on": {
+                      "path": "/speech_barge_in"
                     }
                   }
                 }
@@ -3370,7 +3411,8 @@
             "read_aloud": false,
             "speech_voice": "",
             "speech_rate": "1",
-            "speech_in_presentation": false
+            "speech_in_presentation": false,
+            "speech_barge_in": true
           }
         }
       }
@@ -3411,6 +3453,7 @@
                 "s-voice",
                 "s-rate",
                 "s-in-presentation",
+                "s-barge-in",
                 "a-title",
                 "a-agents",
                 "a-local-reason",
@@ -3607,7 +3650,7 @@
               "id": "s-read-aloud",
               "component": "Switch",
               "label": "Lecture à voix haute",
-              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. Sur macOS, si parler par-dessus Oku est activé, parler le coupe ; ailleurs, l'écoute s'interrompt pendant la lecture.",
               "value": {
                 "path": "/read_aloud"
               },
@@ -3703,6 +3746,25 @@
                   "context": {
                     "on": {
                       "path": "/speech_in_presentation"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-barge-in",
+              "component": "Switch",
+              "label": "Parler par-dessus Oku pour l'interrompre",
+              "help": "L'écoute reste ouverte pendant qu'Oku parle ; parler le coupe.",
+              "value": {
+                "path": "/speech_barge_in"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_barge_in",
+                  "context": {
+                    "on": {
+                      "path": "/speech_barge_in"
                     }
                   }
                 }
@@ -3823,7 +3885,8 @@
             "read_aloud": false,
             "speech_voice": "",
             "speech_rate": "1",
-            "speech_in_presentation": false
+            "speech_in_presentation": false,
+            "speech_barge_in": true
           }
         }
       }
@@ -3864,6 +3927,7 @@
                 "s-voice",
                 "s-rate",
                 "s-in-presentation",
+                "s-barge-in",
                 "a-title",
                 "a-agents",
                 "a-model",
@@ -4059,7 +4123,7 @@
               "id": "s-read-aloud",
               "component": "Switch",
               "label": "Lecture à voix haute",
-              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. L'écoute s'interrompt pendant la lecture.",
+              "help": "Lit chaque compte rendu, question et erreur de l'onglet affiché. Sur macOS, si parler par-dessus Oku est activé, parler le coupe ; ailleurs, l'écoute s'interrompt pendant la lecture.",
               "value": {
                 "path": "/read_aloud"
               },
@@ -4155,6 +4219,25 @@
                   "context": {
                     "on": {
                       "path": "/speech_in_presentation"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "id": "s-barge-in",
+              "component": "Switch",
+              "label": "Parler par-dessus Oku pour l'interrompre",
+              "help": "L'écoute reste ouverte pendant qu'Oku parle ; parler le coupe.",
+              "value": {
+                "path": "/speech_barge_in"
+              },
+              "action": {
+                "event": {
+                  "name": "speech_barge_in",
+                  "context": {
+                    "on": {
+                      "path": "/speech_barge_in"
                     }
                   }
                 }
@@ -4302,6 +4385,7 @@
             "speech_voice": "",
             "speech_rate": "1",
             "speech_in_presentation": false,
+            "speech_barge_in": true,
             "agent_model": "mini"
           }
         }

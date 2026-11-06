@@ -58,11 +58,6 @@ fn fits_multibyte_text_counts_bytes_not_characters() {
     assert_that!(fits("é".repeat(1025).as_str())).is_false();
 }
 
-#[test]
-fn no_drafts_prefill_returns_unavailable() {
-    assert_that!(NoDrafts.prefill("t-2", "x".to_owned())).is_equal_to(Prefill::Unavailable);
-}
-
 #[rstest]
 #[case::set(DraftOutcome::Set, "set")]
 #[case::kept(DraftOutcome::Kept, "kept")]

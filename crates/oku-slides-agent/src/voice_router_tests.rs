@@ -23,11 +23,6 @@ fn focused() -> VoiceTarget {
     target(Some(FocusSource::Host), false, false, false)
 }
 
-/// The theme shortcut word of these tests.
-fn shortcut(text: &str) -> bool {
-    text == "theme"
-}
-
 /// A route, as a comparable summary: its kind, then its text or detail.
 fn summary(route: &VoiceRoute) -> (String, String) {
     let (kind, detail) = match route {
@@ -42,7 +37,7 @@ fn summary(route: &VoiceRoute) -> (String, String) {
 }
 
 fn route_en(text: &str, t: Option<&VoiceTarget>) -> (String, String) {
-    summary(&route_voice(&said(text), t, &Lexicon::for_locales("en", None), &shortcut))
+    summary(&route_voice(&said(text), t, &Lexicon::for_locales("en", None)))
 }
 
 #[rstest]
@@ -51,7 +46,7 @@ fn route_en(text: &str, t: Option<&VoiceTarget>) -> (String, String) {
 #[case::fr("fr", "arrête")]
 #[case::de("de", "hör auf")]
 fn stop_word_returns_stop(#[case] locale: &str, #[case] text: &str) {
-    let route = route_voice(&said(text), Some(&focused()), &Lexicon::for_locales(locale, None), &shortcut);
+    let route = route_voice(&said(text), Some(&focused()), &Lexicon::for_locales(locale, None));
     assert_that!(summary(&route).0.as_str()).is_equal_to("stop");
 }
 
@@ -83,7 +78,7 @@ fn background_stop_word_returns_stop() {
 
 #[test]
 fn no_target_drops_without_logging_text() {
-    let route = route_voice(&said("secret words"), None, &Lexicon::for_locales("en", None), &shortcut);
+    let route = route_voice(&said("secret words"), None, &Lexicon::for_locales("en", None));
     let VoiceRoute::Drop(reason) = route else { panic!("not dropped: {route:?}") };
     assert_that!(reason).is_equal_to(DropReason::NoTarget);
     // The reason is all that is logged: it carries no text.
@@ -146,18 +141,27 @@ fn route_voice_table(
     assert_that!(route_en(text, Some(&t))).is_equal_to((kind.to_owned(), detail.to_owned()));
 }
 
+#[rstest]
+#[case::en("en", "um, themes")]
+#[case::fr("fr", "euh, thème")]
+#[case::ja("ja", "テーマお願いします")]
+fn route_voice_filler_theme_shows_themes(#[case] locale: &str, #[case] text: &str) {
+    let route = route_voice(&said(text), Some(&focused()), &Lexicon::for_locales(locale, None));
+    let VoiceRoute::Shortcut { tab, .. } = route else { panic!("not the theme shortcut: {route:?}") };
+    assert_that!(tab.as_str()).is_equal_to("t-1");
+}
+
 #[test]
 fn route_voice_nav_kinds_are_the_lexicon_ones() {
     let t = target(Some(FocusSource::Host), true, false, false);
-    let route = route_voice(&said("exit presentation"), Some(&t), &Lexicon::for_locales("en", None), &shortcut);
+    let route = route_voice(&said("exit presentation"), Some(&t), &Lexicon::for_locales("en", None));
     let VoiceRoute::Nav { nav, tab } = route else { panic!("not nav: {route:?}") };
     assert_that!((nav, tab.as_str())).is_equal_to((Nav::Exit, "t-1"));
 }
 
 #[test]
 fn route_voice_wake_turn_is_marked_wake() {
-    let route =
-        route_voice(&said("ok oku add a slide"), Some(&focused()), &Lexicon::for_locales("en", None), &shortcut);
+    let route = route_voice(&said("ok oku add a slide"), Some(&focused()), &Lexicon::for_locales("en", None));
     let VoiceRoute::Prompt { origin, .. } = route else { panic!("not a prompt: {route:?}") };
     assert_that!(origin).is_equal_to(TurnOrigin::Wake);
 }

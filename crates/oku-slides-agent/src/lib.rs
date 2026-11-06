@@ -24,8 +24,6 @@ mod config;
 mod drafts_port;
 mod error;
 mod events;
-#[cfg(test)]
-mod hand_voice;
 mod instructions;
 mod keeper;
 mod link;
@@ -44,8 +42,8 @@ mod stderr_tail;
 mod stt_watch;
 mod tab_agent;
 mod tab_entry;
+mod tab_port;
 mod table;
-mod tune_port;
 mod turn;
 mod turns;
 mod usage_board;

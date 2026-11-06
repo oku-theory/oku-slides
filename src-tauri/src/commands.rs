@@ -9,7 +9,7 @@ use std::sync::PoisonError;
 use std::sync::atomic::Ordering;
 
 use oku_slides_agent::{AgentCommand, CloseDecision, ReportFrom};
-use oku_slides_session::{Request, Workspace, WorkspaceRequest};
+use oku_slides_session::{AGENT_WINDOW_LABEL, Request, Workspace, WorkspaceRequest};
 use oku_slides_stt::{Status, Stt, SttRequest};
 use tauri::ipc::Response;
 use tauri::{AppHandle, Manager};
@@ -128,11 +128,25 @@ fn emit_json(app: &AppHandle, event: &str, json: &str) {
 }
 
 /// Une requête pour l'onglet `tab`.
+///
+/// The detached agent window may send only its allowlist (`check_agent_request`, t-1469).
 #[tauri::command]
-pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Response, String> {
+pub async fn request(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    tab: String,
+    req: Request,
+) -> Result<Response, String> {
+    let from_agent = window.label() == AGENT_WINDOW_LABEL;
     let reply = blocking(&app, move |app, state| {
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
+        }
+        if from_agent {
+            let allowed = oku_slides_session::check_agent_request(&Workspace::lock(&state.workspace), &tab, &req);
+            if let Err(e) = allowed {
+                return Ok(Err(state.refuse(&e)));
+            }
         }
         let changes_deck = req.changes_deck();
         let ((reply, changed), closed) = Workspace::closed_by(&state.workspace, |ws| Workspace::request(ws, &tab, req));
@@ -158,13 +172,24 @@ pub async fn request(app: AppHandle, tab: String, req: Request) -> Result<Respon
 /// Fermer la dernière fenêtre ne la ferme pas (voir `Workspace::apply` et
 /// `WorkspaceOutcome::LastWindow`) : elle quitte l'app en gardant tout, la
 /// règle vit dans la session, pas seulement dans l'interface.
+///
+/// The detached agent window may send only its allowlist (`check_agent_workspace`, t-1469).
 #[tauri::command]
-pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response, String> {
+pub async fn workspace(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    req: WorkspaceRequest,
+) -> Result<Response, String> {
+    let from_agent = window.label() == AGENT_WINDOW_LABEL;
     let (changes, focus) = classify(&req);
     let event = broadcast(&req);
     let reply = blocking(&app, move |app, state| {
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
+        }
+        if from_agent {
+            oku_slides_session::check_agent_workspace(&Workspace::lock(&state.workspace), &req)
+                .map_err(|e| state.refuse(&e))?;
         }
         let (outcome, closed) = Workspace::closed_by(&state.workspace, |ws| Workspace::apply(ws, req));
         // Onglets fermés (ou vierge remplacé) : leur agent s'arrête.
@@ -201,6 +226,37 @@ pub async fn workspace(app: AppHandle, req: WorkspaceRequest) -> Result<Response
 #[expect(clippy::needless_pass_by_value, reason = "a Tauri command takes its arguments by value")]
 pub fn quit(app: AppHandle) {
     crate::quit::exit(&app);
+}
+
+/// The largest agent-link message relayed, as serialized JSON.
+///
+/// An `insert` carries a draft of at most `MAX_DRAFT_BYTES`, each byte escaped to at most six in
+/// JSON (`\u0001`), plus a short envelope.
+const MAX_LINK_BYTES: usize = oku_slides_agent::MAX_DRAFT_BYTES * 6 + 64 * 1024;
+
+/// Whether `msg` may be relayed: a JSON object of at most `MAX_LINK_BYTES` serialized.
+///
+/// The pages validate each message's shape (zod); the host only bounds what any window may emit.
+fn validate_link(msg: &serde_json::Value) -> Result<(), &'static str> {
+    if !msg.is_object() {
+        return Err("agent-link: not an object");
+    }
+    let bytes = serde_json::to_vec(msg).map_err(|_| "agent-link: not serializable")?.len();
+    if bytes > MAX_LINK_BYTES {
+        return Err("agent-link: message too large");
+    }
+    Ok(())
+}
+
+/// Relays an agent-link message to every window, the sender too (t-1469).
+///
+/// Webviews may not emit events themselves: the agent window shows content from the agent.
+/// Async so that sizing a long draft runs off the main thread.
+#[tauri::command]
+pub async fn agent_link(app: AppHandle, msg: serde_json::Value) -> Result<(), String> {
+    use tauri::Emitter;
+    validate_link(&msg)?;
+    app.emit("agent-link", msg).map_err(|e| e.to_string())
 }
 
 /// Dictée, hors du fil principal : les requêtes au moteur d'Apple bloquent.

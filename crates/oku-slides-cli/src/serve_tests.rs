@@ -235,3 +235,71 @@ fn serve_close_decision_with_an_unknown_field_is_a_bad_request() {
         .is_equal_to(super::StatusCode::BAD_REQUEST);
     rt.block_on(s.stack.shutdown());
 }
+
+#[rstest::rstest]
+#[case::new_window(serde_json::json!({ "cmd": "new_window" }))]
+#[case::new_tab(serde_json::json!({ "cmd": "new_tab", "window": "w-1" }))]
+#[case::close_last_tab(serde_json::json!({ "cmd": "close", "tab": "t-1", "discard": true }))]
+fn serve_workspace_request_from_the_agent_window_outside_its_allowlist_is_refused(#[case] req: serde_json::Value) {
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    let before = super::Workspace::lock(&s.workspace).view().windows;
+    let (status, body) = s.api("/api/workspace", req.to_string().as_bytes(), Some(super::AGENT_WINDOW_LABEL));
+    assert_that!(status).named(&body).is_equal_to(super::StatusCode::BAD_REQUEST);
+    let fr = oku_slides_session::Localizer::new(Some("fr"));
+    let expected = serde_json::json!({ "error": fr.tr("session-agent-window-forbidden") }).to_string();
+    assert_that!(body).is_equal_to(expected);
+    assert_that!(super::Workspace::lock(&s.workspace).view().windows).is_equal_to(before);
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_workspace_view_from_the_agent_window_is_answered() {
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    let view = serde_json::json!({ "cmd": "view" }).to_string();
+    let (status, body) = s.api("/api/workspace", view.as_bytes(), Some(super::AGENT_WINDOW_LABEL));
+    assert_that!(status).named(&body).is_equal_to(super::StatusCode::OK);
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_new_window_from_a_workspace_window_is_still_applied() {
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    let new_window = serde_json::json!({ "cmd": "new_window" }).to_string();
+    let (status, body) = s.api("/api/workspace", new_window.as_bytes(), Some("w-1"));
+    assert_that!(status).named(&body).is_equal_to(super::StatusCode::OK);
+    assert_that!(super::Workspace::lock(&s.workspace).view().windows.len()).is_equal_to(2);
+    rt.block_on(s.stack.shutdown());
+}
+
+#[rstest::rstest]
+#[case::save(serde_json::json!({ "cmd": "save" }))]
+#[case::save_copy(serde_json::json!({ "cmd": "save_copy", "path": "copy.okuslides.pdf" }))]
+#[case::apply(serde_json::json!({ "cmd": "apply", "label": "x", "ops": [] }))]
+fn serve_tab_request_from_the_agent_window_outside_its_allowlist_is_refused(#[case] mut req: serde_json::Value) {
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    // A path, if any, stays in the test's own folder: a regression writes nothing elsewhere.
+    if let Some(path) = req.get("path").and_then(serde_json::Value::as_str) {
+        req["path"] = serde_json::json!(data.path().join(path));
+    }
+    let body = serde_json::json!({ "tab": "t-1", "req": req }).to_string();
+    let (status, reply) = s.api("/api", body.as_bytes(), Some(super::AGENT_WINDOW_LABEL));
+    assert_that!(status).named(&reply).is_equal_to(super::StatusCode::BAD_REQUEST);
+    let fr = oku_slides_session::Localizer::new(Some("fr"));
+    assert_that!(reply)
+        .is_equal_to(serde_json::json!({ "error": fr.tr("session-agent-window-forbidden") }).to_string());
+    rt.block_on(s.stack.shutdown());
+}
+
+#[test]
+fn serve_snapshot_from_the_agent_window_is_answered() {
+    let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    let (s, rt) = shared_on(data.path());
+    let body = serde_json::json!({ "tab": "t-1", "req": { "cmd": "snapshot" } }).to_string();
+    let (status, reply) = s.api("/api", body.as_bytes(), Some(super::AGENT_WINDOW_LABEL));
+    assert_that!(status).named(&reply).is_equal_to(super::StatusCode::OK);
+    rt.block_on(s.stack.shutdown());
+}

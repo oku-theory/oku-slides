@@ -1,6 +1,8 @@
 stt-microphone-missing = 找不到麥克風
 stt-microphone-unusable = 無法使用麥克風
 stt-microphone-silent = 麥克風沒有回應
+stt-duplex-echo = 無法為此麥克風開啟回音消除
+stt-duplex-start = 具回音消除的音訊引擎無法啟動
 stt-audio-format = 不支援的音訊格式：{ $format }
 stt-audio-file = 無法讀取音訊檔
 stt-model = 無法讀取聽寫模型
@@ -22,6 +24,7 @@ stt-voice-no-voice = 沒有系統語音能說這種語言
 stt-voice-daemon = 語音服務（Speech Dispatcher）沒有回應
 stt-voice-failed = 系統語音無法朗讀文字
 stt-voice-rate = 朗讀速度必須介於正常速度的0.5倍到2倍之間
+speech-barge-in-unavailable-os = 在 Oku 說話時插話需要回音消除，僅在 macOS 上可用。
 
 stt-model-turbo = Large v3 Turbo（多語言，818 MB）
 stt-model-large = Large v3（多語言，3.1 GB）

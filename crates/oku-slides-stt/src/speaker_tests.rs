@@ -1,125 +1,17 @@
-use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::SttError;
-use crate::speak::{SpeechDone, SpeechEngine, SpeechId, SpeechRate, SpeechStatus, UnavailableReason, VoiceInfo};
+use crate::ECHO_HORIZON;
+use crate::hand_voice::{HandClock, HandEngine, user_speaks};
+use crate::speak::{SpeechEngine, SpeechId, SpeechRate};
 use crate::test_support::{fresh_dir, platform_in};
 
 /// How long a test waits for the speaker thread: an event, never a sleep.
 const WITHIN: Duration = Duration::from_secs(10);
-
-/// A clock the test moves by hand.
-#[derive(Debug)]
-struct HandClock(Mutex<Instant>);
-
-impl HandClock {
-    fn new() -> Arc<Self> {
-        Arc::new(Self(Mutex::new(Instant::now())))
-    }
-
-    fn advance(&self, by: Duration) {
-        let mut now = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        *now = now.checked_add(by).unwrap_or_else(|| panic!("clock overflow"));
-    }
-}
-
-impl SpeakerClock for HandClock {
-    fn now(&self) -> Instant {
-        *self.0.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-/// What a [`HandEngine`] was asked, and the DONEs it holds for the test to call.
-#[derive(Default)]
-struct Calls {
-    spoken: Vec<(SpeechId, String, String)>,
-    dones: Vec<(SpeechId, SpeechDone)>,
-    stopped: Vec<SpeechId>,
-    /// How many times the voices were listed.
-    listed: usize,
-}
-
-/// What the microphone hears of each speech.
-type Echo = Box<dyn Fn(&str) + Send + Sync>;
-
-/// A voice whose DONE the test calls by hand, or that calls it inside `speak` (`inline`).
-#[derive(Default)]
-struct HandEngine {
-    calls: Mutex<Calls>,
-    inline: bool,
-    /// Refuses every speech, as an OS voice that fails to start.
-    refuse: bool,
-    /// Called with each text it speaks, as a microphone would hear it.
-    echo: Option<Echo>,
-}
-
-impl fmt::Debug for HandEngine {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("HandEngine")
-    }
-}
-
-impl HandEngine {
-    fn calls(&self) -> std::sync::MutexGuard<'_, Calls> {
-        self.calls.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Calls the DONE of speech `id`, as the OS would, late or not.
-    fn done(&self, id: u64) {
-        let done = {
-            let mut calls = self.calls();
-            let at = calls.dones.iter().position(|(d, _)| d.get() == id).unwrap_or_else(|| panic!("no DONE {id}"));
-            calls.dones.remove(at).1
-        };
-        done.call(SpeechId::new(id));
-    }
-}
-
-impl SpeechEngine for HandEngine {
-    fn status(&self, lang: &str) -> SpeechStatus {
-        self.calls().listed += 1;
-        if lang == "fr" {
-            SpeechStatus::Ready {
-                voices: vec![VoiceInfo { id: "v-fr".into(), name: "Amélie".into(), lang: "fr-FR".into() }],
-            }
-        } else {
-            SpeechStatus::Unavailable { reason: UnavailableReason::NoVoiceForLanguage }
-        }
-    }
-
-    fn speak(
-        &self,
-        id: SpeechId,
-        text: &str,
-        voice: Option<&str>,
-        _rate: SpeechRate,
-        done: SpeechDone,
-    ) -> Result<(), SttError> {
-        let voice = voice.unwrap_or_else(|| panic!("the speaker passed no voice")).to_owned();
-        if self.refuse {
-            return Err(crate::error::VoiceFailedSnafu { step: "speak" }.build().into());
-        }
-        self.calls().spoken.push((id, text.to_owned(), voice));
-        if let Some(echo) = &self.echo {
-            echo(text);
-        }
-        if self.inline {
-            done.call(id);
-        } else {
-            self.calls().dones.push((id, done));
-        }
-        Ok(())
-    }
-
-    fn stop(&self, id: SpeechId) -> Result<(), SttError> {
-        self.calls().stopped.push(id);
-        Ok(())
-    }
-}
 
 /// A dictation in French that never opens a microphone: only its suspension is read.
 fn stt(dir: &std::path::Path) -> Stt {
@@ -127,7 +19,7 @@ fn stt(dir: &std::path::Path) -> Stt {
 }
 
 fn speech(text: &str) -> Speech {
-    Speech { text: text.into(), lang: "fr".into(), voice: None, rate: SpeechRate::default(), ended: None }
+    Speech { text: text.into(), lang: "fr".into(), voice: None, rate: SpeechRate::default(), ended: None, asks: false }
 }
 
 fn settled(speaker: &Speaker) {
@@ -209,14 +101,87 @@ fn watchdog_resumes_when_done_never_comes() {
 #[case(0, 1.0, 3_000)]
 fn watchdog_shorter_at_higher_rate(#[case] chars: usize, #[case] rate: f32, #[case] millis: u64) {
     let rate = SpeechRate::new(rate).unwrap_or_else(|e| panic!("rate: {e}"));
-    assert_that!(watchdog(chars, rate)).is_equal_to(Duration::from_millis(millis));
+    assert_that!(watchdog(&"a".repeat(chars), rate)).is_equal_to(Duration::from_millis(millis));
+}
+
+#[test]
+fn watchdog_unspaced_text_gets_longer_bound() {
+    // 30 characters at 6 a second: 5 s, plus 3 s; the same count of Latin letters gets 5 s.
+    let (ja, latin) = ("追".repeat(30), "a".repeat(30));
+    let bounds = (watchdog(&ja, SpeechRate::default()), watchdog(&latin, SpeechRate::default()));
+    assert_that!(bounds).is_equal_to((Duration::from_secs(8), Duration::from_secs(5)));
+}
+
+/// A speaker that read `text`, its DONE at `end` from the start: the clock is then at its end.
+fn spoke(text: &str, end: Duration) -> (Speaker, Arc<HandClock>, tempfile::TempDir) {
+    let dir = fresh_dir("speaker-echo-filter");
+    let (engine, clock) = (Arc::new(HandEngine::default()), HandClock::new());
+    let speaker = Speaker::with_clock(engine.clone(), Some(stt(dir.path())), clock.clone());
+    speaker.say(speech(text));
+    settled(&speaker);
+    clock.advance(end);
+    engine.done(1);
+    settled(&speaker);
+    (speaker, clock, dir)
+}
+
+#[test]
+fn speaker_echoes_within_horizon_true() {
+    let (speaker, clock, _dir) = spoke("Diapositive ajoutée sur le thème bleu", Duration::from_secs(2));
+    let started = clock.now().checked_add(ECHO_HORIZON).unwrap_or_else(|| panic!("clock overflow"));
+    assert_that!(speaker.echoes("diapositive ajoutée", started)).is_true();
+}
+
+#[test]
+fn speaker_echoes_after_horizon_false() {
+    let (speaker, clock, _dir) = spoke("Diapositive ajoutée sur le thème bleu", Duration::from_secs(2));
+    let horizon = ECHO_HORIZON.checked_add(Duration::from_millis(1)).unwrap_or_else(|| panic!("overflow"));
+    let started = clock.now().checked_add(horizon).unwrap_or_else(|| panic!("clock overflow"));
+    assert_that!(speaker.echoes("diapositive ajoutée", started)).is_false();
+}
+
+#[test]
+fn speaker_echoes_while_speaking_true() {
+    let dir = fresh_dir("speaker-echo-playing");
+    let (engine, clock) = (Arc::new(HandEngine::default()), HandClock::new());
+    let speaker = Speaker::with_clock(engine, Some(stt(dir.path())), clock.clone());
+    speaker.say(speech("Diapositive ajoutée"));
+    settled(&speaker);
+    assert_that!(speaker.echoes("diapositive ajoutée", clock.now())).is_true();
+}
+
+#[test]
+fn speaker_echoes_only_the_last_three_speeches() {
+    let dir = fresh_dir("speaker-echo-recent");
+    let (engine, clock) = (Arc::new(HandEngine::inline()), HandClock::new());
+    let speaker = Speaker::with_clock(engine, Some(stt(dir.path())), clock.clone());
+    for text in ["Premier texte lu", "Deuxième texte lu", "Troisième texte lu", "Quatrième texte lu"] {
+        speaker.say(speech(text));
+        settled(&speaker);
+    }
+    let now = clock.now();
+    assert_that!((speaker.echoes("premier texte", now), speaker.echoes("deuxieme texte", now)))
+        .is_equal_to((false, true));
+}
+
+#[test]
+fn speech_that_asks_forgets_earlier_speeches() {
+    let dir = fresh_dir("speaker-echo-asks");
+    let (engine, clock) = (Arc::new(HandEngine::default()), HandClock::new());
+    let speaker = Speaker::with_clock(engine, Some(stt(dir.path())), clock.clone());
+    speaker.say(speech("Diapositive ajoutée sur le thème bleu"));
+    settled(&speaker);
+    speaker.say(Speech { asks: true, ..speech("Pour enregistrer, dites oui, ou non.") });
+    settled(&speaker);
+    // The receipt and the question share one deaf window: an answer repeating it is heard.
+    assert_that!(speaker.echoes("diapositive ajoutée", clock.now())).is_false();
 }
 
 #[test]
 fn inline_done_does_not_deadlock() {
     let dir = fresh_dir("speaker-inline");
     let stt = stt(dir.path());
-    let engine = Arc::new(HandEngine { inline: true, ..HandEngine::default() });
+    let engine = Arc::new(HandEngine::inline());
     let speaker = Speaker::with_clock(engine.clone(), Some(stt.clone()), HandClock::new());
     let (tx, rx) = mpsc::channel();
     let ended = SpeechEnded::new(move |_| tx.send(()).unwrap_or_else(|e| panic!("ended: {e}")));
@@ -260,7 +225,7 @@ fn speech_of_unavailable_language_is_skipped_without_suspending() {
 #[test]
 fn voices_listed_once_until_refreshed() {
     let dir = fresh_dir("speaker-voices");
-    let engine = Arc::new(HandEngine { inline: true, ..HandEngine::default() });
+    let engine = Arc::new(HandEngine::inline());
     let speaker = Speaker::with_clock(engine.clone(), Some(stt(dir.path())), HandClock::new());
     speaker.say(speech("Un"));
     speaker.say(speech("Deux"));
@@ -285,14 +250,6 @@ fn unavailable_language_is_listed_again() {
     assert_that!(engine.calls().listed).is_equal_to(2);
 }
 
-/// Marks the dictation as listening, the user speaking or not.
-fn user_speaks(stt: &Stt, speaking: bool) {
-    let mut g = stt.state();
-    g.state = crate::State::Listening;
-    g.speaking = speaking;
-    g.phrase_open = speaking;
-}
-
 fn spoken_texts(engine: &HandEngine) -> Vec<String> {
     engine.calls().spoken.iter().map(|(_, text, _)| text.clone()).collect()
 }
@@ -302,7 +259,7 @@ fn speech_refused_by_os_voice_keeps_listening() {
     let dir = fresh_dir("speaker-refused");
     let stt = stt(dir.path());
     user_speaks(&stt, false);
-    let engine = Arc::new(HandEngine { refuse: true, ..HandEngine::default() });
+    let engine = Arc::new(HandEngine::refusing());
     let clock = HandClock::new();
     let speaker = Speaker::with_clock(engine, Some(stt.clone()), clock.clone());
     speaker.say(speech("Bonjour"));
@@ -387,6 +344,143 @@ fn cut_drops_held_speech() {
     assert_that!((spoken_texts(&engine).len(), rx.try_recv().is_ok())).is_equal_to((0, true));
 }
 
+/// Listening through the duplex, whose voice is `voice`, with the barge-in setting `on`.
+fn listening_through_duplex(stt: &Stt, voice: Option<Arc<HandEngine>>, on: bool) {
+    let mut g = stt.state();
+    g.state = crate::State::Listening;
+    g.barge = voice.map(|v| v as Arc<dyn SpeechEngine>);
+    g.config.speech.barge_in = on;
+}
+
+/// A speaker over the OS voice `system`, listening through the duplex voice `duplex` or not.
+fn barge_speaker(
+    name: &str,
+    duplex: Option<Arc<HandEngine>>,
+    on: bool,
+) -> (Speaker, Stt, Arc<HandEngine>, Arc<HandClock>, tempfile::TempDir) {
+    let dir = fresh_dir(name);
+    let stt = stt(dir.path());
+    listening_through_duplex(&stt, duplex, on);
+    let (system, clock) = (Arc::new(HandEngine::default()), HandClock::new());
+    let speaker = Speaker::with_clock(system.clone(), Some(stt.clone()), clock.clone());
+    (speaker, stt, system, clock, dir)
+}
+
+#[test]
+fn barge_in_user_speaks_cuts_speech() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, stt, system, clock, _dir) = barge_speaker("speaker-barge", Some(duplex.clone()), true);
+    speaker.say(speech("Diapositive ajoutée sur le thème bleu"));
+    settled(&speaker);
+    // Through the duplex, the microphone stays open and hears the user from the start.
+    assert_that!((spoken_texts(&duplex).len(), spoken_texts(&system).len())).is_equal_to((1, 0));
+    assert_that!((stt.status().suspended, speaker.speaking(), speaker.hears(clock.now())))
+        .is_equal_to((false, true, true));
+    user_speaks(&stt, true);
+    clock.advance(BARGE_POLL);
+    speaker.tick();
+    settled(&speaker);
+    assert_that!((duplex.calls().stopped.clone(), speaker.speaking())).is_equal_to((vec![SpeechId::new(1)], false));
+}
+
+#[test]
+fn barge_in_cut_question_reports_its_start() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, stt, _system, clock, _dir) = barge_speaker("speaker-barge-ask", Some(duplex), true);
+    let (tx, rx) = mpsc::channel();
+    let ended = SpeechEnded::new(move |at| tx.send(at).unwrap_or_else(|e| panic!("ended: {e}")));
+    let start = clock.now();
+    speaker.say(Speech { ended: Some(ended), asks: true, ..speech("Pour enregistrer, dites oui, ou non.") });
+    settled(&speaker);
+    clock.advance(Duration::from_secs(1));
+    user_speaks(&stt, true);
+    speaker.tick();
+    settled(&speaker);
+    // Cut by the answer itself: the question ends where it started, so the answer is not early.
+    assert_that!(rx.try_recv().ok()).is_equal_to(Some(start));
+}
+
+#[test]
+fn barge_in_cut_by_a_new_speech_reports_now() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, _stt, _system, clock, _dir) = barge_speaker("speaker-barge-ask-cut", Some(duplex), true);
+    let (tx, rx) = mpsc::channel();
+    let ended = SpeechEnded::new(move |at| tx.send(at).unwrap_or_else(|e| panic!("ended: {e}")));
+    speaker.say(Speech { ended: Some(ended), asks: true, ..speech("Pour enregistrer, dites oui, ou non.") });
+    settled(&speaker);
+    clock.advance(Duration::from_secs(1));
+    speaker.say(speech("Diapositive ajoutée"));
+    settled(&speaker);
+    assert_that!(rx.try_recv().ok()).is_equal_to(Some(clock.now()));
+}
+
+#[test]
+fn barge_in_quiet_user_lets_speech_play() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, _stt, _system, clock, _dir) = barge_speaker("speaker-barge-quiet", Some(duplex.clone()), true);
+    speaker.say(speech("Diapositive ajoutée"));
+    settled(&speaker);
+    clock.advance(BARGE_POLL);
+    speaker.tick();
+    settled(&speaker);
+    assert_that!((duplex.calls().stopped.len(), speaker.speaking())).is_equal_to((0, true));
+}
+
+#[test]
+fn barge_speech_is_not_kept_for_echoes() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, _stt, _system, clock, _dir) = barge_speaker("speaker-barge-echo", Some(duplex), true);
+    speaker.say(speech("Diapositive ajoutée sur le thème bleu"));
+    settled(&speaker);
+    // The echo canceller removes it: the user may talk over it with its own words.
+    assert_that!(speaker.echoes("diapositive ajoutée", clock.now())).is_false();
+}
+
+#[test]
+fn barge_in_off_keeps_mic_suspended() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, stt, system, clock, _dir) = barge_speaker("speaker-barge-off", Some(duplex.clone()), false);
+    speaker.say(speech("Diapositive ajoutée"));
+    settled(&speaker);
+    user_speaks(&stt, true);
+    clock.advance(BARGE_POLL);
+    speaker.tick();
+    settled(&speaker);
+    assert_that!((spoken_texts(&system).len(), spoken_texts(&duplex).len())).is_equal_to((1, 0));
+    assert_that!((stt.status().suspended, system.calls().stopped.len(), speaker.hears(clock.now())))
+        .is_equal_to((true, 0, false));
+}
+
+#[test]
+fn barge_in_unavailable_keeps_mic_suspended() {
+    let (speaker, stt, system, clock, _dir) = barge_speaker("speaker-barge-unavailable", None, true);
+    speaker.say(speech("Diapositive ajoutée"));
+    settled(&speaker);
+    user_speaks(&stt, true);
+    clock.advance(BARGE_POLL);
+    speaker.tick();
+    settled(&speaker);
+    assert_that!((spoken_texts(&system).len(), stt.status().suspended, system.calls().stopped.len()))
+        .is_equal_to((1, true, 0));
+}
+
+#[test]
+fn barge_in_speech_after_muted_one_cuts_it_on_its_voice() {
+    let duplex = Arc::new(HandEngine::default());
+    let (speaker, stt, system, _clock, _dir) = barge_speaker("speaker-barge-switch", Some(duplex.clone()), false);
+    speaker.say(speech("Première"));
+    settled(&speaker);
+    stt.state().config.speech.barge_in = true;
+    speaker.say(speech("Seconde"));
+    settled(&speaker);
+    // Another voice speaks the second: the first is cut on its own, and the mic opens again.
+    assert_that!((system.calls().stopped.clone(), spoken_texts(&duplex), stt.status().suspended)).is_equal_to((
+        vec![SpeechId::new(1)],
+        vec!["Seconde".to_owned()],
+        false,
+    ));
+}
+
 #[cfg(feature = "e2e-fakes")]
 #[test]
 fn speech_of_confirmation_never_confirms_it() {
@@ -419,7 +513,7 @@ fn speech_of_confirmation_never_confirms_it() {
     let mut source = FakeSource::at_end(&stt.storage, said.clone());
     // The speakers' sound reaches the microphone: each speech is heard as it plays.
     let echo = append.clone();
-    let engine = Arc::new(HandEngine { echo: Some(Box::new(move |t| echo(t))), ..HandEngine::default() });
+    let engine = Arc::new(HandEngine::echoing(Box::new(move |t| echo(t))));
     let clock = HandClock::new();
     let speaker = Speaker::with_clock(engine.clone(), Some(stt.clone()), clock.clone());
     speaker.say(speech("Pour confirmer, dites « fusionner », ou non."));

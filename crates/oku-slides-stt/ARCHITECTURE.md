@@ -36,12 +36,12 @@ In automatic-language mode the API engine sends no language hint, so `detected` 
 ## OS voice (`speak/`)
 
 `SpeechEngine` (`status`, `speak`, `stop`; one DONE per `SpeechId`), from `system_speech_engine`:
-`apple.rs` (`AVSpeechSynthesizer`, `swift/.../OkuVoice.swift`; every `unsafe` in `apple_ffi.rs`,
-contexts freed by Rust only), `windows.rs` (WinRT, own thread), `linux.rs` (`spd-say -w`, child
-killed on cut), `fake.rs` (`e2e-fakes`: a log through `Storage`). No voice for the language: `Unavailable`.
-`speaker.rs`: `Speaker`, one per process (`for_platform`), one thread: a speech waits while the user speaks (`SPEECH_HOLD`), cuts the last, holds a `SuspendGuard` once spoken, a watchdog and `SPEECH_GUARD` after it (`hears`); `speech_config.rs`: `read_aloud`, `SpeechConfig` in `config.json`.
-Known gaps (t-1490): on Linux a cut kills our `spd-say` client and may leave the daemon speaking
-(fix: SSIP `CANCEL self`); the WinRT engine stays unverified until `voice-check.yml` runs.
+`apple.rs` (`AVSpeechSynthesizer`, `swift/.../OkuVoice.swift`, a `bridged::BridgedVoice`; every `unsafe` in `apple_ffi.rs`,
+contexts freed by Rust only), `windows.rs` (WinRT, own thread), `linux.rs` (Speech Dispatcher, one
+SSIP connection per speech, `ssip.rs`; cut by `CANCEL self`; autospawn as libspeechd),
+`fake.rs` (`e2e-fakes`: a log through `Storage`). No voice for the language: `Unavailable`.
+`speaker.rs`: `Speaker`, one per process (`for_platform`), one thread: a speech waits while the user speaks (`SPEECH_HOLD`), cuts the last, holds a `SuspendGuard` once spoken, a watchdog (chars per second per script) and `SPEECH_GUARD` after it (`hears`); `echo.rs`: the last 3 muted speeches folded (never one that `asks`, which forgets them), in memory, never logged, so `echoes` drops an utterance repeating one within `ECHO_HORIZON`; `speech_config.rs`: `read_aloud`, `SpeechConfig` (a `barge_in` change restarts listening).
+Duplex (`duplex.rs`, macOS, `OkuDuplex.swift`, `unsafe` in `duplex_ffi.rs`): one `AVAudioEngine` with voice processing (echo cancellation) taps the microphone (mono, a `Tap` feeding `Recorder::from(duplex)`) and plays the speech that `write` renders (`Duplex::voice`, a `BridgedVoice`), so the canceller removes it; buffers come on the main queue: no main run loop, no start; a buffer is scheduled only while its speech is current. Barge-in (`barge_in.rs`): hands-free listening with `barge_in` on opens the duplex, its voice kept in `Inner.barge` (`barge_voice`); the speaker then plays through it with no guard nor deaf window and cuts on `user_speaking` (`BARGE_POLL`), telling the speech it ended at its start; a failed start listens through cpal, muted, its reason in `barge_in_unavailable`. Hardware: `tests/duplex.rs` (own `main`; also: Oku's voice never opens a phrase). Known gap (t-1490): the WinRT engine stays unverified until `voice-check.yml` runs.
 
 ## Extension points and dependencies
 

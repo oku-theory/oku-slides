@@ -39,7 +39,7 @@ fn lend(id: SpeechId, record: &Arc<Record>) -> *mut c_void {
         fake_handle()
     })
     .unwrap_or_else(|| panic!("the fake bridge accepted the speech"));
-    assert_that!(handle.0).is_equal_to(fake_handle());
+    assert_that!(handle.as_ptr()).is_equal_to(fake_handle());
     lent
 }
 

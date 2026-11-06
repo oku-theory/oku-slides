@@ -160,7 +160,7 @@ async fn help_reused_tab_pages_its_live_page_to_the_new_hit() {
     activate(&ws, "t-1").await;
     let again = help(&h, json!({ "query": "Importer un PowerPoint" })).await;
     let hit = again["hits"][0]["slide"].as_str().unwrap_or_else(|| panic!("no hit in {again}")).to_owned();
-    assert_that!(h.drafts.pages()).is_equal_to(vec![(tab, hit)]);
+    assert_that!(h.tabs.pages()).is_equal_to(vec![(tab, hit)]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -169,7 +169,7 @@ async fn help_reused_tab_with_no_page_replies_not_paged() {
     let first = help(&h, json!({ "query": "dictée" })).await;
     let _ = help_tab_of(&ws, &first);
     activate(&ws, "t-1").await;
-    *lock(&h.drafts.no_page) = true;
+    *lock(&h.tabs.no_page) = true;
     let again = help(&h, json!({ "query": "Importer un PowerPoint" })).await;
     assert_that!(again["paged"].clone()).is_equal_to(json!(false));
 }

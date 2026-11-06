@@ -17,7 +17,7 @@ use crate::tool_error::{
     DeniedSnafu, NoFileSnafu, OpenElsewhereSnafu, SessionSnafu, SettingLockedSnafu, TaskSnafu, ToolError,
 };
 use crate::tools::{Tools, text};
-use crate::{ConfirmVerb, McpEvent};
+use crate::{ConfirmAction, ConfirmAsk, ConfirmVerb, McpEvent};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct SaveArgs {
@@ -56,8 +56,8 @@ pub(crate) struct SetSettingArgs {
 
 impl Tools {
     /// Asks the user, then runs `req`; `Changed` if it succeeds.
-    pub(crate) async fn guarded(&self, message: String, danger: Option<ConfirmVerb>, req: Request) -> CallToolResult {
-        self.guarded_with(message, danger, move |s| s.handle_by_agent(req).map(|_| ())).await
+    pub(crate) async fn guarded(&self, message: String, ask: ConfirmAsk, req: Request) -> CallToolResult {
+        self.guarded_with(message, ask, move |s| s.handle_by_agent(req).map(|_| ())).await
     }
 
     /// Demande à l'utilisateur, puis appelle `f` sur la session de l'onglet ;
@@ -65,10 +65,10 @@ impl Tools {
     async fn guarded_with(
         &self,
         message: String,
-        danger: Option<ConfirmVerb>,
+        ask: ConfirmAsk,
         f: impl FnOnce(&mut Session) -> oku_slides_session::Result<()> + Send + 'static,
     ) -> CallToolResult {
-        if !self.hub.confirm(message, danger).await {
+        if !self.hub.confirm(message, ask).await {
             return self.denied();
         }
         let done = self.with_session(f).await;
@@ -168,7 +168,8 @@ impl Tools {
         };
         let key = if exists { "agent-confirm-save-over" } else { "agent-confirm-save" };
         let message = self.localizer.current().tr_with(key, &[("path", shown.into())]);
-        self.guarded(message, exists.then_some(ConfirmVerb::Replace), Request::Save { path, overwrite: false }).await
+        let ask = ConfirmAsk::danger_if(exists, ConfirmVerb::Replace, ConfirmAction::Save);
+        self.guarded(message, ask, Request::Save { path, overwrite: false }).await
     }
 
     /// Ouvre le fichier dans un autre onglet (ou montre celui qui l'a) ;
@@ -184,7 +185,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-open", &[("path", path.display().to_string().into())]);
-        if !self.hub.confirm(message, None).await {
+        if !self.hub.confirm(message, ConfirmAsk::Plain(ConfirmAction::Open)).await {
             return self.denied();
         }
         let session = self.session.clone();
@@ -208,7 +209,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-move", &[("path", path.display().to_string().into())]);
-        self.guarded(message, None, Request::Move { path }).await
+        self.guarded(message, ConfirmAsk::Plain(ConfirmAction::Move), Request::Move { path }).await
     }
 
     /// Écrit une copie du deck à `path` ; le deck garde son fichier.
@@ -223,7 +224,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-save-copy", &[("path", path.display().to_string().into())]);
-        self.guarded_with(message, None, move |s| s.save_copy_new(&path)).await
+        self.guarded_with(message, ConfirmAsk::Plain(ConfirmAction::SaveCopy), move |s| s.save_copy_new(&path)).await
     }
 
     /// Fusionne un autre `.oku-slides.pdf` du même deck ; ne s'annule pas.
@@ -242,13 +243,14 @@ impl Tools {
         }
         let message =
             self.localizer.current().tr_with("agent-confirm-merge", &[("path", path.display().to_string().into())]);
-        self.guarded(message, Some(ConfirmVerb::Merge), Request::Merge { path }).await
+        self.guarded(message, ConfirmAsk::Danger(ConfirmVerb::Merge), Request::Merge { path }).await
     }
 
     pub(crate) async fn new_deck(&self) -> CallToolResult {
         let dirty = self.dirty().await;
         let message = self.localizer.current().tr(if dirty { "agent-confirm-new-dirty" } else { "agent-confirm-new" });
-        let result = self.guarded_with(message, dirty.then_some(ConfirmVerb::Discard), Session::new_deck).await;
+        let ask = ConfirmAsk::danger_if(dirty, ConfirmVerb::Discard, ConfirmAction::NewDeck);
+        let result = self.guarded_with(message, ask, Session::new_deck).await;
         self.prune_if_done(&result).await;
         result
     }
@@ -260,7 +262,7 @@ impl Tools {
             Err(e) => return self.fail_with(&e),
         };
         let message = self.localizer.current().tr_with("agent-confirm-copy-pack", &[("name", label(&name).into())]);
-        self.guarded(message, None, Request::SavePack { as_new: true }).await
+        self.guarded(message, ConfirmAsk::Plain(ConfirmAction::CopyPack), Request::SavePack { as_new: true }).await
     }
 
     pub(crate) async fn delete_pack(&self, args: Value) -> CallToolResult {
@@ -277,7 +279,7 @@ impl Tools {
             .flatten()
             .unwrap_or_else(|| pack.to_string());
         let message = self.localizer.current().tr_with("agent-confirm-delete-pack", &[("name", name.into())]);
-        self.guarded(message, Some(ConfirmVerb::Delete), Request::DeletePack { pack }).await
+        self.guarded(message, ConfirmAsk::Danger(ConfirmVerb::Delete), Request::DeletePack { pack }).await
     }
 
     /// Nouvelle version d'un thème, ou variante d'un thème intégré, en mode deck :
@@ -294,9 +296,13 @@ impl Tools {
             Ok(i) => i,
             Err(e) => return self.fail_with(&e),
         };
-        let key = if info.builtin { "agent-confirm-copy-theme" } else { "agent-confirm-edit-theme" };
+        let (key, action) = if info.builtin {
+            ("agent-confirm-copy-theme", ConfirmAction::CopyTheme)
+        } else {
+            ("agent-confirm-edit-theme", ConfirmAction::EditTheme)
+        };
         let message = self.localizer.current().tr_with(key, &[("name", info.name.into())]);
-        if !self.hub.confirm(message, None).await {
+        if !self.hub.confirm(message, ConfirmAsk::Plain(action)).await {
             return self.denied();
         }
         let done = self.with_session(move |s| s.handle_by_agent(Request::EditTheme { id: info.id, name, ops })).await;
@@ -319,7 +325,7 @@ impl Tools {
             "agent-confirm-setting",
             &[("key", key.as_str().into()), ("old", old.to_string().into()), ("new", value.to_string().into())],
         );
-        if !self.hub.confirm(message, None).await {
+        if !self.hub.confirm(message, ConfirmAsk::Plain(ConfirmAction::ChangeSetting)).await {
             return self.denied();
         }
         let written = self.settings_write(key, value).await;

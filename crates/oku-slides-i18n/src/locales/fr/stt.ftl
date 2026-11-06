@@ -1,6 +1,8 @@
 stt-microphone-missing = Aucun micro trouvé
 stt-microphone-unusable = Micro inutilisable
 stt-microphone-silent = Le micro ne répond pas
+stt-duplex-echo = Impossible d'activer l'annulation d'écho pour ce micro
+stt-duplex-start = Le moteur audio avec annulation d'écho ne démarre pas
 stt-audio-format = Format audio non pris en charge : { $format }
 stt-audio-file = Fichier audio illisible
 stt-model = Modèle de dictée illisible
@@ -22,6 +24,7 @@ stt-voice-no-voice = Aucune voix du système ne parle cette langue
 stt-voice-daemon = Le service de synthèse vocale (Speech Dispatcher) ne répond pas
 stt-voice-failed = La voix du système n'a pas pu lire le texte
 stt-voice-rate = La vitesse de lecture doit être comprise entre 0,5 et 2 fois la vitesse normale
+speech-barge-in-unavailable-os = Parler par-dessus Oku demande l'annulation d'écho, disponible sur macOS seulement.
 
 stt-model-turbo = Large v3 Turbo (multilingue, 818 Mo)
 stt-model-large = Large v3 (multilingue, 3,1 Go)

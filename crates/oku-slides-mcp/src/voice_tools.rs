@@ -19,7 +19,10 @@ use crate::tool_error::{
     EmptyDictationChangeSnafu, EmptySpeechChangeSnafu, TaskSnafu, ToolError, TurnOverSnafu, VoiceSnafu,
 };
 use crate::tools::Tools;
-use crate::{ApiTarget, Checked, ConfirmVerb, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort};
+use crate::{
+    ApiTarget, Checked, ConfirmAction, ConfirmAsk, ConfirmVerb, Origin, VoiceApplied, VoiceError, VoiceErrorKind,
+    VoicePort,
+};
 
 /// Argument keys that would target the API address, variables, Azure version or headers.
 const API_TARGET_KEYS: [&str; 9] =
@@ -56,6 +59,8 @@ pub(crate) struct SetSpeechArgs {
     pub rate: Option<f32>,
     /// Also read, while presenting, the answer to a request begun with the wake phrase.
     pub in_presentation: Option<bool>,
+    /// Talking over Oku cuts its speech (macOS, while hands-free listens); off: muted while it speaks.
+    pub barge_in: Option<bool>,
 }
 
 /// A dictation model.
@@ -138,13 +143,15 @@ impl Tools {
         }
         let l = self.localizer.current();
         let question = match (&checked.api, &checked.download) {
-            (Some(t), _) => Some((api_question(t, &l), Some(ConfirmVerb::UseApi))),
-            (None, Some((m, api_model))) => Some((download_question(m, api_model, &l), None)),
+            (Some(t), _) => Some((api_question(t, &l), ConfirmAsk::Danger(ConfirmVerb::UseApi))),
+            (None, Some((m, api_model))) => {
+                Some((download_question(m, api_model, &l), ConfirmAsk::Plain(ConfirmAction::ChangeDictation)))
+            }
             (None, None) => None,
         };
         let confirmed = question.is_some();
-        if let Some((message, danger)) = question
-            && !self.hub.confirm(message, danger).await
+        if let Some((message, ask)) = question
+            && !self.hub.confirm(message, ask).await
         {
             return self.denied();
         }
@@ -169,8 +176,13 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let patch =
-            SpeechPatch { read_aloud: a.read_aloud, voice: a.voice, rate: a.rate, in_presentation: a.in_presentation };
+        let patch = SpeechPatch {
+            read_aloud: a.read_aloud,
+            voice: a.voice,
+            rate: a.rate,
+            in_presentation: a.in_presentation,
+            barge_in: a.barge_in,
+        };
         if patch.is_empty() {
             return self.fail_with(&EmptySpeechChangeSnafu.build());
         }
@@ -193,7 +205,14 @@ impl Tools {
             tracing::error!("modèle de dictée vérifié sans téléchargement");
             return self.fail_with(&refusal(VoiceErrorKind::Installed));
         };
-        if !self.hub.confirm(download_question(m, api_model, &self.localizer.current()), None).await {
+        if !self
+            .hub
+            .confirm(
+                download_question(m, api_model, &self.localizer.current()),
+                ConfirmAsk::Plain(ConfirmAction::Download),
+            )
+            .await
+        {
             return self.denied();
         }
         self.apply_voice(event, true).await
@@ -230,7 +249,7 @@ impl Tools {
             }
             None => l.tr_with("agent-confirm-agent-builtin", &[("name", name.into())]),
         };
-        if !self.hub.confirm(message, None).await {
+        if !self.hub.confirm(message, ConfirmAsk::Plain(ConfirmAction::SelectAgent)).await {
             return self.denied();
         }
         self.apply_voice(event, true).await
@@ -249,7 +268,10 @@ impl Tools {
         let l = self.localizer.current();
         if !self
             .hub
-            .confirm(l.tr_with("agent-confirm-agent-model", &[("size", size_text(size, &l).into())]), None)
+            .confirm(
+                l.tr_with("agent-confirm-agent-model", &[("size", size_text(size, &l).into())]),
+                ConfirmAsk::Plain(ConfirmAction::Download),
+            )
             .await
         {
             return self.denied();

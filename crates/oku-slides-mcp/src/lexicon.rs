@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use oku_slides_i18n::{REFERENCE, shipped, voice_forms};
+use oku_slides_i18n::{REFERENCE, THEME_SHORTCUT, shipped, voice_forms};
 
 #[path = "lexicon_token.rs"]
 mod token;
@@ -83,6 +83,98 @@ impl ConfirmVerb {
     }
 }
 
+/// What a plain confirmation asks the user to approve, read aloud.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmAction {
+    /// Open a file in another tab.
+    Open,
+    /// Save the deck to its file.
+    Save,
+    /// Save a copy of the deck elsewhere.
+    SaveCopy,
+    /// Move the deck's file.
+    Move,
+    /// Start a new deck.
+    NewDeck,
+    /// Save a copy of the edited pack.
+    CopyPack,
+    /// Copy a theme, built in or edited, under a new id.
+    CopyTheme,
+    /// Write a new version of a theme.
+    EditTheme,
+    /// Change an app setting.
+    ChangeSetting,
+    /// Change the dictation settings.
+    ChangeDictation,
+    /// Download a model.
+    Download,
+    /// Switch the app's agent.
+    SelectAgent,
+}
+
+impl ConfirmAction {
+    /// Every action, in declaration order.
+    pub const ALL: [Self; 12] = [
+        Self::Open,
+        Self::Save,
+        Self::SaveCopy,
+        Self::Move,
+        Self::NewDeck,
+        Self::CopyPack,
+        Self::CopyTheme,
+        Self::EditTheme,
+        Self::ChangeSetting,
+        Self::ChangeDictation,
+        Self::Download,
+        Self::SelectAgent,
+    ];
+
+    /// The Fluent key of this action's spoken infinitive phrase.
+    #[must_use]
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::Open => "voice-action-open",
+            Self::Save => "voice-action-save",
+            Self::SaveCopy => "voice-action-save-copy",
+            Self::Move => "voice-action-move",
+            Self::NewDeck => "voice-action-new-deck",
+            Self::CopyPack => "voice-action-copy-pack",
+            Self::CopyTheme => "voice-action-copy-theme",
+            Self::EditTheme => "voice-action-edit-theme",
+            Self::ChangeSetting => "voice-action-change-setting",
+            Self::ChangeDictation => "voice-action-change-dictation",
+            Self::Download => "voice-action-download",
+            Self::SelectAgent => "voice-action-select-agent",
+        }
+    }
+}
+
+/// How a confirmation is answered: a plain yes, or yes plus a danger verb.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmAsk {
+    /// A plain yes approves; the prompt names the action.
+    Plain(ConfirmAction),
+    /// The button shows the verb, and a spoken yes must say it too.
+    Danger(ConfirmVerb),
+}
+
+impl ConfirmAsk {
+    /// A danger confirmation when `danger` holds, a plain one otherwise.
+    #[must_use]
+    pub const fn danger_if(danger: bool, verb: ConfirmVerb, action: ConfirmAction) -> Self {
+        if danger { Self::Danger(verb) } else { Self::Plain(action) }
+    }
+
+    /// The verb a spoken yes must say; `None` for a plain confirmation.
+    #[must_use]
+    pub const fn verb(self) -> Option<ConfirmVerb> {
+        match self {
+            Self::Plain(_) => None,
+            Self::Danger(verb) => Some(verb),
+        }
+    }
+}
+
 /// What a spoken answer says to a yes-or-no question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum YesNo {
@@ -124,6 +216,8 @@ pub struct Lexicon {
     filler: Vec<Form>,
     option: Vec<Form>,
     verbs: Vec<Vec<Form>>,
+    /// The theme shortcut's words (`ui-shortcut-theme`, also the typed shortcut's).
+    theme: Vec<Form>,
     /// Every one-word form of an unspaced script: what such a token is cut into.
     pieces: BTreeSet<String>,
 }
@@ -166,6 +260,7 @@ impl Lexicon {
             wake: compile(gather("voice-wake"), None),
             option: plain("voice-option"),
             verbs: ConfirmVerb::ALL.iter().map(|v| plain(v.key())).collect(),
+            theme: plain(THEME_SHORTCUT),
             filler,
             pieces: BTreeSet::new(),
         };
@@ -175,7 +270,8 @@ impl Lexicon {
 
     /// The words of every form that is a single word.
     fn one_word_forms(&self) -> impl Iterator<Item = &str> {
-        let kinds = [&self.yes, &self.no, &self.negation, &self.stop, &self.wake, &self.filler, &self.option];
+        let kinds =
+            [&self.yes, &self.no, &self.negation, &self.stop, &self.wake, &self.filler, &self.option, &self.theme];
         let nav = self.nav.iter().map(|(_, forms)| forms);
         let ordinals = self.ordinals.iter();
         let verbs = self.verbs.iter();
@@ -300,6 +396,14 @@ impl Lexicon {
     #[must_use]
     pub fn stop(&self, said: &str) -> bool {
         parse_all(&self.content(said), &[((), &self.stop)]).is_some_and(|heard| !heard.is_empty())
+    }
+
+    /// True if the whole utterance is the theme shortcut, filler words ignored.
+    ///
+    /// Only the lexicon's locales count: one lacking the words never borrows English ones.
+    #[must_use]
+    pub fn theme_shortcut(&self, said: &str) -> bool {
+        parse_all(&self.content(said), &[((), &self.theme)]).is_some_and(|heard| !heard.is_empty())
     }
 
     /// The navigation command the whole utterance spells, if it is one and only one.

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use oku_slides_mcp::{DraftPort, Prefill};
+use oku_slides_mcp::Prefill;
 use oku_slides_session::agent::Sessions;
 use oku_slides_session::{Fonts, Platform, Session, Settings, Workspace};
 use speculoos::prelude::*;
@@ -32,11 +32,6 @@ struct Fixture {
 }
 
 impl Fixture {
-    /// The port the starter gives its tabs.
-    fn drafts(&self) -> Arc<dyn DraftPort> {
-        self.starter.ports.drafts.clone()
-    }
-
     /// The draft events relayed so far, as JSON `{tab, event}`.
     fn drafts_sent(&mut self) -> Vec<serde_json::Value> {
         std::iter::from_fn(|| self.rx.try_recv().ok())
@@ -96,7 +91,7 @@ async fn fixture(known: bool) -> Fixture {
         settings: Arc::new(AppSettings::new(&platform, None)),
         voice,
         workspace: Arc::new(oku_slides_session::agent::NoWorkspace),
-        tune: Arc::new(oku_slides_mcp::NoTune),
+        tabs: Arc::new(oku_slides_mcp::NoTabs),
         app: Arc::new(oku_slides_session::agent::UnavailableApp),
         after: std::sync::mpsc::channel().0,
         link,
@@ -108,10 +103,10 @@ async fn fixture(known: bool) -> Fixture {
     Fixture { starter, rx, launched, platform, _dir: dir }
 }
 
-/// `drafts.prefill`, off the runtime's threads as the tools call it.
-async fn prefill(drafts: &Arc<dyn DraftPort>, tab: &str, text: &str) -> Prefill {
-    let (drafts, tab, text) = (drafts.clone(), tab.to_owned(), text.to_owned());
-    tokio::task::spawn_blocking(move || drafts.prefill(&tab, text)).await.unwrap()
+/// `starter.prefill`, off the runtime's threads as the tools call it.
+async fn prefill(starter: &Arc<Starter>, tab: &str, text: &str) -> Prefill {
+    let (starter, tab, text) = (starter.clone(), tab.to_owned(), text.to_owned());
+    tokio::task::spawn_blocking(move || starter.prefill(&tab, text)).await.unwrap()
 }
 
 fn started(f: &Fixture, tab: &str) -> bool {
@@ -121,7 +116,7 @@ fn started(f: &Fixture, tab: &str) -> bool {
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_on_a_never_started_tab_starts_its_entry_and_sets_the_draft() {
     let f = fixture(true).await;
-    assert_that!(prefill(&f.drafts(), "t-2", REQUEST).await).is_equal_to(Prefill::Set);
+    assert_that!(prefill(&f.starter, "t-2", REQUEST).await).is_equal_to(Prefill::Set);
     assert_that!(started(&f, "t-2")).is_true();
     f.finish().await;
 }
@@ -129,7 +124,7 @@ async fn prefill_on_a_never_started_tab_starts_its_entry_and_sets_the_draft() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_on_a_never_started_tab_never_launches_the_acp_agent() {
     let f = fixture(true).await;
-    prefill(&f.drafts(), "t-2", REQUEST).await;
+    prefill(&f.starter, "t-2", REQUEST).await;
     // The tab's tools and keeper start at once; an agent launch would follow them.
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_that!(f.launched.exists()).is_false();
@@ -139,7 +134,7 @@ async fn prefill_on_a_never_started_tab_never_launches_the_acp_agent() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_on_a_never_started_tab_starts_no_turn() {
     let f = fixture(true).await;
-    prefill(&f.drafts(), "t-2", REQUEST).await;
+    prefill(&f.starter, "t-2", REQUEST).await;
     tokio::time::sleep(Duration::from_millis(300)).await;
     let link = f.starter.open("t-2").unwrap();
     assert_that!(link.hub.turn()).is_none();
@@ -149,7 +144,7 @@ async fn prefill_on_a_never_started_tab_starts_no_turn() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_emits_the_draft_to_the_tab_without_origin() {
     let mut f = fixture(true).await;
-    prefill(&f.drafts(), "t-2", REQUEST).await;
+    prefill(&f.starter, "t-2", REQUEST).await;
     let expected = serde_json::json!({
         "tab": "t-2",
         "event": { "kind": "draft", "text": REQUEST, "origin": null, "images": [] },
@@ -161,15 +156,15 @@ async fn prefill_emits_the_draft_to_the_tab_without_origin() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_of_a_tab_whose_draft_holds_text_returns_kept() {
     let f = fixture(true).await;
-    prefill(&f.drafts(), "t-2", "à moi").await;
-    assert_that!(prefill(&f.drafts(), "t-2", REQUEST).await).is_equal_to(Prefill::Kept);
+    prefill(&f.starter, "t-2", "à moi").await;
+    assert_that!(prefill(&f.starter, "t-2", REQUEST).await).is_equal_to(Prefill::Kept);
     f.finish().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_then_replay_as_follow_does_replays_the_draft() {
     let mut f = fixture(true).await;
-    prefill(&f.drafts(), "t-2", REQUEST).await;
+    prefill(&f.starter, "t-2", REQUEST).await;
     f.drafts_sent();
     // `Follow` replays a started tab's link.
     f.starter.open("t-2").unwrap().replay(&f.starter.out_tx);
@@ -182,7 +177,7 @@ async fn prefill_then_replay_as_follow_does_replays_the_draft() {
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_on_an_unknown_tab_returns_unavailable_and_starts_nothing() {
     let f = fixture(false).await;
-    assert_that!(prefill(&f.drafts(), "t-404", REQUEST).await).is_equal_to(Prefill::Unavailable);
+    assert_that!(prefill(&f.starter, "t-404", REQUEST).await).is_equal_to(Prefill::Unavailable);
     assert_that!(started(&f, "t-404")).is_false();
     f.finish().await;
 }
@@ -191,29 +186,21 @@ async fn prefill_on_an_unknown_tab_returns_unavailable_and_starts_nothing() {
 async fn prefill_on_a_closed_tab_returns_unavailable() {
     let f = fixture(true).await;
     f.starter.table.lock().unwrap().closed.insert("t-2".to_owned());
-    assert_that!(prefill(&f.drafts(), "t-2", REQUEST).await).is_equal_to(Prefill::Unavailable);
+    assert_that!(prefill(&f.starter, "t-2", REQUEST).await).is_equal_to(Prefill::Unavailable);
     f.finish().await;
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn prefill_once_the_stack_is_gone_returns_unavailable() {
-    let f = fixture(true).await;
-    let drafts = f.drafts();
-    f.finish().await;
-    assert_that!(prefill(&drafts, "t-2", REQUEST).await).is_equal_to(Prefill::Unavailable);
-}
-
-/// `drafts.page`, off the runtime's threads as the tools call it.
-async fn page(drafts: &Arc<dyn DraftPort>, tab: &str, slide: &str) -> bool {
-    let (drafts, tab, slide) = (drafts.clone(), tab.to_owned(), slide.to_owned());
-    tokio::task::spawn_blocking(move || drafts.page(&tab, slide)).await.unwrap()
+/// `starter.page`, off the runtime's threads as the tools call it.
+async fn page(starter: &Arc<Starter>, tab: &str, slide: &str) -> bool {
+    let (starter, tab, slide) = (starter.clone(), tab.to_owned(), slide.to_owned());
+    tokio::task::spawn_blocking(move || starter.page(&tab, slide)).await.unwrap()
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn page_on_a_known_tab_sends_focus_to_its_hub() {
     let f = fixture(true).await;
     let mut rx = f.starter.open("t-2").unwrap().hub.subscribe();
-    assert_that!(page(&f.drafts(), "t-2", "s-dicter").await).is_true();
+    assert_that!(page(&f.starter, "t-2", "s-dicter").await).is_true();
     let sent = std::iter::from_fn(|| rx.try_recv().ok()).find_map(|e| match e {
         oku_slides_mcp::McpEvent::Focus { slide } => Some(slide),
         _ => None,
@@ -225,7 +212,7 @@ async fn page_on_a_known_tab_sends_focus_to_its_hub() {
 #[tokio::test(flavor = "multi_thread")]
 async fn page_on_an_unknown_tab_returns_false_and_starts_nothing() {
     let f = fixture(false).await;
-    assert_that!(page(&f.drafts(), "t-404", "s-dicter").await).is_false();
+    assert_that!(page(&f.starter, "t-404", "s-dicter").await).is_false();
     assert_that!(started(&f, "t-404")).is_false();
     f.finish().await;
 }

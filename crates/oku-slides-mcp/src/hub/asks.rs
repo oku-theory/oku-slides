@@ -7,7 +7,7 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 
 use super::{Answer, AnswerOutcome, Freeze, HubState, McpEvent, SurfaceHub};
-use crate::ConfirmVerb;
+use crate::{ConfirmAsk, ConfirmVerb};
 
 /// What a pending question is: it says what may answer it.
 #[derive(Debug, Clone)]
@@ -256,14 +256,19 @@ impl SurfaceHub {
 
     /// Confirms a tool that cannot be undone; `true` only on "confirm".
     ///
-    /// With `danger`, its button shows the verb, and a spoken yes must say it too.
-    pub async fn confirm(&self, message: String, danger: Option<ConfirmVerb>) -> bool {
+    /// A danger `ask` shows its verb on the button, and a spoken yes must say it too;
+    /// a plain one names its action aloud, and any yes approves it.
+    pub async fn confirm(&self, message: String, ask: ConfirmAsk) -> bool {
         let id = self.next_id("confirm");
         let l = self.localizer.current();
+        let danger = ask.verb();
         let verb = danger.map(|v| l.tr(v.label_key()));
         let surface = forms::confirm(&id, &message, verb.clone(), None, &l);
-        // Read: the template and the verb only, never the message (it may name a tab or a path).
-        let spoken = SpokenText::confirm(verb.as_deref(), &l);
+        // Read: the template and the verb or action only, never the message (it may name a tab or a path).
+        let spoken = match ask {
+            ConfirmAsk::Plain(action) => SpokenText::confirm_action(&l.tr(action.key()), &l),
+            ConfirmAsk::Danger(_) => SpokenText::confirm(verb.as_deref(), &l),
+        };
         matches!(
             self.ask_with(None, surface, None, AskKind::Confirm { message, verb: danger }, Some(spoken)).await,
             Answer::Action { name, context } if name == "confirm" && context.get("confirmed") == Some(&Value::Bool(true))

@@ -1,6 +1,8 @@
 stt-microphone-missing = 마이크를 찾을 수 없습니다
 stt-microphone-unusable = 마이크를 사용할 수 없습니다
 stt-microphone-silent = 마이크가 응답하지 않습니다
+stt-duplex-echo = 이 마이크에서 에코 제거를 켤 수 없습니다
+stt-duplex-start = 에코 제거 오디오 엔진이 시작되지 않습니다
 stt-audio-format = 지원되지 않는 오디오 형식입니다: { $format }
 stt-audio-file = 오디오 파일을 읽을 수 없습니다
 stt-model = 받아쓰기 모델을 읽을 수 없습니다
@@ -22,6 +24,7 @@ stt-voice-no-voice = 이 언어를 말하는 시스템 음성이 없습니다
 stt-voice-daemon = 음성 서비스(Speech Dispatcher)가 응답하지 않습니다
 stt-voice-failed = 시스템 음성이 텍스트를 읽지 못했습니다
 stt-voice-rate = 읽기 속도는 보통 속도의 0.5배에서 2배 사이여야 합니다
+speech-barge-in-unavailable-os = Oku가 말하는 중에 끼어들려면 에코 제거가 필요하며, macOS에서만 사용할 수 있습니다.
 
 stt-model-turbo = Large v3 Turbo (다국어, 818 MB)
 stt-model-large = Large v3 (다국어, 3.1 GB)

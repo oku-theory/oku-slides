@@ -114,7 +114,7 @@ fn last_surfaces(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -> Vec<Str
 }
 
 fn saved(thread: Vec<Surface>) -> SavedConversation {
-    SavedConversation { agent: None, session: None, thread }
+    SavedConversation { agent: None, session: None, thread, work: None }
 }
 
 #[test]

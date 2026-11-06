@@ -143,7 +143,8 @@ impl Session {
     ///
     /// Les assets apportés par un élément collé depuis un autre onglet (`carried_assets`)
     /// entrent de même. Un autre asset nouvellement cité, absent du bundle, est refusé ; un asset déjà
-    /// manquant avant l'op (deck importé) reste au `validate` de le signaler.
+    /// manquant avant l'op (deck importé) reste au `validate` de le signaler. New assets past the
+    /// sources budget are refused (`SourcesOverBudget`), none added.
     pub(crate) fn embed_op_assets(&mut self, next: &Deck, registry: &WidgetRegistry) -> Result<()> {
         let before = oku_slides_core::asset_refs(self.doc.sources.deck(), registry);
         let (mut pasted, mut carried) = (Vec::new(), Vec::new());
@@ -159,7 +160,10 @@ impl Session {
                 return UnknownAssetSnafu { asset: id }.fail()?;
             }
         }
-        // Tout est vérifié avant d'ajouter : un refus n'ajoute rien.
+        // Everything is checked before anything is added: a refusal adds nothing.
+        let sizes =
+            pasted.iter().map(|b| b.len()).chain(carried.iter().filter_map(|id| self.carried.get(id)).map(Vec::len));
+        self.ensure_sources_room(sizes.map(|n| u64::try_from(n).unwrap_or(u64::MAX)).fold(0, u64::saturating_add))?;
         for bytes in pasted {
             self.doc.sources.add_asset(bytes.to_vec());
         }

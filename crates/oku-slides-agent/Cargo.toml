@@ -37,6 +37,7 @@ time.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+oku-slides-stt = { workspace = true, features = ["test-support"] }
 oku-slides-mcp = { workspace = true, features = ["test-support"] }
 # `examples/smoke.rs` : le binaire sert aussi de processus de rendu.
 oku-slides-render-worker.workspace = true

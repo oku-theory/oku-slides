@@ -153,7 +153,7 @@ impl Tools {
         self.json_result(&result)
     }
 
-    /// Passes `text` to tab `tab`'s draft through the [`crate::DraftPort`], in a blocking task.
+    /// Passes `text` to tab `tab`'s draft through the [`crate::TabPort`], in a blocking task.
     ///
     /// A request over [`crate::MAX_REQUEST_BYTES`] never reaches the port. A lost task is
     /// logged and told as `Unavailable`: the open itself already happened.
@@ -161,8 +161,8 @@ impl Tools {
         if !fits(&text) {
             return DraftOutcome::TooLong;
         }
-        let (drafts, target) = (Arc::clone(&self.drafts), tab.to_owned());
-        match tokio::task::spawn_blocking(move || drafts.prefill(&target, text)).await {
+        let (tabs, target) = (Arc::clone(&self.tabs), tab.to_owned());
+        match tokio::task::spawn_blocking(move || tabs.prefill(&target, text)).await {
             Ok(prefill) => prefill.into(),
             Err(e) => {
                 tracing::warn!(tab, error = %e, "draft prefill: task lost");

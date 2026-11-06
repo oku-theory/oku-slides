@@ -1,6 +1,7 @@
 //! The C ABI of the Swift voice bridge (`OkuVoice.swift`): externs, trampolines, contexts.
 //!
-//! Every `unsafe` block of the macOS voice is here. Ownership of one speech's context:
+//! Every `unsafe` block of the macOS voice is here; the duplex engine (`crate::duplex_ffi`) lends
+//! its speech contexts through [`start`] too. Ownership of one speech's context:
 //! - [`start`] boxes a [`Slot`] and lends its pointer to the bridge;
 //! - the bridge calls [`on_done`] (any number of times), then [`free_ctx`] exactly once;
 //! - if the bridge refuses the speech (null handle), it never calls back and [`start`] frees
@@ -16,6 +17,7 @@
 use std::ffi::CString;
 use std::ffi::{CStr, c_char, c_void};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::ptr::NonNull;
 use std::sync::{Mutex, PoisonError};
 
 use super::{SpeechDone, SpeechId, VoiceInfo};
@@ -114,13 +116,15 @@ pub(crate) extern "C" fn on_voice(ctx: *mut c_void, id: *const c_char, name: *co
 }
 
 /// A speech the bridge accepted, until Rust releases it.
+#[cfg(target_os = "macos")]
 #[derive(Debug)]
-pub(crate) struct VoiceHandle(*mut c_void);
+pub(crate) struct VoiceHandle(NonNull<c_void>);
 
 // SAFETY: the handle names a Swift `VoiceSpeech` whose context and closed flag are guarded by a
 // lock; the one process synthesizer it reaches is guarded by the router's lock, and only told
 // `speak` and `stopSpeaking`, which `AVSpeechSynthesizer` accepts off the main thread. Rust gives
 // each handle one owner (`current`, then `release`, which consumes it).
+#[cfg(target_os = "macos")]
 unsafe impl Send for VoiceHandle {}
 
 /// Lends a fresh context for speech `id` to `bridge`, which returns its handle or null.
@@ -132,15 +136,14 @@ pub(crate) fn start(
     id: SpeechId,
     done: SpeechDone,
     bridge: impl FnOnce(*mut c_void, u64) -> *mut c_void,
-) -> Option<VoiceHandle> {
+) -> Option<NonNull<c_void>> {
     let ctx = Box::into_raw(Box::new(Slot(Mutex::new(Some(Ctx { id, done }))))).cast::<c_void>();
-    let handle = bridge(ctx, id.get());
-    if handle.is_null() {
+    let handle = NonNull::new(bridge(ctx, id.get()));
+    if handle.is_none() {
         // A refusal is the bridge's last word on `ctx`: Rust takes it back.
         free_ctx(ctx);
-        return None;
     }
-    Some(VoiceHandle(handle))
+    handle
 }
 
 /// Every voice of the system.
@@ -166,6 +169,7 @@ pub(crate) fn speak(id: SpeechId, text: &str, voice: &str, rate: f32, done: Spee
         // valid until the bridge's single `free_ctx`, or is freed by `start` on null.
         unsafe { oku_voice_speak(text.as_ptr(), voice.as_ptr(), rate, generation, ctx, on_done, free_ctx) }
     })
+    .map(VoiceHandle)
 }
 
 #[cfg(target_os = "macos")]
@@ -173,13 +177,13 @@ impl VoiceHandle {
     /// Cuts the speech; DONE follows, from the bridge.
     pub(crate) fn stop(&self) {
         // SAFETY: the handle is valid until `release`, which consumes it.
-        unsafe { oku_voice_stop(self.0) };
+        unsafe { oku_voice_stop(self.0.as_ptr()) };
     }
 
     /// Releases the speech, cutting it; the bridge sends its DONE now if it has not yet.
     pub(crate) fn release(self) {
         // SAFETY: drops the reference `oku_voice_speak` returned, once: `self` is consumed.
-        unsafe { oku_voice_release(self.0) };
+        unsafe { oku_voice_release(self.0.as_ptr()) };
     }
 }
 

@@ -7,6 +7,8 @@
 - Never grant webviews core:window:allow-destroy; only the host closes windows, and new windows stay w-n. (plan:2026-09-26-onglets-fenetres)
 - In windows sync, never destroy the agent window, and reconcile it before focusing the active workspace window. (plan:2026-10-09-agent-detachable)
 - Never let the agent window change the focused workspace window, and never treat it as a tab drop target. (spec:2026-10-09-agent-detachable-design)
+- Pass every request and workspace command from the agent window through check_agent_request or check_agent_workspace before acting, in the app and serve alike; widen their allowlist only for what its page sends. (t-1469)
+- Relay the agent link only through the bounded agent_link command; never grant the agent window core:default or an event emit permission, as build.rs checks. (t-1469)
 - Make the agent menu checkbox toggle the detached state read from the workspace, not the checkbox state. (plan:2026-10-09-agent-detachable)
 - Throttle saves of window state and ignore windows that are already closed. (t-169)
 - Install an update only after state::settle in the same blocking job, then request_restart; never restart from the webview. (spec:2026-10-18-auto-update-design)

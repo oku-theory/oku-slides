@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Instant;
 
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_mcp::{DraftPort, McpEvent, SettingsPort, SurfaceHub, ToolServer, Tools, TunePort};
+use oku_slides_mcp::{HostPorts, McpEvent, SettingsPort, SurfaceHub, TabPort, ToolServer, Tools};
 use oku_slides_platform::config::PromptImageLimits;
 use oku_slides_session::agent::{AgentWorkspace, AppPort, AttachmentRef, SpokenFailure, TabSession};
 use oku_slides_session::{DocumentKind, Platform};
@@ -148,19 +148,18 @@ impl TabLink {
     }
 }
 
-/// What the stack shares with each tab: settings, voice and agent choice, drafts and workspace.
+/// What the stack shares with each tab: settings, voice and agent choice, other tabs and workspace.
 #[derive(Debug, Clone)]
 pub(crate) struct TabPorts {
     /// The settings `set_setting` reads and writes.
     pub settings: Arc<AppSettings>,
     /// The app's dictation and agent: the settings box and its guards.
     pub voice: Arc<AppVoice>,
-    /// Where `open_pack` and `open_theme` pass the user's request: another tab's draft.
-    pub drafts: Arc<dyn DraftPort>,
+    /// Other tabs: where `open_pack` and `open_theme` pass the user's request (a draft), `help`
+    /// pages, and `import` starts the fine-tuning turn.
+    pub tabs: Arc<dyn TabPort>,
     /// The host's workspace: the focused tab, an import's new tab.
     pub workspace: Arc<dyn AgentWorkspace>,
-    /// Starts an imported tab's fine-tuning turn (`import` with `tune`).
-    pub tune: Arc<dyn TunePort>,
     /// The app itself: the `update` tool's checks.
     pub app: Arc<dyn AppPort>,
     /// Where the tab's actor sends its ended turns' quit or install.
@@ -213,9 +212,8 @@ impl TabEntry {
             localizer: platform.live_localizer.clone(),
             keeper: keeper.clone(),
             voice: ports.voice,
-            drafts: ports.drafts,
+            tabs: ports.tabs,
             workspace: ports.workspace,
-            tune: ports.tune,
             app: ports.app,
             after: ports.after,
             prompt_limits: platform.settings.paste.prompt_limits(),
@@ -381,12 +379,10 @@ struct Agent {
     keeper: Keeper,
     /// Counts the tab's requests for the settings box.
     voice: Arc<AppVoice>,
-    /// The other tabs' drafts, for the tools' `open_pack` and `open_theme`.
-    drafts: Arc<dyn DraftPort>,
+    /// The other tabs' draft, page and fine-tuning turn, for the tools.
+    tabs: Arc<dyn TabPort>,
     /// The host's workspace, for the tools.
     workspace: Arc<dyn AgentWorkspace>,
-    /// The host's fine-tuning starter, for the tools' `import`.
-    tune: Arc<dyn TunePort>,
     /// The host's app port, for the tools.
     app: Arc<dyn AppPort>,
     /// Where the actor sends its ended turns' quit or install.
@@ -451,11 +447,7 @@ impl Agent {
         let tools = Tools::new(
             self.session.clone(),
             self.hub.clone(),
-            settings,
-            self.drafts.clone(),
-            self.workspace.clone(),
-            self.tune.clone(),
-            self.app.clone(),
+            HostPorts { settings, tabs: self.tabs.clone(), workspace: self.workspace.clone(), app: self.app.clone() },
             platform,
             kind,
         );

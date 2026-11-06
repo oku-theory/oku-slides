@@ -51,7 +51,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Word a session error for the agent in say_to_agent (tool replies), never in the session; hub cards keep say_session. (t-1171)
 - Stay on rust-mcp-sdk 1.x until agents embed MCP 2026-07-28 clients; the 2.0 server speaks only that version. (plan:2026-09-26-agent-vocal)
 - Change dictation only through VoicePort (set_dictation, the box); set_setting keeps no dictation key. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1144)
-- Confirm non-undoable MCP tools through SurfaceHub::confirm before executing, naming a ConfirmVerb for a danger one; add no host-side permission trait. A pack or theme tab saves through its autosave; the agent's save_pack and save_theme only save confirmed copies. (spec:2026-09-26-agent-vocal-design, t-1191, t-997)
+- Confirm non-undoable MCP tools through SurfaceHub::confirm before executing, with a ConfirmAsk: a ConfirmVerb for a danger one, else the ConfirmAction read aloud; add no host-side permission trait. A pack or theme tab saves through its autosave; the agent's save_pack and save_theme only save confirmed copies. (spec:2026-09-26-agent-vocal-design, t-1191, t-997, t-1513)
 - Confirm every edit_theme, a built-in theme included (saved as a variant extending it); a change to this deck only goes through set_token ops on deck.tokens. (t-692, t-1100)
 - Emit widget_touched only in pack mode. (plan:2026-10-03-widgets-agent-a2ui, t-1065)
 - Return invalid render or report input to the agent as a readable tool-result error, and display nothing. (spec:2026-10-03-agent-a2ui-design)

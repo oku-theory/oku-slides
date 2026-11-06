@@ -450,7 +450,7 @@ async fn open_pack_with_a_request_that_opened_a_tab_prefills_its_draft() {
     let c = server(&h).await;
     h.hub.begin_turn();
     let r = edit_with_request(&c, ACME).await;
-    assert_that!(h.drafts.calls()).is_equal_to(vec![("t-7".to_owned(), REQUEST.to_owned())]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![("t-7".to_owned(), REQUEST.to_owned())]);
     assert_that!(json_of(&r)["draft"].as_str()).is_equal_to(Some("set"));
 }
 
@@ -462,7 +462,7 @@ async fn open_pack_with_a_request_that_focused_a_tab_prefills_its_draft() {
     let c = server(&h).await;
     h.hub.begin_turn();
     edit_with_request(&c, ACME).await;
-    assert_that!(h.drafts.calls()).is_equal_to(vec![(acme_tab, REQUEST.to_owned())]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![(acme_tab, REQUEST.to_owned())]);
 }
 
 /// A help tab's agent passes its request to the draft of the pack tab it opened.
@@ -474,7 +474,7 @@ async fn open_pack_from_a_help_tab_with_a_request_prefills_the_new_pack_tab() {
     let r = edit_with_request(&c, ACME).await;
     let tab = json_of(&r)["tab"].as_str().unwrap_or_else(|| panic!("a tab: {r:?}")).to_owned();
     assert_that!(tab.as_str()).is_not_equal_to(help.as_str());
-    assert_that!(h.drafts.calls()).is_equal_to(vec![(tab, REQUEST.to_owned())]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![(tab, REQUEST.to_owned())]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -484,7 +484,7 @@ async fn open_pack_with_a_request_landing_here_never_calls_the_port() {
     h.hub.begin_turn();
     let r = edit_with_request(&c, OtherTabs::HERE_PACK).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "ok": true }));
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -495,5 +495,5 @@ async fn open_pack_with_a_request_refused_by_the_limit_never_calls_the_port() {
     edit(&c, ACME).await;
     let r = edit_with_request(&c, BETA).await;
     assert_refused(&h, &r, "agent-error-tab-limit", LIMIT_FR);
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
 }

@@ -1,6 +1,8 @@
 stt-microphone-missing = ไม่พบไมโครโฟน
 stt-microphone-unusable = ใช้ไมโครโฟนไม่ได้
 stt-microphone-silent = ไมโครโฟนไม่ตอบสนอง
+stt-duplex-echo = ไม่สามารถเปิดการตัดเสียงสะท้อนสำหรับไมโครโฟนนี้ได้
+stt-duplex-start = เอนจินเสียงที่มีการตัดเสียงสะท้อนไม่เริ่มทำงาน
 stt-audio-format = ไม่รองรับรูปแบบเสียง: { $format }
 stt-audio-file = อ่านไฟล์เสียงไม่ได้
 stt-model = อ่านโมเดลการพิมพ์ด้วยเสียงไม่ได้
@@ -22,6 +24,7 @@ stt-voice-no-voice = ไม่มีเสียงของระบบที�
 stt-voice-daemon = บริการเสียงพูด (Speech Dispatcher) ไม่ตอบสนอง
 stt-voice-failed = เสียงของระบบอ่านข้อความไม่ได้
 stt-voice-rate = ความเร็วในการอ่านต้องอยู่ระหว่าง 0.5 ถึง 2 เท่าของความเร็วปกติ
+speech-barge-in-unavailable-os = การพูดแทรก Oku ต้องใช้การตัดเสียงสะท้อน ซึ่งมีเฉพาะบน macOS
 
 stt-model-turbo = Large v3 Turbo (หลายภาษา, 818 MB)
 stt-model-large = Large v3 (หลายภาษา, 3.1 GB)

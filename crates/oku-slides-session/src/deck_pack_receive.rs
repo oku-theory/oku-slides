@@ -10,7 +10,7 @@
 
 use snafu::ResultExt;
 
-use oku_slides_core::{Namespace, PackFiles, PackPin, PackVersion, SourceBundle, SourcesError};
+use oku_slides_core::{Namespace, PackPin, PackVersion};
 use oku_slides_i18n::Localize;
 
 use crate::agent::bounds::label;
@@ -22,7 +22,8 @@ use crate::library_packs::PackLibrary;
 use crate::pack::PackManifest;
 use crate::pack_mode::{embed_packs, pin_deck};
 use crate::pack_receive::deck_scope;
-use crate::{Mode, Result, Session, SessionError};
+use crate::sources_budget::files_bytes;
+use crate::{Mode, Result, Session, SessionError, SessionErrorKind};
 
 /// What the owner did with a send.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,24 +71,6 @@ enum Checked {
     Answer(Received),
     /// To apply.
     Apply(Box<Accepted>),
-}
-
-/// Bytes a pack version adds to the sources, as the source zip holds them.
-fn files_bytes(files: &PackFiles) -> usize {
-    let manifest = files.pack_json().map_or(usize::MAX, |json| json.len());
-    files.widgets().values().map(String::len).fold(manifest, usize::saturating_add)
-}
-
-/// The sources' bytes, uncompressed, as their budget counts them.
-///
-/// # Errors
-///
-/// `Sources` when the replica does not export: a real fault, never a refusal.
-fn source_bytes(sources: &SourceBundle) -> Result<usize> {
-    let replica = sources.replica().snapshot().map_err(SourcesError::from).context(SourcesSnafu)?.len();
-    let blobs = sources.assets.values().chain(sources.fonts.values()).map(Vec::len);
-    let packs = sources.packs.values().chain(sources.themes.values()).map(files_bytes);
-    Ok(blobs.chain(packs).fold(replica, usize::saturating_add))
 }
 
 /// The refusal of a send of `pack`, logged with `why`.
@@ -165,11 +148,9 @@ impl Session {
         if !same && !copy {
             return refuse("neither the same pack nor a fresh copy");
         }
-        let total = source_bytes(&self.doc.sources)?.saturating_add(files_bytes(&send.files));
-        let max = self.source_limits.total_bytes;
-        if total > max {
-            tracing::warn!(?total, max, "deck-pack save over the sources budget");
-            return refuse("over the sources budget");
+        match self.ensure_sources_room(files_bytes(&send.files)) {
+            Err(e) if e.kind() == SessionErrorKind::SourcesOverBudget => return refuse("over the sources budget"),
+            checked => checked?,
         }
         let namespace = namespace.clone();
         Ok(Checked::Apply(Box::new(Accepted { link: link.clone(), namespace, manifest })))

@@ -92,6 +92,11 @@ fn ctx(v: Value) -> Map<String, Value> {
     json!({"on": false}),
     Some(VoiceEvent::Speech(SpeechPatch { in_presentation: Some(false), ..Default::default() }))
 )]
+#[case(
+    "speech_barge_in",
+    json!({"on": false}),
+    Some(VoiceEvent::Speech(SpeechPatch { barge_in: Some(false), ..Default::default() }))
+)]
 fn voice_event_known_action_parses(#[case] name: &str, #[case] context: Value, #[case] expected: Option<VoiceEvent>) {
     assert_that!(voice_event(name, &ctx(context))).is_equal_to(expected);
 }

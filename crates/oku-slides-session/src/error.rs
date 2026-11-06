@@ -114,6 +114,8 @@ pub enum SessionErrorKind {
     Paste,
     /// Une op cite un asset ni dans le deck ni parmi les images collées.
     UnknownAsset,
+    /// An addition would push the deck's sources past `[sources] max_sources_mib`.
+    SourcesOverBudget,
     /// Arguments d'une surface de l'agent invalides.
     AgentForm,
     /// Adresse de l'agent : ni la slide ni un de ses éléments.
@@ -126,6 +128,8 @@ pub enum SessionErrorKind {
     UnknownTab,
     /// Fenêtre inconnue (fermée entre-temps).
     UnknownWindow,
+    /// A request the detached agent window may not send.
+    AgentWindowForbidden,
     /// Hôte à un seul document : pas d'autre onglet.
     SingleDocument,
     /// Fermeture refusée : travail non enregistré.
@@ -306,6 +310,8 @@ pub(crate) enum SessionInner {
     AgentForm { reason: crate::agent::AgentFormReason, backtrace: Backtrace },
     #[snafu(display("an op cites asset {} that is neither in the deck nor pasted", label(asset)))]
     UnknownAsset { asset: String, backtrace: Backtrace },
+    #[snafu(display("this addition would pass the sources budget of {limit_mib} MiB"))]
+    SourcesOverBudget { limit_mib: u64, backtrace: Backtrace },
     #[snafu(display("pasted image refused: {reason:?}"))]
     Paste { reason: crate::agent::PasteReason, backtrace: Backtrace },
     #[snafu(display("{} is neither slide {} nor one of its elements", label(owner), label(slide)))]
@@ -319,6 +325,8 @@ pub(crate) enum SessionInner {
     UnknownTab { id: String, backtrace: Backtrace },
     #[snafu(display("window not found: {}", crate::agent::bounds::label(label)))]
     UnknownWindow { label: String, backtrace: Backtrace },
+    #[snafu(display("the agent window may not send {op}"))]
+    AgentWindowForbidden { op: String, backtrace: Backtrace },
     #[snafu(display("only one presentation can be open here"))]
     SingleDocument { backtrace: Backtrace },
     #[snafu(display("{title} has unsaved changes"))]
@@ -411,21 +419,21 @@ impl SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one kind per variant")]
     pub fn kind(&self) -> SessionErrorKind {
         use SessionInner::{
-            AgentForm, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack,
-            FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import,
-            InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged,
-            NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable,
-            NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
-            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
-            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
-            PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing, Registry, Render, RequiresCycle,
-            Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
-            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing,
-            TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue,
-            TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField,
-            UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow,
-            Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch,
-            WidgetTooLarge, Write, WrongDocument,
+            AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
+            EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated,
+            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath,
+            NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op,
+            PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview,
+            PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
+            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing,
+            Registry, Render, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
+            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } | GuideApprovalsWrite { .. } => SessionErrorKind::File,
@@ -487,11 +495,13 @@ impl SessionError {
             AgentForm { .. } => SessionErrorKind::AgentForm,
             Paste { .. } => SessionErrorKind::Paste,
             UnknownAsset { .. } => SessionErrorKind::UnknownAsset,
+            SourcesOverBudget { .. } => SessionErrorKind::SourcesOverBudget,
             UnknownOwner { .. } => SessionErrorKind::UnknownOwner,
             UnknownField { .. } => SessionErrorKind::UnknownField,
             FieldNeeded { .. } => SessionErrorKind::FieldNeeded,
             UnknownTab { .. } => SessionErrorKind::UnknownTab,
             UnknownWindow { .. } => SessionErrorKind::UnknownWindow,
+            AgentWindowForbidden { .. } => SessionErrorKind::AgentWindowForbidden,
             SingleDocument { .. } => SessionErrorKind::SingleDocument,
             Unsaved { .. } => SessionErrorKind::Unsaved,
             MergeUnrelated { .. } => SessionErrorKind::MergeUnrelated,
@@ -656,21 +666,21 @@ impl Localize for SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one Fluent key per variant")]
     fn localize(&self, l: &Localizer) -> String {
         use SessionInner::{
-            AgentForm, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch, EditingPack,
-            FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import,
-            InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated, NamespaceChanged,
-            NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable,
-            NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
-            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
-            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
-            PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing, Registry, Render, RequiresCycle,
-            Response, SingleDocument, Sources, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate,
-            ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing,
-            TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue,
-            TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField,
-            UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow,
-            Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch,
-            WidgetTooLarge, Write, WrongDocument,
+            AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
+            EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, LeaseMissing, MergeUnrelated,
+            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath,
+            NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op,
+            PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview,
+            PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
+            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing,
+            Registry, Render, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
+            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -771,6 +781,9 @@ impl Localize for SessionError {
             Response { .. } => l.tr("session-response"),
             Paste { reason, .. } => l.tr(reason.key()),
             UnknownAsset { .. } => l.tr("session-asset-unknown"),
+            SourcesOverBudget { limit_mib, .. } => {
+                l.tr_with("session-sources-over-budget", &[("limit", (*limit_mib).into())])
+            }
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.localize(l).into())]),
             UnknownOwner { slide, owner, .. } => {
                 l.tr_with("session-unknown-owner", &[("slide", label(slide).into()), ("owner", label(owner).into())])
@@ -781,6 +794,7 @@ impl Localize for SessionError {
             FieldNeeded { owner, .. } => l.tr_with("session-field-needed", &[("owner", label(owner).into())]),
             UnknownTab { .. } => l.tr("session-unknown-tab"),
             UnknownWindow { .. } => l.tr("session-unknown-window"),
+            AgentWindowForbidden { .. } => l.tr("session-agent-window-forbidden"),
             SingleDocument { .. } => l.tr("session-single-document"),
             Unsaved { title, .. } => l.tr_with("session-unsaved", &[("title", title.as_str().into())]),
             MergeUnrelated { .. } => l.tr("replica-unrelated"),

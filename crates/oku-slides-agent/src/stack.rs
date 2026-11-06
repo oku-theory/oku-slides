@@ -7,7 +7,9 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 use std::time::Duration;
 
 use oku_slides_i18n::Localize;
-use oku_slides_mcp::{AnswerOutcome, CloseDecision, HubError, McpEvent, ShowOutcome, SurfaceAction, SurfaceHub};
+use oku_slides_mcp::{
+    AnswerOutcome, CloseDecision, HubError, McpEvent, Prefill, ShowOutcome, SurfaceAction, SurfaceHub,
+};
 use oku_slides_session::Platform;
 use oku_slides_session::agent::{AgentUi, AgentWorkspace, AppPort, AttachmentRef, Sessions, TurnOrigin};
 use oku_slides_stt::{Speaker, Stt};
@@ -24,8 +26,8 @@ use crate::settings_port::AppSettings;
 use crate::shortcut::is_spoken_theme_shortcut;
 use crate::tab_agent::{Command, Instruction};
 use crate::tab_entry::{Out, TabLink, emit};
+use crate::tab_port::StackTabs;
 use crate::table::Table;
-use crate::tune_port::StackTune;
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, Link};
 
@@ -52,7 +54,7 @@ pub struct Voices {
 #[derive(Debug)]
 pub struct Stack {
     link: Link,
-    /// Starts the tabs' entries; its drafts port reaches back to it weakly.
+    /// Starts the tabs' entries, and prefills and pages them for the tab port.
     starter: Arc<Starter>,
     pub(crate) platform: Platform,
     rt: Handle,
@@ -109,7 +111,7 @@ impl Stack {
         let utterances = stt.as_ref().map(Stt::utterances);
         let (after_tx, after_rx) = std::sync::mpsc::channel();
         crate::voice_refresh::spawn(&rt, Arc::downgrade(&voice), Arc::downgrade(&table), out_tx.clone());
-        // The tabs' tune port reaches back to the stack weakly: the stack's table holds the tabs.
+        // The tabs' port reaches back to the stack weakly: the stack's table holds the tabs.
         let stack = Arc::new_cyclic(|this: &Weak<Self>| {
             let starter = Starter::new(StarterParts {
                 sessions,
@@ -117,7 +119,7 @@ impl Stack {
                 settings: Arc::new(AppSettings::new(platform, stt.clone()).with_speaker(speaker.clone())),
                 voice: voice.clone(),
                 workspace: workspace.clone(),
-                tune: Arc::new(StackTune { stack: this.clone() }),
+                tabs: Arc::new(StackTabs { stack: this.clone() }),
                 app: app.clone(),
                 after: after_tx,
                 link: link.clone(),
@@ -339,15 +341,11 @@ impl Stack {
         // no turn nor agent; a running turn goes on.
         // Outside deck mode, or if it fails (logged), the instruction goes to the agent.
         let ui = self.platform.live_localizer.current();
-        if images.is_empty() && is_spoken_theme_shortcut(text, &ui, || self.voice.dictation_locale()) {
-            match t.hub.show_themes(slide, None) {
-                Ok(ShowOutcome::Shown) => return Ok(None),
-                // No turn given: only the mode can refuse it.
-                Ok(ShowOutcome::OutOfMode | ShowOutcome::TurnOver) => {}
-                Err(e) => {
-                    tracing::warn!(tab, error = %snafu::Report::from_error(&e), "sélecteur de thème impossible");
-                }
-            }
+        if images.is_empty()
+            && is_spoken_theme_shortcut(text, &ui, || self.voice.dictation_locale())
+            && show_theme_shortcut(&t, tab, slide)
+        {
+            return Ok(None);
         }
         let images =
             crate::paste::resolve_images(&t, images, self.platform.settings.paste.max_draft_images).map_err(|e| {
@@ -548,6 +546,16 @@ impl Stack {
         self.table.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Prefills `tab`'s draft with `text` (see [`Starter::prefill`]); for the host's tab port.
+    pub(crate) fn prefill(&self, tab: &str, text: String) -> Prefill {
+        self.starter.prefill(tab, text)
+    }
+
+    /// Shows `slide` on `tab`'s pages (see [`Starter::page`]); for the host's tab port.
+    pub(crate) fn page(&self, tab: &str, slide: String) -> bool {
+        self.starter.page(tab, slide)
+    }
+
     /// The tab's link if it already has an agent; the lock is not held.
     pub(crate) fn tab(&self, tab: &str) -> Option<TabLink> {
         self.table().tabs.get(tab).map(|e| e.link.clone())
@@ -558,5 +566,18 @@ impl Stack {
     /// Checked under the lock the entry would be inserted under.
     pub(crate) fn open(&self, tab: &str) -> Option<TabLink> {
         self.starter.open(tab)
+    }
+}
+
+/// Shows the theme picker for a shortcut word; false out of deck mode or on failure (logged).
+pub(crate) fn show_theme_shortcut(t: &TabLink, tab: &str, slide: Option<&str>) -> bool {
+    match t.hub.show_themes(slide, None) {
+        Ok(ShowOutcome::Shown) => true,
+        // No turn given: only the mode can refuse it.
+        Ok(ShowOutcome::OutOfMode | ShowOutcome::TurnOver) => false,
+        Err(e) => {
+            tracing::warn!(tab, error = %snafu::Report::from_error(&e), "theme picker not shown");
+            false
+        }
     }
 }

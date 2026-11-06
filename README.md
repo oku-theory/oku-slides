@@ -26,7 +26,7 @@ output are in French.
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server, and the PPTX import pipeline the CLI and the app share |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
-| `crates/oku-slides-stt` | Speech: dictation (microphone, voice detection, Apple's engine on macOS 26+, local Whisper or an API) and OS voice (macOS, Windows, `spd-say`) |
+| `crates/oku-slides-stt` | Speech: dictation (microphone, voice detection, Apple's engine on macOS 26+, local Whisper or an API) and OS voice (macOS, Windows, Speech Dispatcher) |
 | `crates/oku-slides-a2ui` | A2UI v0.9 surfaces (component catalog), shared by the panel and the agent |
 | `crates/oku-slides-mcp` | Agent MCP tools (local HTTP, token): reading, `apply`, surfaces, confirmations |
 | `crates/oku-slides-agent` | Voice agent: ACP client (agent as a subprocess), turns, stack for the app and the server; fake agent for tests |

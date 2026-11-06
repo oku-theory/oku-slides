@@ -14,6 +14,7 @@ use oku_slides_platform::storage::StorageErrorKind;
 
 use crate::deck_file::{free_path, safe_stem};
 use crate::files::{EXTENSION, IssuesAt, log_issues, parse_document, read_document};
+use crate::sources_budget::merge_bytes;
 use crate::{Mode, Result, Session};
 
 /// Issue d'un enregistrement.
@@ -61,7 +62,8 @@ impl Session {
     /// # Errors
     ///
     /// Fails when read-only or in pack mode, in a theme tab (`WrongDocument`), if the file cannot
-    /// be read, is not an Oku Slides document (`NotOkuSlides`) or does not merge.
+    /// be read, is not an Oku Slides document (`NotOkuSlides`), does not merge, or would pass the
+    /// sources budget (`SourcesOverBudget`).
     pub fn merge_file(&mut self, path: &Path) -> Result<MergeReport> {
         self.ensure_not_help()?;
         if matches!(self.mode, Mode::Theme { .. }) {
@@ -79,12 +81,15 @@ impl Session {
     /// Le document est marqué modifié (si la fusion apporte quelque chose) et
     /// l'avis ajouté à celui qui attend dès la fusion faite, avant le rendu :
     /// un rendu raté ne laisse pas un contenu fusionné passer pour enregistré.
-    /// `on_save` : une fusion qui n'importe rien ne pose pas d'avis.
+    /// `on_save` : une fusion qui n'importe rien ne pose pas d'avis. A merge that may pass the
+    /// sources budget is refused before the merge itself changes anything (`SourcesOverBudget`);
+    /// the widget session ends first.
     fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
         // Le deck reçoit un autre état : la séance des widgets finit (`Save` compris).
         self.end_widget_session();
         let count = |s: &SourceBundle| (s.fonts.len(), s.assets.len(), s.packs.len(), s.themes.len());
         let before = count(&self.doc.sources);
+        self.ensure_sources_room(merge_bytes(&self.doc.sources, &theirs)?)?;
         let (report, issues) = self.doc.sources.merge(theirs).map_err(merge_error)?;
         // Parties illisibles journalisées comme avant ; les constats de
         // validation ne sont pas des pertes.

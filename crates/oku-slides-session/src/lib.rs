@@ -39,6 +39,7 @@ use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 
 mod add_grid;
 pub mod agent;
+mod agent_window_allow;
 mod appearance;
 mod builtin_labels;
 mod carried_assets;
@@ -118,6 +119,7 @@ mod resume;
 mod resume_agent;
 mod resume_writer;
 mod search;
+mod sources_budget;
 mod tab_document;
 mod tables;
 #[cfg(test)]
@@ -156,6 +158,7 @@ mod workspace;
 
 pub use add_grid::{AddPackView, AddWidget, ElementSeed};
 pub use agent::usage_table::{USAGE_COLUMNS, usage_cells, usage_headers, usage_total_cells};
+pub use agent_window_allow::{AGENT_WINDOW_LABEL, check_agent_request, check_agent_workspace};
 pub use appearance::{Appearance, appearance};
 pub use data_edit::{DataEdit, TableFlag};
 pub use deck_pack::{adopt_default_packs, check_pack_id};

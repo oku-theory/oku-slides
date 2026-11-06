@@ -5,7 +5,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Gate Apple-bridge-only code with cfg(any(test, target_os = "macos")); never lift dead_code for other platforms. (t-1205)
-- Keep all unsafe code of the stt crate in src/apple.rs and src/speak/apple_ffi.rs, with a SAFETY comment on every unsafe block. (spec:2026-10-03-dictee-native-macos-design, plan:2026-11-01-lot-m-hands-free)
+- Keep all unsafe code of the stt crate in src/apple.rs, src/speak/apple_ffi.rs and src/duplex_ffi.rs, with a SAFETY comment on every unsafe block. (spec:2026-10-03-dictee-native-macos-design, plan:2026-11-01-lot-m-hands-free, plan:2026-11-05-lot-o-backlog)
 - In the Swift bridge, call free(ctx) once after the last event; never use try! or force unwraps. (spec:2026-10-03-dictee-native-macos-design)
 - Keep the C ABI and the stream::raw event and error codes identical on the Rust and Swift sides. (plan:2026-10-03-dictee-native-macos)
 - Have Swift callbacks only send on an mpsc channel; only the Rust dictation thread may write Inner. (spec:2026-10-03-dictee-native-macos-design)
@@ -20,12 +20,17 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Load config.json only through saved_config::load; keep an unparseable one aside, log no serde message. (t-1216)
 - Hand each utterance out once, only to the host voice router; never put utterance text in Status. (plan:2026-11-01-lot-m-hands-free, t-996)
 - Speak only through SpeechEngine; never bundle a voice, call a cloud service or pass SSML; report Unavailable, never fall back to another language; free each speech callback once. (plan:2026-11-01-lot-m-hands-free, t-1002)
-- Speak only through the one process Speaker: hold a speech while the user speaks (at most SPEECH_HOLD), suspend listening once the voice took it and SPEECH_GUARD after it, end it by watchdog when DONE never comes, and hold no lock across engine calls. (plan:2026-11-01-lot-m-hands-free, t-1002)
+- Speak only through the one process Speaker: hold a speech while the user speaks (at most SPEECH_HOLD), suspend listening once the voice took it and SPEECH_GUARD after it unless barge-in applies, end it by watchdog when DONE never comes, and hold no lock across engine calls. (plan:2026-11-01-lot-m-hands-free, t-1002, plan:2026-11-05-lot-o-backlog, t-1491)
+- Apply barge-in only through the duplex voice while listening with speech.barge_in on; elsewhere stay muted, and report a failed duplex start in barge_in_unavailable, never silently. (plan:2026-11-05-lot-o-backlog, t-1491)
+- Tell a speech cut by barge-in that it ended at its start, so an answer spoken over a question never predates it. (plan:2026-11-05-lot-o-backlog, t-1491)
+- On Linux, send speech text only as SSIP SPEAK data, never in an argv or a log, and cut it only with CANCEL self. (plan:2026-11-05-lot-o-backlog, t-1524)
+- Keep Oku's recent speech only folded in memory for Speaker::echoes, never one that asks or plays under barge-in; never log, save or show it. (plan:2026-11-05-lot-o-backlog, t-1522)
 
 ## Testing
 
 - Set stt.apple to false in tests built on Stt::new so Whisper tests stay deterministic on macOS 26. (spec:2026-10-03-dictee-native-macos-design)
 - Time utterances by sample offsets; test closing on silence with sample fixtures, never wall clock. (plan:2026-11-01-lot-m-hands-free, t-996)
+- Test AVFoundation main-queue callbacks only from tests/duplex.rs's own main, which runs the main run loop. (plan:2026-11-05-lot-o-backlog, t-1526)
 
 ## Settled decisions
 

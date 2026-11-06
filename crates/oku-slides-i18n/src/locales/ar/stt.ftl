@@ -1,6 +1,8 @@
 stt-microphone-missing = لم يُعثر على ميكروفون
 stt-microphone-unusable = لا يمكن استخدام الميكروفون
 stt-microphone-silent = الميكروفون لا يستجيب
+stt-duplex-echo = تعذّر تشغيل إلغاء الصدى لهذا الميكروفون
+stt-duplex-start = لا يبدأ محرك الصوت المزوّد بإلغاء الصدى
 stt-audio-format = تنسيق صوت غير مدعوم: { $format }
 stt-audio-file = تعذّرت قراءة الملف الصوتي
 stt-model = تعذّرت قراءة نموذج الإملاء
@@ -22,6 +24,7 @@ stt-voice-no-voice = لا يوجد صوت للنظام يتحدث هذه الل�
 stt-voice-daemon = خدمة الكلام (Speech Dispatcher) لا تستجيب
 stt-voice-failed = تعذّر على صوت النظام قراءة النص
 stt-voice-rate = يجب أن تكون سرعة القراءة بين 0.5 و2 ضعف السرعة العادية
+speech-barge-in-unavailable-os = تتطلب مقاطعة Oku أثناء حديثه إلغاء الصدى، المتوفر على macOS فقط.
 
 stt-model-turbo = Large v3 Turbo (متعدد اللغات، 818 ميغابايت)
 stt-model-large = Large v3 (متعدد اللغات، 3.1 غيغابايت)

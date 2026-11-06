@@ -5,7 +5,7 @@ mod common;
 use common::*;
 use oku_slides_core::kinds;
 use oku_slides_i18n::{Localize, english};
-use oku_slides_mcp::{AnswerOutcome, HubErrorKind, McpEvent};
+use oku_slides_mcp::{AnswerOutcome, ConfirmAction, ConfirmAsk, HubErrorKind, McpEvent};
 use oku_slides_session::agent::{AskChoice, forms};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -581,7 +581,11 @@ async fn close_releases_every_waiting_tool() {
 async fn ask_after_close_is_cancelled_without_opening_a_surface() {
     let h = start().await;
     h.hub.close();
-    let confirmed = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.confirm("Sûr ?".into(), None)).await;
+    let confirmed = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        h.hub.confirm("Sûr ?".into(), ConfirmAsk::Plain(ConfirmAction::Save)),
+    )
+    .await;
     assert_that!(confirmed).is_equal_to(Ok(false));
     let permission = tokio::time::timeout(std::time::Duration::from_secs(2), h.hub.permission("?", &[])).await;
     assert_that!(permission).is_equal_to(Ok(None));

@@ -17,7 +17,7 @@ use crate::tool_error::{
     AfterTurnTakenSnafu, AppSnafu, NoPackUpdateSnafu, NoTurnSnafu, PacksDeckModeSnafu, ToolError, TurnOverSnafu,
 };
 use crate::tools::Tools;
-use crate::{AfterTurn, ConfirmVerb};
+use crate::{AfterTurn, ConfirmAsk, ConfirmVerb};
 
 /// What `update` does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
@@ -111,7 +111,7 @@ impl Tools {
         };
         let message =
             self.localizer.current().tr_with("agent-confirm-update-install", &[("version", version.as_str().into())]);
-        if !self.hub.confirm(message, Some(ConfirmVerb::Install)).await {
+        if !self.hub.confirm(message, ConfirmAsk::Danger(ConfirmVerb::Install)).await {
             return self.denied();
         }
         if let Err(e) = self.record_after_turn(turn, AfterTurn::Install) {

@@ -25,6 +25,7 @@ use crate::error::{PackManifestSnafu, PackOfferExpiredSnafu, PackVersionMissingS
 use crate::namespace_slug::rename_namespace;
 use crate::pack::PackManifest;
 use crate::pack_mode::{embed_packs, pin_deck};
+use crate::sources_budget::new_packs_bytes;
 use crate::theme_closure::{closure_with, library_theme, pin_of};
 use crate::{Mode, Result, Session};
 
@@ -200,6 +201,7 @@ impl Session {
         let packs = closure_with_files(&self.library, &deck, edited, &self.doc.sources.packs)?;
         pin_deck(&mut deck, &packs)?;
         self.refuse_linked_pins(&combined_pins(&deck))?;
+        self.ensure_sources_room(new_packs_bytes(&self.doc.sources.packs, &packs))?;
         self.end_widget_session();
         embed_packs(&mut self.doc.sources, packs);
         let label_text = self.localizer.tr_with("pack-adopt-label", &[("name", switch.name.as_str().into())]);

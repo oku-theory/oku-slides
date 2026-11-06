@@ -27,6 +27,8 @@ export interface SttSpeechConfig {
   rate: number;
   /** Read the answer to a wake-phrase request while the tab presents. */
   in_presentation: boolean;
+  /** Talking over Oku cuts its speech, where echo cancellation allows it (macOS). */
+  barge_in: boolean;
 }
 
 export interface SttConfig {

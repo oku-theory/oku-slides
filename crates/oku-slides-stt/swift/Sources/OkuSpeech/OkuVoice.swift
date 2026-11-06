@@ -128,6 +128,24 @@ final class VoiceRouter: NSObject, AVSpeechSynthesizerDelegate, @unchecked Senda
     }
 }
 
+/// The plain-text utterance of `text`, spoken by `voice` at `rate` times the default rate.
+///
+/// nil for a missing text or an unknown voice; a nil `voice` keeps the default voice. Shared with
+/// the duplex engine (OkuDuplex.swift).
+func voiceUtterance(
+    _ text: UnsafePointer<CChar>?, _ voice: UnsafePointer<CChar>?, _ rate: Float
+) -> AVSpeechUtterance? {
+    guard let text else { return nil }
+    let utterance = AVSpeechUtterance(string: String(cString: text))
+    if let voice {
+        guard let chosen = AVSpeechSynthesisVoice(identifier: String(cString: voice)) else { return nil }
+        utterance.voice = chosen
+    }
+    let scaled = AVSpeechUtteranceDefaultSpeechRate * rate
+    utterance.rate = min(max(scaled, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
+    return utterance
+}
+
 /// Every voice of the system, one `cb(ctx, identifier, name, language)` each, synchronously.
 @_cdecl("oku_voice_list")
 public func okuVoiceList(_ ctx: UnsafeMutableRawPointer?, _ cb: OkuVoiceListCallback) {
@@ -158,14 +176,7 @@ public func okuVoiceSpeak(
     _ free: @escaping OkuFree
 ) -> UnsafeMutableRawPointer? {
     autoreleasepool { () -> UnsafeMutableRawPointer? in
-        guard let text else { return nil }
-        let utterance = AVSpeechUtterance(string: String(cString: text))
-        if let voice {
-            guard let chosen = AVSpeechSynthesisVoice(identifier: String(cString: voice)) else { return nil }
-            utterance.voice = chosen
-        }
-        let scaled = AVSpeechUtteranceDefaultSpeechRate * rate
-        utterance.rate = min(max(scaled, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
+        guard let utterance = voiceUtterance(text, voice, rate) else { return nil }
         let speech = VoiceSpeech(utterance, ctx, generation, done, free)
         VoiceRouter.shared.speak(speech)
         return Unmanaged.passRetained(speech).toOpaque()

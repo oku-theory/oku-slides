@@ -1,53 +1,12 @@
 //! The user's request, passed by `open_pack` or `open_theme` to the opened tab's draft.
 //!
 //! The request is agent-written data: it only waits in that tab's composer, for the user to
-//! review and send. Nothing here starts a turn. The same port pages another tab: `help` moves
-//! a reused help tab's live page to its new hit ([`DraftPort::page`]).
+//! review and send. Nothing here starts a turn; the host's [`crate::TabPort`] sets the draft.
+
+use crate::Prefill;
 
 /// The longest request passed to a draft, in UTF-8 bytes; a longer one is never truncated.
 pub const MAX_REQUEST_BYTES: usize = 2048;
-
-/// Implement this trait to let a deck's agent prefill another tab's draft, or page it.
-///
-/// The host sets the draft of tab `tab` to `text` only when that draft is empty; it never
-/// starts the tab's agent nor sends the text.
-pub trait DraftPort: Send + Sync + std::fmt::Debug {
-    /// Sets `tab`'s draft to `text` unless it already holds something.
-    ///
-    /// Blocking (it may start the tab's entry): call it off the async threads.
-    fn prefill(&self, tab: &str, text: String) -> Prefill;
-
-    /// Shows slide `slide` on tab `tab`'s pages, as that tab's own `focus` does; true if sent.
-    ///
-    /// Blocking, as [`DraftPort::prefill`]. The default sends nothing: a host without pages.
-    fn page(&self, tab: &str, slide: String) -> bool {
-        let _ = (tab, slide);
-        false
-    }
-}
-
-/// What a [`DraftPort::prefill`] did to the target tab's draft.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Prefill {
-    /// The draft was empty and now holds the request.
-    Set,
-    /// The draft already held text or images: it is kept as is.
-    Kept,
-    /// No such tab, or no port wired: nothing was set.
-    Unavailable,
-}
-
-/// A port without drafts, for tests that never prefill one.
-#[cfg(any(test, feature = "test-support"))]
-#[derive(Debug, Default)]
-pub struct NoDrafts;
-
-#[cfg(any(test, feature = "test-support"))]
-impl DraftPort for NoDrafts {
-    fn prefill(&self, _: &str, _: String) -> Prefill {
-        Prefill::Unavailable
-    }
-}
 
 /// The `draft` field of an open's result: the prefill's outcome, or a request over the cap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

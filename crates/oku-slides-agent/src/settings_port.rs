@@ -53,7 +53,7 @@ impl AppSettings {
         self
     }
 
-    /// The `speech.*` keys: the read-aloud settings, and whether a voice reads the interface language.
+    /// The `speech.*` keys: the read-aloud settings, why barge-in is unavailable, and the voice status.
     fn read_speech(&self, out: &mut BTreeMap<String, Value>) {
         if let Some(stt) = &self.stt {
             let (read_aloud, config) = stt.speech_settings();
@@ -61,8 +61,12 @@ impl AppSettings {
             out.insert("speech.voice".into(), json!(config.voice));
             out.insert("speech.rate".into(), json!(config.rate));
             out.insert("speech.in_presentation".into(), json!(config.in_presentation));
+            out.insert("speech.barge_in".into(), json!(config.barge_in));
         }
         let l = self.localizer.current();
+        if let Some(why) = self.stt.as_ref().and_then(|stt| stt.barge_in_unavailable(&l)) {
+            out.insert("speech.barge_in_unavailable".into(), json!(why));
+        }
         let unavailable = SpeechStatus::Unavailable { reason: UnavailableReason::NoEngine };
         match self.speaker.as_ref().map_or(unavailable, |s| s.status(l.locale())) {
             SpeechStatus::Ready { .. } => {

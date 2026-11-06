@@ -120,6 +120,14 @@ impl SpokenText {
         Self::new(&text, SpokenKind::Question, l)
     }
 
+    /// A plain guarded confirmation: the action it approves, then a yes or no.
+    ///
+    /// `action` is a host infinitive phrase (`voice-action-*`), never the confirmation's message.
+    #[must_use]
+    pub fn confirm_action(action: &str, l: &Localizer) -> Self {
+        Self::new(&l.tr_with("voice-say-confirm-action", &[("action", label(action).into())]), SpokenKind::Question, l)
+    }
+
     /// An ACP permission: the template alone, never the agent's title nor its option labels.
     #[must_use]
     pub fn permission(l: &Localizer) -> Self {

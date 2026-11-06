@@ -519,7 +519,7 @@
            "bold": true
           },
           {
-           "t": " : Oku lit chaque compte rendu, question et erreur de l'onglet affiché avec la voix du système, et l'écoute se met en pause pendant qu'il parle. La voix et le débit se règlent dans la boîte des réglages. Pendant une présentation, il se tait, sauf si vous l'autorisez à répondre après « Oku »."
+           "t": " : Oku lit chaque compte rendu, question et erreur de l'onglet affiché avec la voix du système, et l'écoute se met en pause pendant qu'il parle, sauf sur macOS si vous activez « Parler par-dessus Oku pour l'interrompre » : parler le coupe alors. La voix et le débit se règlent dans la boîte des réglages. Pendant une présentation, il se tait, sauf si vous l'autorisez à répondre après « Oku »."
           }
          ],
          "list": "bullet"

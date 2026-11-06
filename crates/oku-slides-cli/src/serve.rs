@@ -16,7 +16,10 @@ use color_eyre::eyre::Result;
 use oku_slides_agent::{AgentCommand, ReportFrom, Stack, Voices};
 use oku_slides_platform::{Limits, Platform, serve_connections};
 use oku_slides_render::Fonts;
-use oku_slides_session::{Localize, Workspace, WorkspaceOutcome, WorkspaceRequest};
+use oku_slides_session::{
+    AGENT_WINDOW_LABEL, Localize, Workspace, WorkspaceOutcome, WorkspaceRequest, check_agent_request,
+    check_agent_workspace,
+};
 use oku_slides_stt::{Speaker, Stt};
 
 use crate::guard::{self, Access, Refusal, Token};
@@ -154,6 +157,20 @@ struct Shared {
 }
 
 impl Shared {
+    /// `check` on the workspace when the page names itself the agent window; `Ok` otherwise.
+    ///
+    /// The same allowlist as the app's (t-1469), on the window the page names.
+    fn agent_check(
+        &self,
+        from_agent: bool,
+        check: impl FnOnce(&Workspace) -> oku_slides_session::Result<()>,
+    ) -> oku_slides_session::Result<()> {
+        if !from_agent {
+            return Ok(());
+        }
+        check(&Workspace::lock(&self.workspace))
+    }
+
     /// Traite une requête `/api*` : statut et corps JSON. Bloquant.
     ///
     /// `window`: the window the page names ([`page_window`]), for its page reports.
@@ -170,26 +187,32 @@ impl Shared {
         };
         let last_window =
             || (StatusCode::CONFLICT, serde_json::json!({ "error": l.tr("session-last-window") }).to_string());
+        // The page names itself the agent window: only its allowlist, as in the app (t-1469).
+        let from_agent = window == Some(AGENT_WINDOW_LABEL);
         let reply = match url {
             "/api" => match serde_json::from_slice::<TabRequest>(body) {
                 Ok(TabRequest { tab, req }) => {
-                    // Le serveur de développement ignore le drapeau : l'interface relit
-                    // l'espace de travail après chaque commande.
-                    let changes_deck = req.changes_deck();
-                    let ((result, _changed), closed) =
-                        Workspace::closed_by(&self.workspace, |ws| Workspace::request(ws, &tab, req));
-                    // A deck-pack tab its owner refused, set aside by this request: its agent stops.
-                    for gone in &closed {
-                        self.stack.tab_closed(gone);
-                    }
-                    match result {
-                        Ok(json) => {
-                            if changes_deck {
-                                self.stack.after_change(&tab);
-                            }
-                            (StatusCode::OK, json)
+                    if let Err(e) = self.agent_check(from_agent, |ws| check_agent_request(ws, &tab, &req)) {
+                        refused(e)
+                    } else {
+                        // Le serveur de développement ignore le drapeau : l'interface relit
+                        // l'espace de travail après chaque commande.
+                        let changes_deck = req.changes_deck();
+                        let ((result, _changed), closed) =
+                            Workspace::closed_by(&self.workspace, |ws| Workspace::request(ws, &tab, req));
+                        // A deck-pack tab its owner refused, set aside by this request: its agent stops.
+                        for gone in &closed {
+                            self.stack.tab_closed(gone);
                         }
-                        Err(e) => refused(e),
+                        match result {
+                            Ok(json) => {
+                                if changes_deck {
+                                    self.stack.after_change(&tab);
+                                }
+                                (StatusCode::OK, json)
+                            }
+                            Err(e) => refused(e),
+                        }
                     }
                 }
                 Err(e) => bad_request(e),
@@ -199,25 +222,28 @@ impl Shared {
                 // n'a pas de fenêtre native à quitter, il refuse (409) sans
                 // rien fermer. Les requêtes passent une à une : la
                 // vérification ne peut pas être devancée.
-                Ok(r) if would_empty(&self.workspace, &r) => last_window(),
-                Ok(r) => {
-                    let (outcome, closed) = Workspace::closed_by(&self.workspace, |ws| Workspace::apply(ws, r));
-                    // Onglets fermés (ou vierges remplacés) : leur agent s'arrête.
-                    for gone in &closed {
-                        self.stack.tab_closed(gone);
-                    }
-                    match outcome {
-                        Ok(WorkspaceOutcome::Applied(json)) => (StatusCode::OK, json),
-                        // Un onglet importé à fine-tuner : son tour part, puis la vue, comme un fichier ouvert.
-                        Ok(WorkspaceOutcome::Tune { json, tab }) => {
-                            // The tab itself says why an unusable agent did not start.
-                            let _started = self.stack.tune(&tab);
-                            (StatusCode::OK, json)
+                Ok(r) => match self.agent_check(from_agent, |ws| check_agent_workspace(ws, &r)) {
+                    Err(e) => refused(e),
+                    Ok(()) if would_empty(&self.workspace, &r) => last_window(),
+                    Ok(()) => {
+                        let (outcome, closed) = Workspace::closed_by(&self.workspace, |ws| Workspace::apply(ws, r));
+                        // Onglets fermés (ou vierges remplacés) : leur agent s'arrête.
+                        for gone in &closed {
+                            self.stack.tab_closed(gone);
                         }
-                        Ok(WorkspaceOutcome::LastWindow(_)) => last_window(),
-                        Err(e) => refused(e),
+                        match outcome {
+                            Ok(WorkspaceOutcome::Applied(json)) => (StatusCode::OK, json),
+                            // Un onglet importé à fine-tuner : son tour part, puis la vue, comme un fichier ouvert.
+                            Ok(WorkspaceOutcome::Tune { json, tab }) => {
+                                // The tab itself says why an unusable agent did not start.
+                                let _started = self.stack.tune(&tab);
+                                (StatusCode::OK, json)
+                            }
+                            Ok(WorkspaceOutcome::LastWindow(_)) => last_window(),
+                            Err(e) => refused(e),
+                        }
                     }
-                }
+                },
                 Err(e) => bad_request(e),
             },
             "/api/agent" => match serde_json::from_slice::<AgentCommand>(body) {

@@ -1,6 +1,7 @@
 //! The read-aloud section of the box: the switch, the voice, the rate, presentations.
 //!
 //! Without a voice for the interface language there is no switch: the reason shows instead.
+//! Likewise for talking over Oku where echo cancellation is missing.
 
 use oku_slides_a2ui::{Action, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant};
 use oku_slides_chart::NumberFormat;
@@ -37,6 +38,7 @@ pub(super) fn section(s: &SpeechView, l: &Localizer, b: &mut Builder, data: &mut
     data["speech_voice"] = json!(s.voice.clone().unwrap_or_default());
     data["speech_rate"] = json!(rate_value(s.rate));
     data["speech_in_presentation"] = json!(s.in_presentation);
+    data["speech_barge_in"] = json!(s.barge_in);
     let help = Some(l.tr("voice-read-aloud-help"));
     b.push(Component::new("s-read-aloud", switch(l.tr("voice-read-aloud"), help, "/read_aloud", "read_aloud")));
 
@@ -80,4 +82,15 @@ pub(super) fn section(s: &SpeechView, l: &Localizer, b: &mut Builder, data: &mut
     let presenting = l.tr("voice-read-aloud-in-presentation");
     let path = "/speech_in_presentation";
     b.push(Component::new("s-in-presentation", switch(presenting, None, path, "speech_in_presentation")));
+    match &s.barge_in_unavailable {
+        None => {
+            let help = Some(l.tr("voice-barge-in-help"));
+            let barge_in = switch(l.tr("voice-barge-in"), help, "/speech_barge_in", "speech_barge_in");
+            b.push(Component::new("s-barge-in", barge_in));
+        }
+        Some(reason) => {
+            let text = l.tr_with("voice-barge-in-unavailable", &[("reason", reason.clone().into())]);
+            b.text("s-barge-in-unavailable", text, TextVariant::Caption);
+        }
+    }
 }

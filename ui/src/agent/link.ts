@@ -1,6 +1,6 @@
-// Canal entre la fenêtre principale et la fenêtre de l'agent : ce qui n'existe que dans la
-// fenêtre principale (où écrire, contexte de l'interface). Tout le reste passe par l'hôte.
-// Tauri : `emit` livre à toutes les fenêtres, l'émettrice comprise ; `onlyFor` trie.
+// Link between the main window and the agent window: what only the main window knows (where to
+// write, the interface context). Everything else goes through the host.
+// Tauri: the host's `agent_link` command relays to every window, the sender too; `onlyFor` sorts.
 
 import { z } from "zod";
 import type { AgentUi } from "../api";
@@ -95,7 +95,19 @@ function fanOut() {
   };
 }
 
-/** Évènement Tauri « agent-link », émis à toutes les fenêtres (l'émettrice comprise). */
+/** The shape of `invoke` from `@tauri-apps/api/core`, reduced to what the relay uses. */
+export type Invoke = (command: string, args: Record<string, unknown>) => Promise<unknown>;
+
+/**
+ * Sends `m` through the host's `agent_link` command, which emits it to every window.
+ *
+ * The agent window may not emit events itself (t-1469): the host bounds what it relays.
+ */
+export function relayLink(m: LinkMessage, invoke: Invoke): Promise<unknown> {
+  return invoke("agent_link", { msg: m });
+}
+
+/** The Tauri event "agent-link", relayed by the host to every window (the sender too). */
 export function tauriTransport(): LinkTransport {
   const out = fanOut();
   let resolveReady: () => void = () => {};
@@ -110,7 +122,10 @@ export function tauriTransport(): LinkTransport {
     ready,
     listen: out.listen,
     close: stopListening,
-    send: (m) => void import("@tauri-apps/api/event").then(({ emit }) => emit(EVENT, m)).catch((e) => console.warn(EVENT, String(e))),
+    send: (m) =>
+      void import("@tauri-apps/api/core")
+        .then(({ invoke }) => relayLink(m, invoke))
+        .catch((e) => console.warn(EVENT, String(e))),
   };
 }
 

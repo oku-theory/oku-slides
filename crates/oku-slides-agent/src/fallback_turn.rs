@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use oku_slides_i18n::Localize;
+use oku_slides_mcp::{ConfirmAction, ConfirmAsk};
 use oku_slides_platform::local_agent::AGENT_MODEL;
 use oku_slides_session::agent::{SpokenFailure, receipt};
 use oku_slides_session::{LocalModelView, agent_download_progress, gigabytes_text, local_failure_text};
@@ -212,7 +213,7 @@ impl TabAgent {
                 ],
             );
             let yes = tokio::select! {
-                yes = self.ctx.hub.confirm(message, None) => yes,
+                yes = self.ctx.hub.confirm(message, ConfirmAsk::Plain(ConfirmAction::Download)) => yes,
                 next = rx.recv() => {
                     self.ctx.hub.cancel_asks();
                     return Download::Interrupted(next);

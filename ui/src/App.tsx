@@ -1,7 +1,7 @@
 import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePreview";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { ImportTarget, InterfaceChange, SlideView, Snapshot, Surface } from "./api";
+import type { ImportTarget, InterfaceChange, SlideView, Surface } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { bumpVoiceSeq } from "./voiceSeq";
 import { packGestures, widgetGesture } from "./packGestures";
@@ -39,7 +39,7 @@ import { NumberLangContext } from "./a2ui/numberLang";
 import { AgentPanel } from "./agent/AgentPanel";
 import { SlotView } from "./agent/slot";
 import { DETACHED_MAIN_PLACES } from "./agent/useQuickKeys";
-import { Latest } from "./latest";
+import { useTabSnapshot } from "./useTabSnapshot";
 import HistoryBar, { useHistoryCursor } from "./HistoryBar";
 import HelpBar from "./HelpBar";
 import { usePackItem } from "./usePackItem";
@@ -128,10 +128,6 @@ export default function App({
 }) {
   // Monté par onglet (`key`) : l'API ne change pas pendant la vie du composant.
   const [api] = useState(() => tabApi(tab));
-  // Dernier `onChange` reçu, sans faire changer `run` d'identité.
-  const changed = useRef(onChange);
-  changed.current = onChange;
-  const [snap, setSnap] = useState<Snapshot | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<SlideView | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -142,41 +138,11 @@ export default function App({
     setCurrent(id);
   };
   const { say, node: toastNode } = useToast();
+  const { snap, snapRef, run } = useTabSnapshot(api, { nonce, notice, onChange, say });
   const checkUpdates = useUpdateCheck(updates, say);
   const svgs = useSvgCache(api);
   // Miniatures des reçus de l'agent : même cache que la pile, empreintes actuelles du deck.
   const slideThumbs = useThumbsOver(svgs, snap?.slides);
-
-  // Une relecture (`nonce`) croise parfois une modification : la réponse la
-  // plus ancienne, arrivée en dernier, ne ramène pas le deck en arrière.
-  const latest = useRef(new Latest());
-  // The last accepted snapshot, current as soon as it arrives: read after an await,
-  // before the render that follows.
-  const snapRef = useRef(snap);
-  snapRef.current = snap;
-  // `null` : rien n'a été fait (dialogue abandonné), l'état ne change pas.
-  const run = useCallback(async (p: Promise<Snapshot | null>) => {
-    const n = latest.current.begin();
-    try {
-      const s = await p;
-      if (!s) return null;
-      if (latest.current.accept(n)) {
-        snapRef.current = s;
-        setSnap(s);
-        changed.current?.();
-      }
-      // L'hôte n'envoie un avis qu'une fois : même dépassé, il s'affiche.
-      if (s.notice) say(s.notice, true);
-      return s;
-    } catch (e) {
-      say(errorText(e), true);
-      return null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (notice) say(notice, true);
-  }, [notice]);
 
   // --- A pack tab's selected item --------------------------------------------
   const item = usePackItem(api, snap, {
@@ -193,12 +159,6 @@ export default function App({
   // --- Historique (lecture seule) -------------------------------------------
   // `run` numbers a step's reply when it arrives, not when sent: harmless, since leaving (Close, Restore) cancels the Seeker first.
   const cursor = useHistoryCursor(api, snap?.history ?? null, (s) => run(Promise.resolve(s)), (e) => say(errorText(e), true));
-
-  // Au montage, puis à chaque vue diffusée : un avis posé hors de cet onglet
-  // (fichier reçu qui n'a pas pu s'ouvrir) n'attend pas la prochaine édition.
-  useEffect(() => {
-    run(api.snapshot());
-  }, [run, nonce]);
 
   // L'interface suit le thème des slides et le schéma (clair, sombre), à chaque changement.
   useAppearance(snap?.appearance);

@@ -27,12 +27,19 @@ mod api_http;
 #[cfg(target_os = "macos")]
 mod apple;
 mod audio;
+mod barge_in;
 mod capture;
 mod dictation_stream;
 mod dictation_whisper;
+mod duplex;
+#[cfg(any(test, target_os = "macos"))]
+mod duplex_ffi;
+mod echo;
 mod error;
 #[cfg(feature = "e2e-fakes")]
 mod fake_source;
+#[cfg(any(test, feature = "test-support"))]
+pub mod hand_voice;
 mod listen;
 mod locale;
 mod microphone;
@@ -70,6 +77,8 @@ pub use api_extra::{
 pub use audio::{SAMPLE_RATE, resample};
 use dictation_stream::Held;
 use dictation_whisper::{EngineKey, Job, engine_key};
+pub use duplex::Duplex;
+pub use echo::ECHO_HORIZON;
 use error::ReceiverTakenSnafu;
 pub use error::{SttError, SttErrorKind};
 pub use microphone::{Microphone, ModelFiles};
@@ -86,9 +95,8 @@ pub use speak::{
     NoSpeechEngine, SpeechDone, SpeechEngine, SpeechId, SpeechRate, SpeechStatus, UnavailableReason, VoiceInfo,
     system_speech_engine,
 };
-pub use speaker::{
-    SPEECH_GUARD, SPEECH_HOLD, Speaker, SpeakerClock, Speech, SpeechConfig, SpeechEnded, SystemClock, watchdog,
-};
+pub use speaker::{SPEECH_GUARD, SPEECH_HOLD, Speaker, SpeakerClock, Speech, SpeechEnded, SystemClock, watchdog};
+pub use speech_config::SpeechConfig;
 use stream::{Availability, Stream, StreamEngine};
 use utterance::{ListenClock, Phrases};
 pub use utterance::{SuspendGuard, Utterance, UtteranceSeq};
@@ -330,6 +338,10 @@ struct Inner {
     epoch: u64,
     /// Origin of the listening sample offsets, rebased at each resume.
     clock: ListenClock,
+    /// The duplex voice while listening goes through the duplex: barge-in may apply.
+    barge: Option<Arc<dyn SpeechEngine>>,
+    /// Why the duplex did not start last time; `None` once it starts, or before any try.
+    barge_failure: Option<Arc<SttError>>,
 }
 
 impl Inner {
@@ -367,6 +379,7 @@ impl Inner {
     /// The old capture threads see the new session and stop; nothing can start in between.
     fn restart_listening(&mut self) {
         self.session += 1;
+        self.barge = None;
         self.phrases.discard();
         self.partial.clear();
     }
@@ -382,6 +395,7 @@ impl Inner {
         self.speaking = false;
         self.phrase_open = false;
         self.session += 1;
+        self.barge = None;
     }
 }
 
@@ -471,6 +485,8 @@ impl Stt {
                 suspends: 0,
                 epoch: 0,
                 clock: ListenClock { origin: Instant::now(), stream_base: 0 },
+                barge: None,
+                barge_failure: None,
             })),
             dir,
             settings: Arc::new(platform.settings.stt.clone()),

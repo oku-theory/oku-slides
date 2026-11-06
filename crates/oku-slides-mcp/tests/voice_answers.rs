@@ -152,3 +152,26 @@ async fn ask_confirm_with_danger_reads_the_verb_to_say() {
     );
     assert_that!(confirm_speech(true).await).is_equal_to(expected);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn plain_confirm_reads_the_action_it_confirms() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    let c = server(&h).await;
+    let pending = tokio::spawn({
+        let c = c.clone();
+        async move { call(&c, "new", json!({})).await }
+    });
+    let spoken = wait_event(&mut rx, |e| match e {
+        McpEvent::Surface { spoken, .. } => spoken,
+        _ => None,
+    })
+    .await;
+    h.hub.cancel_asks();
+    drop(pending.await);
+    let l = oku_slides_i18n::Localizer::new(Some("fr"));
+    let action = l.tr("voice-action-new-deck");
+    assert_that!(spoken.text()).contains(action.as_str());
+    assert_that!(spoken.text().to_owned())
+        .is_equal_to(l.tr_with("voice-say-confirm-action", &[("action", action.into())]));
+}

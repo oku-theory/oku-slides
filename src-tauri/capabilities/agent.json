@@ -1,10 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "agent",
-  "description": "Detached agent window: its tab's requests, the workspace, the agent and dictation; answers the quit barrier; no update, quit or tab drag command, no file dialogs (it shows content from the agent and imports).",
+  "description": "Detached agent window: its tab's requests, the workspace, the agent and dictation; answers the quit barrier; reaches the main window only through the agent_link relay; listens to events but never emits one; no update, quit or tab drag command, no file dialogs (it shows content from the agent and imports).",
   "windows": ["agent"],
   "permissions": [
-    "core:default",
+    "core:app:default",
+    "core:window:default",
+    "core:webview:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "core:window:allow-set-background-color",
     "core:window:allow-set-focus",
     "core:window:allow-set-theme",
@@ -12,6 +16,7 @@
     "allow-request",
     "allow-workspace",
     "allow-agent",
+    "allow-agent-link",
     "allow-stt",
     "allow-quit-ready"
   ]

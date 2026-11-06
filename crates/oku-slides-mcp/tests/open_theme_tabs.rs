@@ -181,7 +181,7 @@ async fn open_with(request: Value) -> (Harness, rust_mcp_sdk::schema::CallToolRe
 #[tokio::test(flavor = "multi_thread")]
 async fn open_theme_with_a_request_that_opened_a_tab_prefills_its_draft() {
     let (h, r) = open_with(json!(REQUEST)).await;
-    assert_that!(h.drafts.calls()).is_equal_to(vec![("t-9".to_owned(), REQUEST.to_owned())]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![("t-9".to_owned(), REQUEST.to_owned())]);
     assert_that!(json_of(&r)["draft"].as_str()).is_equal_to(Some("set"));
 }
 
@@ -194,7 +194,7 @@ async fn open_theme_with_a_request_that_focused_a_tab_prefills_its_draft() {
     h.hub.begin_turn();
     let r = call(&c, "open_theme", json!({ "theme": "papier", "request": REQUEST })).await;
     assert_that!(tab_of(&r)).is_equal_to(theme_tab.clone());
-    assert_that!(h.drafts.calls()).is_equal_to(vec![(theme_tab, REQUEST.to_owned())]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![(theme_tab, REQUEST.to_owned())]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -203,7 +203,7 @@ async fn open_theme_with_a_request_outside_a_turn_never_calls_the_port() {
     let c = server(&h).await;
     let r = call(&c, "open_theme", json!({ "theme": "papier", "request": REQUEST })).await;
     assert_refused(&h, &r, "agent-error-tab-no-turn", NO_TURN_FR);
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
 }
 
 #[rstest]
@@ -213,7 +213,7 @@ async fn open_theme_with_a_request_outside_a_turn_never_calls_the_port() {
 #[tokio::test(flavor = "multi_thread")]
 async fn open_theme_without_request_text_never_calls_the_port_nor_adds_draft(#[case] request: Value) {
     let (h, r) = open_with(request).await;
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
     assert_that!(json_of(&r).get("draft")).is_none();
     assert_that!(json_of(&r)["note"].as_str().map(str::to_owned)).is_equal_to(Some(note(&h, "t-9", true)));
 }
@@ -222,7 +222,7 @@ async fn open_theme_without_request_text_never_calls_the_port_nor_adds_draft(#[c
 async fn open_theme_with_a_request_of_exactly_the_cap_prefills_it() {
     let request = "a".repeat(MAX_REQUEST_BYTES);
     let (h, r) = open_with(json!(request)).await;
-    assert_that!(h.drafts.calls()).is_equal_to(vec![("t-9".to_owned(), request)]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![("t-9".to_owned(), request)]);
     assert_that!(json_of(&r)["draft"].as_str()).is_equal_to(Some("set"));
 }
 
@@ -234,7 +234,7 @@ async fn open_theme_with_a_request_landing_here_never_calls_the_port_nor_spends_
     h.hub.begin_turn();
     let r = call(&c, "open_theme", json!({ "theme": "papier", "request": REQUEST })).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "ok": true }));
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
     // Nothing moved: the turn can still open a pack.
     let pack = call(&c, "open_pack", json!({ "pack": ACME.to_string() })).await;
     assert_that!(pack.is_error).is_not_equal_to(Some(true));
@@ -246,7 +246,7 @@ async fn open_theme_with_a_request_over_the_cap_opens_the_tab_and_reports_too_lo
     assert_that!(json_of(&r)["ok"].as_bool()).is_equal_to(Some(true));
     assert_that!(tab_of(&r)).is_equal_to("t-9".to_owned());
     assert_that!(json_of(&r)["draft"].as_str()).is_equal_to(Some("too_long"));
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
 }
 
 /// 1025 × "é": 1025 characters, under the cap, but 2050 bytes, over it.
@@ -254,13 +254,13 @@ async fn open_theme_with_a_request_over_the_cap_opens_the_tab_and_reports_too_lo
 async fn open_theme_with_a_multibyte_request_counts_its_bytes() {
     let (h, r) = open_with(json!("é".repeat(1025))).await;
     assert_that!(json_of(&r)["draft"].as_str()).is_equal_to(Some("too_long"));
-    assert_that!(h.drafts.calls()).is_empty();
+    assert_that!(h.tabs.calls()).is_empty();
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn open_theme_with_control_and_bidi_characters_passes_them_stripped() {
     let (h, _r) = open_with(json!(" Passe\u{7} les titres\u{202e} en\u{2066} bleu.\r ")).await;
-    assert_that!(h.drafts.calls()).is_equal_to(vec![("t-9".to_owned(), REQUEST.to_owned())]);
+    assert_that!(h.tabs.calls()).is_equal_to(vec![("t-9".to_owned(), REQUEST.to_owned())]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -283,7 +283,7 @@ async fn open_theme_with_a_prefilled_draft_tells_the_note_in_french() {
 #[tokio::test(flavor = "multi_thread")]
 async fn open_theme_with_a_request_reports_the_port_answer(#[case] answer: Prefill, #[case] draft: &str) {
     let (h, _tabs) = start_other_tabs().await;
-    *lock(&h.drafts.answer) = Some(answer);
+    *lock(&h.tabs.answer) = Some(answer);
     let c = server(&h).await;
     h.hub.begin_turn();
     let r = call(&c, "open_theme", json!({ "theme": "papier", "request": REQUEST })).await;

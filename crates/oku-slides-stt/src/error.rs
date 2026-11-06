@@ -67,6 +67,12 @@ pub(crate) enum SttInner {
     UnsupportedFormat { format: String, backtrace: Backtrace },
     #[snafu(display("the microphone does not respond"))]
     MicrophoneTimeout { backtrace: Backtrace },
+    #[snafu(display("echo cancellation cannot be turned on"))]
+    EchoCancel { backtrace: Backtrace },
+    /// Only the macOS duplex bridge reports it.
+    #[cfg(any(test, target_os = "macos"))]
+    #[snafu(display("the duplex audio engine does not start (code {code})"))]
+    DuplexStart { code: i32, backtrace: Backtrace },
     #[snafu(display("unreadable audio file {}", path.display()))]
     AudioFile { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("invalid WAV file: {reason}"))]
@@ -133,10 +139,14 @@ pub(crate) enum SttInner {
     VoiceFailed { step: &'static str, backtrace: Backtrace },
     #[snafu(display("speaking rate {rate} outside 0.5..=2"))]
     VoiceRate { rate: f32, backtrace: Backtrace },
-    /// Only `spd-say` (Linux) runs a program.
-    #[cfg(any(test, target_os = "linux"))]
-    #[snafu(display("the speech program did not start"))]
-    VoiceSpawn { source: std::io::Error, backtrace: Backtrace },
+    /// Only the Linux voice talks to a daemon over a socket.
+    #[cfg(any(all(test, unix), target_os = "linux"))]
+    #[snafu(display("the speech daemon connection failed ({step})"))]
+    VoiceIo { step: &'static str, source: std::io::Error, backtrace: Backtrace },
+    /// Only the Linux voice reads SSIP reply codes.
+    #[cfg(any(all(test, unix), target_os = "linux"))]
+    #[snafu(display("the speech daemon refused {step} (SSIP {code})"))]
+    VoiceRefused { step: &'static str, code: u16, backtrace: Backtrace },
     /// Only the WinRT voice reports an `HRESULT`.
     #[cfg(windows)]
     #[snafu(display("the Windows voice failed ({step}, HRESULT {code:#010x})"))]
@@ -151,28 +161,31 @@ impl SttError {
     /// Kind of the error, to react without reading the message.
     #[must_use]
     pub fn kind(&self) -> SttErrorKind {
-        #[cfg(any(test, target_os = "macos"))]
-        use SttInner::SpeechDenied;
         #[cfg(feature = "e2e-fakes")]
         use SttInner::VoiceLog;
-        #[cfg(any(test, target_os = "linux"))]
-        use SttInner::VoiceSpawn;
         #[cfg(windows)]
         use SttInner::VoiceWinRt;
         use SttInner::{
             Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
-            AssetInstall, AudioFile, Cancelled, Download, Features, FinishTimeout, LocaleUnsupported, MelFilters,
-            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile,
-            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, ReceiverTaken,
-            Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
+            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, Features, FinishTimeout, LocaleUnsupported,
+            MelFilters, MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile,
+            ModelFile, ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable,
+            ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
         };
+        #[cfg(any(test, target_os = "macos"))]
+        use SttInner::{DuplexStart, SpeechDenied};
+        #[cfg(any(all(test, unix), target_os = "linux"))]
+        use SttInner::{VoiceIo, VoiceRefused};
         match *self.0 {
             NoMicrophone { .. }
             | MicrophoneConfig { .. }
             | MicrophoneStream { .. }
             | MicrophonePlay { .. }
             | UnsupportedFormat { .. }
-            | MicrophoneTimeout { .. } => SttErrorKind::Microphone,
+            | MicrophoneTimeout { .. }
+            | EchoCancel { .. } => SttErrorKind::Microphone,
+            #[cfg(any(test, target_os = "macos"))]
+            DuplexStart { .. } => SttErrorKind::Microphone,
             AudioFile { .. } | Wav { .. } => SttErrorKind::AudioFile,
             ModelLoad { .. }
             | ModelFile { .. }
@@ -204,8 +217,8 @@ impl SttError {
             SpeechDenied { .. } => SttErrorKind::Permission,
             VoiceUnavailable { reason, .. } => SttErrorKind::VoiceUnavailable { reason },
             VoiceFailed { .. } | VoiceRate { .. } => SttErrorKind::VoiceFailed,
-            #[cfg(any(test, target_os = "linux"))]
-            VoiceSpawn { .. } => SttErrorKind::VoiceFailed,
+            #[cfg(any(all(test, unix), target_os = "linux"))]
+            VoiceIo { .. } | VoiceRefused { .. } => SttErrorKind::VoiceFailed,
             #[cfg(windows)]
             VoiceWinRt { .. } => SttErrorKind::VoiceFailed,
             #[cfg(feature = "e2e-fakes")]
@@ -216,27 +229,30 @@ impl SttError {
 
 impl Localize for SttError {
     fn localize(&self, l: &Localizer) -> String {
-        #[cfg(any(test, target_os = "macos"))]
-        use SttInner::SpeechDenied;
         #[cfg(feature = "e2e-fakes")]
         use SttInner::VoiceLog;
-        #[cfg(any(test, target_os = "linux"))]
-        use SttInner::VoiceSpawn;
         #[cfg(windows)]
         use SttInner::VoiceWinRt;
         use SttInner::{
             Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
-            AssetInstall, AudioFile, Cancelled, Download, Features, FinishTimeout, LocaleUnsupported, MelFilters,
-            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile, ModelFile,
-            ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable, ReceiverTaken,
-            Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
+            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, Features, FinishTimeout, LocaleUnsupported,
+            MelFilters, MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile,
+            ModelFile, ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable,
+            ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
         };
+        #[cfg(any(test, target_os = "macos"))]
+        use SttInner::{DuplexStart, SpeechDenied};
+        #[cfg(any(all(test, unix), target_os = "linux"))]
+        use SttInner::{VoiceIo, VoiceRefused};
         match &*self.0 {
             NoMicrophone { .. } => l.tr("stt-microphone-missing"),
             MicrophoneConfig { .. } | MicrophoneStream { .. } | MicrophonePlay { .. } => {
                 l.tr("stt-microphone-unusable")
             }
             MicrophoneTimeout { .. } => l.tr("stt-microphone-silent"),
+            EchoCancel { .. } => l.tr("stt-duplex-echo"),
+            #[cfg(any(test, target_os = "macos"))]
+            DuplexStart { .. } => l.tr("stt-duplex-start"),
             UnsupportedFormat { format, .. } => l.tr_with("stt-audio-format", &[("format", format.as_str().into())]),
             AudioFile { .. } | Wav { .. } => l.tr("stt-audio-file"),
             ModelLoad { .. }
@@ -281,8 +297,8 @@ impl Localize for SttError {
             VoiceUnavailable { reason, .. } => reason.localize(l),
             VoiceFailed { .. } => l.tr("stt-voice-failed"),
             VoiceRate { .. } => l.tr("stt-voice-rate"),
-            #[cfg(any(test, target_os = "linux"))]
-            VoiceSpawn { .. } => l.tr("stt-voice-failed"),
+            #[cfg(any(all(test, unix), target_os = "linux"))]
+            VoiceIo { .. } | VoiceRefused { .. } => l.tr("stt-voice-failed"),
             #[cfg(windows)]
             VoiceWinRt { .. } => l.tr("stt-voice-failed"),
             #[cfg(feature = "e2e-fakes")]

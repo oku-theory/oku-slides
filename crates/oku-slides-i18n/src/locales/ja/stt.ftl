@@ -1,6 +1,8 @@
 stt-microphone-missing = マイクが見つかりません
 stt-microphone-unusable = マイクを使用できません
 stt-microphone-silent = マイクが応答しません
+stt-duplex-echo = このマイクではエコーキャンセルをオンにできません
+stt-duplex-start = エコーキャンセル付きのオーディオエンジンが起動しません
 stt-audio-format = サポートされていない音声形式です：{ $format }
 stt-audio-file = 音声ファイルを読み込めません
 stt-model = 音声入力モデルを読み込めません
@@ -22,6 +24,7 @@ stt-voice-no-voice = この言語を話すシステムの音声がありませ�
 stt-voice-daemon = 音声サービス（Speech Dispatcher）が応答しません
 stt-voice-failed = システムの音声がテキストを読み上げられませんでした
 stt-voice-rate = 読み上げ速度は通常の0.5倍から2倍の間にしてください
+speech-barge-in-unavailable-os = Oku の発話中に話しかけて止めるにはエコーキャンセルが必要で、macOS でのみ使えます。
 
 stt-model-turbo = Large v3 Turbo（多言語、818 MB）
 stt-model-large = Large v3（多言語、3.1 GB）

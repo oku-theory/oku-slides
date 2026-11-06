@@ -235,6 +235,10 @@ pub struct SpeechView {
     pub rate: f32,
     /// Read a wake-phrase request's answer while presenting.
     pub in_presentation: bool,
+    /// Talking over Oku cuts its speech: the setting.
+    pub barge_in: bool,
+    /// Why talking over Oku cannot cut its speech here, translated; `None` when it can.
+    pub barge_in_unavailable: Option<String>,
     /// Whether a voice can read the interface language.
     pub status: SpeechStatusView,
 }
@@ -280,6 +284,8 @@ pub struct SpeechPatch {
     pub rate: Option<f32>,
     /// Read a wake-phrase request's answer while presenting.
     pub in_presentation: Option<bool>,
+    /// Talking over Oku cuts its speech.
+    pub barge_in: Option<bool>,
 }
 
 impl SpeechPatch {
@@ -416,6 +422,7 @@ pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEven
             speech(SpeechPatch { rate: Some(rate), ..Default::default() })
         }
         "speech_in_presentation" => speech(SpeechPatch { in_presentation: Some(flag("on")?), ..Default::default() }),
+        "speech_barge_in" => speech(SpeechPatch { barge_in: Some(flag("on")?), ..Default::default() }),
         _ => None,
     }
 }

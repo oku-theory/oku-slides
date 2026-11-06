@@ -1,6 +1,6 @@
 # OS voices of read-aloud off macOS (t-1002, Q11). Nobody here runs Windows or Linux: this job is the
-# only place the WinRT speech code and the spd-say driver of oku-slides-stt are compiled, and the
-# Linux one tested (speak::). `just ci` stays the full gate, on macOS; release.yml builds the apps.
+# only place the WinRT speech code and the Speech Dispatcher driver of oku-slides-stt are compiled,
+# and the Linux one tested (speak::). `just ci` stays the full gate, on macOS; release.yml builds the apps.
 # Runs on every push to main or PR touching Rust code, and by hand from the Actions tab.
 name: Voice check
 
@@ -72,7 +72,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # ALSA headers for the microphone crates; speech-dispatcher brings spd-say, the Linux voice.
+      # ALSA headers for the microphone crates; speech-dispatcher, the Linux voice (its tests use a fake).
       - name: System packages
         run: |
           sudo apt-get update

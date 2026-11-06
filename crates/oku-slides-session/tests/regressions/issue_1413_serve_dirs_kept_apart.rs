@@ -19,7 +19,7 @@ fn served(data: &Data, parent: &Path) -> (Mutex<Workspace>, PathBuf) {
     let ws = Workspace::new_in(Fonts::default(), &platform, None, parent)
         .unwrap_or_else(|e| panic!("workspace: {}", e.one_line()));
     let ws = Mutex::new(ws);
-    let (work, _) = Workspace::with_session(&ws, "t-1", |s| s.agent_work_dir());
+    let (work, _) = Workspace::with_session(&ws, "t-1", oku_slides_session::Session::agent_work_dir);
     let work = work.unwrap_or_else(|e| panic!("tab: {}", e.one_line()));
     let dir = work.and_then(|w| w.prepare()).unwrap_or_else(|e| panic!("work dir: {}", e.one_line()));
     (ws, dir)

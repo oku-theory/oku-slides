@@ -19,6 +19,7 @@ const COMMANDS: &[&str] = &[
     "quit_ready",
     "stt",
     "agent",
+    "agent_link",
     "take_close_decision",
     "update_status",
     "check_update",
@@ -28,10 +29,17 @@ const COMMANDS: &[&str] = &[
     "take_update_notice",
 ];
 
-/// What the agent window may call: its tab's requests, the workspace, the agent, dictation, the quit answer.
+/// What the agent window may call: its tab's requests, the workspace, the agent, dictation, the
+/// quit answer and the agent link relay.
 ///
 /// It shows content from the agent and imports: no update, quit, tab drag or file dialog.
-const AGENT_COMMANDS: &[&str] = &["agent", "quit_ready", "request", "stt", "workspace"];
+const AGENT_COMMANDS: &[&str] = &["agent", "agent_link", "quit_ready", "request", "stt", "workspace"];
+
+/// Core permissions the agent window may not hold: each grants emitting events to any window (t-1469).
+///
+/// It reaches the main window only through `agent_link`, which the host bounds.
+const AGENT_DENIED: &[&str] =
+    &["core:default", "core:event:default", "core:event:allow-emit", "core:event:allow-emit-to"];
 
 type BuildError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -41,6 +49,7 @@ fn main() -> Result<(), BuildError> {
     check_capability_files()?;
     check_capability("capabilities/default.json", "w-*", COMMANDS)?;
     check_capability("capabilities/agent.json", "agent", AGENT_COMMANDS)?;
+    check_denied("capabilities/agent.json", AGENT_DENIED)?;
     let attributes = tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));
     tauri_build::try_build(attributes)?;
     Ok(())
@@ -109,6 +118,16 @@ fn check_capability(path: &str, window: &str, commands: &[&str]) -> Result<(), B
     let expected: BTreeSet<String> = commands.iter().map(|c| (*c).to_owned()).collect();
     if granted != expected {
         return Err(format!("{path}: grants {granted:?}, expected {expected:?}").into());
+    }
+    Ok(())
+}
+
+/// The capability at `path` grants none of `denied`.
+fn check_denied(path: &str, denied: &[&str]) -> Result<(), BuildError> {
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+    let permissions = json["permissions"].as_array().ok_or(format!("{path}: no permissions"))?;
+    if let Some(p) = permissions.iter().filter_map(|p| p.as_str()).find(|p| denied.contains(p)) {
+        return Err(format!("{path}: {p} lets the window emit events to any window").into());
     }
     Ok(())
 }

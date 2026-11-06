@@ -62,3 +62,4 @@ mod issue_1414_blocked_version_leaves_the_review;
 mod issue_1414_child_theme_of_blocked_parent;
 mod issue_1414_new_version_widget_write;
 mod issue_1414_silent_install;
+mod issue_1472_sources_budget;

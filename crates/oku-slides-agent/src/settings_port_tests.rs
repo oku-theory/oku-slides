@@ -107,7 +107,7 @@ fn speech_platform() -> (Platform, tempfile::TempDir) {
 fn settings_reports_speech_status(#[case] voice: bool, #[case] status: &str, #[case] reason: Option<&str>) {
     let (p, _dir) = speech_platform();
     let stt = oku_slides_stt::Stt::new(&p);
-    let engine: Arc<dyn oku_slides_stt::SpeechEngine> = Arc::new(crate::hand_voice::HandVoice::default());
+    let engine: Arc<dyn oku_slides_stt::SpeechEngine> = Arc::new(oku_slides_stt::hand_voice::HandEngine::default());
     let speaker = voice.then(|| oku_slides_stt::Speaker::new(engine, Some(stt.clone())));
     let v = AppSettings::new(&p, Some(stt)).with_speaker(speaker).read();
     assert_that!(v.get("speech.status")).is_equal_to(Some(&json!(status)));
@@ -115,6 +115,16 @@ fn settings_reports_speech_status(#[case] voice: bool, #[case] status: &str, #[c
     assert_that!(v.get("speech.reason").cloned()).is_equal_to(reason.map(|k| json!(fr.tr(k))));
     assert_that!(v.get("speech.read_aloud")).is_equal_to(Some(&json!(false)));
     assert_that!(v.contains_key("dictation.read_aloud") || v.contains_key("dictation.speech")).is_false();
+}
+
+#[test]
+fn settings_reports_barge_in_and_why_not() {
+    let (p, _dir) = speech_platform();
+    let v = AppSettings::new(&p, Some(oku_slides_stt::Stt::new(&p))).read();
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    let why = (!cfg!(target_os = "macos")).then(|| json!(fr.tr("speech-barge-in-unavailable-os")));
+    assert_that!((v.get("speech.barge_in").cloned(), v.get("speech.barge_in_unavailable").cloned()))
+        .is_equal_to((Some(json!(true)), why));
 }
 
 #[test]

@@ -17,8 +17,8 @@ use crate::menu;
 use crate::state::AppState;
 use crate::windows;
 
-/// Label de la fenêtre de l'agent (aussi lu par l'interface).
-pub const LABEL: &str = "agent";
+/// Label of the agent window (also read by the interface), defined by the session crate.
+pub const LABEL: &str = oku_slides_session::AGENT_WINDOW_LABEL;
 
 /// Taille d'une fenêtre neuve, en points.
 const SIZE: (f64, f64) = (420.0, 800.0);

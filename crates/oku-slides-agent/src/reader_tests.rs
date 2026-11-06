@@ -2,7 +2,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use oku_slides_i18n::Localizer;
-use oku_slides_mcp::{AnswerOutcome, ConfirmVerb, HeardUtterance, Lexicon, McpEvent, NoVoice, PresentMode, SurfaceHub};
+use oku_slides_mcp::{
+    AnswerOutcome, ConfirmAction, ConfirmAsk, ConfirmVerb, HeardUtterance, Lexicon, McpEvent, NoVoice, PresentMode,
+    SurfaceHub,
+};
 use oku_slides_session::agent::{
     AgentWorkspace, AskChoice, FocusSource, FocusedTab, PermissionChoice, PermissionKind, Report, SpokenFailure,
     SpokenText, TabSession, TurnOrigin, forms,
@@ -15,8 +18,8 @@ use tokio::sync::broadcast;
 
 use super::{Reader, heard_of, spawn};
 use crate::AgentEvent;
-use crate::hand_voice::{HandClock, HandVoice};
 use crate::turns::{TurnOut, Turns};
+use oku_slides_stt::hand_voice::{HandClock, HandEngine, listen_through_duplex, user_speaks};
 
 /// How long a test waits for the speaker's thread or a hub event: never a sleep.
 const WITHIN: Duration = Duration::from_secs(10);
@@ -54,7 +57,7 @@ struct T {
     hub: Arc<SurfaceHub>,
     rx: broadcast::Receiver<McpEvent>,
     reader: Reader,
-    voice: Arc<HandVoice>,
+    voice: Arc<HandEngine>,
     speaker: Speaker,
     stt: Stt,
     clock: Arc<HandClock>,
@@ -81,7 +84,7 @@ fn on(focused: &str) -> T {
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}"));
     let stt = Stt::new(&platform);
     stt.configure_speech(Some(true), SpeechConfig::default());
-    let (voice, clock) = (Arc::new(HandVoice::default()), HandClock::new());
+    let (voice, clock) = (Arc::new(HandEngine::default()), HandClock::new());
     let speaker = Speaker::with_clock(voice.clone(), Some(stt.clone()), clock.clone());
     let session = Arc::new(Mutex::new(Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("{e}"))));
     let tab = TabSession::new("t-1", session.clone());
@@ -198,9 +201,9 @@ impl T {
         id
     }
 
-    fn confirm(&self, message: &str, verb: Option<ConfirmVerb>) {
+    fn confirm(&self, message: &str, ask: ConfirmAsk) {
         let (hub, message) = (self.hub.clone(), message.to_owned());
-        drop(self.rt.spawn(async move { hub.confirm(message, verb).await }));
+        drop(self.rt.spawn(async move { hub.confirm(message, ask).await }));
     }
 
     /// The agent's `ask_confirm`, opened as its tool opens it.
@@ -263,7 +266,7 @@ fn question_reads_options_in_order() {
 #[test]
 fn confirmation_reads_verb() {
     let mut t = on("t-1");
-    t.confirm("Fusionner le deck ?", Some(ConfirmVerb::Merge));
+    t.confirm("Fusionner le deck ?", ConfirmAsk::Danger(ConfirmVerb::Merge));
     t.pump_until("confirm");
     let l = fr();
     let verb = l.tr(ConfirmVerb::Merge.label_key());
@@ -403,7 +406,7 @@ fn agent_text_in_permission_is_never_read() {
 #[case::import_holds_a_path("Importer /Users/ana/Secret/plan.pptx ?", ConfirmVerb::Import, "plan.pptx")]
 fn confirmation_message_is_never_read(#[case] message: &str, #[case] verb: ConfirmVerb, #[case] private: &str) {
     let mut t = on("t-1");
-    t.confirm(message, Some(verb));
+    t.confirm(message, ConfirmAsk::Danger(verb));
     t.pump_until("confirm");
     let said = t.texts();
     assert_that!(said).has_length(1);
@@ -449,7 +452,7 @@ fn new_question_cuts_speech() {
 #[test]
 fn question_speech_end_moves_arming() {
     let mut t = on("t-1");
-    t.confirm("Fusionner ?", None);
+    t.confirm("Fusionner ?", ConfirmAsk::Plain(ConfirmAction::Save));
     t.pump_until("confirm");
     // The question's speech ends 10 s later, by the speaker's clock.
     t.clock.advance(Duration::from_secs(10));
@@ -469,6 +472,56 @@ fn question_speech_end_moves_arming() {
 }
 
 #[test]
+fn barge_in_answer_over_question_is_taken() {
+    let mut t = on("t-1");
+    let duplex = Arc::new(HandEngine::default());
+    listen_through_duplex(&t.stt, duplex.clone());
+    let start = t.clock_now();
+    t.confirm("Fusionner ?", ConfirmAsk::Plain(ConfirmAction::Save));
+    t.pump_until("confirm");
+    assert_that!(duplex.texts()).has_length(1);
+    // Mid-question, the user answers over it: the barge-in cuts it 10 s in.
+    let answer = HeardUtterance {
+        seq: 1,
+        text: "oui".into(),
+        started: start.checked_add(Duration::from_secs(5)).unwrap_or_else(|| panic!("clock overflow")),
+    };
+    t.clock.advance(Duration::from_secs(10));
+    user_speaks(&t.stt, true);
+    t.speaker.tick();
+    assert!(t.speaker.settle(WITHIN), "the speaker thread should answer");
+    assert_that!(t.speaker.speaking()).is_false();
+    let lexicon = Lexicon::for_locales("fr", Some("fr"));
+    let outcome = t.hub.answer_voice(&answer, &lexicon, Some(FocusSource::Host), None);
+    assert_that!(outcome).is_equal_to(AnswerOutcome::Answered);
+}
+
+#[test]
+fn barge_in_answer_over_agent_question_is_taken() {
+    let mut t = on("t-1");
+    let duplex = Arc::new(HandEngine::default());
+    listen_through_duplex(&t.stt, duplex.clone());
+    let start = t.clock_now();
+    let n = t.turn(TurnOrigin::Typed);
+    t.ask(n, "Et le titre ?", &["Blanc", "Noir"]);
+    t.pump_until("ask");
+    assert_that!(duplex.texts()).has_length(1);
+    let answer = HeardUtterance {
+        seq: 1,
+        text: "blanc".into(),
+        started: start.checked_add(Duration::from_secs(5)).unwrap_or_else(|| panic!("clock overflow")),
+    };
+    t.clock.advance(Duration::from_secs(10));
+    user_speaks(&t.stt, true);
+    t.speaker.tick();
+    assert!(t.speaker.settle(WITHIN), "the speaker thread should answer");
+    let lexicon = Lexicon::for_locales("fr", Some("fr"));
+    // Not a new instruction: it answers the question it cut.
+    let outcome = t.hub.answer_voice(&answer, &lexicon, Some(FocusSource::Host), None);
+    assert_that!(outcome).is_equal_to(AnswerOutcome::Answered);
+}
+
+#[test]
 fn reader_panic_is_logged_and_thread_ends() {
     let t = on("t-1");
     let reader = Reader::new(t.speaker.clone(), Some(t.stt.clone()), Arc::new(Broken));
@@ -485,4 +538,26 @@ impl T {
     fn clock_now(&self) -> Instant {
         oku_slides_stt::SpeakerClock::now(&*self.clock)
     }
+}
+
+#[test]
+fn reader_question_speech_is_never_taken_for_an_echo() {
+    let mut t = on("t-1");
+    t.turn(TurnOrigin::Typed);
+    t.ask_confirm("On continue ?", true);
+    t.pump_until("ask");
+    // The danger verb the speech tells the user to say: their answer, not an echo.
+    assert_that!(
+        t.speaker.echoes(&fr().tr("agent-surface-confirm-danger"), oku_slides_stt::SpeakerClock::now(&*t.clock))
+    )
+    .is_false();
+}
+
+#[test]
+fn reader_receipt_speech_is_taken_for_an_echo() {
+    let mut t = on("t-1");
+    let n = t.turn(TurnOrigin::Typed);
+    t.report(n, &report("Fond bleu nuit", &["Titre en blanc"]));
+    t.pump();
+    assert_that!(t.speaker.echoes("titre en blanc", oku_slides_stt::SpeakerClock::now(&*t.clock))).is_true();
 }

@@ -1,6 +1,8 @@
 stt-microphone-missing = Không tìm thấy micrô
 stt-microphone-unusable = Không thể sử dụng micrô
 stt-microphone-silent = Micrô không phản hồi
+stt-duplex-echo = Không thể bật khử tiếng vọng cho micrô này
+stt-duplex-start = Bộ máy âm thanh có khử tiếng vọng không khởi động
 stt-audio-format = Định dạng âm thanh không được hỗ trợ: { $format }
 stt-audio-file = Không đọc được tệp âm thanh
 stt-model = Không đọc được mô hình đọc chính tả
@@ -22,6 +24,7 @@ stt-voice-no-voice = Không có giọng hệ thống nào nói ngôn ngữ này
 stt-voice-daemon = Dịch vụ giọng nói (Speech Dispatcher) không phản hồi
 stt-voice-failed = Giọng hệ thống không thể đọc văn bản
 stt-voice-rate = Tốc độ đọc phải nằm trong khoảng 0,5 đến 2 lần tốc độ bình thường
+speech-barge-in-unavailable-os = Nói chen khi Oku đang nói cần khử tiếng vọng, chỉ có trên macOS.
 
 stt-model-turbo = Large v3 Turbo (đa ngôn ngữ, 818 MB)
 stt-model-large = Large v3 (đa ngôn ngữ, 3.1 GB)

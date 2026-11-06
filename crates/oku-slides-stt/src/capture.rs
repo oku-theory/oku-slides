@@ -14,7 +14,7 @@ use oku_slides_i18n::Localize;
 use crate::dictation_stream::Held;
 use crate::error::{ApiConfigSnafu, ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
 use crate::utterance::ListenClock;
-use crate::{Download, Mode, Model, Sink, State, Stt, SttError, SttErrorKind, audio, locale, models, valid_api_access};
+use crate::{Download, Mode, Model, Sink, State, Stt, SttError, SttErrorKind, locale, models, valid_api_access};
 
 impl Stt {
     /// Starts dictation (downloading the model first if missing).
@@ -164,7 +164,7 @@ impl Stt {
 
     /// Opens the microphone and captures in `mode`, unless the state left `from` meanwhile.
     pub(crate) fn begin_recording(&self, mode: Mode, from: State) {
-        let recorder = match audio::Recorder::start(self.settings.fake_mic.as_deref(), &self.storage) {
+        let (recorder, barge) = match self.open_microphone(mode) {
             Ok(r) => r,
             Err(e) => {
                 tracing::warn!(error = %snafu::Report::from_error(&e), "micro indisponible");
@@ -194,6 +194,7 @@ impl Stt {
                 g.detected = g.apple.as_ref().map(|(tag, _)| locale::language(tag));
             }
             g.stop_in = None;
+            g.barge = barge;
             g.started = Some(Instant::now());
             // A clock left by an earlier listening would misplace this stream's finals.
             g.clock = ListenClock { origin: Instant::now(), stream_base: 0 };

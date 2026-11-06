@@ -1,6 +1,8 @@
 stt-microphone-missing = Микрофон не найден
 stt-microphone-unusable = Микрофон нельзя использовать
 stt-microphone-silent = Микрофон не отвечает
+stt-duplex-echo = Не удаётся включить эхоподавление для этого микрофона
+stt-duplex-start = Аудиодвижок с эхоподавлением не запускается
 stt-audio-format = Неподдерживаемый аудиоформат: { $format }
 stt-audio-file = Аудиофайл не читается
 stt-model = Не удаётся прочитать модель диктовки
@@ -22,6 +24,7 @@ stt-voice-no-voice = Ни один системный голос не говор
 stt-voice-daemon = Служба синтеза речи (Speech Dispatcher) не отвечает
 stt-voice-failed = Системному голосу не удалось прочитать текст
 stt-voice-rate = Скорость речи должна быть от 0,5 до 2 от обычной
+speech-barge-in-unavailable-os = Чтобы перебивать Oku, нужно эхоподавление, доступное только в macOS.
 
 stt-model-turbo = Large v3 Turbo (многоязычная, 818 МБ)
 stt-model-large = Large v3 (многоязычная, 3,1 ГБ)

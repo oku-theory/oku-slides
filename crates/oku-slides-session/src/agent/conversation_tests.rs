@@ -64,6 +64,7 @@ fn conversation_survives_resume_in_conversation_json() {
         agent: Some("empreinte".into()),
         session: Some("sess-9".into()),
         thread: vec![frozen("report-3", 1)],
+        work: None,
     }));
 }
 
@@ -120,4 +121,5 @@ fn saved_conversation_without_session_reads_as_none() {
     let c: SavedConversation = serde_json::from_str("{}").unwrap();
     assert_that!(c.session).is_none();
     assert_that!(c.thread).is_empty();
+    assert_that!(c.work).is_none();
 }

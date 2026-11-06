@@ -1,6 +1,8 @@
 stt-microphone-missing = Мікрофон не знайдено
 stt-microphone-unusable = Мікрофон неможливо використати
 stt-microphone-silent = Мікрофон не відповідає
+stt-duplex-echo = Не вдається увімкнути придушення луни для цього мікрофона
+stt-duplex-start = Аудіорушій із придушенням луни не запускається
 stt-audio-format = Непідтримуваний аудіоформат: { $format }
 stt-audio-file = Аудіофайл не читається
 stt-model = Не вдається прочитати модель диктування
@@ -22,6 +24,7 @@ stt-voice-no-voice = Жоден системний голос не говори�
 stt-voice-daemon = Служба синтезу мовлення (Speech Dispatcher) не відповідає
 stt-voice-failed = Системному голосу не вдалося прочитати текст
 stt-voice-rate = Швидкість мовлення має бути від 0,5 до 2 від звичайної
+speech-barge-in-unavailable-os = Щоб перебивати Oku, потрібне придушення луни, доступне лише в macOS.
 
 stt-model-turbo = Large v3 Turbo (багатомовна, 818 МБ)
 stt-model-large = Large v3 (багатомовна, 3,1 ГБ)
