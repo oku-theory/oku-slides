@@ -92,7 +92,7 @@ expression: "plan(\"minimal\").ops"
     "namespace": "deck-layouts",
     "pin": {
       "id": "00000000-0000-0000-0000-000000000001",
-      "version": "sha256:8aadfb0aec224ee0ecc1b82e2fcacbc936ce198fbd19814272e7a2414a522187",
+      "version": "sha256:9b2c72cbdc576e00d3d7b58bf85699b22fc487a2526a8de71481d2d7c5d684f1",
       "requires": [
         "base"
       ]
