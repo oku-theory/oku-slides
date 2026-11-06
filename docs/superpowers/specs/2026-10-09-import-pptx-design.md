@@ -409,14 +409,101 @@ Decisions from the lot 5 plan (2026-10-16):
 Known limits, for the backlog after lot 5 (plan review, 2026-10-17):
 
 - The threshold and suspect regions are calibrated on three fixtures only;
-  a varied corpus is needed. (t-909)
+  a varied corpus is needed. (t-909, done: amendment of 2026-11-06 below)
 - A deck-only pack is not offered in the pack picker. (t-937)
 - Launched from the Finder, the app gets the GUI `PATH`: the agent's `npx`
   may not be found. (t-956)
 - The witness's reason is not localized in the import report. (t-957)
-- The scope of the `DefaultFont` finding is still to be measured. (t-958)
+- The scope of the `DefaultFont` finding is still to be measured. (t-958,
+  done: amendment of 2026-11-06 below)
 - Of several `.pptx` opened from the OS at once, only the last is offered.
   (t-961)
+
+Amendment of 2026-11-06 (t-909, t-958): calibration on the third-party corpus
+`fixtures/import/corpus` (19 decks: SmartArt, charts, tables, themes and
+multi-master decks, groups, pictures, Japanese text, Strict OOXML). Every deck
+was imported by the CLI in hi-fi with `--report`, under office2pdf 0.10.0 and
+LibreOffice 26.8.2.2 (real binary), and in retrofit; the flagged and a sample
+of the unflagged slides were rendered to PNG and compared side by side with
+both witnesses.
+
+- **Robustness.** No deck fails, panics or gives a plan the core refuses, in
+  either mode; validate reports no `Issue` (`oku-slides-import/tests/corpus.rs`).
+- **Fixed.** A centered or right-aligned placeholder of a hi-fi import was
+  drawn flush left: the generated `champ` placed its box with
+  `place(top + left, …)`, which imposes `left`. It now reads the alignment
+  first (`oku-slides-session` regression `issue_0909`). This unflagged
+  poi-themes p. 1, WaveFormTheme and Photo_Album3 p. 1 under office2pdf;
+  alto, kitchen and libreoffice keep their scores.
+
+Worst non-suspect region per deck (threshold 7) after that fix:
+
+| Deck | Slides | Losses | Warnings | office2pdf | flagged | suspect (office2pdf) | LibreOffice | flagged |
+|---|---|---|---|---|---|---|---|---|
+| poi-SmartArt | 1 | 0 | 5 | 0 | — | smart_art 5 | 0.46 | — |
+| poi-smartart-simple | 1 | 3 | 4 | 34.0 | 1 | smart_art 4 | 54.6 | 1 |
+| poi-table-with-no-theme | 1 | 1 | 0 | 15.2 | 1 | — | 14.2 | 1 |
+| poi-table-with-theme | 1 | 1 | 0 | 17.7 | 1 | — | 17.7 | 1 |
+| poi-themes | 10 | 4 | 6 | 39.3 | 2, 4, 5, 7, 8, 10 | autofit 9 | 61.3 | all |
+| poi-with_japanese | 1 | 7 | 0 | 22.4 | 1 | autofit 1 | 25.5 | 1 |
+| powertools-AnglesTheme | 1 | 3 | 0 | 40.8 | 1 | autofit 1 | 44.0 | 1 |
+| powertools-ApexTheme | 1 | 2 | 5 | 0 | — | autofit 1 | 53.3 | 1 |
+| powertools-WaveFormTheme | 1 | 1 | 3 | 0.18 | — | autofit 1 | 17.0 | 1 |
+| pythonpptx-cht-chart-type | 8 | 9 | 2 | 27.4 | 6 | chart 29 | 56.5 | all |
+| pythonpptx-shp-groupshape | 1 | 5 | 0 | 10.9 | 1 | — | 10.5 | 1 |
+| pythonpptx-shp-picture | 2 | 3 | 0 | 42.1 | 1, 2 | — | 42.1 | 1, 2 |
+| sdk-Chart_2D | 1 | 1 | 0 | 0 | — | chart 1, autofit 1 | 44.8 | 1 |
+| sdk-Photo_Album3 | 2 | 4 | 9 | 84.8 | 2 | autofit 1 | 5.78 | — |
+| sdk-SmartArt_OrgChart1 | 1 | 2 | 0 | 16.9 | 1 | autofit 1 | 41.9 | 1 |
+| sdk-SmartArt_OrgChart1_3D | 1 | 2 | 0 | 14.8 | 1 | autofit 1 | 53.1 | 1 |
+| sdk-Table_Large | 1 | 2 | 0 | 35.2 | 1 | — | 44.0 | 1 |
+| tika-testMSChart-govdocs-428996 | 1 | 2 | 1 | 17.1 | 1 | — | 66.1 | 1 |
+| tika-testPPT_groups | 2 | 1 | 5 | 7.69 | 2 | autofit 2, smart_art 5 | 11.4 | 2 |
+
+- **Threshold: kept at 7.** Under office2pdf every flag is a real gap seen
+  on the images (a slide background drawn over the placeholders, run styles
+  lost in table cells, compressed table rows, a lost rotation, crop or
+  ellipse, a missing SmartArt, chart or bubble chart, the Japanese deck's
+  collapsed layout, missing table grid lines at 7.69), and the noise stays
+  at most 5.8 (alto, kitchen, libreoffice): 7 still separates them. Under
+  LibreOffice one flag is borderline (poi-themes p. 1, the title at 7.6,
+  drawn as in LibreOffice); raising the threshold to 8 would drop the 7.69
+  table gap under office2pdf. Photo_Album3 p. 2 (84.8) is mostly office2pdf
+  placing the third photo elsewhere than LibreOffice and Oku; its frames and
+  shadows are reported losses.
+- **Real gaps no region sees.** The score flags by item regions only: a slide
+  background or a layout or master decor is not a region. poi-themes p. 9
+  (page mean 57: the layout's picture background lost) and ApexTheme (mean
+  41.8 under LibreOffice: the theme's `bgRef` picture lost, white text on
+  white) are not flagged under office2pdf, which loses those backgrounds too
+  or marks the title `autofit`; WaveFormTheme's wave decor differs unflagged.
+  A page-mean criterion would catch them, but office2pdf draws poi-themes
+  p. 6 on another master (mean 16, Oku matches LibreOffice): it needs a
+  LibreOffice calibration of its own, left to the backlog.
+- **Left to the backlog (larger bugs).** (1) A slide's own background
+  (`<p:bg>` different from its layout's) is the first `extras` element, drawn
+  above the layout widget: it hides the placeholders and the layout decor
+  (poi-themes p. 5, 7, 10); it needs a background parameter of the generated
+  widget. (2) Backgrounds from a theme `bgRef` or a layout picture fill are
+  lost (ApexTheme, poi-themes p. 9). (3) Date categories of a chart show as
+  serial numbers (`37261.0`, pythonpptx-cht-chart-type). (4) Bubble charts,
+  SmartArt without a drawing part and the govdocs chart are not drawn
+  (reported `opaque`/`unsupported_chart` losses). (5) poi-with_japanese's
+  text boxes collapse to the top of the slide.
+- **`DefaultFont` reach (t-958): none on the corpus.** Every corpus master's
+  `otherStyle` names `+mn-lt`, as PowerPoint writes it, so office2pdf finds
+  the font of every ordinary text: 0 suspect `default_font` region on 19
+  decks (counted with every region reported, not only the first three). It
+  reaches only a master whose `otherStyle` names no font: kitchen's two
+  boxes (p. 2, 8.7 and 8.27, the gap of office2pdf's fallback font) in 22
+  decks. Narrowing it to `+mn-lt` is not warranted: office2pdf ignores the
+  `defaultTextStyle` font whatever it names (tika-testMSChart's names Arial),
+  and no masked gap was found. The limit stays as is; `corpus.rs` checks that
+  no corpus run reaches it.
+- **Gates.** `oku-slides-import/tests/corpus.rs` (fast): every deck read,
+  projected in hi-fi and retrofit, applied without `Issue`. `oku-slides-cli/tests/import_corpus.rs`
+  (ignored, `just test-soffice`): every deck against real LibreOffice, flags
+  only among the measured ones, suspects only LibreOffice's limits.
 
 Defaults chosen without asking:
 

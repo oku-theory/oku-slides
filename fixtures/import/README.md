@@ -9,3 +9,5 @@
   ("appifact kit"), without embedded fonts (text ~5 % narrower); visual target
   of lot 6, read by no test. Lot 4 measures the hi-fi visual gap against the
   `office2pdf` witness instead (`crates/oku-slides-cli/tests/import_reference.rs`).
+- `corpus/`: third-party Apache-2.0/MIT decks (LFS) for calibration only
+  (t-909); provenance and licences in `corpus/README.md`.

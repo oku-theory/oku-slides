@@ -16,7 +16,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Under LibreOffice, read a gap on a normAutofit box whose text overflows as its shrink, not Oku's, but a chart gap as Oku's. (t-905)
 - Do not align the import on office2pdf code without checking it against the OOXML or another witness. (t-692)
 - Re-audit without_fonts against office2pdf's embedded_fonts.rs on every bump; if office2pdf leaves the workspace zip, recheck with its own zip again. (t-898, t-899)
-- Change [import] score_threshold or a WitnessLimit only after a live witness run on alto, kitchen and libreoffice, updating config.default.toml's measured table and import_reference.rs bounds. (t-884, t-904, plan:2026-10-16-import-pptx-lot5)
+- Change [import] score_threshold or a WitnessLimit only after a live witness run on alto, kitchen, libreoffice and fixtures/import/corpus, updating config.default.toml's measured table, import_reference.rs bounds and import_corpus.rs flags. (t-884, t-904, t-909, plan:2026-10-16-import-pptx-lot5)
 
 ## Settled decisions
 

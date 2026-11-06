@@ -39,7 +39,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - `.cargo/config.toml` `MACOSX_DEPLOYMENT_TARGET` must equal `bundle.macOS.minimumSystemVersion`
   in `src-tauri/tauri.conf.json`, or typst rebuilds on every `just dev` / `just test` switch.
 - The workspace `windows` 0.62 entry (default features off, for the stt Windows voice) lists exactly `Media_SpeechSynthesis`, `Media_Playback`, `Media_Core`, `Storage_Streams`, `Foundation`, `Foundation_Collections`: a new WinRT API needs its feature added there, and only a Windows build compiles it.
-- Git LFS holds `assets/fonts/*.{ttf,otf}` and `fixtures/import/*.pdf`: commit pointers, never binaries.
+- Git LFS holds `assets/fonts/*.{ttf,otf}`, `fixtures/import/*.pdf` and `fixtures/import/corpus/*.pptx`: commit pointers, never binaries.
 - After merging `main` into a worktree, run `bun install` in `ui/` if its deps changed, or `tsc` fails; right before squashing, `git fetch` and check `main` again (other sessions push often) and merge once more if it moved.
 
 ## Invariants

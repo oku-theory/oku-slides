@@ -43,11 +43,15 @@ use crate::source::{Master, SourceDeck};
 /// Le champ d'un placeholder, partagé par les widgets générés (`champ`).
 const CHAMP: &str = r#"/// Le champ `name` d'un placeholder : `body` dans sa boîte (pt page), à ses
 /// marges `inset`, ancré en `anchor`. Vide, il garde sa boîte (l'éditeur la
-/// montre) ; dans un texte, `{n}` est le numéro de la page.
-#let champ(ctx, name, body, x, y, w, h, inset, anchor) = {
+/// montre) ; dans un texte, `{n}` est le numéro de la page. The horizontal
+/// alignment set around the call is read first: `place(top + left, …)` would
+/// impose `left` on what it places (t-909).
+#let champ(ctx, name, body, x, y, w, h, inset, anchor) = context {
   let body = if body == none or body == "" { [] } else if type(body) == str and body.contains("{n}") {
     context body.replace("{n}", str(counter(page).get().first()))
   } else { body }
+  let side = align.alignment.x
+  let anchor = if side == none { anchor } else { anchor + side }
   place(top + left, dx: x, dy: y, block(width: w, height: h, inset: inset, align(anchor, field(ctx, name, body))))
 }
 "#;

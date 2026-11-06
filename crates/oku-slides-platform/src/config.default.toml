@@ -70,7 +70,9 @@ max_guide_chars = 4000
 # t-1384 took the source's gridlines and bar width; Oku's automatic value scale
 # still differs); alto p. 6 (9.16,
 # a line break) and p. 8 (8.76, lists it shrinks) stay flagged; its Calibri Light
-# titles and SmartArt are suspect.
+# titles and SmartArt are suspect. Kept on the 19-deck corpus (fixtures/import/corpus,
+# 2026-11-06): office2pdf flags only real gaps (lowest 7.69), LibreOffice one title
+# at 7.6 (import spec, amendment of 2026-11-06).
 score_threshold = 7.0
 # Durée maximale d'une tranche de 20 slides du rendu de référence (ms), dans son
 # propre processus de rendu ; au-delà, la référence manque au rapport (« timeout »).

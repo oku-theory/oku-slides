@@ -40,9 +40,9 @@ LibreOffice, a child of that worker outside its memory bound, has its own timeou
 
 ## Calibration (worst non-suspect region; `score_threshold = 7`)
 
-office2pdf 0.10.0 (2026-11-01): alto ≤ 3.4, libreoffice and kitchen ≤ 5.8 (tables 4.2); flagged alto
-p. 6 (9.38) and p. 7 (15.71). LibreOffice 26.8.1.1: noise ≤ 6.77 (alto titles); flagged alto p. 6 (9.16,
-a line break) and p. 8 (8.76, its shrink), tables (≥ 18) and the libreoffice/kitchen chart (46).
+office2pdf 0.10.0: noise ≤ 5.8 (alto, kitchen, libreoffice); flagged alto p. 6 (9.38), p. 7 (15.71) and,
+on `fixtures/import/corpus` (2026-11-06, spec amendment), only real gaps, from 7.69. LibreOffice: noise ≤ 7.6
+(alto titles 6.77, poi-themes p. 1); flagged alto p. 6 (9.16) and p. 8 (8.76, its shrink), the charts.
 
 ## Extension points and dependencies
 

@@ -47,4 +47,4 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 
 ## Dependencies
 `oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`, `serde`,
-`serde_json`, `snafu` (not render). Render checks: `oku-slides-render/tests/import_*.rs`.
+`serde_json`, `snafu` (not render). Render checks: `oku-slides-render/tests/import_*.rs`; corpus: `tests/corpus.rs`.
