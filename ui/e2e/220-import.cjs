@@ -170,7 +170,7 @@ const noTurnSince = async (p, from, ms) => {
   const packBefore = pinOf(await api(p, hifi, { cmd: 'snapshot' }));
   assert.ok(packBefore, 'le deck importé épingle son pack de layouts');
   // The deck's overrides that the import wrote (deck.tokens), counted on the theme row of "Packs du deck".
-  const PACKS = '.agent-popover [data-surface-id="host-packs"]';
+  const PACKS = '.side-panel [data-surface-id="host-packs"]';
   const deckOverrides = async () => {
     await openPacksPopover(p);
     const row = p.locator(`${PACKS} [data-component-id="theme-overrides"]`);

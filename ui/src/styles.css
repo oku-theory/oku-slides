@@ -163,10 +163,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 
 .table { position: relative; }
-/* Hors mode pack, pas de colonne de gauche (les miniatures sont sous la scène) : la feuille prend sa
-   place ; `!important` passe devant la largeur choisie au séparateur (posée en ligne). */
-.table:not(:has(> .pile-column)) { --pile-w: 0px !important; }
-.table:not(:has(> .pile-column)) .col-divider[data-side="pile"] { display: none; }
+/* No left column (help, history; the thumbnails are under the stage): the sheet takes its place;
+   `!important` beats the width chosen at the divider (set inline). A deck tab's side panel folded to
+   its rail keeps the rail's width (inspector.css); only an open one is resized at the divider. */
+.table:not(:has(> .pile-column, > .side-panel)) { --pile-w: 0px !important; }
+.table:not(:has(> .pile-column, > .side-panel.open)) .col-divider[data-side="pile"] { display: none; }
 
 /* Objets posés sur la table : ils se soulèvent au survol. */
 .object {
@@ -227,11 +228,6 @@ button, select, input, textarea { font: inherit; color: inherit; }
 /* Sous la feuille : ajouter à la slide, puis annuler / rétablir, dans une seule barre. */
 .tools-tray { grid-area: tools; justify-self: center; align-self: center; position: relative; z-index: 2; gap: 2px; padding: 0 var(--space-1); }
 .tools-tray .token.ghost { width: 36px; height: 36px; }
-/* Bouton des packs du deck : une pastille quand un épinglage est plus ancien que ma version. */
-.tools-tray .packs-button { position: relative; }
-.tools-tray .packs-button.has-update::after {
-  content: ""; position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
-}
 /* Fenêtre étroite : des jetons plus petits, pour que la barre tienne sous la slide. */
 @media (max-width: 1199px) { .tools-tray .token.ghost { width: 32px; height: 32px; } }
 .tools-sep { width: 1px; height: 20px; margin-inline: var(--space-1); background: color-mix(in oklab, var(--edge) 55%, transparent); }

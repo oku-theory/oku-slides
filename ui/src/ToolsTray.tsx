@@ -1,5 +1,5 @@
-// The toolbar under the sheet. It opens the add grid and the deck's packs panel, shows or hides
-// the thumbnails and a deck tab's inspector, opens the menu, undoes and redoes; in a pack tab, it carries the selected
+// The toolbar under the sheet. It opens the add grid and the theme picker, shows or hides
+// the thumbnails, opens the menu, undoes and redoes; in a pack tab, it carries the selected
 // item's tools instead, the session's undo among them while no code editor shows.
 
 import type { ReactNode } from "react";
@@ -29,8 +29,6 @@ interface Props {
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
   /** Opens the add grid; `null` when the slide takes no element: the button is then disabled. */
   onAdd: (() => void) | null;
-  /** Ouvre le panneau des packs du deck (surface `host-packs` de l'agent). */
-  onPacks: () => void;
   /** Opens the theme picker on the slide shown (surface `host-theme-picker`). */
   onThemes: () => void;
   /** Opens the deck's history, as the agent's `history` tool does. */
@@ -50,7 +48,6 @@ export function ToolsTray({
   mainMenu,
   run,
   onAdd,
-  onPacks,
   onThemes,
   onHistory,
   thumbs,
@@ -62,12 +59,9 @@ export function ToolsTray({
   const redoLabel = snap.redo_label
     ? t("ui-toolbar-redo-label", { label: snap.redo_label })
     : t("ui-toolbar-redo");
-  // The packs and history buttons: in deck mode only, not in pack mode, help, history or a
-  // theme tab. A dot on packs says a pin is older than my current version.
+  // The themes and history buttons: in deck mode only, not in pack mode, help, history or a
+  // theme tab. The deck's packs and the inspector are in the side panel (`SidePanel`).
   const deckMode = isDeckTab(snap);
-  const packsUpdate = snap.pack_updates > 0;
-  // Avec une mise à jour, le nom accessible et l'infobulle la disent aussi (une seule phrase Fluent).
-  const packsLabel = t(packsUpdate ? "ui-toolbar-packs-update" : "ui-toolbar-packs");
   const sessionHistory = (
     <>
       <button
@@ -108,18 +102,6 @@ export function ToolsTray({
         {Icon.widget}
       </button>
       {deckMode && (
-        <button
-          className={`token ghost packs-button${packsUpdate ? " has-update" : ""}`}
-          aria-label={packsLabel}
-          title={packsLabel}
-          aria-haspopup="dialog"
-          data-popover-anchor="host-packs"
-          onClick={onPacks}
-        >
-          {Icon.packs}
-        </button>
-      )}
-      {deckMode && (
         <IconButton
           className="token ghost themes-button"
           label={t("ui-themes")}
@@ -152,16 +134,6 @@ export function ToolsTray({
               label={t(thumbs.open ? "ui-toolbar-thumbs-hide" : "ui-toolbar-thumbs-show")}
               onToggle={thumbs.onToggle}
               icon={Icon.strip}
-            />
-          )}
-          {/* A deck tab's inspector beside the stage (⌘⇧E; kept by the host). */}
-          {deckMode && (
-            <IconToggle
-              className="token ghost inspector-toggle"
-              pressed={keptUi.inspector}
-              label={t("ui-inspector")}
-              onToggle={() => keptUi.setInspector(!keptUi.inspector)}
-              icon={Icon.inspector}
             />
           )}
           {mainMenu}

@@ -1,4 +1,4 @@
-// The inspector: the deck without a selection, the element's settings, its Data button, an offer first.
+// The inspector tab: the deck's theme without a selection, the element's settings, its Data button, an offer first.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -37,11 +37,10 @@ async function mount(o: Opts = {}) {
         element: o.element ?? settings(null),
         data: !!o.data,
         onData: () => void calls.push("data"),
-        deck: { theme: o.theme === undefined ? "Papier" : o.theme, onPacks: () => void calls.push("packs") },
+        theme: o.theme === undefined ? "Papier" : o.theme,
         offer: o.offer,
         onAction: () => true,
         onError: () => {},
-        onClose: () => void calls.push("close"),
       }),
     ),
   );
@@ -56,11 +55,9 @@ const button = (host: HTMLElement, label: string) =>
   [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.getAttribute("aria-label") === label || b.textContent === label);
 
 describe("Inspector", () => {
-  test("Inspector without a selection shows the theme name and Packs", async () => {
+  test("Inspector without a selection shows the theme name", async () => {
     const m = await mount();
     expect(m.host.querySelector(".inspector")?.textContent).toContain("Papier");
-    await act(async () => button(m.host, t("ui-inspector-packs"))!.click());
-    expect(m.calls).toEqual(["packs"]);
   });
 
   test("Inspector with an untitled theme says so", async () => {
@@ -70,7 +67,7 @@ describe("Inspector", () => {
 
   test("Inspector with an element shows its host-element surface", async () => {
     const m = await mount({ element: settings(realSurface("host-element")) });
-    expect([!!m.host.querySelector('[data-surface-id="host-element"]'), !!button(m.host, t("ui-inspector-packs"))]).toEqual([true, false]);
+    expect([!!m.host.querySelector('[data-surface-id="host-element"]'), m.host.querySelector(".inspector")?.textContent?.includes("Papier")]).toEqual([true, false]);
   });
 
   test("Inspector for a chart or table shows a Data button calling onData", async () => {
@@ -90,11 +87,5 @@ describe("Inspector", () => {
     const settingsBox = m.host.querySelector('[data-surface-id="host-element"]')!;
     expect(!!frame?.querySelector(".offered")).toBe(true);
     expect(frame!.compareDocumentPosition(settingsBox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  test("Inspector close button calls onClose", async () => {
-    const m = await mount();
-    await act(async () => button(m.host, t("ui-inspector-close"))!.click());
-    expect(m.calls).toEqual(["close"]);
   });
 });

@@ -12,7 +12,7 @@ const LOG = process.env.E2E_AGENT_LOG;
 const SLIDE = 's-ventes';
 const CHART = 'e-ventes';
 const TEXT = 'modifie le graphique des ventes';
-const OPEN = '.inspector, .data-pane, .agent-popover';
+const OPEN = '.inspector, .data-pane, .agent-popover, .side-panel.open';
 
 const api = (p, req) => post(p, '/api', { tab: 't-1', req });
 const apply = async (p, label, ops) => {
@@ -31,14 +31,14 @@ const addChart = async (p) => {
   }]);
 };
 const removeSlide = (p) => apply(p, 'retrait', [{ op: 'remove_slide', slide: SLIDE }]);
-/** Closes the pane and the inspector when open, with their own buttons (as 150-data-panel and 010-editor do). */
+/** Closes the pane and the inspector when open: the pane's button, the side rail's inspector tab. */
 const closeInspectorAndPane = async (p) => {
   if (await p.locator('.data-pane').count()) {
     await p.locator('.data-pane').getByRole('button', { name: 'Fermer les données', exact: true }).click();
     await p.waitForSelector('.data-pane', { state: 'detached' });
   }
   if (await p.locator('.inspector').count()) {
-    await p.locator('.inspector').getByRole('button', { name: "Fermer l'inspecteur", exact: true }).click();
+    await p.click('.side-rail .inspector-toggle');
     await p.waitForSelector('.inspector', { state: 'detached' });
   }
 };

@@ -77,17 +77,17 @@ const adopted = (id, version) => {
   const constat = await api(p, 't-1', { cmd: 'slide', id: 's-constat' });
   assert.ok(!JSON.stringify(constat).includes('e2e-tag-open'), "l'annulation ne retire pas le tableau");
 
-  // 1. "Ouvrir" on Base's row of "Packs du deck" (from the toolbar): Base in a pack tab, right after `t-1`.
+  // 1. "Ouvrir" on Base's row of "Packs du deck" (from the side rail): Base in a pack tab, right after `t-1`.
   const tabCount = async () => (await view(p)).windows[0].tabs.length;
   const count = await tabCount();
   await openPacksPopover(p);
-  const openBase = p.locator('.agent-popover [data-surface-id="host-packs"] [data-component-id="widgets/base/open"]').getByRole('button', { name: 'Ouvrir', exact: true });
+  const openBase = p.locator('.side-panel [data-surface-id="host-packs"] [data-component-id="widgets/base/open"]').getByRole('button', { name: 'Ouvrir', exact: true });
   await openBase.click();
   const packTab = await untilValue(p, () => active(p), (id) => id !== 't-1', "« Ouvrir » n'ouvre pas d'onglet de pack");
   const doc = (await view(p)).windows[0].tabs.find((t) => t.id === packTab).document;
   assert.deepEqual(doc, { kind: 'pack', pack: baseId }, "« Ouvrir » n'ouvre pas Base");
   assert.equal(await tabCount(), count + 1);
-  // Back on `t-1` (its popover stays open), "Ouvrir" again brings the same tab back: no new tab.
+  // Back on `t-1` (its packs box stays open), "Ouvrir" again brings the same tab back: no new tab.
   await post(p, '/api/workspace', { cmd: 'activate', tab: 't-1' });
   await p.reload();
   await openBase.click();
@@ -159,7 +159,7 @@ const adopted = (id, version) => {
   // One undo gives `t-1` its older pin back.
   await api(p, 't-1', { cmd: 'undo' });
   assert.equal((await base(p)).pinned, older.pinned, "l'annulation ne rend pas la Base d'avant");
-  // The packs popover opened in step 1 stays open in `t-1`: later specs expect nothing open.
+  // The packs box opened in step 1 stays open in `t-1`: later specs expect nothing open.
   await p.reload();
   await closePacksPanel(p);
   assert.deepEqual(errors, []);

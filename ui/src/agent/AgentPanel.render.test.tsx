@@ -11,8 +11,8 @@ import type { QuickTarget } from "./useQuickKeys";
 
 const { act, createElement, createRef, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { AgentPanel, IDLE_AGENT } = await import("./AgentPanel");
-const { createSlot, SlotView } = await import("./slot");
+const { AgentPanel, IDLE_AGENT, createAgentSlots } = await import("./AgentPanel");
+const { SlotView } = await import("./slot");
 const { routeSurfaces } = await import("./surfaces");
 const { ARMING_MS } = await import("../modalFrame");
 const { t } = await import("../i18n");
@@ -108,7 +108,7 @@ async function mount({
     setDraft: async () => {},
     showSettings: async () => {},
   };
-  const slots = { sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot() };
+  const slots = createAgentSlots();
   let inspectorOpens = 0;
   let select: (id: string | null) => void = () => {};
   const handle = createRef<import("./AgentPanel").AgentHandle>();
@@ -169,10 +169,11 @@ async function mount({
         subscribe,
       }),
       createElement("div", { className: "modal-probe" }, createElement(SlotView, { slot: slots.modal })),
-      createElement("button", { className: "packs-probe", "data-popover-anchor": "host-packs" }),
+      createElement("button", { className: "voice-probe", "data-popover-anchor": "host-voice" }),
       ...anchors.map((name) => createElement("button", { key: name, "data-popover-anchor": name })),
       createElement("div", { className: "popover-probe" }, createElement(SlotView, { slot: slots.popover })),
       createElement("aside", { className: "inspector-probe" }, createElement(SlotView, { slot: slots.inspector })),
+      createElement("aside", { className: "side-probe" }, createElement(SlotView, { slot: slots.side })),
     );
   };
   const host = document.createElement("div");
@@ -412,43 +413,45 @@ test("AgentPanel quick digit inside the voice box answers no question", async ()
 
 
 describe("AgentPanel popovers", () => {
-  /** The packs box: turnless when the user opened it, in `turn` when an agent tool did. */
+  /** The packs box: turnless when the user opened it (the side panel), in `turn` when an agent tool did. */
   const packs = (turn?: number): Surface => surface("host-packs", "Fermer", { place: "popover", turn });
+  /** The voice box, a turnless popover next to its opener. */
+  const voice = (): Surface => surface("host-voice", "Fermer", { place: "popover" });
   const turnOf = (n: number) => surface(`turn-${n}`, "Tour", { live: false, turn: n });
 
   test("AgentPanel with a turnless popover opens it next to its anchor", async () => {
     const { host, mcp, until } = await mount();
-    await mcp({ kind: "surface", surface: packs() });
+    await mcp({ kind: "surface", surface: voice() });
     await until(() => !!host.querySelector(".agent-popover"));
-    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-voice"]')).not.toBeNull();
     expect(host.querySelector(".agent-thread .agent-offer")).toBeNull();
   });
 
   test("AgentPanel popover on Escape dismisses it on the hub", async () => {
     const { host, mcp, actions } = await mount();
-    await mcp({ kind: "surface", surface: packs() });
+    await mcp({ kind: "surface", surface: voice() });
     await act(async () => {
       host.querySelector(".agent-popover [data-surface-id]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
     });
-    expect(actions).toEqual(["host-packs:dismiss"]);
+    expect(actions).toEqual(["host-voice:dismiss"]);
   });
 
   test("AgentPanel popover on a second click of its anchor dismisses it", async () => {
     const { host, mcp, actions } = await mount();
-    await mcp({ kind: "surface", surface: packs() });
+    await mcp({ kind: "surface", surface: voice() });
     let reached = 0;
-    const anchor = host.querySelector(".packs-probe") as HTMLButtonElement;
+    const anchor = host.querySelector(".voice-probe") as HTMLButtonElement;
     anchor.addEventListener("click", () => reached++);
     await act(async () => anchor.click());
-    expect([actions, reached]).toEqual([["host-packs:dismiss"], 0]);
+    expect([actions, reached]).toEqual([["host-voice:dismiss"], 0]);
   });
 
-  test("AgentPanel popover click goes to the host first (it opens pack and theme tabs)", async () => {
+  test("AgentPanel popover click goes to the host first", async () => {
     const { host, mcp, until, hostActions } = await mount();
-    await mcp({ kind: "surface", surface: packs() });
+    await mcp({ kind: "surface", surface: voice() });
     await until(() => !!host.querySelector(".agent-popover button"));
     await act(async () => (host.querySelector(".agent-popover button") as HTMLButtonElement).click());
-    expect(hostActions).toEqual(["host-packs:ok"]);
+    expect(hostActions).toEqual(["host-voice:ok"]);
   });
 
   test("AgentPanel with an agent-opened box shows a chip, not the popover", async () => {
@@ -458,27 +461,34 @@ describe("AgentPanel popovers", () => {
     expect([!!host.querySelector(".agent-turn .agent-offer"), !!host.querySelector(".agent-popover")]).toEqual([true, false]);
   });
 
-  test("AgentPanel turnless popover after a chip-opened one opens at its own button", async () => {
+  test("AgentPanel turnless packs box after a chip-opened one goes to the side slot", async () => {
     const { host, mcp, until } = await mount();
     await mcp({ kind: "surface", surface: turnOf(3) });
     await mcp({ kind: "surface", surface: packs(3) });
     await act(async () => (host.querySelector(".agent-offer") as HTMLButtonElement).click());
     await mcp({ kind: "close_surface", id: "host-packs" });
     await mcp({ kind: "surface", surface: packs() });
-    await until(() => !!host.querySelector(".agent-popover"));
-    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+    await until(() => !!host.querySelector('.side-probe [data-surface-id="host-packs"]'));
+    expect(host.querySelector('.side-probe [data-surface-id="host-packs"]')).not.toBeNull();
+  });
+
+  test("AgentPanel turnless packs box goes to the side slot, not a popover", async () => {
+    const { host, mcp, until } = await mount();
+    await mcp({ kind: "surface", surface: packs() });
+    await until(() => !!host.querySelector('.side-probe [data-surface-id="host-packs"]'));
+    expect([!!host.querySelector('.side-probe [data-surface-id="host-packs"]'), !!host.querySelector(".agent-popover")]).toEqual([true, false]);
   });
 
   test("AgentPanel popover opened from a button gone since opens at its own button", async () => {
     const { host, mcp, until } = await mount();
     const inspector = document.createElement("button");
-    inspector.setAttribute("data-popover-anchor", "host-packs@inspector");
+    inspector.setAttribute("data-popover-anchor", "host-voice@dictation");
     document.body.append(inspector);
     await act(async () => inspector.click());
     inspector.remove();
-    await mcp({ kind: "surface", surface: packs() });
+    await mcp({ kind: "surface", surface: voice() });
     await until(() => !!host.querySelector(".agent-popover"));
-    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-packs"]')).not.toBeNull();
+    expect(host.querySelector('.popover-probe .agent-popover [data-surface-id="host-voice"]')).not.toBeNull();
   });
 
   test("AgentPanel chip click opens the offer next to the chip", async () => {

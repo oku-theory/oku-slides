@@ -5,8 +5,7 @@ import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Surface } from "./api";
 import HostSettings from "./HostSettings";
 import { t } from "./i18n";
-import { Icon } from "./icons";
-import { Button, IconButton } from "./primitives";
+import { Button } from "./primitives";
 import type { HostSettings as Settings } from "./useHostSettings";
 
 /** What the inspector shows and what it triggers. */
@@ -17,23 +16,21 @@ export interface InspectorProps {
   data: boolean;
   /** Opens the data pane. */
   onData(): void;
-  /** The deck, shown without a selection: its theme's name and the packs popover's opener. */
-  deck: { theme: string | null; onPacks(): void };
+  /** The deck's theme name, shown without a selection; `null`: no theme. */
+  theme: string | null;
   /** An agent offer opened from its chip, framed before the element's settings. */
   offer?: ReactNode;
   /** A surface action of the inspector; `true` if it was taken. */
   onAction(s: Surface, a: A2uiClientAction): boolean;
   onError(e: unknown): void;
-  onClose(): void;
 }
 
-/** The inspector column of a deck tab, beside the stage. */
-export function Inspector({ element, data, onData, deck, offer, onAction, onError, onClose }: InspectorProps) {
+/** The inspector tab of a deck tab's side panel; the panel's rail opens and folds it. */
+export function Inspector({ element, data, onData, theme, offer, onAction, onError }: InspectorProps) {
   return (
-    <aside className="inspector" aria-label={t("ui-inspector")}>
+    <section className="inspector" aria-label={t("ui-inspector")}>
       <header className="inspector-head">
         <span className="pane-title">{t("ui-inspector")}</span>
-        <IconButton className="token ghost" label={t("ui-inspector-close")} icon={Icon.close} onClick={onClose} />
       </header>
       {offer && (
         <section className="inspector-offer" aria-label={t("ui-inspector-offer")}>
@@ -47,10 +44,9 @@ export function Inspector({ element, data, onData, deck, offer, onAction, onErro
         </>
       ) : (
         <div className="inspector-deck">
-          <p className="inspector-theme">{deck.theme ?? t("ui-inspector-no-theme")}</p>
-          <Button raised aria-haspopup="dialog" data-popover-anchor="host-packs@inspector" onClick={deck.onPacks}>{t("ui-inspector-packs")}</Button>
+          <p className="inspector-theme">{theme ?? t("ui-inspector-no-theme")}</p>
         </div>
       )}
-    </aside>
+    </section>
   );
 }

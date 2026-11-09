@@ -297,11 +297,11 @@
         {
          "runs": [
           {
-           "t": "Bouton Packs",
+           "t": "Panneau latéral",
            "bold": true
           },
           {
-           "t": " : le bouton de la barre ouvre les packs du deck, classés par type (layouts, widgets, thème). Une marque apparaît quand l'une de vos versions diffère de celle du deck."
+           "t": " : à gauche, un rail à deux onglets. Packs liste les packs du deck par type (layouts, widgets, thème) ; son onglet porte une marque quand l'une de vos versions diffère de celle du deck. Inspecteur montre les réglages de l'élément sélectionné, ou le thème du deck. Recliquez sur l'onglet ouvert pour replier le panneau sur son rail."
           }
          ],
          "list": "bullet"

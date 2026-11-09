@@ -17,7 +17,7 @@ const { logOffset, logSince } = require('./lib/agentLog.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
-const PANEL = '.agent-popover [data-surface-id="host-packs"]';
+const PANEL = '.side-panel [data-surface-id="host-packs"]';
 const SHOTS = process.env.E2E_SHOTS ?? path.resolve(__dirname, '..', '..', '.superpowers', 'sdd', '2026-10-31-agent-guides');
 const OWN_GUIDE = 'Poser une carte par idée, jamais deux titres.';
 const BROUGHT_GUIDE = 'Citer la source sous chaque chiffre.';
@@ -38,7 +38,7 @@ async function activate(p, tab) {
   await p.reload();
 }
 
-/** Opens the "Packs du deck" popover from the toolbar of the active tab. */
+/** Opens the "Packs du deck" box from the side rail of the active tab. */
 async function openPanel(p) {
   await openPacksPopover(p);
   await part(p, 'title').waitFor();

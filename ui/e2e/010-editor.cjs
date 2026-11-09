@@ -101,7 +101,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     // pane, which follows the selection (the text has none); once both close, the slide is back.
     await p.click('.target[aria-label="Tableau"]');
     await unmoved('à la sélection du tableau');
-    await p.click('.tools-tray .inspector-toggle');
+    await p.click('.side-rail .inspector-toggle');
     await p.locator('.inspector').getByRole('button', { name: 'Données', exact: true }).click();
     await p.waitForSelector('.data-pane [data-surface-id="host-data"] .table-panel');
     // Deselected (Escape, the focus off the Data button): the pane, still open, has nothing to show. In
@@ -113,7 +113,7 @@ const RUNS = [{ t: 'Dites ' }, { t: 'montrer', bold: true }, { t: ' et ' }, { t:
     await p.waitForSelector('.data-pane [data-surface-id="host-data"] .table-panel');
     await p.locator('.data-pane').getByRole('button', { name: 'Fermer les données', exact: true }).click();
     await p.waitForSelector('.data-pane', { state: 'detached' });
-    await p.click('.tools-tray .inspector-toggle');
+    await p.click('.side-rail .inspector-toggle');
     await p.waitForSelector('.inspector', { state: 'detached' });
     await p.click('.field[aria-label="Corps"] >> nth=0');
     await unmoved('inspecteur et données refermés');

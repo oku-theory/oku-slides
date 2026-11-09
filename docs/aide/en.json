@@ -297,11 +297,11 @@
         {
          "runs": [
           {
-           "t": "Packs button",
+           "t": "Side panel",
            "bold": true
           },
           {
-           "t": ": the toolbar button opens the deck’s packs, listed by kind (layouts, widgets, theme). It shows a mark when one of your versions differs from the deck’s."
+           "t": ": on the left, a rail with two tabs. Packs lists the deck’s packs by kind (layouts, widgets, theme); its tab shows a mark when one of your versions differs from the deck’s. Inspector shows the selected element’s settings, or the deck’s theme. Click the open tab again to fold the panel to its rail."
           }
          ],
          "list": "bullet"

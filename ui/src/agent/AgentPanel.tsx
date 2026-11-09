@@ -21,7 +21,7 @@ import { subscribeHost } from "./events";
 import type { QuickAction } from "./quick";
 import { fromA2ui } from "./quick";
 import { withRewriteParagraphs } from "./rewrite";
-import type { Slot } from "./slot";
+import { createSlot, type Slot } from "./slot";
 import { HOST_PACKS, HOST_THEME_PICKER, HOST_VOICE, agentBusy, chipAnchor, sendThenPrompt, surfacesReducer, type Routed } from "./surfaces";
 import { useAgentThread, type AgentThreadState } from "./useAgentThread";
 import { useFollowThread } from "./useFollowThread";
@@ -35,7 +35,7 @@ const ConfirmModal = lazy(() => import("./ConfirmModal").then((m) => ({ default:
 const AgentPopover = lazy(() => import("./AgentPopover").then((m) => ({ default: m.AgentPopover })));
 const AgentSurfaceBox = lazy(() => import("./AgentSurfaceBox").then((m) => ({ default: m.AgentSurfaceBox })));
 
-/** The surface an anchor name opens (`host-packs@inspector` opens `host-packs`). */
+/** The surface an anchor name opens (`host-voice@chip` opens `host-voice`). */
 const anchoredId = (name: string) => name.split("@")[0];
 
 /** L'agent d'un onglet, tel que l'appelle le panneau. */
@@ -86,6 +86,13 @@ export interface AgentSlots {
   popover: Slot;
   /** The agent offer opened from its chip, first in the inspector. */
   inspector: Slot;
+  /** The deck's packs box the user opened (`host-packs`), in the side panel's Packs tab. */
+  side: Slot;
+}
+
+/** Empty slots for one `AgentPanel`. */
+export function createAgentSlots(): AgentSlots {
+  return { sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot(), side: createSlot() };
 }
 
 /** Le rôle du panneau : il pilote le fil de l'onglet (`drive`, une fois l'instantané chargé) ou le suit (`follow`). */
@@ -200,7 +207,7 @@ export function AgentPanel(props: AgentPanelProps) {
       }),
     [],
   );
-  /** The anchor name each box was last opened from (the tray's or the inspector's Packs button). */
+  /** The anchor name each box was last opened from (its own button, or another opener's). */
   const [anchors, setAnchors] = useState<ReadonlyMap<string, string>>(() => new Map());
   const threadState: AgentThreadState = props.mode.kind === "follow" ? followed : driven;
   const latest = useRef<Latest | null>(null);
@@ -236,7 +243,12 @@ export function AgentPanel(props: AgentPanelProps) {
     lastSelected.current = props.selected;
     if (offerInInspector.current) setOffer(null);
   }, [props.selected]);
-  const floating = useMemo(() => (opened && !inline && opened.place === "popover" ? [...popovers, opened] : popovers), [popovers, opened, inline]);
+  // The packs box the user opened lives in the side panel; every other box floats next to its opener.
+  const side = popovers.find((s) => s.id === HOST_PACKS);
+  const floating = useMemo(() => {
+    const boxes = popovers.filter((s) => s.id !== HOST_PACKS);
+    return opened && !inline && opened.place === "popover" ? [...boxes, opened] : boxes;
+  }, [popovers, opened, inline]);
   // A box that closed forgets where it opened from: the next one starts from its own button.
   const shownPopovers = useRef<ReadonlySet<string>>(new Set());
   useEffect(() => {
@@ -428,6 +440,19 @@ export function AgentPanel(props: AgentPanelProps) {
           ))}
         </Suspense>
       ),
+      // The packs box's clicks go as a popover's do: the host first (a row opens its tab).
+      side: side ? (
+        <Suspense fallback={null}>
+          <AgentSurfaceBox
+            key={side.id}
+            {...surfaceProps(side)}
+            onAction={popoverAction}
+            className="side-packs-box"
+            role="group"
+            label={firstText(side) || t("ui-side-packs")}
+          />
+        </Suspense>
+      ) : null,
       // An inspector offer's clicks go as the thread's do: the host first, then the agent.
       inspector: inspectorOffer ? (
         <Suspense fallback={null}>
@@ -442,13 +467,14 @@ export function AgentPanel(props: AgentPanelProps) {
         </Suspense>
       ) : null,
     };
-  }, [sheet, drawer, modal, floating, anchors, inspectorOffer, keysTo, stable, closeStable, popoverAction, onPlaced]);
+  }, [sheet, drawer, modal, floating, side, anchors, inspectorOffer, keysTo, stable, closeStable, popoverAction, onPlaced]);
   useLayoutEffect(() => {
     slots.sheet.set(nodes.sheet);
     slots.drawer.set(nodes.drawer);
     slots.modal.set(nodes.modal);
     slots.popover.set(nodes.popover);
     slots.inspector.set(nodes.inspector);
+    slots.side.set(nodes.side);
   }, [slots, nodes]);
   useLayoutEffect(
     () => () => {
@@ -457,6 +483,7 @@ export function AgentPanel(props: AgentPanelProps) {
       slots.modal.set(null);
       slots.popover.set(null);
       slots.inspector.set(null);
+      slots.side.set(null);
     },
     [slots],
   );

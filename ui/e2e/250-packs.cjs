@@ -1,4 +1,4 @@
-// Panneau « Packs du deck » (t-1116) : ouvert par la barre d'outils en popover, ses trois sections,
+// Panneau « Packs du deck » (t-1116) : ouvert depuis le rail du panneau latéral, ses trois sections,
 // les refus de retrait (base, pack employé), l'ajout d'un pack de widgets de la bibliothèque, qui
 // devient une section de la grille d'ajout et s'annule par ⌘Z, une carte de base ajoutée avec son
 // texte de départ, et le thème choisi dans le panneau, annulé par ⌘Z. "Nouveau pack de widgets" in the main menu
@@ -14,7 +14,7 @@ const { stageSvg } = require('./lib/stage.cjs');
 const { until, untilValue } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
-const PANEL = '.agent-popover [data-surface-id="host-packs"]';
+const PANEL = '.side-panel [data-surface-id="host-packs"]';
 
 const api = (p, req) => post(p, '/api', { tab: TAB, req });
 const snapshot = (p) => api(p, { cmd: 'snapshot' });
@@ -23,7 +23,7 @@ const view = (p) => post(p, '/api/workspace', { cmd: 'view' });
 const part = (p, id) => p.locator(`${PANEL} [data-component-id="${id}"]`);
 /** Le texte du composant `id`, sans les marques d'isolement de Fluent ; `''` s'il manque. */
 const text = (p, id) => part(p, id).first().innerText({ timeout: 1000 }).then((t) => t.replace(/[⁨⁩]/g, '').trim(), () => '');
-/** Le bouton de la barre d'outils, avec ou sans la pastille des mises à jour. */
+/** The side rail's packs tab, with or without the updates dot. */
 const packsButton = (p) => p.getByRole('button', { name: /^Packs du deck/ });
 /** Rend le focus au document : ⌘Z n'est pas pris par un menu du panneau. */
 const blur = (p) => p.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
@@ -39,8 +39,8 @@ async function activate(p, tab) {
 const addable = (p) => part(p, 'widgets-add').locator('option').allTextContents();
 
 /**
- * Opens the panel from the toolbar unless it already shows (a reload gives an open popover back), and
- * waits for its sections. A popover given back right before the click is closed by it (the button
+ * Opens the panel from the side rail unless it already shows (a reload gives an open box back), and
+ * waits for its sections. A box given back right before the click is folded by it (the tab
  * toggles): then one more click.
  */
 async function openPanel(p) {
@@ -88,7 +88,7 @@ async function openGrid(p) {
   await closePackTabs(p);
   await p.waitForSelector('.stage img');
 
-  // 1. The toolbar button opens the panel as a popover: Layouts, Widgets, Theme.
+  // 1. The side rail's packs tab opens the panel: Layouts, Widgets, Theme.
   await openPanel(p);
   assert.equal(await text(p, 'title'), 'Packs du deck');
   assert.equal(await text(p, 'layouts-title'), 'Layouts');
@@ -115,7 +115,7 @@ async function openGrid(p) {
     await add.selectOption({ label: 'Acme' });
     await until(p, async () => (await snapshot(p)).widgets[pack.namespace] !== undefined, "Acme n'est pas épinglé par le deck");
     await untilValue(p, () => text(p, `widgets/${pack.namespace}/name`), (t) => t === 'Acme', "Acme n'apparaît pas dans le panneau");
-    // Sa propre section dans la grille d'ajout (the click on the slide closes the popover).
+    // Sa propre section dans la grille d'ajout (the side panel stays open).
     await selectSlideAccepting(p, 'base/card');
     let picker = await openGrid(p);
     await picker.getByRole('group', { name: 'Acme', exact: true }).waitFor();

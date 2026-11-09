@@ -1,5 +1,5 @@
-// Renders the toolbar under the sheet in a happy-dom DOM: the deck packs button, the history
-// button and the thumbnails strip toggle.
+// Renders the toolbar under the sheet in a happy-dom DOM: the history button, the thumbnails strip
+// toggle, and no packs or inspector button (they are in the side panel).
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import "./test/dom";
@@ -17,8 +17,7 @@ const { resetMessages } = await import("./test/messages");
 
 afterAll(resetMessages);
 setMessages("fr", [
-  "ui-toolbar-packs = Packs du deck\nui-toolbar-packs-update = Packs du deck — mises à jour disponibles\n"
-  + "ui-toolbar-history = Afficher l'historique\n",
+  "ui-toolbar-history = Afficher l'historique\n",
 ]);
 
 type Root = ReturnType<typeof createRoot>;
@@ -45,54 +44,23 @@ async function mount(
   const host = document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   mounted = { root, host };
-  let opened = 0;
   let histories = 0;
   await act(async () =>
     root.render(
       createElement(ToolsTray, {
         api: {} as TabApi, snap, item,
         keptUi, mainMenu: null, run: async () => null,
-        onAdd, onPacks: () => void opened++, onHistory: () => void histories++, thumbs: null, themeTab,
+        onAdd, onHistory: () => void histories++, thumbs: null, themeTab,
       }),
     ),
   );
-  const packs = () => host.querySelector<HTMLButtonElement>(".packs-button");
   const history = () => host.querySelector<HTMLButtonElement>(".history-button");
-  return { host, packs, opened: () => opened, history, histories: () => histories };
+  return { host, history, histories: () => histories };
 }
 
-test("ToolsTray in deck mode shows the packs button, which opens the panel", async () => {
-  const { packs, opened } = await mount(snapshot());
-  await act(async () => packs()!.click());
-  expect([packs()!.classList.contains("has-update"), packs()!.title, packs()!.getAttribute("aria-label"), opened()]).toEqual([
-    false, "Packs du deck", "Packs du deck", 1,
-  ]);
-});
-
-test("ToolsTray with pending updates shows the dot", async () => {
-  const { packs } = await mount(snapshot({ pack_updates: 2 }));
-  const full = "Packs du deck — mises à jour disponibles";
-  expect([packs()!.classList.contains("has-update"), packs()!.title, packs()!.getAttribute("aria-label")]).toEqual([true, full, full]);
-});
-
-test("ToolsTray in help mode hides the packs button", async () => {
-  const { packs } = await mount(snapshot({ read_only: true }));
-  expect(packs()).toBeNull();
-});
-
-test("ToolsTray in a theme tab hides the packs button", async () => {
-  const { packs } = await mount(snapshot({ theming: {} as Snapshot["theming"] }), true);
-  expect(packs()).toBeNull();
-});
-
-test("ToolsTray in pack mode or history hides the packs button", async () => {
-  const editing = await mount(snapshot({ editing: {} as Snapshot["editing"] }));
-  const shown = [editing.packs()];
-  await act(async () => mounted!.root.unmount());
-  mounted!.host.remove();
-  mounted = null;
-  const history = await mount(snapshot({ history: {} as Snapshot["history"] }));
-  expect([...shown, history.packs()]).toEqual([null, null]);
+test("ToolsTray in deck mode shows no packs or inspector button", async () => {
+  const { host } = await mount(snapshot({ pack_updates: 2 }));
+  expect([host.querySelector(".packs-toggle, .packs-button"), host.querySelector(".inspector-toggle")]).toEqual([null, null]);
 });
 
 test("ToolsTray in deck mode shows the history button, which opens the history", async () => {
@@ -137,7 +105,7 @@ async function mountThumbs(thumbs: { open: boolean; onToggle: () => void } | nul
   await act(async () => {
     root.render(createElement(ToolsTray, {
       api: {} as TabApi, snap: thumbsSnap, item: null, keptUi: {} as never,
-      mainMenu: null, run: async () => null, onAdd: () => {}, onPacks: () => {}, onHistory: () => {}, thumbs,
+      mainMenu: null, run: async () => null, onAdd: () => {}, onHistory: () => {}, thumbs,
     }));
   });
   return host;

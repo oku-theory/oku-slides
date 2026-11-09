@@ -45,7 +45,7 @@ const element = async (p) => (await view(p)).slide.params.blocks.find((e) => e.i
   await until(p, async () => (await view(p)).targets.some((t) => t.id === ID), 'le graphique est une cible');
   const at = (await view(p)).targets.findIndex((t) => t.id === ID);
   await p.locator('.overlay .target').nth(at).click({ position: { x: 4, y: 4 } });
-  await p.click('.tools-tray .inspector-toggle');
+  await p.click('.side-rail .inspector-toggle');
   await p.locator('.inspector').getByRole('button', { name: 'Données', exact: true }).click();
   const chart = p.locator(`${DATA} .chart-panel`);
   await chart.waitFor({ timeout: 15000 });
@@ -74,7 +74,7 @@ const element = async (p) => (await view(p)).slide.params.blocks.find((e) => e.i
   // The pane and the inspector closed, then the element removed: the suite starts from the original layout and slide.
   await p.locator('.data-pane').getByRole('button', { name: 'Fermer les données', exact: true }).click();
   await p.waitForSelector('.data-pane', { state: 'detached' });
-  await p.click('.tools-tray .inspector-toggle');
+  await p.click('.side-rail .inspector-toggle');
   await p.waitForSelector('.inspector', { state: 'detached' });
   const removed = await api(p, { cmd: 'apply', label: 'retrait', merge: null, ops: [{ op: 'remove_element', slide: 's-constat', element: ID }] });
   assert.ok(!removed.error, JSON.stringify(removed));

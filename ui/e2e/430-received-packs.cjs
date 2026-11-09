@@ -15,7 +15,7 @@ const { until } = require('./lib/until.cjs');
 const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const TAB = 't-1';
 const NAME = 'Apport';
-const PANEL = '.agent-popover [data-surface-id="host-packs"]';
+const PANEL = '.side-panel [data-surface-id="host-packs"]';
 const SHOTS = process.env.E2E_SHOTS ?? path.resolve(__dirname, '..', '..', '.superpowers', 'sdd', 'agent-sandbox');
 
 const api = (p, tab, req) => post(p, '/api', { tab, req });

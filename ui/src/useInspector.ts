@@ -11,31 +11,34 @@ import { isDeckTab } from "./tabKind";
 export interface InspectorWiring {
   /** The tab can show the inspector (`isDeckTab`): an agent offer opens there, else under its chip. */
   available: boolean;
-  /** The inspector column shows (a deck tab, kept open). */
+  /** The inspector is kept open in a deck tab (its side panel shows it unless the packs do). */
   open: boolean;
   /** The data pane shows when the selection has data (a deck tab, kept open). */
   pane: boolean;
   /** Opens the data pane (a data trace, for `useTrace`). */
   onPane: () => void;
-  /** Opens the inspector (any other trace, for `useTrace`). */
+  /** Opens the inspector tab, closing the packs tab (any other trace, the side panel). */
   onInspector: () => void;
+  /** Folds the side panel: the inspector and the packs tab close. */
+  onFold: () => void;
   /** Closes the data pane. */
   closePane: () => void;
   /** The inspector's own props, besides the element's settings and the routing of actions. */
-  props: Pick<InspectorProps, "data" | "onData" | "deck" | "offer" | "onClose">;
+  props: Pick<InspectorProps, "data" | "onData" | "theme" | "offer">;
 }
 
 /**
  * The inspector and data pane of a deck tab (not a pack or theme tab, history or help), their open
  * state kept by the host (`keptUi`); `selected`'s own panel (`ownPanel`) gives the Data button;
- * `onPacks` opens the deck's packs, as the tools tray does; `offer`, the agent offer opened from its
- * chip (the agent's inspector slot), shows first; `onInspector` opens the inspector for it.
+ * `closePacks` closes the side panel's packs tab, which shows over the inspector; `offer`, the agent
+ * offer opened from its chip (the agent's inspector slot), shows first; `onInspector` opens the
+ * inspector for it.
  */
-export function useInspector({ snap, keptUi, selected, onPacks, offer }: {
+export function useInspector({ snap, keptUi, selected, closePacks, offer }: {
   snap: Snapshot | null;
   keptUi: KeptUi;
   selected: Element | undefined;
-  onPacks: () => void;
+  closePacks: () => void;
   offer?: ReactNode;
 }): InspectorWiring {
   const deckMode = isDeckTab(snap);
@@ -45,14 +48,20 @@ export function useInspector({ snap, keptUi, selected, onPacks, offer }: {
     open: deckMode && keptUi.inspector,
     pane: deckMode && keptUi.dataPane,
     onPane: openPane,
-    onInspector: () => keptUi.setInspector(true),
+    onInspector: () => {
+      closePacks();
+      keptUi.setInspector(true);
+    },
+    onFold: () => {
+      closePacks();
+      keptUi.setInspector(false);
+    },
     closePane: () => keptUi.setDataPane(false),
     props: {
       data: !!snap && ownPanel(snap.host_params, selected?.kind) !== null,
       onData: openPane,
-      deck: { theme: snap?.theme_name ?? null, onPacks },
+      theme: snap?.theme_name ?? null,
       offer,
-      onClose: () => keptUi.setInspector(false),
     },
   };
 }

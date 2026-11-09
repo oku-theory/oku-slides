@@ -66,7 +66,7 @@ async function closePackTabs(p) {
  * Opens a theme tab from `tab` and returns it: over HTTP for `theme` (an id), else by the
  * "Ouvrir" button on the theme row of `tab`'s "Packs du deck" (opened from the toolbar). Waits
  * for an active theme tab, then reloads the page (serve pushes no view) and waits for its panel.
- * The packs popover stays open in `tab`: `closePacksPanel` closes it once back there.
+ * The packs box stays open in `tab`: `closePacksPanel` closes it once back there.
  */
 async function openThemeTab(p, tab, theme = null) {
   if (theme) {
@@ -111,13 +111,13 @@ async function openEssentiel(p) {
   return tab;
 }
 
-/** The "Packs du deck" box, open as a popover. */
-const PACKS = '.agent-popover [data-surface-id="host-packs"]';
+/** The "Packs du deck" box, open in the side panel. */
+const PACKS = '.side-panel [data-surface-id="host-packs"]';
 
 /**
- * Opens "Packs du deck" from the toolbar unless it already shows (a reload gives an open popover
- * back). A popover given back right before the click is closed by it (the button toggles): then
- * one more click.
+ * Opens "Packs du deck" from the side rail unless it already shows (a reload gives an open box
+ * back). A box given back right before the click is folded by it (the tab toggles): then one more
+ * click.
  */
 async function openPacksPopover(p) {
   const panel = p.locator(PACKS);
@@ -134,14 +134,13 @@ async function openPacksPopover(p) {
 }
 
 /**
- * Closes the "Packs du deck" popover that `openThemeTab` left open in the opener, once back on the
- * opener: Escape in the popover. Later specs expect nothing open.
+ * Closes the "Packs du deck" box that `openThemeTab` left open in the opener, once back on the
+ * opener: its pressed tab on the side rail folds it. Later specs expect nothing open.
  */
 async function closePacksPanel(p) {
   const panel = p.locator(PACKS);
   await panel.waitFor();
-  await panel.focus();
-  await p.keyboard.press('Escape');
+  await p.click('.side-rail .packs-toggle');
   await panel.waitFor({ state: 'detached' });
 }
 

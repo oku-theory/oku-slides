@@ -47,7 +47,7 @@ const ruleOf = (sheet: string, selector: string) => {
 // se vérifient sur la mise en page, dans e2e/060-agent.cjs (`assertPills`).
 
 test("sans colonne de gauche, la feuille reprend sa largeur", () => {
-  expect(ruleOf(APP, ".table:not(:has(> .pile-column))")).toMatch(/--pile-w:\s*0px\s*!important/);
+  expect(ruleOf(APP, ".table:not(:has(> .pile-column, > .side-panel))")).toMatch(/--pile-w:\s*0px\s*!important/);
 });
 
 test("la bande des miniatures défile à l'horizontale sous la scène", () => {
@@ -113,36 +113,47 @@ test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu
   const drawer = ruleOf(APP, ".sheet-area > .variant-drawer");
   expect(drawer).toBeDefined();
   expect(drawer).toMatch(/overflow-y:\s*auto/);
-  expect(ruleOf(GRID, ".sheet-area > .variant-drawer")).toMatch(/grid-column:\s*1;\s*grid-row:\s*2/);
+  expect(ruleOf(GRID, ".sheet-area > .variant-drawer")).toMatch(/grid-row:\s*2/);
   expect(APP).not.toMatch(/\.variant-drawer\s*\{[^}]*position:\s*absolute/);
   expect(ruleOf(APP, ".sheet-area")).toMatch(/display:\s*grid/);
   // La scène prend ce qui reste ; le tiroir puis le volet des données, leur hauteur.
   expect(ruleOf(GRID, ".sheet-area")).toMatch(/grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto/);
-  expect(ruleOf(GRID, ".sheet-area > .stage-panel, .sheet-area > .widget-pane")).toMatch(/grid-column:\s*1;\s*grid-row:\s*1/);
+  expect(ruleOf(GRID, ".sheet-area > .stage-panel, .sheet-area > .widget-pane")).toMatch(/grid-row:\s*1/);
 });
 
 test("the data pane sits under the stage in the sheet's grid, never over it", () => {
   const pane = ruleOf(GRID, ".sheet-area > .data-pane");
-  expect(pane).toMatch(/grid-column:\s*1;\s*grid-row:\s*3/);
+  expect(pane).toMatch(/grid-row:\s*3/);
   expect(pane).toMatch(/max-height:\s*40vh/);
   expect(APP).not.toMatch(/\.data-pane\s*\{[^}]*position:\s*absolute/);
 });
 
-test("the inspector is a column beside the stage, its width given only when open", () => {
-  expect(ruleOf(GRID, ".sheet-area")).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)\s+var\(--inspector-w,\s*0px\)/);
-  expect(ruleOf(GRID, ".sheet-area.inspector-open")).toMatch(/--inspector-w:\s*280px/);
-  expect(ruleOf(GRID, ".sheet-area > .inspector")).toMatch(/grid-column:\s*2;\s*grid-row:\s*1 \/ 4/);
+test("the inspector is not in the sheet's grid: it is a tab of the side panel", () => {
+  expect(GRID).not.toMatch(/\.sheet-area\s*>\s*\.inspector|--inspector-w/);
 });
 
-test("below 1100 px the inspector overlays the stage instead of taking a column", () => {
+test("the side panel takes the table's left column", () => {
+  expect(ruleOf(GRID, ".side-panel")).toMatch(/grid-area:\s*pile/);
+});
+
+test("the folded side panel keeps only its rail's width, over a width chosen at the divider", () => {
+  expect(ruleOf(GRID, ".table:has(> .side-panel:not(.open))")).toMatch(/--pile-w:\s*48px\s*!important/);
+});
+
+test("the open side panel defaults to 320px and yields to the divider's inline width", () => {
+  const open = ruleOf(GRID, ".table:has(> .side-panel.open)") ?? "";
+  expect([/--pile-w:\s*320px/.test(open), /!important/.test(open)]).toEqual([true, false]);
+});
+
+test("the pile divider shows only beside a pile column or an open side panel", () => {
+  expect(ruleOf(APP, ".table:not(:has(> .pile-column, > .side-panel.open)) .col-divider[data-side=\"pile\"]")).toMatch(/display:\s*none/);
+});
+
+test("below 1100 px the open side panel overlays the stage instead of taking a column", () => {
   const narrow = GRID.match(/@media \(max-width: 1100px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
-  expect(ruleOf(narrow, ".sheet-area.inspector-open")).toMatch(/--inspector-w:\s*0px/);
-  const overlay = ruleOf(narrow, ".sheet-area > .inspector") ?? "";
-  expect(overlay).toMatch(/position:\s*absolute/);
-  expect(overlay).toMatch(/inset-inline-end:\s*0/);
-  expect(overlay).toMatch(/width:\s*280px/);
-  // Over the stage and drawer only: the data pane's close button stays reachable.
-  expect(overlay).toMatch(/grid-row:\s*1 \/ 3/);
+  expect(ruleOf(narrow, ".table:has(> .side-panel.open)")).toMatch(/--pile-w:\s*48px\s*!important/);
+  const overlay = ruleOf(narrow, ".side-panel.open > .side-body") ?? "";
+  expect([/position:\s*absolute/.test(overlay), /inset-inline-start:\s*48px/.test(overlay)]).toEqual([true, true]);
 });
 
 /** The `color.bg`-style token values of the built-in default theme (Papier), the source of the app's defaults. */

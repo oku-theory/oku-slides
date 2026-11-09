@@ -5,9 +5,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { Anchor, SlideView, Snapshot, Surface } from "./api";
 import { agentApi } from "./api";
-import { IDLE_AGENT, type AgentHandle, type AgentStatusView, type ThreadMode } from "./agent/AgentPanel";
+import { IDLE_AGENT, createAgentSlots, type AgentHandle, type AgentStatusView, type ThreadMode } from "./agent/AgentPanel";
 import { linkTransport, type LinkContext } from "./agent/link";
-import { createSlot } from "./agent/slot";
 import { routeSurfaces } from "./agent/surfaces";
 import { agentUi } from "./agent/ui";
 import { useAgentAvailability } from "./agent/useAgentAvailability";
@@ -56,7 +55,7 @@ export function useAgentWiring({
   // Son état vit dans `AgentPanel` : un morceau de réponse ne re-rend pas `App`. `App` n'en reçoit
   // que des valeurs simples (`agentStatus`) et une poignée (consigne, action, arrêt du tour).
   const [agent] = useState(() => agentApi(tab));
-  const [agentSlots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot() }));
+  const [agentSlots] = useState(createAgentSlots);
   const [agentStatus, setAgentStatus] = useState(IDLE_AGENT);
   const agentAvailability = useAgentAvailability(agent, importJob !== null);
   // Les fiches ancrées se posent sous leur élément, sur la slide affichée.

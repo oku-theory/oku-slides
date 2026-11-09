@@ -52,6 +52,7 @@ import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { useDataSettings } from "./useDataSettings";
 import { useElementSettings } from "./useElementSettings";
 import { useInspector } from "./useInspector";
+import { SidePanel, useSidePanel } from "./SidePanel";
 import { Inspector } from "./Inspector";
 import { DataPane } from "./DataPane";
 import Presenter from "./Presenter";
@@ -241,8 +242,10 @@ export default function App({
     setSelected,
   });
 
+  // The side panel's two tabs, one open at a time: the deck's packs (the agent's box) and the inspector.
+  const side = useSidePanel({ agent, packs: agentSlots.side, inspector: keptUi.inspector, setInspector: keptUi.setInspector, say });
   const inspector = useInspector({
-    snap, keptUi, selected: selectedElement, onPacks: () => void agent.showPacks().catch((e) => say(errorText(e), true)),
+    snap, keptUi, selected: selectedElement, closePacks: side.closePacks,
     // The agent offer opened from its chip: App re-renders only when it comes or goes.
     offer: agentStatus.offer ? <SlotView slot={agentSlots.inspector} /> : undefined,
   });
@@ -368,16 +371,28 @@ export default function App({
         api={api} snap={snap} item={null}
         keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
         run={run} onAdd={openAdd}
-        onPacks={() => void agent.showPacks().catch((e) => say(errorText(e), true))}
         onThemes={() => void agent.showThemes(view?.slide.id ?? null).catch((e) => say(errorText(e), true))}
         onHistory={() => void openHistory()}
         thumbs={{ open: thumbsOpen, onToggle: toggleThumbs }}
       />
       </>)}
 
+      {/* A deck tab's side panel, on the left: the deck's packs and the inspector, foldable to a rail. */}
+      {inspector.available && (
+        <SidePanel
+          packs={agentSlots.side}
+          inspector={inspector.open ? <Inspector element={element} {...inspector.props} onAction={paneAction} onError={(e) => say(errorText(e), true)} /> : null}
+          updates={snap.pack_updates > 0}
+          onPacks={side.openPacks}
+          onInspector={inspector.onInspector}
+          onFold={inspector.onFold}
+          onClosePacks={side.closePacks}
+        />
+      )}
+
       {/* The sheet, at the centre; a pack tab has its own (`PackPanels`). */}
       {!packTab && (
-      <main className={`sheet-area${readOnly ? " read-only" : ""}${inspector.open ? " inspector-open" : ""}`}>
+      <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         <div className="stage-panel">
         <div className="stage-box">
         {view && view.slide.id === current ? (
@@ -422,9 +437,6 @@ export default function App({
         <SlotView slot={agentSlots.drawer} />
         {inspector.pane && (
           <DataPane data={data} onAction={paneAction} onError={(e) => say(errorText(e), true)} onClose={inspector.closePane} />
-        )}
-        {inspector.open && (
-          <Inspector element={element} {...inspector.props} onAction={paneAction} onError={(e) => say(errorText(e), true)} />
         )}
       </main>
       )}

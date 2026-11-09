@@ -30,7 +30,12 @@ export function createSlot(): Slot {
   };
 }
 
+/** What `slot` holds, followed: the caller re-renders on each change. */
+export function useSlot(slot: Slot): ReactNode {
+  return useSyncExternalStore(slot.subscribe, slot.get, slot.get);
+}
+
 /** Ce qui est posé dans `slot`, re-rendu seul à chaque changement. */
 export function SlotView({ slot }: { slot: Slot }) {
-  return useSyncExternalStore(slot.subscribe, slot.get, slot.get);
+  return useSlot(slot);
 }

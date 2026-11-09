@@ -14,11 +14,11 @@ import { useToast } from "./useToast";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
-import { AgentPanel, IDLE_AGENT, type AgentApi, type AgentHandle, type ThreadMode } from "./agent/AgentPanel";
+import { AgentPanel, IDLE_AGENT, createAgentSlots, type AgentApi, type AgentHandle, type ThreadMode } from "./agent/AgentPanel";
 import { draftActions } from "./agent/draftActions";
 import { subscribeHost } from "./agent/events";
 import { insertWithAck, linkTransport, onlyFor, type LinkContext, type LinkShortcut, type LinkTransport } from "./agent/link";
-import { createSlot, SlotView } from "./agent/slot";
+import { SlotView } from "./agent/slot";
 import { isReceipt, routeStaged } from "./agent/surfaces";
 import { fromA2ui } from "./agent/quick";
 import { traceTarget } from "./agent/trace";
@@ -164,8 +164,9 @@ export function AgentWindowFor({
   const handle = useRef<AgentHandle>(null);
   // Never shown: sheets, drawer and modal stay in the main window. The popover slot holds the
   // dictation gear's box, which opens in the window showing the gear.
-  // The inspector slot stays empty: chip-opened offers render under their chip here (`offersInline`).
-  const [slots] = useState(() => ({ sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot() }));
+  // The inspector slot stays empty: chip-opened offers render under their chip here (`offersInline`);
+  // the side slot too: the packs box shows in the main window's side panel.
+  const [slots] = useState(createAgentSlots);
   const { say, node: toastNode } = useToast();
 
   const draft = useDraft(host.agent.setDraft);
