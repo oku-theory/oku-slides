@@ -166,6 +166,17 @@ test("side panel cards are a flat tint, without any shadow", () => {
   expect([/background:\s*color-mix/.test(card), /box-shadow:\s*none/.test(card)]).toEqual([true, true]);
 });
 
+test("agent conversation cards and prompts are a flat tint like the side panel's, without any shadow", () => {
+  const card = ruleOf(own("glass.css"), ".agent-turns :is(.a2ui-card, .card.prompt, .a2ui-prompt)") ?? "";
+  expect([/background:\s*color-mix\(in oklab, var\(--ink\) 6%/.test(card), /box-shadow:\s*none/.test(card), /backdrop-filter:\s*none/.test(card)])
+    .toEqual([true, true, true]);
+});
+
+test("agent conversation cards stay flat under the lens", () => {
+  const lens = ruleOf(own("glass.css"), ":root[data-lens] .agent-thread .agent-turns :is(.a2ui-card, .card.prompt, .a2ui-prompt)") ?? "";
+  expect(lens).toMatch(/backdrop-filter:\s*none/);
+});
+
 test("side panel rhythm is set once on its body", () => {
   const body = ruleOf(GRID, ".side-body") ?? "";
   const tokens = ["--side-title-gap: var(--space-6)", "--side-section-gap: var(--space-10)", "--side-item-gap: var(--space-4)"];

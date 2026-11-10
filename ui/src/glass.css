@@ -117,6 +117,17 @@
 }
 :root[data-lens] .ghost { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
+/* The conversation's cards and prompts are flat, like the side panel's: a faint ink tint, no glass, no shadow.
+   The live surfaces' dock (`.agent-dock`) keeps its glass. */
+.agent-turns :is(.a2ui-card, .card.prompt, .a2ui-prompt) {
+  background: color-mix(in oklab, var(--ink) 6%, transparent);
+  -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+}
+.agent-turns .a2ui-card.tone-accent { background: color-mix(in oklab, var(--a2ui-accent-bg) 70%, transparent); }
+.agent-turns .a2ui-card.tone-danger { box-shadow: inset 0 0 0 1px var(--danger); }
+/* Outranks the lens rule above (0,5,0) with 0,6,0. */
+:root[data-lens] .agent-thread .agent-turns :is(.a2ui-card, .card.prompt, .a2ui-prompt) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
 /* Sans flou (réglage d'accessibilité) : un verre plus opaque reste lisible. */
 @media (prefers-reduced-transparency: reduce) {
   :root, :root[data-scheme="dark"] {
