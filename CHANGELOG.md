@@ -5,6 +5,23 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [10.1.0] - 2026-11-10
+
+### Added
+
+- *(stt,session,agent,mcp,ui,app)* talk over Oku on macOS, locked-down agent window, sources budget (t-1469, t-1472, t-1491, t-1498, t-1500, t-1513)
+- *(ui,i18n)* deck side panel with packs and inspector tabs (t-1537)
+- *(mcp,ui)* picking a theme closes the theme picker (t-1539)
+- *(ui)* theme picker in the deck side panel, beside the packs (t-1540)
+
+### Documentation
+
+- *(import)* write the generated champ comments in English (t-909)
+
+### Other
+
+- *(import)* calibrate the hi-fi import on an Apache/MIT pptx corpus (t-909, t-958)
+
 ## [10.0.1] - 2026-11-05
 
 ### Other
