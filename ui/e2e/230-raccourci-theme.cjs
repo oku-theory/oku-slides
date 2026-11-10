@@ -1,6 +1,6 @@
 // "Theme" shortcut: the prompt alone opens the host's picker as a popover, without the agent;
-// hovering a theme shows it on the stage, a click or its digit applies it, undo goes back to the
-// previous one. Runs against `oku-slides serve` started by `just e2e` (after 220: log created).
+// hovering a theme shows it on the stage, a click or its digit applies it and closes the picker,
+// undo goes back to the previous one. Runs against `oku-slides serve` started by `just e2e` (after 220: log created).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post, activeSnapshot } = require('./lib/http.cjs');
@@ -61,28 +61,35 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   await p.mouse.move(0, 0);
   await p.waitForSelector('.stage .stage-hover-preview', { state: 'detached' });
 
-  // 3. Cliquer l'applique : le thème du deck change, la carte cliquée devient l'active.
+  // 3. A click applies it and closes the picker (t-1539).
   await other.click();
   await until(p, async () => (await themeNs(p)) !== before, 'le thème du deck doit changer');
-  await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify([name]), 'la carte choisie doit être active');
+  await picker(p).waitFor({ state: 'detached' });
+  const picked = await themeNs(p);
 
-  // 4. ⌘Z (focus outside the popover) gives the previous theme back, the active one as at the start.
+  // 4. ⌘Z gives the previous theme back; reopened, the picker shows the starting one active.
   await blur(p);
   await p.keyboard.press('ControlOrMeta+z');
   await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");
+  await say(p, 'Thème.');
+  await cards(p).first().waitFor();
   await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify(startActive), "l'active doit suivre l'annulation");
 
-  // 5. Le chiffre d'une carte non active l'applique (touches 1–4 du sélecteur).
+  // 5. A non-active card's digit applies it and closes the picker too (keys 1–4).
   await blur(p);
   await p.keyboard.press(`Digit${i + 1}`);
-  await until(p, async () => JSON.stringify(await activeNames(p)) === JSON.stringify([name]), 'la touche doit appliquer le thème');
+  await until(p, async () => (await themeNs(p)) === picked, 'la touche doit appliquer le thème de sa carte');
+  await picker(p).waitFor({ state: 'detached' });
   await blur(p);
   await p.keyboard.press('ControlOrMeta+z');
   await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");
 
-  // 6. Fermer le sélecteur.
+  // 6. Reopened, its close button closes it without picking.
+  await say(p, 'Thème.');
+  await cards(p).first().waitFor();
   await picker(p).getByRole('button', { name: 'Fermer', exact: true }).click();
   await picker(p).waitFor({ state: 'detached' });
+  assert.equal(await themeNs(p), before);
 
   // 7. Aucun prompt n'est parti vers l'agent : un témoin envoyé ensuite est le seul noté.
   await post(p, '/api/agent', { cmd: 'prompt', tab: 't-1', text: 'témoin', ui: {} });

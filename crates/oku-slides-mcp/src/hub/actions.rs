@@ -34,7 +34,7 @@ enum After {
         changed: bool,
     },
     Freeze,
-    /// La surface reste, avec cet état (sélecteur de thème ou panneau des packs refait).
+    /// The surface stays, with this state (the packs panel rebuilt).
     Replace(Shown),
 }
 
@@ -74,8 +74,9 @@ impl SurfaceHub {
         // que l'utilisateur puisse corriger ou la fermer explicitement.
         let result = match (&shown, action.name.as_str()) {
             (Shown::Params(_), "dismiss") => Ok(After::Freeze),
-            (Shown::Themes(picker), name) if name == oku_slides_session::THEME_EVENT => {
-                self.apply_theme(picker, &action.context).map(|p| After::Replace(Shown::Themes(p)))
+            // A pick closes the picker: the choice is made (t-1539).
+            (Shown::Themes(_), name) if name == oku_slides_session::THEME_EVENT => {
+                self.apply_theme(&action.context).map(|()| After::Close { changed: true })
             }
             (Shown::Packs(packs), name) if name != "dismiss" => {
                 self.apply_packs(&action.context, name, packs.turn).map(|p| After::Replace(Shown::Packs(p)))
@@ -101,8 +102,8 @@ impl SurfaceHub {
             }
             Ok(After::Replace(next)) => {
                 self.state().shows.insert(action.surface, next);
-                // Le deck a changé : l'autre boîte du hub (thème, packs) se relit ; celle-ci, déjà
-                // refaite, est égale à elle-même et ne part pas une seconde fois.
+                // The deck changed: the hub's other box (the theme picker) re-reads it; this one,
+                // already rebuilt, equals itself and is not sent a second time.
                 self.prune();
                 Ok(())
             }

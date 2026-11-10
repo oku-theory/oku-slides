@@ -1,6 +1,6 @@
 // The agent opens the host's theme picker (`show_themes` tool): a chip in its turn opens it as a
-// popover, it stays open after the turn ends, a click applies the theme and the pick is noted for
-// the agent. Runs against `oku-slides serve` started by `just e2e` (fake agent, log in E2E_AGENT_LOG).
+// popover, it stays open after the turn ends, a click applies the theme and closes it, and the pick
+// is noted for the agent. Runs against `oku-slides serve` started by `just e2e` (fake agent, log in E2E_AGENT_LOG).
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const { post, activeSnapshot } = require('./lib/http.cjs');
@@ -52,11 +52,12 @@ const cards = (p) => picker(p).locator('.theme-choice');
   await until(p, async () => prompts(from).some((m) => m.includes('suite des thèmes')), 'la suite doit atteindre le faux agent', 15000);
   await cards(p).first().waitFor();
 
-  // 3. Un clic sur un thème non actif l'applique.
+  // 3. A click on a non-active theme applies it and closes the picker (t-1539).
   const other = picker(p).locator('.theme-choice[aria-pressed="false"]').first();
   const name = await other.locator('bdi').innerText();
   await other.click();
   await until(p, async () => (await themeNs(p)) !== before, 'le thème du deck doit changer');
+  await picker(p).waitFor({ state: 'detached' });
 
   // 4. Le choix est noté pour l'agent : la consigne suivante le porte.
   const picked = logOffset(LOG);
@@ -64,9 +65,7 @@ const cards = (p) => picker(p).locator('.theme-choice');
   const sent = await untilValue(p, () => prompts(picked), (m) => m.length > 0, 'la consigne doit atteindre le faux agent', 15000);
   assert.ok(sent[0].includes(`theme picked: \\"${name}\\"`), sent[0].slice(0, 600));
 
-  // 5. Fermer le sélecteur, puis rendre le thème du début.
-  await picker(p).getByRole('button', { name: 'Fermer', exact: true }).click();
-  await picker(p).waitFor({ state: 'detached' });
+  // 5. Give the starting theme back.
   await post(p, '/api', { tab: 't-1', req: { cmd: 'undo' } });
   await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème du début");
 

@@ -1,7 +1,7 @@
-//! Sélecteur de thème de l'hôte : montré, choisi, rafraîchi.
+//! The host's theme picker: shown, picked (which closes it), refreshed.
 //!
-//! Le seul `show_*` que le hub construit lui-même : il le refait après un choix ou
-//! un changement du deck (`prune`), à partir des cartes gardées, sans rien rendre.
+//! The only `show_*` the hub builds itself: it rebuilds it after a deck change (`prune`)
+//! from the kept cards, rendering nothing.
 
 use oku_slides_session::agent::Surface;
 use oku_slides_session::{HOST_THEME_PICKER, picked_theme, theme_picker};
@@ -39,18 +39,12 @@ impl SurfaceHub {
         Surface { turn: picker.turn, ..theme_picker(&picker.cards, &picker.active, &self.localizer.current()) }
     }
 
-    /// Applique le thème choisi, puis refait le sélecteur avec lui actif.
-    pub(super) fn apply_theme(
-        &self,
-        picker: &ThemePicker,
-        context: &Map<String, Value>,
-    ) -> Result<ThemePicker, HubInner> {
+    /// Applies the picked theme; the caller then closes the picker.
+    pub(super) fn apply_theme(&self, context: &Map<String, Value>) -> Result<(), HubInner> {
         let ns = picked_theme(context).context(IncompleteSnafu { key: oku_slides_session::THEME_EVENT })?;
         self.session.with(|s| s.pick_theme(&ns)).and_then(|r| r).context(SessionSnafu)?;
         self.emit(McpEvent::Changed);
-        let next = ThemePicker { cards: picker.cards.clone(), active: ns, turn: picker.turn };
-        self.emit(McpEvent::surface(self.picker_surface(&next)));
-        Ok(next)
+        Ok(())
     }
 
     /// Ferme le sélecteur hors du mode deck ou si sa slide a disparu ; le refait si l'actif a changé.

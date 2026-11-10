@@ -1,4 +1,4 @@
-//! Sélecteur de thème de l'hôte : montré, choisi, rafraîchi par `prune`.
+//! The host's theme picker: shown, picked (which closes it), refreshed by `prune`.
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 mod common;
@@ -65,17 +65,6 @@ async fn show_themes_box_is_a_popover() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn show_themes_refresh_after_pick_keeps_turn() {
-    let h = start().await;
-    let n = h.hub.begin_turn();
-    let mut rx = h.hub.subscribe();
-    show_in(&h, Some(n));
-    next_surface(&mut rx).await;
-    pick(&h, PRO_NAMESPACE).unwrap();
-    assert_that!(next_surface(&mut rx).await.turn).is_equal_to(Some(n));
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn show_themes_prune_refresh_keeps_turn() {
     let h = start().await;
     let n = h.hub.begin_turn();
@@ -137,27 +126,30 @@ async fn picking_a_theme_is_labelled_as_a_theme_change() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn picking_a_theme_emits_changed_then_the_picker_with_it_active() {
+async fn picking_a_theme_emits_changed_then_closes_the_picker() {
     let h = start().await;
     let mut rx = h.hub.subscribe();
     show(&h);
     next_surface(&mut rx).await;
     pick(&h, PRO_NAMESPACE).unwrap();
     wait_event(&mut rx, |e| matches!(e, McpEvent::Changed).then_some(())).await;
-    let rebuilt = next_surface(&mut rx).await;
-    assert_that!(active_names(&rebuilt)).is_equal_to(vec!["Pro".to_owned()]);
+    // The first picker event after the change closes it: no rebuilt picker goes first.
+    let event = wait_event(&mut rx, |e| match e {
+        McpEvent::CloseSurface { id } if id == HOST_THEME_PICKER => Some("close"),
+        McpEvent::Surface { surface, .. } if surface.id == HOST_THEME_PICKER => Some("rebuilt"),
+        _ => None,
+    })
+    .await;
+    assert_that!((event, open(&h))).is_equal_to(("close", false));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn picking_a_theme_keeps_the_cached_thumbnails() {
+async fn picking_a_theme_offered_in_a_turn_closes_the_picker() {
     let h = start().await;
-    let mut rx = h.hub.subscribe();
-    show(&h);
-    let first = next_surface(&mut rx).await;
+    let n = h.hub.begin_turn();
+    assert_that!(show_in(&h, Some(n))).is_true();
     pick(&h, PRO_NAMESPACE).unwrap();
-    let rebuilt = next_surface(&mut rx).await;
-    let thumbs = |s: &Surface| cards(s).into_iter().map(|(n, _, svg)| (n, svg)).collect::<Vec<_>>();
-    assert_that!(thumbs(&rebuilt)).is_equal_to(thumbs(&first));
+    assert_that!(open(&h)).is_false();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -203,6 +195,19 @@ async fn prune_after_an_outside_theme_change_marks_it_active() {
     tokio::task::block_in_place(|| h.hub.prune());
     let refreshed = next_surface(&mut rx).await;
     assert_that!(active_names(&refreshed)).is_equal_to(vec!["Pro".to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn prune_refresh_keeps_the_cached_thumbnails() {
+    let h = start().await;
+    let mut rx = h.hub.subscribe();
+    show(&h);
+    let first = next_surface(&mut rx).await;
+    tokio::task::block_in_place(|| h.session.lock().unwrap().set_theme(&pro_namespace()).unwrap());
+    tokio::task::block_in_place(|| h.hub.prune());
+    let refreshed = next_surface(&mut rx).await;
+    let thumbs = |s: &Surface| cards(s).into_iter().map(|(n, _, svg)| (n, svg)).collect::<Vec<_>>();
+    assert_that!(thumbs(&refreshed)).is_equal_to(thumbs(&first));
 }
 
 #[tokio::test(flavor = "multi_thread")]
