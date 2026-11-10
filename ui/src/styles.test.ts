@@ -161,6 +161,11 @@ test("side panel body lies unframed on the table", () => {
   expect(rules.map((r) => r !== "" && !/box-shadow:\s*var/.test(r))).toEqual([true, true]);
 });
 
+test("side panel cards are inset into the table, without a drop shadow", () => {
+  const card = ruleOf(GRID, ".side-packs-box .a2ui-card") ?? "";
+  expect([/box-shadow:\s*inset/.test(card), /--shadow-rest|--shadow-object/.test(card)]).toEqual([true, false]);
+});
+
 test("narrow side panel overlay paints its own background", () => {
   const narrow = GRID.match(/@media \(max-width: 1100px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   expect(ruleOf(narrow, ".side-panel.open > .side-body")).toMatch(/background:\s*var\(--paper-000\)/);

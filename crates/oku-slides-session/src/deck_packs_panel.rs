@@ -4,7 +4,7 @@
 //! localizer at each use. Three sections in order: layouts, widgets, theme.
 //! Each pinned pack is a card: name, short version, namespace, relation to
 //! my version, then its actions, or its removal refusal in place of the
-//! button. Each event names its action (`add_pack`, `remove_pack`,
+//! button; the theme section's body is a card too. Each event names its action (`add_pack`, `remove_pack`,
 //! `use_mine`, `make_current`, `theme`, `theme_update`, `open_pack`, `open_theme`); its
 //! context carries the kind and namespace, which the session checks again.
 //! `open_pack` and `open_theme` are no session actions: the interface opens the tab.
@@ -325,13 +325,12 @@ impl Builder {
         self.push(Component::column(id, &refs))
     }
 
-    /// The theme section: name, parents, overrides, choice, opening, update.
+    /// The theme section: a title, then a card like the packs' one.
+    ///
+    /// The card holds name, parents, overrides, choice, opening and update.
     fn theme(&mut self, t: &ThemeSectionView, l: &Localizer) -> String {
-        let title = l.tr("packs-section-theme");
-        let mut children = vec![
-            self.push(Component::text("theme-title", title, Some(TextVariant::Body))),
-            self.push(Component::text("theme-name", t.name.clone(), Some(TextVariant::Body))),
-        ];
+        let title = self.push(Component::text("theme-title", l.tr("packs-section-theme"), Some(TextVariant::Body)));
+        let mut children = vec![self.push(Component::text("theme-name", t.name.clone(), Some(TextVariant::Body)))];
         if !t.extends.is_empty() {
             children.push(self.push(Component::text(
                 "theme-extends",
@@ -375,7 +374,9 @@ impl Builder {
             children.extend(self.guide("theme-", g, l));
         }
         let refs: Vec<&str> = children.iter().map(String::as_str).collect();
-        self.push(Component::column("theme", &refs))
+        let body = self.push(Component::column("theme-body", &refs));
+        let card = self.push(Component::card("theme-card", &body));
+        self.push(Component::column("theme", &[&title, &card]))
     }
 }
 
