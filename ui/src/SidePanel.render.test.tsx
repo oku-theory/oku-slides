@@ -223,7 +223,7 @@ test("SidePanel without pack updates names the packs toggle plainly", async () =
 const { useSidePanel } = await import("./SidePanel");
 
 /** Mounts `useSidePanel` with a fake agent and kept inspector state; returns its handles. */
-async function mountHook({ inspector = false, packs = false, themes = false } = {}) {
+async function mountHook({ inspector = false, packs = false, themes = false, failShow = false } = {}) {
   const calls: string[] = [];
   const slot = createSlot();
   if (packs) slot.set(createElement("div"));
@@ -232,7 +232,10 @@ async function mountHook({ inspector = false, packs = false, themes = false } = 
   let api: ReturnType<typeof useSidePanel> | null = null;
   let setOpen: (v: boolean) => void = () => {};
   const agent = {
-    showPacks: async () => void calls.push("show"),
+    showPacks: async () => {
+      calls.push("show");
+      if (failShow) throw new Error("down");
+    },
     showThemes: async (slide: string | null) => void calls.push(`themes:${slide}`),
     surfaceAction: async (id: string, name: string) => void calls.push(`${id}:${name}`),
   };
@@ -254,10 +257,58 @@ async function mountHook({ inspector = false, packs = false, themes = false } = 
   return { calls, slot, themesSlot, api: () => api!, toggleInspector: (v: boolean) => act(async () => setOpen(v)) };
 }
 
-test("useSidePanel openPacks folds the inspector and shows the packs", async () => {
+test("useSidePanel openPacks keeps the inspector until the packs show", async () => {
   const { calls, api } = await mountHook({ inspector: true });
   await act(async () => api().openPacks());
-  expect(calls).toEqual(["inspector:false", "show"]);
+  expect(calls).toEqual(["show"]);
+});
+
+test("useSidePanel packs showing after openPacks fold the inspector", async () => {
+  const { calls, api, slot } = await mountHook({ inspector: true });
+  await act(async () => api().openPacks());
+  await act(async () => slot.set(createElement("div")));
+  expect(calls).toEqual(["show", "inspector:false"]);
+});
+
+test("useSidePanel packs failing to show keep the inspector when the agent shows them later", async () => {
+  const { calls, api, slot } = await mountHook({ inspector: true, failShow: true });
+  await act(async () => api().openPacks());
+  await act(async () => slot.set(createElement("div")));
+  expect(calls).toEqual(["show", "say:down"]);
+});
+
+test("useSidePanel closeBoxes before the asked packs show keeps the inspector", async () => {
+  const { calls, api, slot } = await mountHook({ inspector: true });
+  await act(async () => {
+    api().openPacks();
+    api().closeBoxes();
+  });
+  await act(async () => slot.set(createElement("div")));
+  expect(calls).toEqual(["show"]);
+});
+
+test("useSidePanel packs then themes asked fold the inspector on the themes only", async () => {
+  const { calls, api, slot, themesSlot } = await mountHook({ inspector: true });
+  await act(async () => {
+    api().openPacks();
+    api().openThemes("s-1");
+  });
+  await act(async () => slot.set(createElement("div")));
+  const beforeThemes = [...calls];
+  await act(async () => themesSlot.set(createElement("div")));
+  expect([beforeThemes, calls.slice(beforeThemes.length)]).toEqual([["show", "themes:s-1"], ["inspector:false", "host-packs:dismiss"]]);
+});
+
+test("useSidePanel picker shown by the agent keeps the inspector", async () => {
+  const { calls, themesSlot } = await mountHook({ inspector: true });
+  await act(async () => themesSlot.set(createElement("div")));
+  expect(calls).toEqual([]);
+});
+
+test("useSidePanel packs shown by the agent keep the inspector", async () => {
+  const { calls, slot } = await mountHook({ inspector: true });
+  await act(async () => slot.set(createElement("div")));
+  expect(calls).toEqual([]);
 });
 
 test("useSidePanel closeBoxes without the packs open sends nothing", async () => {
@@ -281,10 +332,17 @@ test("useSidePanel inspector opened over the packs (shortcut) dismisses them", a
   expect(calls).toEqual(["inspector:true", "host-packs:dismiss"]);
 });
 
-test("useSidePanel openThemes folds the inspector and shows the picker on the slide", async () => {
+test("useSidePanel openThemes keeps the inspector until the picker shows", async () => {
   const { calls, api } = await mountHook({ inspector: true });
   await act(async () => api().openThemes("s-2"));
-  expect(calls).toEqual(["inspector:false", "themes:s-2"]);
+  expect(calls).toEqual(["themes:s-2"]);
+});
+
+test("useSidePanel picker showing after openThemes folds the inspector", async () => {
+  const { calls, api, themesSlot } = await mountHook({ inspector: true });
+  await act(async () => api().openThemes("s-2"));
+  await act(async () => themesSlot.set(createElement("div")));
+  expect(calls).toEqual(["themes:s-2", "inspector:false"]);
 });
 
 test("useSidePanel closeBoxes with the themes open dismisses the picker", async () => {

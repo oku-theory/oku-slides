@@ -145,9 +145,9 @@ export interface SidePanelWiring {
 }
 
 /**
- * Keeps one side panel tab open at a time: opening a box (packs, themes) folds the inspector, a box
- * that opens (from the rail, a prompt or the agent) dismisses the other one on the hub, and opening
- * the inspector (its tab, a trace, ⌘⇧E) dismisses both, once per open box.
+ * Keeps one side panel tab open at a time: opening a box (packs, themes) folds the inspector once
+ * the box shows, a box that opens (from the rail, a prompt or the agent) dismisses the other one on
+ * the hub, and opening the inspector (its tab, a trace, ⌘⇧E) dismisses both, once per open box.
  */
 export function useSidePanel({ agent, packs, themes, inspector, setInspector, say }: SidePanelWiring) {
   // Booleans only: a box's node is rebuilt on any agent surface change, which must not re-render App.
@@ -163,22 +163,40 @@ export function useSidePanel({ agent, packs, themes, inspector, setInspector, sa
       .catch((e) => say(errorText(e), true))
       .finally(() => dismissing.current.delete(id));
   };
+  /** The box last asked from the rail, until it shows or fails; folds the inspector on showing. */
+  const asked = useRef<"packs" | "themes" | null>(null);
   const closeBoxes = () => {
+    // Every caller means "not a box": a box asked and not shown yet must not fold the inspector.
+    asked.current = null;
     dismiss(HOST_PACKS, packsOpen);
     dismiss(HOST_THEME_PICKER, themesOpen);
   };
-  const openPacks = () => {
+  /** The asked box shows: the inspector it replaces folds then, not before (no fold-and-open flash). */
+  const foldFor = (own: "packs" | "themes") => {
+    if (asked.current !== own) return;
+    asked.current = null;
     setInspector(false);
-    void agent.showPacks().catch((e) => say(errorText(e), true));
   };
+  /** Asks a box from the rail; the rail asks only for a box that is not open. */
+  const ask = (own: "packs" | "themes", show: () => Promise<unknown>) => {
+    asked.current = own;
+    void show().catch((e) => {
+      if (asked.current === own) asked.current = null;
+      say(errorText(e), true);
+    });
+  };
+  const openPacks = () => ask("packs", () => agent.showPacks());
   /** Opens the theme picker on `slide`, the slide shown (`null`: none). */
-  const openThemes = (slide: string | null) => {
-    setInspector(false);
-    void agent.showThemes(slide).catch((e) => say(errorText(e), true));
-  };
+  const openThemes = (slide: string | null) => ask("themes", () => agent.showThemes(slide));
   // Read by the effects below, which run on a change of state, not of these functions.
-  const latest = useRef({ dismiss, closeBoxes });
-  latest.current = { dismiss, closeBoxes };
+  const latest = useRef({ dismiss, closeBoxes, foldFor });
+  latest.current = { dismiss, closeBoxes, foldFor };
+  useEffect(() => {
+    if (packsOpen) latest.current.foldFor("packs");
+  }, [packsOpen]);
+  useEffect(() => {
+    if (themesOpen) latest.current.foldFor("themes");
+  }, [themesOpen]);
   // The inspector opened by a path that does not close the boxes itself (the ⌘⇧E shortcut).
   const wasOpen = useRef(inspector);
   useEffect(() => {
