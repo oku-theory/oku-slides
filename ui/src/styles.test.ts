@@ -200,6 +200,10 @@ test("side panel theme thumbnails are flat", () => {
   expect(ruleOf(GRID, ".side-themes-box .theme-choice :is(img, .theme-choice-blank)")).toMatch(/box-shadow:\s*none/);
 });
 
+test("a pill button shares a surface row's button rule", () => {
+  expect(ruleOf(own("a2ui/a2ui.css"), ".a2ui-row .btn, .btn.pill")).toMatch(/border-radius:\s*999px/);
+});
+
 test("narrow side panel overlay paints its own background", () => {
   const narrow = GRID.match(/@media \(max-width: 1100px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   expect(ruleOf(narrow, ".side-panel.open > .side-body")).toMatch(/background:\s*var\(--paper-000\)/);

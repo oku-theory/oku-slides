@@ -40,7 +40,7 @@ export function Inspector({ element, data, onData, theme, offer, onAction, onErr
       {element.surface ? (
         <>
           <HostSettings surface={element.surface} outcome={element.outcome} onAction={onAction} onError={onError} />
-          {data && <Button raised className="inspector-data" onClick={onData}>{t("ui-inspector-data")}</Button>}
+          {data && <Button className="inspector-data pill" onClick={onData}>{t("ui-inspector-data")}</Button>}
         </>
       ) : (
         <div className="inspector-deck">

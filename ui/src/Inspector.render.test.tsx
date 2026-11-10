@@ -76,6 +76,12 @@ describe("Inspector", () => {
     expect(m.calls).toEqual(["data"]);
   });
 
+  test("Inspector Data button is a flat pill like a surface row's buttons", async () => {
+    const m = await mount({ element: settings(realSurface("host-element")), data: true });
+    const b = button(m.host, t("ui-inspector-data"))!;
+    expect([b.classList.contains("pill"), b.classList.contains("object")]).toEqual([true, false]);
+  });
+
   test("Inspector without data shows no Data button", async () => {
     const m = await mount({ element: settings(realSurface("host-element")) });
     expect(button(m.host, t("ui-inspector-data"))).toBeUndefined();
