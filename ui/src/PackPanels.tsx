@@ -110,7 +110,7 @@ export default function PackPanels({
       </header>
       <ToolsTray
         api={api} snap={snap} item={item} keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
-        run={run} onAdd={null} onThemes={() => {}} onHistory={() => {}} thumbs={null}
+        run={run} onAdd={null} onHistory={() => {}} thumbs={null}
       />
       {/* Top right: finish (a lone pack tab that cannot close has none). */}
       {showFinish(snap, onClose !== undefined) && (

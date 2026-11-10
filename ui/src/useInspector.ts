@@ -11,15 +11,15 @@ import { isDeckTab } from "./tabKind";
 export interface InspectorWiring {
   /** The tab can show the inspector (`isDeckTab`): an agent offer opens there, else under its chip. */
   available: boolean;
-  /** The inspector is kept open in a deck tab (its side panel shows it unless the packs do). */
+  /** The inspector is kept open in a deck tab (its side panel shows it unless a box does). */
   open: boolean;
   /** The data pane shows when the selection has data (a deck tab, kept open). */
   pane: boolean;
   /** Opens the data pane (a data trace, for `useTrace`). */
   onPane: () => void;
-  /** Opens the inspector tab, closing the packs tab (any other trace, the side panel). */
+  /** Opens the inspector tab, closing the packs or themes tab (any other trace, the side panel). */
   onInspector: () => void;
-  /** Folds the side panel: the inspector and the packs tab close. */
+  /** Folds the side panel: the inspector and the packs or themes tab close. */
   onFold: () => void;
   /** Closes the data pane. */
   closePane: () => void;
@@ -30,15 +30,15 @@ export interface InspectorWiring {
 /**
  * The inspector and data pane of a deck tab (not a pack or theme tab, history or help), their open
  * state kept by the host (`keptUi`); `selected`'s own panel (`ownPanel`) gives the Data button;
- * `closePacks` closes the side panel's packs tab, which shows over the inspector; `offer`, the agent
+ * `closeBoxes` closes the side panel's packs and themes tabs, which show over the inspector; `offer`, the agent
  * offer opened from its chip (the agent's inspector slot), shows first; `onInspector` opens the
  * inspector for it.
  */
-export function useInspector({ snap, keptUi, selected, closePacks, offer }: {
+export function useInspector({ snap, keptUi, selected, closeBoxes, offer }: {
   snap: Snapshot | null;
   keptUi: KeptUi;
   selected: Element | undefined;
-  closePacks: () => void;
+  closeBoxes: () => void;
   offer?: ReactNode;
 }): InspectorWiring {
   const deckMode = isDeckTab(snap);
@@ -49,11 +49,11 @@ export function useInspector({ snap, keptUi, selected, closePacks, offer }: {
     pane: deckMode && keptUi.dataPane,
     onPane: openPane,
     onInspector: () => {
-      closePacks();
+      closeBoxes();
       keptUi.setInspector(true);
     },
     onFold: () => {
-      closePacks();
+      closeBoxes();
       keptUi.setInspector(false);
     },
     closePane: () => keptUi.setDataPane(false),

@@ -242,10 +242,12 @@ export default function App({
     setSelected,
   });
 
-  // The side panel's two tabs, one open at a time: the deck's packs (the agent's box) and the inspector.
-  const side = useSidePanel({ agent, packs: agentSlots.side, inspector: keptUi.inspector, setInspector: keptUi.setInspector, say });
+  // The side panel's tabs, one open at a time: the deck's packs and themes (the agent's boxes) and the inspector.
+  const side = useSidePanel({
+    agent, packs: agentSlots.side, themes: agentSlots.sideThemes, inspector: keptUi.inspector, setInspector: keptUi.setInspector, say,
+  });
   const inspector = useInspector({
-    snap, keptUi, selected: selectedElement, closePacks: side.closePacks,
+    snap, keptUi, selected: selectedElement, closeBoxes: side.closeBoxes,
     // The agent offer opened from its chip: App re-renders only when it comes or goes.
     offer: agentStatus.offer ? <SlotView slot={agentSlots.inspector} /> : undefined,
   });
@@ -371,22 +373,23 @@ export default function App({
         api={api} snap={snap} item={null}
         keptUi={keptUi} mainMenu={mainMenu} themeTab={false}
         run={run} onAdd={openAdd}
-        onThemes={() => void agent.showThemes(view?.slide.id ?? null).catch((e) => say(errorText(e), true))}
         onHistory={() => void openHistory()}
         thumbs={{ open: thumbsOpen, onToggle: toggleThumbs }}
       />
       </>)}
 
-      {/* A deck tab's side panel, on the left: the deck's packs and the inspector, foldable to a rail. */}
+      {/* A deck tab's side panel, on the left: the deck's packs, its themes and the inspector, foldable to a rail. */}
       {inspector.available && (
         <SidePanel
           packs={agentSlots.side}
+          themes={agentSlots.sideThemes}
           inspector={inspector.open ? <Inspector element={element} {...inspector.props} onAction={paneAction} onError={(e) => say(errorText(e), true)} /> : null}
           updates={snap.pack_updates > 0}
           onPacks={side.openPacks}
+          onThemes={() => side.openThemes(view?.slide.id ?? null)}
           onInspector={inspector.onInspector}
           onFold={inspector.onFold}
-          onClosePacks={side.closePacks}
+          onCloseBox={side.closeBoxes}
         />
       )}
 

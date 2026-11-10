@@ -258,7 +258,7 @@
            "bold": true
           },
           {
-            "t": " : Papier, Pro, Neutre ou les vôtres. « Nouveau thème », dans le menu de l'app, en crée un à partir de rien (un thème jamais enregistré, dont l'onglet est fermé, disparaît de la bibliothèque) ; sa bordure colorée le distingue des autres onglets. Dites ou tapez « thème » seul : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour l'appliquer et refermer le sélecteur. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. « Ouvrir », sur la ligne du thème dans « Packs du deck », l'ouvre dans son propre onglet : des slides d'exemple, une par layout d'Essentiel, montrent le brouillon, et le panneau règle ses jetons un par un et montre ce qu'il étend. L'onglet enregistre tout seul ; « Terminer » le ferme. Modifier Papier, Pro ou Neutre crée une variante qui l'étend, à choisir ensuite dans le sélecteur de thème ; votre propre thème reçoit une nouvelle version, que chaque deck prend depuis « Packs du deck ». Tant que cet onglet est ouvert, aucun autre onglet ne modifie ce thème. La liste extends se réordonne, et on y ajoute ou retire des parents."
+            "t": " : Papier, Pro, Neutre ou les vôtres. « Nouveau thème », dans le menu de l'app, en crée un à partir de rien (un thème jamais enregistré, dont l'onglet est fermé, disparaît de la bibliothèque) ; sa bordure colorée le distingue des autres onglets. L'onglet Thèmes du panneau latéral, ou « thème » dit ou tapé seul, ouvre le sélecteur : chaque thème s'affiche sur votre slide, sans attendre l'agent ; survolez pour prévisualiser, cliquez pour l'appliquer et refermer le sélecteur. Demandez à l'agent de vous proposer un thème : il ouvre le même sélecteur. Il est indépendant des packs de layouts. « Ouvrir », sur la ligne du thème dans « Packs du deck », l'ouvre dans son propre onglet : des slides d'exemple, une par layout d'Essentiel, montrent le brouillon, et le panneau règle ses jetons un par un et montre ce qu'il étend. L'onglet enregistre tout seul ; « Terminer » le ferme. Modifier Papier, Pro ou Neutre crée une variante qui l'étend, à choisir ensuite dans le sélecteur de thème ; votre propre thème reçoit une nouvelle version, que chaque deck prend depuis « Packs du deck ». Tant que cet onglet est ouvert, aucun autre onglet ne modifie ce thème. La liste extends se réordonne, et on y ajoute ou retire des parents."
           }
          ],
          "list": "bullet"
@@ -301,7 +301,7 @@
            "bold": true
           },
           {
-           "t": " : à gauche, un rail à deux onglets. Packs liste les packs du deck par type (layouts, widgets, thème) ; son onglet porte une marque quand l'une de vos versions diffère de celle du deck. Inspecteur montre les réglages de l'élément sélectionné, ou le thème du deck. Recliquez sur l'onglet ouvert pour replier le panneau sur son rail."
+           "t": " : à gauche, un rail à trois onglets. Packs liste les packs du deck par type (layouts, widgets, thème) ; son onglet porte une marque quand l'une de vos versions diffère de celle du deck. Thèmes montre chaque thème sur votre slide : cliquez-en un pour l'appliquer. Inspecteur montre les réglages de l'élément sélectionné, ou le thème du deck. Recliquez sur l'onglet ouvert pour replier le panneau sur son rail."
           }
          ],
          "list": "bullet"

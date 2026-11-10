@@ -6,7 +6,7 @@
 /* Under the stage and the drawer: at most 40 % of the window, scrolling on its own. */
 .sheet-area > .data-pane { grid-row: 3; max-height: 40vh; overflow-y: auto; }
 
-/* A deck tab's side panel, in the table's left column: a rail of tabs (packs, inspector) and the open
+/* A deck tab's side panel, in the table's left column: a rail of tabs (packs, themes, inspector) and the open
    tab's body. Folded, the column is the rail; open, its width is the pile's, set at the divider. */
 .side-panel { grid-area: pile; display: flex; min-height: 0; min-width: 0; }
 .table:has(> .side-panel:not(.open)) { --pile-w: 48px !important; }
@@ -19,7 +19,7 @@
   content: ""; position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
 }
 .side-body { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding-block: var(--space-4); }
-.side-packs-box {
+.side-packs-box, .side-themes-box {
   padding: var(--space-2); background: var(--paper-100); border-radius: var(--radius-md); outline: none;
   box-shadow: var(--edge-light), var(--shadow-object);
 }

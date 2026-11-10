@@ -1,4 +1,5 @@
-// "Theme" shortcut: the prompt alone opens the host's picker as a popover, without the agent;
+// "Theme" shortcut: the prompt alone opens the host's picker in the side panel's Themes tab, without
+// the agent; the rail's Themes tab opens it too;
 // hovering a theme shows it on the stage, a click or its digit applies it and closes the picker,
 // undo goes back to the previous one. Runs against `oku-slides serve` started by `just e2e` (after 220: log created).
 const { chromium } = require('playwright');
@@ -11,7 +12,7 @@ const LOG = process.env.E2E_AGENT_LOG;
 
 const prompts = (from) => logSince(LOG, from).filter((m) => m.method === 'session/prompt');
 const themeNs = async (p) => (await activeSnapshot(p)).theme ?? null;
-const picker = (p) => p.locator('.agent-popover [data-surface-id="host-theme-picker"]');
+const picker = (p) => p.locator('.side-body [data-surface-id="host-theme-picker"]');
 const cards = (p) => picker(p).locator('.theme-choice');
 /** Les noms des cartes actives ; jamais d'exception, une liste vide s'il n'y en a pas. */
 const activeNames = (p) => picker(p).locator('.theme-choice[aria-pressed="true"] bdi').allInnerTexts();
@@ -42,9 +43,10 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   const from = logOffset(LOG);
   const before = await themeNs(p);
 
-  // 1. « Thème. » typed in the draft opens the picker as a popover; one theme is active.
+  // 1. « Thème. » typed in the draft opens the picker in the side panel, its tab pressed; one theme is active.
   await say(p, 'Thème.');
   await cards(p).first().waitFor();
+  assert.equal(await p.locator('.side-rail .themes-toggle').getAttribute('aria-pressed'), 'true');
   assert.ok((await cards(p).count()) >= 2, 'au moins deux thèmes');
   const startActive = await activeNames(p);
   assert.equal(startActive.length, 1);
@@ -84,8 +86,8 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   await p.keyboard.press('ControlOrMeta+z');
   await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");
 
-  // 6. Reopened, its close button closes it without picking.
-  await say(p, 'Thème.');
+  // 6. Reopened from the rail's Themes tab, its close button closes it without picking.
+  await p.click('.side-rail .themes-toggle');
   await cards(p).first().waitFor();
   await picker(p).getByRole('button', { name: 'Fermer', exact: true }).click();
   await picker(p).waitFor({ state: 'detached' });

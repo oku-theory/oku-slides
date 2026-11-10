@@ -66,7 +66,6 @@ async function mount({
   fallback,
   offersInline,
   inspector = true,
-  anchors = [],
 }: {
   promptFails?: boolean;
   mode?: ThreadMode;
@@ -75,8 +74,6 @@ async function mount({
   offersInline?: boolean;
   /** The tab can show the inspector (a deck tab): it gets `onOpenInspector`. */
   inspector?: boolean;
-  /** Extra `data-popover-anchor` buttons the window renders (the tools tray's). */
-  anchors?: string[];
 } = {}) {
   let voices = 0;
   const fallbacks: (string | null)[] = [];
@@ -170,10 +167,10 @@ async function mount({
       }),
       createElement("div", { className: "modal-probe" }, createElement(SlotView, { slot: slots.modal })),
       createElement("button", { className: "voice-probe", "data-popover-anchor": "host-voice" }),
-      ...anchors.map((name) => createElement("button", { key: name, "data-popover-anchor": name })),
       createElement("div", { className: "popover-probe" }, createElement(SlotView, { slot: slots.popover })),
       createElement("aside", { className: "inspector-probe" }, createElement(SlotView, { slot: slots.inspector })),
       createElement("aside", { className: "side-probe" }, createElement(SlotView, { slot: slots.side })),
+      createElement("aside", { className: "side-themes-probe" }, createElement(SlotView, { slot: slots.sideThemes })),
     );
   };
   const host = document.createElement("div");
@@ -538,32 +535,49 @@ describe("AgentPanel inspector offers", () => {
   });
 });
 
-describe("AgentPanel theme picker keys with the agent detached", () => {
-  /** The theme picker the user opened from the tools tray: a turnless popover. */
+describe("AgentPanel theme picker in the side panel", () => {
+  /** The theme picker the user opened from the side panel's rail: turnless, routed to the side slot. */
   const picker = (): Surface => ({ ...realSurface("host-theme-picker"), place: "popover", live: true, turn: undefined });
+  const inSide = (host: HTMLElement) => !!host.querySelector('.side-themes-probe [data-surface-id="host-theme-picker"]');
 
-  test("AgentPanel in the main window, detached, gives the shown picker digits", async () => {
-    const m = await mount({ keyPlaces: DETACHED_MAIN_PLACES, anchors: ["host-theme-picker"] });
+  test("AgentPanel in the main window puts the picker in the side themes slot, not a popover", async () => {
+    const m = await mount();
     await m.mcp({ kind: "surface", surface: picker() });
-    await m.until(() => !!m.host.querySelector('.popover-probe [data-surface-id="host-theme-picker"]'));
+    await m.until(() => inSide(m.host));
+    expect([inSide(m.host), !!m.host.querySelector('.popover-probe [data-surface-id="host-theme-picker"]')]).toEqual([true, false]);
+  });
+
+  test("AgentPanel in the main window gives the side picker digits", async () => {
+    const m = await mount();
+    await m.mcp({ kind: "surface", surface: picker() });
+    await m.until(() => inSide(m.host));
     await keyFrom(document.body, "1", "Digit1");
     expect(m.actions.map((a) => a.split(":")[0])).toEqual(["host-theme-picker"]);
   });
 
-  test("AgentPanel in the agent window, without the picker's anchor, takes no digit for it", async () => {
-    const m = await mount({ keyPlaces: AGENT_WINDOW_PLACES });
+  test("AgentPanel in the main window, detached, gives the side picker digits", async () => {
+    const m = await mount({ keyPlaces: DETACHED_MAIN_PLACES });
+    await m.mcp({ kind: "surface", surface: picker() });
+    await m.until(() => inSide(m.host));
+    await keyFrom(document.body, "1", "Digit1");
+    expect(m.actions.map((a) => a.split(":")[0])).toEqual(["host-theme-picker"]);
+  });
+
+  test("AgentPanel with the packs box over the side picker takes no digit for it", async () => {
+    const m = await mount();
+    await m.mcp({ kind: "surface", surface: { ...realSurface("host-packs"), place: "popover", live: true, turn: undefined } });
+    await m.mcp({ kind: "surface", surface: picker() });
+    await m.until(() => inSide(m.host));
+    await keyFrom(document.body, "1", "Digit1");
+    expect(m.actions).toEqual([]);
+  });
+
+  test("AgentPanel in the agent window takes no digit for the picker", async () => {
+    const m = await mount({ keyPlaces: AGENT_WINDOW_PLACES, offersInline: true });
     await m.mcp({ kind: "surface", surface: picker() });
     await act(async () => new Promise((r) => setTimeout(r, 20)));
     await keyFrom(document.body, "1", "Digit1");
     expect([!!m.host.querySelector(".agent-popover"), m.actions]).toEqual([false, []]);
-  });
-
-  test("AgentPanel with the picker's anchor gone takes no digit for it", async () => {
-    const m = await mount();
-    await m.mcp({ kind: "surface", surface: picker() });
-    await act(async () => new Promise((r) => setTimeout(r, 20)));
-    await keyFrom(document.body, "1", "Digit1");
-    expect(m.actions).toEqual([]);
   });
 });
 

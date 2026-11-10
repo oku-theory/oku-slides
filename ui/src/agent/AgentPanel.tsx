@@ -88,11 +88,16 @@ export interface AgentSlots {
   inspector: Slot;
   /** The deck's packs box the user opened (`host-packs`), in the side panel's Packs tab. */
   side: Slot;
+  /** The host's theme picker (`host-theme-picker`), in the side panel's Themes tab. */
+  sideThemes: Slot;
 }
 
 /** Empty slots for one `AgentPanel`. */
 export function createAgentSlots(): AgentSlots {
-  return { sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot(), side: createSlot() };
+  return {
+    sheet: createSlot(), drawer: createSlot(), modal: createSlot(), popover: createSlot(), inspector: createSlot(),
+    side: createSlot(), sideThemes: createSlot(),
+  };
 }
 
 /** Le rôle du panneau : il pilote le fil de l'onglet (`drive`, une fois l'instantané chargé) ou le suit (`follow`). */
@@ -243,10 +248,11 @@ export function AgentPanel(props: AgentPanelProps) {
     lastSelected.current = props.selected;
     if (offerInInspector.current) setOffer(null);
   }, [props.selected]);
-  // The packs box the user opened lives in the side panel; every other box floats next to its opener.
+  // The packs box and the theme picker live in the side panel; every other box floats next to its opener.
   const side = popovers.find((s) => s.id === HOST_PACKS);
+  const sideThemes = popovers.find((s) => s.id === HOST_THEME_PICKER);
   const floating = useMemo(() => {
-    const boxes = popovers.filter((s) => s.id !== HOST_PACKS);
+    const boxes = popovers.filter((s) => s.id !== HOST_PACKS && s.id !== HOST_THEME_PICKER);
     return opened && !inline && opened.place === "popover" ? [...boxes, opened] : boxes;
   }, [popovers, opened, inline]);
   // A box that closed forgets where it opened from: the next one starts from its own button.
@@ -310,8 +316,12 @@ export function AgentPanel(props: AgentPanelProps) {
       },
     );
   };
-  // The picker gets keys only in the window that shows it at its anchor (the main one, detached or not).
-  const keysTarget = quickTarget({ modal, sheet, drawer, dock, popover: floating.find((s) => s.id === HOST_THEME_PICKER && placed.has(s.id)) });
+  // The picker gets keys only where it shows: the main window's side panel (detached or not) while
+  // no packs box hides it (`SidePanel` shows the packs first), or at its chip once placed there.
+  const keysTarget = quickTarget({
+    modal, sheet, drawer, dock,
+    popover: floating.find((s) => s.id === HOST_THEME_PICKER && placed.has(s.id)) ?? (inline || side ? undefined : sideThemes),
+  });
   /**
    * La surface qui reçoit les touches 1–4, Entrée, Échap et montre leur rappel ; aucune pendant
    * l'édition d'un texte, le pointage ou un widget actif. Une consigne répond toujours à `keysTarget`.
@@ -453,6 +463,19 @@ export function AgentPanel(props: AgentPanelProps) {
           />
         </Suspense>
       ) : null,
+      // The theme picker's clicks go as a popover's do: the host first.
+      sideThemes: sideThemes ? (
+        <Suspense fallback={null}>
+          <AgentSurfaceBox
+            key={sideThemes.id}
+            {...surfaceProps(sideThemes)}
+            onAction={popoverAction}
+            className="side-themes-box"
+            role="group"
+            label={firstText(sideThemes) || t("ui-themes")}
+          />
+        </Suspense>
+      ) : null,
       // An inspector offer's clicks go as the thread's do: the host first, then the agent.
       inspector: inspectorOffer ? (
         <Suspense fallback={null}>
@@ -467,7 +490,7 @@ export function AgentPanel(props: AgentPanelProps) {
         </Suspense>
       ) : null,
     };
-  }, [sheet, drawer, modal, floating, side, anchors, inspectorOffer, keysTo, stable, closeStable, popoverAction, onPlaced]);
+  }, [sheet, drawer, modal, floating, side, sideThemes, anchors, inspectorOffer, keysTo, stable, closeStable, popoverAction, onPlaced]);
   useLayoutEffect(() => {
     slots.sheet.set(nodes.sheet);
     slots.drawer.set(nodes.drawer);
@@ -475,6 +498,7 @@ export function AgentPanel(props: AgentPanelProps) {
     slots.popover.set(nodes.popover);
     slots.inspector.set(nodes.inspector);
     slots.side.set(nodes.side);
+    slots.sideThemes.set(nodes.sideThemes);
   }, [slots, nodes]);
   useLayoutEffect(
     () => () => {
@@ -484,6 +508,7 @@ export function AgentPanel(props: AgentPanelProps) {
       slots.popover.set(null);
       slots.inspector.set(null);
       slots.side.set(null);
+      slots.sideThemes.set(null);
     },
     [slots],
   );
