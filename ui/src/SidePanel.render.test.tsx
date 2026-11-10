@@ -179,6 +179,42 @@ test("SidePanel with pack updates marks the packs toggle and says so", async () 
   expect([toggle("packs").classList.contains("has-update"), toggle("packs").getAttribute("aria-label")]).toEqual([true, t("ui-side-packs-update")]);
 });
 
+const foldToggle = (host: HTMLElement) => host.querySelector(".side-rail .fold-toggle") as HTMLButtonElement;
+
+test("SidePanel open fold button folds the panel", async () => {
+  const { host, calls } = await mount({ inspector: true });
+  await act(async () => foldToggle(host).click());
+  expect(calls).toEqual(["fold"]);
+});
+
+test("SidePanel open fold button is named Collapse", async () => {
+  const { host } = await mount({ inspector: true });
+  expect(foldToggle(host).getAttribute("aria-label")).toBe(t("ui-side-fold"));
+});
+
+test("SidePanel open fold button says the panel is expanded", async () => {
+  const { host } = await mount({ inspector: true });
+  expect(foldToggle(host).getAttribute("aria-expanded")).toBe("true");
+});
+
+test("SidePanel folded fold button is named Expand", async () => {
+  const { host } = await mount();
+  expect(foldToggle(host).getAttribute("aria-label")).toBe(t("ui-side-unfold"));
+});
+
+test("SidePanel folded fold button never opened opens the packs", async () => {
+  const { host, calls } = await mount();
+  await act(async () => foldToggle(host).click());
+  expect(calls).toEqual(["packs"]);
+});
+
+test("SidePanel folded fold button reopens the tab shown last", async () => {
+  const { host, calls, themesSlot } = await mount({ themes: true });
+  await act(async () => themesSlot.set(null));
+  await act(async () => foldToggle(host).click());
+  expect(calls).toEqual(["themes"]);
+});
+
 test("SidePanel without pack updates names the packs toggle plainly", async () => {
   const { toggle } = await mount();
   expect([toggle("packs").classList.contains("has-update"), toggle("packs").getAttribute("aria-label")]).toEqual([false, t("ui-side-packs")]);

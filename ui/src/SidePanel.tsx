@@ -4,7 +4,7 @@
  * The packs tab shows the hub's `host-packs` box, the themes tab its `host-theme-picker`, which
  * `AgentPanel` puts in its `side` and `sideThemes` slots; one box at a time wins over the inspector
  * while it is open, and the inspector shows again once it goes. A click on the pressed tab folds
- * the panel to its rail.
+ * the panel to its rail; so does the fold button at the rail's foot, which reopens the last tab.
  */
 import type { ReactNode } from "react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
@@ -14,7 +14,7 @@ import { HOST_PACKS, HOST_THEME_PICKER } from "./agent/surfaces";
 import { errorText } from "./hostCall";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { IconToggle } from "./primitives";
+import { IconButton, IconToggle } from "./primitives";
 
 /** What the side panel shows and what its rail triggers. */
 export interface SidePanelProps {
@@ -59,6 +59,12 @@ export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes
   const focusInBody = useRef(false);
   /** The tab shown last: a body that goes gives the focus to its toggle. */
   const lastTab = useRef<SideTab | null>(tab);
+  /** The tab open last: the fold button reopens it once the panel is folded (packs at first). */
+  const shown = useRef<SideTab>(tab ?? "packs");
+  useEffect(() => {
+    if (tab) shown.current = tab;
+  }, [tab]);
+  const opens: Record<SideTab, () => void> = { packs: onPacks, themes: onThemes, inspector: onInspector };
   useEffect(() => {
     const inside = () => (focusInBody.current = !!body.current?.contains(document.activeElement));
     document.addEventListener("focusin", inside);
@@ -99,6 +105,13 @@ export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes
           pressed={tab === "inspector"}
           onToggle={toggle("inspector", onInspector)}
           icon={Icon.inspector}
+        />
+        <IconButton
+          className="token ghost fold-toggle"
+          aria-expanded={!!tab}
+          label={t(tab ? "ui-side-fold" : "ui-side-unfold")}
+          onClick={tab ? onFold : () => opens[shown.current]()}
+          icon={tab ? Icon.panelFold : Icon.panelUnfold}
         />
       </nav>
       {tab && (

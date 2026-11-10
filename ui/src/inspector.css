@@ -13,6 +13,9 @@
 .table:has(> .side-panel.open) { --pile-w: 320px; }
 .side-rail { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 48px; box-sizing: border-box; padding-top: var(--space-4); }
 .side-rail .token.ghost { width: 36px; height: 36px; }
+/* The fold button sits at the rail's foot. */
+.side-rail .fold-toggle { margin-top: auto; margin-bottom: var(--space-4); }
+[dir="rtl"] .side-rail .fold-toggle svg { transform: scaleX(-1); }
 /* A dot on the packs tab when a pin is older than the library's version. */
 .side-rail .packs-toggle { position: relative; }
 .side-rail .packs-toggle.has-update::after {

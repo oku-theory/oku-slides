@@ -44,7 +44,11 @@ export const Icon = {
   next: stroke(<path d="M9.5 6l6 6-6 6" />),
   /** La bande des miniatures sous la slide. */
   strip: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 14.5h17" /></>),
-  inspector: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M14.5 4.5v15" /></>),
+  /** The inspector: three sliders, the selected element's settings. */
+  inspector: stroke(<><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="17" r="2" /></>),
+  /** The side panel's foot: fold it to its rail, or unfold it, its column on the left. */
+  panelFold: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /><path d="M16 9.5L13.5 12l2.5 2.5" /></>),
+  panelUnfold: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /><path d="M13.5 9.5L16 12l-2.5 2.5" /></>),
   detach: stroke(<><path d="M14 4h6v6" /><path d="M20 4l-8 8" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>),
   attach: stroke(<><path d="M10 20H4v-6" /><path d="M4 20l8-8" /><path d="M6 10V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5" /></>),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),
