@@ -44,8 +44,8 @@ export const Icon = {
   next: stroke(<path d="M9.5 6l6 6-6 6" />),
   /** La bande des miniatures sous la slide. */
   strip: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 14.5h17" /></>),
-  /** The inspector: three sliders, the selected element's settings. */
-  inspector: stroke(<><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="17" r="2" /></>),
+  /** The inspector: a magnifying glass over the selected element. */
+  inspector: stroke(<><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5 5" /></>),
   /** The side panel's foot: fold it to its rail, or unfold it, its column on the left. */
   panelFold: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /><path d="M16 9.5L13.5 12l2.5 2.5" /></>),
   panelUnfold: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /><path d="M13.5 9.5L16 12l-2.5 2.5" /></>),
