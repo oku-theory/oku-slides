@@ -16,9 +16,10 @@ tr:hover .cdg-remove, .cdg-head:hover .cdg-remove, .cdg-remove:focus-visible { o
 .cdg-actions button { display: inline-grid; place-items: center; width: 36px; height: 32px; padding: 0; color: inherit; border: 1px solid var(--rule); background: var(--paper-200); border-radius: var(--radius-sm); cursor: pointer; }
 .cdg-actions button svg, .chart-options button svg { width: 20px; height: 20px; }
 
-/* Panneau du graphique sélectionné, sous la scène. */
-.chart-panel { position: relative; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--paper-200); border-radius: var(--radius-md); box-shadow: var(--shadow-floating); z-index: 5; }
-/* Rangée d'outils du panneau ; la bascule graphique/tableau se cale à droite. */
+/* The selected chart's or table's panel, in the data pane: a card with no shadow,
+   since the pane's scroll box would clip one into a frame. */
+.chart-panel { position: relative; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--paper-200); border-radius: var(--radius-md); }
+/* The panel's tool row; the chart/table toggle sits at its end. */
 .panel-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .panel-toolbar > .show-as { margin-inline-start: auto; }
 .chart-kinds, .chart-options { display: flex; flex-wrap: wrap; gap: 6px; }

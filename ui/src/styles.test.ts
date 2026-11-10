@@ -128,6 +128,25 @@ test("the data pane sits under the stage in the sheet's grid, never over it", ()
   expect(APP).not.toMatch(/\.data-pane\s*\{[^}]*position:\s*absolute/);
 });
 
+/** A declaration that draws a frame: a shadow, or a background other than none or transparent. */
+const FRAME = /box-shadow:\s*(?!none)|background(-color)?:\s*(?!none|transparent)/;
+
+test("the data pane is unframed: no shadow, no card background", () => {
+  const rules = [".inspector, .data-pane", ".data-pane", ".sheet-area > .data-pane"].map((sel) => ruleOf(GRID, sel) ?? "");
+  expect(rules.map((r) => r !== "" && !FRAME.test(r))).toEqual([true, true, true]);
+});
+
+test("the data pane's content and title line up with its edge, with no card inset", () => {
+  const pane = ruleOf(GRID, ".data-pane") ?? "";
+  const title = ruleOf(GRID, ".pane-title") ?? "";
+  expect([/padding:\s*var\(--space-2\)\s+0;/.test(pane), title !== "" && !/padding/.test(title)]).toEqual([true, true]);
+});
+
+test("the chart and table panel lies flat in the pane: no shadow, no stacking", () => {
+  const panel = ruleOf(own("chart/ChartDataGrid.css"), ".chart-panel") ?? "";
+  expect([/overflow:\s*auto/.test(panel), /box-shadow|z-index/.test(panel)]).toEqual([true, false]);
+});
+
 test("the inspector is not in the sheet's grid: it is a tab of the side panel", () => {
   expect(GRID).not.toMatch(/\.sheet-area\s*>\s*\.inspector|--inspector-w/);
 });

@@ -60,22 +60,18 @@
 }
 
 /* Inspector: unframed, its title set like the packs' and themes' own, the same gap below it. */
-.side-body > .inspector { padding: 0; gap: var(--side-title-gap); background: none; border-radius: 0; box-shadow: none; }
-.side-body > .inspector .pane-title { padding-inline-start: 0; font: 600 14px/20px var(--sans); color: var(--ink); }
+.side-body > .inspector { gap: var(--side-title-gap); }
+.side-body > .inspector .pane-title { font: 600 14px/20px var(--sans); color: var(--ink); }
 .side-body > .inspector .inspector-deck { padding: 0; }
 .side-body > .inspector .inspector-data { margin-inline-start: 0; }
 
-/* The inspector and the data pane: a sheet laid on the table under a header (the pane's with a close button);
-   the side panel unframes the inspector. */
-.inspector, .data-pane {
-  display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 0; box-sizing: border-box;
-  padding: var(--space-2); background: var(--paper-100); border-radius: var(--radius-md);
-  box-shadow: var(--edge-light), var(--shadow-object);
-}
-.data-pane { margin: var(--space-2) var(--space-4) 0; }
+/* The inspector and the data pane, unframed under a header (the pane's with a close button):
+   the inspector in the side body, the data pane on the table, its content flush with its edges. */
+.inspector, .data-pane { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 0; box-sizing: border-box; }
+.data-pane { margin: var(--space-2) var(--space-4) 0; padding: var(--space-2) 0; }
 .inspector-head, .data-pane-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.pane-title { font-size: 12px; font-weight: 600; color: var(--ink-muted); padding-inline-start: var(--space-2); }
-/* The settings take the pane's width; the pane draws the card. */
+.pane-title { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+/* The settings take the pane's width, with no card of their own. */
 .inspector .host-settings, .data-pane .host-settings { width: auto; padding: 0; background: none; box-shadow: none; }
 .inspector-offer { display: flex; flex-direction: column; gap: var(--space-2); padding-block-end: var(--space-2); border-block-end: 1px solid color-mix(in oklab, var(--edge) 55%, transparent); }
 .inspector-deck { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-2); }
