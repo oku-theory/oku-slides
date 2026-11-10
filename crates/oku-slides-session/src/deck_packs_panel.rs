@@ -327,7 +327,7 @@ impl Builder {
 
     /// The theme section: a title, then a card like the packs' one.
     ///
-    /// The card holds name, parents, overrides, choice, opening and update.
+    /// The card holds name, parents, overrides, guide, choice, then its buttons in a row.
     fn theme(&mut self, t: &ThemeSectionView, l: &Localizer) -> String {
         let title = self.push(Component::text("theme-title", l.tr("packs-section-theme"), Some(TextVariant::Body)));
         let mut children = vec![self.push(Component::text("theme-name", t.name.clone(), Some(TextVariant::Body)))];
@@ -340,6 +340,9 @@ impl Builder {
         }
         let overrides = l.tr_with("packs-theme-overrides", &[("count", t.overrides.into())]);
         children.push(self.push(Component::text("theme-overrides", overrides, Some(TextVariant::Caption))));
+        if let Some(g) = &t.guide {
+            children.extend(self.guide("theme-", g, l));
+        }
         let options = t
             .choices
             .iter()
@@ -353,13 +356,15 @@ impl Builder {
             action: Some(Action::event("theme", [("theme", Dynamic::path("/theme"))])),
         };
         children.push(self.push(Component::new("theme-pick", pick)));
+        // The buttons go in a row, as on a pack card.
+        let mut actions = Vec::new();
         if let Some(id) = t.id {
             let action = Action::event("open_theme", [("theme", lit(json!(id.to_string())))]);
-            children.push(self.push(Component::button("theme-open", l.tr("packs-theme-open"), false, action)));
+            actions.push(self.push(Component::button("theme-open", l.tr("packs-theme-open"), false, action)));
         }
         if let Some(r) = &t.installable {
             let action = add_action(r.id, r.version.hex());
-            children.push(self.push(Component::button(
+            actions.push(self.push(Component::button(
                 "theme-add-to-library",
                 l.tr("packs-add-to-library"),
                 true,
@@ -368,10 +373,11 @@ impl Builder {
         }
         if t.outdated {
             let update = Component::button("theme-update", l.tr("packs-use-mine"), true, Action::named("theme_update"));
-            children.push(self.push(update));
+            actions.push(self.push(update));
         }
-        if let Some(g) = &t.guide {
-            children.extend(self.guide("theme-", g, l));
+        if !actions.is_empty() {
+            let refs: Vec<&str> = actions.iter().map(String::as_str).collect();
+            children.push(self.push(Component::row("theme-actions", &refs)));
         }
         let refs: Vec<&str> = children.iter().map(String::as_str).collect();
         let body = self.push(Component::column("theme-body", &refs));

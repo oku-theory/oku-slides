@@ -100,7 +100,7 @@ async function openFile(p, file) {
     await blur(p);
     await p.keyboard.press('Control+z');
     await until(p, async () => (await snapshot(p, TAB)).widgets[own.namespace] === undefined, '⌘Z ne retire pas Guidé du deck');
-    await part(p, 'close').getByRole('button').click();
+    await p.click('.side-rail .packs-toggle');
     await p.locator(PANEL).waitFor({ state: 'detached' });
   } finally {
     await closePackTabs(p);

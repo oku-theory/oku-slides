@@ -2082,6 +2082,18 @@
               "variant": "caption"
             },
             {
+              "id": "theme-guide-text",
+              "component": "Text",
+              "text": "# Using Papier\n\nPapier is the theme of a new deck: warm off-white paper (`bg` #fffdf9, `surface` #f7f5f0), dark brown `ink`, a muted green `accent` (#3f6b5e) and a pale green `accent-soft`. Titles are in Newsreader, a serif, at weight 500; body text in Instrument Sans. It suits calm, editorial, text-led decks.\n\n- Colors by name: bg, surface, ink, ink-muted, accent, on-accent, accent-soft, rule. Keep accent for one emphasis per slide; use accent-soft only as a fill behind ink text (a shape, a highlight), never as a text color.\n- Chapter slides sit on `surface` with ink text and an accent number; the cover is plain on `bg` with an accent bar; the end slide is on `surface`.\n- Highlighted cards turn dark ink with an accent-soft kicker: one per slide at most.\n- Charts take accent, then rust, blue, ochre, plum and ink-muted: up to six series, the key one first.\n- Sizes, spacing and margins are the library defaults (titles 60, body 32 on a 1920 by 1080 page): keep bullets short, about six lines a slide.\n- Header and footer are the defaults: chapter and organization on top, author, date and page number below.\n- A change for this deck only belongs in the deck tokens; a lasting variant is a theme that extends Papier.",
+              "variant": "caption"
+            },
+            {
+              "id": "theme-guide",
+              "component": "Disclosure",
+              "summary": "Guide pour les agents (intégré)",
+              "child": "theme-guide-text"
+            },
+            {
               "id": "theme-pick",
               "component": "Select",
               "label": "Thème du deck",
@@ -2138,16 +2150,12 @@
               }
             },
             {
-              "id": "theme-guide-text",
-              "component": "Text",
-              "text": "# Using Papier\n\nPapier is the theme of a new deck: warm off-white paper (`bg` #fffdf9, `surface` #f7f5f0), dark brown `ink`, a muted green `accent` (#3f6b5e) and a pale green `accent-soft`. Titles are in Newsreader, a serif, at weight 500; body text in Instrument Sans. It suits calm, editorial, text-led decks.\n\n- Colors by name: bg, surface, ink, ink-muted, accent, on-accent, accent-soft, rule. Keep accent for one emphasis per slide; use accent-soft only as a fill behind ink text (a shape, a highlight), never as a text color.\n- Chapter slides sit on `surface` with ink text and an accent number; the cover is plain on `bg` with an accent bar; the end slide is on `surface`.\n- Highlighted cards turn dark ink with an accent-soft kicker: one per slide at most.\n- Charts take accent, then rust, blue, ochre, plum and ink-muted: up to six series, the key one first.\n- Sizes, spacing and margins are the library defaults (titles 60, body 32 on a 1920 by 1080 page): keep bullets short, about six lines a slide.\n- Header and footer are the defaults: chapter and organization on top, author, date and page number below.\n- A change for this deck only belongs in the deck tokens; a lasting variant is a theme that extends Papier.",
-              "variant": "caption"
-            },
-            {
-              "id": "theme-guide",
-              "component": "Disclosure",
-              "summary": "Guide pour les agents (intégré)",
-              "child": "theme-guide-text"
+              "id": "theme-actions",
+              "component": "Row",
+              "children": [
+                "theme-open",
+                "theme-update"
+              ]
             },
             {
               "id": "theme-body",
@@ -2155,10 +2163,9 @@
               "children": [
                 "theme-name",
                 "theme-overrides",
+                "theme-guide",
                 "theme-pick",
-                "theme-open",
-                "theme-update",
-                "theme-guide"
+                "theme-actions"
               ]
             },
             {

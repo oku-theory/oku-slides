@@ -21,30 +21,49 @@
 .side-rail .packs-toggle.has-update::after {
   content: ""; position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
 }
+/* Every tab's body (packs, themes, inspector) keeps one rhythm, set here once. */
 .side-body {
   flex: 1; min-width: 0; min-height: 0; overflow-y: auto; box-sizing: border-box;
   padding: var(--space-4) var(--space-4) var(--space-6) var(--space-2);
+  --side-title-gap: var(--space-6); /* a title above what it heads */
+  --side-section-gap: var(--space-10); /* between two sections */
+  --side-item-gap: var(--space-4); /* between two items of a section */
 }
 /* The open tab's body lies on the table itself, unframed; its sections are spaced apart instead. */
 .side-packs-box, .side-themes-box { outline: none; }
-.side-packs-box .a2ui-column { gap: var(--space-2); }
-.side-packs-box .a2ui-column:has(> [data-component-id="layouts"]) { gap: var(--space-10); }
-/* A section's title (layouts, widgets, theme) stands 24 px above its first item. */
-.side-packs-box .a2ui-slot[data-component-id$="-title"] { margin-block-end: var(--space-4); }
-/* The themes tab: its title clear of the grid, the grid's rows further apart. */
-.side-themes-box .a2ui-column { gap: var(--space-6); }
-.side-themes-box .a2ui-row:has(> [data-component-id] > * > .theme-choice) { row-gap: calc(var(--space-6) + var(--space-2)); }
-/* Pack and theme cards are flat areas of colour on the table: a faint ink tint, no shadow, no rule. */
-.side-packs-box .a2ui-card {
+/* Cards are flat areas of colour on the table: a faint ink tint, no shadow, no rule. */
+.side-body .a2ui-card {
   padding: 12px 14px; background: color-mix(in oklab, var(--ink) 6%, transparent);
   -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
 }
-/* Pack cards stand further apart than a section's title from its first card. */
-.side-packs-box .a2ui-slot:has(> * > .a2ui-card) + .a2ui-slot:has(> * > .a2ui-card) { margin-block-start: var(--space-2); }
-/* A well is no glass: outranks glass.css's lens rule, equal in specificity (0,5,0, its :is() counts the prompt card) and loaded later. */
-:root[data-lens] .side-panel .side-body .side-packs-box .a2ui-card { -webkit-backdrop-filter: none; backdrop-filter: none; }
-.side-body > .inspector { padding: 0; gap: var(--space-4); background: none; border-radius: 0; box-shadow: none; }
-.side-body > .inspector .pane-title { padding-inline-start: 0; }
+/* A flat card is no glass: outranks glass.css's lens rule (0,5,0, its :is() counts the prompt card, loaded later). */
+:root[data-lens] .side-panel.open .side-body .a2ui-card { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Packs: the panel's title, then sections, each a title above its cards. */
+.side-packs-box .a2ui-column { gap: var(--space-2); }
+.side-packs-box .a2ui-column:has(> [data-component-id="layouts"]) { gap: var(--side-section-gap); }
+.side-packs-box .a2ui-slot[data-component-id="title"] { margin-block-end: calc(var(--side-title-gap) - var(--side-section-gap)); }
+.side-packs-box .a2ui-slot[data-component-id$="-title"] { margin-block-end: calc(var(--side-title-gap) - var(--space-2)); }
+.side-packs-box .a2ui-slot:has(> * > .a2ui-card) + .a2ui-slot:has(> * > .a2ui-card) {
+  margin-block-start: calc(var(--side-item-gap) - var(--space-2));
+}
+
+/* Themes: the panel's title above the grid; a label under each thumbnail, so rows stand twice as far apart. */
+.side-themes-box .a2ui-column { gap: var(--side-title-gap); }
+.side-themes-box .a2ui-row:has(> [data-component-id] > * > .theme-choice) {
+  gap: calc(2 * var(--side-item-gap)) var(--side-item-gap);
+}
+/* Flat thumbnails, like the cards: an outline on hover instead of a lifted shadow. */
+.side-themes-box .theme-choice :is(img, .theme-choice-blank) { box-shadow: none; }
+.side-themes-box .theme-choice:is(:hover, :focus-visible):not([aria-pressed="true"]) :is(img, .theme-choice-blank) {
+  box-shadow: none; outline: 2px solid color-mix(in oklab, var(--ink) 22%, transparent); outline-offset: 1px;
+}
+
+/* Inspector: unframed, its title set like the packs' and themes' own, the same gap below it. */
+.side-body > .inspector { padding: 0; gap: var(--side-title-gap); background: none; border-radius: 0; box-shadow: none; }
+.side-body > .inspector .pane-title { padding-inline-start: 0; font: 600 14px/20px var(--sans); color: var(--ink); }
+.side-body > .inspector .inspector-deck { padding: 0; }
+.side-body > .inspector .inspector-data { margin-inline-start: 0; }
 
 /* The inspector and the data pane: a sheet laid on the table under a header (the pane's with a close button);
    the side panel unframes the inspector. */

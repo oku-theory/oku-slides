@@ -209,12 +209,20 @@ fn deck_packs_panel_theme_section_is_a_title_then_a_card() {
 }
 
 #[test]
-fn theme_row_places_open_after_the_theme_pick() {
+fn theme_card_places_its_actions_row_after_the_theme_pick() {
     let view = session().deck_packs().unwrap();
     let theme = component(&deck_packs_panel(&view, &Localizer::new(Some("en"))), "theme-body");
     let children: Vec<&str> = theme["children"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
     let at = |id: &str| children.iter().position(|c| *c == id);
-    assert_that!(at("theme-open")).is_equal_to(at("theme-pick").map(|i| i + 1));
+    assert_that!(at("theme-actions")).is_equal_to(at("theme-pick").map(|i| i + 1));
+}
+
+#[test]
+fn theme_actions_row_holds_the_open_button_like_a_pack_card() {
+    let view = session().deck_packs().unwrap();
+    let row = component(&deck_packs_panel(&view, &Localizer::new(Some("en"))), "theme-actions");
+    let children: Vec<&str> = row["children"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+    assert_that!((row["component"].as_str(), children)).is_equal_to((Some("Row"), vec!["theme-open"]));
 }
 
 #[test]

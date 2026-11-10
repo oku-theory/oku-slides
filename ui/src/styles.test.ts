@@ -162,26 +162,42 @@ test("side panel body lies unframed on the table", () => {
 });
 
 test("side panel cards are a flat tint, without any shadow", () => {
-  const card = ruleOf(GRID, ".side-packs-box .a2ui-card") ?? "";
+  const card = ruleOf(GRID, ".side-body .a2ui-card") ?? "";
   expect([/background:\s*color-mix/.test(card), /box-shadow:\s*none/.test(card)]).toEqual([true, true]);
 });
 
-test("side panel pack cards are spaced wider than their section's title", () => {
-  const sel = ".side-packs-box .a2ui-slot:has(> * > .a2ui-card) + .a2ui-slot:has(> * > .a2ui-card)";
-  expect(ruleOf(GRID, sel)).toMatch(/margin-block-start:\s*var\(--space-2\)/);
+test("side panel rhythm is set once on its body", () => {
+  const body = ruleOf(GRID, ".side-body") ?? "";
+  const tokens = ["--side-title-gap: var(--space-6)", "--side-section-gap: var(--space-10)", "--side-item-gap: var(--space-4)"];
+  expect(tokens.map((t) => body.includes(t))).toEqual([true, true, true]);
 });
 
-test("side panel section titles stand well clear of their items", () => {
+test("side panel titles head their content with the same gap in every tab", () => {
+  const gaps = [".side-themes-box .a2ui-column", ".side-body > .inspector"].map((sel) => ruleOf(GRID, sel) ?? "");
+  expect(gaps.map((r) => /gap:\s*var\(--side-title-gap\)/.test(r))).toEqual([true, true]);
+});
+
+test("side panel packs sections stand a section gap apart", () => {
+  const rule = ruleOf(GRID, '.side-packs-box .a2ui-column:has(> [data-component-id="layouts"])');
+  expect(rule).toMatch(/gap:\s*var\(--side-section-gap\)/);
+});
+
+test("side panel packs section titles stand a title gap above their cards", () => {
   const rule = ruleOf(GRID, '.side-packs-box .a2ui-slot[data-component-id$="-title"]') ?? "";
-  expect(rule).toMatch(/margin-block-end:\s*var\(--space-4\)/);
+  expect(rule).toMatch(/margin-block-end:\s*calc\(var\(--side-title-gap\) - var\(--space-2\)\)/);
 });
 
-test("side panel packs sections are spaced 40 px apart", () => {
-  expect(ruleOf(GRID, '.side-packs-box .a2ui-column:has(> [data-component-id="layouts"])')).toMatch(/gap:\s*var\(--space-10\)/);
+test("side panel pack cards stand an item gap apart", () => {
+  const sel = ".side-packs-box .a2ui-slot:has(> * > .a2ui-card) + .a2ui-slot:has(> * > .a2ui-card)";
+  expect(ruleOf(GRID, sel)).toMatch(/margin-block-start:\s*calc\(var\(--side-item-gap\) - var\(--space-2\)\)/);
 });
 
-test("side panel themes title stands well clear of the theme grid", () => {
-  expect(ruleOf(GRID, ".side-themes-box .a2ui-column")).toMatch(/gap:\s*var\(--space-6\)/);
+test("side panel inspector title is set like the other tabs' titles", () => {
+  expect(ruleOf(GRID, ".side-body > .inspector .pane-title")).toMatch(/font:\s*600 14px\/20px var\(--sans\)/);
+});
+
+test("side panel theme thumbnails are flat", () => {
+  expect(ruleOf(GRID, ".side-themes-box .theme-choice :is(img, .theme-choice-blank)")).toMatch(/box-shadow:\s*none/);
 });
 
 test("narrow side panel overlay paints its own background", () => {
