@@ -25,7 +25,12 @@
 /* The open tab's body lies on the table itself, unframed; its sections are spaced apart instead. */
 .side-packs-box, .side-themes-box { outline: none; }
 .side-packs-box .a2ui-column { gap: var(--space-2); }
-.side-packs-box .a2ui-column:has(> [data-component-id="layouts"]) { gap: var(--space-6); }
+.side-packs-box .a2ui-column:has(> [data-component-id="layouts"]) { gap: var(--space-10); }
+/* A section's title (layouts, widgets, theme) stands 24 px above its first item. */
+.side-packs-box .a2ui-slot[data-component-id$="-title"] { margin-block-end: var(--space-4); }
+/* The themes tab: its title clear of the grid, the grid's rows further apart. */
+.side-themes-box .a2ui-column { gap: var(--space-6); }
+.side-themes-box .a2ui-row:has(> [data-component-id] > * > .theme-choice) { row-gap: calc(var(--space-6) + var(--space-2)); }
 /* Pack and theme cards are flat areas of colour on the table: a faint ink tint, no shadow, no rule. */
 .side-packs-box .a2ui-card {
   padding: 12px 14px; background: color-mix(in oklab, var(--ink) 6%, transparent);

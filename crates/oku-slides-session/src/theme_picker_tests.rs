@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use oku_slides_a2ui::{Action, ButtonIcon, ComponentKind, ServerBody};
+use oku_slides_a2ui::{Action, ComponentKind, ServerBody};
 use oku_slides_core::Namespace;
 use oku_slides_i18n::Localizer;
 use serde_json::{Value, json};
@@ -130,23 +130,13 @@ fn theme_picker_is_not_a_question() {
 }
 
 #[test]
-fn theme_picker_has_a_dismiss_button() {
+fn theme_picker_has_no_dismiss_button() {
     let s = theme_picker(&[card("papier", "Papier")], &ns("papier"), &fr());
     let dismiss = components(&s).into_iter().any(|k| match k {
         ComponentKind::Button { action, .. } => action == Action::named("dismiss"),
         _ => false,
     });
-    assert_that!(dismiss).is_true();
-}
-
-#[test]
-fn theme_picker_dismiss_button_shows_a_close_icon() {
-    let s = theme_picker(&[card("papier", "Papier")], &ns("papier"), &fr());
-    let icon = components(&s).into_iter().find_map(|k| match k {
-        ComponentKind::Button { action, icon, .. } if action == Action::named("dismiss") => icon,
-        _ => None,
-    });
-    assert_that!(icon).is_equal_to(Some(ButtonIcon::Close));
+    assert_that!(dismiss).is_false();
 }
 
 #[test]

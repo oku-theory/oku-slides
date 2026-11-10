@@ -1636,8 +1636,7 @@
               "component": "Column",
               "children": [
                 "title",
-                "row",
-                "close"
+                "row"
               ]
             },
             {
@@ -1653,17 +1652,6 @@
                 "c0",
                 "c1"
               ]
-            },
-            {
-              "id": "close",
-              "component": "Button",
-              "label": "Fermer",
-              "icon": "close",
-              "action": {
-                "event": {
-                  "name": "dismiss"
-                }
-              }
             },
             {
               "id": "c0",
@@ -1740,8 +1728,7 @@
                 "title",
                 "layouts",
                 "widgets",
-                "theme",
-                "close"
+                "theme"
               ]
             },
             {
@@ -2163,10 +2150,9 @@
               "child": "theme-guide-text"
             },
             {
-              "id": "theme",
+              "id": "theme-body",
               "component": "Column",
               "children": [
-                "theme-title",
                 "theme-name",
                 "theme-overrides",
                 "theme-pick",
@@ -2176,15 +2162,17 @@
               ]
             },
             {
-              "id": "close",
-              "component": "Button",
-              "label": "Fermer",
-              "icon": "close",
-              "action": {
-                "event": {
-                  "name": "dismiss"
-                }
-              }
+              "id": "theme-card",
+              "component": "Card",
+              "child": "theme-body"
+            },
+            {
+              "id": "theme",
+              "component": "Column",
+              "children": [
+                "theme-title",
+                "theme-card"
+              ]
             }
           ]
         }

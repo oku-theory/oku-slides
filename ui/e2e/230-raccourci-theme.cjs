@@ -86,10 +86,10 @@ const blur = (p) => p.evaluate(() => (document.activeElement instanceof HTMLElem
   await p.keyboard.press('ControlOrMeta+z');
   await until(p, async () => (await themeNs(p)) === before, "l'annulation doit rendre le thème précédent");
 
-  // 6. Reopened from the rail's Themes tab, its close button closes it without picking.
+  // 6. Reopened from the rail's Themes tab, the pressed tab closes it without picking.
   await p.click('.side-rail .themes-toggle');
   await cards(p).first().waitFor();
-  await picker(p).getByRole('button', { name: 'Fermer', exact: true }).click();
+  await p.click('.side-rail .themes-toggle');
   await picker(p).waitFor({ state: 'detached' });
   assert.equal(await themeNs(p), before);
 

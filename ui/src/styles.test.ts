@@ -171,6 +171,19 @@ test("side panel pack cards are spaced wider than their section's title", () => 
   expect(ruleOf(GRID, sel)).toMatch(/margin-block-start:\s*var\(--space-2\)/);
 });
 
+test("side panel section titles stand well clear of their items", () => {
+  const rule = ruleOf(GRID, '.side-packs-box .a2ui-slot[data-component-id$="-title"]') ?? "";
+  expect(rule).toMatch(/margin-block-end:\s*var\(--space-4\)/);
+});
+
+test("side panel packs sections are spaced 40 px apart", () => {
+  expect(ruleOf(GRID, '.side-packs-box .a2ui-column:has(> [data-component-id="layouts"])')).toMatch(/gap:\s*var\(--space-10\)/);
+});
+
+test("side panel themes title stands well clear of the theme grid", () => {
+  expect(ruleOf(GRID, ".side-themes-box .a2ui-column")).toMatch(/gap:\s*var\(--space-6\)/);
+});
+
 test("narrow side panel overlay paints its own background", () => {
   const narrow = GRID.match(/@media \(max-width: 1100px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   expect(ruleOf(narrow, ".side-panel.open > .side-body")).toMatch(/background:\s*var\(--paper-000\)/);
