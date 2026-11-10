@@ -165,7 +165,7 @@ export function AgentWindowFor({
   // Never shown: sheets, drawer and modal stay in the main window. The popover slot holds the
   // dictation gear's box, which opens in the window showing the gear.
   // The inspector slot stays empty: chip-opened offers render under their chip here (`offersInline`);
-  // the side slot too: the packs box shows in the main window's side panel.
+  // the side slots too: the packs box and the theme picker show in the main window's side panel.
   const [slots] = useState(createAgentSlots);
   const { say, node: toastNode } = useToast();
 

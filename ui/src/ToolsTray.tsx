@@ -1,5 +1,5 @@
-// The toolbar under the sheet. It opens the add grid and the theme picker, shows or hides
-// the thumbnails, opens the menu, undoes and redoes; in a pack tab, it carries the selected
+// The toolbar under the sheet. It opens the add grid, shows or hides the thumbnails,
+// opens the menu, undoes and redoes; in a pack tab, it carries the selected
 // item's tools instead, the session's undo among them while no code editor shows.
 
 import type { ReactNode } from "react";
@@ -29,8 +29,6 @@ interface Props {
   run: (p: Promise<Snapshot | null>) => Promise<Snapshot | null>;
   /** Opens the add grid; `null` when the slide takes no element: the button is then disabled. */
   onAdd: (() => void) | null;
-  /** Opens the theme picker on the slide shown (surface `host-theme-picker`). */
-  onThemes: () => void;
   /** Opens the deck's history, as the agent's `history` tool does. */
   onHistory: () => void;
   /** La bande des miniatures sous la scène (montrée, et sa bascule) ; `null` : pas de bande (mode pack). */
@@ -48,7 +46,6 @@ export function ToolsTray({
   mainMenu,
   run,
   onAdd,
-  onThemes,
   onHistory,
   thumbs,
   themeTab,
@@ -59,8 +56,8 @@ export function ToolsTray({
   const redoLabel = snap.redo_label
     ? t("ui-toolbar-redo-label", { label: snap.redo_label })
     : t("ui-toolbar-redo");
-  // The themes and history buttons: in deck mode only, not in pack mode, help, history or a
-  // theme tab. The deck's packs and the inspector are in the side panel (`SidePanel`).
+  // The history button: in deck mode only, not in pack mode, help, history or a theme tab. The
+  // deck's packs, its themes and the inspector are in the side panel (`SidePanel`).
   const deckMode = isDeckTab(snap);
   const sessionHistory = (
     <>
@@ -101,16 +98,6 @@ export function ToolsTray({
       >
         {Icon.widget}
       </button>
-      {deckMode && (
-        <IconButton
-          className="token ghost themes-button"
-          label={t("ui-themes")}
-          icon={Icon.palette}
-          aria-haspopup="dialog"
-          data-popover-anchor="host-theme-picker"
-          onClick={onThemes}
-        />
-      )}
       <span className="tools-sep" aria-hidden hidden={item !== null} />
       {item ? (
         <>

@@ -37,12 +37,12 @@ export const byPlace = (list: Surface[], place: Place) => list.filter((s) => s.p
 
 /** An agent question: the only live surfaces of the dock. */
 export const isQuestion = (s: Surface) => s.question;
-/** The host's theme picker, a popover next to the tools tray's Themes button. */
+/** The host's theme picker, in the deck side panel's Themes tab. */
 export const HOST_THEME_PICKER = "host-theme-picker";
 
 /** The `data-popover-anchor` of a turn chip: its offer opens next to it. */
 export const chipAnchor = (id: string) => `${id}@chip`;
-/** The deck's packs panel, a popover next to the Packs button. */
+/** The deck's packs panel, in the deck side panel's Packs tab. */
 export const HOST_PACKS = "host-packs";
 /** The dictation and agent settings box, a popover next to the dictation gear. */
 export const HOST_VOICE = "host-voice";

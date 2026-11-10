@@ -29,8 +29,8 @@ export const AGENT_WINDOW_PLACES: QuickTarget["kind"][] = ["dock", "popover"];
 
 /**
  * The surface that gets the quick keys: the modal, else the sheet, else a dock question
- * (it blocks the agent, the drawer does not), else the host's theme picker when it is the open
- * popover shown in this window (1–4; the caller passes it only once placed at its anchor), else the drawer. Several dock questions: the last, nearest the mic.
+ * (it blocks the agent, the drawer does not), else the host's theme picker when this window shows it
+ * (1–4; the caller passes it only from the main window's side panel or once placed at its chip), else the drawer. Several dock questions: the last, nearest the mic.
  * A prompt answers a question (`answerTarget`), never the picker.
  * Other settings get none: their fields have their own keys.
  */
