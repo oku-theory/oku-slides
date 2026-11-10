@@ -64,7 +64,7 @@ fn deck_packs_panel_sections_come_in_order() {
     let view = session().deck_packs().unwrap();
     let root = component(&deck_packs_panel(&view, &Localizer::new(Some("en"))), "root");
     let children: Vec<&str> = root["children"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
-    assert_that!(children).is_equal_to(vec!["title", "layouts", "widgets", "theme", "close"]);
+    assert_that!(children).is_equal_to(vec!["title", "layouts", "widgets", "theme"]);
 }
 
 #[test]

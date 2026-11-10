@@ -156,6 +156,16 @@ test("below 1100 px the open side panel overlays the stage instead of taking a c
   expect([/position:\s*absolute/.test(overlay), /inset-inline-start:\s*48px/.test(overlay)]).toEqual([true, true]);
 });
 
+test("side panel body lies unframed on the table", () => {
+  const rules = [".side-packs-box, .side-themes-box", ".side-body > .inspector"].map((sel) => ruleOf(GRID, sel) ?? "");
+  expect(rules.map((r) => r !== "" && !/box-shadow:\s*var/.test(r))).toEqual([true, true]);
+});
+
+test("narrow side panel overlay paints its own background", () => {
+  const narrow = GRID.match(/@media \(max-width: 1100px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  expect(ruleOf(narrow, ".side-panel.open > .side-body")).toMatch(/background:\s*var\(--paper-000\)/);
+});
+
 /** The `color.bg`-style token values of the built-in default theme (Papier), the source of the app's defaults. */
 const papier = JSON.parse(readFileSync(join(import.meta.dir, "../../typst/oku-slides/themes/papier.json"), "utf8")).tokens as {
   app: { desk: string; piece: string };

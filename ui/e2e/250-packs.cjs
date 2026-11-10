@@ -208,7 +208,7 @@ async function openGrid(p) {
   await untilValue(p, () => addable(p), (l) => !l.includes(made.name), `« ${made.name} » reste dans « Ajouter un pack »`);
   assert.equal((await api(p, { cmd: 'packs', kind: 'widgets' })).some((pack) => pack.id === made.pack), false, 'le pack neuf fermé intact reste dans la bibliothèque');
 
-  await part(p, 'close').getByRole('button').click();
+  await p.click('.side-rail .packs-toggle');
   await p.locator(PANEL).waitFor({ state: 'detached' });
   assert.deepEqual(errors, []);
   console.log('packs du deck ok');

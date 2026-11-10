@@ -18,13 +18,20 @@
 .side-rail .packs-toggle.has-update::after {
   content: ""; position: absolute; top: 7px; inset-inline-end: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
 }
-.side-body { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding-block: var(--space-4); }
-.side-packs-box, .side-themes-box {
-  padding: var(--space-2); background: var(--paper-100); border-radius: var(--radius-md); outline: none;
-  box-shadow: var(--edge-light), var(--shadow-object);
+.side-body {
+  flex: 1; min-width: 0; min-height: 0; overflow-y: auto; box-sizing: border-box;
+  padding: var(--space-4) var(--space-4) var(--space-6) var(--space-2);
 }
+/* The open tab's body lies on the table itself, unframed; its sections are spaced apart instead. */
+.side-packs-box, .side-themes-box { outline: none; }
+.side-packs-box .a2ui-column { gap: var(--space-2); }
+.side-packs-box .a2ui-column:has(> [data-component-id="layouts"]) { gap: var(--space-6); }
+.side-packs-box .a2ui-card { padding: 12px 14px; }
+.side-body > .inspector { padding: 0; gap: var(--space-4); background: none; border-radius: 0; box-shadow: none; }
+.side-body > .inspector .pane-title { padding-inline-start: 0; }
 
-/* The inspector and the data pane: a sheet laid on the table under a header (the pane's with a close button). */
+/* The inspector and the data pane: a sheet laid on the table under a header (the pane's with a close button);
+   the side panel unframes the inspector. */
 .inspector, .data-pane {
   display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 0; box-sizing: border-box;
   padding: var(--space-2); background: var(--paper-100); border-radius: var(--radius-md);
@@ -48,6 +55,6 @@
   .side-panel { position: relative; }
   .side-panel.open > .side-body {
     position: absolute; inset-block: 0; inset-inline-start: 48px; width: 300px; z-index: 5; box-sizing: border-box;
-    padding-inline-end: var(--space-2);
+    background: var(--paper-000); box-shadow: var(--shadow-object);
   }
 }

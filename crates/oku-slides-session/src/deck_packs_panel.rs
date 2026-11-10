@@ -16,7 +16,7 @@
 //! know yet shows that action in place of `open_pack`, whose tab would be refused; a blocked
 //! one shows neither, nor does a received theme the library lacks show `open_theme`.
 
-use oku_slides_a2ui::{Action, ButtonIcon, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
+use oku_slides_a2ui::{Action, ChoiceOption, Component, ComponentKind, Dynamic, TextVariant, Tone};
 use oku_slides_core::{GuideKind, Namespace, PackKind, PackVersion};
 use oku_slides_i18n::{Localize, Localizer};
 use serde_json::{Map, Value, json};
@@ -388,9 +388,7 @@ pub fn deck_packs_panel(view: &DeckPacksView, l: &Localizer) -> Surface {
     b.section(PackKind::Layouts, view, l);
     b.section(PackKind::Widgets, view, l);
     b.theme(&view.theme, l);
-    let close = Component::button_builder("close", l.tr("agent-surface-close"), Action::named("dismiss"));
-    b.push(close.icon(ButtonIcon::Close).build());
-    let root = Component::column("root", &["title", "layouts", "widgets", "theme", "close"]);
+    let root = Component::column("root", &["title", "layouts", "widgets", "theme"]);
     let components = std::iter::once(root).chain(b.components).collect();
     surface(HOST_PACKS, Place::Popover, None, components, json!({ "theme": view.theme.active.as_str() }))
 }
