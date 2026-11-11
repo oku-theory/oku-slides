@@ -26,7 +26,7 @@ type Item = Pick<UiState, "widget">;
 
 // Slide gardée ≠ slide courante : la sauvegarde doit prendre la courante.
 const kept: UiState = { slide: "s0", ghosts: true, pile: 200, notes: null, widget: null, code: true,
-  folded: ["layouts"], preview_span: "third", inspector: true, data_pane: false };
+  folded: ["layouts"], preview_span: "third", inspector: true, data_pane: false, data_height: null };
 
 /** Monte le hook ; `render` le relance (état gardé, slide courante) ; `saved` reçoit chaque sauvegarde.
  *  `answer` : la réponse de l'hôte à une sauvegarde (immédiate par défaut). */
@@ -116,7 +116,7 @@ test("useKeptUi setColumns saves the new widths with the rest of the state", asy
   const { out } = await mount();
   await act(async () => { out.hook!.setColumns({ pile: null, notes: 540 }); });
   expect(out.kept.at(-1)).toEqual({ slide: "s1", ghosts: true, pile: null, notes: 540, widget: null, code: true,
-    folded: ["layouts"], preview_span: "third", inspector: true, data_pane: false });
+    folded: ["layouts"], preview_span: "third", inspector: true, data_pane: false, data_height: null });
 });
 
 test("useKeptUi premier snapshot reprend le code source déplié gardé par l'hôte", async () => {
@@ -348,4 +348,15 @@ test("useKeptUi setPreviewSpan saves the slot with the rest", async () => {
   const { out } = await mount();
   await act(async () => { out.hook!.setPreviewSpan("half"); });
   expect(out.kept.at(-1)).toMatchObject({ slide: "s1", preview_span: "half" });
+});
+
+test("useKeptUi first snapshot restores the data pane height kept by the host", async () => {
+  const { out } = await mount({ ...kept, data_height: 280 });
+  expect(out.hook!.dataHeight).toBe(280);
+});
+
+test("useKeptUi setDataHeight saves the new height with the rest", async () => {
+  const { out } = await mount();
+  await act(async () => { out.hook!.setDataHeight(320); });
+  expect(out.kept.at(-1)).toMatchObject({ slide: "s1", data_height: 320 });
 });

@@ -180,6 +180,8 @@ export interface UiState {
   inspector: boolean;
   /** A deck tab's data pane under the stage is open; closed by default. */
   data_pane: boolean;
+  /** The data pane's height in px, set at its divider; `null`: the default height. */
+  data_height: number | null;
 }
 
 /** The share of the grid an element widget's preview spans. */

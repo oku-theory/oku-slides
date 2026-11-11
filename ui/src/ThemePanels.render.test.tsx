@@ -30,7 +30,7 @@ const SNAP = {
     theme: { base: { id: "t", version: "v1" }, namespace: "papier", name: "Papier", child: true, extends: [], dirty: false, revision: "r1" },
     session_version: null, read_only: false, leased: true, display_name: "Papier",
   },
-  ui: { slide: null, ghosts: false, pile: null, notes: null, widget: null, code: false, folded: [], preview_span: "full", inspector: false, data_pane: false },
+  ui: { slide: null, ghosts: false, pile: null, notes: null, widget: null, code: false, folded: [], preview_span: "full", inspector: false, data_pane: false, data_height: null },
 } as unknown as Snapshot;
 
 /** Any request answers nothing. */

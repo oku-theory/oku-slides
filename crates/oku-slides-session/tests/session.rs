@@ -305,7 +305,7 @@ fn ui_request_is_kept_in_snapshot() {
     let mut s = session();
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true}))).unwrap();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": "s-1", "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "preview_span": "full", "folded": [], "inspector": false, "data_pane": false}));
+        .is_equal_to(json!({"slide": "s-1", "ghosts": true, "pile": null, "notes": null, "widget": null, "code": false, "preview_span": "full", "folded": [], "inspector": false, "data_pane": false, "data_height": null}));
 }
 
 #[test]
@@ -314,6 +314,14 @@ fn ui_request_with_column_widths_keeps_them_in_snapshot() {
     s.handle(req(json!({"cmd": "ui", "slide": null, "ghosts": false, "pile": 200, "notes": 520}))).unwrap();
     let ui = snapshot_json(&mut s)["ui"].clone();
     assert_that!((ui["pile"].clone(), ui["notes"].clone())).is_equal_to((json!(200), json!(520)));
+}
+
+/// The data pane's height, set at its divider, is kept.
+#[test]
+fn ui_request_with_data_height_keeps_it_in_snapshot() {
+    let mut s = session();
+    s.handle(req(json!({"cmd": "ui", "slide": null, "data_pane": true, "data_height": 280}))).unwrap();
+    assert_that!(snapshot_json(&mut s)["ui"]["data_height"]).is_equal_to(json!(280));
 }
 
 /// Le code source des widgets, déplié, est gardé.
@@ -351,7 +359,7 @@ fn ui_request_without_ghosts_keeps_them_hidden() {
 fn snapshot_ui_defaults_to_ghosts_hidden_and_no_slide() {
     let mut s = session();
     assert_that!(snapshot_json(&mut s)["ui"])
-        .is_equal_to(json!({"slide": null, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "preview_span": "full", "folded": [], "inspector": false, "data_pane": false}));
+        .is_equal_to(json!({"slide": null, "ghosts": false, "pile": null, "notes": null, "widget": null, "code": false, "preview_span": "full", "folded": [], "inspector": false, "data_pane": false, "data_height": null}));
 }
 
 #[test]
@@ -360,7 +368,7 @@ fn new_deck_forgets_the_remembered_slide_but_keeps_ghosts_and_columns() {
     s.handle(req(json!({"cmd": "ui", "slide": "s-1", "ghosts": true, "pile": 200, "notes": 520}))).unwrap();
     s.new_deck().unwrap();
     assert_that!(snapshot_json(&mut s)["ui"]).is_equal_to(
-        json!({"slide": null, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "preview_span": "full", "folded": [], "inspector": false, "data_pane": false}),
+        json!({"slide": null, "ghosts": true, "pile": 200, "notes": 520, "widget": null, "code": false, "preview_span": "full", "folded": [], "inspector": false, "data_pane": false, "data_height": null}),
     );
 }
 

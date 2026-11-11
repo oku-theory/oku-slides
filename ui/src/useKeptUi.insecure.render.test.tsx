@@ -30,7 +30,7 @@ try {
 test("useKeptUi sans randomUUID envoie la sauvegarde avec un ordre", async () => {
   expect(fresh).toBe(true);
   const kept: UiState = { slide: "s0", ghosts: true, pile: 200, notes: null, widget: null, code: true,
-    folded: [], preview_span: "full", inspector: false, data_pane: false };
+    folded: [], preview_span: "full", inspector: false, data_pane: false, data_height: null };
   const orders: UiOrder[] = [];
   let hook: ReturnType<typeof useKeptUi> | null = null;
   function Probe() {

@@ -49,6 +49,9 @@ export const Icon = {
   /** The side panel's foot: fold it to its rail, or unfold it, its column on the left. */
   panelFold: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /><path d="M16 9.5L13.5 12l2.5 2.5" /></>),
   panelUnfold: stroke(<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15" /><path d="M13.5 9.5L16 12l-2.5 2.5" /></>),
+  /** The data pane under the stage: grow it up over the stage's room, or give the room back. */
+  paneMaximize: stroke(<path d="M7 12l5-5 5 5M7 18l5-5 5 5" />),
+  paneRestore: stroke(<path d="M7 6l5 5 5-5M7 12l5 5 5-5" />),
   detach: stroke(<><path d="M14 4h6v6" /><path d="M20 4l-8 8" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>),
   attach: stroke(<><path d="M10 20H4v-6" /><path d="M4 20l8-8" /><path d="M6 10V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5" /></>),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),

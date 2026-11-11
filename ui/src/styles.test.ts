@@ -124,8 +124,13 @@ test("le tiroir des variantes a sa place sous la scène, qui rétrécit, au lieu
 test("the data pane sits under the stage in the sheet's grid, never over it", () => {
   const pane = ruleOf(GRID, ".sheet-area > .data-pane");
   expect(pane).toMatch(/grid-row:\s*3/);
-  expect(pane).toMatch(/max-height:\s*40vh/);
+  expect(ruleOf(GRID, ".sheet-area > .data-pane:not(.sized, .max)")).toMatch(/max-height:\s*40vh/);
   expect(APP).not.toMatch(/\.data-pane\s*\{[^}]*position:\s*absolute/);
+});
+
+test("the sized or maximized data pane takes the stage's room down to the stage's minimum", () => {
+  const rows = [".sheet-area:has(> .data-pane.sized)", ".sheet-area:has(> .data-pane.max)"].map((sel) => ruleOf(GRID, sel) ?? "");
+  expect(rows.map((r) => /grid-template-rows:\s*minmax\(var\(--stage-min\),\s*1fr\)\s+auto\s+minmax\(0,/.test(r))).toEqual([true, true]);
 });
 
 /** A declaration that draws a frame: a shadow, or a background other than none or transparent. */

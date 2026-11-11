@@ -120,3 +120,10 @@ fn ui_state_without_inspector_reads_false() {
     let ui: UiState = serde_json::from_str(r#"{"slide":null,"ghosts":true}"#).unwrap();
     assert_that!((ui.inspector, ui.data_pane)).is_equal_to((false, false));
 }
+
+/// A `state.json` written before the data pane's height reads the default height.
+#[test]
+fn ui_state_without_data_height_reads_none() {
+    let ui: UiState = serde_json::from_str(r#"{"slide":null,"data_pane":true}"#).unwrap();
+    assert_that!(ui.data_height).is_none();
+}

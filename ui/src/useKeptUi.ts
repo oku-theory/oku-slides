@@ -1,6 +1,6 @@
 // The interface state the host keeps for the resume: current slide, the stage's ghosts,
 // column widths, widget code (shown, width), folded sections, a pack tab's selected item and preview slot,
-// and whether a deck tab's inspector and data pane are open.
+// whether a deck tab's inspector and data pane are open, and the data pane's height.
 
 import { useEffect, useState } from "react";
 import type { PileSectionName, PreviewSpan, UiOrder, UiState } from "./api";
@@ -82,6 +82,10 @@ export interface KeptUi {
   dataPane: boolean;
   /** Opens or closes the data pane (and has the host keep it). */
   setDataPane: (open: boolean) => void;
+  /** The data pane's height in px, set at its divider; `null`: the default height. */
+  dataHeight: number | null;
+  /** Keeps a new data pane height (and has the host keep it). */
+  setDataHeight: (height: number | null) => void;
   /**
    * Takes ⌘⇧G, and ⌘⇧E in a deck tab (`deck`), preventing the default; says whether it took the key.
    */
@@ -110,6 +114,7 @@ export function useKeptUi(
   const [previewSpan, setPreviewSpan] = useState<PreviewSpan>("full");
   const [inspector, setInspector] = useState(false);
   const [dataPane, setDataPane] = useState(false);
+  const [dataHeight, setDataHeight] = useState<number | null>(null);
   // Reprise unique ; un état, pas une référence : la sauvegarde attend le rendu
   // où les choix repris sont en place, sans écraser d'abord l'état gardé par les défauts.
   const [restored, setRestored] = useState(false);
@@ -122,15 +127,16 @@ export function useKeptUi(
     setPreviewSpan(kept.preview_span);
     setInspector(kept.inspector);
     setDataPane(kept.data_pane);
+    setDataHeight(kept.data_height);
     setRestored(true);
   }, [kept, restored]);
 
   useEffect(() => {
     if (!restored) return;
-    const ui = { slide: current, ghosts, ...columns, widget: item.widget, code, folded, preview_span: previewSpan, inspector, data_pane: dataPane };
+    const ui = { slide: current, ghosts, ...columns, widget: item.widget, code, folded, preview_span: previewSpan, inspector, data_pane: dataPane, data_height: dataHeight };
     send(save, ui, timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `save` et `timers` sont stables (voir plus haut)
-  }, [restored, current, ghosts, columns, item.widget, code, folded, previewSpan, inspector, dataPane]);
+  }, [restored, current, ghosts, columns, item.widget, code, folded, previewSpan, inspector, dataPane, dataHeight]);
 
   // Même état : même tableau, pas de nouvelle sauvegarde.
   const setFolded = (section: PileSectionName, fold: boolean) =>
@@ -144,6 +150,6 @@ export function useKeptUi(
   };
   return {
     ghosts, columns, setColumns, code, setCode, folded, setFolded, previewSpan, setPreviewSpan, setGhosts,
-    inspector, setInspector, dataPane, setDataPane, handleKey,
+    inspector, setInspector, dataPane, setDataPane, dataHeight, setDataHeight, handleKey,
   };
 }

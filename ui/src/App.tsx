@@ -439,7 +439,8 @@ export default function App({
         </div>
         <SlotView slot={agentSlots.drawer} />
         {inspector.pane && (
-          <DataPane data={data} onAction={paneAction} onError={(e) => say(errorText(e), true)} onClose={inspector.closePane} />
+          <DataPane data={data} onAction={paneAction} onError={(e) => say(errorText(e), true)} onClose={inspector.closePane}
+            height={keptUi.dataHeight} onHeight={keptUi.setDataHeight} />
         )}
       </main>
       )}

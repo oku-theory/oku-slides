@@ -261,6 +261,7 @@ fn write_state_then_read_state_round_trips_mode_and_ui() {
         folded: vec![PileSection::Layouts],
         inspector: true,
         data_pane: true,
+        data_height: Some(280),
     };
     r.write_state(&State {
         version: VERSION,
@@ -297,6 +298,7 @@ fn read_state_without_ghosts_columns_or_tabs_returns_defaults() {
         folded: Vec::new(),
         inspector: false,
         data_pane: false,
+        data_height: None,
     });
     std::fs::remove_dir_all(&r.dir).ok();
 }

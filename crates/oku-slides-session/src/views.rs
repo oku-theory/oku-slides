@@ -219,6 +219,9 @@ pub struct UiState {
     /// A deck tab's data pane under the stage is open; closed by default and in an older `state.json`.
     #[serde(default)]
     pub data_pane: bool,
+    /// The data pane's height in px, set at its divider; `None`: the default height.
+    #[serde(default)]
+    pub data_height: Option<u32>,
 }
 
 /// A foldable section of the interface: the slide or layout thumbnails.
