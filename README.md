@@ -29,6 +29,9 @@ fonts, images, layouts, theme and full history), so Oku Slides reopens it as an 
 deck. No account, no cloud, no proprietary format: your decks live in your folders.
 Two copies edited separately merge without conflicts.
 
+For an example, open [the Oku Slides presentation](docs/oku-slides-presentation.oku-slides.pdf):
+it reads as a regular PDF, and Oku Slides opens it as an editable deck.
+
 ### Software as a harness
 
 Oku Slides does not ship its own AI. It is a **harness for agents**: it gives an agent the
@@ -94,6 +97,7 @@ Press **⌘?** in the app for the built-in help.
 | [Using Oku Slides](docs/usage.md) | Workspace, shortcuts, charts, packs and themes, dictation, the agent |
 | [Configuration](docs/configuration.md) | `config.toml`, every setting, environment variables |
 | [Development](docs/development.md) | Repository layout, command-line tool, building and testing |
+| [Presentation deck](docs/oku-slides-presentation.oku-slides.pdf) | Oku Slides in 12 slides, made with Oku Slides |
 | [Architecture decisions](docs/adr/README.md) | Why things are built the way they are |
 | [Security](SECURITY.md) | Reporting a vulnerability |
 
