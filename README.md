@@ -36,7 +36,7 @@ tools to read and edit a deck, and the guardrails that keep you in control.
 
 - **Bring your own agent.** Claude, Codex and Gemini come preconfigured; any agent speaking
   the [Agent Client Protocol](https://agentclientprotocol.com) works. A built-in local
-  agent runs on your Mac with no account or network.
+  agent runs on your computer with no account or network.
 - **Narrow, safe tools.** The agent gets no file system or terminal access from Oku Slides:
   it works only through the app's own tools, served locally with a token per tab.
 - **Everything undoes.** A whole agent turn is a single ⌘Z.
