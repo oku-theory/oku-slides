@@ -9,7 +9,7 @@ keep editing.
 > of decks that matter. Feedback and bug reports are welcome in
 > [Issues](https://github.com/oku-theory/oku-slides/issues).
 
-<!-- TODO: screenshot or short GIF of the workspace (pile, sheet, agent thread) -->
+![The Oku Slides workspace: the slide in the middle, its thumbnails below, and the agent thread on the right after an edit it just applied](docs/images/workspace.png)
 
 ## Why Oku Slides
 

@@ -13,3 +13,5 @@ Claude outputs/
 
 .superpowers/
 crates/oku-slides-stt/swift/.build/
+# README and docs images are committed.
+!docs/images/*.png
