@@ -1,7 +1,7 @@
 # Oku Slides
 
 Voice-driven slide editor: Rust workspace (`crates/oku-slides-*`), Tauri 2 app (`src-tauri`),
-React/TS UI (`ui`, Bun), Typst library (`typst/oku-slides`). Crate map: README.md.
+React/TS UI (`ui`, Bun), Typst library (`typst/oku-slides`). Crate map: docs/development.md.
 Before touching a directory, read its `ARCHITECTURE.md` (what the code is, keep it
 current) and its `AGENTS.md` (how to work on it) when they exist.
 
