@@ -5,6 +5,36 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [10.3.0] - 2026-11-12
+
+### Added
+
+- *(session,ui)* inset pack cards, theme section in a card (t-1537)
+- *(ui)* flat pack cards, wider gap between them (t-1537)
+- *(session,ui)* airier side panel, no theme picker close button (t-1537)
+- *(ui)* side panel fold button at the rail's foot, sliders inspector icon (t-1541)
+- *(session,ui)* one rhythm for the side panel's packs, themes and inspector (t-1537)
+- *(ui)* inspector Data button styled like the packs' Open pill (t-1537)
+- *(ui)* flat agent conversation cards, like the side panel (t-1542)
+- *(ui)* data pane without outer frame or shadow (t-1543)
+- *(ui)* magnifying glass inspector tab icon (t-1541)
+- *(session,ui)* resizable, maximizable data pane under the stage (t-1553)
+
+### Fixed
+
+- *(ui)* no side panel fold when switching to packs or themes (t-1537)
+
+### Documentation
+
+- present Oku Slides on GitHub, dual MIT/Apache license (t-1563)
+- local agent wording not tied to the Mac (t-1563)
+- workspace screenshot in the README (t-1563)
+- Oku Slides presentation deck (t-1563)
+
+### Other
+
+- bump the actions group with 2 updates (#19)
+
 ## [10.2.0] - 2026-11-10
 
 ### Added
