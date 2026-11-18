@@ -1,5 +1,5 @@
-//! La dictée de bout en bout, sans micro ni vrai modèle : un serveur local
-//! sert les fichiers du modèle, un WAV remplace le micro.
+//! Dictation end to end, with no microphone and no real model: a local server
+//! serves the model files (wrong bytes: Parakeet's are pinned), a WAV stands in for the microphone.
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
 use std::path::{Path, PathBuf};
@@ -16,12 +16,17 @@ use speculoos::prelude::*;
 mod common;
 use common::workdir;
 
-/// Un serveur de modèles : chaque fichier vaut `body` ; les `fail_first`
-/// premières requêtes répondent `status`.
+/// A model hub: every file is `body`; the first `fail_first` requests answer `status`.
 fn hub(status: u16, fail_first: usize, body: &'static [u8]) -> String {
-    let server = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("serveur : {e}"));
+    counting_hub(status, fail_first, body).0
+}
+
+/// [`hub`], with the number of requests it received.
+fn counting_hub(status: u16, fail_first: usize, body: &'static [u8]) -> (String, Arc<AtomicUsize>) {
+    let server = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("server: {e}"));
     let url = format!("http://{}", server.server_addr());
     let seen = Arc::new(AtomicUsize::new(0));
+    let counted = seen.clone();
     std::thread::spawn(move || {
         for req in server.incoming_requests() {
             let n = seen.fetch_add(1, Ordering::Relaxed);
@@ -33,7 +38,7 @@ fn hub(status: u16, fail_first: usize, body: &'static [u8]) -> String {
             let _ = req.respond(response);
         }
     });
-    url
+    (url, counted)
 }
 
 fn platform(dir: &Path, hub_url: &str, fake_mic: Option<PathBuf>) -> Platform {
@@ -83,54 +88,59 @@ fn wav_bytes() -> Vec<u8> {
     cursor.into_inner()
 }
 
-/// Un modèle « installé » mais illisible, et un WAV en guise de micro.
+/// A model marked installed but unreadable, and a WAV as the microphone.
 fn broken_model_and_fake_mic(dir: &Path) -> PathBuf {
     let storage = Storage::local().unwrap_or_else(|e| panic!("stockage : {e}"));
     let models = dir.join("models");
-    storage.write(&Model::Turbo.path(&models).join(".complete"), Vec::new()).unwrap_or_else(|e| panic!("{e}"));
+    storage.write(&Model::Parakeet.path(&models).join(".complete"), Vec::new()).unwrap_or_else(|e| panic!("{e}"));
     let wav = dir.join("voix.wav");
     storage.write(&wav, wav_bytes()).unwrap_or_else(|e| panic!("{e}"));
     wav
 }
 
 #[test]
-fn download_serves_every_file_and_marks_the_model_installed() {
+fn download_wrong_bytes_return_download_error_and_leave_model_missing() {
     let dir = workdir("download");
     let p = platform(&dir, &hub(200, 0, b"poids"), None);
-    let mut last = (0, 0);
-    let dest = oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |got, total| {
-        last = (got, total);
+    let mut calls = 0;
+    let err = oku_slides_stt::download(Model::Parakeet, &dir, &p.settings.models, &p.storage, |_, _| {
+        calls += 1;
         true
     })
-    .unwrap();
-    assert_that!(Model::Base.is_installed(&p.storage, &dir)).is_true();
-    assert_that!(p.storage.read(&dest.join("model.bin")).unwrap()).is_equal_to(b"poids".to_vec());
-    assert_that!(last.0).is_equal_to(last.1);
+    .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SttErrorKind::Download);
+    assert_that!(calls).is_greater_than(0);
+    assert_that!(Model::Parakeet.is_installed(&p.storage, &dir)).is_false();
 }
 
 #[test]
 fn download_busy_hub_is_retried_until_it_answers() {
     let dir = workdir("retry");
-    let p = platform(&dir, &hub(503, 2, b"x"), None);
-    assert_that!(oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |_, _| true)).is_ok();
+    let (url, seen) = counting_hub(503, 2, b"x");
+    let p = platform(&dir, &url, None);
+    let err = oku_slides_stt::download(Model::Parakeet, &dir, &p.settings.models, &p.storage, |_, _| true).unwrap_err();
+    // Past the two busy answers the hub serves bytes, which the pinned hash refuses.
+    assert_that!(err.kind()).is_equal_to(SttErrorKind::Download);
+    assert_that!(seen.load(Ordering::Relaxed)).is_greater_than(2);
 }
 
 #[test]
 fn download_missing_file_returns_download_error() {
     let dir = workdir("404");
     let p = platform(&dir, &hub(404, usize::MAX, b""), None);
-    let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |_, _| true).unwrap_err();
+    let err = oku_slides_stt::download(Model::Parakeet, &dir, &p.settings.models, &p.storage, |_, _| true).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Download);
-    assert_that!(Model::Base.is_installed(&p.storage, &dir)).is_false();
+    assert_that!(Model::Parakeet.is_installed(&p.storage, &dir)).is_false();
 }
 
 #[test]
 fn download_cancelled_by_progress_leaves_no_partial_file() {
     let dir = workdir("cancel");
     let p = platform(&dir, &hub(200, 0, b"poids"), None);
-    let err = oku_slides_stt::download(Model::Base, &dir, &p.settings.models, &p.storage, |_, _| false).unwrap_err();
+    let err =
+        oku_slides_stt::download(Model::Parakeet, &dir, &p.settings.models, &p.storage, |_, _| false).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Cancelled);
-    let files = p.storage.list_files(&Model::Base.path(&dir)).unwrap();
+    let files = p.storage.list_files(&Model::Parakeet.path(&dir)).unwrap();
     assert_that!(files.iter().any(|f| f.extension().is_some_and(|e| e == "part"))).is_false();
 }
 
@@ -141,7 +151,7 @@ fn status_lists_models_with_localized_labels() {
     let status = stt.handle(SttRequest::Status);
     assert_that!(status.state).is_equal_to(State::Idle);
     let labels: Vec<String> = status.models.iter().map(|m| m.label.clone()).collect();
-    assert_that!(labels).contains("Base (multilingue, 148 Mo)".to_owned());
+    assert_that!(labels).contains("Parakeet v3 (25 langues européennes)".to_owned());
     assert_that!(status.models.iter().all(|m| !m.installed)).is_true();
 }
 
@@ -161,20 +171,19 @@ fn start_with_unreadable_model_reports_a_localized_error_and_goes_idle() {
 }
 
 #[test]
-fn start_without_model_downloads_it_then_starts_listening() {
+fn start_without_model_downloads_it_and_reports_a_bad_file() {
     let dir = workdir("download-start");
     let storage = Storage::local().unwrap();
     let wav = dir.join("voix.wav");
     storage.write(&wav, wav_bytes()).unwrap();
     let stt = Stt::new(&platform(&dir, &hub(200, 0, b"pas un modele"), Some(wav)));
-    // Dictée au repos : le réglage s'applique, son résultat est sans objet ici.
-    let _applied = stt.configure(oku_slides_stt::Config { model: Model::Base, ..oku_slides_stt::Config::default() });
+    assert_that!(stt.status().config.model).is_equal_to(Model::Parakeet);
     let status = stt.handle(SttRequest::Start { vocabulary: Vec::new() });
     assert_that!(status.state).is_equal_to(State::Downloading);
-    // Téléchargé, puis l'écoute démarre ; le modèle factice ne se charge pas.
-    let failed = wait_until(&stt, "téléchargement puis erreur", |s| s.error.is_some());
-    let base = failed.models.iter().find(|m| m.id == Model::Base).map(|m| m.installed);
-    assert_that!(base).is_equal_to(Some(true));
+    // The served bytes fail the pinned hash: an error, the model still missing, no listening.
+    let failed = wait_until(&stt, "download then error", |s| s.error.is_some() && s.state == State::Idle);
+    let parakeet = failed.models.iter().find(|m| m.id == Model::Parakeet).map(|m| m.installed);
+    assert_that!(parakeet).is_equal_to(Some(false));
 }
 
 #[test]

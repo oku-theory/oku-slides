@@ -12,7 +12,7 @@ stt-download-incomplete = अधूरा डाउनलोड: { $expected } �
 stt-cancelled = डाउनलोड रद्द किया गया
 stt-receiver-taken = हैंड्स-फ़्री सुनना पहले से कहीं और जुड़ा हुआ है
 stt-speech-denied = सिस्टम सेटिंग्ज › गोपनीयता और सुरक्षा में वाक् पहचान की अनुमति दें
-stt-locale-unsupported = Apple का इंजन इस भाषा का समर्थन नहीं करता ({ $language })
+stt-locale-unsupported = डिक्टेशन इंजन इस भाषा का समर्थन नहीं करता ({ $language })
 stt-api-key-missing = डिक्टेशन API का उपयोग करने के लिए एनवायरनमेंट वेरिएबल { $var } सेट करें
 stt-api-key-invalid = पर्यावरण चर { $var } में ऐसा मान है जिसे HTTP हेडर में नहीं भेजा जा सकता
 stt-api-config = डिक्टेशन API की सेटिंग अमान्य हैं: उन्हें सेटिंग बॉक्स में सुधारें।
@@ -26,9 +26,7 @@ stt-voice-failed = सिस्टम आवाज़ पाठ नहीं प
 stt-voice-rate = पढ़ने की गति सामान्य गति के 0.5 से 2 गुना के बीच होनी चाहिए
 speech-barge-in-unavailable-os = Oku के बोलते समय बीच में बोलने के लिए इको रद्दीकरण चाहिए, जो केवल macOS पर उपलब्ध है।
 
-stt-model-turbo = Large v3 Turbo (बहुभाषी, 818 MB)
-stt-model-large = Large v3 (बहुभाषी, 3.1 GB)
-stt-model-base = Base (बहुभाषी, 148 MB)
+stt-model-parakeet = Parakeet v3 (25 यूरोपीय भाषाएँ)
 stt-model-apple = Apple (सिस्टम)
 stt-model-api = API ({ $model })
 

@@ -259,10 +259,10 @@ pub async fn agent_link(app: AppHandle, msg: serde_json::Value) -> Result<(), St
     app.emit("agent-link", msg).map_err(|e| e.to_string())
 }
 
-/// Dictée, hors du fil principal : les requêtes au moteur d'Apple bloquent.
+/// Dictation, off the main thread: requests to Apple's engine block.
 ///
-/// `Start` (ouverture du flux) interroge Speech, jusqu'à 5 s ; téléchargement,
-/// micro et Whisper ont leurs fils.
+/// `Start` (opening the stream) queries Speech, for up to 5 s; download,
+/// microphone and Parakeet have their own threads.
 #[tauri::command]
 pub async fn stt(engine: tauri::State<'_, Stt>, req: SttRequest) -> Result<Status, String> {
     let engine = Stt::clone(&engine);

@@ -70,6 +70,12 @@ impl Stt {
             }
             return;
         }
+        // Parakeet knows 25 languages: refused before downloading 670 MB it could not use.
+        let locale = self.wanted_language();
+        if !models::parakeet_supports(&locale) {
+            self.refuse(&LocaleUnsupportedSnafu { locale }.build().into());
+            return;
+        }
         if model.is_installed(&self.storage, &self.dir) {
             self.begin_recording(mode, from);
         } else {
@@ -108,7 +114,7 @@ impl Stt {
         }
         {
             let mut g = self.state();
-            if !g.state.accepts_settings() || model.is_installed(&self.storage, &self.dir) {
+            if g.shut || !g.state.accepts_settings() || model.is_installed(&self.storage, &self.dir) {
                 return false;
             }
             g.pause_for_download(then);
@@ -116,7 +122,7 @@ impl Stt {
             g.download = Some(Download { model, received: 0, total: model.size() });
         }
         self.cancel_download.store(false, Ordering::Relaxed);
-        let (me, dir, cancel) = (self.clone(), self.dir.clone(), self.cancel_download.clone());
+        let (me, dir, cancel) = (self.worker(), self.dir.clone(), self.cancel_download.clone());
         std::thread::spawn(move || {
             let mut last = Instant::now();
             let result = models::download(model, &dir, &me.models, &me.storage, |received, total| {
@@ -137,11 +143,17 @@ impl Stt {
     ///
     /// Listening paused by the download resumes whatever the result, the error still shown (R6).
     /// A capture asked for from idle starts only on success: its model would be missing again.
+    /// Once the state left `Downloading` (shutdown), the result is only recorded: nothing starts.
     pub(crate) fn finish_download(&self, model: Model, result: Result<(), SttError>) -> Option<Mode> {
         let mut g = self.state();
         g.download = None;
-        g.state = State::Idle;
         g.installed = Model::ALL.map(|m| m.is_installed(&self.storage, &self.dir));
+        if g.shut || g.state != State::Downloading {
+            g.start_after_download = None;
+            g.listen_after_download = false;
+            return None;
+        }
+        g.state = State::Idle;
         let listen = std::mem::take(&mut g.listen_after_download).then_some(Mode::Listen);
         let then = match result {
             Ok(()) => {
@@ -178,8 +190,8 @@ impl Stt {
         };
         let (session, model, apple, vocabulary) = {
             let mut g = self.state();
-            if g.state != from {
-                // Another capture started meanwhile: the recorder drops, its microphone closes.
+            if g.shut || g.state != from {
+                // Shut down, or another capture started meanwhile: the microphone closes.
                 return;
             }
             g.session += 1;
@@ -212,7 +224,7 @@ impl Stt {
                 };
                 let (stream, events) = self.streaming.open(&tag, &vocabulary);
                 let held = Held::default();
-                let (worker, worker_held) = (self.clone(), held.clone());
+                let (worker, worker_held) = (self.worker(), held.clone());
                 std::thread::spawn(move || worker.stream_loop(session, &events, &worker_held, timeout));
                 Sink::Stream { stream, held }
             }
@@ -225,13 +237,16 @@ impl Stt {
             _ => {
                 let (jobs, rx) = mpsc::channel();
                 let busy = Arc::new(AtomicBool::new(false));
-                let worker = self.clone();
+                let worker = self.worker();
                 let worker_busy = busy.clone();
-                std::thread::spawn(move || worker.transcribe_loop(session, &rx, &worker_busy));
-                Sink::Whisper { jobs, busy, previews: model.previews() }
+                if !self.spawn_transcriber(move || worker.transcribe_loop(session, &rx, &worker_busy)) {
+                    // Shut down since the state check: shutdown already reset it.
+                    return;
+                }
+                Sink::Phrase { jobs, busy, previews: model.previews() }
             }
         };
-        let listener = self.clone();
+        let listener = self.worker();
         std::thread::spawn(move || listener.listen_loop(session, recorder, sink));
     }
 }

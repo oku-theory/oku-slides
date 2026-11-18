@@ -66,7 +66,7 @@ Every key, with its default and a comment, is in
 The app writes to `config.toml` itself when you change the language, the scheme or the
 agent, and when the agent changes an app setting for you (applied at next launch); it
 sets one key at a time and keeps your comments. The choices of the dictation box (engine,
-Whisper model, language, auto stop, API address, model, key variable, Azure API version and
+language, auto stop, API address, model, key variable, Azure API version and
 headers) are not in `config.toml`: they go to `config.json` in the models folder.
 Edit that file with the app closed: the app reads it at launch and rewrites it whole on
 the next change in the box. A file that does not parse is kept aside as
@@ -80,7 +80,7 @@ the next change in the box. A file that does not parse is kept aside as
 | `OKU_SLIDES_PATHS__DECKS` | Where new decks are saved automatically (default `Documents/Oku Slides`) |
 | `OKU_SLIDES_PATHS__MODELS` | Dictation models folder |
 | `OKU_SLIDES_PATHS__FONTS` | Extra fonts (TTF/OTF) |
-| `OKU_SLIDES_STT__APPLE` | `false`: Whisper only |
+| `OKU_SLIDES_STT__APPLE` | `false`: Parakeet only |
 | `OKU_SLIDES_STT__FAKE_MIC` | WAV file replayed instead of the microphone; refused at load without the `e2e-fakes` feature |
 | `OKU_SLIDES_STT__VAD__PAUSE` | Pause that ends a sentence (s), like any `[stt.vad]` key |
 | `OKU_SLIDES_SERVE__PORT` | Dev server port |

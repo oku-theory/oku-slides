@@ -175,7 +175,7 @@ fn apple_download_with_unknown_language_reports_error() {
     let _started = stt.download(crate::Model::Apple, false);
     let status = stt.status();
     assert_that!((status.state, status.error.as_deref()))
-        .is_equal_to((State::Idle, Some("Le moteur d'Apple ne prend pas en charge cette langue (xx)")));
+        .is_equal_to((State::Idle, Some("Le moteur de dictée ne prend pas en charge cette langue (xx)")));
 }
 
 #[test]
@@ -218,5 +218,5 @@ fn configure_while_recording_keeps_the_config() {
 #[test]
 fn download_while_recording_returns_false() {
     let (stt, _dir) = recording_stt("download-recording");
-    assert_that!(stt.download(crate::Model::Turbo, false)).is_false();
+    assert_that!(stt.download(crate::Model::Parakeet, false)).is_false();
 }

@@ -98,26 +98,25 @@ deck's widget packs.
 Everything happens on the machine, unless you choose the API engine
 ([OpenAI or Azure OpenAI](#dictation-through-azure-openai-in-a-company)). On macOS 26+, Apple's speech engine is the default when it knows the language
 (streaming, language installed by the system; `[stt] apple = false` turns it off).
-Otherwise, Whisper runs on CTranslate2 (faster-whisper's engine, through
-[ct2rs](https://crates.io/crates/ct2rs)), int8-quantized weights, Accelerate on Mac.
-On the first press of the mic, the chosen Whisper model downloads once, then
+Otherwise, NVIDIA's Parakeet TDT 0.6B v3 runs on ONNX Runtime (through
+[parakeet-rs](https://crates.io/crates/parakeet-rs)), int8-quantized weights, on the CPU.
+It understands 25 European languages and detects which one is spoken; for any other
+language it is greyed out. On the first press of the mic, the model downloads once, then
 listening starts on its own.
 
 | Model | Size | Use |
 | --- | --- | --- |
 | Apple (macOS 26+) | — | Default when it knows the language; streaming |
-| Large v3 Turbo | 818 MB | Default otherwise; fast and accurate, multilingual |
-| Large v3 | 3.1 GB | Most accurate, multilingual, slower |
-| Base | 148 MB | Lightweight, for small machines |
+| Parakeet v3 | 670 MB | Default otherwise; fast and accurate, 25 European languages |
 
 - **Voice detection** ([earshot](https://crates.io/crates/earshot)): only spoken
   passages are transcribed; listening stops by itself after a silence (1.5 s by default, adjustable,
   can be turned off), or after 10 s if nothing is said.
 - **Sentence by sentence**: at each pause, the sentence that just ended is
-  transcribed at final quality, with the text dictated so far and the deck's
-  vocabulary as context. The preview only re-transcribes the current sentence. On
+  transcribed at final quality. The preview only re-transcribes the current sentence. On
   stop, only the last sentence remains to process.
-- **Language**: forced, or detected on the first sentence and then kept.
+- **Language**: Parakeet always detects it; the chosen language only decides whether
+  the engine is available.
 
 Models go to the app data folder
 (`~/Library/Application Support/me.dartiguenave.oku-slides/models` on Mac);
@@ -135,7 +134,7 @@ appended), then **send it to the agent** (⌘↩) as an instruction (see [Agent]
 The draft only talks to the agent; a pause never decides for you.
 
 ```sh
-just transcribe voice.wav turbo fr                # split into sentences, transcribe, measure
+just transcribe voice.wav parakeet                # split into sentences, transcribe, measure
 OKU_SLIDES_STT__FAKE_MIC=voice.wav cargo run -p oku-slides-cli --features e2e-fakes -- --fonts assets/fonts serve fixtures/roadmap.json  # simulate the mic (e2e-fakes builds only)
 just test-apple                                   # Apple's engine for real (macOS 26, French installed)
 ```
@@ -144,7 +143,7 @@ just test-apple                                   # Apple's engine for real (mac
 
 The **API** engine sends each sentence to OpenAI or to an Azure OpenAI transcription
 deployment instead of transcribing on the machine. A typical company setup: a
-`gpt-4o-transcribe` (or `whisper`) deployment on an Azure resource, reached through a
+`gpt-4o-transcribe` deployment on an Azure resource, reached through a
 gateway that wants its own headers, behind a proxy that inspects TLS.
 
 1. **Put the secrets in environment variables.** Oku Slides never stores a key: it stores

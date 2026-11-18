@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use oku_slides_i18n::{Localize, Localizer};
 use speculoos::prelude::*;
 
-use crate::dictation_whisper::Job;
+use crate::dictation_phrase::Job;
 use crate::stream::Availability;
 use crate::test_support::{FinalsAt, Part, ScriptedEngine, french_platform, fresh_dir, listening_stt, wait_until};
 use crate::utterance::Spoken;
@@ -163,13 +163,20 @@ fn listen_configure_restart_keeps_utterance_sender() {
     next(&rx, "utterance after the restart");
 }
 
+/// Removes the installed marker: the loaded (faked) engine keeps listening, the model is missing.
+fn uninstall_parakeet(dir: &std::path::Path) {
+    let marker = crate::Model::Parakeet.path(&dir.join("models")).join(oku_slides_platform::models::COMPLETE);
+    std::fs::remove_file(marker).unwrap_or_else(|e| panic!("marker: {e}"));
+}
+
 #[test]
 fn listen_download_failure_while_listening_resumes_listening() {
     let dir = fresh_dir("listen-download");
     let (stt, _engine) = listening_stt(dir.path(), &[Part::Silence(1.0)], 1.5);
     stt.listen(Vec::new());
+    uninstall_parakeet(dir.path());
     // The hub is a refused local port: the download fails at once.
-    assert_that!(stt.download(crate::Model::Large, false)).is_true();
+    assert_that!(stt.download(crate::Model::Parakeet, false)).is_true();
     let s = wait_until(&stt, "listening again", |s| s.state == State::Listening && s.error.is_some());
     assert_that!(s.error).is_some();
     stt.cancel();
@@ -180,7 +187,8 @@ fn listen_download_cancel_while_listening_resumes_listening() {
     let dir = fresh_dir("listen-download-cancel");
     let (stt, _engine) = listening_stt(dir.path(), &[Part::Silence(1.0)], 1.5);
     stt.listen(Vec::new());
-    assert_that!(stt.download(crate::Model::Large, false)).is_true();
+    uninstall_parakeet(dir.path());
+    assert_that!(stt.download(crate::Model::Parakeet, false)).is_true();
     stt.cancel();
     wait_until(&stt, "listening again", |s| s.state == State::Listening);
     stt.cancel();

@@ -126,7 +126,7 @@ jobs:
     # signing secret (t-977, ADR-0014).
     env:
       TAURI_CLI_VERSION: 2.11.5
-    # CTranslate2 (dictée) se compile en C++ : long sans cache.
+    # Long without a cache (Typst, the Swift bridge, ONNX Runtime downloaded by ort-sys).
     timeout-minutes: 120
     steps:
       # Les polices embarquées (bundle.resources) sont en Git LFS.
@@ -179,9 +179,9 @@ jobs:
         with:
           tool: tauri-cli@${{ env.TAURI_CLI_VERSION }}
 
-      # tauri-cli n'a pas de binaire précompilé arm64 : install-action prendrait celui pour x86_64,
-      # lancé sous Rosetta. Ses enfants hériteraient du mode x86_64 (CMake verrait un hôte x86_64
-      # et ruy compilerait ses noyaux AVX) et le .dmg serait nommé _x64. Compilé ici en natif.
+      # tauri-cli has no prebuilt arm64 binary: install-action would take the x86_64 one, run under
+      # Rosetta. Its children would inherit x86_64 mode (build scripts would see an x86_64 host)
+      # and the .dmg would be named _x64. Built natively here.
       - name: tauri-cli natif (macOS Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         # Le cache de rust-cache (~/.cargo/bin) peut restaurer un cargo-tauri x86_64, que
@@ -201,8 +201,7 @@ jobs:
         shell: bash
         run: |
           echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
-          # CTranslate2 se compile avec la CRT statique (/MT) : tout le binaire doit la suivre,
-          # sinon l'édition de liens échoue (LNK2038). Recommandé par le README de ct2rs.
+          # Static CRT (/MT) for the whole binary, as the voice-check job builds it.
           echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

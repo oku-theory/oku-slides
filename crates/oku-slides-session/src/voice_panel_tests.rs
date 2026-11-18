@@ -43,6 +43,14 @@ fn with(f: impl FnOnce(&mut DictationView)) -> VoiceView {
     v
 }
 
+/// The reference view with Parakeet chosen and not downloaded yet.
+fn parakeet_missing(f: impl FnOnce(&mut DictationView)) -> VoiceView {
+    with(|d| {
+        d.models.iter_mut().filter(|m| m.id == "parakeet").for_each(|m| m.installed = false);
+        f(d);
+    })
+}
+
 fn agents(f: impl FnOnce(&mut AgentsView)) -> VoiceView {
     let mut v = voice_view_fixture();
     f(&mut v.agents);
@@ -73,10 +81,9 @@ pub(crate) fn covering_views() -> Vec<VoiceView> {
     let api = with(|d| {
         d.model = "api".into();
         d.api.key_found = true;
-        d.download = Some(DownloadView { model: "large".into(), received: 1, total: 4 });
+        d.download = Some(DownloadView { model: "parakeet".into(), received: 1, total: 4 });
     });
-    let local = with(|d| {
-        d.model = "large".into();
+    let local = parakeet_missing(|d| {
         d.auto_stop = false;
         d.silence = 2.5;
     });
@@ -112,36 +119,46 @@ fn voice_panel_close_button_sends_dismiss() {
 #[test]
 fn voice_panel_unavailable_model_is_not_a_chip() {
     let p = VoicePanel::build(&voice_view_fixture(), &en());
-    assert_that!(option_ids(&component(&p, "d-models"))).is_equal_to(vec![
-        "turbo".to_owned(),
-        "large".to_owned(),
-        "api".to_owned(),
-    ]);
+    assert_that!(option_ids(&component(&p, "d-models"))).is_equal_to(vec!["parakeet".to_owned(), "api".to_owned()]);
 }
 
 #[test]
 fn voice_panel_unavailable_model_is_named_below_the_chips() {
     let p = VoicePanel::build(&voice_view_fixture(), &fr());
     assert_that!(component(&p, "d-unavailable")["text"].clone())
-        .is_equal_to(json!("Indisponible pour cette langue : Base"));
+        .is_equal_to(json!("Indisponible pour cette langue : Apple (système)"));
 }
 
 #[test]
 fn voice_panel_chosen_unavailable_model_stays_a_chip() {
-    let p = VoicePanel::build(&with(|d| d.model = "base".into()), &en());
-    assert_that!(option_ids(&component(&p, "d-models"))).contains("base".to_owned());
+    let p = VoicePanel::build(&with(|d| d.model = "apple".into()), &en());
+    assert_that!(option_ids(&component(&p, "d-models"))).contains("apple".to_owned());
 }
 
 #[test]
 fn voice_panel_model_chip_label_is_the_short_name() {
     let p = VoicePanel::build(&voice_view_fixture(), &fr());
-    assert_that!(option(&p, "d-models", "large")["label"].clone()).is_equal_to(json!("Large v3"));
+    assert_that!(option(&p, "d-models", "parakeet")["label"].clone()).is_equal_to(json!("Parakeet v3"));
+}
+
+#[rstest]
+fn every_model_has_a_voice_model_label_and_note(#[values("en", "fr")] locale: &str) {
+    let l = Localizer::new(Some(locale));
+    let models = voice_view_fixture().dictation.map(|d| d.models).unwrap_or_default();
+    assert_that!(models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>())
+        .is_equal_to(vec!["apple", "parakeet", "api"]);
+    for m in &models {
+        asserting(&format!("label of {}", m.id))
+            .that(&model_label(m, "gpt-4o-transcribe", &l))
+            .does_not_contain("voice-");
+        asserting(&format!("note of {}", m.id)).that(&l.tr(&format!("voice-note-{}", m.id))).does_not_contain("voice-");
+    }
 }
 
 #[test]
 fn voice_panel_model_chip_hint_names_the_size() {
     let p = VoicePanel::build(&voice_view_fixture(), &fr());
-    assert_that!(option(&p, "d-models", "large")["hint"].as_str().unwrap_or("")).contains("3,1 Go");
+    assert_that!(option(&p, "d-models", "parakeet")["hint"].as_str().unwrap_or("")).contains("670 Mo");
 }
 
 #[rstest]
@@ -203,8 +220,8 @@ fn seconds_text_is_short_with_the_french_comma(#[case] secs: f32, #[case] text: 
 
 #[test]
 fn voice_panel_uninstalled_chosen_model_offers_its_download() {
-    let p = VoicePanel::build(&with(|d| d.model = "large".into()), &fr());
-    assert_that!(component(&p, "d-download")["label"].clone()).is_equal_to(json!("Télécharger maintenant (3,1 Go)"));
+    let p = VoicePanel::build(&parakeet_missing(|_| {}), &fr());
+    assert_that!(component(&p, "d-download")["label"].clone()).is_equal_to(json!("Télécharger maintenant (670 Mo)"));
 }
 
 #[test]
@@ -214,10 +231,7 @@ fn voice_panel_installed_chosen_model_offers_no_download() {
 
 #[test]
 fn voice_panel_busy_dictation_offers_no_download() {
-    let v = with(|d| {
-        d.model = "large".into();
-        d.idle = false;
-    });
+    let v = parakeet_missing(|d| d.idle = false);
     assert_that!(ids(&VoicePanel::build(&v, &en()))).does_not_contain("d-download".to_owned());
 }
 
@@ -229,16 +243,16 @@ fn voice_panel_progress_is_bound_to_the_data_model() {
 
 #[test]
 fn voice_panel_downloading_puts_the_percent_in_the_data_model() {
-    let v = with(|d| d.download = Some(DownloadView { model: "large".into(), received: 1, total: 4 }));
+    let v = with(|d| d.download = Some(DownloadView { model: "parakeet".into(), received: 1, total: 4 }));
     assert_that!(data(&VoicePanel::build(&v, &fr()))["progress"]["dictation"].clone())
-        .is_equal_to(json!("Téléchargement de Large v3 · 25 %"));
+        .is_equal_to(json!("Téléchargement de Parakeet v3 · 25 %"));
 }
 
 #[test]
 fn voice_panel_progress_change_keeps_the_layout() {
     let at = |received| {
         VoicePanel::build(
-            &with(|d| d.download = Some(DownloadView { model: "large".into(), received, total: 4 })),
+            &with(|d| d.download = Some(DownloadView { model: "parakeet".into(), received, total: 4 })),
             &en(),
         )
     };

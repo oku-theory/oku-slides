@@ -32,7 +32,7 @@ const API_TARGET_KEYS: [&str; 9] =
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SetDictationArgs {
-    /// Dictation model: apple | turbo | large | base | api.
+    /// Dictation model: apple | parakeet | api.
     pub model: Option<String>,
     /// Language code (fr, en…) or "auto".
     pub language: Option<String>,
@@ -67,7 +67,7 @@ pub(crate) struct SetSpeechArgs {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ModelArg {
-    /// Dictation model: apple | turbo | large | base.
+    /// Dictation model: apple | parakeet.
     pub model: String,
 }
 

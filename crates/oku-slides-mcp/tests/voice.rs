@@ -154,8 +154,8 @@ async fn show_settings_survives_a_new_conversation() {
 async fn settings_click_applies_as_user() {
     let h = start().await;
     show(&h).await;
-    act(&h, "model", json!({"id": "large"})).await.unwrap();
-    let patch = DictationPatch { model: Some("large".into()), ..Default::default() };
+    act(&h, "model", json!({"id": "parakeet"})).await.unwrap();
+    let patch = DictationPatch { model: Some("parakeet".into()), ..Default::default() };
     assert_that!(*lock(&h.voice.applied)).is_equal_to(vec![(VoiceEvent::Dictation(patch), Origin::User)]);
 }
 
@@ -199,7 +199,7 @@ async fn refresh_after_dismiss_does_not_reopen() {
 #[tokio::test(flavor = "multi_thread")]
 async fn settings_click_on_a_closed_box_is_unknown() {
     let h = start().await;
-    let r = act(&h, "model", json!({"id": "large"})).await;
+    let r = act(&h, "model", json!({"id": "parakeet"})).await;
     assert_that!(r.map_err(|e| e.kind())).is_err_containing(HubErrorKind::UnknownSurface);
 }
 
@@ -244,7 +244,7 @@ async fn settings_refused_click_resends_the_whole_box() {
     show(&h).await;
     *lock(&h.voice.refuse) = Some(VoiceErrorKind::Busy);
     let mut rx = h.hub.subscribe();
-    let _ = act(&h, "model", json!({"id": "large"})).await;
+    let _ = act(&h, "model", json!({"id": "parakeet"})).await;
     assert_that!(rx.try_recv()).is_ok().matches(is_box);
 }
 
@@ -270,7 +270,7 @@ async fn refresh_with_a_new_layout_sends_the_box() {
 fn downloading(received: u64) -> impl Fn(&mut VoiceView) {
     move |v| {
         let dictation = v.dictation.as_mut().unwrap_or_else(|| panic!("vue de référence sans dictée"));
-        dictation.download = Some(DownloadView { model: "large".into(), received, total: 4 });
+        dictation.download = Some(DownloadView { model: "parakeet".into(), received, total: 4 });
     }
 }
 
@@ -320,10 +320,13 @@ fn api_target() -> ApiTarget {
     }
 }
 
-fn large() -> oku_slides_session::ModelView {
+fn parakeet() -> oku_slides_session::ModelView {
     let models =
         oku_slides_session::voice_fixture::voice_view_fixture().dictation.map(|d| d.models).unwrap_or_default();
-    models.into_iter().find(|m| m.id == "large").unwrap_or_else(|| panic!("modèle large absent de la vue de référence"))
+    models
+        .into_iter()
+        .find(|m| m.id == "parakeet")
+        .unwrap_or_else(|| panic!("parakeet missing from the reference view"))
 }
 
 fn agent_tab(confirmed: bool) -> Origin {
@@ -433,25 +436,25 @@ async fn set_dictation_to_api_target_changed_while_asking_is_refused_unapplied()
 #[tokio::test(flavor = "multi_thread")]
 async fn set_dictation_to_an_uninstalled_model_asks_with_its_size() {
     let h = start().await;
-    lock(&h.voice.checked).download = Some((large(), "gpt-4o-transcribe".into()));
-    let (text, _, _) = guarded_message(&h, "set_dictation", json!({"model": "large"}), false).await;
-    assert_that!(text).is_equal_to("Utiliser Large v3 et le télécharger maintenant (3,1 Go) ?".to_owned());
+    lock(&h.voice.checked).download = Some((parakeet(), "gpt-4o-transcribe".into()));
+    let (text, _, _) = guarded_message(&h, "set_dictation", json!({"model": "parakeet"}), false).await;
+    assert_that!(text).is_equal_to("Utiliser Parakeet v3 et le télécharger maintenant (670 Mo) ?".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_dictation_to_an_uninstalled_model_accepted_also_downloads_it() {
     let h = start().await;
-    lock(&h.voice.checked).download = Some((large(), "gpt-4o-transcribe".into()));
-    guarded_message(&h, "set_dictation", json!({"model": "large"}), true).await;
+    lock(&h.voice.checked).download = Some((parakeet(), "gpt-4o-transcribe".into()));
+    guarded_message(&h, "set_dictation", json!({"model": "parakeet"}), true).await;
     let events: Vec<VoiceEvent> = lock(&h.voice.applied).iter().map(|(e, _)| e.clone()).collect();
-    assert_that!(events).contains(VoiceEvent::DownloadDictation { model: "large".into() });
+    assert_that!(events).contains(VoiceEvent::DownloadDictation { model: "parakeet".into() });
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn set_dictation_unchanged_asks_nothing() {
     let h = start().await;
     lock(&h.voice.checked).unchanged = true;
-    let r = call_within(&server(&h).await, "set_dictation", json!({"model": "turbo"})).await;
+    let r = call_within(&server(&h).await, "set_dictation", json!({"model": "parakeet"})).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "unchanged" }));
 }
 
@@ -459,7 +462,7 @@ async fn set_dictation_unchanged_asks_nothing() {
 async fn set_dictation_refused_by_the_port_says_why_in_french() {
     let h = start().await;
     *lock(&h.voice.refuse) = Some(VoiceErrorKind::Busy);
-    let r = call_within(&server(&h).await, "set_dictation", json!({"model": "large"})).await;
+    let r = call_within(&server(&h).await, "set_dictation", json!({"model": "parakeet"})).await;
     assert_that!(text_of(&r)).is_equal_to("La dictée est en cours : réessayez une fois au repos".to_owned());
 }
 
@@ -502,9 +505,9 @@ async fn set_dictation_description_first_sentence_reserves_the_api_target() {
 #[tokio::test(flavor = "multi_thread")]
 async fn download_dictation_model_confirmation_names_model_and_size() {
     let h = start().await;
-    lock(&h.voice.checked).download = Some((large(), "gpt-4o-transcribe".into()));
-    let (text, _, _) = guarded_message(&h, "download_dictation_model", json!({"model": "large"}), false).await;
-    assert_that!(text).is_equal_to("Utiliser Large v3 et le télécharger maintenant (3,1 Go) ?".to_owned());
+    lock(&h.voice.checked).download = Some((parakeet(), "gpt-4o-transcribe".into()));
+    let (text, _, _) = guarded_message(&h, "download_dictation_model", json!({"model": "parakeet"}), false).await;
+    assert_that!(text).is_equal_to("Utiliser Parakeet v3 et le télécharger maintenant (670 Mo) ?".to_owned());
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -107,8 +107,8 @@ fn valid_key_env_name_length_is_capped_at_64(#[case] len: usize, #[case] ok: boo
 
 #[rstest]
 #[case("gpt-4o-transcribe", true)]
-#[case("whisper-1", true)]
-#[case("openai/whisper-large-v3", true)]
+#[case("gpt-4o-mini-transcribe", true)]
+#[case("openai/gpt-4o-transcribe", true)]
 #[case("model\r\nX: y", false)]
 #[case("m\"x", false)]
 #[case("", false)]

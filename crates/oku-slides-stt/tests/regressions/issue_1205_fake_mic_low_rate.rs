@@ -52,7 +52,7 @@ fn stt(dir: &Path, wav: PathBuf) -> Stt {
     // `PATH` is set on every OS: the key counts as present. No request is sent while nothing is said.
     let api = ApiConfig {
         url: "http://127.0.0.1:1/v1".into(),
-        model: "whisper-1".into(),
+        model: "gpt-4o-mini-transcribe".into(),
         key_env: "PATH".into(),
         ..ApiConfig::default()
     };

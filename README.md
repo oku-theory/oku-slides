@@ -53,8 +53,8 @@ Oku Slides improves with them, without giving up control of your documents.
 
 ## Features
 
-- **Voice dictation, on device.** Apple's speech engine on macOS 26+, or Whisper running
-  locally; voice detection, sentence-by-sentence transcription, multilingual. Optionally
+- **Voice dictation, on device.** Apple's speech engine on macOS 26+, or Parakeet running
+  locally (25 European languages); voice detection, sentence-by-sentence transcription. Optionally
   OpenAI or Azure OpenAI for company setups.
 - **Agent editing.** One conversation per tab, several tabs working at once, questions and
   variants rendered right on the slide, an optional detached agent window for a second screen.
@@ -115,6 +115,10 @@ just dev      # run the desktop app in development
 ```
 
 See [Development](docs/development.md) for everything else.
+
+## Credits
+
+Dictation model: NVIDIA Parakeet TDT 0.6B v3, ONNX export by istupakov, CC-BY-4.0.
 
 ## License
 

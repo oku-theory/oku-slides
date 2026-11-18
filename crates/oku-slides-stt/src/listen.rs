@@ -10,8 +10,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use crate::audio::{self, SAMPLE_RATE_F32};
+use crate::dictation_phrase::Job;
 use crate::dictation_stream::cancel_held;
-use crate::dictation_whisper::Job;
 use crate::num::count_f32;
 use crate::utterance::ListenClock;
 use crate::vad::Segmenter;
@@ -75,7 +75,7 @@ impl Stt {
                 recorder.finish();
                 self.pull(&recorder, &mut ear, &mut sink);
                 match sink {
-                    Sink::Whisper { jobs, .. } => {
+                    Sink::Phrase { jobs, .. } => {
                         if let Some(phrase) = ear.seg.close() {
                             self.send_final(&ear.seg, phrase, &jobs);
                         }
@@ -93,10 +93,10 @@ impl Stt {
                 return;
             }
 
-            // Preview of the sentence in progress (local Whisper), when the transcription thread is free.
+            // Preview of the sentence in progress (phrase engines), when the transcription thread is free.
             let seg = &ear.seg;
             let current = seg.current();
-            if let Sink::Whisper { jobs, busy, previews: true } = &sink
+            if let Sink::Phrase { jobs, busy, previews: true } = &sink
                 && let Some(p) = current
                 && !busy.load(Ordering::Relaxed)
                 && count_f32(p.end.saturating_sub(ear.previewed.max(p.start))) >= s.preview_step_secs * SAMPLE_RATE_F32
@@ -118,8 +118,8 @@ impl Stt {
                 g.speaking = seg.speaking;
                 g.phrase_open = current.is_some();
                 g.stop_in = stop_in;
-                // Whisper's preview follows the sentence in progress; the streaming engine's, its results.
-                if current.is_none() && matches!(sink, Sink::Whisper { .. }) {
+                // A phrase engine's preview follows the sentence in progress; the streaming engine's, its results.
+                if current.is_none() && matches!(sink, Sink::Phrase { .. }) {
                     g.partial.clear();
                 }
                 if stop && g.state == State::Recording {
@@ -183,7 +183,7 @@ impl Stt {
         }
         let Some(upto) = g.phrases.next_index() else { return };
         match sink {
-            Sink::Whisper { jobs, .. } => {
+            Sink::Phrase { jobs, .. } => {
                 if ear.last_phrase_end <= ear.closed_upto {
                     return;
                 }
@@ -212,7 +212,7 @@ impl Stt {
         ear.resampler.get_or_insert_with(|| audio::Resampler::new(rate)).push(&samples, &mut ear.fresh);
         let phrases = ear.seg.push(&ear.fresh);
         match sink {
-            Sink::Whisper { jobs, .. } => {
+            Sink::Phrase { jobs, .. } => {
                 for phrase in phrases {
                     if self.send_final(&ear.seg, phrase, jobs) {
                         ear.last_phrase_end = ear.last_phrase_end.max(phrase.end);

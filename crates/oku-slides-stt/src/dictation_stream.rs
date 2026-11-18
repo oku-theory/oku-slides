@@ -116,7 +116,7 @@ impl Stt {
                 self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
                 return false;
             };
-            if !g.state.accepts_settings() {
+            if g.shut || !g.state.accepts_settings() {
                 return false;
             }
             g.pause_for_download(then);
@@ -125,7 +125,7 @@ impl Stt {
             tag
         };
         self.cancel_download.store(false, Ordering::Relaxed);
-        let me = self.clone();
+        let me = self.worker();
         std::thread::spawn(move || {
             let result = me.install(&tag);
             me.refresh_apple();

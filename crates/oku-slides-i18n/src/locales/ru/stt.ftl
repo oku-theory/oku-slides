@@ -12,7 +12,7 @@ stt-download-incomplete = Загрузка не завершена: { $got } б�
 stt-cancelled = Загрузка отменена
 stt-receiver-taken = Прослушивание без рук уже подключено в другом месте
 stt-speech-denied = Разрешите распознавание речи в Системных настройках › Конфиденциальность и безопасность
-stt-locale-unsupported = Движок Apple не поддерживает этот язык ({ $language })
+stt-locale-unsupported = Движок диктовки не поддерживает этот язык ({ $language })
 stt-api-key-missing = Задайте переменную окружения { $var }, чтобы использовать API диктовки
 stt-api-key-invalid = Переменная окружения { $var } содержит значение, которое нельзя отправить в заголовке HTTP
 stt-api-config = Настройки API диктовки недействительны: исправьте их в окне настроек.
@@ -26,9 +26,7 @@ stt-voice-failed = Системному голосу не удалось про�
 stt-voice-rate = Скорость речи должна быть от 0,5 до 2 от обычной
 speech-barge-in-unavailable-os = Чтобы перебивать Oku, нужно эхоподавление, доступное только в macOS.
 
-stt-model-turbo = Large v3 Turbo (многоязычная, 818 МБ)
-stt-model-large = Large v3 (многоязычная, 3,1 ГБ)
-stt-model-base = Base (многоязычная, 148 МБ)
+stt-model-parakeet = Parakeet v3 (25 европейских языков)
 stt-model-apple = Apple (системный)
 stt-model-api = API ({ $model })
 

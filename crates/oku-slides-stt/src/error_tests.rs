@@ -7,7 +7,7 @@ use oku_slides_platform::storage::Storage;
 
 use super::*;
 
-/// Un dépôt qui répond `status` à tout, et le téléchargement de `Base` qui s'y brise.
+/// A hub that answers `status` to everything, and the Parakeet download that breaks on it.
 fn download_against(status: u16, keep_going: bool) -> SttError {
     let server = tiny_http::Server::http("127.0.0.1:0").unwrap_or_else(|e| panic!("dépôt de test : {e}"));
     let url = format!("http://{}", server.server_addr());
@@ -21,7 +21,7 @@ fn download_against(status: u16, keep_going: bool) -> SttError {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}")).models;
     settings.hub_url = url;
     settings.download_retries = 0;
-    match crate::models::download(crate::Model::Base, dir.path(), &settings, &storage, |_, _| keep_going) {
+    match crate::models::download(crate::Model::Parakeet, dir.path(), &settings, &storage, |_, _| keep_going) {
         Ok(_) => panic!("le téléchargement devait échouer"),
         Err(e) => e,
     }
@@ -50,8 +50,11 @@ fn localize_each_kind_speaks_to_the_user() {
             "Format audio non pris en charge : I8",
         ),
         (WavSnafu { reason: "x" }.build().into(), SttErrorKind::AudioFile, "Fichier audio illisible"),
-        (NoLanguageSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
-        (NotContiguousSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
+        (
+            TranscribeSnafu { step: "parakeet" }.into_error("x".into()).into(),
+            SttErrorKind::Transcription,
+            "La transcription a échoué",
+        ),
         (cancelled_download(), SttErrorKind::Cancelled, "Téléchargement annulé"),
         (failed_download(), SttErrorKind::Download, "Le modèle n'a pas pu être téléchargé"),
         (
@@ -62,7 +65,7 @@ fn localize_each_kind_speaks_to_the_user() {
         (
             LocaleUnsupportedSnafu { locale: "xx" }.build().into(),
             SttErrorKind::Model,
-            "Le moteur d'Apple ne prend pas en charge cette langue (xx)",
+            "Le moteur de dictée ne prend pas en charge cette langue (xx)",
         ),
         (
             AssetInstallSnafu { reason: "x" }.build().into(),
@@ -154,7 +157,7 @@ fn incomplete_download() -> SttError {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}")).models;
     settings.hub_url = url;
     settings.download_retries = 0;
-    match crate::models::download(crate::Model::Base, dir.path(), &settings, &storage, |_, _| true) {
+    match crate::models::download(crate::Model::Parakeet, dir.path(), &settings, &storage, |_, _| true) {
         Ok(_) => panic!("le téléchargement devait échouer"),
         Err(e) => e,
     }

@@ -1,12 +1,23 @@
-//! Moteurs qui transcrivent une phrase entière : Whisper local, API distante.
+//! Engines that transcribe a whole phrase: local Parakeet, remote API.
 
-use crate::{SttError, Transcriber, Transcript};
+use crate::SttError;
 
-/// Un moteur qui transcrit une phrase entière.
+/// A transcription's result.
+#[derive(Debug, Clone, Default)]
+pub struct Transcript {
+    /// Transcribed text, as returned by the model.
+    pub text: String,
+    /// Language the engine reports (`fr`, `en`…); `None` when it reports none (Parakeet).
+    pub language: Option<String>,
+    /// Probability that there is no speech (0..1); 0 when the engine does not estimate it.
+    pub no_speech: f32,
+}
+
+/// An engine that transcribes a whole phrase.
 ///
-/// Implémentez ce trait pour brancher un moteur phrase par phrase (Whisper, une API).
+/// Implement this trait to plug in a phrase-by-phrase engine (Parakeet, an API).
 pub(crate) trait PhraseEngine: Send + Sync {
-    /// Transcrit un audio mono 16 kHz ; `quick` : aperçu (décodage rapide).
+    /// Transcribes mono 16 kHz audio; `quick`: a preview (fast decoding).
     fn transcribe(
         &self,
         audio: &[f32],
@@ -14,16 +25,4 @@ pub(crate) trait PhraseEngine: Send + Sync {
         context: Option<&str>,
         quick: bool,
     ) -> Result<Transcript, SttError>;
-}
-
-impl PhraseEngine for Transcriber {
-    fn transcribe(
-        &self,
-        audio: &[f32],
-        language: Option<&str>,
-        context: Option<&str>,
-        quick: bool,
-    ) -> Result<Transcript, SttError> {
-        Transcriber::transcribe(self, audio, language, context, quick)
-    }
 }

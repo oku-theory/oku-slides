@@ -12,7 +12,7 @@ stt-download-incomplete = ダウンロードが不完全です：{ $expected } �
 stt-cancelled = ダウンロードをキャンセルしました
 stt-receiver-taken = ハンズフリーの聞き取りはすでに別の場所に接続されています
 stt-speech-denied = システム設定 › プライバシーとセキュリティで音声認識を許可してください
-stt-locale-unsupported = Apple のエンジンはこの言語に対応していません ({ $language })
+stt-locale-unsupported = 音声入力エンジンはこの言語に対応していません ({ $language })
 stt-api-key-missing = 音声入力 API を使うには、環境変数 { $var } を設定してください
 stt-api-key-invalid = 環境変数 { $var } の値は HTTP ヘッダーで送信できません
 stt-api-config = 音声入力 API の設定が無効です。設定ボックスで修正してください。
@@ -26,9 +26,7 @@ stt-voice-failed = システムの音声がテキストを読み上げられま�
 stt-voice-rate = 読み上げ速度は通常の0.5倍から2倍の間にしてください
 speech-barge-in-unavailable-os = Oku の発話中に話しかけて止めるにはエコーキャンセルが必要で、macOS でのみ使えます。
 
-stt-model-turbo = Large v3 Turbo（多言語、818 MB）
-stt-model-large = Large v3（多言語、3.1 GB）
-stt-model-base = Base（多言語、148 MB）
+stt-model-parakeet = Parakeet v3（ヨーロッパの25言語）
 stt-model-apple = Apple（システム）
 stt-model-api = API ({ $model })
 

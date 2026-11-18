@@ -12,7 +12,7 @@ stt-download-incomplete = 下载不完整：{ $got } / { $expected } 字节
 stt-cancelled = 下载已取消
 stt-receiver-taken = 免提聆听已连接到其他位置
 stt-speech-denied = 请在“系统设置 › 隐私与安全性”中允许语音识别
-stt-locale-unsupported = Apple 的引擎不支持此语言（{ $language }）
+stt-locale-unsupported = 听写引擎不支持此语言（{ $language }）
 stt-api-key-missing = 设置环境变量 { $var } 以使用听写 API
 stt-api-key-invalid = 环境变量 { $var } 的值无法在 HTTP 标头中发送
 stt-api-config = 听写 API 的设置无效：请在设置框中更正。
@@ -26,9 +26,7 @@ stt-voice-failed = 系统语音无法朗读文本
 stt-voice-rate = 朗读速度必须介于正常速度的0.5倍到2倍之间
 speech-barge-in-unavailable-os = 在 Oku 说话时插话需要回声消除，仅在 macOS 上可用。
 
-stt-model-turbo = Large v3 Turbo（多语言，818 MB）
-stt-model-large = Large v3（多语言，3.1 GB）
-stt-model-base = Base（多语言，148 MB）
+stt-model-parakeet = Parakeet v3（25种欧洲语言）
 stt-model-apple = Apple（系统）
 stt-model-api = API（{ $model }）
 

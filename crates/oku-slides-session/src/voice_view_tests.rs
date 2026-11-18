@@ -14,8 +14,8 @@ fn ctx(v: Value) -> Map<String, Value> {
 #[rstest]
 #[case(
     "model",
-    json!({"id": "large"}),
-    Some(VoiceEvent::Dictation(DictationPatch { model: Some("large".into()), ..Default::default() }))
+    json!({"id": "parakeet"}),
+    Some(VoiceEvent::Dictation(DictationPatch { model: Some("parakeet".into()), ..Default::default() }))
 )]
 #[case(
     "language",
@@ -50,8 +50,8 @@ fn ctx(v: Value) -> Map<String, Value> {
 )]
 #[case(
     "api",
-    json!({"field": "model", "value": "whisper-1"}),
-    Some(VoiceEvent::Dictation(DictationPatch { api_model: Some("whisper-1".into()), ..Default::default() }))
+    json!({"field": "model", "value": "gpt-4o-mini-transcribe"}),
+    Some(VoiceEvent::Dictation(DictationPatch { api_model: Some("gpt-4o-mini-transcribe".into()), ..Default::default() }))
 )]
 #[case(
     "api",
@@ -78,7 +78,7 @@ fn ctx(v: Value) -> Map<String, Value> {
     json!({"on": false}),
     Some(VoiceEvent::Dictation(DictationPatch { hands_free: Some(false), ..Default::default() }))
 )]
-#[case("download", json!({"model": "base"}), Some(VoiceEvent::DownloadDictation { model: "base".into() }))]
+#[case("download", json!({"model": "parakeet"}), Some(VoiceEvent::DownloadDictation { model: "parakeet".into() }))]
 #[case("cancel_download", json!({}), Some(VoiceEvent::CancelDictationDownload))]
 #[case("select", json!({"id": "bis"}), Some(VoiceEvent::SelectAgent { id: "bis".into() }))]
 #[case("download_agent_model", json!({}), Some(VoiceEvent::DownloadAgentModel))]

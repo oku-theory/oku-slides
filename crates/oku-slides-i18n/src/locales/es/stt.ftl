@@ -12,7 +12,7 @@ stt-download-incomplete = Descarga incompleta: { $got } bytes de { $expected }
 stt-cancelled = Descarga cancelada
 stt-receiver-taken = La escucha manos libres ya está conectada en otro lugar
 stt-speech-denied = Permite el reconocimiento de voz en Ajustes del Sistema › Privacidad y seguridad
-stt-locale-unsupported = El motor de Apple no admite este idioma ({ $language })
+stt-locale-unsupported = El motor de dictado no admite este idioma ({ $language })
 stt-api-key-missing = Define la variable de entorno { $var } para usar la API de dictado
 stt-api-key-invalid = La variable de entorno { $var } contiene un valor que no se puede enviar en un encabezado HTTP
 stt-api-config = Los ajustes de la API de dictado no son válidos: corríjalos en el cuadro de ajustes.
@@ -26,9 +26,7 @@ stt-voice-failed = La voz del sistema no pudo leer el texto
 stt-voice-rate = La velocidad de lectura debe estar entre 0,5 y 2 veces la velocidad normal
 speech-barge-in-unavailable-os = Hablar por encima de Oku requiere cancelación de eco, disponible solo en macOS.
 
-stt-model-turbo = Large v3 Turbo (multilingüe, 818 MB)
-stt-model-large = Large v3 (multilingüe, 3,1 GB)
-stt-model-base = Base (multilingüe, 148 MB)
+stt-model-parakeet = Parakeet v3 (25 idiomas europeos)
 stt-model-apple = Apple (sistema)
 stt-model-api = API ({ $model })
 

@@ -12,7 +12,7 @@ stt-download-incomplete = Incomplete download: { $got } bytes out of { $expected
 stt-cancelled = Download cancelled
 stt-receiver-taken = Hands-free listening is already connected elsewhere
 stt-speech-denied = Allow speech recognition in System Settings › Privacy & Security
-stt-locale-unsupported = Apple's engine does not support this language ({ $language })
+stt-locale-unsupported = The dictation engine does not support this language ({ $language })
 stt-api-key-missing = Set the environment variable { $var } to use the dictation API
 stt-api-key-invalid = The environment variable { $var } holds a value that cannot be sent in an HTTP header
 stt-api-config = The dictation API settings are invalid: correct them in the settings box.
@@ -26,9 +26,7 @@ stt-voice-failed = The system voice could not read the text
 stt-voice-rate = The speaking rate must be between 0.5 and 2 times the normal rate
 speech-barge-in-unavailable-os = Talking over Oku needs echo cancellation, available on macOS only.
 
-stt-model-turbo = Large v3 Turbo (multilingual, 818 MB)
-stt-model-large = Large v3 (multilingual, 3.1 GB)
-stt-model-base = Base (multilingual, 148 MB)
+stt-model-parakeet = Parakeet v3 (25 European languages)
 stt-model-apple = Apple (system)
 stt-model-api = API ({ $model })
 

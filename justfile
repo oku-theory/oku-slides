@@ -561,11 +561,10 @@ icons:
 doctor:
     #!/usr/bin/env bash
     ok=1
-    for tool in cargo bun cmake; do
+    for tool in cargo bun; do
       if command -v "$tool" >/dev/null; then echo "✓ $tool"; else echo "✗ $tool manquant"; ok=0; fi
     done
     if cargo tauri --version >/dev/null 2>&1; then echo "✓ cargo tauri"; else echo "✗ cargo tauri manquant : cargo install tauri-cli --version '^2'"; ok=0; fi
-    command -v cmake >/dev/null || echo "  cmake sert à compiler CTranslate2 (dictée) : brew install cmake"
     # Le pont Swift de la dictée d'Apple exige le SDK de macOS 26 ou plus.
     if [ "$(uname)" = Darwin ]; then
       sdk="$(xcrun --show-sdk-version 2>/dev/null)"
@@ -581,12 +580,9 @@ doctor:
     if grep -lq "^version https://git-lfs" {{fonts}}/*.ttf {{fonts}}/*.otf 2>/dev/null; then echo "✗ polices non récupérées (pointeurs LFS) : git lfs pull"; ok=0; else echo "✓ polices"; fi
     [ "$ok" = 1 ]
 
-# Accélération de la dictée selon la machine (Accelerate sur Mac)
-stt_features := if os() == "macos" { "accelerate" } else { "" }
-
-# Transcrit un fichier WAV avec le modèle de dictée (turbo, large, base ou apple ; langue facultative)
-transcribe wav model="turbo" lang="":
-    cargo run -q --release -p oku-slides-stt --features "{{stt_features}}" --example transcribe -- {{wav}} {{model}} {{lang}}
+# Transcribes a WAV file with a dictation model (parakeet, apple or api; language optional)
+transcribe wav model="parakeet" lang="":
+    cargo run -q --release -p oku-slides-stt --example transcribe -- {{wav}} {{model}} {{lang}}
 
 # Dictée par le moteur d'Apple, pour de vrai (macOS 26, français installé).
 test-apple:

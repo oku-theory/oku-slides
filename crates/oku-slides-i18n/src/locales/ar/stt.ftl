@@ -12,7 +12,7 @@ stt-download-incomplete = تنزيل غير مكتمل: { $got } بايت من �
 stt-cancelled = أُلغي التنزيل
 stt-receiver-taken = الاستماع دون استخدام اليدين متصل بالفعل في مكان آخر
 stt-speech-denied = اسمح بالتعرف على الكلام في إعدادات النظام › الخصوصية والأمان
-stt-locale-unsupported = محرك Apple لا يدعم هذه اللغة ({ $language })
+stt-locale-unsupported = محرك الإملاء لا يدعم هذه اللغة ({ $language })
 stt-api-key-missing = عيّن متغير البيئة { $var } لاستخدام واجهة برمجة الإملاء
 stt-api-key-invalid = يحتوي متغير البيئة { $var } على قيمة لا يمكن إرسالها في ترويسة HTTP
 stt-api-config = إعدادات واجهة برمجة الإملاء غير صالحة: صحّحها في مربع الإعدادات.
@@ -26,9 +26,7 @@ stt-voice-failed = تعذّر على صوت النظام قراءة النص
 stt-voice-rate = يجب أن تكون سرعة القراءة بين 0.5 و2 ضعف السرعة العادية
 speech-barge-in-unavailable-os = تتطلب مقاطعة Oku أثناء حديثه إلغاء الصدى، المتوفر على macOS فقط.
 
-stt-model-turbo = Large v3 Turbo (متعدد اللغات، 818 ميغابايت)
-stt-model-large = Large v3 (متعدد اللغات، 3.1 غيغابايت)
-stt-model-base = Base (متعدد اللغات، 148 ميغابايت)
+stt-model-parakeet = Parakeet v3 (25 لغة أوروبية)
 stt-model-apple = Apple (النظام)
 stt-model-api = API ({ $model })
 

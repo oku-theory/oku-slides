@@ -9,14 +9,14 @@ use crate::stream::NoStreamEngine;
 use crate::test_support::{french_platform, fresh_dir};
 use crate::{ApiConfig, Config, Model, Stt};
 
-/// Whisper dictation only (Turbo by default), its models in `dir`.
+/// Local dictation only (Parakeet by default), its models in `dir`.
 fn stt(dir: &Path) -> Stt {
     Stt::with_engine(&french_platform(dir, |s| s.apple = false), Arc::new(NoStreamEngine), None)
 }
 
-/// Writes an empty `name` in the Turbo model's folder.
-fn turbo_file(stt: &Stt, name: &str) {
-    let folder = Model::Turbo.path(stt.models_dir());
+/// Writes an empty `name` in the Parakeet model's folder.
+fn parakeet_file(stt: &Stt, name: &str) {
+    let folder = Model::Parakeet.path(stt.models_dir());
     std::fs::create_dir_all(&folder).unwrap();
     std::fs::write(folder.join(name), b"").unwrap();
 }
@@ -61,7 +61,7 @@ fn model_files_nothing_on_disk_is_missing() {
 fn model_files_part_left_is_partial() {
     let dir = fresh_dir("mic-partial");
     let stt = stt(dir.path());
-    turbo_file(&stt, "model.bin.part");
+    parakeet_file(&stt, "encoder-model.int8.onnx.part");
     assert_that!(stt.model_files(&stt.status())).is_equal_to(ModelFiles::Partial);
 }
 
@@ -69,7 +69,7 @@ fn model_files_part_left_is_partial() {
 fn model_files_complete_marker_is_complete() {
     let dir = fresh_dir("mic-complete");
     let stt = stt(dir.path());
-    turbo_file(&stt, oku_slides_platform::models::COMPLETE);
+    parakeet_file(&stt, oku_slides_platform::models::COMPLETE);
     assert_that!(stt.model_files(&stt.status())).is_equal_to(ModelFiles::Complete);
 }
 
@@ -82,7 +82,7 @@ fn model_files_api_follows_the_key_variable(#[case] key_env: &str, #[case] expec
     let stt = stt(dir.path());
     let api = ApiConfig {
         url: "http://127.0.0.1:9/v1".into(),
-        model: "whisper-1".into(),
+        model: "gpt-4o-transcribe".into(),
         key_env: key_env.into(),
         ..ApiConfig::default()
     };

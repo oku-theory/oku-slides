@@ -21,7 +21,7 @@ fn saved_on() -> T {
     build(true, |s| {
         let models = s.paths.models();
         std::fs::create_dir_all(&models).unwrap();
-        std::fs::write(models.join("config.json"), r#"{"model":"turbo","version":1,"hands_free":true}"#).unwrap();
+        std::fs::write(models.join("config.json"), r#"{"model":"parakeet","version":1,"hands_free":true}"#).unwrap();
     })
 }
 

@@ -41,13 +41,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # Whisper and the audio crates build C and C++ with CMake (on the runner image); aws-lc-sys
-      # assembles with NASM, absent there: its prebuilt objects replace it, as in release.yml.
-      # CTranslate2 builds with the static CRT (/MT): the whole binary follows it (LNK2038).
-      - name: CMake, NASM and static CRT
+      # aws-lc-sys assembles with NASM, absent from the runner image: its prebuilt objects replace
+      # it, as in release.yml. The whole binary builds with the static CRT (/MT), as release.yml does.
+      - name: NASM and static CRT
         shell: bash
         run: |
-          cmake --version
           echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
           echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
 
@@ -63,8 +61,8 @@ jobs:
 
   linux:
     name: Speech (Linux)
-    # Pinned: on ubuntu-latest (26.04 since October 2026) CTranslate2's per-CPU kernels are missing
-    # from its archive and the stt test binaries fail to link; 24.04 links (t-1490).
+    # Pinned since CTranslate2 failed to link on ubuntu-latest (26.04, t-1490). CTranslate2 is gone
+    # (t-1663); move to ubuntu-latest once a run there passes.
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:

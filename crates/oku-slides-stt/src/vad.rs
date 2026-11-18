@@ -122,8 +122,8 @@ impl Segmenter {
             if let Some(start) = self.open {
                 let quiet = self.scanned - self.last_voice;
                 let long_enough = self.last_voice.saturating_sub(start) >= num::samples(self.config.min_phrase);
-                // Une phrase courte (« Ask not… ») attend la suite : Whisper
-                // transcrit mieux une phrase entière.
+                // A short phrase ("Ask not…") waits for what follows: a phrase
+                // engine transcribes a whole sentence better.
                 let paused = quiet >= num::samples(self.config.pause)
                     && (long_enough || quiet >= num::samples(self.config.long_pause));
                 let too_long = self.scanned - start >= num::samples(self.config.max_phrase);

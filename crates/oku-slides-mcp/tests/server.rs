@@ -130,10 +130,10 @@ async fn slide_unknown_id_returns_tool_error() {
 #[tokio::test(flavor = "multi_thread")]
 async fn settings_returns_port_values() {
     let h = start().await;
-    h.settings.values.lock().unwrap().insert("dictation.model".into(), serde_json::json!("turbo"));
+    h.settings.values.lock().unwrap().insert("dictation.model".into(), serde_json::json!("parakeet"));
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let v = json_of(&call(&c, "settings", serde_json::json!({})).await);
-    assert_that!(v["dictation.model"].as_str()).is_equal_to(Some("turbo"));
+    assert_that!(v["dictation.model"].as_str()).is_equal_to(Some("parakeet"));
 }
 
 /// Every `description` in `v`, with the JSON path that leads to it.

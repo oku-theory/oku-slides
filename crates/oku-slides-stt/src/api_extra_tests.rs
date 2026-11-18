@@ -123,7 +123,7 @@ fn valid_api_access_bad_api_version_is_invalid() {
 }
 
 #[rstest]
-#[case("team/whisper")]
+#[case("team/transcribe")]
 #[case("a:b")]
 #[case(".")]
 #[case("..")]
@@ -134,7 +134,7 @@ fn valid_api_access_azure_deployment_outside_a_path_segment_is_invalid(#[case] m
 
 #[test]
 fn valid_api_access_openai_model_with_a_slash_is_valid() {
-    let config = ApiConfig { model: "openai/whisper-large".into(), ..ApiConfig::default() };
+    let config = ApiConfig { model: "openai/gpt-4o-transcribe".into(), ..ApiConfig::default() };
     assert_that!(valid_api_access(&config)).is_true();
 }
 

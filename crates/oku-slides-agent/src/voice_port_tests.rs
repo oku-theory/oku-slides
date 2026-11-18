@@ -149,19 +149,19 @@ fn apply_azure_settings_from_the_user_are_shown_back() {
 fn apply_azure_deployment_with_a_slash_is_accepted_until_use() {
     let t = voice_with_stt();
     for patch in [
-        DictationPatch { api_model: Some("team/whisper".into()), ..Default::default() },
+        DictationPatch { api_model: Some("team/transcribe".into()), ..Default::default() },
         DictationPatch { api_version: Some("2025-03-01-preview".into()), ..Default::default() },
     ] {
         t.voice.apply(dictation(patch), Origin::User).unwrap();
     }
-    assert_that!(t.voice.view().dictation.unwrap().api.model).is_equal_to("team/whisper".to_owned());
+    assert_that!(t.voice.view().dictation.unwrap().api.model).is_equal_to("team/transcribe".to_owned());
 }
 
 #[test]
 fn check_switch_to_api_from_the_agent_with_a_bad_azure_deployment_is_refused() {
     let t = voice_with_stt();
     let patch = DictationPatch {
-        api_model: Some("team/whisper".into()),
+        api_model: Some("team/transcribe".into()),
         api_version: Some("2025-03-01-preview".into()),
         ..Default::default()
     };
@@ -266,9 +266,13 @@ fn check_switch_to_api_from_the_agent_names_the_user_target() {
 #[test]
 fn check_switch_to_api_names_the_requested_api_model() {
     let t = voice_with_stt();
-    let patch = DictationPatch { model: Some("api".into()), api_model: Some("whisper-1".into()), ..Default::default() };
+    let patch = DictationPatch {
+        model: Some("api".into()),
+        api_model: Some("gpt-4o-mini-transcribe".into()),
+        ..Default::default()
+    };
     let checked = t.voice.check(&dictation(patch), &agent_origin("t-1", false)).unwrap();
-    assert_that!(checked.api.map(|a| a.model)).is_equal_to(Some("whisper-1".to_owned()));
+    assert_that!(checked.api.map(|a| a.model)).is_equal_to(Some("gpt-4o-mini-transcribe".to_owned()));
 }
 
 fn store_invalid_url(t: &T) {
@@ -354,18 +358,21 @@ fn apply_switch_to_api_from_the_user_with_an_invalid_stored_url_is_accepted() {
 #[test]
 fn check_switch_to_an_uninstalled_model_names_its_download() {
     let t = voice_with_stt();
+    let to_api =
+        t.voice.apply(dictation(DictationPatch { model: Some("api".into()), ..Default::default() }), Origin::User);
+    assert_that!(to_api.map_err(|e| e.kind())).is_ok_containing(VoiceApplied::Now);
     let checked = t
         .voice
-        .check(&dictation(DictationPatch { model: Some("large".into()), ..Default::default() }), &Origin::User)
+        .check(&dictation(DictationPatch { model: Some("parakeet".into()), ..Default::default() }), &Origin::User)
         .unwrap();
-    assert_that!(checked.download.map(|(m, _)| m.id)).is_equal_to(Some("large".to_owned()));
+    assert_that!(checked.download.map(|(m, _)| m.id)).is_equal_to(Some("parakeet".to_owned()));
 }
 
 #[test]
 fn check_download_of_an_uninstalled_model_names_it() {
     let t = voice_with_stt();
-    let checked = t.voice.check(&VoiceEvent::DownloadDictation { model: "large".into() }, &Origin::User).unwrap();
-    assert_that!(checked.download.map(|(m, _)| m.id)).is_equal_to(Some("large".to_owned()));
+    let checked = t.voice.check(&VoiceEvent::DownloadDictation { model: "parakeet".into() }, &Origin::User).unwrap();
+    assert_that!(checked.download.map(|(m, _)| m.id)).is_equal_to(Some("parakeet".to_owned()));
 }
 
 #[test]
@@ -427,6 +434,16 @@ fn dictation_event_without_stt_is_no_dictation() {
     assert_that!(r.map_err(|e| e.kind())).is_err_containing(VoiceErrorKind::NoDictation);
 }
 
+#[rstest]
+fn check_old_model_id_is_refused_as_unknown(#[values("turbo", "large", "base")] id: &str) {
+    let t = voice_with_stt();
+    let switch =
+        t.voice.check(&dictation(DictationPatch { model: Some(id.into()), ..Default::default() }), &Origin::User);
+    assert_that!(switch.map_err(|e| e.kind()).err()).is_equal_to(Some(VoiceErrorKind::UnknownModel));
+    let download = t.voice.check(&VoiceEvent::DownloadDictation { model: id.into() }, &Origin::User);
+    assert_that!(download.map_err(|e| e.kind()).err()).is_equal_to(Some(VoiceErrorKind::UnknownModel));
+}
+
 /// The dictation state of a fresh box, in `state`.
 fn status_in(state: oku_slides_stt::State) -> Status {
     let mut status = voice_with_stt().stt.unwrap().status();
@@ -438,7 +455,7 @@ fn status_in(state: oku_slides_stt::State) -> Status {
 fn voice_port_listening_keeps_download_button() {
     let mut view = dictation_view(&status_in(oku_slides_stt::State::Listening));
     assert_that!(view.idle).is_true();
-    view.model = "large".into();
+    view.model = "parakeet".into();
     let mut voice = voice_with_stt().voice.view();
     voice.dictation = Some(view);
     let panel = oku_slides_session::VoicePanel::build(&voice, &Localizer::new(Some("fr")));
@@ -455,7 +472,7 @@ fn check_patch_and_download_accept_listening(#[case] state: oku_slides_stt::Stat
     let status = status_in(state);
     let patch = DictationPatch { silence: Some(2.0), ..Default::default() };
     assert_that!(check_patch(&status, &patch, &Origin::User).is_ok()).is_equal_to(accepted);
-    assert_that!(check_download(&status, "large").is_ok()).is_equal_to(accepted);
+    assert_that!(check_download(&status, "parakeet").is_ok()).is_equal_to(accepted);
 }
 
 #[test]
@@ -484,7 +501,7 @@ fn diagnosis_without_dictation_is_null() {
 fn diagnosis_with_dictation_tells_engine_files_and_language() {
     let t = voice_with_stt();
     let dictation = t.voice.diagnosis().dictation.unwrap();
-    assert_that!(dictation.engine.as_str()).is_equal_to("turbo");
+    assert_that!(dictation.engine.as_str()).is_equal_to("parakeet");
     assert_that!(dictation.model.as_str()).is_equal_to("missing");
     assert_that!(dictation.language.as_str()).is_equal_to("auto");
     assert_that!(
