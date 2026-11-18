@@ -29,7 +29,7 @@ real_pub=$(tr -d '\r\n' < "$tmp/real.key.pub")
 
 # Fake bundles under their asset names.
 mkdir -p "$tmp/bundles"
-names="Oku.Slides_aarch64.app.tar.gz Oku.Slides_x64.app.tar.gz Oku.Slides_${v}_amd64.AppImage
+names="Oku.Slides_aarch64.app.tar.gz Oku.Slides_${v}_amd64.AppImage
 Oku.Slides_${v}_amd64.deb Oku.Slides_${v}_x64-setup.exe"
 for name in $names; do
   printf 'fake bundle %s\n' "$name" > "$tmp/bundles/$name"
@@ -60,8 +60,6 @@ make_latest() {
       platforms: {
         "darwin-aarch64": entry("Oku.Slides_aarch64.app.tar.gz"),
         "darwin-aarch64-app": entry("Oku.Slides_aarch64.app.tar.gz"),
-        "darwin-x86_64": entry("Oku.Slides_x64.app.tar.gz"),
-        "darwin-x86_64-app": entry("Oku.Slides_x64.app.tar.gz"),
         "linux-x86_64": entry("Oku.Slides_\($v)_amd64.AppImage"),
         "linux-x86_64-appimage": entry("Oku.Slides_\($v)_amd64.AppImage"),
         "linux-x86_64-deb": entry("Oku.Slides_\($v)_amd64.deb"),
@@ -142,18 +140,18 @@ done
 
 jq '.version = "9.9.9"' "$signed" > "$tmp/bad.json"
 expect_gate_refuses "gate: latest.json announcing another version refused" "$tmp/bad.json" "announces version"
-jq --arg u "https://evil.example/releases/download/v$v/Oku.Slides_x64.app.tar.gz" \
-  '.platforms["darwin-x86_64"].url = $u' "$signed" > "$tmp/bad.json"
+jq --arg u "https://evil.example/releases/download/v$v/Oku.Slides_aarch64.app.tar.gz" \
+  '.platforms["darwin-aarch64"].url = $u' "$signed" > "$tmp/bad.json"
 expect_gate_refuses "gate: foreign URL host refused" "$tmp/bad.json" "URL refused"
-jq --arg u "https://github.com/$repo/releases/download/v8.0.0/Oku.Slides_x64.app.tar.gz" \
-  '.platforms["darwin-x86_64-app"].url = $u' "$signed" > "$tmp/bad.json"
+jq --arg u "https://github.com/$repo/releases/download/v8.0.0/Oku.Slides_aarch64.app.tar.gz" \
+  '.platforms["darwin-aarch64-app"].url = $u' "$signed" > "$tmp/bad.json"
 expect_gate_refuses "gate: URL of another release refused" "$tmp/bad.json" "URL refused"
-jq --arg u "${prefix}Oku..Slides_x64.app.tar.gz" \
-  '.platforms["darwin-x86_64"].url = $u' "$signed" > "$tmp/bad.json"
+jq --arg u "${prefix}Oku..Slides_aarch64.app.tar.gz" \
+  '.platforms["darwin-aarch64"].url = $u' "$signed" > "$tmp/bad.json"
 expect_gate_refuses "gate: URL with .. refused" "$tmp/bad.json" "URL refused"
 jq 'del(.platforms["windows-x86_64"])' "$signed" > "$tmp/bad.json"
 expect_gate_refuses "gate: missing platform key refused" "$tmp/bad.json" "windows-x86_64 missing"
-jq --arg s "$(cat "$tmp/signed/Oku.Slides_x64.app.tar.gz.sig")" \
+jq --arg s "$(cat "$tmp/signed/Oku.Slides_${v}_amd64.deb.sig")" \
   '.platforms["darwin-aarch64-app"].signature = $s' "$signed" > "$tmp/bad.json"
 expect_gate_refuses "gate: signature of another bundle refused" "$tmp/bad.json" "does not verify"
 cp -R "$tmp/bundles" "$tmp/tampered"
@@ -161,11 +159,11 @@ printf 'tampered\n' >> "$tmp/tampered/Oku.Slides_${v}_amd64.deb"
 expect_gate_refuses "gate: tampered bundle refused" "$signed" "does not verify" "$tmp/tampered"
 
 # release-sign.sh refuses to sign anything outside the release.
-jq --arg u "https://evil.example/Oku.Slides_x64.app.tar.gz" \
-  '.platforms["darwin-x86_64"].url = $u' "$tmp/draft.json" > "$tmp/bad.json"
+jq --arg u "https://evil.example/Oku.Slides_aarch64.app.tar.gz" \
+  '.platforms["darwin-aarch64"].url = $u' "$tmp/draft.json" > "$tmp/bad.json"
 expect_sign_refuses "sign: foreign URL refused" "$tmp/bad.json" "URL refused"
-jq --arg u "${prefix}Oku..Slides_x64.app.tar.gz" \
-  '.platforms["darwin-x86_64"].url = $u' "$tmp/draft.json" > "$tmp/bad.json"
+jq --arg u "${prefix}Oku..Slides_aarch64.app.tar.gz" \
+  '.platforms["darwin-aarch64"].url = $u' "$tmp/draft.json" > "$tmp/bad.json"
 expect_sign_refuses "sign: URL with .. refused" "$tmp/bad.json" "URL refused"
 expect_sign_refuses "sign: version other than latest.json's refused" "$tmp/draft.json" \
   "announces version" 9.9.9

@@ -3,7 +3,7 @@
 //! - [`availability`]: whether the model can answer on this Mac, and why not.
 //! - [`respond`]: one guided reply, blocking, under a JSON Schema.
 //!
-//! `FoundationModels` is weak-linked: binaries still start on macOS 12, where the model
+//! `FoundationModels` is weak-linked: binaries still start on macOS 13.4, where the model
 //! reports [`AppleModel::MacOsTooOld`]. Off macOS nothing is built from Swift.
 
 mod bridge;

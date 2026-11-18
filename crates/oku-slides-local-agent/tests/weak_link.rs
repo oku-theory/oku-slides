@@ -1,4 +1,4 @@
-//! The binary links `FoundationModels` weakly and targets macOS 12, so it starts before macOS 26.
+//! The binary links `FoundationModels` weakly and targets macOS 13.4, so it starts before macOS 26.
 #![cfg(target_os = "macos")]
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
@@ -31,7 +31,7 @@ fn dev_binary_foundation_models_is_a_weak_dylib() {
 }
 
 #[test]
-fn dev_binary_minimum_macos_is_12() {
+fn dev_binary_minimum_macos_is_13_4() {
     let commands = load_commands();
-    assert_that!(commands.lines().map(str::trim).any(|l| l == "minos 12.0")).is_true();
+    assert_that!(commands.lines().map(str::trim).any(|l| l == "minos 13.4")).is_true();
 }

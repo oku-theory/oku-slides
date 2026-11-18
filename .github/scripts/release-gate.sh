@@ -8,7 +8,7 @@
 #   REPO           owner/name, e.g. oku-theory/oku-slides
 #   PUBKEY         the pubkey installed apps trust (base64, as Tauri stores it): tauri.conf.json on
 #                  main, or UPDATER_ROTATION_PUBKEY during a key rotation (ADR-0014)
-#   REQUIRED_KEYS  comma-separated platform keys that must be present; default: the four
+#   REQUIRED_KEYS  comma-separated platform keys that must be present; default: the three
 #                  platforms of a complete release (PLATFORMS below)
 #
 # Checks: `.version` is VERSION or vVERSION; every platform key's URL is
@@ -23,7 +23,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/release-lib.sh"
 
 # The platforms a complete release carries; keep in step with the release.yml matrix.
-PLATFORMS=darwin-aarch64,darwin-x86_64,linux-x86_64,windows-x86_64
+PLATFORMS=darwin-aarch64,linux-x86_64,windows-x86_64
 
 die() { echo "::error::release-gate: $*" >&2; exit 1; }
 

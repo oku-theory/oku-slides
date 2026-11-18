@@ -77,7 +77,7 @@ Oku Slides improves with them, without giving up control of your documents.
 
 ## Getting started
 
-1. Download the latest version for macOS (Apple Silicon or Intel), Windows or Linux from
+1. Download the latest version for macOS 13.4 or later (Apple Silicon), Windows or Linux from
    [Releases](https://github.com/oku-theory/oku-slides/releases). The app updates itself.
 2. Pick an agent. Claude is the default; Codex, Gemini or the built-in local agent can be
    chosen instead (ask the agent, or see [configuration](docs/configuration.md)). Cloud

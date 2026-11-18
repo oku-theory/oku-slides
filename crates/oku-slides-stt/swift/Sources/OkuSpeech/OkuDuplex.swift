@@ -22,7 +22,7 @@
 //
 // Availability (macOS SDK headers): `setVoiceProcessingEnabled` and `write(_:toBufferCallback:)`
 // 10.15, `AVAudioConverter` 10.11, `scheduleBuffer(_:completionCallbackType:)` 10.13: all within the
-// 12.0 minimum. The other-audio ducking setting is macOS 14+, set only there.
+// 13.4 minimum. The other-audio ducking setting is macOS 14+, set only there.
 
 import AVFoundation
 import Foundation

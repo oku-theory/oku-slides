@@ -134,8 +134,9 @@ windows = { version = "0.62", default-features = false, features = [
   "Foundation",
   "Foundation_Collections",
 ] }
-# Agent local de repli (moteur Gguf, Apple silicon) : llama.cpp avec Metal. Audit du lot 3
-# (t-1022) : MIT / Apache-2.0, minos 12.0, +6 Mo. `common` : grammaires GBNF ; pas d'openmp.
+# Local fallback agent (Gguf engine, Apple silicon): llama.cpp with Metal. Batch 3 audit
+# (t-1022): MIT / Apache-2.0, minos 12.0 (the app now requires 13.4), +6 MB. `common`: GBNF
+# grammars; no openmp.
 llama-cpp-2 = { version = "=0.1.158", default-features = false, features = ["metal", "common"] }
 llama-cpp-sys-2 = { version = "=0.1.158", default-features = false }
 # App de bureau

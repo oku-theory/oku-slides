@@ -3,7 +3,7 @@
 // C ABI (@_cdecl) read by crates/oku-slides-apple-model/src/bridge.rs; codes shared with
 // bridge.rs. A reply sends exactly one event through `cb(ctx, kind, code, text)`, then calls
 // `free(ctx)` once. No `try!` and no `!`: a crash here would bring the app down.
-// FoundationModels is weak-linked (deployment target 12.0): every use sits behind
+// FoundationModels is weak-linked (deployment target 13.4): every use sits behind
 // `#available(macOS 26.0, *)`.
 
 import Foundation
