@@ -50,8 +50,7 @@ jobs:
   # version and its tag are read again, nothing is bumped.
   version:
     name: Version
-    # ubuntu-22.04 est en dépréciation (fenêtres de brownout jusqu'au retrait, avril 2027) : les
-    # jobs sans compilation passent en 24.04. Le build Linux y reste pour sa glibc plus ancienne.
+    # Every job runs on ubuntu-24.04, the Linux build included (see the matrix below).
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.tag.outputs.version }}
@@ -70,7 +69,10 @@ jobs:
             --argjson macos_arm "$MACOS_ARM" \
             --argjson linux "$LINUX" --argjson windows "$WINDOWS" '
             [ if $macos_arm then {name: "macOS (Apple Silicon)", runner: "macos-15", updater: "darwin-aarch64"} else empty end,
-              if $linux then {name: "Linux", runner: "ubuntu-22.04", updater: "linux-x86_64"} else empty end,
+              # 24.04, not 22.04: the prebuilt ONNX Runtime (ort-sys) needs glibc 2.38 and
+              # GLIBCXX_3.4.32 (GCC 13), which 22.04 lacks. The AppImage carries the libraries of
+              # this host, so the app needs glibc 2.39 or later (Ubuntu 24.04, Debian 13, Fedora 40).
+              if $linux then {name: "Linux", runner: "ubuntu-24.04", updater: "linux-x86_64"} else empty end,
               if $windows then {name: "Windows", runner: "windows-2022", updater: "windows-x86_64"} else empty end ]
             | {include: .}')
           [ "$(jq '.include | length' <<<"$matrix")" -gt 0 ] || { echo "::error::aucune plateforme cochée"; exit 1; }
@@ -196,13 +198,13 @@ jobs:
 
       # aws-lc-sys (rustls, via rust-mcp-sdk) assemble avec NASM, absent du runner Windows : ses
       # objets précompilés le remplacent.
-      - name: NASM précompilé et CRT statique (Windows)
+      # No `+crt-static`: the prebuilt ONNX Runtime is built /MD (dynamic CRT) and does not link
+      # against the static one. The app uses the dynamic CRT and ships the Visual C++ runtime
+      # beside its exe (step "App-local DLLs").
+      - name: Prebuilt NASM (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: |
-          echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
-          # Static CRT (/MT) for the whole binary, as the voice-check job builds it.
-          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+        run: echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -223,6 +225,20 @@ jobs:
           [[ "$key" =~ ^[A-Za-z0-9+/=]+$ ]] || { echo "::error::throwaway key unreadable"; exit 1; }
           echo "TAURI_SIGNING_PRIVATE_KEY=$key" >> "$GITHUB_ENV"
 
+      # The Windows app loads DirectML.dll (hard import of the prebuilt ONNX Runtime; Windows 10's
+      # own copy lacks DMLCreateDevice1) and the Visual C++ runtime (the dynamic CRT) from its own
+      # folder: app-local, so neither a system redistributable nor an admin install is needed. A
+      # first build without bundles yields the exe and DirectML.dll; the script checks the exe's
+      # imports and writes the resources config tauri-action adds (only the app crate rebuilds).
+      - name: App-local DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cargo tauri build --no-bundle
+          config=$(.github/scripts/windows-app-local.sh target/release/oku-slides-app.exe \
+            "$RUNNER_TEMP/app-local")
+          echo "APP_LOCAL_CONFIG=--config $config" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -235,7 +251,8 @@ jobs:
         with:
           tauriScript: cargo tauri
           # Paquets de mise à jour ici seulement : `just build` reste sans clé.
-          args: --config '{"bundle":{"createUpdaterArtifacts":true}}'
+          # APP_LOCAL_CONFIG: Windows only (step "App-local DLLs"), empty elsewhere.
+          args: --config '{"bundle":{"createUpdaterArtifacts":true}}' ${{ env.APP_LOCAL_CONFIG }}
           # `latest.json` (lu par l'app) : chaque plateforme y ajoute la sienne.
           includeUpdaterJson: true
           # Windows : l'installeur NSIS, pas le MSI.
@@ -244,7 +261,9 @@ jobs:
           # as tauri.conf.json has none.
           tagName: v__VERSION__
           releaseName: Oku Slides v__VERSION__
-          releaseBody: "Paquets Windows, macOS (Apple Silicon, macOS 13.4 ou plus) et Linux construits par le workflow Release. Les installations sur macOS 12 et sur Mac Intel ne reçoivent plus de mises à jour."
+          # The app's users read French: the body stays in French. v10.3.0 is the last version
+          # for macOS 12 and Intel Macs; its updater still offers this one there (t-1663).
+          releaseBody: "Paquets Windows, macOS (Apple Silicon, macOS 13.4 ou plus) et Linux (glibc 2.39 ou plus : Ubuntu 24.04, Debian 13, Fedora 40 ou plus récent) construits par le workflow Release. macOS 12 : n'installez pas cette mise à jour (choisissez « Plus tard »), elle ne s'ouvrirait pas ; si c'est fait, réinstallez la v10.3.0 depuis https://github.com/oku-theory/oku-slides/releases/tag/v10.3.0. Mac Intel : la v10.3.0 reste la dernière version, sa vérification des mises à jour signale désormais une erreur."
           releaseDraft: true
           prerelease: false
 

@@ -27,6 +27,7 @@
 - App runs: fresh temp `OKU_SLIDES_PATHS__DATA` / `OKU_SLIDES_PATHS__DECKS` per run. No `CARGO_*` overrides.
 - macOS minimum is 13.4 from Task 2 on (user, 2026-11-18: the prebuilt ONNX Runtime objects target 13.4). Every place that names the minimum moves together.
 - Fixture WAV: `fixtures/stt/dictee-fr.wav` (Git LFS).
+- Linux release on ubuntu-24.04: the prebuilt ONNX Runtime needs glibc 2.38 and GLIBCXX_3.4.32; the app needs glibc 2.39 (Ubuntu 24.04, Debian 13, Fedora 40). Windows: dynamic CRT, never `+crt-static` (the prebuilt ONNX Runtime is `/MD`), the Visual C++ runtime and `DirectML.dll` shipped beside the exe (`.github/scripts/windows-app-local.sh`); minimum stays Windows 10 (final review, 2026-11-19).
 
 ## Review Focus
 
@@ -34,7 +35,7 @@
 2. Parakeet selected with a language outside the 25 (saved `ja`, or UI locale `ja` without a choice): greyed in the picker, and starting dictation refuses with the localized `LocaleUnsupported` error, never transcribes — Task 3 (`start_parakeet_in_japanese_refuses_locale_unsupported`).
 3. An upgrading user presses the mic with Parakeet not downloaded: the download starts, no error — Task 3 (`start_parakeet_not_installed_starts_download`).
 4. A Linux or Windows build pulls no OpenSSL and the model runs on CPU there — Task 3 Step 9 (`cargo tree -i openssl-sys` per target) and Task 4 CI.
-5. Empty, one-sample or silent audio returns empty text, not an error; a panic inside the model becomes `SttError::Transcribe` — Task 3 (`transcribe_empty_audio_returns_empty_text`, `transcribe_panic_is_an_error`).
+5. Empty, one-sample or silent audio returns empty text, not an error; a panic inside the model becomes `SttError::Transcribe` — Task 3 (`too_short_empty_audio_returns_true`, `transcribe_panic_is_an_error`).
 
 ---
 
@@ -63,7 +64,7 @@ Before the engine work: ort has no x86_64-apple-darwin build, so the Intel matri
 
 **Files:**
 - Modify: `.github/workflows/release.yml` (the `macos_intel` input and matrix entry, the Intel line of the ad hoc signing comment near :239, `darwin-x86_64` in the `latest.json` filter near :369, "four platforms" wording), `.github/scripts/release-gate.sh:26` (`PLATFORMS`), `.github/scripts/release-sign-test.sh:63-64,146-168` (Intel fixtures), root `AGENTS.md` pitfall ("short of three platforms"), `README.md` (Apple Silicon only).
-- macOS 13.4: `src-tauri/tauri.conf.json:48` (`minimumSystemVersion`), `.cargo/config.toml:6` (`MACOSX_DEPLOYMENT_TARGET`; translate its French comment), `crates/oku-slides-stt/build.rs:9` and `crates/oku-slides-apple-model/build.rs:9` (`SwiftLinker::new("13.4")`), both `swift/Package.swift:7` (`.macOS("13.4")`), `crates/oku-slides-local-agent/tests/weak_link.rs:36` (`minos 13.4`), the 12.0/"macOS 12" mentions in `crates/oku-slides-apple-model/{ARCHITECTURE.md:22-32, src/lib.rs:6, swift/Sources/OkuModel/OkuModel.swift:6}`, root `AGENTS.md:58` pitfall (13.4; source: this plan), `Cargo.toml:138` comment, `README.md` requirements. Release notes: macOS 12 installs receive no further updates.
+- macOS 13.4: `src-tauri/tauri.conf.json:48` (`minimumSystemVersion`), `.cargo/config.toml:6` (`MACOSX_DEPLOYMENT_TARGET`; translate its French comment), `crates/oku-slides-stt/build.rs:9` and `crates/oku-slides-apple-model/build.rs:9` (`SwiftLinker::new("13.4")`), both `swift/Package.swift:7` (`.macOS("13.4")`), `crates/oku-slides-local-agent/tests/weak_link.rs:36` (`minos 13.4`), the 12.0/"macOS 12" mentions in `crates/oku-slides-apple-model/{ARCHITECTURE.md:22-32, src/lib.rs:6, swift/Sources/OkuModel/OkuModel.swift:6}`, root `AGENTS.md:58` pitfall (13.4; source: this plan), `Cargo.toml:138` comment, `README.md` requirements. Release notes: macOS 12 users must not install the update (v10.3.0's updater still offers it, and it would not launch); they say how to reinstall v10.3.0.
 - Kept on purpose, noted in the commit message: `crates/oku-slides-platform/src/local_agent.rs` `Target::IntelMac`, `Unavailable::IntelMac` and the `agent-local-intel-mac` keys (source builds still exist).
 
 - [ ] **Step 1:** Edit the files above; the release-notes template gains one line: Intel Mac installs receive no further updates.
@@ -90,7 +91,7 @@ One task, one commit: the Parakeet engine goes in and Whisper goes out together.
     - `load_missing_dir_returns_model_load_error`: kind `SttErrorKind::Model`, and `err.localize(&Localizer::new("fr"))` equals the `fr` text of the model-load key.
     - `load_garbage_files_returns_model_load_error`: three files of `b"x"` under the pinned names → kind `Model`.
     - `load_empty_vocab_returns_model_load_error`: real-size-agnostic garbage ONNX plus empty `vocab.txt` → `Err`, no panic.
-    - `transcribe_empty_audio_returns_empty_text`, `transcribe_one_sample_returns_empty_text`: the pure guard `fn too_short(audio: &[f32]) -> bool` is true for 0 and 1 samples and false at 1600 (0.1 s); `transcribe` returns `Transcript::default()` when it holds, without touching the model.
+    - `too_short_empty_audio_returns_true`, `too_short_one_sample_returns_true`: the pure guard `fn too_short(audio: &[f32]) -> bool` is true for 0 and 1 samples and false at 1600 (0.1 s); `transcribe` returns `Transcript::default()` when it holds, without touching the model.
     - `transcribe_panic_is_an_error`: the pure wrapper `fn guarded(f: impl FnOnce() -> Result<String, BoxError>) -> Result<String, SttError>` turns a panic into `Transcribe { step: "parakeet" }`.
     - `#[ignore = "needs the real model"] transcribe_french_wav_returns_text`: `fixtures/stt/dictee-fr.wav` → non-empty text, `language` `None`; `transcribe_silence_returns_empty_text` (0.2 s zeros), `transcribe_ignores_bogus_language` (language `Some("xx")` → same text as `None`), `transcribe_overlong_audio_returns_text` (35 s of the WAV repeated).
     - `start_parakeet_not_installed_starts_download` (start tests): Parakeet not installed → state `Downloading`, no error.

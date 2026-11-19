@@ -67,7 +67,16 @@ complètement ct2rs").
   supporte plus le mac intel"), so the release goes from four platforms to three.
 - macOS minimum: raised from 12.0 to 13.4 (user, 2026-11-18), because the prebuilt ONNX Runtime
   objects are built for 13.4 (spike results below). Tauri, `.cargo/config.toml`, both Swift
-  packages and the weak-link test move together; macOS 12 installs receive no further updates.
+  packages and the weak-link test move together. The v10.3.0 updater cannot check the OS, so it
+  offers this release on macOS 12, where it would not launch: the release notes tell macOS 12
+  users not to install it and how to reinstall v10.3.0. No gate is added: tauri-plugin-updater
+  has no minimum-OS check, the installed v10.x clients cannot be changed, and a check in the new
+  version would never run on macOS 12.
+- Linux minimum: glibc 2.39 (Ubuntu 24.04, Debian 13, Fedora 40 or later). The prebuilt ONNX
+  Runtime needs glibc 2.38 and GLIBCXX_3.4.32, so the release builds on ubuntu-24.04, whose
+  libraries the AppImage carries (spike results below).
+- Windows minimum unchanged (Windows 10): the app uses the dynamic CRT and ships the Visual C++
+  runtime and `DirectML.dll` beside its exe (spike results below).
 
 ## Approaches
 
@@ -191,8 +200,23 @@ after one warm-up, in the same process ("warm"); "cold" is the whole `just trans
   downloads its archive. Linux (ubuntu-24.04): check and `speak::` tests pass and the test
   binaries link with ct2rs and ONNX Runtime together; the build compiles `openssl-sys` 0.9.118
   through `native-tls`, as predicted. The workflow could not carry a full Parakeet build and run
-  (the local token cannot push workflow files), so linking the Windows binary with the static CRT
-  and running the model on Linux and Windows remain to check in Task 3's CI.
+  (the local token cannot push workflow files), so linking the Windows binary and running the
+  model on Linux and Windows remain to check in Task 3's CI.
+- Final review, archives inspected (no Linux or Windows machine here):
+  - Linux (`x86_64-unknown-linux-gnu` archive): the highest versioned symbols are GLIBC_2.38
+    (`__isoc23_strtol` and kin) and GLIBCXX_3.4.32 (`std::ios_base_library_init`, GCC 13);
+    libstdc++ links dynamically. ubuntu-22.04 (glibc 2.35, GCC 12) cannot link it, so the Linux
+    release moves to ubuntu-24.04 and the app needs glibc 2.39, the host's.
+  - Windows (`x86_64-pc-windows-msvc` archive): `onnxruntime.lib` objects are `/MD`
+    (`RuntimeLibrary=MD_DynamicRelease`, `/DEFAULTLIB:MSVCRT`), built with MSVC 14.44 (VS 2022
+    17.14). `+crt-static` cannot link them, nor can Tauri's default static vcruntime; both are
+    dropped (`WindowsAttributes::static_vc_runtime(false)` in `src-tauri/build.rs`).
+  - The archive also ships `DirectML.dll` (18.5 MB), a hard import (`DMLCreateDevice1`, DirectML
+    1.1, newer than Windows 10's system copy). It ships beside the exe with the Visual C++ runtime
+    copied from the build's Visual Studio (`.github/scripts/windows-app-local.sh`), which also
+    fails the release when the exe imports a runtime DLL not shipped. App-local rather than the
+    `vc_redist` installer: no admin rights, no download, and the exe runs against the exact
+    runtime it was built with; the cost is that Windows Update does not service that copy.
 
 ### Language availability
 
@@ -221,8 +245,8 @@ after one warm-up, in the same process ("warm"); "cold" is the whole `just trans
   ad hoc signing comment, `darwin-x86_64` from the `latest.json` platform filter, and "four
   platforms" wording. `.github/scripts/release-gate.sh` `PLATFORMS` and `release-sign-test.sh`
   fixtures follow. Root AGENTS.md pitfall: "short of three platforms". README: Apple Silicon only.
-- Intel users already installed keep their version; the updater offers them nothing new, which
-  the release notes say.
+- Intel users already installed keep their version; `latest.json` has no Intel build, so their
+  update check finds nothing to install, which the release notes say.
 
 ### Build and docs
 

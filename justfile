@@ -561,10 +561,11 @@ icons:
 doctor:
     #!/usr/bin/env bash
     ok=1
-    for tool in cargo bun; do
+    for tool in cargo bun cmake; do
       if command -v "$tool" >/dev/null; then echo "✓ $tool"; else echo "✗ $tool manquant"; ok=0; fi
     done
     if cargo tauri --version >/dev/null 2>&1; then echo "✓ cargo tauri"; else echo "✗ cargo tauri manquant : cargo install tauri-cli --version '^2'"; ok=0; fi
+    command -v cmake >/dev/null || echo "  cmake sert à compiler llama.cpp (agent local) : brew install cmake"
     # Le pont Swift de la dictée d'Apple exige le SDK de macOS 26 ou plus.
     if [ "$(uname)" = Darwin ]; then
       sdk="$(xcrun --show-sdk-version 2>/dev/null)"

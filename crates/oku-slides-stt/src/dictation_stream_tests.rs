@@ -220,3 +220,13 @@ fn download_while_recording_returns_false() {
     let (stt, _dir) = recording_stt("download-recording");
     assert_that!(stt.download(crate::Model::Parakeet, false)).is_false();
 }
+
+#[test]
+fn transcribe_stream_after_shutdown_keeps_the_download_cancelled() {
+    let dir = fresh_dir("stream-shutdown-cancel");
+    let (stt, _) = stt_with(dir.path(), ScriptedEngine::new(Availability::Ready, &["Bonjour."]), |_| {});
+    stt.shutdown();
+    // Whatever the transcription returns, the shutdown's cancel must survive it.
+    let _ = stt.transcribe_stream(&[0.0; 1_600]);
+    assert_that!(stt.cancel_download.load(Ordering::Relaxed)).is_true();
+}

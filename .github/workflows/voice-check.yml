@@ -1,6 +1,7 @@
 # OS voices of read-aloud off macOS (t-1002, Q11). Nobody here runs Windows or Linux: this job is the
 # only place the WinRT speech code and the Speech Dispatcher driver of oku-slides-stt are compiled,
-# and the Linux one tested (speak::). `just ci` stays the full gate, on macOS; release.yml builds the apps.
+# the prebuilt ONNX Runtime linked off macOS, and the Linux voice tested (speak::). `just ci` stays
+# the full gate, on macOS; release.yml builds the apps.
 # Runs on every push to main or PR touching Rust code, and by hand from the Actions tab.
 name: Voice check
 
@@ -34,7 +35,9 @@ concurrency:
 jobs:
   windows:
     name: Speech (Windows)
-    runs-on: windows-latest
+    # Same image as release.yml's Windows build: its MSVC must not be older than the one that
+    # built the prebuilt ONNX Runtime (VS 2022 17.14).
+    runs-on: windows-2022
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -42,12 +45,11 @@ jobs:
           persist-credentials: false
 
       # aws-lc-sys assembles with NASM, absent from the runner image: its prebuilt objects replace
-      # it, as in release.yml. The whole binary builds with the static CRT (/MT), as release.yml does.
-      - name: NASM and static CRT
+      # it, as in release.yml. Dynamic CRT (no `+crt-static`), as release.yml: the prebuilt ONNX
+      # Runtime is built /MD.
+      - name: Prebuilt NASM
         shell: bash
-        run: |
-          echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
-          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+        run: echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
 
       # Same pin as release.yml and rust-toolchain.toml (t-1201).
       - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98.1
@@ -56,13 +58,14 @@ jobs:
         with:
           key: voice-check-windows
 
-      - name: Check
-        run: cargo check -p oku-slides-stt
+      # A link, not a check: the test binaries link ONNX Runtime, DirectML and the CRT as the app.
+      - name: Link
+        run: cargo test -p oku-slides-stt --no-run
 
   linux:
     name: Speech (Linux)
-    # Pinned since CTranslate2 failed to link on ubuntu-latest (26.04, t-1490). CTranslate2 is gone
-    # (t-1663); move to ubuntu-latest once a run there passes.
+    # The Linux release image (release.yml): the prebuilt ONNX Runtime needs glibc 2.38 or later,
+    # so 22.04 cannot link it (t-1663).
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -82,8 +85,9 @@ jobs:
         with:
           key: voice-check-linux
 
-      - name: Check
-        run: cargo check -p oku-slides-stt
+      # A link, not a check: the test binaries link ONNX Runtime as the app does.
+      - name: Link
+        run: cargo test -p oku-slides-stt --no-run
 
       - name: Speech tests
         run: "cargo test -p oku-slides-stt speak::"

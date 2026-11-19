@@ -122,9 +122,10 @@ impl Stt {
             g.pause_for_download(then);
             g.state = State::Downloading;
             g.download = Some(Download { model: Model::Apple, received: 0, total: 0 });
+            // Under the lock that checked `shut`: a shutdown's cancel is never overwritten.
+            self.cancel_download.store(false, Ordering::Relaxed);
             tag
         };
-        self.cancel_download.store(false, Ordering::Relaxed);
         let me = self.worker();
         std::thread::spawn(move || {
             let result = me.install(&tag);
@@ -165,10 +166,12 @@ impl Stt {
     /// Transcrit un audio complet (mono 16 kHz) par le moteur en continu.
     pub(crate) fn transcribe_stream(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), SttError> {
         let timeout = self.apple_finish_timeout()?;
-        // Un ancien abandon (`cancel`) ne doit pas interrompre cette installation.
-        self.cancel_download.store(false, Ordering::Relaxed);
         let (apple, vocabulary) = {
             let g = self.state();
+            // An earlier `cancel` must not stop this install, but a shutdown's cancel stays.
+            if !g.shut {
+                self.cancel_download.store(false, Ordering::Relaxed);
+            }
             (g.apple.clone(), g.vocabulary.clone())
         };
         let Some((tag, availability)) = apple else {

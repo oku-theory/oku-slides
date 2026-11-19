@@ -28,6 +28,8 @@
 - Never change plugins.updater.pubkey outside the ADR-0014 procedures; installed apps reject bundles signed by another key. (ADR-0014, spec:2026-10-18-auto-update-design)
 - Keep the update mirror first in updater endpoints; its host is also in MIRROR_DOWNLOAD_PREFIX and update-mirror.yml. (spec:2026-10-25-update-mirror-design, t-1209)
 - Repair a failed mirror job with a manual Update mirror run; apps read the mirror first, so a stale one hides releases. (spec:2026-10-25-update-mirror-design, t-1209)
+- Build Windows with the dynamic CRT, never +crt-static or Tauri's static vcruntime: the prebuilt ONNX Runtime is /MD; the release ships the VC++ runtime and DirectML.dll beside the exe. (spec:2026-11-18-dictee-parakeet-design, t-1663)
+- Build the Linux release on ubuntu-24.04 or later; the prebuilt ONNX Runtime needs glibc 2.38 and GLIBCXX_3.4.32. (spec:2026-11-18-dictee-parakeet-design, t-1663)
 - When adding a release platform, add its updater key to the release.yml matrix, the publish job's count and PLATFORMS in release-gate.sh, or no release goes latest. (spec:2026-10-18-auto-update-design, t-973)
 
 ## Testing

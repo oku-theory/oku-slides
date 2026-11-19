@@ -84,6 +84,7 @@ pub(super) fn guarded(f: impl FnOnce() -> Result<String, BoxError>) -> Result<St
 
 /// The process's ONNX Runtime environment, created once: ONNX Runtime allows only one.
 fn environment() -> Result<Environment, BoxError> {
+    // A failed init is cached too: it is not transient, so every later load reports it again.
     static ENV: OnceLock<Result<Environment, String>> = OnceLock::new();
     ENV.get_or_init(|| ort::init().with_name("oku-slides").build().map_err(|e| e.to_string())).clone().map_err(boxed)
 }

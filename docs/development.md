@@ -114,7 +114,7 @@ the library layout packs; a widget written for it goes to the deck's own packs, 
 ## Running the app
 
 Everything runs from the repository root with [just](https://just.systems).
-Prerequisites: Rust, [Bun](https://bun.sh), just, the Tauri
+Prerequisites: Rust, [Bun](https://bun.sh), just, cmake (for llama.cpp, the local agent), the Tauri
 CLI (`cargo install tauri-cli --version "^2"`), on a Mac Xcode with the macOS 26 SDK
 (required: the Swift bridge to Apple's dictation engine is always built), and [Git LFS](https://git-lfs.com) for the fonts in
 `assets/fonts` (`git lfs install` before cloning, otherwise `git lfs pull`).

@@ -58,12 +58,12 @@ fn load_empty_vocab_returns_model_load_error() {
 }
 
 #[test]
-fn transcribe_empty_audio_returns_empty_text() {
+fn too_short_empty_audio_returns_true() {
     assert_that!(too_short(&[])).is_true();
 }
 
 #[test]
-fn transcribe_one_sample_returns_empty_text() {
+fn too_short_one_sample_returns_true() {
     assert_that!(too_short(&[0.5])).is_true();
 }
 

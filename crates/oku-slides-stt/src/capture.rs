@@ -120,8 +120,9 @@ impl Stt {
             g.pause_for_download(then);
             g.state = State::Downloading;
             g.download = Some(Download { model, received: 0, total: model.size() });
+            // Under the lock that checked `shut`: a shutdown's cancel is never overwritten.
+            self.cancel_download.store(false, Ordering::Relaxed);
         }
-        self.cancel_download.store(false, Ordering::Relaxed);
         let (me, dir, cancel) = (self.worker(), self.dir.clone(), self.cancel_download.clone());
         std::thread::spawn(move || {
             let mut last = Instant::now();

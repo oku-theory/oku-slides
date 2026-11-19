@@ -46,10 +46,11 @@ impl Drop for Owner {
 /// capture, download or transcriber. A transcriber is pushed under the `Inner` lock that
 /// checks `shut` ([`Stt::spawn_transcriber`]), so every one spawned before is taken below.
 fn stop_and_join(inner: &Mutex<Inner>, transcribers: &Mutex<Vec<JoinHandle<()>>>, cancel_download: &AtomicBool) {
-    cancel_download.store(true, Ordering::Relaxed);
     {
         let mut g = inner.lock().unwrap_or_else(PoisonError::into_inner);
         g.shut = true;
+        // Under the lock with `shut`: a download started before cannot clear it afterwards.
+        cancel_download.store(true, Ordering::Relaxed);
         g.start_after_download = None;
         g.listen_after_download = false;
         g.reset();
