@@ -81,7 +81,7 @@ Oku Slides improves with them, without giving up control of your documents.
    or Linux with glibc 2.39 or later (Ubuntu 24.04, Debian 13, Fedora 40 or newer) from
    [Releases](https://github.com/oku-theory/oku-slides/releases). The app updates itself.
    On macOS 12 or an Intel Mac, use
-   [v10.3.0](https://github.com/oku-theory/oku-slides/releases/tag/v10.3.0), the last version
+   [v10.3.1](https://github.com/oku-theory/oku-slides/releases/tag/v10.3.1), the last version
    for them, and decline its update offers.
 2. Pick an agent. Claude is the default; Codex, Gemini or the built-in local agent can be
    chosen instead (ask the agent, or see [configuration](docs/configuration.md)). Cloud

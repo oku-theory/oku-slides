@@ -67,9 +67,9 @@ complètement ct2rs").
   supporte plus le mac intel"), so the release goes from four platforms to three.
 - macOS minimum: raised from 12.0 to 13.4 (user, 2026-11-18), because the prebuilt ONNX Runtime
   objects are built for 13.4 (spike results below). Tauri, `.cargo/config.toml`, both Swift
-  packages and the weak-link test move together. The v10.3.0 updater cannot check the OS, so it
+  packages and the weak-link test move together. The v10.3.1 updater cannot check the OS, so it
   offers this release on macOS 12, where it would not launch: the release notes tell macOS 12
-  users not to install it and how to reinstall v10.3.0. No gate is added: tauri-plugin-updater
+  users not to install it and how to reinstall v10.3.1. No gate is added: tauri-plugin-updater
   has no minimum-OS check, the installed v10.x clients cannot be changed, and a check in the new
   version would never run on macOS 12.
 - Linux minimum: glibc 2.39 (Ubuntu 24.04, Debian 13, Fedora 40 or later). The prebuilt ONNX

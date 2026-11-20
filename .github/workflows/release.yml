@@ -261,9 +261,9 @@ jobs:
           # as tauri.conf.json has none.
           tagName: v__VERSION__
           releaseName: Oku Slides v__VERSION__
-          # The app's users read French: the body stays in French. v10.3.0 is the last version
+          # The app's users read French: the body stays in French. v10.3.1 is the last version
           # for macOS 12 and Intel Macs; its updater still offers this one there (t-1663).
-          releaseBody: "Paquets Windows, macOS (Apple Silicon, macOS 13.4 ou plus) et Linux (glibc 2.39 ou plus : Ubuntu 24.04, Debian 13, Fedora 40 ou plus récent) construits par le workflow Release. macOS 12 : n'installez pas cette mise à jour (choisissez « Plus tard »), elle ne s'ouvrirait pas ; si c'est fait, réinstallez la v10.3.0 depuis https://github.com/oku-theory/oku-slides/releases/tag/v10.3.0. Mac Intel : la v10.3.0 reste la dernière version, sa vérification des mises à jour signale désormais une erreur."
+          releaseBody: "Paquets Windows, macOS (Apple Silicon, macOS 13.4 ou plus) et Linux (glibc 2.39 ou plus : Ubuntu 24.04, Debian 13, Fedora 40 ou plus récent) construits par le workflow Release. macOS 12 : n'installez pas cette mise à jour (choisissez « Plus tard »), elle ne s'ouvrirait pas ; si c'est fait, réinstallez la v10.3.1 depuis https://github.com/oku-theory/oku-slides/releases/tag/v10.3.1. Mac Intel : la v10.3.1 reste la dernière version, sa vérification des mises à jour signale désormais une erreur."
           releaseDraft: true
           prerelease: false
 
