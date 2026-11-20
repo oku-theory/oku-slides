@@ -55,8 +55,8 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 ## Pitfalls
 
 - Treat Loro as pinned at 1.17.1 in Cargo.lock; the deck tree and undo rely on behaviors the Loro probe tests verify. (plan:2026-10-10-deck-en-arbre, t-893)
-- Keep the macOS minimum at 12.0 in Tauri, Cargo and the Swift package; the bridge needs Swift Concurrency. (plan:2026-10-03-dictee-native-macos)
-- Keep a release short of four platforms a draft (published ones are immutable), and tauri-action on v0: v1's draft URLs fail signing. (t-1145, t-1511)
+- Keep the macOS minimum at 13.4 in Tauri, Cargo and the Swift packages; ONNX Runtime objects target 13.4 and the bridge needs Swift Concurrency. (plan:2026-11-18-dictee-parakeet)
+- Keep a release short of three platforms a draft (published ones are immutable), and tauri-action on v0: v1's draft URLs fail signing. (t-1145, t-1511)
 
 ## Testing
 

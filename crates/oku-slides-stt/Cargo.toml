@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-stt"
-description = "Oku Slides speech: dictation (microphone, voice detection, Whisper, Apple or API) and OS voices."
+description = "Oku Slides speech: dictation (microphone, voice detection, Parakeet, Apple or API) and OS voices."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +10,6 @@ publish.workspace = true
 
 [features]
 default = []
-# macOS : calcul matriciel par Accelerate, le framework d'Apple.
-accelerate = ["ct2rs/accelerate"]
 # e2e only (`fake_source.rs`): listening hears lines appended to `stt.fake_utterances`. Turned on
 # by `just e2e` alone, through oku-slides-cli/e2e-fakes; a release build refuses to compile it.
 e2e-fakes = ["oku-slides-platform/e2e-fakes"]
@@ -32,12 +30,10 @@ http.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 url.workspace = true
 snafu.workspace = true
-# CTranslate2, le moteur de faster-whisper.
-ct2rs.workspace = true
-tokenizers.workspace = true
-mel_spec.workspace = true
-ndarray.workspace = true
-# Détection de la voix, en Rust pur.
+# Parakeet TDT on ONNX Runtime; the ort environment is built here, with rustls (no OpenSSL).
+parakeet-rs.workspace = true
+ort.workspace = true
+# Voice detection, in pure Rust.
 earshot.workspace = true
 cpal.workspace = true
 

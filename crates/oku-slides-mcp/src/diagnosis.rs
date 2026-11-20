@@ -31,7 +31,7 @@ pub struct AgentDiagnosis {
 pub struct DictationDiagnosis {
     /// Microphone permission: `granted`, `denied`, `restricted`, `undetermined` or `unknown`.
     pub microphone: String,
-    /// The chosen engine: `apple`, `turbo`, `large`, `base` or `api`.
+    /// The chosen engine: `apple`, `parakeet` or `api`.
     pub engine: String,
     /// The engine's files: `missing`, `partial` or `complete`.
     pub model: String,

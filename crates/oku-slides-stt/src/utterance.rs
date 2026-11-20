@@ -43,7 +43,7 @@ fn next_seq() -> Option<UtteranceSeq> {
 /// A phrase of the current dictation or utterance, and its place on the listening clock.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Spoken {
-    /// Its text; `None` while Whisper has not transcribed it yet.
+    /// Its text; `None` while the phrase engine has not transcribed it yet.
     pub text: Option<String>,
     /// First and past-the-end sample, counted from the clock's origin.
     pub start: usize,

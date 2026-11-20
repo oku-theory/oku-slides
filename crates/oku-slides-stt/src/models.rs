@@ -1,5 +1,5 @@
-//! Modèles de dictée : Whisper au format CTranslate2 (celui de faster-whisper),
-//! téléchargés à la demande depuis Hugging Face ; Apple et l'API n'ont rien à télécharger.
+//! Dictation models: Parakeet TDT 0.6B v3 in ONNX (int8), downloaded on demand from
+//! Hugging Face, pinned by commit and SHA-256; Apple and the API have nothing to download.
 
 use std::path::{Path, PathBuf};
 
@@ -13,116 +13,125 @@ use snafu::{ResultExt, ensure};
 use crate::api::ApiConfig;
 use crate::error::{DownloadSnafu, NotDownloadableSnafu, SttError};
 
-/// Upper bound on a model's small files (configuration, tokenizer, vocabulary), in bytes.
-const SMALL_FILE_MAX: u64 = 16 << 20;
+/// Hugging Face repository of the Parakeet ONNX export.
+const PARAKEET_REPO: &str = "istupakov/parakeet-tdt-0.6b-v3-onnx";
 
-/// Modèles proposés. Tous sont multilingues.
+/// Commit of [`PARAKEET_REPO`] the files are pinned to.
+const PARAKEET_REVISION: &str = "8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce";
+
+/// Languages Parakeet v3 transcribes (ISO 639-1); it detects which one on its own.
+pub const PARAKEET_LANGUAGES: [&str; 25] = [
+    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt",
+    "ro", "ru", "sk", "sl", "sv", "uk",
+];
+
+/// True if Parakeet transcribes `language`, a BCP 47 tag matched on its primary subtag.
+pub(crate) fn parakeet_supports(language: &str) -> bool {
+    let primary = language.split(['-', '_']).next().unwrap_or_default();
+    PARAKEET_LANGUAGES.iter().any(|l| l.eq_ignore_ascii_case(primary))
+}
+
+/// Offered models.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Model {
-    /// Moteur d'Apple (macOS 26+) : en continu, langue installée par le système.
+    /// Apple's engine (macOS 26+): streaming, language installed by the system.
     Apple,
-    /// large-v3-turbo quantifié int8 : très bon compromis qualité / vitesse.
+    /// Parakeet TDT 0.6B v3, int8: 25 European languages, on the CPU.
     #[default]
-    Turbo,
-    /// large-v3 complet : la meilleure qualité, lourd.
-    Large,
-    /// base : léger et rapide, pour les petites machines.
-    Base,
-    /// API de transcription compatible OpenAI : phrase par phrase, sans aperçu.
+    Parakeet,
+    /// OpenAI-compatible transcription API: phrase by phrase, no preview.
     Api,
 }
 
 impl Model {
-    /// Tous les modèles, dans l'ordre affiché.
-    pub const ALL: [Model; 5] = [Model::Apple, Model::Turbo, Model::Large, Model::Base, Model::Api];
+    /// Every model, in display order.
+    pub const ALL: [Model; 3] = [Model::Apple, Model::Parakeet, Model::Api];
 
-    /// Identifiant du modèle, le même que son nom serde.
+    /// The model's id, the same as its serde name.
     #[must_use]
     pub fn id(self) -> &'static str {
         match self {
             Model::Apple => "apple",
-            Model::Turbo => "turbo",
-            Model::Large => "large",
-            Model::Base => "base",
+            Model::Parakeet => "parakeet",
             Model::Api => "api",
         }
     }
 
-    /// Le modèle d'identifiant `id` ; `None` s'il est inconnu.
+    /// The model with id `id`; `None` if unknown.
     #[must_use]
     pub fn from_id(id: &str) -> Option<Model> {
         Model::ALL.into_iter().find(|m| m.id() == id)
     }
 
-    /// Dépôt Hugging Face du modèle.
+    /// The model's Hugging Face repository.
     #[must_use]
     pub fn repo(self) -> &'static str {
         match self {
             Model::Apple => "apple",
-            Model::Turbo => "Zoont/faster-whisper-large-v3-turbo-int8-ct2",
-            Model::Large => "Systran/faster-whisper-large-v3",
-            Model::Base => "Systran/faster-whisper-base",
+            Model::Parakeet => PARAKEET_REPO,
             Model::Api => "api",
         }
     }
 
-    /// Fichiers à récupérer, non épinglés (branche `main`). Le dépôt `base` n'a pas de
-    /// `preprocessor_config.json` : on prend celui d'OpenAI.
+    /// Files to fetch, pinned by commit, size and SHA-256.
     fn files(self) -> Vec<PinnedFile> {
-        if matches!(self, Model::Apple | Model::Api) {
+        if self != Model::Parakeet {
             return Vec::new();
         }
-        let repo = self.repo();
-        // Le vocabulaire est en .txt dans le dépôt `base`, en .json ailleurs.
-        let vocabulary = if self == Model::Base { "vocabulary.txt" } else { "vocabulary.json" };
-        let preprocessor_repo = if self == Model::Base { "openai/whisper-base" } else { repo };
-        let file = |repo, name, size| PinnedFile { repo, revision: "main", name, sha256: None, size };
+        let file = |name, sha256, size| PinnedFile {
+            repo: PARAKEET_REPO,
+            revision: PARAKEET_REVISION,
+            name,
+            sha256: Some(sha256),
+            size,
+        };
         vec![
-            file(repo, "config.json", SMALL_FILE_MAX),
-            file(repo, "tokenizer.json", SMALL_FILE_MAX),
-            file(repo, vocabulary, SMALL_FILE_MAX),
-            file(preprocessor_repo, "preprocessor_config.json", SMALL_FILE_MAX),
-            // Unpinned, `main` may grow: twice the expected total, never without end (t-1376).
-            file(repo, "model.bin", self.size().saturating_mul(2)),
+            file(
+                "encoder-model.int8.onnx",
+                "6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09",
+                652_183_999,
+            ),
+            file(
+                "decoder_joint-model.int8.onnx",
+                "eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70",
+                18_202_004,
+            ),
+            file("vocab.txt", "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d", 93_939),
         ]
     }
 
-    /// Taille totale attendue (octets), pour la progression.
+    /// Expected total size in bytes, for the progress bar.
     #[must_use]
     pub fn size(self) -> u64 {
         match self {
             Model::Apple | Model::Api => 0,
-            Model::Turbo => 817_887_676,
-            Model::Large => 3_090_835_702,
-            Model::Base => 148_067_931,
+            Model::Parakeet => 670_479_942,
         }
     }
 
-    /// Nom affiché, dans la langue de l'utilisateur ; l'API montre son modèle.
+    /// Display name, in the user's language; the API shows its model.
     pub fn label(self, l: &Localizer, api: &ApiConfig) -> String {
         match self {
             Model::Apple => l.tr("stt-model-apple"),
-            Model::Turbo => l.tr("stt-model-turbo"),
-            Model::Large => l.tr("stt-model-large"),
-            Model::Base => l.tr("stt-model-base"),
+            Model::Parakeet => l.tr("stt-model-parakeet"),
             Model::Api => l.tr_with("stt-model-api", &[("model", api.model.as_str().into())]),
         }
     }
 
-    /// Vrai si le moteur transcrit des aperçus de la phrase en cours.
+    /// True if the engine transcribes previews of the current phrase.
     pub(crate) fn previews(self) -> bool {
-        // Un aperçu par l'API coûterait une requête de plus par pas d'aperçu.
+        // A preview through the API would cost one more request per preview step.
         self != Model::Api
     }
 
-    /// Dossier du modèle.
+    /// The model's folder.
     #[must_use]
     pub fn path(self, dir: &Path) -> PathBuf {
         dir.join(self.repo().replace('/', "--"))
     }
 
-    /// Vrai si les fichiers du modèle sont sur le disque (jamais pour Apple ni l'API).
+    /// True if the model's files are on disk (never for Apple or the API).
     #[must_use]
     pub fn is_installed(self, storage: &Storage, dir: &Path) -> bool {
         !matches!(self, Model::Apple | Model::Api) && models::is_complete(storage, &self.path(dir))

@@ -12,7 +12,8 @@ use crate::{SttError, SttErrorKind};
 /// Transcribes silence against a fake API answering `status`, `body` and `headers`.
 fn reply(status: u16, body: String, headers: &'static [(&'static str, &'static str)]) -> SttError {
     let (url, _calls) = fake_api_with(status, body, headers);
-    let config = ApiConfig { url, model: "whisper-1".into(), key_env: "HOME".into(), ..ApiConfig::default() };
+    let config =
+        ApiConfig { url, model: "gpt-4o-mini-transcribe".into(), key_env: "HOME".into(), ..ApiConfig::default() };
     let t = ApiTranscriber::new(config, Duration::from_secs(5)).unwrap();
     t.transcribe(&[0.0; 1600], None, None, false).unwrap_err()
 }
@@ -31,7 +32,8 @@ fn send_too_many_requests_with_retry_after_fails_at_once() {
 #[test]
 fn send_server_error_sends_one_request() {
     let (url, calls) = fake_api_with(503, "{}".into(), &[("Retry-After", "0")]);
-    let config = ApiConfig { url, model: "whisper-1".into(), key_env: "HOME".into(), ..ApiConfig::default() };
+    let config =
+        ApiConfig { url, model: "gpt-4o-mini-transcribe".into(), key_env: "HOME".into(), ..ApiConfig::default() };
     let t = ApiTranscriber::new(config, Duration::from_secs(5)).unwrap();
     t.transcribe(&[0.0; 1600], None, None, false).unwrap_err();
     calls.recv_timeout(Duration::from_secs(5)).unwrap();

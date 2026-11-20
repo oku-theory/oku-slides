@@ -1,22 +1,21 @@
-//! La vue de référence de la boîte des réglages, pour les tests d'autres crates.
+//! The settings box reference view, for other crates' tests.
 
 use crate::voice_view::{
     AgentPresetView, AgentsView, ApiView, DictationView, ModelKind, ModelView, SpeechStatusView, SpeechView,
     SpeechVoiceView, VoiceView,
 };
 
-/// La vue de référence : Turbo installé, Large à télécharger, Base indisponible, API sans clé.
+/// The reference view: Apple unavailable, Parakeet installed and chosen, API without a key.
 #[must_use]
 pub fn voice_view_fixture() -> VoiceView {
     let model =
         |id: &str, kind, size, installed, available| ModelView { id: id.into(), kind, size, installed, available };
     VoiceView {
         dictation: Some(DictationView {
-            model: "turbo".into(),
+            model: "parakeet".into(),
             models: vec![
-                model("turbo", ModelKind::Local, 817_887_676, true, true),
-                model("large", ModelKind::Local, 3_090_835_702, false, true),
-                model("base", ModelKind::Local, 148_067_931, false, false),
+                model("apple", ModelKind::Apple, 0, false, false),
+                model("parakeet", ModelKind::Local, 670_479_942, true, true),
                 model("api", ModelKind::Api, 0, false, true),
             ],
             language: None,

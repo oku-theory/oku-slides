@@ -175,8 +175,8 @@ preview_step_secs = 0.5
 min_phrase_secs = 0.3
 # Silence après lequel le compte à rebours de l'arrêt s'affiche (s).
 countdown_after_secs = 0.3
-# Proposer le moteur de dictée d'Apple (macOS 26+), choisi par défaut ;
-# false : Whisper seulement.
+# Offer Apple's dictation engine (macOS 26+), chosen by default;
+# false: Parakeet only.
 apple = true
 # Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
 apple_finish_timeout_secs = 5.0
@@ -199,7 +199,7 @@ long_pause = 1.2
 # Audio gardé avant le début et après la fin de la parole (s).
 pre_roll = 0.3
 post_roll = 0.25
-# Longueur maximale d'une phrase (s) : Whisper lit 30 s à la fois.
+# Maximum phrase length (s): a longer one is cut, so each transcription stays short.
 max_phrase = 25.0
 
 [models]

@@ -33,7 +33,8 @@ fn key_present_set_variable_is_present() {
 }
 
 fn transcriber(url: String) -> ApiTranscriber {
-    let config = ApiConfig { url, model: "whisper-1".into(), key_env: "HOME".into(), ..ApiConfig::default() };
+    let config =
+        ApiConfig { url, model: "gpt-4o-mini-transcribe".into(), key_env: "HOME".into(), ..ApiConfig::default() };
     ApiTranscriber::new(config, Duration::from_secs(5)).unwrap()
 }
 
@@ -60,7 +61,7 @@ fn transcribe_sends_bearer_key_model_language_and_prompt() {
     let call = calls.recv_timeout(Duration::from_secs(5)).unwrap();
     let body = String::from_utf8_lossy(&call.body).into_owned();
     assert_that!(call.authorization).is_equal_to(format!("Bearer {}", std::env::var("HOME").unwrap()));
-    assert_that!(body.as_str()).contains("whisper-1");
+    assert_that!(body.as_str()).contains("gpt-4o-mini-transcribe");
     assert_that!(body.as_str()).contains("name=\"language\"\r\n\r\nfr\r\n");
     assert_that!(body.as_str()).contains("name=\"prompt\"\r\n\r\nOku\r\n");
 }
@@ -221,7 +222,7 @@ fn refused(config: ApiConfig) {
 fn api_transcriber_invalid_stored_url_is_refused() {
     refused(ApiConfig {
         url: "http://192.168.1.5/v1".into(),
-        model: "whisper-1".into(),
+        model: "gpt-4o-mini-transcribe".into(),
         key_env: "HOME".into(),
         ..ApiConfig::default()
     });
@@ -236,7 +237,7 @@ fn api_transcriber_empty_key_env_is_refused() {
 fn api_transcriber_invalid_key_env_is_refused() {
     refused(ApiConfig {
         url: "http://127.0.0.1:9/v1".into(),
-        model: "whisper-1".into(),
+        model: "gpt-4o-mini-transcribe".into(),
         key_env: "sk-x".into(),
         ..ApiConfig::default()
     });
@@ -271,8 +272,11 @@ fn transcribe_bad_request_masks_a_long_literal_header() {
         ..ApiConfig::default()
     };
     let (url, _calls) = fake_api(400, r#"{"error":{"message":"bad gateway token gw-0123456789"}}"#);
-    let t =
-        ApiTranscriber::new(ApiConfig { url, model: "whisper-1".into(), ..config }, Duration::from_secs(5)).unwrap();
+    let t = ApiTranscriber::new(
+        ApiConfig { url, model: "gpt-4o-mini-transcribe".into(), ..config },
+        Duration::from_secs(5),
+    )
+    .unwrap();
     let e = t.transcribe(&[0.0; 1600], None, None, false).unwrap_err();
     assert_that!(e.localize(&Localizer::new(Some("en")))).does_not_contain("gw-0123456789");
 }

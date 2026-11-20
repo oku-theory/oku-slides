@@ -69,7 +69,7 @@ fn model_view(m: &ModelInfo) -> ModelView {
     let kind = match m.id {
         Model::Apple => ModelKind::Apple,
         Model::Api => ModelKind::Api,
-        Model::Turbo | Model::Large | Model::Base => ModelKind::Local,
+        Model::Parakeet => ModelKind::Local,
     };
     ModelView { id: m.id.id().into(), kind, size: m.size, installed: m.installed, available: m.available }
 }
@@ -361,9 +361,20 @@ impl AppVoice {
         }
     }
 
-    /// Fin de l'app : plus aucun changement d'agent.
+    /// End of the app: no more agent switch; the dictation stops ([`Self::stop_dictation`]).
     pub(crate) fn shutdown(&self) {
         self.switch.lock().shutdown();
+        self.stop_dictation();
+    }
+
+    /// Stops the dictation and joins its transcription threads.
+    ///
+    /// Blocks while a dictation model loads (about 2 s): the process must not exit under that
+    /// load (t-1663). Called off the async workers (`Stack::shutdown` runs in `block_on`).
+    pub(crate) fn stop_dictation(&self) {
+        if let Some(stt) = &self.stt {
+            stt.shutdown();
+        }
     }
 
     /// The dictation's shipped locale (chosen, else detected); `None` without dictation.

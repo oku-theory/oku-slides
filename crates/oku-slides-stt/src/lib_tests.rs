@@ -44,37 +44,37 @@ fn resampler_chunked_input_matches_whole_resample() {
 }
 
 #[test]
-fn stt_default_config_is_turbo_auto_language_auto_stop_and_persists() {
+fn stt_default_config_is_parakeet_auto_language_auto_stop_and_persists() {
     let dir = fresh_dir("oku-slides-stt-");
     let stt = Stt::new(&platform(dir.path()));
     let s = stt.status();
-    assert_that!(s.config.model).is_equal_to(Model::Turbo);
+    assert_that!(s.config.model).is_equal_to(Model::Parakeet);
     assert_that!(s.config.language).is_none();
     assert_that!(s.config.auto_stop).is_true();
-    assert_that!(s.models).has_length(4);
-    // Dictée au repos : le résultat de `configure` est sans objet ici.
+    assert_that!(s.models).has_length(2);
+    // Dictation idle: the result of `configure` does not matter here.
     let _applied = stt.configure(Config {
-        model: Model::Large,
+        model: Model::Api,
         language: Some("fr".into()),
         auto_stop: false,
         silence: 2.0,
         ..Config::default()
     });
     let back = Stt::new(&platform(dir.path())).status().config;
-    assert_that!(back.model).is_equal_to(Model::Large);
+    assert_that!(back.model).is_equal_to(Model::Api);
     assert_that!(back.auto_stop).is_false();
 }
 
 #[test]
-fn whisper_prompt_terms_are_joined_with_periods() {
+fn api_prompt_terms_are_joined_with_periods() {
     let vocabulary = vec!["Bilan".to_owned(), "  ".to_owned(), "Q3".to_owned()];
-    assert_that!(whisper_prompt(&vocabulary)).is_equal_to("Bilan. Q3".to_owned());
+    assert_that!(api_prompt(&vocabulary)).is_equal_to("Bilan. Q3".to_owned());
 }
 
 #[test]
-fn whisper_prompt_long_vocabulary_is_cut_at_600_chars() {
+fn api_prompt_long_vocabulary_is_cut_at_600_chars() {
     let vocabulary = vec!["é".repeat(700)];
-    assert_that!(whisper_prompt(&vocabulary).chars().count()).is_equal_to(600);
+    assert_that!(api_prompt(&vocabulary).chars().count()).is_equal_to(600);
 }
 
 #[test]
@@ -103,28 +103,28 @@ fn config(model: Model, version: u32) -> Config {
 
 #[test]
 fn migrate_old_config_switches_to_apple_when_available() {
-    assert_that!(migrate(config(Model::Turbo, 0), true, true).model).is_equal_to(Model::Apple);
+    assert_that!(migrate(config(Model::Parakeet, 0), true, true).model).is_equal_to(Model::Apple);
 }
 
 #[test]
 fn migrate_old_config_without_apple_keeps_model() {
-    assert_that!(migrate(config(Model::Large, 0), false, false).model).is_equal_to(Model::Large);
+    assert_that!(migrate(config(Model::Api, 0), false, false).model).is_equal_to(Model::Api);
 }
 
 #[test]
 fn migrate_old_config_with_unknown_language_keeps_model() {
-    let migrated = migrate(config(Model::Turbo, 0), true, false);
-    assert_that!((migrated.model, migrated.version)).is_equal_to((Model::Turbo, CONFIG_VERSION));
+    let migrated = migrate(config(Model::Parakeet, 0), true, false);
+    assert_that!((migrated.model, migrated.version)).is_equal_to((Model::Parakeet, CONFIG_VERSION));
 }
 
 #[test]
 fn migrate_current_config_keeps_user_choice() {
-    assert_that!(migrate(config(Model::Base, CONFIG_VERSION), true, true).model).is_equal_to(Model::Base);
+    assert_that!(migrate(config(Model::Parakeet, CONFIG_VERSION), true, true).model).is_equal_to(Model::Parakeet);
 }
 
 #[test]
-fn migrate_apple_on_machine_without_it_falls_back_to_turbo() {
-    assert_that!(migrate(config(Model::Apple, CONFIG_VERSION), false, false).model).is_equal_to(Model::Turbo);
+fn migrate_apple_on_machine_without_it_falls_back_to_parakeet() {
+    assert_that!(migrate(config(Model::Apple, CONFIG_VERSION), false, false).model).is_equal_to(Model::Parakeet);
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn migrate_apple_with_unknown_language_keeps_apple() {
 
 #[test]
 fn config_json_without_version_reads_version_zero() {
-    let c: Config = serde_json::from_str(r#"{"model":"turbo"}"#).unwrap();
+    let c: Config = serde_json::from_str(r#"{"model":"parakeet"}"#).unwrap();
     assert_that!(c.version).is_equal_to(0);
 }
 
@@ -143,11 +143,11 @@ fn apple_stt(dir: &Path, french: Availability) -> Stt {
 }
 
 #[test]
-fn new_config_with_interface_language_unknown_to_apple_stays_turbo() {
+fn new_config_with_interface_language_unknown_to_apple_stays_parakeet() {
     let dir = fresh_dir("apple-de");
     let engine = Arc::new(ScriptedEngine::new(Availability::Ready, &[]));
     let stt = Stt::with_engine(&platform_in(dir.path(), "de", |_| {}), engine, None);
-    assert_that!(stt.status().config.model).is_equal_to(Model::Turbo);
+    assert_that!(stt.status().config.model).is_equal_to(Model::Parakeet);
 }
 
 #[test]
@@ -203,13 +203,18 @@ fn start_apple_with_unknown_language_reports_error() {
     let _applied = stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
     stt.start(Vec::new());
     assert_that!(stt.status().error.as_deref())
-        .is_equal_to(Some("Le moteur d'Apple ne prend pas en charge cette langue (xx)"));
+        .is_equal_to(Some("Le moteur de dictée ne prend pas en charge cette langue (xx)"));
 }
 
 fn api_config(url: &str, key_env: &str) -> Config {
     Config {
         model: Model::Api,
-        api: ApiConfig { url: url.into(), model: "whisper-1".into(), key_env: key_env.into(), ..ApiConfig::default() },
+        api: ApiConfig {
+            url: url.into(),
+            model: "gpt-4o-transcribe".into(),
+            key_env: key_env.into(),
+            ..ApiConfig::default()
+        },
         ..Config::default()
     }
 }
@@ -264,7 +269,7 @@ fn api_model_sends_no_previews() {
 
 #[test]
 fn config_without_api_section_loads_default_api() {
-    let c: Config = serde_json::from_str(r#"{"model":"turbo"}"#).unwrap();
+    let c: Config = serde_json::from_str(r#"{"model":"parakeet"}"#).unwrap();
     assert_that!(c.api).is_equal_to(ApiConfig::default());
 }
 
@@ -304,11 +309,11 @@ fn configure_while_idle_returns_true() {
 #[test]
 fn download_of_an_installed_model_returns_false() {
     let dir = fresh_dir("download-installed");
-    let installed = Model::Base.path(dir.path());
+    let installed = Model::Parakeet.path(dir.path());
     std::fs::create_dir_all(&installed).unwrap();
     std::fs::write(installed.join(oku_slides_platform::models::COMPLETE), b"").unwrap();
     let stt = Stt::new(&platform(dir.path()));
-    assert_that!(stt.download(Model::Base, false)).is_false();
+    assert_that!(stt.download(Model::Parakeet, false)).is_false();
 }
 
 #[test]
@@ -329,4 +334,77 @@ fn api_model_installed_follows_the_key_variable() {
     };
     assert_that!(installed("HOME")).is_equal_to(Some(true));
     assert_that!(installed("OKU_T1146_UNSET_7F3A")).is_equal_to(Some(false));
+}
+
+/// Parakeet's entry in the status of a dictation in UI `locale`, with `language` chosen.
+fn parakeet_info(locale: &str, language: Option<&str>) -> ModelInfo {
+    let dir = fresh_dir("parakeet-info");
+    let stt = Stt::new(&platform_in(dir.path(), locale, |s| s.apple = false));
+    // Dictation idle: the result of `configure` does not matter here.
+    let _applied = stt.configure(Config { language: language.map(str::to_owned), ..stt.status().config });
+    stt.status().models.into_iter().find(|m| m.id == Model::Parakeet).unwrap()
+}
+
+#[test]
+fn model_info_parakeet_available_for_french() {
+    assert_that!(parakeet_info("fr", None).available).is_true();
+}
+
+#[test]
+fn model_info_parakeet_greyed_for_japanese() {
+    assert_that!(parakeet_info("fr", Some("ja")).available).is_false();
+}
+
+#[test]
+fn model_info_parakeet_uses_ui_locale_when_no_language() {
+    assert_that!(parakeet_info("ja", None).available).is_false();
+}
+
+#[test]
+fn model_info_chosen_language_wins_over_ui_locale() {
+    assert_that!(parakeet_info("ja", Some("fr")).available).is_true();
+}
+
+#[test]
+fn model_info_apple_and_api_unchanged() {
+    let dir = fresh_dir("apple-api-info");
+    let stt = apple_stt(dir.path(), Availability::Ready);
+    // Dictation idle: the result of `configure` does not matter here.
+    let _applied = stt.configure(Config { language: Some("fr".into()), ..stt.status().config });
+    let available = |id| stt.status().models.into_iter().find(|m| m.id == id).map(|m| m.available);
+    assert_that!((available(Model::Apple), available(Model::Api))).is_equal_to((Some(true), Some(true)));
+    let dir = fresh_dir("api-info-ja");
+    let stt = Stt::new(&platform_in(dir.path(), "ja", |s| s.apple = false));
+    let api = stt.status().models.into_iter().find(|m| m.id == Model::Api).unwrap();
+    assert_that!(api.available).is_true();
+}
+
+/// A phrase engine that reports no language, as Parakeet does.
+struct NoLanguageEngine;
+
+impl PhraseEngine for NoLanguageEngine {
+    fn transcribe(&self, _: &[f32], _: Option<&str>, _: Option<&str>, _: bool) -> Result<Transcript, SttError> {
+        Ok(Transcript { text: "Bonjour.".into(), language: None, no_speech: 0.0 })
+    }
+}
+
+#[test]
+fn auto_language_leaves_detected_empty() {
+    let dir = fresh_dir("auto-language");
+    let stt = Stt::new(&platform_in(dir.path(), "fr", |s| s.apple = false));
+    let config = stt.status().config;
+    stt.state().engine = Some((engine_key(&config), Arc::new(NoLanguageEngine)));
+    let session = {
+        let mut g = stt.state();
+        g.phrases.push(crate::utterance::Spoken { text: None, start: 0, end: 1600 });
+        g.state = State::Transcribing;
+        g.session
+    };
+    let (jobs, rx) = mpsc::channel();
+    let epoch = stt.state().epoch;
+    jobs.send(Job::Final { index: 0, audio: vec![0.0; 1600], epoch }).unwrap();
+    jobs.send(Job::Done).unwrap();
+    stt.transcribe_loop(session, &rx, &Arc::new(AtomicBool::new(false)));
+    let s = stt.status();
+    assert_that!((s.text.as_deref(), s.detected, s.error)).is_equal_to((Some("Bonjour."), None, None));
 }

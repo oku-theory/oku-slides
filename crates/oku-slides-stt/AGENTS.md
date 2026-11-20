@@ -24,16 +24,19 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Apply barge-in only through the duplex voice while listening with speech.barge_in on; elsewhere stay muted, and report a failed duplex start in barge_in_unavailable, never silently. (plan:2026-11-05-lot-o-backlog, t-1491)
 - Tell a speech cut by barge-in that it ended at its start, so an answer spoken over a question never predates it. (plan:2026-11-05-lot-o-backlog, t-1491)
 - On Linux, send speech text only as SSIP SPEAK data, never in an argv or a log, and cut it only with CANCEL self. (plan:2026-11-05-lot-o-backlog, t-1524)
+- Spawn transcription threads only through spawn_transcriber and give the dictation's threads Stt::worker clones, so shutdown or the last owner's drop joins them before exit. (spec:2026-11-18-dictee-parakeet-design, t-1663)
 - Keep Oku's recent speech only folded in memory for Speaker::echoes, never one that asks or plays under barge-in; never log, save or show it. (plan:2026-11-05-lot-o-backlog, t-1522)
 
 ## Testing
 
-- Set stt.apple to false in tests built on Stt::new so Whisper tests stay deterministic on macOS 26. (spec:2026-10-03-dictee-native-macos-design)
+- Set stt.apple to false in tests built on Stt::new so Parakeet tests stay deterministic on macOS 26. (spec:2026-10-03-dictee-native-macos-design, t-1663)
 - Time utterances by sample offsets; test closing on silence with sample fixtures, never wall clock. (plan:2026-11-01-lot-m-hands-free, t-996)
 - Test AVFoundation main-queue callbacks only from tests/duplex.rs's own main, which runs the main run loop. (plan:2026-11-05-lot-o-backlog, t-1526)
 
 ## Settled decisions
 
-- Use the Apple engine only on macOS 26+ with stt.apple enabled; keep Whisper as the engine elsewhere. (plan:2026-10-03-dictee-native-macos, t-393)
-- Never silently fall back from the Apple speech engine to Whisper; grey out unsupported languages instead. (spec:2026-10-03-dictee-native-macos-design)
+- Use the Apple engine only on macOS 26+ with stt.apple enabled; keep Parakeet as the engine elsewhere. (plan:2026-10-03-dictee-native-macos, t-393, t-1663)
+- Never silently fall back from the Apple speech engine to Parakeet; grey out unsupported languages instead. (spec:2026-10-03-dictee-native-macos-design, t-1663)
+- Load Parakeet model files by path through parakeet-rs; download and delete only through Storage. (spec:2026-11-18-dictee-parakeet-design, t-1663)
+- Set `ORT_LIB_LOCATION` to build offline: ort-sys downloads ONNX Runtime at build time. (t-1663)
 - Never migrate the API query parameters of 7.0.0 and earlier; refuse such settings until the user writes an API field again. (t-1233)

@@ -53,8 +53,8 @@ Oku Slides improves with them, without giving up control of your documents.
 
 ## Features
 
-- **Voice dictation, on device.** Apple's speech engine on macOS 26+, or Whisper running
-  locally; voice detection, sentence-by-sentence transcription, multilingual. Optionally
+- **Voice dictation, on device.** Apple's speech engine on macOS 26+, or Parakeet running
+  locally (25 European languages); voice detection, sentence-by-sentence transcription. Optionally
   OpenAI or Azure OpenAI for company setups.
 - **Agent editing.** One conversation per tab, several tabs working at once, questions and
   variants rendered right on the slide, an optional detached agent window for a second screen.
@@ -77,8 +77,12 @@ Oku Slides improves with them, without giving up control of your documents.
 
 ## Getting started
 
-1. Download the latest version for macOS (Apple Silicon or Intel), Windows or Linux from
+1. Download the latest version for macOS 13.4 or later (Apple Silicon), Windows 10 or later,
+   or Linux with glibc 2.39 or later (Ubuntu 24.04, Debian 13, Fedora 40 or newer) from
    [Releases](https://github.com/oku-theory/oku-slides/releases). The app updates itself.
+   On macOS 12 or an Intel Mac, use
+   [v10.3.1](https://github.com/oku-theory/oku-slides/releases/tag/v10.3.1), the last version
+   for them, and decline its update offers.
 2. Pick an agent. Claude is the default; Codex, Gemini or the built-in local agent can be
    chosen instead (ask the agent, or see [configuration](docs/configuration.md)). Cloud
    agents need their own account; the local one needs nothing.
@@ -115,6 +119,10 @@ just dev      # run the desktop app in development
 ```
 
 See [Development](docs/development.md) for everything else.
+
+## Credits
+
+Dictation model: NVIDIA Parakeet TDT 0.6B v3, ONNX export by istupakov, CC-BY-4.0.
 
 ## License
 

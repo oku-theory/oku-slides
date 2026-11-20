@@ -333,7 +333,7 @@ pub(crate) fn speech_wav(dir: &Path, parts: &[Part]) -> PathBuf {
     path
 }
 
-/// Whisper Base listening on `parts`, its engine faked; `stt.apple = false`, silence `silence` s.
+/// Parakeet listening on `parts`, its engine faked; `stt.apple = false`, silence `silence` s.
 pub(crate) fn listening_stt(dir: &Path, parts: &[Part], silence: f32) -> (Stt, Arc<CountingEngine>) {
     listening_stt_with(dir, parts, silence, Duration::ZERO)
 }
@@ -354,14 +354,14 @@ pub(crate) fn listening_stt_with(
     settings.stt.apple = false;
     settings.stt.fake_mic = Some(speech_wav(dir, parts));
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
-    let installed = Model::Base.path(&dir.join("models"));
+    let installed = Model::Parakeet.path(&dir.join("models"));
     std::fs::create_dir_all(&installed).unwrap_or_else(|e| panic!("modèle : {e}"));
     std::fs::write(installed.join(oku_slides_platform::models::COMPLETE), b"")
         .unwrap_or_else(|e| panic!("modèle : {e}"));
     let stt = Stt::new(&platform);
-    let config = Config { model: Model::Base, language: Some("fr".into()), silence, ..Config::default() };
+    let config = Config { model: Model::Parakeet, language: Some("fr".into()), silence, ..Config::default() };
     assert!(stt.configure(config.clone()), "réglages refusés");
     let engine = Arc::new(CountingEngine { delay, ..CountingEngine::default() });
-    stt.state().engine = Some((crate::dictation_whisper::engine_key(&config), engine.clone()));
+    stt.state().engine = Some((crate::dictation_phrase::engine_key(&config), engine.clone()));
     (stt, engine)
 }

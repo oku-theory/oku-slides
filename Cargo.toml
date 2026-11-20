@@ -103,12 +103,18 @@ unicode-properties = { version = "0.1", default-features = false, features = ["g
 # Repli des diacritiques (NFD) pour reconnaître les raccourcis de l'agent (« Thème. » = « theme »).
 unicode-normalization = "0.1"
 loro = "1.17.1"
-# Dictée
-ct2rs = { version = "0.10", default-features = false, features = ["whisper", "ruy"] }
-# Même version que ct2rs : son tokenizer se construit depuis un tokenizers::Tokenizer.
-tokenizers = { version = "0.22", default-features = false }
-mel_spec = "0.3"
-ndarray = "0.16"
+# Dictation: Parakeet TDT on ONNX Runtime, CPU only (t-1663).
+parakeet-rs = { version = "=0.4.4", default-features = false, features = ["cpu", "api-28"] }
+# ort's default features minus tls-native, plus tls-rustls: no OpenSSL in the build (t-1663).
+ort = { version = "=2.0.0-rc.15", default-features = false, features = [
+    "std",
+    "ndarray",
+    "tracing",
+    "download-binaries",
+    "copy-dylibs",
+    "api-31",
+    "tls-rustls",
+] }
 earshot = "1.2"
 cpal = "0.18"
 # platform-verifier: system roots, including a company proxy's CA (t-1211).
@@ -134,8 +140,9 @@ windows = { version = "0.62", default-features = false, features = [
   "Foundation",
   "Foundation_Collections",
 ] }
-# Agent local de repli (moteur Gguf, Apple silicon) : llama.cpp avec Metal. Audit du lot 3
-# (t-1022) : MIT / Apache-2.0, minos 12.0, +6 Mo. `common` : grammaires GBNF ; pas d'openmp.
+# Local fallback agent (Gguf engine, Apple silicon): llama.cpp with Metal. Batch 3 audit
+# (t-1022): MIT / Apache-2.0, minos 12.0 (the app now requires 13.4), +6 MB. `common`: GBNF
+# grammars; no openmp.
 llama-cpp-2 = { version = "=0.1.158", default-features = false, features = ["metal", "common"] }
 llama-cpp-sys-2 = { version = "=0.1.158", default-features = false }
 # App de bureau

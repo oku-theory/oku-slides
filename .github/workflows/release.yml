@@ -2,7 +2,7 @@
 # tags `v<version>` for a merged release PR, or by hand from the Actions tab. The version is never
 # bumped here: it is the one Release-plz passes, else [workspace.package] on main, and its tag must
 # exist (t-1184). Each selected platform builds its packages from the tagged commit (`cargo tauri
-# build`) and uploads them to one draft release `v<version>`, published once all four platforms
+# build`) and uploads them to one draft release `v<version>`, published once all three platforms
 # are there. Releases in this repo are immutable: a published release takes no more packages,
 # hence the draft while one is missing. Run again by hand, the workflow completes that draft
 # (platforms left out, or failed and fixed since).
@@ -28,10 +28,6 @@ on:
         description: macOS (Apple Silicon)
         type: boolean
         default: true
-      macos_intel:
-        description: macOS (Intel)
-        type: boolean
-        default: true
       linux:
         description: Linux
         type: boolean
@@ -54,8 +50,7 @@ jobs:
   # version and its tag are read again, nothing is bumped.
   version:
     name: Version
-    # ubuntu-22.04 est en dépréciation (fenêtres de brownout jusqu'au retrait, avril 2027) : les
-    # jobs sans compilation passent en 24.04. Le build Linux y reste pour sa glibc plus ancienne.
+    # Every job runs on ubuntu-24.04, the Linux build included (see the matrix below).
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.tag.outputs.version }}
@@ -67,16 +62,17 @@ jobs:
         id: targets
         env:
           MACOS_ARM: ${{ inputs.macos_arm }}
-          MACOS_INTEL: ${{ inputs.macos_intel }}
           LINUX: ${{ inputs.linux }}
           WINDOWS: ${{ inputs.windows }}
         run: |
           matrix=$(jq -cn \
-            --argjson macos_arm "$MACOS_ARM" --argjson macos_intel "$MACOS_INTEL" \
+            --argjson macos_arm "$MACOS_ARM" \
             --argjson linux "$LINUX" --argjson windows "$WINDOWS" '
             [ if $macos_arm then {name: "macOS (Apple Silicon)", runner: "macos-15", updater: "darwin-aarch64"} else empty end,
-              if $macos_intel then {name: "macOS (Intel)", runner: "macos-15-intel", updater: "darwin-x86_64"} else empty end,
-              if $linux then {name: "Linux", runner: "ubuntu-22.04", updater: "linux-x86_64"} else empty end,
+              # 24.04, not 22.04: the prebuilt ONNX Runtime (ort-sys) needs glibc 2.38 and
+              # GLIBCXX_3.4.32 (GCC 13), which 22.04 lacks. The AppImage carries the libraries of
+              # this host, so the app needs glibc 2.39 or later (Ubuntu 24.04, Debian 13, Fedora 40).
+              if $linux then {name: "Linux", runner: "ubuntu-24.04", updater: "linux-x86_64"} else empty end,
               if $windows then {name: "Windows", runner: "windows-2022", updater: "windows-x86_64"} else empty end ]
             | {include: .}')
           [ "$(jq '.include | length' <<<"$matrix")" -gt 0 ] || { echo "::error::aucune plateforme cochée"; exit 1; }
@@ -132,7 +128,7 @@ jobs:
     # signing secret (t-977, ADR-0014).
     env:
       TAURI_CLI_VERSION: 2.11.5
-    # CTranslate2 (dictée) se compile en C++ : long sans cache.
+    # Long without a cache (Typst, the Swift bridge, ONNX Runtime downloaded by ort-sys).
     timeout-minutes: 120
     steps:
       # Les polices embarquées (bundle.resources) sont en Git LFS.
@@ -185,9 +181,9 @@ jobs:
         with:
           tool: tauri-cli@${{ env.TAURI_CLI_VERSION }}
 
-      # tauri-cli n'a pas de binaire précompilé arm64 : install-action prendrait celui pour x86_64,
-      # lancé sous Rosetta. Ses enfants hériteraient du mode x86_64 (CMake verrait un hôte x86_64
-      # et ruy compilerait ses noyaux AVX) et le .dmg serait nommé _x64. Compilé ici en natif.
+      # tauri-cli has no prebuilt arm64 binary: install-action would take the x86_64 one, run under
+      # Rosetta. Its children would inherit x86_64 mode (build scripts would see an x86_64 host)
+      # and the .dmg would be named _x64. Built natively here.
       - name: tauri-cli natif (macOS Apple Silicon)
         if: runner.os == 'macOS' && runner.arch == 'ARM64'
         # Le cache de rust-cache (~/.cargo/bin) peut restaurer un cargo-tauri x86_64, que
@@ -202,14 +198,13 @@ jobs:
 
       # aws-lc-sys (rustls, via rust-mcp-sdk) assemble avec NASM, absent du runner Windows : ses
       # objets précompilés le remplacent.
-      - name: NASM précompilé et CRT statique (Windows)
+      # No `+crt-static`: the prebuilt ONNX Runtime is built /MD (dynamic CRT) and does not link
+      # against the static one. The app uses the dynamic CRT and ships the Visual C++ runtime
+      # beside its exe (step "App-local DLLs").
+      - name: Prebuilt NASM (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: |
-          echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
-          # CTranslate2 se compile avec la CRT statique (/MT) : tout le binaire doit la suivre,
-          # sinon l'édition de liens échoue (LNK2038). Recommandé par le README de ct2rs.
-          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+        run: echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -230,19 +225,34 @@ jobs:
           [[ "$key" =~ ^[A-Za-z0-9+/=]+$ ]] || { echo "::error::throwaway key unreadable"; exit 1; }
           echo "TAURI_SIGNING_PRIVATE_KEY=$key" >> "$GITHUB_ENV"
 
+      # The Windows app loads DirectML.dll (hard import of the prebuilt ONNX Runtime; Windows 10's
+      # own copy lacks DMLCreateDevice1) and the Visual C++ runtime (the dynamic CRT) from its own
+      # folder: app-local, so neither a system redistributable nor an admin install is needed. A
+      # first build without bundles yields the exe and DirectML.dll; the script checks the exe's
+      # imports and writes the resources config tauri-action adds (only the app crate rebuilds).
+      - name: App-local DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cargo tauri build --no-bundle
+          config=$(.github/scripts/windows-app-local.sh target/release/oku-slides-app.exe \
+            "$RUNNER_TEMP/app-local")
+          echo "APP_LOCAL_CONFIG=--config $config" >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # TAURI_SIGNING_PRIVATE_KEY comes from the previous step (throwaway, no password). This
           # step runs the build (npm, build.rs): hence actions pinned by SHA.
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-          # Signature ad hoc des deux jobs macOS (Apple Silicon et Intel), ignorée ailleurs : sans
-          # certificat Apple, l'app Apple Silicon doit au moins être signée pour se lancer.
+          # Ad hoc signature of the macOS (Apple Silicon) job, ignored elsewhere: without an
+          # Apple certificate, the Apple Silicon app must at least be signed to launch.
           APPLE_SIGNING_IDENTITY: "-"
         with:
           tauriScript: cargo tauri
           # Paquets de mise à jour ici seulement : `just build` reste sans clé.
-          args: --config '{"bundle":{"createUpdaterArtifacts":true}}'
+          # APP_LOCAL_CONFIG: Windows only (step "App-local DLLs"), empty elsewhere.
+          args: --config '{"bundle":{"createUpdaterArtifacts":true}}' ${{ env.APP_LOCAL_CONFIG }}
           # `latest.json` (lu par l'app) : chaque plateforme y ajoute la sienne.
           includeUpdaterJson: true
           # Windows : l'installeur NSIS, pas le MSI.
@@ -251,7 +261,9 @@ jobs:
           # as tauri.conf.json has none.
           tagName: v__VERSION__
           releaseName: Oku Slides v__VERSION__
-          releaseBody: Paquets Windows, macOS et Linux construits par le workflow Release.
+          # The app's users read French: the body stays in French. v10.3.1 is the last version
+          # for macOS 12 and Intel Macs; its updater still offers this one there (t-1663).
+          releaseBody: "Paquets Windows, macOS (Apple Silicon, macOS 13.4 ou plus) et Linux (glibc 2.39 ou plus : Ubuntu 24.04, Debian 13, Fedora 40 ou plus récent) construits par le workflow Release. macOS 12 : n'installez pas cette mise à jour (choisissez « Plus tard »), elle ne s'ouvrirait pas ; si c'est fait, réinstallez la v10.3.1 depuis https://github.com/oku-theory/oku-slides/releases/tag/v10.3.1. Mac Intel : la v10.3.1 reste la dernière version, sa vérification des mises à jour signale désormais une erreur."
           releaseDraft: true
           prerelease: false
 
@@ -316,8 +328,8 @@ jobs:
             fi
           done < "$d/assets"
 
-  # The chosen platforms have uploaded their packages and the sign job re-signed them: at four out
-  # of four, the draft is published as "latest" on the version's commit. A failed build or sign
+  # The chosen platforms have uploaded their packages and the sign job re-signed them: at three out
+  # of three, the draft is published as "latest" on the version's commit. A failed build or sign
   # skips this job (needs) and leaves the draft as it is. `complete` tells the mirror job whether
   # the release went out.
   publish:
@@ -363,13 +375,13 @@ jobs:
           .github/scripts/release-gate.sh "$d/latest.json" "$d/bundles" "$VERSION" \
             "$GITHUB_REPOSITORY" "$pubkey" "$(jq -r 'join(",")' <<<"$WANT")"
           latest="$d/latest.json"
-          # The four platforms, those of earlier runs included, each with URL and signature (all
+          # The three platforms, those of earlier runs included, each with URL and signature (all
           # verified above). Keep this list in step with PLATFORMS in release-gate.sh.
           n=$(jq '[.platforms | to_entries[]
-                   | select(.key | IN("darwin-aarch64","darwin-x86_64","linux-x86_64","windows-x86_64"))
+                   | select(.key | IN("darwin-aarch64","linux-x86_64","windows-x86_64"))
                    | select((.value.url // "") != "" and (.value.signature // "") != "")] | length' "$latest")
-          if [ "$n" -eq 4 ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; else
-            echo "::warning::$n plateformes sur 4 : $TAG reste un brouillon, à compléter en relançant Release"
+          if [ "$n" -eq 3 ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::$n of 3 platforms: $TAG stays a draft, run Release again to complete it"
             echo "complete=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Brouillon publié

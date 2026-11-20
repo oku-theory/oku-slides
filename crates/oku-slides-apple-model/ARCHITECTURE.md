@@ -19,7 +19,7 @@ links the bridge.
   cancel it calls `oku_model_cancel` and returns at once (the late event finds no receiver).
   Off macOS: `MacOsTooOld`, and `respond` fails.
 - `swift/` (package `OkuModel`, built by `build.rs` through `swift-rs`, deployment target
-  12.0): `oku_model_availability`, `oku_model_respond` (a fresh `LanguageModelSession` with the
+  13.4): `oku_model_availability`, `oku_model_respond` (a fresh `LanguageModelSession` with the
   instructions, the schema decoded into `GenerationSchema`, one guided `respond`; one event
   `cb(ctx, kind, code, text)` then `free(ctx)`), `oku_model_cancel`, `oku_model_release`.
 
@@ -27,9 +27,9 @@ links the bridge.
 
 `FoundationModels` exists from macOS 26 only. Every Swift use sits behind
 `#available(macOS 26.0, *)`, so the compiler weak-references its symbols and the linker loads
-the framework with `LC_LOAD_WEAK_DYLIB`: the app still starts on macOS 12. No explicit
+the framework with `LC_LOAD_WEAK_DYLIB`: the app still starts on macOS 13.4. No explicit
 `-weak_framework`: a dependency's `rustc-link-arg` never reaches the binaries. The test
-`oku-slides-local-agent/tests/weak_link.rs` checks the load command and `minos 12.0` with `otool -l`.
+`oku-slides-local-agent/tests/weak_link.rs` checks the load command and `minos 13.4` with `otool -l`.
 
 ## Dependencies
 

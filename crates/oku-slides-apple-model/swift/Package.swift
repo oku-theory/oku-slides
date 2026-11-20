@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "OkuModel",
-    platforms: [.macOS(.v12)],
+    platforms: [.macOS("13.4")],
     products: [.library(name: "OkuModel", type: .static, targets: ["OkuModel"])],
     targets: [.target(name: "OkuModel", path: "Sources/OkuModel")]
 )

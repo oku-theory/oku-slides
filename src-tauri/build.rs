@@ -50,7 +50,12 @@ fn main() -> Result<(), BuildError> {
     check_capability("capabilities/default.json", "w-*", COMMANDS)?;
     check_capability("capabilities/agent.json", "agent", AGENT_COMMANDS)?;
     check_denied("capabilities/agent.json", AGENT_DENIED)?;
-    let attributes = tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(COMMANDS));
+    // Dynamic VC runtime on Windows: the prebuilt ONNX Runtime is built /MD, and Tauri's default
+    // static vcruntime (/NODEFAULTLIB:msvcrt.lib) would leave it unresolved. The release ships
+    // the Visual C++ runtime beside the exe (.github/scripts/windows-app-local.sh, t-1663).
+    let attributes = tauri_build::Attributes::new()
+        .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS))
+        .windows_attributes(tauri_build::WindowsAttributes::new().static_vc_runtime(false));
     tauri_build::try_build(attributes)?;
     Ok(())
 }

@@ -38,10 +38,6 @@ tokio = { workspace = true, features = ["time", "sync", "macros"] }
 # Seulement pour reconnaître une fenêtre détruite (`window_state::is_window_gone`).
 tauri-runtime.workspace = true
 
-# Dictée sur Mac : calcul par Accelerate (le framework d'Apple).
-[target.'cfg(target_os = "macos")'.dependencies]
-oku-slides-stt = { workspace = true, features = ["accelerate"] }
-
 [dev-dependencies]
 rstest.workspace = true
 speculoos.workspace = true

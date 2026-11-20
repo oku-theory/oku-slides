@@ -175,7 +175,7 @@ fn apple_download_with_unknown_language_reports_error() {
     let _started = stt.download(crate::Model::Apple, false);
     let status = stt.status();
     assert_that!((status.state, status.error.as_deref()))
-        .is_equal_to((State::Idle, Some("Le moteur d'Apple ne prend pas en charge cette langue (xx)")));
+        .is_equal_to((State::Idle, Some("Le moteur de dictée ne prend pas en charge cette langue (xx)")));
 }
 
 #[test]
@@ -218,5 +218,15 @@ fn configure_while_recording_keeps_the_config() {
 #[test]
 fn download_while_recording_returns_false() {
     let (stt, _dir) = recording_stt("download-recording");
-    assert_that!(stt.download(crate::Model::Turbo, false)).is_false();
+    assert_that!(stt.download(crate::Model::Parakeet, false)).is_false();
+}
+
+#[test]
+fn transcribe_stream_after_shutdown_keeps_the_download_cancelled() {
+    let dir = fresh_dir("stream-shutdown-cancel");
+    let (stt, _) = stt_with(dir.path(), ScriptedEngine::new(Availability::Ready, &["Bonjour."]), |_| {});
+    stt.shutdown();
+    // Whatever the transcription returns, the shutdown's cancel must survive it.
+    let _ = stt.transcribe_stream(&[0.0; 1_600]);
+    assert_that!(stt.cancel_download.load(Ordering::Relaxed)).is_true();
 }

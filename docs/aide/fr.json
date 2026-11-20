@@ -380,7 +380,7 @@
            "bold": true
           },
           {
-           "t": " : Whisper tourne en local ; le modèle se télécharge une fois, au premier appui sur le micro."
+           "t": " : Parakeet tourne en local (25 langues européennes) ; le modèle se télécharge une fois, au premier appui sur le micro."
           }
          ],
          "list": "bullet"
@@ -1796,7 +1796,7 @@
            "bold": true
           },
           {
-           "t": " : false garde Whisper seul, sans le moteur d'Apple."
+           "t": " : false garde Parakeet seul, sans le moteur d'Apple."
           }
          ],
          "list": "bullet"

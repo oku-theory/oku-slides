@@ -1,5 +1,5 @@
-//! Phrase-by-phrase dictation (Whisper, API): closed phrases at final quality,
-//! a preview of the current phrase (Whisper only).
+//! Phrase-by-phrase dictation (Parakeet, API): closed phrases at final quality,
+//! a preview of the current phrase (Parakeet only).
 //!
 //! `listen_loop` (listen.rs) sends [`Job`]s; this thread transcribes them in order, closed
 //! phrases first, then utterance closes ([`Job::Flush`]), then the preview.
@@ -12,10 +12,11 @@ use oku_slides_i18n::Localize;
 
 use crate::api::{ApiConfig, ApiTranscriber};
 use crate::error::ZeroSettingSnafu;
+use crate::parakeet::Parakeet;
 use crate::phrase_engine::PhraseEngine;
 use crate::utterance::Spoken;
 use crate::vad::{Phrase, Segmenter};
-use crate::{Config, Inner, Model, State, Stt, SttError, Transcriber, Transcript, context_of, keep};
+use crate::{Config, Inner, Model, State, Stt, SttError, Transcript, context_of, keep};
 
 /// Travail pour le fil de transcription.
 pub(crate) enum Job {
@@ -32,7 +33,7 @@ pub(crate) enum Job {
 /// Ce qui identifie un moteur chargé : un modèle local, ou une API et ses réglages.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum EngineKey {
-    /// Modèle Whisper sur le disque.
+    /// A model on disk (Parakeet).
     Local(Model),
     /// API de transcription, avec ses réglages.
     Api(ApiConfig),
@@ -93,7 +94,7 @@ impl Stt {
                     .map_err(|_| SttError::from(ZeroSettingSnafu { field: "stt.api_timeout_secs" }.build()))?;
                 Arc::new(ApiTranscriber::new(config.clone(), timeout)?)
             }
-            EngineKey::Local(model) => Arc::new(Transcriber::load(&model.path(&self.dir), &self.storage)?),
+            EngineKey::Local(model) => Arc::new(Parakeet::load(&model.path(&self.dir))?),
         };
         tracing::debug!(?key, ms = started.elapsed().as_millis(), "moteur de dictée chargé");
         self.state().engine = Some((key, engine.clone()));

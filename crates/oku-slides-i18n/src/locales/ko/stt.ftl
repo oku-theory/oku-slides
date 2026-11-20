@@ -12,7 +12,7 @@ stt-download-incomplete = 다운로드가 완료되지 않았습니다: { $expec
 stt-cancelled = 다운로드가 취소되었습니다
 stt-receiver-taken = 핸즈프리 듣기가 이미 다른 곳에 연결되어 있습니다
 stt-speech-denied = 시스템 설정 › 개인정보 보호 및 보안에서 음성 인식을 허용하세요
-stt-locale-unsupported = Apple 엔진은 이 언어를 지원하지 않습니다 ({ $language })
+stt-locale-unsupported = 받아쓰기 엔진은 이 언어를 지원하지 않습니다 ({ $language })
 stt-api-key-missing = 받아쓰기 API를 사용하려면 환경 변수 { $var }을(를) 설정하세요
 stt-api-key-invalid = 환경 변수 { $var }의 값은 HTTP 헤더로 보낼 수 없습니다
 stt-api-config = 받아쓰기 API 설정이 올바르지 않습니다. 설정 상자에서 수정하세요.
@@ -26,9 +26,7 @@ stt-voice-failed = 시스템 음성이 텍스트를 읽지 못했습니다
 stt-voice-rate = 읽기 속도는 보통 속도의 0.5배에서 2배 사이여야 합니다
 speech-barge-in-unavailable-os = Oku가 말하는 중에 끼어들려면 에코 제거가 필요하며, macOS에서만 사용할 수 있습니다.
 
-stt-model-turbo = Large v3 Turbo (다국어, 818 MB)
-stt-model-large = Large v3 (다국어, 3.1 GB)
-stt-model-base = Base (다국어, 148 MB)
+stt-model-parakeet = Parakeet v3 (유럽 언어 25개)
 stt-model-apple = Apple (시스템)
 stt-model-api = API ({ $model })
 

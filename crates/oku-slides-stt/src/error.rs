@@ -9,8 +9,7 @@ use snafu::{Backtrace, Snafu};
 
 use crate::speak::UnavailableReason;
 
-/// Erreur d'une bibliothèque qui n'expose pas de type précis (CTranslate2,
-/// tokenizers).
+/// A library error kept opaque (parakeet-rs, ONNX Runtime, a caught panic).
 pub(crate) type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub(crate) fn boxed(e: impl Into<BoxError>) -> BoxError {
@@ -31,7 +30,7 @@ pub enum SttErrorKind {
     AudioFile,
     /// Modèle absent ou illisible.
     Model,
-    /// The engine could not transcribe the audio (Whisper, API, Apple).
+    /// The engine could not transcribe the audio (Parakeet, API, Apple).
     Transcription,
     /// Model download impossible (network, disk, integrity).
     Download,
@@ -79,24 +78,10 @@ pub(crate) enum SttInner {
     Wav { reason: &'static str, backtrace: Backtrace },
     #[snafu(display("unreadable dictation model ({})", dir.display()))]
     ModelLoad { dir: PathBuf, source: BoxError, backtrace: Backtrace },
-    #[snafu(display("unreadable model file {}", path.display()))]
-    ModelFile { path: PathBuf, source: StorageError, backtrace: Backtrace },
-    #[snafu(display("dictation model has no {name} ({})", dir.display()))]
-    MissingModelFile { dir: PathBuf, name: &'static str, backtrace: Backtrace },
-    #[snafu(display("invalid model settings"))]
-    ModelSettings { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("invalid model settings: {field} must be positive"))]
     ZeroSetting { field: &'static str, backtrace: Backtrace },
-    #[snafu(display("invalid mel filters"))]
-    MelFilters { source: ndarray::ShapeError, backtrace: Backtrace },
     #[snafu(display("transcription failed ({step})"))]
     Transcribe { step: &'static str, source: BoxError, backtrace: Backtrace },
-    #[snafu(display("transcription failed ({step})"))]
-    Features { step: &'static str, source: ndarray::ShapeError, backtrace: Backtrace },
-    #[snafu(display("language not detected"))]
-    NoLanguage { backtrace: Backtrace },
-    #[snafu(display("audio features are not contiguous"))]
-    NotContiguous { backtrace: Backtrace },
     #[snafu(display("download cancelled"))]
     Cancelled { backtrace: Backtrace },
     #[snafu(display("model download failed"))]
@@ -105,7 +90,7 @@ pub(crate) enum SttInner {
     #[cfg(any(test, target_os = "macos"))]
     #[snafu(display("speech recognition not allowed"))]
     SpeechDenied { backtrace: Backtrace },
-    #[snafu(display("language not supported by the system engine: {locale}"))]
+    #[snafu(display("language not supported by the dictation engine: {locale}"))]
     LocaleUnsupported { locale: String, backtrace: Backtrace },
     #[snafu(display("language download failed: {reason}"))]
     AssetInstall { reason: String, backtrace: Backtrace },
@@ -167,10 +152,10 @@ impl SttError {
         use SttInner::VoiceWinRt;
         use SttInner::{
             Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
-            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, Features, FinishTimeout, LocaleUnsupported,
-            MelFilters, MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile,
-            ModelFile, ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable,
-            ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
+            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, FinishTimeout, LocaleUnsupported,
+            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, ModelLoad, NoMicrophone,
+            NotDownloadable, ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable,
+            Wav, ZeroSetting,
         };
         #[cfg(any(test, target_os = "macos"))]
         use SttInner::{DuplexStart, SpeechDenied};
@@ -188,20 +173,13 @@ impl SttError {
             DuplexStart { .. } => SttErrorKind::Microphone,
             AudioFile { .. } | Wav { .. } => SttErrorKind::AudioFile,
             ModelLoad { .. }
-            | ModelFile { .. }
-            | MissingModelFile { .. }
-            | ModelSettings { .. }
             | ZeroSetting { .. }
-            | MelFilters { .. }
             | LocaleUnsupported { .. }
             | NotDownloadable { .. }
             | ApiKeyMissing { .. }
             | ApiKeyInvalid { .. }
             | ApiConfig { .. } => SttErrorKind::Model,
             Transcribe { .. }
-            | Features { .. }
-            | NoLanguage { .. }
-            | NotContiguous { .. }
             | Analyzer { .. }
             | FinishTimeout { .. }
             | ApiHttp { .. }
@@ -235,10 +213,10 @@ impl Localize for SttError {
         use SttInner::VoiceWinRt;
         use SttInner::{
             Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
-            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, Features, FinishTimeout, LocaleUnsupported,
-            MelFilters, MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, MissingModelFile,
-            ModelFile, ModelLoad, ModelSettings, NoLanguage, NoMicrophone, NotContiguous, NotDownloadable,
-            ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
+            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, FinishTimeout, LocaleUnsupported,
+            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, ModelLoad, NoMicrophone,
+            NotDownloadable, ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable,
+            Wav, ZeroSetting,
         };
         #[cfg(any(test, target_os = "macos"))]
         use SttInner::{DuplexStart, SpeechDenied};
@@ -255,17 +233,8 @@ impl Localize for SttError {
             DuplexStart { .. } => l.tr("stt-duplex-start"),
             UnsupportedFormat { format, .. } => l.tr_with("stt-audio-format", &[("format", format.as_str().into())]),
             AudioFile { .. } | Wav { .. } => l.tr("stt-audio-file"),
-            ModelLoad { .. }
-            | ModelFile { .. }
-            | MissingModelFile { .. }
-            | ModelSettings { .. }
-            | ZeroSetting { .. }
-            | MelFilters { .. }
-            | NotDownloadable { .. } => l.tr("stt-model"),
+            ModelLoad { .. } | ZeroSetting { .. } | NotDownloadable { .. } => l.tr("stt-model"),
             Transcribe { .. }
-            | Features { .. }
-            | NoLanguage { .. }
-            | NotContiguous { .. }
             | Analyzer { .. }
             | FinishTimeout { .. }
             | ApiResponse { .. }

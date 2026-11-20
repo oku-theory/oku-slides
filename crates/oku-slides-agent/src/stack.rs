@@ -485,13 +485,21 @@ impl Stack {
         drop(gone);
     }
 
+    /// Stops the dictation and joins its threads; blocks while a model loads (about 2 s).
+    ///
+    /// For exits that skip [`Self::shutdown`] (the app's `RunEvent::Exit` safety net): the
+    /// process must not exit under a model load (t-1663).
+    pub fn stop_dictation(&self) {
+        self.voice.stop_dictation();
+    }
+
     /// Fin de l'app : chaque onglet s'arrête, les conversations en file sont
     /// écrites, puis l'agent ACP est tué (chacun attendu au plus 2 s) ; toute
     /// commande ensuite est ignorée.
     pub async fn shutdown(&self) {
         // The voice router ends at its next poll: no utterance is routed after this.
         self.closing.store(true, Ordering::SeqCst);
-        // Plus aucun changement d'agent : un choix en attente tombe.
+        // No more agent switch (a pending choice drops); the dictation joins its threads.
         self.voice.shutdown();
         // Le `.part` du modèle (2,5 Go) ne doit pas grossir après la fin de l'app.
         self.choice.cancel_download();

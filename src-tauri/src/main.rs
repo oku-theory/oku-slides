@@ -335,6 +335,9 @@ fn main() -> color_eyre::Result<()> {
             && let Some(state) = app_handle.try_state::<AppState>()
         {
             Workspace::settle(&state.workspace);
+            // Exits that skipped `state::shutdown` (Dock, logout): no exit under a dictation
+            // model load, which would crash in ONNX Runtime (t-1663). Waits for that load only.
+            state.stack.stop_dictation();
         }
         // macOS : Finder ne relance pas l'app, il lui envoie les fichiers
         // (au lancement aussi : l'argument n'y est pas). `Pending::receive`

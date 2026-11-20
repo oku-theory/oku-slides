@@ -5,12 +5,12 @@
 //! Three engines, two of them on the machine:
 //! - Apple (macOS 26+): SpeechAnalyzer transcribes continuously, as the
 //!   audio comes in, through a Swift bridge (`apple.rs`).
-//! - Whisper (Turbo, Large, Base): CTranslate2 (the one in faster-whisper),
-//!   via ct2rs; it is the engine elsewhere, or on request.
+//! - Parakeet TDT 0.6B v3 (`parakeet.rs`): ONNX Runtime on the CPU, via
+//!   parakeet-rs; 25 European languages, the engine elsewhere or on request.
 //! - OpenAI or Azure OpenAI API (`api.rs`, async-openai): sentence by sentence, without preview.
 //!
 //! Voice is detected frame by frame (earshot): listening stops by itself
-//! after a silence. With Whisper, each finished sentence is transcribed once,
+//! after a silence. With Parakeet, each finished sentence is transcribed once,
 //! at final quality, as soon as the speaker pauses; the preview only
 //! retranscribes the current sentence. On stop, only the last sentence
 //! is therefore left to process.
@@ -29,8 +29,8 @@ mod apple;
 mod audio;
 mod barge_in;
 mod capture;
+mod dictation_phrase;
 mod dictation_stream;
-mod dictation_whisper;
 mod duplex;
 #[cfg(any(test, target_os = "macos"))]
 mod duplex_ffi;
@@ -45,10 +45,12 @@ mod locale;
 mod microphone;
 mod models;
 mod num;
+mod parakeet;
 mod phrase_engine;
 #[cfg(any(test, target_os = "macos"))]
 mod results;
 mod saved_config;
+mod shutdown;
 mod speak;
 mod speaker;
 mod speech_config;
@@ -57,7 +59,6 @@ mod stream;
 mod test_support;
 mod utterance;
 mod vad;
-mod whisper;
 
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -75,8 +76,8 @@ pub use api_extra::{
     parse_api_headers, valid_api_access, valid_api_headers,
 };
 pub use audio::{SAMPLE_RATE, resample};
+use dictation_phrase::{EngineKey, Job, engine_key};
 use dictation_stream::Held;
-use dictation_whisper::{EngineKey, Job, engine_key};
 pub use duplex::Duplex;
 pub use echo::ECHO_HORIZON;
 use error::ReceiverTakenSnafu;
@@ -89,6 +90,7 @@ use oku_slides_platform::Platform;
 use oku_slides_platform::config::{ModelsSettings, SttSettings};
 use oku_slides_platform::storage::Storage;
 use phrase_engine::PhraseEngine;
+pub use phrase_engine::Transcript;
 #[cfg(feature = "e2e-fakes")]
 pub use speak::fake::FakeSpeechEngine;
 pub use speak::{
@@ -100,7 +102,6 @@ pub use speech_config::SpeechConfig;
 use stream::{Availability, Stream, StreamEngine};
 use utterance::{ListenClock, Phrases};
 pub use utterance::{SuspendGuard, Utterance, UtteranceSeq};
-pub use whisper::{Transcriber, Transcript};
 
 /// Where dictation stands, for the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
@@ -146,7 +147,7 @@ const CONFIG_VERSION: u32 = 1;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
-    /// Chosen engine: Apple, a Whisper model or the API.
+    /// Chosen engine: Apple, Parakeet or the API.
     pub model: Model,
     /// Code de langue (`fr`, `en`…) ou `None` pour la détection automatique.
     pub language: Option<String>,
@@ -169,7 +170,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            model: Model::Turbo,
+            model: Model::Parakeet,
             language: None,
             auto_stop: true,
             silence: 1.5,
@@ -182,10 +183,10 @@ impl Default for Config {
     }
 }
 
-/// Réglages d'avant le moteur d'Apple : on y passe une fois, s'il sert ici.
+/// Settings from before Apple's engine: switched to it once, if it serves here.
 ///
-/// `apple` : le moteur existe sur cette machine ; `language` : il connaît la
-/// langue retenue (prête ou à télécharger). Sans moteur, Apple redevient Turbo.
+/// `apple`: the engine exists on this machine; `language`: it knows the chosen
+/// language (ready or to download). Without the engine, Apple becomes Parakeet.
 fn migrate(mut config: Config, apple: bool, language: bool) -> Config {
     if config.version < CONFIG_VERSION {
         if apple && language {
@@ -194,7 +195,7 @@ fn migrate(mut config: Config, apple: bool, language: bool) -> Config {
         config.version = CONFIG_VERSION;
     }
     if config.model == Model::Apple && !apple {
-        config.model = Model::Turbo;
+        config.model = Model::Parakeet;
     }
     config
 }
@@ -288,14 +289,18 @@ pub enum SttRequest {
     Cancel,
 }
 
-/// Où part l'audio d'une dictée.
+/// Where a dictation's audio goes.
 enum Sink {
-    /// Moteur phrase par phrase (Whisper, API) : phrases closes et aperçus, en jobs.
-    Whisper { jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool>, previews: bool },
+    /// Phrase-by-phrase engine (Parakeet, API): closed phrases and previews, as jobs.
+    Phrase { jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool>, previews: bool },
     /// Moteur en continu : tout l'audio, au fil de l'eau ; confié à `held` à l'arrêt.
     Stream { stream: Box<dyn Stream>, held: Held },
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent flags read under one lock (speaking, phrase open, resume after download, shut), not a state machine"
+)]
 struct Inner {
     state: State,
     config: Config,
@@ -342,6 +347,8 @@ struct Inner {
     barge: Option<Arc<dyn SpeechEngine>>,
     /// Why the duplex did not start last time; `None` once it starts, or before any try.
     barge_failure: Option<Arc<SttError>>,
+    /// Set once by shutdown: no capture, download or transcription thread starts again.
+    shut: bool,
 }
 
 impl Inner {
@@ -418,6 +425,10 @@ pub struct Stt {
     system_locale: Option<String>,
     /// False while an unreadable `config.json` could not be kept aside: never overwritten (t-1216).
     savable: bool,
+    /// Transcription threads, joined at shutdown (t-1663).
+    transcribers: shutdown::Transcribers,
+    /// `None` in the dictation's own threads: the last owner joins them when dropped.
+    _owner: Option<Arc<shutdown::Owner>>,
 }
 
 impl std::fmt::Debug for Stt {
@@ -457,43 +468,49 @@ impl Stt {
             .flatten();
         let config = migrate(config, apple_supported, resolved.is_some());
         let (utterances, receiver) = mpsc::channel();
+        let inner = Arc::new(Mutex::new(Inner {
+            state: State::Idle,
+            config,
+            download: None,
+            level: 0.0,
+            speaking: false,
+            phrase_open: false,
+            phrases: Phrases::default(),
+            partial: String::new(),
+            detected: None,
+            stop_in: None,
+            text: None,
+            seq: 0,
+            error: None,
+            started: None,
+            vocabulary: Vec::new(),
+            start_after_download: None,
+            listen_after_download: false,
+            engine: None,
+            session: 0,
+            installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
+            apple: None,
+            utterances,
+            receiver: Some(receiver),
+            suspends: 0,
+            epoch: 0,
+            clock: ListenClock { origin: Instant::now(), stream_base: 0 },
+            barge: None,
+            barge_failure: None,
+            shut: false,
+        }));
+        let transcribers = shutdown::Transcribers::default();
+        let cancel_download = Arc::new(AtomicBool::new(false));
         let stt = Self {
-            inner: Arc::new(Mutex::new(Inner {
-                state: State::Idle,
-                config,
-                download: None,
-                level: 0.0,
-                speaking: false,
-                phrase_open: false,
-                phrases: Phrases::default(),
-                partial: String::new(),
-                detected: None,
-                stop_in: None,
-                text: None,
-                seq: 0,
-                error: None,
-                started: None,
-                vocabulary: Vec::new(),
-                start_after_download: None,
-                listen_after_download: false,
-                engine: None,
-                session: 0,
-                installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
-                apple: None,
-                utterances,
-                receiver: Some(receiver),
-                suspends: 0,
-                epoch: 0,
-                clock: ListenClock { origin: Instant::now(), stream_base: 0 },
-                barge: None,
-                barge_failure: None,
-            })),
+            _owner: Some(shutdown::Owner::new(inner.clone(), transcribers.clone(), cancel_download.clone())),
+            inner,
+            transcribers,
             dir,
             settings: Arc::new(platform.settings.stt.clone()),
             models: Arc::new(platform.settings.models.clone()),
             storage,
             localizer: platform.localizer.clone(),
-            cancel_download: Arc::new(AtomicBool::new(false)),
+            cancel_download,
             streaming,
             apple_supported,
             system_locale,
@@ -532,9 +549,13 @@ impl Stt {
     fn model_info(&self, model: Model, installed: bool, g: &Inner) -> ModelInfo {
         let (installed, available) = match model {
             Model::Apple => (g.apple.as_ref().is_some_and(|(_, a)| a.is_ready()), g.apple.is_some()),
-            // « Installée » : la clé est là ; elle n'est jamais rendue.
+            // "Installed": the key is there; it is never returned.
             Model::Api => (g.config.api.key_present(), true),
-            _ => (installed, true),
+            // Greyed out for a language it does not know; read from `g`, already locked.
+            Model::Parakeet => {
+                let language = g.config.language.as_deref().unwrap_or_else(|| self.localizer.locale());
+                (installed, models::parakeet_supports(language))
+            }
         };
         let label = model.label(&self.localizer, &g.config.api);
         ModelInfo { id: model, label, size: model.size(), installed, available }
@@ -756,18 +777,20 @@ fn resolve_apple(
 /// Phrase transcrite : début et fin (s), texte.
 pub type TimedPhrase = (f32, f32, String);
 
-/// Longueur maximale du vocabulaire donné à Whisper (caractères).
+/// Longest vocabulary given to the API as a prompt (characters).
 const MAX_PROMPT_CHARS: usize = 600;
 
-/// Le vocabulaire en une phrase pour Whisper : termes joints par « . », tronqués.
-fn whisper_prompt(vocabulary: &[String]) -> String {
+/// The vocabulary as one sentence for the API prompt: terms joined by ". ", truncated.
+fn api_prompt(vocabulary: &[String]) -> String {
     let joined = vocabulary.iter().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(". ");
     joined.chars().take(MAX_PROMPT_CHARS).collect()
 }
 
-/// Contexte donné à Whisper : vocabulaire du deck, puis ce qui vient d'être dicté.
+/// Context given to the engine: the deck's vocabulary, then what was just dictated.
+///
+/// Only the API uses it, as its prompt; Parakeet takes no context.
 fn context_of(vocabulary: &[String], committed: &str) -> String {
-    let prompt = whisper_prompt(vocabulary);
+    let prompt = api_prompt(vocabulary);
     [prompt.as_str(), committed].iter().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ")
 }
 
@@ -781,7 +804,7 @@ fn join<'a>(parts: impl Iterator<Item = &'a String>) -> String {
     parts.map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ")
 }
 
-/// Retire les artefacts de Whisper (espaces, marqueurs de silence).
+/// Strips transcription artifacts (spaces, silence markers).
 fn clean(text: &str) -> String {
     let t = text.trim();
     let noise = ["[BLANK_AUDIO]", "[Musique]", "[Music]", "(musique)", "[silence]"];

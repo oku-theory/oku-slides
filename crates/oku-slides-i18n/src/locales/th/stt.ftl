@@ -12,7 +12,7 @@ stt-download-incomplete = ดาวน์โหลดไม่ครบ: { $got 
 stt-cancelled = ยกเลิกการดาวน์โหลดแล้ว
 stt-receiver-taken = การฟังแบบแฮนด์ฟรีเชื่อมต่อกับที่อื่นอยู่แล้ว
 stt-speech-denied = อนุญาตการรู้จำเสียงพูดในการตั้งค่าระบบ › ความเป็นส่วนตัวและความปลอดภัย
-stt-locale-unsupported = เอนจินของ Apple ไม่รองรับภาษานี้ ({ $language })
+stt-locale-unsupported = เอนจินการพิมพ์ด้วยเสียงไม่รองรับภาษานี้ ({ $language })
 stt-api-key-missing = ตั้งค่าตัวแปรสภาพแวดล้อม { $var } เพื่อใช้ API การพิมพ์ตามคำบอก
 stt-api-key-invalid = ตัวแปรสภาพแวดล้อม { $var } มีค่าที่ส่งในส่วนหัว HTTP ไม่ได้
 stt-api-config = การตั้งค่า API การพิมพ์ตามคำบอกไม่ถูกต้อง: โปรดแก้ไขในกล่องการตั้งค่า
@@ -26,9 +26,7 @@ stt-voice-failed = เสียงของระบบอ่านข้อค�
 stt-voice-rate = ความเร็วในการอ่านต้องอยู่ระหว่าง 0.5 ถึง 2 เท่าของความเร็วปกติ
 speech-barge-in-unavailable-os = การพูดแทรก Oku ต้องใช้การตัดเสียงสะท้อน ซึ่งมีเฉพาะบน macOS
 
-stt-model-turbo = Large v3 Turbo (หลายภาษา, 818 MB)
-stt-model-large = Large v3 (หลายภาษา, 3.1 GB)
-stt-model-base = Base (หลายภาษา, 148 MB)
+stt-model-parakeet = Parakeet v3 (ภาษายุโรป 25 ภาษา)
 stt-model-apple = Apple (ระบบ)
 stt-model-api = API ({ $model })
 

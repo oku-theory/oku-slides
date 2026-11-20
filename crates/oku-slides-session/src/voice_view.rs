@@ -21,7 +21,7 @@ pub const DICTATION_LANGUAGES: [(&str, &str); 7] = [
 pub enum ModelKind {
     /// La reconnaissance du système.
     Apple,
-    /// Un modèle Whisper sur cet ordinateur.
+    /// A model on this computer (Parakeet).
     Local,
     /// Un service distant compatible OpenAI.
     Api,
@@ -30,7 +30,7 @@ pub enum ModelKind {
 /// Un modèle de dictée ; son id est celui de `oku-slides-stt` (`Model::id`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelView {
-    /// L'id du modèle : `apple`, `turbo`, `large`, `base` ou `api`.
+    /// The model id: `apple`, `parakeet` or `api`.
     pub id: String,
     /// D'où il vient.
     pub kind: ModelKind,

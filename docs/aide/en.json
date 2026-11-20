@@ -380,7 +380,7 @@
            "bold": true
           },
           {
-           "t": ": Whisper runs locally; the model downloads once, the first time you press the mic."
+           "t": ": Parakeet runs locally (25 European languages); the model downloads once, the first time you press the mic."
           }
          ],
          "list": "bullet"
@@ -1796,7 +1796,7 @@
            "bold": true
           },
           {
-           "t": ": false keeps Whisper only, without Apple's engine."
+           "t": ": false keeps Parakeet only, without Apple's engine."
           }
          ],
          "list": "bullet"

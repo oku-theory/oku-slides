@@ -3,7 +3,7 @@
 
 import { host } from "./hostCall";
 
-export type SttModel = "apple" | "turbo" | "large" | "base" | "api";
+export type SttModel = "apple" | "parakeet" | "api";
 /** `listening`: hands-free, each utterance goes to the host, never to the page. */
 export type SttState = "idle" | "downloading" | "recording" | "transcribing" | "listening";
 

@@ -7,13 +7,14 @@ Oku Slides speech: dictation and OS voice. Dictation: microphone -> voice detect
 
 - **Apple** (`Model::Apple`, macOS 26+, setting `stt.apple`): continuous `SpeechAnalyzer`
   through a static Swift bridge (`swift/`, `build.rs`, `apple.rs`). Language resolved by `locale.rs`, installed by the system. Building needs the macOS 26 SDK;
-  the app runs from macOS 12 (Whisper only before 26). Off macOS, `#[cfg]` leaves out what only
+  the app runs from macOS 13.4 (Parakeet only before 26). Off macOS, `#[cfg]` leaves out what only
   the bridge produces (`stream::raw`, the result events, `Availability::Ready`, `SpeechDenied`).
-- **Whisper** (Turbo, Large, Base): CTranslate2 (`whisper.rs`), models downloaded from Hugging
-  Face by `oku_slides_platform::models` (`models.rs`), sentence by sentence (`dictation_whisper.rs`).
+- **Parakeet** (TDT 0.6B v3, int8 ONNX; 25 European languages, others greyed and refused at start):
+  parakeet-rs on ONNX Runtime (`parakeet.rs`), CPU only (CoreML: about 2× slower, other text); pinned
+  files from Hugging Face via `oku_slides_platform::models` (`models.rs`), phrase by phrase (`dictation_phrase.rs`).
 - **API** (`Model::Api`): OpenAI-compatible or Azure OpenAI transcription through async-openai
   (`api.rs`: `OpenAIConfig`, or `AzureConfig` when `api_version` is set), phrase by phrase
-  like Whisper but without preview; the key is read from the environment variable named in
+  like Parakeet but without preview; the key is read from the environment variable named in
   `ApiConfig`, never stored or copied (`key_present` only tests it). `api_check.rs` holds the
   settings rules (`normalized_url`, `is_loopback`, `valid_key_env`, `valid_api_model`,
   `valid_api_version`); `api_extra.rs` the user-only headers, `api_access_problem` (7.0.0
@@ -25,13 +26,13 @@ Oku Slides speech: dictation and OS voice. Dictation: microphone -> voice detect
 
 `saved_config.rs` reads `config.json` once, at launch; one that does not parse is renamed `config.json.invalid-<secs>[-<n>]`; one it cannot read or rename blocks saving.
 `listen_loop` (`listen.rs`): microphone (`audio.rs`) -> 16 kHz -> earshot (`vad.rs`,
-automatic stop) -> `Sink`: Whisper jobs, or the `Stream` of a continuous engine
-whose events `dictation_stream.rs` applies (`results.rs`). `microphone.rs`: `Stt::microphone` (bridge `oku_speech_microphone`, never asks; `Unknown` off macOS), `Stt::model_files` (missing, partial, complete) for diagnosis.
-Lossy numeric casts (sample counts, seconds, positions) live in `num.rs` (named like `oku_slides_core::num`), each with its reason.
-Hands-free listening (`State::Listening`, `utterance.rs`): no auto-stop; after each silence of `config.silence` the phrases since the last close become one `Utterance` (Whisper: `Job::Flush`),
+automatic stop) -> `Sink`: phrase jobs (Parakeet, API), or the `Stream` of a continuous engine
+whose events `dictation_stream.rs` applies (`results.rs`). `microphone.rs`: `Stt::microphone` (bridge `oku_speech_microphone`, never asks; `Unknown` off macOS), `Stt::model_files` (missing, partial, complete) for diagnosis. Lossy numeric casts (sample counts, seconds, positions) live in `num.rs` (named like `oku_slides_core::num`), each with its reason.
+Hands-free listening (`State::Listening`, `utterance.rs`): no auto-stop; after each silence of `config.silence` the phrases since the last close become one `Utterance` (phrase engines: `Job::Flush`),
 timed by sample offsets, sent on the single channel `Stt::utterances` hands out once. `SuspendGuard`s drop audio and the utterance in progress; `epoch` drops their late results. `capture.rs`: `start`,
 `listen`, launch and download. `Config.hands_free` is saved, never started by itself at launch. Feature `e2e-fakes` (`just e2e` only, no release build): `fake_source.rs` listens to the lines appended to `stt.fake_utterances`.
-In automatic-language mode the API engine sends no language hint, so `detected` stays empty.
+In automatic-language mode the API engine sends no language hint and Parakeet reports none, so `detected` stays empty.
+`shutdown.rs`: the dictation's own threads hold `Stt::worker` clones; `Stt::shutdown` or the last owner's drop cancels, marks it shut (nothing starts again) and joins the transcription threads, so no exit lands under an ONNX Runtime load.
 
 ## OS voice (`speak/`)
 
@@ -45,5 +46,5 @@ Duplex (`duplex.rs`, macOS, `OkuDuplex.swift`, `unsafe` in `duplex_ffi.rs`): one
 
 ## Extension points and dependencies
 
-`stream::StreamEngine`, `phrase_engine::PhraseEngine` (Whisper, API): other dictation engines.
+`stream::StreamEngine`, `phrase_engine::PhraseEngine` (Parakeet, API): other dictation engines.
 `oku-slides-platform` (settings, storage), `oku-slides-i18n` (messages), `windows` (Windows voice).

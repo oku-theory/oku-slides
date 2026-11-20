@@ -2427,7 +2427,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -2435,14 +2435,9 @@
               "component": "ChoiceChips",
               "options": [
                 {
-                  "id": "turbo",
-                  "label": "Large v3 Turbo",
-                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
-                },
-                {
-                  "id": "large",
-                  "label": "Large v3",
-                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                  "id": "parakeet",
+                  "label": "Parakeet v3",
+                  "hint": "Recommandé, rapide et précis · 670 Mo · installé"
                 },
                 {
                   "id": "api",
@@ -2467,7 +2462,7 @@
             {
               "id": "d-unavailable",
               "component": "Text",
-              "text": "Indisponible pour cette langue : Base",
+              "text": "Indisponible pour cette langue : Apple (système)",
               "variant": "caption"
             },
             {
@@ -2915,7 +2910,7 @@
           "value": {
             "choice": "faux",
             "progress": {
-              "dictation": "Téléchargement de Large v3 · 25 %",
+              "dictation": "Téléchargement de Parakeet v3 · 25 %",
               "agent": ""
             },
             "notice": {
@@ -2997,7 +2992,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -3005,14 +3000,9 @@
               "component": "ChoiceChips",
               "options": [
                 {
-                  "id": "turbo",
-                  "label": "Large v3 Turbo",
-                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
-                },
-                {
-                  "id": "large",
-                  "label": "Large v3",
-                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                  "id": "parakeet",
+                  "label": "Parakeet v3",
+                  "hint": "Recommandé, rapide et précis · 670 Mo · à télécharger"
                 },
                 {
                   "id": "api",
@@ -3037,7 +3027,7 @@
             {
               "id": "d-unavailable",
               "component": "Text",
-              "text": "Indisponible pour cette langue : Base",
+              "text": "Indisponible pour cette langue : Apple (système)",
               "variant": "caption"
             },
             {
@@ -3175,12 +3165,12 @@
             {
               "id": "d-download",
               "component": "Button",
-              "label": "Télécharger maintenant (3,1 Go)",
+              "label": "Télécharger maintenant (670 Mo)",
               "action": {
                 "event": {
                   "name": "download",
                   "context": {
-                    "model": "large"
+                    "model": "parakeet"
                   }
                 }
               }
@@ -3392,7 +3382,7 @@
               "busy": "",
               "pending": ""
             },
-            "model": "large",
+            "model": "parakeet",
             "language": "",
             "silence": "off",
             "hands_free": false,
@@ -3470,7 +3460,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -3478,14 +3468,9 @@
               "component": "ChoiceChips",
               "options": [
                 {
-                  "id": "turbo",
-                  "label": "Large v3 Turbo",
-                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
-                },
-                {
-                  "id": "large",
-                  "label": "Large v3",
-                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                  "id": "parakeet",
+                  "label": "Parakeet v3",
+                  "hint": "Recommandé, rapide et précis · 670 Mo · installé"
                 },
                 {
                   "id": "api",
@@ -3510,7 +3495,7 @@
             {
               "id": "d-unavailable",
               "component": "Text",
-              "text": "Indisponible pour cette langue : Base",
+              "text": "Indisponible pour cette langue : Apple (système)",
               "variant": "caption"
             },
             {
@@ -3866,7 +3851,7 @@
               "busy": "Changer d'agent interrompra le tour en cours.",
               "pending": "Passage à Local dès qu'aucune réponse ne tourne."
             },
-            "model": "turbo",
+            "model": "parakeet",
             "language": "",
             "silence": "1.5",
             "hands_free": false,
@@ -3943,7 +3928,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Whisper, sur cet ordinateur (CTranslate2). Tous les modèles comprennent plusieurs langues.",
+              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -3951,14 +3936,9 @@
               "component": "ChoiceChips",
               "options": [
                 {
-                  "id": "turbo",
-                  "label": "Large v3 Turbo",
-                  "hint": "Recommandé, rapide et précis · 818 Mo · installé"
-                },
-                {
-                  "id": "large",
-                  "label": "Large v3",
-                  "hint": "Le plus précis, plus lent · 3,1 Go · à télécharger"
+                  "id": "parakeet",
+                  "label": "Parakeet v3",
+                  "hint": "Recommandé, rapide et précis · 670 Mo · installé"
                 },
                 {
                   "id": "api",
@@ -3983,7 +3963,7 @@
             {
               "id": "d-unavailable",
               "component": "Text",
-              "text": "Indisponible pour cette langue : Base",
+              "text": "Indisponible pour cette langue : Apple (système)",
               "variant": "caption"
             },
             {
@@ -4365,7 +4345,7 @@
               "busy": "",
               "pending": ""
             },
-            "model": "turbo",
+            "model": "parakeet",
             "language": "",
             "silence": "1.5",
             "hands_free": false,
