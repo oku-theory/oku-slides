@@ -5,6 +5,17 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [12.0.0] - 2026-11-25
+
+### Added
+
+- *(core)* [**breaking**] deck knowledge base in Open Knowledge Format, lot 1 (t-1721)
+- *(agent)* slide-design instructions for deck tabs (t-1720)
+
+### Fixed
+
+- *(ci)* patch RustSec advisories, split convergence test under 1000 lines (t-1740)
+
 ## [11.0.0] - 2026-11-20
 
 ### Added
