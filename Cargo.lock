@@ -5776,7 +5776,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-a2ui"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "insta",
  "rstest",
@@ -5789,7 +5789,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-agent"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "agent-client-protocol",
  "async-trait",
@@ -5826,7 +5826,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-app"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "async-trait",
  "color-eyre",
@@ -5857,7 +5857,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-apple-model"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "rstest",
  "snafu",
@@ -5868,7 +5868,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-chart"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "charts-rs",
  "json-patch",
@@ -5885,7 +5885,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-cli"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -5920,7 +5920,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-core"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "bytes",
  "hex",
@@ -5947,7 +5947,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-i18n"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "fluent-bundle",
  "rstest",
@@ -5959,7 +5959,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-import"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "insta",
  "oku-slides-chart",
@@ -5978,7 +5978,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-local-agent"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "agent-client-protocol",
  "async-trait",
@@ -6005,7 +6005,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-mcp"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -6037,7 +6037,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-pdf"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "hex",
  "lopdf",
@@ -6050,7 +6050,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-platform"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "axum",
  "config",
@@ -6078,7 +6078,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-reference"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "hayro",
  "libc",
@@ -6094,7 +6094,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-render"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -6125,7 +6125,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-render-worker"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "hex",
  "libc",
@@ -6147,7 +6147,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-session"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "async-trait",
  "fontdb",
@@ -6185,7 +6185,7 @@ dependencies = [
 
 [[package]]
 name = "oku-slides-stt"
-version = "12.2.0"
+version = "12.3.0"
 dependencies = [
  "async-openai",
  "cpal",
