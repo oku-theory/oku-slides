@@ -21,6 +21,39 @@ op-value-out-of-bounds = संख्या अनुमत सीमा से 
 op-value-unreadable = मान अपेक्षित रूप में नहीं है
 op-value-valign = top, middle या bottom अपेक्षित है
 op-value-path = पथ M, L, C, Q और Z कमांड और उनकी संख्याओं से बनता है, और M से शुरू होता है
+knowledge-path-empty = पथ खाली है
+knowledge-path-not-absolute = पथ / से शुरू होना चाहिए
+knowledge-path-bad-segment = कोई खंड खाली है, बिंदु पर समाप्त होता है, या a-z, 0-9, बिंदु, अंडरस्कोर और हाइफ़न के अलावा कोई वर्ण उपयोग करता है
+knowledge-path-dot-segment = कोई खंड बिंदु से शुरू नहीं होना चाहिए
+knowledge-path-reserved = कोई खंड सिस्टम का आरक्षित नाम है
+knowledge-path-too-deep = पथ में बहुत अधिक खंड हैं
+knowledge-path-too-long = पथ बहुत लंबा है
+knowledge-path-not-markdown = फ़ाइल का नाम .md पर समाप्त होना चाहिए
+knowledge-frontmatter-missing = फ़ाइल की शुरुआत --- से घिरे हेडर ब्लॉक से होनी चाहिए
+knowledge-frontmatter-unterminated = हेडर ब्लॉक में समापन --- नहीं है
+knowledge-frontmatter-too-large = हेडर ब्लॉक बहुत बड़ा है
+knowledge-frontmatter-not-yaml = हेडर मान्य YAML नहीं है
+knowledge-frontmatter-not-mapping = हेडर टेक्स्ट कुंजियों वाला मैपिंग होना चाहिए
+knowledge-frontmatter-duplicate-key = हेडर में कुंजी "{ $key }" दो बार आई है
+knowledge-frontmatter-alias = हेडर में YAML एंकर या उपनाम का उपयोग नहीं किया जा सकता
+knowledge-frontmatter-tag = हेडर में YAML टैग का उपयोग नहीं किया जा सकता
+knowledge-frontmatter-too-deep = हेडर बहुत गहराई तक नेस्टेड है
+knowledge-frontmatter-type-missing = हेडर में खाली न होने वाला type चाहिए
+knowledge-frontmatter-bad-timestamp = हेडर का मान "{ $key }" समय-क्षेत्र ऑफ़सेट वाला RFC 3339 दिनांक-समय होना चाहिए
+knowledge-frontmatter-not-allowed = इस फ़ाइल के हेडर में कुंजी "{ $key }" की अनुमति नहीं है
+knowledge-reason-not-found = इस पथ पर कोई फ़ाइल नहीं है
+knowledge-reason-exists = इस पथ पर पहले से एक फ़ाइल है
+knowledge-reason-id-missing = नई फ़ाइल के लिए आईडी चाहिए
+knowledge-reason-id-invalid = फ़ाइल आईडी 32 छोटे अक्षरों वाले हेक्साडेसिमल अंकों की होती है
+knowledge-reason-id-taken = यह आईडी पहले से किसी दूसरी फ़ाइल के पास है
+knowledge-reason-id-mismatch = इस पथ की फ़ाइल की आईडी अलग है
+knowledge-reason-edit-empty-old = बदले जाने वाला पाठ खाली नहीं हो सकता
+knowledge-reason-edit-no-match = बदले जाने वाला पाठ फ़ाइल में नहीं है
+knowledge-reason-edit-ambiguous = बदले जाने वाला पाठ फ़ाइल में एक से अधिक बार आता है
+knowledge-reason-too-many-files = बंडल में बहुत ज़्यादा फ़ाइलें हैं
+knowledge-reason-file-too-large = फ़ाइल बहुत बड़ी है
+knowledge-reason-total-too-large = बंडल बहुत बड़ा है
+op-knowledge = ज्ञान फ़ाइल { $path }: { $reason }
 op-unknown-widget = अज्ञात विजेट: { $subject }
 op-unknown-namespace = इस डेक में { $pack } पैक नहीं है।
 op-pack-required = { $pack } पैक की ज़रूरत { $by } को है; पहले उसे हटाएँ।
@@ -170,6 +203,37 @@ issue-unreadable-row = अपठनीय तालिका पंक्ति,
 issue-data-truncated = डेटा बहुत बड़ा है, पढ़ते समय काटा गया
 issue-unreadable-slide = अपठनीय स्लाइड, अलग रखी गई
 issue-unreadable-field = प्रस्तुति का अपठनीय फ़ील्ड { $field }, रीसेट किया गया
+issue-knowledge-unreadable = अपठनीय ज्ञान प्रविष्टि { $id }, अलग रखी गई
+issue-knowledge-over-limit = ज्ञान संग्रह एक सीमा से अधिक है: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (प्रभावित फ़ाइलें: { $count }, पहली { $id }); सभी फ़ाइलें रखी गई हैं, पर सीमा से अधिक लिखना अस्वीकार किया जाता है
+issue-knowledge-path-invalid = ज्ञान फ़ाइल { $id } को /recovered में ले जाया गया: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = { $path } पर कई ज्ञान फ़ाइलें थीं: बाकी का नाम बदला गया
+issue-knowledge-invalid = ज्ञान फ़ाइल { $path } अमान्य है: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = चार्ट { $subject }: { $reason }
 op-invalid-table = तालिका { $subject }: { $reason }
 

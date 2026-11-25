@@ -21,6 +21,39 @@ op-value-out-of-bounds = die Zahl liegt außerhalb des erlaubten Bereichs
 op-value-unreadable = der Wert hat nicht die erwartete Form
 op-value-valign = top, middle oder bottom wird erwartet
 op-value-path = der Pfad besteht aus den Befehlen M, L, C, Q und Z mit ihren Zahlen und beginnt mit M
+knowledge-path-empty = der Pfad ist leer
+knowledge-path-not-absolute = der Pfad muss mit / beginnen
+knowledge-path-bad-segment = ein Segment ist leer, endet mit einem Punkt oder enthält ein Zeichen außer a-z, 0-9, Punkt, Unterstrich und Bindestrich
+knowledge-path-dot-segment = ein Segment darf nicht mit einem Punkt beginnen
+knowledge-path-reserved = ein Segment ist ein reservierter Systemname
+knowledge-path-too-deep = der Pfad hat zu viele Segmente
+knowledge-path-too-long = der Pfad ist zu lang
+knowledge-path-not-markdown = der Dateiname muss auf .md enden
+knowledge-frontmatter-missing = die Datei muss mit einem Frontmatter-Block zwischen --- beginnen
+knowledge-frontmatter-unterminated = dem Frontmatter-Block fehlt das schließende ---
+knowledge-frontmatter-too-large = der Frontmatter-Block ist zu groß
+knowledge-frontmatter-not-yaml = das Frontmatter ist kein gültiges YAML
+knowledge-frontmatter-not-mapping = das Frontmatter muss eine Zuordnung mit Textschlüsseln sein
+knowledge-frontmatter-duplicate-key = der Frontmatter-Schlüssel „{ $key }“ kommt doppelt vor
+knowledge-frontmatter-alias = das Frontmatter darf keine YAML-Anker oder -Aliase verwenden
+knowledge-frontmatter-tag = das Frontmatter darf keine YAML-Tags verwenden
+knowledge-frontmatter-too-deep = das Frontmatter ist zu tief verschachtelt
+knowledge-frontmatter-type-missing = das Frontmatter braucht einen nicht leeren Typ
+knowledge-frontmatter-bad-timestamp = der Frontmatter-Wert „{ $key }“ muss ein RFC-3339-Zeitpunkt mit Zeitzonenversatz sein
+knowledge-frontmatter-not-allowed = der Frontmatter-Schlüssel „{ $key }“ ist in dieser Datei nicht erlaubt
+knowledge-reason-not-found = keine Datei unter diesem Pfad
+knowledge-reason-exists = unter diesem Pfad existiert bereits eine Datei
+knowledge-reason-id-missing = eine neue Datei braucht eine ID
+knowledge-reason-id-invalid = eine Datei-ID besteht aus 32 hexadezimalen Kleinbuchstaben und Ziffern
+knowledge-reason-id-taken = eine andere Datei hat diese ID bereits
+knowledge-reason-id-mismatch = die Datei unter diesem Pfad hat eine andere ID
+knowledge-reason-edit-empty-old = der zu ersetzende Text darf nicht leer sein
+knowledge-reason-edit-no-match = der zu ersetzende Text kommt in der Datei nicht vor
+knowledge-reason-edit-ambiguous = der zu ersetzende Text kommt mehrfach in der Datei vor
+knowledge-reason-too-many-files = das Bündel enthält zu viele Dateien
+knowledge-reason-file-too-large = die Datei ist zu groß
+knowledge-reason-total-too-large = das Bündel ist zu groß
+op-knowledge = Wissensdatei { $path }: { $reason }
 op-unknown-widget = Unbekanntes Widget: { $subject }
 op-unknown-namespace = Dieses Deck hat kein Paket { $pack }.
 op-pack-required = Das Paket { $pack } wird von { $by } benötigt; entfernen Sie zuerst dieses.
@@ -179,6 +212,37 @@ issue-unreadable-row = unlesbare Tabellenzeile, beiseitegelegt
 issue-data-truncated = Daten zu groß, beim Lesen gekürzt
 issue-unreadable-slide = unlesbare Folie, beiseitegelegt
 issue-unreadable-field = unlesbares Deck-Feld { $field }, zurückgesetzt
+issue-knowledge-unreadable = unlesbarer Wissenseintrag { $id }, beiseitegelegt
+issue-knowledge-over-limit = Wissenssammlung über einer Grenze: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (betroffene Dateien: { $count }, die erste { $id }); alle Dateien bleiben erhalten, aber Schreibvorgänge über die Grenze hinaus werden abgelehnt
+issue-knowledge-path-invalid = Wissensdatei { $id } nach /recovered verschoben: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = mehrere Wissensdateien lagen unter { $path }: die anderen wurden umbenannt
+issue-knowledge-invalid = Wissensdatei { $path } ist ungültig: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Diagramm { $subject }: { $reason }
 op-invalid-table = Tabelle { $subject }: { $reason }
 

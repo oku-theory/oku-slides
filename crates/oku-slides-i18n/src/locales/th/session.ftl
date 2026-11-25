@@ -712,3 +712,4 @@ received-blocker-unreadable = อยู่ในงานนำเสนอน�
 received-blocker-parent = อยู่ในงานนำเสนอนี้ต่อไป: ธีมที่ธีมนี้ขยาย { $namespace } เข้าคลังของคุณไม่ได้
 session-received-parent-missing = { $theme } ขยาย { $parent } ซึ่งไม่อยู่ในคลังของคุณ: โปรดเพิ่มก่อน
 session-version-not-held = งานนำเสนอนี้ไม่มีเวอร์ชันของ { $pack } ที่จะเพิ่ม
+session-knowledge-ops-hidden = ยังไม่สามารถแก้ไขไฟล์ความรู้ของงานนำเสนอจากที่นี่ได้

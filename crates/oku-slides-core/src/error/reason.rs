@@ -254,6 +254,282 @@ impl std::fmt::Display for ExpectedType {
     }
 }
 
+/// Why a knowledge path is refused: said by `knowledge-path-*` (Fluent), in English by `Display`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum PathReason {
+    /// The path is empty or only `/`.
+    Empty,
+    /// The path does not start with `/`.
+    NotAbsolute,
+    /// A segment is empty, has a character outside `[a-z0-9._-]`, or ends with a dot.
+    BadSegment,
+    /// A segment starts with a dot (`.`, `..`, `.hidden`).
+    DotSegment,
+    /// A segment is a Windows reserved device name.
+    Reserved,
+    /// More segments than allowed.
+    TooDeep,
+    /// More bytes than allowed.
+    TooLong,
+    /// A written file must end in `.md`.
+    NotMarkdown,
+}
+
+impl PathReason {
+    /// The Fluent key of the reason (`knowledge-path-*`).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            PathReason::Empty => "knowledge-path-empty",
+            PathReason::NotAbsolute => "knowledge-path-not-absolute",
+            PathReason::BadSegment => "knowledge-path-bad-segment",
+            PathReason::DotSegment => "knowledge-path-dot-segment",
+            PathReason::Reserved => "knowledge-path-reserved",
+            PathReason::TooDeep => "knowledge-path-too-deep",
+            PathReason::TooLong => "knowledge-path-too-long",
+            PathReason::NotMarkdown => "knowledge-path-not-markdown",
+        }
+    }
+}
+
+impl std::fmt::Display for PathReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            PathReason::Empty => "the path is empty",
+            PathReason::NotAbsolute => "the path must start with /",
+            PathReason::BadSegment => "a segment is empty, ends with a dot or has a character outside a-z 0-9 . _ -",
+            PathReason::DotSegment => "a segment must not start with a dot",
+            PathReason::Reserved => "a segment is a reserved name",
+            PathReason::TooDeep => "the path has too many segments",
+            PathReason::TooLong => "the path is too long",
+            PathReason::NotMarkdown => "the file must end in .md",
+        })
+    }
+}
+
+/// Why a knowledge file's frontmatter is refused: said by `knowledge-frontmatter-*` (Fluent), in
+/// English by `Display`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum FrontmatterReason {
+    /// The text does not open with a `---` line.
+    Missing,
+    /// There is no closing `---` line.
+    Unterminated,
+    /// The YAML block is over the byte ceiling.
+    TooLarge,
+    /// The YAML does not parse.
+    NotYaml,
+    /// The root is not a mapping, or a key is not text.
+    NotMapping,
+    /// A mapping repeats a key.
+    DuplicateKey {
+        /// The repeated key.
+        key: String,
+    },
+    /// The block uses an anchor or an alias.
+    Alias,
+    /// The block uses an explicit tag.
+    Tag,
+    /// Mappings and sequences nest past the ceiling.
+    TooDeep,
+    /// A concept file has no non-empty `type`.
+    TypeMissing,
+    /// `generated` is not a mapping whose `at` is an RFC 3339 timestamp with an offset.
+    BadTimestamp {
+        /// The offending key (`generated` or `generated.at`).
+        key: String,
+    },
+    /// The file may not carry this key (or any frontmatter).
+    NotAllowed {
+        /// The first key of the block.
+        key: String,
+    },
+}
+
+impl FrontmatterReason {
+    /// The Fluent key of the reason (`knowledge-frontmatter-*`).
+    #[must_use]
+    pub fn key(&self) -> &'static str {
+        match self {
+            FrontmatterReason::Missing => "knowledge-frontmatter-missing",
+            FrontmatterReason::Unterminated => "knowledge-frontmatter-unterminated",
+            FrontmatterReason::TooLarge => "knowledge-frontmatter-too-large",
+            FrontmatterReason::NotYaml => "knowledge-frontmatter-not-yaml",
+            FrontmatterReason::NotMapping => "knowledge-frontmatter-not-mapping",
+            FrontmatterReason::DuplicateKey { .. } => "knowledge-frontmatter-duplicate-key",
+            FrontmatterReason::Alias => "knowledge-frontmatter-alias",
+            FrontmatterReason::Tag => "knowledge-frontmatter-tag",
+            FrontmatterReason::TooDeep => "knowledge-frontmatter-too-deep",
+            FrontmatterReason::TypeMissing => "knowledge-frontmatter-type-missing",
+            FrontmatterReason::BadTimestamp { .. } => "knowledge-frontmatter-bad-timestamp",
+            FrontmatterReason::NotAllowed { .. } => "knowledge-frontmatter-not-allowed",
+        }
+    }
+
+    /// The key the reason names, when it carries one (the `$key` of its message).
+    #[must_use]
+    pub fn subject(&self) -> Option<&str> {
+        match self {
+            FrontmatterReason::DuplicateKey { key }
+            | FrontmatterReason::BadTimestamp { key }
+            | FrontmatterReason::NotAllowed { key } => Some(key),
+            _ => None,
+        }
+    }
+
+    /// The reason said in the locale of `l`, with its `$key` argument when it has one.
+    #[must_use]
+    pub fn message(&self, l: &oku_slides_i18n::Localizer) -> String {
+        match self.subject() {
+            Some(key) => l.tr_with(self.key(), &[("key", key.into())]),
+            None => l.tr(self.key()),
+        }
+    }
+}
+
+impl std::fmt::Display for FrontmatterReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FrontmatterReason::Missing => f.write_str("the file must start with a --- frontmatter block"),
+            FrontmatterReason::Unterminated => f.write_str("the frontmatter block has no closing ---"),
+            FrontmatterReason::TooLarge => f.write_str("the frontmatter block is too large"),
+            FrontmatterReason::NotYaml => f.write_str("the frontmatter is not valid YAML"),
+            FrontmatterReason::NotMapping => f.write_str("the frontmatter must be a mapping with text keys"),
+            FrontmatterReason::DuplicateKey { key } => write!(f, "the frontmatter key \"{key}\" appears twice"),
+            FrontmatterReason::Alias => f.write_str("the frontmatter must not use YAML anchors or aliases"),
+            FrontmatterReason::Tag => f.write_str("the frontmatter must not use YAML tags"),
+            FrontmatterReason::TooDeep => f.write_str("the frontmatter is nested too deeply"),
+            FrontmatterReason::TypeMissing => f.write_str("the frontmatter needs a non-empty type"),
+            FrontmatterReason::BadTimestamp { key } => {
+                write!(f, "the frontmatter value \"{key}\" must be an RFC 3339 date-time with an offset")
+            }
+            FrontmatterReason::NotAllowed { key } => {
+                write!(f, "the frontmatter key \"{key}\" is not allowed in this file")
+            }
+        }
+    }
+}
+
+/// A knowledge ceiling a bundle may pass on read: said by its [`KnowledgeReason`] key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KnowledgeLimit {
+    /// More files than allowed.
+    TooManyFiles,
+    /// A file over the byte ceiling.
+    FileTooLarge,
+    /// The bundle over the byte ceiling.
+    TotalTooLarge,
+}
+
+impl KnowledgeLimit {
+    /// The Fluent key of the ceiling: that of the matching [`KnowledgeReason`].
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        KnowledgeReason::from(self).key()
+    }
+}
+
+impl From<KnowledgeLimit> for KnowledgeReason {
+    fn from(limit: KnowledgeLimit) -> Self {
+        match limit {
+            KnowledgeLimit::TooManyFiles => KnowledgeReason::TooManyFiles,
+            KnowledgeLimit::FileTooLarge => KnowledgeReason::FileTooLarge,
+            KnowledgeLimit::TotalTooLarge => KnowledgeReason::TotalTooLarge,
+        }
+    }
+}
+
+/// Why a knowledge op is refused: said by `knowledge-reason-*` (Fluent), in English by `Display`.
+///
+/// The `Path` and `Frontmatter` reasons are said by their own keys.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum KnowledgeReason {
+    /// The path is refused.
+    Path(PathReason),
+    /// The text's frontmatter is refused.
+    Frontmatter(FrontmatterReason),
+    /// No file at this path.
+    NotFound,
+    /// A file already sits at this path.
+    Exists,
+    /// A new file needs an id.
+    IdMissing,
+    /// The id is not 32 lowercase hex digits.
+    IdInvalid,
+    /// Another file already has this id.
+    IdTaken,
+    /// The file at this path has another id.
+    IdMismatch,
+    /// An edit needs a non-empty text to replace.
+    EditEmptyOld,
+    /// The text to replace is not in the file.
+    EditNoMatch,
+    /// The text to replace is in the file more than once.
+    EditAmbiguous,
+    /// The bundle already has the most files allowed.
+    TooManyFiles,
+    /// The file would be over the byte ceiling.
+    FileTooLarge,
+    /// The bundle would be over the byte ceiling.
+    TotalTooLarge,
+}
+
+impl KnowledgeReason {
+    /// The Fluent key of the reason: `knowledge-reason-*`, or the inner reason's own key.
+    #[must_use]
+    pub fn key(&self) -> &'static str {
+        match self {
+            KnowledgeReason::Path(reason) => reason.key(),
+            KnowledgeReason::Frontmatter(reason) => reason.key(),
+            KnowledgeReason::NotFound => "knowledge-reason-not-found",
+            KnowledgeReason::Exists => "knowledge-reason-exists",
+            KnowledgeReason::IdMissing => "knowledge-reason-id-missing",
+            KnowledgeReason::IdInvalid => "knowledge-reason-id-invalid",
+            KnowledgeReason::IdTaken => "knowledge-reason-id-taken",
+            KnowledgeReason::IdMismatch => "knowledge-reason-id-mismatch",
+            KnowledgeReason::EditEmptyOld => "knowledge-reason-edit-empty-old",
+            KnowledgeReason::EditNoMatch => "knowledge-reason-edit-no-match",
+            KnowledgeReason::EditAmbiguous => "knowledge-reason-edit-ambiguous",
+            KnowledgeReason::TooManyFiles => "knowledge-reason-too-many-files",
+            KnowledgeReason::FileTooLarge => "knowledge-reason-file-too-large",
+            KnowledgeReason::TotalTooLarge => "knowledge-reason-total-too-large",
+        }
+    }
+
+    /// The reason said in the locale of `l`.
+    #[must_use]
+    pub fn message(&self, l: &oku_slides_i18n::Localizer) -> String {
+        match self {
+            KnowledgeReason::Frontmatter(reason) => reason.message(l),
+            _ => l.tr(self.key()),
+        }
+    }
+}
+
+impl std::fmt::Display for KnowledgeReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KnowledgeReason::Path(reason) => reason.fmt(f),
+            KnowledgeReason::Frontmatter(reason) => reason.fmt(f),
+            KnowledgeReason::NotFound => f.write_str("no file at this path"),
+            KnowledgeReason::Exists => f.write_str("a file already exists at this path"),
+            KnowledgeReason::IdMissing => f.write_str("a new file needs an id"),
+            KnowledgeReason::IdInvalid => f.write_str("a file id is 32 lowercase hexadecimal digits"),
+            KnowledgeReason::IdTaken => f.write_str("another file already has this id"),
+            KnowledgeReason::IdMismatch => f.write_str("the file at this path has another id"),
+            KnowledgeReason::EditEmptyOld => f.write_str("the text to replace must not be empty"),
+            KnowledgeReason::EditNoMatch => f.write_str("the text to replace is not in the file"),
+            KnowledgeReason::EditAmbiguous => f.write_str("the text to replace is in the file more than once"),
+            KnowledgeReason::TooManyFiles => f.write_str("the bundle has too many files"),
+            KnowledgeReason::FileTooLarge => f.write_str("the file is too large"),
+            KnowledgeReason::TotalTooLarge => f.write_str("the bundle is too large"),
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "reason_tests.rs"]
 mod reason_tests;

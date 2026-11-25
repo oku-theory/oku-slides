@@ -4,6 +4,11 @@ use speculoos::prelude::*;
 
 use super::*;
 
+/// [`super::sync`] with the production diff budget.
+fn sync(text: &LoroText, value: &Value) -> Result<(), ReplicaInner> {
+    super::sync(text, value, super::super::write::DIFF_TIMEOUT_MS)
+}
+
 fn doc() -> LoroDoc {
     let d = LoroDoc::new();
     d.config_text_style(styles());

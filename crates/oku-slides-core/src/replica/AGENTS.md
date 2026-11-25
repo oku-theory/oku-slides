@@ -31,6 +31,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Merge two replicas only when their deck_uid is equal; otherwise fail with Unrelated. (spec:2026-09-27-sources-loro-design)
 - Never record a history version for a change whose message starts with PART (oku-part:). (t-290)
 - Write choice, asset and other non-prose params as Loro atoms, never merged per character. (spec:2026-09-27-widgets-typst-design)
+- Keep the knowledge bundle in the root container `knowledge`, never under `deck`, and read its text verbatim. (plan:2026-11-24-deck-knowledge-okf-lot1-core)
 
 ## Pitfalls
 

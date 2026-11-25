@@ -54,7 +54,7 @@ fn put_params(map: &LoroMap, obj: &Map<String, Value>, tree: &LoroTree, parent: 
                         None if value.as_array().is_some_and(|a| crate::params::is_paragraphs(a)) => {
                             let rich = m.insert_container(name, LoroMap::new()).unwrap();
                             let text = rich.insert_container(RICH, loro::LoroText::new()).unwrap();
-                            crate::replica::rich::sync(&text, value).unwrap();
+                            crate::replica::rich::sync(&text, value, crate::replica::write::DIFF_TIMEOUT_MS).unwrap();
                         }
                         None => put(&m, name, value),
                     }
@@ -104,7 +104,8 @@ fn forged_doc(root: &Value) -> LoroDoc {
 }
 
 fn read(root: &Value) -> Result<crate::DeckRead, ReplicaError> {
-    Ok(deck(&forged_doc(root).get_map("deck"))?)
+    let doc = forged_doc(root);
+    Ok(deck(&doc.get_map("deck"), &doc.get_map("knowledge"))?)
 }
 
 /// L'arbre du deck de `doc`.

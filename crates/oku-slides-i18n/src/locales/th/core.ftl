@@ -21,6 +21,39 @@ op-value-out-of-bounds = ตัวเลขอยู่นอกช่วงท�
 op-value-unreadable = ค่าไม่มีรูปแบบตามที่คาดไว้
 op-value-valign = ต้องเป็น top, middle หรือ bottom
 op-value-path = เส้นทางประกอบด้วยคำสั่ง M, L, C, Q และ Z ตามด้วยตัวเลข โดยเริ่มด้วย M
+knowledge-path-empty = เส้นทางว่างเปล่า
+knowledge-path-not-absolute = เส้นทางต้องขึ้นต้นด้วย /
+knowledge-path-bad-segment = ส่วนหนึ่งว่างเปล่า ลงท้ายด้วยจุด หรือใช้อักขระอื่นนอกจาก a-z, 0-9, จุด, ขีดล่าง และยัติภังค์
+knowledge-path-dot-segment = ส่วนของเส้นทางต้องไม่ขึ้นต้นด้วยจุด
+knowledge-path-reserved = ส่วนหนึ่งเป็นชื่อที่ระบบสงวนไว้
+knowledge-path-too-deep = เส้นทางมีส่วนมากเกินไป
+knowledge-path-too-long = เส้นทางยาวเกินไป
+knowledge-path-not-markdown = ชื่อไฟล์ต้องลงท้ายด้วย .md
+knowledge-frontmatter-missing = ไฟล์ต้องขึ้นต้นด้วยบล็อกส่วนหัวที่คั่นด้วย ---
+knowledge-frontmatter-unterminated = บล็อกส่วนหัวไม่มี --- ปิดท้าย
+knowledge-frontmatter-too-large = บล็อกส่วนหัวใหญ่เกินไป
+knowledge-frontmatter-not-yaml = ส่วนหัวไม่ใช่ YAML ที่ถูกต้อง
+knowledge-frontmatter-not-mapping = ส่วนหัวต้องเป็นการจับคู่ที่มีคีย์เป็นข้อความ
+knowledge-frontmatter-duplicate-key = คีย์ "{ $key }" ปรากฏสองครั้งในส่วนหัว
+knowledge-frontmatter-alias = ส่วนหัวต้องไม่ใช้แองเคอร์หรือนามแฝงของ YAML
+knowledge-frontmatter-tag = ส่วนหัวต้องไม่ใช้แท็กของ YAML
+knowledge-frontmatter-too-deep = ส่วนหัวซ้อนลึกเกินไป
+knowledge-frontmatter-type-missing = ส่วนหัวต้องมีประเภทที่ไม่ว่างเปล่า
+knowledge-frontmatter-bad-timestamp = ค่า "{ $key }" ในส่วนหัวต้องเป็นวันที่และเวลาแบบ RFC 3339 พร้อมส่วนต่างเขตเวลา
+knowledge-frontmatter-not-allowed = ไม่อนุญาตให้ใช้คีย์ "{ $key }" ในส่วนหัวของไฟล์นี้
+knowledge-reason-not-found = ไม่มีไฟล์ที่พาธนี้
+knowledge-reason-exists = มีไฟล์อยู่ที่พาธนี้แล้ว
+knowledge-reason-id-missing = ไฟล์ใหม่ต้องมีรหัส
+knowledge-reason-id-invalid = รหัสไฟล์คือเลขฐานสิบหกตัวพิมพ์เล็ก 32 หลัก
+knowledge-reason-id-taken = ไฟล์อื่นใช้รหัสนี้แล้ว
+knowledge-reason-id-mismatch = ไฟล์ที่พาธนี้มีรหัสอื่น
+knowledge-reason-edit-empty-old = ข้อความที่จะแทนที่ต้องไม่ว่าง
+knowledge-reason-edit-no-match = ไม่พบข้อความที่จะแทนที่ในไฟล์
+knowledge-reason-edit-ambiguous = ข้อความที่จะแทนที่ปรากฏในไฟล์มากกว่าหนึ่งครั้ง
+knowledge-reason-too-many-files = ชุดนี้มีไฟล์มากเกินไป
+knowledge-reason-file-too-large = ไฟล์ใหญ่เกินไป
+knowledge-reason-total-too-large = ชุดนี้ใหญ่เกินไป
+op-knowledge = ไฟล์ความรู้ { $path }: { $reason }
 op-unknown-widget = ไม่รู้จักวิดเจ็ต: { $subject }
 op-unknown-namespace = เด็คนี้ไม่มีแพ็ก { $pack }
 op-pack-required = แพ็ก { $pack } จำเป็นสำหรับ { $by } โปรดนำแพ็กนั้นออกก่อน
@@ -169,6 +202,37 @@ issue-unreadable-row = แถวของตารางที่อ่านไ
 issue-data-truncated = ข้อมูลใหญ่เกินไป ถูกตัดทอนขณะอ่าน
 issue-unreadable-slide = สไลด์ที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-field = ช่อง { $field } ของงานนำเสนอที่อ่านไม่ได้ ถูกรีเซ็ต
+issue-knowledge-unreadable = รายการความรู้ { $id } ที่อ่านไม่ได้ ถูกแยกไว้
+issue-knowledge-over-limit = ชุดความรู้เกินขีดจำกัด: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (ไฟล์ที่เกี่ยวข้อง: { $count } ไฟล์ ไฟล์แรกคือ { $id }) เก็บไฟล์ทั้งหมดไว้ แต่การเขียนที่เกินขีดจำกัดจะถูกปฏิเสธ
+issue-knowledge-path-invalid = ย้ายไฟล์ความรู้ { $id } ไปที่ /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = มีไฟล์ความรู้หลายไฟล์อยู่ที่ { $path }: ไฟล์อื่นถูกเปลี่ยนชื่อ
+issue-knowledge-invalid = ไฟล์ความรู้ { $path } ไม่ถูกต้อง: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = แผนภูมิ { $subject }: { $reason }
 op-invalid-table = ตาราง { $subject }: { $reason }
 

@@ -712,3 +712,4 @@ received-blocker-unreadable = 留在此演示文稿中：无法读取其文件�
 received-blocker-parent = 留在此演示文稿中：它扩展的主题 { $namespace } 无法进入你的库。
 session-received-parent-missing = { $theme } 扩展了 { $parent }，但后者不在你的库中：请先添加它。
 session-version-not-held = 此演示文稿不包含要添加的 { $pack } 版本。
+session-knowledge-ops-hidden = 暂时无法从这里修改演示文稿的知识文件。

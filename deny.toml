@@ -51,6 +51,11 @@ ignore = true
 multiple-versions = "allow"
 wildcards = "deny"
 allow-wildcard-paths = true
+# serde_yaml is deprecated and expands aliases: knowledge frontmatter goes through saphyr-parser
+# events (t-1721). Typst and hayagriva still pull it; nothing else may.
+deny = [
+    { crate = "serde_yaml", wrappers = ["typst-library", "hayagriva"] },
+]
 
 [sources]
 unknown-registry = "deny"

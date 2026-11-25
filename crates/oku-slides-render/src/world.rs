@@ -243,6 +243,10 @@ impl OkuSlidesWorld {
             self.assets.entry(id).or_insert_with(|| Bytes::new(bytes.clone()));
         }
         let mut json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
+        // The knowledge bundle is for the agent, never for Typst: keep it out of `/deck.json`.
+        if let Some(object) = json.as_object_mut() {
+            object.remove("knowledge");
+        }
         crate::tables::sanitize(&mut json, registry);
         self.charts.attach(&mut json, &self.fonts, registry)?;
         self.deck = Bytes::new(serde_json::to_vec(&json).context(DeckJsonSnafu)?);

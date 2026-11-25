@@ -202,7 +202,12 @@ export type Op =
   | { op: "set_token"; path: string[]; value: unknown }
   | { op: "unset_token"; path: string[] }
   | { op: "set_tokens"; tokens: unknown }
-  | { op: "set_var"; key: string; value: unknown };
+  | { op: "set_var"; key: string; value: unknown }
+  // Refused by the host until lot 3, removed with hide_knowledge_ops.
+  | { op: "knowledge_write"; path: string; text: string; id?: string }
+  | { op: "knowledge_edit"; path: string; old: string; new: string }
+  | { op: "knowledge_move"; from: string; to: string }
+  | { op: "knowledge_delete"; path: string };
 
 /** Changement d'une liste (`edit_list` du cœur) : insertion, retrait, déplacement, champ d'un item. */
 export type ListOp =

@@ -33,6 +33,10 @@ pub(super) enum Ctx {
     /// Option d'un paramètre `host`, lue comme [`Ctx::Opaque`] ; sa clé
     /// `dataset` peut porter des colonnes et des lignes à identifiant.
     Host,
+    /// The root map `knowledge`: one entry per file, by file id.
+    Knowledge,
+    /// One knowledge file: `path` is an atom, `text` a `LoroText` read verbatim.
+    KnowledgeFile,
 }
 
 /// Ce que devient un champ.
@@ -81,6 +85,9 @@ pub(super) fn mark_peer(key: &str) -> Option<u64> {
     (peer.to_string() == digits).then_some(peer)
 }
 
+/// Root map of the knowledge bundle, by file id; never a key of `deck`.
+pub(super) const KNOWLEDGE: &str = "knowledge";
+
 /// Slot de repli d'un élément sans slot lisible.
 pub(super) const ORPHANS: &str = "orphans";
 
@@ -106,16 +113,19 @@ impl Ctx {
     /// Catégorie d'un champ fixe. `Ctx::Params` ne passe pas par ici : voir
     /// [`param_kind`].
     pub(super) fn kind(self, key: &str) -> Kind {
-        use Ctx::{Deck, DeckParams, Element, Opaque, PackPins, Params, Slide, Vars};
+        use Ctx::{Deck, DeckParams, Element, Knowledge, KnowledgeFile, Opaque, PackPins, Params, Slide, Vars};
         match (self, key) {
-            // Atoms: the namespace of the deck's theme, each pin,
-            // each variable, the id and the widget of a slide or an element.
-            (Deck, "theme") | (PackPins | Vars, _) | (Slide | Element, "id" | "kind") => Kind::Atom,
+            (Knowledge, _) => Kind::Nested(KnowledgeFile),
+            (KnowledgeFile, "text")
+            | (DeckParams, "title" | "subtitle" | "author" | "date" | "organization")
+            | (Slide, "notes") => Kind::Prose,
+            // Atoms: the namespace of the deck's theme, each pin, each variable, the id and
+            // the widget of a slide or an element, and every knowledge file field but `text`.
+            (Deck, "theme") | (PackPins | Vars | KnowledgeFile, _) | (Slide | Element, "id" | "kind") => Kind::Atom,
             (Deck, "widgets" | "layouts" | "themes") => Kind::Nested(PackPins),
             (Deck, SLIDES) => Kind::Slides,
             (Deck, "params") => Kind::Nested(DeckParams),
             (Deck, "vars") => Kind::Nested(Vars),
-            (DeckParams, "title" | "subtitle" | "author" | "date" | "organization") | (Slide, "notes") => Kind::Prose,
             (Slide | Element, "params") => Kind::Nested(Params),
             _ => Kind::Nested(Opaque),
         }
@@ -127,7 +137,15 @@ impl Ctx {
         match self {
             Ctx::DeckParams => &["title", "subtitle", "author", "date", "organization"],
             Ctx::Slide => &["notes"],
-            Ctx::Deck | Ctx::Element | Ctx::Params | Ctx::Vars | Ctx::PackPins | Ctx::Opaque | Ctx::Host => &[],
+            Ctx::KnowledgeFile => &["text"],
+            Ctx::Deck
+            | Ctx::Element
+            | Ctx::Params
+            | Ctx::Vars
+            | Ctx::PackPins
+            | Ctx::Opaque
+            | Ctx::Host
+            | Ctx::Knowledge => &[],
         }
     }
 

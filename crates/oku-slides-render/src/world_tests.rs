@@ -2,8 +2,20 @@ use speculoos::prelude::*;
 
 use oku_slides_core::{Namespace, PackKind};
 
-use super::{LIBRARY, Labels, main_source, typst_string};
-use crate::{BuiltinPack, PackSet, PackWidgets};
+use super::{LIBRARY, Labels, OkuSlidesWorld, main_source, typst_string};
+use crate::{BuiltinPack, Fonts, PackSet, PackWidgets};
+
+#[test]
+fn deck_json_has_no_knowledge() {
+    let mut deck = oku_slides_core::Deck::empty();
+    let file = oku_slides_core::KnowledgeFile { path: "/a.md".to_owned(), text: "secret".to_owned() };
+    deck.knowledge.insert(oku_slides_core::knowledge_file_id(), file);
+    let mut world = OkuSlidesWorld::new(Fonts::default()).unwrap();
+    world.set_deck(&deck, &std::collections::BTreeMap::new(), &crate::registry::empty_registry()).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&world.deck).unwrap();
+    assert_that!(json.get("knowledge").is_none()).is_true();
+    assert_that!(json.get("slides").is_some()).is_true();
+}
 
 #[test]
 fn typst_string_escapes_quotes_backslashes_and_newlines() {

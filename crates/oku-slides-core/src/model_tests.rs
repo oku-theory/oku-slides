@@ -54,6 +54,27 @@ fn deck_layouts_round_trip_and_are_omitted_when_empty() {
     assert_that!((empty.get("layouts").is_none(), back.layouts == deck.layouts)).is_equal_to((true, true));
 }
 
+#[test]
+fn deck_without_knowledge_serializes_without_key() {
+    let deck = Deck::empty();
+    assert_that!(deck.knowledge.is_empty()).is_true();
+    let value = serde_json::to_value(&deck).unwrap();
+    assert_that!(value.get("knowledge").is_none()).is_true();
+    assert_that!(Deck::from_json(&value.to_string()).unwrap()).is_equal_to(deck);
+}
+
+#[test]
+fn deck_knowledge_round_trips() {
+    let mut deck = Deck::empty();
+    let id = crate::knowledge_file_id();
+    let file = KnowledgeFile { path: "/a/b.md".to_owned(), text: "---\r\ntype: x\r\n---\n body \n".to_owned() };
+    deck.knowledge.insert(id.clone(), file.clone());
+    let json = serde_json::to_string(&deck).unwrap();
+    let back = Deck::from_json(&json).unwrap();
+    assert_that!(back.knowledge.get(&id)).is_equal_to(Some(&file));
+    assert_that!(back).is_equal_to(deck);
+}
+
 const REF: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#;
 
 #[test]

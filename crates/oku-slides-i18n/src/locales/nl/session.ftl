@@ -728,3 +728,4 @@ received-blocker-unreadable = Blijft in deze presentatie: de bestanden zijn onle
 received-blocker-parent = Blijft in deze presentatie: het thema dat het uitbreidt, { $namespace }, kan niet in je bibliotheek.
 session-received-parent-missing = { $theme } breidt { $parent } uit, dat niet in je bibliotheek staat: voeg het eerst toe.
 session-version-not-held = Deze presentatie bevat de toe te voegen versie van { $pack } niet.
+session-knowledge-ops-hidden = Kennisbestanden van de presentatie kunnen hier nog niet worden gewijzigd.

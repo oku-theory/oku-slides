@@ -690,3 +690,61 @@ fn issue_pack_kind_mismatch_localizes_with_its_pack_in_french() {
     assert_that!((issue.message.id(), fr.contains("essentiel"))).is_equal_to(("issue-pack-kind-mismatch", true));
     assert_that!(fr).is_not_equal_to(issue.localize(oku_slides_i18n::english()));
 }
+
+#[rstest]
+#[case::plain("0123abcd", "0123abcd")]
+#[case::controls("a\u{0}b\nc\u{1b}[31m", "abc[31m")]
+#[case::bidi("a\u{202E}b\u{2066}c\u{200F}d\u{061C}", "abcd")]
+#[case::empty("", "")]
+#[case::line_and_paragraph_separators("a\u{2028}b\u{2029}c", "abc")]
+#[case::zero_width("a\u{200B}b\u{200C}c\u{200D}d\u{2060}e\u{FEFF}f", "abcdef")]
+#[case::soft_hyphen_and_tags("a\u{00AD}b\u{E0041}c", "abc")]
+#[case::visible_non_ascii("é 😀 中", "é 😀 中")]
+fn peer_text_strips_controls_and_bidi(#[case] text: &str, #[case] expected: &str) {
+    assert_that!(peer_text(text)).is_equal_to(expected.to_owned());
+}
+
+#[test]
+fn peer_text_cuts_at_the_char_limit() {
+    let exact = "é".repeat(PEER_TEXT_MAX_CHARS);
+    assert_that!(peer_text(&exact)).is_equal_to(exact.clone());
+    let long = format!("{exact}\u{202E}é");
+    assert_that!(peer_text(&long)).is_equal_to(format!("{exact}…"));
+    // Removed characters do not count toward the limit.
+    assert_that!(peer_text(&format!("{exact}\u{202E}"))).is_equal_to(exact);
+}
+
+#[test]
+fn knowledge_issues_bound_peer_strings() {
+    let hostile = format!("\u{202E}{}", "x".repeat(10_000));
+    let shown = Issue::knowledge_unreadable(&hostile).localize(oku_slides_i18n::english());
+    assert_that!(shown.contains('\u{202E}')).is_false();
+    assert_that!(shown.chars().count()).is_less_than(PEER_TEXT_MAX_CHARS + 100);
+}
+
+#[test]
+fn knowledge_over_limit_is_localized_per_limit() {
+    let fr = Localizer::new(Some("fr"));
+    let shown = |limit: KnowledgeLimit| Issue::knowledge_over_limit(limit, "ab12", 3).localize(&fr);
+    let many = shown(KnowledgeLimit::TooManyFiles);
+    assert_that!(many.contains("trop de fichiers")).is_true();
+    assert_that!(many.contains("ab12")).is_true();
+    assert_that!(many.contains('3')).is_true();
+    assert_that!(shown(KnowledgeLimit::FileTooLarge)).is_not_equal_to(shown(KnowledgeLimit::TotalTooLarge));
+}
+
+#[test]
+fn knowledge_over_limit_names_each_limit_in_every_locale() {
+    let limits = [KnowledgeLimit::TooManyFiles, KnowledgeLimit::FileTooLarge, KnowledgeLimit::TotalTooLarge];
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        let said: HashSet<String> =
+            limits.iter().map(|&limit| Issue::knowledge_over_limit(limit, "ab12", 3).localize(&l)).collect();
+        assert_that!(said.len()).named(locale).is_equal_to(limits.len());
+        for limit in limits {
+            let reason = crate::error::KnowledgeReason::from(limit).message(&l);
+            let shown = Issue::knowledge_over_limit(limit, "ab12", 3).localize(&l);
+            assert_that!(shown.contains(&reason)).named(locale).is_true();
+        }
+    }
+}

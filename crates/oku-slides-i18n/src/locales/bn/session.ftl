@@ -712,3 +712,4 @@ received-blocker-unreadable = এই উপস্থাপনাতেই থা
 received-blocker-parent = এই উপস্থাপনাতেই থাকবে: এটি যে থিম প্রসারিত করে, { $namespace }, তা আপনার লাইব্রেরিতে যেতে পারে না।
 session-received-parent-missing = { $theme } { $parent } প্রসারিত করে, যা আপনার লাইব্রেরিতে নেই: আগে সেটি যোগ করুন।
 session-version-not-held = এই উপস্থাপনায় যোগ করার জন্য { $pack }-এর সংস্করণটি নেই।
+session-knowledge-ops-hidden = উপস্থাপনার জ্ঞান ফাইল এখান থেকে এখনো বদলানো যায় না।

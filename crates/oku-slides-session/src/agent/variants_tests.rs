@@ -55,6 +55,29 @@ fn variant_decks_with_a_pinless_set_theme_pin_its_closure() {
     assert_that!(decks[0].themes[&crate::test_support::ns("pro")].id).is_equal_to(crate::PRO_THEME);
 }
 
+/// A preview must not run what a caller could not apply: knowledge ops are hidden there too.
+#[test]
+fn variants_and_params_previews_refuse_knowledge_ops() {
+    use crate::SessionErrorKind::KnowledgeOpsHidden;
+    let s = crate::test_support::session();
+    let slide = s.deck().slides[0].id.clone();
+    let write: oku_slides_core::Op = serde_json::from_value(json!({
+        "op": "knowledge_write", "path": "/a.md", "text": "---\ntype: Note\n---\n",
+        "id": "0123456789abcdef0123456789abcdef"
+    }))
+    .unwrap();
+    let variant = super::super::forms::Variant { label: "K".into(), ops: vec![write] };
+    let spec = super::super::forms::ShowVariants { slide: slide.clone(), variants: vec![variant] };
+    assert_that!(s.variant_decks(&spec).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+    let field: super::super::forms::ParamField = serde_json::from_value(json!({
+        "label": "K", "kind": "text", "value": "x",
+        "op_template": { "op": "knowledge_delete", "path": "$value" }
+    }))
+    .unwrap();
+    let spec = super::super::forms::ShowParams { title: "K".into(), slide, fields: vec![field] };
+    assert_that!(s.params_surface("p-1", &spec).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+}
+
 #[test]
 fn params_surface_with_a_pinless_set_theme_template_is_accepted() {
     let s = crate::test_support::session();

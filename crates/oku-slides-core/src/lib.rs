@@ -39,6 +39,7 @@ pub mod error;
 mod fields;
 mod heading_level;
 pub mod kinds;
+pub mod knowledge;
 mod layout_profile;
 mod localized_text;
 pub mod locate;
@@ -70,12 +71,17 @@ pub use canonical::canonicalize;
 pub use capabilities::{Capabilities, CapabilityKind};
 pub use color::{color_names, is_hex_color};
 pub use error::{
-    HeadingLevelError, ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind,
-    PackVersionError, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError,
-    TokenEntryErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
+    FrontmatterReason, HeadingLevelError, KnowledgeLimit, KnowledgeReason, ListBound, NamespaceError, OpError,
+    OpErrorKind, PackManifestError, PackManifestErrorKind, PackVersionError, PathReason, ReplicaError,
+    ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError, TokenEntryErrorKind,
+    TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
+pub use knowledge::{
+    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, check_text, cited_assets, frontmatter, knowledge_file_id,
+    normalize,
+};
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
 pub use localized_text::LocalizedText;
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
@@ -83,8 +89,8 @@ pub use model::*;
 pub use namespace::{Namespace, qualify, split_kind};
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListPath, ListSpec, Moved, NESTED_ITEMS_MAX, Op, PLAIN_MAX,
-    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items, ops_schema,
-    pack_users, param_value, remove_pack_refusal, text_fits,
+    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items,
+    hide_knowledge_ops, ops_schema, pack_users, param_value, remove_pack_refusal, text_fits,
 };
 pub use pack::{
     COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, WidgetFile,
@@ -109,7 +115,7 @@ pub use usage::{
 pub use usage_report::{
     By, CostTotal, Range, UsageRangeError, UsageRangeErrorKind, UsageReport, UsageRow, aggregate, parse_day,
 };
-pub use validate::{Issue, asset_refs, element_asset_refs, validate};
+pub use validate::{Issue, asset_refs, element_asset_refs, knowledge_asset_refs, validate};
 pub use widget::{
     Category, Grow, HostType, PARAM_NAME_MAX, ParamSchema, ParamType, SCHEMA_LIST_MAX, SlotMode,
     WIDGET_DESCRIPTION_MAX, WIDGET_LABEL_MAX, WidgetRegistry, WidgetSchema, is_text,

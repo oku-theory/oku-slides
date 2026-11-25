@@ -728,3 +728,4 @@ received-blocker-unreadable = Reste dans ce deck : ses fichiers sont illisibles.
 received-blocker-parent = Reste dans ce deck : le thème qu'il étend, { $namespace }, ne peut pas entrer dans votre bibliothèque.
 session-received-parent-missing = { $theme } étend { $parent }, qui n'est pas dans votre bibliothèque : ajoutez-le d'abord.
 session-version-not-held = Ce deck ne contient pas la version de { $pack } à ajouter.
+session-knowledge-ops-hidden = Les fichiers de connaissances du deck ne peuvent pas encore être modifiés d'ici.

@@ -21,6 +21,39 @@ op-value-out-of-bounds = sayı izin verilen aralığın dışında
 op-value-unreadable = değer beklenen biçimde değil
 op-value-valign = top, middle veya bottom bekleniyor
 op-value-path = yol, sayılarıyla birlikte M, L, C, Q ve Z komutlarından oluşur ve M ile başlar
+knowledge-path-empty = yol boş
+knowledge-path-not-absolute = yol / ile başlamalı
+knowledge-path-bad-segment = bir segment boş, nokta ile bitiyor ya da a-z, 0-9, nokta, alt çizgi ve tire dışında bir karakter kullanıyor
+knowledge-path-dot-segment = bir segment nokta ile başlamamalı
+knowledge-path-reserved = bir segment ayrılmış bir sistem adı
+knowledge-path-too-deep = yolda çok fazla segment var
+knowledge-path-too-long = yol çok uzun
+knowledge-path-not-markdown = dosya adı .md ile bitmeli
+knowledge-frontmatter-missing = dosya --- ile sınırlanmış bir başlık bloğuyla başlamalıdır
+knowledge-frontmatter-unterminated = başlık bloğunun kapanış --- satırı yok
+knowledge-frontmatter-too-large = başlık bloğu çok büyük
+knowledge-frontmatter-not-yaml = başlık geçerli bir YAML değil
+knowledge-frontmatter-not-mapping = başlık, metin anahtarlı bir eşleme olmalıdır
+knowledge-frontmatter-duplicate-key = "{ $key }" anahtarı başlıkta iki kez geçiyor
+knowledge-frontmatter-alias = başlıkta YAML çapaları veya takma adları kullanılamaz
+knowledge-frontmatter-tag = başlıkta YAML etiketleri kullanılamaz
+knowledge-frontmatter-too-deep = başlık çok derin iç içe
+knowledge-frontmatter-type-missing = başlıkta boş olmayan bir tür gerekir
+knowledge-frontmatter-bad-timestamp = başlıktaki "{ $key }" değeri saat dilimi farkı olan bir RFC 3339 tarih-saat olmalıdır
+knowledge-frontmatter-not-allowed = "{ $key }" anahtarına bu dosyanın başlığında izin verilmez
+knowledge-reason-not-found = bu yolda dosya yok
+knowledge-reason-exists = bu yolda zaten bir dosya var
+knowledge-reason-id-missing = yeni bir dosyanın kimliği olmalı
+knowledge-reason-id-invalid = dosya kimliği 32 küçük harfli onaltılık basamaktan oluşur
+knowledge-reason-id-taken = bu kimlik başka bir dosyada zaten var
+knowledge-reason-id-mismatch = bu yoldaki dosyanın kimliği farklı
+knowledge-reason-edit-empty-old = değiştirilecek metin boş olamaz
+knowledge-reason-edit-no-match = değiştirilecek metin dosyada yok
+knowledge-reason-edit-ambiguous = değiştirilecek metin dosyada birden çok kez geçiyor
+knowledge-reason-too-many-files = pakette çok fazla dosya var
+knowledge-reason-file-too-large = dosya çok büyük
+knowledge-reason-total-too-large = paket çok büyük
+op-knowledge = Bilgi dosyası { $path }: { $reason }
 op-unknown-widget = Bilinmeyen bileşen: { $subject }
 op-unknown-namespace = Bu sunuda { $pack } paketi yok.
 op-pack-required = { $pack } paketi { $by } için gerekli; önce onu kaldırın.
@@ -170,6 +203,37 @@ issue-unreadable-row = okunamayan tablo satırı, bir kenara ayrıldı
 issue-data-truncated = veri çok büyük, okunurken kırpıldı
 issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
 issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
+issue-knowledge-unreadable = okunamayan bilgi girdisi { $id }, bir kenara ayrıldı
+issue-knowledge-over-limit = bilgi koleksiyonu bir sınırı aşıyor: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (etkilenen dosyalar: { $count }, ilki { $id }); tüm dosyalar korunur, ancak sınırı aşan yazmalar reddedilir
+issue-knowledge-path-invalid = bilgi dosyası { $id } /recovered klasörüne taşındı: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = { $path } konumunda birden fazla bilgi dosyası vardı: diğerleri yeniden adlandırıldı
+issue-knowledge-invalid = bilgi dosyası { $path } geçersiz: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = { $subject } grafiği: { $reason }
 op-invalid-table = { $subject } tablosu: { $reason }
 

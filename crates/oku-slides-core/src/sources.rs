@@ -48,7 +48,9 @@ use themes::theme_issues;
 /// Value of the `format` field in a source zip's manifest.
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
 /// Version of the source format; follows each change of `REPLICA_FORMAT`.
-pub const SOURCES_VERSION: u32 = 13;
+pub const SOURCES_VERSION: u32 = 14;
+/// Oldest source version still read: 13, whose replica (format 7) opens as format 8.
+pub(crate) const OLDEST_SOURCES_VERSION: u32 = 13;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

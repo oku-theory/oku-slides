@@ -271,7 +271,11 @@ pub(crate) fn touches_of(deck: &Deck, registry: &WidgetRegistry, ops: &[Op]) -> 
             | Op::SetToken { .. }
             | Op::UnsetToken { .. }
             | Op::SetTokens { .. }
-            | Op::SetVar { .. } => continue,
+            | Op::SetVar { .. }
+            | Op::KnowledgeWrite { .. }
+            | Op::KnowledgeEdit { .. }
+            | Op::KnowledgeMove { .. }
+            | Op::KnowledgeDelete { .. } => continue,
         };
         if let Op::SetKind { kind, .. } = op
             && let Some((_, text)) = kinds.of(slide, element)

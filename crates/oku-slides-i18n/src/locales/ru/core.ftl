@@ -21,6 +21,39 @@ op-value-out-of-bounds = число вне допустимого диапазо
 op-value-unreadable = значение имеет неожиданную форму
 op-value-valign = ожидается top, middle или bottom
 op-value-path = путь состоит из команд M, L, C, Q и Z с их числами и начинается с M
+knowledge-path-empty = путь пуст
+knowledge-path-not-absolute = путь должен начинаться с /
+knowledge-path-bad-segment = сегмент пуст, заканчивается точкой или содержит символ, кроме a-z, 0-9, точки, подчёркивания и дефиса
+knowledge-path-dot-segment = сегмент не должен начинаться с точки
+knowledge-path-reserved = сегмент является зарезервированным системным именем
+knowledge-path-too-deep = в пути слишком много сегментов
+knowledge-path-too-long = путь слишком длинный
+knowledge-path-not-markdown = имя файла должно заканчиваться на .md
+knowledge-frontmatter-missing = файл должен начинаться с блока заголовка между ---
+knowledge-frontmatter-unterminated = у блока заголовка нет закрывающего ---
+knowledge-frontmatter-too-large = блок заголовка слишком велик
+knowledge-frontmatter-not-yaml = заголовок не является корректным YAML
+knowledge-frontmatter-not-mapping = заголовок должен быть отображением с текстовыми ключами
+knowledge-frontmatter-duplicate-key = ключ «{ $key }» встречается в заголовке дважды
+knowledge-frontmatter-alias = в заголовке нельзя использовать якоря и псевдонимы YAML
+knowledge-frontmatter-tag = в заголовке нельзя использовать теги YAML
+knowledge-frontmatter-too-deep = заголовок вложен слишком глубоко
+knowledge-frontmatter-type-missing = в заголовке нужен непустой тип
+knowledge-frontmatter-bad-timestamp = значение «{ $key }» в заголовке должно быть датой и временем RFC 3339 со смещением часового пояса
+knowledge-frontmatter-not-allowed = ключ «{ $key }» не разрешён в заголовке этого файла
+knowledge-reason-not-found = по этому пути нет файла
+knowledge-reason-exists = по этому пути уже есть файл
+knowledge-reason-id-missing = новому файлу нужен идентификатор
+knowledge-reason-id-invalid = идентификатор файла состоит из 32 шестнадцатеричных цифр в нижнем регистре
+knowledge-reason-id-taken = этот идентификатор уже есть у другого файла
+knowledge-reason-id-mismatch = у файла по этому пути другой идентификатор
+knowledge-reason-edit-empty-old = заменяемый текст не должен быть пустым
+knowledge-reason-edit-no-match = заменяемого текста нет в файле
+knowledge-reason-edit-ambiguous = заменяемый текст встречается в файле более одного раза
+knowledge-reason-too-many-files = в наборе слишком много файлов
+knowledge-reason-file-too-large = файл слишком большой
+knowledge-reason-total-too-large = набор слишком большой
+op-knowledge = Файл знаний { $path }: { $reason }
 op-unknown-widget = Неизвестный виджет: { $subject }
 op-unknown-namespace = В этой презентации нет пакета { $pack }.
 op-pack-required = Пакет { $pack } нужен пакету { $by }; сначала удалите его.
@@ -187,6 +220,37 @@ issue-unreadable-row = нечитаемая строка таблицы, отл�
 issue-data-truncated = данные слишком велики, усечены при чтении
 issue-unreadable-slide = нечитаемый слайд, отложен
 issue-unreadable-field = нечитаемое поле { $field } презентации, сброшено
+issue-knowledge-unreadable = нечитаемая запись знаний { $id }, отложена
+issue-knowledge-over-limit = набор знаний превышает ограничение: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (файлов сверх него: { $count }, первый { $id }); все файлы сохранены, но записи сверх ограничения отклоняются
+issue-knowledge-path-invalid = файл знаний { $id } перемещён в /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = несколько файлов знаний находились по пути { $path }: остальные переименованы
+issue-knowledge-invalid = файл знаний { $path } недопустим: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Диаграмма { $subject }: { $reason }
 op-invalid-table = Таблица { $subject }: { $reason }
 

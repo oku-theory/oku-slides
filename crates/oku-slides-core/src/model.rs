@@ -12,6 +12,7 @@ use serde_json::Value;
 
 use crate::HeadingLevel;
 use crate::error::ValueReason;
+use crate::knowledge::KnowledgeFile;
 use crate::namespace::Namespace;
 use crate::pack::PackPin;
 use crate::pack_kind::PackKind;
@@ -49,6 +50,9 @@ pub struct Deck {
     /// Layout packs of the deck, by namespace; their `requires` name widget packs.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub layouts: BTreeMap<Namespace, PackPin>,
+    /// Knowledge bundle (Open Knowledge Format files), by file id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub knowledge: BTreeMap<String, KnowledgeFile>,
     /// Slides of the deck, in presentation order.
     pub slides: Vec<Slide>,
 }
@@ -530,6 +534,7 @@ impl Deck {
             tokens: Value::Null,
             widgets: BTreeMap::new(),
             layouts: BTreeMap::new(),
+            knowledge: BTreeMap::new(),
             slides: Vec::new(),
         }
     }

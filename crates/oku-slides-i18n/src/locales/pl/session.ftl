@@ -737,3 +737,4 @@ received-blocker-unreadable = Zostaje w tej prezentacji: jego plików nie da si�
 received-blocker-parent = Zostaje w tej prezentacji: motyw, który rozszerza, { $namespace }, nie może trafić do Twojej biblioteki.
 session-received-parent-missing = { $theme } rozszerza { $parent }, którego nie ma w Twojej bibliotece: najpierw go dodaj.
 session-version-not-held = Ta prezentacja nie zawiera wersji { $pack } do dodania.
+session-knowledge-ops-hidden = Plików wiedzy prezentacji nie można jeszcze zmieniać stąd.

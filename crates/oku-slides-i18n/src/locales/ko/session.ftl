@@ -712,3 +712,4 @@ received-blocker-unreadable = 이 프레젠테이션에 남습니다. 파일을 
 received-blocker-parent = 이 프레젠테이션에 남습니다. 확장하는 테마 { $namespace }을(를) 라이브러리에 추가할 수 없습니다.
 session-received-parent-missing = { $theme }은(는) 라이브러리에 없는 { $parent }을(를) 확장합니다. 먼저 추가하세요.
 session-version-not-held = 이 프레젠테이션에는 추가할 { $pack }의 버전이 없습니다.
+session-knowledge-ops-hidden = 덱의 지식 파일은 아직 여기에서 변경할 수 없습니다.

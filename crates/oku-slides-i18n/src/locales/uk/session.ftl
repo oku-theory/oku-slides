@@ -737,3 +737,4 @@ received-blocker-unreadable = Залишається в цій презента�
 received-blocker-parent = Залишається в цій презентації: розширювана тема { $namespace } не може потрапити до вашої бібліотеки.
 session-received-parent-missing = { $theme } розширює { $parent }, якої немає у вашій бібліотеці: спершу додайте її.
 session-version-not-held = Ця презентація не містить версії { $pack }, яку треба додати.
+session-knowledge-ops-hidden = Файли знань презентації поки що не можна змінювати звідси.

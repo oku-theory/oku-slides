@@ -712,3 +712,4 @@ received-blocker-unreadable = Ở lại trong bản trình bày này: không đ�
 received-blocker-parent = Ở lại trong bản trình bày này: chủ đề mà nó mở rộng, { $namespace }, không thể vào thư viện của bạn.
 session-received-parent-missing = { $theme } mở rộng { $parent }, chủ đề này không có trong thư viện của bạn: hãy thêm nó trước.
 session-version-not-held = Bản trình bày này không chứa phiên bản của { $pack } cần thêm.
+session-knowledge-ops-hidden = Hiện chưa thể thay đổi các tệp tri thức của bản trình bày từ đây.

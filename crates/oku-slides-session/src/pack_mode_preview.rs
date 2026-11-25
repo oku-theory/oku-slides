@@ -103,7 +103,11 @@ fn op_slides(op: &Op) -> Vec<&str> {
         | Op::SetToken { .. }
         | Op::UnsetToken { .. }
         | Op::SetTokens { .. }
-        | Op::SetVar { .. } => Vec::new(),
+        | Op::SetVar { .. }
+        | Op::KnowledgeWrite { .. }
+        | Op::KnowledgeEdit { .. }
+        | Op::KnowledgeMove { .. }
+        | Op::KnowledgeDelete { .. } => Vec::new(),
     }
 }
 

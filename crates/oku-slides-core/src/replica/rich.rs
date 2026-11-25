@@ -81,9 +81,9 @@ fn current(text: &LoroText) -> Vec<Attrs> {
 ///
 /// Une marque n'est posée (ou retirée) que sur les plages où elle diffère :
 /// réconcilier le même contenu n'ajoute aucune op.
-pub(super) fn sync(text: &LoroText, value: &Value) -> Result<(), ReplicaInner> {
+pub(super) fn sync(text: &LoroText, value: &Value, budget_ms: f64) -> Result<(), ReplicaInner> {
     let (target, want) = flatten(value);
-    sync_text(text, &target)?;
+    sync_text(text, &target, budget_ms)?;
     let have = current(text);
     for key in RUN_MARKS.iter().chain(PARA_MARKS) {
         let wanted: Vec<_> = want.iter().map(|a| a.get(*key)).collect();

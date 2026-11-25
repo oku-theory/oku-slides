@@ -712,3 +712,4 @@ received-blocker-unreadable = このデッキに残ります。ファイルを�
 received-blocker-parent = このデッキに残ります。拡張元のテーマ { $namespace } をライブラリに追加できません。
 session-received-parent-missing = { $theme } は { $parent } を拡張していますが、それはライブラリにありません。先に追加してください。
 session-version-not-held = このデッキには追加する { $pack } のバージョンがありません。
+session-knowledge-ops-hidden = デッキのナレッジファイルは、まだここからは変更できません。

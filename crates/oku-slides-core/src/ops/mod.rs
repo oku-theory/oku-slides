@@ -10,6 +10,7 @@ mod check;
 mod edit;
 mod grid;
 mod host;
+mod knowledge;
 mod list;
 mod list_path;
 mod moving;
@@ -341,6 +342,54 @@ pub enum Op {
         /// New value; `null` removes it.
         value: Value,
     },
+    /// Writes a knowledge file: creates it, or replaces its text and keeps its id.
+    ///
+    /// The text is stored byte for byte and must pass the OKF frontmatter check. Creating needs
+    /// `id`, a free file id; replacing takes `id` absent or equal to the file's.
+    KnowledgeWrite {
+        /// Bundle path of the file, ending in `.md`.
+        path: String,
+        /// Whole text of the file.
+        text: String,
+        /// Id of a new file (32 lowercase hex digits); absent when replacing.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+    /// Replaces the single occurrence of `old` in a knowledge file with `new`, byte for byte.
+    KnowledgeEdit {
+        /// Bundle path of the file.
+        path: String,
+        /// Text to replace; not empty, and found exactly once (overlapping matches count).
+        old: String,
+        /// Replacement text.
+        new: String,
+    },
+    /// Moves a knowledge file to another path, keeping its id and text.
+    KnowledgeMove {
+        /// Current bundle path of the file.
+        from: String,
+        /// New bundle path, ending in `.md`, free.
+        to: String,
+    },
+    /// Deletes a knowledge file.
+    KnowledgeDelete {
+        /// Bundle path of the file.
+        path: String,
+    },
+}
+
+impl Op {
+    /// Does this op change the deck knowledge bundle?
+    #[must_use]
+    pub fn is_knowledge(&self) -> bool {
+        matches!(
+            self,
+            Op::KnowledgeWrite { .. }
+                | Op::KnowledgeEdit { .. }
+                | Op::KnowledgeMove { .. }
+                | Op::KnowledgeDelete { .. }
+        )
+    }
 }
 
 // ---- Localisation ------------------------------------------------------------------
@@ -672,6 +721,10 @@ impl Op {
                 set_or_remove_map(&mut deck.vars, &key, value);
                 Ok(())
             }
+            Op::KnowledgeWrite { path, text, id } => knowledge::write(deck, &path, text, id),
+            Op::KnowledgeEdit { path, old, new } => knowledge::edit(deck, &path, &old, &new),
+            Op::KnowledgeMove { from, to } => knowledge::relocate(deck, &from, &to),
+            Op::KnowledgeDelete { path } => knowledge::delete(deck, &path),
         }
     }
 }
@@ -714,11 +767,37 @@ pub fn apply_all_moving(
 
 /// JSON schema of a list of ops, for structured LLM output.
 ///
+/// The knowledge ops are left out until callers may use them.
+///
 /// # Errors
 ///
 /// The generated schema does not convert into a JSON value.
 pub fn ops_schema() -> serde_json::Result<Value> {
-    serde_json::to_value(schemars::schema_for!(Vec<Op>))
+    let mut schema = serde_json::to_value(schemars::schema_for!(Vec<Op>))?;
+    hide_knowledge_ops(&mut schema);
+    Ok(schema)
+}
+
+/// Removes the knowledge ops from the `Op` definition of a generated schema.
+///
+/// Every schema that hands `Op` to a caller goes through here, until callers may use them.
+pub fn hide_knowledge_ops(schema: &mut Value) {
+    for defs in ["$defs", "definitions"] {
+        let variants = schema.get_mut(defs).and_then(|d| d.get_mut("Op")).and_then(|op| op.get_mut("oneOf"));
+        if let Some(Value::Array(variants)) = variants {
+            variants.retain(|v| !is_knowledge_variant(v));
+        }
+    }
+}
+
+/// Is this `oneOf` entry of the `Op` schema one of the knowledge variants?
+fn is_knowledge_variant(variant: &Value) -> bool {
+    variant
+        .get("properties")
+        .and_then(|p| p.get("op"))
+        .and_then(|op| op.get("const"))
+        .and_then(Value::as_str)
+        .is_some_and(|tag| tag.starts_with("knowledge_"))
 }
 
 #[cfg(test)]

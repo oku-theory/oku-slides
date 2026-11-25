@@ -21,6 +21,39 @@ op-value-out-of-bounds = o número está fora do intervalo permitido
 op-value-unreadable = o valor não tem a forma esperada
 op-value-valign = espera-se top, middle ou bottom
 op-value-path = o traçado é composto por comandos M, L, C, Q e Z seguidos dos seus números, começando por M
+knowledge-path-empty = o caminho está vazio
+knowledge-path-not-absolute = o caminho deve começar com /
+knowledge-path-bad-segment = um segmento está vazio, termina com ponto ou usa um caractere diferente de a-z, 0-9, ponto, sublinhado e hífen
+knowledge-path-dot-segment = um segmento não pode começar com ponto
+knowledge-path-reserved = um segmento é um nome reservado do sistema
+knowledge-path-too-deep = o caminho tem segmentos demais
+knowledge-path-too-long = o caminho é longo demais
+knowledge-path-not-markdown = o nome do arquivo deve terminar em .md
+knowledge-frontmatter-missing = o arquivo deve começar com um bloco de cabeçalho delimitado por ---
+knowledge-frontmatter-unterminated = o bloco de cabeçalho não tem o --- de fechamento
+knowledge-frontmatter-too-large = o bloco de cabeçalho é grande demais
+knowledge-frontmatter-not-yaml = o cabeçalho não é YAML válido
+knowledge-frontmatter-not-mapping = o cabeçalho deve ser um mapa com chaves de texto
+knowledge-frontmatter-duplicate-key = a chave "{ $key }" aparece duas vezes no cabeçalho
+knowledge-frontmatter-alias = o cabeçalho não pode usar âncoras nem aliases de YAML
+knowledge-frontmatter-tag = o cabeçalho não pode usar tags de YAML
+knowledge-frontmatter-too-deep = o cabeçalho tem aninhamento profundo demais
+knowledge-frontmatter-type-missing = o cabeçalho precisa de um tipo não vazio
+knowledge-frontmatter-bad-timestamp = o valor "{ $key }" do cabeçalho deve ser uma data e hora RFC 3339 com deslocamento de fuso
+knowledge-frontmatter-not-allowed = a chave "{ $key }" não é permitida no cabeçalho deste arquivo
+knowledge-reason-not-found = nenhum arquivo neste caminho
+knowledge-reason-exists = já existe um arquivo neste caminho
+knowledge-reason-id-missing = um novo arquivo precisa de um identificador
+knowledge-reason-id-invalid = o identificador de um arquivo tem 32 dígitos hexadecimais em minúsculas
+knowledge-reason-id-taken = outro arquivo já tem este identificador
+knowledge-reason-id-mismatch = o arquivo deste caminho tem outro identificador
+knowledge-reason-edit-empty-old = o texto a substituir não pode estar vazio
+knowledge-reason-edit-no-match = o texto a substituir não está no arquivo
+knowledge-reason-edit-ambiguous = o texto a substituir aparece mais de uma vez no arquivo
+knowledge-reason-too-many-files = o pacote tem arquivos demais
+knowledge-reason-file-too-large = o arquivo é grande demais
+knowledge-reason-total-too-large = o pacote é grande demais
+op-knowledge = Arquivo de conhecimento { $path }: { $reason }
 op-unknown-widget = Widget desconhecido: { $subject }
 op-unknown-namespace = Esta apresentação não tem o pacote { $pack }.
 op-pack-required = O pacote { $pack } é necessário para { $by }; remova esse primeiro.
@@ -179,6 +212,37 @@ issue-unreadable-row = linha de tabela ilegível, deixada de lado
 issue-data-truncated = dados grandes demais, truncados na leitura
 issue-unreadable-slide = slide ilegível, deixado de lado
 issue-unreadable-field = campo { $field } do deck ilegível, redefinido
+issue-knowledge-unreadable = entrada de conhecimento { $id } ilegível, deixada de lado
+issue-knowledge-over-limit = coleção de conhecimento além de um limite: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (arquivos afetados: { $count }, o primeiro { $id }); todos os arquivos são mantidos, mas gravações além do limite são recusadas
+issue-knowledge-path-invalid = arquivo de conhecimento { $id } movido para /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = vários arquivos de conhecimento estavam em { $path }: os outros foram renomeados
+issue-knowledge-invalid = arquivo de conhecimento { $path } inválido: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Gráfico { $subject }: { $reason }
 op-invalid-table = Tabela { $subject }: { $reason }
 

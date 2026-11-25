@@ -21,6 +21,39 @@ op-value-out-of-bounds = liczba jest poza dozwolonym zakresem
 op-value-unreadable = wartość nie ma oczekiwanej postaci
 op-value-valign = oczekiwano top, middle lub bottom
 op-value-path = ścieżka składa się z poleceń M, L, C, Q i Z z ich liczbami i zaczyna się od M
+knowledge-path-empty = ścieżka jest pusta
+knowledge-path-not-absolute = ścieżka musi zaczynać się od /
+knowledge-path-bad-segment = segment jest pusty, kończy się kropką lub zawiera znak inny niż a-z, 0-9, kropka, podkreślenie i łącznik
+knowledge-path-dot-segment = segment nie może zaczynać się od kropki
+knowledge-path-reserved = segment jest zarezerwowaną nazwą systemową
+knowledge-path-too-deep = ścieżka ma zbyt wiele segmentów
+knowledge-path-too-long = ścieżka jest zbyt długa
+knowledge-path-not-markdown = nazwa pliku musi kończyć się na .md
+knowledge-frontmatter-missing = plik musi zaczynać się blokiem nagłówka ograniczonym przez ---
+knowledge-frontmatter-unterminated = blok nagłówka nie ma zamykającego ---
+knowledge-frontmatter-too-large = blok nagłówka jest za duży
+knowledge-frontmatter-not-yaml = nagłówek nie jest poprawnym YAML-em
+knowledge-frontmatter-not-mapping = nagłówek musi być mapą z kluczami tekstowymi
+knowledge-frontmatter-duplicate-key = klucz "{ $key }" występuje w nagłówku dwa razy
+knowledge-frontmatter-alias = nagłówek nie może używać kotwic ani aliasów YAML
+knowledge-frontmatter-tag = nagłówek nie może używać tagów YAML
+knowledge-frontmatter-too-deep = nagłówek jest zagnieżdżony zbyt głęboko
+knowledge-frontmatter-type-missing = nagłówek wymaga niepustego typu
+knowledge-frontmatter-bad-timestamp = wartość "{ $key }" w nagłówku musi być datą i godziną RFC 3339 z przesunięciem strefy
+knowledge-frontmatter-not-allowed = klucz "{ $key }" nie jest dozwolony w nagłówku tego pliku
+knowledge-reason-not-found = brak pliku pod tą ścieżką
+knowledge-reason-exists = pod tą ścieżką istnieje już plik
+knowledge-reason-id-missing = nowy plik wymaga identyfikatora
+knowledge-reason-id-invalid = identyfikator pliku to 32 małe cyfry szesnastkowe
+knowledge-reason-id-taken = inny plik ma już ten identyfikator
+knowledge-reason-id-mismatch = plik pod tą ścieżką ma inny identyfikator
+knowledge-reason-edit-empty-old = tekst do zastąpienia nie może być pusty
+knowledge-reason-edit-no-match = tekst do zastąpienia nie występuje w pliku
+knowledge-reason-edit-ambiguous = tekst do zastąpienia występuje w pliku więcej niż raz
+knowledge-reason-too-many-files = paczka ma za dużo plików
+knowledge-reason-file-too-large = plik jest za duży
+knowledge-reason-total-too-large = paczka jest za duża
+op-knowledge = Plik wiedzy { $path }: { $reason }
 op-unknown-widget = Nieznany widżet: { $subject }
 op-unknown-namespace = Ta prezentacja nie ma pakietu { $pack }.
 op-pack-required = Pakiet { $pack } jest potrzebny pakietowi { $by }; najpierw usuń tamten.
@@ -187,6 +220,37 @@ issue-unreadable-row = nieczytelny wiersz tabeli, odłożony
 issue-data-truncated = dane zbyt duże, przycięte przy odczycie
 issue-unreadable-slide = nieczytelny slajd, odłożony
 issue-unreadable-field = nieczytelne pole { $field } prezentacji, zresetowane
+issue-knowledge-unreadable = nieczytelny wpis wiedzy { $id }, odłożony
+issue-knowledge-over-limit = zbiór wiedzy przekracza limit: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (pliki ponad limit: { $count }, pierwszy { $id }); wszystkie pliki są zachowane, ale zapisy ponad limit są odrzucane
+issue-knowledge-path-invalid = plik wiedzy { $id } przeniesiony do /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = kilka plików wiedzy było pod { $path }: pozostałym zmieniono nazwy
+issue-knowledge-invalid = plik wiedzy { $path } jest nieprawidłowy: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Wykres { $subject }: { $reason }
 op-invalid-table = Tabela { $subject }: { $reason }
 

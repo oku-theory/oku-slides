@@ -49,6 +49,11 @@ pub fn canonicalize(deck: &mut Deck) {
         params(&mut s.params);
     }
     unique_ids(&mut deck.slides);
+    // Repairs are reported on read; here the bundle only takes its structural canonical form,
+    // without reading the texts (that runs on every apply).
+    if !deck.knowledge.is_empty() {
+        deck.knowledge = crate::knowledge::repair(std::mem::take(&mut deck.knowledge)).0;
+    }
 }
 
 /// Un identifiant par objet : slides du deck, éléments de chaque slide (tous

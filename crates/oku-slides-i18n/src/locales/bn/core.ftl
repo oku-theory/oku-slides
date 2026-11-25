@@ -21,6 +21,39 @@ op-value-out-of-bounds = সংখ্যাটি অনুমোদিত স�
 op-value-unreadable = মানটি প্রত্যাশিত গঠনে নেই
 op-value-valign = top, middle অথবা bottom প্রত্যাশিত
 op-value-path = পথটি M, L, C, Q ও Z কমান্ড ও তাদের সংখ্যা দিয়ে গঠিত, শুরু হয় M দিয়ে
+knowledge-path-empty = পথটি খালি
+knowledge-path-not-absolute = পথ অবশ্যই / দিয়ে শুরু হতে হবে
+knowledge-path-bad-segment = কোনো অংশ খালি, বিন্দুতে শেষ হয়, বা a-z, 0-9, বিন্দু, আন্ডারস্কোর ও হাইফেন ছাড়া অন্য অক্ষর ব্যবহার করে
+knowledge-path-dot-segment = কোনো অংশ বিন্দু দিয়ে শুরু হতে পারবে না
+knowledge-path-reserved = কোনো অংশ সিস্টেমের সংরক্ষিত নাম
+knowledge-path-too-deep = পথে অংশ অনেক বেশি
+knowledge-path-too-long = পথটি অনেক দীর্ঘ
+knowledge-path-not-markdown = ফাইলের নাম অবশ্যই .md দিয়ে শেষ হতে হবে
+knowledge-frontmatter-missing = ফাইলটি --- দিয়ে ঘেরা একটি হেডার ব্লক দিয়ে শুরু হতে হবে
+knowledge-frontmatter-unterminated = হেডার ব্লকে শেষের --- নেই
+knowledge-frontmatter-too-large = হেডার ব্লক খুব বড়
+knowledge-frontmatter-not-yaml = হেডারটি বৈধ YAML নয়
+knowledge-frontmatter-not-mapping = হেডার অবশ্যই টেক্সট কী সহ একটি ম্যাপিং হতে হবে
+knowledge-frontmatter-duplicate-key = হেডারে "{ $key }" কী দুইবার এসেছে
+knowledge-frontmatter-alias = হেডারে YAML অ্যাঙ্কর বা অ্যালিয়াস ব্যবহার করা যাবে না
+knowledge-frontmatter-tag = হেডারে YAML ট্যাগ ব্যবহার করা যাবে না
+knowledge-frontmatter-too-deep = হেডার খুব গভীরভাবে নেস্ট করা
+knowledge-frontmatter-type-missing = হেডারে ফাঁকা নয় এমন একটি type লাগবে
+knowledge-frontmatter-bad-timestamp = হেডারের "{ $key }" মান সময়ক্ষেত্রের অফসেট সহ একটি RFC 3339 তারিখ-সময় হতে হবে
+knowledge-frontmatter-not-allowed = এই ফাইলের হেডারে "{ $key }" কী অনুমোদিত নয়
+knowledge-reason-not-found = এই পাথে কোনো ফাইল নেই
+knowledge-reason-exists = এই পাথে আগে থেকেই একটি ফাইল আছে
+knowledge-reason-id-missing = নতুন ফাইলের জন্য একটি আইডি লাগবে
+knowledge-reason-id-invalid = ফাইলের আইডি হলো ছোট হাতের ৩২টি হেক্সাডেসিমাল অঙ্ক
+knowledge-reason-id-taken = অন্য একটি ফাইল ইতিমধ্যে এই আইডি ব্যবহার করছে
+knowledge-reason-id-mismatch = এই পাথের ফাইলের আইডি অন্য
+knowledge-reason-edit-empty-old = যে লেখা বদলানো হবে তা খালি হতে পারবে না
+knowledge-reason-edit-no-match = যে লেখা বদলানো হবে তা ফাইলে নেই
+knowledge-reason-edit-ambiguous = যে লেখা বদলানো হবে তা ফাইলে একাধিকবার আছে
+knowledge-reason-too-many-files = বান্ডেলে অনেক বেশি ফাইল আছে
+knowledge-reason-file-too-large = ফাইলটি অনেক বড়
+knowledge-reason-total-too-large = বান্ডেলটি অনেক বড়
+op-knowledge = জ্ঞান ফাইল { $path }: { $reason }
 op-unknown-widget = অজানা উইজেট: { $subject }
 op-unknown-namespace = এই ডেকে { $pack } প্যাক নেই।
 op-pack-required = { $pack } প্যাকটি { $by }-এর প্রয়োজন; আগে সেটি সরান।
@@ -170,6 +203,37 @@ issue-unreadable-row = অপাঠযোগ্য টেবিলের সা�
 issue-data-truncated = ডেটা খুব বড়, পড়ার সময় ছেঁটে ফেলা হয়েছে
 issue-unreadable-slide = অপাঠযোগ্য স্লাইড, আলাদা রাখা হয়েছে
 issue-unreadable-field = উপস্থাপনার অপাঠযোগ্য ক্ষেত্র { $field }, পুনরায় সেট করা হয়েছে
+issue-knowledge-unreadable = অপাঠযোগ্য জ্ঞান এন্ট্রি { $id }, আলাদা রাখা হয়েছে
+issue-knowledge-over-limit = জ্ঞান সংগ্রহ একটি সীমা ছাড়িয়েছে: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (প্রভাবিত ফাইল: { $count }, প্রথমটি { $id }); সব ফাইল রাখা হয়েছে, তবে সীমা ছাড়ানো লেখা প্রত্যাখ্যান করা হয়
+issue-knowledge-path-invalid = জ্ঞান ফাইল { $id } /recovered-এ সরানো হয়েছে: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = { $path }-এ একাধিক জ্ঞান ফাইল ছিল: বাকিগুলোর নাম বদলানো হয়েছে
+issue-knowledge-invalid = জ্ঞান ফাইল { $path } অবৈধ: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = চার্ট { $subject }: { $reason }
 op-invalid-table = টেবিল { $subject }: { $reason }
 

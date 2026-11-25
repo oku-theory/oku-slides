@@ -59,6 +59,10 @@ typst-pdf = "0.15.1"
 typst-svg = "0.15.1"
 typst-render = "0.15.1"
 typst-assets = { version = "0.15.1", features = ["fonts"] }
+# YAML events for knowledge frontmatter (t-1721): refuses anchors, aliases and tags.
+saphyr-parser = "0.4"
+# CommonMark image scan for cited knowledge assets (t-1721): events only, no extensions.
+pulldown-cmark = { version = "0.13", default-features = false }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "parsing", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

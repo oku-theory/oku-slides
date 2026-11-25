@@ -8,7 +8,7 @@ use snafu::ResultExt;
 
 use super::schema::{Ctx, Kind, LIST, RICH, SLIDES, column_kind, columns, declared, param_kind};
 use super::tree::{deck_tree_at, elements, tree_at, wanted_slides};
-use crate::error::{ContainerOutsideParamsSnafu, LoroSnafu, ReplicaInner, SlidesInParamsSnafu, TextUpdateSnafu};
+use crate::error::{ContainerOutsideParamsSnafu, LoroSnafu, ReplicaInner, SlidesInParamsSnafu};
 use crate::ops::Moved;
 use crate::widget::{ParamSchema, WidgetRegistry};
 
@@ -58,10 +58,38 @@ pub(super) fn set_value(map: &LoroMap, key: &str, v: LoroValue) -> Res {
     map.insert(key, v).context(LoroSnafu)
 }
 
-pub(super) fn sync_text(t: &LoroText, s: &str) -> Res {
-    if t.to_string() != s {
-        t.update(s, UpdateOptions::default()).context(TextUpdateSnafu)?;
+/// Longest text, in chars, still diffed per character; a longer one is diffed per line.
+///
+/// Loro's Myers diff costs O((N + M) · D) time and allocates O(N + M) per side: a 1 MiB
+/// knowledge file rewritten whole would block the apply.
+pub(super) const CHAR_DIFF_MAX_CHARS: usize = 64 * 1024;
+
+/// Time budget of each Loro text diff, in milliseconds, in production.
+pub(super) const DIFF_TIMEOUT_MS: f64 = 100.0;
+
+/// Brings `t` to `s`, with diffs bounded by `budget_ms` each.
+///
+/// Per character up to [`CHAR_DIFF_MAX_CHARS`], else per line; a diff past `budget_ms`
+/// steps down to the per-line diff, then to replacing the whole text. Each step down is a
+/// deliberate loss of merge granularity (a concurrent edit to the replaced span may be
+/// lost), never of content: the text always ends equal to `s`. A timed-out diff may have
+/// applied part of its edits (Loro 1.17.1 `diff_impl::conquer` streams the edits of the
+/// first half before timing out on the second); the next step starts from there.
+pub(super) fn sync_text(t: &LoroText, s: &str, budget_ms: f64) -> Res {
+    let old = t.to_string();
+    if old == s {
+        return Ok(());
     }
+    let bounded = || UpdateOptions { timeout_ms: Some(budget_ms), use_refined_diff: true };
+    let small = old.chars().count().max(s.chars().count()) <= CHAR_DIFF_MAX_CHARS;
+    if small && t.update(s, bounded()).is_ok() {
+        return Ok(());
+    }
+    if t.update_by_line(s, bounded()).is_ok() {
+        return Ok(());
+    }
+    tracing::debug!(bytes = s.len(), "text diff past its time budget: whole text replaced");
+    t.splice(0, t.len_unicode(), s).context(LoroSnafu)?;
     Ok(())
 }
 
@@ -90,11 +118,11 @@ fn items_at(map: &LoroMap, key: &str) -> Result<LoroMovableList, ReplicaInner> {
 
 /// Vide le conteneur `entry` de `map[key]` ; une valeur, ou une carte
 /// ordinaire, est retirée.
-fn empty_or_delete(map: &LoroMap, key: &str, entry: ValueOrContainer) -> Res {
+fn empty_or_delete(map: &LoroMap, key: &str, entry: ValueOrContainer, budget_ms: f64) -> Res {
     match entry {
-        ValueOrContainer::Container(Container::Text(t)) => sync_text(&t, ""),
+        ValueOrContainer::Container(Container::Text(t)) => sync_text(&t, "", budget_ms),
         ValueOrContainer::Container(Container::Map(m)) if m.len() == 1 && m.get(RICH).is_some() => {
-            super::rich::sync(&text_at(&m, RICH)?, &Value::Array(Vec::new()))
+            super::rich::sync(&text_at(&m, RICH)?, &Value::Array(Vec::new()), budget_ms)
         }
         ValueOrContainer::Container(Container::Map(m)) if m.len() == 1 && m.get(LIST).is_some() => {
             clear(&list_at(&m, LIST)?)
@@ -126,6 +154,8 @@ pub(super) struct Writer<'a> {
     pub(super) born: Option<Split<'a>>,
     /// Heure Unix (s) des marques de cette réconciliation (t-770).
     pub(super) now: i64,
+    /// Time budget of each text diff, in milliseconds (see [`sync_text`]).
+    pub(super) diff_budget_ms: f64,
 }
 
 impl Writer<'_> {
@@ -167,8 +197,8 @@ impl Writer<'_> {
                 // `params` d'une slide ou d'un élément : réconcilié plus bas.
                 Kind::Nested(Ctx::Params) if owner => {}
                 // Absent = vide : on vide, la clé reste.
-                Kind::Prose => sync_text(&text_at(map, &key)?, "")?,
-                Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()))?,
+                Kind::Prose => sync_text(&text_at(map, &key)?, "", self.diff_budget_ms)?,
+                Kind::Rich => super::rich::sync(&rich_at(map, &key)?, &Value::Array(Vec::new()), self.diff_budget_ms)?,
                 // Plus de slides voulues : toutes sont marquées.
                 Kind::Slides => self.sync_deck(&deck_tree_at(map)?, &[], self.moves)?,
                 // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
@@ -183,8 +213,10 @@ impl Writer<'_> {
         for (key, value) in obj {
             match ctx.kind(key) {
                 Kind::Nested(Ctx::Params) if owner => {}
-                Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
-                Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
+                Kind::Prose => {
+                    sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default(), self.diff_budget_ms)?;
+                }
+                Kind::Rich => super::rich::sync(&rich_at(map, key)?, value, self.diff_budget_ms)?,
                 Kind::Slides => self.sync_deck(&deck_tree_at(map)?, &std::mem::take(&mut wanted), self.moves)?,
                 // Jamais rendus par `Ctx::kind` : un slot, une liste ou un hôte n'existe que dans les paramètres.
                 Kind::Slot | Kind::List | Kind::Host => return ContainerOutsideParamsSnafu.fail(),
@@ -235,7 +267,7 @@ impl Writer<'_> {
         let stale: Vec<String> = map.keys().map(|k| k.to_string()).filter(|k| !obj.contains_key(k)).collect();
         for key in stale {
             if let Some(entry) = map.get(&key) {
-                empty_or_delete(map, &key, entry)?;
+                empty_or_delete(map, &key, entry, self.diff_budget_ms)?;
             }
         }
         for (name, kind) in declared(fields).filter(|(name, _)| !obj.contains_key(*name)) {
@@ -250,8 +282,10 @@ impl Writer<'_> {
         }
         for (key, value) in obj {
             match kind(fields, key, value) {
-                Kind::Prose => sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default())?,
-                Kind::Rich => super::rich::sync(&rich_at(map, key)?, value)?,
+                Kind::Prose => {
+                    sync_text(&text_at(map, key)?, value.as_str().unwrap_or_default(), self.diff_budget_ms)?;
+                }
+                Kind::Rich => super::rich::sync(&rich_at(map, key)?, value, self.diff_budget_ms)?,
                 // Écrit dans l'arbre du deck (`tree.rs`) : une valeur
                 // restée sous ce nom est retirée.
                 Kind::Slot => {
@@ -382,3 +416,7 @@ fn reindex(keys: &[(String, usize)], pos: &mut HashMap<(String, usize), usize>, 
         pos.insert(k.clone(), i);
     }
 }
+
+#[cfg(test)]
+#[path = "write_tests.rs"]
+mod write_tests;

@@ -1,6 +1,32 @@
 use oku_slides_i18n::Localizer;
 
-use super::{Shape, ValueReason};
+use super::{PathReason, Shape, ValueReason};
+
+/// Each path reason has its key in every locale, and French differs from English.
+#[test]
+fn every_path_reason_key_exists_in_every_locale() {
+    let reasons = [
+        PathReason::Empty,
+        PathReason::NotAbsolute,
+        PathReason::BadSegment,
+        PathReason::DotSegment,
+        PathReason::Reserved,
+        PathReason::TooDeep,
+        PathReason::TooLong,
+        PathReason::NotMarkdown,
+    ];
+    let en = Localizer::new(Some("en"));
+    let fr = Localizer::new(Some("fr"));
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        for reason in reasons {
+            assert!(l.has(reason.key()), "{locale} : {} absent", reason.key());
+        }
+    }
+    for reason in reasons {
+        assert_ne!(en.tr(reason.key()), fr.tr(reason.key()), "{} not translated in fr", reason.key());
+    }
+}
 
 /// Chaque langue a sa propre traduction de chaque raison.
 #[test]

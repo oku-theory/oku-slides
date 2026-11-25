@@ -80,7 +80,7 @@ fn has_dead_ancestor(tree: &LoroTree, n: TreeID, dead: &[TreeID]) -> bool {
 /// L'horodatage positif le plus récent des changes de `doc`.
 ///
 /// `None` si aucun n'est daté, ou si l'historique ne se parcourt pas.
-fn newest_change(doc: &LoroDoc) -> Option<i64> {
+pub(super) fn newest_change(doc: &LoroDoc) -> Option<i64> {
     let heads: Vec<loro::ID> = doc.oplog_frontiers().iter().collect();
     let mut newest: Option<i64> = None;
     doc.travel_change_ancestors(&heads, &mut |m| {

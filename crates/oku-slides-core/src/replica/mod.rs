@@ -55,7 +55,7 @@ use crate::ops::Moved;
 use crate::widget::WidgetRegistry;
 use entry::{check_entry, guarded, replayable_updates};
 pub(crate) use rich::SEP as PARAGRAPH_SEPARATOR;
-use schema::{Ctx, SLIDE, SLIDES};
+use schema::{Ctx, KNOWLEDGE, SLIDE, SLIDES};
 use undo::Undo;
 
 const ROOT: &str = "deck";
@@ -67,8 +67,11 @@ const FORMAT: &str = "format";
 /// 4 : marques datées, t-770. 5 : `widgets`, packs par espace de noms (t-1011).
 /// 6 : `layouts` ; plus de nom ni de description de slide.
 /// 7 : `theme` est un espace de noms, `themes` ses épinglages (t-1095).
+/// 8: the root map `knowledge`; a format-7 document opens as 8 (t-1721).
 /// Le changer impose de changer `SOURCES_VERSION`.
-const REPLICA_FORMAT: i64 = 7;
+const REPLICA_FORMAT: i64 = 8;
+/// The previous format, still opened: it reads as 8 with an empty knowledge.
+const PREVIOUS_FORMAT: i64 = 7;
 
 /// Message prefix of an application's intermediate commit (nodes born
 /// marked, t-776): the state after it is not a version of the deck.
@@ -76,6 +79,14 @@ pub(crate) const PART: &str = "oku-part:";
 
 fn part_message(label: &str) -> String {
     format!("{PART}{label}")
+}
+
+/// What every reconciliation of a replica reads besides the deck.
+#[derive(Clone, Copy)]
+struct Env<'a> {
+    registry: &'a WidgetRegistry,
+    /// Time budget of each text diff, in milliseconds.
+    diff_budget_ms: f64,
 }
 
 /// Le deck, son historique complet, et son identité (`deck_uid`).
@@ -88,6 +99,9 @@ pub struct DeckReplica {
     registry: Arc<WidgetRegistry>,
     /// Nom de l'auteur de ce pair, inscrit dans `peers` à sa première édition.
     author: Option<String>,
+    /// Time budget of each text diff, in milliseconds: [`write::DIFF_TIMEOUT_MS`]; tests may
+    /// raise it so a granularity assertion cannot depend on the machine's speed.
+    diff_budget_ms: f64,
 }
 
 impl std::fmt::Debug for DeckReplica {
@@ -127,10 +141,10 @@ fn format_of(doc: &LoroDoc) -> Option<i64> {
     }
 }
 
-/// Refuse un document d'un autre format.
+/// Refuses a document of another format than this one or the previous one.
 fn check_format(doc: &LoroDoc) -> Result<(), ReplicaInner> {
     match format_of(doc) {
-        Some(REPLICA_FORMAT) => Ok(()),
+        Some(REPLICA_FORMAT | PREVIOUS_FORMAT) => Ok(()),
         found => {
             UnsupportedReplicaFormatSnafu { found: found.map_or_else(|| "none".to_owned(), |n| n.to_string()) }.fail()
         }
@@ -182,8 +196,37 @@ pub(super) fn check_trees(doc: &LoroDoc) -> Result<(), ReplicaInner> {
     Ok(())
 }
 
+/// Reads both roots, `deck` and `knowledge`.
+///
+/// A root `knowledge` of another container type is never read: it is reported, and
+/// the map of that name, which a hostile peer cannot hide, is still read.
 fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
-    read::deck(&doc.get_map(ROOT))
+    let (deck, mut issues) = read::deck(&doc.get_map(ROOT), &doc.get_map(KNOWLEDGE))?;
+    if doc
+        .get_by_str_path(KNOWLEDGE)
+        .is_some_and(|root| !matches!(root, ValueOrContainer::Container(Container::Map(_))))
+    {
+        issues.push(crate::Issue::knowledge_unreadable(KNOWLEDGE));
+    }
+    Ok((deck, issues))
+}
+
+/// Brings a previous-format document to this format, in a silent commit.
+///
+/// The commit is out of the history and of the merge report (message [`compact::COMPACT`]),
+/// dated like the newest change: opening an old file is not an activity.
+fn upgrade_format(doc: &LoroDoc) -> Result<(), ReplicaInner> {
+    if format_of(doc) != Some(PREVIOUS_FORMAT) {
+        return Ok(());
+    }
+    doc.get_map(META).insert(FORMAT, REPLICA_FORMAT).context(LoroSnafu)?;
+    doc.set_next_commit_message(compact::COMPACT);
+    doc.set_next_commit_origin(undo::SILENT);
+    if let Some(newest) = compact::newest_change(doc) {
+        doc.set_next_commit_timestamp(newest);
+    }
+    doc.commit();
+    Ok(())
 }
 
 impl DeckReplica {
@@ -205,11 +248,18 @@ impl DeckReplica {
         doc.get_map(META).insert(DECK_UID, uid).context(LoroSnafu)?;
         doc.get_map(META).insert(FORMAT, REPLICA_FORMAT).context(LoroSnafu)?;
         // Des insertions seulement : aucun `mov`, rien à découper.
-        Self::reconcile_doc(&doc, deck, &registry, &|| (), None, &[])?;
+        Self::reconcile_doc(
+            &doc,
+            deck,
+            Env { registry: &registry, diff_budget_ms: write::DIFF_TIMEOUT_MS },
+            &|| (),
+            None,
+            &[],
+        )?;
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
         let undo = Undo::new(&doc);
-        Ok(Self { doc, undo, registry, author: None })
+        Ok(Self { doc, undo, registry, author: None, diff_budget_ms: write::DIFF_TIMEOUT_MS })
     }
 
     /// Reads a snapshot back, then compacts its dead nodes (t-770).
@@ -252,13 +302,15 @@ impl DeckReplica {
             check_format(doc)?;
             check_trees(doc)?;
             let read = read_deck(doc)?;
+            // Only once the document reads: a refused file is never upgraded.
+            upgrade_format(doc)?;
             // Sous la garde : la compaction lit les changes de Loro, non fiables.
             compact::compact_doc(doc, now, limits.compact_after_secs)?;
             Ok(read)
         })?;
         // `Undo` après l'import : l'état relu n'est pas une étape annulable.
         let undo = Undo::new(&doc);
-        Ok((Self { doc, undo, registry, author: None }, read))
+        Ok((Self { doc, undo, registry, author: None, diff_budget_ms: write::DIFF_TIMEOUT_MS }, read))
     }
 
     /// Remplace le registre des widgets (pack installé ou retiré). Les
@@ -389,7 +441,7 @@ impl DeckReplica {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &self.registry, &split, Some(&born), moves)?;
+        Self::reconcile_doc(doc, deck, self.env(), &split, Some(&born), moves)?;
         // Le libellé est aussi le message du change Loro : avec
         // `set_change_merge_interval(-1)`, un commit fait un change.
         self.doc.set_next_commit_message(label);
@@ -411,16 +463,21 @@ impl DeckReplica {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, &self.registry, &commit, None, &[])?;
+        Self::reconcile_doc(doc, deck, self.env(), &commit, None, &[])?;
         commit();
         Ok(())
+    }
+
+    /// The registry and diff budget every reconciliation of this replica uses.
+    fn env(&self) -> Env<'_> {
+        Env { registry: &self.registry, diff_budget_ms: self.diff_budget_ms }
     }
 
     /// Refuse un deck d'une autre version que [`DECK_VERSION`].
     fn reconcile_doc(
         doc: &LoroDoc,
         deck: &Deck,
-        registry: &WidgetRegistry,
+        Env { registry, diff_budget_ms }: Env<'_>,
         split: write::Split<'_>,
         born: Option<write::Split<'_>>,
         moves: &[Moved],
@@ -429,15 +486,20 @@ impl DeckReplica {
         let json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
         // `Deck` sérialise toujours en objet ; un autre cas serait un bogue de
         // `Serialize`, jamais un deck vide à réconcilier en silence.
-        let serde_json::Value::Object(obj) = json else {
+        let serde_json::Value::Object(mut obj) = json else {
             return NotADeckSnafu { what: "deck did not serialize to a JSON object" }.fail();
         };
+        // The bundle lives in its own root, never under `deck`; absent means empty.
+        let knowledge = match obj.remove(KNOWLEDGE) {
+            Some(serde_json::Value::Object(files)) => files,
+            None => serde_json::Map::new(),
+            Some(_) => return NotADeckSnafu { what: "knowledge did not serialize to a JSON object" }.fail(),
+        };
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
-        write::Writer { registry, split, born, mark_key: schema::mark_key(doc.peer_id()), moves, now }.sync_map(
-            &doc.get_map(ROOT),
-            &obj,
-            Ctx::Deck,
-        )
+        let mark_key = schema::mark_key(doc.peer_id());
+        let writer = write::Writer { registry, split, mark_key, moves, born, now, diff_budget_ms };
+        writer.sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck)?;
+        writer.sync_map(&doc.get_map(KNOWLEDGE), &knowledge, Ctx::Knowledge)
     }
 
     /// Ouvre un groupe : les applications qui suivent forment une seule étape
@@ -586,7 +648,7 @@ impl DeckReplica {
         let trial = self.doc.fork();
         configure(&trial);
         guarded(trial, |doc| {
-            Self::reconcile_doc(doc, deck, &self.registry, &|| doc.commit(), Some(&|| doc.commit()), &[])
+            Self::reconcile_doc(doc, deck, self.env(), &|| doc.commit(), Some(&|| doc.commit()), &[])
         })?;
         self.claim_author()?;
         self.apply(deck, label, None)
@@ -625,6 +687,8 @@ impl DeckReplica {
             read_deck(doc)
         })?;
         self.doc.import(&updates).context(ImportSnafu)?;
+        // A format-7 peer may win the `meta` register; the format read must stay this one.
+        upgrade_format(&self.doc)?;
         Ok(authors::report_since(&self.doc, &before))
     }
 }
@@ -640,3 +704,7 @@ mod list_tests;
 #[cfg(test)]
 #[path = "host_tests.rs"]
 mod host_tests;
+
+#[cfg(test)]
+#[path = "knowledge_tests.rs"]
+mod knowledge_tests;

@@ -715,3 +715,4 @@ received-blocker-unreadable = Bu sunuda kalır: dosyaları okunamıyor.
 received-blocker-parent = Bu sunuda kalır: genişlettiği tema, { $namespace }, kitaplığınıza giremez.
 session-received-parent-missing = { $theme }, kitaplığınızda olmayan { $parent } temasını genişletiyor: önce onu ekleyin.
 session-version-not-held = Bu sunu, eklenecek { $pack } sürümünü içermiyor.
+session-knowledge-ops-hidden = Sunumun bilgi dosyaları henüz buradan değiştirilemez.

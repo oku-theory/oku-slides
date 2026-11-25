@@ -21,6 +21,39 @@ op-value-out-of-bounds = 数值超出允许范围
 op-value-unreadable = 值的格式不符合预期
 op-value-valign = 应为 top、middle 或 bottom
 op-value-path = 路径由 M、L、C、Q、Z 命令及其数字组成，以 M 开头
+knowledge-path-empty = 路径为空
+knowledge-path-not-absolute = 路径必须以 / 开头
+knowledge-path-bad-segment = 某个段为空、以点结尾，或使用了 a-z、0-9、点、下划线和连字符以外的字符
+knowledge-path-dot-segment = 段不能以点开头
+knowledge-path-reserved = 某个段是系统保留名称
+knowledge-path-too-deep = 路径的段数过多
+knowledge-path-too-long = 路径过长
+knowledge-path-not-markdown = 文件名必须以 .md 结尾
+knowledge-frontmatter-missing = 文件必须以由 --- 包围的头部块开头
+knowledge-frontmatter-unterminated = 头部块缺少结束的 ---
+knowledge-frontmatter-too-large = 头部块过大
+knowledge-frontmatter-not-yaml = 头部不是有效的 YAML
+knowledge-frontmatter-not-mapping = 头部必须是以文本为键的映射
+knowledge-frontmatter-duplicate-key = 头部中的键“{ $key }”出现了两次
+knowledge-frontmatter-alias = 头部不能使用 YAML 锚点或别名
+knowledge-frontmatter-tag = 头部不能使用 YAML 标签
+knowledge-frontmatter-too-deep = 头部嵌套过深
+knowledge-frontmatter-type-missing = 头部需要非空的 type
+knowledge-frontmatter-bad-timestamp = 头部的值“{ $key }”必须是带时区偏移的 RFC 3339 日期时间
+knowledge-frontmatter-not-allowed = 此文件的头部不允许使用键“{ $key }”
+knowledge-reason-not-found = 此路径下没有文件
+knowledge-reason-exists = 此路径下已有文件
+knowledge-reason-id-missing = 新文件需要 ID
+knowledge-reason-id-invalid = 文件 ID 是 32 位小写十六进制数字
+knowledge-reason-id-taken = 另一个文件已使用此 ID
+knowledge-reason-id-mismatch = 此路径下的文件有另一个 ID
+knowledge-reason-edit-empty-old = 要替换的文本不能为空
+knowledge-reason-edit-no-match = 要替换的文本不在文件中
+knowledge-reason-edit-ambiguous = 要替换的文本在文件中出现多次
+knowledge-reason-too-many-files = 知识包中的文件太多
+knowledge-reason-file-too-large = 文件太大
+knowledge-reason-total-too-large = 知识包太大
+op-knowledge = 知识文件 { $path }：{ $reason }
 op-unknown-widget = 未知的组件：{ $subject }
 op-unknown-namespace = 此演示文稿没有包 { $pack }。
 op-pack-required = 包 { $pack } 是 { $by } 所需的；请先移除后者。
@@ -169,6 +202,37 @@ issue-unreadable-row = 无法读取的表格行，已移出
 issue-data-truncated = 数据过大，读取时已截断
 issue-unreadable-slide = 无法读取的幻灯片，已移出
 issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置
+issue-knowledge-unreadable = 无法读取的知识条目 { $id }，已移出
+issue-knowledge-over-limit = 知识集合超出限制：{ $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    }（涉及文件：{ $count }个，第一个为 { $id }）；所有文件均保留，但超出限制的写入会被拒绝
+issue-knowledge-path-invalid = 知识文件 { $id } 已移至 /recovered：{ $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = { $path } 处有多个知识文件：其余文件已重命名
+issue-knowledge-invalid = 知识文件 { $path } 无效：{ $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = 图表 { $subject }：{ $reason }
 op-invalid-table = 表格 { $subject }：{ $reason }
 

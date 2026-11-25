@@ -25,7 +25,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":13}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":14}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -114,6 +114,84 @@ fn sources_older_version_zip_is_refused(#[case] version: u32) {
     )
     .unwrap_err();
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
+}
+
+/// Sources 13: the previous version, its replica at format 7 or 8, still read.
+#[test]
+fn from_zip_with_sources_version_13_opens() {
+    // A version-13 file holds a format-7 replica.
+    let doc = loro::LoroDoc::new();
+    doc.import(&deck_loro()).unwrap();
+    doc.get_map("meta").insert("format", 7).unwrap();
+    doc.commit();
+    let format_7 = doc.export(loro::ExportMode::Snapshot).unwrap();
+    let manifest = br#"{"format":"oku-slides-sources","version":13}"#;
+    let (bundle, _) = SourceBundle::from_zip(
+        &zip(&[("manifest.json", manifest), ("deck.loro", &format_7)]),
+        MAX,
+        crate::test_registry::shared(),
+    )
+    .unwrap();
+    assert_that!(bundle.deck().knowledge.is_empty()).is_true();
+}
+
+#[test]
+fn from_zip_with_sources_version_15_returns_unsupported_version() {
+    let manifest = br#"{"format":"oku-slides-sources","version":15}"#;
+    let err = SourceBundle::from_zip(
+        &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
+        MAX,
+        crate::test_registry::shared(),
+    )
+    .unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::UnsupportedVersion);
+}
+
+#[test]
+fn to_zip_writes_sources_version_14() {
+    let zip = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
+    let mut za = zip::ZipArchive::new(Cursor::new(zip)).unwrap();
+    let mut manifest = String::new();
+    std::io::Read::read_to_string(&mut za.by_name("manifest.json").unwrap(), &mut manifest).unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+    assert_that!(manifest["version"]).is_equal_to(serde_json::json!(14));
+}
+
+#[test]
+fn to_zip_then_from_zip_keeps_the_knowledge_bundle() {
+    let mut deck = roadmap();
+    for (n, (path, text)) in [("/a.md", "---\ntype: Note\n---\nbody\n"), ("/log.md", "")].into_iter().enumerate() {
+        let file = crate::KnowledgeFile { path: path.to_owned(), text: text.to_owned() };
+        deck.knowledge.insert(format!("{n:032x}"), file);
+    }
+    let b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    let (back, issues) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(issues).is_empty();
+    assert_that!(back.deck().knowledge).is_equal_to(&deck.knowledge);
+}
+
+// Pins the add-only property: assets are never pruned by what the deck cites, whether an asset
+// is cited by knowledge, no longer cited, or never cited.
+#[test]
+fn add_only_assets_survive_save_load_and_the_deletion_of_the_knowledge_citer() {
+    let mut deck = roadmap();
+    let mut b = SourceBundle::new(deck.clone(), crate::test_registry::shared()).unwrap();
+    let uncited = b.add_asset(b"never cited".to_vec());
+    let id = b.add_asset(b"png bytes".to_vec());
+    let hex = id.strip_prefix("sha256:").unwrap();
+    let file = crate::KnowledgeFile { path: "/a.md".to_owned(), text: format!("![x](/references/assets/{hex}.png)") };
+    deck.knowledge.insert(format!("{:032x}", 0), file);
+    b.apply(deck.clone(), "cite", None).unwrap();
+    assert_that!(crate::knowledge_asset_refs(b.deck())).is_equal_to(std::collections::BTreeSet::from([id.clone()]));
+    let (back, _) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(back.assets.contains_key(&id)).is_true();
+
+    deck.knowledge.clear();
+    b.apply(deck, "uncite", None).unwrap();
+    assert_that!(crate::knowledge_asset_refs(b.deck())).is_equal_to(std::collections::BTreeSet::new());
+    let (back, _) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
+    assert_that!(back.assets.contains_key(&id)).is_true();
+    assert_that!(back.assets.contains_key(&uncited)).is_true();
 }
 
 #[test]

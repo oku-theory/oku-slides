@@ -715,3 +715,4 @@ received-blocker-unreadable = يبقى في هذا العرض التقديمي: 
 received-blocker-parent = يبقى في هذا العرض التقديمي: السمة التي يوسّعها، { $namespace }، لا يمكنها دخول مكتبتك.
 session-received-parent-missing = { $theme } يوسّع { $parent }، وهي ليست في مكتبتك: أضفها أولًا.
 session-version-not-held = لا يحتوي هذا العرض التقديمي على إصدار { $pack } المراد إضافته.
+session-knowledge-ops-hidden = لا يمكن تغيير ملفات المعرفة الخاصة بالعرض من هنا بعد.

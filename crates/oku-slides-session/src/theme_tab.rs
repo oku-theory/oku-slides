@@ -86,6 +86,7 @@ pub(crate) fn specimen_deck(
         tokens: tokens_value(tokens),
         widgets: BTreeMap::new(),
         layouts: BTreeMap::new(),
+        knowledge: BTreeMap::new(),
         slides: layout_slides(&essentiel.manifest, &essentiel.files, l),
     };
     // Examples may keep `""` (cleared text): the slides take the replica's shape.

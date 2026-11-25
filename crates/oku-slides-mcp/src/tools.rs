@@ -238,7 +238,8 @@ fn input_schema(schema: Value) -> ToolInputSchema {
 }
 
 fn tool<T: JsonSchema>(name: &str, description: &str) -> Tool {
-    let schema = serde_json::to_value(schemars::schema_for!(T)).unwrap_or_else(|_| json!({}));
+    let mut schema = serde_json::to_value(schemars::schema_for!(T)).unwrap_or_else(|_| json!({}));
+    oku_slides_core::hide_knowledge_ops(&mut schema);
     Tool {
         name: name.into(),
         title: None,

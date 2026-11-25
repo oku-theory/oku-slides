@@ -34,6 +34,7 @@ fn deck_with(elements: Vec<Element>) -> Deck {
         tokens: Value::Null,
         widgets: BTreeMap::default(),
         layouts: BTreeMap::default(),
+        knowledge: BTreeMap::default(),
         slides: vec![slide],
     }
 }
@@ -442,6 +443,7 @@ fn deck() -> impl Strategy<Value = Deck> {
                 tokens,
                 widgets,
                 layouts,
+                knowledge: BTreeMap::default(),
                 slides,
             }
         })

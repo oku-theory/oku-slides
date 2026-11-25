@@ -21,6 +21,39 @@ op-value-out-of-bounds = العدد خارج النطاق المسموح
 op-value-unreadable = القيمة ليست بالشكل المتوقع
 op-value-valign = المتوقع top أو middle أو bottom
 op-value-path = يتكوّن المسار من أوامر M وL وC وQ وZ تتبعها أرقامها، ويبدأ بـ M
+knowledge-path-empty = المسار فارغ
+knowledge-path-not-absolute = يجب أن يبدأ المسار بـ /
+knowledge-path-bad-segment = جزء من المسار فارغ أو ينتهي بنقطة أو يستخدم حرفًا غير a-z و0-9 والنقطة والشرطة السفلية والواصلة
+knowledge-path-dot-segment = يجب ألا يبدأ جزء من المسار بنقطة
+knowledge-path-reserved = جزء من المسار اسم نظام محجوز
+knowledge-path-too-deep = يحتوي المسار على أجزاء كثيرة جدًا
+knowledge-path-too-long = المسار طويل جدًا
+knowledge-path-not-markdown = يجب أن ينتهي اسم الملف بـ .md
+knowledge-frontmatter-missing = يجب أن يبدأ الملف بكتلة ترويسة محاطة بـ ---
+knowledge-frontmatter-unterminated = كتلة الترويسة ليس فيها --- ختامي
+knowledge-frontmatter-too-large = كتلة الترويسة كبيرة جدًا
+knowledge-frontmatter-not-yaml = الترويسة ليست YAML صالحًا
+knowledge-frontmatter-not-mapping = يجب أن تكون الترويسة خريطة مفاتيحها نصوص
+knowledge-frontmatter-duplicate-key = المفتاح "{ $key }" يظهر مرتين في الترويسة
+knowledge-frontmatter-alias = لا يجوز أن تستخدم الترويسة مراسي YAML أو أسماءها المستعارة
+knowledge-frontmatter-tag = لا يجوز أن تستخدم الترويسة وسوم YAML
+knowledge-frontmatter-too-deep = الترويسة متداخلة بعمق زائد
+knowledge-frontmatter-type-missing = تحتاج الترويسة إلى نوع غير فارغ
+knowledge-frontmatter-bad-timestamp = يجب أن تكون قيمة "{ $key }" في الترويسة تاريخًا ووقتًا بصيغة RFC 3339 مع إزاحة المنطقة الزمنية
+knowledge-frontmatter-not-allowed = المفتاح "{ $key }" غير مسموح به في ترويسة هذا الملف
+knowledge-reason-not-found = لا يوجد ملف في هذا المسار
+knowledge-reason-exists = يوجد ملف بالفعل في هذا المسار
+knowledge-reason-id-missing = يحتاج الملف الجديد إلى معرّف
+knowledge-reason-id-invalid = معرّف الملف هو 32 رقمًا ست عشريًا بأحرف صغيرة
+knowledge-reason-id-taken = ملف آخر يستخدم هذا المعرّف بالفعل
+knowledge-reason-id-mismatch = الملف في هذا المسار له معرّف آخر
+knowledge-reason-edit-empty-old = يجب ألا يكون النص المراد استبداله فارغًا
+knowledge-reason-edit-no-match = النص المراد استبداله غير موجود في الملف
+knowledge-reason-edit-ambiguous = النص المراد استبداله يظهر في الملف أكثر من مرة
+knowledge-reason-too-many-files = الحزمة تحتوي على عدد كبير جدًا من الملفات
+knowledge-reason-file-too-large = الملف كبير جدًا
+knowledge-reason-total-too-large = الحزمة كبيرة جدًا
+op-knowledge = ملف المعرفة { $path }: { $reason }
 op-unknown-widget = أداة غير معروفة: { $subject }
 op-unknown-namespace = لا يحتوي هذا العرض على حزمة { $pack }.
 op-pack-required = حزمة { $pack } تحتاجها { $by }؛ أزل تلك أولًا.
@@ -195,6 +228,37 @@ issue-unreadable-row = صف جدول غير مقروء، نُحّي جانبًا
 issue-data-truncated = بيانات كبيرة جدًا، اقتُطعت عند القراءة
 issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
 issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه
+issue-knowledge-unreadable = إدخال معرفة غير مقروء { $id }، نُحّي جانبًا
+issue-knowledge-over-limit = مجموعة المعرفة تتجاوز حدًا: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (الملفات المتأثرة: { $count }، أولها { $id })؛ تُحفظ كل الملفات، لكن تُرفض الكتابات التي تتجاوز الحد
+issue-knowledge-path-invalid = نُقل ملف المعرفة { $id } إلى /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = كانت عدة ملفات معرفة في { $path }: أُعيدت تسمية الأخرى
+issue-knowledge-invalid = ملف المعرفة { $path } غير صالح: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = المخطط { $subject }: { $reason }
 op-invalid-table = الجدول { $subject }: { $reason }
 

@@ -136,3 +136,56 @@ fn pack_tab_refuses_a_pin_op_from_a_caller(#[case] op: oku_slides_core::Op) {
     let err = s.ensure_caller_ops(&[op]).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::WrongDocument);
 }
+
+fn knowledge_write() -> oku_slides_core::Op {
+    oku_slides_core::Op::KnowledgeWrite {
+        path: "/a.md".into(),
+        text: "---\ntype: Note\n---\n".into(),
+        id: Some("0123456789abcdef0123456789abcdef".into()),
+    }
+}
+
+/// Every op that writes knowledge, whatever the file.
+fn knowledge_ops() -> Vec<oku_slides_core::Op> {
+    use oku_slides_core::Op;
+    vec![
+        knowledge_write(),
+        Op::KnowledgeEdit { path: "/a.md".into(), old: "a".into(), new: "b".into() },
+        Op::KnowledgeMove { from: "/a.md".into(), to: "/b.md".into() },
+        Op::KnowledgeDelete { path: "/a.md".into() },
+    ]
+}
+
+/// Callers may not write knowledge until its approval exists: every entry that takes caller ops
+/// (the gate itself, `Session::apply`, an agent's apply, a `Request::Apply`) refuses them first,
+/// in every kind of session, and mixed with other ops.
+#[rstest]
+#[case::deck(Mode::Deck)]
+#[case::help(Mode::Help)]
+#[case::pack(Mode::Pack)]
+#[case::deck_pack(Mode::DeckPack)]
+#[case::theme(Mode::Theme)]
+fn caller_knowledge_op_is_refused_in_every_kind(#[case] mode: Mode) {
+    use crate::SessionErrorKind::KnowledgeOpsHidden;
+    let (_data, mut s) = session_in(mode);
+    for op in knowledge_ops() {
+        assert_that!(s.ensure_caller_ops(std::slice::from_ref(&op)).unwrap_err().kind())
+            .is_equal_to(KnowledgeOpsHidden);
+        let mixed = vec![oku_slides_core::Op::SetNotes { slide: "s1".into(), notes: "n".into() }, op.clone()];
+        assert_that!(s.apply("x", mixed, None).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+        assert_that!(s.apply_by_agent("x", vec![op.clone()], None).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+        let req = crate::Request::Apply { label: "x".into(), ops: vec![op], merge: None };
+        assert_that!(s.handle(req).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+    }
+}
+
+/// The refusal is localized: the French text differs from the English one.
+#[test]
+fn knowledge_ops_hidden_is_localized() {
+    use oku_slides_i18n::{Localize, Localizer};
+    let (_data, mut s) = session_in(Mode::Deck);
+    let err = s.apply("x", vec![knowledge_write()], None).unwrap_err();
+    let fr = err.localize(&Localizer::new(Some("fr")));
+    let en = err.localize(&Localizer::new(Some("en")));
+    assert_that!(fr.as_str()).is_not_equal_to(en.as_str());
+}

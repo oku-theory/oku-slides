@@ -21,6 +21,39 @@ op-value-out-of-bounds = 숫자가 허용 범위를 벗어났습니다
 op-value-unreadable = 값의 형식이 예상과 다릅니다
 op-value-valign = top, middle 또는 bottom이어야 합니다
 op-value-path = 경로는 M, L, C, Q, Z 명령과 그 숫자로 이루어지며 M으로 시작합니다
+knowledge-path-empty = 경로가 비어 있습니다
+knowledge-path-not-absolute = 경로는 /로 시작해야 합니다
+knowledge-path-bad-segment = 비어 있거나 마침표로 끝나거나 a-z, 0-9, 마침표, 밑줄, 하이픈 이외의 문자를 쓰는 세그먼트가 있습니다
+knowledge-path-dot-segment = 세그먼트는 마침표로 시작할 수 없습니다
+knowledge-path-reserved = 세그먼트가 시스템 예약 이름입니다
+knowledge-path-too-deep = 경로의 세그먼트가 너무 많습니다
+knowledge-path-too-long = 경로가 너무 깁니다
+knowledge-path-not-markdown = 파일 이름은 .md로 끝나야 합니다
+knowledge-frontmatter-missing = 파일은 ---로 둘러싸인 머리말 블록으로 시작해야 합니다
+knowledge-frontmatter-unterminated = 머리말 블록에 닫는 ---가 없습니다
+knowledge-frontmatter-too-large = 머리말 블록이 너무 큽니다
+knowledge-frontmatter-not-yaml = 머리말이 올바른 YAML이 아닙니다
+knowledge-frontmatter-not-mapping = 머리말은 텍스트 키를 가진 매핑이어야 합니다
+knowledge-frontmatter-duplicate-key = 머리말에 "{ $key }" 키가 두 번 나옵니다
+knowledge-frontmatter-alias = 머리말에서는 YAML 앵커와 별칭을 사용할 수 없습니다
+knowledge-frontmatter-tag = 머리말에서는 YAML 태그를 사용할 수 없습니다
+knowledge-frontmatter-too-deep = 머리말의 중첩이 너무 깊습니다
+knowledge-frontmatter-type-missing = 머리말에는 비어 있지 않은 type이 필요합니다
+knowledge-frontmatter-bad-timestamp = 머리말의 "{ $key }" 값은 시간대 오프셋이 있는 RFC 3339 날짜·시간이어야 합니다
+knowledge-frontmatter-not-allowed = 이 파일의 머리말에서는 "{ $key }" 키를 사용할 수 없습니다
+knowledge-reason-not-found = 이 경로에 파일이 없습니다
+knowledge-reason-exists = 이 경로에 이미 파일이 있습니다
+knowledge-reason-id-missing = 새 파일에는 ID가 필요합니다
+knowledge-reason-id-invalid = 파일 ID는 소문자 16진수 32자리입니다
+knowledge-reason-id-taken = 다른 파일이 이미 이 ID를 사용하고 있습니다
+knowledge-reason-id-mismatch = 이 경로의 파일은 다른 ID를 가지고 있습니다
+knowledge-reason-edit-empty-old = 바꿀 텍스트는 비어 있을 수 없습니다
+knowledge-reason-edit-no-match = 바꿀 텍스트가 파일에 없습니다
+knowledge-reason-edit-ambiguous = 바꿀 텍스트가 파일에 두 번 이상 나타납니다
+knowledge-reason-too-many-files = 번들에 파일이 너무 많습니다
+knowledge-reason-file-too-large = 파일이 너무 큽니다
+knowledge-reason-total-too-large = 번들이 너무 큽니다
+op-knowledge = 지식 파일 { $path }: { $reason }
 op-unknown-widget = 알 수 없는 위젯: { $subject }
 op-unknown-namespace = 이 덱에는 팩 { $pack }이(가) 없습니다.
 op-pack-required = 팩 { $pack }은(는) { $by }에 필요합니다. 먼저 그 팩을 제거하세요.
@@ -169,6 +202,37 @@ issue-unreadable-row = 읽을 수 없는 표 행을 따로 두었습니다
 issue-data-truncated = 데이터가 너무 커서 읽을 때 잘랐습니다
 issue-unreadable-slide = 읽을 수 없는 슬라이드를 따로 두었습니다
 issue-unreadable-field = 읽을 수 없는 덱 항목 { $field }을(를) 초기화했습니다
+issue-knowledge-unreadable = 읽을 수 없는 지식 항목 { $id }을(를) 따로 두었습니다
+issue-knowledge-over-limit = 지식 모음이 한도를 넘었습니다: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (해당 파일: { $count }개, 첫 파일 { $id }). 모든 파일은 유지되지만 한도를 넘는 쓰기는 거부됩니다
+issue-knowledge-path-invalid = 지식 파일 { $id }을(를) /recovered로 옮겼습니다: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = { $path }에 지식 파일이 여러 개 있었습니다: 나머지의 이름을 바꿨습니다
+issue-knowledge-invalid = 지식 파일 { $path }이(가) 유효하지 않습니다: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = 차트 { $subject }: { $reason }
 op-invalid-table = 표 { $subject }: { $reason }
 

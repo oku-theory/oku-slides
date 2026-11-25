@@ -712,3 +712,4 @@ received-blocker-unreadable = 留在此簡報中：無法讀取其檔案。
 received-blocker-parent = 留在此簡報中：它延伸的主題 { $namespace } 無法進入你的資料庫。
 session-received-parent-missing = { $theme } 延伸了 { $parent }，但後者不在你的資料庫中：請先加入它。
 session-version-not-held = 此簡報不包含要加入的 { $pack } 版本。
+session-knowledge-ops-hidden = 暫時無法從這裡修改簡報的知識檔案。

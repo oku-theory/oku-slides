@@ -21,6 +21,39 @@ op-value-out-of-bounds = số nằm ngoài khoảng cho phép
 op-value-unreadable = giá trị không có dạng như mong đợi
 op-value-valign = cần top, middle hoặc bottom
 op-value-path = đường dẫn gồm các lệnh M, L, C, Q và Z kèm số của chúng, bắt đầu bằng M
+knowledge-path-empty = đường dẫn trống
+knowledge-path-not-absolute = đường dẫn phải bắt đầu bằng /
+knowledge-path-bad-segment = một đoạn bị trống, kết thúc bằng dấu chấm hoặc dùng ký tự ngoài a-z, 0-9, dấu chấm, dấu gạch dưới và dấu gạch ngang
+knowledge-path-dot-segment = một đoạn không được bắt đầu bằng dấu chấm
+knowledge-path-reserved = một đoạn là tên hệ thống được dành riêng
+knowledge-path-too-deep = đường dẫn có quá nhiều đoạn
+knowledge-path-too-long = đường dẫn quá dài
+knowledge-path-not-markdown = tên tệp phải kết thúc bằng .md
+knowledge-frontmatter-missing = tệp phải bắt đầu bằng một khối tiêu đề nằm giữa các dòng ---
+knowledge-frontmatter-unterminated = khối tiêu đề thiếu dòng --- đóng
+knowledge-frontmatter-too-large = khối tiêu đề quá lớn
+knowledge-frontmatter-not-yaml = tiêu đề không phải là YAML hợp lệ
+knowledge-frontmatter-not-mapping = tiêu đề phải là một ánh xạ có khóa dạng văn bản
+knowledge-frontmatter-duplicate-key = khóa "{ $key }" xuất hiện hai lần trong tiêu đề
+knowledge-frontmatter-alias = tiêu đề không được dùng neo hoặc bí danh YAML
+knowledge-frontmatter-tag = tiêu đề không được dùng thẻ YAML
+knowledge-frontmatter-too-deep = tiêu đề lồng nhau quá sâu
+knowledge-frontmatter-type-missing = tiêu đề cần một kiểu không để trống
+knowledge-frontmatter-bad-timestamp = giá trị "{ $key }" trong tiêu đề phải là ngày giờ RFC 3339 kèm độ lệch múi giờ
+knowledge-frontmatter-not-allowed = khóa "{ $key }" không được phép trong tiêu đề của tệp này
+knowledge-reason-not-found = không có tệp nào ở đường dẫn này
+knowledge-reason-exists = đã có một tệp ở đường dẫn này
+knowledge-reason-id-missing = tệp mới cần có mã định danh
+knowledge-reason-id-invalid = mã định danh của tệp gồm 32 chữ số thập lục phân viết thường
+knowledge-reason-id-taken = một tệp khác đã dùng mã định danh này
+knowledge-reason-id-mismatch = tệp ở đường dẫn này có mã định danh khác
+knowledge-reason-edit-empty-old = văn bản cần thay thế không được để trống
+knowledge-reason-edit-no-match = văn bản cần thay thế không có trong tệp
+knowledge-reason-edit-ambiguous = văn bản cần thay thế xuất hiện nhiều lần trong tệp
+knowledge-reason-too-many-files = gói có quá nhiều tệp
+knowledge-reason-file-too-large = tệp quá lớn
+knowledge-reason-total-too-large = gói quá lớn
+op-knowledge = Tệp tri thức { $path }: { $reason }
 op-unknown-widget = Tiện ích không xác định: { $subject }
 op-unknown-namespace = Bản trình bày này không có gói { $pack }.
 op-pack-required = Gói { $pack } cần cho { $by }; hãy gỡ gói đó trước.
@@ -169,6 +202,37 @@ issue-unreadable-row = hàng bảng không đọc được, đã để riêng
 issue-data-truncated = dữ liệu quá lớn, đã cắt bớt khi đọc
 issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
 issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
+issue-knowledge-unreadable = mục tri thức { $id } không đọc được, đã để riêng
+issue-knowledge-over-limit = bộ tri thức vượt quá một giới hạn: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (số tệp liên quan: { $count }, tệp đầu tiên { $id }); mọi tệp đều được giữ, nhưng các lần ghi vượt giới hạn sẽ bị từ chối
+issue-knowledge-path-invalid = tệp tri thức { $id } đã được chuyển vào /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = có nhiều tệp tri thức tại { $path }: các tệp khác đã được đổi tên
+issue-knowledge-invalid = tệp tri thức { $path } không hợp lệ: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Biểu đồ { $subject }: { $reason }
 op-invalid-table = Bảng { $subject }: { $reason }
 

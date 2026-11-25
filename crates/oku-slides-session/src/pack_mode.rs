@@ -127,6 +127,8 @@ pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
         tokens: base.tokens.clone(),
         widgets: base.widgets.clone(),
         layouts: base.layouts.clone(),
+        // A specimen never carries the deck's knowledge.
+        knowledge: BTreeMap::new(),
         slides,
     }
 }

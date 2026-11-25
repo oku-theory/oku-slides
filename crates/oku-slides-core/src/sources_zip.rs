@@ -13,7 +13,7 @@ use zip::write::SimpleFileOptions;
 
 use super::packs::{PackPart, RawPack, pack_dir, pack_entry, report_discarded, verify_packs, write_packs};
 use super::themes::{THEME_VERSIONS_DIR, report_discarded_themes, theme_entry, verify_themes, write_themes};
-use super::{SOURCES_FORMAT, SOURCES_VERSION, SourceBundle, SourceLimits};
+use super::{OLDEST_SOURCES_VERSION, SOURCES_FORMAT, SOURCES_VERSION, SourceBundle, SourceLimits};
 use crate::error::{
     BadNameSnafu, IoSnafu, JsonSnafu, MissingDeckSnafu, NotSourcesSnafu, ReplicaError, ReplicaSnafu, SourcesInner,
     TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
@@ -229,9 +229,10 @@ impl SourceBundle {
         }
         let manifest = manifest.context(NotSourcesSnafu)?;
         ensure!(manifest.format == SOURCES_FORMAT, NotSourcesSnafu);
-        // Plus ancien : format ignoré, sans conversion (spec t-188).
-        ensure!(manifest.version >= SOURCES_VERSION, NotSourcesSnafu);
-        ensure!(manifest.version == SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
+        // Older than the oldest version read (13, whose format-7 replica opens as format 8):
+        // not a sources file this app reads, and never converted (spec t-188).
+        ensure!(manifest.version >= OLDEST_SOURCES_VERSION, NotSourcesSnafu);
+        ensure!(manifest.version <= SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
         let (replica, read) = match snapshot.context(MissingDeckSnafu)? {
             Snapshot::Bytes(data) => {
                 DeckReplica::from_snapshot(&data, limits.replica(), registry).context(ReplicaSnafu)?

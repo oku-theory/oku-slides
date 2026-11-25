@@ -15,6 +15,7 @@ use oku_slides_core::{
 };
 use proptest::prelude::*;
 use serde_json::{Value, json};
+use speculoos::prelude::*;
 
 #[derive(Debug, Clone)]
 enum Edit {
@@ -56,7 +57,18 @@ enum Edit {
     DeleteThenUndo(usize),
     /// Annule la dernière édition locale du pair.
     Undo,
+    /// Writes the knowledge file at path `i` (modulo): creates it, or replaces its text.
+    KnowledgeWrite(usize, String),
+    /// Replaces `body` with `body <s>` in the knowledge file at path `i` (modulo).
+    KnowledgeReplace(usize, String),
+    /// Moves the knowledge file at path `a` to path `b` (modulo).
+    KnowledgeMove(usize, usize),
+    /// Deletes the knowledge file at path `i` (modulo).
+    KnowledgeDelete(usize),
 }
+
+/// The paths knowledge edits draw from; `/c/d.md` is nested.
+const KNOWLEDGE_PATHS: [&str; 3] = ["/a.md", "/b.md", "/c/d.md"];
 
 /// Pose le thème de test `<c>` (ou aucun) : espace de noms `<c>`, version `<c>` répété 64 fois.
 fn set_theme(deck: &mut Deck, c: Option<&str>) {
@@ -95,6 +107,10 @@ fn edit() -> impl Strategy<Value = Edit> {
         any::<usize>().prop_map(Edit::RemoveElementThenUndo),
         any::<usize>().prop_map(Edit::DeleteThenUndo),
         Just(Edit::Undo),
+        (any::<usize>(), "[a-z]{0,6}").prop_map(|(i, s)| Edit::KnowledgeWrite(i, s)),
+        (any::<usize>(), "[a-z]{0,6}").prop_map(|(i, s)| Edit::KnowledgeReplace(i, s)),
+        (any::<usize>(), any::<usize>()).prop_map(|(a, b)| Edit::KnowledgeMove(a, b)),
+        any::<usize>().prop_map(Edit::KnowledgeDelete),
     ]
 }
 
@@ -390,11 +406,43 @@ struct Applied {
     moves: Vec<Moved>,
     /// Le texte basculé par `Edit::Bold`, et son nouveau gras.
     bold: Option<(String, bool)>,
+    /// A knowledge op was accepted.
+    knowledge: bool,
+}
+
+/// The knowledge op of `edit`, if it is one; `added` counts the files and slides created.
+fn knowledge_op(deck: &Deck, edit: &Edit, peer: usize, added: &mut usize) -> Option<Op> {
+    let path = |i: usize| KNOWLEDGE_PATHS[i % KNOWLEDGE_PATHS.len()].to_owned();
+    Some(match edit {
+        Edit::KnowledgeWrite(i, s) => {
+            let exists = deck.knowledge.values().any(|f| f.path == path(*i));
+            let id = (!exists).then(|| {
+                *added += 1;
+                format!("{peer:016x}{added:016x}")
+            });
+            Op::KnowledgeWrite { path: path(*i), text: format!("---\ntype: Note\n---\nbody {s}\n"), id }
+        }
+        Edit::KnowledgeReplace(i, s) => {
+            Op::KnowledgeEdit { path: path(*i), old: "body".into(), new: format!("body {s}") }
+        }
+        Edit::KnowledgeMove(a, b) => Op::KnowledgeMove { from: path(*a), to: path(*b) },
+        Edit::KnowledgeDelete(i) => Op::KnowledgeDelete { path: path(*i) },
+        _ => return None,
+    })
 }
 
 /// Applies `edit` to `deck`; `added` counts the slides added by this peer.
 fn apply(deck: &mut Deck, edit: &Edit, peer: usize, added: &mut usize) -> Applied {
     let len = deck.slides.len();
+    if let Some(op) = knowledge_op(deck, edit, peer, added) {
+        // A refused op (missing file, taken path…) leaves the deck unchanged.
+        let mut next = deck.clone();
+        let knowledge = apply_all(&mut next, vec![op], base()).is_ok();
+        if knowledge {
+            *deck = next;
+        }
+        return Applied { knowledge, ..Applied::default() };
+    }
     match edit {
         Edit::SetCell(..)
         | Edit::InsertRow(_)
@@ -402,9 +450,18 @@ fn apply(deck: &mut Deck, edit: &Edit, peer: usize, added: &mut usize) -> Applie
         | Edit::InsertColumn(_)
         | Edit::RemoveColumn(_)
         | Edit::Replace(_) => edit_table(deck, edit),
-        Edit::MoveToSlide(a, b, at) => return Applied { moves: move_to_slide(deck, *a, *b, *at), bold: None },
+        Edit::MoveToSlide(a, b, at) => {
+            return Applied { moves: move_to_slide(deck, *a, *b, *at), ..Applied::default() };
+        }
         // L'annulation passe par le réplica (voir `peers_editing_in_parallel_converge`).
-        Edit::Undo | Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_) => {}
+        // Knowledge edits are handled above by `knowledge_op`.
+        Edit::Undo
+        | Edit::RemoveElementThenUndo(_)
+        | Edit::DeleteThenUndo(_)
+        | Edit::KnowledgeWrite(..)
+        | Edit::KnowledgeReplace(..)
+        | Edit::KnowledgeMove(..)
+        | Edit::KnowledgeDelete(_) => {}
         Edit::Add(i) => {
             *added += 1;
             let slide = Slide::new(format!("p{peer}-{added}"), CONTENT);
@@ -430,7 +487,7 @@ fn apply(deck: &mut Deck, edit: &Edit, peer: usize, added: &mut usize) -> Applie
             deck.slides.remove(i % len);
         }
         Edit::Theme(t) => set_theme(deck, *t),
-        Edit::Bold(i) => return Applied { moves: Vec::new(), bold: toggle_bold(&mut deck.slides[i % len].params) },
+        Edit::Bold(i) => return Applied { bold: toggle_bold(&mut deck.slides[i % len].params), ..Applied::default() },
         Edit::MoveElement(i, a, b) => {
             if let Some(list) = busy_slot(deck, *i) {
                 let el = list.remove(a % list.len());
@@ -479,6 +536,139 @@ fn removed_then_undone(d: &Deck, e: &Edit) -> Option<Deck> {
     Some(next)
 }
 
+/// Every ordered pair of distinct peers among `k`, shuffled by `seed`.
+fn merge_order(k: usize, seed: u64) -> Vec<(usize, usize)> {
+    let mut order: Vec<(usize, usize)> =
+        (0..k).flat_map(|a| (0..k).map(move |b| (a, b))).filter(|(a, b)| a != b).collect();
+    let mut x = seed | 1;
+    for i in (1..order.len()).rev() {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        #[expect(clippy::cast_possible_truncation, reason = "remainder < i + 1, which fits in a usize")]
+        let j = (x % (i as u64 + 1)) as usize;
+        order.swap(i, j);
+    }
+    order
+}
+
+/// Peers apply `edits` in parallel, then merge in an order drawn from `seed`: they converge.
+///
+/// Returns how many knowledge ops were accepted locally.
+fn peers_converge(edits: &[Vec<Edit>], seed: u64) -> Result<usize, TestCaseError> {
+    let roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap_or_else(fail);
+    let deck = with_pile(with_pile(with_free_element(with_table(roadmap, base())), "pile-1"), "pile-2");
+    let snap = DeckReplica::new(&deck, common::shared()).unwrap_or_else(fail).snapshot().unwrap_or_else(fail);
+    let mut peers: Vec<DeckReplica> = edits
+        .iter()
+        .map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap_or_else(fail).0)
+        .collect();
+    // Oracles : ids jamais créés, textes mis en gras, ids retirés par une
+    // édition locale (avec « slide ou pile » : un tel retrait cache aussi ce
+    // qu'un pair y a mis).
+    let mut known: HashSet<String> = ids_of(&deck).into_keys().collect();
+    let mut bolds: HashMap<String, bool> = HashMap::new();
+    let mut removed: HashMap<String, bool> = HashMap::new();
+    // Knowledge ops accepted locally.
+    let mut accepted = 0;
+    for (p, (replica, list)) in peers.iter_mut().zip(edits).enumerate() {
+        known.extend((1..=list.len()).map(|k| format!("p{p}-{k}")));
+        let (mut d, mut n) = (replica.deck().0, 0);
+        // Le deck relu avant la dernière édition locale qui a écrit, tant
+        // qu'aucune annulation ne l'a consommée.
+        let mut undoable: Option<Deck> = None;
+        // Les textes que ce pair a mis en gras ; une annulation peut défaire le gras.
+        let mut mine: Vec<String> = Vec::new();
+        for e in list {
+            let ids = ids_of(&d);
+            if let Some(next) = removed_then_undone(&d, e) {
+                // Annulation exacte d'un retrait, en local.
+                let before = replica.deck().0;
+                let ops = replica.len_ops();
+                replica.apply(&next, "edit", None).unwrap_or_else(fail);
+                prop_assert!(replica.len_ops() > ops, "le retrait n'a rien écrit : {e:?}");
+                prop_assert!(replica.undo().unwrap_or_else(fail), "rien à annuler après {e:?}");
+                d = replica.deck().0;
+                prop_assert_eq!(&d, &before, "annulation inexacte de {:?}", e);
+                undoable = None;
+            } else if matches!(e, Edit::Undo) {
+                // Annule la dernière édition locale, quelle qu'elle soit (t-652 : y compris
+                // la suppression d'une slide ou d'un élément qu'un pair déplace).
+                let undone = replica.undo().unwrap_or_else(fail);
+                d = replica.deck().0;
+                if let Some(before) = undoable.take() {
+                    prop_assert!(undone, "rien à annuler après une édition écrite");
+                    prop_assert_eq!(&d, &before, "annulation inexacte");
+                }
+                for id in mine.drain(..) {
+                    bolds.insert(id, false);
+                }
+            } else if !matches!(e, Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_)) {
+                let before = replica.deck().0;
+                let applied = apply(&mut d, e, p, &mut n);
+                accepted += usize::from(applied.knowledge);
+                let ops = replica.len_ops();
+                replica.apply_moving(&d, "edit", None, &applied.moves).unwrap_or_else(fail);
+                if replica.len_ops() != ops {
+                    undoable = Some(before);
+                }
+                if let Some((id, bold)) = applied.bold {
+                    // Gras attendu seulement si tous les pairs qui touchent ce texte le posent.
+                    let kept = bolds.get(&id).copied().unwrap_or(true) && bold;
+                    bolds.insert(id.clone(), kept);
+                    mine.push(id);
+                }
+            }
+            let after = ids_of(&d);
+            removed.extend(ids.into_iter().filter(|(id, _)| !after.contains_key(id)));
+        }
+    }
+    // Échanges dans un ordre pseudo-aléatoire, jusqu'à ce que chacun ait tout.
+    let order = merge_order(peers.len(), seed);
+    for _ in 0..2 {
+        for &(a, b) in &order {
+            let src = DeckReplica::from_snapshot(&peers[b].snapshot().unwrap_or_else(fail), 1 << 24, common::shared())
+                .unwrap_or_else(fail)
+                .0;
+            peers[a].merge(&src).unwrap_or_else(fail);
+        }
+    }
+    let (first, issues) = peers[0].deck();
+    // Two peers creating the same knowledge path is a repair the read reports, not a loss.
+    let issues: Vec<_> = issues.into_iter().filter(|i| i.message.id() != "issue-knowledge-path-collision").collect();
+    prop_assert!(issues.is_empty(), "lecture partielle : {issues:?}");
+    for p in &peers[1..] {
+        prop_assert_eq!(&p.deck().0, &first);
+    }
+    let duplicates = ["issue-duplicate-slide-id", "issue-duplicate-element-id", "issue-duplicate-item-id"];
+    prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| !duplicates.contains(&i.message.id())));
+    if let Some(data) = table_data(&first) {
+        assert_table_ok(data);
+    }
+    // Aucun id renommé (t-652) : la stratégie ne réajoute jamais un id retiré.
+    let renamed: Vec<String> = ids_of(&first).into_keys().filter(|id| !known.contains(id)).collect();
+    prop_assert!(renamed.is_empty(), "ids jamais créés : {renamed:?}");
+    // Survie du gras : un texte mis en gras que personne ne retire le reste.
+    // Un retrait de slide ou de pile peut le cacher : il doit alors être
+    // absent ou gras.
+    let hidden = removed.values().any(|&owner| owner);
+    for (id, _) in bolds.iter().filter(|&(id, &bold)| bold && !removed.contains_key(id)) {
+        match bold_of(&first, id) {
+            Some(bold) => prop_assert!(bold, "gras de {} perdu", id),
+            None => prop_assert!(hidden, "{} perdu", id),
+        }
+    }
+    // Relire puis réécrire : le premier `apply` peut écrire une réparation
+    // faite à la lecture (t-652, slot réparé), le second n'écrit rien (F1).
+    for p in &mut peers {
+        p.apply(&first, "relire", None).unwrap_or_else(fail);
+        let before = p.len_ops();
+        p.apply(&first, "relire", None).unwrap_or_else(fail);
+        prop_assert_eq!(p.len_ops(), before);
+    }
+    Ok(accepted)
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(48))]
 
@@ -487,116 +677,27 @@ proptest! {
         edits in prop::collection::vec(prop::collection::vec(edit(), 0..10), 2..4),
         seed in any::<u64>(),
     ) {
-        let roadmap = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
-        let deck = with_pile(with_pile(with_free_element(with_table(roadmap, base())), "pile-1"), "pile-2");
-        let snap = DeckReplica::new(&deck, common::shared()).unwrap().snapshot().unwrap();
-        let mut peers: Vec<DeckReplica> =
-            edits.iter().map(|_| DeckReplica::from_snapshot(&snap, 1 << 24, common::shared()).unwrap().0).collect();
-        // Oracles : ids jamais créés, textes mis en gras, ids retirés par une
-        // édition locale (avec « slide ou pile » : un tel retrait cache aussi ce
-        // qu'un pair y a mis).
-        let mut known: HashSet<String> = ids_of(&deck).into_keys().collect();
-        let mut bolds: HashMap<String, bool> = HashMap::new();
-        let mut removed: HashMap<String, bool> = HashMap::new();
-        for (p, (replica, list)) in peers.iter_mut().zip(&edits).enumerate() {
-            known.extend((1..=list.len()).map(|k| format!("p{p}-{k}")));
-            let (mut d, mut n) = (replica.deck().0, 0);
-            // Le deck relu avant la dernière édition locale qui a écrit, tant
-            // qu'aucune annulation ne l'a consommée.
-            let mut undoable: Option<Deck> = None;
-            // Les textes que ce pair a mis en gras ; une annulation peut défaire le gras.
-            let mut mine: Vec<String> = Vec::new();
-            for e in list {
-                let ids = ids_of(&d);
-                if let Some(next) = removed_then_undone(&d, e) {
-                    // Annulation exacte d'un retrait, en local.
-                    let before = replica.deck().0;
-                    let ops = replica.len_ops();
-                    replica.apply(&next, "edit", None).unwrap();
-                    prop_assert!(replica.len_ops() > ops, "le retrait n'a rien écrit : {e:?}");
-                    prop_assert!(replica.undo().unwrap(), "rien à annuler après {e:?}");
-                    d = replica.deck().0;
-                    prop_assert_eq!(&d, &before, "annulation inexacte de {:?}", e);
-                    undoable = None;
-                } else if matches!(e, Edit::Undo) {
-                    // Annule la dernière édition locale, quelle qu'elle soit (t-652 : y compris
-                    // la suppression d'une slide ou d'un élément qu'un pair déplace).
-                    let undone = replica.undo().unwrap();
-                    d = replica.deck().0;
-                    if let Some(before) = undoable.take() {
-                        prop_assert!(undone, "rien à annuler après une édition écrite");
-                        prop_assert_eq!(&d, &before, "annulation inexacte");
-                    }
-                    for id in mine.drain(..) {
-                        bolds.insert(id, false);
-                    }
-                } else if !matches!(e, Edit::RemoveElementThenUndo(_) | Edit::DeleteThenUndo(_)) {
-                    let before = replica.deck().0;
-                    let applied = apply(&mut d, e, p, &mut n);
-                    let ops = replica.len_ops();
-                    replica.apply_moving(&d, "edit", None, &applied.moves).unwrap();
-                    if replica.len_ops() != ops {
-                        undoable = Some(before);
-                    }
-                    if let Some((id, bold)) = applied.bold {
-                        // Gras attendu seulement si tous les pairs qui touchent ce texte le posent.
-                        let kept = bolds.get(&id).copied().unwrap_or(true) && bold;
-                        bolds.insert(id.clone(), kept);
-                        mine.push(id);
-                    }
-                }
-                let after = ids_of(&d);
-                removed.extend(ids.into_iter().filter(|(id, _)| !after.contains_key(id)));
-            }
-        }
-        // Échanges dans un ordre pseudo-aléatoire, jusqu'à ce que chacun ait tout.
-        let k = peers.len();
-        let mut order: Vec<(usize, usize)> = (0..k).flat_map(|a| (0..k).map(move |b| (a, b))).filter(|(a, b)| a != b).collect();
-        let mut x = seed | 1;
-        for i in (1..order.len()).rev() {
-            x ^= x << 13; x ^= x >> 7; x ^= x << 17;
-            #[expect(clippy::cast_possible_truncation, reason = "remainder < i + 1, which fits in a usize")]
-            let j = (x % (i as u64 + 1)) as usize;
-            order.swap(i, j);
-        }
-        for _ in 0..2 {
-            for &(a, b) in &order {
-                let src = DeckReplica::from_snapshot(&peers[b].snapshot().unwrap(), 1 << 24, common::shared()).unwrap().0;
-                peers[a].merge(&src).unwrap();
-            }
-        }
-        let (first, issues) = peers[0].deck();
-        prop_assert!(issues.is_empty(), "lecture partielle : {issues:?}");
-        for p in &peers[1..] {
-            prop_assert_eq!(&p.deck().0, &first);
-        }
-        let duplicates = ["issue-duplicate-slide-id", "issue-duplicate-element-id", "issue-duplicate-item-id"];
-        prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| !duplicates.contains(&i.message.id())));
-        if let Some(data) = table_data(&first) {
-            assert_table_ok(data);
-        }
-        // Aucun id renommé (t-652) : la stratégie ne réajoute jamais un id retiré.
-        let renamed: Vec<String> = ids_of(&first).into_keys().filter(|id| !known.contains(id)).collect();
-        prop_assert!(renamed.is_empty(), "ids jamais créés : {renamed:?}");
-        // Survie du gras : un texte mis en gras que personne ne retire le reste.
-        // Un retrait de slide ou de pile peut le cacher : il doit alors être
-        // absent ou gras.
-        let hidden = removed.values().any(|&owner| owner);
-        for (id, _) in bolds.iter().filter(|&(id, &bold)| bold && !removed.contains_key(id)) {
-            match bold_of(&first, id) {
-                Some(bold) => prop_assert!(bold, "gras de {} perdu", id),
-                None => prop_assert!(hidden, "{} perdu", id),
-            }
-        }
-        // Relire puis réécrire : le premier `apply` peut écrire une réparation
-        // faite à la lecture (t-652, slot réparé), le second n'écrit rien (F1).
-        for p in &mut peers {
-            p.apply(&first, "relire", None).unwrap();
-            let before = p.len_ops();
-            p.apply(&first, "relire", None).unwrap();
-            prop_assert_eq!(p.len_ops(), before);
-        }
+        peers_converge(&edits, seed)?;
     }
+}
+
+#[test]
+fn peers_editing_knowledge_in_parallel_converge() {
+    // A fixed case: random runs may draw few knowledge ops that apply.
+    let a = vec![
+        Edit::KnowledgeWrite(0, "a".into()),
+        Edit::KnowledgeWrite(1, "b".into()),
+        Edit::KnowledgeReplace(0, "x".into()),
+        Edit::KnowledgeMove(1, 2),
+    ];
+    let b = vec![
+        Edit::KnowledgeWrite(0, "c".into()),
+        Edit::KnowledgeReplace(0, "y".into()),
+        Edit::KnowledgeDelete(0),
+        Edit::KnowledgeWrite(3, "d".into()),
+    ];
+    let accepted = ok(peers_converge(&[a, b], 7));
+    assert_that!(accepted).is_greater_than_or_equal_to(6);
 }
 
 fn op(v: Value) -> Op {
@@ -613,6 +714,11 @@ fn with_ops(deck: &Deck, ops: Vec<Op>) -> Deck {
     let mut d = deck.clone();
     apply_all(&mut d, ops, &common::list_registry()).unwrap_or_else(|e| panic!("ops refusées : {e:?}"));
     d
+}
+
+/// Panics with the error: a step that must succeed failed.
+fn fail<E: std::fmt::Debug, T>(e: E) -> T {
+    panic!("{e:?}")
 }
 
 /// La valeur d'un résultat attendu réussi.

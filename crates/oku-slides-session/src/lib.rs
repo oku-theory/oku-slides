@@ -495,6 +495,7 @@ pub fn blank_deck(l: &Localizer) -> Deck {
         // Adoptés au chargement : `base`, `essentiel` et leurs besoins.
         widgets: BTreeMap::new(),
         layouts: BTreeMap::new(),
+        knowledge: BTreeMap::new(),
         slides: vec![Slide::new("s-titre", kinds::essentiel::TITLE), content],
     }
 }

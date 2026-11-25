@@ -6,6 +6,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use oku_slides_i18n::{Localize, Localizer, Message};
 
+use crate::error::{FrontmatterReason, KnowledgeLimit, PathReason};
+use crate::knowledge::cited_assets;
 use crate::locate::{MAX_SLOT_DEPTH, Walk};
 use crate::model::{Deck, DeckParams, Element, Grid, Paragraph};
 use crate::namespace::Namespace;
@@ -146,6 +148,92 @@ impl Issue {
     pub fn usage_lines_dropped(count: usize) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-usage-lines-dropped").arg("count", count) }
     }
+
+    /// A knowledge entry that does not read as a file: malformed id, value or container.
+    #[must_use]
+    pub fn knowledge_unreadable(id: &str) -> Self {
+        let message = Message::new("issue-knowledge-unreadable").arg("id", peer_text(id));
+        Self { slide: None, element: None, message }
+    }
+
+    /// The bundle passes the ceiling `limit`: `count` files are past it, the first being
+    /// `first`. Every file is kept.
+    #[must_use]
+    pub fn knowledge_over_limit(limit: KnowledgeLimit, first: &str, count: usize) -> Self {
+        let message = Message::new("issue-knowledge-over-limit")
+            .arg("limit", limit.key())
+            .arg("id", peer_text(first))
+            .arg("count", count);
+        Self { slide: None, element: None, message }
+    }
+
+    /// A knowledge file whose invalid path was replaced by `/recovered/<id>.md`.
+    #[must_use]
+    pub fn knowledge_path_invalid(id: &str, reason: PathReason) -> Self {
+        let message = Message::new("issue-knowledge-path-invalid").arg("id", peer_text(id)).arg("reason", reason.key());
+        Self { slide: None, element: None, message }
+    }
+
+    /// Two knowledge files on `path`: the one with the higher id was moved.
+    #[must_use]
+    pub fn knowledge_path_collision(path: &str) -> Self {
+        Self { slide: None, element: None, message: Message::new("issue-knowledge-path-collision").arg("path", path) }
+    }
+
+    /// A knowledge file kept although its text breaks a frontmatter rule.
+    #[must_use]
+    pub fn knowledge_invalid(path: &str, reason: &FrontmatterReason) -> Self {
+        let message = Message::new("issue-knowledge-invalid")
+            .arg("path", path)
+            .arg("reason", reason.key())
+            .arg("key", peer_text(reason.subject().unwrap_or_default()));
+        Self { slide: None, element: None, message }
+    }
+}
+
+/// Most characters of a peer-controlled string (a file id, a frontmatter key) in an issue.
+pub(crate) const PEER_TEXT_MAX_CHARS: usize = 64;
+
+/// A peer-controlled string made safe to show in an issue: control and bidirectional
+/// formatting characters removed, then cut to [`PEER_TEXT_MAX_CHARS`] characters, `…` marking
+/// a cut.
+pub(crate) fn peer_text(text: &str) -> String {
+    let mut kept = text.chars().filter(|&c| !c.is_control() && !is_invisible_format(c));
+    let mut out: String = kept.by_ref().take(PEER_TEXT_MAX_CHARS).collect();
+    if kept.next().is_some() {
+        out.push('…');
+    }
+    out
+}
+
+/// Characters that reorder, hide or break a shown line: bidi controls (marks, embeddings,
+/// overrides, isolates), line and paragraph separators, and the other Unicode format
+/// characters (`Cf`: soft hyphen, zero-width ones, word joiner, invisible operators, BOM, tags…).
+fn is_invisible_format(c: char) -> bool {
+    matches!(
+        c,
+        '\u{00AD}'
+            | '\u{061C}'
+            | '\u{0600}'..='\u{0605}'
+            | '\u{06DD}'
+            | '\u{070F}'
+            | '\u{0890}'..='\u{0891}'
+            | '\u{08E2}'
+            | '\u{180E}'
+            | '\u{200B}'..='\u{200F}'
+            | '\u{2028}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206F}'
+            | '\u{FEFF}'
+            | '\u{FFF9}'..='\u{FFFB}'
+            | '\u{110BD}'
+            | '\u{110CD}'
+            | '\u{13430}'..='\u{1343F}'
+            | '\u{1BCA0}'..='\u{1BCA3}'
+            | '\u{1D173}'..='\u{1D17A}'
+            | '\u{E0001}'
+            | '\u{E0020}'..='\u{E007F}'
+    )
 }
 
 /// Les valeurs des paramètres `asset` de `params` selon `schema`, listes comprises.
@@ -189,6 +277,16 @@ pub fn asset_refs(deck: &Deck, registry: &WidgetRegistry) -> BTreeSet<String> {
         }
     }
     out
+}
+
+/// The assets cited by the images of every knowledge file of `deck`.
+///
+/// A separate scan from [`asset_refs`], which stays unchanged because a session runs it twice per
+/// op. Assets are add-only, so a cited image survives save/load and the deletion of its last
+/// citing file.
+#[must_use]
+pub fn knowledge_asset_refs(deck: &Deck) -> BTreeSet<String> {
+    deck.knowledge.values().flat_map(cited_assets).collect()
 }
 
 /// Les assets que cite un élément : les siens et ceux de ses descendants.

@@ -21,6 +21,39 @@ op-value-out-of-bounds = the number is outside its allowed range
 op-value-unreadable = the value does not have the expected form
 op-value-valign = top, middle or bottom is expected
 op-value-path = the path is made of M, L, C, Q and Z commands followed by their numbers, starting with M
+knowledge-path-empty = the path is empty
+knowledge-path-not-absolute = the path must start with /
+knowledge-path-bad-segment = a segment is empty, ends with a dot or uses a character other than a-z, 0-9, dot, underscore and hyphen
+knowledge-path-dot-segment = a segment must not start with a dot
+knowledge-path-reserved = a segment is a reserved system name
+knowledge-path-too-deep = the path has too many segments
+knowledge-path-too-long = the path is too long
+knowledge-path-not-markdown = the file name must end in .md
+knowledge-frontmatter-missing = the file must start with a --- frontmatter block
+knowledge-frontmatter-unterminated = the frontmatter block has no closing ---
+knowledge-frontmatter-too-large = the frontmatter block is too large
+knowledge-frontmatter-not-yaml = the frontmatter is not valid YAML
+knowledge-frontmatter-not-mapping = the frontmatter must be a mapping with text keys
+knowledge-frontmatter-duplicate-key = the frontmatter key "{ $key }" appears twice
+knowledge-frontmatter-alias = the frontmatter must not use YAML anchors or aliases
+knowledge-frontmatter-tag = the frontmatter must not use YAML tags
+knowledge-frontmatter-too-deep = the frontmatter is nested too deeply
+knowledge-frontmatter-type-missing = the frontmatter needs a non-empty type
+knowledge-frontmatter-bad-timestamp = the frontmatter value "{ $key }" must be an RFC 3339 date-time with an offset
+knowledge-frontmatter-not-allowed = the frontmatter key "{ $key }" is not allowed in this file
+knowledge-reason-not-found = no file at this path
+knowledge-reason-exists = a file already exists at this path
+knowledge-reason-id-missing = a new file needs an id
+knowledge-reason-id-invalid = a file id is 32 lowercase hexadecimal digits
+knowledge-reason-id-taken = another file already has this id
+knowledge-reason-id-mismatch = the file at this path has another id
+knowledge-reason-edit-empty-old = the text to replace must not be empty
+knowledge-reason-edit-no-match = the text to replace is not in the file
+knowledge-reason-edit-ambiguous = the text to replace appears in the file more than once
+knowledge-reason-too-many-files = the bundle has too many files
+knowledge-reason-file-too-large = the file is too large
+knowledge-reason-total-too-large = the bundle is too large
+op-knowledge = Knowledge file { $path }: { $reason }
 op-unknown-widget = Unknown widget: { $subject }
 op-unknown-namespace = This deck has no pack { $pack }.
 op-pack-required = The pack { $pack } is needed by { $by }; remove that one first.
@@ -179,6 +212,37 @@ issue-unreadable-row = unreadable table row, set aside
 issue-data-truncated = data too large, truncated on read
 issue-unreadable-slide = unreadable slide, set aside
 issue-unreadable-field = unreadable deck field { $field }, reset
+issue-knowledge-unreadable = unreadable knowledge entry { $id }, set aside
+issue-knowledge-over-limit = knowledge bundle past a limit: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (files past it: { $count }, first { $id }); every file is kept, but writes past the limit are refused
+issue-knowledge-path-invalid = knowledge file { $id } moved to /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = several knowledge files were at { $path }: the others were renamed
+issue-knowledge-invalid = knowledge file { $path } is invalid: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Chart { $subject }: { $reason }
 op-invalid-table = Table { $subject }: { $reason }
 

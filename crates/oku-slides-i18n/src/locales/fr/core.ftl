@@ -21,6 +21,39 @@ op-value-out-of-bounds = le nombre est hors des limites permises
 op-value-unreadable = la valeur n'a pas la forme attendue
 op-value-valign = top, middle ou bottom est attendu
 op-value-path = le chemin se compose de commandes M, L, C, Q et Z suivies de leurs nombres, en commençant par M
+knowledge-path-empty = le chemin est vide
+knowledge-path-not-absolute = le chemin doit commencer par /
+knowledge-path-bad-segment = un segment est vide, finit par un point ou utilise un caractère autre que a-z, 0-9, point, tiret bas et tiret
+knowledge-path-dot-segment = un segment ne doit pas commencer par un point
+knowledge-path-reserved = un segment est un nom réservé du système
+knowledge-path-too-deep = le chemin a trop de segments
+knowledge-path-too-long = le chemin est trop long
+knowledge-path-not-markdown = le nom du fichier doit se terminer par .md
+knowledge-frontmatter-missing = le fichier doit commencer par un bloc d'en-tête délimité par ---
+knowledge-frontmatter-unterminated = le bloc d'en-tête n'a pas de --- de fermeture
+knowledge-frontmatter-too-large = le bloc d'en-tête est trop volumineux
+knowledge-frontmatter-not-yaml = l'en-tête n'est pas du YAML valide
+knowledge-frontmatter-not-mapping = l'en-tête doit être une table à clés textuelles
+knowledge-frontmatter-duplicate-key = la clé « { $key } » apparaît deux fois dans l'en-tête
+knowledge-frontmatter-alias = l'en-tête ne doit pas utiliser d'ancres ni d'alias YAML
+knowledge-frontmatter-tag = l'en-tête ne doit pas utiliser de balises YAML
+knowledge-frontmatter-too-deep = l'en-tête est imbriqué trop profondément
+knowledge-frontmatter-type-missing = l'en-tête doit avoir un type non vide
+knowledge-frontmatter-bad-timestamp = la valeur « { $key } » de l'en-tête doit être une date RFC 3339 avec décalage horaire
+knowledge-frontmatter-not-allowed = la clé « { $key } » n'est pas permise dans l'en-tête de ce fichier
+knowledge-reason-not-found = aucun fichier à ce chemin
+knowledge-reason-exists = un fichier existe déjà à ce chemin
+knowledge-reason-id-missing = un nouveau fichier a besoin d'un identifiant
+knowledge-reason-id-invalid = l'identifiant d'un fichier est composé de 32 chiffres hexadécimaux en minuscules
+knowledge-reason-id-taken = un autre fichier a déjà cet identifiant
+knowledge-reason-id-mismatch = le fichier à ce chemin a un autre identifiant
+knowledge-reason-edit-empty-old = le texte à remplacer ne doit pas être vide
+knowledge-reason-edit-no-match = le texte à remplacer n'est pas dans le fichier
+knowledge-reason-edit-ambiguous = le texte à remplacer apparaît plusieurs fois dans le fichier
+knowledge-reason-too-many-files = le dossier a trop de fichiers
+knowledge-reason-file-too-large = le fichier est trop volumineux
+knowledge-reason-total-too-large = le dossier est trop volumineux
+op-knowledge = Fichier de connaissances { $path } : { $reason }
 op-unknown-widget = Widget inconnu : { $subject }
 op-unknown-namespace = Ce deck n'a pas de pack { $pack }.
 op-pack-required = Le pack { $pack } est nécessaire à { $by } ; retirez d'abord celui-ci.
@@ -179,6 +212,37 @@ issue-unreadable-row = ligne de tableau illisible, mise de côté
 issue-data-truncated = données trop grandes, tronquées à la lecture
 issue-unreadable-slide = slide illisible, mise de côté
 issue-unreadable-field = champ { $field } du deck illisible, réinitialisé
+issue-knowledge-unreadable = entrée de connaissances { $id } illisible, mise de côté
+issue-knowledge-over-limit = dossier de connaissances au-delà d’une limite : { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (fichiers concernés : { $count }, le premier { $id }) ; tous les fichiers sont gardés, mais les écritures au-delà de la limite sont refusées
+issue-knowledge-path-invalid = fichier de connaissances { $id } déplacé dans /recovered : { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = plusieurs fichiers de connaissances étaient à { $path } : les autres ont été renommés
+issue-knowledge-invalid = fichier de connaissances { $path } invalide : { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Graphique { $subject } : { $reason }
 op-invalid-table = Tableau { $subject } : { $reason }
 

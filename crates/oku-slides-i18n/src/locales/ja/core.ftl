@@ -21,6 +21,39 @@ op-value-out-of-bounds = 数値が許容範囲外です
 op-value-unreadable = 値が想定された形式ではありません
 op-value-valign = top、middle、bottom のいずれかが必要です
 op-value-path = パスは M、L、C、Q、Z の各コマンドとその数値で構成され、M で始まります
+knowledge-path-empty = パスが空です
+knowledge-path-not-absolute = パスは / で始める必要があります
+knowledge-path-bad-segment = 空のセグメント、ドットで終わるセグメント、または a-z、0-9、ドット、アンダースコア、ハイフン以外の文字を使うセグメントがあります
+knowledge-path-dot-segment = セグメントをドットで始めることはできません
+knowledge-path-reserved = セグメントがシステムの予約名です
+knowledge-path-too-deep = パスのセグメントが多すぎます
+knowledge-path-too-long = パスが長すぎます
+knowledge-path-not-markdown = ファイル名は .md で終わる必要があります
+knowledge-frontmatter-missing = ファイルは --- で囲まれたヘッダーブロックで始まる必要があります
+knowledge-frontmatter-unterminated = ヘッダーブロックに閉じの --- がありません
+knowledge-frontmatter-too-large = ヘッダーブロックが大きすぎます
+knowledge-frontmatter-not-yaml = ヘッダーが有効な YAML ではありません
+knowledge-frontmatter-not-mapping = ヘッダーは文字列キーのマッピングである必要があります
+knowledge-frontmatter-duplicate-key = ヘッダーにキー「{ $key }」が2回現れています
+knowledge-frontmatter-alias = ヘッダーでは YAML のアンカーとエイリアスを使えません
+knowledge-frontmatter-tag = ヘッダーでは YAML のタグを使えません
+knowledge-frontmatter-too-deep = ヘッダーの入れ子が深すぎます
+knowledge-frontmatter-type-missing = ヘッダーには空でない type が必要です
+knowledge-frontmatter-bad-timestamp = ヘッダーの値「{ $key }」はオフセット付きの RFC 3339 日時である必要があります
+knowledge-frontmatter-not-allowed = キー「{ $key }」はこのファイルのヘッダーでは使えません
+knowledge-reason-not-found = このパスにファイルがありません
+knowledge-reason-exists = このパスにはすでにファイルがあります
+knowledge-reason-id-missing = 新しいファイルには ID が必要です
+knowledge-reason-id-invalid = ファイル ID は小文字の16進数32桁です
+knowledge-reason-id-taken = この ID はすでに別のファイルが使っています
+knowledge-reason-id-mismatch = このパスのファイルは別の ID を持っています
+knowledge-reason-edit-empty-old = 置換する文字列は空にできません
+knowledge-reason-edit-no-match = 置換する文字列がファイルにありません
+knowledge-reason-edit-ambiguous = 置換する文字列がファイル内に複数あります
+knowledge-reason-too-many-files = バンドルのファイルが多すぎます
+knowledge-reason-file-too-large = ファイルが大きすぎます
+knowledge-reason-total-too-large = バンドルが大きすぎます
+op-knowledge = ナレッジファイル { $path }: { $reason }
 op-unknown-widget = 不明なウィジェット：{ $subject }
 op-unknown-namespace = このデッキにはパック { $pack } がありません。
 op-pack-required = パック { $pack } は { $by } に必要です。先にそちらを削除してください。
@@ -169,6 +202,37 @@ issue-unreadable-row = 読み取れない表の行を除外しました
 issue-data-truncated = データが大きすぎるため、読み込み時に切り詰めました
 issue-unreadable-slide = 読み取れないスライドを除外しました
 issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
+issue-knowledge-unreadable = 読み取れないナレッジ項目 { $id } を除外しました
+issue-knowledge-over-limit = ナレッジコレクションが上限を超えています: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    }（該当ファイル: { $count }、最初は { $id }）。すべてのファイルは保持されますが、上限を超える書き込みは拒否されます
+issue-knowledge-path-invalid = ナレッジファイル { $id } を /recovered に移動しました: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = { $path } に複数のナレッジファイルがありました: 他のファイルの名前を変更しました
+issue-knowledge-invalid = ナレッジファイル { $path } は無効です: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = グラフ { $subject }：{ $reason }
 op-invalid-table = テーブル { $subject }：{ $reason }
 

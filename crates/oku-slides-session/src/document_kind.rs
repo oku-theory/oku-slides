@@ -9,7 +9,7 @@ use oku_slides_core::Op;
 use serde::Serialize;
 use snafu::ensure;
 
-use crate::error::WrongDocumentSnafu;
+use crate::error::{KnowledgeOpsHiddenSnafu, WrongDocumentSnafu};
 use crate::theme_edit::{DRAFT_SWITCH_VAR, is_token_op};
 use crate::{Mode, Request, Result, Session};
 
@@ -59,6 +59,12 @@ pub(crate) fn refused_in_theme_tab<T>() -> Result<T> {
     Ok(WrongDocumentSnafu { kind: DocumentKind::Theme }.fail()?)
 }
 
+/// Refuses ops that write the deck knowledge (`KnowledgeOpsHidden`).
+pub(crate) fn ensure_no_knowledge_ops(ops: &[Op]) -> Result<()> {
+    ensure!(!ops.iter().any(Op::is_knowledge), KnowledgeOpsHiddenSnafu);
+    Ok(())
+}
+
 impl Session {
     /// The kind of document this session holds; history browses a deck.
     #[must_use]
@@ -95,7 +101,11 @@ impl Session {
     /// choice (its preview theme goes through `apply_silent_ops`) nor a pin
     /// change: pins are deck-only, as the `add_pack` tool is. No caller writes the
     /// draft's rank ([`DRAFT_SWITCH_VAR`]): only the theme tab's rank steps do.
+    ///
+    /// Knowledge ops come first and are refused in every kind (`KnowledgeOpsHidden`): no caller
+    /// may write the deck knowledge until its approval exists.
     pub(crate) fn ensure_caller_ops(&self, ops: &[Op]) -> Result<()> {
+        ensure_no_knowledge_ops(ops)?;
         let kind = self.document_kind();
         let fits = |op: &Op| match op {
             Op::SetVar { key, .. } if key == DRAFT_SWITCH_VAR => false,

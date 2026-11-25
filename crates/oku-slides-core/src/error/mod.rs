@@ -10,8 +10,8 @@ use snafu::{Backtrace, IntoError, Snafu};
 mod reason;
 mod token;
 
-pub use reason::ValueReason;
 pub(crate) use reason::{ExpectedType, Shape};
+pub use reason::{FrontmatterReason, KnowledgeLimit, KnowledgeReason, PathReason, ValueReason};
 pub(crate) use token::{
     EmptyPathSnafu, ManifestJsonSnafu, ManifestOrderSnafu, ManifestTokensSnafu, MissingDefaultSnafu, PathConflictSnafu,
 };
@@ -71,6 +71,8 @@ pub enum OpErrorKind {
     ThemeCycle,
     /// Les thèmes épinglés ne sont pas exactement la fermeture du thème du deck.
     ThemeClosure,
+    /// A knowledge op was refused (see [`KnowledgeReason`]).
+    Knowledge,
 }
 
 /// La borne d'une liste qu'une opération dépasserait.
@@ -156,6 +158,8 @@ pub(crate) enum OpInner {
     ThemeCycle { chain: String, backtrace: Backtrace },
     #[snafu(display("the pinned themes are not the closure of the deck theme ({namespace})"))]
     ThemeClosure { namespace: String, backtrace: Backtrace },
+    #[snafu(display("knowledge file {path}: {reason}"))]
+    Knowledge { path: String, reason: KnowledgeReason, backtrace: Backtrace },
 }
 
 /// Un refus de la chaîne d'un thème devient le refus de l'op qui la pose.
@@ -212,6 +216,7 @@ impl OpError {
             OpInner::PackKindConflict { .. } => OpErrorKind::PackKindConflict,
             OpInner::ThemeCycle { .. } => OpErrorKind::ThemeCycle,
             OpInner::ThemeClosure { .. } => OpErrorKind::ThemeClosure,
+            OpInner::Knowledge { .. } => OpErrorKind::Knowledge,
         }
     }
 
@@ -240,6 +245,7 @@ impl OpError {
             | OpInner::PackKindConflict { namespace, .. }
             | OpInner::ThemeClosure { namespace, .. } => Some(namespace),
             OpInner::ThemeCycle { chain, .. } => Some(chain),
+            OpInner::Knowledge { path, .. } => Some(path),
             OpInner::IndexOutOfRange { .. } | OpInner::BaseRequired { .. } => None,
         }
     }
@@ -250,6 +256,15 @@ impl OpError {
         match &*self.0 {
             OpInner::InvalidValue { reason, .. } => Some(*reason),
             OpInner::ParseValue { .. } => Some(ValueReason::Unreadable),
+            _ => None,
+        }
+    }
+
+    /// Why a knowledge op is refused, for an [`OpErrorKind::Knowledge`] error.
+    #[must_use]
+    pub fn knowledge_reason(&self) -> Option<&KnowledgeReason> {
+        match &*self.0 {
+            OpInner::Knowledge { reason, .. } => Some(reason),
             _ => None,
         }
     }
@@ -386,6 +401,9 @@ impl Localize for OpError {
         if let Some((key, subject, source)) = host {
             return l.tr_with(key, &[("subject", subject.as_str().into()), ("reason", source.localize(l).into())]);
         }
+        if let OpInner::Knowledge { path, reason, .. } = &*self.0 {
+            return l.tr_with("op-knowledge", &[("path", path.as_str().into()), ("reason", reason.message(l).into())]);
+        }
         if let Some(reason) = self.value_reason() {
             return l.tr_with(
                 "op-invalid-value-because",
@@ -434,7 +452,8 @@ impl Localize for OpError {
             | OpErrorKind::PackRequirementMissing
             | OpErrorKind::PackKindConflict
             | OpErrorKind::ThemeCycle
-            | OpErrorKind::ThemeClosure => "op-invalid-value",
+            | OpErrorKind::ThemeClosure
+            | OpErrorKind::Knowledge => "op-invalid-value",
             OpErrorKind::InvalidChart => "op-invalid-chart",
             OpErrorKind::InvalidTable => "op-invalid-table",
             OpErrorKind::UnknownWidget => "op-unknown-widget",
@@ -537,8 +556,6 @@ pub(crate) enum ReplicaInner {
     TooLarge { size: usize, max: usize, backtrace: Backtrace },
     #[snafu(display("replica write failed"))]
     Loro { source: loro::LoroError, backtrace: Backtrace },
-    #[snafu(display("replica text update timed out"))]
-    TextUpdate { source: loro::UpdateTimeoutError, backtrace: Backtrace },
     #[snafu(display("replica export failed"))]
     Export { source: loro::LoroEncodeError, backtrace: Backtrace },
     #[snafu(display("deck (de)serialization failed"))]
@@ -578,7 +595,6 @@ impl ReplicaError {
                 ReplicaErrorKind::UnsupportedVersion
             }
             ReplicaInner::Loro { .. }
-            | ReplicaInner::TextUpdate { .. }
             | ReplicaInner::Export { .. }
             | ReplicaInner::ContainerOutsideParams { .. }
             | ReplicaInner::TreeOrder { .. }

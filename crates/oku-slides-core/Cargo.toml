@@ -21,6 +21,8 @@ hex.workspace = true
 uuid.workspace = true
 loro.workspace = true
 tracing.workspace = true
+saphyr-parser.workspace = true
+pulldown-cmark.workspace = true
 time.workspace = true
 
 [features]

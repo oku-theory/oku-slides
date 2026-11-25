@@ -21,6 +21,39 @@ op-value-out-of-bounds = het getal ligt buiten het toegestane bereik
 op-value-unreadable = de waarde heeft niet de verwachte vorm
 op-value-valign = top, middle of bottom wordt verwacht
 op-value-path = het pad bestaat uit M-, L-, C-, Q- en Z-opdrachten met hun getallen en begint met M
+knowledge-path-empty = het pad is leeg
+knowledge-path-not-absolute = het pad moet beginnen met /
+knowledge-path-bad-segment = een segment is leeg, eindigt op een punt of gebruikt een ander teken dan a-z, 0-9, punt, underscore en koppelteken
+knowledge-path-dot-segment = een segment mag niet met een punt beginnen
+knowledge-path-reserved = een segment is een gereserveerde systeemnaam
+knowledge-path-too-deep = het pad heeft te veel segmenten
+knowledge-path-too-long = het pad is te lang
+knowledge-path-not-markdown = de bestandsnaam moet eindigen op .md
+knowledge-frontmatter-missing = het bestand moet beginnen met een koptekstblok tussen ---
+knowledge-frontmatter-unterminated = het koptekstblok heeft geen afsluitende ---
+knowledge-frontmatter-too-large = het koptekstblok is te groot
+knowledge-frontmatter-not-yaml = de koptekst is geen geldige YAML
+knowledge-frontmatter-not-mapping = de koptekst moet een mapping met tekstsleutels zijn
+knowledge-frontmatter-duplicate-key = de sleutel "{ $key }" komt twee keer voor in de koptekst
+knowledge-frontmatter-alias = de koptekst mag geen YAML-ankers of -aliassen gebruiken
+knowledge-frontmatter-tag = de koptekst mag geen YAML-tags gebruiken
+knowledge-frontmatter-too-deep = de koptekst is te diep genest
+knowledge-frontmatter-type-missing = de koptekst heeft een niet-leeg type nodig
+knowledge-frontmatter-bad-timestamp = de waarde "{ $key }" in de koptekst moet een RFC 3339-datumtijd met tijdzoneverschil zijn
+knowledge-frontmatter-not-allowed = de sleutel "{ $key }" is niet toegestaan in de koptekst van dit bestand
+knowledge-reason-not-found = geen bestand op dit pad
+knowledge-reason-exists = op dit pad bestaat al een bestand
+knowledge-reason-id-missing = een nieuw bestand heeft een id nodig
+knowledge-reason-id-invalid = een bestands-id bestaat uit 32 hexadecimale cijfers in kleine letters
+knowledge-reason-id-taken = een ander bestand heeft dit id al
+knowledge-reason-id-mismatch = het bestand op dit pad heeft een ander id
+knowledge-reason-edit-empty-old = de te vervangen tekst mag niet leeg zijn
+knowledge-reason-edit-no-match = de te vervangen tekst staat niet in het bestand
+knowledge-reason-edit-ambiguous = de te vervangen tekst komt meer dan eens in het bestand voor
+knowledge-reason-too-many-files = de bundel heeft te veel bestanden
+knowledge-reason-file-too-large = het bestand is te groot
+knowledge-reason-total-too-large = de bundel is te groot
+op-knowledge = Kennisbestand { $path }: { $reason }
 op-unknown-widget = Onbekende widget: { $subject }
 op-unknown-namespace = Deze presentatie heeft geen pakket { $pack }.
 op-pack-required = Het pakket { $pack } is nodig voor { $by }; verwijder dat eerst.
@@ -179,6 +212,37 @@ issue-unreadable-row = onleesbare tabelrij, apart gezet
 issue-data-truncated = gegevens te groot, bij het lezen ingekort
 issue-unreadable-slide = onleesbare dia, apart gezet
 issue-unreadable-field = onleesbaar deckveld { $field }, hersteld
+issue-knowledge-unreadable = onleesbaar kennisitem { $id }, apart gezet
+issue-knowledge-over-limit = kennisverzameling over een limiet: { $limit ->
+        [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
+        [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
+       *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
+    } (betrokken bestanden: { $count }, het eerste { $id }); alle bestanden blijven bewaard, maar schrijfacties boven de limiet worden geweigerd
+issue-knowledge-path-invalid = kennisbestand { $id } verplaatst naar /recovered: { $reason ->
+        [knowledge-path-empty] { knowledge-path-empty }
+        [knowledge-path-not-absolute] { knowledge-path-not-absolute }
+        [knowledge-path-bad-segment] { knowledge-path-bad-segment }
+        [knowledge-path-dot-segment] { knowledge-path-dot-segment }
+        [knowledge-path-reserved] { knowledge-path-reserved }
+        [knowledge-path-too-deep] { knowledge-path-too-deep }
+        [knowledge-path-too-long] { knowledge-path-too-long }
+       *[knowledge-path-not-markdown] { knowledge-path-not-markdown }
+    }
+issue-knowledge-path-collision = meerdere kennisbestanden stonden op { $path }: de andere zijn hernoemd
+issue-knowledge-invalid = kennisbestand { $path } is ongeldig: { $reason ->
+        [knowledge-frontmatter-missing] { knowledge-frontmatter-missing }
+        [knowledge-frontmatter-unterminated] { knowledge-frontmatter-unterminated }
+        [knowledge-frontmatter-too-large] { knowledge-frontmatter-too-large }
+        [knowledge-frontmatter-not-yaml] { knowledge-frontmatter-not-yaml }
+        [knowledge-frontmatter-not-mapping] { knowledge-frontmatter-not-mapping }
+        [knowledge-frontmatter-duplicate-key] { knowledge-frontmatter-duplicate-key }
+        [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
+        [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
+        [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
+        [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
+       *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }
+    }
 op-invalid-chart = Grafiek { $subject }: { $reason }
 op-invalid-table = Tabel { $subject }: { $reason }
 

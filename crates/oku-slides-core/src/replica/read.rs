@@ -6,6 +6,8 @@
 //! lit dans son conteneur. L'historique, la fusion et l'aperçu d'une version
 //! passée ne dépendent donc pas du pack installé.
 
+use std::collections::BTreeMap;
+
 use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroTree, LoroValue, TreeParentId, ValueOrContainer};
 use oku_slides_i18n::Message;
 use serde::Deserialize;
@@ -13,9 +15,10 @@ use serde_json::{Map, Value};
 
 use super::DeckRead;
 use super::entry::Ancestry;
-use super::schema::{Ctx, DATASET, Kind, LIST, RICH};
+use super::schema::{Ctx, DATASET, KNOWLEDGE, Kind, LIST, RICH};
 use super::tree::{Children, ordered_children, slide_order, stray_roots};
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
+use crate::knowledge::{KnowledgeFile, normalize};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{DECK_VERSION, Deck, Element, Slide};
 use crate::validate::Issue;
@@ -59,10 +62,50 @@ pub(super) fn loro_to_json_at(v: &LoroValue, depth: u32) -> Value {
 
 /// Lit le deck de la carte racine `root` : lecture totale, sauf pour un deck
 /// d'une autre version que [`DECK_VERSION`], refusé.
-pub(super) fn deck(root: &LoroMap) -> Result<DeckRead, ReplicaInner> {
+///
+/// The bundle comes from the root map `knowledge`, repaired by [`normalize`]; a
+/// `knowledge` key under `deck` is never written, so it is dropped as unreadable.
+pub(super) fn deck(root: &LoroMap, knowledge: &LoroMap) -> Result<DeckRead, ReplicaInner> {
     let mut reader = Reader::default();
-    let json = reader.read_map_at(root, Ctx::Deck, Depth::default());
-    materialize(json, reader.issues)
+    let mut json = reader.read_map_at(root, Ctx::Deck, Depth::default());
+    if json.remove(KNOWLEDGE).is_some() {
+        reader.issues.push(issue(None, None, Message::new("issue-unreadable-field").arg("field", KNOWLEDGE)));
+    }
+    let (files, repairs) = normalize(read_knowledge(knowledge, &mut reader.issues));
+    let (mut deck, mut issues) = materialize(json, reader.issues)?;
+    deck.knowledge = files;
+    issues.extend(repairs);
+    Ok((deck, issues))
+}
+
+/// The files of the root map `knowledge`, as stored: an entry that is not a map
+/// `{path, text: LoroText}` is set aside; other keys are dropped; the text is verbatim.
+fn read_knowledge(map: &LoroMap, issues: &mut Vec<Issue>) -> BTreeMap<String, KnowledgeFile> {
+    let mut out = BTreeMap::new();
+    for id in map.keys() {
+        let id = id.to_string();
+        let file = match map.get(&id) {
+            Some(ValueOrContainer::Container(Container::Map(m))) => knowledge_file(&m),
+            _ => None,
+        };
+        match file {
+            Some(file) => {
+                out.insert(id, file);
+            }
+            None => issues.push(Issue::knowledge_unreadable(&id)),
+        }
+    }
+    out
+}
+
+/// One stored file; `None` without a `LoroText` under `text`. A missing path reads empty.
+fn knowledge_file(m: &LoroMap) -> Option<KnowledgeFile> {
+    let Some(ValueOrContainer::Container(Container::Text(text))) = m.get("text") else { return None };
+    let path = match m.get("path") {
+        Some(ValueOrContainer::Value(LoroValue::String(s))) => s.to_string(),
+        _ => String::new(),
+    };
+    Some(KnowledgeFile { path, text: text.to_string() })
 }
 
 /// Lecture des conteneurs ; garde les éléments illisibles écartés.
