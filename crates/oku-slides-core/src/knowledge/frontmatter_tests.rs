@@ -42,7 +42,9 @@ fn bad_at(key: &str) -> FrontmatterReason {
 #[case::upper_z("type: Note\ngenerated: {at: 2026-11-24T10:00:00Z}")]
 #[case::lower_z("type: Note\ngenerated: {at: 2026-11-24t10:00:00z}")]
 #[case::offset("type: Note\ngenerated:\n  at: 2026-11-24T10:00:00+01:00\n  by: someone")]
-#[case::second_document_not_read("type: Note\n...\n: : [")]
+#[case::blank_lines_after_document_end("type: Note\n...\n\n  \n")]
+#[case::comment_after_document_end("type: Note\n...\n\n# note\n\n")]
+#[case::document_end_alone("type: Note\n...")]
 fn concept_ok(#[case] yaml: &str) {
     assert_that!(check("/a.md", &concept(yaml))).is_ok();
 }
@@ -65,6 +67,9 @@ fn concept_ok(#[case] yaml: &str) {
 #[case::tag(&concept("type: !!str x"), FrontmatterReason::Tag)]
 #[case::custom_tag(&concept("type: a\nb: !thing 1"), FrontmatterReason::Tag)]
 #[case::too_deep(&concept(&nested(MAX_YAML_DEPTH + 1)), FrontmatterReason::TooDeep)]
+#[case::after_document_end(&concept("type: a\n...\nx: 1"), FrontmatterReason::AfterDocumentEnd)]
+#[case::second_document(&concept("type: Note\n...\n: : ["), FrontmatterReason::AfterDocumentEnd)]
+#[case::after_blank_document_end(&concept("type: a\n...\n\nx: 1"), FrontmatterReason::AfterDocumentEnd)]
 #[case::empty_type(&concept("type: \"\""), FrontmatterReason::TypeMissing)]
 #[case::null_type(&concept("type:"), FrontmatterReason::TypeMissing)]
 #[case::no_type(&concept("title: x"), FrontmatterReason::TypeMissing)]
@@ -203,6 +208,21 @@ fn frontmatter_leaves_non_text_fields_empty() {
     assert_that!(fm.keys.len()).is_equal_to(3);
 }
 
+#[rstest]
+#[case::draft_and_stale("type: Note\nstatus: draft\nstale: true", Some("draft"), true)]
+#[case::quoted_stale("type: Note\nstale: \"true\"", None, false)]
+#[case::stale_yes("type: Note\nstale: \"yes\"", None, false)]
+#[case::stale_false("type: Note\nstale: false", None, false)]
+#[case::stale_capitalized("type: Note\nstale: True", None, false)]
+#[case::status_map("type: Note\nstatus: {a: 1}", None, false)]
+#[case::status_null("type: Note\nstatus:", None, false)]
+#[case::absent("type: Note", None, false)]
+fn frontmatter_reads_status_and_stale(#[case] yaml: &str, #[case] status: Option<&str>, #[case] stale: bool) {
+    let fm = frontmatter(&concept(yaml)).unwrap();
+    assert_that!(fm.status.as_deref()).is_equal_to(status);
+    assert_that!(fm.stale).is_equal_to(stale);
+}
+
 #[test]
 fn frontmatter_refuses_what_check_text_refuses_structurally() {
     assert_that!(frontmatter("none")).is_err_containing(FrontmatterReason::Missing);
@@ -221,6 +241,7 @@ fn every_frontmatter_reason_key_exists_in_every_locale() {
         FrontmatterReason::Alias,
         FrontmatterReason::Tag,
         FrontmatterReason::TooDeep,
+        FrontmatterReason::AfterDocumentEnd,
         FrontmatterReason::TypeMissing,
         bad_at("generated.at"),
         FrontmatterReason::NotAllowed { key: "k".to_owned() },

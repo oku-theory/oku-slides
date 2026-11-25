@@ -79,7 +79,7 @@ pub use error::{
 pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
 pub use knowledge::{
-    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, check_text, cited_assets, frontmatter, knowledge_file_id,
+    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, check_text, cited_images, frontmatter, knowledge_file_id,
     normalize,
 };
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};

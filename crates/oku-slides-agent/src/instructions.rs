@@ -16,8 +16,11 @@ use oku_slides_session::DocumentKind;
 /// Role of the agent, the tools of every tab kind, the language rule.
 pub(crate) const INSTRUCTIONS: &str = include_str!("instructions/agent.md");
 
-/// What a deck or help tab does: files, history, presenting, themes and packs.
-const DECK: &str = include_str!("instructions/deck.md");
+/// What a help tab does: files, history, presenting, themes and packs.
+const HELP: &str = include_str!("instructions/deck.md");
+
+/// What a deck tab does: the help tab's paragraphs, then its knowledge base (a help tab has none).
+const DECK: &str = concat!(include_str!("instructions/deck.md"), "\n\n", include_str!("instructions/knowledge.md"));
 
 /// What a pack tab does: edit the pack's items.
 const PACK: &str = include_str!("instructions/pack.md");
@@ -42,10 +45,11 @@ pub(crate) const fn design_for(kind: DocumentKind) -> Option<&'static str> {
 /// Fine-tune an imported deck: the bounded loop, sent with the fine-tuning turn only.
 pub(crate) const IMPORT: &str = include_str!("instructions/import.md");
 
-/// The paragraph for a tab of `kind`; a help tab reads the deck's.
+/// The paragraph for a tab of `kind`; a help tab reads the deck's but the knowledge base.
 pub(crate) const fn for_kind(kind: DocumentKind) -> &'static str {
     match kind {
-        DocumentKind::Deck | DocumentKind::Help => DECK,
+        DocumentKind::Deck => DECK,
+        DocumentKind::Help => HELP,
         DocumentKind::Pack => PACK,
         DocumentKind::Theme => THEME,
     }

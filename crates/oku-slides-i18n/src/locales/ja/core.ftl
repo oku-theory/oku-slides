@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = ヘッダーにキー「{ $key }」が2回
 knowledge-frontmatter-alias = ヘッダーでは YAML のアンカーとエイリアスを使えません
 knowledge-frontmatter-tag = ヘッダーでは YAML のタグを使えません
 knowledge-frontmatter-too-deep = ヘッダーの入れ子が深すぎます
+knowledge-frontmatter-after-document-end = ヘッダーの YAML 文書終端 ... の後にテキストがあります
 knowledge-frontmatter-type-missing = ヘッダーには空でない type が必要です
 knowledge-frontmatter-bad-timestamp = ヘッダーの値「{ $key }」はオフセット付きの RFC 3339 日時である必要があります
 knowledge-frontmatter-not-allowed = キー「{ $key }」はこのファイルのヘッダーでは使えません
@@ -203,6 +204,12 @@ issue-data-truncated = データが大きすぎるため、読み込み時に切
 issue-unreadable-slide = 読み取れないスライドを除外しました
 issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
 issue-knowledge-unreadable = 読み取れないナレッジ項目 { $id } を除外しました
+issue-knowledge-entries-dropped = 読み取らずに除外したナレッジ項目: { $count }件（{ $cause ->
+        [files] 読み取れるファイル数を超過
+        [file-bytes] ファイルが読み取れるサイズを超過
+        [total-bytes] 全体が読み取れるサイズを超過
+       *[unreadable] その他の読み取れない項目
+    }）
 issue-knowledge-over-limit = ナレッジコレクションが上限を超えています: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -229,6 +236,7 @@ issue-knowledge-invalid = ナレッジファイル { $path } は無効です: { 
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

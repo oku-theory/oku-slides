@@ -73,7 +73,7 @@ fn theme_tab_on_a_builtin_starts_with_empty_guides() {
 #[test]
 fn agent_guides_theme_tab_on_papier_sends_its_edit_guide_then_its_use_guide() {
     let (_d, mut s) = papier_theme_tab();
-    let block = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
+    let block = s.agent_guides("acp", true).map(|g| g.block).unwrap_or_default();
     let head = "<guide for=\"edit\" kind=\"theme\" name=\"Papier\" ns=\"papier\" origin=\"builtin\">\n# Editing Papier";
     let edit = block.find(head);
     let use_ = block.find("<guide for=\"use\" kind=\"theme\" name=\"Papier\"");
@@ -107,9 +107,9 @@ fn received_theme_tab(edit: &str, use_: &str) -> (tempfile::TempDir, Session) {
 #[test]
 fn agent_guides_theme_tab_rewriting_a_received_edit_guide_sends_the_new_text_only() {
     let (_d, mut s) = received_theme_tab("hostile E1", "");
-    let before = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
+    let before = s.agent_guides("acp", true).map(|g| g.block).unwrap_or_default();
     s.set_guide(GuideKind::Edit, "mine E2".into()).unwrap();
-    let after = s.agent_guides(false).map(|g| g.block).unwrap_or_default();
+    let after = s.agent_guides("acp", false).map(|g| g.block).unwrap_or_default();
     assert_that!(before.contains("status=\"awaiting-approval\"/>") && !before.contains("hostile E1")).is_true();
     assert_that!(after.as_str()).contains("name=\"Brought\" ns=\"brought\" origin=\"local\">\nmine E2\n</guide>");
     assert_that!(after.contains("hostile E1")).is_false();

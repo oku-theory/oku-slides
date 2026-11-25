@@ -38,15 +38,16 @@ async fn prompt_sends_instructions_context_then_text_and_streams_chunks() {
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "Je regarde.".into() });
     until(&mut rx, ended).await;
     let blocks = logged(&h.log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
-    assert_that!(blocks.len()).is_equal_to(7);
+    assert_that!(blocks.len()).is_equal_to(8);
     assert_that!(blocks[1]["text"].as_str().unwrap().starts_with("This tab edits a deck.")).is_true();
     assert_that!(blocks[2]["text"].as_str().unwrap().contains("preview_widget")).is_true();
     // A deck tab gets the design paragraph after the widgets one (t-1720).
     assert_that!(blocks[3]["text"].as_str().unwrap().starts_with("Design: ")).is_true();
     assert_that!(blocks[4]["text"].as_str().unwrap().starts_with("<oku-slides-guides>")).is_true();
-    assert_that!(blocks[5]["text"].as_str().unwrap().starts_with("<oku-slides-context>")).is_true();
-    assert_that!(blocks[5]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
-    assert_that!(blocks[6]["text"].as_str()).is_equal_to(Some("rends le titre plus court"));
+    assert_that!(blocks[5]["text"].as_str().unwrap().starts_with("<oku-slides-knowledge>")).is_true();
+    assert_that!(blocks[6]["text"].as_str().unwrap().starts_with("<oku-slides-context>")).is_true();
+    assert_that!(blocks[6]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
+    assert_that!(blocks[7]["text"].as_str()).is_equal_to(Some("rends le titre plus court"));
 }
 
 /// The texts of the blocks of prompt `n` of the log.
@@ -79,6 +80,43 @@ async fn prompt_sends_the_guides_after_the_instructions_then_not_on_an_unchanged
     assert_that!(first[guides.unwrap_or_default()].as_str())
         .contains("<guide for=\"use\" kind=\"widgets\" name=\"Base\"");
     assert_that!(at(&second, "<oku-slides-guides>")).is_none();
+}
+
+/// A new deck's knowledge base is empty: its one-liner follows the guides on the first turn, not on the second.
+#[tokio::test(flavor = "multi_thread")]
+async fn prompt_sends_the_knowledge_index_after_the_guides_then_not_on_an_unchanged_turn() {
+    let h = start(json!({ "turns": [{}] })).await;
+    let t = h.tab("t-1");
+    let mut rx = t.agent.subscribe();
+    t.agent.prompt("un".into(), AgentUi::default());
+    until(&mut rx, ended).await;
+    t.agent.prompt("deux".into(), AgentUi::default());
+    until(&mut rx, ended).await;
+    let (first, second) = (prompt_texts(&h.log, 0), prompt_texts(&h.log, 1));
+    let at = |texts: &[String], head: &str| texts.iter().position(|t| t.starts_with(head));
+    let (guides, knowledge) = (at(&first, "<oku-slides-guides>"), at(&first, "<oku-slides-knowledge>"));
+    assert_that!(guides.is_some() && knowledge == guides.map(|g| g + 1)).is_true();
+    assert_that!(first[knowledge.unwrap_or_default()].as_str())
+        .is_equal_to("<oku-slides-knowledge>The deck's knowledge base is empty.</oku-slides-knowledge>");
+    assert_that!(at(&second, "<oku-slides-knowledge>")).is_none();
+}
+
+/// A refused `session/prompt` may never have delivered its blocks: the next turn, on the same
+/// session, sends the guides and the knowledge index again.
+#[tokio::test(flavor = "multi_thread")]
+async fn refused_prompt_resends_the_guides_and_the_knowledge_index_next_turn() {
+    let h = start(json!({ "turns": [{ "error": "pas maintenant" }, {}] })).await;
+    let t = h.tab("t-1");
+    let mut rx = t.agent.subscribe();
+    t.agent.prompt("un".into(), AgentUi::default());
+    wait_error(&mut rx).await;
+    t.agent.prompt("deux".into(), AgentUi::default());
+    until(&mut rx, ended).await;
+    let second = prompt_texts(&h.log, 1);
+    let sent = |head: &str| second.iter().any(|t| t.starts_with(head));
+    // Not a fresh session: no instruction files, so `first` did not force the blocks.
+    assert_that!(second.iter().any(|t| t.starts_with("This tab edits a deck."))).is_false();
+    assert_that!((sent("<oku-slides-guides>"), sent("<oku-slides-knowledge>"))).is_equal_to((true, true));
 }
 
 #[tokio::test(flavor = "multi_thread")]

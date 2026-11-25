@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::{PasteSnafu, UnknownAssetSnafu};
 use crate::{Result, Session};
 
-/// Les types qu'un collage accepte : ceux que Typst dessine tels quels.
-const PASTE_TYPES: [&str; 4] = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+/// The image types a paste accepts, those Typst draws as is; an agent is shown only these.
+pub const PASTE_TYPES: [&str; 4] = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
 /// Une image collée : son identifiant d'asset, son type réel et sa taille en pixels.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

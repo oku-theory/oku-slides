@@ -23,7 +23,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   `param/item/column`, one level); `grid.rs` (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)`,
   `set_data`); `moving.rs` (`move_element`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`).
 - `knowledge/`: the deck's OKF bundle (`KnowledgeFile` by id); two parsers, `path.rs` (`KnowledgePath`)
-  and `frontmatter.rs` (`check_text`, bounded YAML); `limits.rs`; `normalize.rs` repairs a read bundle; `assets.rs` (`cited_assets`: CommonMark images into `/references/assets/`).
+  and `frontmatter.rs` (`check_text`, bounded YAML); `limits.rs` (with `READ_FACTOR`, the replica read ceiling); `issues.rs`: the `Issue::knowledge_*`; `normalize.rs` repairs a read bundle; `assets.rs` (`cited_images(path, text)`: CommonMark images into `/references/assets/`, each id with its bundle path).
 - `replica/`: `DeckReplica`, the deck in a `LoroDoc` (merge, history, undo): [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `pack.rs`: content-addressed `PackVersion` (sha-256 of `layouts\0` for a layout pack, the canonical manifest and widget files),
   `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, `styles`, read in

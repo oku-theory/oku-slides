@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = 头部中的键“{ $key }”出现了两�
 knowledge-frontmatter-alias = 头部不能使用 YAML 锚点或别名
 knowledge-frontmatter-tag = 头部不能使用 YAML 标签
 knowledge-frontmatter-too-deep = 头部嵌套过深
+knowledge-frontmatter-after-document-end = 头部在 YAML 文档结束符 ... 之后还有文本
 knowledge-frontmatter-type-missing = 头部需要非空的 type
 knowledge-frontmatter-bad-timestamp = 头部的值“{ $key }”必须是带时区偏移的 RFC 3339 日期时间
 knowledge-frontmatter-not-allowed = 此文件的头部不允许使用键“{ $key }”
@@ -203,6 +204,12 @@ issue-data-truncated = 数据过大，读取时已截断
 issue-unreadable-slide = 无法读取的幻灯片，已移出
 issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置
 issue-knowledge-unreadable = 无法读取的知识条目 { $id }，已移出
+issue-knowledge-entries-dropped = 未读取即丢弃的知识条目：{ $count }个（{ $cause ->
+        [files] 文件数超出读取上限
+        [file-bytes] 文件超出读取大小上限
+        [total-bytes] 整体超出读取大小上限
+       *[unreadable] 其余无法读取的条目
+    }）
 issue-knowledge-over-limit = 知识集合超出限制：{ $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -229,6 +236,7 @@ issue-knowledge-invalid = 知识文件 { $path } 无效：{ $reason ->
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

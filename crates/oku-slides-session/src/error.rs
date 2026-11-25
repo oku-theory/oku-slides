@@ -108,6 +108,16 @@ pub enum SessionErrorKind {
     WrongDocument,
     /// A caller's ops include a knowledge op: callers may not write knowledge yet.
     KnowledgeOpsHidden,
+    /// No knowledge file at that path.
+    KnowledgeNotFound,
+    /// The knowledge file awaits the user's approval: its text cannot be read.
+    KnowledgeAwaiting,
+    /// A malformed knowledge path.
+    KnowledgePathInvalid,
+    /// A malformed knowledge folder.
+    KnowledgeDirInvalid,
+    /// A knowledge search query that is empty or too long.
+    KnowledgeQueryInvalid,
     /// Réglage de l'hôte inconnu.
     HostKey,
     /// La réponse n'a pas pu être écrite en JSON.
@@ -306,6 +316,16 @@ pub(crate) enum SessionInner {
     WrongDocument { kind: crate::DocumentKind, backtrace: Backtrace },
     #[snafu(display("knowledge ops are not open to callers yet"))]
     KnowledgeOpsHidden { backtrace: Backtrace },
+    #[snafu(display("no knowledge file at {}", label(path)))]
+    KnowledgeNotFound { path: String, backtrace: Backtrace },
+    #[snafu(display("knowledge file {} awaits approval", label(path)))]
+    KnowledgeAwaiting { path: String, backtrace: Backtrace },
+    #[snafu(display("invalid knowledge path {}: {reason}", label(path)))]
+    KnowledgePathInvalid { path: String, reason: oku_slides_core::PathReason, backtrace: Backtrace },
+    #[snafu(display("invalid knowledge folder {}", label(dir)))]
+    KnowledgeDirInvalid { dir: String, backtrace: Backtrace },
+    #[snafu(display("a knowledge search needs 1 to {max} characters"))]
+    KnowledgeQueryInvalid { max: usize, backtrace: Backtrace },
     #[snafu(display("unknown host setting: {}", label(key)))]
     HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
@@ -425,7 +445,8 @@ impl SessionError {
         use SessionInner::{
             AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
             EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeOpsHidden,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeAwaiting,
+            KnowledgeDirInvalid, KnowledgeNotFound, KnowledgeOpsHidden, KnowledgePathInvalid, KnowledgeQueryInvalid,
             LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName,
             NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides,
             NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
@@ -496,6 +517,11 @@ impl SessionError {
             PackModePreview { .. } => SessionErrorKind::PackModePreview,
             WrongDocument { .. } => SessionErrorKind::WrongDocument,
             KnowledgeOpsHidden { .. } => SessionErrorKind::KnowledgeOpsHidden,
+            KnowledgeNotFound { .. } => SessionErrorKind::KnowledgeNotFound,
+            KnowledgeAwaiting { .. } => SessionErrorKind::KnowledgeAwaiting,
+            KnowledgePathInvalid { .. } => SessionErrorKind::KnowledgePathInvalid,
+            KnowledgeDirInvalid { .. } => SessionErrorKind::KnowledgeDirInvalid,
+            KnowledgeQueryInvalid { .. } => SessionErrorKind::KnowledgeQueryInvalid,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
@@ -674,7 +700,8 @@ impl Localize for SessionError {
         use SessionInner::{
             AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
             EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeOpsHidden,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeAwaiting,
+            KnowledgeDirInvalid, KnowledgeNotFound, KnowledgeOpsHidden, KnowledgePathInvalid, KnowledgeQueryInvalid,
             LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName,
             NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides,
             NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
@@ -785,6 +812,18 @@ impl Localize for SessionError {
             PackModePreview { .. } => l.tr("session-pack-mode-preview"),
             WrongDocument { kind, .. } => l.tr_with("session-wrong-document", &[("kind", kind.as_str().into())]),
             KnowledgeOpsHidden { .. } => l.tr("session-knowledge-ops-hidden"),
+            KnowledgeNotFound { path, .. } => l.tr_with("session-knowledge-not-found", &[("path", label(path).into())]),
+            KnowledgeAwaiting { path, .. } => l.tr_with("session-knowledge-awaiting", &[("path", label(path).into())]),
+            KnowledgePathInvalid { path, reason, .. } => l.tr_with(
+                "session-knowledge-path-invalid",
+                &[("path", label(path).into()), ("reason", l.tr(reason.key()).into())],
+            ),
+            KnowledgeDirInvalid { dir, .. } => {
+                l.tr_with("session-knowledge-dir-invalid", &[("dir", label(dir).into())])
+            }
+            KnowledgeQueryInvalid { max, .. } => {
+                l.tr_with("session-knowledge-query-invalid", &[("max", (*max).into())])
+            }
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", label(key).into())]),
             Response { .. } => l.tr("session-response"),
             Paste { reason, .. } => l.tr(reason.key()),

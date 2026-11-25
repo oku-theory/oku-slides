@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = 머리말에 "{ $key }" 키가 두 번 나
 knowledge-frontmatter-alias = 머리말에서는 YAML 앵커와 별칭을 사용할 수 없습니다
 knowledge-frontmatter-tag = 머리말에서는 YAML 태그를 사용할 수 없습니다
 knowledge-frontmatter-too-deep = 머리말의 중첩이 너무 깊습니다
+knowledge-frontmatter-after-document-end = 머리말에 YAML 문서 끝 ... 뒤에 텍스트가 있습니다
 knowledge-frontmatter-type-missing = 머리말에는 비어 있지 않은 type이 필요합니다
 knowledge-frontmatter-bad-timestamp = 머리말의 "{ $key }" 값은 시간대 오프셋이 있는 RFC 3339 날짜·시간이어야 합니다
 knowledge-frontmatter-not-allowed = 이 파일의 머리말에서는 "{ $key }" 키를 사용할 수 없습니다
@@ -203,6 +204,12 @@ issue-data-truncated = 데이터가 너무 커서 읽을 때 잘랐습니다
 issue-unreadable-slide = 읽을 수 없는 슬라이드를 따로 두었습니다
 issue-unreadable-field = 읽을 수 없는 덱 항목 { $field }을(를) 초기화했습니다
 issue-knowledge-unreadable = 읽을 수 없는 지식 항목 { $id }을(를) 따로 두었습니다
+issue-knowledge-entries-dropped = 읽지 않고 제외한 지식 항목: { $count }개 ({ $cause ->
+        [files] 읽을 수 있는 파일 수 초과
+        [file-bytes] 파일이 읽을 수 있는 크기 초과
+        [total-bytes] 전체가 읽을 수 있는 크기 초과
+       *[unreadable] 추가로 읽을 수 없는 항목
+    })
 issue-knowledge-over-limit = 지식 모음이 한도를 넘었습니다: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -229,6 +236,7 @@ issue-knowledge-invalid = 지식 파일 { $path }이(가) 유효하지 않습니
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

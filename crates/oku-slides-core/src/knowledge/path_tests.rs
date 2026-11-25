@@ -17,8 +17,19 @@ use crate::error::PathReason;
 #[case::hidden("/.x.md", PathReason::DotSegment)]
 #[case::reserved("/con.md", PathReason::Reserved)]
 #[case::reserved_lpt("/a/lpt1.txt.md", PathReason::Reserved)]
+#[case::reserved_com0("/com0.md", PathReason::Reserved)]
+#[case::reserved_lpt0("/lpt0.md", PathReason::Reserved)]
 fn parse_refuses(#[case] text: &str, #[case] reason: PathReason) {
     assert_that!(KnowledgePath::parse(text)).is_err_containing(reason);
+}
+
+#[test]
+fn parse_long_path_is_too_long_whatever_its_characters() {
+    let bad_chars = format!("/{}", "A/".repeat(5_000));
+    assert_that!(bad_chars.len()).is_greater_than(10_000);
+    assert_that!(KnowledgePath::parse(&bad_chars)).is_err_containing(PathReason::TooLong);
+    let deep = format!("/{}", "a/".repeat(5_000));
+    assert_that!(KnowledgePath::parse(&deep)).is_err_containing(PathReason::TooLong);
 }
 
 #[test]

@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = la chiave "{ $key }" compare due volte nel
 knowledge-frontmatter-alias = l'intestazione non può usare ancore o alias YAML
 knowledge-frontmatter-tag = l'intestazione non può usare tag YAML
 knowledge-frontmatter-too-deep = l'intestazione ha un annidamento troppo profondo
+knowledge-frontmatter-after-document-end = l'intestazione contiene testo dopo la fine del documento YAML ...
 knowledge-frontmatter-type-missing = l'intestazione richiede un tipo non vuoto
 knowledge-frontmatter-bad-timestamp = il valore "{ $key }" dell'intestazione deve essere una data e ora RFC 3339 con fuso orario
 knowledge-frontmatter-not-allowed = la chiave "{ $key }" non è consentita nell'intestazione di questo file
@@ -213,6 +214,12 @@ issue-data-truncated = dati troppo grandi, troncati in lettura
 issue-unreadable-slide = diapositiva illeggibile, messa da parte
 issue-unreadable-field = campo { $field } del deck illeggibile, reimpostato
 issue-knowledge-unreadable = voce di conoscenza { $id } illeggibile, messa da parte
+issue-knowledge-entries-dropped = voci di conoscenza scartate senza lettura: { $count } ({ $cause ->
+        [files] troppi file da leggere
+        [file-bytes] file troppo grande da leggere
+        [total-bytes] raccolta troppo grande da leggere
+       *[unreadable] altre voci illeggibili
+    })
 issue-knowledge-over-limit = raccolta di conoscenza oltre un limite: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -239,6 +246,7 @@ issue-knowledge-invalid = file di conoscenza { $path } non valido: { $reason ->
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

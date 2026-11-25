@@ -8,7 +8,9 @@
 
 use std::collections::BTreeMap;
 
-use loro::{Container, LoroMap, LoroMovableList, LoroText, LoroTree, LoroValue, TreeParentId, ValueOrContainer};
+use loro::{
+    Container, LoroMap, LoroMovableList, LoroStringValue, LoroText, LoroTree, LoroValue, TreeParentId, ValueOrContainer,
+};
 use oku_slides_i18n::Message;
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -18,7 +20,8 @@ use super::entry::Ancestry;
 use super::schema::{Ctx, DATASET, KNOWLEDGE, Kind, LIST, RICH};
 use super::tree::{Children, ordered_children, slide_order, stray_roots};
 use crate::error::{ReplicaInner, UnsupportedDeckVersionSnafu};
-use crate::knowledge::{KnowledgeFile, normalize};
+use crate::knowledge::limits::{MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES, READ_FACTOR};
+use crate::knowledge::{DropCause, KnowledgeFile, normalize};
 use crate::locate::MAX_SLOT_DEPTH;
 use crate::model::{DECK_VERSION, Deck, Element, Slide};
 use crate::validate::Issue;
@@ -71,41 +74,116 @@ pub(super) fn deck(root: &LoroMap, knowledge: &LoroMap) -> Result<DeckRead, Repl
     if json.remove(KNOWLEDGE).is_some() {
         reader.issues.push(issue(None, None, Message::new("issue-unreadable-field").arg("field", KNOWLEDGE)));
     }
-    let (files, repairs) = normalize(read_knowledge(knowledge, &mut reader.issues));
+    let (files, repairs) = normalize(read_knowledge(knowledge, &ReadCeiling::REPLICA, &mut reader.issues));
     let (mut deck, mut issues) = materialize(json, reader.issues)?;
     deck.knowledge = files;
     issues.extend(repairs);
     Ok((deck, issues))
 }
 
+/// Most unreadable knowledge entries reported one by one on read; the rest are counted.
+const READ_UNREADABLE_ISSUES: usize = 32;
+
+/// What a knowledge read materializes at most; past it, entries are dropped and counted.
+#[derive(Debug, Clone, Copy)]
+struct ReadCeiling {
+    files: usize,
+    file_bytes: usize,
+    total_bytes: usize,
+    /// Unreadable entries reported one by one.
+    unreadable_issues: usize,
+}
+
+impl ReadCeiling {
+    /// [`READ_FACTOR`] times each bundle limit: only a forged replica reaches it (R10).
+    const REPLICA: Self = Self {
+        files: READ_FACTOR * MAX_FILES,
+        file_bytes: READ_FACTOR * MAX_FILE_BYTES,
+        total_bytes: READ_FACTOR * MAX_TOTAL_BYTES,
+        unreadable_issues: READ_UNREADABLE_ISSUES,
+    };
+}
+
 /// The files of the root map `knowledge`, as stored: an entry that is not a map
 /// `{path, text: LoroText}` is set aside; other keys are dropped; the text is verbatim.
-fn read_knowledge(map: &LoroMap, issues: &mut Vec<Issue>) -> BTreeMap<String, KnowledgeFile> {
+///
+/// Bounded by `ceiling`, in key order: past its file count the remaining entries are not
+/// opened; an entry whose path and text bytes (text by `len_utf8`) pass its file or total bytes
+/// is measured, never copied; past its unreadable issues, the rest are counted. One
+/// `knowledge_entries_dropped` per cause hit.
+fn read_knowledge(map: &LoroMap, ceiling: &ReadCeiling, issues: &mut Vec<Issue>) -> BTreeMap<String, KnowledgeFile> {
     let mut out = BTreeMap::new();
+    let mut total = 0usize;
+    let mut unreadable = 0usize;
+    let (mut past_files, mut past_file_bytes, mut past_total_bytes, mut unreported) = (0usize, 0usize, 0usize, 0usize);
     for id in map.keys() {
+        if out.len() >= ceiling.files {
+            past_files += 1;
+            continue;
+        }
         let id = id.to_string();
-        let file = match map.get(&id) {
-            Some(ValueOrContainer::Container(Container::Map(m))) => knowledge_file(&m),
+        let stored = match map.get(&id) {
+            Some(ValueOrContainer::Container(Container::Map(m))) => stored_file(&m),
             _ => None,
         };
-        match file {
-            Some(file) => {
-                out.insert(id, file);
+        let Some(stored) = stored else {
+            unreadable += 1;
+            if unreadable <= ceiling.unreadable_issues {
+                issues.push(Issue::knowledge_unreadable(&id));
+            } else {
+                unreported += 1;
             }
-            None => issues.push(Issue::knowledge_unreadable(&id)),
+            continue;
+        };
+        let bytes = stored.path_bytes().saturating_add(stored.text.len_utf8());
+        if bytes > ceiling.file_bytes {
+            past_file_bytes += 1;
+        } else if bytes > ceiling.total_bytes - total {
+            past_total_bytes += 1;
+        } else {
+            total += bytes;
+            out.insert(id, KnowledgeFile { path: stored.path(), text: stored.text.to_string() });
+        }
+    }
+    let dropped = [
+        (DropCause::Files, past_files),
+        (DropCause::FileBytes, past_file_bytes),
+        (DropCause::TotalBytes, past_total_bytes),
+        (DropCause::Unreadable, unreported),
+    ];
+    for (cause, count) in dropped {
+        if count > 0 {
+            issues.push(Issue::knowledge_entries_dropped(cause, count));
         }
     }
     out
 }
 
-/// One stored file; `None` without a `LoroText` under `text`. A missing path reads empty.
-fn knowledge_file(m: &LoroMap) -> Option<KnowledgeFile> {
+/// One stored file, path and text still in Loro, so they are measured before any copy.
+struct StoredFile {
+    /// The `path` string; `None` (read empty) when missing or not a string.
+    path: Option<LoroStringValue>,
+    text: LoroText,
+}
+
+impl StoredFile {
+    fn path_bytes(&self) -> usize {
+        self.path.as_ref().map_or(0, |s| s.len())
+    }
+
+    fn path(&self) -> String {
+        self.path.as_ref().map(|s| s.to_string()).unwrap_or_default()
+    }
+}
+
+/// The stored file of an entry; `None` without a `LoroText` under `text`.
+fn stored_file(m: &LoroMap) -> Option<StoredFile> {
     let Some(ValueOrContainer::Container(Container::Text(text))) = m.get("text") else { return None };
     let path = match m.get("path") {
-        Some(ValueOrContainer::Value(LoroValue::String(s))) => s.to_string(),
-        _ => String::new(),
+        Some(ValueOrContainer::Value(LoroValue::String(s))) => Some(s),
+        _ => None,
     };
-    Some(KnowledgeFile { path, text: text.to_string() })
+    Some(StoredFile { path, text })
 }
 
 /// Lecture des conteneurs ; garde les éléments illisibles écartés.

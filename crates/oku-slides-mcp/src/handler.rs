@@ -13,7 +13,7 @@ use rust_mcp_sdk::schema::{
 use serde_json::Value;
 
 use crate::tool_error::UnknownToolSnafu;
-use crate::tools::{Tools, kinds_of, list_for};
+use crate::tools::{Tools, kinds_of};
 use crate::undo_tools::Direction;
 
 #[async_trait]
@@ -23,7 +23,7 @@ impl ServerHandler for Tools {
         _params: Option<PaginatedRequestParams>,
         _runtime: Arc<dyn McpServer>,
     ) -> std::result::Result<ListToolsResult, RpcError> {
-        Ok(ListToolsResult { tools: list_for(self.kind), meta: None, next_cursor: None })
+        Ok(ListToolsResult { tools: self.listed(), meta: None, next_cursor: None })
     }
 
     async fn handle_call_tool_request(
@@ -59,6 +59,9 @@ impl Tools {
             "render_slide" => self.render_slide(args).await,
             "packs" => self.packs(args).await,
             "layouts" => self.layouts().await,
+            "knowledge_list" => self.knowledge_list(args).await,
+            "knowledge_read" => self.knowledge_read(args).await,
+            "knowledge_search" => self.knowledge_search(args).await,
             "settings" => self.settings().await,
             "apply" => self.apply(args).await,
             "chart_kind" => self.chart_kind(args).await,

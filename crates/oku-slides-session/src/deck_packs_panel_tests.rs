@@ -504,7 +504,7 @@ fn deck_packs_theme_guide_held_only_by_the_library_is_not_shown_like_the_agent_b
     let version = s.deck_theme_pin().unwrap().version.clone();
     s.doc.sources.themes.remove(&version);
     assert_that!(s.deck_packs().unwrap().theme.guide).is_none();
-    let block = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
+    let block = s.agent_guides("acp", true).map(|g| g.block).unwrap_or_default();
     assert_that!(block.as_str()).does_not_contain("kind=\"theme\"");
 }
 

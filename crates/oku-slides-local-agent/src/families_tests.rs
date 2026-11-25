@@ -86,11 +86,11 @@ fn families_of_a_dictation_or_agent_tool_is_configure(#[case] tool: &str) {
     assert_that!(families_of(tool)).is_equal_to(&[Family::Configure][..]);
 }
 
-use Family::{Configure, Edit, Files, Packs, Present, Troubleshoot};
+use Family::{Configure, Edit, Files, Knowledge, Packs, Present, Troubleshoot};
 
 #[rstest]
 #[case(DocumentKind::Deck, Family::ROUTABLE.to_vec())]
-#[case(DocumentKind::Help, Family::ROUTABLE.to_vec())]
+#[case(DocumentKind::Help, vec![Edit, Present, Files, Packs, Configure, Troubleshoot])]
 #[case(DocumentKind::Pack, vec![Edit, Packs, Configure, Troubleshoot])]
 #[case(DocumentKind::Theme, vec![Edit, Packs, Configure, Troubleshoot])]
 fn offered_families_follow_the_tab_kind_tools(#[case] kind: DocumentKind, #[case] expected: Vec<Family>) {
@@ -141,4 +141,12 @@ fn families_of_the_slide_moving_tools(#[case] tool: &str, #[case] expected: &[Fa
 #[case::pack_widgets(Family::Packs, "widget packs")]
 fn families_summary_names_what_the_evaluation_needed(#[case] family: Family, #[case] word: &str) {
     assert_that!(family.summary()).contains(word);
+}
+
+#[rstest]
+#[case("knowledge_list")]
+#[case("knowledge_read")]
+#[case("knowledge_search")]
+fn families_of_a_knowledge_tool_is_knowledge(#[case] tool: &str) {
+    assert_that!(families_of(tool)).is_equal_to(&[Knowledge][..]);
 }

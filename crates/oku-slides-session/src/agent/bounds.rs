@@ -76,6 +76,12 @@ fn is_quote(c: char) -> bool {
 /// [`LABEL_MAX`] characters ([`clip`]). An empty result is `"…"`.
 #[must_use]
 pub fn label(text: &str) -> String {
+    label_within(text, LABEL_MAX)
+}
+
+/// What [`label`] does, cut at `max` characters instead of [`LABEL_MAX`].
+#[must_use]
+pub fn label_within(text: &str, max: usize) -> String {
     let cleaned: String = text
         .chars()
         .filter_map(|c| {
@@ -91,7 +97,7 @@ pub fn label(text: &str) -> String {
         })
         .collect();
     let words = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-    let clipped = clip(&words, LABEL_MAX);
+    let clipped = clip(&words, max);
     if clipped.is_empty() { "…".to_owned() } else { clipped }
 }
 

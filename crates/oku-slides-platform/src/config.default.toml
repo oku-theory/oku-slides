@@ -164,6 +164,17 @@ max_connections = 64
 # deck shows them too. Off: nothing is recorded, and a saved deck carries no usage.
 store_in_deck = true
 
+[knowledge]
+# Limits on what the agent reads of the deck knowledge base. Each value can only lower its
+# ceiling: a larger one counts as the ceiling (index_entries 1024, index_kib 64, search_hits 200);
+# zero is refused.
+# Maximum number of files in the agent's knowledge index.
+index_entries = 200
+# Size limit of that index, in KiB.
+index_kib = 16
+# Maximum number of hits one knowledge search returns.
+search_hits = 50
+
 [stt]
 # Rythme de la boucle d'écoute (ms).
 tick_ms = 50

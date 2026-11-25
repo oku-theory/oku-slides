@@ -6,15 +6,15 @@ use std::sync::Arc;
 use agent_client_protocol::schema::v1::{ContentBlock, ImageContent, TextContent};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use oku_slides_platform::config::PromptImageLimits;
+use oku_slides_platform::config::{ImageRefusal, PromptImageLimits};
 use oku_slides_session::agent::AttachmentRef;
 
-/// Les blocs des images de la consigne, avant son texte ; aucun sans image.
+/// The blocks of the prompt's images, before its text; none without an image.
 ///
-/// `see` : l'agent annonce `promptCapabilities.image`. Une image plus lourde que `max_bytes`,
-/// ou oubliée par l'onglet (`None`), n'est que listée, avec la raison. La taille se mesure encodée
-/// en base64 (ce que l'API reçoit), par image (`max_bytes`, `max_side`) et pour toute la consigne
-/// (`total_bytes`).
+/// `see`: the agent announces `promptCapabilities.image`. An image the limits refuse, or one
+/// the tab forgot (`None`), is only listed, with the reason. `PromptImageLimits::admit` measures
+/// the base64-encoded size (what the API receives), per image (`max_bytes`, `max_side`) and for
+/// the whole prompt (`total_bytes`).
 pub(crate) fn image_blocks(
     images: &[(AttachmentRef, Option<Arc<[u8]>>)],
     see: bool,
@@ -34,17 +34,17 @@ pub(crate) fn image_blocks(
         let note = match bytes {
             None => " (no longer available: ask the user to paste it again)",
             Some(_) if !see => " (not shown: this agent does not receive images)",
-            Some(b) if 4 * b.len().div_ceil(3) > limits.max_bytes || r.width.max(r.height) > limits.max_side => {
-                " (not shown: too large to show you)"
-            }
-            Some(b) if total.saturating_add(4 * b.len().div_ceil(3)) > limits.total_bytes => {
-                " (not shown: the images of this message are too heavy together)"
-            }
-            Some(b) => {
-                total += 4 * b.len().div_ceil(3);
-                shown.push(ContentBlock::Image(ImageContent::new(STANDARD.encode(b), r.mime.clone())));
-                ""
-            }
+            Some(b) => match limits.admit(b.len(), r.width.max(r.height), total) {
+                Err(ImageRefusal::TooLarge) => " (not shown: too large to show you)",
+                Err(ImageRefusal::TooHeavyTogether) => {
+                    " (not shown: the images of this message are too heavy together)"
+                }
+                Ok(encoded) => {
+                    total += encoded;
+                    shown.push(ContentBlock::Image(ImageContent::new(STANDARD.encode(b), r.mime.clone())));
+                    ""
+                }
+            },
         };
         let _ = writeln!(list, "{}. {} {} {}×{}{note}", n + 1, r.id, r.mime, r.width, r.height);
     }

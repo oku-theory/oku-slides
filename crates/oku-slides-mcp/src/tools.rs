@@ -9,6 +9,7 @@ use std::sync::{Arc, OnceLock};
 use base64::Engine as _;
 use oku_slides_i18n::LiveLocalizer;
 use oku_slides_platform::Limits;
+use oku_slides_platform::config::KnowledgeSettings;
 use oku_slides_platform::storage::Storage;
 use oku_slides_session::agent::{AgentWorkspace, AppPort, TabSession};
 use oku_slides_session::{DocumentKind, Platform};
@@ -96,6 +97,11 @@ impl Tools {
             platform: platform.clone(),
             kind,
         }
+    }
+
+    /// The tools this tab lists, `knowledge_search`'s hit cap filled from the settings.
+    pub(crate) fn listed(&self) -> Vec<Tool> {
+        listed_for(self.kind, &self.platform.settings.knowledge)
     }
 
     /// Synchronous work on the tab's session, off the async thread; the lock is
@@ -319,12 +325,26 @@ pub fn tool_names_for(kind: DocumentKind) -> Vec<String> {
 }
 
 /// The `(name, description)` of each tool a tab of `kind` lists, in list order.
+///
+/// `knowledge` gives the hit cap that `knowledge_search`'s description names.
 #[must_use]
-pub fn tool_descriptions_for(kind: DocumentKind) -> Vec<(String, String)> {
-    list_for(kind).into_iter().map(|t| (t.name, t.description.unwrap_or_default())).collect()
+pub fn tool_descriptions_for(kind: DocumentKind, knowledge: &KnowledgeSettings) -> Vec<(String, String)> {
+    listed_for(kind, knowledge).into_iter().map(|t| (t.name, t.description.unwrap_or_default())).collect()
+}
+
+/// The tools a tab of `kind` lists, `knowledge_search`'s hit cap filled from `knowledge`.
+fn listed_for(kind: DocumentKind, knowledge: &KnowledgeSettings) -> Vec<Tool> {
+    let mut tools = list_for(kind);
+    if let Some(t) = tools.iter_mut().find(|t| t.name == "knowledge_search") {
+        t.description = Some(crate::knowledge_tools::search_description(knowledge.effective_search_hits()));
+    }
+    tools
 }
 
 /// The tools a tab of `kind` lists, in the order its agent reads them.
+///
+/// `knowledge_search`'s description keeps its `{search_hits}` placeholder: [`listed_for`]
+/// fills it.
 pub(crate) fn list_for(kind: DocumentKind) -> Vec<Tool> {
     list_all().iter().filter(|(_, k)| k.has(kind)).map(|(t, _)| t.clone()).collect()
 }
@@ -420,6 +440,10 @@ pub(crate) fn list_all() -> &'static [(Tool, Kinds)] {
             (tool::<crate::widget_tools::SetWidgetArgs>("set_widget", "Create or replace a widget file (Typst) in a pack (pack: its namespace). In a pack tab only the edited pack is written. In a deck tab a pack of another namespace is pinned with the add_pack op; absent, an element widget goes to the deck's own pack `deck` and a slide widget to its own layout pack `deck-layouts`, each created on first write, and the deck moves to a new version of its pack. Returns its status and the widgets this change broke. Successive widget edits make one undo step."), Kinds::DECK_OR_HELP.or(Kinds::PACK)),
             (tool::<crate::widget_tools::WidgetName>("remove_widget", &format!("Delete a widget file (pack: its namespace; absent, {DECK_OWN_PACKS}); refused while a slide or a layout example uses it.")), Kinds::DECK_OR_HELP.or(Kinds::PACK)),
             (tool::<crate::widget_tools::PreviewWidgetArgs>("preview_widget", &format!("PNG of one widget alone on a temporary slide (deck theme and tokens), followed by its diagnostics if any (pack: its namespace; absent, {DECK_OWN_PACKS}). Missing params take the widget's test values (stored in the pack), then their default or a sample value. Look at it after each `set_widget`.")), Kinds::DECK_OR_HELP.or(Kinds::PACK)),
+            // Deck tabs: the knowledge base, read only (a help tab has none).
+            (tool::<crate::knowledge_tools::KnowledgeListArgs>("knowledge_list", "List the deck's knowledge base files: path, type, title, description, status, stale, approval. dir: a directory such as /references (absent: all). Files awaiting approval show their path only and cannot be read."), Kinds::DECK),
+            (tool::<crate::knowledge_tools::KnowledgeReadArgs>("knowledge_read", "Read one knowledge base file by path: its whole text, frontmatter included, and the images it cites (shown when they fit, else listed). Refused for a file awaiting the user's approval."), Kinds::DECK),
+            (tool::<crate::knowledge_tools::KnowledgeSearchArgs>("knowledge_search", crate::knowledge_tools::SEARCH_DESCRIPTION), Kinds::DECK),
             // Deck, pack and theme tabs: live settings and rendered variants.
             (tool::<oku_slides_session::agent::ShowParams>("show_params", "Show a panel of live settings; each field applies op_template with \"$value\" replaced. In a deck tab it shows as a card the user opens from your turn, in the inspector; elsewhere it shows in your turn. Returns at once; later changes are reported in the next context."), Kinds::DECK_OR_HELP.or(Kinds::PACK).or(Kinds::THEME)),
             (tool::<oku_slides_session::agent::ShowVariants>("show_variants", "Show 2-4 rendered variants of a slide; the user's pick is applied. Returns at once; the pick is reported in the next context."), Kinds::DECK_OR_HELP.or(Kinds::PACK).or(Kinds::THEME)),

@@ -233,7 +233,7 @@ async fn set_guide_on_a_pack_tab_stores_it_and_is_not_echoed_back() {
     let c = server(&h).await;
     // The turn starts: its guides block is sent first.
     tokio::task::block_in_place(|| {
-        Workspace::with_session(&ws, &tab, |s| s.agent_guides(true).is_some())
+        Workspace::with_session(&ws, &tab, |s| s.agent_guides("acp", true).is_some())
             .0
             .unwrap_or_else(|e| panic!("tab {tab}: {e}"))
     });
@@ -242,7 +242,7 @@ async fn set_guide_on_a_pack_tab_stores_it_and_is_not_echoed_back() {
     assert_that!(json_of(&r)).is_equal_to(json!({ "chars": 19, "max_chars": 4000 }));
     let (stored, echoed) = tokio::task::block_in_place(|| {
         Workspace::with_session(&ws, &tab, |s| {
-            (s.snapshot().guides.map(|g| g.guides.edit), s.agent_guides(false).is_some())
+            (s.snapshot().guides.map(|g| g.guides.edit), s.agent_guides("acp", false).is_some())
         })
         .0
         .unwrap_or_else(|e| panic!("tab {tab}: {e}"))

@@ -202,7 +202,7 @@ fn edit_theme_of_a_builtin_creates_a_child_without_guides_and_papier_use_guide_i
     let mut s = session_with_theme(&data, PAPIER_THEME);
     s.edit_theme(PAPIER_THEME, None, vec![accent("#c0392b")]).unwrap();
     let own = s.theme_manifest(&deck_pin(&s)).unwrap().guides;
-    let block = s.agent_guides(true).map(|g| g.block).unwrap_or_default();
+    let block = s.agent_guides("acp", true).map(|g| g.block).unwrap_or_default();
     assert_that!(own.is_empty()).is_true();
     assert_that!(block.matches("# Using Papier").count()).is_equal_to(1);
 }

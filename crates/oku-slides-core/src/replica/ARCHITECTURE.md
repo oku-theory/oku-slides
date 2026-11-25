@@ -44,7 +44,7 @@ The deck in a `LoroDoc` (CRDT): full history, merge, undo. `DeckReplica` is auth
   `@slot`: a sibling's slot, else the recorded slot, else `orphans` (`issue-slot-repaired`).
   Empty node (born from an undo): ignored.
 - **Guards**: t-188, containers, tree, `widgets` / `layouts` / `themes` pins (never removed) up front.
-- **Knowledge**: root map `knowledge` (`id → { path, text }`), never under `deck`; text read
-  verbatim, then checked by `knowledge::normalize` (`issue-knowledge-*`); `canonicalize` runs `knowledge::repair`.
+- **Knowledge**: root map `knowledge` (`id → { path, text }`), never under `deck`; text read verbatim up to `READ_FACTOR` (4)
+  × each limit and 32 unreadable issues, the rest dropped unread and counted (`issue-knowledge-entries-dropped`), then checked by `knowledge::normalize`; `canonicalize` runs `knowledge::repair`.
 - **Format**: `meta.format = 8` (8: root `knowledge`), checked on import and merge; 7 is upgraded
   by a silent `oku-compact` commit; change `SOURCES_VERSION` with it.

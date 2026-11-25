@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = हेडर में कुंजी "{ 
 knowledge-frontmatter-alias = हेडर में YAML एंकर या उपनाम का उपयोग नहीं किया जा सकता
 knowledge-frontmatter-tag = हेडर में YAML टैग का उपयोग नहीं किया जा सकता
 knowledge-frontmatter-too-deep = हेडर बहुत गहराई तक नेस्टेड है
+knowledge-frontmatter-after-document-end = हेडर में दस्तावेज़ समाप्ति ... के बाद पाठ है
 knowledge-frontmatter-type-missing = हेडर में खाली न होने वाला type चाहिए
 knowledge-frontmatter-bad-timestamp = हेडर का मान "{ $key }" समय-क्षेत्र ऑफ़सेट वाला RFC 3339 दिनांक-समय होना चाहिए
 knowledge-frontmatter-not-allowed = इस फ़ाइल के हेडर में कुंजी "{ $key }" की अनुमति नहीं है
@@ -204,6 +205,12 @@ issue-data-truncated = डेटा बहुत बड़ा है, पढ़�
 issue-unreadable-slide = अपठनीय स्लाइड, अलग रखी गई
 issue-unreadable-field = प्रस्तुति का अपठनीय फ़ील्ड { $field }, रीसेट किया गया
 issue-knowledge-unreadable = अपठनीय ज्ञान प्रविष्टि { $id }, अलग रखी गई
+issue-knowledge-entries-dropped = बिना पढ़े हटाई गई ज्ञान प्रविष्टियाँ: { $count } ({ $cause ->
+        [files] पढ़ने के लिए बहुत अधिक फ़ाइलें
+        [file-bytes] पढ़ने के लिए फ़ाइल बहुत बड़ी
+        [total-bytes] पढ़ने के लिए संग्रह बहुत बड़ा
+       *[unreadable] और अपठनीय प्रविष्टियाँ
+    })
 issue-knowledge-over-limit = ज्ञान संग्रह एक सीमा से अधिक है: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -230,6 +237,7 @@ issue-knowledge-invalid = ज्ञान फ़ाइल { $path } अमान
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

@@ -220,14 +220,25 @@ async fn prepared() -> (Platform, Session, tempfile::TempDir) {
 
 /// [`prepared`], réglages retouchés par `tweak`.
 async fn prepared_with(tweak: impl FnOnce(&mut Settings) + Send + 'static) -> (Platform, Session, tempfile::TempDir) {
-    // `Storage` bloque sur son propre runtime (OpenDAL) : l'ouvrir depuis le
-    // fil async du test (déjà dans le runtime de `#[tokio::test]`) paniquerait
-    // ("Cannot start a runtime from within a runtime"), comme le fait
-    // `Tools::with_session` pour les outils.
-    tokio::task::spawn_blocking(|| {
+    prepared_seeded(tweak, |_| {}, |_| {}).await
+}
+
+/// [`prepared_with`], the data dir prepared by `before` (approvals are read when the session is
+/// built), then the opened deck changed by `seed`.
+async fn prepared_seeded(
+    tweak: impl FnOnce(&mut Settings) + Send + 'static,
+    before: impl FnOnce(&std::path::Path) + Send + 'static,
+    seed: impl FnOnce(&mut Session) + Send + 'static,
+) -> (Platform, Session, tempfile::TempDir) {
+    // `Storage` blocks on its own runtime (OpenDAL): opening it from the test's async thread
+    // (already inside `#[tokio::test]`'s runtime) would panic ("Cannot start a runtime from
+    // within a runtime"), as `Tools::with_session` avoids for the tools.
+    tokio::task::spawn_blocking(move || {
         let (platform, data) = platform_with(tweak);
-        let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session de test : {e}"));
-        session.open(&fixture_path()).unwrap_or_else(|e| panic!("ouverture de la fixture : {e}"));
+        before(data.path());
+        let mut session = Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("test session: {e}"));
+        session.open(&fixture_path()).unwrap_or_else(|e| panic!("opening the fixture: {e}"));
+        seed(&mut session);
         (platform, session, data)
     })
     .await
@@ -357,6 +368,17 @@ pub async fn start() -> Harness {
 /// [`start`], réglages retouchés par `tweak` (limites de rendu…).
 pub async fn start_with_settings(tweak: impl FnOnce(&mut Settings) + Send + 'static) -> Harness {
     let (platform, session, data) = prepared_with(tweak).await;
+    let session = Arc::new(Mutex::new(session));
+    start_with((platform, data), session.clone(), session, "t-1").await
+}
+
+/// [`start_with_settings`] on a session from [`prepared_seeded`].
+pub async fn start_seeded(
+    tweak: impl FnOnce(&mut Settings) + Send + 'static,
+    before: impl FnOnce(&std::path::Path) + Send + 'static,
+    seed: impl FnOnce(&mut Session) + Send + 'static,
+) -> Harness {
+    let (platform, session, data) = prepared_seeded(tweak, before, seed).await;
     let session = Arc::new(Mutex::new(session));
     start_with((platform, data), session.clone(), session, "t-1").await
 }

@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = the frontmatter key "{ $key }" appears twi
 knowledge-frontmatter-alias = the frontmatter must not use YAML anchors or aliases
 knowledge-frontmatter-tag = the frontmatter must not use YAML tags
 knowledge-frontmatter-too-deep = the frontmatter is nested too deeply
+knowledge-frontmatter-after-document-end = the frontmatter has text after the YAML document end ...
 knowledge-frontmatter-type-missing = the frontmatter needs a non-empty type
 knowledge-frontmatter-bad-timestamp = the frontmatter value "{ $key }" must be an RFC 3339 date-time with an offset
 knowledge-frontmatter-not-allowed = the frontmatter key "{ $key }" is not allowed in this file
@@ -213,6 +214,12 @@ issue-data-truncated = data too large, truncated on read
 issue-unreadable-slide = unreadable slide, set aside
 issue-unreadable-field = unreadable deck field { $field }, reset
 issue-knowledge-unreadable = unreadable knowledge entry { $id }, set aside
+issue-knowledge-entries-dropped = knowledge entries dropped unread: { $count } ({ $cause ->
+        [files] too many files to read
+        [file-bytes] a file too large to read
+        [total-bytes] bundle too large to read
+       *[unreadable] more unreadable entries
+    })
 issue-knowledge-over-limit = knowledge bundle past a limit: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -239,6 +246,7 @@ issue-knowledge-invalid = knowledge file { $path } is invalid: { $reason ->
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

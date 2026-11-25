@@ -6,8 +6,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use oku_slides_i18n::{Localize, Localizer, Message};
 
-use crate::error::{FrontmatterReason, KnowledgeLimit, PathReason};
-use crate::knowledge::cited_assets;
+use crate::knowledge::cited_images;
 use crate::locate::{MAX_SLOT_DEPTH, Walk};
 use crate::model::{Deck, DeckParams, Element, Grid, Paragraph};
 use crate::namespace::Namespace;
@@ -148,47 +147,6 @@ impl Issue {
     pub fn usage_lines_dropped(count: usize) -> Self {
         Self { slide: None, element: None, message: Message::new("issue-usage-lines-dropped").arg("count", count) }
     }
-
-    /// A knowledge entry that does not read as a file: malformed id, value or container.
-    #[must_use]
-    pub fn knowledge_unreadable(id: &str) -> Self {
-        let message = Message::new("issue-knowledge-unreadable").arg("id", peer_text(id));
-        Self { slide: None, element: None, message }
-    }
-
-    /// The bundle passes the ceiling `limit`: `count` files are past it, the first being
-    /// `first`. Every file is kept.
-    #[must_use]
-    pub fn knowledge_over_limit(limit: KnowledgeLimit, first: &str, count: usize) -> Self {
-        let message = Message::new("issue-knowledge-over-limit")
-            .arg("limit", limit.key())
-            .arg("id", peer_text(first))
-            .arg("count", count);
-        Self { slide: None, element: None, message }
-    }
-
-    /// A knowledge file whose invalid path was replaced by `/recovered/<id>.md`.
-    #[must_use]
-    pub fn knowledge_path_invalid(id: &str, reason: PathReason) -> Self {
-        let message = Message::new("issue-knowledge-path-invalid").arg("id", peer_text(id)).arg("reason", reason.key());
-        Self { slide: None, element: None, message }
-    }
-
-    /// Two knowledge files on `path`: the one with the higher id was moved.
-    #[must_use]
-    pub fn knowledge_path_collision(path: &str) -> Self {
-        Self { slide: None, element: None, message: Message::new("issue-knowledge-path-collision").arg("path", path) }
-    }
-
-    /// A knowledge file kept although its text breaks a frontmatter rule.
-    #[must_use]
-    pub fn knowledge_invalid(path: &str, reason: &FrontmatterReason) -> Self {
-        let message = Message::new("issue-knowledge-invalid")
-            .arg("path", path)
-            .arg("reason", reason.key())
-            .arg("key", peer_text(reason.subject().unwrap_or_default()));
-        Self { slide: None, element: None, message }
-    }
 }
 
 /// Most characters of a peer-controlled string (a file id, a frontmatter key) in an issue.
@@ -286,7 +244,7 @@ pub fn asset_refs(deck: &Deck, registry: &WidgetRegistry) -> BTreeSet<String> {
 /// citing file.
 #[must_use]
 pub fn knowledge_asset_refs(deck: &Deck) -> BTreeSet<String> {
-    deck.knowledge.values().flat_map(cited_assets).collect()
+    deck.knowledge.values().flat_map(|f| cited_images(&f.path, &f.text).into_keys()).collect()
 }
 
 /// Les assets que cite un élément : les siens et ceux de ses descendants.

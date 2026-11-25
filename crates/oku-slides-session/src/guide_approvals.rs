@@ -13,9 +13,10 @@ use snafu::ResultExt;
 use uuid::Uuid;
 
 use oku_slides_core::PackVersion;
-use oku_slides_platform::storage::{Storage, StorageErrorKind};
+use oku_slides_platform::storage::Storage;
 
 use crate::Result;
+use crate::approvals_file::read_set;
 use crate::error::{GuideApprovalsWriteSnafu, ResponseSnafu};
 
 /// One version of a pack or theme, by id and digest.
@@ -61,21 +62,7 @@ impl GuideApprovals {
 
     /// The pairs stored in `path`: a missing file is nothing approved, silently.
     fn read(path: &std::path::Path, storage: &Storage) -> BTreeSet<(Uuid, PackVersion)> {
-        let bytes = match storage.read(path) {
-            Ok(bytes) => bytes,
-            Err(e) if e.kind() == StorageErrorKind::NotFound => return BTreeSet::new(),
-            Err(e) => {
-                tracing::warn!(path = %path.display(), error = %e, "guide approvals unreadable: none approved");
-                return BTreeSet::new();
-            }
-        };
-        match serde_json::from_slice::<Vec<VersionRef>>(&bytes) {
-            Ok(list) => list.into_iter().map(|r| (r.id, r.version)).collect(),
-            Err(e) => {
-                tracing::warn!(path = %path.display(), error = %e, "guide approvals unreadable: none approved");
-                BTreeSet::new()
-            }
-        }
+        read_set::<VersionRef>(path, storage, "guide approvals").into_iter().map(|r| (r.id, r.version)).collect()
     }
 
     /// True if the user approved version `v` of `id`.

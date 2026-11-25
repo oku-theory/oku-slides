@@ -8,7 +8,7 @@ pub(crate) struct Kinds(u8);
 
 impl Kinds {
     /// Deck tabs only.
-    const DECK: Self = Self(1);
+    pub(crate) const DECK: Self = Self(1);
     /// Help tabs only.
     const HELP: Self = Self(2);
     /// Deck and help tabs (a help tab is a read-only deck).

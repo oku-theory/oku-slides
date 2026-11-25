@@ -2,6 +2,7 @@ use speculoos::prelude::*;
 
 use rstest::rstest;
 
+use oku_slides_platform::config::Settings;
 use oku_slides_session::DocumentKind;
 
 use super::{IMPORT, INSTRUCTIONS, WIDGETS, design_for, for_kind};
@@ -30,7 +31,7 @@ fn instructions_for_a_kind_name_only_its_tools(#[case] kind: DocumentKind) {
     if let Some(design) = design_for(kind) {
         text.push_str(design);
     }
-    for (_, description) in oku_slides_mcp::tool_descriptions_for(kind) {
+    for (_, description) in oku_slides_mcp::tool_descriptions_for(kind, &Settings::defaults().unwrap().knowledge) {
         text.push_str(&description);
     }
     for tool in backticked_tools(&text) {
@@ -50,8 +51,20 @@ fn instructions_for_a_kind_name_its_own_tools(#[case] kind: DocumentKind, #[case
 }
 
 #[test]
-fn instructions_for_help_are_the_deck_ones() {
-    assert_that!(for_kind(DocumentKind::Help)).is_equal_to(for_kind(DocumentKind::Deck));
+fn instructions_for_help_are_the_deck_ones_without_the_knowledge_base() {
+    let deck = for_kind(DocumentKind::Deck);
+    let help = for_kind(DocumentKind::Help);
+    let rest = deck.strip_prefix(help).unwrap_or_default();
+    assert_that!(rest.starts_with("\n\nKnowledge base: ")).is_true();
+    assert_that!(help.contains("knowledge")).is_false();
+}
+
+#[test]
+fn instructions_for_a_deck_point_to_the_knowledge_tools() {
+    let named = backticked_tools(for_kind(DocumentKind::Deck));
+    for t in ["knowledge_search", "knowledge_read", "knowledge_list"] {
+        assert_that!(named).named(t).contains(t.to_owned());
+    }
 }
 
 /// The language rule's paragraph alone: the rest of the instructions names tools too.

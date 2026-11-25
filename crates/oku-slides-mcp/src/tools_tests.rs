@@ -198,6 +198,9 @@ const DECK_TOOLS: &[&str] = &[
     "import",
     "import_diff",
     "import_report",
+    "knowledge_list",
+    "knowledge_read",
+    "knowledge_search",
     "layouts",
     "merge",
     "move",
@@ -381,14 +384,17 @@ fn list_for_no_tool_approves_or_postpones_guides(#[case] kind: DocumentKind) {
     }
 }
 
-/// A help tab lists the deck's tools but the usage ones (it belongs to no deck) and the undo ones (read-only).
+/// A help tab lists the deck's tools but the usage ones (it belongs to no deck), the undo ones
+/// (read-only) and the knowledge ones (the help has no knowledge base).
 #[test]
-fn list_for_help_is_the_deck_tools_without_usage_or_undo() {
+fn list_for_help_is_the_deck_tools_without_usage_undo_or_knowledge() {
     let mut names: Vec<String> = list_for(DocumentKind::Help).into_iter().map(|t| t.name).collect();
     names.sort();
     let expected: Vec<String> = DECK_TOOLS
         .iter()
-        .filter(|n| !matches!(**n, "usage" | "show_usage" | "undo" | "redo" | "undo_turn"))
+        .filter(|n| {
+            !matches!(**n, "usage" | "show_usage" | "undo" | "redo" | "undo_turn") && !n.starts_with("knowledge_")
+        })
         .map(|n| (*n).to_owned())
         .collect();
     assert_that!(names).is_equal_to(expected);
@@ -454,4 +460,15 @@ fn no_tool_input_schema_advertises_a_knowledge_op() {
     }
     let apply = schemas.iter().find(|(n, _)| n == "apply").map(|(_, s)| s.as_str()).unwrap_or_default();
     assert_that!(apply.contains("set_notes")).is_true();
+}
+
+#[test]
+fn tool_descriptions_for_a_deck_fill_the_search_hit_cap() {
+    let knowledge = oku_slides_platform::config::Settings::defaults().unwrap().knowledge;
+    let described = super::tool_descriptions_for(DocumentKind::Deck, &knowledge);
+    let search = described.iter().find(|(n, _)| n == "knowledge_search").map(|(_, d)| d.as_str()).unwrap_or_default();
+    assert_that!(search).contains(format!("At most {} hits", knowledge.effective_search_hits()).as_str());
+    for (name, description) in &described {
+        assert_that!(description.contains("{search_hits}")).named(name).is_false();
+    }
 }

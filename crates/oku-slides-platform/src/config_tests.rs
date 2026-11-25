@@ -284,6 +284,53 @@ fn env_usage_store_in_deck_false_turns_it_off() {
 }
 
 #[test]
+fn defaults_knowledge_limits_are_200_entries_16_kib_50_hits() {
+    let k = Settings::defaults().unwrap().knowledge;
+    assert_that!((k.effective_index_entries(), k.effective_index_kib(), k.effective_search_hits()))
+        .is_equal_to((200, 16, 50));
+}
+
+#[test]
+fn knowledge_values_above_their_ceilings_count_as_the_ceilings() {
+    let env = env(&[
+        ("OKU_SLIDES_KNOWLEDGE__INDEX_ENTRIES", "5000"),
+        ("OKU_SLIDES_KNOWLEDGE__INDEX_KIB", "65"),
+        ("OKU_SLIDES_KNOWLEDGE__SEARCH_HITS", "201"),
+    ]);
+    let k = Settings::from_sources(None, env).unwrap().knowledge;
+    assert_that!((k.effective_index_entries(), k.effective_index_kib(), k.effective_search_hits()))
+        .is_equal_to((1024, 64, 200));
+}
+
+#[test]
+fn knowledge_values_below_their_ceilings_are_kept() {
+    let env = env(&[("OKU_SLIDES_KNOWLEDGE__INDEX_ENTRIES", "5"), ("OKU_SLIDES_KNOWLEDGE__SEARCH_HITS", "3")]);
+    let k = Settings::from_sources(None, env).unwrap().knowledge;
+    assert_that!((k.effective_index_entries(), k.effective_search_hits())).is_equal_to((5, 3));
+}
+
+#[rstest::rstest]
+#[case::index_entries("OKU_SLIDES_KNOWLEDGE__INDEX_ENTRIES")]
+#[case::index_kib("OKU_SLIDES_KNOWLEDGE__INDEX_KIB")]
+#[case::search_hits("OKU_SLIDES_KNOWLEDGE__SEARCH_HITS")]
+fn knowledge_value_of_zero_is_refused(#[case] key: &str) {
+    assert_that!(Settings::from_sources(None, env(&[(key, "0")]))).named(key).is_err();
+}
+
+#[test]
+fn knowledge_value_of_one_is_kept() {
+    let k = Settings::from_sources(None, env(&[("OKU_SLIDES_KNOWLEDGE__SEARCH_HITS", "1")])).unwrap().knowledge;
+    assert_that!(k.effective_search_hits()).is_equal_to(1);
+}
+
+#[test]
+fn knowledge_approvals_sit_beside_the_guide_approvals() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.paths.knowledge_approvals())
+        .is_equal_to(s.paths.guide_approvals().with_file_name("knowledge-approvals.json"));
+}
+
+#[test]
 fn settings_default_render_limits_match_config_defaults() {
     let s = Settings::defaults().unwrap();
     assert_that!((s.render.timeout_ms, s.render.memory_mib, s.render.max_frame_mib)).is_equal_to((10_000, 2048, 512));
@@ -700,4 +747,34 @@ fn fake_speech_with_feature_is_read() {
 fn fake_utterances_with_feature_is_read() {
     let s = Settings::from_sources(None, env(&[("OKU_SLIDES_STT__FAKE_UTTERANCES", "/tmp/dit.txt")])).unwrap();
     assert_that!(s.stt.fake_utterances).is_equal_to(Some(PathBuf::from("/tmp/dit.txt")));
+}
+
+fn prompt_limits(max_bytes: usize, max_side: u32, total_bytes: usize) -> PromptImageLimits {
+    PromptImageLimits { max_bytes, max_side, total_bytes }
+}
+
+#[rstest]
+#[case::fits(75, 10, 0, Ok(100))]
+#[case::encoded_just_over(76, 10, 0, Err(ImageRefusal::TooLarge))]
+#[case::side_over(3, 9000, 0, Err(ImageRefusal::TooLarge))]
+#[case::fits_the_total_exactly(75, 10, 900, Ok(100))]
+#[case::over_the_total(75, 10, 901, Err(ImageRefusal::TooHeavyTogether))]
+#[case::too_large_wins_over_too_heavy(76, 10, 1000, Err(ImageRefusal::TooLarge))]
+#[case::saturating_total(3, 10, usize::MAX, Err(ImageRefusal::TooHeavyTogether))]
+fn prompt_image_limits_admit_by_encoded_size_side_and_total(
+    #[case] bytes: usize,
+    #[case] side: u32,
+    #[case] total: usize,
+    #[case] expected: Result<usize, ImageRefusal>,
+) {
+    assert_that!(prompt_limits(100, 8000, 1000).admit(bytes, side, total)).is_equal_to(expected);
+}
+
+#[rstest]
+#[case::empty(0, 0)]
+#[case::one(1, 4)]
+#[case::three(3, 4)]
+#[case::four(4, 8)]
+fn prompt_image_limits_encoded_len_is_base64_padded(#[case] raw: usize, #[case] encoded: usize) {
+    assert_that!(PromptImageLimits::encoded_len(raw)).is_equal_to(encoded);
 }

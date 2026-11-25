@@ -334,6 +334,8 @@ pub enum FrontmatterReason {
     Tag,
     /// Mappings and sequences nest past the ceiling.
     TooDeep,
+    /// Text follows a YAML document end (`...`) inside the block.
+    AfterDocumentEnd,
     /// A concept file has no non-empty `type`.
     TypeMissing,
     /// `generated` is not a mapping whose `at` is an RFC 3339 timestamp with an offset.
@@ -362,6 +364,7 @@ impl FrontmatterReason {
             FrontmatterReason::Alias => "knowledge-frontmatter-alias",
             FrontmatterReason::Tag => "knowledge-frontmatter-tag",
             FrontmatterReason::TooDeep => "knowledge-frontmatter-too-deep",
+            FrontmatterReason::AfterDocumentEnd => "knowledge-frontmatter-after-document-end",
             FrontmatterReason::TypeMissing => "knowledge-frontmatter-type-missing",
             FrontmatterReason::BadTimestamp { .. } => "knowledge-frontmatter-bad-timestamp",
             FrontmatterReason::NotAllowed { .. } => "knowledge-frontmatter-not-allowed",
@@ -401,6 +404,9 @@ impl std::fmt::Display for FrontmatterReason {
             FrontmatterReason::Alias => f.write_str("the frontmatter must not use YAML anchors or aliases"),
             FrontmatterReason::Tag => f.write_str("the frontmatter must not use YAML tags"),
             FrontmatterReason::TooDeep => f.write_str("the frontmatter is nested too deeply"),
+            FrontmatterReason::AfterDocumentEnd => {
+                f.write_str("the frontmatter has text after the YAML document end ...")
+            }
             FrontmatterReason::TypeMissing => f.write_str("the frontmatter needs a non-empty type"),
             FrontmatterReason::BadTimestamp { key } => {
                 write!(f, "the frontmatter value \"{key}\" must be an RFC 3339 date-time with an offset")

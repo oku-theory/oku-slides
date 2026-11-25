@@ -6,12 +6,12 @@ and holds the tab's A2UI surfaces (`SurfaceHub`): thread, dock, popovers and ins
 ## Modules
 
 - `server` : `ToolServer`, the HTTP server (system-chosen port, token compared by SHA-256 in `token_matches`, bounded by `[serve]` limits and `SHUTDOWN_GRACE`).
-- `handler` : the `ServerHandler`; `Tools::call` dispatches a call to its tool.
+- `handler` : the `ServerHandler`, listing `Tools::listed`; `Tools::call` dispatches a call to its tool.
 - `tools` : `Tools`, `list_for(kind)`: the tab's kind, read once when its agent starts; an unlisted tool is
   `UnknownTool` (`tool_kinds`: `Kinds`; a theme tab lists no `widgets`, `packs` or `ask_rewrite`); input schemas (`nest_schema`: MCP 1.x); `parse`, `with_session`, `reply`.
 - Tool families: `read_tools` (outline, theme_tokens (themes go by namespace), slide, render, `packs`, `layouts`, widgets,
   settings), `edit_tools` (undoable edits, `add_pack`/`remove_pack`, `set_theme_extends`, `focus`: shows a slide, never selects; no slide deselects), `open_tools` (`open_pack`, `open_theme`: one tab move per turn, a deck-only pack's tab linked to its deck), `tab_tools` (pack tab: `select_item`, `set_preview_theme`; theme tab: `rename_theme`, `save_theme`; both: `set_guide`, an agent write that is never echoed back and that the turn's receipt lists, `note_guide_write`), `widget_tools` (pack tab: `duplicate_widget`, `reorder_widgets`; no `pack`: `deck`, so
-  `deck-layouts` is named; writes refused in a turn that moved to another tab), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
+  `deck-layouts` is named; writes refused in a turn that moved to another tab), `knowledge_tools` (deck tabs only: `knowledge_list`, its values `KnowledgeEntry::bounded` as in the index; `knowledge_read`: a cited image shown only if a `PASTE_TYPES` type with read dimensions and within `PromptImageLimits::admit`, else listed with its reason, encoded in the blocking task; `knowledge_search`, its hit cap filled by `listed_for` for `Tools::listed` and `tool_descriptions_for`), `guarded_tools` (confirmed: `save`, `save_copy`, `open`, `move`, `merge`, `new`,
   `save_pack` (a copy), `delete_pack`, `edit_theme`, always confirmed, `set_setting`…), `app_tools` (`history`, its list paged by `history_page`; opening it,
   `present` (`PresentCommand`: start, or a step while the hub presents, `set_presenting` from page reports) and `set_interface` emit an event the shown tab applies), `a2ui_tools` (`a2ui_examples`: the playbook's agent reference, cached), `surface_tools` (`report`, `render`, `ask_*`,
   `show_*`; `show_themes`/`show_packs` open the hub's own boxes, filed in `agent_turn`), `import_tools` (`import`: a `.pptx` in a new tab through `AgentWorkspace`, confirmed, the turn's one tab move, `tune` through `TabPort`; `import_report`, `import_diff`: import

@@ -27,6 +27,7 @@ mod history_page;
 mod host_tools;
 mod hub;
 mod import_tools;
+mod knowledge_tools;
 mod lexicon;
 mod open_tools;
 mod paths;

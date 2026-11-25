@@ -1,3 +1,4 @@
+use oku_slides_platform::config::Settings;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -59,10 +60,13 @@ fn compact_keeps_property_named_description() {
 #[case::render("render", "Markdown{text}")]
 #[case::examples("a2ui_examples", "Props and full examples")]
 fn compact_of_an_a2ui_tool_keeps_what_the_agent_needs(#[case] name: &str, #[case] kept: &str) {
-    let (name, description) = oku_slides_mcp::tool_descriptions_for(oku_slides_session::DocumentKind::Deck)
-        .into_iter()
-        .find(|(n, _)| n == name)
-        .unwrap();
+    let (name, description) = oku_slides_mcp::tool_descriptions_for(
+        oku_slides_session::DocumentKind::Deck,
+        &Settings::defaults().unwrap().knowledge,
+    )
+    .into_iter()
+    .find(|(n, _)| n == name)
+    .unwrap();
     let spec = ToolSpec { name, description, schema: json!({ "type": "object" }) };
     assert_that!(compact(&spec).description).contains(kept);
 }
@@ -82,10 +86,13 @@ fn compact_first_sentence_ends_at_a_real_period(#[case] description: &str, #[cas
 
 #[test]
 fn compact_of_report_keeps_its_facts_hint() {
-    let (name, description) = oku_slides_mcp::tool_descriptions_for(oku_slides_session::DocumentKind::Deck)
-        .into_iter()
-        .find(|(n, _)| n == "report")
-        .unwrap();
+    let (name, description) = oku_slides_mcp::tool_descriptions_for(
+        oku_slides_session::DocumentKind::Deck,
+        &Settings::defaults().unwrap().knowledge,
+    )
+    .into_iter()
+    .find(|(n, _)| n == "report")
+    .unwrap();
     let schema = json!({"type": "object", "properties": {"title": {"type": "string"}, "facts": {"type": "array"}, "why": {"type": "string"}}, "required": ["title", "facts"]});
     let compacted = compact(&ToolSpec { name, description, schema }).description;
     assert_that!(compacted).contains("facts: 1-4 short lines");

@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = 標頭中的鍵「{ $key }」出現了兩�
 knowledge-frontmatter-alias = 標頭不能使用 YAML 錨點或別名
 knowledge-frontmatter-tag = 標頭不能使用 YAML 標籤
 knowledge-frontmatter-too-deep = 標頭巢狀過深
+knowledge-frontmatter-after-document-end = 標頭在 YAML 文件結束符 ... 之後還有文字
 knowledge-frontmatter-type-missing = 標頭需要非空的 type
 knowledge-frontmatter-bad-timestamp = 標頭的值「{ $key }」必須是帶時區偏移的 RFC 3339 日期時間
 knowledge-frontmatter-not-allowed = 此檔案的標頭不允許使用鍵「{ $key }」
@@ -203,6 +204,12 @@ issue-data-truncated = 資料過大，讀取時已截斷
 issue-unreadable-slide = 無法讀取的投影片，已移出
 issue-unreadable-field = 無法讀取的簡報欄位 { $field }，已重設
 issue-knowledge-unreadable = 無法讀取的知識項目 { $id }，已移出
+issue-knowledge-entries-dropped = 未讀取即捨棄的知識項目：{ $count }個（{ $cause ->
+        [files] 檔案數超出讀取上限
+        [file-bytes] 檔案超出讀取大小上限
+        [total-bytes] 整體超出讀取大小上限
+       *[unreadable] 其餘無法讀取的項目
+    }）
 issue-knowledge-over-limit = 知識集合超出限制：{ $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -229,6 +236,7 @@ issue-knowledge-invalid = 知識檔案 { $path } 無效：{ $reason ->
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

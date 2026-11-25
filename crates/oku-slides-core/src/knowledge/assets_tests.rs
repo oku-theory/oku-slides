@@ -9,8 +9,13 @@ use crate::model::Deck;
 
 const HEX: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
-fn file(path: &str, text: &str) -> KnowledgeFile {
-    KnowledgeFile { path: path.to_owned(), text: text.to_owned() }
+fn file(path: &str, text: &str) -> crate::KnowledgeFile {
+    crate::KnowledgeFile { path: path.to_owned(), text: text.to_owned() }
+}
+
+/// The asset ids the images of `text`, at `path`, cite.
+fn ids(path: &str, text: &str) -> BTreeSet<String> {
+    cited_images(path, text).into_keys().collect()
 }
 
 fn id() -> BTreeSet<String> {
@@ -25,8 +30,8 @@ fn id() -> BTreeSet<String> {
 #[case::deep("/a/b/c.md", format!("![x](../../references/assets/{HEX}.webp)"))]
 #[case::inside_a_link("/a.md", format!("[![x](/references/assets/{HEX}.png)](https://v)"))]
 #[case::reference_style("/a.md", format!("![x][r]\n\n[r]: /references/assets/{HEX}.png"))]
-fn cited_assets_keeps_an_image_of_the_asset_folder(#[case] path: &str, #[case] body: String) {
-    assert_that!(cited_assets(&file(path, &body))).is_equal_to(id());
+fn cited_images_keeps_an_image_of_the_asset_folder(#[case] path: &str, #[case] body: String) {
+    assert_that!(ids(path, &body)).is_equal_to(id());
 }
 
 #[rstest]
@@ -57,20 +62,20 @@ fn cited_assets_keeps_an_image_of_the_asset_folder(#[case] path: &str, #[case] b
     "/a.md",
     format!("---\ntype: Note\nicon: \"![x](/references/assets/{HEX}.png)\"\n---\nno image\n")
 )]
-fn cited_assets_refuses(#[case] path: &str, #[case] text: String) {
-    assert_that!(cited_assets(&file(path, &text))).is_equal_to(BTreeSet::new());
+fn cited_images_refuses(#[case] path: &str, #[case] text: String) {
+    assert_that!(ids(path, &text)).is_equal_to(BTreeSet::new());
 }
 
 #[test]
-fn cited_assets_scans_the_body_after_a_valid_frontmatter() {
+fn cited_images_scans_the_body_after_a_valid_frontmatter() {
     let text = format!("---\ntype: Note\n---\n![x](/references/assets/{HEX}.png)\n");
-    assert_that!(cited_assets(&file("/a.md", &text))).is_equal_to(id());
+    assert_that!(ids("/a.md", &text)).is_equal_to(id());
 }
 
 #[test]
-fn cited_assets_scans_the_whole_text_when_the_frontmatter_is_unterminated() {
+fn cited_images_scans_the_whole_text_when_the_frontmatter_is_unterminated() {
     let text = format!("---\ntype: [\n![x](/references/assets/{HEX}.png)\n");
-    assert_that!(cited_assets(&file("/a.md", &text))).is_equal_to(id());
+    assert_that!(ids("/a.md", &text)).is_equal_to(id());
 }
 
 #[test]
@@ -88,14 +93,33 @@ fn knowledge_asset_refs_is_the_union_over_the_files() {
     assert_that!(crate::knowledge_asset_refs(&deck)).is_equal_to(want);
 }
 
+#[rstest]
+#[case::quotes(">")]
+#[case::brackets("[")]
+#[case::bang_brackets("![")]
+fn cited_images_pathological_input_returns_empty_without_overflow(#[case] unit: &str) {
+    let text = unit.repeat(1 << 20);
+    let started = std::time::Instant::now();
+    assert_that!(cited_images("/a.md", &text).len()).is_equal_to(0);
+    // Loose bound: a guard against superlinear scans, not a benchmark.
+    assert_that!(started.elapsed().as_secs()).is_less_than(10);
+}
+
+#[test]
+fn cited_images_gives_the_resolved_bundle_path_first_cited_per_id() {
+    let body = format!("![a](../references/assets/{HEX}.webp) ![b](/references/assets/{HEX}.png)");
+    let want = std::collections::BTreeMap::from([(format!("sha256:{HEX}"), format!("/references/assets/{HEX}.webp"))]);
+    assert_that!(cited_images("/notes/a.md", &body)).is_equal_to(want);
+}
+
 proptest! {
     #[test]
-    fn cited_assets_never_panics(path in "[ -~]{0,40}", text in "\\PC{0,200}") {
-        let _ = cited_assets(&file(&path, &text));
+    fn cited_images_never_panics(path in "[ -~]{0,40}", text in "\\PC{0,200}") {
+        let _ = cited_images(&path, &text);
     }
 
     #[test]
-    fn cited_assets_never_panics_on_image_urls(url in "[ -~]{0,80}") {
-        let _ = cited_assets(&file("/a/b.md", &format!("![x]({url})")));
+    fn cited_images_never_panics_on_image_urls(url in "[ -~]{0,80}") {
+        let _ = cited_images("/a/b.md", &format!("![x]({url})"));
     }
 }

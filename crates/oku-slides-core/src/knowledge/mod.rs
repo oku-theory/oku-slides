@@ -2,12 +2,14 @@
 
 mod assets;
 mod frontmatter;
+mod issues;
 pub mod limits;
 mod normalize;
 mod path;
 
-pub use assets::{ASSETS_DIR, cited_assets};
+pub use assets::{ASSETS_DIR, cited_images};
 pub use frontmatter::{Frontmatter, check_text, frontmatter, split};
+pub use issues::DropCause;
 pub use normalize::normalize;
 pub(crate) use normalize::repair;
 pub use path::{KnowledgePath, is_file_id, knowledge_file_id};

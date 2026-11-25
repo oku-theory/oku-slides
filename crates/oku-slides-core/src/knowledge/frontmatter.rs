@@ -26,6 +26,10 @@ pub struct Frontmatter {
     pub title: Option<String>,
     /// The `description` value, when it is text.
     pub description: Option<String>,
+    /// The `status` value, when it is text.
+    pub status: Option<String>,
+    /// True only when the `stale` value is the plain scalar `true` (`stale: "true"` is not).
+    pub stale: bool,
     /// Every top-level key, in file order.
     pub keys: Vec<String>,
 }
@@ -107,7 +111,7 @@ fn lines(text: &str) -> impl Iterator<Item = (usize, &str, usize)> {
 /// # Errors
 ///
 /// The structural [`FrontmatterReason`]s: `Missing`, `Unterminated`, `TooLarge`, `NotYaml`,
-/// `NotMapping`, `DuplicateKey`, `Alias`, `Tag`, `TooDeep`.
+/// `NotMapping`, `DuplicateKey`, `Alias`, `Tag`, `TooDeep`, `AfterDocumentEnd`.
 pub fn frontmatter(text: &str) -> Result<Frontmatter, FrontmatterReason> {
     let (yaml, _) = split(text)?;
     let entries = parse_block(yaml)?;
@@ -116,6 +120,10 @@ pub fn frontmatter(text: &str) -> Result<Frontmatter, FrontmatterReason> {
         kind: scalar("type"),
         title: scalar("title"),
         description: scalar("description"),
+        status: scalar("status"),
+        stale: entries
+            .iter()
+            .any(|(k, v)| k == "stale" && matches!(v, Node::Scalar { text, plain: true } if text == "true")),
         keys: entries.into_iter().map(|(k, _)| k).collect(),
     })
 }
@@ -160,17 +168,30 @@ pub fn check_text(path: &KnowledgePath, text: &str) -> Result<(), FrontmatterRea
     Ok(())
 }
 
-/// Parses the first YAML document of `yaml` into its top-level entries.
+/// Parses the first YAML document of `yaml` into its top-level entries; after its `...` end only
+/// blank lines and comments may follow.
 fn parse_block(yaml: &str) -> Result<Vec<(String, Node)>, FrontmatterReason> {
     if yaml.len() > MAX_FRONTMATTER_BYTES {
         return Err(FrontmatterReason::TooLarge);
     }
     let mut stack: Vec<Open> = Vec::new();
     let mut root: Option<Node> = None;
+    // `split` cuts the block at its first `---` line, so a second `---` document cannot reach
+    // here: what can follow `...` is bare content or an implicit document, both refused below.
+    // Set once the first document is over: only the end of the stream may follow.
+    let mut ended = false;
     for event in Parser::new_from_str(yaml) {
-        let (event, _) = event.map_err(|_| FrontmatterReason::NotYaml)?;
+        let (event, _) =
+            event.map_err(|_| if ended { FrontmatterReason::AfterDocumentEnd } else { FrontmatterReason::NotYaml })?;
+        if ended && !matches!(event, Event::StreamEnd) {
+            return Err(FrontmatterReason::AfterDocumentEnd);
+        }
         let node = match event {
-            Event::DocumentEnd | Event::StreamEnd => break,
+            Event::DocumentEnd => {
+                ended = true;
+                continue;
+            }
+            Event::StreamEnd => break,
             Event::Nothing | Event::StreamStart | Event::DocumentStart(_) => continue,
             Event::Alias(_) => return Err(FrontmatterReason::Alias),
             Event::Scalar(text, style, anchor, tag) => {

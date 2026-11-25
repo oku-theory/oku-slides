@@ -297,3 +297,63 @@ fn read_copy_of_a_renamed_slide_is_dropped() {
     .unwrap();
     assert_that!(slide_ids(&deck)).is_equal_to(vec!["x", "x-2"]);
 }
+
+/// A root map `knowledge` holding `(path, text)` entries under ids `0…` (an empty path is not
+/// written), read under `ceiling`: the `path + text` of the files kept.
+fn knowledge_read(entries: &[(&str, &str)], ceiling: &ReadCeiling) -> (Vec<String>, Vec<crate::Issue>) {
+    let doc = LoroDoc::new();
+    let map = doc.get_map("knowledge");
+    for (n, (path, text)) in entries.iter().enumerate() {
+        let entry = map.insert_container(&format!("{n:032x}"), LoroMap::new()).unwrap();
+        if !path.is_empty() {
+            entry.insert("path", *path).unwrap();
+        }
+        let t = entry.insert_container("text", LoroText::new()).unwrap();
+        t.insert(0, text).unwrap();
+    }
+    doc.commit();
+    let mut issues = Vec::new();
+    let files = read_knowledge(&map, ceiling, &mut issues);
+    (files.into_values().map(|f| f.path + &f.text).collect(), issues)
+}
+
+#[test]
+fn read_knowledge_past_the_total_byte_ceiling_drops_the_files_that_do_not_fit() {
+    let ceiling = ReadCeiling { files: 10, file_bytes: 4, total_bytes: 7, unreadable_issues: 1 };
+    let (texts, issues) = knowledge_read(&[("", "aaaa"), ("", "bbbb"), ("", "ccc"), ("", "dd")], &ceiling);
+    assert_that!(texts).is_equal_to(vec!["aaaa".to_owned(), "ccc".to_owned()]);
+    assert_that!(issues).is_equal_to(vec![crate::Issue::knowledge_entries_dropped(DropCause::TotalBytes, 2)]);
+}
+
+#[test]
+fn read_knowledge_file_ceiling_counts_utf8_bytes_not_chars() {
+    let ceiling = ReadCeiling { files: 10, file_bytes: 3, total_bytes: 100, unreadable_issues: 1 };
+    let (texts, issues) = knowledge_read(&[("", "éé"), ("", "abc")], &ceiling);
+    assert_that!(texts).is_equal_to(vec!["abc".to_owned()]);
+    assert_that!(issues).is_equal_to(vec![crate::Issue::knowledge_entries_dropped(DropCause::FileBytes, 1)]);
+}
+
+#[test]
+fn read_knowledge_counts_the_path_bytes_toward_both_ceilings() {
+    let ceiling = ReadCeiling { files: 10, file_bytes: 6, total_bytes: 9, unreadable_issues: 1 };
+    let long = "/".repeat(7);
+    let entries = [(long.as_str(), ""), ("/a", "bcd"), ("/e", "fgh"), ("/i", "j")];
+    let (kept, issues) = knowledge_read(&entries, &ceiling);
+    // A 7-byte path alone passes 6; `/a` + `bcd` (5) and `/i` + `j` (3) fit in 9, `/e` + `fgh` would make 10.
+    assert_that!(kept).is_equal_to(vec!["/abcd".to_owned(), "/ij".to_owned()]);
+    assert_that!(issues).is_equal_to(vec![
+        crate::Issue::knowledge_entries_dropped(DropCause::FileBytes, 1),
+        crate::Issue::knowledge_entries_dropped(DropCause::TotalBytes, 1),
+    ]);
+}
+
+#[test]
+fn read_knowledge_replica_ceiling_is_read_factor_times_each_limit() {
+    let c = ReadCeiling::REPLICA;
+    assert_that!((c.files, c.file_bytes, c.total_bytes, c.unreadable_issues)).is_equal_to((
+        4 * MAX_FILES,
+        4 * MAX_FILE_BYTES,
+        4 * MAX_TOTAL_BYTES,
+        32,
+    ));
+}

@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = khóa "{ $key }" xuất hiện hai lần t
 knowledge-frontmatter-alias = tiêu đề không được dùng neo hoặc bí danh YAML
 knowledge-frontmatter-tag = tiêu đề không được dùng thẻ YAML
 knowledge-frontmatter-too-deep = tiêu đề lồng nhau quá sâu
+knowledge-frontmatter-after-document-end = tiêu đề có văn bản sau phần kết thúc tài liệu YAML ...
 knowledge-frontmatter-type-missing = tiêu đề cần một kiểu không để trống
 knowledge-frontmatter-bad-timestamp = giá trị "{ $key }" trong tiêu đề phải là ngày giờ RFC 3339 kèm độ lệch múi giờ
 knowledge-frontmatter-not-allowed = khóa "{ $key }" không được phép trong tiêu đề của tệp này
@@ -203,6 +204,12 @@ issue-data-truncated = dữ liệu quá lớn, đã cắt bớt khi đọc
 issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
 issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
 issue-knowledge-unreadable = mục tri thức { $id } không đọc được, đã để riêng
+issue-knowledge-entries-dropped = mục tri thức bị loại bỏ mà không đọc: { $count } ({ $cause ->
+        [files] quá nhiều tệp để đọc
+        [file-bytes] tệp quá lớn để đọc
+        [total-bytes] bộ tri thức quá lớn để đọc
+       *[unreadable] thêm mục không đọc được
+    })
 issue-knowledge-over-limit = bộ tri thức vượt quá một giới hạn: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -229,6 +236,7 @@ issue-knowledge-invalid = tệp tri thức { $path } không hợp lệ: { $reaso
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

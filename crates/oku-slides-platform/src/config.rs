@@ -7,7 +7,7 @@
 //! `OKU_SLIDES_STT__VAD__PAUSE=0.9`).
 
 use std::collections::HashMap;
-use std::num::NonZeroU64;
+use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -71,6 +71,8 @@ pub struct Settings {
     pub author: AuthorSettings,
     /// Agent token usage kept in each deck.
     pub usage: UsageSettings,
+    /// What the agent reads of the deck knowledge base.
+    pub knowledge: KnowledgeSettings,
 }
 
 /// Mises à jour de l'app depuis les releases GitHub.
@@ -283,6 +285,42 @@ pub struct PromptImageLimits {
     pub total_bytes: usize,
 }
 
+/// Why [`PromptImageLimits::admit`] keeps an image from the agent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageRefusal {
+    /// Over `max_bytes` encoded, or a side over `max_side`.
+    TooLarge,
+    /// It fits alone, but not with the images already shown (`total_bytes`).
+    TooHeavyTogether,
+}
+
+impl PromptImageLimits {
+    /// The base64 size of `bytes` raw bytes: what the agent's API receives.
+    const fn encoded_len(bytes: usize) -> usize {
+        4 * bytes.div_ceil(3)
+    }
+
+    /// Whether an image of `bytes` raw bytes and largest side `side` pixels may be shown,
+    /// `total` encoded bytes being already shown with the same message or read.
+    ///
+    /// Returns its encoded size, for the caller to add to its running total.
+    ///
+    /// # Errors
+    ///
+    /// [`ImageRefusal::TooLarge`] past `max_bytes` or `max_side` (checked first),
+    /// [`ImageRefusal::TooHeavyTogether`] when `total` plus its size passes `total_bytes`.
+    pub fn admit(&self, bytes: usize, side: u32, total: usize) -> Result<usize, ImageRefusal> {
+        let encoded = Self::encoded_len(bytes);
+        if encoded > self.max_bytes || side > self.max_side {
+            return Err(ImageRefusal::TooLarge);
+        }
+        if total.saturating_add(encoded) > self.total_bytes {
+            return Err(ImageRefusal::TooHeavyTogether);
+        }
+        Ok(encoded)
+    }
+}
+
 impl PasteSettings {
     /// [`Self::max_image_mib`] en octets.
     #[must_use]
@@ -370,6 +408,48 @@ pub struct UsageSettings {
     ///
     /// Off: none recorded nor saved.
     pub store_in_deck: bool,
+}
+
+/// Limits on what the agent reads of the deck knowledge base (`[knowledge]`).
+///
+/// Each value can only lower its ceiling: a larger one counts as the ceiling. Zero is refused at
+/// load: no index line, no index byte or no search hit would ever be given.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[non_exhaustive]
+pub struct KnowledgeSettings {
+    /// Maximum number of files in the agent's knowledge index.
+    pub index_entries: NonZeroUsize,
+    /// Size limit of the agent's knowledge index, in KiB.
+    pub index_kib: NonZeroUsize,
+    /// Maximum number of hits one knowledge search returns.
+    pub search_hits: NonZeroUsize,
+}
+
+impl KnowledgeSettings {
+    /// Ceiling of [`Self::index_entries`].
+    pub const INDEX_ENTRIES_MAX: usize = 1024;
+    /// Ceiling of [`Self::index_kib`].
+    pub const INDEX_KIB_MAX: usize = 64;
+    /// Ceiling of [`Self::search_hits`].
+    pub const SEARCH_HITS_MAX: usize = 200;
+
+    /// [`Self::index_entries`], at most [`Self::INDEX_ENTRIES_MAX`].
+    #[must_use]
+    pub fn effective_index_entries(&self) -> usize {
+        self.index_entries.get().min(Self::INDEX_ENTRIES_MAX)
+    }
+
+    /// [`Self::index_kib`], at most [`Self::INDEX_KIB_MAX`].
+    #[must_use]
+    pub fn effective_index_kib(&self) -> usize {
+        self.index_kib.get().min(Self::INDEX_KIB_MAX)
+    }
+
+    /// [`Self::search_hits`], at most [`Self::SEARCH_HITS_MAX`].
+    #[must_use]
+    pub fn effective_search_hits(&self) -> usize {
+        self.search_hits.get().min(Self::SEARCH_HITS_MAX)
+    }
 }
 
 /// `oku-slides serve` development server, without authentication.
@@ -638,6 +718,12 @@ impl PathSettings {
     #[must_use]
     pub fn guide_approvals(&self) -> PathBuf {
         self.data().join("guide-approvals.json")
+    }
+
+    /// The knowledge files the user approved, by content hash (`knowledge-approvals.json`).
+    #[must_use]
+    pub fn knowledge_approvals(&self) -> PathBuf {
+        self.data().join("knowledge-approvals.json")
     }
 
     /// Decks enregistrés d'eux-mêmes : `Documents/Oku Slides` par défaut.

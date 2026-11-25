@@ -228,3 +228,17 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn normalize_many_collisions_repair_to_consecutive_suffixes_quickly() {
+    const N: usize = 20_000;
+    let input: BTreeMap<_, _> = (0..N).map(|n| (format!("{n:032x}"), file("/a.md", NOTE))).collect();
+    let started = std::time::Instant::now();
+    let (out, _) = repair(input);
+    // Loose bound: the old quadratic search took far longer, a loaded runner far less than this.
+    assert_that!(started.elapsed().as_secs()).is_less_than(5);
+    let got: Vec<String> = out.values().map(|f| f.path.clone()).collect();
+    let mut want = vec!["/a.md".to_owned()];
+    want.extend((1..N).map(|n| format!("/a-{}.md", n + 1)));
+    assert_that!(got).is_equal_to(want);
+}

@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = la clé « { $key } » apparaît deux fois
 knowledge-frontmatter-alias = l'en-tête ne doit pas utiliser d'ancres ni d'alias YAML
 knowledge-frontmatter-tag = l'en-tête ne doit pas utiliser de balises YAML
 knowledge-frontmatter-too-deep = l'en-tête est imbriqué trop profondément
+knowledge-frontmatter-after-document-end = l'en-tête contient du texte après la fin de document YAML ...
 knowledge-frontmatter-type-missing = l'en-tête doit avoir un type non vide
 knowledge-frontmatter-bad-timestamp = la valeur « { $key } » de l'en-tête doit être une date RFC 3339 avec décalage horaire
 knowledge-frontmatter-not-allowed = la clé « { $key } » n'est pas permise dans l'en-tête de ce fichier
@@ -213,6 +214,12 @@ issue-data-truncated = données trop grandes, tronquées à la lecture
 issue-unreadable-slide = slide illisible, mise de côté
 issue-unreadable-field = champ { $field } du deck illisible, réinitialisé
 issue-knowledge-unreadable = entrée de connaissances { $id } illisible, mise de côté
+issue-knowledge-entries-dropped = entrées de connaissances écartées sans lecture : { $count } ({ $cause ->
+        [files] trop de fichiers à lire
+        [file-bytes] fichier trop volumineux à lire
+        [total-bytes] dossier trop volumineux à lire
+       *[unreadable] autres entrées illisibles
+    })
 issue-knowledge-over-limit = dossier de connaissances au-delà d’une limite : { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -239,6 +246,7 @@ issue-knowledge-invalid = fichier de connaissances { $path } invalide : { $reaso
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

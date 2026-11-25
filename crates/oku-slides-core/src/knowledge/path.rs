@@ -17,7 +17,7 @@ fn is_reserved(segment: &str) -> bool {
     RESERVED.contains(&base)
         || (base.len() == 4
             && (base.starts_with("com") || base.starts_with("lpt"))
-            && matches!(base.as_bytes()[3], b'1'..=b'9'))
+            && base.as_bytes()[3].is_ascii_digit())
 }
 
 fn is_segment_char(c: char) -> bool {
@@ -30,6 +30,10 @@ impl KnowledgePath {
     /// # Errors
     /// The [`PathReason`] of the first rule broken.
     pub fn parse(text: &str) -> Result<Self, PathReason> {
+        // First, so an oversized path costs one comparison, not a scan of its characters.
+        if text.len() > PATH_MAX_BYTES {
+            return Err(PathReason::TooLong);
+        }
         if text.is_empty() || text == "/" {
             return Err(PathReason::Empty);
         }
@@ -54,9 +58,6 @@ impl KnowledgePath {
         }
         if segments > PATH_MAX_SEGMENTS {
             return Err(PathReason::TooDeep);
-        }
-        if text.len() > PATH_MAX_BYTES {
-            return Err(PathReason::TooLong);
         }
         Ok(Self(text.to_owned()))
     }

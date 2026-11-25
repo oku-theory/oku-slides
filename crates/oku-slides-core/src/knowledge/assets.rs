@@ -4,11 +4,11 @@
 //! not scanned: it is raw HTML, which this scan does not read. URLs are untrusted text: nothing
 //! is fetched, only matched against `/references/assets/<64 hex>.<ext>`.
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use pulldown_cmark::{Event, Parser, Tag};
 
-use super::{KnowledgeFile, split};
+use super::split;
 
 /// The bundle folder that holds cited image assets.
 pub const ASSETS_DIR: &str = "/references/assets/";
@@ -16,24 +16,29 @@ pub const ASSETS_DIR: &str = "/references/assets/";
 /// The longest file extension of a cited asset.
 const EXT_MAX: usize = 10;
 
-/// The asset ids (`sha256:<hex>`) that images of `file` cite.
+/// The images `text`, the text of the knowledge file at bundle path `path`, cites: each asset id
+/// (`sha256:<hex>`) with its bundle path (`/references/assets/<hex>.<ext>`), the first one cited
+/// when two extensions name one id.
 ///
 /// The frontmatter is not read (an image there is YAML text); when no frontmatter block is found
 /// (no opening `---` line, or no closing one) the whole text is scanned.
 #[must_use]
-pub fn cited_assets(file: &KnowledgeFile) -> BTreeSet<String> {
-    let body = split(&file.text).map_or(file.text.as_str(), |(_, body)| body);
-    let dir = file.path.rsplit_once('/').map_or("", |(dir, _)| dir);
-    Parser::new(body)
-        .filter_map(|event| match event {
-            Event::Start(Tag::Image { dest_url, .. }) => asset_id_of(dir, &dest_url),
-            _ => None,
-        })
-        .collect()
+pub fn cited_images(path: &str, text: &str) -> BTreeMap<String, String> {
+    let body = split(text).map_or(text, |(_, body)| body);
+    let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
+    let mut images = BTreeMap::new();
+    for event in Parser::new(body) {
+        if let Event::Start(Tag::Image { dest_url, .. }) = event
+            && let Some((id, path)) = asset_id_of(dir, &dest_url)
+        {
+            images.entry(id).or_insert(path);
+        }
+    }
+    images
 }
 
-/// The asset `url` names once resolved against `dir`, if it is one.
-fn asset_id_of(dir: &str, url: &str) -> Option<String> {
+/// The asset `url` names once resolved against `dir`, if it is one, and its bundle path.
+fn asset_id_of(dir: &str, url: &str) -> Option<(String, String)> {
     if url.starts_with("//") || url.contains(['?', '#', '%']) {
         return None;
     }
@@ -61,14 +66,15 @@ fn asset_id_of(dir: &str, url: &str) -> Option<String> {
     let [dir_a, dir_b, name] = segments.as_slice() else {
         return None;
     };
-    if format!("/{dir_a}/{dir_b}/") != ASSETS_DIR {
+    // Compare slices of `ASSETS_DIR` (`/references/assets/`): no allocation per URL.
+    if ASSETS_DIR.trim_matches('/').split_once('/') != Some((*dir_a, *dir_b)) {
         return None;
     }
     let (hex, ext) = name.split_once('.')?;
     let hex_ok = hex.len() == 64 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
     let ext_ok =
         (1..=EXT_MAX).contains(&ext.len()) && ext.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit());
-    (hex_ok && ext_ok).then(|| format!("sha256:{hex}"))
+    (hex_ok && ext_ok).then(|| (format!("sha256:{hex}"), format!("{ASSETS_DIR}{name}")))
 }
 
 #[cfg(test)]

@@ -8,7 +8,8 @@ use speculoos::prelude::*;
 
 use super::{DeckReplica, KNOWLEDGE, ROOT, compact};
 use crate::error::{FrontmatterReason, PathReason, ReplicaErrorKind};
-use crate::knowledge::KnowledgeFile;
+use crate::knowledge::limits::{MAX_FILE_BYTES, MAX_FILES, READ_FACTOR};
+use crate::knowledge::{DropCause, KnowledgeFile};
 use crate::{Deck, Issue, Op, WidgetRegistry, apply_all};
 
 const NOTE: &str = "---\ntype: Note\n---\nalpha middle omega\n";
@@ -423,4 +424,64 @@ fn knowledge_merge_past_the_file_ceiling_keeps_every_file_after_an_unrelated_op(
     let (after, _) = reopen(&a).deck();
     assert_that!(after.knowledge).is_equal_to(&read.knowledge);
     assert_that!(after.params.title.as_deref()).is_equal_to(Some("unrelated"));
+}
+
+/// `count` raw entries `<n as 32 hex> → { /f/<n>.md, NOTE }` in one commit.
+fn raw_entries(r: &DeckReplica, count: usize) {
+    let map = r.doc.get_map(KNOWLEDGE);
+    for n in 0..count {
+        let entry = ok(map.insert_container(&format!("{n:032x}"), LoroMap::new()));
+        ok(entry.insert("path", format!("/f/{n}.md").as_str()));
+        let t = ok(entry.insert_container("text", LoroText::new()));
+        ok(t.insert(0, NOTE));
+    }
+    r.doc.commit();
+}
+
+fn count_of(issues: &[Issue], key: &str) -> usize {
+    issues.iter().filter(|i| i.message.id() == key).count()
+}
+
+#[test]
+fn knowledge_read_past_the_file_read_ceiling_drops_the_rest_with_a_count() {
+    let r = ok(DeckReplica::new(&roadmap(), registry()));
+    raw_entries(&r, READ_FACTOR * MAX_FILES + 3);
+    let (read, issues) = reopen(&r).deck();
+    assert_that!(read.knowledge.len()).is_equal_to(READ_FACTOR * MAX_FILES);
+    assert_that!(issues).contains(Issue::knowledge_entries_dropped(DropCause::Files, 3));
+    assert_that!(count_of(&issues, "issue-knowledge-entries-dropped")).is_equal_to(1);
+}
+
+#[test]
+fn knowledge_read_of_a_text_past_the_file_byte_read_ceiling_drops_it() {
+    let r = ok(DeckReplica::new(&roadmap(), registry()));
+    raw_entry(&r, &id(1), "/a.md", NOTE);
+    raw_entry(&r, &id(2), "/huge.md", &"x".repeat(READ_FACTOR * MAX_FILE_BYTES + 1));
+    let (read, issues) = r.deck();
+    assert_that!(read.knowledge.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![id(1)]);
+    assert_that!(issues).is_equal_to(vec![Issue::knowledge_entries_dropped(DropCause::FileBytes, 1)]);
+}
+
+#[test]
+fn knowledge_read_reports_32_unreadable_entries_then_a_count() {
+    let r = ok(DeckReplica::new(&roadmap(), registry()));
+    let map = r.doc.get_map(KNOWLEDGE);
+    for n in 0..40u8 {
+        ok(map.insert(&id(n), "not a map"));
+    }
+    r.doc.commit();
+    let (read, issues) = reopen(&r).deck();
+    assert_that!(read.knowledge.is_empty()).is_true();
+    assert_that!(count_of(&issues, "issue-knowledge-unreadable")).is_equal_to(32);
+    assert_that!(issues).contains(Issue::knowledge_entries_dropped(DropCause::Unreadable, 8));
+    assert_that!(issues.len()).is_equal_to(33);
+}
+
+#[test]
+fn knowledge_read_of_twice_the_file_limit_keeps_every_file() {
+    let r = ok(DeckReplica::new(&roadmap(), registry()));
+    raw_entries(&r, 2 * MAX_FILES);
+    let (read, issues) = reopen(&r).deck();
+    assert_that!(read.knowledge.len()).is_equal_to(2 * MAX_FILES);
+    assert_that!(keys(&issues)).is_equal_to(vec!["issue-knowledge-over-limit"]);
 }

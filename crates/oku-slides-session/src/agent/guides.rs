@@ -1,6 +1,6 @@
 //! The agent's guides block: the edit and use guides a tab's agent reads.
 //!
-//! Sent on the first turn and when the list changes (`guides_sent` digest).
+//! Sent on the first turn of an ACP session and when the list changes (`sent_blocks`: session and digest).
 //! Every text is untrusted: names through `label`, text through `clip` with
 //! `<` escaped, a received version's text only once approved.
 
@@ -231,20 +231,25 @@ impl Session {
         }
     }
 
-    /// The guides block for a turn: `None` when nothing changed since the last send.
+    /// The guides block for a turn on ACP session `session`: `None` when that session holds it.
     ///
-    /// `first` forces the send (a new thread, a resume). Stores the digest of what it returns.
-    pub fn agent_guides(&mut self, first: bool) -> Option<AgentGuides> {
+    /// `first` forces the send (a new thread, a resume). Records what it returns as sent to
+    /// `session`, so a turn on another session (the local agent standing in) sends it again.
+    /// An emptied list sends the "no guides" block once, only to the session that holds older guides.
+    pub fn agent_guides(&mut self, session: &str, first: bool) -> Option<AgentGuides> {
         let entries = self.guide_entries();
-        if entries.is_empty() {
-            // A removed pin changes the list: say once that no guide applies any more.
-            return self.guides_sent.take().map(|_| AgentGuides { block: frame(&entries, 0), received: Vec::new() });
-        }
         let d = digest(&entries);
-        if !first && self.guides_sent == Some(d) {
+        let sent = &mut self.sent_blocks.guides;
+        if !first && sent.holds(session, &d) {
             return None;
         }
-        self.guides_sent = Some(d);
+        if entries.is_empty() {
+            // The single record may name another session, so a later turn not known to hold the
+            // empty list may hold older guides: it hears they are gone. A first turn holds nothing.
+            sent.record(session, d);
+            return (!first).then(|| AgentGuides { block: frame(&entries, 0), received: Vec::new() });
+        }
+        sent.record(session, d);
         let received = received_labels(&entries);
         Some(AgentGuides { block: frame(&entries, self.guide_limit), received })
     }
@@ -257,14 +262,13 @@ impl Session {
 
     /// True if the last guides sent are the current list: the agent holds them all.
     pub(crate) fn guides_sent_current(&self) -> bool {
-        let entries = self.guide_entries();
-        self.guides_sent == (!entries.is_empty()).then(|| digest(&entries))
+        self.sent_blocks.guides.digest() == Some(&digest(&self.guide_entries()))
     }
 
-    /// Takes the current guides as the last sent: the agent's own write is not echoed back.
+    /// Takes the current guides as held by the session last sent them: the agent's own write is not echoed back.
     pub(crate) fn mark_guides_sent(&mut self) {
-        let entries = self.guide_entries();
-        self.guides_sent = (!entries.is_empty()).then(|| digest(&entries));
+        let d = digest(&self.guide_entries());
+        self.sent_blocks.guides.redigest(d);
     }
 }
 

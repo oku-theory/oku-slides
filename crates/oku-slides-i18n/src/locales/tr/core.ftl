@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = "{ $key }" anahtarı başlıkta iki kez ge
 knowledge-frontmatter-alias = başlıkta YAML çapaları veya takma adları kullanılamaz
 knowledge-frontmatter-tag = başlıkta YAML etiketleri kullanılamaz
 knowledge-frontmatter-too-deep = başlık çok derin iç içe
+knowledge-frontmatter-after-document-end = başlıkta YAML belge sonu ... sonrasında metin var
 knowledge-frontmatter-type-missing = başlıkta boş olmayan bir tür gerekir
 knowledge-frontmatter-bad-timestamp = başlıktaki "{ $key }" değeri saat dilimi farkı olan bir RFC 3339 tarih-saat olmalıdır
 knowledge-frontmatter-not-allowed = "{ $key }" anahtarına bu dosyanın başlığında izin verilmez
@@ -204,6 +205,12 @@ issue-data-truncated = veri çok büyük, okunurken kırpıldı
 issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
 issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
 issue-knowledge-unreadable = okunamayan bilgi girdisi { $id }, bir kenara ayrıldı
+issue-knowledge-entries-dropped = okunmadan atılan bilgi girdileri: { $count } ({ $cause ->
+        [files] okunamayacak kadar çok dosya
+        [file-bytes] okunamayacak kadar büyük dosya
+        [total-bytes] okunamayacak kadar büyük paket
+       *[unreadable] diğer okunamayan girdiler
+    })
 issue-knowledge-over-limit = bilgi koleksiyonu bir sınırı aşıyor: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -230,6 +237,7 @@ issue-knowledge-invalid = bilgi dosyası { $path } geçersiz: { $reason ->
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = คีย์ "{ $key }" ปรากฏส
 knowledge-frontmatter-alias = ส่วนหัวต้องไม่ใช้แองเคอร์หรือนามแฝงของ YAML
 knowledge-frontmatter-tag = ส่วนหัวต้องไม่ใช้แท็กของ YAML
 knowledge-frontmatter-too-deep = ส่วนหัวซ้อนลึกเกินไป
+knowledge-frontmatter-after-document-end = ส่วนหัวมีข้อความหลังจุดสิ้นสุดเอกสาร YAML ...
 knowledge-frontmatter-type-missing = ส่วนหัวต้องมีประเภทที่ไม่ว่างเปล่า
 knowledge-frontmatter-bad-timestamp = ค่า "{ $key }" ในส่วนหัวต้องเป็นวันที่และเวลาแบบ RFC 3339 พร้อมส่วนต่างเขตเวลา
 knowledge-frontmatter-not-allowed = ไม่อนุญาตให้ใช้คีย์ "{ $key }" ในส่วนหัวของไฟล์นี้
@@ -203,6 +204,12 @@ issue-data-truncated = ข้อมูลใหญ่เกินไป ถู�
 issue-unreadable-slide = สไลด์ที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-field = ช่อง { $field } ของงานนำเสนอที่อ่านไม่ได้ ถูกรีเซ็ต
 issue-knowledge-unreadable = รายการความรู้ { $id } ที่อ่านไม่ได้ ถูกแยกไว้
+issue-knowledge-entries-dropped = รายการความรู้ที่ถูกตัดทิ้งโดยไม่อ่าน: { $count } รายการ ({ $cause ->
+        [files] ไฟล์มากเกินกว่าจะอ่าน
+        [file-bytes] ไฟล์ใหญ่เกินกว่าจะอ่าน
+        [total-bytes] ชุดข้อมูลใหญ่เกินกว่าจะอ่าน
+       *[unreadable] รายการที่อ่านไม่ได้เพิ่มเติม
+    })
 issue-knowledge-over-limit = ชุดความรู้เกินขีดจำกัด: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -229,6 +236,7 @@ issue-knowledge-invalid = ไฟล์ความรู้ { $path } ไม่�
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

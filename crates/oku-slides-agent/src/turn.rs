@@ -55,6 +55,8 @@ pub(crate) async fn run(
     let Instruction { text, ui, tune, images, .. } = instruction;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
+    // The guides and the knowledge index are sent again to an ACP session that does not hold them.
+    let acp = session.0.to_string();
     let blocking = tokio::task::spawn_blocking(move || {
         tab.with(|s| {
             s.begin_turn(turn, &text_for_begin);
@@ -65,20 +67,26 @@ pub(crate) async fn run(
                     (r, bytes)
                 })
                 .collect();
-            (s.agent_context(&ui), s.agent_guides(first), s.active_received_guides(), pasted)
+            (
+                s.agent_context(&ui),
+                s.agent_guides(&acp, first),
+                s.agent_knowledge(&acp, first),
+                s.active_received_guides(),
+                pasted,
+            )
         })
     })
     .await;
     // Without a session the turn has no context and no images: there is nothing to read them from.
-    let (context, guides, received, pasted) = match blocking {
+    let (context, guides, knowledge, received, pasted) = match blocking {
         Ok(Ok(x)) => x,
         Ok(Err(e)) => {
             tracing::warn!(error = %e.one_line(), "agent context: tab session not found, empty context");
-            (String::new(), None, Vec::new(), Vec::new())
+            (String::new(), None, None, Vec::new(), Vec::new())
         }
         Err(e) => {
             tracing::warn!(error = %e, "agent context: blocking task lost, empty context");
-            (String::new(), None, Vec::new(), Vec::new())
+            (String::new(), None, None, Vec::new(), Vec::new())
         }
     };
     // The note names the active received guides of the current list, taken at turn start; one sent
@@ -87,7 +95,7 @@ pub(crate) async fn run(
     ctx.hub.set_permission_note(permission_note(&received, &ctx.localizer.current()));
     ctx.emit(AgentEvent::Status { state: AgentState::Working });
     tracing::debug!(tab = %ctx.tab.tab(), kind = ctx.kind.as_str(), turn, "agent turn starts");
-    let mut blocks = Vec::with_capacity(8);
+    let mut blocks = Vec::with_capacity(9);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
         blocks.push(ContentBlock::Text(TextContent::new(for_kind(ctx.kind))));
@@ -105,6 +113,10 @@ pub(crate) async fn run(
     // Guides are untrusted advice, framed by the session; they come before the context on every turn they are sent.
     if let Some(guides) = guides {
         blocks.push(ContentBlock::Text(TextContent::new(guides.block)));
+    }
+    // The deck's knowledge index, framed and sanitized by the session, right after the guides.
+    if let Some(knowledge) = knowledge {
+        blocks.push(ContentBlock::Text(TextContent::new(knowledge)));
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.extend(crate::prompt_images::image_blocks(&pasted, see_images, ctx.prompt_limits));
@@ -140,6 +152,9 @@ pub(crate) async fn run(
     };
     pending.cut = cancel_sent;
     ctx.end_turn(turn).await;
+    if response.is_err() {
+        forget_sent_blocks(ctx).await;
+    }
     let response = response?;
     ctx.emit(AgentEvent::TurnEnded { turn, stop: as_text(&response.stop_reason) });
     ctx.emit(AgentEvent::idle());
@@ -150,6 +165,16 @@ pub(crate) async fn run(
 fn permission_note(received: &[String], l: &oku_slides_i18n::Localizer) -> Option<String> {
     (!received.is_empty())
         .then(|| l.tr_with("agent-surface-permission-guides", &[("names", received.join(", ").into())]))
+}
+
+/// Forgets the blocks sent with a failed `session/prompt`: the agent may never have received them.
+async fn forget_sent_blocks(ctx: &Ctx) {
+    let tab = ctx.tab.clone();
+    match tokio::task::spawn_blocking(move || tab.with(oku_slides_session::Session::forget_sent_blocks)).await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => tracing::warn!(error = %e.one_line(), "sent blocks not forgotten: tab session not found"),
+        Err(e) => tracing::warn!(error = %e, "sent blocks not forgotten: blocking task lost"),
+    }
 }
 
 #[cfg(test)]

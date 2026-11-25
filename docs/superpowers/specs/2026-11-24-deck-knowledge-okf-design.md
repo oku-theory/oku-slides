@@ -234,6 +234,23 @@ agent; it is never shown in the slides themselves.
   `open_knowledge` uses the turn's one tab move, refused with the existing tab-gate reason.
 - **Timestamps** with the `time` crate (already in core), RFC 3339 in UTC.
 
+### Plan decisions (lot 2 builder, recorded from the plan)
+
+- **Read tools before approval writes.** Lot 2 ships `knowledge_list`, `knowledge_read`,
+  `knowledge_search` and the index, gated by `knowledge-approvals.json` read only (a JSON
+  array of `sha256:<hex>` content hashes); lot 3 adds approving. Until then every file
+  awaits and reads refuse it.
+- **Status and staleness** come from the frontmatter: `status` when it is text, `stale` only
+  for the plain scalar `true`.
+- **Images in `knowledge_read`** are always attached when they fit the `[paste] prompt_*`
+  limits (the server cannot know its caller's image support) and always listed in the text.
+- **A file kept past `MAX_FILE_BYTES`** is returned cut at that size, the cut stated.
+- **Read ceiling for forged replicas:** materializing stops at 4× each ceiling, the rest
+  dropped and reported; R10 holds for any bundle ops and merges of valid decks can build.
+- **`[knowledge]`:** `index_entries` (200, ceiling 1024), `index_kib` (16, ceiling 64),
+  `search_hits` (50, ceiling 200); a higher value uses the ceiling, with a warning.
+- The local agent routes the three tools through a `knowledge` family.
+
 ## Testing
 
 - Core: op validation (paths, frontmatter, limits), replica round trip, merge of concurrent

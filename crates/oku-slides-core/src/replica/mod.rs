@@ -206,6 +206,7 @@ fn read_deck(doc: &LoroDoc) -> Result<DeckRead, ReplicaInner> {
         .get_by_str_path(KNOWLEDGE)
         .is_some_and(|root| !matches!(root, ValueOrContainer::Container(Container::Map(_))))
     {
+        // May follow the read's 32 unreadable issues: the overshoot is at most one.
         issues.push(crate::Issue::knowledge_unreadable(KNOWLEDGE));
     }
     Ok((deck, issues))

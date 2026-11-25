@@ -41,6 +41,7 @@ mod add_grid;
 pub mod agent;
 mod agent_window_allow;
 mod appearance;
+mod approvals_file;
 mod builtin_labels;
 mod carried_assets;
 mod charts;
@@ -78,6 +79,10 @@ mod history;
 pub mod import;
 mod inline;
 mod items;
+mod knowledge_approvals;
+#[cfg(any(test, feature = "test-support"))]
+pub mod knowledge_fixture;
+mod knowledge_view;
 mod last_errors;
 mod layout_examples;
 #[cfg(test)]
@@ -175,6 +180,7 @@ pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use guide_approvals::{GuideApprovals, VersionRef};
 pub use guide_origin::GuideOrigin;
 pub use items::{ItemView, ListView};
+pub use knowledge_view::{KnowledgeEntry, KnowledgeHit, KnowledgeHits, KnowledgeImage, KnowledgeRead, QUERY_MAX_CHARS};
 pub use library::{Library, builtin_versions};
 pub use library_kind::{Layouts, LibraryKind, StoredVersion, VersionManifest, Widgets};
 pub use library_lookup::{embed_theme, library_pack, read_pack_dir, resolve_pack};
@@ -417,12 +423,14 @@ pub struct Session {
     widget_limits: widgets_edit::WidgetLimits,
     /// Maximum length of an agent guide, in characters (`[render] max_guide_chars`).
     guide_limit: usize,
+    /// What the agent reads of the deck knowledge base (`[knowledge]`).
+    knowledge_settings: oku_slides_platform::config::KnowledgeSettings,
     /// Received versions whose review the user put off in this tab; in memory, never resumed.
     received_later: std::collections::BTreeSet<VersionRef>,
     /// The received reviews last computed, keyed on what they depend on (`received_review.rs`).
     received_cache: received_review::ReviewCache,
-    /// Digest of the guides block last sent to the agent; `None`: none sent (`agent/guides.rs`).
-    guides_sent: Option<[u8; 32]>,
+    /// The guides and knowledge index blocks last sent, each with its ACP session (`agent/sent_blocks.rs`).
+    sent_blocks: agent::sent_blocks::SentBlocks,
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
     widget_edit: bool,
     /// Séance de modification des widgets en mode deck.
@@ -593,9 +601,10 @@ impl Session {
             themes_notice: None,
             widget_limits: widgets_edit::WidgetLimits::of(&settings.render),
             guide_limit: settings.render.max_guide_chars,
+            knowledge_settings: knowledge_view::knowledge_settings(&settings.knowledge),
             received_later: std::collections::BTreeSet::new(),
             received_cache: received_review::ReviewCache::default(),
-            guides_sent: None,
+            sent_blocks: agent::sent_blocks::SentBlocks::default(),
             widget_edit: false,
             widget_session: None,
             widget_preview: None,

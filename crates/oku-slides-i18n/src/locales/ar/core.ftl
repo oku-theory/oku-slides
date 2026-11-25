@@ -38,6 +38,7 @@ knowledge-frontmatter-duplicate-key = المفتاح "{ $key }" يظهر مرت�
 knowledge-frontmatter-alias = لا يجوز أن تستخدم الترويسة مراسي YAML أو أسماءها المستعارة
 knowledge-frontmatter-tag = لا يجوز أن تستخدم الترويسة وسوم YAML
 knowledge-frontmatter-too-deep = الترويسة متداخلة بعمق زائد
+knowledge-frontmatter-after-document-end = الترويسة تحتوي على نص بعد نهاية المستند ...
 knowledge-frontmatter-type-missing = تحتاج الترويسة إلى نوع غير فارغ
 knowledge-frontmatter-bad-timestamp = يجب أن تكون قيمة "{ $key }" في الترويسة تاريخًا ووقتًا بصيغة RFC 3339 مع إزاحة المنطقة الزمنية
 knowledge-frontmatter-not-allowed = المفتاح "{ $key }" غير مسموح به في ترويسة هذا الملف
@@ -229,6 +230,12 @@ issue-data-truncated = بيانات كبيرة جدًا، اقتُطعت عند 
 issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
 issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه
 issue-knowledge-unreadable = إدخال معرفة غير مقروء { $id }، نُحّي جانبًا
+issue-knowledge-entries-dropped = إدخالات معرفة أُسقطت دون قراءة: { $count } ({ $cause ->
+        [files] ملفات أكثر من أن تُقرأ
+        [file-bytes] ملف أكبر من أن يُقرأ
+        [total-bytes] مجموعة أكبر من أن تُقرأ
+       *[unreadable] إدخالات أخرى غير مقروءة
+    })
 issue-knowledge-over-limit = مجموعة المعرفة تتجاوز حدًا: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
@@ -255,6 +262,7 @@ issue-knowledge-invalid = ملف المعرفة { $path } غير صالح: { $re
         [knowledge-frontmatter-alias] { knowledge-frontmatter-alias }
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
+        [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

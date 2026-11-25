@@ -251,12 +251,12 @@ async fn set_guide_on_a_theme_tab_stores_it_and_is_not_echoed_back() {
     let h = start_theme_tab(PRO_THEME).await;
     let c = server(&h).await;
     // The turn starts: its guides block is sent first.
-    tokio::task::block_in_place(|| lock(&h.session).agent_guides(true));
+    tokio::task::block_in_place(|| lock(&h.session).agent_guides("acp", true));
     let r = call(&c, "set_guide", json!({ "which": "use", "text": "Prefer the dark scheme." })).await;
     assert_that!(r.is_error).is_not_equal_to(Some(true));
     let (stored, echoed) = tokio::task::block_in_place(|| {
         let mut s = lock(&h.session);
-        (s.snapshot().guides.map(|g| g.guides.use_), s.agent_guides(false).is_some())
+        (s.snapshot().guides.map(|g| g.guides.use_), s.agent_guides("acp", false).is_some())
     });
     assert_that!(stored).is_equal_to(Some("Prefer the dark scheme.".to_owned()));
     assert_that!(echoed).is_false();

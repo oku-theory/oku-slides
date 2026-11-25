@@ -22,6 +22,7 @@ use crate::error::{
     LeaseMissingSnafu, NamespaceReservedSnafu, NamespaceTakenSnafu, PackJsonSnafu, PackKindChangedSnafu, ThemeJsonSnafu,
 };
 use crate::guide_approvals::GuideApprovals;
+use crate::knowledge_approvals::KnowledgeApprovals;
 use crate::library::{DraftLock, DraftWrite, Library, builtin_owner, draft_lock, may_own};
 use crate::library_kind::{Layouts, StoredVersion, Widgets};
 use crate::namespace_slug::library_namespace;
@@ -59,6 +60,8 @@ pub struct PackLibrary {
     theme_scope: Option<LeaseScope>,
     /// The versions whose guides the user approved; shared by clones.
     guide_approvals: GuideApprovals,
+    /// The deck knowledge texts the user approved, by hash; shared by clones.
+    knowledge_approvals: KnowledgeApprovals,
 }
 
 /// What a draft created empty is: a library pack or a library theme.
@@ -91,16 +94,23 @@ impl PackLibrary {
     #[must_use]
     pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
         let guide_approvals = GuideApprovals::load(None, storage.clone());
+        let knowledge_approvals = KnowledgeApprovals::load(None, &storage);
         let (widgets, layouts) = (Library::new(widgets, storage.clone()), Library::new(layouts, storage));
         let lease_scope = widgets.dir().zip(layouts.dir()).map(|(w, l)| LeaseScope::new(w, l));
         let theme_scope = themes.dir().map(LeaseScope::themes);
-        Self { widgets, layouts, themes, lease_scope, theme_scope, guide_approvals }
+        Self { widgets, layouts, themes, lease_scope, theme_scope, guide_approvals, knowledge_approvals }
     }
 
     /// The versions whose guides the user approved.
     #[must_use]
     pub fn guide_approvals(&self) -> &GuideApprovals {
         &self.guide_approvals
+    }
+
+    /// The deck knowledge texts the user approved.
+    #[must_use]
+    pub(crate) fn knowledge_approvals(&self) -> &KnowledgeApprovals {
+        &self.knowledge_approvals
     }
 
     /// This library's lease key; None without both directories.
@@ -129,6 +139,7 @@ impl PackLibrary {
         let paths = &platform.settings.paths;
         let mut library = Self::new(Some(paths.widgets()), Some(paths.layouts()), themes, platform.storage.clone());
         library.guide_approvals = GuideApprovals::load(Some(paths.guide_approvals()), platform.storage.clone());
+        library.knowledge_approvals = KnowledgeApprovals::load(Some(paths.knowledge_approvals()), &platform.storage);
         library
     }
 

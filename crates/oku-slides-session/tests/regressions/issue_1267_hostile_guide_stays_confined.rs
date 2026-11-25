@@ -21,7 +21,7 @@ fn issue_1267_hostile_guide_stays_confined() {
     );
     let block = on(&ws, &tab, |s| {
         s.set_guide(GuideKind::Edit, hostile).unwrap_or_else(|e| panic!("{}", e.one_line()));
-        s.agent_guides(true).map(|g| g.block).unwrap_or_default()
+        s.agent_guides("acp", true).map(|g| g.block).unwrap_or_default()
     });
     // The edited pack's edit guide is the hostile one; the use guides of the pins (Base) follow it.
     let entry = block.split_once("<guide for=\"edit\"").map_or("", |(_, rest)| rest);

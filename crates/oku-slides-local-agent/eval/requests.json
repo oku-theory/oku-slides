@@ -28,5 +28,9 @@
   {"lang": "en", "request": "The dictation doesn't hear me, what's wrong?", "families": ["troubleshoot"], "first_tool": ["diagnose"]},
   {"lang": "fr", "request": "La slide 2 ne s'affiche pas, il y a une erreur de rendu", "families": ["troubleshoot", "edit"], "first_tool": ["diagnose", "render_slide"]},
   {"lang": "fr", "request": "L'import du PowerPoint a raté, pourquoi ?", "families": ["troubleshoot"], "first_tool": ["diagnose", "import_report"]},
-  {"lang": "en", "request": "Edit the widgets of the deck's own pack", "families": ["packs"], "first_tool": ["open_pack", "packs"]}
+  {"lang": "en", "request": "Edit the widgets of the deck's own pack", "families": ["packs"], "first_tool": ["open_pack", "packs"]},
+  {"lang": "en", "request": "What does the knowledge base say about our pricing?", "families": ["knowledge"], "first_tool": ["knowledge_search", "knowledge_list"]},
+  {"lang": "fr", "request": "Lis la fiche sur le marché dans la base de connaissance", "families": ["knowledge"], "first_tool": ["knowledge_read", "knowledge_list"]},
+  {"lang": "en", "request": "List the notes in the deck's knowledge base", "families": ["knowledge"], "first_tool": ["knowledge_list"]},
+  {"lang": "fr", "request": "Cherche dans la base de connaissance ce qu'on sait des concurrents", "families": ["knowledge"], "first_tool": ["knowledge_search", "knowledge_list"]}
 ]

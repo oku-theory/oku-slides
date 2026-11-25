@@ -9,7 +9,7 @@
 //! Reading is lenient: no readable file is ever dropped, an over-limit bundle included (two
 //! peers can each stay under a ceiling and pass it together); only ops refuse to grow it.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::limits::{MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES};
 use super::path::FileId;
@@ -81,40 +81,55 @@ fn placed(
     without_collisions(claims, issues)
 }
 
-/// The first free path among `base` and its suffixes `-2` to `-(bound + 1)`.
+/// The paths already placed, and for each base path the next suffix worth trying.
 ///
-/// `None` when a suffix no longer fits in a path (`with_suffix` fails only with `TooLong`)
-/// before a free one is found, or when all are taken; with fewer than `bound` paths taken,
-/// the second cannot happen.
-fn first_free(base: &KnowledgePath, taken: &BTreeSet<KnowledgePath>, bound: usize) -> Option<KnowledgePath> {
-    if !taken.contains(base) {
-        return Some(base.clone());
-    }
-    // `take` bounds the count without converting `bound` to the suffix type.
-    for n in (2..=u32::MAX).take(bound) {
-        let Ok(candidate) = base.with_suffix(n) else { return None };
-        if !taken.contains(&candidate) {
-            return Some(candidate);
+/// Every suffix below a base's counter was taken when the counter moved and `taken` only grows,
+/// so a search resumes where the last one stopped: repairing `n` claimants of one path is
+/// linear, not quadratic.
+#[derive(Default)]
+struct Places {
+    taken: HashSet<KnowledgePath>,
+    next: HashMap<KnowledgePath, u32>,
+}
+
+impl Places {
+    /// Takes `base` when free, else the first free `-n` suffix from 2, at most `bound` tried.
+    ///
+    /// `None` when a suffix no longer fits in a path (`with_suffix` fails only with `TooLong`)
+    /// before a free one is found, or when `bound` are tried; with fewer than `bound` paths
+    /// taken, the second cannot happen.
+    fn take(&mut self, base: &KnowledgePath, bound: usize) -> Option<KnowledgePath> {
+        if self.taken.insert(base.clone()) {
+            return Some(base.clone());
         }
+        let start = self.next.get(base).copied().unwrap_or(2);
+        // `take` bounds the count without converting `bound` to the suffix type.
+        for n in (start..=u32::MAX).take(bound) {
+            let Ok(candidate) = base.with_suffix(n) else { return None };
+            if self.taken.insert(candidate.clone()) {
+                self.next.insert(base.clone(), n.saturating_add(1));
+                return Some(candidate);
+            }
+        }
+        None
     }
-    None
 }
 
 /// Each valid path kept by its lowest id; the others suffixed, or recovered then suffixed when
 /// no suffix fits. A file that still finds no place is reported unreadable, never dropped
-/// silently (it cannot happen: a recovered path has room for any suffix, see [`first_free`]).
+/// silently (it cannot happen: a recovered path has room for any suffix, see [`Places::take`]).
 fn without_collisions(
     claims: BTreeMap<FileId, (Claim, KnowledgeFile)>,
     issues: &mut Vec<Issue>,
 ) -> BTreeMap<String, (KnowledgePath, KnowledgeFile)> {
     let bound = claims.len();
-    let mut taken = BTreeSet::new();
+    let mut places = Places::default();
     let mut out = BTreeMap::new();
     let mut later = Vec::new();
     // Pass one: claims go in id order, so the lowest id keeps its path.
     for (id, (claim, file)) in claims {
         match claim {
-            Claim::Valid(path) if taken.insert(path.clone()) => {
+            Claim::Valid(path) if places.taken.insert(path.clone()) => {
                 out.insert(id.into_string(), at(path, file));
             }
             Claim::Valid(path) => later.push((id, path, true, file)),
@@ -123,8 +138,7 @@ fn without_collisions(
     }
     // Pass two: the losers, and the recovered paths, take the first free place.
     for (id, path, lost, file) in later {
-        let place =
-            first_free(&path, &taken, bound).or_else(|| first_free(&KnowledgePath::recovered(&id), &taken, bound));
+        let place = places.take(&path, bound).or_else(|| places.take(&KnowledgePath::recovered(&id), bound));
         let Some(place) = place else {
             // Unreachable: a recovered path (`/recovered/<32 hex>.md`) takes any suffix, and
             // fewer than `bound` paths are taken. Were it reached, the file would leave the
@@ -136,7 +150,6 @@ fn without_collisions(
         if lost || place != path {
             issues.push(Issue::knowledge_path_collision(path.as_str()));
         }
-        taken.insert(place.clone());
         out.insert(id.into_string(), at(place, file));
     }
     out

@@ -38,9 +38,9 @@ fn family(key: &str) -> Family {
 }
 
 #[test]
-fn eval_set_has_thirty_requests_in_french_and_english() {
+fn eval_set_has_thirty_four_requests_in_french_and_english() {
     let cases = cases();
-    assert_that!(cases.len()).is_greater_than_or_equal_to(30);
+    assert_that!(cases.len()).is_greater_than_or_equal_to(34);
     for lang in ["fr", "en"] {
         assert_that!(cases.iter().any(|c| c.lang == lang)).is_true();
     }
