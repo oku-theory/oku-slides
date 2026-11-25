@@ -158,6 +158,7 @@ fn defaults_agent_presets_are_claude_codex_gemini_local_omp_with_claude_selected
         "--acp".to_owned(),
     ]);
     let omp = s.agent.preset("omp").unwrap();
+    assert_that!(omp.name.as_str()).is_equal_to("omp");
     assert_that!(omp.command.as_str()).is_equal_to("omp");
     assert_that!(omp.args.clone()).is_equal_to(vec!["acp".to_owned()]);
     assert_that!(s.agent.locked).is_false();

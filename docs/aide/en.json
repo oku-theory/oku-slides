@@ -1772,7 +1772,7 @@
            "bold": true
           },
           {
-           "t": ": the agent, a key of [agent.presets] (claude, codex, gemini, local); the agent choice is then locked. An unknown key stops the launch."
+           "t": ": the agent, a key of [agent.presets] (claude, codex, gemini, local, omp); the agent choice is then locked. An unknown key stops the launch."
           }
          ],
          "list": "bullet"

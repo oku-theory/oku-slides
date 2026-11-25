@@ -26,13 +26,21 @@ use crate::{Result, Session};
 /// Names coding agents read as project config from their working folder.
 ///
 /// Claude Code (`.claude/`, `CLAUDE.md`, `CLAUDE.local.md`, `.mcp.json`), Codex
-/// (`.codex/`, `AGENTS.md`, `AGENTS.override.md`) and Gemini (`.gemini/`, `GEMINI.md`).
-/// The only list: what [`AgentWorkDir::prepare`] removes.
+/// (`.codex/`, `AGENTS.md`, `AGENTS.override.md`), Gemini (`.gemini/`, `GEMINI.md`) and omp,
+/// which also reads its own `.omp/` and the project folders of Cursor, Windsurf, `OpenCode`,
+/// VS Code, GitHub Copilot and Cline (t-1741). The only list: what [`AgentWorkDir::prepare`] removes.
 pub const AGENT_CONFIG_NAMES: &[&str] = &[
     ".claude",
+    ".clinerules",
     ".codex",
+    ".cursor",
     ".gemini",
+    ".github",
     ".mcp.json",
+    ".omp",
+    ".opencode",
+    ".vscode",
+    ".windsurf",
     "AGENTS.md",
     "AGENTS.override.md",
     "CLAUDE.md",

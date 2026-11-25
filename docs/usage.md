@@ -255,7 +255,7 @@ deck languages are passed in its context, and it answers in yours.
 | Setting | Default |
 | --- | --- |
 | `[agent] selected` / `OKU_SLIDES_AGENT__SELECTED` | `claude` |
-| `[agent.presets.<id>]` `name`, `command`, `args` | Claude, Codex, Gemini (`npx`, pinned versions) |
+| `[agent.presets.<id>]` `name`, `command`, `args` | Claude, Codex, Gemini (`npx`, pinned versions); omp (its installed `omp acp`) |
 
 Any ACP agent that accepts MCP servers over HTTP works.
 

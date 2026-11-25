@@ -1772,7 +1772,7 @@
            "bold": true
           },
           {
-           "t": " : l'agent, une clé de [agent.presets] (claude, codex, gemini, local) ; le choix de l'agent est alors verrouillé. Une clé inconnue empêche le lancement."
+           "t": " : l'agent, une clé de [agent.presets] (claude, codex, gemini, local, omp) ; le choix de l'agent est alors verrouillé. Une clé inconnue empêche le lancement."
           }
          ],
          "list": "bullet"
