@@ -124,14 +124,15 @@ Models go to the app data folder
 
 | Gesture | Effect |
 | --- | --- |
-| ⌘D or the mic | Start, then stop dictation |
-| ⌘⇧D | Dictate into the draft, even while editing a text |
+| ⌘D or the mic | Start, then stop dictation and send the draft to the agent (unless a turn is running) |
+| ⌘⇧D | Dictate into the draft without sending, even while editing a text |
 | Esc | Cancel listening or the download, stop the agent's turn |
 
 While editing a text, ⌘D writes at the cursor. Elsewhere, dictation goes into a
-**draft** in the right panel: you review it, fix it or extend it (each dictation is
-appended), then **send it to the agent** (⌘↩) as an instruction (see [Agent](#agent)).
-The draft only talks to the agent; a pause never decides for you.
+**draft** in the right panel (each dictation is appended). Stopping it with the mic or ⌘D
+sends the whole draft to the agent as an instruction (see [Agent](#agent)), unless a turn
+is running; a dictation finished while a send is on its way stays in the draft. ⌘⇧D, or a dictation stopped on silence, stays in the draft: you review it, fix
+it or extend it, then **send it to the agent** (⌘↩). A pause never sends for you.
 
 ```sh
 just transcribe voice.wav parakeet                # split into sentences, transcribe, measure

@@ -72,11 +72,17 @@ interface Props {
   destination: string;
   /** Mots utiles à la reconnaissance : titres, noms propres du deck. */
   vocabulary: string[];
-  /** Texte final d'une dictée et son mode : l'app l'écrit au curseur ou au brouillon. */
-  onText: (text: string, mode: DictationMode) => void;
+  /**
+   * Texte final d'une dictée et son mode : l'app l'écrit au curseur ou au brouillon. `send`: an
+   * auto dictation finished by hand (stop button or ⌘D) while no agent turn runs; the draft
+   * goes to the agent. ⌘⇧D and the silence auto-stop keep it in the draft.
+   */
+  onText: (text: string, mode: DictationMode, send: boolean) => void;
   onError: (message: string) => void;
   /** Un tour de l'agent est en cours (hors question ouverte) : ⌘⇧D l'arrête (Échap : voir `App`). */
   agentBusy: boolean;
+  /** Finishing an auto dictation by hand sends the draft: false while editing a text (cursor). */
+  sends: boolean;
   /** Arrête le tour de l'agent. */
   onAgentCancel: () => void;
   /** Ouvre le brouillon pour écrire une consigne au clavier (⌘K). */
@@ -95,7 +101,7 @@ interface Props {
  *
  * Ses réglages sont la boîte de l'hôte (⚙).
  */
-export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, onAgentCancel, onType, remote, onSettings }: Props) {
+export default function Dictation({ destination, vocabulary, onText, onError, agentBusy, sends, onAgentCancel, onType, remote, onSettings }: Props) {
   const [status, setStatus] = useState<SttStatus | null>(null);
   const [levels, setLevels] = useState<number[]>(() => Array(28).fill(0));
   const lastSeq = useRef<number | null>(null);
@@ -103,6 +109,11 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
   const [mode, setMode] = useState<DictationMode>("auto");
   // Lu par `receive` (stable) : la dictée qui se termine garde le mode de son début.
   const modeRef = useRef<DictationMode>("auto");
+  // The user stopped the current dictation with the button or ⌘D (not ⌘⇧D, not the engine's
+  // silence auto-stop): its text may go to the agent.
+  const stoppedToSend = useRef(false);
+  const busyRef = useRef(agentBusy);
+  busyRef.current = agentBusy;
   const handlers = useRef({ onText, onError, onAgentCancel, onType, onSettings });
   handlers.current = { onText, onError, onAgentCancel, onType, onSettings };
 
@@ -112,9 +123,14 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
     if (lastSeq.current === null) lastSeq.current = s.seq;
     else if (s.seq !== lastSeq.current) {
       lastSeq.current = s.seq;
-      if (s.text) handlers.current.onText(s.text, modeRef.current);
+      // While a question is open the agent is not busy: the text answers it, as Send would.
+      const autoSend = modeRef.current === "auto" && stoppedToSend.current && !busyRef.current;
+      stoppedToSend.current = false;
+      if (s.text) handlers.current.onText(s.text, modeRef.current, autoSend);
       else handlers.current.onError(t("ui-dictation-heard-nothing"));
     }
+    // Cancelled, or hands-free: no hand-finished dictation is pending any more.
+    if (s.state === "idle" || s.state === "listening") stoppedToSend.current = false;
     if (s.error && s.error !== lastError.current) handlers.current.onError(s.error);
     lastError.current = s.error;
     if (s.state === "recording") setLevels((l) => [...l.slice(1), s.level]);
@@ -179,8 +195,17 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
       } else if (status.state === "idle") {
         setMode(next);
         modeRef.current = next;
+        stoppedToSend.current = false;
         send(stt.start(vocabulary));
-      } else if (status.state === "recording") send(stt.stop());
+      } else if (status.state === "recording") {
+        stoppedToSend.current = next === "auto";
+        const asked = stt.stop();
+        // A refused stop keeps recording: a later silence auto-stop must not send.
+        asked.catch(() => {
+        stoppedToSend.current = false;
+      });
+        send(asked);
+      }
     },
     [status, vocabulary, send],
   );
@@ -373,7 +398,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
       ) : <button
         className={`mic${state === "recording" ? " live" : ""}`}
         aria-label={t(state === "recording" ? "ui-dictation-finish" : "ui-dictation-start")}
-        title={state === "recording" ? t("ui-dictation-finish-title") : [t("ui-dictation-start-title"), idleDetails].filter(Boolean).join("\n")}
+        title={state === "recording" ? t(mode === "auto" && sends && !agentBusy ? "ui-dictation-finish-send-title" : "ui-dictation-finish-title") : [t("ui-dictation-start-title"), idleDetails].filter(Boolean).join("\n")}
         disabled={state === "downloading" || state === "transcribing"}
         // Ne pas voler le focus : un texte en cours d'édition reste ouvert.
         onMouseDown={(e) => e.preventDefault()}

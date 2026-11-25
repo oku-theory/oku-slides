@@ -1,7 +1,7 @@
 // La dictée d'un onglet : où va le texte dicté (au curseur, au brouillon), le brouillon et ses
 // sorties — le texte dicté pendant l'édition s'écrit au curseur, le brouillon part à l'agent.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { draftActions } from "./agent/draftActions";
 import { useDraft } from "./agent/useDraft";
 import type { Snapshot } from "./api";
@@ -18,10 +18,12 @@ export interface DictationDeps {
   prompt: (text: string, images: string[]) => Promise<boolean>;
   /** Écrit un brouillon dans l'hôte (`agent.setDraft`). */
   setDraft: (text: string | null, origin: string) => Promise<void>;
+  /** Removes a pasted image from the host draft (`agent.removeImage`). */
+  removeImage: (id: string) => void;
 }
 
 /** Destination, vocabulaire, brouillon et texte dicté au curseur. */
-export function useDictation({ snap, editing, prompt, setDraft }: DictationDeps) {
+export function useDictation({ snap, editing, prompt, setDraft, removeImage }: DictationDeps) {
   const [dictated, setDictated] = useState<{ seq: number; text: string } | null>(null);
   // Où va ⌘D : au curseur pendant l'édition, au brouillon ailleurs.
   const destination = t(editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft");
@@ -38,6 +40,7 @@ export function useDictation({ snap, editing, prompt, setDraft }: DictationDeps)
     return true;
   };
 
-  const actions = draftActions({ draft, editing: editing !== null, insert: insertText, prompt });
+  const flight = useRef(false);
+  const actions = draftActions({ draft, flight, editing: editing !== null, insert: insertText, prompt, removeImage });
   return { dictated, destination, vocabulary, draft, actions, insertText };
 }

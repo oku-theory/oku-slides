@@ -15,7 +15,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
 import { AgentPanel, IDLE_AGENT, createAgentSlots, type AgentApi, type AgentHandle, type ThreadMode } from "./agent/AgentPanel";
-import { draftActions } from "./agent/draftActions";
+import { draftActions, promptThrough } from "./agent/draftActions";
 import { subscribeHost } from "./agent/events";
 import { insertWithAck, linkTransport, onlyFor, type LinkContext, type LinkShortcut, type LinkTransport } from "./agent/link";
 import { SlotView } from "./agent/slot";
@@ -178,11 +178,14 @@ export function AgentWindowFor({
     if (!ok) say(t("ui-agent-kept-in-draft"), true);
     return ok;
   };
+  const flight = useRef(false);
   const actions = draftActions({
     draft,
+    flight,
     editing: context?.editing ?? false,
     insert: insertOrKeep,
-    prompt: (text, images) => handle.current?.prompt(text, images) ?? Promise.resolve(false),
+    prompt: promptThrough(handle, (m) => say(m, true)),
+    removeImage: (id) => void host.agent.removeImage(id).catch((e) => say(errorText(e), true)),
   });
   // La dernière frappe est chez l'hôte avant que la fenêtre se ferme.
   const flush = draft.flush;
@@ -231,13 +234,14 @@ export function AgentWindowFor({
 
   // `settings` faux : la fenêtre en lecture seule n'a pas d'`AgentPanel` ; l'état de son micro ne
   // se relit que pendant une dictée, et elle n'a pas de ⚙ (pas de dock où poser la boîte).
-  const dictation = (onText: (text: string, mode: DictationMode) => void, settings = true) => (
+  const dictation = (onText: (text: string, mode: DictationMode, send: boolean) => void, settings = true) => (
     <Dictation
       destination={t(context?.editing ? "ui-dictation-to-cursor" : "ui-dictation-to-draft")}
       vocabulary={vocabulary}
       onText={onText}
       onError={(m) => say(m, true)}
       agentBusy={status.busy}
+      sends={!snap?.read_only && !context?.editing}
       onAgentCancel={() => handle.current?.cancel()}
       onType={draft.type}
       remote={remote}

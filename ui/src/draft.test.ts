@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Snapshot } from "./api";
-import { appendDraft, deckVocabulary, dictationRoute } from "./draft";
+import { afterSend, appendDraft, deckVocabulary, dictationRoute } from "./draft";
 
 describe("brouillon de consigne", () => {
   test("appendDraft sans brouillon ouvre le brouillon avec la dictée", () => {
@@ -41,4 +41,26 @@ test("deckVocabulary prend le titre du deck et ceux des slides, sans vides", () 
 
 test("deckVocabulary sans instantané : aucun mot", () => {
   expect(deckVocabulary(null)).toEqual([]);
+});
+
+describe("afterSend", () => {
+  test("afterSend whole draft sent closes it", () => {
+    expect(afterSend("  fais ceci ", "fais ceci")).toBeNull();
+  });
+
+  test("afterSend dictation added during the send keeps only that one", () => {
+    expect(afterSend("fais ceci puis cela", "fais ceci")).toBe("puis cela");
+  });
+
+  test("afterSend draft edited during the send keeps it whole", () => {
+    expect(afterSend("autre chose", "fais ceci")).toBe("autre chose");
+  });
+
+  test("afterSend draft edited mid-word during the send keeps it whole", () => {
+    expect(afterSend("okay do it", "ok")).toBe("okay do it");
+  });
+
+  test("afterSend closed draft stays closed", () => {
+    expect(afterSend(null, "fais ceci")).toBeNull();
+  });
 });

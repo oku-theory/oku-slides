@@ -32,6 +32,7 @@ import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
 import { usePastedImages } from "./agent/usePastedImages";
 import { useDictation } from "./useDictation";
+import { promptThrough } from "./agent/draftActions";
 import { useContextWriter } from "./useVoiceContext";
 import { acceptsElements, canAdd } from "./slideTools";
 import { panelOpen } from "./panelOpen";
@@ -236,7 +237,7 @@ export default function App({
   const shownSlide = packTab ? item.slide : current;
   const {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
-    agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
+    agentUiNow, agentMode, agentHandle, cancelAgent, onSurfaceAction, onAgentFocus,
   } = useAgentWiring({
     tab, snap, view, current: shownSlide, selected, editing, editField, packItem: item.selected, packTab, importJob, showSlide,
     setSelected,
@@ -297,7 +298,13 @@ export default function App({
   });
 
   // --- Dictée : où va le texte ----------------------------------------------
-  const dictation = useDictation({ snap, editing, prompt: promptAgent, setDraft: agent.setDraft });
+  const dictation = useDictation({
+    snap,
+    editing,
+    prompt: promptThrough(agentHandle, (m) => say(m, true)),
+    setDraft: agent.setDraft,
+    removeImage: (id) => void agent.removeImage(id).catch((e) => say(errorText(e), true)),
+  });
   const pasted = usePastedImages(dictation.draft.state.images, agent.pasteImage, (m) => say(m, true));
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
@@ -494,6 +501,7 @@ export default function App({
         onText={dictation.actions.onDictated}
         onError={(m) => say(m, true)}
         agentBusy={agentStatus.busy}
+        sends={editing === null}
         onAgentCancel={cancelAgent}
         onType={dictation.draft.type}
         onSettings={() => void agent.showSettings().catch((e) => say(errorText(e), true))}

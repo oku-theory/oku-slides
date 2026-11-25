@@ -262,4 +262,29 @@ describe("useDraft", () => {
     await act(async () => m.draft().close());
     expect(m.draft().state.images).toEqual([]);
   });
+
+  test("useDraft drop keeps a dictation added since the send", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("un"));
+    await act(async () => m.draft().append("deux"));
+    await act(async () => m.draft().drop("un"));
+    expect(m.draft().state.text).toBe("deux");
+    expect(m.sent).toEqual(["un", "un deux", "deux"]);
+  });
+
+  test("useDraft drop of the whole draft closes it", async () => {
+    const m = await mount();
+    await act(async () => m.draft().append("un"));
+    await act(async () => m.draft().drop("un"));
+    expect(m.draft().state.text).toBeNull();
+    expect(m.sent).toEqual(["un", null]);
+  });
+
+  test("useDraft drop on a closed draft writes nothing", async () => {
+    const m = await mount();
+    let kept = true;
+    await act(async () => void (kept = m.draft().drop("un")));
+    expect(kept).toBe(false);
+    expect(m.sent).toEqual([]);
+  });
 });

@@ -428,7 +428,7 @@
            "bold": true
           },
           {
-           "t": ": while editing a text, ⌘D writes at the cursor; otherwise it goes to the draft."
+           "t": ": while editing a text, ⌘D writes at the cursor; otherwise, stopping with the mic or ⌘D sends the draft to the agent."
           }
          ],
          "list": "bullet"
@@ -440,7 +440,7 @@
            "bold": true
           },
           {
-           "t": ": review, fix, then Send to the agent (⌘↩). A pause never decides for you."
+           "t": ": ⌘⇧D, or a dictation stopped on silence, stays there: review, fix, then Send to the agent (⌘↩). A pause never decides for you."
           }
          ],
          "list": "bullet"

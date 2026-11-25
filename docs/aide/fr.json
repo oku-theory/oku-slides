@@ -428,7 +428,7 @@
            "bold": true
           },
           {
-           "t": " : en éditant un texte, ⌘D écrit au curseur ; sinon la dictée va au brouillon."
+           "t": " : en éditant un texte, ⌘D écrit au curseur ; sinon, l'arrêter par le micro ou ⌘D envoie le brouillon à l'agent."
           }
          ],
          "list": "bullet"
@@ -440,7 +440,7 @@
            "bold": true
           },
           {
-           "t": " : on relit, on retouche, puis on l'envoie à l'agent (⌘↩). Une pause ne décide jamais à votre place."
+           "t": " : ⌘⇧D, ou une dictée arrêtée sur un silence, y reste : on relit, on retouche, puis on l'envoie à l'agent (⌘↩). Une pause ne décide jamais à votre place."
           }
          ],
          "list": "bullet"

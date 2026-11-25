@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REAL_TIMERS, debounced, type Timers } from "../debounce";
 import type { PastedImage } from "../api";
-import { appendDraft } from "../draft";
+import { afterSend, appendDraft } from "../draft";
 import { randomId } from "../randomId";
 
 /** Délai d'envoi de la frappe. */
@@ -23,14 +23,19 @@ export interface Draft {
   state: DraftState;
   /** Brouillon reçu de l'hôte ; l'écho d'un envoi de cette vue est ignoré. */
   onHost: (e: { text: string | null; origin: string | null; images: PastedImage[] }) => void;
-  /** Texte dicté ajouté (envoyé tout de suite). */
-  append: (text: string) => void;
+  /** Texte dicté ajouté (envoyé tout de suite) ; renvoie le brouillon à jour. */
+  append: (text: string) => { text: string; images: PastedImage[] };
   /** Ouvre le brouillon pour écrire (⌘K ; envoyé tout de suite). */
   type: () => void;
   /** Frappe (envoyée après DRAFT_TYPING_MS). */
   change: (text: string) => void;
   /** Ferme le brouillon (envoyé tout de suite). */
   close: () => void;
+  /**
+   * `text` went to the agent: removes it, keeping what was added since; closes when empty.
+   * Returns `true` when text remains (the caller removes the images it sent).
+   */
+  drop: (text: string) => boolean;
   /** Envoie tout de suite la frappe en attente ; résolue une fois tous les envois partis. */
   flush: () => Promise<void>;
 }
@@ -124,6 +129,7 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
       const next = appendDraft(d.text, text);
       write({ ...d, text: next, dictations: d.dictations + 1 });
       now(next);
+      return { text: next, images: d.images };
     },
     [write, now],
   );
@@ -145,9 +151,28 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     write({ ...current.current, text: null, images: [] });
     now(null);
   }, [write, now]);
+  const drop = useCallback(
+    (text: string) => {
+      const d = current.current;
+      if (d.text === null) return false;
+      const left = afterSend(d.text, text);
+      if (left === null) {
+        close();
+        return false;
+      }
+      if (left === d.text) return true;
+      write({ ...d, text: left });
+      now(left);
+      return true;
+    },
+    [write, now, close],
+  );
   const flush = useCallback(() => {
     typing.flush();
     return queue.current;
   }, [typing]);
-  return useMemo(() => ({ state, onHost, append, type, change, close, flush }), [state, onHost, append, type, change, close, flush]);
+  return useMemo(
+    () => ({ state, onHost, append, type, change, close, drop, flush }),
+    [state, onHost, append, type, change, close, drop, flush],
+  );
 }

@@ -69,7 +69,6 @@ export function useAgentWiring({
   const loaded = snap !== null;
   const agentMode = useMemo<ThreadMode>(() => ({ kind: "drive", loaded }), [loaded]);
   const agentHandle = useRef<AgentHandle>(null);
-  const promptAgent = (text: string, images: string[]) => agentHandle.current?.prompt(text, images) ?? Promise.resolve(false);
   const cancelAgent = () => agentHandle.current?.cancel();
   const onSurfaceAction = (s: Surface, a: A2uiClientAction) => agentHandle.current?.onSurfaceAction(s, a);
   // An agent focus shows its slide only (the agent never selects); without a slide it deselects.
@@ -79,7 +78,7 @@ export function useAgentWiring({
   const onAgentFocus = (slide: string | null) => focus(slide, null);
   return {
     agent, agentSlots, agentStatus, setAgentStatus, agentAvailability, route,
-    agentUiNow, agentMode, agentHandle, promptAgent, cancelAgent, onSurfaceAction, onAgentFocus,
+    agentUiNow, agentMode, agentHandle, cancelAgent, onSurfaceAction, onAgentFocus,
   };
 }
 

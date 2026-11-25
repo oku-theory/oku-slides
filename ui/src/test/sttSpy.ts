@@ -61,6 +61,8 @@ export function fakeStt(heard = "bonjour", change: Partial<SttStatus> = {}) {
     starts,
     statusCalls: () => statusSpy.mock.calls.length,
     current: (): SttStatus => current,
+    /** The engine ends a dictation by itself (silence auto-stop), returning `heard`. */
+    autoStop: () => void set("idle", { seq: current.seq + 1, text: heard }),
     /** Puts the engine in hands-free listening, the switch on. */
     listening: () => void set("listening", { config: { ...current.config, hands_free: true } }),
     /** Holds the next `stt.status()` answer; `resolve` gives it, merged over the current state. */

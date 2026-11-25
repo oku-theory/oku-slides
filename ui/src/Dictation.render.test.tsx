@@ -41,8 +41,8 @@ const settle = () => act(async () => new Promise((r) => setTimeout(r, 0)));
 
 type Remote = { seq: number; key: LinkShortcut };
 
-async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remote, opts: { onSettings?: boolean } = {}) {
-  const texts: [string, DictationMode][] = [];
+async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remote, opts: { onSettings?: boolean; sends?: boolean } = {}) {
+  const texts: [string, DictationMode, boolean][] = [];
   let cancels = 0;
   let typed = 0;
   let settings = 0;
@@ -56,9 +56,10 @@ async function mount(agentBusy = false, vocabulary: string[] = [], remote?: Remo
       createElement(Dictation, {
         destination: "le titre",
         vocabulary,
-        onText: (text: string, mode: DictationMode) => texts.push([text, mode]),
+        onText: (text: string, mode: DictationMode, send: boolean) => texts.push([text, mode, send]),
         onError: () => {},
         agentBusy: busy,
+        sends: opts.sends ?? true,
         onAgentCancel: () => cancels++,
         onType: () => typed++,
         remote: shortcut,
@@ -149,7 +150,7 @@ describe("dictée en deux modes", () => {
     const { texts } = await mount();
     await press("d", { meta: true });
     await press("d", { meta: true });
-    expect(texts).toEqual([["bonjour", "auto"]]);
+    expect(texts).toEqual([["bonjour", "auto", true]]);
   });
 
   test("⌘⇧D dicte dans le brouillon, affiché pendant l'écoute", async () => {
@@ -157,14 +158,14 @@ describe("dictée en deux modes", () => {
     await press("d", { meta: true, shift: true });
     expect(host.querySelector(".device")?.classList.contains("draft")).toBe(true);
     await press("d", { meta: true, shift: true });
-    expect(texts).toEqual([["bonjour", "draft"]]);
+    expect(texts).toEqual([["bonjour", "draft", false]]);
   });
 
   test("la dictée garde le mode de son début, même arrêtée par ⌘D", async () => {
     const { texts } = await mount();
     await press("d", { meta: true, shift: true });
     await press("d", { meta: true });
-    expect(texts).toEqual([["bonjour", "draft"]]);
+    expect(texts).toEqual([["bonjour", "draft", false]]);
   });
 
   test("au repos, le mode brouillon ne reste pas affiché", async () => {
@@ -188,7 +189,7 @@ describe("dictée en deux modes", () => {
     await rerender(true);
     await press("d", { meta: true, shift: true });
     expect(cancels()).toBe(0);
-    expect(texts).toEqual([["bonjour", "draft"]]);
+    expect(texts).toEqual([["bonjour", "draft", false]]);
   });
 
   test("Échap annule une écoute ; au repos, la dictée laisse Échap à l'app", async () => {
@@ -216,6 +217,98 @@ describe("dictée en deux modes", () => {
     await rerender(true);
     expect(host.querySelector(".dictation-state")?.textContent).toBe("ui-dictation-agent-working");
     expect(host.querySelector(".dictation-hint")?.textContent).toBe("ui-dictation-agent-working-hint");
+  });
+});
+
+describe("finir une dictée l'envoie", () => {
+  const micButton = (host: HTMLElement) => host.querySelector(".mic") as HTMLButtonElement;
+
+  test("Dictation stop button finishes an auto dictation and asks to send it", async () => {
+    const { host, texts } = await mount();
+    await act(async () => micButton(host).click());
+    await settle();
+    await act(async () => micButton(host).click());
+    await settle();
+    expect(texts).toEqual([["bonjour", "auto", true]]);
+  });
+
+  test("Dictation ⌘⇧D finishing an auto dictation keeps it in the draft", async () => {
+    const { texts } = await mount();
+    await press("d", { meta: true });
+    await press("d", { meta: true, shift: true });
+    expect(texts).toEqual([["bonjour", "auto", false]]);
+  });
+
+  test("Dictation stop button on a ⌘⇧D dictation keeps it in the draft", async () => {
+    const { host, texts } = await mount();
+    await press("d", { meta: true, shift: true });
+    await act(async () => micButton(host).click());
+    await settle();
+    expect(texts).toEqual([["bonjour", "draft", false]]);
+  });
+
+  test("Dictation relayed ⌘D from the main window finishes and asks to send", async () => {
+    const { texts, rerenderRemote } = await mount();
+    await rerenderRemote({ seq: 1, key: "auto" });
+    await rerenderRemote({ seq: 2, key: "auto" });
+    expect(texts).toEqual([["bonjour", "auto", true]]);
+  });
+
+  test("Dictation refused stop then silence auto-stop keeps the text in the draft", async () => {
+    const { texts } = await mount();
+    await press("d", { meta: true });
+    const stop = spyOn(stt, "stop").mockImplementationOnce(() => Promise.reject(new Error("non")));
+    await press("d", { meta: true });
+    stop.mockRestore();
+    engine.autoStop();
+    await act(async () => new Promise((r) => setTimeout(r, 150)));
+    expect(texts).toEqual([["bonjour", "auto", false]]);
+  });
+
+  test("Dictation finish title says send only for an auto dictation with the agent idle", async () => {
+    const { host, rerender } = await mount();
+    await press("d", { meta: true });
+    expect(micButton(host).getAttribute("title")).toBe("ui-dictation-finish-send-title");
+    await rerender(true);
+    expect(micButton(host).getAttribute("title")).toBe("ui-dictation-finish-title");
+  });
+
+  test("Dictation finish title does not promise a send while editing a text", async () => {
+    const { host } = await mount(false, [], undefined, { sends: false });
+    await press("d", { meta: true });
+    expect(micButton(host).getAttribute("title")).toBe("ui-dictation-finish-title");
+  });
+
+  test("Dictation cancelled after a stop does not send a later hands-free text", async () => {
+    const { texts } = await mount();
+    await press("d", { meta: true });
+    // The stop is slow: the engine still records when Esc cancels.
+    const stop = spyOn(stt, "stop").mockImplementationOnce(() => stt.status());
+    await press("d", { meta: true });
+    stop.mockRestore();
+    await press("Escape");
+    engine.listening();
+    await act(async () => bumpVoiceSeq());
+    await settle();
+    engine.autoStop();
+    await act(async () => new Promise((r) => setTimeout(r, 500)));
+    expect(texts).toEqual([["bonjour", "auto", false]]);
+  });
+
+  test("Dictation silence auto-stop keeps the text in the draft", async () => {
+    const { texts } = await mount();
+    await press("d", { meta: true });
+    engine.autoStop();
+    await act(async () => new Promise((r) => setTimeout(r, 150)));
+    expect(texts).toEqual([["bonjour", "auto", false]]);
+  });
+
+  test("Dictation finished while an agent turn runs keeps the text in the draft", async () => {
+    const { texts, rerender } = await mount();
+    await press("d", { meta: true });
+    await rerender(true);
+    await press("d", { meta: true });
+    expect(texts).toEqual([["bonjour", "auto", false]]);
   });
 });
 
