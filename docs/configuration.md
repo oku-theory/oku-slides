@@ -15,7 +15,7 @@ Settings come in three layers, the last one wins:
 data folder on Linux, `APPDATA` on Windows; `OKU_SLIDES_PATHS__DATA` moves it with the rest
 of the data. It is optional and only needs the keys you change: everything else keeps the
 embedded default, and tables merge key by key (adding `[agent.presets.mine]` keeps Claude,
-Codex, Gemini and Local). Settings are read at launch; restart the app after editing the
+Codex, Gemini, omp and Local). Settings are read at launch; restart the app after editing the
 file. A file that does not parse, or a value of the wrong type, stops the launch with the
 offending key rather than being ignored.
 

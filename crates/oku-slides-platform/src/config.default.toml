@@ -239,6 +239,13 @@ name = "Gemini"
 command = "npx"
 args = ["-y", "@google/gemini-cli@0.63.0", "--acp"]
 
+# oh-my-pi, run from its own install: it only works once `omp login` has set up
+# providers under ~/.omp, so the installed binary is the one to launch (not pinned).
+[agent.presets.omp]
+name = "omp"
+command = "omp"
+args = ["acp"]
+
 # Agent intégré : un petit modèle qui tourne sur ce Mac, sans compte ni réseau
 # (moteur choisi par [local_agent]).
 [agent.presets.local]

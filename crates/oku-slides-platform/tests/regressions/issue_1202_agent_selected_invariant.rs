@@ -62,7 +62,7 @@ fn agent_settings_insert_then_select_makes_the_preset_active() {
     agent.select("faux").unwrap_or_else(|e| panic!("select: {e}"));
     assert_that!(agent.active()).is_equal_to(&faux());
     assert_that!(agent.preset("claude")).is_some();
-    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "faux", "gemini", "local"]);
+    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "faux", "gemini", "local", "omp"]);
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn agent_settings_presets_keep_id_order_when_the_active_sorts_last() {
     let mut agent = defaults();
     agent.insert_preset("zed", faux()).unwrap_or_else(|e| panic!("insert: {e}"));
     agent.select("zed").unwrap_or_else(|e| panic!("select: {e}"));
-    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "gemini", "local", "zed"]);
+    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "gemini", "local", "omp", "zed"]);
 }
 
 #[test]

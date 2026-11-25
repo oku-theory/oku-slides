@@ -18,7 +18,7 @@
 
 ## Settled decisions
 
-- Pin shipped ACP agent presets to exact package versions in config.default.toml. (plan:2026-10-10-agent-panneau-configuration)
+- Pin shipped ACP agent presets to exact package versions in config.default.toml, except omp, which runs its installed binary since it needs `omp login` first. (plan:2026-10-10-agent-panneau-configuration, t-1741)
 - Declare agents as a named table agent.presets.ID, not an array, so config.toml merges by key. (spec:2026-10-10-agent-panneau-configuration-design)
 - Add settings to the config layer with an embedded default, overridable by config.toml and env vars, not hardcoded. (t-11)
 - Never put a UI locale in the default settings; the system language applies unless the user forces one. (t-45)

@@ -141,10 +141,10 @@ fn app_id_names_oku_slides() {
 }
 
 #[test]
-fn defaults_agent_presets_are_claude_codex_gemini_local_with_claude_selected() {
+fn defaults_agent_presets_are_claude_codex_gemini_local_omp_with_claude_selected() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.agent.presets().map(|(id, _)| id).collect::<Vec<_>>())
-        .is_equal_to(vec!["claude", "codex", "gemini", "local"]);
+        .is_equal_to(vec!["claude", "codex", "gemini", "local", "omp"]);
     assert_that!(s.agent.selected()).is_equal_to("claude");
     let claude = s.agent.active();
     assert_that!(claude.command.as_str()).is_equal_to("npx");
@@ -157,6 +157,9 @@ fn defaults_agent_presets_are_claude_codex_gemini_local_with_claude_selected() {
         "@google/gemini-cli@0.63.0".to_owned(),
         "--acp".to_owned(),
     ]);
+    let omp = s.agent.preset("omp").unwrap();
+    assert_that!(omp.command.as_str()).is_equal_to("omp");
+    assert_that!(omp.args.clone()).is_equal_to(vec!["acp".to_owned()]);
     assert_that!(s.agent.locked).is_false();
 }
 
@@ -190,7 +193,7 @@ fn config_file_preset_is_added_without_dropping_the_defaults() {
     )
     .unwrap();
     let s = Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new()))).unwrap();
-    assert_that!(s.agent.presets().count()).is_equal_to(5);
+    assert_that!(s.agent.presets().count()).is_equal_to(6);
     assert_that!(s.agent.active().command.as_str()).is_equal_to("/bin/faux");
 }
 
@@ -227,7 +230,7 @@ fn unknown_selected_agent_load_error_keeps_the_text_of_before_t1202() {
         .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "mistral".to_owned())])));
     let e = Settings::from_sources(None, env).unwrap_err();
     assert_that!(crate::errors::one_line(&e)).is_equal_to(
-        "invalid settings: agent.selected = \"mistral\" names no [agent.presets] entry (known: claude, codex, gemini, local)"
+        "invalid settings: agent.selected = \"mistral\" names no [agent.presets] entry (known: claude, codex, gemini, local, omp)"
             .to_owned(),
     );
 }
