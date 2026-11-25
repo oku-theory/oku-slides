@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = النص المراد استبداله يظه�
 knowledge-reason-too-many-files = الحزمة تحتوي على عدد كبير جدًا من الملفات
 knowledge-reason-file-too-large = الملف كبير جدًا
 knowledge-reason-total-too-large = الحزمة كبيرة جدًا
+knowledge-reason-over-limit = تجاوزت قاعدة المعرفة حدودها: حذف الملفات وحده يعيدها تحتها
 op-knowledge = ملف المعرفة { $path }: { $reason }
 op-unknown-widget = أداة غير معروفة: { $subject }
 op-unknown-namespace = لا يحتوي هذا العرض على حزمة { $pack }.
@@ -240,7 +241,7 @@ issue-knowledge-over-limit = مجموعة المعرفة تتجاوز حدًا: 
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (الملفات المتأثرة: { $count }، أولها { $id })؛ تُحفظ كل الملفات، لكن تُرفض الكتابات التي تتجاوز الحد
+    } (الملفات المتأثرة: { $count }، أولها { $id })؛ تُحفظ كل الملفات؛ حذف الملفات وحده يعيد الحزمة تحت الحد (تُرفض الكتابات والتعديلات حتى ذلك الحين)
 issue-knowledge-path-invalid = نُقل ملف المعرفة { $id } إلى /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

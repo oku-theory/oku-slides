@@ -2,7 +2,8 @@
 //!
 //! Applying is deterministic: the id of a new file comes from the op, never from here. Every
 //! write re-checks the path, the frontmatter and the bundle ceilings, and leaves the deck as it
-//! was when it refuses.
+//! was when it refuses. A bundle already past a ceiling takes no write or edit: only moves and
+//! deletes, until deletes bring it back under.
 
 use crate::error::{KnowledgeReason, KnowledgeSnafu, OpError};
 use crate::knowledge::limits::{MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES};
@@ -29,6 +30,13 @@ fn total_bytes(deck: &Deck) -> usize {
     deck.knowledge.values().map(|file| file.text.len()).sum()
 }
 
+/// Is the bundle already past a limit, as a received deck can be? Only deletes fix that.
+fn past_limits(deck: &Deck) -> bool {
+    deck.knowledge.len() > MAX_FILES
+        || deck.knowledge.values().any(|file| file.text.len() > MAX_FILE_BYTES)
+        || total_bytes(deck) > MAX_TOTAL_BYTES
+}
+
 /// Checks `text` as the content of the file at `path`, and the size ceilings given `others`,
 /// the bytes of the rest of the bundle.
 fn check_content(path: &KnowledgePath, text: &str, others: usize) -> Result<(), OpError> {
@@ -46,6 +54,9 @@ fn check_content(path: &KnowledgePath, text: &str, others: usize) -> Result<(), 
 /// Creates the file, or replaces its text keeping its id.
 pub(super) fn write(deck: &mut Deck, path: &str, text: String, id: Option<String>) -> Result<(), OpError> {
     let parsed = KnowledgePath::parse_writable(path).map_err(|reason| refuse(path, KnowledgeReason::Path(reason)))?;
+    if past_limits(deck) {
+        return Err(refuse(path, KnowledgeReason::OverLimit));
+    }
     let total = total_bytes(deck);
     if let Some((existing, file)) = find_mut(deck, path) {
         if id.is_some_and(|id| id != *existing) {
@@ -75,6 +86,9 @@ pub(super) fn write(deck: &mut Deck, path: &str, text: String, id: Option<String
 /// Overlapping occurrences count: `aa` in `aaa` is ambiguous.
 pub(super) fn edit(deck: &mut Deck, path: &str, old: &str, new: &str) -> Result<(), OpError> {
     let parsed = KnowledgePath::parse_writable(path).map_err(|reason| refuse(path, KnowledgeReason::Path(reason)))?;
+    if past_limits(deck) {
+        return Err(refuse(path, KnowledgeReason::OverLimit));
+    }
     let total = total_bytes(deck);
     let Some((_, file)) = find_mut(deck, path) else { return Err(refuse(path, KnowledgeReason::NotFound)) };
     if old.is_empty() {

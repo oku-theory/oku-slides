@@ -82,7 +82,9 @@ mod items;
 mod knowledge_approvals;
 #[cfg(any(test, feature = "test-support"))]
 pub mod knowledge_fixture;
+mod knowledge_review;
 mod knowledge_view;
+mod knowledge_write;
 mod last_errors;
 mod layout_examples;
 #[cfg(test)]
@@ -180,6 +182,7 @@ pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use guide_approvals::{GuideApprovals, VersionRef};
 pub use guide_origin::GuideOrigin;
 pub use items::{ItemView, ListView};
+pub use knowledge_review::{AwaitingKnowledge, KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText};
 pub use knowledge_view::{KnowledgeEntry, KnowledgeHit, KnowledgeHits, KnowledgeImage, KnowledgeRead, QUERY_MAX_CHARS};
 pub use library::{Library, builtin_versions};
 pub use library_kind::{Layouts, LibraryKind, StoredVersion, VersionManifest, Widgets};
@@ -429,6 +432,8 @@ pub struct Session {
     received_later: std::collections::BTreeSet<VersionRef>,
     /// The received reviews last computed, keyed on what they depend on (`received_review.rs`).
     received_cache: received_review::ReviewCache,
+    /// The snapshot's knowledge summary, cached on the bundle generation and approvals count.
+    knowledge_summary: knowledge_review::KnowledgeSummaryCache,
     /// The guides and knowledge index blocks last sent, each with its ACP session (`agent/sent_blocks.rs`).
     sent_blocks: agent::sent_blocks::SentBlocks,
     /// Une écriture de widgets est en cours : l'avis des widgets écartés se tait.
@@ -604,6 +609,7 @@ impl Session {
             knowledge_settings: knowledge_view::knowledge_settings(&settings.knowledge),
             received_later: std::collections::BTreeSet::new(),
             received_cache: received_review::ReviewCache::default(),
+            knowledge_summary: knowledge_review::KnowledgeSummaryCache::default(),
             sent_blocks: agent::sent_blocks::SentBlocks::default(),
             widget_edit: false,
             widget_session: None,
@@ -900,6 +906,7 @@ impl Session {
             host_params: self.registry.host_params(),
             guides: self.guides_view(),
             received_to_review: self.received_to_review(),
+            knowledge: self.knowledge_summary(),
         }
     }
 

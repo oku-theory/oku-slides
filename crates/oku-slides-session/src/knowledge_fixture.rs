@@ -1,6 +1,6 @@
 //! A deck knowledge base and its approvals, for this and other crates' tests.
 //!
-//! Knowledge ops are closed to callers: the deck's knowledge is set here silently.
+//! The deck's knowledge is set here silently, as a received deck brings it: nothing is approved.
 #![expect(clippy::panic, reason = "a test-support fixture: a setup that fails is the calling test failing")]
 
 use std::path::Path;

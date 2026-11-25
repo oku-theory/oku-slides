@@ -83,8 +83,8 @@ agent; it is never shown in the slides themselves.
   new }` (one exact, unique replacement, overlapping matches counted: large files are not
   resent whole), `knowledge_move { from,
   to }`, `knowledge_delete { path }`. Applied to `Deck`, never to the replica (existing rule).
-  Hidden from every caller (left out of the op schema, refused by the session) until lot 3's
-  approval lands. Core holds hard caps (files, bytes per file, total bytes, frontmatter size,
+  Lot 2 hid them from every caller; lot 3 opens them to deck tabs only, each write approved
+  as written (Plan decisions, lot 3). Core holds hard caps (files, bytes per file, total bytes, frontmatter size,
   YAML depth); `[knowledge]` config may only lower them.
 - Paths: normalized, bundle-absolute (`/a/b.md`), segments `[a-z0-9._-]`, no `..`, no dot-files,
   depth and length bounded; only `.md` files are written by ops (images are assets, below).
@@ -206,17 +206,19 @@ agent; it is never shown in the slides themselves.
   per line past that, each diff under a 100 ms budget, and replaces the whole text past it:
   this holds for every prose field, slides included, not only knowledge. A step down loses
   merge granularity, never content.
-- **Hiding covers every path.** Until lot 3 the knowledge ops are left out of the op schema,
-  of the MCP tool schemas and of the preview paths, and the session refuses them from every
-  caller.
+- **Hiding covered every path (lifted by lot 3).** Until lot 3 the knowledge ops were left
+  out of the op schema, of the MCP tool schemas and of the preview paths, and the session
+  refused them from every caller. Lot 3 lists them in every schema; previews still refuse
+  them (`KnowledgeOpsInPreview`).
 - **Over-limit bundles are kept (R10).** A read or merge past a ceiling keeps every readable
   file and reports one `knowledge_over_limit` issue per ceiling passed (first file, count);
   only ops refuse to grow the bundle. Only entries that do not read as a file (bad id, not a
   map) are dropped, with an issue. `canonicalize` runs the structural repair only (ids,
   paths, collisions); the text checks and ceilings are reported on read.
-- **Over-limit recovery is by delete only.** A bundle past `MAX_TOTAL_BYTES` after a merge
-  refuses every write and edit that leaves it past the ceiling, even one that shrinks it, so
-  in practice only deletes bring it back under. Lot 3's UI must say so.
+- **Over-limit recovery is by delete only.** Since lot 3, core refuses every
+  `knowledge_write` and `knowledge_edit` while the bundle is past any limit (files, bytes per
+  file, total bytes), with `OverLimit`; moves and deletes pass, and only deletes bring it back
+  under. Lot 3's UI says so.
 - **Overlapping edit matches are ambiguous.** `knowledge_edit` counts overlapping
   occurrences: `aa` in `aaa` is `EditAmbiguous`.
 - **Paths are not stable identifiers across merges.** A collision repair renames a file, so
@@ -250,6 +252,45 @@ agent; it is never shown in the slides themselves.
 - **`[knowledge]`:** `index_entries` (200, ceiling 1024), `index_kib` (16, ceiling 64),
   `search_hits` (50, ceiling 200); a higher value uses the ceiling, with a warning.
 - The local agent routes the three tools through a `knowledge` family.
+
+### Plan decisions (lot 3 builder, recorded from the plan)
+
+- **t-1731 lands first.** `Sources` skips an unchanged bundle on apply (no serialization, no
+  Loro sync); render requests carry no bundle.
+- **Knowledge generation:** a process-wide counter, taken anew whenever a bundle changes
+  (apply, undo, redo, restore, merge); the snapshot summary's cache key.
+- **Approvals file: strict read-merge-write.** `approve` holds the set's lock, reads the file
+  strictly, writes memory ∪ file ∪ new atomically, then updates memory; nothing new, no
+  write. A concurrent writer may lose hashes: fail closed, those texts await again.
+- **Approve on write, by id.** Every caller apply (agent tools, `apply`, a UI apply) follows
+  each file id through the batch. An id is tainted when its text before the batch is not
+  approved; a whole-text write clears the taint, delete keeps it, and an edit or a move of a
+  tainted id is refused (`KnowledgeChangeAwaiting`) before core runs (final review: a move
+  would carry an awaiting text to a path the user trusts). The ids written or edited are
+  authored: their texts in the next deck are approved in `commit`, after the render and
+  before the replica write, so a refused render approves nothing (final review). A failed
+  approvals write refuses the apply (`KnowledgeApprovalsWrite`, or `KnowledgeApprovalsDamaged`
+  when the file cannot be read or parsed); a later commit failure leaves only approved texts
+  the caller wrote. Never on open, merge, receive, undo, redo or restore. Approval is per
+  text, for every deck, keyed by hash only. The user's own writes join the agent's (amendment
+  of "an agent tool or extraction").
+- **Over limit: only deleting brings it back** (`OverLimit`, above).
+- **Ids are minted with `knowledge_file_id()`** for a write without id on a path free at that
+  point of the batch.
+- **Knowledge ops fit deck tabs only:** `WrongDocument` in pack, theme and help tabs; history
+  is read-only; previews refuse them with `KnowledgeOpsInPreview`, their schemas listing the
+  knowledge ops too.
+- **Files are cited by id** in this lot's requests and views; paths and titles are labels,
+  through `agent::bounds::label` (`label_within 80` for titles).
+- **The user approves only a text the dialog showed whole:** the host recomputes the hash and
+  refuses a mismatch (`KnowledgeChanged`); a file past `MAX_FILE_BYTES` cannot be approved
+  (`KnowledgeTooLargeToApprove`); no "Approve all"; hidden characters shown as `⟨U+XXXX⟩`.
+- **Review requests are user-only:** refused to the agent window and outside `Mode::Deck`.
+- **Deferred:** provenance stamping (lot 4's extraction), receipt entries for knowledge
+  writes (lot 5's tab); the approvals file is not capped. Until provenance stamping lands
+  (lot 4), approve-on-write can launder text injected through a slide or the conversation:
+  the agent writes it and that write approves it.
+- **No e2e this lot:** no UI writes knowledge yet; render and session tests cover the flow.
 
 ## Testing
 

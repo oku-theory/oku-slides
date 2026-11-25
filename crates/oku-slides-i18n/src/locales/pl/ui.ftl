@@ -464,3 +464,33 @@ ui-data-pane-restore = Zmniejsz dane
 ui-themes = Motywy
 ui-offer-open = Otwórz: { $title }
 ui-offer-settings = Proponowane ustawienia: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] Ta prezentacja zawiera { $count } plik wiedzy, którego nie zatwierdzono
+    [few] Ta prezentacja zawiera { $count } pliki wiedzy, których nie zatwierdzono
+    [many] Ta prezentacja zawiera { $count } plików wiedzy, których nie zatwierdzono
+   *[other] Ta prezentacja zawiera { $count } pliku wiedzy, których nie zatwierdzono
+  }: agent nie może ich odczytać.
+ui-knowledge-review = Przejrzyj…
+ui-knowledge-over-limit = Baza wiedzy przekracza swoje limity ({ $limits }). Tylko usunięcie plików sprowadzi ją z powrotem poniżej: poproś agenta o usunięcie niektórych.
+ui-knowledge-limit-too-many-files = za dużo plików
+ui-knowledge-limit-file-too-large = za duży plik
+ui-knowledge-limit-total-too-large = za duży łączny rozmiar
+ui-knowledge-dialog-title = Otrzymana wiedza
+ui-knowledge-size = { NUMBER($kb) } KB
+ui-knowledge-show = Pokaż
+ui-knowledge-hide = Ukryj
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } ukryty znak jest pokazany jako ⟨U+…⟩.
+    [few] { $count } ukryte znaki są pokazane jako ⟨U+…⟩.
+    [many] { $count } ukrytych znaków jest pokazanych jako ⟨U+…⟩.
+   *[other] { $count } ukrytego znaku jest pokazane jako ⟨U+…⟩.
+  }
+ui-knowledge-approve = Zatwierdź
+ui-knowledge-too-large = Ten plik jest za duży, by go zatwierdzić: usuń go.
+ui-knowledge-more = { $count ->
+    [one] { $count } kolejny plik nie jest wymieniony.
+    [few] { $count } kolejne pliki nie są wymienione.
+    [many] { $count } kolejnych plików nie jest wymienionych.
+   *[other] { $count } kolejnego pliku nie jest wymienione.
+  }
+ui-knowledge-close = Zamknij

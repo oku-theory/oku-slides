@@ -32,6 +32,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Never record a history version for a change whose message starts with PART (oku-part:). (t-290)
 - Write choice, asset and other non-prose params as Loro atoms, never merged per character. (spec:2026-09-27-widgets-typst-design)
 - Keep the knowledge bundle in the root container `knowledge`, never under `deck`, and read its text verbatim. (plan:2026-11-24-deck-knowledge-okf-lot1-core)
+- Sync the knowledge root only when the bundle changed; the caller says which, never a default (plan:2026-11-25-deck-knowledge-okf-lot3-approval, t-1731)
 - Drop knowledge entries only past READ_FACTOR times a limit, measuring text with len_utf8 before copying it; below that, keep every readable file. (plan:2026-11-25-deck-knowledge-okf-lot2-mcp-index, t-1730)
 
 ## Pitfalls

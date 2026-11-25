@@ -163,9 +163,24 @@ fn at(path: KnowledgePath, mut file: KnowledgeFile) -> (KnowledgePath, Knowledge
     (path, file)
 }
 
-/// One issue per ceiling the bundle passes, counted in id order: the first file past it, and
-/// how many are.
+/// The ceilings `files` passes, in [`KnowledgeLimit`] order, each once.
+///
+/// The scan the read's issues come from (`normalize`): a snapshot and a read agree.
+#[must_use]
+pub fn knowledge_over_limits(files: &BTreeMap<String, KnowledgeFile>) -> Vec<KnowledgeLimit> {
+    scan_limits(files).into_iter().filter_map(|(limit, first, _)| first.map(|_| limit)).collect()
+}
+
+/// One issue per ceiling the bundle passes: the first file past it, and how many are.
 fn over_limits(files: &BTreeMap<String, KnowledgeFile>) -> Vec<Issue> {
+    scan_limits(files)
+        .iter()
+        .filter_map(|(limit, first, count)| first.map(|id| Issue::knowledge_over_limit(*limit, id, *count)))
+        .collect()
+}
+
+/// Each ceiling with the first file past it and how many are, counted in id order.
+fn scan_limits(files: &BTreeMap<String, KnowledgeFile>) -> [(KnowledgeLimit, Option<&str>, usize); 3] {
     let mut past: [(KnowledgeLimit, Option<&str>, usize); 3] = [
         (KnowledgeLimit::TooManyFiles, None, 0),
         (KnowledgeLimit::FileTooLarge, None, 0),
@@ -183,9 +198,7 @@ fn over_limits(files: &BTreeMap<String, KnowledgeFile>) -> Vec<Issue> {
             }
         }
     }
-    past.iter()
-        .filter_map(|(reason, first, count)| first.map(|id| Issue::knowledge_over_limit(*reason, id, *count)))
-        .collect()
+    past
 }
 
 #[cfg(test)]

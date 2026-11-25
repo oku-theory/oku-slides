@@ -435,6 +435,16 @@ impl KnowledgeLimit {
     pub fn key(self) -> &'static str {
         KnowledgeReason::from(self).key()
     }
+
+    /// The ceiling's stable name for the interface (`too-many-files`, …).
+    #[must_use]
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::TooManyFiles => "too-many-files",
+            Self::FileTooLarge => "file-too-large",
+            Self::TotalTooLarge => "total-too-large",
+        }
+    }
 }
 
 impl From<KnowledgeLimit> for KnowledgeReason {
@@ -481,6 +491,8 @@ pub enum KnowledgeReason {
     FileTooLarge,
     /// The bundle would be over the byte ceiling.
     TotalTooLarge,
+    /// The bundle is already past a limit: only deletes bring it back under.
+    OverLimit,
 }
 
 impl KnowledgeReason {
@@ -502,6 +514,7 @@ impl KnowledgeReason {
             KnowledgeReason::TooManyFiles => "knowledge-reason-too-many-files",
             KnowledgeReason::FileTooLarge => "knowledge-reason-file-too-large",
             KnowledgeReason::TotalTooLarge => "knowledge-reason-total-too-large",
+            KnowledgeReason::OverLimit => "knowledge-reason-over-limit",
         }
     }
 
@@ -532,6 +545,9 @@ impl std::fmt::Display for KnowledgeReason {
             KnowledgeReason::TooManyFiles => f.write_str("the bundle has too many files"),
             KnowledgeReason::FileTooLarge => f.write_str("the file is too large"),
             KnowledgeReason::TotalTooLarge => f.write_str("the bundle is too large"),
+            KnowledgeReason::OverLimit => {
+                f.write_str("the knowledge base is past its limits: only deleting files brings it back under")
+            }
         }
     }
 }

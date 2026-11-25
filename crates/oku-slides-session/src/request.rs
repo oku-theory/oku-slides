@@ -12,6 +12,7 @@ use oku_slides_core::{GuideKind, Namespace, Op, PackKind};
 
 use crate::error::{EditingPackSnafu, InHistorySnafu, ReadOnlySnafu, ResponseSnafu};
 use crate::guide_approvals::VersionRef;
+use crate::knowledge_review::KnowledgeApproval;
 use crate::theme_extends::ExtendsEdit;
 use crate::views::UiState;
 use crate::{Mode, PreviewFormat, PreviewSpan, Result, Session};
@@ -349,6 +350,18 @@ pub enum Request {
         /// The versions set aside.
         versions: Vec<VersionRef>,
     },
+    /// Lists the deck's knowledge files awaiting approval (`KnowledgeReview`).
+    KnowledgeReview,
+    /// Reads a knowledge file's text for review, approved or not, with its hash.
+    KnowledgeText {
+        /// The file's id.
+        id: String,
+    },
+    /// Approves these knowledge files for the texts their hashes name; all or none.
+    ApproveKnowledge {
+        /// The files approved.
+        files: Vec<KnowledgeApproval>,
+    },
     /// Supprime un fichier de widget ; refusé s'il est utilisé par un modèle ou le deck.
     RemoveWidget {
         /// Namespace of the pack (see `WidgetStatus`).
@@ -476,7 +489,7 @@ impl Session {
         {
             return EditingPackSnafu.fail()?;
         }
-        if matches!(self.mode, Mode::History { .. }) && req.edits() {
+        if matches!(self.mode, Mode::History { .. }) && (req.edits() || req.reviews_deck_knowledge()) {
             return InHistorySnafu.fail()?;
         }
         // A theme tab takes only its draft's requests; the draft's only fit there.
@@ -516,6 +529,9 @@ impl Session {
                     | Request::ApproveGuides { .. }
                     | Request::AcceptReceived { .. }
                     | Request::LaterReceived { .. }
+                    | Request::KnowledgeReview
+                    | Request::KnowledgeText { .. }
+                    | Request::ApproveKnowledge { .. }
             ),
             !matches!(
                 req,
@@ -568,6 +584,9 @@ impl Session {
             Request::ApproveGuides { versions } => self.approve_guides(&versions)?,
             Request::AcceptReceived { versions } => self.accept_received(&versions)?,
             Request::LaterReceived { versions } => self.put_off_received(&versions),
+            Request::KnowledgeReview => return json(&self.knowledge_review()?),
+            Request::KnowledgeText { id } => return json(&self.knowledge_text(&id)?),
+            Request::ApproveKnowledge { files } => self.approve_knowledge(&files)?,
             Request::RemoveWidget { pack, name } => {
                 let statuses = self.remove_widget(pack.as_ref(), &name)?;
                 self.persist(true);

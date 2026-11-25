@@ -13,6 +13,8 @@ import { findElement, pickSlide, previewLook, slideToFetch } from "./deck";
 import LayoutPicker from "./LayoutPicker";
 import WidgetPicker from "./WidgetPicker";
 import type { WidgetChoice } from "./widgetChoices";
+import KnowledgeDialog from "./KnowledgeDialog";
+import KnowledgeNotice from "./KnowledgeNotice";
 import ReceivedDialog from "./ReceivedDialog";
 import ImportDialog from "./ImportDialog";
 import type { ImportJob } from "./useImportJob";
@@ -203,7 +205,17 @@ export default function App({
   // Packs and themes the deck brings that the library lacks, or whose guides await approval:
   // asked at once, nothing behind reacts.
   const receivedToReview = snap?.received_to_review ?? [];
-  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming || receivedToReview.length > 0;
+  // Deck mode: no pack, theme tab, history or read-only (there the host passes "theme" to the agent).
+  const deckMode = !!snap && !snap.editing && !themeTab && !snap.history && !snap.read_only;
+  // The received knowledge dialog, opened from the deck tab's notice. It belongs to deck mode
+  // and gives way to the received dialog: either closes it, so it never reopens by itself.
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const knowledgeGone = !deckMode || receivedToReview.length > 0;
+  useEffect(() => {
+    if (knowledgeGone) setKnowledgeOpen(false);
+  }, [knowledgeGone]);
+  const dialogOpen = picking || adding || importJob !== null || windowDialog || confirming
+    || knowledgeOpen || receivedToReview.length > 0;
   // The last widget added from the grid: it reopens on it (A then Enter adds it again).
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   // The grid's previews, kept across openings (key: pack versions, look and language).
@@ -327,8 +339,6 @@ export default function App({
   const history = snap.history;
   // Historique ou aide : la scène et la pile se lisent, elles ne se modifient pas.
   const readOnly = !!history || snap.read_only;
-  // Deck mode: no pack, theme tab, history or read-only (there the host passes "theme" to the agent).
-  const deckMode = !snap.editing && !themeTab && !readOnly;
   // A theme tab's stage shows specimens: no selection, no field editing.
   const locked = readOnly || themeTab;
   const noop = () => {};
@@ -404,6 +414,10 @@ export default function App({
       {!packTab && (
       <main className={`sheet-area${readOnly ? " read-only" : ""}`}>
         <div className="stage-panel">
+        {/* Knowledge to approve: hidden while the received dialog or the agent's modal asks. */}
+        {deckMode && receivedToReview.length === 0 && !agentStatus.modal && (
+          <KnowledgeNotice summary={snap.knowledge} onReview={() => setKnowledgeOpen(true)} />
+        )}
         <div className="stage-box">
         {view && view.slide.id === current ? (
           <Stage
@@ -536,6 +550,13 @@ export default function App({
           onImport={onImport}
           onClose={onImportClose}
           waiting={importWaiting}
+        />
+      )}
+
+      {/* As the notice: never over an agent modal, which keeps the dialog for when it closes. */}
+      {knowledgeOpen && deckMode && receivedToReview.length === 0 && !agentStatus.modal && (
+        <KnowledgeDialog
+          api={api} run={run} onError={(m) => say(m, true)} onClose={() => setKnowledgeOpen(false)}
         />
       )}
 

@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = văn bản cần thay thế xuất hiện nhi�
 knowledge-reason-too-many-files = gói có quá nhiều tệp
 knowledge-reason-file-too-large = tệp quá lớn
 knowledge-reason-total-too-large = gói quá lớn
+knowledge-reason-over-limit = cơ sở tri thức đã vượt quá giới hạn: chỉ xóa tệp mới đưa nó trở lại dưới giới hạn
 op-knowledge = Tệp tri thức { $path }: { $reason }
 op-unknown-widget = Tiện ích không xác định: { $subject }
 op-unknown-namespace = Bản trình bày này không có gói { $pack }.
@@ -214,7 +215,7 @@ issue-knowledge-over-limit = bộ tri thức vượt quá một giới hạn: { 
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (số tệp liên quan: { $count }, tệp đầu tiên { $id }); mọi tệp đều được giữ, nhưng các lần ghi vượt giới hạn sẽ bị từ chối
+    } (số tệp liên quan: { $count }, tệp đầu tiên { $id }); mọi tệp đều được giữ; chỉ xóa tệp mới đưa gói trở lại dưới giới hạn (cho đến lúc đó, các lần ghi và sửa sẽ bị từ chối)
 issue-knowledge-path-invalid = tệp tri thức { $id } đã được chuyển vào /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

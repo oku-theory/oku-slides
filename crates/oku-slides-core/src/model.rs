@@ -522,6 +522,27 @@ impl Element {
 }
 
 impl Deck {
+    /// A copy of this deck without its knowledge bundle, which rendering never reads.
+    ///
+    /// The bundle is never cloned. The destructure names every field: a new field must
+    /// be given a decision here.
+    #[must_use]
+    pub fn without_knowledge(&self) -> Self {
+        let Self { version, theme, themes, params, vars, tokens, widgets, layouts, knowledge: _, slides } = self;
+        Self {
+            version: *version,
+            theme: theme.clone(),
+            themes: themes.clone(),
+            params: params.clone(),
+            vars: vars.clone(),
+            tokens: tokens.clone(),
+            widgets: widgets.clone(),
+            layouts: layouts.clone(),
+            knowledge: BTreeMap::new(),
+            slides: slides.clone(),
+        }
+    }
+
     /// Deck vide de la version courante : aucune slide.
     #[must_use]
     pub fn empty() -> Self {

@@ -9,7 +9,7 @@ use oku_slides_core::Op;
 use serde::Serialize;
 use snafu::ensure;
 
-use crate::error::{KnowledgeOpsHiddenSnafu, WrongDocumentSnafu};
+use crate::error::WrongDocumentSnafu;
 use crate::theme_edit::{DRAFT_SWITCH_VAR, is_token_op};
 use crate::{Mode, Request, Result, Session};
 
@@ -59,12 +59,6 @@ pub(crate) fn refused_in_theme_tab<T>() -> Result<T> {
     Ok(WrongDocumentSnafu { kind: DocumentKind::Theme }.fail()?)
 }
 
-/// Refuses ops that write the deck knowledge (`KnowledgeOpsHidden`).
-pub(crate) fn ensure_no_knowledge_ops(ops: &[Op]) -> Result<()> {
-    ensure!(!ops.iter().any(Op::is_knowledge), KnowledgeOpsHiddenSnafu);
-    Ok(())
-}
-
 impl Session {
     /// The kind of document this session holds; history browses a deck.
     #[must_use]
@@ -84,8 +78,9 @@ impl Session {
         let kind = self.document_kind();
         let fits = match kind {
             DocumentKind::Theme => req.theme_tab_allows(),
-            DocumentKind::Deck | DocumentKind::Help => !req.drafts_theme() && !req.pack_only(),
-            DocumentKind::Pack => !req.drafts_theme(),
+            DocumentKind::Deck => !req.drafts_theme() && !req.pack_only(),
+            DocumentKind::Help => !req.drafts_theme() && !req.pack_only() && !req.reviews_deck_knowledge(),
+            DocumentKind::Pack => !req.drafts_theme() && !req.reviews_deck_knowledge(),
         };
         ensure!(fits, WrongDocumentSnafu { kind });
         // Before any lease is taken: a refused op takes nothing and freezes nothing.
@@ -102,19 +97,20 @@ impl Session {
     /// change: pins are deck-only, as the `add_pack` tool is. No caller writes the
     /// draft's rank ([`DRAFT_SWITCH_VAR`]): only the theme tab's rank steps do.
     ///
-    /// Knowledge ops come first and are refused in every kind (`KnowledgeOpsHidden`): no caller
-    /// may write the deck knowledge until its approval exists.
+    /// Knowledge ops fit a deck tab only: the knowledge base is the deck's.
     pub(crate) fn ensure_caller_ops(&self, ops: &[Op]) -> Result<()> {
-        ensure_no_knowledge_ops(ops)?;
         let kind = self.document_kind();
         let fits = |op: &Op| match op {
             Op::SetVar { key, .. } if key == DRAFT_SWITCH_VAR => false,
             _ => match kind {
                 DocumentKind::Theme => is_token_op(op),
                 DocumentKind::Pack => {
-                    !is_token_op(op) && !matches!(op, Op::SetTheme { .. } | Op::AddPack { .. } | Op::RemovePack { .. })
+                    !is_token_op(op)
+                        && !op.is_knowledge()
+                        && !matches!(op, Op::SetTheme { .. } | Op::AddPack { .. } | Op::RemovePack { .. })
                 }
-                DocumentKind::Deck | DocumentKind::Help => true,
+                DocumentKind::Help => !op.is_knowledge(),
+                DocumentKind::Deck => true,
             },
         };
         ensure!(ops.iter().all(fits), WrongDocumentSnafu { kind });

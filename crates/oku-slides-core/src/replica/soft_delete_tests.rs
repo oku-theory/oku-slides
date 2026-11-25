@@ -332,7 +332,7 @@ fn apply_silent_adds_one_change_and_apply_a_bounded_number() {
     };
     let mut r = new(&deck);
     let before = r.len_changes();
-    ok(r.apply_silent(&three("s")));
+    ok(r.apply_silent(&three("s"), crate::KnowledgeSync::Changed));
     assert_that!(r.len_changes() - before).is_equal_to(1);
     let mut r = new(&deck);
     let before = r.len_changes();
@@ -536,7 +536,7 @@ fn apply_without_birth(r: &mut DeckReplica, deck: &Deck) {
         doc.set_next_commit_message(&crate::replica::part_message("Coller"));
         doc.commit();
     };
-    ok(DeckReplica::reconcile_doc(doc, deck, r.env(), &split, None, &[]));
+    ok(DeckReplica::reconcile_doc(doc, deck, r.env(), &split, None, &[], crate::KnowledgeSync::Changed));
     doc.set_next_commit_message("Coller");
     doc.commit();
     r.undo.close_step("Coller", None);

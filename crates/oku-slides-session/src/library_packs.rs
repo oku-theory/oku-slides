@@ -94,7 +94,7 @@ impl PackLibrary {
     #[must_use]
     pub fn new(widgets: Option<PathBuf>, layouts: Option<PathBuf>, themes: ThemeLibrary, storage: Storage) -> Self {
         let guide_approvals = GuideApprovals::load(None, storage.clone());
-        let knowledge_approvals = KnowledgeApprovals::load(None, &storage);
+        let knowledge_approvals = KnowledgeApprovals::load(None, storage.clone());
         let (widgets, layouts) = (Library::new(widgets, storage.clone()), Library::new(layouts, storage));
         let lease_scope = widgets.dir().zip(layouts.dir()).map(|(w, l)| LeaseScope::new(w, l));
         let theme_scope = themes.dir().map(LeaseScope::themes);
@@ -139,7 +139,8 @@ impl PackLibrary {
         let paths = &platform.settings.paths;
         let mut library = Self::new(Some(paths.widgets()), Some(paths.layouts()), themes, platform.storage.clone());
         library.guide_approvals = GuideApprovals::load(Some(paths.guide_approvals()), platform.storage.clone());
-        library.knowledge_approvals = KnowledgeApprovals::load(Some(paths.knowledge_approvals()), &platform.storage);
+        library.knowledge_approvals =
+            KnowledgeApprovals::load(Some(paths.knowledge_approvals()), platform.storage.clone());
         library
     }
 

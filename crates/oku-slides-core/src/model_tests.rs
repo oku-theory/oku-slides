@@ -328,3 +328,16 @@ fn all_pins_lists_widgets_then_layouts_with_their_kind() {
     assert_that!(listed)
         .is_equal_to(vec![(PackKind::Widgets, "zeta".to_owned()), (PackKind::Layouts, "alpha".to_owned())]);
 }
+
+#[test]
+fn deck_without_knowledge_keeps_everything_else() {
+    let mut deck = Deck::from_json(include_str!("../../../fixtures/roadmap.json")).unwrap();
+    let file = crate::KnowledgeFile { path: "/a.md".to_owned(), text: "body".to_owned() };
+    deck.knowledge.insert(format!("{:032x}", 1), file);
+    let stripped = deck.without_knowledge();
+    assert_that!(stripped.knowledge.is_empty()).is_true();
+    let mut expected = deck.clone();
+    expected.knowledge.clear();
+    assert_that!(stripped).is_equal_to(expected);
+    assert_that!(deck.knowledge.len()).is_equal_to(1);
+}

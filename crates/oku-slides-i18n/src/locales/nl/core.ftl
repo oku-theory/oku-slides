@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = de te vervangen tekst komt meer dan eens in he
 knowledge-reason-too-many-files = de bundel heeft te veel bestanden
 knowledge-reason-file-too-large = het bestand is te groot
 knowledge-reason-total-too-large = de bundel is te groot
+knowledge-reason-over-limit = de kennisbank overschrijdt haar limieten: alleen bestanden verwijderen brengt haar er weer onder
 op-knowledge = Kennisbestand { $path }: { $reason }
 op-unknown-widget = Onbekende widget: { $subject }
 op-unknown-namespace = Deze presentatie heeft geen pakket { $pack }.
@@ -224,7 +225,7 @@ issue-knowledge-over-limit = kennisverzameling over een limiet: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (betrokken bestanden: { $count }, het eerste { $id }); alle bestanden blijven bewaard, maar schrijfacties boven de limiet worden geweigerd
+    } (betrokken bestanden: { $count }, het eerste { $id }); alle bestanden blijven bewaard; alleen bestanden verwijderen brengt de bundel weer onder de limiet (tot dan worden schrijf- en bewerkacties geweigerd)
 issue-knowledge-path-invalid = kennisbestand { $id } verplaatst naar /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

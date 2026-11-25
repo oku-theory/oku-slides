@@ -41,7 +41,7 @@ use oku_slides_render_worker::RemoteCompiled;
 
 use crate::deck_closure::{closure_ops, combined_pins, dependents};
 use crate::deck_pack::{check_pack_id, empty_registry, in_process_pack, only_builtins};
-use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, TrustedPackBrokenSnafu};
+use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, TrustedPackBrokenSnafu, WrongDocumentSnafu};
 use crate::pack::PackManifest;
 use crate::{Result, Session, charts};
 
@@ -326,6 +326,8 @@ impl Session {
     /// Fails if the session is not editable, if a theme closure cannot be embedded, if the
     /// core rejects an op or if rendering fails: nothing changes then.
     pub(crate) fn apply_silent_ops(&mut self, mut ops: Vec<Op>) -> Result<()> {
+        // A silent write approves nothing: knowledge goes through a caller's apply only.
+        ensure!(!ops.iter().any(Op::is_knowledge), WrongDocumentSnafu { kind: self.document_kind() });
         self.end_widget_session();
         self.ensure_document_editable()?;
         self.embed_op_themes(&mut ops)?;
@@ -361,6 +363,9 @@ impl Session {
         // slides du deck de travail sont les exemples du pack : leur liste ne change pas.
         self.ensure_no_preview_ops(&ops)?;
         self.ensure_pack_slides(&ops)?;
+        // Before core: ids are minted and an edit of unapproved text refused (`knowledge_write`).
+        let authored =
+            if ops.iter().any(Op::is_knowledge) { Some(self.prepare_knowledge_ops(&mut ops)?) } else { None };
         if ops.iter().any(|op| matches!(op, Op::AddPack { .. })) {
             ops = closure_ops(&self.library, self.doc.sources.deck(), &ops)?;
         }
@@ -388,6 +393,7 @@ impl Session {
         let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
         // Une image collée que le deck cite désormais entre dans les sources (en ajout seul).
         self.embed_op_assets(&next, &registry)?;
+        // Pack mode takes no knowledge op (`ensure_caller_ops`): nothing to approve on this path.
         if let Some(pack_ops) = pack_ops
             && self.commit_layout_examples(&next, &pack_ops, label, merge, &moves)?
         {
@@ -397,7 +403,7 @@ impl Session {
         self.doc.sources.set_registry(registry);
         // Un repli pendant le rendu pose son avis : il ne vaut plus si les widgets d'avant reviennent.
         let notice_before = self.doc.notice.clone();
-        let compiled = match self.commit(next, label, merge, &moves) {
+        let compiled = match self.commit(next, label, merge, &moves, authored.as_ref()) {
             Ok(compiled) => compiled,
             Err(e) => {
                 // Rien n'est appliqué : le registre d'avant revient aussi.
@@ -426,8 +432,23 @@ impl Session {
 
     /// Rend `next`, puis l'inscrit dans les sources sous `label`. Les
     /// éléments de `moves` gardent leur nœud d'une slide à l'autre.
-    fn commit(&mut self, next: Deck, label: &str, merge: Option<&str>, moves: &[Moved]) -> Result<RemoteCompiled> {
+    ///
+    /// The knowledge files the batch `authored` are approved after the render, the last step
+    /// that can refuse the apply before the replica write: a failed approvals write refuses it
+    /// before the replica write (assets embedded for the batch stay, as after a failed render),
+    /// while a failed replica write leaves those approvals behind.
+    fn commit(
+        &mut self,
+        next: Deck,
+        label: &str,
+        merge: Option<&str>,
+        moves: &[Moved],
+        authored: Option<&BTreeSet<String>>,
+    ) -> Result<RemoteCompiled> {
         let compiled = self.render_deck(&next)?;
+        if let Some(authored) = authored {
+            self.approve_knowledge_writes(&next, authored)?;
+        }
         #[cfg(test)]
         if std::mem::take(&mut self.failpoints.sources_apply) {
             return crate::error::NotRenderedSnafu.fail()?;

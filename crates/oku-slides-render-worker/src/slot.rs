@@ -144,7 +144,7 @@ impl RenderSlot {
             return Err(RenderError::pack_disabled(pack));
         }
         let ids: Vec<String> = assets.keys().cloned().collect();
-        let req = Request::Render { slot: self.id, deck: Box::new(deck.clone()), assets: ids.clone() };
+        let req = render_request(self.id, deck, ids.clone());
         let mut resent = false;
         let header = loop {
             send_assets(&mut link, assets)?;
@@ -200,6 +200,12 @@ impl Drop for RenderSlot {
     }
 }
 
+/// The render request of `deck` for `slot`, without the knowledge bundle (up to 16 MiB):
+/// rendering never reads it (t-1731).
+fn render_request(slot: SlotId, deck: &Deck, assets: Vec<String>) -> Request {
+    Request::Render { slot, deck: Box::new(deck.without_knowledge()), assets }
+}
+
 /// Sends the worker every asset of `assets` it is not known to have.
 fn send_assets(link: &mut Link, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
     for (id, bytes) in assets {
@@ -210,3 +216,7 @@ fn send_assets(link: &mut Link, assets: &BTreeMap<String, Vec<u8>>) -> Result<()
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "slot_tests.rs"]
+mod slot_tests;

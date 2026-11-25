@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = tekst do zastąpienia występuje w pliku więc
 knowledge-reason-too-many-files = paczka ma za dużo plików
 knowledge-reason-file-too-large = plik jest za duży
 knowledge-reason-total-too-large = paczka jest za duża
+knowledge-reason-over-limit = baza wiedzy przekracza swoje limity: tylko usunięcie plików sprowadzi ją z powrotem poniżej
 op-knowledge = Plik wiedzy { $path }: { $reason }
 op-unknown-widget = Nieznany widżet: { $subject }
 op-unknown-namespace = Ta prezentacja nie ma pakietu { $pack }.
@@ -232,7 +233,7 @@ issue-knowledge-over-limit = zbiór wiedzy przekracza limit: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (pliki ponad limit: { $count }, pierwszy { $id }); wszystkie pliki są zachowane, ale zapisy ponad limit są odrzucane
+    } (pliki ponad limit: { $count }, pierwszy { $id }); wszystkie pliki są zachowane; tylko usunięcie plików sprowadzi paczkę z powrotem poniżej limitu (do tego czasu zapisy i edycje są odrzucane)
 issue-knowledge-path-invalid = plik wiedzy { $id } przeniesiony do /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

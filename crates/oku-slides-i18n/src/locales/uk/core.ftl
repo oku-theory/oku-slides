@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = текст для заміни трапляє�
 knowledge-reason-too-many-files = у наборі забагато файлів
 knowledge-reason-file-too-large = файл завеликий
 knowledge-reason-total-too-large = набір завеликий
+knowledge-reason-over-limit = база знань перевищує свої ліміти: повернути її в межі можна лише видаленням файлів
 op-knowledge = Файл знань { $path }: { $reason }
 op-unknown-widget = Невідомий віджет: { $subject }
 op-unknown-namespace = У цій презентації немає пакета { $pack }.
@@ -232,7 +233,7 @@ issue-knowledge-over-limit = набір знань перевищує обмеж
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (файлів понад нього: { $count }, перший { $id }); усі файли збережено, але записи понад обмеження відхиляються
+    } (файлів понад нього: { $count }, перший { $id }); усі файли збережено; повернути набір у межі можна лише видаленням файлів (доти записи й правки відхиляються)
 issue-knowledge-path-invalid = файл знань { $id } переміщено до /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

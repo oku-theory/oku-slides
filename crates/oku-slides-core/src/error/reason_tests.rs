@@ -1,6 +1,7 @@
 use oku_slides_i18n::Localizer;
+use speculoos::prelude::*;
 
-use super::{PathReason, Shape, ValueReason};
+use super::{KnowledgeLimit, PathReason, Shape, ValueReason};
 
 /// Each path reason has its key in every locale, and French differs from English.
 #[test]
@@ -94,4 +95,12 @@ fn all_shapes_matches_the_shape_keys_of_the_english_catalog() {
     positions.sort_unstable();
     positions.dedup();
     assert_eq!(positions.len(), Shape::ALL.len(), "deux formes de Shape::ALL partagent un rang");
+}
+
+/// The slugs the interface maps to `ui-knowledge-limit-<slug>` (`KnowledgeNotice.tsx`): pinned.
+#[test]
+fn knowledge_limit_slugs_are_the_interface_names() {
+    let slugs = [KnowledgeLimit::TooManyFiles, KnowledgeLimit::FileTooLarge, KnowledgeLimit::TotalTooLarge]
+        .map(KnowledgeLimit::slug);
+    assert_that!(slugs).is_equal_to(["too-many-files", "file-too-large", "total-too-large"]);
 }

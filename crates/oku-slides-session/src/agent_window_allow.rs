@@ -114,6 +114,9 @@ pub fn check_agent_request(ws: &Workspace, tab: &str, req: &Request) -> Result<(
         | Request::ApproveGuides { .. }
         | Request::AcceptReceived { .. }
         | Request::LaterReceived { .. }
+        | Request::KnowledgeReview
+        | Request::KnowledgeText { .. }
+        | Request::ApproveKnowledge { .. }
         | Request::RemoveWidget { .. }
         | Request::RenameWidget { .. }
         | Request::DuplicateWidget { .. }

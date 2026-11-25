@@ -67,6 +67,18 @@ fn instructions_for_a_deck_point_to_the_knowledge_tools() {
     }
 }
 
+#[test]
+fn knowledge_instructions_name_write_tools() {
+    let deck = for_kind(DocumentKind::Deck);
+    for t in ["knowledge_write", "knowledge_edit"] {
+        assert_that!(deck).named(t).contains(t);
+    }
+    assert_that!(deck).contains("cannot be read, edited or moved: replace it whole, delete it, or leave it");
+    assert_that!(deck).contains("A base past its limits takes only deletes and moves");
+    assert_that!(deck).contains("even one that would shrink it: only deleting brings it back under");
+    assert_that!(for_kind(DocumentKind::Help).contains("knowledge_write")).is_false();
+}
+
 /// The language rule's paragraph alone: the rest of the instructions names tools too.
 fn languages() -> &'static str {
     INSTRUCTIONS.find("Languages:").map_or("", |at| &INSTRUCTIONS[at..])

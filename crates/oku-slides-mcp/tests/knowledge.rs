@@ -3,6 +3,7 @@
 mod common;
 
 use std::fmt::Write as _;
+use std::sync::PoisonError;
 
 use base64::Engine as _;
 use common::kinds::{Kind, list_tool_names};
@@ -16,7 +17,15 @@ use rust_mcp_sdk::schema::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-const TOOLS: [&str; 3] = ["knowledge_list", "knowledge_read", "knowledge_search"];
+const TOOLS: [&str; 7] = [
+    "knowledge_list",
+    "knowledge_read",
+    "knowledge_search",
+    "knowledge_write",
+    "knowledge_edit",
+    "knowledge_move",
+    "knowledge_delete",
+];
 
 const ROADMAP: &str = "/references/roadmap.md";
 const SECRET: &str = "/notes/secret.md";
@@ -288,4 +297,138 @@ async fn knowledge_tools_without_approvals_file_everything_awaits() {
     assert_that!(call(&c, "knowledge_read", json!({ "path": ROADMAP })).await.is_error).is_equal_to(Some(true));
     let search = json_of(&call(&c, "knowledge_search", json!({ "query": "roadmap" })).await);
     assert_that!(search).is_equal_to(json!({ "hits": [], "more": 0 }));
+}
+
+/// A concept file of the agent's.
+const PRICING: &str = "/notes/pricing.md";
+const PRICING_TEXT: &str = "---\ntype: Note\ntitle: Pricing\n---\nPlans start at 10 euros\n";
+
+/// The paths of every knowledge file of the harness's deck, sorted.
+fn paths_of(h: &Harness) -> Vec<String> {
+    let s = h.session.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut paths: Vec<String> = s
+        .knowledge_entries(None)
+        .unwrap_or_else(|e| panic!("knowledge entries: {e}"))
+        .into_iter()
+        .map(|e| e.path)
+        .collect();
+    paths.sort();
+    paths
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_write_then_read_returns_the_approved_text() {
+    let h = two_files().await;
+    let c = server(&h).await;
+    let w = call(&c, "knowledge_write", json!({ "path": PRICING, "text": PRICING_TEXT })).await;
+    assert_that!(w.is_error).is_none();
+    assert_that!(json_of(&w)).is_equal_to(json!({ "path": PRICING }));
+    let r = call(&c, "knowledge_read", json!({ "path": PRICING })).await;
+    assert_that!(r.is_error).is_none();
+    assert_that!(json_of(&r)["text"].clone()).is_equal_to(json!(PRICING_TEXT));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_edit_of_an_approved_file_replaces_the_passage() {
+    let h = two_files().await;
+    let c = server(&h).await;
+    let e = call(&c, "knowledge_edit", json!({ "path": ROADMAP, "old": "nothing here", "new": "ship it" })).await;
+    assert_that!(e.is_error).is_none();
+    assert_that!(json_of(&e)).is_equal_to(json!({ "path": ROADMAP }));
+    let r = call(&c, "knowledge_read", json!({ "path": ROADMAP })).await;
+    assert_that!(json_of(&r)["text"].clone()).is_equal_to(json!(ROADMAP_TEXT.replace("nothing here", "ship it")));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_move_returns_the_new_path_and_delete_the_deleted_one() {
+    let h = two_files().await;
+    let c = server(&h).await;
+    let m = call(&c, "knowledge_move", json!({ "from": ROADMAP, "to": "/references/plan.md" })).await;
+    assert_that!(m.is_error).is_none();
+    assert_that!(json_of(&m)).is_equal_to(json!({ "path": "/references/plan.md" }));
+    let d = call(&c, "knowledge_delete", json!({ "path": "/references/plan.md" })).await;
+    assert_that!(d.is_error).is_none();
+    assert_that!(json_of(&d)).is_equal_to(json!({ "path": "/references/plan.md" }));
+    assert_that!(paths_of(&h)).is_equal_to(vec![SECRET.to_owned()]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_edit_of_an_awaiting_file_is_an_error_in_the_user_language() {
+    let h = two_files().await;
+    let c = server(&h).await;
+    let r = call(&c, "knowledge_edit", json!({ "path": SECRET, "old": "roadmap", "new": "plan" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(h.localizer.locale()).is_equal_to("fr");
+    let fr = Localizer::new(Some("fr")).tr_with("session-knowledge-change-awaiting", &[("path", "§".into())]);
+    let (head, _) = fr.split_once('§').unwrap_or_else(|| panic!("no path in {fr}"));
+    assert_that!(text_of(&r).as_str()).contains(head.trim_end_matches(['\u{2068}', ' ']));
+    assert_that!(text_of(&r).as_str()).does_not_contain("roadmap secret");
+    // The refused edit changed nothing: the file still awaits.
+    let l = call(&c, "knowledge_list", json!({ "dir": "/notes" })).await;
+    assert_that!(json_of(&l)).is_equal_to(json!({ "files": [{ "path": SECRET, "approval": "awaiting" }] }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_move_of_an_awaiting_file_is_an_error_and_moves_nothing() {
+    let h = two_files().await;
+    let c = server(&h).await;
+    let m = call(&c, "knowledge_move", json!({ "from": SECRET, "to": "/notes/public.md" })).await;
+    assert_that!(m.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&m).as_str()).does_not_contain("roadmap secret");
+    let l = call(&c, "knowledge_list", json!({ "dir": "/notes" })).await;
+    assert_that!(json_of(&l)).is_equal_to(json!({ "files": [{ "path": SECRET, "approval": "awaiting" }] }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_write_over_an_awaiting_path_approves_it_and_leaves_the_others_awaiting() {
+    let other = "/notes/other.md";
+    let h = start_knowledge(
+        |_| {},
+        Some(vec![ROADMAP_TEXT.to_owned()]),
+        vec![
+            (ROADMAP.to_owned(), ROADMAP_TEXT.to_owned()),
+            (SECRET.to_owned(), SECRET_TEXT.to_owned()),
+            (other.to_owned(), "---\ntype: Note\n---\nstill hidden\n".to_owned()),
+        ],
+        Vec::new(),
+    )
+    .await;
+    let c = server(&h).await;
+    let written = call(&c, "knowledge_write", json!({ "path": SECRET, "text": PRICING_TEXT })).await;
+    assert_that!(written.is_error).is_none();
+    let read = call(&c, "knowledge_read", json!({ "path": SECRET })).await;
+    assert_that!(json_of(&read)["text"].clone()).is_equal_to(json!(PRICING_TEXT));
+    let listed = call(&c, "knowledge_list", json!({ "dir": "/notes" })).await;
+    let approvals: Vec<(Value, Value)> = listed_files(&listed);
+    assert_that!(approvals).is_equal_to(vec![(json!(other), json!("awaiting")), (json!(SECRET), json!("approved"))]);
+}
+
+/// The (path, approval) of each file a `knowledge_list` result lists, sorted by path.
+fn listed_files(r: &CallToolResult) -> Vec<(Value, Value)> {
+    let mut files: Vec<(Value, Value)> = json_of(r)["files"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|f| (f["path"].clone(), f["approval"].clone()))
+        .collect();
+    files.sort_by_key(|(p, _)| p.to_string());
+    files
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_turn_writes_undo_in_one_step() {
+    let h = two_files().await;
+    let before = paths_of(&h);
+    let turn = 4;
+    h.session.lock().unwrap_or_else(PoisonError::into_inner).begin_turn(turn, "knowledge");
+    let c = server(&h).await;
+    for (path, text) in [("/notes/a.md", PRICING_TEXT), ("/notes/b.md", PRICING_TEXT)] {
+        let w = call(&c, "knowledge_write", json!({ "path": path, "text": text })).await;
+        assert_that!(w.is_error).is_none();
+    }
+    h.session.lock().unwrap_or_else(PoisonError::into_inner).end_turn();
+    assert_that!(paths_of(&h).len()).is_equal_to(before.len() + 2);
+    let u = call(&c, "undo_turn", json!({ "turn": turn })).await;
+    assert_that!(u.is_error).is_not_equal_to(Some(true));
+    assert_that!(paths_of(&h)).is_equal_to(before);
 }

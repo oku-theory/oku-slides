@@ -17,6 +17,7 @@ const snapshot = (o: Snap = {}): Snapshot =>
   ({
     host_params: { "base/chart": { chart: "option" }, "base/table": { table: "data" } },
     guides: null,
+    knowledge: null,
     read_only: !!o.readOnly, history: o.history ? {} : null, theming: o.theming ? {} : null, undo_label: null, redo_label: null,
     slides: [{ id: "s1", hash: "h1" }],
   }) as unknown as Snapshot;

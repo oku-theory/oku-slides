@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = 要取代的文字在檔案中出現多次
 knowledge-reason-too-many-files = 知識包中的檔案太多
 knowledge-reason-file-too-large = 檔案太大
 knowledge-reason-total-too-large = 知識包太大
+knowledge-reason-over-limit = 知識庫已超出其限制：只有刪除檔案才能使其回到限制以內
 op-knowledge = 知識檔案 { $path }：{ $reason }
 op-unknown-widget = 未知的元件：{ $subject }
 op-unknown-namespace = 此簡報沒有套件 { $pack }。
@@ -214,7 +215,7 @@ issue-knowledge-over-limit = 知識集合超出限制：{ $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    }（涉及檔案：{ $count }個，第一個為 { $id }）；所有檔案均保留，但超出限制的寫入會被拒絕
+    }（涉及檔案：{ $count }個，第一個為 { $id }）；所有檔案均保留；只有刪除檔案才能使其回到限制以內（在此之前寫入和編輯會被拒絕）
 issue-knowledge-path-invalid = 知識檔案 { $id } 已移至 /recovered：{ $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

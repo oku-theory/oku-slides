@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = il testo da sostituire compare più volte nel 
 knowledge-reason-too-many-files = il pacchetto ha troppi file
 knowledge-reason-file-too-large = il file è troppo grande
 knowledge-reason-total-too-large = il pacchetto è troppo grande
+knowledge-reason-over-limit = la base di conoscenza supera i suoi limiti: solo eliminare dei file la riporta sotto
 op-knowledge = File di conoscenza { $path }: { $reason }
 op-unknown-widget = Widget sconosciuto: { $subject }
 op-unknown-namespace = Questa presentazione non ha il pacchetto { $pack }.
@@ -224,7 +225,7 @@ issue-knowledge-over-limit = raccolta di conoscenza oltre un limite: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (file interessati: { $count }, il primo { $id }); tutti i file sono conservati, ma le scritture oltre il limite sono rifiutate
+    } (file interessati: { $count }, il primo { $id }); tutti i file sono conservati; solo eliminare dei file riporta il pacchetto sotto il limite (fino ad allora scritture e modifiche sono rifiutate)
 issue-knowledge-path-invalid = file di conoscenza { $id } spostato in /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

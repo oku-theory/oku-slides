@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = যে লেখা বদলানো হব�
 knowledge-reason-too-many-files = বান্ডেলে অনেক বেশি ফাইল আছে
 knowledge-reason-file-too-large = ফাইলটি অনেক বড়
 knowledge-reason-total-too-large = বান্ডেলটি অনেক বড়
+knowledge-reason-over-limit = জ্ঞানভান্ডার তার সীমা ছাড়িয়ে গেছে: শুধু ফাইল মুছলেই এটি আবার সীমার নিচে আসে
 op-knowledge = জ্ঞান ফাইল { $path }: { $reason }
 op-unknown-widget = অজানা উইজেট: { $subject }
 op-unknown-namespace = এই ডেকে { $pack } প্যাক নেই।
@@ -215,7 +216,7 @@ issue-knowledge-over-limit = জ্ঞান সংগ্রহ একটি স
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (প্রভাবিত ফাইল: { $count }, প্রথমটি { $id }); সব ফাইল রাখা হয়েছে, তবে সীমা ছাড়ানো লেখা প্রত্যাখ্যান করা হয়
+    } (প্রভাবিত ফাইল: { $count }, প্রথমটি { $id }); সব ফাইল রাখা হয়েছে; শুধু ফাইল মুছলেই বান্ডেলটি আবার সীমার নিচে আসে (ততক্ষণ লেখা ও সম্পাদনা প্রত্যাখ্যান করা হয়)
 issue-knowledge-path-invalid = জ্ঞান ফাইল { $id } /recovered-এ সরানো হয়েছে: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

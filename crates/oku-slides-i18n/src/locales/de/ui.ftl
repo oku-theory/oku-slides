@@ -456,3 +456,27 @@ ui-data-pane-restore = Daten verkleinern
 ui-themes = Designs
 ui-offer-open = Öffnen: { $title }
 ui-offer-settings = Angebotene Einstellungen: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] Diese Präsentation enthält { $count } Wissensdatei, die Sie nicht freigegeben haben
+   *[other] Diese Präsentation enthält { $count } Wissensdateien, die Sie nicht freigegeben haben
+  }: Der Agent kann sie nicht lesen.
+ui-knowledge-review = Prüfen…
+ui-knowledge-over-limit = Die Wissensbasis überschreitet ihre Grenzen ({ $limits }). Nur das Löschen von Dateien bringt sie wieder darunter: Bitten Sie den Agenten, einige zu löschen.
+ui-knowledge-limit-too-many-files = zu viele Dateien
+ui-knowledge-limit-file-too-large = eine zu große Datei
+ui-knowledge-limit-total-too-large = Gesamtgröße zu groß
+ui-knowledge-dialog-title = Empfangenes Wissen
+ui-knowledge-size = { NUMBER($kb) } KB
+ui-knowledge-show = Anzeigen
+ui-knowledge-hide = Ausblenden
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } verborgenes Zeichen wird als ⟨U+…⟩ angezeigt.
+   *[other] { $count } verborgene Zeichen werden als ⟨U+…⟩ angezeigt.
+  }
+ui-knowledge-approve = Freigeben
+ui-knowledge-too-large = Diese Datei ist zu groß für eine Freigabe: Löschen Sie sie.
+ui-knowledge-more = { $count ->
+    [one] { $count } weitere Datei ist nicht aufgeführt.
+   *[other] { $count } weitere Dateien sind nicht aufgeführt.
+  }
+ui-knowledge-close = Schließen

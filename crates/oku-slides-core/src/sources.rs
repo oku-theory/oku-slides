@@ -21,6 +21,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use sha2::{Digest, Sha256};
 use snafu::{ResultExt, ensure};
@@ -31,7 +32,7 @@ use crate::model::Deck;
 use crate::ops::Moved;
 use crate::pack::{PackFiles, PackManifest, PackVersion};
 use crate::pack_kind::PackKind;
-use crate::replica::{DeckRead, DeckReplica, HistoryPreview, ReplicaLimits};
+use crate::replica::{DeckRead, DeckReplica, HistoryPreview, KnowledgeSync, ReplicaLimits};
 use crate::usage::UsageLedger;
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
@@ -72,6 +73,14 @@ impl SourceLimits {
     }
 }
 
+/// Last knowledge generation handed out, process-wide: two bundles never share one.
+static LAST_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// A knowledge generation never handed out before in this process.
+fn fresh_generation() -> u64 {
+    LAST_GENERATION.fetch_add(1, Ordering::Relaxed) + 1
+}
+
 /// Identifiant d'un asset : `sha256:<hex>` de son contenu.
 #[must_use]
 pub fn asset_id(bytes: &[u8]) -> String {
@@ -85,6 +94,11 @@ pub struct SourceBundle {
     /// Vue matérialisée du replica, égale à sa relecture : jamais modifiée hors
     /// de `apply`, `apply_silent`, `undo`, `redo`, `restore`, `merge`.
     deck: Deck,
+    /// Changes, to a value never seen before, whenever the view's knowledge bundle changes.
+    knowledge_generation: u64,
+    /// An application that sent `Changed` failed: the doc's knowledge root may be partly
+    /// written, so the next application sends `Changed` whatever its bundle.
+    knowledge_unsynced: bool,
     /// Assets by id (`sha256:…`), add-only; shared: a clone takes no copy, an insert copies on write.
     pub assets: Arc<BTreeMap<String, Vec<u8>>>,
     /// Polices par nom de fichier, en ajout seul.
@@ -101,7 +115,7 @@ pub struct SourceBundle {
 
 /// Two bundles are equal when they show the same deck, assets, fonts, packs, themes and usage.
 ///
-/// The replica's history does not count.
+/// The replica's history and the knowledge generation do not count.
 impl PartialEq for SourceBundle {
     fn eq(&self, other: &Self) -> bool {
         self.deck == other.deck
@@ -137,7 +151,8 @@ impl SourceBundle {
         crate::canonicalize(&mut deck);
         let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
         let (assets, fonts, packs, themes, usage) = Default::default();
-        Ok(Self { replica, deck, assets, fonts, packs, themes, usage })
+        let knowledge_generation = fresh_generation();
+        Ok(Self { replica, deck, knowledge_generation, knowledge_unsynced: false, assets, fonts, packs, themes, usage })
     }
 
     /// A bundle around a replica read back by [`DeckReplica::from_snapshot`].
@@ -156,7 +171,17 @@ impl SourceBundle {
         themes: BTreeMap<PackVersion, PackFiles>,
     ) -> (Self, Vec<Issue>) {
         let assets = Arc::new(assets);
-        let bundle = Self { replica, deck, assets, fonts, packs, themes, usage: UsageLedger::default() };
+        let bundle = Self {
+            replica,
+            deck,
+            knowledge_generation: fresh_generation(),
+            knowledge_unsynced: false,
+            assets,
+            fonts,
+            packs,
+            themes,
+            usage: UsageLedger::default(),
+        };
         issues.extend(bundle.embedded_issues());
         (bundle, issues)
     }
@@ -220,6 +245,15 @@ impl SourceBundle {
         &self.deck
     }
 
+    /// The knowledge bundle's generation: equal values mean an unchanged bundle.
+    ///
+    /// Fresh, process-wide, at creation and at every change of the bundle, whatever made it
+    /// (apply, undo, redo, restore, merge); a slide edit keeps it.
+    #[must_use]
+    pub fn knowledge_generation(&self) -> u64 {
+        self.knowledge_generation
+    }
+
     /// The Loro replica, source of truth of the deck.
     #[must_use]
     pub fn replica(&self) -> &DeckReplica {
@@ -262,7 +296,7 @@ impl SourceBundle {
     /// Those of [`Self::apply`].
     pub fn apply_moving(
         &mut self,
-        deck: Deck,
+        mut deck: Deck,
         label: &str,
         merge: Option<&str>,
         moves: &[Moved],
@@ -273,10 +307,9 @@ impl SourceBundle {
         // Avant la réconciliation : la première édition de ce pair inscrit
         // son auteur dans le même commit.
         self.replica.claim_author().context(ReplicaSnafu)?;
-        self.replica.apply_moving(&deck, label, merge, moves).context(ReplicaSnafu)?;
-        self.deck = deck;
-        self.debug_assert_view_matches_replica();
-        Ok(())
+        let sync = self.knowledge_sync(&mut deck);
+        let applied = self.replica.apply_moving(&deck, label, merge, moves, sync);
+        self.after_apply(deck, sync, applied)
     }
 
     /// Replaces the deck with `deck` (canonical), without an undo step.
@@ -284,9 +317,49 @@ impl SourceBundle {
     /// # Errors
     ///
     /// Those of [`DeckReplica::apply_silent`].
-    pub fn apply_silent(&mut self, deck: Deck) -> Result<(), SourcesError> {
+    pub fn apply_silent(&mut self, mut deck: Deck) -> Result<(), SourcesError> {
         // Même non-atomicité que `apply`.
-        self.replica.apply_silent(&deck).context(ReplicaSnafu)?;
+        let sync = self.knowledge_sync(&mut deck);
+        let applied = self.replica.apply_silent(&deck, sync);
+        self.after_apply(deck, sync, applied)
+    }
+
+    /// Whether `deck`'s bundle differs from the view's, or a failed application left the
+    /// doc's knowledge root unsynced; an unchanged one is taken out of `deck`, so the replica
+    /// never serializes it, and [`Self::after_apply`] puts the view's equal bundle back.
+    ///
+    /// Comparing the whole bundle on every edit is deliberate: it is far cheaper than
+    /// reconciling it with the replica. Sharing the bundle behind an `Arc`, so an unchanged one
+    /// compares by pointer, is deferred.
+    fn knowledge_sync(&self, deck: &mut Deck) -> KnowledgeSync {
+        if !self.knowledge_unsynced && deck.knowledge == self.deck.knowledge {
+            drop(std::mem::take(&mut deck.knowledge));
+            KnowledgeSync::Unchanged
+        } else {
+            KnowledgeSync::Changed
+        }
+    }
+
+    /// After an application: on success, the view becomes `deck` with its bundle put back,
+    /// and a different bundle takes a fresh generation. A failure leaves the view as it was,
+    /// and one that sent `Changed` forces `Changed` on the next application.
+    fn after_apply(
+        &mut self,
+        mut deck: Deck,
+        sync: KnowledgeSync,
+        applied: Result<(), crate::ReplicaError>,
+    ) -> Result<(), SourcesError> {
+        self.knowledge_unsynced |= applied.is_err() && sync == KnowledgeSync::Changed;
+        applied.context(ReplicaSnafu)?;
+        match sync {
+            KnowledgeSync::Unchanged => deck.knowledge = std::mem::take(&mut self.deck.knowledge),
+            KnowledgeSync::Changed => {
+                self.knowledge_unsynced = false;
+                if deck.knowledge != self.deck.knowledge {
+                    self.knowledge_generation = fresh_generation();
+                }
+            }
+        }
         self.deck = deck;
         self.debug_assert_view_matches_replica();
         Ok(())
@@ -368,7 +441,17 @@ impl SourceBundle {
     /// Relit la vue après un annuler ou un rétablir. Les `Issue` sont écartées :
     /// elles ne peuvent venir que d'un état déjà relu (et signalé) au chargement.
     fn reread(&mut self) {
-        self.deck = self.replica.deck().0;
+        let deck = self.replica.deck().0;
+        self.set_view(deck);
+    }
+
+    /// Replaces the view with `deck`, read back from the replica; a bundle that differs from
+    /// the previous view's takes a fresh generation.
+    fn set_view(&mut self, deck: Deck) {
+        if deck.knowledge != self.deck.knowledge {
+            self.knowledge_generation = fresh_generation();
+        }
+        self.deck = deck;
     }
 
     /// Nombre maximal d'étapes d'annulation conservées ; `0` vaut `1`.
@@ -408,7 +491,7 @@ impl SourceBundle {
         // Pas de `canonicalize` : `deck_at` relit le replica, qui répare déjà les ids.
         crate::ops::normalize_hosts(self.replica.registry(), &mut deck);
         self.replica.restore(&deck, label).context(ReplicaSnafu)?;
-        self.deck = deck;
+        self.set_view(deck);
         self.debug_assert_view_matches_replica();
         Ok(self.with_validation(issues))
     }
@@ -441,7 +524,7 @@ impl SourceBundle {
         }
         let usage_issues = self.usage.union(other.usage);
         let (deck, issues) = self.replica.deck();
-        self.deck = deck;
+        self.set_view(deck);
         let mut issues = self.with_validation(issues);
         issues.extend(usage_issues);
         Ok((report, issues))

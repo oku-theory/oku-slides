@@ -459,3 +459,27 @@ ui-data-pane-restore = Reduzir os dados
 ui-themes = Temas
 ui-offer-open = Abrir: { $title }
 ui-offer-settings = Configurações propostas: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] Esta apresentação contém { $count } arquivo de conhecimento que você não aprovou
+   *[other] Esta apresentação contém { $count } arquivos de conhecimento que você não aprovou
+  }: o agente não pode lê-los.
+ui-knowledge-review = Revisar…
+ui-knowledge-over-limit = A base de conhecimento passou dos seus limites ({ $limits }). Só excluir arquivos a traz de volta para baixo deles: peça ao agente que exclua alguns.
+ui-knowledge-limit-too-many-files = arquivos demais
+ui-knowledge-limit-file-too-large = um arquivo grande demais
+ui-knowledge-limit-total-too-large = tamanho total grande demais
+ui-knowledge-dialog-title = Conhecimento recebido
+ui-knowledge-size = { NUMBER($kb) } KB
+ui-knowledge-show = Mostrar
+ui-knowledge-hide = Ocultar
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } caractere oculto é mostrado como ⟨U+…⟩.
+   *[other] { $count } caracteres ocultos são mostrados como ⟨U+…⟩.
+  }
+ui-knowledge-approve = Aprovar
+ui-knowledge-too-large = Este arquivo é grande demais para ser aprovado: exclua-o.
+ui-knowledge-more = { $count ->
+    [one] Mais { $count } arquivo não está listado.
+   *[other] Mais { $count } arquivos não estão listados.
+  }
+ui-knowledge-close = Fechar

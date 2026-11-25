@@ -124,3 +124,34 @@ fn changes_deck_of_received_review_requests_refreshes_only_after_install(
 ) {
     assert_that!(request.changes_deck()).is_equal_to(changes);
 }
+
+/// The three knowledge review requests, each once.
+fn knowledge_requests() -> [Request; 3] {
+    [
+        Request::KnowledgeReview,
+        Request::KnowledgeText { id: "0".repeat(32) },
+        Request::ApproveKnowledge {
+            files: vec![crate::KnowledgeApproval { id: "0".repeat(32), hash: "sha256:00".into() }],
+        },
+    ]
+}
+
+#[test]
+fn knowledge_review_requests_change_no_deck_and_fit_no_theme_tab() {
+    for request in knowledge_requests() {
+        assert_that!(request.changes_deck()).is_false();
+        assert_that!(request.writes_edited_draft()).is_false();
+        assert_that!(request.theme_tab_allows()).is_false();
+        assert_that!(request.edits()).is_false();
+        assert_that!(request.ends_widget_session()).is_false();
+        assert_that!(request.reviews_deck_knowledge()).is_true();
+    }
+}
+
+#[rstest]
+#[case::snapshot(Request::Snapshot)]
+#[case::apply(Request::Apply { label: "x".into(), ops: Vec::new(), merge: None })]
+#[case::approve_guides(Request::ApproveGuides { versions: Vec::new() })]
+fn reviews_deck_knowledge_of_other_requests_is_false(#[case] request: Request) {
+    assert_that!(request.reviews_deck_knowledge()).is_false();
+}

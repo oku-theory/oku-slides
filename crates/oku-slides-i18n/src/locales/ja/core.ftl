@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = 置換する文字列がファイル内に複�
 knowledge-reason-too-many-files = バンドルのファイルが多すぎます
 knowledge-reason-file-too-large = ファイルが大きすぎます
 knowledge-reason-total-too-large = バンドルが大きすぎます
+knowledge-reason-over-limit = ナレッジベースが上限を超えています: ファイルを削除することでのみ上限内に戻せます
 op-knowledge = ナレッジファイル { $path }: { $reason }
 op-unknown-widget = 不明なウィジェット：{ $subject }
 op-unknown-namespace = このデッキにはパック { $pack } がありません。
@@ -214,7 +215,7 @@ issue-knowledge-over-limit = ナレッジコレクションが上限を超えて
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    }（該当ファイル: { $count }、最初は { $id }）。すべてのファイルは保持されますが、上限を超える書き込みは拒否されます
+    }（該当ファイル: { $count }、最初は { $id }）。すべてのファイルは保持されます。ファイルを削除することでのみ上限内に戻せます（それまで書き込みと編集は拒否されます）
 issue-knowledge-path-invalid = ナレッジファイル { $id } を /recovered に移動しました: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

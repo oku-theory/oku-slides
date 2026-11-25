@@ -23,6 +23,18 @@ mod write;
 
 pub use authors::MergeReport;
 
+/// Whether an application must write the knowledge root (t-1731).
+///
+/// The bundle reaches up to 16 MiB: reconciling it on every slide edit would serialize and
+/// diff it each time. The caller, which holds the previous deck, says whether it changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KnowledgeSync {
+    /// The bundle may differ from the replica's: reconcile the `knowledge` root.
+    Changed,
+    /// The bundle equals the replica's: the `knowledge` root is left untouched.
+    Unchanged,
+}
+
 /// Limites d'ouverture d'un replica relu d'un fichier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReplicaLimits {
@@ -256,6 +268,7 @@ impl DeckReplica {
             &|| (),
             None,
             &[],
+            KnowledgeSync::Changed,
         )?;
         doc.commit();
         // `Undo` est construit après ce commit initial : créer le deck n'est pas annulable.
@@ -413,14 +426,15 @@ impl DeckReplica {
     ///
     /// Deck of another version, slots too deep or Loro write refused.
     pub fn apply(&mut self, deck: &Deck, label: &str, merge: Option<&str>) -> Result<(), ReplicaError> {
-        self.apply_moving(deck, label, merge, &[])
+        self.apply_moving(deck, label, merge, &[], KnowledgeSync::Changed)
     }
 
     /// Like `apply`, keeping the node of the elements in `moves` (ADR-0006).
     ///
     /// Each entry announces an element moved from one slide to another (op
     /// `move_element`): it is matched to its node even if its id appears in
-    /// other slides. An entry that does not resolve is ignored.
+    /// other slides. An entry that does not resolve is ignored. With
+    /// [`KnowledgeSync::Unchanged`], the `knowledge` root is not written.
     ///
     /// # Errors
     ///
@@ -431,6 +445,7 @@ impl DeckReplica {
         label: &str,
         merge: Option<&str>,
         moves: &[Moved],
+        knowledge: KnowledgeSync,
     ) -> Result<(), ReplicaError> {
         let doc = &self.doc;
         let split = || {
@@ -442,7 +457,7 @@ impl DeckReplica {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, self.env(), &split, Some(&born), moves)?;
+        Self::reconcile_doc(doc, deck, self.env(), &split, Some(&born), moves, knowledge)?;
         // Le libellé est aussi le message du change Loro : avec
         // `set_change_merge_interval(-1)`, un commit fait un change.
         self.doc.set_next_commit_message(label);
@@ -455,16 +470,18 @@ impl DeckReplica {
 
     /// Brings the replica to the state of `deck`, without an undo step.
     ///
+    /// With [`KnowledgeSync::Unchanged`], the `knowledge` root is not written.
+    ///
     /// # Errors
     ///
     /// Those of [`Self::apply`].
-    pub fn apply_silent(&mut self, deck: &Deck) -> Result<(), ReplicaError> {
+    pub fn apply_silent(&mut self, deck: &Deck, knowledge: KnowledgeSync) -> Result<(), ReplicaError> {
         let doc = &self.doc;
         let commit = || {
             doc.set_next_commit_origin(undo::SILENT);
             doc.commit();
         };
-        Self::reconcile_doc(doc, deck, self.env(), &commit, None, &[])?;
+        Self::reconcile_doc(doc, deck, self.env(), &commit, None, &[], knowledge)?;
         commit();
         Ok(())
     }
@@ -475,6 +492,10 @@ impl DeckReplica {
     }
 
     /// Refuse un deck d'une autre version que [`DECK_VERSION`].
+    ///
+    /// With [`KnowledgeSync::Unchanged`], the `knowledge` root is neither diffed nor written,
+    /// whatever `deck.knowledge` holds.
+    #[expect(clippy::too_many_arguments, reason = "one reconciliation's inputs, each given by its caller (t-1731)")]
     fn reconcile_doc(
         doc: &LoroDoc,
         deck: &Deck,
@@ -482,6 +503,7 @@ impl DeckReplica {
         split: write::Split<'_>,
         born: Option<write::Split<'_>>,
         moves: &[Moved],
+        knowledge_sync: KnowledgeSync,
     ) -> Result<(), ReplicaInner> {
         ensure!(deck.version == DECK_VERSION, UnsupportedDeckVersionSnafu { found: deck.version.to_string() });
         let json = serde_json::to_value(deck).context(DeckJsonSnafu)?;
@@ -500,7 +522,10 @@ impl DeckReplica {
         let mark_key = schema::mark_key(doc.peer_id());
         let writer = write::Writer { registry, split, mark_key, moves, born, now, diff_budget_ms };
         writer.sync_map(&doc.get_map(ROOT), &obj, Ctx::Deck)?;
-        writer.sync_map(&doc.get_map(KNOWLEDGE), &knowledge, Ctx::Knowledge)
+        match knowledge_sync {
+            KnowledgeSync::Changed => writer.sync_map(&doc.get_map(KNOWLEDGE), &knowledge, Ctx::Knowledge),
+            KnowledgeSync::Unchanged => Ok(()),
+        }
     }
 
     /// Ouvre un groupe : les applications qui suivent forment une seule étape
@@ -649,7 +674,15 @@ impl DeckReplica {
         let trial = self.doc.fork();
         configure(&trial);
         guarded(trial, |doc| {
-            Self::reconcile_doc(doc, deck, self.env(), &|| doc.commit(), Some(&|| doc.commit()), &[])
+            Self::reconcile_doc(
+                doc,
+                deck,
+                self.env(),
+                &|| doc.commit(),
+                Some(&|| doc.commit()),
+                &[],
+                KnowledgeSync::Changed,
+            )
         })?;
         self.claim_author()?;
         self.apply(deck, label, None)

@@ -32,5 +32,7 @@
   {"lang": "en", "request": "What does the knowledge base say about our pricing?", "families": ["knowledge"], "first_tool": ["knowledge_search", "knowledge_list"]},
   {"lang": "fr", "request": "Lis la fiche sur le marché dans la base de connaissance", "families": ["knowledge"], "first_tool": ["knowledge_read", "knowledge_list"]},
   {"lang": "en", "request": "List the notes in the deck's knowledge base", "families": ["knowledge"], "first_tool": ["knowledge_list"]},
-  {"lang": "fr", "request": "Cherche dans la base de connaissance ce qu'on sait des concurrents", "families": ["knowledge"], "first_tool": ["knowledge_search", "knowledge_list"]}
+  {"lang": "fr", "request": "Cherche dans la base de connaissance ce qu'on sait des concurrents", "families": ["knowledge"], "first_tool": ["knowledge_search", "knowledge_list"]},
+  {"lang": "fr", "request": "Note dans la base de connaissance que le client veut un ton sobre", "families": ["knowledge"], "first_tool": ["knowledge_write"]},
+  {"lang": "en", "request": "Save to the knowledge base that the budget is 40k", "families": ["knowledge"], "first_tool": ["knowledge_write"]}
 ]

@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = 바꿀 텍스트가 파일에 두 번 이상 �
 knowledge-reason-too-many-files = 번들에 파일이 너무 많습니다
 knowledge-reason-file-too-large = 파일이 너무 큽니다
 knowledge-reason-total-too-large = 번들이 너무 큽니다
+knowledge-reason-over-limit = 지식 베이스가 한도를 넘었습니다: 파일을 삭제해야만 한도 안으로 돌아옵니다
 op-knowledge = 지식 파일 { $path }: { $reason }
 op-unknown-widget = 알 수 없는 위젯: { $subject }
 op-unknown-namespace = 이 덱에는 팩 { $pack }이(가) 없습니다.
@@ -214,7 +215,7 @@ issue-knowledge-over-limit = 지식 모음이 한도를 넘었습니다: { $limi
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (해당 파일: { $count }개, 첫 파일 { $id }). 모든 파일은 유지되지만 한도를 넘는 쓰기는 거부됩니다
+    } (해당 파일: { $count }개, 첫 파일 { $id }). 모든 파일은 유지됩니다. 파일을 삭제해야만 한도 안으로 돌아옵니다(그때까지 쓰기와 편집은 거부됩니다)
 issue-knowledge-path-invalid = 지식 파일 { $id }을(를) /recovered로 옮겼습니다: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

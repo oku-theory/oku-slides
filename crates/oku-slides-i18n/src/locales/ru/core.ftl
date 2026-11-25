@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = заменяемый текст встреча
 knowledge-reason-too-many-files = в наборе слишком много файлов
 knowledge-reason-file-too-large = файл слишком большой
 knowledge-reason-total-too-large = набор слишком большой
+knowledge-reason-over-limit = база знаний превышает свои лимиты: вернуть её в пределы можно только удалением файлов
 op-knowledge = Файл знаний { $path }: { $reason }
 op-unknown-widget = Неизвестный виджет: { $subject }
 op-unknown-namespace = В этой презентации нет пакета { $pack }.
@@ -232,7 +233,7 @@ issue-knowledge-over-limit = набор знаний превышает огра
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (файлов сверх него: { $count }, первый { $id }); все файлы сохранены, но записи сверх ограничения отклоняются
+    } (файлов сверх него: { $count }, первый { $id }); все файлы сохранены; вернуть набор в пределы можно только удалением файлов (до тех пор записи и правки отклоняются)
 issue-knowledge-path-invalid = файл знаний { $id } перемещён в /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

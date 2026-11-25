@@ -288,15 +288,48 @@ fn ops_round_trip_through_json_and_are_knowledge() {
 }
 
 #[test]
-fn ops_schema_omits_knowledge_ops() {
+fn ops_schema_lists_knowledge_ops() {
     let schema = ops_schema().unwrap().to_string();
-    assert_that!(schema.contains("knowledge_")).is_false();
     assert_that!(schema.contains("set_var")).is_true();
-    // The unfiltered schema has them: the filter, not a schemars shape change, hides them.
-    let unfiltered = serde_json::to_string(&schemars::schema_for!(Vec<Op>)).unwrap();
     for op in ["knowledge_write", "knowledge_edit", "knowledge_move", "knowledge_delete"] {
-        assert_that!(unfiltered.contains(&format!("\"{op}\""))).is_true();
+        assert_that!(schema.contains(&format!("\"{op}\""))).is_true();
     }
+}
+
+/// A bundle past a limit, as a received deck can be: one file over the byte ceiling.
+fn past_a_limit() -> Deck {
+    let mut deck = with_note();
+    deck.knowledge.insert(ID_B.into(), KnowledgeFile { path: "/big.md".into(), text: padded(MAX_FILE_BYTES + 1) });
+    deck
+}
+
+#[test]
+fn over_limit_refuses_write_and_edit_allows_delete_and_move() {
+    let mut deck = past_a_limit();
+    let before = deck.clone();
+    let replace = write_op("/a.md", NOTE, None);
+    assert_that!(reason(apply(&mut deck, replace))).is_equal_to(KnowledgeReason::OverLimit);
+    let create = write_op("/c.md", NOTE, Some(&id_n(7)));
+    assert_that!(reason(apply(&mut deck, create))).is_equal_to(KnowledgeReason::OverLimit);
+    let edit = Op::KnowledgeEdit { path: "/a.md".into(), old: "body".into(), new: "text".into() };
+    assert_that!(reason(apply(&mut deck, edit))).is_equal_to(KnowledgeReason::OverLimit);
+    assert_that!(deck).is_equal_to(before);
+
+    apply(&mut deck, Op::KnowledgeMove { from: "/a.md".into(), to: "/moved.md".into() }).unwrap();
+    apply(&mut deck, Op::KnowledgeDelete { path: "/big.md".into() }).unwrap();
+    // Back under every limit: writes pass again.
+    apply(&mut deck, write_op("/moved.md", NOTE, None)).unwrap();
+}
+
+#[rstest]
+#[case::too_many_files(MAX_FILES + 1, 10)]
+#[case::total_too_large(MAX_TOTAL_BYTES / MAX_FILE_BYTES + 1, MAX_FILE_BYTES)]
+fn every_limit_counts_as_over_limit(#[case] files: usize, #[case] len: usize) {
+    let mut deck = Deck::empty();
+    for n in 0..files {
+        deck.knowledge.insert(id_n(n), KnowledgeFile { path: format!("/f{n}.md"), text: padded(len.max(20)) });
+    }
+    assert_that!(reason(apply(&mut deck, write_op("/f0.md", NOTE, None)))).is_equal_to(KnowledgeReason::OverLimit);
 }
 
 #[test]
@@ -330,6 +363,7 @@ fn every_knowledge_reason_key_exists_in_every_locale() {
         KnowledgeReason::TooManyFiles,
         KnowledgeReason::FileTooLarge,
         KnowledgeReason::TotalTooLarge,
+        KnowledgeReason::OverLimit,
     ];
     let en = Localizer::new(Some("en"));
     for locale in oku_slides_i18n::available() {

@@ -106,8 +106,10 @@ pub enum SessionErrorKind {
     PackModePreview,
     /// A request that makes no sense for the session's kind of document.
     WrongDocument,
-    /// A caller's ops include a knowledge op: callers may not write knowledge yet.
-    KnowledgeOpsHidden,
+    /// A preview's ops include a knowledge op: previews show slide changes only.
+    KnowledgeOpsInPreview,
+    /// An edit or a move of a knowledge file whose text the user has not approved.
+    KnowledgeChangeAwaiting,
     /// No knowledge file at that path.
     KnowledgeNotFound,
     /// The knowledge file awaits the user's approval: its text cannot be read.
@@ -118,6 +120,18 @@ pub enum SessionErrorKind {
     KnowledgeDirInvalid,
     /// A knowledge search query that is empty or too long.
     KnowledgeQueryInvalid,
+    /// The knowledge approvals could not be saved: nothing was approved.
+    KnowledgeApprovalsWrite,
+    /// The knowledge approvals file exists but cannot be read or parsed: nothing was approved.
+    KnowledgeApprovalsDamaged,
+    /// No knowledge file has the id an approval names.
+    KnowledgeIdNotFound,
+    /// A knowledge file's text changed since the user was shown it: nothing was approved.
+    KnowledgeChanged,
+    /// A knowledge file over the read ceiling: it cannot be approved, only deleted.
+    KnowledgeTooLargeToApprove,
+    /// An approval that names a file twice or too many files.
+    KnowledgeApprovalInvalid,
     /// Réglage de l'hôte inconnu.
     HostKey,
     /// La réponse n'a pas pu être écrite en JSON.
@@ -314,8 +328,10 @@ pub(crate) enum SessionInner {
     PackModePreview { backtrace: Backtrace },
     #[snafu(display("this request does not fit a {} tab", kind.as_str()))]
     WrongDocument { kind: crate::DocumentKind, backtrace: Backtrace },
-    #[snafu(display("knowledge ops are not open to callers yet"))]
-    KnowledgeOpsHidden { backtrace: Backtrace },
+    #[snafu(display("a preview takes no knowledge op"))]
+    KnowledgeOpsInPreview { backtrace: Backtrace },
+    #[snafu(display("knowledge file {} awaits approval: replace it whole, delete it, or leave it", label(path)))]
+    KnowledgeChangeAwaiting { path: String, backtrace: Backtrace },
     #[snafu(display("no knowledge file at {}", label(path)))]
     KnowledgeNotFound { path: String, backtrace: Backtrace },
     #[snafu(display("knowledge file {} awaits approval", label(path)))]
@@ -326,6 +342,14 @@ pub(crate) enum SessionInner {
     KnowledgeDirInvalid { dir: String, backtrace: Backtrace },
     #[snafu(display("a knowledge search needs 1 to {max} characters"))]
     KnowledgeQueryInvalid { max: usize, backtrace: Backtrace },
+    #[snafu(display("no knowledge file has the id {}", label(id)))]
+    KnowledgeIdNotFound { id: String, backtrace: Backtrace },
+    #[snafu(display("knowledge file {} changed since it was shown", label(path)))]
+    KnowledgeChanged { path: String, backtrace: Backtrace },
+    #[snafu(display("knowledge file {} is too large to approve", label(path)))]
+    KnowledgeTooLargeToApprove { path: String, backtrace: Backtrace },
+    #[snafu(display("a knowledge approval names a file twice or too many files"))]
+    KnowledgeApprovalInvalid { backtrace: Backtrace },
     #[snafu(display("unknown host setting: {}", label(key)))]
     HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
@@ -411,6 +435,10 @@ pub(crate) enum SessionInner {
     GuideHasNul { backtrace: Backtrace },
     #[snafu(display("cannot write the guide approvals {}", path.display()))]
     GuideApprovalsWrite { path: PathBuf, source: StorageError, backtrace: Backtrace },
+    #[snafu(display("cannot save the knowledge approvals"))]
+    KnowledgeApprovalsWrite { backtrace: Backtrace },
+    #[snafu(display("the knowledge approvals file is damaged"))]
+    KnowledgeApprovalsDamaged { backtrace: Backtrace },
     #[snafu(display("a pack holds at most {max} widget files"))]
     TooManyWidgets { max: usize, backtrace: Backtrace },
     #[snafu(display("widget {name} is still used by: {}", uses.join(", ")))]
@@ -445,24 +473,27 @@ impl SessionError {
         use SessionInner::{
             AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
             EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeAwaiting,
-            KnowledgeDirInvalid, KnowledgeNotFound, KnowledgeOpsHidden, KnowledgePathInvalid, KnowledgeQueryInvalid,
-            LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName,
-            NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides,
-            NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
-            PackModePreview, PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab,
-            PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly,
-            ReceivedParentMissing, Registry, Render, RequiresCycle, Response, SingleDocument, Sources,
-            SourcesOverBudget, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove,
-            ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse,
-            TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken,
-            Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace,
-            UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version,
-            WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write,
-            WrongDocument,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeApprovalInvalid,
+            KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting, KnowledgeChangeAwaiting,
+            KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeNotFound, KnowledgeOpsInPreview,
+            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated,
+            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath,
+            NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op,
+            PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview,
+            PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
+            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing,
+            Registry, Render, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
+            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } | GuideApprovalsWrite { .. } => SessionErrorKind::File,
+            KnowledgeApprovalsWrite { .. } => SessionErrorKind::KnowledgeApprovalsWrite,
+            KnowledgeApprovalsDamaged { .. } => SessionErrorKind::KnowledgeApprovalsDamaged,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
             Pdf { .. }
             | Sources { .. }
@@ -516,12 +547,17 @@ impl SessionError {
             PackModeSlides { .. } => SessionErrorKind::PackModeSlides,
             PackModePreview { .. } => SessionErrorKind::PackModePreview,
             WrongDocument { .. } => SessionErrorKind::WrongDocument,
-            KnowledgeOpsHidden { .. } => SessionErrorKind::KnowledgeOpsHidden,
+            KnowledgeOpsInPreview { .. } => SessionErrorKind::KnowledgeOpsInPreview,
+            KnowledgeChangeAwaiting { .. } => SessionErrorKind::KnowledgeChangeAwaiting,
             KnowledgeNotFound { .. } => SessionErrorKind::KnowledgeNotFound,
             KnowledgeAwaiting { .. } => SessionErrorKind::KnowledgeAwaiting,
             KnowledgePathInvalid { .. } => SessionErrorKind::KnowledgePathInvalid,
             KnowledgeDirInvalid { .. } => SessionErrorKind::KnowledgeDirInvalid,
             KnowledgeQueryInvalid { .. } => SessionErrorKind::KnowledgeQueryInvalid,
+            KnowledgeIdNotFound { .. } => SessionErrorKind::KnowledgeIdNotFound,
+            KnowledgeChanged { .. } => SessionErrorKind::KnowledgeChanged,
+            KnowledgeTooLargeToApprove { .. } => SessionErrorKind::KnowledgeTooLargeToApprove,
+            KnowledgeApprovalInvalid { .. } => SessionErrorKind::KnowledgeApprovalInvalid,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
@@ -700,27 +736,30 @@ impl Localize for SessionError {
         use SessionInner::{
             AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
             EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeAwaiting,
-            KnowledgeDirInvalid, KnowledgeNotFound, KnowledgeOpsHidden, KnowledgePathInvalid, KnowledgeQueryInvalid,
-            LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName,
-            NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides,
-            NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest,
-            PackModePreview, PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab,
-            PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly,
-            ReceivedParentMissing, Registry, Render, RequiresCycle, Response, SingleDocument, Sources,
-            SourcesOverBudget, TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove,
-            ThemeIdMismatch, ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse,
-            TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken,
-            Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace,
-            UnknownOwner, UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version,
-            WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write,
-            WrongDocument,
+            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeApprovalInvalid,
+            KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting, KnowledgeChangeAwaiting,
+            KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeNotFound, KnowledgeOpsInPreview,
+            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated,
+            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath,
+            NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op,
+            PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview,
+            PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
+            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing,
+            Registry, Render, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists,
+            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
+            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
+            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
+            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
+            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
             Read { path, .. } => l.tr_with("session-read", &path_arg(path)),
             Write { path, .. } => l.tr_with("session-write", &path_arg(path)),
             GuideApprovalsWrite { path, .. } => l.tr_with("session-guide-approvals-write", &path_arg(path)),
+            KnowledgeApprovalsWrite { .. } => l.tr("session-knowledge-approvals-write"),
+            KnowledgeApprovalsDamaged { .. } => l.tr("session-knowledge-approvals-damaged"),
             NotOkuSlides { .. } => l.tr("session-not-oku-slides"),
             Pdf { source, .. } => source.localize(l),
             Sources { source, .. } => source.localize(l),
@@ -811,7 +850,10 @@ impl Localize for SessionError {
             PackModeSlides { .. } => l.tr("session-pack-mode-slides"),
             PackModePreview { .. } => l.tr("session-pack-mode-preview"),
             WrongDocument { kind, .. } => l.tr_with("session-wrong-document", &[("kind", kind.as_str().into())]),
-            KnowledgeOpsHidden { .. } => l.tr("session-knowledge-ops-hidden"),
+            KnowledgeOpsInPreview { .. } => l.tr("session-knowledge-ops-in-preview"),
+            KnowledgeChangeAwaiting { path, .. } => {
+                l.tr_with("session-knowledge-change-awaiting", &[("path", label(path).into())])
+            }
             KnowledgeNotFound { path, .. } => l.tr_with("session-knowledge-not-found", &[("path", label(path).into())]),
             KnowledgeAwaiting { path, .. } => l.tr_with("session-knowledge-awaiting", &[("path", label(path).into())]),
             KnowledgePathInvalid { path, reason, .. } => l.tr_with(
@@ -824,6 +866,12 @@ impl Localize for SessionError {
             KnowledgeQueryInvalid { max, .. } => {
                 l.tr_with("session-knowledge-query-invalid", &[("max", (*max).into())])
             }
+            KnowledgeIdNotFound { id, .. } => l.tr_with("session-knowledge-id-not-found", &[("id", label(id).into())]),
+            KnowledgeChanged { path, .. } => l.tr_with("session-knowledge-changed", &[("path", label(path).into())]),
+            KnowledgeTooLargeToApprove { path, .. } => {
+                l.tr_with("session-knowledge-too-large-to-approve", &[("path", label(path).into())])
+            }
+            KnowledgeApprovalInvalid { .. } => l.tr("session-knowledge-approval-invalid"),
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", label(key).into())]),
             Response { .. } => l.tr("session-response"),
             Paste { reason, .. } => l.tr(reason.key()),

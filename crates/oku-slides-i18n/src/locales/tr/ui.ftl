@@ -453,3 +453,27 @@ ui-data-pane-restore = Verileri küçült
 ui-themes = Temalar
 ui-offer-open = Aç: { $title }
 ui-offer-settings = Önerilen ayarlar: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] Bu sunum onaylamadığınız { $count } bilgi dosyası içeriyor
+   *[other] Bu sunum onaylamadığınız { $count } bilgi dosyası içeriyor
+  }: ajan bunları okuyamaz.
+ui-knowledge-review = İncele…
+ui-knowledge-over-limit = Bilgi tabanı sınırlarını aştı ({ $limits }). Yalnızca dosya silmek onu yeniden sınırların altına indirir: ajandan bazılarını silmesini isteyin.
+ui-knowledge-limit-too-many-files = çok fazla dosya
+ui-knowledge-limit-file-too-large = çok büyük bir dosya
+ui-knowledge-limit-total-too-large = toplam boyut çok büyük
+ui-knowledge-dialog-title = Alınan bilgi
+ui-knowledge-size = { NUMBER($kb) } KB
+ui-knowledge-show = Göster
+ui-knowledge-hide = Gizle
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } gizli karakter ⟨U+…⟩ olarak gösteriliyor.
+   *[other] { $count } gizli karakter ⟨U+…⟩ olarak gösteriliyor.
+  }
+ui-knowledge-approve = Onayla
+ui-knowledge-too-large = Bu dosya onaylanamayacak kadar büyük: silin.
+ui-knowledge-more = { $count ->
+    [one] { $count } dosya daha listelenmedi.
+   *[other] { $count } dosya daha listelenmedi.
+  }
+ui-knowledge-close = Kapat

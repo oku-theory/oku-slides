@@ -24,6 +24,8 @@ fn knowledge_over_limit_is_localized_per_limit() {
     assert_that!(many.contains("trop de fichiers")).is_true();
     assert_that!(many.contains("ab12")).is_true();
     assert_that!(many.contains('3')).is_true();
+    // Recovery is by delete only: the issue says so.
+    assert_that!(many.contains("seule la suppression de fichiers")).is_true();
     assert_that!(shown(KnowledgeLimit::FileTooLarge)).is_not_equal_to(shown(KnowledgeLimit::TotalTooLarge));
 }
 

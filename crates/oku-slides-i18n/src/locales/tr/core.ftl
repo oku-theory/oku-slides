@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = değiştirilecek metin dosyada birden çok kez
 knowledge-reason-too-many-files = pakette çok fazla dosya var
 knowledge-reason-file-too-large = dosya çok büyük
 knowledge-reason-total-too-large = paket çok büyük
+knowledge-reason-over-limit = bilgi tabanı sınırlarını aştı: yalnızca dosya silmek onu yeniden sınırların altına indirir
 op-knowledge = Bilgi dosyası { $path }: { $reason }
 op-unknown-widget = Bilinmeyen bileşen: { $subject }
 op-unknown-namespace = Bu sunuda { $pack } paketi yok.
@@ -215,7 +216,7 @@ issue-knowledge-over-limit = bilgi koleksiyonu bir sınırı aşıyor: { $limit 
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (etkilenen dosyalar: { $count }, ilki { $id }); tüm dosyalar korunur, ancak sınırı aşan yazmalar reddedilir
+    } (etkilenen dosyalar: { $count }, ilki { $id }); tüm dosyalar korunur; paketi yeniden sınırın altına yalnızca dosya silmek indirir (o zamana kadar yazmalar ve düzenlemeler reddedilir)
 issue-knowledge-path-invalid = bilgi dosyası { $id } /recovered klasörüne taşındı: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

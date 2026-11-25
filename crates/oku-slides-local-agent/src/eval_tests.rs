@@ -38,9 +38,9 @@ fn family(key: &str) -> Family {
 }
 
 #[test]
-fn eval_set_has_thirty_four_requests_in_french_and_english() {
+fn eval_set_has_at_least_thirty_six_requests_in_french_and_english() {
     let cases = cases();
-    assert_that!(cases.len()).is_greater_than_or_equal_to(34);
+    assert_that!(cases.len()).is_greater_than_or_equal_to(36);
     for lang in ["fr", "en"] {
         assert_that!(cases.iter().any(|c| c.lang == lang)).is_true();
     }
@@ -57,6 +57,18 @@ fn eval_set_first_tools_are_deck_tools_of_their_families() {
             let served = of.contains(&Family::AskReport) || of.iter().any(|f| wanted.contains(f));
             assert_that!(served).named(&format!("{tool} for {}", case.request)).is_true();
         }
+    }
+}
+
+#[test]
+fn eval_set_knowledge_write_requests_expect_knowledge_write() {
+    for request in [
+        "Note dans la base de connaissance que le client veut un ton sobre",
+        "Save to the knowledge base that the budget is 40k",
+    ] {
+        let case = cases().into_iter().find(|c| c.request == request).unwrap();
+        assert_that!(case.families).is_equal_to(vec!["knowledge".to_owned()]);
+        assert_that!(case.first_tool).is_equal_to(vec!["knowledge_write".to_owned()]);
     }
 }
 

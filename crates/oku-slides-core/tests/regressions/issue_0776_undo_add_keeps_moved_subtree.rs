@@ -76,7 +76,8 @@ fn scenario() -> (DeckReplica, DeckReplica) {
     let mv = op(json!({ "op": "move_element", "slide": "s-constat", "element": "b-points",
         "to": { "owner": { "slide": "s-neuve" }, "param": "blocks" }, "index": 0 }));
     let transfers = apply_all_moving(&mut moved, vec![mv], &registry).unwrap_or_else(|e| panic!("{e:?}"));
-    a.apply_moving(&moved, "Déplacer", None, &transfers).unwrap_or_else(|e| panic!("{e}"));
+    a.apply_moving(&moved, "Déplacer", None, &transfers, oku_slides_core::KnowledgeSync::Changed)
+        .unwrap_or_else(|e| panic!("{e}"));
     exchange(&mut a, &mut b);
     for r in [&a, &b] {
         assert_that!(where_is(r, "b-points")).named("précondition").is_equal_to(vec!["s-neuve".to_owned()]);

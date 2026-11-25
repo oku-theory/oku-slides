@@ -10,8 +10,8 @@ mod path;
 pub use assets::{ASSETS_DIR, cited_images};
 pub use frontmatter::{Frontmatter, check_text, frontmatter, split};
 pub use issues::DropCause;
-pub use normalize::normalize;
 pub(crate) use normalize::repair;
+pub use normalize::{knowledge_over_limits, normalize};
 pub use path::{KnowledgePath, is_file_id, knowledge_file_id};
 
 use schemars::JsonSchema;

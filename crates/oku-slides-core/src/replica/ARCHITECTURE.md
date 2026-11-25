@@ -25,8 +25,8 @@ The deck in a `LoroDoc` (CRDT): full history, merge, undo. `DeckReplica` is auth
 
 ## Rules
 
-- **Diff of the deck JSON**: `apply` brings each container to the state of the serialized
-  `Deck`; nothing is written without a change.
+- **Diff of the deck JSON**: `apply` writes only changes; `KnowledgeSync::Unchanged` skips
+  `knowledge` (raw entries the read drops stay until the bundle changes, t-1731).
 - **Soft delete**: a removed node gets `@deleted/<peer>` = the Unix time it was set and hides
   with its subtree; undo removes it; a re-added id gets a fresh node; an undoable creation is
   born marked (t-776); only compaction does `tree.delete`.

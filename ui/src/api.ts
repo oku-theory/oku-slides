@@ -8,6 +8,7 @@ import type { Surface } from "./agentApi";
 import type { DataEdit } from "./chart/dataEdit";
 import { host } from "./hostCall";
 import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin, ThemeTabView } from "./packTypes";
+import type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledgeTypes";
 import type { GuideKind, GuidesView, ReceivedReview, VersionRef } from "./receivedTypes";
 import type { ExtendsEdit, Frame, ListOp, Op, SlideView, TokenAction } from "./slideTypes";
 import type { View } from "./table/ShowAsButton";
@@ -18,6 +19,7 @@ export type { ClipReply, ImportPick, ImportTarget, OpenerOffer, SharedClip, TabA
 export { pickOpenPath, pickSavePath } from "./filePick";
 export { subscribeUpdates, tauriUpdates } from "./updateApi";
 export type { InstallMode, UpdateApi, UpdateEvents, UpdateOffer, UpdateProgress, UpdateStatus } from "./updateApi";
+export type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledgeTypes";
 export type { Capabilities, CapabilityTotals, GuideKind, GuideOrigin, Guides, GuidesView, ReceivedRelation, ReceivedReview, VersionRef } from "./receivedTypes";
 export type { Element, ElementStyle, ExtendsEdit, FieldView, Frame, HeadingLevel, ItemView, ListOp, ListView, ObjectTarget, Op, Paragraph, Params, Run, Slide, SlideView, SlotRef, Target, TextStyle, TokenAction } from "./slideTypes";
 export { agentApi, takeCloseDecision } from "./agentApi";
@@ -121,6 +123,8 @@ export interface Snapshot {
   guides: GuidesView | null;
   /** Received versions the library lacks or whose guides await approval, to validate (t-1414). */
   received_to_review: ReceivedReview[];
+  /** Knowledge files awaiting approval and ceilings passed; `null` outside a deck or when all is well. */
+  knowledge: KnowledgeSummary | null;
 }
 
 
@@ -293,6 +297,9 @@ type Request =
   | { cmd: "approve_guides"; versions: VersionRef[] }
   | { cmd: "accept_received"; versions: VersionRef[] }
   | { cmd: "later_received"; versions: VersionRef[] }
+  | { cmd: "knowledge_review" }
+  | { cmd: "knowledge_text"; id: string }
+  | { cmd: "approve_knowledge"; files: KnowledgeApproval[] }
   | { cmd: "remove_widget"; name: string; pack?: string }
   | { cmd: "rename_widget"; from: string; to: string; pack?: string }
   | { cmd: "duplicate_widget"; from: string; to?: string; pack?: string }
@@ -386,6 +393,12 @@ export function tabApi(tab: string) {
     setGuide: (which: GuideKind, text: string) => call<Snapshot>({ cmd: "set_guide", which, text }),
     /** Approves the guides of these received versions for good. */
     approveGuides: (versions: VersionRef[]) => call<Snapshot>({ cmd: "approve_guides", versions }),
+    /** The deck's knowledge files awaiting approval, by path. */
+    knowledgeReview: () => call<KnowledgeReview>({ cmd: "knowledge_review" }),
+    /** A knowledge file's text for review, approved or not, with its hash. */
+    knowledgeText: (id: string) => call<KnowledgeText>({ cmd: "knowledge_text", id }),
+    /** Approves these knowledge files for the texts their hashes name; all or none. */
+    approveKnowledge: (files: KnowledgeApproval[]) => call<Snapshot>({ cmd: "approve_knowledge", files }),
     /** Adds these received versions to the library and approves their guides, as validated. */
     acceptReceived: (versions: VersionRef[]) => call<Snapshot>({ cmd: "accept_received", versions }),
     /** Puts the review of these versions off for this tab; the deck asks again when reopened. */

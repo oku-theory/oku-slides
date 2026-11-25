@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = बदले जाने वाला पा�
 knowledge-reason-too-many-files = बंडल में बहुत ज़्यादा फ़ाइलें हैं
 knowledge-reason-file-too-large = फ़ाइल बहुत बड़ी है
 knowledge-reason-total-too-large = बंडल बहुत बड़ा है
+knowledge-reason-over-limit = ज्ञान आधार अपनी सीमाओं से आगे है: केवल फ़ाइलें हटाने से ही यह फिर सीमा के भीतर आता है
 op-knowledge = ज्ञान फ़ाइल { $path }: { $reason }
 op-unknown-widget = अज्ञात विजेट: { $subject }
 op-unknown-namespace = इस डेक में { $pack } पैक नहीं है।
@@ -215,7 +216,7 @@ issue-knowledge-over-limit = ज्ञान संग्रह एक सीम
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (प्रभावित फ़ाइलें: { $count }, पहली { $id }); सभी फ़ाइलें रखी गई हैं, पर सीमा से अधिक लिखना अस्वीकार किया जाता है
+    } (प्रभावित फ़ाइलें: { $count }, पहली { $id }); सभी फ़ाइलें रखी गई हैं; केवल फ़ाइलें हटाने से ही बंडल फिर सीमा के भीतर आता है (तब तक लिखना और संपादन अस्वीकार किए जाते हैं)
 issue-knowledge-path-invalid = ज्ञान फ़ाइल { $id } को /recovered में ले जाया गया: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

@@ -152,6 +152,9 @@ fn check_agent_request_snapshot_on_a_tab_no_window_holds_is_forbidden(#[case] ta
 #[case::save_theme(json!({ "cmd": "save_theme" }))]
 #[case::approve_guides(json!({ "cmd": "approve_guides", "versions": [] }))]
 #[case::accept_received(json!({ "cmd": "accept_received", "versions": [] }))]
+#[case::knowledge_review(json!({ "cmd": "knowledge_review" }))]
+#[case::knowledge_text(json!({ "cmd": "knowledge_text", "id": "00000000000000000000000000000000" }))]
+#[case::approve_knowledge(json!({ "cmd": "approve_knowledge", "files": [] }))]
 fn check_agent_request_other_request_is_forbidden(#[case] req: Value) {
     let (_data, ws, tab) = workspace_with_tab();
     let ws = Workspace::lock(&ws);

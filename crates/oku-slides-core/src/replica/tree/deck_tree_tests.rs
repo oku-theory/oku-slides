@@ -301,7 +301,7 @@ fn announced_move_keeps_the_node_even_with_a_repeated_id() {
 
     let mut r = new(&deck);
     let (tree, old) = node_of(&r.doc, "a", "title");
-    ok(r.apply_moving(&target, "test", None, &moves));
+    ok(r.apply_moving(&target, "test", None, &moves, crate::KnowledgeSync::Changed));
     assert_that!(node_of(&r.doc, "d", "title").1).is_equal_to(old);
     assert_that!(marks(&tree, old)).is_empty();
     assert_that!(tree.parent(old)).is_equal_to(Some(TreeParentId::Node(slide_node(&r, "d"))));
@@ -329,7 +329,7 @@ fn stale_move_hint_is_ignored() {
     ];
     let mut hinted = new(&deck);
     let (tree, old) = node_of(&hinted.doc, "a", "title");
-    ok(hinted.apply_moving(&target, "test", None, &stale));
+    ok(hinted.apply_moving(&target, "test", None, &stale, crate::KnowledgeSync::Changed));
     let mut plain = new(&deck);
     apply(&mut plain, &target);
     assert_that!(node_of(&hinted.doc, "d", "title").1).is_not_equal_to(old);
@@ -348,7 +348,7 @@ fn stale_move_hint_is_ignored() {
     let hint = [Moved { element: "title".into(), from: "a".into(), to: "d".into() }];
     let mut r = new(&deck);
     let (tree, old) = node_of(&r.doc, "a", "title");
-    ok(r.apply_moving(&other_kind, "test", None, &hint));
+    ok(r.apply_moving(&other_kind, "test", None, &hint, crate::KnowledgeSync::Changed));
     assert_that!(node_of(&r.doc, "d", "title").1).is_not_equal_to(old);
     assert_that!(marks(&tree, old)).is_equal_to(vec![mark_key(r.peer_id())]);
     assert_that!(r.deck()).is_equal_to((other_kind, Vec::new()));
@@ -674,8 +674,8 @@ fn concurrent_crossed_move_element_nesting_converges_without_cycle() {
     for (pa, pb) in [(1, 2), (2, 1)] {
         let case = format!("pairs ({pa}, {pb})");
         let (mut a, mut b) = fixed_peers(&deck, pa, pb);
-        ok(a.apply_moving(&a_nests.0, "test", None, &a_nests.1));
-        ok(b.apply_moving(&b_nests.0, "test", None, &b_nests.1));
+        ok(a.apply_moving(&a_nests.0, "test", None, &a_nests.1, crate::KnowledgeSync::Changed));
+        ok(b.apply_moving(&b_nests.0, "test", None, &b_nests.1, crate::KnowledgeSync::Changed));
         exchange(&mut a, &mut b);
         let (merged, issues) = a.deck();
         assert_that!(issues).named(&case).is_empty();

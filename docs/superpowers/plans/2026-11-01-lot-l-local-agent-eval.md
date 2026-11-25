@@ -202,3 +202,43 @@ the dictation model download, "Use Claude as the app agent", the token-cost ques
 run 3: "Why doesn't my agent start?"; only in the baseline: the theme change and the refused request. The
 engine has drifted since 2026-11-01 (28/30 then); the new family is not the cause. The 4 new requests miss in
 the baseline, as expected (no family to route to).
+
+## 2026-11-25 — `knowledge` write tools (t-1748), Apple Foundation Models
+
+The set grows to 36 requests: 2 for `knowledge_write` (« Note dans la base de connaissance que le client veut
+un ton sobre », "Save to the knowledge base that the budget is 40k"). Engine: Apple Foundation Models (the
+system model; the Gguf model is not used), temperature and seed are the engine's defaults (no seed is set), same
+command as before, a fresh pair of data and decks temp dirs per run, 3 runs. Baseline: lot 2's last run (t-1738
+run 3) scored 29/34 route and 27/34 first tool on the 34 earlier requests. Bar: each at least baseline minus 1
+(28 route, 26 first tool), the 2 new ones at least 1/2 each.
+
+| Run | Old 34 route | Old 34 first tool | New 2 route | New 2 first tool | `knowledge` summary |
+|---|---|---|---|---|---|
+| 1 | 28/34 | 25/34 | 2/2 | 0/2 | read, search or write the deck's knowledge base: notes, sources, references (the shipped summary drops "references" for the 15-word limit) |
+| 2 | 28/34 | 25/34 | 2/2 | 0/2 | read, search or write the deck's knowledge base: notes, sources; save or note facts |
+| 3 | 28/34 | 25/34 | 2/2 | 0/2 | same as run 2 |
+
+A route counts as a pass when it contains the expected family (superset routes like "knowledge,edit" pass), as in earlier sections.
+
+Totals over 36: 30/36 route and 25/36 first tool in all three runs. Route meets the bar (28 = 29 minus 1) and
+both new requests route to `knowledge`. **First tool is not met**: 25/34 on the old set (bar 26) and 0/2 on the
+new ones (bar 1/2): « Note dans la base… » calls `slide` and "Save to the knowledge base…" calls
+`knowledge_list` (once), never `knowledge_write`. Adding "save or note facts" (run 2, with "references"
+dropped so the summary stays under 15 words) changed nothing, and run 3 repeated run 2 exactly, so the three runs
+carry no tuning signal. The misses on the old set are the same as in t-1738 (the dictation model download, "Use
+Claude as the app agent", the token-cost question, "Why doesn't my agent start?", the PowerPoint import failure,
+"Change le thème du deck" for route; "Delete the second slide" and "Enregistre une copie du deck" for first tool;
+plus « Cherche dans la base de connaissance… » calling `ask_choice` instead of a knowledge tool), engine drift that
+t-1742 owns. The Apple engine seems to pick the first Act tool from the read-only knowledge tools it knows best;
+the write tools are offered but not chosen on the first step. Kept: the run 2 summary (the bar is missed either way);
+follow-up: look at the first Act step for `knowledge_write` (tool order or description).
+
+Final run (3), Apple engine, about 5.5 s per request (route + first Act); the full listing is in
+`.superpowers/sdd/2026-11-25-deck-knowledge-okf-lot3-approval/eval-run3.log`. New and knowledge lines:
+
+    ok  route knowledge                ok  tool knowledge_list             4.4s | en What does the knowledge base say about our pricing?
+    ok  route knowledge                ok  tool knowledge_list             4.4s | fr Lis la fiche sur le marché dans la base de connaissance
+    ok  route knowledge                ok  tool knowledge_list             4.7s | en List the notes in the deck's knowledge base
+    ok  route knowledge                BAD tool ask_choice                 6.7s | fr Cherche dans la base de connaissance ce qu'on sait des concurrents
+    ok  route knowledge,edit           BAD tool slide                      5.9s | fr Note dans la base de connaissance que le client veut un ton sobre
+    ok  route edit,knowledge           BAD tool knowledge_list             5.9s | en Save to the knowledge base that the budget is 40k

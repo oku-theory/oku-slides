@@ -453,3 +453,27 @@ ui-data-pane-restore = डेटा छोटा करें
 ui-themes = थीम
 ui-offer-open = खोलें: { $title }
 ui-offer-settings = प्रस्तावित सेटिंग्स: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] इस प्रस्तुति में { $count } ज्ञान फ़ाइल है जिसे आपने स्वीकृत नहीं किया है
+   *[other] इस प्रस्तुति में { $count } ज्ञान फ़ाइलें हैं जिन्हें आपने स्वीकृत नहीं किया है
+  }: एजेंट उन्हें पढ़ नहीं सकता।
+ui-knowledge-review = समीक्षा करें…
+ui-knowledge-over-limit = ज्ञान आधार अपनी सीमाओं से आगे है ({ $limits })। केवल फ़ाइलें हटाने से ही यह फिर सीमा के भीतर आता है: एजेंट से कुछ फ़ाइलें हटाने को कहें।
+ui-knowledge-limit-too-many-files = बहुत अधिक फ़ाइलें
+ui-knowledge-limit-file-too-large = एक बहुत बड़ी फ़ाइल
+ui-knowledge-limit-total-too-large = कुल आकार बहुत बड़ा
+ui-knowledge-dialog-title = प्राप्त ज्ञान
+ui-knowledge-size = { NUMBER($kb) } KB
+ui-knowledge-show = दिखाएँ
+ui-knowledge-hide = छिपाएँ
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } छिपा हुआ वर्ण ⟨U+…⟩ के रूप में दिखाया गया है।
+   *[other] { $count } छिपे हुए वर्ण ⟨U+…⟩ के रूप में दिखाए गए हैं।
+  }
+ui-knowledge-approve = स्वीकृत करें
+ui-knowledge-too-large = यह फ़ाइल स्वीकृति के लिए बहुत बड़ी है: इसे हटाएँ।
+ui-knowledge-more = { $count ->
+    [one] { $count } और फ़ाइल सूची में नहीं है।
+   *[other] { $count } और फ़ाइलें सूची में नहीं हैं।
+  }
+ui-knowledge-close = बंद करें

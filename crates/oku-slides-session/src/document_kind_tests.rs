@@ -156,36 +156,30 @@ fn knowledge_ops() -> Vec<oku_slides_core::Op> {
     ]
 }
 
-/// Callers may not write knowledge until its approval exists: every entry that takes caller ops
-/// (the gate itself, `Session::apply`, an agent's apply, a `Request::Apply`) refuses them first,
-/// in every kind of session, and mixed with other ops.
+/// Only a deck tab takes caller knowledge ops: every entry that takes caller ops (the gate
+/// itself, `Session::apply`, an agent's apply, a `Request::Apply`) refuses them in the other
+/// kinds, mixed with other ops too, naming the tab's kind.
 #[rstest]
-#[case::deck(Mode::Deck)]
 #[case::help(Mode::Help)]
 #[case::pack(Mode::Pack)]
 #[case::deck_pack(Mode::DeckPack)]
 #[case::theme(Mode::Theme)]
-fn caller_knowledge_op_is_refused_in_every_kind(#[case] mode: Mode) {
-    use crate::SessionErrorKind::KnowledgeOpsHidden;
+fn pack_theme_help_tabs_refuse_knowledge_ops(#[case] mode: Mode) {
+    use crate::SessionErrorKind::WrongDocument;
     let (_data, mut s) = session_in(mode);
     for op in knowledge_ops() {
-        assert_that!(s.ensure_caller_ops(std::slice::from_ref(&op)).unwrap_err().kind())
-            .is_equal_to(KnowledgeOpsHidden);
+        assert_that!(s.ensure_caller_ops(std::slice::from_ref(&op)).unwrap_err().kind()).is_equal_to(WrongDocument);
         let mixed = vec![oku_slides_core::Op::SetNotes { slide: "s1".into(), notes: "n".into() }, op.clone()];
-        assert_that!(s.apply("x", mixed, None).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
-        assert_that!(s.apply_by_agent("x", vec![op.clone()], None).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+        assert_that!(s.apply("x", mixed, None).unwrap_err().kind()).is_equal_to(WrongDocument);
+        assert_that!(s.apply_by_agent("x", vec![op.clone()], None).unwrap_err().kind()).is_equal_to(WrongDocument);
         let req = crate::Request::Apply { label: "x".into(), ops: vec![op], merge: None };
-        assert_that!(s.handle(req).unwrap_err().kind()).is_equal_to(KnowledgeOpsHidden);
+        assert_that!(s.handle(req).unwrap_err().kind()).is_equal_to(WrongDocument);
     }
 }
 
-/// The refusal is localized: the French text differs from the English one.
+/// A deck tab's gate lets every knowledge op through: core and the approval decide.
 #[test]
-fn knowledge_ops_hidden_is_localized() {
-    use oku_slides_i18n::{Localize, Localizer};
-    let (_data, mut s) = session_in(Mode::Deck);
-    let err = s.apply("x", vec![knowledge_write()], None).unwrap_err();
-    let fr = err.localize(&Localizer::new(Some("fr")));
-    let en = err.localize(&Localizer::new(Some("en")));
-    assert_that!(fr.as_str()).is_not_equal_to(en.as_str());
+fn deck_tab_gate_takes_knowledge_ops() {
+    let (_data, s) = session_in(Mode::Deck);
+    assert_that!(s.ensure_caller_ops(&knowledge_ops())).is_ok();
 }

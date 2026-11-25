@@ -10,6 +10,11 @@ impl Request {
         matches!(self, Self::SetPreviewTheme { .. })
     }
 
+    /// True for a review of the deck's knowledge: only a deck tab takes it, out of history.
+    pub(crate) fn reviews_deck_knowledge(&self) -> bool {
+        matches!(self, Self::KnowledgeReview | Self::KnowledgeText { .. } | Self::ApproveKnowledge { .. })
+    }
+
     /// True if the request may change the deck (slides added or removed).
     ///
     /// `Save` too: a file changed on disk is merged first. History (except
@@ -78,6 +83,9 @@ impl Request {
             | Self::SetPreviewTheme { .. }
             | Self::ApproveGuides { .. }
             | Self::LaterReceived { .. }
+            | Self::KnowledgeReview
+            | Self::KnowledgeText { .. }
+            | Self::ApproveKnowledge { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }
@@ -225,6 +233,9 @@ impl Request {
             | Self::ApproveGuides { .. }
             | Self::AcceptReceived { .. }
             | Self::LaterReceived { .. }
+            | Self::KnowledgeReview
+            | Self::KnowledgeText { .. }
+            | Self::ApproveKnowledge { .. }
             | Self::UseThemeVersion { .. } => false,
         }
     }
@@ -291,6 +302,9 @@ impl Request {
             | Self::WidgetStatus { .. }
             | Self::WidgetSource { .. }
             | Self::AcceptReceived { .. }
+            | Self::KnowledgeReview
+            | Self::KnowledgeText { .. }
+            | Self::ApproveKnowledge { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }

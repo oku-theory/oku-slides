@@ -64,3 +64,4 @@ mod issue_1414_child_theme_of_blocked_parent;
 mod issue_1414_new_version_widget_write;
 mod issue_1414_silent_install;
 mod issue_1472_sources_budget;
+mod issue_1744_received_knowledge_not_laundered;

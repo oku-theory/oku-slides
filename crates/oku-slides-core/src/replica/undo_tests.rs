@@ -47,7 +47,7 @@ fn new_replica_has_nothing_to_undo() {
 fn apply_silent_is_not_undoable() {
     let deck = roadmap();
     let mut r = DeckReplica::new(&deck, crate::test_registry::shared()).unwrap();
-    r.apply_silent(&titled(&deck, "Canonique")).unwrap();
+    r.apply_silent(&titled(&deck, "Canonique"), crate::KnowledgeSync::Changed).unwrap();
     assert_that!(r.can_undo()).is_false();
 }
 

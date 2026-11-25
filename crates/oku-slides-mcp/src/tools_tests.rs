@@ -198,9 +198,13 @@ const DECK_TOOLS: &[&str] = &[
     "import",
     "import_diff",
     "import_report",
+    "knowledge_delete",
+    "knowledge_edit",
     "knowledge_list",
+    "knowledge_move",
     "knowledge_read",
     "knowledge_search",
+    "knowledge_write",
     "layouts",
     "merge",
     "move",
@@ -447,19 +451,16 @@ fn tools_render_description_points_to_a2ui_examples() {
     assert_that!(tool.description.unwrap_or_default()).contains("Call a2ui_examples");
 }
 
-/// Callers may not use the knowledge ops yet: no tool input schema advertises them, while the
-/// tools that take ops (`apply`) still list the others.
+/// The `apply` input schema lists the knowledge ops beside the others, and its description says
+/// so.
 #[test]
-fn no_tool_input_schema_advertises_a_knowledge_op() {
-    let schemas: Vec<(String, String)> = list()
-        .into_iter()
-        .map(|t| (t.name.clone(), serde_json::to_string(&t.input_schema).unwrap_or_default()))
-        .collect();
-    for (name, schema) in &schemas {
-        assert_that!(schema.contains("knowledge_")).named(name).is_false();
+fn apply_schema_lists_knowledge_ops() {
+    let apply = list().into_iter().find(|t| t.name == "apply").unwrap();
+    let schema = serde_json::to_string(&apply.input_schema).unwrap_or_default();
+    for op in ["knowledge_write", "knowledge_edit", "knowledge_move", "knowledge_delete", "set_notes"] {
+        assert_that!(schema.contains(&format!("\"{op}\""))).named(op).is_true();
     }
-    let apply = schemas.iter().find(|(n, _)| n == "apply").map(|(_, s)| s.as_str()).unwrap_or_default();
-    assert_that!(apply.contains("set_notes")).is_true();
+    assert_that!(apply.description.unwrap_or_default()).contains("prefer the knowledge_* tools");
 }
 
 #[test]

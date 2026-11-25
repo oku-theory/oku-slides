@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = the text to replace appears in the file more t
 knowledge-reason-too-many-files = the bundle has too many files
 knowledge-reason-file-too-large = the file is too large
 knowledge-reason-total-too-large = the bundle is too large
+knowledge-reason-over-limit = the knowledge base is past its limits: only deleting files brings it back under
 op-knowledge = Knowledge file { $path }: { $reason }
 op-unknown-widget = Unknown widget: { $subject }
 op-unknown-namespace = This deck has no pack { $pack }.
@@ -224,7 +225,7 @@ issue-knowledge-over-limit = knowledge bundle past a limit: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (files past it: { $count }, first { $id }); every file is kept, but writes past the limit are refused
+    } (files past it: { $count }, first { $id }); every file is kept; only deleting files brings the bundle back under (writes and edits are refused until then)
 issue-knowledge-path-invalid = knowledge file { $id } moved to /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

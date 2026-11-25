@@ -139,6 +139,7 @@ fn families_of_the_slide_moving_tools(#[case] tool: &str, #[case] expected: &[Fa
 #[case::agent(Family::Configure, "agent")]
 #[case::cost(Family::Configure, "cost")]
 #[case::pack_widgets(Family::Packs, "widget packs")]
+#[case::knowledge_write(Family::Knowledge, "write")]
 fn families_summary_names_what_the_evaluation_needed(#[case] family: Family, #[case] word: &str) {
     assert_that!(family.summary()).contains(word);
 }

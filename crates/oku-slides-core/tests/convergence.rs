@@ -421,7 +421,9 @@ fn peers_converge(edits: &[Vec<Edit>], seed: u64) -> Result<usize, TestCaseError
                 let applied = apply(&mut d, e, p, &mut n);
                 accepted += usize::from(applied.knowledge);
                 let ops = replica.len_ops();
-                replica.apply_moving(&d, "edit", None, &applied.moves).unwrap_or_else(fail);
+                replica
+                    .apply_moving(&d, "edit", None, &applied.moves, oku_slides_core::KnowledgeSync::Changed)
+                    .unwrap_or_else(fail);
                 if replica.len_ops() != ops {
                     undoable = Some(before);
                 }

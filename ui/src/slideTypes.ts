@@ -203,7 +203,6 @@ export type Op =
   | { op: "unset_token"; path: string[] }
   | { op: "set_tokens"; tokens: unknown }
   | { op: "set_var"; key: string; value: unknown }
-  // Refused by the host until lot 3, removed with hide_knowledge_ops.
   | { op: "knowledge_write"; path: string; text: string; id?: string }
   | { op: "knowledge_edit"; path: string; old: string; new: string }
   | { op: "knowledge_move"; from: string; to: string }

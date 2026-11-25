@@ -767,37 +767,11 @@ pub fn apply_all_moving(
 
 /// JSON schema of a list of ops, for structured LLM output.
 ///
-/// The knowledge ops are left out until callers may use them.
-///
 /// # Errors
 ///
 /// The generated schema does not convert into a JSON value.
 pub fn ops_schema() -> serde_json::Result<Value> {
-    let mut schema = serde_json::to_value(schemars::schema_for!(Vec<Op>))?;
-    hide_knowledge_ops(&mut schema);
-    Ok(schema)
-}
-
-/// Removes the knowledge ops from the `Op` definition of a generated schema.
-///
-/// Every schema that hands `Op` to a caller goes through here, until callers may use them.
-pub fn hide_knowledge_ops(schema: &mut Value) {
-    for defs in ["$defs", "definitions"] {
-        let variants = schema.get_mut(defs).and_then(|d| d.get_mut("Op")).and_then(|op| op.get_mut("oneOf"));
-        if let Some(Value::Array(variants)) = variants {
-            variants.retain(|v| !is_knowledge_variant(v));
-        }
-    }
-}
-
-/// Is this `oneOf` entry of the `Op` schema one of the knowledge variants?
-fn is_knowledge_variant(variant: &Value) -> bool {
-    variant
-        .get("properties")
-        .and_then(|p| p.get("op"))
-        .and_then(|op| op.get("const"))
-        .and_then(Value::as_str)
-        .is_some_and(|tag| tag.starts_with("knowledge_"))
+    serde_json::to_value(schemars::schema_for!(Vec<Op>))
 }
 
 #[cfg(test)]

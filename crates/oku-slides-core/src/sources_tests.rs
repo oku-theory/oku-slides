@@ -668,3 +668,188 @@ fn merge_without_new_assets_keeps_the_shared_map() {
     b.merge(other).unwrap();
     assert_that!(Arc::ptr_eq(&shared, &b.assets)).is_true();
 }
+
+/// `deck` with a bundle of four files whose text is `ch` repeated `len` times each.
+fn with_sized_bundle(mut deck: Deck, ch: char, len: usize) -> Deck {
+    deck.knowledge.clear();
+    for n in 0..4u8 {
+        let text: String = std::iter::repeat_n(ch, len).collect();
+        let file = crate::KnowledgeFile { path: format!("/f{n}.md"), text };
+        deck.knowledge.insert(format!("{n:032x}"), file);
+    }
+    deck
+}
+
+/// `deck` with a 1 MiB bundle: four files of 256 KiB of `fill`.
+fn with_bundle(deck: Deck, fill: char) -> Deck {
+    with_sized_bundle(deck, fill, 256 << 10)
+}
+
+fn titled(deck: &Deck, title: &str) -> Deck {
+    let mut next = deck.clone();
+    next.params.title = Some(title.to_owned());
+    next
+}
+
+fn bundle_1mib() -> SourceBundle {
+    SourceBundle::new(with_bundle(roadmap(), 'a'), crate::test_registry::shared()).unwrap()
+}
+
+#[test]
+fn sources_slide_edit_keeps_bundle_and_generation() {
+    let mut b = bundle_1mib();
+    let generation = b.knowledge_generation();
+    let next = titled(b.deck(), "Edited");
+    b.apply(next.clone(), "title", None).unwrap();
+    assert_that!(b.replica().deck().0).is_equal_to(&next);
+    assert_that!(b.deck()).is_equal_to(&next);
+    assert_that!(b.knowledge_generation()).is_equal_to(generation);
+}
+
+#[test]
+fn sources_silent_slide_edit_keeps_bundle_and_generation() {
+    let mut b = bundle_1mib();
+    let generation = b.knowledge_generation();
+    let next = titled(b.deck(), "Silent");
+    b.apply_silent(next.clone()).unwrap();
+    assert_that!(b.replica().deck().0).is_equal_to(&next);
+    assert_that!(b.deck()).is_equal_to(&next);
+    assert_that!(b.knowledge_generation()).is_equal_to(generation);
+}
+
+#[test]
+fn sources_undo_of_slide_edit_keeps_generation() {
+    let mut b = bundle_1mib();
+    b.apply(titled(b.deck(), "Edited"), "title", None).unwrap();
+    let generation = b.knowledge_generation();
+    assert_that!(b.undo().unwrap()).is_true();
+    assert_that!(b.knowledge_generation()).is_equal_to(generation);
+}
+
+#[test]
+fn sources_knowledge_change_syncs_and_bumps_generation() {
+    let mut b = bundle_1mib();
+    let generation = b.knowledge_generation();
+    let next = with_bundle(b.deck().clone(), 'b');
+    b.apply(next.clone(), "knowledge", None).unwrap();
+    assert_that!(b.replica().deck().0.knowledge).is_equal_to(&next.knowledge);
+    assert_that!(b.knowledge_generation()).is_not_equal_to(generation);
+}
+
+#[test]
+fn sources_silent_knowledge_change_syncs_and_bumps_generation() {
+    let mut b = bundle_1mib();
+    let generation = b.knowledge_generation();
+    let next = with_bundle(b.deck().clone(), 'c');
+    b.apply_silent(next.clone()).unwrap();
+    assert_that!(b.replica().deck().0.knowledge).is_equal_to(&next.knowledge);
+    assert_that!(b.knowledge_generation()).is_not_equal_to(generation);
+}
+
+/// `b` after an apply the replica refuses (a deck of another version) carrying the bundle `ch`.
+/// The refusal is a real replica error, the cheapest one there is; it fails before any write.
+fn after_refused_apply(ch: char) -> SourceBundle {
+    let mut b = SourceBundle::new(with_sized_bundle(roadmap(), 'a', 64), crate::test_registry::shared()).unwrap();
+    let mut refused = with_sized_bundle(b.deck().clone(), ch, 64);
+    refused.version = crate::DECK_VERSION + 1;
+    assert_that!(b.apply(refused, "refused", None)).is_err();
+    b
+}
+
+#[test]
+fn sources_failed_changed_apply_forces_changed_next_apply() {
+    let b = after_refused_apply('b');
+    let mut same = b.deck().clone();
+    assert_that!(b.knowledge_sync(&mut same)).is_equal_to(KnowledgeSync::Changed);
+}
+
+#[test]
+fn sources_failed_unchanged_apply_keeps_next_apply_unchanged() {
+    let b = after_refused_apply('a');
+    let mut same = b.deck().clone();
+    assert_that!(b.knowledge_sync(&mut same)).is_equal_to(KnowledgeSync::Unchanged);
+}
+
+#[test]
+fn sources_apply_after_failed_changed_apply_clears_the_flag() {
+    let mut b = after_refused_apply('b');
+    b.apply(titled(b.deck(), "Edited"), "title", None).unwrap();
+    let mut same = b.deck().clone();
+    assert_that!(b.knowledge_sync(&mut same)).is_equal_to(KnowledgeSync::Unchanged);
+}
+
+#[test]
+fn sources_forced_changed_apply_of_an_equal_bundle_keeps_generation() {
+    let mut b = after_refused_apply('b');
+    let generation = b.knowledge_generation();
+    b.apply(titled(b.deck(), "Edited"), "title", None).unwrap();
+    assert_that!(b.knowledge_generation()).is_equal_to(generation);
+}
+
+/// A knowledge change refused midway (the title written, then slots too deep), then undo: the
+/// view and the replica agree on the bundle, and the next change of it reaches the replica.
+#[test]
+fn sources_knowledge_change_failed_midway_then_undo_stays_consistent() {
+    let bundle = |deck: &Deck, fill| with_sized_bundle(deck.clone(), fill, 64);
+    let mut b = SourceBundle::new(bundle(&roadmap(), 'a'), crate::test_registry::shared()).unwrap();
+    b.apply(bundle(b.deck(), 'b'), "b", None).unwrap();
+    let mut refused = bundle(&titled(b.deck(), "Partial"), 'c');
+    refused.slides.push(stack_chain(MAX_SLOT_DEPTH + 1).slides.remove(0));
+    assert_that!(b.apply(refused, "refused", None)).is_err();
+    assert_that!(b.undo().unwrap()).is_true();
+    assert_that!(b.replica().deck().0).is_equal_to(b.deck());
+    let next = bundle(&titled(b.deck(), "After"), 'd');
+    b.apply(next.clone(), "d", None).unwrap();
+    assert_that!(b.replica().deck().0.knowledge).is_equal_to(&next.knowledge);
+    assert_that!(b.replica().deck().0).is_equal_to(b.deck());
+}
+
+#[test]
+fn sources_generation_is_fresh_per_bundle() {
+    let a = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let b = SourceBundle::from_zip(&a.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap().0;
+    assert_that!(b.knowledge_generation()).is_not_equal_to(a.knowledge_generation());
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Replace {
+    Undo,
+    Redo,
+    Merge,
+    Restore,
+}
+
+#[rstest::rstest]
+#[case::undo(Replace::Undo)]
+#[case::redo(Replace::Redo)]
+#[case::merge(Replace::Merge)]
+#[case::restore(Replace::Restore)]
+fn sources_undo_redo_merge_restore_bump_generation_on_knowledge_change(#[case] how: Replace) {
+    let registry = crate::test_registry::shared;
+    // Small files: undoing a 1 MiB text diff is slow in a debug build.
+    let bundle = |deck: &Deck, fill| with_sized_bundle(deck.clone(), fill, 64);
+    let mut b = SourceBundle::new(bundle(&roadmap(), 'a'), registry()).unwrap();
+    b.apply(bundle(b.deck(), 'b'), "b", None).unwrap();
+    b.apply(bundle(b.deck(), 'c'), "c", None).unwrap();
+    if matches!(how, Replace::Redo) {
+        assert_that!(b.undo().unwrap()).is_true();
+    }
+    let before = b.deck().knowledge.clone();
+    let generation = b.knowledge_generation();
+    match how {
+        Replace::Undo => assert_that!(b.undo().unwrap()).is_true(),
+        Replace::Redo => assert_that!(b.redo().unwrap()).is_true(),
+        Replace::Merge => {
+            let mut other = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, registry()).unwrap().0;
+            other.apply(bundle(other.deck(), 'd'), "d", None).unwrap();
+            b.merge(other).unwrap();
+        }
+        Replace::Restore => {
+            let preview = b.history();
+            b.restore(&preview, 0, "restore").unwrap();
+        }
+    }
+    assert_that!(b.deck().knowledge).is_not_equal_to(&before);
+    assert_that!(b.replica().deck().0).is_equal_to(b.deck());
+    assert_that!(b.knowledge_generation()).is_not_equal_to(generation);
+}

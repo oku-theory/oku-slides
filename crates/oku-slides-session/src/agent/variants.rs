@@ -12,7 +12,7 @@ use snafu::{OptionExt, ResultExt, ensure};
 use super::forms::{self, FieldKind, ParamField, Place, ShowParams, ShowVariants, Surface};
 use super::{AgentFormReason, check_len, check_options};
 use crate::deck_theme::fill_op_closures;
-use crate::error::{AgentFormSnafu, NoSlideSnafu, RenderSnafu};
+use crate::error::{AgentFormSnafu, KnowledgeOpsInPreviewSnafu, NoSlideSnafu, RenderSnafu};
 use crate::{Mode, Result, Session};
 
 /// Profondeur maximale d'un gabarit : au-delà, on le laisse tel quel plutôt
@@ -145,8 +145,8 @@ impl Session {
             check_field(i, field)?;
             let op = parse_op(&field.op_template, &field.value)
                 .map_err(|e| malformed(format!("fields[{i}].op_template"), &e))?;
-            // The op may be applied as a caller's later: no knowledge op, previewed or not.
-            crate::document_kind::ensure_no_knowledge_ops(std::slice::from_ref(&op))?;
+            // A preview shows slide changes: knowledge goes through the knowledge tools.
+            ensure!(!op.is_knowledge(), KnowledgeOpsInPreviewSnafu);
             // Un `set_theme` sans épinglages prend sa fermeture, comme dans `apply` ; rien n'est embarqué.
             let mut ops = vec![op];
             fill_op_closures(&self.themes, &self.doc.sources.themes, &mut ops)?;
@@ -211,8 +211,8 @@ impl Session {
                     }
                 }
             );
-            // The variant's ops may be applied as a caller's later: no knowledge op, previewed or not.
-            crate::document_kind::ensure_no_knowledge_ops(&variant.ops)?;
+            // A preview shows slide changes: knowledge goes through the knowledge tools.
+            ensure!(!variant.ops.iter().any(Op::is_knowledge), KnowledgeOpsInPreviewSnafu);
             // Un `set_theme` sans épinglages prend sa fermeture, comme dans `apply` ; rien n'est embarqué.
             let mut ops = variant.ops.clone();
             fill_op_closures(&self.themes, &self.doc.sources.themes, &mut ops)?;

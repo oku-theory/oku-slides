@@ -242,3 +242,52 @@ fn normalize_many_collisions_repair_to_consecutive_suffixes_quickly() {
     want.extend((1..N).map(|n| format!("/a-{}.md", n + 1)));
     assert_that!(got).is_equal_to(want);
 }
+
+#[test]
+fn knowledge_over_limits_within_every_ceiling_is_empty() {
+    let text = "x".repeat(MAX_FILE_BYTES);
+    let fit = MAX_TOTAL_BYTES / MAX_FILE_BYTES;
+    let input: BTreeMap<_, _> = (0..fit).map(|n| (format!("{n:032x}"), file(&format!("/f{n}.md"), &text))).collect();
+    assert_that!(knowledge_over_limits(&input)).is_empty();
+}
+
+#[test]
+fn knowledge_over_limits_one_byte_past_the_total_names_total_too_large() {
+    let text = "x".repeat(MAX_FILE_BYTES);
+    let fit = MAX_TOTAL_BYTES / MAX_FILE_BYTES;
+    let mut input: BTreeMap<_, _> =
+        (0..fit).map(|n| (format!("{n:032x}"), file(&format!("/f{n}.md"), &text))).collect();
+    input.insert(format!("{fit:032x}"), file("/last.md", "y"));
+    assert_that!(knowledge_over_limits(&input)).is_equal_to(vec![KnowledgeLimit::TotalTooLarge]);
+}
+
+#[test]
+fn knowledge_over_limits_lists_each_ceiling_once_in_order() {
+    let big = "x".repeat(MAX_FILE_BYTES + 1);
+    let mut input: BTreeMap<_, _> =
+        (0..=MAX_FILES).map(|n| (format!("{n:032x}"), file(&format!("/f{n}.md"), ""))).collect();
+    for n in 0..17 {
+        input.insert(format!("{n:032x}"), file(&format!("/f{n}.md"), &big));
+    }
+    assert_that!(knowledge_over_limits(&input)).is_equal_to(vec![
+        KnowledgeLimit::TooManyFiles,
+        KnowledgeLimit::FileTooLarge,
+        KnowledgeLimit::TotalTooLarge,
+    ]);
+}
+
+#[test]
+fn knowledge_over_limits_agrees_with_the_issues_of_normalize() {
+    let big = format!("{NOTE}{}", "x".repeat(MAX_FILE_BYTES));
+    let input = bundle(&[(id(1), file("/a.md", &big)), (id(2), file("/b.md", NOTE))]);
+    let (_, issues) = normalize(input.clone());
+    assert_that!(knowledge_over_limits(&input)).is_equal_to(vec![KnowledgeLimit::FileTooLarge]);
+    assert_that!(issues).is_equal_to(vec![Issue::knowledge_over_limit(KnowledgeLimit::FileTooLarge, &id(1), 1)]);
+}
+
+#[test]
+fn knowledge_limit_slug_names_each_ceiling() {
+    assert_that!(KnowledgeLimit::TooManyFiles.slug()).is_equal_to("too-many-files");
+    assert_that!(KnowledgeLimit::FileTooLarge.slug()).is_equal_to("file-too-large");
+    assert_that!(KnowledgeLimit::TotalTooLarge.slug()).is_equal_to("total-too-large");
+}

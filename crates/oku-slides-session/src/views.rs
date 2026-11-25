@@ -139,6 +139,8 @@ pub struct Snapshot<'a> {
     pub guides: Option<GuidesView>,
     /// Received versions the deck holds that await the user's validation: install, guides, or both.
     pub received_to_review: Vec<crate::received_review::ReceivedReview>,
+    /// Knowledge files awaiting approval and ceilings passed; `None` outside a deck or when all is well.
+    pub knowledge: Option<crate::KnowledgeSummary>,
 }
 
 /// The guides of the pack or theme a tab edits, with the length they may reach.

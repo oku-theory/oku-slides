@@ -10,7 +10,7 @@ use oku_slides_session::DocumentKind;
 pub(crate) enum Family {
     /// Slide content, elements, charts and tables.
     Edit,
-    /// The deck's knowledge base, read only.
+    /// The deck's knowledge base.
     Knowledge,
     /// Start, steer and stop a presentation.
     Present,
@@ -56,7 +56,7 @@ impl Family {
     pub(crate) fn summary(self) -> &'static str {
         match self {
             Family::Edit => "change slides, elements, charts, tables or the deck's theme; go to a slide",
-            Family::Knowledge => "the knowledge base: read or search its notes",
+            Family::Knowledge => "read, search or write the deck's knowledge base: notes, sources; save or note facts",
             Family::Present => "start, steer or stop a presentation",
             Family::Files => "open, create, save, copy, move or merge deck files, or browse their history",
             Family::Packs => "create or edit widget packs, slide layouts and theme designs",
@@ -77,7 +77,8 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         | "show_themes" | "show_packs" | "add_pack" | "remove_pack" | "undo" | "redo" | "undo_turn" => &[Edit],
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
-        "knowledge_list" | "knowledge_read" | "knowledge_search" => &[Knowledge],
+        "knowledge_list" | "knowledge_read" | "knowledge_search" | "knowledge_write" | "knowledge_edit"
+        | "knowledge_move" | "knowledge_delete" => &[Knowledge],
         "present" => &[Present],
         "open" | "import" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
         "layouts" => &[Edit, Packs],

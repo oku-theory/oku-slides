@@ -142,7 +142,7 @@ pub(crate) fn knowledge_settings(settings: &KnowledgeSettings) -> KnowledgeSetti
 }
 
 /// `text` cut to at most `max` bytes, on a character boundary.
-fn cut(text: &str, max: usize) -> &str {
+pub(crate) fn cut(text: &str, max: usize) -> &str {
     let mut end = text.len().min(max);
     while !text.is_char_boundary(end) {
         end -= 1;
@@ -247,7 +247,7 @@ impl Session {
     }
 
     /// True when the user approved this exact text of `file`.
-    fn knowledge_approved(&self, file: &KnowledgeFile) -> bool {
+    pub(crate) fn knowledge_approved(&self, file: &KnowledgeFile) -> bool {
         self.library.knowledge_approvals().is_approved(&asset_id(file.text.as_bytes()))
     }
 

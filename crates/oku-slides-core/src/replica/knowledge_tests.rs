@@ -6,7 +6,7 @@ use loro::{LoroMap, LoroText, LoroValue, ValueOrContainer};
 use oku_slides_i18n::{Localize, Localizer};
 use speculoos::prelude::*;
 
-use super::{DeckReplica, KNOWLEDGE, ROOT, compact};
+use super::{DeckReplica, KNOWLEDGE, KnowledgeSync, ROOT, compact};
 use crate::error::{FrontmatterReason, PathReason, ReplicaErrorKind};
 use crate::knowledge::limits::{MAX_FILE_BYTES, MAX_FILES, READ_FACTOR};
 use crate::knowledge::{DropCause, KnowledgeFile};
@@ -484,4 +484,44 @@ fn knowledge_read_of_twice_the_file_limit_keeps_every_file() {
     let (read, issues) = reopen(&r).deck();
     assert_that!(read.knowledge.len()).is_equal_to(2 * MAX_FILES);
     assert_that!(keys(&issues)).is_equal_to(vec!["issue-knowledge-over-limit"]);
+}
+
+/// `r` holding `/a.md` = `NOTE`, and a deck with that file changed and the title `Edited`.
+fn note_and_edit() -> (DeckReplica, Deck) {
+    let mut r = ok(DeckReplica::new(&roadmap(), registry()));
+    edit(&mut r, vec![write("/a.md", NOTE, Some(id(1)))]);
+    let mut next = with_ops(&r.deck().0, vec![write("/a.md", CHANGED, Some(id(1)))]);
+    next.params.title = Some("Edited".to_owned());
+    (r, next)
+}
+
+const CHANGED: &str = "---\ntype: Note\n---\nchanged\n";
+
+/// `Unchanged` skips the knowledge root: a differing bundle is not written.
+#[test]
+fn reconcile_unchanged_knowledge_keeps_doc_text() {
+    let (mut r, next) = note_and_edit();
+    ok(r.apply_moving(&next, "edit", None, &[], KnowledgeSync::Unchanged));
+    assert_that!(text_at(&r.deck().0, "/a.md")).is_equal_to(Some(NOTE));
+}
+
+#[test]
+fn reconcile_unchanged_knowledge_still_writes_deck_root() {
+    let (mut r, next) = note_and_edit();
+    ok(r.apply_moving(&next, "edit", None, &[], KnowledgeSync::Unchanged));
+    assert_that!(r.deck().0.params.title.as_deref()).is_equal_to(Some("Edited"));
+}
+
+#[test]
+fn reconcile_silent_unchanged_knowledge_keeps_doc_text() {
+    let (mut r, next) = note_and_edit();
+    ok(r.apply_silent(&next, KnowledgeSync::Unchanged));
+    assert_that!(text_at(&r.deck().0, "/a.md")).is_equal_to(Some(NOTE));
+}
+
+#[test]
+fn reconcile_silent_changed_knowledge_writes_doc_text() {
+    let (mut r, next) = note_and_edit();
+    ok(r.apply_silent(&next, KnowledgeSync::Changed));
+    assert_that!(text_at(&r.deck().0, "/a.md")).is_equal_to(Some(CHANGED));
 }

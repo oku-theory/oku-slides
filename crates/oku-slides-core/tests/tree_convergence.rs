@@ -230,7 +230,7 @@ fn moving(deck: &Deck, ops: Vec<Op>) -> (Deck, Vec<Moved>) {
 /// `r` écrit `deck` après `ops`, déplacements annoncés compris.
 fn apply_ops(r: &mut DeckReplica, deck: &Deck, ops: Vec<Op>, label: &str) {
     let (target, moves) = moving(deck, ops);
-    ok(r.apply_moving(&target, label, None, &moves));
+    ok(r.apply_moving(&target, label, None, &moves, oku_slides_core::KnowledgeSync::Changed));
 }
 
 /// (slide, propriétaire, slot) de l'unique occurrence de `id` dans le deck.
@@ -366,7 +366,7 @@ fn undo_of_an_element_removal_keeps_the_peer_move_to_another_slide() {
     let (mut sent, moves) = moving(&deck, to_slide(&deck, "b-points", "s-priorites", "blocks", Some(0)));
     let Some(slide) = sent.slide_mut("s-priorites") else { panic!("s-priorites absente") };
     assert!(toggle_bold_of(&mut slide.params, "b-points"), "B n'a pas basculé b-points");
-    ok(b.apply_moving(&sent, "B", None, &moves));
+    ok(b.apply_moving(&sent, "B", None, &moves, oku_slides_core::KnowledgeSync::Changed));
     ok(a.merge(&b));
     assert!(ok(a.undo()), "le retrait de A devait s'annuler");
     let merged = exchange(&mut a, &mut b);
@@ -469,7 +469,7 @@ fn move_then_removal_of_the_source_slide_drops_a_removed_child() {
     ops.push(op(json!({ "op": "remove_element", "slide": "s-priorites", "element": "k1" })));
     ops.push(op(json!({ "op": "remove_slide", "slide": "s-constat" })));
     let (target, moves) = moving(&deck, ops);
-    ok(a.apply_moving(&target, "A", None, &moves));
+    ok(a.apply_moving(&target, "A", None, &moves, oku_slides_core::KnowledgeSync::Changed));
     assert_eq!(a.deck().0, target);
     let merged = exchange(&mut a, &mut b);
     assert_eq!(merged, target);

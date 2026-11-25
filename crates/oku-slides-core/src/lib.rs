@@ -80,7 +80,7 @@ pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
 pub use knowledge::{
     ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, check_text, cited_images, frontmatter, knowledge_file_id,
-    normalize,
+    knowledge_over_limits, normalize,
 };
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
 pub use localized_text::LocalizedText;
@@ -89,8 +89,8 @@ pub use model::*;
 pub use namespace::{Namespace, qualify, split_kind};
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListPath, ListSpec, Moved, NESTED_ITEMS_MAX, Op, PLAIN_MAX,
-    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items,
-    hide_knowledge_ops, ops_schema, pack_users, param_value, remove_pack_refusal, text_fits,
+    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items, ops_schema,
+    pack_users, param_value, remove_pack_refusal, text_fits,
 };
 pub use pack::{
     COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, WidgetFile,
@@ -101,8 +101,8 @@ pub use pack_kind::PackKind;
 pub use pack_order::{item_order, normalized_order};
 pub use params::{ListItem, ParamValue, Params};
 pub use replica::{
-    DeckRead, DeckReplica, HistoryPreview, MergeReport, ReplicaLimits, SlideChanges, Version, dataset_row_budget,
-    slide_changes,
+    DeckRead, DeckReplica, HistoryPreview, KnowledgeSync, MergeReport, ReplicaLimits, SlideChanges, Version,
+    dataset_row_budget, slide_changes,
 };
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};

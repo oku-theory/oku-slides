@@ -36,7 +36,7 @@ no network, and acts only through the MCP tools of the tab (no `fs`, no `termina
 - `compact` : `ToolSpec`, `compact` (first sentence, not at `e.g.`/`i.e.`, plus required-argument hints like
   `report`'s `facts: 1-4 short lines`; schema without descriptions), `exposed` (routed families + `AskReport`, each tool once).
 - `error` : `LocalAgentError`, opaque, logs only. `bin/oku-slides-local-agent-dev` : test launcher. `eval/requests.json` +
-  `eval_tests`: 30 requests; the ignored test runs Route and the first Act on the configured engine.
+  `eval_tests`: 36 requests; the ignored test runs Route and the first Act on the configured engine.
 
 ## Flow
 

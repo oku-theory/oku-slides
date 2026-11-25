@@ -19,6 +19,8 @@ export function Button({ raised, primary, ghost, danger, className, type = "butt
   ghost?: boolean;
   /** Une action qui engage (non annulable, permission permanente). */
   danger?: boolean;
+  /** The button element, to give it the focus. */
+  ref?: Ref<HTMLButtonElement>;
 }) {
   const name = classes(raised && "object", "btn", primary && "primary", ghost && "ghost", danger && "danger", className);
   return <button type={type} className={name} {...rest} />;

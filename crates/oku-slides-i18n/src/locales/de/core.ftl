@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = der zu ersetzende Text kommt mehrfach in der D
 knowledge-reason-too-many-files = das Bündel enthält zu viele Dateien
 knowledge-reason-file-too-large = die Datei ist zu groß
 knowledge-reason-total-too-large = das Bündel ist zu groß
+knowledge-reason-over-limit = die Wissensbasis überschreitet ihre Grenzen: nur das Löschen von Dateien bringt sie wieder darunter
 op-knowledge = Wissensdatei { $path }: { $reason }
 op-unknown-widget = Unbekanntes Widget: { $subject }
 op-unknown-namespace = Dieses Deck hat kein Paket { $pack }.
@@ -224,7 +225,7 @@ issue-knowledge-over-limit = Wissenssammlung über einer Grenze: { $limit ->
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (betroffene Dateien: { $count }, die erste { $id }); alle Dateien bleiben erhalten, aber Schreibvorgänge über die Grenze hinaus werden abgelehnt
+    } (betroffene Dateien: { $count }, die erste { $id }); alle Dateien bleiben erhalten; nur das Löschen von Dateien bringt das Bündel wieder unter die Grenze (Schreib- und Bearbeitungsvorgänge werden bis dahin abgelehnt)
 issue-knowledge-path-invalid = Wissensdatei { $id } nach /recovered verschoben: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

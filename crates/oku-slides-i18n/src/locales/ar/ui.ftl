@@ -468,3 +468,35 @@ ui-data-pane-restore = تصغير البيانات
 ui-themes = السمات
 ui-offer-open = فتح: { $title }
 ui-offer-settings = إعدادات مقترحة: { $title }
+ui-knowledge-awaiting = { $count ->
+    [zero] يحتوي هذا العرض على { $count } ملف معرفة لم توافق عليه
+    [one] يحتوي هذا العرض على ملف معرفة واحد لم توافق عليه
+    [two] يحتوي هذا العرض على ملفَّي معرفة لم توافق عليهما
+    [few] يحتوي هذا العرض على { $count } ملفات معرفة لم توافق عليها
+    [many] يحتوي هذا العرض على { $count } ملف معرفة لم توافق عليها
+   *[other] يحتوي هذا العرض على { $count } ملف معرفة لم توافق عليها
+  }: لا يستطيع الوكيل قراءتها.
+ui-knowledge-review = مراجعة…
+ui-knowledge-over-limit = تجاوزت قاعدة المعرفة حدودها ({ $limits }). حذف الملفات وحده يعيدها تحتها: اطلب من الوكيل حذف بعضها.
+ui-knowledge-limit-too-many-files = ملفات كثيرة جدًا
+ui-knowledge-limit-file-too-large = ملف كبير جدًا
+ui-knowledge-limit-total-too-large = حجم إجمالي كبير جدًا
+ui-knowledge-dialog-title = المعرفة المستلمة
+ui-knowledge-size = { NUMBER($kb) } ك.ب
+ui-knowledge-show = عرض
+ui-knowledge-hide = إخفاء
+ui-knowledge-hidden-chars = { $count ->
+    [one] يُعرض حرف مخفي واحد بالشكل ⟨U+…⟩.
+    [two] يُعرض حرفان مخفيان بالشكل ⟨U+…⟩.
+    [few] تُعرض { $count } أحرف مخفية بالشكل ⟨U+…⟩.
+   *[other] يُعرض { $count } حرفًا مخفيًا بالشكل ⟨U+…⟩.
+  }
+ui-knowledge-approve = موافقة
+ui-knowledge-too-large = هذا الملف أكبر من أن تتم الموافقة عليه: احذفه.
+ui-knowledge-more = { $count ->
+    [one] ملف واحد آخر غير مدرج.
+    [two] ملفان آخران غير مدرجين.
+    [few] { $count } ملفات أخرى غير مدرجة.
+   *[other] { $count } ملفًا آخر غير مدرج.
+  }
+ui-knowledge-close = إغلاق

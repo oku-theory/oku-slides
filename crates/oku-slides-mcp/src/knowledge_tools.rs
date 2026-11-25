@@ -1,16 +1,21 @@
-//! The deck knowledge base, read only: `knowledge_list`, `knowledge_read`, `knowledge_search`.
+//! The deck knowledge base: `knowledge_list`, `knowledge_read`, `knowledge_search`, and the writes
+//! `knowledge_write`, `knowledge_edit`, `knowledge_move`, `knowledge_delete`.
 //!
 //! Deck tabs only. The session decides what is open (approved texts only); a read attaches the
 //! cited images that fit `[paste]`'s prompt limits, and lists every one with why it is not shown.
+//! A write builds one op and goes through the agent's apply path: the session mints file ids,
+//! refuses an edit or a move of an awaiting file and approves what the agent wrote.
 
 use base64::Engine as _;
+use oku_slides_core::Op;
 use oku_slides_platform::config::{ImageRefusal, PromptImageLimits};
+use oku_slides_session::Request;
 use oku_slides_session::agent::PASTE_TYPES;
 use oku_slides_session::{KnowledgeEntry, KnowledgeHits, KnowledgeImage, KnowledgeRead};
 use rust_mcp_sdk::schema::{CallToolResult, ImageContent};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::tools::Tools;
 
@@ -49,6 +54,42 @@ pub(crate) struct KnowledgeReadArgs {
 pub(crate) struct KnowledgeSearchArgs {
     /// The text to find in the lines of the files, ignoring case and accents (at most 200 characters).
     pub query: String,
+}
+
+/// The file `knowledge_write` creates or replaces.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct KnowledgeWriteArgs {
+    /// Bundle-absolute path ending in `.md`, such as /notes/pricing.md.
+    pub path: String,
+    /// The whole text of the file, frontmatter included.
+    pub text: String,
+}
+
+/// The passage `knowledge_edit` replaces.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct KnowledgeEditArgs {
+    /// Path of the file in the knowledge base.
+    pub path: String,
+    /// The exact passage to replace; it must appear once in the file.
+    pub old: String,
+    /// What replaces it.
+    pub new: String,
+}
+
+/// The file `knowledge_move` moves.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct KnowledgeMoveArgs {
+    /// Current path of the file.
+    pub from: String,
+    /// New bundle-absolute path.
+    pub to: String,
+}
+
+/// The file `knowledge_delete` deletes.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct KnowledgeDeleteArgs {
+    /// Path of the file in the knowledge base.
+    pub path: String,
 }
 
 /// One listed file: its frontmatter fields when approved, its path only when awaiting.
@@ -181,6 +222,49 @@ impl Tools {
             let hits = hits.into_iter().map(|h| Hit { path: h.path, line: h.line, text: h.text }).collect();
             self.json_result(&SearchReply { hits, more })
         })
+    }
+
+    /// Applies one knowledge op as the agent; the reply names the file's path after it.
+    async fn knowledge_change(&self, op: Op, path: String) -> CallToolResult {
+        let label = self.localizer.current().tr("agent-undo-apply");
+        let applied = self.change(Request::Apply { label, ops: vec![op], merge: None }).await;
+        if applied.is_error == Some(true) { applied } else { self.json_result(&json!({ "path": path })) }
+    }
+
+    /// Creates or replaces a file with its whole text; the session mints its id.
+    pub(crate) async fn knowledge_write(&self, args: Value) -> CallToolResult {
+        let KnowledgeWriteArgs { path, text } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.knowledge_change(Op::KnowledgeWrite { path: path.clone(), text, id: None }, path).await
+    }
+
+    /// Replaces one unique passage of an approved file.
+    pub(crate) async fn knowledge_edit(&self, args: Value) -> CallToolResult {
+        let KnowledgeEditArgs { path, old, new } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.knowledge_change(Op::KnowledgeEdit { path: path.clone(), old, new }, path).await
+    }
+
+    /// Moves or renames a file; the reply names the new path.
+    pub(crate) async fn knowledge_move(&self, args: Value) -> CallToolResult {
+        let KnowledgeMoveArgs { from, to } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.knowledge_change(Op::KnowledgeMove { from, to: to.clone() }, to).await
+    }
+
+    /// Deletes a file; the reply names the deleted path.
+    pub(crate) async fn knowledge_delete(&self, args: Value) -> CallToolResult {
+        let KnowledgeDeleteArgs { path } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        self.knowledge_change(Op::KnowledgeDelete { path: path.clone() }, path).await
     }
 }
 

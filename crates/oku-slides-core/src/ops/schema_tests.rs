@@ -25,7 +25,7 @@ fn op_names(v: &serde_json::Value, out: &mut Vec<String>) {
 /// t-355: every `Op` variant has its own in the `Op` type of `ui/src/slideTypes.ts`.
 #[test]
 fn every_op_variant_is_mirrored_in_the_ui_op_type() {
-    // The unfiltered schema: the hidden knowledge ops stay mirrored too.
+    // The generated schema, knowledge ops included.
     let schema = serde_json::to_value(schemars::schema_for!(Vec<Op>)).unwrap();
     // `Op` alone: `DataOp` and `ListOp`, its sub-ops, also have an `op` field.
     let op = schema.get("$defs").or_else(|| schema.get("definitions")).and_then(|d| d.get("Op")).unwrap();

@@ -460,3 +460,27 @@ ui-data-pane-restore = Shrink the data
 ui-themes = Themes
 ui-offer-open = Open: { $title }
 ui-offer-settings = Settings offered: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] This deck holds one knowledge file you have not approved
+   *[other] This deck holds { $count } knowledge files you have not approved
+  }: the agent cannot read them.
+ui-knowledge-review = Review…
+ui-knowledge-over-limit = The knowledge base is past its limits ({ $limits }). Only deleting files brings it back under: ask the agent to delete some.
+ui-knowledge-limit-too-many-files = too many files
+ui-knowledge-limit-file-too-large = a file too large
+ui-knowledge-limit-total-too-large = total size too large
+ui-knowledge-dialog-title = Received knowledge
+ui-knowledge-size = { NUMBER($kb) } KB
+ui-knowledge-show = Show
+ui-knowledge-hide = Hide
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } hidden character is shown as ⟨U+…⟩.
+   *[other] { $count } hidden characters are shown as ⟨U+…⟩.
+  }
+ui-knowledge-approve = Approve
+ui-knowledge-too-large = This file is too large to approve: delete it.
+ui-knowledge-more = { $count ->
+    [one] { $count } more file is not listed.
+   *[other] { $count } more files are not listed.
+  }
+ui-knowledge-close = Close

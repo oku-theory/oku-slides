@@ -464,3 +464,33 @@ ui-data-pane-restore = Свернуть данные
 ui-themes = Темы
 ui-offer-open = Открыть: { $title }
 ui-offer-settings = Предложенные настройки: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] В этой презентации { $count } файл знаний, который вы не одобрили
+    [few] В этой презентации { $count } файла знаний, которые вы не одобрили
+    [many] В этой презентации { $count } файлов знаний, которые вы не одобрили
+   *[other] В этой презентации { $count } файла знаний, которые вы не одобрили
+  }: агент не может их прочитать.
+ui-knowledge-review = Просмотреть…
+ui-knowledge-over-limit = База знаний превышает свои лимиты ({ $limits }). Вернуть её в пределы можно только удалением файлов: попросите агента удалить некоторые.
+ui-knowledge-limit-too-many-files = слишком много файлов
+ui-knowledge-limit-file-too-large = слишком большой файл
+ui-knowledge-limit-total-too-large = слишком большой общий размер
+ui-knowledge-dialog-title = Полученные знания
+ui-knowledge-size = { NUMBER($kb) } КБ
+ui-knowledge-show = Показать
+ui-knowledge-hide = Скрыть
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } скрытый символ показан как ⟨U+…⟩.
+    [few] { $count } скрытых символа показаны как ⟨U+…⟩.
+    [many] { $count } скрытых символов показаны как ⟨U+…⟩.
+   *[other] { $count } скрытого символа показаны как ⟨U+…⟩.
+  }
+ui-knowledge-approve = Одобрить
+ui-knowledge-too-large = Этот файл слишком велик для одобрения: удалите его.
+ui-knowledge-more = { $count ->
+    [one] Ещё { $count } файл не показан в списке.
+    [few] Ещё { $count } файла не показаны в списке.
+    [many] Ещё { $count } файлов не показаны в списке.
+   *[other] Ещё { $count } файла не показаны в списке.
+  }
+ui-knowledge-close = Закрыть

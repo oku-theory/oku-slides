@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = le texte à remplacer apparaît plusieurs fois
 knowledge-reason-too-many-files = le dossier a trop de fichiers
 knowledge-reason-file-too-large = le fichier est trop volumineux
 knowledge-reason-total-too-large = le dossier est trop volumineux
+knowledge-reason-over-limit = la base de connaissances dépasse ses limites : seule la suppression de fichiers la ramène en dessous
 op-knowledge = Fichier de connaissances { $path } : { $reason }
 op-unknown-widget = Widget inconnu : { $subject }
 op-unknown-namespace = Ce deck n'a pas de pack { $pack }.
@@ -224,7 +225,7 @@ issue-knowledge-over-limit = dossier de connaissances au-delà d’une limite : 
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (fichiers concernés : { $count }, le premier { $id }) ; tous les fichiers sont gardés, mais les écritures au-delà de la limite sont refusées
+    } (fichiers concernés : { $count }, le premier { $id }) ; tous les fichiers sont gardés ; seule la suppression de fichiers ramène le dossier sous la limite (écritures et modifications refusées d’ici là)
 issue-knowledge-path-invalid = fichier de connaissances { $id } déplacé dans /recovered : { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }

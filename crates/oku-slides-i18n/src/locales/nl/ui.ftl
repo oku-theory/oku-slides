@@ -459,3 +459,27 @@ ui-data-pane-restore = Gegevens verkleinen
 ui-themes = Thema's
 ui-offer-open = Openen: { $title }
 ui-offer-settings = Aangeboden instellingen: { $title }
+ui-knowledge-awaiting = { $count ->
+    [one] Deze presentatie bevat { $count } kennisbestand dat je niet hebt goedgekeurd
+   *[other] Deze presentatie bevat { $count } kennisbestanden die je niet hebt goedgekeurd
+  }: de agent kan ze niet lezen.
+ui-knowledge-review = Bekijken…
+ui-knowledge-over-limit = De kennisbank overschrijdt haar limieten ({ $limits }). Alleen bestanden verwijderen brengt haar er weer onder: vraag de agent er een paar te verwijderen.
+ui-knowledge-limit-too-many-files = te veel bestanden
+ui-knowledge-limit-file-too-large = een te groot bestand
+ui-knowledge-limit-total-too-large = totale grootte te groot
+ui-knowledge-dialog-title = Ontvangen kennis
+ui-knowledge-size = { NUMBER($kb) } kB
+ui-knowledge-show = Tonen
+ui-knowledge-hide = Verbergen
+ui-knowledge-hidden-chars = { $count ->
+    [one] { $count } verborgen teken wordt getoond als ⟨U+…⟩.
+   *[other] { $count } verborgen tekens worden getoond als ⟨U+…⟩.
+  }
+ui-knowledge-approve = Goedkeuren
+ui-knowledge-too-large = Dit bestand is te groot om goed te keuren: verwijder het.
+ui-knowledge-more = { $count ->
+    [one] Nog { $count } bestand staat niet in de lijst.
+   *[other] Nog { $count } bestanden staan niet in de lijst.
+  }
+ui-knowledge-close = Sluiten

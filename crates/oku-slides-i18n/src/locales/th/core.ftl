@@ -54,6 +54,7 @@ knowledge-reason-edit-ambiguous = ข้อความที่จะแทน�
 knowledge-reason-too-many-files = ชุดนี้มีไฟล์มากเกินไป
 knowledge-reason-file-too-large = ไฟล์ใหญ่เกินไป
 knowledge-reason-total-too-large = ชุดนี้ใหญ่เกินไป
+knowledge-reason-over-limit = ฐานความรู้เกินขีดจำกัดแล้ว: มีเพียงการลบไฟล์เท่านั้นที่ทำให้กลับมาอยู่ในขีดจำกัด
 op-knowledge = ไฟล์ความรู้ { $path }: { $reason }
 op-unknown-widget = ไม่รู้จักวิดเจ็ต: { $subject }
 op-unknown-namespace = เด็คนี้ไม่มีแพ็ก { $pack }
@@ -214,7 +215,7 @@ issue-knowledge-over-limit = ชุดความรู้เกินขีด
         [knowledge-reason-too-many-files] { knowledge-reason-too-many-files }
         [knowledge-reason-file-too-large] { knowledge-reason-file-too-large }
        *[knowledge-reason-total-too-large] { knowledge-reason-total-too-large }
-    } (ไฟล์ที่เกี่ยวข้อง: { $count } ไฟล์ ไฟล์แรกคือ { $id }) เก็บไฟล์ทั้งหมดไว้ แต่การเขียนที่เกินขีดจำกัดจะถูกปฏิเสธ
+    } (ไฟล์ที่เกี่ยวข้อง: { $count } ไฟล์ ไฟล์แรกคือ { $id }) เก็บไฟล์ทั้งหมดไว้ มีเพียงการลบไฟล์เท่านั้นที่ทำให้กลับมาอยู่ในขีดจำกัด (ระหว่างนี้การเขียนและการแก้ไขจะถูกปฏิเสธ)
 issue-knowledge-path-invalid = ย้ายไฟล์ความรู้ { $id } ไปที่ /recovered: { $reason ->
         [knowledge-path-empty] { knowledge-path-empty }
         [knowledge-path-not-absolute] { knowledge-path-not-absolute }
