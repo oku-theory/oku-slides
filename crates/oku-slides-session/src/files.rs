@@ -5,7 +5,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use oku_slides_core::{Issue, SourceBundle, SourceLimits, WidgetRegistry};
+use oku_slides_core::{BaseFiles, Issue, SourceBundle, SourceLimits, WidgetRegistry};
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::config::Settings;
 use oku_slides_platform::storage::Storage;
@@ -54,7 +54,8 @@ impl Opened {
 /// Une partie mise de côté à la lecture : une perte. Soit illisible
 /// (`issue-unreadable-*`), soit un slot trop profond (`issue-slot-too-deep`)
 /// dont la relecture a écarté les éléments, soit une version de pack ou de
-/// thème écartée (`issue-pack-version-mismatch`, `issue-theme-version-mismatch`).
+/// thème écartée (`issue-pack-version-mismatch`, `issue-theme-version-mismatch`), or inline
+/// chart or table data removed (`issue-data-inline-dropped`).
 /// Tout autre problème est un constat de `validate` (paramètre inconnu, asset
 /// manquant…), que la fusion et la restauration rendent aussi : le deck est lu en entier.
 ///
@@ -64,7 +65,13 @@ impl Opened {
 pub(crate) fn is_unreadable(issue: &Issue) -> bool {
     let id = issue.message.id();
     id.starts_with("issue-unreadable-")
-        || matches!(id, "issue-slot-too-deep" | "issue-pack-version-mismatch" | "issue-theme-version-mismatch")
+        || matches!(
+            id,
+            "issue-slot-too-deep"
+                | "issue-pack-version-mismatch"
+                | "issue-theme-version-mismatch"
+                | "issue-data-inline-dropped"
+        )
 }
 
 /// Où des problèmes de lecture ont été rendus (message du journal).
@@ -97,7 +104,8 @@ pub(crate) fn log_issues(issues: &[Issue], l: &Localizer, at: IssuesAt) -> usize
 ///
 /// `limits` bounds the sources read from the PDF (settings `[sources]
 /// max_replica_mib` and `max_sources_mib`); `registry`: the widgets the
-/// document is written with afterwards (reading does not depend on them).
+/// document is written with afterwards (reading does not depend on them); `bases`: the store
+/// the PDF's data bases are checked into, or `None` to skip them (they then read as missing).
 ///
 /// # Errors
 ///
@@ -108,10 +116,11 @@ pub fn read_document(
     path: &Path,
     limits: SourceLimits,
     registry: &Arc<WidgetRegistry>,
+    bases: Option<&dyn BaseFiles>,
 ) -> Result<Opened> {
     let bytes = storage.read(path).context(ReadSnafu { path })?;
     let hash = oku_slides_core::asset_id(&bytes);
-    parse_document(&bytes, hash, limits, registry)
+    parse_document(&bytes, hash, limits, registry, bases)
 }
 
 /// Les bornes des sources lues dans un PDF, d'après les réglages `[sources]`.
@@ -136,20 +145,23 @@ pub fn deck_uid_of(
     limits: SourceLimits,
     registry: &Arc<WidgetRegistry>,
 ) -> Result<Option<String>> {
-    let opened = read_document(storage, path, limits, registry)?;
+    // The uid lives in the replica: the data bases need not be stored.
+    let opened = read_document(storage, path, limits, registry, None)?;
     Ok(opened.pdf.then(|| opened.sources.replica().deck_uid()))
 }
 
-/// Lit un document déjà chargé : `bytes`, d'empreinte `hash`.
+/// Reads a document already loaded: `bytes`, of hash `hash`, its bases into `bases`.
 pub(crate) fn parse_document(
     bytes: &[u8],
     hash: String,
     limits: SourceLimits,
     registry: &Arc<WidgetRegistry>,
+    bases: Option<&dyn BaseFiles>,
 ) -> Result<Opened> {
     if bytes.starts_with(b"%PDF") {
         let found = oku_slides_pdf::extract_sources(bytes).context(PdfSnafu)?.context(NotOkuSlidesSnafu)?;
-        let (sources, issues) = SourceBundle::from_zip(&found.zip, limits, registry.clone()).context(SourcesSnafu)?;
+        let (sources, issues) =
+            SourceBundle::from_zip_bases(&found.zip, limits, registry.clone(), bases).context(SourcesSnafu)?;
         return Ok(Opened { sources, issues, pdf: true, modified_elsewhere: found.modified_elsewhere(), hash });
     }
     let deck = serde_json::from_slice(bytes).context(DeckJsonSnafu)?;

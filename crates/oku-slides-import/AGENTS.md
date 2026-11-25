@@ -15,6 +15,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Propagate TooLarge from any part, linked parts included, as fatal via cx.fail, never as a warning; count decompressed bytes even when a read fails, and after a first TooLarge fail every read without decompressing. (spec:2026-10-09-import-pptx-design, plan:2026-10-09-import-pptx-lot1)
 - Choose the AlternateContent branch before reading and never parse the discarded one, so it consumes no id or asset. (plan:2026-10-09-import-pptx-lot1)
 - Pass every string taken from the file through collect::clip before putting it in a warning or error. (plan:2026-10-09-import-pptx-lot1)
+- Lift inline data with the target's ChartLabels, the user's language at import: default column names are stored data; report what lifting changed as DataAdjusted with its Fluent key, never as English text. (t-1690)
 - Store Frame in absolute source points with group transforms applied, always finite and bounded. (plan:2026-10-09-import-pptx-lot1)
 - Keep fs_type and subset on embedded fonts so later lots never embed preview-only or partial fonts. (plan:2026-10-09-import-pptx-lot1)
 - Resolve PPTX text style inheritance only in the single cascade function, and hi-fi line metrics only in GenCtx::line_metrics, never ad hoc. (spec:2026-10-09-import-pptx-design, t-863)
@@ -25,7 +26,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Pitfalls
 
 - Emit only color names that exist in the target theme, since Typst panics on an unknown one, and no color in chart options, where the theme palette decides. (plan:2026-10-10-import-pptx-lot2)
-- Emit chart options already in canonical form, because the core checks host params but does not canonicalize, and cut dataset rows to dataset_row_budget with ChartTruncated. (plan:2026-10-10-import-pptx-lot2, t-817)
+- Emit chart options already in canonical form, because the core checks host params but does not canonicalize, and cut dataset rows to what one data holds (row_budget: MAX_ROWS, MAX_OVERLAY cells), then to the deck bounds left (DeckBudget; none left or past MAX_DATA: no view param), each with ChartTruncated. (plan:2026-10-10-import-pptx-lot2, t-817, plan:2026-11-21-data-entities-phase1)
 - Give every emitted frame sides of at least 1 pt (the core rejects zero) and emit images only in formats Typst draws (png, jpeg, gif, webp, svg), reporting UnsupportedImage for others. (plan:2026-10-10-import-pptx-lot2)
 - Keep retrofit snap in sync with snapRect in ui/src/grid.ts; the Rust tests are its only oracle. (plan:2026-10-10-import-pptx-lot2)
 - Reject XML deeper than MAX_XML_DEPTH or above MAX_XML_ATTRIBUTES per element as Unreadable before roxmltree. (spec:2026-10-09-import-pptx-design, t-754)

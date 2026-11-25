@@ -1,13 +1,13 @@
-// Schémas du catalogue face aux surfaces de l'hôte. Dans la passe de rendu : depuis
-// 0.13, @a2ui/react étend HTMLElement à son chargement, il lui faut donc le DOM de test.
+// The catalog's schemas against the host's surfaces. In the render pass: since 0.13,
+// @a2ui/react extends HTMLElement when it loads, so it needs the test DOM.
 
 import { describe, expect, test } from "bun:test";
 import "../test/dom";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import agentSurfaces from "./fixtures/agent-surfaces.json";
 
-// Bun n'évalue pas les imports statiques dans l'ordre écrit : le catalogue se charge
-// après `../test/dom`, par des imports dynamiques.
+// Bun does not evaluate static imports in written order: the catalog loads after
+// `../test/dom`, through dynamic imports.
 const { CATALOG_ID, CheckedSlider, CheckedStepper, STEPPER_DEFAULT_MAX, STEPPER_DEFAULT_MIN, catalog, sixDigits } =
   await import("./catalog");
 const { buildSurface } = await import("./SurfaceView");
@@ -18,7 +18,7 @@ const surface = (components: unknown[], data: unknown = {}) => [
   { version: "v0.9", updateDataModel: { surfaceId: "s", value: data } },
 ];
 
-/** Les types de composants de la surface `s`, par identifiant. */
+/** The component types of surface `s`, by id. */
 function typesOf(components: unknown[], data: unknown = {}) {
   const processor = new MessageProcessor([catalog]);
   processor.processMessages(surface(components, data) as Parameters<typeof processor.processMessages>[0]);
@@ -26,18 +26,18 @@ function typesOf(components: unknown[], data: unknown = {}) {
   return Object.fromEntries((components as { id: string }[]).map((c) => [c.id, model?.componentsModel.get(c.id)?.type]));
 }
 
-const V4 = [
+const V5 = [
   "Column", "Row", "Card", "Text", "TextField", "RichTextField", "Stepper", "Button", "ChoiceChips", "Slider", "ColorField", "Select", "Switch",
   "ListTable", "SlideThumb", "ThemeChoice", "DiffText", "Prompt", "Timeline", "Receipt", "Disclosure", "Badge", "Markdown", "Notice",
-  "ChartData", "TableData",
+  "ChartData", "TableData", "DataList", "DataSheet",
 ];
 
-describe("catalogue v4", () => {
-  test("déclare chacun des composants du catalogue Rust", () => {
-    expect([...catalog.components.keys()].sort()).toEqual([...V4].sort());
+describe("catalog v5", () => {
+  test("catalog declares each component of the Rust catalog", () => {
+    expect([...catalog.components.keys()].sort()).toEqual([...V5].sort());
   });
 
-  test("les surfaces produites par la session Rust sont acceptées", () => {
+  test("catalog accepts the surfaces the Rust session produces", () => {
     for (const s of agentSurfaces as { id: string; messages: unknown[] }[]) {
       const processor = new MessageProcessor([catalog]);
       processor.processMessages(s.messages as Parameters<typeof processor.processMessages>[0]);
@@ -47,7 +47,7 @@ describe("catalogue v4", () => {
     }
   });
 
-  test("le tableau d'une liste produit par la session Rust passe le schéma du catalogue", () => {
+  test("ListTable from the Rust session passes its catalog schema", () => {
     const host = (agentSurfaces as { id: string; messages: { updateComponents?: { components: Record<string, unknown>[] } }[] }[])
       .find((s) => s.id === "host-widget");
     const components = host?.messages.flatMap((m) => m.updateComponents?.components ?? []) ?? [];
@@ -57,7 +57,7 @@ describe("catalogue v4", () => {
     expect(catalog.components.get("ListTable")?.schema.safeParse(props).success).toBe(true);
   });
 
-  test("les données d'un graphique et d'un tableau produites par la session Rust passent leurs schémas", () => {
+  test("ChartData and TableData from the Rust session pass their schemas", () => {
     const data = (agentSurfaces as { id: string; messages: { updateComponents?: { components: Record<string, unknown>[] } }[] }[])
       .filter((s) => s.id === "host-data")
       .flatMap((s) => s.messages.flatMap((m) => m.updateComponents?.components ?? []))
@@ -102,12 +102,12 @@ describe("catalogue v4", () => {
     ).toEqual({ root: "Column", p: "Prompt", t: "Timeline", r: "Receipt", d: "Disclosure", b: "Badge", m: "Markdown" });
   });
 
-  test("une consigne avec ses images collées est acceptée", () => {
+  test("Prompt with pasted images is accepted", () => {
     expect(typesOf([{ id: "root", component: "Prompt", text: "x", images: [{ mime: "image/png", width: 4, height: 3 }] }])).toEqual({ root: "Prompt" });
   });
 
-  test("une surface v4 avec un bouton à pictogramme « remove » est acceptée", () => {
-    expect(CATALOG_ID).toBe("urn:oku-slides:a2ui:catalog:v4");
+  test("v5 surface with a remove icon button is accepted", () => {
+    expect(CATALOG_ID).toBe("urn:oku-slides:a2ui:catalog:v5");
     expect(
       typesOf([
         { id: "root", component: "Row", children: ["up", "down", "rm"] },

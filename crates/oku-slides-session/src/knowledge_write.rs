@@ -86,7 +86,6 @@ impl Session {
                 | Op::ReplaceElement { .. }
                 | Op::SetChartOption { .. }
                 | Op::SetTableOption { .. }
-                | Op::SetData { .. }
                 | Op::EditList { .. }
                 | Op::AddElement { .. }
                 | Op::RemoveElement { .. }
@@ -101,7 +100,14 @@ impl Session {
                 | Op::SetToken { .. }
                 | Op::UnsetToken { .. }
                 | Op::SetTokens { .. }
-                | Op::SetVar { .. } => {}
+                | Op::SetVar { .. }
+                | Op::AddData { .. }
+                | Op::EditData { .. }
+                | Op::BindData { .. }
+                | Op::RemoveData { .. }
+                | Op::RenameData { .. }
+                | Op::SetColumnType { .. }
+                | Op::PutViewData { .. } => {}
             }
         }
         Ok(authored)

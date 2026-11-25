@@ -31,11 +31,11 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 - `wire` (`wire.rs`): `WireError`, serializable `RenderError`/`RegistryError` (no backtrace) for
   the worker pipe; `Layout` too; `Fonts::files` exposes font bytes for fingerprints and replay.
 - `OkuSlidesWorld` (`world.rs`, private): virtual file system (embedded library with its JSON
-  data; deck, theme, assets, packs) and fonts (`Fonts`), no system font; `load-image(…, flow:)`
-  sizes a flow image at its proportions when its widget asks.
-- `charts` (private): an element with `host("chart")` becomes an SVG drawn by
-  `oku-slides-chart`, served as `/charts/<fingerprint>.svg` (options, size, font, palette,
-  labels); drawn at its box size (measured at compilation), never scaled.
+  data; deck, theme, assets, packs), fonts (`Fonts`), no system font; `load-image(…, flow:)`.
+- `views` (private): `resolve_views`, run by `set_deck`, clones the deck, `data` emptied, chart and
+  table params given the dataset `plan_views` cut (plain values). `charts` (private): a `host("chart")`
+  becomes an SVG drawn by `oku-slides-chart`, `/charts/<fingerprint>.svg` (option, resolved dataset,
+  size, font, palette, labels), at its box size (measured at compilation), never scaled.
 - `tables` (private): guard pass before Typst (canonical form, or `null` if invalid); Typst
   draws the table, no Rust pass. `diagnostic`: localized Typst messages; `palette`: colors.
 
@@ -47,4 +47,4 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 ## Dependencies
 
 `oku-slides-core`, `oku-slides-i18n`, `oku-slides-chart`, `typst` and its family (`typst-pdf`,
-`typst-svg`, `typst-render`, `typst-layout`, `typst-assets`); dev: `oku-slides-pdf`, `speculoos`, `insta`.
+`typst-svg`, `typst-render`, `typst-layout`, `typst-assets`); dev: `oku-slides-data`, `oku-slides-pdf`, `speculoos`, `insta`.

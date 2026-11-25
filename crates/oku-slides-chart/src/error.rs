@@ -1,28 +1,26 @@
-//! Erreurs des graphiques : validation, normalisation, données et rendu.
+//! Chart errors: validation, normalization and rendering.
 //!
-//! Les raisons sont destinées à l'utilisateur et au LLM : elles disent quoi
-//! corriger, pas seulement ce qui a échoué.
+//! Reasons are meant for the user and the LLM: they say what to fix,
+//! not only what failed.
 
 use oku_slides_i18n::{Localize, Localizer, Message};
 use snafu::{Backtrace, Snafu};
 
-/// Un graphique ou un tableau refusé, ou un graphique impossible à rendre.
+/// A refused chart or table, or a chart that cannot be drawn.
 #[derive(Debug, Snafu)]
 pub struct ChartError(pub(crate) ChartInner);
 
-/// Nature d'une [`ChartError`].
+/// Kind of a [`ChartError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ChartErrorKind {
-    /// Options hors du sous-ensemble v1 (champ inconnu, type invalide…).
+    /// Options outside the v1 subset (unknown field, invalid type…).
     InvalidOption,
-    /// Options valides mais incohérentes.
+    /// Valid but inconsistent options.
     Inconsistent,
-    /// Opération sur les données impossible (index hors limites…).
-    DataOp,
-    /// Le patch touche `dataset` : il faut passer par `set_data`.
+    /// The patch touches `dataset`: edit the data with `edit_data`.
     PatchTouchesDataset,
-    /// Échec de charts-rs.
+    /// charts-rs failed.
     Render,
 }
 
@@ -35,9 +33,7 @@ pub(crate) enum ChartInner {
     InvalidPatch { reason: Message, backtrace: Backtrace },
     #[snafu(display("inconsistent data: {reason}"))]
     Inconsistent { reason: Message, backtrace: Backtrace },
-    #[snafu(display("impossible data operation: {reason}"))]
-    DataOp { reason: Message, backtrace: Backtrace },
-    #[snafu(display("an option patch cannot change `dataset`: use set_data"))]
+    #[snafu(display("an option patch cannot change `dataset`: use edit_data"))]
     PatchTouchesDataset { backtrace: Backtrace },
     #[snafu(display("chart rendering failed"))]
     Render { source: charts_rs::Error, backtrace: Backtrace },
@@ -51,7 +47,6 @@ impl ChartError {
         match self.0 {
             ChartInner::InvalidOption { .. } | ChartInner::InvalidPatch { .. } => ChartErrorKind::InvalidOption,
             ChartInner::Inconsistent { .. } => ChartErrorKind::Inconsistent,
-            ChartInner::DataOp { .. } => ChartErrorKind::DataOp,
             ChartInner::PatchTouchesDataset { .. } => ChartErrorKind::PatchTouchesDataset,
             ChartInner::Render { .. } | ChartInner::BarLayout { .. } => ChartErrorKind::Render,
         }
@@ -59,17 +54,14 @@ impl ChartError {
 }
 
 impl Localize for ChartError {
-    /// Ce qu'il faut corriger, pour l'utilisateur ou le LLM (champ fautif,
-    /// raison de l'incohérence…).
+    /// What to fix, for the user or the LLM (faulty field, why it is inconsistent…).
     fn localize(&self, l: &Localizer) -> String {
         match &self.0 {
-            // serde nomme le champ fautif : son message est gardé tel quel.
+            // serde names the faulty field: its message is kept as is.
             ChartInner::InvalidOption { source, .. } => {
                 l.tr_with("chart-invalid-option", &[("reason", source.to_string().into())])
             }
-            ChartInner::InvalidPatch { reason, .. }
-            | ChartInner::Inconsistent { reason, .. }
-            | ChartInner::DataOp { reason, .. } => reason.localize(l),
+            ChartInner::InvalidPatch { reason, .. } | ChartInner::Inconsistent { reason, .. } => reason.localize(l),
             ChartInner::PatchTouchesDataset { .. } => l.tr("chart-patch-dataset"),
             ChartInner::Render { .. } | ChartInner::BarLayout { .. } => l.tr("chart-render"),
         }

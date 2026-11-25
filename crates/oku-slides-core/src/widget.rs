@@ -41,9 +41,9 @@ pub enum SlotMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HostType {
-    /// Chart: options and dataset (`dataset`).
+    /// Chart: options naming deck data (`data`), never inline data.
     Chart,
-    /// Table: display options and dataset.
+    /// Table: display options naming deck data (`data`).
     Table,
     /// Path of a shape ([`ShapePath`](crate::ShapePath)).
     Path,

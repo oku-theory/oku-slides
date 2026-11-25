@@ -5,7 +5,6 @@ op-index-out-of-range = الموضع خارج النطاق
 op-invalid-value = قيمة غير صالحة لـ { $subject }
 op-invalid-value-because = قيمة غير صالحة لـ { $subject }: { $reason }
 op-value-no-value = لا قيمة للمعامل
-op-value-no-dataset = لا توجد مجموعة بيانات للمخطط
 op-value-grid-tracks = تضم الشبكة من 1 إلى 24 عمودًا وصفًا
 op-value-bad-item-id = معرّف البند نص غير فارغ بلا «/»
 op-value-missing-item-id = يحتاج كل بند إلى معرّف
@@ -164,12 +163,14 @@ op-choice-out-of-range = القيمة غير مسموح بها لـ { $subject }
 transaction-refused = رُفضت العملية { $index }: { $reason }
 
 sources-unreadable = تعذّرت قراءة المصادر
+deck-inline-data = يخزّن العنصر { $element } بياناته داخل خياراته: ملف العرض هذا ليس بالتنسيق الحالي
 sources-not-sources = هذا ليس أرشيف مصادر Oku Slides
 sources-unsupported-version = كُتبت هذه المصادر بإصدار أحدث من Oku Slides
 sources-bad-name = اسم ملف مرفوض في المصادر
 sources-missing-deck = العرض التقديمي غير موجود في المصادر
 sources-too-large = مصادر هذا الملف أكبر من أن تُفتح
 sources-too-deep = هذا العرض يضمّن العناصر بعمق مفرط
+sources-base-refused = ملف بيانات في هذا العرض تالف أو تعذّر حفظه
 
 issue-empty-slide-id = معرّف شريحة فارغ
 issue-duplicate-slide-id = معرّف شريحة مكرر
@@ -221,13 +222,44 @@ usage-range-reversed = تاريخ البداية { $since } بعد تاريخ ا
 pack-token-entry-invalid = رمز مكوّن غير صالح «{ $path }» في بيان الحزمة.
 pack-manifest-json = تعذّرت قراءة بيان الحزمة: { $reason }
 pack-manifest-order = ترتيب عناصر الحزمة غير صالح عند «{ $name }».
+pack-manifest-data-count = تتجاوز بيانات الحزمة الحد الأقصى { $max }، العدد: { $count }.
+pack-manifest-data-base = تشير بيانات الحزمة «{ $data }» إلى ملف خارجي؛ بيانات الحزمة تحمل خلاياها الخاصة.
+pack-manifest-data-cells = تتجاوز خلايا بيانات الحزمة الحد الأقصى { $max }، العدد: { $count }.
 issue-unsupported-link = رابط غير مدعوم: { $link }
 issue-highlight-zero = تُرقَّم ألوان التمييز بدءًا من 1
 issue-unreadable-element = عنصر غير مقروء، نُحّي جانبًا
 issue-slot-repaired = عنصر بلا خانة معروفة، وُضع في { $slot }
 issue-unreadable-item = بند قائمة غير مقروء، نُحّي جانبًا
 issue-unreadable-row = صف جدول غير مقروء، نُحّي جانبًا
-issue-data-truncated = بيانات كبيرة جدًا، اقتُطعت عند القراءة
+issue-data-truncated = البيانات «{ $data }» كبيرة جدًا، اقتُطعت عند القراءة وأُبقيت للقراءة فقط
+issue-data-name-taken = اسم البيانات «{ $data }» مستخدم بالفعل
+issue-data-cell-type = البيانات «{ $data }»: العمود «{ $column }» يحتوي على قيم ليست من النوع { $type }
+issue-data-too-many = بيانات كثيرة جدًا في العرض ({ $count })؛ لم تُقرأ: { $dropped }
+issue-data-base-missing = البيانات «{ $data }»: ملفها الأساسي مفقود، أُبقيت للقراءة فقط
+issue-data-edits-lost = البيانات «{ $data }»: فُقدت عند الدمج تعديلات على جدول مستبدَل
+issue-data-inline-dropped = العنصر { $element }: خزّن إصدار أقدم بيانات مخططه أو جدوله داخل خياراته؛ أُزيلت
+issue-more = مشكلات أخرى غير معروضة: { $count }
+op-data-deck-full = ستتجاوز بيانات العرض حدّها: { $max } على الأكثر من { $what ->
+    [row-ids] معرّفات الصفوف
+    [overlay] الخلايا المعدّلة
+    [text] بايتات النص
+   *[data] البيانات
+}
+op-data-missing = لم يُعثر على البيانات «{ $data }»
+op-data-name-taken = اسم البيانات «{ $name }» مستخدم بالفعل
+op-data-column-in-use = يعرض العمود «{ $column }» كل من { $views }؛ اربطها بأعمدة أخرى أولًا (bind_data مع columns)
+op-data-in-use = تعرض هذه البيانات { $views }{ $more ->
+    [0] {""}
+    [one] {" "}و{ $more } عرض آخر
+   *[other] {" "}و{ $more } عروض أخرى
+}؛ احذفها أو اربطها ببيانات أخرى أولًا
+op-data-column-missing = لا تحتوي البيانات «{ $data }» على العمود «{ $column }»
+op-data-not-view = لا يمكن للمعامل «{ $param }» عرض البيانات: وحده خيار مخطط أو جدول يمكنه ذلك
+op-data-truncated = اقتُطعت البيانات «{ $data }» عند القراءة وهي للقراءة فقط؛ استبدل جدولها كاملًا لتعديلها
+op-data-rebind = العنصر { $subject } يعرض بيانات أخرى بالفعل؛ استخدم bind_data لتغييرها
+op-data-internal = لا يمكن لدفعة أن تعيّن أساس جدول أو طبقته
+op-data-batch-too-large = الدفعة كبيرة جدًا: عدد الخلايا { $count }، والحد الأقصى { $max }
+op-data-inline = يحمل العنصر { $subject } بياناته داخل خياراته؛ أضفها كبيانات للعرض باستخدام add_data واربطها باستخدام bind_data
 issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
 issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه
 issue-knowledge-unreadable = إدخال معرفة غير مقروء { $id }، نُحّي جانبًا
@@ -302,3 +334,12 @@ issue-empty-item-id = القائمة { $param } تحتوي على بند بلا 
 issue-duplicate-item-id = القائمة { $param } تحتوي على معرّف بند مكرر
 issue-invalid-item-id = القائمة { $param } فيها معرّف بند يحتوي على شرطة مائلة
 issue-list-bounds = القائمة { $param } تحتوي على عدد بنود قليل جدًا أو كثير جدًا
+issue-view-truncated = { $element } يعرض جزءًا فقط من بياناته ({ $what ->
+    [rows] الصفوف
+   *[columns] الأعمدة
+}: { $shown } من { $total })
+issue-render-budget = لم يُرسم { $element }: طرق عرض العرض التقديمي تقرأ بيانات أكثر مما يسمح به العرض
+issue-data-missing = يشير { $element } إلى البيانات «{ $data }» غير الموجودة في العرض التقديمي
+issue-view-column-missing = يقرأ { $element } العمود «{ $column }» غير الموجود في بياناته
+issue-view-unreadable = لم يُرسم { $element }: لا يمكن قراءة خياراته
+op-replica-full = يقترب سجل العرض من { $max } ميبيبايت، وهو الحد الأقصى لإعادة فتحه: أزل محتوى قبل إضافة المزيد.

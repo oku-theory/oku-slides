@@ -263,6 +263,8 @@ fn main() -> color_eyre::Result<()> {
             let stt = Stt::new(&platform);
             // Les outils et l'agent vivent dans le runtime tokio de Tauri.
             let rt = tauri::async_runtime::handle().inner().clone();
+            // The sessions lease their bases: the lease file is kept fresh while the app runs.
+            app.manage(platform.bases()?.spawn_refresh(&rt));
             let sessions = AppSessions::new(app.handle().clone(), Arc::clone(&workspace));
             let focus = Arc::new(HostFocus::new(Arc::clone(&workspace)));
             app.manage(Arc::clone(&focus));

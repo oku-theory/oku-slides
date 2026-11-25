@@ -14,8 +14,7 @@ fn issue_1206_unknown_tab_message_clips_the_requested_id() {
     let data = data_dir();
     let ws = workspace(&data);
     let forged = format!("t-\u{202E}\nforged{}", "9".repeat(10_000));
-    let req =
-        json!({ "cmd": "carry_assets", "from": forged, "to": forged, "element": { "id": "e", "kind": "base/text" } });
+    let req = json!({ "cmd": "paste_element", "from": forged, "to": forged, "label": "paste", "ops": [] });
     let req: WorkspaceRequest = serde_json::from_value(req).unwrap_or_else(|e| panic!("request: {e}"));
     let err = Workspace::apply(&ws, req).err().unwrap_or_else(|| panic!("an unknown tab is refused"));
     let message = err.one_line();

@@ -542,3 +542,47 @@ fn preview_widget_of_a_slide_widget_with_a_span_renders_like_full(#[case] span: 
     assert_that!(part.svg.is_some()).is_true();
     assert_that!(part.svg).is_equal_to(full.svg);
 }
+
+#[rstest]
+#[case::chart("chart", "option")]
+#[case::table("table", "data")]
+fn pack_with_data_examples_previews_bound_chart(#[case] widget: &str, #[case] param: &str) {
+    let data = fresh_dir("oku-slides-preview-data-");
+    let mut s = opened_on(data.path());
+    let base = oku_slides_core::Namespace::parse("base").unwrap();
+    let mut preview = |given: &Map<String, serde_json::Value>| {
+        s.preview_widget(Some(&base), widget, given, PreviewFormat::Svg, PreviewSpan::Full).unwrap()
+    };
+    let bound = preview(&Map::new());
+    // The same view naming a data no one holds: the failure frame.
+    let unbound = preview(&json!({param: {"data": "nowhere"}}).as_object().unwrap().clone());
+    assert_that!(bound.diagnostics.iter().any(|d| d.error)).is_false();
+    assert_that!(bound.svg).is_not_equal_to(unbound.svg);
+    if widget == "chart" {
+        // A bound chart draws its picture.
+        assert_that!(bound.svg.unwrap_or_default().contains("<image")).is_true();
+    }
+}
+
+/// A preview shows the pack's example data alone: a view naming the open deck's data shows the
+/// failure frame, as one naming no data does.
+#[test]
+fn preview_widget_ignores_the_open_deck_data() {
+    let data = fresh_dir("oku-slides-preview-data-");
+    let mut s = opened_on(data.path());
+    let table = json!({
+        "generation": "g1",
+        "columns": [{ "id": "c1", "name": "Month" }, { "id": "c2", "name": "sales" }],
+        "rows": [{ "id": "r1", "cells": ["Jan", 10] }, { "id": "r2", "cells": ["Feb", 12] }]
+    });
+    let add = json!({ "op": "add_data", "id": "user-only", "name": "sales", "table": table });
+    s.apply("Données", vec![serde_json::from_value(add).unwrap()], None).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let base = oku_slides_core::Namespace::parse("base").unwrap();
+    let mut preview = |data: &str| {
+        let given = json!({"data": {"data": data}}).as_object().unwrap().clone();
+        s.preview_widget(Some(&base), "table", &given, PreviewFormat::Svg, PreviewSpan::Full).unwrap().svg
+    };
+    let unbound = preview("nowhere");
+    assert_that!(unbound.is_some()).is_true();
+    assert_that!(preview("user-only")).is_equal_to(unbound);
+}

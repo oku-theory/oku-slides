@@ -6,7 +6,9 @@ use std::fs;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
+use oku_slides_core::Op;
 use oku_slides_import::ReadLimits;
+use serde_json::Value;
 use zip::write::SimpleFileOptions;
 
 /// Bornes des tests de bout en bout : celles de [`ReadLimits::default`] (une borne ajoutée plus tard suit).
@@ -260,4 +262,38 @@ pub fn summary(d: &oku_slides_import::source::SourceDeck) -> Vec<String> {
         .collect();
     out.extend(d.warnings.iter().map(|w| format!("warning: {:?}", w.kind)));
     out
+}
+
+/// The ops with each id drawn for a lifted data (data, generation, columns, rows) replaced by
+/// its order of appearance, so the snapshot does not depend on random ids.
+pub fn stable_data_ids(ops: &[Op]) -> Value {
+    let mut json = serde_json::to_value(ops).unwrap_or_else(|e| panic!("ops en JSON : {e}"));
+    let mut drawn: Vec<String> = Vec::new();
+    let mut keep = |v: &Value| {
+        if let Some(id) = v.as_str().filter(|id| !drawn.iter().any(|d| d == id)) {
+            drawn.push(id.to_owned());
+        }
+    };
+    for op in json.as_array().into_iter().flatten().filter(|op| op["op"] == "put_view_data") {
+        keep(&op["id"]);
+        keep(&op["table"]["generation"]);
+        let ids = ["columns", "rows"].into_iter().flat_map(|k| op["table"][k].as_array().into_iter().flatten());
+        ids.for_each(|item| keep(&item["id"]));
+    }
+    swap(&mut json, &drawn);
+    json
+}
+
+/// Replaces each string of `drawn` in `v` by `<drawn-N>`, N its index.
+fn swap(v: &mut Value, drawn: &[String]) {
+    match v {
+        Value::String(s) => {
+            if let Some(n) = drawn.iter().position(|d| d == s) {
+                *s = format!("<drawn-{n}>");
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|i| swap(i, drawn)),
+        Value::Object(map) => map.values_mut().for_each(|i| swap(i, drawn)),
+        _ => {}
+    }
 }

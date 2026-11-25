@@ -6,7 +6,8 @@ use oku_slides_core::kinds;
 use oku_slides_session::DocumentKind;
 use rstest::rstest;
 
-use super::{kinds_of, list_all, list_for, nest_schema};
+use super::{kinds_of, list_all, list_for, nest_schema, tool_names_for};
+use crate::tool_kinds::Kinds;
 
 /// Every tool, whatever the kinds that list it.
 fn list() -> Vec<rust_mcp_sdk::schema::Tool> {
@@ -170,6 +171,18 @@ fn apply_description_names_widgets_only_for_a_deck_or_pack_tab() {
     assert_that!(d.as_str()).does_not_contain("see widgets");
 }
 
+/// The agent learns each data op and its arguments from the prose, not only the schema's enum.
+#[rstest]
+#[case::add_data("add_data {id?, name, label?, table")]
+#[case::bind_data("bind_data {target, param, data, columns?}")]
+#[case::remove_data("remove_data {data}")]
+#[case::rename_data("rename_data {data, name}")]
+#[case::set_column_type("set_column_type {data, column, type: text|number|integer|bool|date}")]
+#[case::edit_data("edit_data {data, change}")]
+fn apply_description_states_each_data_op_with_its_arguments(#[case] clause: &str) {
+    assert_that!(tool_description("apply").as_str()).contains(clause);
+}
+
 #[test]
 fn present_description_names_no_pack_mode() {
     assert_that!(tool_description("present").as_str()).does_not_contain("pack mode");
@@ -186,6 +199,8 @@ const DECK_TOOLS: &[&str] = &[
     "cancel_agent_model_download",
     "cancel_dictation_download",
     "chart_kind",
+    "data_list",
+    "data_read",
     "deck_outline",
     "delete_pack",
     "diagnose",
@@ -449,6 +464,17 @@ fn tools_render_description_lists_the_playbook_components() {
 fn tools_render_description_points_to_a2ui_examples() {
     let tool = list().into_iter().find(|t| t.name == "render").unwrap();
     assert_that!(tool.description.unwrap_or_default()).contains("Call a2ui_examples");
+}
+
+/// The data tools read a deck: deck and help tabs list them, pack and theme tabs never do.
+#[rstest]
+#[case::list("data_list")]
+#[case::read("data_read")]
+fn data_tools_are_read_kind_and_tab_gated(#[case] name: &str) {
+    assert_that!(kinds_of(name)).is_equal_to(Some(Kinds::DECK_OR_HELP));
+    assert_that!(tool_names_for(DocumentKind::Help).contains(&name.to_owned())).is_true();
+    assert_that!(tool_names_for(DocumentKind::Pack).contains(&name.to_owned())).is_false();
+    assert_that!(tool_names_for(DocumentKind::Theme).contains(&name.to_owned())).is_false();
 }
 
 /// The `apply` input schema lists the knowledge ops beside the others, and its description says

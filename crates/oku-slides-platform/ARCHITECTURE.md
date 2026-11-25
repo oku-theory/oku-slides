@@ -24,21 +24,20 @@ the CLI, the session, the agent and dictation.
   async contexts only. `StorageError::kind` gives a `StorageErrorKind`.
 - `models`: `PinnedFile`, `is_complete`, (feature `download`) `download`: hashed `.part`s renamed once verified,
   `.complete` last, a pinned `.part` resumed by `Range` (`resume.rs` decides, `download/transport.rs` fetches);
-  retries capped per file; waits cancellable; nothing past `PinnedFile.size`; `DownloadError::kind`.
-- `http` (feature `download`): `system_tls`, TLS on the system certificate store, for every ureq agent.
+  retries capped per file; waits cancellable; nothing past `PinnedFile.size`; `DownloadError::kind`. `http` (feature `download`): `system_tls` for every ureq agent.
+- `bases`: `BaseStore`, content-addressed Parquet bases in `<data>/bases/<hex>.parquet`: `adopt` (no symlink, hashed copy), `put_stream`, `open`,
+  `lease`/`release` (refcount plus a lease file per process, stale after 30 min; `spawn_refresh` rewrites it every 5 min in app and serve), `gc` under `bases/.lock` (10 min grace), `max_store_mib` quota.
 - `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve` (engine × target × `AppleModel` × model on disk; `auto`: Apple when ready, else Gguf), `local_engine` (probes Apple only for `auto`/`apple`) → `ReadyEngine` or `Unavailable`.
 - `listen` (feature `listen`): `serve_connections`, bounded by `Limits`, replaces `axum::serve`.
 
-## Startup order
-
-`telemetry::init` → `Platform::load` (settings → storage → `Localizer` from `i18n.locale`, else the system language) → app state.
+Startup: `telemetry::init` → `Platform::load` (settings → storage → `Localizer` from `i18n.locale`, else the system language) → app state.
 
 ## Config sources and on-disk layout
 
 Three layers, the last wins: embedded `src/config.default.toml`, then `config.toml` in
 the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD__PAUSE`).
 `OKU_SLIDES_PATHS__DATA` also moves where `config.toml` is read. `PathSettings` puts the data dir at `~/Library/Application Support/me.dartiguenave.oku-slides` on macOS (XDG or
-`APPDATA` elsewhere), with `models/`, `widgets/`, `layouts/`, `themes/`, `config.toml`; decks in `~/Documents/Oku Slides`.
+`APPDATA` elsewhere), with `models/`, `bases/`, `widgets/`, `layouts/`, `themes/`, `config.toml`; decks in `~/Documents/Oku Slides`.
 
 ## Extension points
 
@@ -47,4 +46,4 @@ the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD_
 
 ## Dependencies
 
-`oku-slides-i18n` (the `Localizer`); `oku-slides-apple-model` (Apple's model availability); `ureq`, `sha2`, `hex` for model downloads (feature `download`).
+`oku-slides-i18n` (the `Localizer`); `oku-slides-apple-model` (Apple's model availability); `oku-slides-data` (`BaseId`); `sha2`, `hex`, `getrandom`, `libc`; `ureq` (feature `download`).

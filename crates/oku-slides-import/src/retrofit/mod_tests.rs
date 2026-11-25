@@ -1,16 +1,18 @@
 use std::collections::BTreeMap;
 
 use oku_slides_core::kinds::base;
-use oku_slides_core::{Op, asset_id};
+use oku_slides_core::{DeckLoad, Op, apply_all, asset_id};
+use oku_slides_data::limits::{MAX_DATA, MAX_DECK_OVERLAY, MAX_ROWS};
 use speculoos::prelude::*;
 
 use super::*;
 use crate::ImportErrorKind;
-use crate::source::Crop;
+use crate::report::{Loss, LossKind};
+use crate::source::{self, ChartKind, Crop, Grouping};
 use crate::source::{Asset, Picture, Size, SourceSlide, Warning, WarningKind};
 use crate::test_support::{
-    PAPIER, applied, colors, essentiel_profiles, item, layout, para, registry, run, run_with, source_slide, text_box,
-    text_item,
+    PAPIER, applied, builtin_pins, colors, essentiel_profiles, item, layout, para, registry, run, run_with,
+    source_slide, text_box, text_item,
 };
 
 fn png() -> String {
@@ -38,7 +40,13 @@ fn deck(slides: Vec<SourceSlide>) -> SourceDeck {
 }
 
 fn target<'a>(profiles: &'a [(Namespace, LayoutProfile)], registry: &'a WidgetRegistry) -> RetrofitTarget<'a> {
-    RetrofitTarget { profiles, registry, colors: colors(PAPIER), page: PageTokens::default() }
+    RetrofitTarget {
+        profiles,
+        registry,
+        colors: colors(PAPIER),
+        page: PageTokens::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
+    }
 }
 
 fn plan_of(source: &SourceDeck, profiles: &[(Namespace, LayoutProfile)]) -> ImportPlan {
@@ -131,4 +139,94 @@ fn project_without_language_sets_none() {
     let source = deck(vec![source_slide(1, Some("l2"), vec![text_item("t", (66.0, 143.0, 300.0, 200.0), "Texte")])]);
     let plan = plan_of(&source, &essentiel_profiles());
     assert_that!(plan.ops.iter().any(|op| matches!(op, Op::SetDeckParam { key, .. } if key == "lang"))).is_false();
+}
+
+/// A slide `number` holding one column chart `c<number>` of two series of `points` values.
+fn chart_slide(number: u32, points: usize) -> SourceSlide {
+    let values: Vec<Option<f64>> = (0..points).map(|i| Some(oku_slides_core::num::count_f64(i))).collect();
+    let series = |name: &str| source::Series {
+        name: name.to_owned(),
+        values: values.clone(),
+        color: None,
+        x: None,
+        format: None,
+    };
+    let chart = source::Chart {
+        kind: ChartKind::Column,
+        grouping: Grouping::Clustered,
+        title: Some(format!("Ventes {number}")),
+        categories: Vec::new(),
+        series: vec![series("a"), series("b")],
+        legend: true,
+        axes: source::Axes { x: true, y: true },
+        value_axis: source::ValueAxis::default(),
+        gap_width: None,
+    };
+    let c = item(&format!("c{number}"), (66.0, 143.0, 828.0, 342.0), ItemKind::Chart(chart));
+    source_slide(number, Some("l2"), vec![c])
+}
+
+/// The deck of `plan`, applied as the session applies it.
+fn deck_of(plan: &ImportPlan) -> oku_slides_core::Deck {
+    let mut deck = oku_slides_core::Deck::empty();
+    let mut ops = builtin_pins();
+    ops.extend(plan.ops.iter().cloned());
+    apply_all(&mut deck, ops, &registry()).unwrap();
+    deck
+}
+
+/// The `ChartTruncated` losses of each slide, by item.
+fn truncations(plan: &ImportPlan) -> Vec<(String, Vec<Loss>)> {
+    plan.report
+        .slides
+        .iter()
+        .map(|s| (s.slide.clone(), s.losses.iter().filter(|l| l.kind == LossKind::ChartTruncated).cloned().collect()))
+        .collect()
+}
+
+/// Two charts of 196,608 cells each pass the deck's 300,000 overlay cells: the first is kept
+/// whole, the second cut to what is left, and reported on its item.
+#[test]
+fn import_over_deck_budget_cuts_next_table_and_reports() {
+    let source = deck(vec![chart_slide(1, MAX_ROWS), chart_slide(2, MAX_ROWS)]);
+    let plan = plan_of(&source, &essentiel_profiles());
+    let deck = deck_of(&plan);
+    let rows: Vec<usize> = deck.data.values().map(|d| d.table.rows.len()).collect();
+    assert_that!(rows.len()).is_equal_to(2);
+    assert_that!(rows.contains(&MAX_ROWS)).is_true();
+    let cut = rows.iter().copied().min().unwrap();
+    assert_that!(cut).is_greater_than(0);
+    assert_that!(cut).is_less_than(MAX_ROWS);
+    let load = DeckLoad::of_deck(&deck);
+    assert_that!(load.overlay).is_less_than_or_equal_to(MAX_DECK_OVERLAY);
+    // One more row would not have fit.
+    assert_that!(load.overlay + 3).is_greater_than(MAX_DECK_OVERLAY);
+    assert_that!(truncations(&plan)).is_equal_to(vec![
+        ("s1".to_owned(), Vec::new()),
+        ("s2".to_owned(), vec![Loss::on("c2", LossKind::ChartTruncated)]),
+    ]);
+}
+
+/// Past `MAX_DATA` data, a chart comes in without data, reported on its item.
+#[test]
+fn import_past_max_data_imports_element_without_data() {
+    let last = u32::try_from(MAX_DATA).unwrap() + 1;
+    let source = deck((1..=last).map(|n| chart_slide(n, 2)).collect());
+    let plan = plan_of(&source, &essentiel_profiles());
+    let deck = applied(plan.ops.clone(), &[]);
+    assert_that!(deck.data.len()).is_equal_to(MAX_DATA);
+    let charts: Vec<&oku_slides_core::Element> = deck
+        .slides
+        .last()
+        .unwrap()
+        .params
+        .slots()
+        .flat_map(|(_, children)| children)
+        .filter(|e| e.kind == base::CHART)
+        .collect();
+    assert_that!(charts.len()).is_equal_to(1);
+    assert_that!(charts[0].params.value("option")).is_none();
+    let reported = truncations(&plan);
+    assert_that!(reported[..MAX_DATA].iter().all(|(_, l)| l.is_empty())).is_true();
+    assert_that!(reported[MAX_DATA].1).is_equal_to(vec![Loss::on(&format!("c{last}"), LossKind::ChartTruncated)]);
 }

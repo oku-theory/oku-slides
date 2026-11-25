@@ -328,23 +328,26 @@ fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
     r.unwrap_or_else(|e| panic!("{e:?}"))
 }
 
-/// Le deck au tableau `t` (3 lignes × 2 colonnes) dans la slide `s`.
+/// The deck with data `d` (rows `fr`, `de`; columns `pays`, `ventes`) shown by table `t` on slide `s`.
 fn table_deck() -> Deck {
     let mut deck = ok(Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#));
-    let add = serde_json::from_value(serde_json::json!({ "op": "add_element",
-        "slot": { "owner": { "slide": "s" }, "param": "blocks" },
-        "element": { "id": "t", "kind": "base/table", "params": { "data": { "dataset": {
-            "source": [["Pays", "Ventes"], ["FR", 10], ["DE", 20]],
-            "ids": ["h", "fr", "de"], "columns": ["pays", "ventes"] } } } } }))
-    .unwrap_or_else(|e| panic!("op invalide : {e}"));
-    ok(crate::apply_all(&mut deck, vec![add], &crate::test_registry::registry()));
+    let ops = serde_json::from_value(serde_json::json!([
+        { "op": "add_data", "id": "d", "name": "ventes", "table": { "generation": "g1",
+            "columns": [{ "id": "pays", "name": "Pays" }, { "id": "ventes", "name": "Ventes" }],
+            "rows": [{ "id": "fr", "cells": ["FR", 10] }, { "id": "de", "cells": ["DE", 20] }] } },
+        { "op": "add_element", "slot": { "owner": { "slide": "s" }, "param": "blocks" },
+          "element": { "id": "t", "kind": "base/table", "params": { "data": { "data": "d" } } } }
+    ]))
+    .unwrap_or_else(|e| panic!("invalid ops: {e}"));
+    ok(crate::apply_all(&mut deck, ops, &crate::test_registry::registry()));
     deck
 }
 
-fn with_data(deck: &Deck, change: oku_slides_chart::DataOp) -> Deck {
+/// `deck` after the edit `change` of data `d`.
+fn with_edit(deck: &Deck, change: &serde_json::Value) -> Deck {
     let mut d = deck.clone();
-    let target = crate::Target { slide: "s".into(), element: Some("t".into()) };
-    let op = crate::Op::SetData { target, param: "data".into(), change };
+    let op = serde_json::from_value(serde_json::json!({ "op": "edit_data", "data": "d", "change": change }))
+        .unwrap_or_else(|e| panic!("invalid op: {e}"));
     ok(crate::apply_all(&mut d, vec![op], &crate::test_registry::registry()));
     d
 }
@@ -366,48 +369,43 @@ fn assert_undo_redo_exact(before: &Deck, after: &Deck) {
 
 #[test]
 fn undo_redo_of_set_cell_on_table_restores_exactly() {
-    use oku_slides_chart::{Cell, DataOp};
     let deck = table_deck();
-    assert_undo_redo_exact(&deck, &with_data(&deck, DataOp::SetCell { row: 2, col: 1, value: Cell::Number(21.0) }));
+    assert_undo_redo_exact(
+        &deck,
+        &with_edit(&deck, &serde_json::json!({ "op": "set_cell", "row": "de", "column": "ventes", "value": 21 })),
+    );
 }
 
 #[test]
 fn undo_redo_of_remove_row_restores_id_and_cells() {
     let deck = table_deck();
-    let removed = with_data(&deck, oku_slides_chart::DataOp::RemoveRow { at: 1 });
-    assert_undo_redo_exact(&deck, &removed);
+    assert_undo_redo_exact(&deck, &with_edit(&deck, &serde_json::json!({ "op": "remove_row", "row": "fr" })));
 }
 
 #[test]
 fn undo_redo_of_insert_column_restores_exactly() {
-    use oku_slides_chart::{Cell, DataOp};
     let deck = table_deck();
-    let cells = vec![Cell::Text("Stock".into()), Cell::Number(1.0), Cell::Null];
-    assert_undo_redo_exact(&deck, &with_data(&deck, DataOp::InsertColumn { at: 1, cells, id: None }));
+    let change = serde_json::json!({ "op": "insert_column", "id": "stock", "after": "pays", "name": "Stock",
+        "cells": { "fr": 1 } });
+    assert_undo_redo_exact(&deck, &with_edit(&deck, &change));
 }
 
 #[test]
 fn undo_redo_of_replace_restores_exactly() {
-    use oku_slides_chart::{Cell, DataOp};
     let deck = table_deck();
-    let source = vec![
-        vec![Cell::Text("A".into()), Cell::Text("B".into()), Cell::Text("C".into())],
-        vec![Cell::Number(1.0), Cell::Bool(true), Cell::Null],
-    ];
-    assert_undo_redo_exact(&deck, &with_data(&deck, DataOp::Replace { source }));
+    let change = serde_json::json!({ "op": "replace", "table": { "generation": "g2",
+        "columns": [{ "id": "a", "name": "A" }, { "id": "b", "name": "B" }, { "id": "c", "name": "C" }],
+        "rows": [{ "id": "r1", "cells": [1, true, null] }] } });
+    assert_undo_redo_exact(&deck, &with_edit(&deck, &change));
 }
 
 #[test]
-fn undo_redo_of_reordered_rows_and_columns_restores_exactly() {
+fn undo_redo_of_replace_reordering_rows_and_columns_restores_exactly() {
     let deck = table_deck();
-    let mut reordered = deck.clone();
-    let target = crate::Target { slide: "s".into(), element: Some("t".into()) };
-    let value = serde_json::json!({ "dataset": {
-        "source": [["Ventes", "Pays"], [20, "DE"], [10, "FR"]],
-        "ids": ["h", "de", "fr"], "columns": ["ventes", "pays"] } });
-    let op = crate::Op::SetParam { target, param: "data".into(), value };
-    crate::apply_all(&mut reordered, vec![op], &crate::test_registry::registry()).unwrap();
-    assert_undo_redo_exact(&deck, &reordered);
+    let change = serde_json::json!({ "op": "replace", "table": { "generation": "g2",
+        "columns": [{ "id": "ventes", "name": "Ventes" }, { "id": "pays", "name": "Pays" }],
+        "rows": [{ "id": "de", "cells": [20, "DE"] }, { "id": "fr", "cells": [10, "FR"] }] } });
+    assert_undo_redo_exact(&deck, &with_edit(&deck, &change));
 }
 
 // A slide's elements as a tree (t-694), without one commit per `mov` (nor for

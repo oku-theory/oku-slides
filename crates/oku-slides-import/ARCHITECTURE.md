@@ -13,7 +13,7 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
   closure), `SetTokens` (the generated tokens), `AddPack` `deck-layouts`; `sought_fonts`, `source_rect`.
 - `ImportPlan` (`plan`) : ops, assets, `WidgetRequest`s, report, `origins` (item → element); in hi-fi the
   generated pack, schemas, fonts, `targets` (item → elements or slide param), `groups` (`hifi::groups`);
-  `report_json` is the `--report` form; `check_budget` (fatal `TooLarge`) gives the `CheckedPlan` to apply.
+  `report_json` is the `--report` form; `check_budget` (fatal `TooLarge`) gives the `CheckedPlan` to apply; `prepared` draws its ops' ids before measuring.
 - `report` : `ImportReport`, `Loss`/`LossKind`, warnings, `Coverage`, `ReferenceReport`, slide
   `score`; `coverage::coverage` measures what of the source survives in the deck.
 - `metrics` : a hi-fi slide's gap to the reference, regions ranked, `suspect` ones last (pure);
@@ -27,10 +27,10 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
   clamp warnings), `shapes`, `frame`, `table` (+ built-in `table_styles`), `chart`, `app` (PowerPoint 2007), `smartart` (model
   as `source::SmartArt`, drawing as a group), `fonts` + `eot`. Nesting bounded by `GroupCtx`. Assets typed
   by their bytes (`media::sniff`), rasters refused on a bad header (`media::dimensions`), SVGs sanitized.
-- Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`,
-  never `pptx/`. They are pure: ids and dates come from the target (ADR-0008).
+- Projectors `retrofit/` and `hifi/` use `source/`, `plan`, `report`, `coverage`, `fonts`, `deck_budget` (cuts each
+  slide's chart and table data to the deck bounds left, `ChartTruncated`), never `pptx/`. Pure: ids, dates from the target (ADR-0008).
 - `retrofit/` : decor omission (`decor`, shared with `coverage`), profile choice (`profile`), headings, clusters,
-  placement (`slide`, `zone`, `MAX_SLIDE_ITEMS`), text, tables, charts (`dataset_row_budget`), `color`, card
+  placement (`slide`, `zone`, `MAX_SLIDE_ITEMS`), text, tables, charts (`row_budget`), `color`, card
   stacks (`group`, SmartArt). A text-only first cover keeps a title profile, other texts in notes.
 - `hifi/` : page fit (`page`), generated tokens: `list` global, `component.base.table` (`theme`, `color`), one slide
   widget per layout in `deck-layouts` (`widget`, `pack`, bounded by `PackLimits`), master and layout decor as
@@ -46,5 +46,5 @@ every styled value with its provenance), projected into a plan of Oku ops. Spec:
 - New loss: a `LossKind` variant and its `import-loss-*` Fluent key.
 
 ## Dependencies
-`oku-slides-core`, `oku-slides-chart`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`, `serde`,
+`oku-slides-core`, `oku-slides-chart`, `oku-slides-data`, `oku-slides-i18n`, `zip`, `roxmltree`, `ttf-parser`, `uuid`, `serde`,
 `serde_json`, `snafu` (not render). Render checks: `oku-slides-render/tests/import_*.rs`; corpus: `tests/corpus.rs`.

@@ -118,6 +118,7 @@ fn import_with(
         registry: &registry,
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let plan = project(src, &target)?;
     // La session épingle `base` et `essentiel` avant d'appliquer un retrofit.
@@ -195,7 +196,7 @@ fn retrofit_kitchen_keeps_table_chart_picture_and_fallbacks() {
 #[test]
 fn retrofit_kitchen_ops_match() {
     let (plan, _) = import("kitchen", &["essentiel"], "papier");
-    insta::assert_json_snapshot!("kitchen_ops", plan.ops);
+    insta::assert_json_snapshot!("kitchen_ops", common::stable_data_ids(&plan.ops));
 }
 
 #[test]
@@ -471,4 +472,66 @@ fn retrofit_kitchen_on_acme_grid_places_on_cells_unless_they_collide() {
 fn retrofit_without_profiles_is_refused() {
     let err = import_err("minimal", &["acme-empty"], empty_pack("acme-empty"));
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::NoProfiles);
+}
+
+/// The view options of kind `kind` in `deck`, descendants included.
+fn view_options<'d>(deck: &'d Deck, kind: &str) -> Vec<&'d Value> {
+    fn walk<'d>(list: &'d [Element], kind: &str, out: &mut Vec<&'d Value>) {
+        for e in list {
+            if e.kind == kind {
+                out.extend(e.params.iter().filter_map(|(_, v)| match v {
+                    oku_slides_core::ParamValue::Value(v) => Some(v),
+                    _ => None,
+                }));
+            }
+            for (_, children) in e.params.slots() {
+                walk(children, kind, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for s in &deck.slides {
+        for (_, list) in s.params.slots() {
+            walk(list, kind, &mut out);
+        }
+    }
+    out
+}
+
+/// The kitchen table becomes deck data holding the PPTX cells: its header row, and B2 (`1`).
+#[test]
+fn imported_table_cells_equal_pptx_values() {
+    let (_, deck) = import("kitchen", &["essentiel"], "papier");
+    let option = view_options(&deck, base::TABLE).into_iter().next().unwrap_or_else(|| panic!("a table"));
+    let id = option["data"].as_str().unwrap_or_else(|| panic!("a data ref: {option}"));
+    let data = deck.data.iter().find(|(d, _)| d.as_str() == id).map_or_else(|| panic!("data {id}"), |(_, d)| d);
+    let header: Vec<&str> = data.table.columns.iter().map(|c| c.name.as_str()).collect();
+    assert_that!(header).is_equal_to(vec!["Titre", ""]);
+    let dataset = data.table.to_dataset(None, 0..data.table.rows.len(), usize::MAX).unwrap_or_else(|e| panic!("{e}"));
+    let cell = |row: usize, column: usize| dataset.source[row][column].as_label();
+    // B2: the second column of the PPTX's second row, its first row under the header.
+    assert_that!(cell(1, 1)).is_equal_to("1".to_owned());
+    let all: Vec<Vec<String>> =
+        dataset.source.iter().map(|r| r.iter().map(oku_slides_data::DataCell::as_label).collect()).collect();
+    assert_that!(all).is_equal_to(vec![
+        vec!["Titre".to_owned(), String::new()],
+        vec!["A".to_owned(), "1".to_owned()],
+        vec!["B".to_owned(), "2".to_owned()],
+    ]);
+}
+
+/// Coverage finds the PPTX's table and chart although the applied views hold only a data ref.
+#[test]
+fn coverage_reads_plan_ops_before_prepare() {
+    let (plan, deck) = import("kitchen", &["essentiel"], "papier");
+    let views: Vec<&Value> =
+        view_options(&deck, base::TABLE).into_iter().chain(view_options(&deck, base::CHART)).collect();
+    assert_that!(views.len()).is_equal_to(2);
+    for v in &views {
+        assert_that!(v.get("data").and_then(Value::as_str)).is_some();
+        assert_that!(v.get("dataset")).is_none();
+    }
+    let c = plan.report.coverage.unwrap_or_else(|| panic!("coverage measured"));
+    let counts = ((c.tables.found, c.tables.total), (c.charts.found, c.charts.total));
+    assert_that!(counts).is_equal_to(((1, 1), (1, 1)));
 }

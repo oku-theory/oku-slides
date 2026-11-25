@@ -55,6 +55,8 @@ pub(crate) struct HifiArgs<'a> {
     pub(crate) fonts: &'a Fonts,
     /// Le registre intégré : les packs `base` et `essentiel` intégrés.
     pub(crate) base: &'a Arc<WidgetRegistry>,
+    /// Chart labels in the interface's language: the default column names of lifted data.
+    pub(crate) labels: &'a oku_slides_chart::ChartLabels,
     /// Le nom du pack généré.
     pub(crate) name: String,
     /// Chercher aussi les polices de la présentation parmi celles du système.
@@ -86,6 +88,7 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
         name: args.name,
         created: now_created(),
         limits: pack_limits(&platform.settings.render),
+        labels: args.labels,
     };
     let mut plan =
         hifi::project(&input.source, &target).and_then(|p| p.check_budget(&input.limits)).context(PresentationSnafu)?;

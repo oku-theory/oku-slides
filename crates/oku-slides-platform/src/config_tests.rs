@@ -57,10 +57,10 @@ fn defaults_embedded_file_gives_documented_values() {
 }
 
 #[test]
-fn defaults_sources_max_replica_is_32_mib_in_bytes() {
+fn defaults_sources_max_replica_is_64_mib_in_bytes() {
     let s = Settings::defaults().unwrap();
-    assert_that!(s.sources.max_replica_mib).is_equal_to(32);
-    assert_that!(s.sources.max_replica_bytes()).is_equal_to(32 * 1024 * 1024);
+    assert_that!(s.sources.max_replica_mib).is_equal_to(64);
+    assert_that!(s.sources.max_replica_bytes()).is_equal_to(64 * 1024 * 1024);
 }
 
 #[test]
@@ -70,10 +70,18 @@ fn compact_after_secs_by_default_is_thirty_days() {
 }
 
 #[test]
-fn defaults_sources_max_sources_is_256_mib_in_bytes() {
+fn defaults_sources_max_sources_is_1024_mib_in_bytes() {
     let s = Settings::defaults().unwrap();
-    assert_that!(s.sources.max_sources_mib).is_equal_to(256);
-    assert_that!(s.sources.max_sources_bytes()).is_equal_to(256 * 1024 * 1024);
+    assert_that!(s.sources.max_sources_mib).is_equal_to(1024);
+    assert_that!(s.sources.max_sources_bytes()).is_equal_to(1024 * 1024 * 1024);
+}
+
+#[test]
+fn defaults_bound_the_base_store_and_the_data_process() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.sources.max_store_bytes()).is_equal_to(8192 * 1024 * 1024);
+    assert_that!(s.render.data_timeout_ms).is_equal_to(120_000);
+    assert_that!(s.render.data_memory_mib).is_equal_to(4096);
 }
 
 #[test]
@@ -352,6 +360,8 @@ fn render_settings_probe_budget_is_in_milliseconds() {
         max_widget_kib: 256,
         max_widgets: 64,
         max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
     };
     assert_that!(r.probe_budget()).is_equal_to(std::time::Duration::from_millis(250));
 }
@@ -366,6 +376,8 @@ fn render_settings_memory_bytes_converts_mib() {
         max_widget_kib: 256,
         max_widgets: 64,
         max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
     };
     assert_that!(r.memory_bytes()).is_equal_to(3 * 1024 * 1024);
 }
@@ -380,6 +392,8 @@ fn render_settings_timeout_is_in_milliseconds() {
         max_widget_kib: 256,
         max_widgets: 64,
         max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
     };
     assert_that!(r.timeout()).is_equal_to(std::time::Duration::from_millis(1500));
 }
@@ -394,6 +408,8 @@ fn render_settings_max_frame_bytes_converts_mib() {
         max_widget_kib: 256,
         max_widgets: 64,
         max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
     };
     assert_that!(r.max_frame_bytes()).is_equal_to(512 * 1024 * 1024);
 }
@@ -423,6 +439,8 @@ fn render_settings_max_frame_bytes_saturates_instead_of_overflowing() {
         max_widget_kib: 256,
         max_widgets: 64,
         max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
     };
     assert_that!((r.max_frame_bytes(), r.memory_bytes())).is_equal_to((usize::MAX, u64::MAX));
 }

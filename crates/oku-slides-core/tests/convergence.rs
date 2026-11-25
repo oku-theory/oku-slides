@@ -7,14 +7,15 @@ mod slots;
 
 use oku_slides_core::kinds::essentiel::CONTENT;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use oku_slides_chart::{Cell, DataOp, parse_table};
 use oku_slides_core::kinds::base;
 use oku_slides_core::{
     Deck, DeckReplica, Element, Moved, Op, PackVersion, ParamValue, Params, Slide, Target, ThemePin, WidgetRegistry,
     apply_all, validate,
 };
+use oku_slides_data::{DataCell, DataId, NewColumn, NewRow, NewTable, Table, TableOp};
 use proptest::prelude::*;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -45,13 +46,13 @@ enum Edit {
     Nest(usize, usize, usize),
     /// Retire la pile `i` (modulo) de `s-constat`, avec ses enfants.
     RemoveOwner(usize),
-    /// `set_cell` du tableau `t` : ligne, colonne, valeur.
+    /// `set_cell` on data `d`: row, column, value.
     SetCell(usize, usize, i32),
     InsertRow(usize),
     RemoveRow(usize),
     InsertColumn(usize),
     RemoveColumn(usize),
-    /// Colle un tableau de même forme dont quelques cellules changent : `Replace`.
+    /// Pastes a table of the same shape with a few cells changed: `Replace`.
     Replace(usize),
     /// Fait passer l'élément `a` (modulo, toutes profondeurs, slides `content`)
     /// en position `at` du premier slot d'une autre slide `content`, la `b`-ième
@@ -127,68 +128,116 @@ fn base() -> &'static WidgetRegistry {
     BASE.get_or_init(common::registry)
 }
 
-/// Le paramètre `data` du tableau `t` de `s-constat`, s'il existe.
-fn table_data(deck: &Deck) -> Option<&Value> {
-    deck.slide("s-constat")?.locate("t")?.element.params.value("data")
+/// The data `d` that table `t` shows.
+fn table_of(deck: &Deck) -> Option<&Table> {
+    deck.data.get("d").map(|d| &d.table)
 }
 
-/// La ligne et la colonne jamais retirées par le proptest :
-/// sans l'en-tête ni la première colonne, une fusion pourrait vider le tableau.
-const KEPT_ROW: &str = "h";
+/// The id of data `d`.
+fn data_id() -> DataId {
+    ok(DataId::try_from("d".to_owned()))
+}
+
+/// The row and column never removed by the proptest, so a merge cannot empty the data.
+const KEPT_ROW: &str = "fr";
 const KEPT_COLUMN: &str = "pays";
 
-/// Une édition du tableau `t`, aux index tirés dans ses bornes courantes ;
-/// une op refusée laisse le deck inchangé.
+/// A row or column id no peer has drawn yet, in this process.
+fn fresh_id(prefix: &str) -> String {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    format!("{prefix}{}", NEXT.fetch_add(1, Ordering::Relaxed))
+}
+
+/// The cell `v` as column `column` of `table` takes it: a number, or its text.
+fn typed_cell(table: &Table, column: &str, v: i32) -> DataCell {
+    let number = DataCell::Number(f64::from(v));
+    match table.columns.iter().find(|c| c.id == column) {
+        Some(c) if !c.ty.fits(&number) => DataCell::Text(v.to_string()),
+        _ => number,
+    }
+}
+
+/// An edit of data `d`, at positions drawn within its current bounds; a refused op leaves the
+/// deck unchanged.
 fn edit_table(deck: &mut Deck, e: &Edit) {
-    let Some(data) = table_data(deck) else { return };
-    let ds = &data["dataset"];
-    let source = ds["source"].as_array().cloned().unwrap_or_default();
-    let ids: Vec<&str> = ds["ids"].as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
-    let columns: Vec<&str> =
-        ds["columns"].as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
-    let (rows, width) = (source.len(), columns.len());
-    if rows == 0 || width == 0 {
+    let Some(table) = table_of(deck) else { return };
+    let rows: Vec<String> = table.rows.iter().map(str::to_owned).collect();
+    let columns: Vec<String> = table.columns.iter().map(|c| c.id.clone()).collect();
+    let (height, width) = (rows.len(), columns.len());
+    if width == 0 {
         return;
     }
+    let after = |ids: &[String], at: usize| (at % (ids.len() + 1)).checked_sub(1).map(|i| ids[i].clone());
     let change = match *e {
-        Edit::SetCell(r, c, v) => DataOp::SetCell { row: r % rows, col: c % width, value: Cell::Number(f64::from(v)) },
-        Edit::InsertRow(at) => DataOp::InsertRow { at: at % (rows + 1), cells: vec![Cell::Null; width], id: None },
-        Edit::RemoveRow(at) if ids.get(at % rows) != Some(&KEPT_ROW) => DataOp::RemoveRow { at: at % rows },
-        // Au plus 5 colonnes par pair : 4 pairs fusionnés restent sous la borne de 20.
-        Edit::InsertColumn(at) if width < 5 => {
-            DataOp::InsertColumn { at: at % (width + 1), cells: vec![Cell::Null; rows], id: None }
+        Edit::SetCell(r, c, v) if height > 0 => {
+            let column = columns[c % width].clone();
+            TableOp::SetCell { row: rows[r % height].clone(), value: typed_cell(table, &column, v), column }
         }
-        Edit::RemoveColumn(at) if columns.get(at % width) != Some(&KEPT_COLUMN) => {
-            DataOp::RemoveColumn { at: at % width }
+        Edit::InsertRow(at) => TableOp::InsertRow {
+            id: Some(fresh_id("r")),
+            after: after(&rows, at),
+            cells: std::collections::BTreeMap::new(),
+        },
+        Edit::RemoveRow(at) if height > 0 && rows[at % height] != KEPT_ROW => {
+            TableOp::RemoveRow { row: rows[at % height].clone() }
         }
-        // Collage de la même forme : une cellule sur trois change.
+        // At most 5 columns per peer.
+        Edit::InsertColumn(at) if width < 5 => TableOp::InsertColumn {
+            id: Some(fresh_id("c")),
+            after: after(&columns, at),
+            name: "N".into(),
+            cells: std::collections::BTreeMap::new(),
+        },
+        Edit::RemoveColumn(at) if columns[at % width] != KEPT_COLUMN => {
+            TableOp::RemoveColumn { column: columns[at % width].clone() }
+        }
+        // A paste of the same shape and ids: one cell in three changes.
         Edit::Replace(seed) => {
-            let Ok(table) = parse_table(data) else { return };
-            let mut source = table.dataset.source;
-            for (i, cell) in source.iter_mut().flatten().enumerate() {
-                if (i + seed) % 3 == 0 {
-                    #[expect(clippy::cast_precision_loss, reason = "seed % 97 < 97: exact in f64")]
-                    let value = (seed % 97) as f64;
-                    *cell = Cell::Number(value);
-                }
-            }
-            DataOp::Replace { source }
+            let Ok(dataset) = table.to_dataset(None, 0..height, usize::MAX) else { return };
+            let mut i = 0;
+            let rows = rows
+                .iter()
+                .zip(dataset.source.iter().skip(1))
+                .map(|(id, cells)| NewRow {
+                    id: Some(id.clone()),
+                    cells: cells
+                        .iter()
+                        .zip(&table.columns)
+                        .map(|(cell, column)| {
+                            i += 1;
+                            #[expect(
+                                clippy::cast_possible_truncation,
+                                clippy::cast_possible_wrap,
+                                reason = "seed % 97 < 97"
+                            )]
+                            let value = (seed % 97) as i32;
+                            if (i + seed) % 3 == 0 { typed_cell(table, &column.id, value) } else { cell.clone() }
+                        })
+                        .collect(),
+                })
+                .collect();
+            let columns = table
+                .columns
+                .iter()
+                .map(|c| NewColumn { id: Some(c.id.clone()), name: c.name.clone(), ty: Some(c.ty) })
+                .collect();
+            let table =
+                NewTable { generation: Some(fresh_id("g")), columns, rows, base: None, overlay: imbl::OrdMap::new() };
+            TableOp::Replace { table }
         }
         _ => return,
     };
-    let target = Target { slide: "s-constat".into(), element: Some("t".into()) };
-    let _refused = apply_all(deck, vec![Op::SetData { target, param: "data".into(), change }], base());
+    let _refused = apply_all(deck, vec![Op::EditData { data: data_id(), change }], base());
 }
 
-/// `parse_table` réussit sur `data`, et `ids`/`columns` sont alignés et uniques.
-fn assert_table_ok(data: &Value) -> Vec<Vec<Cell>> {
-    let table = parse_table(data).unwrap_or_else(|e| panic!("tableau invalide : {e:?} ({data})"));
-    let ds = &table.dataset;
-    assert_eq!(ds.ids.len(), ds.source.len(), "ids non alignés : {data}");
-    assert_eq!(ds.columns.len(), ds.source.first().map_or(0, Vec::len), "columns non alignées : {data}");
-    assert_eq!(ds.ids.iter().collect::<HashSet<_>>().len(), ds.ids.len(), "ids en double : {data}");
-    assert_eq!(ds.columns.iter().collect::<HashSet<_>>().len(), ds.columns.len(), "columns en double : {data}");
-    table.dataset.source
+/// Data `d` has unique row and column ids and reads whole; its rows.
+fn assert_table_ok(table: &Table) -> Vec<Vec<DataCell>> {
+    let rows: Vec<&str> = table.rows.iter().collect();
+    assert_eq!(rows.iter().collect::<HashSet<_>>().len(), rows.len(), "duplicate row ids: {rows:?}");
+    let columns: Vec<&str> = table.columns.iter().map(|c| c.id.as_str()).collect();
+    assert_eq!(columns.iter().collect::<HashSet<_>>().len(), columns.len(), "duplicate columns: {columns:?}");
+    let dataset = table.to_dataset(None, 0..rows.len(), usize::MAX).unwrap_or_else(|e| panic!("unreadable: {e}"));
+    dataset.source
 }
 
 /// Bascule le gras du premier run du premier `text` de `params` (slots
@@ -457,8 +506,8 @@ fn peers_converge(edits: &[Vec<Edit>], seed: u64) -> Result<usize, TestCaseError
     }
     let duplicates = ["issue-duplicate-slide-id", "issue-duplicate-element-id", "issue-duplicate-item-id"];
     prop_assert!(validate(&first, &common::registry(), None).iter().all(|i| !duplicates.contains(&i.message.id())));
-    if let Some(data) = table_data(&first) {
-        assert_table_ok(data);
+    if let Some(table) = table_of(&first) {
+        assert_table_ok(table);
     }
     // Aucun id renommé (t-652) : la stratégie ne réajoute jamais un id retiré.
     let renamed: Vec<String> = ids_of(&first).into_keys().filter(|id| !known.contains(id)).collect();
@@ -631,15 +680,13 @@ fn concurrent_typing_in_one_plain_cell_merges() {
 /// `deck` et, dans les blocs de `s-constat`, le tableau `t` : 3 lignes × 2
 /// colonnes, aux identifiants explicites.
 fn with_table(deck: Deck, registry: &WidgetRegistry) -> Deck {
-    let data = json!({ "dataset": {
-        "source": [["Pays", "Ventes"], ["FR", 10], ["DE", 20]],
-        "ids": ["h", "fr", "de"],
-        "columns": ["pays", "ventes"],
-    } });
+    let table = json!({ "generation": "g0", "columns": [{ "id": "pays", "name": "Pays" }, { "id": "ventes", "name": "Ventes" }],
+        "rows": [{ "id": "fr", "cells": ["FR", 10] }, { "id": "de", "cells": ["DE", 20] }] });
+    let add_data = op(json!({ "op": "add_data", "id": "d", "name": "ventes", "table": table }));
     let add = op(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-constat" }, "param": "blocks" },
-        "element": { "id": "t", "kind": "base/table", "params": { "data": data } } }));
+        "element": { "id": "t", "kind": "base/table", "params": { "data": { "data": "d" } } } }));
     let mut d = deck;
-    ok(apply_all(&mut d, vec![add], registry));
+    ok(apply_all(&mut d, vec![add_data, add], registry));
     d
 }
 
@@ -666,52 +713,61 @@ fn table_peers() -> (Deck, DeckReplica, DeckReplica) {
     (deck, a, b)
 }
 
-/// Un `set_data` du tableau `t`.
-fn data_op(change: DataOp) -> Op {
-    Op::SetData {
-        target: Target { slide: "s-constat".into(), element: Some("t".into()) },
-        param: "data".into(),
-        change,
-    }
+/// An `edit_data` of data `d`.
+fn data_op(change: TableOp) -> Op {
+    Op::EditData { data: data_id(), change }
 }
 
-fn set_cell(row: usize, col: usize, value: Value) -> Op {
-    data_op(DataOp::SetCell { row, col, value: cell(value) })
+fn set_cell(row: &str, column: &str, value: Value) -> Op {
+    data_op(TableOp::SetCell { row: row.into(), column: column.into(), value: cell(value) })
 }
 
-fn cell(v: Value) -> Cell {
-    serde_json::from_value(v).unwrap_or_else(|e| panic!("cellule invalide : {e}"))
+fn cell(v: Value) -> DataCell {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("invalid cell: {e}"))
 }
 
-fn cells(v: Value) -> Vec<Cell> {
-    serde_json::from_value(v).unwrap_or_else(|e| panic!("cellules invalides : {e}"))
+fn cells(v: Value) -> std::collections::BTreeMap<String, DataCell> {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("invalid cells: {e}"))
 }
 
-/// Le `source` du tableau `t` fusionné, vérifié (`parse_table`, identifiants).
-fn merged_source(deck: &Deck) -> Vec<Vec<Cell>> {
-    assert_table_ok(table_data(deck).unwrap_or_else(|| panic!("tableau t absent")))
+fn insert_row(id: &str, after: Option<&str>, values: Value) -> Op {
+    data_op(TableOp::InsertRow { id: Some(id.into()), after: after.map(str::to_owned), cells: cells(values) })
 }
 
-fn source(v: Value) -> Vec<Vec<Cell>> {
-    serde_json::from_value(v).unwrap_or_else(|e| panic!("source invalide : {e}"))
+fn insert_column(id: &str, after: &str, name: &str, values: Value) -> Op {
+    let (id, after, name) = (Some(id.into()), Some(after.into()), name.into());
+    data_op(TableOp::InsertColumn { id, after, name, cells: cells(values) })
 }
 
-/// Les identifiants (`ids`, `columns`) du tableau `t`.
+/// The merged rows of data `d`, header first, checked (unique ids, readable).
+fn merged_source(deck: &Deck) -> Vec<Vec<DataCell>> {
+    assert_table_ok(table_of(deck).unwrap_or_else(|| panic!("data d missing")))
+}
+
+fn source(v: Value) -> Vec<Vec<DataCell>> {
+    serde_json::from_value(v).unwrap_or_else(|e| panic!("invalid source: {e}"))
+}
+
+/// The row and column ids of data `d`.
 fn table_ids(deck: &Deck) -> (Vec<String>, Vec<String>) {
-    let data = table_data(deck).unwrap_or_else(|| panic!("tableau t absent"));
-    let table = ok(parse_table(data));
-    (table.dataset.ids, table.dataset.columns)
+    let table = table_of(deck).unwrap_or_else(|| panic!("data d missing"));
+    (table.rows.iter().map(str::to_owned).collect(), table.columns.iter().map(|c| c.id.clone()).collect())
 }
 
 #[test]
 fn concurrent_edits_of_two_cells_in_one_row_are_both_kept() {
-    let merged = exchange(&table_deck(), vec![set_cell(1, 0, json!("France"))], vec![set_cell(1, 1, json!(11))]);
+    let merged = exchange(
+        &table_deck(),
+        vec![set_cell("fr", "pays", json!("France"))],
+        vec![set_cell("fr", "ventes", json!(11))],
+    );
     assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["France", 11], ["DE", 20]])));
 }
 
 #[test]
 fn concurrent_edits_of_two_cells_in_one_column_are_both_kept() {
-    let merged = exchange(&table_deck(), vec![set_cell(1, 1, json!(11))], vec![set_cell(2, 1, json!(21))]);
+    let merged =
+        exchange(&table_deck(), vec![set_cell("fr", "ventes", json!(11))], vec![set_cell("de", "ventes", json!(21))]);
     assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 11], ["DE", 21]])));
 }
 
@@ -719,24 +775,24 @@ fn concurrent_edits_of_two_cells_in_one_column_are_both_kept() {
 fn concurrent_row_inserts_are_both_kept() {
     let merged = exchange(
         &table_deck(),
-        vec![data_op(DataOp::InsertRow { at: 3, cells: cells(json!(["IT", 30])), id: Some("it".into()) })],
-        vec![data_op(DataOp::InsertRow { at: 1, cells: cells(json!(["ES", 40])), id: None })],
+        vec![insert_row("it", Some("de"), json!({ "pays": "IT", "ventes": 30 }))],
+        vec![insert_row("es", None, json!({ "pays": "ES", "ventes": 40 }))],
     );
     assert_eq!(
         merged_source(&merged),
         source(json!([["Pays", "Ventes"], ["ES", 40], ["FR", 10], ["DE", 20], ["IT", 30]]))
     );
     let (ids, _) = table_ids(&merged);
-    assert_eq!(ids.len(), 5);
-    assert_eq!(ids[4], "it");
+    assert_eq!(ids.len(), 4);
+    assert_eq!(ids[3], "it");
 }
 
 #[test]
 fn concurrent_column_inserts_are_both_kept() {
     let merged = exchange(
         &table_deck(),
-        vec![data_op(DataOp::InsertColumn { at: 2, cells: cells(json!(["Stock", 1, 2])), id: Some("stock".into()) })],
-        vec![data_op(DataOp::InsertColumn { at: 1, cells: cells(json!(["Code", "f", "d"])), id: Some("code".into()) })],
+        vec![insert_column("stock", "ventes", "Stock", json!({ "fr": 1, "de": 2 }))],
+        vec![insert_column("code", "pays", "Code", json!({ "fr": "f", "de": "d" }))],
     );
     assert_eq!(
         merged_source(&merged),
@@ -747,17 +803,21 @@ fn concurrent_column_inserts_are_both_kept() {
 
 #[test]
 fn concurrent_row_remove_and_other_row_edit_merge() {
-    let merged = exchange(&table_deck(), vec![data_op(DataOp::RemoveRow { at: 1 })], vec![set_cell(2, 1, json!(21))]);
+    let merged = exchange(
+        &table_deck(),
+        vec![data_op(TableOp::RemoveRow { row: "fr".into() })],
+        vec![set_cell("de", "ventes", json!(21))],
+    );
     assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["DE", 21]])));
-    assert_eq!(table_ids(&merged).0, vec!["h", "de"]);
+    assert_eq!(table_ids(&merged).0, vec!["de"]);
 }
 
 #[test]
 fn concurrent_column_insert_and_cell_edit_merge() {
     let merged = exchange(
         &table_deck(),
-        vec![data_op(DataOp::InsertColumn { at: 2, cells: cells(json!(["Stock", 1, 2])), id: None })],
-        vec![set_cell(1, 1, json!(11))],
+        vec![insert_column("stock", "ventes", "Stock", json!({ "fr": 1, "de": 2 }))],
+        vec![set_cell("fr", "ventes", json!(11))],
     );
     assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes", "Stock"], ["FR", 11, 1], ["DE", 20, 2]])));
 }
@@ -766,8 +826,8 @@ fn concurrent_column_insert_and_cell_edit_merge() {
 fn concurrent_row_insert_and_column_insert_leave_new_row_aligned() {
     let merged = exchange(
         &table_deck(),
-        vec![data_op(DataOp::InsertRow { at: 3, cells: cells(json!(["IT", 30])), id: Some("it".into()) })],
-        vec![data_op(DataOp::InsertColumn { at: 2, cells: cells(json!(["Stock", 1, 2])), id: Some("stock".into()) })],
+        vec![insert_row("it", Some("de"), json!({ "pays": "IT", "ventes": 30 }))],
+        vec![insert_column("stock", "ventes", "Stock", json!({ "fr": 1, "de": 2 }))],
     );
     assert_eq!(
         merged_source(&merged),
@@ -778,7 +838,7 @@ fn concurrent_row_insert_and_column_insert_leave_new_row_aligned() {
 /// A et B retirent la même chose (`change`), échangent, annulent chacun,
 /// échangent encore ; puis chacun réécrit le deck relu et ils échangent une
 /// dernière fois. Le deck commun après la double annulation.
-fn removed_by_both_then_undone_by_both(change: DataOp) -> Deck {
+fn removed_by_both_then_undone_by_both(change: TableOp) -> Deck {
     let (deck, mut a, mut b) = table_peers();
     let removed = with_ops(&deck, vec![data_op(change)]);
     ok(a.apply(&removed, "A", None));
@@ -802,18 +862,21 @@ fn removed_by_both_then_undone_by_both(change: DataOp) -> Deck {
     merged
 }
 
+/// Deck data repairs the restored copy rather than dropping it: ids stay unique, and the copy
+/// has no cells (they are keyed by the original id).
 #[test]
 fn same_row_removed_by_both_then_undone_by_both_has_no_duplicate_id() {
-    let merged = removed_by_both_then_undone_by_both(DataOp::RemoveRow { at: 1 });
-    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 10], ["DE", 20]])));
-    assert_eq!(table_ids(&merged).0, vec!["h", "fr", "de"]);
+    let merged = removed_by_both_then_undone_by_both(TableOp::RemoveRow { row: "fr".into() });
+    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 10], [null, null], ["DE", 20]])));
+    assert_eq!(table_ids(&merged).0, vec!["fr", "fr_2", "de"]);
 }
 
 #[test]
 fn same_column_removed_by_both_then_undone_by_both_has_no_duplicate_column() {
-    let merged = removed_by_both_then_undone_by_both(DataOp::RemoveColumn { at: 1 });
-    assert_eq!(merged_source(&merged), source(json!([["Pays", "Ventes"], ["FR", 10], ["DE", 20]])));
-    assert_eq!(table_ids(&merged).1, vec!["pays", "ventes"]);
+    let merged = removed_by_both_then_undone_by_both(TableOp::RemoveColumn { column: "ventes".into() });
+    let expected = json!([["Pays", "Ventes", "Ventes"], ["FR", 10, null], ["DE", 20, null]]);
+    assert_eq!(merged_source(&merged), source(expected));
+    assert_eq!(table_ids(&merged).1, vec!["pays", "ventes", "ventes_2"]);
 }
 
 /// Les éléments `id` de `s-constat`, avec leur slot.

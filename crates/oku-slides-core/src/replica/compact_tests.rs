@@ -238,7 +238,7 @@ fn merge_report_does_not_count_the_compaction() {
     let b = reopen(&r, now(), DELAY);
     assert_that!(deleted(&b, points)).named("précondition").is_true();
     let report = a.merge(&b).unwrap_or_else(|e| panic!("{e}"));
-    assert_that!(report).is_equal_to(MergeReport { changes: 0, authors: Vec::new(), anonymous: 0 });
+    assert_that!(report).is_equal_to(MergeReport { changes: 0, authors: Vec::new(), anonymous: 0, lost: Vec::new() });
 }
 
 /// Mesure t-770 : 40 slides × 20 éléments, ~10 000 nœuds marqués, avant et après compaction.

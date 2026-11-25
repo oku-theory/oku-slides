@@ -8,7 +8,7 @@ use oku_slides_core::{
     kinds::{base, essentiel},
 };
 
-use super::{Charts, SVG_FIELD, TextSizes, text_sizes};
+use super::{Charts, ERROR_FIELD, MAX_VALUES, SVG_FIELD, TextSizes, text_sizes};
 use crate::fonts::Fonts;
 use crate::world::file_id;
 
@@ -95,7 +95,7 @@ fn set_labels_names_unnamed_series_in_the_user_language() {
         "series": [{ "type": "bar", "data": [1, 2] }, { "type": "bar", "data": [2, 1] }]
     });
     let mut charts = Charts::default();
-    charts.set_labels(ChartLabels::new(&Localizer::new(Some("fr"))));
+    charts.set_labels(ChartLabels::new(&Localizer::new(Some("fr"))), "fr");
     let mut d = deck(&inline, None);
     charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(svg(&charts, &key(&d).unwrap())).contains("Série 2");
@@ -107,7 +107,7 @@ fn set_labels_then_attach_redraws_with_new_key() {
     let mut d = deck(&bars(), None);
     charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     let english = key(&d);
-    charts.set_labels(ChartLabels::new(&Localizer::new(Some("fr"))));
+    charts.set_labels(ChartLabels::new(&Localizer::new(Some("fr"))), "fr");
     charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(key(&d)).is_not_equal_to(english);
     assert_that!(charts.files.len()).is_equal_to(1);
@@ -236,4 +236,53 @@ fn attach_deck_without_language_keeps_plain_numbers() {
     let mut d = deck(&labelled(), None);
     charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
     assert_that!(svg(&charts, &key(&d).unwrap())).contains("12345.5");
+}
+
+/// Bars over `rows` rows of two cells: `2 + 2 * rows` values, one more with a title.
+fn bars_of(rows: usize, title: bool) -> serde_json::Value {
+    let mut source = vec![json!(["Mois", "Ventes"])];
+    source.extend((1..rows).map(|i| json!([format!("m{i}"), i])));
+    let mut option =
+        json!({ "dataset": { "source": source }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] });
+    if title {
+        option["title"] = json!({ "text": "t" });
+    }
+    option
+}
+
+fn chart_field(deck: &serde_json::Value, field: &str) -> serde_json::Value {
+    deck["slides"][0]["params"]["blocks"][0]["params"]["children"][0][field].clone()
+}
+
+#[rstest::rstest]
+#[case::at_the_bound(false, true)]
+#[case::one_over(true, false)]
+fn chart_max_values(#[case] title: bool, #[case] drawn: bool) {
+    let option = bars_of(MAX_VALUES / 2 - 1, title);
+    assert_that!(super::count_values(&option)).is_equal_to(MAX_VALUES + usize::from(title));
+    let mut charts = Charts::default();
+    let fr = Localizer::new(Some("fr"));
+    charts.set_labels(ChartLabels::new(&fr), "fr");
+    let mut d = deck(&option, None);
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
+    assert_that!(key(&d).is_some()).is_equal_to(drawn);
+    let expected = if drawn {
+        serde_json::Value::Null
+    } else {
+        let args = [("count", (MAX_VALUES + 1).into()), ("max", MAX_VALUES.into())];
+        json!(fr.tr_with("render-chart-too-many-values", &args))
+    };
+    assert_that!(chart_field(&d, ERROR_FIELD)).is_equal_to(expected);
+}
+
+#[test]
+fn view_without_dataset_draws_failure_frame() {
+    // A view whose data did not resolve keeps its option without a dataset: no drawing, no
+    // too-many-values text, so Typst shows the plain failure frame.
+    let option = json!({ "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] });
+    let mut charts = Charts::default();
+    let mut d = deck(&option, None);
+    charts.attach(&mut d, &Fonts::default(), &registry()).unwrap();
+    assert_that!(key(&d)).is_none();
+    assert_that!(chart_field(&d, ERROR_FIELD)).is_equal_to(serde_json::Value::Null);
 }

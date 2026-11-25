@@ -1,4 +1,5 @@
-// The data pane: the selected chart's or table's data, under the stage.
+// The data pane, under the stage: the selected chart's or table's data, or a data opened from the
+// side panel's Data tab or a view's data name (`data-sheet`, paged).
 
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -13,7 +14,7 @@ import type { HostSettings as Settings } from "./useHostSettings";
 
 /** What the data pane shows and what it triggers. */
 export interface DataPaneProps {
-  /** The selected chart's or table's `host-data` surface; none: the pane draws nothing. */
+  /** The `host-data` surface of the selection, or the `data-sheet` of an opened data; none: the pane draws nothing. */
   data: Settings;
   /** A surface action of the pane; `true` if it was taken. */
   onAction(s: Surface, a: A2uiClientAction): boolean;

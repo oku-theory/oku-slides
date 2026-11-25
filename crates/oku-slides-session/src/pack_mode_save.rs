@@ -27,7 +27,7 @@ use crate::builtin_labels::{builtin_pack_of, inline_labels};
 use crate::deck_closure::{closure_with_files, examples_requires};
 use crate::deck_pack_tab::SendBase;
 use crate::error::{NotEditingPackSnafu, PackJsonSnafu, PackManifestSnafu, PackVersionMissingSnafu, SourcesSnafu};
-use crate::example_text::localized_examples;
+use crate::example_text::{localized_data, localized_examples};
 use crate::library::{DraftWrite, draft_lock};
 use crate::library_packs::PackLibrary;
 use crate::namespace_slug::{library_namespace, rename_namespace};
@@ -89,14 +89,15 @@ impl Session {
         };
         let source = kept.as_ref().map(|m| m.id);
         // Ses jetons de composant suivent la version d'où il part.
-        let (description, mut examples, styles, requires, profiles, tokens, order, guides) = kept
-            .map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens, m.order, m.guides))
+        let (description, mut examples, styles, requires, profiles, tokens, order, guides, mut data) = kept
+            .map(|m| (m.description, m.examples, m.styles, m.requires, m.profiles, m.tokens, m.order, m.guides, m.data))
             .unwrap_or_default();
         // La copie d'un pack intégré ne l'est plus : ses textes d'exemple s'écrivent en clair, dans la langue courante.
         if let Some(source) = source.filter(|_| fresh) {
             for values in examples.values_mut() {
                 *values = localized_examples(source, values, &self.localizer);
             }
+            data = localized_data(source, &data, &self.localizer);
         }
         let mut manifest = PackManifest {
             id,
@@ -113,6 +114,7 @@ impl Session {
             tokens,
             order,
             guides,
+            data,
         };
         // Ses besoins suivent ce qu'emploient ses exemples (`base/text`…).
         manifest.requires = examples_requires(&manifest.namespace, &manifest);

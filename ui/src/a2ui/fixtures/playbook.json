@@ -11,7 +11,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Column-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -62,7 +62,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Card-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -104,7 +104,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Card-accent",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -147,7 +147,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Card-danger",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -190,7 +190,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Text-h4",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -228,7 +228,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Text-body",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -266,7 +266,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Text-caption",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -304,7 +304,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Text-note",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -342,7 +342,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Text-bound",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -383,7 +383,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-TextField-bound",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -430,7 +430,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-TextField-with-help",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -478,7 +478,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-RichTextField-bound",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -546,7 +546,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Stepper-bounded",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -595,7 +595,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Row-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -646,7 +646,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Button-suggest",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -691,7 +691,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Button-primary",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -734,7 +734,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Button-danger",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -777,7 +777,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Button-icon",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -820,7 +820,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ChoiceChips-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -880,7 +880,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Slider-stepped",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -930,7 +930,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ColorField-palette",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -982,7 +982,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Select-with-hints",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1045,7 +1045,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Switch-bound",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1092,7 +1092,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Switch-with-help",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1140,7 +1140,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ListTable-flat",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1236,7 +1236,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ListTable-nested",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1391,7 +1391,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-SlideThumb-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1434,7 +1434,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ThemeChoice-active",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1486,7 +1486,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ThemeChoice-no-thumbnail",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1537,7 +1537,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-DiffText-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1591,7 +1591,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Prompt-with-image",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1635,7 +1635,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Timeline-expanded",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1697,7 +1697,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Timeline-collapsed",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1759,7 +1759,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Receipt-with-slide",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1805,7 +1805,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Disclosure-collapsed",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1848,7 +1848,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Disclosure-open",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1892,7 +1892,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Badge-neutral",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1929,7 +1929,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Badge-accent",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1967,7 +1967,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Badge-danger",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2005,7 +2005,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Markdown-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2042,7 +2042,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-Notice-with-button",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2098,7 +2098,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-ChartData-bar",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2127,6 +2127,15 @@
                   4
                 ]
               ],
+              "row_ids": [
+                "jan",
+                "feb"
+              ],
+              "column_ids": [
+                "month",
+                "sales",
+                "target"
+              ],
               "checkbox_columns": [],
               "stacked": false,
               "series": [
@@ -2142,6 +2151,23 @@
                 "#1f4e79",
                 "#c2573a",
                 "#2f855a"
+              ],
+              "data": {
+                "id": "sales",
+                "name": "sales",
+                "label": "Monthly sales",
+                "users": 2
+              },
+              "choices": [
+                {
+                  "id": "sales",
+                  "name": "sales",
+                  "label": "Monthly sales"
+                },
+                {
+                  "id": "budget",
+                  "name": "budget"
+                }
               ],
               "edit": {
                 "path": "/edit"
@@ -2183,7 +2209,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "playbook-TableData-default",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2204,12 +2230,30 @@
                   null
                 ]
               ],
+              "row_ids": [
+                "r1"
+              ],
+              "column_ids": [
+                "a",
+                "b"
+              ],
               "header_row": true,
               "header_column": false,
               "striped": true,
               "align": [
                 "auto",
                 "end"
+              ],
+              "data": {
+                "id": "scores",
+                "name": "scores",
+                "users": 1
+              },
+              "choices": [
+                {
+                  "id": "scores",
+                  "name": "scores"
+                }
               ],
               "edit": {
                 "path": "/edit"
@@ -2232,6 +2276,239 @@
         "version": "v0.9",
         "updateDataModel": {
           "surfaceId": "playbook-TableData-default",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "DataList",
+    "variant": "default",
+    "note": "The deck's data: size, views, one unused.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-DataList-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-DataList-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-DataList-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "DataList",
+              "rows": [
+                {
+                  "id": "sales",
+                  "name": "sales",
+                  "label": "Monthly sales",
+                  "kind": "manual",
+                  "columns": 3,
+                  "rows": 12,
+                  "users": [
+                    {
+                      "slide": "s1",
+                      "element": "ch1",
+                      "label": "Slide 1 · ch1"
+                    },
+                    {
+                      "slide": "s3",
+                      "element": "tb1",
+                      "label": "Slide 3 · tb1"
+                    }
+                  ]
+                },
+                {
+                  "id": "budget",
+                  "name": "budget",
+                  "kind": "manual",
+                  "columns": 3,
+                  "rows": 12,
+                  "users": []
+                }
+              ],
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-DataList-default",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "DataList",
+    "variant": "refused",
+    "note": "A removal refused: the views that use it, inline.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-DataList-refused",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-DataList-refused",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-DataList-refused",
+          "components": [
+            {
+              "id": "root",
+              "component": "DataList",
+              "rows": [
+                {
+                  "id": "sales",
+                  "name": "sales",
+                  "kind": "manual",
+                  "columns": 3,
+                  "rows": 12,
+                  "users": [
+                    {
+                      "slide": "s1",
+                      "element": "ch1",
+                      "label": "Slide 1 · ch1"
+                    }
+                  ],
+                  "error": "Data used by ch1"
+                }
+              ],
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-DataList-refused",
+          "value": {
+            "edit": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "component": "DataSheet",
+    "variant": "default",
+    "note": "One data's rows, a page at a time, with its column types.",
+    "group": "host_only",
+    "agent": false,
+    "surface": "playbook-DataSheet-default",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "playbook-DataSheet-default",
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "playbook-DataSheet-default",
+          "components": [
+            {
+              "id": "root",
+              "component": "DataSheet",
+              "data": {
+                "id": "sales",
+                "name": "sales",
+                "users": 1
+              },
+              "source": [
+                [
+                  "Month",
+                  "Sales"
+                ],
+                [
+                  "Jan",
+                  3
+                ],
+                [
+                  "Feb",
+                  5
+                ]
+              ],
+              "row_ids": [
+                "jan",
+                "feb"
+              ],
+              "column_ids": [
+                "month",
+                "sales"
+              ],
+              "types": [
+                "text",
+                "number"
+              ],
+              "offset": 0,
+              "total": 2,
+              "edit": {
+                "path": "/edit"
+              },
+              "action": {
+                "event": {
+                  "name": "data",
+                  "context": {
+                    "edit": {
+                      "path": "/edit"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateDataModel": {
+          "surfaceId": "playbook-DataSheet-default",
           "value": {
             "edit": null
           }

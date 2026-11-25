@@ -589,6 +589,10 @@ transcribe wav model="parakeet" lang="":
 test-apple:
     cargo nextest run -p oku-slides-stt --run-ignored ignored-only -E 'binary_id(oku-slides-stt::apple) | test(/^apple::/)'
 
+# The deck at every data bound, in release: a debug build rereads the whole deck after each edit (t-1690).
+test-bounds:
+    cargo nextest run --release -p oku-slides-session -E 'test(/worst_case/)'
+
 # Tests against the real LibreOffice (it opens in the Dock), ignored by `just test` (t-960).
 # Fails first when a test ignored for real LibreOffice escapes the name filter, e.g. once renamed (t-1385).
 test-soffice:

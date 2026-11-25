@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::kinds::essentiel::CONTENT;
 use proptest::prelude::*;
 use serde_json::{Value, json};
@@ -25,18 +23,7 @@ fn bold(t: &str) -> Run {
 fn deck_with(elements: Vec<Element>) -> Deck {
     let mut slide = Slide::new("s", CONTENT);
     slide.params.set("blocks", ParamValue::Slot(elements));
-    Deck {
-        version: DECK_VERSION,
-        theme: None,
-        themes: BTreeMap::new(),
-        params: DeckParams::default(),
-        vars: BTreeMap::default(),
-        tokens: Value::Null,
-        widgets: BTreeMap::default(),
-        layouts: BTreeMap::default(),
-        knowledge: BTreeMap::default(),
-        slides: vec![slide],
-    }
+    Deck { slides: vec![slide], ..Default::default() }
 }
 
 fn text(runs: Vec<Run>) -> Deck {
@@ -433,19 +420,7 @@ fn deck() -> impl Strategy<Value = Deck> {
                 number(&mut s.params, &mut next);
             }
             let params = DeckParams { title, author, date, ..Default::default() };
-            let (widgets, layouts) = Default::default();
-            Deck {
-                version: DECK_VERSION,
-                theme: None,
-                themes: BTreeMap::new(),
-                params,
-                vars,
-                tokens,
-                widgets,
-                layouts,
-                knowledge: BTreeMap::default(),
-                slides,
-            }
+            Deck { params, vars, tokens, slides, ..Default::default() }
         })
 }
 
@@ -565,4 +540,44 @@ fn canonicalize_nested_list_duplicate_ids_are_repaired_within_their_list() {
     let ids: Vec<&str> = step.values.list("taches").unwrap_or_default().iter().map(|t| t.id.as_str()).collect();
     assert_that!(ids.len()).is_equal_to(2);
     assert_that!(ids[0] != ids[1]).is_true();
+}
+
+/// A deck read from JSON with one data `d` whose columns have ids `columns` and rows ids
+/// `rows`, a cell per row in the first column.
+fn data_deck_json(columns: &[&str], rows: &[&str]) -> Result<Deck, crate::DeckJsonError> {
+    let columns: Vec<_> =
+        columns.iter().map(|id| serde_json::json!({ "id": id, "name": "x", "type": "text" })).collect();
+    let cells: serde_json::Map<String, Value> =
+        rows.iter().map(|r| (format!("{r}/{}", columns[0]["id"].as_str().unwrap_or("")), Value::from(*r))).collect();
+    let table = serde_json::json!({ "generation": "g", "columns": columns, "rows": rows, "cells": cells });
+    let mut deck = serde_json::to_value(Deck::default()).unwrap();
+    deck["data"] = serde_json::json!({ "d": { "name": "d", "kind": "manual", "table": table } });
+    Deck::from_json(&deck.to_string())
+}
+
+fn table_of(deck: &Deck) -> &oku_slides_data::Table {
+    &deck.data.values().next().unwrap().table
+}
+
+/// `Rows` cannot hold a repeated id: JSON refuses it, the replica read repairs it
+/// (`replica::data_tests::forged_data_duplicate_row_id_is_repaired_on_read`).
+#[test]
+fn from_json_refuses_duplicate_row_ids() {
+    let deck = data_deck_json(&["c"], &["r", "r"]);
+    assert_that!(deck.map(|_| ()).map_err(|e| e.kind())).is_equal_to(Err(crate::DeckJsonErrorKind::Unreadable));
+}
+
+#[test]
+fn from_json_repairs_duplicate_column_ids() {
+    let deck = data_deck_json(&["c", "c"], &["r"]).unwrap();
+    let ids: Vec<&str> = table_of(&deck).columns.iter().map(|c| c.id.as_str()).collect();
+    assert_that!(ids).is_equal_to(vec!["c", "c_2"]);
+}
+
+#[test]
+fn canonicalize_leaves_canonical_data_unchanged() {
+    let mut deck = data_deck_json(&["c", "c", "c"], &["r", "s"]).unwrap();
+    let once = deck.clone();
+    canonicalize(&mut deck);
+    assert_that!(deck).is_equal_to(once);
 }

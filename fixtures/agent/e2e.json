@@ -14,8 +14,8 @@
     "modifie le graphique des ventes": {
       "mcp": [
         { "tool": "apply", "args": { "label": "Ventes de janvier", "ops": [
-          { "op": "set_data", "target": { "slide": "s-ventes", "element": "e-ventes" }, "param": "option",
-            "change": { "op": "set_cell", "row": 1, "col": 1, "value": 9 } }
+          { "op": "edit_data", "data": "d-ventes",
+            "change": { "op": "set_cell", "row": "jan", "column": "ventes", "value": 9 } }
         ] } },
         { "tool": "report", "args": { "title": "Graphique mis à jour", "facts": ["2 séries"] } }
       ],

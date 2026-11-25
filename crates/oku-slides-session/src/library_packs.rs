@@ -380,6 +380,7 @@ impl PackLibrary {
             tokens: Vec::new(),
             order: Vec::new(),
             guides: Guides::default(),
+            data: BTreeMap::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         let write = self.draft_write(&lock, id, None);

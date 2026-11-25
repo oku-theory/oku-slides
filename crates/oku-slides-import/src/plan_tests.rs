@@ -6,6 +6,8 @@ use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
 
+use oku_slides_i18n::Localize;
+
 use super::*;
 use crate::report::{ImportReport, Mode};
 use crate::source::{Frame, Item, ItemKind, TextBox};
@@ -184,4 +186,43 @@ fn budget_take_json_that_cannot_serialize_does_not_fit() {
     let v = BTreeMap::from([(vec![1u8], 1u8)]);
     let mut budget = Budget { left: 1 << 20 };
     assert_that!(budget.take_json(&v)).is_false();
+}
+
+/// A deck with the built-in pins, and the op adding slide `s1` showing `kind` on `option`.
+fn deck_and_view(kind: &str, option: serde_json::Value) -> (oku_slides_core::Deck, WidgetRegistry, Vec<Op>) {
+    let registry = crate::test_support::registry();
+    let mut deck = oku_slides_core::Deck::empty();
+    oku_slides_core::apply_all(&mut deck, crate::test_support::builtin_pins(), &registry).unwrap();
+    let mut slide = Slide::new("s1", oku_slides_core::kinds::essentiel::CONTENT);
+    let view = crate::test_support::element_with("v", kind, "option", option);
+    slide.params.set("blocks", oku_slides_core::ParamValue::Slot(vec![view]));
+    (deck, registry, vec![Op::AddSlide { index: None, defaults: false, slide }])
+}
+
+#[test]
+fn prepared_row_cut_warns_data_adjusted_in_the_user_language() {
+    let option = json!({ "dataset": { "source": [["N", "V"], ["a", 1], ["b", 1, "extra"]] },
+        "xAxis": { "type": "category" }, "yAxis": { "type": "value" }, "series": [{ "type": "bar" }] });
+    let (deck, registry, ops) = deck_and_view(base::CHART, option);
+    let mut warnings = Vec::new();
+    prepared(&deck, &registry, ChartLabels::english(), ops, &mut warnings).unwrap();
+    let kinds: Vec<&WarningKind> = warnings.iter().map(|w| &w.kind).collect();
+    assert_that!(kinds).is_equal_to(vec![&WarningKind::DataAdjusted { key: "data-row-cut", count: 1 }]);
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(warnings[0].localize(&fr)).is_equal_to(fr.tr_with("data-row-cut", &[("count", 1.into())]));
+}
+
+/// Default column names are stored data, named once in the importing user's language.
+#[test]
+fn prepared_names_default_columns_with_the_given_labels() {
+    let option = json!({ "xAxis": { "type": "category", "data": ["a", "b"] },
+        "yAxis": { "type": "value" }, "series": [{ "type": "bar", "data": [1, 2] }] });
+    let (deck, registry, ops) = deck_and_view(base::CHART, option);
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    let ops = prepared(&deck, &registry, &ChartLabels::new(&fr), ops, &mut Vec::new()).unwrap();
+    let mut applied = deck.clone();
+    oku_slides_core::apply_all(&mut applied, ops, &registry).unwrap();
+    let names: Vec<String> =
+        applied.data.values().flat_map(|d| d.table.columns.iter().map(|c| c.name.clone())).collect();
+    assert_that!(names).contains(fr.tr("chart-default-category"));
 }

@@ -13,15 +13,16 @@ use std::collections::BTreeMap;
 use std::io;
 use std::ops::Deref;
 
-use oku_slides_core::{Op, PackFiles, WidgetSchema};
+use oku_slides_chart::ChartLabels;
+use oku_slides_core::{Deck, Op, Origin, PackFiles, PrepareCtx, WidgetRegistry, WidgetSchema, prepare_ops};
 use oku_slides_i18n::Localizer;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::error::{ImportError, output_too_large};
+use crate::error::{ImportError, output_too_large, plan_unprepared, plan_warning_uncounted};
 use crate::limits::ReadLimits;
 use crate::report::ImportReport;
-use crate::source::{Asset, Item};
+use crate::source::{Asset, Item, Warning, WarningKind};
 
 /// Un motif récurrent sans widget dédié, rendu par un repli.
 ///
@@ -240,6 +241,40 @@ impl io::Write for Budget {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+}
+
+/// `ops` as the session will apply them on `deck`: every id they leave out drawn.
+///
+/// Inline chart and table data becomes deck data, its default column names in `labels`;
+/// what that conversion changes (a value not finite, a row cut to its header) joins
+/// `warnings` as `DataAdjusted`.
+///
+/// # Errors
+///
+/// `PlanRefused` when the core refuses the batch before it applies, or warns without a
+/// count: a bug, the plan being valid by construction.
+pub(crate) fn prepared(
+    deck: &Deck,
+    registry: &WidgetRegistry,
+    labels: &ChartLabels,
+    ops: Vec<Op>,
+    warnings: &mut Vec<Warning>,
+) -> Result<Vec<Op>, ImportError> {
+    let mut ids = oku_slides_data::new_id;
+    let mut ctx = PrepareCtx { deck, registry, labels, ids: &mut ids, origin: Origin::Host };
+    let prepared = prepare_ops(ops, &mut ctx).map_err(plan_unprepared)?;
+    for issue in &prepared.warnings {
+        let key = issue.message.id();
+        let count = issue.message.number("count").ok_or_else(|| plan_warning_uncounted(key))?;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the core counts with a usize, which f64 holds exactly here"
+        )]
+        let count = count as u64;
+        warnings.push(Warning { slide: None, item: None, kind: WarningKind::DataAdjusted { key, count } });
+    }
+    Ok(prepared.ops)
 }
 
 #[cfg(test)]

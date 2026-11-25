@@ -5,7 +5,6 @@ op-index-out-of-range = 位置超出范围
 op-invalid-value = { $subject } 的值无效
 op-invalid-value-because = { $subject } 的值无效：{ $reason }
 op-value-no-value = 该参数没有值
-op-value-no-dataset = 图表没有数据集
 op-value-grid-tracks = 网格的列数和行数为 1 到 24
 op-value-bad-item-id = 项目 ID 是不含“/”的非空文本
 op-value-missing-item-id = 每个项目都需要一个 ID
@@ -143,12 +142,14 @@ op-choice-out-of-range = { $subject } 不允许此值
 transaction-refused = 操作 { $index } 被拒绝：{ $reason }
 
 sources-unreadable = 源文件无法读取
+deck-inline-data = 元素 { $element } 把数据存放在选项中：此演示文稿文件不是当前格式
 sources-not-sources = 这不是 Oku Slides 源文件归档
 sources-unsupported-version = 这些源文件由更新版本的 Oku Slides 写入
 sources-bad-name = 源文件中的文件名被拒绝
 sources-missing-deck = 源文件中缺少演示文稿
 sources-too-large = 此文件中的源文件过大，无法打开
 sources-too-deep = 此演示文稿的元素嵌套过深
+sources-base-refused = 此演示文稿的一个数据文件已损坏或无法存储
 
 issue-empty-slide-id = 幻灯片标识符为空
 issue-duplicate-slide-id = 幻灯片标识符重复
@@ -195,13 +196,43 @@ usage-range-reversed = 开始日期 { $since } 晚于结束日期 { $until }。
 pack-token-entry-invalid = 包清单中的组件令牌“{ $path }”无效。
 pack-manifest-json = 无法读取包清单：{ $reason }
 pack-manifest-order = 包的条目顺序在“{ $name }”处无效。
+pack-manifest-data-count = 该包包含 { $count }个数据，最多 { $max }个。
+pack-manifest-data-base = 包中的数据“{ $data }”引用了外部文件；包的数据应包含自己的单元格。
+pack-manifest-data-cells = 包的数据包含 { $count }个单元格，最多 { $max }个。
 issue-unsupported-link = 不支持的链接：{ $link }
 issue-highlight-zero = 高亮颜色从 1 开始编号
 issue-unreadable-element = 无法读取的元素，已移出
 issue-slot-repaired = 元素没有已知的插槽，已放入 { $slot }
 issue-unreadable-item = 无法读取的列表项，已移出
 issue-unreadable-row = 无法读取的表格行，已移出
-issue-data-truncated = 数据过大，读取时已截断
+issue-data-truncated = 数据“{ $data }”过大，读取时已截断并设为只读
+issue-data-name-taken = 数据名称“{ $data }”已被使用
+issue-data-cell-type = 数据“{ $data }”：列“{ $column }”包含不属于 { $type } 类型的值
+issue-data-too-many = 演示文稿中的数据过多（{ $count }）；未读取：{ $dropped }
+issue-data-base-missing = 数据“{ $data }”：缺少其基础文件，已设为只读
+issue-data-edits-lost = 数据“{ $data }”：对已替换表格的编辑在合并时丢失
+issue-data-inline-dropped = 元素 { $element }：旧版本把其图表或表格的数据存放在选项中；这些数据已被移除
+issue-more = 另有{ $count }个问题未显示
+op-data-deck-full = 演示文稿的数据将超出上限：{ $what ->
+    [row-ids] 行 ID
+    [overlay] 已编辑单元格
+    [text] 文本字节
+   *[data] 数据
+}最多 { $max }
+op-data-missing = 未找到数据“{ $data }”
+op-data-name-taken = 数据名称“{ $name }”已被使用
+op-data-column-in-use = 列“{ $column }”正由 { $views } 显示；请先将它们绑定到其他列（使用 columns 的 bind_data）
+op-data-in-use = 此数据由 { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}等另外 { $more }个视图
+}显示；请先删除它们或将其绑定到其他数据
+op-data-column-missing = 数据“{ $data }”没有列“{ $column }”
+op-data-not-view = 参数“{ $param }”无法显示数据：只有图表或表格选项可以
+op-data-truncated = 数据“{ $data }”在读取时被截断，为只读；如需编辑，请替换其整个表格
+op-data-rebind = 元素 { $subject } 已显示其他数据；如需更改，请使用 bind_data
+op-data-internal = 批处理不能设置表格的基础或覆盖层
+op-data-batch-too-large = 批处理过大：单元格数 { $count }，最多 { $max }
+op-data-inline = 元素 { $subject } 的数据放在其选项中；请用 add_data 将其添加为演示文稿数据，并用 bind_data 绑定
 issue-unreadable-slide = 无法读取的幻灯片，已移出
 issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置
 issue-knowledge-unreadable = 无法读取的知识条目 { $id }，已移出
@@ -276,3 +307,12 @@ issue-empty-item-id = 列表 { $param } 中有项目没有标识符
 issue-duplicate-item-id = 列表 { $param } 中有重复的项目标识符
 issue-invalid-item-id = 列表 { $param } 有包含斜杠的项目标识符
 issue-list-bounds = 列表 { $param } 的项目过少或过多
+issue-view-truncated = { $element }只显示部分数据（{ $what ->
+    [rows] 行
+   *[columns] 列
+}：{ $total }中的{ $shown }）
+issue-render-budget = 未绘制{ $element }：演示文稿的视图读取的数据超过一次渲染允许的量
+issue-data-missing = { $element }引用的数据“{ $data }”不在演示文稿中
+issue-view-column-missing = { $element }读取的列“{ $column }”不在其数据中
+issue-view-unreadable = 未绘制{ $element }：无法读取其选项
+op-replica-full = 演示文稿的历史接近 { $max } MiB，即可重新打开的上限：请先删除内容再添加。

@@ -151,3 +151,4 @@ import-warning-unsafe-link = تم رفض الرابط: { $detail }
 import-warning-nesting-too-deep = تداخل عميق جدًا، تم قطعه: { $detail }
 import-warning-font-embedded-unreadable = خط مضمَّن غير مقروء: { $detail }
 import-warning-truncated = تحذيرات كثيرة جدًا: تم حذف التحذيرات التالية
+render-chart-too-many-values = قيم كثيرة جدًا للرسم ({ $count }، الحد الأقصى { $max })

@@ -40,7 +40,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - Lock mutexes with lock().unwrap_or_else(PoisonError::into_inner) instead of unwrapping the poison error. (plan:2026-09-27-sources-loro-historique)
 - Never hold a std::sync::Mutex guard across an await; run synchronous session work in spawn_blocking. (plan:2026-09-27-agent-onglets)
 - Keep each ARCHITECTURE.md at most 50 lines, current, and committed with the code it describes. (plan:2026-10-10-deck-en-arbre)
-- Never add thiserror or chrono. (plan:2026-09-26-agent-vocal, t-5)
+- Never add thiserror or chrono as direct dependencies. (plan:2026-09-26-agent-vocal, t-5, t-1690)
 - Never allow dead_code outside tests/common, and leave no dead code. (plan:2026-10-03-widgets-agent-a2ui)
 - Define CATALOG_ID once in Rust and once in TS with equal values, keeping no older catalog version. (plan:2026-10-03-agent-a2ui)
 - Change the Rust ComponentKind catalog and ui/src/a2ui/catalog.tsx together, in the same commit. (spec:2026-10-03-agent-a2ui-design)
@@ -97,6 +97,7 @@ Read the matching file before touching its directory.
 - `crates/oku-slides-cli/AGENTS.md` — CLI, dev server
 - `crates/oku-slides-core/AGENTS.md` — deck model, ops
 - `crates/oku-slides-core/src/replica/AGENTS.md` — Loro replica
+- `crates/oku-slides-data/AGENTS.md` — data model, table edits, number rules
 - `crates/oku-slides-i18n/AGENTS.md` — Fluent keys, locales
 - `crates/oku-slides-import/AGENTS.md` — PPTX import
 - `crates/oku-slides-local-agent/AGENTS.md` — local fallback agent

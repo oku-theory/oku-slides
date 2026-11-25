@@ -167,3 +167,87 @@ fn apply_setting_a_layout_text_then_emptying_it_in_one_batch_keeps_it_empty() {
     s.apply("Titre", ops, None).unwrap();
     assert_that!(example(&s, "content", "title")).is_equal_to(Some(json!("")));
 }
+
+/// The data of the edited pack's manifest (pack mode).
+fn manifest_data(s: &Session) -> Vec<(String, String)> {
+    let t = s.widget_target(None).unwrap();
+    let m = crate::pack::PackManifest::from_files(&t.files).unwrap();
+    m.data.iter().map(|(id, d)| (id.as_str().to_owned(), d.name.clone())).collect()
+}
+
+#[test]
+fn layout_example_chart_writes_its_data_to_the_manifest() {
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
+    let op = json!({"op": "add_element", "slot": {"owner": {"slide": "layout-content"}, "param": "blocks"},
+        "element": {"id": "c1", "kind": "base/chart",
+            "params": {"option": {"data": "base-example-chart", "xAxis": {"type": "category"}, "series": [{"type": "bar"}]}}}});
+    s.apply("Graphique", vec![serde_json::from_value(op).unwrap()], None)
+        .unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let written = manifest_data(&s);
+    assert_that!(written.iter().map(|(_, name)| name.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["chart"]);
+    // The working deck shows the example from the manifest, its data included.
+    let (id, _) = &written[0];
+    assert_that!(s.deck().data.contains_key(id.as_str())).is_true();
+    let (_, issues) = oku_slides_core::plan_views(s.deck(), &s.registry);
+    assert_that!(issues).is_empty();
+}
+
+#[test]
+fn undo_of_a_layout_example_chart_drops_its_data_from_the_manifest() {
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
+    let op = json!({"op": "add_element", "slot": {"owner": {"slide": "layout-content"}, "param": "blocks"},
+        "element": {"id": "t1", "kind": "base/table", "params": {"data": {"data": "base-example-table"}}}});
+    s.apply("Tableau", vec![serde_json::from_value(op).unwrap()], None).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    s.undo().unwrap();
+    assert_that!(manifest_data(&s)).is_empty();
+    assert_that!(s.deck().data.is_empty()).is_true();
+}
+
+/// `data` labelled `label`.
+fn labelled(data: &std::sync::Arc<oku_slides_data::Data>, label: &str) -> std::sync::Arc<oku_slides_data::Data> {
+    std::sync::Arc::new(oku_slides_data::Data { label: Some(label.to_owned()), ..oku_slides_data::Data::clone(data) })
+}
+
+/// Ops adding the data `id` and a table of the layout `content` showing it.
+fn table_on_content(id: &str) -> Vec<Op> {
+    let table = json!({ "generation": "g1", "columns": [{ "id": "c1", "name": "Month" }],
+        "rows": [{ "id": "r1", "cells": ["Jan"] }] });
+    let add = json!({ "op": "add_data", "id": id, "name": format!("sales{id}"), "table": table });
+    let element = json!({"op": "add_element", "slot": {"owner": {"slide": "layout-content"}, "param": "blocks"},
+        "element": {"id": format!("t-{id}"), "kind": "base/table", "params": {"data": {"data": id}}}});
+    vec![serde_json::from_value(add).unwrap(), serde_json::from_value(element).unwrap()]
+}
+
+#[rstest::rstest]
+#[case::unchanged("Ventes", "ftl:example-sales")]
+#[case::edited("Coûts", "Coûts")]
+fn example_data_keeps_the_manifest_form_only_of_unchanged_data(#[case] next_name: &str, #[case] written: &str) {
+    let dir = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(dir.path(), ESSENTIEL_PACK);
+    s.apply("Tableau", table_on_content("d1"), None).unwrap_or_else(|e| panic!("{}", e.one_line()));
+    let id = oku_slides_data::DataId::try_from("d1".to_owned()).unwrap();
+    let mut current = s.deck().clone();
+    let shown = current.data.get(&id).cloned().unwrap();
+    current.data.insert(id.clone(), labelled(&shown, "Ventes"));
+    let mut next = current.clone();
+    next.data.insert(id.clone(), labelled(&shown, next_name));
+    let kept = std::collections::BTreeMap::from([(id, labelled(&shown, "ftl:example-sales"))]);
+    let data = super::example_data(&next, &current, &kept);
+    let labels: Vec<Option<&str>> = data.values().map(|d| d.label.as_deref()).collect();
+    assert_that!(labels).is_equal_to(vec![Some(written)]);
+}
+
+#[test]
+fn layout_examples_naming_more_data_than_a_pack_holds_are_refused() {
+    let data = crate::test_support::fresh_dir("oku-slides-pack-tab-");
+    let mut s = crate::test_support_packs::pack_tab_of(data.path(), ESSENTIEL_PACK);
+    let ops: Vec<Op> = (0..=oku_slides_core::MAX_PACK_DATA).flat_map(|i| table_on_content(&format!("d{i}"))).collect();
+    let before = s.deck().clone();
+    let err = s.apply("Tableaux", ops, None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::SessionErrorKind::InvalidDocument);
+    assert_that!(format!("{err:?}")).contains("Data");
+    assert_that!(manifest_data(&s)).is_empty();
+    assert_that!(*s.deck()).is_equal_to(&before);
+}

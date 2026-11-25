@@ -58,6 +58,7 @@ fn deck() -> Deck {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let files = manifest.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("manifeste : {e}"));
     PackLibrary::user(&platform).add_version(ACME, &files).unwrap_or_else(|e| panic!("bibliothèque : {e}"));

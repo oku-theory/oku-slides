@@ -27,7 +27,7 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::{Fonts, PackSet};
 use oku_slides_session::{
-    PackLibrary, ProbedWidgets, Storage, ThemeLibrary, adopt_default_theme, embed_theme, read_document,
+    PackLibrary, ProbedWidgets, Storage, StoreFiles, ThemeLibrary, adopt_default_theme, embed_theme, read_document,
     repair_theme_closure, sources_theme_layer, sources_with_packs,
 };
 
@@ -222,17 +222,22 @@ fn load_bundle(
     limits: SourceLimits,
     base: &Arc<WidgetRegistry>,
 ) -> Result<(SourceBundle, ProbedWidgets)> {
+    // The deck's data bases go into the store of the CLI's data folder, like the app's.
+    let store = platform.bases().wrap_err_with(|| l.tr("session-bases-unavailable"))?;
     let read = |registry| {
-        read_document(&platform.storage, path, limits, registry)
+        read_document(&platform.storage, path, limits, registry, Some(&StoreFiles::new(&store)))
             .wrap_err_with(|| l.tr_with("cli-reading", &[("path", path.display().to_string().into())]))
     };
     let mut opened = read(base)?;
-    let widgets = ProbedWidgets::probe(platform, base, opened.sources.deck(), &opened.sources.packs)
+    let widgets = ProbedWidgets::probe(platform, Some(&store), base, opened.sources.deck(), &opened.sources.packs)
         .map_err(|e| eyre!(e.localize(l)))?;
     if !Arc::ptr_eq(&widgets.registry, base) {
         // Relu avec les widgets du pack : sa validation ne les dit plus inconnus.
         opened = read(&widgets.registry)?;
     }
+    // Held for the run: another process's collection leaves the bases this one reads.
+    store.lease(&opened.sources.bases)?;
+    widgets.set_known_bases(opened.sources.bases.clone());
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "{}", l.tr("cli-pdf-modified"));
     }
@@ -322,7 +327,8 @@ fn write_rendered(
 ///
 /// `[usage] store_in_deck` off leaves the agent usage ledger out.
 fn sources_zip(platform: &Platform, bundle: &SourceBundle) -> Result<Vec<u8>> {
-    Ok(bundle.to_zip_with(platform.settings.usage.store_in_deck)?)
+    let store = platform.bases().wrap_err_with(|| platform.localizer.tr("session-bases-unavailable"))?;
+    Ok(bundle.to_zip_bases(platform.settings.usage.store_in_deck, Some(&StoreFiles::new(&store)))?)
 }
 
 /// Registre de base des widgets, compilé depuis Typst une fois par processus

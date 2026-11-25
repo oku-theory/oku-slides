@@ -17,6 +17,14 @@
 //!   Otherwise it renders the deck under a new generation (global, increasing counter),
 //!   kept in the slot. Then the assets in none of the `assets` of each slot's last
 //!   `Render` are dropped (the host applies the same rule).
+//! - `PutData` keeps a data of a slot (its JSON payload), with its base path, refused unless
+//!   directly inside the `bases` folder of `Hello`; `PatchData` sets the overlay cells a cell
+//!   edit changed in one it holds; `DropData` forgets some. `Render` answers
+//!   `MissingData` with the listed `data` it lacks, else renders the deck with them.
+//! - `ReadData`, `CompactData` and `CheckColumnType` (the session's data link) read a data's
+//!   base through the engine, after the same path check; `CompactData` writes `out`, refused
+//!   unless directly inside the bases folder or the worker's folder. The data's refusal answers
+//!   `DataRefused`.
 //! - `Svg`, `Png` et `Pdf` d'une génération absente répondent `Error Stale`.
 //! - `Release` retire les générations nommées ; `CloseSlot` l'emplacement.
 //! - `Reference` rend la charge (un `.pptx`) par le témoin nommé (`Office2Pdf`
@@ -31,11 +39,12 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ffi::OsString;
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use oku_slides_core::{Namespace, PackKind, WidgetFile};
+use oku_slides_data::{CellPatch, ColumnType, Data, DataError, DataId, engine};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::storage::Storage;
 use oku_slides_reference::{
@@ -46,6 +55,7 @@ use serde_json::{Map, Value};
 use snafu::Snafu;
 
 use crate::ReferenceWitness;
+use crate::base_files::{BasePaths, check_base_path, check_out_path, open_base};
 use crate::confine;
 use crate::error::FrameError;
 use crate::frame::{FrameLimits, read_frame, write_frame};
@@ -63,6 +73,8 @@ struct Slot {
     renderer: Renderer,
     generations: BTreeMap<u64, Compiled>,
     last_assets: Vec<String>,
+    /// The data `PutData` sent, by id.
+    data: BTreeMap<String, Arc<Data>>,
 }
 
 #[derive(Default)]
@@ -78,6 +90,10 @@ struct Worker {
     storage: Option<Storage>,
     /// Le dossier du travailleur (son TMPDIR), vidé après chaque référence.
     work: Option<PathBuf>,
+    /// The only folder base files are read from (`Hello`), resolved.
+    bases_dir: Option<PathBuf>,
+    /// Base files sent with `PutData`, read by every slot's renderer.
+    base_paths: BasePaths,
 }
 
 /// Serves the requests of `input` until it ends.
@@ -111,6 +127,11 @@ fn serve_watched(
         write_frame(&mut output, &reply, &payload, FrameLimits::uniform(usize::MAX)).map_err(ServeError)?;
     }
     Ok(())
+}
+
+/// A data sent as JSON; unreadable: `Error Frame`.
+fn parse_data(json: &[u8]) -> Result<Data, WireError> {
+    serde_json::from_slice(json).map_err(|e| WireError::Frame { message: format!("data: {e}") })
 }
 
 fn error_reply(error: WireError) -> Reply {
@@ -148,7 +169,7 @@ pub(crate) fn pack_of(p: WirePack) -> Result<PackWidgets, WireError> {
 impl Worker {
     fn handle(&mut self, request: Request, payload: Vec<u8>) -> Reply {
         let result = match request {
-            Request::Hello { canary, .. } => self.hello(canary),
+            Request::Hello { canary, bases, .. } => self.hello(canary, bases),
             Request::SetLanguage { locale } => self.set_language(&locale),
             Request::PutFont { id } => {
                 self.fonts.insert(id, payload);
@@ -175,7 +196,22 @@ impl Worker {
             }
             Request::SetWidgets { slot, packs } => self.set_widgets(slot, packs),
             Request::SetTheme { slot, tokens } => self.set_theme(slot, tokens),
-            Request::Render { slot, deck, assets } => self.render(slot, &deck, assets),
+            Request::PutData { slot, id, base } => self.put_data(slot, id, base.as_deref(), &payload),
+            Request::PatchData { slot, id } => self.patch_data(slot, &id, &payload),
+            Request::DropData { slot, ids } => {
+                if let Some(s) = self.slots.get_mut(&slot) {
+                    for id in ids {
+                        s.data.remove(&id);
+                    }
+                }
+                Ok(ok_reply())
+            }
+            Request::Render { slot, deck, assets, data } => self.render(slot, *deck, assets, &data),
+            Request::ReadData { base, columns, rows, max_cell_chars } => {
+                self.read_data(&payload, &base, columns, rows, max_cell_chars)
+            }
+            Request::CompactData { base, out } => self.compact_data(&payload, base.as_deref(), &out),
+            Request::CheckColumnType { base, column, ty } => self.check_column_type(&payload, &base, &column, ty),
             Request::Svg { slot, generation, page } => {
                 self.with(slot, generation, |c| c.svg(page).map(String::into_bytes))
             }
@@ -206,9 +242,13 @@ impl Worker {
     }
 
     /// Répond `Hello` : la version du travailleur et ce qu'a donné le canari.
-    fn hello(&mut self, canary: Option<PathBuf>) -> Result<Reply, WireError> {
+    fn hello(&mut self, canary: Option<PathBuf>, bases: Option<PathBuf>) -> Result<Reply, WireError> {
         let canary = match canary {
             Some(path) => Some(confine::probe_canary(&self.storage()?, &path)),
+            None => None,
+        };
+        self.bases_dir = match bases {
+            Some(dir) => Some(std::fs::canonicalize(&dir).map_err(|e| setup(format!("bases folder: {e}")))?),
             None => None,
         };
         Ok((Response::Hello { version: PROTOCOL_VERSION, canary }, Vec::new()))
@@ -317,7 +357,9 @@ impl Worker {
         if let Some(l) = &self.localizer {
             renderer.set_language(l).map_err(|e| render_error(&e))?;
         }
-        self.slots.insert(slot, Slot { renderer, generations: BTreeMap::new(), last_assets: Vec::new() });
+        renderer.set_bases(Box::new(self.base_paths.clone()));
+        let s = Slot { renderer, generations: BTreeMap::new(), last_assets: Vec::new(), data: BTreeMap::new() };
+        self.slots.insert(slot, s);
         Ok(ok_reply())
     }
 
@@ -336,14 +378,29 @@ impl Worker {
         Ok(ok_reply())
     }
 
-    fn render(&mut self, slot: SlotId, deck: &oku_slides_core::Deck, assets: Vec<String>) -> Result<Reply, WireError> {
+    fn render(
+        &mut self,
+        slot: SlotId,
+        mut deck: oku_slides_core::Deck,
+        assets: Vec<String>,
+        data: &[String],
+    ) -> Result<Reply, WireError> {
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         // Rendering without them would draw missing-image frames: the host sends them again.
         let missing: Vec<String> = assets.iter().filter(|id| !self.assets.contains_key(*id)).cloned().collect();
         if !missing.is_empty() {
             return Ok((Response::MissingAssets { ids: missing }, Vec::new()));
         }
-        let compiled = s.renderer.render(deck, &self.assets).map_err(|e| render_error(&e))?;
+        let missing: Vec<String> = data.iter().filter(|id| !s.data.contains_key(*id)).cloned().collect();
+        if !missing.is_empty() {
+            return Ok((Response::MissingData { ids: missing }, Vec::new()));
+        }
+        deck.data.clear();
+        for id in data {
+            let key = DataId::try_from(id.clone()).map_err(|e| setup(format!("data id: {e}")))?;
+            deck.data.insert(key, s.data[id].clone());
+        }
+        let compiled = s.renderer.render(&deck, &self.assets).map_err(|e| render_error(&e))?;
         self.next_generation += 1;
         let generation = self.next_generation;
         let page_count = compiled.page_count();
@@ -362,6 +419,74 @@ impl Worker {
         s.last_assets = assets;
         self.evict_assets();
         Ok((Response::Compiled(Box::new(header)), Vec::new()))
+    }
+
+    /// Keeps a data of `slot` under `id`, and its base file once checked.
+    fn put_data(&mut self, slot: SlotId, id: String, base: Option<&Path>, json: &[u8]) -> Result<Reply, WireError> {
+        let data = parse_data(json)?;
+        if let Some(path) = base {
+            let base = data.table.base.as_ref().ok_or_else(|| setup("a base path for a data without base".into()))?;
+            let path = check_base_path(self.bases_dir.as_deref(), path)?;
+            self.base_paths.insert(base.id.clone(), path);
+        }
+        let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
+        s.data.insert(id, Arc::new(data));
+        Ok(ok_reply())
+    }
+
+    fn patch_data(&mut self, slot: SlotId, id: &str, json: &[u8]) -> Result<Reply, WireError> {
+        let patch: CellPatch =
+            serde_json::from_slice(json).map_err(|e| WireError::Frame { message: format!("cell patch: {e}") })?;
+        let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
+        if let Some(data) = s.data.get_mut(id) {
+            *data = Arc::new(patch.applied(data));
+        }
+        Ok(ok_reply())
+    }
+
+    fn read_data(
+        &self,
+        json: &[u8],
+        base: &Path,
+        columns: Option<Vec<String>>,
+        rows: std::ops::Range<usize>,
+        max_cell_chars: usize,
+    ) -> Result<Reply, WireError> {
+        let data = parse_data(json)?;
+        let path = check_base_path(self.bases_dir.as_deref(), base)?;
+        let columns = columns.unwrap_or_else(|| data.table.columns.iter().map(|c| c.id.clone()).collect());
+        let read = open_base(&path)
+            .and_then(|file| engine::read_view(&data.table, file, &columns, rows, max_cell_chars))
+            .map(|read| Response::Read { dataset: read.dataset, misfit: read.misfit.into_iter().collect() });
+        Ok((read.unwrap_or_else(|error| Response::DataRefused { error }), Vec::new()))
+    }
+
+    fn compact_data(&self, json: &[u8], base: Option<&Path>, out: &Path) -> Result<Reply, WireError> {
+        let data = parse_data(json)?;
+        let base = base.map(|b| check_base_path(self.bases_dir.as_deref(), b)).transpose()?;
+        let out = check_out_path(&[self.bases_dir.as_deref(), self.work.as_deref()], out)?;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&out)
+            .map_err(|e| setup(format!("compaction output {}: {e}", out.display())))?;
+        let written = base
+            .as_deref()
+            .map(open_base)
+            .transpose()
+            .and_then(|base| engine::write_base(&data.table, base, &mut file))
+            .and_then(|base| file.sync_all().map(|()| base).map_err(|e| DataError::base_invalid(e.to_string())));
+        Ok((
+            written.map_or_else(|error| Response::DataRefused { error }, |base| Response::Compacted { base }),
+            Vec::new(),
+        ))
+    }
+
+    fn check_column_type(&self, json: &[u8], base: &Path, column: &str, ty: ColumnType) -> Result<Reply, WireError> {
+        let data = parse_data(json)?;
+        let path = check_base_path(self.bases_dir.as_deref(), base)?;
+        let checked = open_base(&path).and_then(|file| engine::check_column_type(&data.table, file, column, ty));
+        Ok((checked.map_or_else(|error| Response::DataRefused { error }, |()| Response::Ok), Vec::new()))
     }
 
     /// Ne garde que les assets du dernier rendu de chaque emplacement (règle partagée avec l'hôte).

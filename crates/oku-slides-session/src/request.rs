@@ -45,7 +45,7 @@ pub struct UiOrder {
 mod request_class;
 
 /// Une requête de l'interface (même forme pour Tauri et HTTP).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum Request {
     /// The state of the open deck (`Snapshot`), without changing anything.
@@ -133,14 +133,14 @@ pub enum Request {
         #[serde(default)]
         value: Option<serde_json::Value>,
     },
-    /// Surface `host-data` (ou `null`) : les données du graphique ou du tableau `element`.
+    /// Surface `host-data` (or `null`): the data of chart or table `element`.
     DataPanel {
         /// Id of the slide that holds the element.
         slide: String,
         /// Id of the chart or table.
         element: String,
     },
-    /// Applique une modification de la surface `host-data` à `element` (annulable).
+    /// Applies an edit of the `host-data` surface to `element` (undoable).
     DataEdit {
         /// Id of the slide that holds the element.
         slide: String,
@@ -148,6 +148,20 @@ pub enum Request {
         element: String,
         /// Change sent by the `host-data` surface.
         edit: crate::DataEdit,
+    },
+    /// Surface `deck-data` (or `null`): the deck's data, their size and views.
+    DataList,
+    /// Surface `data-sheet` (or `null`): the rows of `data` from row `offset`, all its columns.
+    DataSheet {
+        /// Id of the data.
+        data: String,
+        /// Index of the first row shown.
+        offset: usize,
+    },
+    /// Applies an action of the data panel (one undo step).
+    DataAction {
+        /// The action.
+        action: crate::DataAction,
     },
     /// Surface `host-element` (or `null`): the settings of the element `element`.
     ElementPanel {
@@ -465,6 +479,17 @@ pub enum Request {
     },
 }
 
+/// What `Session::prepare` decided for a request: whether it changes the session state, and its
+/// documents.
+pub(crate) struct Prepared {
+    changes: bool,
+    documents: bool,
+}
+
+fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
+    Ok(serde_json::to_string(v).context(ResponseSnafu)?)
+}
+
 impl Session {
     /// Handles a request from the interface and returns the response, as JSON.
     ///
@@ -474,86 +499,7 @@ impl Session {
     /// not serialize (`Response`).
     #[expect(clippy::too_many_lines, reason = "dispatch: one arm per Request variant")]
     pub fn handle(&mut self, req: Request) -> Result<String> {
-        fn json(v: &(impl Serialize + ?Sized)) -> Result<String> {
-            Ok(serde_json::to_string(v).context(ResponseSnafu)?)
-        }
-        if matches!(self.mode, Mode::Pack { .. })
-            && matches!(
-                req,
-                Request::Save { .. }
-                    | Request::EditTheme { .. }
-                    | Request::Merge { .. }
-                    | Request::Move { .. }
-                    | Request::SaveCopy { .. }
-            )
-        {
-            return EditingPackSnafu.fail()?;
-        }
-        if matches!(self.mode, Mode::History { .. }) && (req.edits() || req.reviews_deck_knowledge()) {
-            return InHistorySnafu.fail()?;
-        }
-        // A theme tab takes only its draft's requests; the draft's only fit there.
-        self.ensure_fits(&req)?;
-        // L'aide ne change pas le deck et n'ouvre pas d'historique.
-        if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen)) {
-            return ReadOnlySnafu.fail()?;
-        }
-        // An editor without its pack's or theme's lease takes it before writing, or is refused.
-        if req.writes_edited_draft() {
-            self.ensure_pack_lease()?;
-            self.ensure_theme_lease()?;
-        }
-        // Les commandes modifient la session et renvoient le nouvel état ; les
-        // requêtes renvoient ce qu'elles lisent.
-        // Tout sauf la lecture du snapshot change l'état ; `ui` ne touche pas aux
-        // documents ; `apply` écrit déjà son propre état de reprise (l'agent
-        // l'appelle aussi directement, hors de `handle`), pas la peine de le refaire.
-        // L'historique ne change pas le deck mis de côté, sauf `HistoryRestore`.
-        let (changes, documents) = (
-            !matches!(
-                req,
-                Request::Snapshot
-                    | Request::Apply { .. }
-                    | Request::SetPreviewTheme { .. }
-                    | Request::SetEditedThemeExtends { .. }
-                    | Request::EditThemeExtends { .. }
-                    | Request::RenameEditedTheme { .. }
-                    | Request::HostToken { .. }
-                    | Request::DataEdit { .. }
-                    | Request::ElementParam { .. }
-                    | Request::ElementList { .. }
-                    | Request::UsePackVersion { .. }
-                    | Request::UsePackCopy { .. }
-                    | Request::UseThemeVersion { .. }
-                    | Request::SaveTheme { .. }
-                    | Request::ApproveGuides { .. }
-                    | Request::AcceptReceived { .. }
-                    | Request::LaterReceived { .. }
-                    | Request::KnowledgeReview
-                    | Request::KnowledgeText { .. }
-                    | Request::ApproveKnowledge { .. }
-            ),
-            !matches!(
-                req,
-                Request::Snapshot
-                    | Request::Ui { .. }
-                    | Request::HistoryOpen
-                    | Request::HistorySeek { .. }
-                    | Request::HistoryClose
-            ),
-        );
-        // An edit, even a refused one, makes an agent's close decision stale (`dirty_revision`).
-        if req.changes_deck() {
-            self.note_edit();
-        }
-        // La séance des widgets du mode deck finit à la première autre modification.
-        if req.ends_widget_session() {
-            self.end_widget_session();
-        }
-        // Un thème a pu être enregistré ailleurs (autre onglet) : relu au snapshot demandé.
-        if matches!(req, Request::Snapshot | Request::SetPreviewTheme { .. }) {
-            self.theme_list = self.themes.themes();
-        }
+        let Prepared { changes, documents } = self.prepare(&req)?;
         match req {
             // Another tab may have written the library: the deck's badge recounts, without adopting.
             Request::Snapshot if matches!(self.mode, Mode::Deck) => self.refresh_pack_updates_if_pins_changed(),
@@ -564,6 +510,10 @@ impl Session {
             Request::HostSettings { widget } => return json(&self.host_settings(widget.as_deref())),
             Request::HostTheme { filter } => return json(&self.host_theme(&filter)?),
             Request::DataPanel { slide, element } => return json(&self.data_panel(&slide, &element)),
+            Request::DataList => return json(&self.data_list_surface()),
+            Request::DataSheet { data, offset } => {
+                return json(&self.data_sheet(&data, offset).and_then(crate::data_list::SheetRead::surface));
+            }
             Request::ElementPanel { slide, element } => return json(&self.element_panel(&slide, &element)),
             Request::Schema => return json(&oku_slides_core::ops_schema().context(ResponseSnafu)?),
             Request::Widgets => return json(&*self.registry),
@@ -621,7 +571,7 @@ impl Session {
             Request::Merge { path } => {
                 self.merge_file(&path)?;
             }
-            Request::Apply { label, ops, merge } => self.apply(&label, ops, merge.as_deref())?,
+            Request::Apply { label, ops, merge } => self.apply_folding(&label, ops, merge.as_deref())?,
             Request::SetPreviewTheme { theme } => self.set_preview_theme(&theme)?,
             Request::HostToken { path, action, value } => self.host_token(path, action, value)?,
             Request::SetExampleValue { name, param, value } => {
@@ -631,6 +581,7 @@ impl Session {
                 self.edit_example_list(&name, &param, change)?;
             }
             Request::DataEdit { slide, element, edit } => self.data_edit(slide, &element, edit)?,
+            Request::DataAction { action } => self.data_action(action)?,
             Request::ElementParam { slide, element, key, value } => {
                 self.element_param(&slide, &element, &key, value)?;
             }
@@ -665,6 +616,92 @@ impl Session {
                 self.use_theme_version(theme, &version, &deck_uid)?;
             }
         }
+        self.finish(Prepared { changes, documents })
+    }
+
+    /// The checks and bookkeeping before `req`, and what to do after it.
+    pub(crate) fn prepare(&mut self, req: &Request) -> Result<Prepared> {
+        if matches!(self.mode, Mode::Pack { .. })
+            && matches!(
+                req,
+                Request::Save { .. }
+                    | Request::EditTheme { .. }
+                    | Request::Merge { .. }
+                    | Request::Move { .. }
+                    | Request::SaveCopy { .. }
+            )
+        {
+            return EditingPackSnafu.fail()?;
+        }
+        if matches!(self.mode, Mode::History { .. }) && (req.edits() || req.reviews_deck_knowledge()) {
+            return InHistorySnafu.fail()?;
+        }
+        // A theme tab takes only its draft's requests; the draft's only fit there.
+        self.ensure_fits(req)?;
+        // Help neither changes the deck nor opens a history.
+        if self.help().is_some() && (req.edits() || matches!(req, Request::HistoryOpen)) {
+            return ReadOnlySnafu.fail()?;
+        }
+        // An editor without its pack's or theme's lease takes it before writing, or is refused.
+        if req.writes_edited_draft() {
+            self.ensure_pack_lease()?;
+            self.ensure_theme_lease()?;
+        }
+        // Commands change the session and answer its new state; queries answer what they read.
+        // Everything but reading the snapshot changes the state; `ui` leaves the documents alone;
+        // `apply` already writes its own resume state (the agent also calls it outside `handle`),
+        // no need to redo it. The history leaves the deck set aside alone, but `HistoryRestore`.
+        let (changes, documents) = (
+            !matches!(
+                req,
+                Request::Snapshot
+                    | Request::Apply { .. }
+                    | Request::SetPreviewTheme { .. }
+                    | Request::SetEditedThemeExtends { .. }
+                    | Request::EditThemeExtends { .. }
+                    | Request::RenameEditedTheme { .. }
+                    | Request::HostToken { .. }
+                    | Request::DataEdit { .. }
+                    | Request::DataAction { .. }
+                    | Request::ElementParam { .. }
+                    | Request::ElementList { .. }
+                    | Request::UsePackVersion { .. }
+                    | Request::UsePackCopy { .. }
+                    | Request::UseThemeVersion { .. }
+                    | Request::SaveTheme { .. }
+                    | Request::ApproveGuides { .. }
+                    | Request::AcceptReceived { .. }
+                    | Request::LaterReceived { .. }
+                    | Request::KnowledgeReview
+                    | Request::KnowledgeText { .. }
+                    | Request::ApproveKnowledge { .. }
+            ),
+            !matches!(
+                req,
+                Request::Snapshot
+                    | Request::Ui { .. }
+                    | Request::HistoryOpen
+                    | Request::HistorySeek { .. }
+                    | Request::HistoryClose
+            ),
+        );
+        // An edit, even a refused one, makes an agent's close decision stale (`dirty_revision`).
+        if req.changes_deck() {
+            self.note_edit();
+        }
+        // The deck mode's widget session ends at the first other change.
+        if req.ends_widget_session() {
+            self.end_widget_session();
+        }
+        // A theme may have been saved elsewhere (another tab): read again on a snapshot request.
+        if matches!(req, Request::Snapshot | Request::SetPreviewTheme { .. }) {
+            self.theme_list = self.themes.themes();
+        }
+        Ok(Prepared { changes, documents })
+    }
+
+    /// Persists what `prepared` says changed, then answers the snapshot.
+    pub(crate) fn finish(&mut self, Prepared { changes, documents }: Prepared) -> Result<String> {
         if changes {
             self.persist(documents);
         }

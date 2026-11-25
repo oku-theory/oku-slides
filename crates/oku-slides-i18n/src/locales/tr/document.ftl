@@ -137,3 +137,4 @@ import-warning-unsafe-link = Bağlantı reddedildi: { $detail }
 import-warning-nesting-too-deep = İç içe yerleştirme çok derin, kesildi: { $detail }
 import-warning-font-embedded-unreadable = Gömülü yazı tipi okunamadı: { $detail }
 import-warning-truncated = Çok fazla uyarı: sonrakiler atlandı
+render-chart-too-many-values = çizilecek çok fazla değer ({ $count }, en çok { $max })

@@ -5,7 +5,6 @@ op-index-out-of-range = Positie buiten bereik
 op-invalid-value = Ongeldige waarde voor { $subject }
 op-invalid-value-because = Ongeldige waarde voor { $subject }: { $reason }
 op-value-no-value = de parameter heeft geen waarde
-op-value-no-dataset = de grafiek heeft geen gegevensset
 op-value-grid-tracks = een raster heeft 1 tot 24 kolommen en rijen
 op-value-bad-item-id = een item-id is een niet-lege tekst zonder “/”
 op-value-missing-item-id = elk item heeft een id nodig
@@ -152,12 +151,14 @@ op-choice-out-of-range = Waarde niet toegestaan voor { $subject }
 transaction-refused = Bewerking { $index } geweigerd: { $reason }
 
 sources-unreadable = Onleesbare bronnen
+deck-inline-data = Element { $element } bewaart zijn gegevens in zijn opties: dit deckbestand heeft niet het huidige formaat
 sources-not-sources = Dit is geen Oku Slides-bronarchief
 sources-unsupported-version = Deze bronnen zijn gemaakt met een nieuwere versie van Oku Slides
 sources-bad-name = Geweigerde bestandsnaam in de bronnen
 sources-missing-deck = De presentatie ontbreekt in de bronnen
 sources-too-large = De bronnen in dit bestand zijn te groot om te openen
 sources-too-deep = Deze presentatie nest elementen te diep
+sources-base-refused = Een gegevensbestand van dit deck is beschadigd of kon niet worden opgeslagen
 
 issue-empty-slide-id = lege dia-id
 issue-duplicate-slide-id = dubbele dia-id
@@ -205,13 +206,47 @@ usage-range-reversed = De begindatum { $since } valt na de einddatum { $until }.
 pack-token-entry-invalid = Ongeldig componenttoken “{ $path }” in het pakketmanifest.
 pack-manifest-json = Het pakketmanifest kan niet worden gelezen: { $reason }
 pack-manifest-order = De volgorde van de items van het pack is ongeldig bij “{ $name }”.
+pack-manifest-data-count = Het pakket bevat { $count } gegevens, hoogstens { $max }.
+pack-manifest-data-base = De gegevens ‘{ $data }’ van het pakket verwijzen naar een extern bestand; de gegevens van een pakket bevatten hun eigen cellen.
+pack-manifest-data-cells = De gegevens van het pakket bevatten { $count ->
+    [one] { $count } cel
+   *[other] { $count } cellen
+}, hoogstens { $max }.
 issue-unsupported-link = niet-ondersteunde link: { $link }
 issue-highlight-zero = markeerkleuren worden genummerd vanaf 1
 issue-unreadable-element = onleesbaar element, apart gezet
 issue-slot-repaired = element zonder bekend slot, geplaatst in { $slot }
 issue-unreadable-item = onleesbaar lijstitem, apart gezet
 issue-unreadable-row = onleesbare tabelrij, apart gezet
-issue-data-truncated = gegevens te groot, bij het lezen ingekort
+issue-data-truncated = gegevens ‘{ $data }’ te groot, bij het lezen ingekort en alleen-lezen bewaard
+issue-data-name-taken = de gegevensnaam ‘{ $data }’ is al in gebruik
+issue-data-cell-type = gegevens ‘{ $data }’: kolom ‘{ $column }’ bevat waarden die niet van het type { $type } zijn
+issue-data-too-many = te veel gegevens in de presentatie ({ $count }); niet gelezen: { $dropped }
+issue-data-base-missing = gegevens ‘{ $data }’: het basisbestand ontbreekt, alleen-lezen bewaard
+issue-data-edits-lost = gegevens ‘{ $data }’: wijzigingen aan een vervangen tabel zijn bij het samenvoegen verloren gegaan
+issue-data-inline-dropped = Element { $element }: een oudere versie bewaarde de gegevens van zijn grafiek of tabel in zijn opties; ze zijn verwijderd
+issue-more = meer problemen niet getoond: { $count }
+op-data-deck-full = De gegevens van de presentatie zouden hun limiet overschrijden: hoogstens { $max } { $what ->
+    [row-ids] rij-id's
+    [overlay] gewijzigde cellen
+    [text] bytes tekst
+   *[data] gegevens
+}
+op-data-missing = Gegevens ‘{ $data }’ niet gevonden
+op-data-name-taken = De gegevensnaam ‘{ $name }’ is al in gebruik
+op-data-column-in-use = Kolom ‘{ $column }’ wordt getoond door { $views }; koppel die eerst aan andere kolommen (bind_data met columns)
+op-data-in-use = Deze gegevens worden getoond door { $views }{ $more ->
+    [0] {""}
+    [one] {" "}en { $more } andere weergave
+   *[other] {" "}en { $more } andere weergaven
+}; verwijder ze of koppel ze eerst aan andere gegevens
+op-data-column-missing = Gegevens ‘{ $data }’ hebben geen kolom ‘{ $column }’
+op-data-not-view = Parameter ‘{ $param }’ kan geen gegevens tonen: alleen een grafiek- of tabeloptie kan dat
+op-data-truncated = Gegevens ‘{ $data }’ zijn bij het lezen ingekort en alleen-lezen; vervang de hele tabel om ze te bewerken
+op-data-rebind = Element { $subject } toont al andere gegevens; gebruik bind_data om ze te wijzigen
+op-data-internal = Een batch kan de basis of de overlay van een tabel niet instellen
+op-data-batch-too-large = De batch is te groot: aantal cellen { $count }, hoogstens { $max }
+op-data-inline = Element { $subject } draagt zijn gegevens in zijn opties; voeg ze toe als deckgegevens met add_data en koppel ze met bind_data
 issue-unreadable-slide = onleesbare dia, apart gezet
 issue-unreadable-field = onleesbaar deckveld { $field }, hersteld
 issue-knowledge-unreadable = onleesbaar kennisitem { $id }, apart gezet
@@ -286,3 +321,12 @@ issue-empty-item-id = lijst { $param } heeft een item zonder id
 issue-duplicate-item-id = lijst { $param } heeft een dubbel item-id
 issue-invalid-item-id = lijst { $param } heeft een itemkenmerk met een schuine streep
 issue-list-bounds = lijst { $param } heeft te weinig of te veel items
+issue-view-truncated = { $element } toont maar een deel van zijn gegevens ({ $what ->
+    [rows] rijen
+   *[columns] kolommen
+}: { $shown } van { $total })
+issue-render-budget = { $element } wordt niet getekend: de weergaven van het deck lezen meer gegevens dan een weergave toestaat
+issue-data-missing = { $element } noemt de gegevens ‘{ $data }’, die niet in het deck staan
+issue-view-column-missing = { $element } leest de kolom ‘{ $column }’, die niet in zijn gegevens staat
+issue-view-unreadable = { $element } wordt niet getekend: de opties zijn niet leesbaar
+op-replica-full = De geschiedenis van de presentatie nadert { $max } MiB, het maximum om haar te heropenen: verwijder inhoud voordat je meer toevoegt.

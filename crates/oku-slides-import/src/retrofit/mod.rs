@@ -27,6 +27,7 @@ pub(crate) mod zone;
 
 use std::collections::BTreeMap;
 
+use oku_slides_chart::ChartLabels;
 use oku_slides_core::{Deck, LayoutProfile, Namespace, Op, WidgetRegistry, apply_all};
 use serde_json::Value;
 
@@ -38,6 +39,7 @@ use self::content::ContentCx;
 use self::decor::Decor;
 use self::slide::{SlideCx, project_slide};
 use crate::coverage::coverage;
+use crate::deck_budget::{DeckBudget, report_cuts};
 use crate::error::{ImportError, no_profiles};
 use crate::pattern::signature;
 use crate::plan::{ImportPlan, WidgetRequest};
@@ -56,6 +58,8 @@ pub struct RetrofitTarget<'a> {
     pub colors: ColorTokens,
     /// Les jetons de page effectifs du thème.
     pub page: PageTokens,
+    /// Chart labels in the user's language: the default column names of lifted data.
+    pub labels: &'a ChartLabels,
 }
 
 /// Ajoute l'occurrence `item` (rendue par le repli `fallback` sur la slide
@@ -133,9 +137,17 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportP
     }
     let mut deck_titled = false;
     let mut deck_slide = None;
+    // The plan fills a new deck.
+    let mut budget = DeckBudget::of(&Deck::empty());
     for src in &deck.slides {
         let was_titled = deck_titled;
-        let Some(p) = project_slide(src, &profiles, &mut deck_titled, &cx) else { continue };
+        let Some(mut p) = project_slide(src, &profiles, &mut deck_titled, &cx) else { continue };
+        for op in &mut p.ops {
+            if let Op::AddSlide { slide, .. } = op {
+                let cuts = budget.fit(target.registry, slide);
+                report_cuts(&mut p.report, &cuts, &p.origins);
+            }
+        }
         if deck_titled && !was_titled {
             deck_slide = Some(src.number);
         }
@@ -152,6 +164,9 @@ pub fn project(deck: &SourceDeck, target: &RetrofitTarget<'_>) -> Result<ImportP
         plan.report.slides.push(p.report);
     }
     let mut scratch = Deck::empty();
+    // Ids drawn now, so the measured deck holds the ops the session applies.
+    let ops = std::mem::take(&mut plan.ops);
+    plan.ops = crate::plan::prepared(&scratch, target.registry, target.labels, ops, &mut plan.report.warnings)?;
     apply_all(&mut scratch, plan.ops.clone(), target.registry).map_err(crate::error::plan_refused)?;
     plan.report.coverage = Some(coverage(deck, &scratch, target.registry, &origins, deck_slide, &|i| decor.skips(i)));
     plan.origins = origins;

@@ -6,7 +6,7 @@
 use serde_json::json;
 use speculoos::prelude::*;
 
-use crate::common::{call, client, start, text_of};
+use crate::common::{call, client, start, untrusted_error_of};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn apply_citing_an_unknown_asset_points_the_agent_to_pasted_images() {
@@ -17,5 +17,5 @@ async fn apply_citing_an_unknown_asset_points_the_agent_to_pasted_images() {
     });
     let r = call(&c, "apply", json!({ "ops": [op] })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(h.localizer.tr("agent-error-asset-unknown"));
+    assert_that!(untrusted_error_of(&r)).is_equal_to(h.localizer.tr("agent-error-asset-unknown"));
 }

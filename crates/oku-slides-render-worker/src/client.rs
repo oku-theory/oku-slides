@@ -37,14 +37,16 @@
 //!   ouvert n'utilise sont oubliées de l'état de rejeu, et du travailleur par
 //!   `DropFonts` : sa mémoire ne grandit pas au fil des polices des decks.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use oku_slides_core::WidgetRegistry;
+use oku_slides_data::BaseId;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
+use oku_slides_platform::bases::BaseStore;
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_render::{FileProbeCache, Fonts, PackWidgets, RenderError, is_never_blamed};
 use sha2::{Digest, Sha256};
@@ -94,9 +96,24 @@ pub(crate) struct Shared {
     pub(crate) max_widget_bytes: usize,
     /// Durée totale des sondes d'un pack, au plus (`probe_budget_ms`).
     pub(crate) probe_budget: std::time::Duration,
+    /// The base store and the bases the session knows: only those are sent to the worker.
+    pub(crate) bases: Mutex<Option<KnownBases>>,
+}
+
+/// The bases a session may read: their store, and the ids it resolves.
+#[derive(Debug, Clone)]
+pub(crate) struct KnownBases {
+    pub(crate) store: BaseStore,
+    pub(crate) known: BTreeSet<BaseId>,
 }
 
 impl Shared {
+    /// The file of `id`, if the session knows that base.
+    pub(crate) fn base_path(&self, id: &BaseId) -> Option<PathBuf> {
+        let bases = self.bases.lock().unwrap_or_else(PoisonError::into_inner);
+        bases.as_ref().filter(|b| b.known.contains(id)).map(|b| b.store.path(id))
+    }
+
     pub(crate) fn defer(&self, d: Deferred) {
         self.deferred.lock().unwrap_or_else(PoisonError::into_inner).push(d);
     }
@@ -205,6 +222,24 @@ impl RenderWorker {
     pub fn with_soffice(self, program: PathBuf) -> Self {
         self.link().soffice = Some(program);
         self
+    }
+
+    /// The worker reads data bases from `store`'s folder, and only those [`Self::set_known_bases`]
+    /// names. To call before the first request.
+    #[must_use]
+    pub fn with_bases(self, store: BaseStore) -> Self {
+        self.link().bases = Some(store.dir().to_owned());
+        let known = KnownBases { store, known: BTreeSet::new() };
+        *self.1.bases.lock().unwrap_or_else(PoisonError::into_inner) = Some(known);
+        self
+    }
+
+    /// The bases the renders may read: a data whose base is not among them draws its failure
+    /// frame (the session reports it missing). A data already sent goes again at the next render.
+    pub fn set_known_bases(&self, known: BTreeSet<BaseId>) {
+        if let Some(bases) = self.1.bases.lock().unwrap_or_else(PoisonError::into_inner).as_mut() {
+            bases.known = known;
+        }
     }
 
     /// Le verrou du lien, sans rien envoyer.
@@ -318,9 +353,7 @@ impl RenderWorker {
         set_locale(&mut link, l)?;
         let slot = self.1.last_slot.fetch_add(1, Ordering::Relaxed) + 1;
         expect_ok(&mut link, &Request::OpenSlot { slot, fonts: ids.clone() }, &[])?;
-        link.state
-            .slots
-            .insert(slot, SlotState { fonts: ids, packs: Vec::new(), last_assets: Vec::new(), theme: None });
+        link.state.slots.insert(slot, SlotState { fonts: ids, ..SlotState::default() });
         drop(link);
         Ok(RenderSlot::opened(self.clone(), slot, base, accuse))
     }

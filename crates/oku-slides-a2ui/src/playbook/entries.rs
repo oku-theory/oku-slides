@@ -2,7 +2,9 @@
 
 use serde_json::{Value, json};
 
-use super::host_entries::{chart_data, notice, prompt, receipt, slide_thumb, table_data, theme_choice, timeline};
+use super::host_entries::{
+    chart_grid, data_list, data_sheet, notice, prompt, receipt, slide_thumb, table_grid, theme_choice, timeline,
+};
 use super::{Example, example};
 use crate::action::{Action, Dynamic};
 use crate::component::{Component, ComponentKind as K};
@@ -69,8 +71,10 @@ pub(super) fn all() -> Vec<Example> {
         badge(),
         markdown(),
         notice(),
-        chart_data(),
-        table_data(),
+        chart_grid(),
+        table_grid(),
+        data_list(),
+        data_sheet(),
     ]
     .into_iter()
     .flatten()

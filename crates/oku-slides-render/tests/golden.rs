@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 use oku_slides_core::Deck;
 use sha2::{Digest, Sha256};
+use speculoos::prelude::*;
 
 fn deck(path: &str) -> Deck {
     let path = format!("{}/{path}", env!("CARGO_MANIFEST_DIR"));
@@ -86,4 +87,28 @@ fn reference_boxes() -> Vec<String> {
 #[test]
 fn reference_decks_element_boxes_are_unchanged() {
     insta::assert_snapshot!("reference_boxes", reference_boxes().join("\n"));
+}
+
+/// The `option` or `data` param of element `id` on slide 4 of a resolved deck.
+fn resolved_param(deck: &Deck, id: &str, param: &str) -> serde_json::Value {
+    let json = serde_json::to_value(deck).unwrap_or_else(|e| panic!("{e}"));
+    json["slides"][3]["params"]["blocks"]
+        .as_array()
+        .and_then(|blocks| blocks.iter().find(|b| b["id"] == id))
+        .map_or_else(|| panic!("{id} absent"), |b| b["params"][param].clone())
+}
+
+#[test]
+fn golden_widgets_renders_shared_data_in_both_views() {
+    let r = common::renderer();
+    let deck = deck("tests/golden/widgets.json");
+    let resolved = oku_slides_render::resolve_views(&deck, r.registry(), None);
+    let table = resolved_param(&resolved, "tb1", "data");
+    let chart = resolved_param(&resolved, "g1", "option");
+    let rows = serde_json::json!([["Mois", "Ventes", "Marge"], ["Jan", 3.0, 0.2], ["Fév", 5.0, 0.25]]);
+    assert_that!(table["dataset"]["source"]).is_equal_to(&rows);
+    // The chart reads only the columns its one series uses: categories and the first values.
+    let used = serde_json::json!([["Mois", "Ventes"], ["Jan", 3.0], ["Fév", 5.0]]);
+    assert_that!(chart["dataset"]["source"]).is_equal_to(&used);
+    assert_that!(resolved.data.is_empty()).is_true();
 }

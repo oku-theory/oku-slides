@@ -1,22 +1,23 @@
-//! Paramètres fournis par l'hôte (`host(chart)`, `host(table)`,
-//! `host(path)`) : contrôle des valeurs, options et données.
+//! Params the host draws (`host(chart)`, `host(table)`, `host(path)`): their options are checked.
+//!
+//! Chart and table options name deck data; inline data reach the deck only through
+//! `prepare_ops`, which lifts them into data, so an apply refuses them.
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use snafu::ResultExt;
 
-use oku_slides_chart::{
-    ChartOption, DataOp, apply_option_patch, chart_data, ensure_ids, parse_option, parse_table, patch_table, table_data,
-};
+use oku_slides_chart::{apply_option_patch, check_ref_and_inline, parse_option, parse_table, patch_table};
 
-use super::{declared, typed, widget};
+use super::{declared, typed};
 use crate::error::{
-    ChartSnafu, ExpectedType, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, Shape, TableSnafu,
-    ValueReason,
+    ChartSnafu, DataFault, ExpectedType, InvalidValueSnafu, OpError, ParamTypeSnafu, ParseValueSnafu, Shape,
+    TableSnafu, ValueReason,
 };
 use crate::model::{Deck, Element};
 use crate::params::{ParamValue, Params};
+use crate::prepare_view::brings_inline;
 use crate::shape_path::ShapePath;
 use crate::widget::{HostType, WidgetRegistry, WidgetSchema};
 
@@ -29,23 +30,24 @@ pub(super) fn expected_host(host: HostType) -> ExpectedType {
     }
 }
 
-/// Options de l'hôte `host` contrôlées, rendues sous leur forme sérialisée.
+/// Checked options of host `host`, in their serialized form.
 ///
-/// `subject` nomme l'élément (ou le paramètre) dans l'erreur.
+/// `subject` names the element (or the param) in the error.
+///
+/// # Errors
+///
+/// `chart-ref-and-inline` for a ref next to inline data, `op-data-inline` for inline data:
+/// only `prepare_ops` turns them into deck data.
 pub(crate) fn host_option(host: HostType, subject: &str, v: &Value) -> Result<Value, OpError> {
     let serialized = match host {
-        // `parse_option` lit les options et les passe par `normalize`.
+        // `parse_option` reads the options and checks their shape.
         HostType::Chart => {
-            let mut option = parse_option(v).context(ChartSnafu { subject })?;
-            if let Some(d) = option.dataset.as_mut() {
-                ensure_ids(d);
-            }
-            serde_json::to_value(option)
+            check_inline(subject, v)?;
+            serde_json::to_value(parse_option(v).context(ChartSnafu { subject })?)
         }
         HostType::Table => {
-            let mut option = parse_table(v).context(TableSnafu { subject })?;
-            ensure_ids(&mut option.dataset);
-            serde_json::to_value(option)
+            check_inline(subject, v)?;
+            serde_json::to_value(parse_table(v).context(TableSnafu { subject })?)
         }
         // Un chemin que le widget ne saurait pas dessiner est refusé ici.
         HostType::Path => {
@@ -59,6 +61,15 @@ pub(crate) fn host_option(host: HostType, subject: &str, v: &Value) -> Result<Va
     Ok(serialized.context(ParseValueSnafu { field: subject })?)
 }
 
+/// Refuses raw options, or a merge patch, that bring inline data.
+fn check_inline(subject: &str, v: &Value) -> Result<(), OpError> {
+    check_ref_and_inline(v).context(ChartSnafu { subject })?;
+    if brings_inline(v) {
+        return Err(DataFault::Inline { subject: subject.to_owned() }.into());
+    }
+    Ok(())
+}
+
 /// Vérifie que `param`, déclaré par `schema`, est un paramètre d'hôte `want`.
 fn ensure_host(schema: &WidgetSchema, param: &str, want: HostType) -> Result<(), OpError> {
     let p = declared(schema, param)?;
@@ -68,9 +79,9 @@ fn ensure_host(schema: &WidgetSchema, param: &str, want: HostType) -> Result<(),
     Ok(())
 }
 
-/// Refuse des paramètres d'hôte incohérents et y pose les identifiants manquants.
+/// Refuses inconsistent host params; the checked values replace the ones given.
 ///
-/// `subject` : qui les porte. Les valeurs normalisées remplacent celles reçues.
+/// `subject`: what carries them.
 pub(super) fn check_host_params(
     registry: &WidgetRegistry,
     kind: &str,
@@ -105,9 +116,8 @@ pub(super) fn check_hosts(registry: &WidgetRegistry, element: &mut Element) -> R
     Ok(())
 }
 
-/// Pose les identifiants manquants dans les paramètres d'hôte de `deck`
-/// (slides et éléments imbriqués), par le même chemin que les ops. Une
-/// valeur que l'hôte ne lit pas reste telle quelle : la validation la signale.
+/// Rewrites the host params of `deck` (slides and nested elements) in their checked form, by the
+/// same path as the ops. A value the host does not read stays as is: validation reports it.
 pub(crate) fn normalize_hosts(registry: &WidgetRegistry, deck: &mut Deck) {
     for slide in &mut deck.slides {
         normalize_params(registry, &slide.kind, &mut slide.params);
@@ -160,49 +170,16 @@ pub(super) fn set_option(
     ensure_host(schema, param, host)?;
     match host {
         HostType::Chart => {
-            let (mut next, _) =
-                apply_option_patch(&read(params, param, host)?, patch).context(ChartSnafu { subject })?;
-            if let Some(d) = next.dataset.as_mut() {
-                ensure_ids(d);
-            }
+            check_inline(subject, patch)?;
+            let (next, _) = apply_option_patch(&read(params, param, host)?, patch).context(ChartSnafu { subject })?;
             write(params, param, &next)
         }
         HostType::Table => {
-            let (mut next, _) = patch_table(&read(params, param, host)?, patch).context(TableSnafu { subject })?;
-            ensure_ids(&mut next.dataset);
+            check_inline(subject, patch)?;
+            let (next, _) = patch_table(&read(params, param, host)?, patch).context(TableSnafu { subject })?;
             write(params, param, &next)
         }
         // Un chemin se remplace entier (`set_param`) : il n'a pas d'options à fusionner.
         HostType::Path => Err(ParamTypeSnafu { param, expected: Shape::SetParamOnly.required() }.build().into()),
-    }
-}
-
-/// `set_data` : applique `change` aux données d'un graphique ou d'un tableau.
-pub(super) fn set_data(
-    registry: &WidgetRegistry,
-    kind: &str,
-    params: &mut Params,
-    param: &str,
-    change: &DataOp,
-    subject: &str,
-) -> Result<(), OpError> {
-    let p = declared(widget(registry, kind)?, param)?;
-    match p.ty.host() {
-        Some(host @ HostType::Chart) => {
-            let option: ChartOption = read(params, param, host)?;
-            if option.dataset.is_none() {
-                // Garde le refus historique (`InvalidValue`) pour un graphique sans dataset.
-                return Err(InvalidValueSnafu { field: "dataset", reason: ValueReason::NoDataset }.build().into());
-            }
-            let next = chart_data(&option, change).context(ChartSnafu { subject })?;
-            write(params, param, &next)
-        }
-        Some(host @ HostType::Table) => {
-            let next = table_data(&read(params, param, host)?, change).context(TableSnafu { subject })?;
-            write(params, param, &next)
-        }
-        Some(HostType::Path) | None => {
-            Err(ParamTypeSnafu { param, expected: Shape::ChartOrTableOption.required() }.build().into())
-        }
     }
 }

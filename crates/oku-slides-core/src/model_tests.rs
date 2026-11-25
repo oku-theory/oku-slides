@@ -24,6 +24,7 @@ fn from_json_newer_version_returns_an_error() {
 #[case(6)]
 #[case(7)]
 #[case(8)]
+#[case(9)]
 fn deck_from_json_older_version_is_refused(#[case] version: u32) {
     let err = Deck::from_json(&format!(r#"{{"version": {version}, "slides": []}}"#)).unwrap_err();
     assert_that!(err.to_string()).contains(format!("unsupported deck version {version}"));
@@ -31,12 +32,124 @@ fn deck_from_json_older_version_is_refused(#[case] version: u32) {
 
 #[test]
 fn deck_from_json_current_version_is_read() {
-    assert_that!(Deck::from_json(r#"{"version": 9, "slides": []}"#).ok().map(|d| d.version)).is_equal_to(Some(9));
+    assert_that!(Deck::from_json(r#"{"version": 10, "slides": []}"#).ok().map(|d| d.version)).is_equal_to(Some(10));
 }
 
 #[test]
-fn deck_empty_is_version_9() {
-    assert_that!(Deck::empty().version).is_equal_to(9);
+fn deck_empty_is_version_10() {
+    assert_that!(Deck::empty().version).is_equal_to(10);
+}
+
+/// The JSON of a deck whose data are `data` (an object of id to data JSON).
+fn deck_with_data(data: &serde_json::Value) -> String {
+    json!({ "version": DECK_VERSION, "slides": [], "data": data }).to_string()
+}
+
+/// The JSON of an empty manual data named `name`.
+fn data_json(name: &str) -> serde_json::Value {
+    json!({ "name": name, "kind": "manual", "table": { "generation": "g", "columns": [], "rows": [] } })
+}
+
+#[test]
+fn deck_round_trips_data_json() {
+    let data = json!({ "sales": {
+        "name": "sales", "label": "Sales", "kind": "manual",
+        "table": {
+            "generation": "g1",
+            "columns": [{ "id": "c", "name": "Amount", "type": "number" }],
+            "rows": ["r1", "r2"],
+            "cells": { "r1/c": 3.5, "r2/c": 4.0 }
+        }
+    }});
+    let deck = Deck::from_json(&deck_with_data(&data)).unwrap();
+    let back = Deck::from_json(&deck.to_json().unwrap()).unwrap();
+    assert_that!(deck.data.len()).is_equal_to(1);
+    assert_that!(back).is_equal_to(deck);
+}
+
+#[test]
+fn deck_v9_json_is_refused() {
+    let err = Deck::from_json(r#"{"version": 9, "slides": []}"#).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::UnsupportedVersion);
+}
+
+#[test]
+fn deck_json_over_64_mib_is_refused_before_parsing() {
+    // Not JSON at all: a parse would say unreadable, the byte cap says too large.
+    let input = "x".repeat(oku_slides_data::limits::MAX_DECK_JSON_BYTES + 1);
+    let err = Deck::from_json(&input).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::TooLarge);
+}
+
+#[rstest]
+#[case::at_bound(oku_slides_data::limits::MAX_DATA, true)]
+#[case::past_bound(oku_slides_data::limits::MAX_DATA + 1, false)]
+fn deck_json_with_257_data_fails_while_parsing(#[case] count: usize, #[case] parses: bool) {
+    let data: serde_json::Map<String, serde_json::Value> =
+        (0..count).map(|i| (format!("d{i}"), data_json(&format!("d{i}")))).collect();
+    let read = Deck::from_json(&deck_with_data(&serde_json::Value::Object(data)));
+    assert_that!(read.as_ref().map(|d| d.data.len()).ok()).is_equal_to(parses.then_some(count));
+    if let Err(err) = read {
+        assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::Unreadable);
+    }
+}
+
+#[test]
+fn deck_json_over_bounds_is_refused_fr() {
+    let max = oku_slides_data::limits::MAX_DECK_TEXT_BYTES;
+    let mut data = data_json("big");
+    data["label"] = json!("x".repeat(max));
+    let err = Deck::from_json(&deck_with_data(&json!({ "big": data }))).unwrap_err();
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::DeckFull);
+    assert_that!(oku_slides_i18n::Localize::localize(&err, &fr))
+        .is_equal_to(fr.tr_with("op-data-deck-full", &[("what", "text".into()), ("max", max.into())]));
+}
+
+#[test]
+fn deck_json_with_stored_dataset_is_refused_fr() {
+    let deck = json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "essentiel/content", "params": {
+        "blocks": [{ "id": "g", "kind": "base/chart", "params": { "option": {
+            "dataset": { "source": [["A", "B"], ["x", 1]] }, "series": [{ "type": "bar" }]
+        } } }]
+    } }] });
+    let err = Deck::from_json(&deck.to_string()).unwrap_err();
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::InlineData);
+    assert_that!(oku_slides_i18n::Localize::localize(&err, &fr))
+        .is_equal_to(fr.tr_with("deck-inline-data", &[("element", "g".into())]));
+}
+
+/// A deck whose element `g` holds `option` in its param `option`.
+fn deck_with_option(option: &serde_json::Value) -> String {
+    json!({ "version": DECK_VERSION, "slides": [{ "id": "s", "kind": "essentiel/content", "params": {
+        "blocks": [{ "id": "g", "kind": "base/chart", "params": { "option": option } }]
+    } }] })
+    .to_string()
+}
+
+#[test]
+fn deck_json_with_inline_series_data_is_refused() {
+    let option = json!({ "xAxis": { "type": "category", "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] });
+    let err = Deck::from_json(&deck_with_option(&option)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::InlineData);
+}
+
+#[test]
+fn deck_json_with_dataset_key_outside_a_view_option_is_read() {
+    let value = json!({ "dataset": "a name", "caption": "not a chart or table option" });
+    assert_that!(Deck::from_json(&deck_with_option(&value)).map(|d| d.slides.len())).is_ok_containing(1);
+}
+
+#[test]
+fn deck_json_with_over_bound_table_fails_while_parsing() {
+    let columns: Vec<serde_json::Value> = (0..=oku_slides_data::limits::MAX_COLUMNS)
+        .map(|i| json!({ "id": format!("c{i}"), "name": "", "type": "text" }))
+        .collect();
+    let mut data = data_json("wide");
+    data["table"]["columns"] = json!(columns);
+    let err = Deck::from_json(&deck_with_data(&json!({ "wide": data }))).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(crate::DeckJsonErrorKind::Unreadable);
 }
 
 /// Un épinglage quelconque, pour les tests de forme.
@@ -79,7 +192,7 @@ const REF: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha
 
 #[test]
 fn deck_from_json_reads_widget_pins_by_namespace() {
-    let json = json!({"version": 9, "widgets": {"essentiel": {"id": Uuid::nil(), "version": format!("sha256:{}", "b".repeat(64))}}, "slides": []});
+    let json = json!({"version": 10, "widgets": {"essentiel": {"id": Uuid::nil(), "version": format!("sha256:{}", "b".repeat(64))}}, "slides": []});
     let deck = Deck::from_json(&json.to_string()).unwrap();
     assert_that!(deck.widgets.keys().map(Namespace::as_str).collect::<Vec<_>>()).is_equal_to(vec!["essentiel"]);
 }
@@ -88,7 +201,7 @@ const PIN: &str = r#"{"id":"6f3c1e2a-8b4d-4c1e-9a57-2d0e5b7c9f10","version":"sha
 
 #[test]
 fn deck_from_json_reads_theme_as_a_namespace_and_its_pins() {
-    let json = format!(r#"{{"version":9,"theme":"marque","themes":{{"marque":{PIN},"papier":{REF}}},"slides":[]}}"#);
+    let json = format!(r#"{{"version":10,"theme":"marque","themes":{{"marque":{PIN},"papier":{REF}}},"slides":[]}}"#);
     let deck = Deck::from_json(&json).unwrap();
     assert_that!(deck.theme.as_ref().map(Namespace::as_str)).is_equal_to(Some("marque"));
     let marque = &deck.themes[&Namespace::parse("marque").unwrap()];
@@ -98,7 +211,7 @@ fn deck_from_json_reads_theme_as_a_namespace_and_its_pins() {
 
 #[test]
 fn deck_from_json_with_a_theme_ref_object_is_refused() {
-    assert_that!(Deck::from_json(&format!(r#"{{"version":9,"theme":{REF},"slides":[]}}"#)).is_err()).is_true();
+    assert_that!(Deck::from_json(&format!(r#"{{"version":10,"theme":{REF},"slides":[]}}"#)).is_err()).is_true();
 }
 
 #[test]
@@ -125,7 +238,7 @@ fn deck_v4_is_refused_as_unsupported_version() {
 
 #[test]
 fn from_json_current_version_reads_the_deck() {
-    let deck = Deck::from_json(r#"{"version": 9, "slides": [{"id": "s", "kind": "essentiel/content"}]}"#).unwrap();
+    let deck = Deck::from_json(r#"{"version": 10, "slides": [{"id": "s", "kind": "essentiel/content"}]}"#).unwrap();
     assert_that!(deck.slides.len()).is_equal_to(1);
 }
 

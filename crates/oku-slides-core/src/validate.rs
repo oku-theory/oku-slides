@@ -347,6 +347,8 @@ pub fn validate(deck: &Deck, registry: &WidgetRegistry, assets: Option<&HashSet<
             kinds.insert(e.id.as_str(), e.kind.as_str());
         }
     }
+    v.out.extend(crate::validate_data::issues(deck));
+    v.out.extend(crate::views::plan_views(deck, registry).1);
     v.out
 }
 

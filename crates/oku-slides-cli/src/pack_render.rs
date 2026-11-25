@@ -79,7 +79,8 @@ pub(crate) fn render(
 ) -> Result<Rendered> {
     let deck = bundle.deck();
     let layer = sources_theme_layer(&ThemeLibrary::user(platform), bundle).map_err(|e| eyre!(e.localize(l)))?;
-    if !widgets.has_packs() {
+    // Only the render process reads data bases: a based deck goes there even without a pack.
+    if !widgets.has_packs() && bundle.bases.is_empty() {
         return local(l, fonts, bundle, deck, layer);
     }
     let mut slot = widgets.slot(&fonts, l)?;

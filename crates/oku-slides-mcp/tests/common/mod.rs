@@ -503,6 +503,14 @@ pub fn json_of(r: &CallToolResult) -> Value {
     serde_json::from_str(&text_of(r)).unwrap_or(Value::Null)
 }
 
+/// The error of a refused `apply`, `chart_kind` or `show_as`: it may quote the user's data,
+/// so it comes in `{untrusted: true, error}`; the test fails otherwise.
+pub fn untrusted_error_of(r: &CallToolResult) -> String {
+    let reply = json_of(r);
+    assert_that!(reply["untrusted"]).named(&text_of(r)).is_equal_to(Value::Bool(true));
+    reply["error"].as_str().unwrap_or_default().to_owned()
+}
+
 /// Attente bornée d'un évènement du hub.
 pub const EVENT_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
 
@@ -685,6 +693,7 @@ pub async fn start_with_library_widget_pack(namespace: &'static str) -> Harness 
             tokens: Vec::new(),
             order: Vec::new(),
             guides: Guides::default(),
+            data: std::collections::BTreeMap::new(),
         };
         let files = manifest.to_files(PackKind::Widgets, BTreeMap::new()).unwrap_or_else(|e| panic!("manifeste : {e}"));
         oku_slides_session::PackLibrary::user(&platform)

@@ -17,7 +17,9 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::panic::AssertUnwindSafe;
 use std::sync::{Mutex, PoisonError};
 
-use oku_slides_chart::{ChartLabels, ChartOption, ChartRenderer, ChartTheme, ChartsRsRenderer, NumberFormat, Size};
+use oku_slides_chart::{
+    ChartLabels, ChartOption, ChartRenderer, ChartTheme, ChartsRsRenderer, NumberFormat, Size, require_data_in_chart,
+};
 use oku_slides_core::{HostType, WidgetRegistry};
 use serde_json::{Map, Value as Json};
 use typst::foundations::Bytes;
@@ -29,6 +31,9 @@ use crate::world::file_id;
 
 /// Champ ajouté à l'élément dans `/deck.json` : l'empreinte de son SVG.
 pub(crate) const SVG_FIELD: &str = "chart-svg";
+
+/// Field added to an undrawn chart in `/deck.json`: the localized reason its frame shows.
+pub(crate) const ERROR_FIELD: &str = "chart-error";
 
 /// Taille d'un graphique sans cadre (placé par le layout), en pt : 16:9.
 pub(crate) const DEFAULT_SIZE: Size = Size { width: 800.0, height: 450.0 };
@@ -89,6 +94,8 @@ pub(crate) struct Charts {
     measured: HashMap<String, Size>,
     /// Taille du dessin de chaque graphique du deck courant, par élément.
     drawn: HashMap<String, Size>,
+    /// Language of the failure frames' reasons; `None` is English.
+    locale: Option<&'static str>,
 }
 
 impl Charts {
@@ -98,8 +105,9 @@ impl Charts {
 
     /// Libellés des séries sans nom. Ils entrent dans l'empreinte : le
     /// prochain `attach` redessine les graphiques concernés.
-    pub(crate) fn set_labels(&mut self, labels: ChartLabels) {
+    pub(crate) fn set_labels(&mut self, labels: ChartLabels, locale: &'static str) {
         self.labels = labels;
+        self.locale = Some(locale);
     }
 
     /// Palette des séries (jetons `chart.palette`). Elle entre dans
@@ -169,10 +177,12 @@ impl Charts {
         let mut wanted = HashSet::new();
         let mut failure = None;
         let measured = &self.measured;
+        let locale = self.locale;
         let mut drawn = HashMap::new();
         for_each_element(deck, &mut |e| {
             // Une empreinte d'un rendu précédent ne vaut plus rien.
             e.remove(SVG_FIELD);
+            e.remove(ERROR_FIELD);
             let Some(param) = e.get("kind").and_then(Json::as_str).and_then(|k| chart_param(registry, k)) else {
                 return;
             };
@@ -193,9 +203,12 @@ impl Charts {
                     Ok(svg) => {
                         slot.insert(Bytes::from_string(svg));
                     }
-                    Err(reason) => {
+                    Err(failure) => {
                         let element = e.get("id").and_then(Json::as_str).unwrap_or_default();
-                        tracing::warn!(element, reason, "graphique non dessiné");
+                        tracing::warn!(element, reason = %failure, "graphique non dessiné");
+                        if let DrawFailure::TooManyValues(count) = failure {
+                            e.insert(ERROR_FIELD.to_owned(), Json::String(too_many_values(locale, count)));
+                        }
                         return;
                     }
                 }
@@ -249,19 +262,49 @@ fn register_font(fonts: &Fonts, family: &str) -> String {
     name
 }
 
+/// The failure frame's reason for `count` values, in `locale` (English when `None`).
+fn too_many_values(locale: Option<&'static str>, count: usize) -> String {
+    let args = [("count", count.into()), ("max", MAX_VALUES.into())];
+    let key = "render-chart-too-many-values";
+    match locale {
+        Some(locale) => oku_slides_i18n::Localizer::new(Some(locale)).tr_with(key, &args),
+        None => oku_slides_i18n::english().tr_with(key, &args),
+    }
+}
+
+/// Why a chart is not drawn.
+#[derive(Debug)]
+enum DrawFailure {
+    /// Its option and resolved dataset hold more than [`MAX_VALUES`] values: the user is told.
+    TooManyValues(usize),
+    /// Any other reason, logged only.
+    Other(String),
+}
+
+impl std::fmt::Display for DrawFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooManyValues(n) => write!(f, "{n} values (max {MAX_VALUES})"),
+            Self::Other(reason) => f.write_str(reason),
+        }
+    }
+}
+
 /// Le SVG d'un graphique, ou pourquoi il n'est pas dessiné. Le moteur ne
 /// doit pas pouvoir arrêter le rendu du deck : une panique devient une erreur.
-fn draw(renderer: &ChartsRsRenderer, option: &Json, size: Size) -> Result<String, String> {
+fn draw(renderer: &ChartsRsRenderer, option: &Json, size: Size) -> Result<String, DrawFailure> {
     let values = count_values(option);
     if values > MAX_VALUES {
-        return Err(format!("{values} values (max {MAX_VALUES})"));
+        return Err(DrawFailure::TooManyValues(values));
     }
-    let option: ChartOption = serde_json::from_value(option.clone()).map_err(|e| e.to_string())?;
+    let other = |e: &dyn std::fmt::Display| DrawFailure::Other(e.to_string());
+    let option: ChartOption = serde_json::from_value(option.clone()).map_err(|e| other(&e))?;
+    require_data_in_chart(&option).map_err(|e| other(&e))?;
     let svg = std::panic::catch_unwind(AssertUnwindSafe(|| renderer.render(&option, size)))
-        .map_err(|_| "chart engine panicked".to_owned())?
-        .map_err(|e| e.to_string())?;
+        .map_err(|_| DrawFailure::Other("chart engine panicked".to_owned()))?
+        .map_err(|e| other(&e))?;
     if svg.len() > MAX_SVG_BYTES {
-        return Err(format!("SVG of {} bytes (max {MAX_SVG_BYTES})", svg.len()));
+        return Err(DrawFailure::Other(format!("SVG of {} bytes (max {MAX_SVG_BYTES})", svg.len())));
     }
     Ok(svg)
 }

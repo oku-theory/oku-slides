@@ -5,7 +5,7 @@
 - Never send Access-Control headers from a local server, and accept POST only as application/json. (ADR-0003)
 - Do not add accepted Host names for wildcard bind addresses such as 0.0.0.0 or ::. (ADR-0003)
 - Refuse with 403 any serve request whose Host is not loopback or the bound host; allow a missing Origin. (spec:2026-09-26-onglets-fenetres-design)
-- Cap serve API request bodies at MAX_BODY with a 413, refusing at once if Content-Length is too large. (t-181, t-190)
+- Cap serve API request bodies at MAX_BODY, and the apply routes (/api, /api/workspace) at MAX_APPLY_BYTES, with a 413, refusing at once if Content-Length is too large. (t-181, t-190, t-1690)
 - Serve a static file only if its URL path has only normal components: no .., root or drive prefix. (t-192)
 - Give each SSE client a bounded channel and drop a client whose queue is full. (t-191)
 - Write the import --report atomically through Storage, so an interrupted run never replaces the previous one. (t-817)

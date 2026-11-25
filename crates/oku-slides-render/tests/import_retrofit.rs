@@ -99,8 +99,13 @@ fn import_retrofit_flow_blocks_stay_in_the_body_zone_or_are_reported(
     let profiles: Vec<_> = profiles("essentiel").into_iter().map(|p| (ns.clone(), p)).collect();
     let tokens = tokens(theme);
     let page = PageTokens::from_tokens(&tokens);
-    let target =
-        RetrofitTarget { profiles: &profiles, registry: &registry, colors: ColorTokens::from_tokens(&tokens), page };
+    let target = RetrofitTarget {
+        profiles: &profiles,
+        registry: &registry,
+        colors: ColorTokens::from_tokens(&tokens),
+        page,
+        labels: oku_slides_chart::ChartLabels::english(),
+    };
     let plan = project(&source, &target).unwrap_or_else(|e| panic!("{e}"));
     let mut ops = vec![pin(BuiltinPack::Base), pin(BuiltinPack::Essentiel)];
     ops.extend(plan.ops.clone());

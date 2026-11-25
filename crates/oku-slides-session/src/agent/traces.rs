@@ -90,13 +90,15 @@ impl Session {
         AgentWrites::new(self).handle(req)
     }
 
-    /// `apply` for an agent tool (hub-applied agent ops), recorded like `handle_by_agent`.
+    /// `apply` for an agent tool (hub-applied agent ops), recorded like `handle_by_agent`; an
+    /// overflowing data asks a fold ([`Session::apply_folding`]), which a caller going through
+    /// `TabSession::with_folding` runs before retrying once.
     ///
     /// # Errors
     ///
-    /// Those of [`Session::apply`]; refused ops record nothing.
+    /// Those of [`Session::apply_folding`]; refused ops record nothing.
     pub fn apply_by_agent(&mut self, label: &str, ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
-        AgentWrites::new(self).apply(label, ops, merge)
+        AgentWrites::new(self).apply_folding(label, ops, merge)
     }
 
     /// Traces of `turn`, resolved against the deck now; empty for an unknown turn.

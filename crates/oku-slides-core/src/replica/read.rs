@@ -75,8 +75,11 @@ pub(super) fn deck(root: &LoroMap, knowledge: &LoroMap) -> Result<DeckRead, Repl
         reader.issues.push(issue(None, None, Message::new("issue-unreadable-field").arg("field", KNOWLEDGE)));
     }
     let (files, repairs) = normalize(read_knowledge(knowledge, &ReadCeiling::REPLICA, &mut reader.issues));
+    let data = super::data_read::read(root, &mut reader.issues);
     let (mut deck, mut issues) = materialize(json, reader.issues)?;
     deck.knowledge = files;
+    deck.data = data.data;
+    deck.truncated = data.truncated;
     issues.extend(repairs);
     Ok((deck, issues))
 }
@@ -190,6 +193,8 @@ fn stored_file(m: &LoroMap) -> Option<StoredFile> {
 #[derive(Default)]
 struct Reader {
     issues: Vec<Issue>,
+    /// A host option of the slide or element being read stored a `dataset`, dropped.
+    inline_dropped: bool,
 }
 
 /// Où en est la descente.
@@ -250,13 +255,9 @@ impl Reader {
                 continue;
             }
             let Some(entry) = map.get(&key) else { continue };
-            // Le marqueur `{columns, rows}` ne vaut que sous `dataset` d'un hôte.
-            if ctx == Ctx::Host
-                && key == DATASET
-                && let ValueOrContainer::Container(Container::Map(m)) = &entry
-                && let Some(ds) = super::host::read_dataset(m, depth.deeper().levels, &mut self.issues)
-            {
-                out.insert(key, ds);
+            // A host option's inline `dataset` (a format-9 peer's; older formats are refused): dropped, reported by its owner.
+            if ctx == Ctx::Host && key == DATASET {
+                self.inline_dropped = true;
                 continue;
             }
             let value = match (ctx.kind(&key), entry) {
@@ -319,6 +320,7 @@ impl Reader {
                 };
                 let mut obj = self.read_map_at(meta, Ctx::Element, Depth { levels: depth.levels + 2, ..depth });
                 let id = obj.get("id").and_then(Value::as_str).map(str::to_owned);
+                self.report_inline(None, id.as_deref());
                 if Element::deserialize(&Value::Object(obj.clone())).is_err() {
                     self.issues.push(issue(None, id, Message::new("issue-unreadable-element")));
                     continue;
@@ -414,6 +416,15 @@ impl Reader {
         out
     }
 
+    /// Reports the `dataset` dropped from the params of the slide or element just read.
+    fn report_inline(&mut self, slide: Option<&str>, element: Option<&str>) {
+        if std::mem::take(&mut self.inline_dropped) {
+            let owner = element.or(slide).unwrap_or_default();
+            let message = Message::new("issue-data-inline-dropped").arg("element", owner.to_owned());
+            self.issues.push(issue(slide.map(str::to_owned), element.map(str::to_owned), message));
+        }
+    }
+
     /// Les slides de l'arbre du deck, dans l'ordre de `slide_order` (R8).
     ///
     /// Une racine non vide sans `@slide = true` est écartée et signalée. Les
@@ -435,6 +446,7 @@ impl Reader {
             let Ok(meta) = tree.get_meta(node) else { continue };
             let first = self.issues.len();
             let mut obj = self.read_map_at(&meta, Ctx::Slide, depth);
+            self.report_inline(obj.get("id").and_then(Value::as_str), None);
             let kids = ordered_children(tree, &ancestry, TreeParentId::Node(node), &node.to_string());
             let slots = self.read_tree(tree, &ancestry, &kids, Depth { levels: depth.levels + 1, slots: 0 });
             for param in merge_slots(&mut obj, slots) {

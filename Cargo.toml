@@ -18,6 +18,7 @@ oku-slides-pdf = { path = "crates/oku-slides-pdf" }
 oku-slides-session = { path = "crates/oku-slides-session" }
 oku-slides-stt = { path = "crates/oku-slides-stt" }
 oku-slides-chart = { path = "crates/oku-slides-chart" }
+oku-slides-data = { path = "crates/oku-slides-data" }
 oku-slides-a2ui = { path = "crates/oku-slides-a2ui" }
 oku-slides-platform = { path = "crates/oku-slides-platform" }
 oku-slides-i18n = { path = "crates/oku-slides-i18n" }
@@ -42,6 +43,8 @@ uuid = { version = "1", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 schemars = "1"
+# Deck data tables (t-1690): O(1) clones, O(log n) edits.
+imbl = { version = "7", features = ["serde"] }
 snafu = "0.9"
 toml_edit = "0.25"
 zip = { version = "9", default-features = false, features = ["deflate"] }
@@ -52,6 +55,8 @@ ttf-parser = "0.25"
 # Polices du système cherchées par l'import hi-fi (CLI, t-692) ; déjà tiré par typst.
 fontdb = "0.23"
 sha2 = "0.10"
+# Parquet bases (t-1690): the render worker only, through oku-slides-data `engine`.
+polars = { version = "=0.53.0", default-features = false, features = ["dtype-date", "parquet"] }
 hex = "0.4"
 lopdf = "0.45"
 typst = "0.15.1"

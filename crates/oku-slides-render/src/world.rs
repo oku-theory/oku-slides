@@ -18,7 +18,7 @@ use snafu::ResultExt;
 use oku_slides_chart::ChartLabels;
 use oku_slides_i18n::Localizer;
 
-use crate::charts::{Charts, DEFAULT_SIZE, SVG_FIELD, text_sizes};
+use crate::charts::{Charts, DEFAULT_SIZE, ERROR_FIELD, SVG_FIELD, text_sizes};
 use crate::diagnostic::{Diagnostic, Severity, SourceAt};
 use crate::error::{DeckJsonSnafu, PathSnafu, RenderError};
 use crate::fonts::Fonts;
@@ -93,7 +93,7 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
   align(center + horizon, text(size: 20pt, fill: luma(90), label)))
 #let load-image(e, asset: none, fit: "cover", chart: false, flow: false) = {{
   if chart {{
-    if "{svg_field}" not in e {{ fallback({chart_failed}) }}
+    if "{svg_field}" not in e {{ fallback(e.at("{error_field}", default: {chart_failed})) }}
     else if "frame" in e {{
       image("/charts/" + e.at("{svg_field}") + ".svg", width: 100%, height: 100%, fit: "contain")
     }} else {{
@@ -124,6 +124,7 @@ fn main_source<'a>(has_theme: bool, packs: &PackSet, assets: impl Iterator<Item 
   widgets: by-name({registry}))
 "#,
         svg_field = SVG_FIELD,
+        error_field = ERROR_FIELD,
         aspect = DEFAULT_SIZE.height / DEFAULT_SIZE.width,
     )
 }
@@ -260,7 +261,7 @@ impl OkuSlidesWorld {
     /// graphiques du deck courant sont redessinés.
     pub fn set_language(&mut self, l: &Localizer, registry: &WidgetRegistry) -> Result<(), RenderError> {
         self.labels = Labels { missing_image: l.tr("render-missing-image"), chart_failed: l.tr("render-chart-failed") };
-        self.charts.set_labels(ChartLabels::new(l));
+        self.charts.set_labels(ChartLabels::new(l), l.locale());
         self.redraw_charts(registry)
     }
 
@@ -279,7 +280,20 @@ impl OkuSlidesWorld {
         self.redraw_charts(registry)
     }
 
-    /// Redessine les graphiques du deck courant et refait la source principale.
+    /// The deck Typst reads (`/deck.json`), as JSON.
+    #[cfg(test)]
+    pub(crate) fn deck_json(&self) -> serde_json::Value {
+        serde_json::from_slice(&self.deck).unwrap_or_default()
+    }
+
+    /// The SVG drawn for the chart under `key`.
+    #[cfg(test)]
+    pub(crate) fn chart_svg(&self, key: &str) -> Option<String> {
+        let id = file_id(&format!("/charts/{key}.svg")).ok()?;
+        self.charts.file(id).map(|b| String::from_utf8_lossy(b).into_owned())
+    }
+
+    /// Redraws the current deck's charts and rebuilds the main source.
     fn redraw_charts(&mut self, registry: &WidgetRegistry) -> Result<(), RenderError> {
         let mut json: serde_json::Value = serde_json::from_slice(&self.deck).context(DeckJsonSnafu)?;
         self.charts.attach(&mut json, &self.fonts, registry)?;

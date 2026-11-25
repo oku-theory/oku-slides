@@ -461,6 +461,34 @@ ui-data-pane-close = Закрыть данные
 ui-data-pane-resize = Изменить размер данных
 ui-data-pane-maximize = Развернуть данные
 ui-data-pane-restore = Свернуть данные
+ui-data-shared-by = Общие данные · { $count ->
+    [one] { $count } представление
+    [few] { $count } представления
+    [many] { $count } представлений
+   *[other] { $count } представления
+}
+ui-data-tab = Данные
+ui-data-add = Добавить данные
+ui-data-rename = Переименовать
+ui-data-remove = Удалить
+ui-data-column-type = Тип столбца
+ui-data-type-text = Текст
+ui-data-type-number = Число
+ui-data-type-integer = Целое число
+ui-data-type-bool = Да/нет
+ui-data-type-date = Дата
+ui-data-views = { $count ->
+    [one] { $count } представление
+    [few] { $count } представления
+    [many] { $count } представлений
+   *[other] { $count } представления
+}
+ui-data-unused = Не используются
+ui-data-size = Столбцы: { $columns } · Строки: { $rows }
+ui-data-page = Строки { $first }–{ $last } из { $total }
+ui-data-previous = Предыдущие строки
+ui-data-next = Следующие строки
+ui-data-open = Открыть данные
 ui-themes = Темы
 ui-offer-open = Открыть: { $title }
 ui-offer-settings = Предложенные настройки: { $title }

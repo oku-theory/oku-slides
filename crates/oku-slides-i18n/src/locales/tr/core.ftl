@@ -5,7 +5,6 @@ op-index-out-of-range = Konum aralık dışında
 op-invalid-value = { $subject } için geçersiz değer
 op-invalid-value-because = { $subject } için geçersiz değer: { $reason }
 op-value-no-value = parametrenin değeri yok
-op-value-no-dataset = grafiğin veri kümesi yok
 op-value-grid-tracks = bir ızgarada 1 ile 24 arasında sütun ve satır olur
 op-value-bad-item-id = madde kimliği, “/” içermeyen boş olmayan bir metindir
 op-value-missing-item-id = her maddenin bir kimliği olmalı
@@ -143,12 +142,14 @@ op-choice-out-of-range = { $subject } için izin verilmeyen değer
 transaction-refused = { $index }. işlem reddedildi: { $reason }
 
 sources-unreadable = Kaynaklar okunamıyor
+deck-inline-data = { $element } öğesi verilerini seçeneklerinde saklıyor: bu sunum dosyası güncel biçimde değil
 sources-not-sources = Bu bir Oku Slides kaynak arşivi değil
 sources-unsupported-version = Bu kaynaklar Oku Slides'ın daha yeni bir sürümüyle yazılmış
 sources-bad-name = Kaynaklarda reddedilen dosya adı
 sources-missing-deck = Kaynaklarda sunu eksik
 sources-too-large = Bu dosyadaki kaynaklar açılamayacak kadar büyük
 sources-too-deep = Bu sunu öğeleri çok derin iç içe yerleştiriyor
+sources-base-refused = Bu sunumun bir veri dosyası bozuk veya kaydedilemedi
 
 issue-empty-slide-id = boş slayt tanımlayıcısı
 issue-duplicate-slide-id = yinelenen slayt tanımlayıcısı
@@ -196,13 +197,43 @@ usage-range-reversed = Başlangıç tarihi { $since }, bitiş tarihi { $until } 
 pack-token-entry-invalid = Paket bildiriminde geçersiz bileşen belirteci “{ $path }”.
 pack-manifest-json = Paket bildirimi okunamıyor: { $reason }
 pack-manifest-order = Paketin öğe sırası “{ $name }” noktasında geçersiz.
+pack-manifest-data-count = Paket { $count } veri içeriyor, en fazla { $max }.
+pack-manifest-data-base = Paketin “{ $data }” verisi harici bir dosyaya başvuruyor; bir paketin verileri kendi hücrelerini içerir.
+pack-manifest-data-cells = Paketin verileri { $count } hücre içeriyor, en fazla { $max }.
 issue-unsupported-link = desteklenmeyen bağlantı: { $link }
 issue-highlight-zero = vurgu renkleri 1'den başlayarak numaralanır
 issue-unreadable-element = okunamayan öğe, bir kenara ayrıldı
 issue-slot-repaired = bilinen bir yuvası olmayan öğe, { $slot } içine yerleştirildi
 issue-unreadable-item = okunamayan liste maddesi, bir kenara ayrıldı
 issue-unreadable-row = okunamayan tablo satırı, bir kenara ayrıldı
-issue-data-truncated = veri çok büyük, okunurken kırpıldı
+issue-data-truncated = “{ $data }” verisi çok büyük, okunurken kırpıldı ve salt okunur tutuldu
+issue-data-name-taken = “{ $data }” veri adı zaten kullanılıyor
+issue-data-cell-type = “{ $data }” verisi: “{ $column }” sütunu { $type } türünde olmayan değerler içeriyor
+issue-data-too-many = sunuda çok fazla veri var ({ $count }); okunmayanlar: { $dropped }
+issue-data-base-missing = “{ $data }” verisi: temel dosyası eksik, salt okunur tutuldu
+issue-data-edits-lost = “{ $data }” verisi: değiştirilen bir tabloya yapılan düzenlemeler birleştirmede kayboldu
+issue-data-inline-dropped = { $element } öğesi: eski bir sürüm grafiğinin veya tablosunun verilerini seçeneklerinde saklamış; bunlar kaldırıldı
+issue-more = gösterilmeyen diğer sorunlar: { $count }
+op-data-deck-full = Sununun verileri sınırını aşacaktı: en fazla { $max } { $what ->
+    [row-ids] satır kimliği
+    [overlay] düzenlenmiş hücre
+    [text] bayt metin
+   *[data] veri
+}
+op-data-missing = “{ $data }” verisi bulunamadı
+op-data-name-taken = “{ $name }” veri adı zaten kullanılıyor
+op-data-column-in-use = “{ $column }” sütununu { $views } gösteriyor; önce onları başka sütunlara bağlayın (columns ile bind_data)
+op-data-in-use = Bu veriyi { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}ve { $more } görünüm daha
+}{" "}gösteriyor; önce bunları kaldırın veya başka bir veriye bağlayın
+op-data-column-missing = “{ $data }” verisinde “{ $column }” sütunu yok
+op-data-not-view = “{ $param }” parametresi veri gösteremez: bunu yalnızca bir grafik veya tablo seçeneği yapabilir
+op-data-truncated = “{ $data }” verisi okunurken kırpıldı ve salt okunur; düzenlemek için tablosunun tamamını değiştirin
+op-data-rebind = { $subject } öğesi zaten başka verileri gösteriyor; değiştirmek için bind_data kullanın
+op-data-internal = Bir toplu işlem bir tablonun tabanını veya katmanını ayarlayamaz
+op-data-batch-too-large = Toplu işlem çok büyük: hücre sayısı { $count }, en fazla { $max }
+op-data-inline = { $subject } öğesi verilerini seçeneklerinde taşıyor; bunları add_data ile sunum verisi olarak ekleyin ve bind_data ile bağlayın
 issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
 issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
 issue-knowledge-unreadable = okunamayan bilgi girdisi { $id }, bir kenara ayrıldı
@@ -277,3 +308,12 @@ issue-empty-item-id = { $param } listesinde tanımlayıcısı olmayan bir madde 
 issue-duplicate-item-id = { $param } listesinde yinelenen bir madde tanımlayıcısı var
 issue-invalid-item-id = { $param } listesinde eğik çizgi içeren bir öğe kimliği var
 issue-list-bounds = { $param } listesinde çok az ya da çok fazla madde var
+issue-view-truncated = { $element } verilerinin yalnızca bir kısmını gösteriyor ({ $what ->
+    [rows] satırlar
+   *[columns] sütunlar
+}: { $total } içinden { $shown })
+issue-render-budget = { $element } çizilmedi: sunumun görünümleri bir işlemenin izin verdiğinden fazla veri okuyor
+issue-data-missing = { $element } sunumda olmayan “{ $data }” verisini adlandırıyor
+issue-view-column-missing = { $element }, verisinde olmayan “{ $column }” sütununu okuyor
+issue-view-unreadable = { $element } çizilmedi: seçenekleri okunamıyor
+op-replica-full = Sunumun geçmişi neredeyse { $max } MiB'a ulaştı, yeniden açılabileceği en büyük boyut: daha fazla eklemeden önce içerik kaldırın.

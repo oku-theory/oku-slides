@@ -42,12 +42,20 @@ pub mod agent;
 mod agent_window_allow;
 mod appearance;
 mod approvals_file;
+mod bases;
 mod builtin_labels;
 mod carried_assets;
 mod charts;
 mod color_warnings;
+mod data_compact;
+mod data_copy;
 mod data_edit;
+mod data_link;
+mod data_list;
+mod data_ops;
 mod data_panel;
+mod data_paste;
+mod data_read;
 mod deck_adopt;
 mod deck_closure;
 mod deck_fallback;
@@ -121,7 +129,9 @@ mod quit_barrier;
 mod received_held;
 mod received_review;
 mod render_fonts;
+mod replica_gauge;
 mod request;
+mod request_cap;
 mod resume;
 mod resume_agent;
 mod resume_writer;
@@ -167,7 +177,11 @@ pub use add_grid::{AddPackView, AddWidget, ElementSeed};
 pub use agent::usage_table::{USAGE_COLUMNS, usage_cells, usage_headers, usage_total_cells};
 pub use agent_window_allow::{AGENT_WINDOW_LABEL, check_agent_request, check_agent_workspace};
 pub use appearance::{Appearance, appearance};
+pub use bases::StoreFiles;
 pub use data_edit::{DataEdit, TableFlag};
+pub use data_list::DataAction;
+pub use data_ops::data_undo_label;
+pub use data_read::RowsRead;
 pub use deck_pack::{adopt_default_packs, check_pack_id};
 pub use deck_packs::{DeckPacksView, Drift};
 pub use deck_packs_guide::PinnedGuideView;
@@ -175,7 +189,7 @@ pub use deck_packs_panel::{HOST_PACKS, PackUpdate, PacksEvent, deck_packs_panel,
 pub use deck_theme::{adopt_default_theme, repair_theme_closure, sources_theme_layer};
 pub use deck_theme_edit::{EditedTheme, TokenOp};
 pub use document_kind::DocumentKind;
-use error::{NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
+use error::{BasesSnafu, NoSlideSnafu, NotRenderedSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu};
 pub use error::{Result, SessionError, SessionErrorKind};
 pub use fields::{FieldKind, FieldView, OwnerKind};
 pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
@@ -197,6 +211,7 @@ pub use probed_widgets::{ProbedWidgets, sources_with_packs};
 pub use quit_barrier::{QuitBarrier, QuitStart};
 pub use received_review::{CapabilityTotals, ReceivedRelation, ReceivedReview};
 pub use request::{Request, UiOrder, View};
+pub use request_cap::{MAX_APPLY_BYTES, check_request_size};
 pub use search::SearchHit;
 pub use tab_document::TabDocument;
 pub use text::{interp, paragraphs_to_text};
@@ -357,6 +372,18 @@ pub struct Session {
     /// Processus de rendu partagé par les rendus de la session : sondes des
     /// packs, packs fautifs.
     worker: RenderWorker,
+    /// The data base store, with this session's leases on the bases its document knows.
+    bases: bases::SessionBases,
+    /// The data worker, reading the rows of data with a base.
+    data_link: data_link::DataLink,
+    /// Background compaction of the data overlays (`data_compact`).
+    compaction: data_compact::Compaction,
+    /// The base reads of column type changes and view conversions, run off the lock (`data_read`).
+    base_reads: data_read::BaseReads,
+    /// The data panel's last refusal, shown on its data's row (`data_list`).
+    data_refusal: Option<data_list::DataRefusal>,
+    /// The replica-full guard's last measure (`replica_gauge`).
+    replica_gauge: replica_gauge::ReplicaGauge,
     /// Registre des widgets du document ouvert : les ops et le rendu s'en
     /// servent (voir `deck_widgets` pour l'invariant).
     registry: Arc<WidgetRegistry>,
@@ -398,7 +425,7 @@ pub struct Session {
     /// Images collées dans le brouillon de l'agent de cet onglet (`[paste]`).
     attachments: agent::attachments::Attachments,
     /// Assets apportés par le dernier élément collé depuis un autre onglet (`carried_assets`).
-    carried: carried_assets::CarriedAssets,
+    carried: carried_assets::HeldAssets,
     /// Reprise activée (app de bureau) : l'état est écrit après chaque
     /// commande, par un fil dédié (`resume_writer`).
     resume: Option<resume_writer::Writer>,
@@ -510,6 +537,7 @@ pub fn blank_deck(l: &Localizer) -> Deck {
         layouts: BTreeMap::new(),
         knowledge: BTreeMap::new(),
         slides: vec![Slide::new("s-titre", kinds::essentiel::TITLE), content],
+        ..Deck::default()
     }
 }
 
@@ -551,7 +579,9 @@ impl Session {
             author: settings.author.resolved(),
             store_usage: settings.usage.store_in_deck,
         };
-        let worker = RenderWorker::new(platform.render_launch.clone(), settings.render.clone());
+        let store = platform.bases().context(BasesSnafu)?;
+        let worker =
+            RenderWorker::new(platform.render_launch.clone(), settings.render.clone()).with_bases(store.clone());
         // Aucun pack installé encore : aucun widget, jusqu'à `sync_widgets`.
         let registry = deck_pack::empty_registry();
         let themes = ThemeLibrary::user(platform);
@@ -573,6 +603,12 @@ impl Session {
             source_limits: files::source_limits(settings),
             renderer: None,
             worker,
+            compaction: data_compact::Compaction::default(),
+            base_reads: data_read::BaseReads::default(),
+            data_refusal: None,
+            replica_gauge: replica_gauge::ReplicaGauge::default(),
+            data_link: data_link::DataLink::new(platform.render_launch.clone(), settings.render.clone(), store.clone()),
+            bases: bases::SessionBases::new(store),
             registry,
             packs: PackSet::default(),
             widgets_pins: BTreeMap::new(),
@@ -595,7 +631,7 @@ impl Session {
             ui: UiState::default(),
             ui_order: None,
             attachments: agent::attachments::Attachments::new(settings.paste.clone()),
-            carried: carried_assets::CarriedAssets::new(),
+            carried: carried_assets::HeldAssets::new(),
             resume: None,
             agent_notes: Vec::new(),
             turn_steps: agent::turn_undo::TurnSteps::default(),

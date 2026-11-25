@@ -453,6 +453,30 @@ ui-data-pane-close = Daten schließen
 ui-data-pane-resize = Datengröße ändern
 ui-data-pane-maximize = Daten vergrößern
 ui-data-pane-restore = Daten verkleinern
+ui-data-shared-by = Geteilt von { $count ->
+    [one] { $count } Ansicht
+   *[other] { $count } Ansichten
+}
+ui-data-tab = Daten
+ui-data-add = Daten hinzufügen
+ui-data-rename = Umbenennen
+ui-data-remove = Entfernen
+ui-data-column-type = Spaltentyp
+ui-data-type-text = Text
+ui-data-type-number = Zahl
+ui-data-type-integer = Ganzzahl
+ui-data-type-bool = Ja/Nein
+ui-data-type-date = Datum
+ui-data-views = { $count ->
+    [one] { $count } Ansicht
+   *[other] { $count } Ansichten
+}
+ui-data-unused = Nicht verwendet
+ui-data-size = Spalten: { $columns } · Zeilen: { $rows }
+ui-data-page = Zeilen { $first }–{ $last } von { $total }
+ui-data-previous = Vorherige Zeilen
+ui-data-next = Nächste Zeilen
+ui-data-open = Daten öffnen
 ui-themes = Designs
 ui-offer-open = Öffnen: { $title }
 ui-offer-settings = Angebotene Einstellungen: { $title }

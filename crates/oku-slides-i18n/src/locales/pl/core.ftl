@@ -5,7 +5,6 @@ op-index-out-of-range = Pozycja poza zakresem
 op-invalid-value = Nieprawidłowa wartość dla { $subject }
 op-invalid-value-because = Nieprawidłowa wartość dla { $subject }: { $reason }
 op-value-no-value = parametr nie ma wartości
-op-value-no-dataset = wykres nie ma zbioru danych
 op-value-grid-tracks = siatka ma od 1 do 24 kolumn i wierszy
 op-value-bad-item-id = identyfikator pozycji to niepusty tekst bez „/”
 op-value-missing-item-id = każda pozycja potrzebuje identyfikatora
@@ -158,12 +157,14 @@ op-choice-out-of-range = Niedozwolona wartość dla { $subject }
 transaction-refused = Operacja { $index } odrzucona: { $reason }
 
 sources-unreadable = Nieczytelne źródła
+deck-inline-data = Element { $element } przechowuje dane w swoich opcjach: ten plik decku nie ma bieżącego formatu
 sources-not-sources = To nie jest archiwum źródeł Oku Slides
 sources-unsupported-version = Te źródła zostały zapisane nowszą wersją Oku Slides
 sources-bad-name = Odrzucona nazwa pliku w źródłach
 sources-missing-deck = W źródłach brakuje prezentacji
 sources-too-large = Źródła w tym pliku są zbyt duże, aby je otworzyć
 sources-too-deep = Ta prezentacja zagnieżdża elementy zbyt głęboko
+sources-base-refused = Plik danych tej prezentacji jest uszkodzony lub nie można go zapisać
 
 issue-empty-slide-id = pusty identyfikator slajdu
 issue-duplicate-slide-id = zduplikowany identyfikator slajdu
@@ -213,13 +214,54 @@ usage-range-reversed = Data początkowa { $since } jest późniejsza niż data k
 pack-token-entry-invalid = Nieprawidłowy token komponentu „{ $path }” w manifeście pakietu.
 pack-manifest-json = Nie można odczytać manifestu pakietu: { $reason }
 pack-manifest-order = Kolejność elementów paczki jest nieprawidłowa przy „{ $name }”.
+pack-manifest-data-count = Pakiet zawiera { $count ->
+    [one] { $count } zbiór danych
+    [few] { $count } zbiory danych
+   *[many] { $count } zbiorów danych
+}, najwyżej { $max }.
+pack-manifest-data-base = Dane „{ $data }” pakietu odwołują się do pliku zewnętrznego; dane pakietu zawierają własne komórki.
+pack-manifest-data-cells = Dane pakietu zawierają { $count ->
+    [one] { $count } komórkę
+    [few] { $count } komórki
+   *[many] { $count } komórek
+}, najwyżej { $max }.
 issue-unsupported-link = nieobsługiwany link: { $link }
 issue-highlight-zero = kolory wyróżnienia numeruje się od 1
 issue-unreadable-element = nieczytelny element, odłożony
 issue-slot-repaired = element bez znanego slotu, umieszczony w { $slot }
 issue-unreadable-item = nieczytelna pozycja listy, odłożona
 issue-unreadable-row = nieczytelny wiersz tabeli, odłożony
-issue-data-truncated = dane zbyt duże, przycięte przy odczycie
+issue-data-truncated = dane „{ $data }” zbyt duże, przycięte przy odczycie i zachowane tylko do odczytu
+issue-data-name-taken = nazwa danych „{ $data }” jest już zajęta
+issue-data-cell-type = dane „{ $data }”: kolumna „{ $column }” zawiera wartości, które nie są typu { $type }
+issue-data-too-many = zbyt wiele danych w prezentacji ({ $count }); nieodczytane: { $dropped }
+issue-data-base-missing = dane „{ $data }”: brak pliku bazowego, zachowane tylko do odczytu
+issue-data-edits-lost = dane „{ $data }”: zmiany w zastąpionej tabeli zostały utracone przy scalaniu
+issue-data-inline-dropped = Element { $element }: starsza wersja zapisała dane jego wykresu lub tabeli w jego opcjach; zostały usunięte
+issue-more = pozostałe niewyświetlone problemy: { $count }
+op-data-deck-full = Dane prezentacji przekroczyłyby swój limit: najwyżej { $max } { $what ->
+    [row-ids] identyfikatorów wierszy
+    [overlay] zmienionych komórek
+    [text] bajtów tekstu
+   *[data] danych
+}
+op-data-missing = Nie znaleziono danych „{ $data }”
+op-data-name-taken = Nazwa danych „{ $name }” jest już zajęta
+op-data-column-in-use = Kolumnę „{ $column }” pokazują { $views }; najpierw powiąż je z innymi kolumnami (bind_data z columns)
+op-data-in-use = Te dane pokazują { $views }{ $more ->
+    [0] {""}
+    [one] {" "}i { $more } inny widok
+    [few] {" "}i { $more } inne widoki
+    [many] {" "}i { $more } innych widoków
+   *[other] {" "}i { $more } innego widoku
+}; najpierw je usuń lub powiąż z innymi danymi
+op-data-column-missing = Dane „{ $data }” nie mają kolumny „{ $column }”
+op-data-not-view = Parametr „{ $param }” nie może pokazywać danych: potrafi to tylko opcja wykresu lub tabeli
+op-data-truncated = Dane „{ $data }” zostały obcięte przy odczycie i są tylko do odczytu; aby je edytować, zastąp całą tabelę
+op-data-rebind = Element { $subject } pokazuje już inne dane; użyj bind_data, aby je zmienić
+op-data-internal = Partia nie może ustawić bazy ani nakładki tabeli
+op-data-batch-too-large = Partia jest za duża: liczba komórek { $count }, najwyżej { $max }
+op-data-inline = Element { $subject } przenosi dane w swoich opcjach; dodaj je jako dane decku przez add_data i powiąż przez bind_data
 issue-unreadable-slide = nieczytelny slajd, odłożony
 issue-unreadable-field = nieczytelne pole { $field } prezentacji, zresetowane
 issue-knowledge-unreadable = nieczytelny wpis wiedzy { $id }, odłożony
@@ -294,3 +336,12 @@ issue-empty-item-id = lista { $param } ma pozycję bez identyfikatora
 issue-duplicate-item-id = lista { $param } ma zduplikowany identyfikator pozycji
 issue-invalid-item-id = lista { $param } ma identyfikator pozycji zawierający ukośnik
 issue-list-bounds = lista { $param } ma za mało lub za dużo pozycji
+issue-view-truncated = { $element } pokazuje tylko część swoich danych ({ $what ->
+    [rows] wiersze
+   *[columns] kolumny
+}: { $shown } z { $total })
+issue-render-budget = { $element } nie jest rysowany: widoki prezentacji czytają więcej danych, niż pozwala renderowanie
+issue-data-missing = { $element } wskazuje dane „{ $data }”, których nie ma w prezentacji
+issue-view-column-missing = { $element } czyta kolumnę „{ $column }”, której nie ma w jego danych
+issue-view-unreadable = { $element } nie jest rysowany: nie można odczytać jego opcji
+op-replica-full = Historia prezentacji zbliża się do { $max } MiB, maksimum pozwalającego ją ponownie otworzyć: usuń zawartość, zanim dodasz więcej.

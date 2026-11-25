@@ -1,0 +1,8 @@
+# Tests that reach every data bound (t-1690) run one at a time, with a longer timeout.
+[test-groups]
+slow = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "test(/worst_case/) | test(/single_150000/) | test(/near_512_mib/)"
+test-group = "slow"
+slow-timeout = "300s"

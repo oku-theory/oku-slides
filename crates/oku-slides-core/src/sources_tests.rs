@@ -25,7 +25,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":14}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":15}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -96,7 +96,8 @@ fn from_zip_with_sources_version_4_returns_not_sources() {
 /// Sources plus anciennes : refusées sans conversion. 6 et 7 : formats de replica
 /// dépassés ; 8 : arbre par slide ; 9 : marques non datées ; 10 : un seul pack de
 /// modèles (`packs/`) ; 11 : sans `deck.layouts` (replica au format 5) ; 12 : thème
-/// en `ThemeRef`, sans `deck.themes` (replica au format 6).
+/// en `ThemeRef`, sans `deck.themes` (replica au format 6) ; 13 and 14: replicas at format 7
+/// and 8, whose charts and tables hold their data inline (t-1690).
 #[rstest::rstest]
 #[case(6)]
 #[case(7)]
@@ -105,6 +106,8 @@ fn from_zip_with_sources_version_4_returns_not_sources() {
 #[case(10)]
 #[case(11)]
 #[case(12)]
+#[case(13)]
+#[case(14)]
 fn sources_older_version_zip_is_refused(#[case] version: u32) {
     let manifest = format!(r#"{{"format":"oku-slides-sources","version":{version}}}"#);
     let err = SourceBundle::from_zip(
@@ -116,28 +119,9 @@ fn sources_older_version_zip_is_refused(#[case] version: u32) {
     assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
 }
 
-/// Sources 13: the previous version, its replica at format 7 or 8, still read.
 #[test]
-fn from_zip_with_sources_version_13_opens() {
-    // A version-13 file holds a format-7 replica.
-    let doc = loro::LoroDoc::new();
-    doc.import(&deck_loro()).unwrap();
-    doc.get_map("meta").insert("format", 7).unwrap();
-    doc.commit();
-    let format_7 = doc.export(loro::ExportMode::Snapshot).unwrap();
-    let manifest = br#"{"format":"oku-slides-sources","version":13}"#;
-    let (bundle, _) = SourceBundle::from_zip(
-        &zip(&[("manifest.json", manifest), ("deck.loro", &format_7)]),
-        MAX,
-        crate::test_registry::shared(),
-    )
-    .unwrap();
-    assert_that!(bundle.deck().knowledge.is_empty()).is_true();
-}
-
-#[test]
-fn from_zip_with_sources_version_15_returns_unsupported_version() {
-    let manifest = br#"{"format":"oku-slides-sources","version":15}"#;
+fn from_zip_with_sources_version_16_returns_unsupported_version() {
+    let manifest = br#"{"format":"oku-slides-sources","version":16}"#;
     let err = SourceBundle::from_zip(
         &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
         MAX,
@@ -148,13 +132,13 @@ fn from_zip_with_sources_version_15_returns_unsupported_version() {
 }
 
 #[test]
-fn to_zip_writes_sources_version_14() {
+fn to_zip_writes_sources_version_15() {
     let zip = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
     let mut za = zip::ZipArchive::new(Cursor::new(zip)).unwrap();
     let mut manifest = String::new();
     std::io::Read::read_to_string(&mut za.by_name("manifest.json").unwrap(), &mut manifest).unwrap();
     let manifest: serde_json::Value = serde_json::from_str(&manifest).unwrap();
-    assert_that!(manifest["version"]).is_equal_to(serde_json::json!(14));
+    assert_that!(manifest["version"]).is_equal_to(serde_json::json!(15));
 }
 
 #[test]
@@ -192,6 +176,16 @@ fn add_only_assets_survive_save_load_and_the_deletion_of_the_knowledge_citer() {
     let (back, _) = SourceBundle::from_zip(&b.to_zip().unwrap(), MAX, crate::test_registry::shared()).unwrap();
     assert_that!(back.assets.contains_key(&id)).is_true();
     assert_that!(back.assets.contains_key(&uncited)).is_true();
+}
+
+#[test]
+fn sources_v14_is_refused_with_localized_message_fr() {
+    let manifest = br#"{"format":"oku-slides-sources","version":14}"#;
+    let entries: &[(&str, &[u8])] = &[("manifest.json", manifest), ("deck.loro", &deck_loro())];
+    let err = SourceBundle::from_zip(&zip(entries), MAX, crate::test_registry::shared()).unwrap_err();
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    assert_that!(err.kind()).is_equal_to(SourcesErrorKind::NotSources);
+    assert_that!(oku_slides_i18n::Localize::localize(&err, &fr)).is_equal_to(fr.tr("sources-not-sources"));
 }
 
 #[test]
@@ -475,17 +469,14 @@ fn restore_of_a_version_with_a_missing_asset_returns_it() {
 /// comme la vue d'avant : mêmes clés, même ordre (le rendu hache ce JSON).
 #[test]
 fn undo_rereads_value_params_with_the_same_json_as_the_view() {
-    let mut deck = roadmap();
-    let option: serde_json::Value = serde_json::from_str(
-        r#"{"xAxis":{"type":"category"},"dataset":{"source":[["a","b"],["x",1.0]]},"series":[{"type":"bar"}]}"#,
-    )
-    .unwrap();
+    let mut deck = bound_table_deck();
+    let option: serde_json::Value =
+        serde_json::from_str(r#"{"xAxis":{"type":"category"},"data":"d","series":[{"type":"bar"}]}"#).unwrap();
     let mut chart = crate::Element::new("g", base::CHART);
     chart.params.set("option", crate::ParamValue::Value(option));
-    let slide = deck.slide_mut("s-constat").unwrap();
-    slide.params.slot_mut("blocks").unwrap().push(chart);
+    deck.slide_mut("s").unwrap().params.slot_mut("blocks").unwrap().push(chart);
     crate::canonicalize(&mut deck);
-    let mut sources = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
+    let mut sources = SourceBundle::new(bound_table_deck(), crate::test_registry::shared()).unwrap();
     sources.apply(deck, "graphique", None).unwrap();
     let before = sources.deck().to_json().unwrap();
     let mut other = sources.deck().clone();
@@ -525,82 +516,48 @@ fn new_with_elements_nested_to_the_slot_bound_opens() {
     assert_that!(bundle.deck().slides[0].walk().count()).is_equal_to(MAX_SLOT_DEPTH);
 }
 
-/// Un deck JSON au tableau `t` et au graphique `g`, sans identifiants de
-/// lignes ni de colonnes.
-fn deck_without_ids() -> Deck {
-    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
-        { "id": "t", "kind": "base/table", "params": { "data": {
-            "dataset": { "source": [["Pays", "Ventes"], ["FR", 1], ["DE", 2]] } } } },
-        { "id": "g", "kind": "base/chart", "params": { "option": {
-            "dataset": { "source": [["Mois", "Ventes"], ["Jan", 10]] }, "series": [{ "type": "bar" }] } } }
-    ] } }] });
-    Deck::from_json(&deck.to_string()).unwrap()
+/// A deck whose table `t` shows data `d`: rows `fr` and `de`, columns `pays` and `ventes`.
+fn bound_table_deck() -> Deck {
+    let mut deck =
+        Deck::from_json(r#"{ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [] } }] }"#)
+            .unwrap();
+    let ops: Vec<crate::Op> = serde_json::from_value(serde_json::json!([
+        { "op": "add_data", "id": "d", "name": "ventes", "table": { "generation": "g1",
+            "columns": [{ "id": "pays", "name": "Pays" }, { "id": "ventes", "name": "Ventes", "type": "number" }],
+            "rows": [{ "id": "fr", "cells": ["FR", 1] }, { "id": "de", "cells": ["DE", 2] }] } },
+        { "op": "add_element", "slot": { "owner": { "slide": "s" }, "param": "blocks" },
+          "element": { "id": "t", "kind": "base/table", "params": { "data": { "data": "d" } } } }
+    ]))
+    .unwrap();
+    crate::apply_all(&mut deck, ops, &crate::test_registry::registry()).unwrap();
+    deck
 }
 
-/// Le `dataset` du paramètre `param` de l'élément `id` de la slide `s`.
-fn dataset_of(deck: &Deck, id: &str, param: &str) -> serde_json::Value {
-    let e = deck.slides[0].locate(id).unwrap().element;
-    e.params.value(param).unwrap()["dataset"].clone()
-}
-
-fn set_cell(row: usize, col: usize, n: f64) -> crate::Op {
-    crate::Op::SetData {
-        target: crate::Target { slide: "s".into(), element: Some("t".into()) },
-        param: "data".into(),
-        change: oku_slides_chart::DataOp::SetCell { row, col, value: oku_slides_chart::Cell::Number(n) },
-    }
-}
-
-#[test]
-fn new_gives_ids_to_the_datasets_of_a_json_deck() {
-    let bundle = SourceBundle::new(deck_without_ids(), crate::test_registry::shared()).unwrap();
-    for (id, param, rows, cols) in [("t", "data", 3, 2), ("g", "option", 2, 2)] {
-        let ds = dataset_of(bundle.deck(), id, param);
-        assert_that!(ds["ids"].as_array().map(Vec::len)).is_equal_to(Some(rows));
-        assert_that!(ds["columns"].as_array().map(Vec::len)).is_equal_to(Some(cols));
-    }
-    assert_that!(bundle.replica().deck().0).is_equal_to(bundle.deck());
+fn set_cell(row: &str, n: f64) -> crate::Op {
+    let change = oku_slides_data::TableOp::SetCell {
+        row: row.into(),
+        column: "ventes".into(),
+        value: oku_slides_data::DataCell::Number(n),
+    };
+    crate::Op::EditData { data: oku_slides_data::DataId::try_from("d".to_owned()).unwrap(), change }
 }
 
 #[test]
-fn concurrent_cell_edits_of_a_json_deck_both_survive_the_merge() {
-    let zip = SourceBundle::new(deck_without_ids(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
+fn concurrent_cell_edits_of_deck_data_both_survive_the_merge() {
+    let zip = SourceBundle::new(bound_table_deck(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
     let (mut a, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     let (mut b, _) = SourceBundle::from_zip(&zip, MAX, crate::test_registry::shared()).unwrap();
     let base = a.deck().clone();
-    a.apply(with_op(&base, set_cell(1, 1, 7.0)), "A", None).unwrap();
-    b.apply(with_op(&base, set_cell(2, 1, 9.0)), "B", None).unwrap();
+    a.apply(with_op(&base, set_cell("fr", 7.0)), "A", None).unwrap();
+    b.apply(with_op(&base, set_cell("de", 9.0)), "B", None).unwrap();
     a.merge(b).unwrap();
-    let source = dataset_of(a.deck(), "t", "data")["source"].clone();
-    assert_that!(source).is_equal_to(serde_json::json!([["Pays", "Ventes"], ["FR", 7.0], ["DE", 9.0]]));
-}
-
-/// Un deck au tableau `t`, dont `data` est écrit tel quel (sans identifiants).
-fn raw_table_deck() -> Deck {
-    let deck = serde_json::json!({ "slides": [{ "id": "s", "kind": "essentiel/content", "params": { "blocks": [
-        { "id": "t", "kind": "base/table", "params": { "data": { "dataset": {
-            "source": [["Pays", "Ventes"], ["FR", 1]] } } } } ] } }] });
-    Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck : {e}"))
-}
-
-/// Régression t-631 : restaurer normalise les données d'hôte comme l'aperçu,
-/// jusque dans le replica (sinon le jeu est stocké opaque, fusion grossière).
-/// En ligne (`sources_tests`) : le stockage n'est lisible que dans la crate.
-#[test]
-fn restore_of_a_version_without_host_ids_normalizes_it_like_the_preview() {
-    let mut b = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap();
-    // `apply` n'normalise pas : la version est inscrite telle quelle.
-    b.apply(raw_table_deck(), "tableau", None).unwrap();
-    b.apply(roadmap(), "retrait", None).unwrap();
-    let preview = b.history();
-    b.restore(&preview, 1, "restaurer").unwrap();
-    // Les identifiants sont tirés au hasard : on compare leur forme, pas leur valeur.
-    let dataset = dataset_of(b.deck(), "t", "data");
-    assert_that!(dataset["source"]).is_equal_to(serde_json::json!([["Pays", "Ventes"], ["FR", 1.0]]));
-    assert_that!(dataset["ids"].as_array().map(Vec::len)).is_equal_to(Some(2));
-    assert_that!(dataset["columns"].as_array().map(Vec::len)).is_equal_to(Some(2));
-    // Le replica relit exactement la vue : le jeu n'est pas resté opaque.
-    assert_that!(b.replica().deck().0).is_equal_to(b.deck().clone());
+    let table = &a.deck().data["d"].table;
+    let source = table.to_dataset(None, 0..10, 100).unwrap().source;
+    assert_that!(serde_json::to_value(source).unwrap()).is_equal_to(serde_json::json!([
+        ["Pays", "Ventes"],
+        ["FR", 7.0],
+        ["DE", 9.0]
+    ]));
 }
 
 /// Le replica de `roadmap` dont la première slide porte une marque datée de 1 (1970).

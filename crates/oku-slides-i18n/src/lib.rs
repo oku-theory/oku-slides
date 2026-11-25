@@ -53,8 +53,10 @@ macro_rules! locale {
                 include_str!(concat!("locales/", $lang, "/stt.ftl")),
                 include_str!(concat!("locales/", $lang, "/cli.ftl")),
                 include_str!(concat!("locales/", $lang, "/chart.ftl")),
+                include_str!(concat!("locales/", $lang, "/data.ftl")),
                 include_str!(concat!("locales/", $lang, "/agent.ftl")),
                 include_str!(concat!("locales/", $lang, "/voice.ftl")),
+                include_str!(concat!("locales/", $lang, "/mcp.ftl")),
                 // Toujours en dernier : voir `ui_messages`.
                 include_str!(concat!("locales/", $lang, "/ui.ftl")),
             ] as &[&str],

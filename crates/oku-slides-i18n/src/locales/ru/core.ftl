@@ -5,7 +5,6 @@ op-index-out-of-range = Позиция вне допустимого диапа�
 op-invalid-value = Недопустимое значение для { $subject }
 op-invalid-value-because = Недопустимое значение для { $subject }: { $reason }
 op-value-no-value = у параметра нет значения
-op-value-no-dataset = у диаграммы нет набора данных
 op-value-grid-tracks = в сетке от 1 до 24 столбцов и строк
 op-value-bad-item-id = идентификатор пункта — непустой текст без «/»
 op-value-missing-item-id = у каждого пункта должен быть идентификатор
@@ -158,12 +157,14 @@ op-choice-out-of-range = Значение не разрешено для { $subj
 transaction-refused = Операция { $index } отклонена: { $reason }
 
 sources-unreadable = Исходники не читаются
+deck-inline-data = Элемент { $element } хранит данные в своих параметрах: этот файл презентации не в текущем формате
 sources-not-sources = Это не архив исходников Oku Slides
 sources-unsupported-version = Эти исходники созданы более новой версией Oku Slides
 sources-bad-name = Недопустимое имя файла в исходниках
 sources-missing-deck = В исходниках нет презентации
 sources-too-large = Исходники в этом файле слишком велики для открытия
 sources-too-deep = В этой презентации элементы вложены слишком глубоко
+sources-base-refused = Файл данных этой презентации повреждён или не может быть сохранён
 
 issue-empty-slide-id = пустой идентификатор слайда
 issue-duplicate-slide-id = повторяющийся идентификатор слайда
@@ -213,13 +214,54 @@ usage-range-reversed = Начальная дата { $since } позже кон�
 pack-token-entry-invalid = Недопустимый токен компонента «{ $path }» в манифесте пакета.
 pack-manifest-json = Не удаётся прочитать манифест пакета: { $reason }
 pack-manifest-order = Порядок элементов пака недопустим в «{ $name }».
+pack-manifest-data-count = Пакет содержит { $count ->
+    [one] { $count } набор данных
+    [few] { $count } набора данных
+   *[many] { $count } наборов данных
+}, не более { $max }.
+pack-manifest-data-base = Данные «{ $data }» пакета ссылаются на внешний файл; данные пакета содержат собственные ячейки.
+pack-manifest-data-cells = Данные пакета содержат { $count ->
+    [one] { $count } ячейку
+    [few] { $count } ячейки
+   *[many] { $count } ячеек
+}, не более { $max }.
 issue-unsupported-link = неподдерживаемая ссылка: { $link }
 issue-highlight-zero = цвета выделения нумеруются с 1
 issue-unreadable-element = нечитаемый элемент, отложен
 issue-slot-repaired = элемент без известного слота, помещён в { $slot }
 issue-unreadable-item = нечитаемый пункт списка, отложен
 issue-unreadable-row = нечитаемая строка таблицы, отложена
-issue-data-truncated = данные слишком велики, усечены при чтении
+issue-data-truncated = данные «{ $data }» слишком велики, усечены при чтении и доступны только для чтения
+issue-data-name-taken = имя данных «{ $data }» уже занято
+issue-data-cell-type = данные «{ $data }»: столбец «{ $column }» содержит значения не типа { $type }
+issue-data-too-many = слишком много данных в презентации ({ $count }); не прочитаны: { $dropped }
+issue-data-base-missing = данные «{ $data }»: отсутствует базовый файл, доступны только для чтения
+issue-data-edits-lost = данные «{ $data }»: изменения заменённой таблицы потеряны при слиянии
+issue-data-inline-dropped = Элемент { $element }: старая версия сохранила данные его диаграммы или таблицы в его параметрах; они удалены
+issue-more = другие непоказанные проблемы: { $count }
+op-data-deck-full = Данные презентации превысили бы лимит: не более { $max } { $what ->
+    [row-ids] идентификаторов строк
+    [overlay] изменённых ячеек
+    [text] байт текста
+   *[data] данных
+}
+op-data-missing = Данные «{ $data }» не найдены
+op-data-name-taken = Имя данных «{ $name }» уже занято
+op-data-column-in-use = Столбец «{ $column }» показывают { $views }; сначала привяжите их к другим столбцам (bind_data с columns)
+op-data-in-use = Эти данные показывают { $views }{ $more ->
+    [0] {""}
+    [one] {" "}и ещё { $more } представление
+    [few] {" "}и ещё { $more } представления
+    [many] {" "}и ещё { $more } представлений
+   *[other] {" "}и ещё { $more } представления
+}; сначала удалите их или привяжите к другим данным
+op-data-column-missing = В данных «{ $data }» нет столбца «{ $column }»
+op-data-not-view = Параметр «{ $param }» не может показывать данные: это умеет только параметр диаграммы или таблицы
+op-data-truncated = Данные «{ $data }» обрезаны при чтении и доступны только для чтения; чтобы их изменить, замените всю таблицу
+op-data-rebind = Элемент { $subject } уже показывает другие данные; чтобы их сменить, используйте bind_data
+op-data-internal = Пакет не может задавать основу или наложение таблицы
+op-data-batch-too-large = Пакет слишком велик: число ячеек { $count }, не более { $max }
+op-data-inline = Элемент { $subject } содержит данные в своих параметрах; добавьте их как данные презентации через add_data и привяжите через bind_data
 issue-unreadable-slide = нечитаемый слайд, отложен
 issue-unreadable-field = нечитаемое поле { $field } презентации, сброшено
 issue-knowledge-unreadable = нечитаемая запись знаний { $id }, отложена
@@ -294,3 +336,12 @@ issue-empty-item-id = в списке { $param } есть пункт без ид
 issue-duplicate-item-id = в списке { $param } повторяется идентификатор пункта
 issue-invalid-item-id = в списке { $param } есть идентификатор пункта с косой чертой
 issue-list-bounds = в списке { $param } слишком мало или слишком много пунктов
+issue-view-truncated = { $element } показывает лишь часть своих данных ({ $what ->
+    [rows] строки
+   *[columns] столбцы
+}: { $shown } из { $total })
+issue-render-budget = { $element } не отрисован: представления презентации читают больше данных, чем допускает отрисовка
+issue-data-missing = { $element } ссылается на данные «{ $data }», которых нет в презентации
+issue-view-column-missing = { $element } читает столбец «{ $column }», которого нет в его данных
+issue-view-unreadable = { $element } не отрисован: его параметры не читаются
+op-replica-full = История презентации почти достигла { $max } МиБ — максимума, при котором её можно снова открыть: удалите содержимое, прежде чем добавлять новое.

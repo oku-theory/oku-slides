@@ -24,6 +24,8 @@ use oku_slides_core::{
     DeckReplica, PackFiles, PackKind, PackVersion, ReplicaError, ReplicaErrorKind, SourceBundle, UsageLedger,
     WidgetRegistry,
 };
+use oku_slides_data::BaseId;
+use oku_slides_platform::bases::BaseStore;
 use oku_slides_platform::storage::{Storage, StorageError};
 
 use crate::files::read_document;
@@ -194,6 +196,8 @@ pub(crate) struct DocSnapshot {
     /// shared with the previous snapshot while it is unchanged.
     usage: Arc<UsageLedger>,
     usage_unsaved: bool,
+    /// The data bases the document knows (`document.json`); their files are in the base store.
+    bases: BTreeSet<BaseId>,
 }
 
 impl DocSnapshot {
@@ -263,6 +267,7 @@ impl DocSnapshot {
             blobs,
             usage,
             usage_unsaved: doc.usage_unsaved,
+            bases: sources.bases.clone(),
         })
     }
 }
@@ -282,6 +287,7 @@ struct DocOut<'a> {
     saved_hash: Option<&'a str>,
     blank: bool,
     usage_unsaved: bool,
+    bases: &'a BTreeSet<BaseId>,
 }
 
 #[derive(Deserialize)]
@@ -296,6 +302,8 @@ struct DocIn {
     blank: bool,
     #[serde(default)]
     usage_unsaved: bool,
+    #[serde(default)]
+    bases: BTreeSet<BaseId>,
 }
 
 /// Un nom de fichier sûr : un seul composant normal, ni vide ni caché (les
@@ -362,6 +370,7 @@ impl Resume {
             saved_hash: doc.saved_hash.as_deref(),
             blank: doc.blank,
             usage_unsaved: doc.usage_unsaved,
+            bases: &doc.bases,
         };
         let (assets, fonts) = (&doc.blobs.assets, &doc.blobs.fonts);
         let dir = self.dir.join(sub);
@@ -538,13 +547,33 @@ impl Resume {
     /// Every read is bounded, as for a PDF's sources: `document.json` by [`MAX_JSON_BYTES`],
     /// the replica by `budget.limits.replica_bytes`, assets, fonts, packs and themes by
     /// `budget`, shared with the tab's other documents (t-1206, t-1382).
+    ///
+    /// Only the bases still in `store` stay known: one collected or deleted since reads as
+    /// `issue-data-base-missing`.
     pub fn read_doc(
         &self,
         sub: &str,
         defaults: &DocDefaults,
         budget: &mut ReadBudget,
         registry: &Arc<WidgetRegistry>,
+        store: &BaseStore,
     ) -> Result<Document> {
+        let (doc, issues) = self.read_doc_issues(sub, defaults, budget, registry, store)?;
+        for issue in &issues {
+            tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
+        }
+        Ok(doc)
+    }
+
+    /// [`Self::read_doc`], with the issues of the parts set aside.
+    pub(crate) fn read_doc_issues(
+        &self,
+        sub: &str,
+        defaults: &DocDefaults,
+        budget: &mut ReadBudget,
+        registry: &Arc<WidgetRegistry>,
+        store: &BaseStore,
+    ) -> Result<(Document, Vec<oku_slides_core::Issue>)> {
         let limits = budget.limits;
         let dir = self.dir.join(sub);
         let path = dir.join("document.json");
@@ -610,18 +639,31 @@ impl Resume {
                 tracing::warn!(version = hex, "thème de reprise altéré ignoré");
             }
         }
-        let (mut sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs, themes);
-        for issue in &issues {
-            tracing::warn!(issue = %issue, "partie illisible de la reprise mise de côté");
-        }
+        let bases = stored_bases(store, raw.bases);
+        let (mut sources, issues) = SourceBundle::from_replica(replica, read, assets, fonts, packs, themes, bases);
         sources.usage = self.read_usage(&dir);
         let mut doc = Document::new(sources, path, defaults);
         doc.dirty = raw.dirty;
         doc.saved_hash = raw.saved_hash;
         doc.blank = raw.blank;
         doc.usage_unsaved = raw.usage_unsaved;
-        Ok(doc)
+        Ok((doc, issues))
     }
+}
+
+/// The bases of `known` still in `store`. One the store cannot check is left out too: its data
+/// then reads as missing, never as a base the render worker would fail to open.
+fn stored_bases(store: &BaseStore, known: BTreeSet<BaseId>) -> BTreeSet<BaseId> {
+    known
+        .into_iter()
+        .filter(|id| match store.contains(id) {
+            Ok(found) => found,
+            Err(e) => {
+                tracing::warn!(base = id.as_str(), error = %e, "resumed base not checked, read as missing");
+                false
+            }
+        })
+        .collect()
 }
 
 /// Horodatage et suffixe d'un dossier `<base>.failed-<secondes>[-<n>]`.
@@ -762,7 +804,13 @@ impl Session {
     /// Restores `deck/` as the document, reread from its file if unchanged, with `ui`.
     fn restore_deck(&mut self, resume: &Resume, ui: UiState) -> Result<()> {
         let mut budget = ReadBudget::new(self.source_limits);
-        let deck = self.fresh_from_disk(resume.read_doc(DECK_DIR, &self.doc_defaults, &mut budget, &self.registry)?);
+        let deck = self.fresh_from_disk(resume.read_doc(
+            DECK_DIR,
+            &self.doc_defaults,
+            &mut budget,
+            &self.registry,
+            self.bases.store(),
+        )?);
         self.load_document(deck).context(SessionSnafu)?;
         self.ui = ui.sanitized(false);
         Ok(())
@@ -772,7 +820,7 @@ impl Session {
     /// le disque, sans historique ; absent ou illisible, la copie de travail reste.
     fn fresh_from_disk(&self, saved: Document) -> Document {
         let Some(path) = saved.path.as_ref().filter(|_| !saved.dirty) else { return saved };
-        match read_document(&self.storage, path, self.source_limits, &self.registry) {
+        match read_document(&self.storage, path, self.source_limits, &self.registry, Some(&self.bases.files())) {
             Ok(opened) if saved.saved_hash.as_deref() != Some(opened.hash.as_str()) => {
                 let notice = opened.notice(&self.localizer);
                 let mut doc = Document::new(opened.sources, Some(path.clone()), &self.doc_defaults);

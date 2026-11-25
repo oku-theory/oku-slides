@@ -37,7 +37,7 @@ use crate::error::{
     DeckPackMismatchSnafu, InHistorySnafu, InPackTabSnafu, NamespaceTakenSnafu, PackModeSlidesSnafu,
     PackVersionMissingSnafu, ReadOnlySnafu, SourcesSnafu,
 };
-use crate::example_text::localized_examples;
+use crate::example_text::{localized_data, localized_examples};
 use crate::library_packs::PackLibrary;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK, PackManifest};
 use crate::pack_lease::PackLease;
@@ -98,6 +98,8 @@ pub(crate) fn realign_layouts(deck: &mut Deck, manifest: &PackManifest, files: &
     if files.kind() != PackKind::Layouts {
         return;
     }
+    // The examples name the pack's data: the working deck holds those, as written in the manifest.
+    deck.data = localized_data(manifest.id, &manifest.data, l);
     let mut kept = std::mem::take(&mut deck.slides);
     for name in layout_names(manifest, files) {
         let id = layout_slide_id(name);
@@ -127,6 +129,8 @@ pub(crate) fn styled_like(base: &Deck, slides: Vec<Slide>) -> Deck {
         tokens: base.tokens.clone(),
         widgets: base.widgets.clone(),
         layouts: base.layouts.clone(),
+        data: base.data.clone(),
+        truncated: base.truncated.clone(),
         // A specimen never carries the deck's knowledge.
         knowledge: BTreeMap::new(),
         slides,
@@ -183,12 +187,44 @@ pub(crate) fn embed_reached_themes(sources: &mut SourceBundle, held: &BTreeMap<P
     }
 }
 
-/// Une op qui change les slides du deck : refusée en mode pack.
+/// An op that changes the deck's slides: refused in pack mode.
 fn is_structural(op: &Op) -> bool {
     match op {
         Op::AddSlide { .. } | Op::RemoveSlide { .. } | Op::MoveSlide { .. } => true,
         Op::SetKind { target, .. } => target.element.is_none(),
-        _ => false,
+        Op::SetParam { .. }
+        | Op::SetDeckParam { .. }
+        | Op::SetStyle { .. }
+        | Op::ReplaceStyle { .. }
+        | Op::SetFrame { .. }
+        | Op::SetCell { .. }
+        | Op::SetGrid { .. }
+        | Op::ReplaceElement { .. }
+        | Op::SetChartOption { .. }
+        | Op::SetTableOption { .. }
+        | Op::EditList { .. }
+        | Op::AddElement { .. }
+        | Op::RemoveElement { .. }
+        | Op::MoveElement { .. }
+        | Op::SetNotes { .. }
+        | Op::SetTheme { .. }
+        | Op::AddPack { .. }
+        | Op::RemovePack { .. }
+        | Op::SetToken { .. }
+        | Op::UnsetToken { .. }
+        | Op::SetTokens { .. }
+        | Op::SetVar { .. }
+        | Op::AddData { .. }
+        | Op::EditData { .. }
+        | Op::RemoveData { .. }
+        | Op::RenameData { .. }
+        | Op::SetColumnType { .. }
+        | Op::PutViewData { .. }
+        | Op::BindData { .. }
+        | Op::KnowledgeWrite { .. }
+        | Op::KnowledgeEdit { .. }
+        | Op::KnowledgeMove { .. }
+        | Op::KnowledgeDelete { .. } => false,
     }
 }
 
@@ -242,6 +278,8 @@ impl Session {
         // The deck's own style: its theme, pinned themes and token overrides.
         let mut deck = styled_like(self.user_deck(), slides);
         deck.params.title = Some(stored.manifest.name.clone());
+        // The pack's example data, not the deck's: its examples name them.
+        deck.data = localized_data(stored.manifest.id, &stored.manifest.data, &self.localizer);
         // Les exemples peuvent garder `""` (texte vidé) : les slides ont la forme du replica.
         oku_slides_core::canonicalize(&mut deck);
         // Le pack édité et ses besoins, seuls : les autres packs du deck n'y servent pas.

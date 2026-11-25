@@ -12,7 +12,8 @@ use std::collections::HashSet;
 
 use serde_json::Value as Json;
 
-use crate::option::{ChartOption, format_number};
+use crate::option::ChartOption;
+use oku_slides_data::format_number;
 
 /// Espace fine insécable (français).
 const NARROW_NBSP: char = '\u{202F}';

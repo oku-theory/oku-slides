@@ -4,15 +4,13 @@ Deck model, ops, Loro replica (CRDT), validation, sources zip. Free of Typst and
 
 ## Data flow
 
-`apply_all` applies `Op`s atomically to a `Deck`, checked against the deck's `WidgetRegistry`,
-and leaves it canonical (`canonicalize`); `SourceBundle::apply` commits it into the `DeckReplica`.
-The replica is authoritative; `SourceBundle.deck` is only a view of it, used for rendering,
-`validate` and `locate`. Merging another copy goes through `SourceBundle::merge`.
+`apply_all` applies `Op`s atomically to a `Deck`, checked against the deck's `WidgetRegistry`, and leaves it canonical (`canonicalize`); `SourceBundle::apply` commits it into the `DeckReplica`.
+The replica is authoritative; `SourceBundle.deck` is only a view of it, used for rendering, `validate` and `locate`. Merging another copy goes through `SourceBundle::merge`. Every apply site runs `prepare_ops` (`prepare.rs`) first: `check_external` refuses an outside batch over `MAX_BATCH_CELLS`, naming a base or overlay, or holding `PutViewData`; missing ids are drawn (`IdGen`); `prepare_view.rs` lifts a view's inline data into a sealed `PutViewData` put before its op.
 
 ## Modules
 
 - `model.rs`: `Deck` (slides, generic elements `{id, kind, params}`, `theme` (a `Namespace`) and `themes` (its `extends`
-  closure: a `ThemePin` per namespace), `vars`, `widgets` and `layouts`: a `PackPin` per `Namespace`, unique across both),
+  closure: a `ThemePin` per namespace), `vars`, `widgets` and `layouts`: a `PackPin` per `Namespace`, unique across both; `data`: deck-level `Data` by `DataId`, `truncated`: read-only ones),
   `Style`, JSON schema via `schemars`. `params.rs`: `Params`, `ParamValue`, `ListItem`. `heading_level.rs`: `HeadingLevel`. `shape_path.rs`: `ShapePath`.
 - `namespace.rs`: `Namespace` (`deck` reserved), `qualify` / `split_kind` (every kind is `ns/name`). `kinds.rs`: `kinds::base`,
   `kinds::essentiel`, `is_builtin_kind`. `pack_kind.rs`: `PackKind` (`widgets`: elements, `layouts`: slides).
@@ -21,13 +19,14 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 - `ops/`: `Op`, `apply_all`, `ops_schema` (`mod.rs`; `set_theme` checks `check_closure`); `edit.rs` applies the multi-step variants (checks, then the write); `check.rs` types subtrees; `knowledge.rs` applies the knowledge ops (write and edit refused past a limit);
   `value.rs` converts `set_param` values; `list.rs` (`ListOp`, items by id); `list_path.rs` (`ListPath`: `param` or
   `param/item/column`, one level); `grid.rs` (`set_grid` on `Slide::resolved_grid`); `host.rs` (`host(chart|table)`,
-  `set_data`); `moving.rs` (`move_element`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`).
+  option ops); `moving.rs` (`move_element`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`); `data.rs` (`add_data`, `edit_data`, `bind_data` and `bind_choices`, the data a view may switch to, `remove_data` refused while shown, `rename_data`, `set_column_type`); `view_data.rs` (`PutViewData`, host-only, `Seal`); `refs.rs` (data refs in options: absent data, rebind, the inline flag).
+- `data_users.rs`: `Deck::data_users`, the `ViewRef`s showing a data in document order. `views.rs`: `plan_views`, each view's columns and rows within the render budgets, and its issues.
 - `knowledge/`: the deck's OKF bundle (`KnowledgeFile` by id); two parsers, `path.rs` (`KnowledgePath`)
   and `frontmatter.rs` (`check_text`, bounded YAML); `limits.rs` (with `READ_FACTOR`, the replica read ceiling); `issues.rs`: the `Issue::knowledge_*`; `normalize.rs` repairs a read bundle (its ceiling scan is `knowledge_over_limits`); `assets.rs` (`cited_images(path, text)`: CommonMark images into `/references/assets/`, each id with its bundle path).
 - `replica/`: `DeckReplica`, the deck in a `LoroDoc` (merge, history, undo): [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `pack.rs`: content-addressed `PackVersion` (sha-256 of `layouts\0` for a layout pack, the canonical manifest and widget files),
   `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, `styles`, read in
-  `pack_examples.rs`; `tokens`: `ComponentToken`s checked on read; `profiles`: `LayoutProfile`; `order`: item order, `pack_order.rs`: `item_order`, `normalized_order`, `check_order`; `guides`: `Guides` (`pack_guides.rs`: the agent's `edit` and `use` guides, `GuideKind`, unwritten when empty)). A theme version
+  `pack_examples.rs`, an inline-data value dropped; `data`: the examples' data, 16 at most while parsing (manifest bytes capped first), `pack_data.rs`: `check_pack_data`, count, no base, cells; `tokens`: `ComponentToken`s checked on read; `profiles`: `LayoutProfile`; `order`: item order, `pack_order.rs`: `item_order`, `normalized_order`, `check_order`; `guides`: `Guides` (`pack_guides.rs`: the agent's `edit` and `use` guides, `GuideKind`, unwritten when empty)). A theme version
   (`ThemeManifest`: `namespace`, ordered `extends`) is a prefix-free `PackFiles` without widgets, manifest `theme.json`
   (`PackFiles::theme`, `verified_theme`). `PackScope`, packs only (`library` default, unwritten; `deck`: an import's).
 - `theme_chain.rs`: `ThemePin`, `linearize` (post-order, each theme once, the deck's last), `check_closure`.
@@ -36,7 +35,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   {<kind>.json, <kind>/<name>.typ}` per `PackKind` (`sources_packs.rs`), `themes/<hex>/theme.json` (`sources_themes.rs`, pins
   checked against manifests and closure), `usage.jsonl` (read last, own cap, never fails), all add-only, verified on read
   (a forged version reported once, as a namespace under both kinds), unioned on merge; reads bounded by `SourceLimits`.
-- `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s, cited assets (`asset_refs`, `element_asset_refs`, `knowledge_asset_refs`);
+- `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s, cited assets (`asset_refs`, `element_asset_refs`, `knowledge_asset_refs`); `validate_data.rs`: data issues (capped at 200); `data_bounds.rs`: `check_deck_bounds`, `DeckLoad`;
   `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors (`color_names`: those a deck uses). `media.rs`: `sniff`, `dimensions`.
   `num.rs`: named float/int casts (import, session). `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons. `usage.rs`: `UsageLedger`; `usage_report.rs`: `aggregate`, `Range`.
 
@@ -47,4 +46,4 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
 
 ## Dependencies
 
-`oku-slides-i18n`, `oku-slides-chart`, `loro`, `zip`, `sha2` / `hex`, `uuid`, `schemars`, `time` (usage dates), `saphyr-parser` (knowledge frontmatter), `pulldown-cmark` (knowledge image links).
+`oku-slides-i18n`, `oku-slides-chart`, `oku-slides-data` (`Data`, `Table`, ids, limits), `loro`, `zip`, `sha2` / `hex`, `uuid`, `schemars`, `time` (usage dates), `saphyr-parser` (knowledge frontmatter), `pulldown-cmark` (knowledge image links).

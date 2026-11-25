@@ -1,4 +1,4 @@
-//! The knowledge bundle in the replica: round trip, format 8, merges and hostile entries.
+//! The knowledge bundle in the replica: round trip, format 9, merges and hostile entries.
 
 use std::sync::Arc;
 
@@ -6,7 +6,7 @@ use loro::{LoroMap, LoroText, LoroValue, ValueOrContainer};
 use oku_slides_i18n::{Localize, Localizer};
 use speculoos::prelude::*;
 
-use super::{DeckReplica, KNOWLEDGE, KnowledgeSync, ROOT, compact};
+use super::{DeckReplica, KNOWLEDGE, KnowledgeSync, ROOT};
 use crate::error::{FrontmatterReason, PathReason, ReplicaErrorKind};
 use crate::knowledge::limits::{MAX_FILE_BYTES, MAX_FILES, READ_FACTOR};
 use crate::knowledge::{DropCause, KnowledgeFile};
@@ -143,30 +143,35 @@ fn knowledge_lives_in_its_root_never_under_deck() {
     assert_that!(r.doc.get_map(KNOWLEDGE).len()).is_equal_to(1);
 }
 
-#[test]
-fn knowledge_format_7_snapshot_opens_empty_and_saves_as_8() {
-    let r = ok(DeckReplica::new(&roadmap(), registry()));
-    ok(r.doc.get_map("meta").insert("format", 7));
-    r.doc.set_next_commit_message(compact::COMPACT);
+/// A previous format, 7 or 8 (with knowledge entries), is refused on open, never upgraded:
+/// its inline chart and table data would be dropped (t-1690).
+#[rstest::rstest]
+#[case(7)]
+#[case(8)]
+fn knowledge_previous_format_snapshot_is_refused(#[case] format: i64) {
+    let r = ok(DeckReplica::new(&with_note(), registry()));
+    ok(r.doc.get_map("meta").insert("format", format));
     r.doc.commit();
-    let versions = r.history().len();
-    let (opened, (_, issues)) = ok(DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry()));
-    assert_that!(issues).is_empty();
-    assert_that!(opened.deck().0.knowledge.is_empty()).is_true();
-    assert_that!(opened.history().len()).is_equal_to(versions);
-    assert_that!(opened.can_undo()).is_false();
-    let saved = reopen(&opened);
-    let format = match saved.doc.get_map("meta").get("format") {
-        Some(ValueOrContainer::Value(v)) => Some(v),
-        _ => None,
-    };
-    assert_that!(format).is_equal_to(Some(LoroValue::I64(8)));
+    let kind = DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry()).map(|_| ()).map_err(|e| e.kind());
+    assert_that!(kind).is_equal_to(Err(ReplicaErrorKind::UnsupportedVersion));
 }
 
 #[test]
-fn knowledge_format_9_snapshot_is_refused() {
+fn knowledge_format_8_snapshot_is_refused_with_localized_message_fr() {
+    let r = ok(DeckReplica::new(&with_note(), registry()));
+    ok(r.doc.get_map("meta").insert("format", 8));
+    r.doc.commit();
+    let Err(err) = DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry()) else {
+        panic!("a format-8 snapshot must be refused")
+    };
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(err.localize(&fr)).is_equal_to(fr.tr("replica-unsupported-version"));
+}
+
+#[test]
+fn knowledge_format_10_snapshot_is_refused() {
     let r = ok(DeckReplica::new(&roadmap(), registry()));
-    ok(r.doc.get_map("meta").insert("format", 9));
+    ok(r.doc.get_map("meta").insert("format", 10));
     r.doc.commit();
     let kind = DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry()).map(|_| ()).map_err(|e| e.kind());
     assert_that!(kind).is_equal_to(Err(ReplicaErrorKind::UnsupportedVersion));
@@ -382,28 +387,20 @@ fn format_of(r: &DeckReplica) -> Option<LoroValue> {
     }
 }
 
-#[test]
-fn knowledge_merge_of_a_format_7_peer_keeps_format_8_and_knowledge() {
+/// A peer that rewrites the format to 7 or 8 is refused, never merged, and leaves `a` as it was.
+#[rstest::rstest]
+#[case(7)]
+#[case(8)]
+fn knowledge_merge_of_a_previous_format_peer_is_refused(#[case] format: i64) {
     let (mut a, b) = peers(&with_note(), 1, 2);
-    // A local edit the undo must still find after the merge.
-    let mut titled = with_note();
-    titled.params.title = Some("local".into());
-    ok(a.apply(&titled, "title", None));
-    // The format-7 peer writes after the base, so its value wins the register.
-    ok(b.doc.get_map("meta").insert("format", 7));
+    ok(b.doc.get_map("meta").insert("format", format));
     b.doc.commit();
     let versions = a.history().len();
-    let report = ok(a.merge(&b));
-    assert_that!(format_of(&a)).is_equal_to(Some(LoroValue::I64(8)));
-    assert_that!(report.changes).is_equal_to(1);
-    assert_that!(a.deck().0.knowledge).is_equal_to(&with_note().knowledge);
-    assert_that!(format_of(&reopen(&a))).is_equal_to(Some(LoroValue::I64(8)));
-    // The re-assert is silent: the history gains only the peer's change, and undo still
-    // reverts the local edit.
-    assert_that!(a.history().len()).is_equal_to(versions + 1);
-    assert_that!(ok(a.undo())).is_true();
+    let Err(e) = a.merge(&b) else { panic!("a format-{format} peer must be refused") };
+    assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
+    assert_that!(format_of(&a)).is_equal_to(Some(LoroValue::I64(9)));
+    assert_that!(a.history().len()).is_equal_to(versions);
     assert_that!(a.deck().0).is_equal_to(with_note());
-    assert_that!(format_of(&a)).is_equal_to(Some(LoroValue::I64(8)));
 }
 
 #[test]

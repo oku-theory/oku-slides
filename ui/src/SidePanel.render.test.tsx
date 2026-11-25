@@ -21,7 +21,7 @@ afterEach(async () => {
 });
 
 /** Mounts the panel; `packs` and `themes` fill their slots, `inspector` gives the inspector's body. */
-async function mount({ packs = false, themes = false, inspector = false, updates = false } = {}) {
+async function mount({ packs = false, themes = false, inspector = false, data = false, updates = false } = {}) {
   const calls: string[] = [];
   const slot = createSlot();
   if (packs) slot.set(createElement("div", { className: "packs-probe" }));
@@ -37,16 +37,18 @@ async function mount({ packs = false, themes = false, inspector = false, updates
         packs: slot,
         themes: themesSlot,
         inspector: inspector ? createElement("div", { className: "inspector-probe" }) : null,
+        data: data ? createElement("div", { className: "data-probe" }) : null,
         updates,
         onPacks: () => void calls.push("packs"),
         onThemes: () => void calls.push("themes"),
         onInspector: () => void calls.push("inspector"),
+        onData: () => void calls.push("data"),
         onFold: () => void calls.push("fold"),
         onCloseBox: () => void calls.push("close-box"),
       }),
     ),
   );
-  const toggle = (name: "packs" | "themes" | "inspector") => host.querySelector(`.side-rail .${name}-toggle`) as HTMLButtonElement;
+  const toggle = (name: "packs" | "themes" | "inspector" | "data") => host.querySelector(`.side-rail .${name}-toggle`) as HTMLButtonElement;
   return { host, calls, slot, themesSlot, toggle };
 }
 
@@ -65,6 +67,29 @@ test("SidePanel folded inspector toggle opens the inspector", async () => {
   const { calls, toggle } = await mount();
   await act(async () => toggle("inspector").click());
   expect(calls).toEqual(["inspector"]);
+});
+
+test("SidePanel folded data toggle opens the data tab", async () => {
+  const { calls, toggle } = await mount();
+  await act(async () => toggle("data").click());
+  expect(calls).toEqual(["data"]);
+});
+
+test("SidePanel with the data list shows the data tab pressed", async () => {
+  const { host, toggle } = await mount({ data: true });
+  expect([!!host.querySelector(".side-body .data-probe"), toggle("data").getAttribute("aria-pressed")]).toEqual([true, "true"]);
+});
+
+test("SidePanel pressed data toggle folds the panel", async () => {
+  const { calls, toggle } = await mount({ data: true });
+  await act(async () => toggle("data").click());
+  expect(calls).toEqual(["fold"]);
+});
+
+test("SidePanel packs over the data list close the box only", async () => {
+  const { calls, toggle } = await mount({ packs: true, data: true });
+  await act(async () => toggle("packs").click());
+  expect(calls).toEqual(["close-box"]);
 });
 
 test("SidePanel with the packs slot filled shows the packs tab pressed", async () => {

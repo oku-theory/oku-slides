@@ -8,15 +8,16 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_core::{Deck, WidgetRegistry};
+use oku_slides_data::CellPatch;
 use oku_slides_i18n::Localizer;
 use oku_slides_render::{PackSet, RenderError};
 use serde_json::{Map, Value};
 
 use crate::client::{
-    Deferred, RenderWorker, blame, evict_assets, expect_ok, faulty_pack, set_locale, unexpected, wire,
+    Deferred, RenderWorker, Shared, blame, evict_assets, expect_ok, faulty_pack, set_locale, unexpected, wire,
 };
 use crate::compiled::RemoteCompiled;
-use crate::link::{Link, fingerprint_hex};
+use crate::link::{Link, SentData, fingerprint_hex};
 use crate::protocol::{Request, Response, SlotId, WirePack};
 
 /// Un emplacement du travailleur : un rendu, ses widgets et sa langue.
@@ -146,8 +147,10 @@ impl RenderSlot {
         let ids: Vec<String> = assets.keys().cloned().collect();
         let req = render_request(self.id, deck, ids.clone());
         let mut resent = false;
+        let mut data_resent = false;
         let header = loop {
             send_assets(&mut link, assets)?;
+            send_data(&mut link, self.id, deck, &self.worker.1)?;
             match link.call(&req, &[]) {
                 Ok((Response::Compiled(header), _)) => break header,
                 // The worker lacks assets of this render: sent to a worker that restarted
@@ -165,6 +168,16 @@ impl RenderSlot {
                         link.sent_assets.remove(id);
                     }
                     resent = true;
+                }
+                // Data sent to a worker that restarted since: sent again, once.
+                Ok((Response::MissingData { ids: lost }, _)) => {
+                    if data_resent {
+                        return Err(RenderError::frame(format!("{} data still missing after a resend", lost.len())));
+                    }
+                    if let Some(state) = link.state.slots.get_mut(&self.id) {
+                        state.data.clear();
+                    }
+                    data_resent = true;
                 }
                 Ok((Response::Error { error }, _)) => return Err(error.into_render()),
                 Ok((other, _)) => return Err(unexpected(&other)),
@@ -200,10 +213,44 @@ impl Drop for RenderSlot {
     }
 }
 
-/// The render request of `deck` for `slot`, without the knowledge bundle (up to 16 MiB):
-/// rendering never reads it (t-1731).
+/// Sends the worker each data of `deck` whose `Arc` or base path changed since it was last sent
+/// to `slot` (only its changed cells after a cell edit), and drops those `deck` no longer has.
+fn send_data(link: &mut Link, slot: SlotId, deck: &Deck, shared: &Shared) -> Result<(), RenderError> {
+    let sent = link.state.slots.get(&slot).map(|s| s.data.clone()).unwrap_or_default();
+    let mut now = BTreeMap::new();
+    for (id, data) in &deck.data {
+        let base = data.table.base.as_ref().and_then(|b| shared.base_path(&b.id));
+        let id = id.as_str().to_owned();
+        let last = sent.get(&id).filter(|s| s.base == base);
+        if !last.is_some_and(|s| Arc::ptr_eq(&s.data, data)) {
+            // A cell edit goes as its changed cells, the rest of the data being cached.
+            if let Some(patch) = last.and_then(|s| CellPatch::between(&s.data, data)) {
+                let json = serde_json::to_vec(&patch).map_err(|e| RenderError::frame(format!("data {id}: {e}")))?;
+                expect_ok(link, &Request::PatchData { slot, id: id.clone() }, &json)?;
+            } else {
+                let json = serde_json::to_vec(&**data).map_err(|e| RenderError::frame(format!("data {id}: {e}")))?;
+                expect_ok(link, &Request::PutData { slot, id: id.clone(), base: base.clone() }, &json)?;
+            }
+        }
+        now.insert(id, SentData { data: data.clone(), base });
+    }
+    let gone: Vec<String> = sent.keys().filter(|id| !now.contains_key(*id)).cloned().collect();
+    if !gone.is_empty() {
+        expect_ok(link, &Request::DropData { slot, ids: gone }, &[])?;
+    }
+    if let Some(state) = link.state.slots.get_mut(&slot) {
+        state.data = now;
+    }
+    Ok(())
+}
+
+/// The render request of `deck` for `slot`, without its data (sent apart, see `send_data`) nor
+/// its knowledge bundle (up to 16 MiB), which rendering never reads (t-1731).
 fn render_request(slot: SlotId, deck: &Deck, assets: Vec<String>) -> Request {
-    Request::Render { slot, deck: Box::new(deck.without_knowledge()), assets }
+    let data = deck.data.keys().map(|id| id.as_str().to_owned()).collect();
+    let mut bare = deck.without_knowledge();
+    bare.data.clear();
+    Request::Render { slot, deck: Box::new(bare), assets, data }
 }
 
 /// Sends the worker every asset of `assets` it is not known to have.

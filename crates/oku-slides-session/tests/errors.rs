@@ -168,7 +168,7 @@ fn new_deck_is_written_in_the_user_language() {
 }
 
 #[test]
-fn apply_inline_chart_stores_it_with_a_localized_dataset() {
+fn apply_inline_chart_stores_it_as_data_with_localized_headers() {
     let dir = workdir();
     let mut s = session(&dir);
     s.new_deck().unwrap();
@@ -179,35 +179,65 @@ fn apply_inline_chart_stores_it_with_a_localized_dataset() {
             "xAxis": { "type": "category", "data": ["1", "2"] },
             "series": [{ "type": "bar", "data": [3, 5] }] } } } }] });
     request(&mut s, add).unwrap();
-    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
-    assert_that!(json).contains(r#"["Catégorie","Série 1"]"#);
+    // The series become deck data whose headers are in the user's language.
+    let headers = |s: &Session| -> Vec<Vec<String>> {
+        s.deck().data.values().map(|d| d.table.columns.iter().map(|c| c.name.clone()).collect()).collect()
+    };
+    assert_that!(headers(&s)).is_equal_to(vec![vec!["Catégorie".to_owned(), "Série 1".to_owned()]]);
     // Annuler retire le graphique.
     request(&mut s, serde_json::json!({ "cmd": "undo" })).unwrap();
     let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
     assert_that!(json).does_not_contain("\"chart\"");
     // Rétablir le rend sous sa forme canonique.
     request(&mut s, serde_json::json!({ "cmd": "redo" })).unwrap();
-    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
-    assert_that!(json).contains(r#"["Catégorie","Série 1"]"#);
+    assert_that!(headers(&s)).is_equal_to(vec![vec!["Catégorie".to_owned(), "Série 1".to_owned()]]);
+}
+
+/// The column names of the data chart `g` of `slide` names.
+fn headers_of(s: &Session, slide: &str) -> Vec<String> {
+    let deck = s.deck();
+    let g = deck.slide(slide).and_then(|x| x.locate("g")).map(|l| l.element.clone());
+    let data = match g.as_ref().and_then(|g| g.params.get("option")) {
+        Some(oku_slides_core::ParamValue::Value(v)) => v["data"].as_str().unwrap_or_default().to_owned(),
+        _ => String::new(),
+    };
+    deck.data.get(data.as_str()).map(|d| d.table.columns.iter().map(|c| c.name.clone()).collect()).unwrap_or_default()
+}
+
+/// The `ChartData` or `TableData` component of the pane of `g`.
+fn pane(s: &mut Session, slide: &str) -> serde_json::Value {
+    let text = request(s, serde_json::json!({ "cmd": "data_panel", "slide": slide, "element": "g" }))
+        .unwrap_or_else(|e| panic!("data_panel: {}", e.one_line()));
+    let surface: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("surface: {e}"));
+    let messages = surface["messages"].as_array().cloned().unwrap_or_default();
+    let components =
+        messages.iter().find_map(|m| m["updateComponents"]["components"].as_array().cloned()).unwrap_or_default();
+    components.into_iter().find(|c| c["component"] == "ChartData").unwrap_or_default()
 }
 
 #[test]
-fn open_deck_with_inline_chart_makes_its_data_editable() {
+fn open_deck_with_inline_chart_lifts_its_data_into_deck_data() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "version": 9, "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [{
+    let deck = serde_json::json!({ "version": 10, "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [{
         "id": "g", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });
     std::fs::write(&file, deck.to_string()).unwrap();
     let mut s = session(&dir);
     s.open(&file).unwrap();
-    let edit = serde_json::json!({ "cmd": "apply", "label": "cellule", "ops": [{
-        "op": "set_data", "target": { "slide": "s", "element": "g" }, "param": "option",
-        "change": { "op": "set_cell", "row": 1, "col": 1, "value": 7 } }] });
+    let opened = s.deck().clone();
+    assert_that!(opened.data.len()).is_equal_to(1);
+    let option = opened.slides[0].locate("g").map(|l| l.element.params.get("option").cloned());
+    let Some(Some(oku_slides_core::ParamValue::Value(option))) = option else { panic!("no chart option") };
+    assert_that!(option["data"].is_string()).is_true();
+    assert_that!(option["series"][0].get("data")).is_none();
+    let c = pane(&mut s, "s");
+    let change =
+        serde_json::json!({ "op": "set_cell", "row": c["row_ids"][0], "column": c["column_ids"][1], "value": 7 });
+    let edit = serde_json::json!({ "cmd": "data_edit", "slide": "s", "element": "g", "edit": { "edit": "cells", "change": change } });
     request(&mut s, edit).unwrap();
-    let json = request(&mut s, serde_json::json!({ "cmd": "slide", "id": "s" })).unwrap();
-    assert_that!(json).contains(r#"["a",7.0]"#);
+    assert_that!(pane(&mut s, "s")["source"][1].clone()).is_equal_to(serde_json::json!(["a", 7.0]));
 }
 
 #[test]
@@ -227,7 +257,7 @@ fn chart_kind_converts_the_data_and_undoes_in_one_step() {
         serde_json::json!({ "cmd": "chart_kind", "label": "nuage", "slide": slide, "element": "g", "kind": "scatter" });
     request(&mut s, to_scatter).unwrap();
     let after = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();
-    assert_that!(after).contains(r#"["Série 1 (x)","Série 1"]"#);
+    assert_that!(headers_of(&s, &slide)).is_equal_to(vec!["Série 1 (x)".to_owned(), "Série 1".to_owned()]);
     assert_that!(after).contains(r#""type":"scatter""#);
     request(&mut s, serde_json::json!({ "cmd": "undo" })).unwrap();
     let undone = request(&mut s, serde_json::json!({ "cmd": "slide", "id": slide })).unwrap();

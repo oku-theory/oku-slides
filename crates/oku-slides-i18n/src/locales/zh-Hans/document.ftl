@@ -137,3 +137,4 @@ import-warning-unsafe-link = 链接被拒绝：{ $detail }
 import-warning-nesting-too-deep = 嵌套过深，已截断：{ $detail }
 import-warning-font-embedded-unreadable = 无法读取嵌入的字体：{ $detail }
 import-warning-truncated = 警告过多：其余警告已省略
+render-chart-too-many-values = 要绘制的值过多（{ $count }，最多{ $max }）

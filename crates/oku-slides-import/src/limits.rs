@@ -44,9 +44,9 @@ impl Default for ReadLimits {
             max_slides: 2_000,
             // 64 Mpx : 256 Mio une fois décodée en RGBA, au-delà de toute photo d'appareil courant.
             max_image_pixels: 1 << 26,
-            // Les défauts de `[sources] max_sources_mib` et `max_replica_mib`, bornes de réouverture.
-            max_output_bytes: 256 << 20,
-            max_replica_bytes: 32 << 20,
+            // The defaults of `[sources] max_sources_mib` and `max_replica_mib`, the reopening bounds.
+            max_output_bytes: 1024 << 20,
+            max_replica_bytes: 64 << 20,
         }
     }
 }

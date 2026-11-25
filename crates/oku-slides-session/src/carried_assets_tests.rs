@@ -79,7 +79,7 @@ fn apply_citing_a_carried_and_an_unknown_asset_adds_neither() {
 }
 
 #[test]
-fn carry_assets_keys_bytes_by_their_own_id_not_the_bundle_key() {
+fn carried_bytes_are_keyed_by_their_own_id_not_the_bundle_key() {
     // Un bundle lu d'un zip range un asset sous le nom de son fichier, sans vérifier son empreinte.
     let mut a = session();
     let bytes = png(4, 4, 29);
@@ -95,7 +95,7 @@ fn carry_assets_keys_bytes_by_their_own_id_not_the_bundle_key() {
 }
 
 #[test]
-fn carry_assets_alone_adds_nothing_to_the_bundle() {
+fn carried_assets_alone_add_nothing_to_the_bundle() {
     let mut s = session();
     let bytes = png(4, 4, 22);
     let id = oku_slides_core::asset_id(&bytes);
@@ -104,7 +104,7 @@ fn carry_assets_alone_adds_nothing_to_the_bundle() {
 }
 
 #[test]
-fn carry_assets_forgets_the_previous_ones() {
+fn carried_assets_replace_the_previous_ones() {
     let mut s = session();
     let old = png(4, 4, 23);
     let id = oku_slides_core::asset_id(&old);
@@ -115,13 +115,15 @@ fn carry_assets_forgets_the_previous_ones() {
 }
 
 #[test]
-fn carry_assets_returns_how_many_it_keeps() {
+fn carried_assets_keep_each_distinct_asset() {
     let mut s = session();
-    assert_that!(s.carry_assets(vec![png(2, 2, 25), png(2, 2, 26)])).is_equal_to(2);
+    s.carry_assets(vec![png(2, 2, 25), png(2, 2, 26)]);
+    assert_that!(s.carried.len()).is_equal_to(2);
 }
 
 #[test]
-fn carry_assets_skips_an_asset_the_bundle_already_holds() {
+fn carried_assets_skip_an_asset_the_bundle_already_holds() {
     let (mut s, bytes) = session_with_image(30);
-    assert_that!(s.carry_assets(vec![bytes])).is_equal_to(0);
+    s.carry_assets(vec![bytes]);
+    assert_that!(s.carried.len()).is_equal_to(0);
 }

@@ -1,11 +1,11 @@
-//! t-1178 : coller dans l'onglet B une image copiée dans l'onglet A était refusé
-//! (`UnknownAsset`) : ses octets restaient dans le bundle de A. `CarryAssets` les
-//! apporte à B, qui ne les range dans son bundle que quand le collage les cite.
+//! t-1178: pasting into tab B an image copied in tab A was refused (`UnknownAsset`): its
+//! bytes stayed in A's bundle. `PasteElement` brings them to B, which keeps them in its
+//! bundle only because the paste names them.
 
 use std::sync::Mutex;
 
-use oku_slides_core::{Element, Op};
-use oku_slides_session::{SessionErrorKind, Workspace, WorkspaceRequest};
+use oku_slides_core::Element;
+use oku_slides_session::{Result, SessionErrorKind, Workspace, WorkspaceOutcome, WorkspaceRequest};
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -40,12 +40,15 @@ fn two_tabs(ws: &Mutex<Workspace>) -> (String, String, Element) {
     (a, b, element)
 }
 
-/// L'op du collage dans B : une copie de `element` sous un nouvel id.
-fn paste(element: &Element) -> Op {
+/// The paste into `to` of a copy of `element` under a new id, copied in `from`.
+fn paste(ws: &Mutex<Workspace>, from: &str, to: &str, element: &Element) -> Result<WorkspaceOutcome> {
     let mut copy = element.clone();
     copy.id = "e-image-copie".into();
     let slot = json!({ "owner": { "slide": "s-libre" }, "param": "elements" });
-    op(json!({ "op": "add_element", "slot": slot, "element": copy }))
+    let ops = [json!({ "op": "add_element", "slot": slot, "element": copy })];
+    let req = json!({ "cmd": "paste_element", "from": from, "to": to, "label": "coller", "ops": ops });
+    let req: WorkspaceRequest = serde_json::from_value(req).unwrap_or_else(|e| panic!("invalid request: {e}"));
+    Workspace::apply(ws, req)
 }
 
 #[test]
@@ -53,10 +56,7 @@ fn paste_from_another_tab_brings_the_image_bytes() {
     let data = data_dir();
     let ws = workspace(&data);
     let (a, b, element) = two_tabs(&ws);
-    let carried = send(&ws, json!({ "cmd": "carry_assets", "from": a, "to": b, "element": element }));
-    assert_that!(carried).is_equal_to(json!({ "carried": 1 }));
-    on(&ws, &b, |s| s.apply("coller", vec![paste(&element)], None))
-        .unwrap_or_else(|e| panic!("collage refusé : {}", e.one_line()));
+    paste(&ws, &a, &b, &element).unwrap_or_else(|e| panic!("paste refused: {}", e.one_line()));
     let bytes = on(&ws, &b, |s| s.element_assets(&element));
     assert_that!(bytes).is_equal_to(vec![png()]);
 }
@@ -67,14 +67,12 @@ fn paste_from_a_closed_tab_is_refused_as_an_unknown_asset() {
     let ws = workspace(&data);
     let (a, b, element) = two_tabs(&ws);
     send(&ws, json!({ "cmd": "close", "tab": a, "discard": true }));
-    let carried = send(&ws, json!({ "cmd": "carry_assets", "from": a, "to": b, "element": element }));
-    assert_that!(carried).is_equal_to(json!({ "carried": 0 }));
-    let e = on(&ws, &b, |s| s.apply("coller", vec![paste(&element)], None)).unwrap_err();
-    assert_that!(e.kind()).is_equal_to(SessionErrorKind::UnknownAsset);
+    let e = paste(&ws, &a, &b, &element).err().map(|e| e.kind());
+    assert_that!(e).is_equal_to(Some(SessionErrorKind::UnknownAsset));
 }
 
 #[test]
-fn carry_from_a_dormant_tab_brings_nothing() {
+fn paste_from_a_dormant_tab_brings_nothing() {
     let data = data_dir();
     let (a, b, element) = {
         let ws = workspace(&data);
@@ -82,22 +80,20 @@ fn carry_from_a_dormant_tab_brings_nothing() {
         Workspace::settle(&ws);
         (a, b, element)
     };
-    // Relu : les onglets dorment ; lire des octets ne réveille pas `a`.
+    // Read back: the tabs sleep; reading bytes does not wake `a`.
     let ws = workspace(&data);
-    let asleep = send(&ws, json!({ "cmd": "carry_assets", "from": a, "to": b, "element": element }));
-    // Réveillé, le même onglet apporte bien son image : c'est le sommeil qui a tout retenu.
+    let asleep = paste(&ws, &a, &b, &element).err().map(|e| e.kind());
+    // Woken, the same tab brings its image: sleep held everything back.
     on(&ws, &a, |_| ());
-    let awake = send(&ws, json!({ "cmd": "carry_assets", "from": a, "to": b, "element": element }));
-    assert_that!((asleep, awake)).is_equal_to((json!({ "carried": 0 }), json!({ "carried": 1 })));
+    let awake = paste(&ws, &a, &b, &element).map(|_| ()).map_err(|e| e.one_line());
+    assert_that!((asleep, awake)).is_equal_to((Some(SessionErrorKind::UnknownAsset), Ok(())));
 }
 
 #[test]
-fn carry_to_an_unknown_tab_is_refused() {
+fn paste_into_an_unknown_tab_is_refused() {
     let data = data_dir();
     let ws = workspace(&data);
     let (a, _, element) = two_tabs(&ws);
-    let req = serde_json::from_value(json!({ "cmd": "carry_assets", "from": a, "to": "t-99", "element": element }));
-    let req: WorkspaceRequest = req.unwrap_or_else(|e| panic!("requête invalide : {e}"));
-    let e = Workspace::apply(&ws, req).err().map(|e| e.kind());
+    let e = paste(&ws, &a, "t-99", &element).err().map(|e| e.kind());
     assert_that!(e).is_equal_to(Some(SessionErrorKind::UnknownTab));
 }

@@ -298,3 +298,15 @@ fn normalize_horizontal_bars_read_the_grid_from_the_x_axis() {
     });
     assert_that!(normalize(&option(v), ChartLabels::english()).unwrap().grid_show).is_false();
 }
+
+#[test]
+fn table_new_empty_source_refuses_a_named_column_fr() {
+    let dataset: oku_slides_data::Dataset = serde_json::from_value(serde_json::json!({ "source": [] })).unwrap();
+    let table = Table::new(&dataset);
+    assert_that!((table.headers.len(), table.rows.len())).is_equal_to((0, 0));
+    let err = table.column(&ColumnRef::Name("Ventes".to_owned())).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(ChartErrorKind::Inconsistent);
+    let fr = oku_slides_i18n::Localizer::new(Some("fr"));
+    let expected = fr.tr_with("chart-unknown-column", &[("name", "Ventes".into()), ("columns", "".into())]);
+    assert_that!(oku_slides_i18n::Localize::localize(&err, &fr)).is_equal_to(expected);
+}

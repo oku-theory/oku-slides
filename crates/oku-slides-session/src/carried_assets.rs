@@ -1,19 +1,38 @@
-//! Assets apportés par un élément collé depuis un autre onglet (t-1178).
+//! What a pasted element brings from the tab it was copied in (t-1178, t-1690).
 //!
-//! Au collage, l'onglet d'origine donne les octets des assets que cite l'élément
-//! ([`Session::element_assets`]) ; l'onglet d'arrivée les garde en mémoire
-//! (`Session::carry_assets`) ; ils passent dans son bundle, et n'y sont plus gardés à
-//! part, quand une op les cite (`Session::embed_op_assets`). Les autres restent jusqu'à
-//! la copie suivante.
+//! The source tab gives the bytes of the assets the pasted elements cite
+//! ([`Session::element_assets`]) and the data their views name (`Session::paste_source`).
+//! The target keeps the assets in memory (`Session::carry_assets`); they enter its bundle,
+//! and leave memory, when an op cites them (`Session::embed_op_assets`). The data is copied
+//! under fresh ids and names, every pasted view names its copy (`Session::with_pasted_data`),
+//! and the paste is one undo step.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
-use oku_slides_core::Element;
+use oku_slides_core::{Element, Op, check_external};
+use oku_slides_data::{BaseId, Data, DataId};
+use snafu::ResultExt;
 
-use crate::Session;
+use crate::data_copy::copy_data_ops;
+use crate::data_panel::data_missing;
+use crate::error::PrepareSnafu;
+use crate::widget_examples::{each_added, op_data_id, rename_refs, view_refs};
+use crate::{Request, Result, Session};
 
-/// Les assets apportés par le dernier collage entre onglets, par identifiant.
-pub(crate) type CarriedAssets = BTreeMap<String, Vec<u8>>;
+/// The assets brought by the last paste, by id.
+pub(crate) type HeldAssets = BTreeMap<String, Vec<u8>>;
+
+/// What a paste reads from the tab its element was copied in.
+#[derive(Debug, Default)]
+pub(crate) struct PasteSource {
+    /// The bytes of the assets the pasted elements cite.
+    pub(crate) assets: Vec<Vec<u8>>,
+    /// The data their views name, by id.
+    pub(crate) data: BTreeMap<DataId, Arc<Data>>,
+    /// The bases of those data the source deck knows: the paste makes them known, and leased.
+    pub(crate) bases: BTreeSet<BaseId>,
+}
 
 impl Session {
     /// Les octets des assets que cite `element` et que le bundle tient.
@@ -25,20 +44,95 @@ impl Session {
         refs.iter().filter_map(|id| self.doc.sources.assets.get(id).cloned()).collect()
     }
 
+    /// What the paste `ops` need from this deck: the assets and data their added elements name.
+    ///
+    /// An asset or data this deck lacks is left out: the paste then refuses it.
+    pub(crate) fn paste_source(&self, ops: &[Op]) -> PasteSource {
+        let deck = self.doc.sources.deck();
+        let mut source = PasteSource::default();
+        for op in ops {
+            if let Op::AddElement { element, .. } = op {
+                source.assets.extend(self.element_assets(element));
+            }
+            let mut op = op.clone();
+            each_added(&mut op, &mut |_, params| {
+                for id in view_refs(params) {
+                    if let Some(data) = deck.data.get(&id) {
+                        let base = data.table.base.as_ref().map(|b| &b.id);
+                        source.bases.extend(base.filter(|b| self.doc.sources.bases.contains(*b)).cloned());
+                        source.data.insert(id, Arc::clone(data));
+                    }
+                }
+            });
+        }
+        source
+    }
+
+    /// Applies the paste `ops` with what `source` brings, through `handle`: the snapshot.
+    ///
+    /// # Errors
+    ///
+    /// As `handle` for an `Apply`, plus `op-data-missing` for a view naming a data `source`
+    /// lacks.
+    pub(crate) fn paste(&mut self, label: &str, ops: Vec<Op>, mut source: PasteSource) -> Result<String> {
+        // The checks of an `Apply`; `apply_paste` checks the ops themselves (`ensure_caller_ops`).
+        let prepared = self.prepare(&Request::Apply { label: label.to_owned(), ops: Vec::new(), merge: None })?;
+        // Known before the copies are applied, so they render; a refused paste forgets them again.
+        let brought: BTreeSet<BaseId> =
+            std::mem::take(&mut source.bases).into_iter().filter(|b| !self.doc.sources.bases.contains(b)).collect();
+        self.doc.sources.bases.extend(brought.iter().cloned());
+        self.sync_bases();
+        if let Err(e) = self.apply_paste(label, ops, source) {
+            self.forget_bases(&brought);
+            return Err(e);
+        }
+        self.finish(prepared)
+    }
+
     /// Garde les assets d'un collage venu d'un autre onglet, à la place des précédents.
     ///
     /// Les octets ne sont pas fiables : leur identifiant est recalculé (un bundle lu d'un
     /// zip ne vérifie pas le sien), et ils ne sont dessinés que par le rendu borné.
     /// Un asset que le bundle tient déjà n'est pas gardé : aucun collage ne le
-    /// consommerait. Renvoie le nombre d'assets distincts gardés.
-    pub(crate) fn carry_assets(&mut self, assets: Vec<Vec<u8>>) -> usize {
+    /// consommerait.
+    pub(crate) fn carry_assets(&mut self, assets: Vec<Vec<u8>>) {
         let bundle = &self.doc.sources.assets;
         self.carried = assets
             .into_iter()
             .map(|bytes| (oku_slides_core::asset_id(&bytes), bytes))
             .filter(|(id, _)| !bundle.contains_key(id))
             .collect();
-        self.carried.len()
+    }
+
+    /// `ops` with one `AddData` before them per data of `source` their added views name.
+    ///
+    /// Every such data is copied, even into its own deck (`copy_data_ops`: a fresh id and a
+    /// name unique in the deck), and every view names its copy; views on one data share one
+    /// copy. A data the batch adds itself is left alone.
+    ///
+    /// # Errors
+    ///
+    /// `op-data-missing` for a view naming a data neither `source` nor the batch holds;
+    /// `Prepare` for UI ops `check_external` refuses (sealed view data, a base, an overlay).
+    pub(crate) fn with_pasted_data(&self, source: &BTreeMap<DataId, Arc<Data>>, mut ops: Vec<Op>) -> Result<Vec<Op>> {
+        let reserved: BTreeSet<String> = ops.iter().filter_map(op_data_id).map(str::to_owned).collect();
+        let mut refs = Vec::new();
+        for op in &mut ops {
+            each_added(op, &mut |_, params| refs.extend(view_refs(params)));
+        }
+        refs.retain(|id| !reserved.contains(id.as_str()));
+        if let Some(missing) = refs.iter().find(|id| !source.contains_key(*id)) {
+            return Err(data_missing(missing.as_str()));
+        }
+        let deck = self.doc.sources.deck();
+        let (mut copies, map) =
+            copy_data_ops(source, &refs, deck, &reserved, &mut oku_slides_data::new_id).context(PrepareSnafu)?;
+        for op in &mut ops {
+            each_added(op, &mut |_, params| rename_refs(params, &|id| map.get(id).cloned()));
+        }
+        check_external(&ops).context(PrepareSnafu)?;
+        copies.extend(ops);
+        Ok(copies)
     }
 }
 

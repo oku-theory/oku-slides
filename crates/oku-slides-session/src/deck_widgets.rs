@@ -33,17 +33,22 @@ use std::sync::Arc;
 use snafu::{ResultExt, ensure};
 
 use oku_slides_core::{
-    Deck, Moved, Namespace, Op, PackFiles, PackPin, PackVersion, WidgetFile, WidgetRegistry, qualify,
+    Deck, Moved, Namespace, Op, Origin, PackFiles, PackPin, PackVersion, WidgetFile, WidgetRegistry, qualify,
 };
 use oku_slides_i18n::Localize;
 use oku_slides_render::{FileProbe, PackSet, PackWidgets, is_trusted_pack};
 use oku_slides_render_worker::RemoteCompiled;
 
+use crate::carried_assets::PasteSource;
+use crate::data_ops::prepared;
 use crate::deck_closure::{closure_ops, combined_pins, dependents};
 use crate::deck_pack::{check_pack_id, empty_registry, in_process_pack, only_builtins};
 use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, TrustedPackBrokenSnafu, WrongDocumentSnafu};
 use crate::pack::PackManifest;
-use crate::{Result, Session, charts};
+use crate::{Result, Session};
+
+/// A paste's source data, by id.
+type PastedData = BTreeMap<oku_slides_data::DataId, Arc<oku_slides_data::Data>>;
 
 /// Les widgets résolus pour les packs épinglés d'un deck.
 #[derive(Debug, Clone)]
@@ -285,8 +290,8 @@ impl Session {
     /// Applies a transaction: rendered first, validated next.
     ///
     /// The replica history is final; a failed render leaves no trace there.
-    /// Added charts are first put in canonical form (data in `dataset`,
-    /// translated headers).
+    /// `prepare_ops` first lifts the inline data of charts and tables into
+    /// deck data (headers in the user's language), which the views then name.
     ///
     /// Each `AddPack` is preceded by the requirements the deck does not pin
     /// (`closure_ops`), and each pinned version is embedded first. A
@@ -308,12 +313,27 @@ impl Session {
         // MCP and the agent reach here without `handle`: a read-only editor changes nothing.
         self.ensure_pack_lease()?;
         self.ensure_theme_lease()?;
-        self.apply_ops(label, ops, merge)
+        self.ensure_replica_room(&ops)?;
+        self.apply_ops(label, ops, merge, None)
+    }
+
+    /// `apply` of a paste: `source`'s assets are held, its data copied (`with_pasted_data`).
+    ///
+    /// # Errors
+    ///
+    /// As `apply`, plus `op-data-missing` for a view naming a data `source` lacks.
+    pub(crate) fn apply_paste(&mut self, label: &str, ops: Vec<Op>, source: PasteSource) -> Result<()> {
+        self.ensure_caller_ops(&ops)?;
+        self.ensure_pack_lease()?;
+        self.ensure_theme_lease()?;
+        self.ensure_replica_room(&ops)?;
+        self.carry_assets(source.assets);
+        self.apply_ops(label, ops, None, Some(&source.data))
     }
 
     /// Applies a rank step of a theme tab's draft (`theme_extends`), past the callers' op filter.
     pub(crate) fn apply_draft_step(&mut self, label: &str, ops: Vec<Op>) -> Result<()> {
-        self.apply_ops(label, ops, None)
+        self.apply_ops(label, ops, None, None)
     }
 
     /// Applies `ops` to the working deck without an undo step, a dirty mark or a pins refresh.
@@ -333,6 +353,8 @@ impl Session {
         self.embed_op_themes(&mut ops)?;
         let mut next = self.doc.sources.deck().clone();
         let registry = self.registry.clone();
+        // A preview theme's ops carry no view data: nothing to warn about.
+        let ops = prepared(&next, &registry, &self.chart_labels, ops, Origin::External)?.ops;
         oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
         let compiled = self.render_deck(&next)?;
         self.doc.sources.apply_silent(next).context(SourcesSnafu)?;
@@ -342,11 +364,12 @@ impl Session {
     }
 
     /// `apply` once its ops passed the callers' filter; inside an agent call, records the
-    /// elements it touched once it succeeded (`agent::turn_touches`).
-    fn apply_ops(&mut self, label: &str, ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+    /// elements it touched once it succeeded (`agent::turn_touches`). `pasted`: a paste's
+    /// source data.
+    fn apply_ops(&mut self, label: &str, ops: Vec<Op>, merge: Option<&str>, pasted: Option<&PastedData>) -> Result<()> {
         // Before the ops run: a removed element's widget is read from the deck before them.
         let pending = self.turn_touches.recording().then(|| self.touches_of_batch(&ops));
-        self.apply_ops_inner(label, ops, merge)?;
+        self.apply_ops_inner(label, ops, merge, pasted)?;
         if let Some(touches) = pending {
             self.turn_touches.record_all(touches);
         }
@@ -354,7 +377,13 @@ impl Session {
     }
 
     /// The body of `apply_ops`.
-    fn apply_ops_inner(&mut self, label: &str, mut ops: Vec<Op>, merge: Option<&str>) -> Result<()> {
+    fn apply_ops_inner(
+        &mut self,
+        label: &str,
+        mut ops: Vec<Op>,
+        merge: Option<&str>,
+        pasted: Option<&PastedData>,
+    ) -> Result<()> {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
         // A theme tab's ops are its draft's: `ensure_caller_ops` already kept only those.
@@ -362,6 +391,7 @@ impl Session {
         // Les slides d'aperçu d'un pack de widgets sont en lecture seule ; les
         // slides du deck de travail sont les exemples du pack : leur liste ne change pas.
         self.ensure_no_preview_ops(&ops)?;
+        self.ensure_retypes_checked(&ops)?;
         self.ensure_pack_slides(&ops)?;
         // Before core: ids are minted and an edit of unapproved text refused (`knowledge_write`).
         let authored =
@@ -386,7 +416,16 @@ impl Session {
             (Some(widgets), notice)
         };
         let registry = widgets.as_ref().map_or_else(|| self.registry.clone(), |w| w.registry.clone());
-        charts::canonicalize_charts(&mut ops, &self.chart_labels, &registry);
+        // A paste copies its source's data; else a pack example's data is copied into the deck
+        // with the element or slide naming it.
+        let (ops, copied) = match pasted {
+            Some(source) => (self.with_pasted_data(source, ops)?, true),
+            None => self.with_example_data(&pins, ops)?,
+        };
+        let origin = if copied { Origin::Host } else { Origin::External };
+        // Before the pack copy: inline data becomes sealed `PutViewData` ops.
+        let prepared = prepared(self.doc.sources.deck(), &registry, &self.chart_labels, ops, origin)?;
+        let (ops, warnings) = (prepared.ops, prepared.warnings);
         let mut next = self.doc.sources.deck().clone();
         // Mode pack : une op sur la slide d'un layout s'écrit dans son exemple (`layout_examples`).
         let pack_ops = matches!(self.mode, crate::Mode::Pack { .. }).then(|| ops.clone());
@@ -422,6 +461,11 @@ impl Session {
         self.install(compiled);
         if let Some(notice) = notice {
             self.set_notice(notice);
+        }
+        // What lifting inline data changed (a value not finite, a row cut) is told once.
+        if !warnings.is_empty() {
+            let text = warnings.iter().map(|w| w.localize(&self.localizer)).collect::<Vec<_>>().join("\n");
+            self.set_notice(text);
         }
         self.mark_dirty();
         // Des épinglages changés (`AddPack`, `RemovePack`, `SetTheme`) : la pastille des packs se recalcule.

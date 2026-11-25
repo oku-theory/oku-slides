@@ -1,8 +1,7 @@
-//! Tableaux : options d'un widget `host(table)`, données éditées comme celles d'un graphique.
+//! Tables: the options of a `host(table)` widget, showing deck data like a chart.
 //!
-//! Le tableau partage [`Dataset`] et [`DataOp`] avec les graphiques : la
-//! ligne 0 est celle des noms de colonnes ; `header-row` décide seulement
-//! de son affichage en en-tête.
+//! A table shares [`Dataset`] with charts as its render input: row 0 holds the
+//! column names; `header-row` only decides whether it shows as a header.
 
 use oku_slides_i18n::Message;
 use schemars::JsonSchema;
@@ -10,10 +9,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::{ResultExt, ensure};
 
-use crate::data_ops::{DataOp, all_unique, valid_id, validate_ids};
 use crate::error::{InconsistentSnafu, InvalidOptionSnafu, Result};
-use crate::option::{Cell, Dataset};
+use crate::ids::{all_unique, validate_ids};
 use crate::patch::merge_patch;
+use crate::refs::{check_columns, check_ref_null};
+use oku_slides_data::{DataCell, DataId, Dataset, valid_id};
 
 /// Lignes au plus, ligne d'en-tête comprise.
 pub const MAX_TABLE_ROWS: usize = 100;
@@ -34,8 +34,15 @@ pub fn valid_weights(w: &[f64], count: usize) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct TableOption {
-    /// Data; row 0 holds the column names.
-    pub dataset: Dataset,
+    /// The deck data the table reads, by id; never next to inline data.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<DataId>,
+    /// Column ids of `data` the table reads, in order; all of them if absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub columns: Option<Vec<String>>,
+    /// Inline data; row 0 holds the column names. Absent when `data` is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dataset: Option<Dataset>,
     /// Row 0 shown as a header.
     #[serde(default = "default_true")]
     pub header_row: bool,
@@ -75,6 +82,27 @@ fn default_true() -> bool {
     true
 }
 
+impl TableOption {
+    /// Does the table carry its own data (`dataset`)?
+    #[must_use]
+    pub fn has_inline(&self) -> bool {
+        self.dataset.is_some()
+    }
+}
+
+/// Refuses a table that has neither a data ref nor inline data.
+///
+/// # Errors
+///
+/// Fails with `chart-table-empty` when both `data` and `dataset` are absent.
+pub fn require_data_in_table(option: &TableOption) -> Result<()> {
+    ensure!(
+        option.data.is_some() || option.dataset.is_some(),
+        InconsistentSnafu { reason: Message::new("chart-table-empty") }
+    );
+    Ok(())
+}
+
 /// Alignment of a table column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -93,10 +121,14 @@ pub enum ColumnAlign {
 ///
 /// # Errors
 ///
-/// Fails if the JSON leaves a table's schema, or if the table is empty,
-/// ragged, too large or carries invalid identifiers.
+/// Fails if the JSON leaves a table's schema, sets `data` to `null`, has
+/// invalid `columns`, or if the inline table is empty, ragged, too large or
+/// carries invalid identifiers. Options without any data are left to the
+/// caller ([`require_data_in_table`]).
 pub fn parse_table(v: &Value) -> Result<TableOption> {
+    check_ref_null(v)?;
     let mut option = TableOption::deserialize(v).context(InvalidOptionSnafu)?;
+    check_columns(option.data.as_ref(), option.columns.as_deref())?;
     tidy(&mut option);
     validate_table(&option)?;
     Ok(option)
@@ -108,14 +140,18 @@ pub fn parse_table(v: &Value) -> Result<TableOption> {
 /// drops a weight list whose length does not match. Removes the kept chart's
 /// `dataset` (the data are the table's: a kept `dataset` would be stale).
 /// Without a kept chart, its column identifiers have no use.
+///
+/// Without inline data the table's size is the data's: nothing is cut.
 fn tidy(option: &mut TableOption) {
-    let width = option.dataset.source.first().map_or(0, Vec::len);
-    option.align.truncate(width);
-    if option.column_widths.len() != width {
-        option.column_widths.clear();
-    }
-    if option.row_heights.len() != option.dataset.source.len() {
-        option.row_heights.clear();
+    if let Some(dataset) = &option.dataset {
+        let width = dataset.source.first().map_or(0, Vec::len);
+        option.align.truncate(width);
+        if option.column_widths.len() != width {
+            option.column_widths.clear();
+        }
+        if option.row_heights.len() != dataset.source.len() {
+            option.row_heights.clear();
+        }
     }
     if option.chart.is_none() {
         option.chart_columns.clear();
@@ -129,13 +165,33 @@ fn too_large() -> Message {
     Message::new("chart-table-too-large").arg("rows", MAX_TABLE_ROWS).arg("columns", MAX_TABLE_COLUMNS)
 }
 
-fn text_too_long(c: &Cell) -> bool {
-    matches!(c, Cell::Text(s) if s.chars().count() > MAX_TABLE_CELL_CHARS)
+fn text_too_long(c: &DataCell) -> bool {
+    matches!(c, DataCell::Text(s) if s.chars().count() > MAX_TABLE_CELL_CHARS)
 }
 
-/// Refuse un tableau trop grand, vide, irrégulier ou aux identifiants incohérents.
+/// Refuses a table too large, empty, ragged or with inconsistent identifiers.
+///
+/// Without inline data only the display options are checked.
 pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
-    let rows = &option.dataset.source;
+    ensure!(
+        option.chart.as_ref().is_none_or(Value::is_object),
+        InconsistentSnafu { reason: Message::new("chart-table-chart-option") }
+    );
+    ensure!(
+        option.chart_columns.len() <= MAX_TABLE_COLUMNS
+            && option.chart_columns.iter().all(|id| valid_id(id))
+            && all_unique(&option.chart_columns),
+        InconsistentSnafu { reason: Message::new("chart-table-chart-columns") }
+    );
+    let Some(dataset) = &option.dataset else {
+        let weights = |w: &[f64]| w.is_empty() || valid_weights(w, w.len());
+        ensure!(
+            weights(&option.column_widths) && weights(&option.row_heights),
+            InconsistentSnafu { reason: Message::new("chart-table-geometry") }
+        );
+        return Ok(());
+    };
+    let rows = &dataset.source;
     let width = rows.first().map_or(0, Vec::len);
     // Tailles d'abord : un tableau énorme est refusé sans être parcouru.
     ensure!(rows.len() <= MAX_TABLE_ROWS && width <= MAX_TABLE_COLUMNS, InconsistentSnafu { reason: too_large() });
@@ -146,12 +202,8 @@ pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
         InconsistentSnafu { reason: Message::new("chart-table-cell-too-long").arg("max", MAX_TABLE_CELL_CHARS) }
     );
     ensure!(
-        rows.iter().flatten().all(|c| !matches!(c, Cell::Number(n) if !n.is_finite())),
+        rows.iter().flatten().all(|c| !matches!(c, DataCell::Number(n) if !n.is_finite())),
         InconsistentSnafu { reason: Message::new("chart-table-not-finite") }
-    );
-    ensure!(
-        option.chart.as_ref().is_none_or(Value::is_object),
-        InconsistentSnafu { reason: Message::new("chart-table-chart-option") }
     );
     // Each list's length is compared before its values are walked.
     let weights = |w: &[f64], count: usize| w.is_empty() || valid_weights(w, count);
@@ -159,88 +211,7 @@ pub(crate) fn validate_table(option: &TableOption) -> Result<()> {
         weights(&option.column_widths, width) && weights(&option.row_heights, rows.len()),
         InconsistentSnafu { reason: Message::new("chart-table-geometry") }
     );
-    ensure!(
-        option.chart_columns.len() <= MAX_TABLE_COLUMNS
-            && option.chart_columns.iter().all(|id| valid_id(id))
-            && all_unique(&option.chart_columns),
-        InconsistentSnafu { reason: Message::new("chart-table-chart-columns") }
-    );
-    validate_ids(&option.dataset)
-}
-
-/// Refuse, avant tout clonage, une op qui ferait dépasser les limites.
-fn check_growth(option: &TableOption, change: &DataOp) -> Result<()> {
-    let rows = option.dataset.source.len();
-    let width = option.dataset.source.first().map_or(0, Vec::len);
-    let over = match change {
-        DataOp::InsertRow { .. } => rows >= MAX_TABLE_ROWS,
-        DataOp::InsertColumn { .. } => width >= MAX_TABLE_COLUMNS,
-        DataOp::Replace { source } => {
-            source.len() > MAX_TABLE_ROWS || source.iter().any(|r| r.len() > MAX_TABLE_COLUMNS)
-        }
-        _ => false,
-    };
-    ensure!(!over, InconsistentSnafu { reason: too_large() });
-    Ok(())
-}
-
-/// `set_data` on a table: applies `change`, realigns `align` and the weights, validates.
-///
-/// An inserted column or row takes the mean weight; a replaced table keeps the
-/// weights only along a dimension whose count is unchanged.
-///
-/// # Errors
-///
-/// Fails if the operation is impossible or would exceed the table limits.
-pub fn table_data(option: &TableOption, change: &DataOp) -> Result<TableOption> {
-    check_growth(option, change)?;
-    let mut next = option.clone();
-    change.apply(&mut next.dataset)?;
-    match change {
-        DataOp::InsertColumn { at, .. } if *at < next.align.len() => next.align.insert(*at, ColumnAlign::Auto),
-        DataOp::RemoveColumn { at } if *at < next.align.len() => {
-            next.align.remove(*at);
-        }
-        DataOp::Replace { source } => next.align.truncate(source.first().map_or(0, Vec::len)),
-        _ => {}
-    }
-    realign_weights(&mut next, option, change);
-    validate_table(&next)?;
-    Ok(next)
-}
-
-/// Keeps `column-widths` and `row-heights` of `next` aligned with its data after `change` on `before`.
-fn realign_weights(next: &mut TableOption, before: &TableOption, change: &DataOp) {
-    let mean = |w: &[f64]| {
-        let (sum, count) = w.iter().fold((0.0, 0.0), |(s, c), x| (s + x, c + 1.0));
-        sum / f64::max(count, 1.0)
-    };
-    match change {
-        DataOp::InsertColumn { at, .. } if !next.column_widths.is_empty() => {
-            let m = mean(&next.column_widths);
-            next.column_widths.insert((*at).min(next.column_widths.len()), m);
-        }
-        DataOp::RemoveColumn { at } if *at < next.column_widths.len() => {
-            next.column_widths.remove(*at);
-        }
-        DataOp::InsertRow { at, .. } if !next.row_heights.is_empty() => {
-            let m = mean(&next.row_heights);
-            next.row_heights.insert((*at).min(next.row_heights.len()), m);
-        }
-        DataOp::RemoveRow { at } if *at < next.row_heights.len() => {
-            next.row_heights.remove(*at);
-        }
-        DataOp::Replace { .. } => {
-            let width = |o: &TableOption| o.dataset.source.first().map_or(0, Vec::len);
-            if width(next) != width(before) {
-                next.column_widths.clear();
-            }
-            if next.dataset.source.len() != before.dataset.source.len() {
-                next.row_heights.clear();
-            }
-        }
-        _ => {}
-    }
+    validate_ids(dataset)
 }
 
 /// Merge patch (RFC 7396) on the options outside `dataset`; returns the inverse patch.

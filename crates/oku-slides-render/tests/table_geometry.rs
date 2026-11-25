@@ -5,7 +5,6 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use oku_slides_core::Deck;
 use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::Compiled;
 use serde_json::{Value, json};
@@ -19,7 +18,7 @@ fn compile(data: &Value) -> Compiled {
             { "id": "t", "kind": base::TABLE, "params": { "data": data },
                 "frame": { "x": 10, "y": 10, "w": 300, "h": 120 } }] } }]
     });
-    let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let deck = common::deck_with_data(deck);
     common::renderer().render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 

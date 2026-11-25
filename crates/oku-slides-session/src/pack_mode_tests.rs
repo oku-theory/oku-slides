@@ -394,3 +394,12 @@ fn pack_working_deck_keeps_the_deck_theme_and_overrides() {
     let ink = crate::theme_edit::theme_edit_tests::rendered_token(&s, "/color/ink");
     assert_that!(ink).is_equal_to(Some(serde_json::json!("#101010")));
 }
+
+#[rstest]
+#[case::add_data(serde_json::json!({ "op": "add_data", "name": "sales", "table": { "columns": [], "rows": [] } }))]
+#[case::edit_data(serde_json::json!({ "op": "edit_data", "data": "d1", "change": { "op": "remove_row", "row": "r1" } }))]
+#[case::bind_data(serde_json::json!({ "op": "bind_data", "target": { "slide": "s", "element": "e" }, "param": "option", "data": "d1" }))]
+fn is_structural_of_data_ops_is_false(#[case] v: serde_json::Value) {
+    let op: Op = serde_json::from_value(v).unwrap();
+    assert_that!(super::is_structural(&op)).is_false();
+}

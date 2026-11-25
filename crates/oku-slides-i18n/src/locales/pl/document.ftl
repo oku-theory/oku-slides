@@ -147,3 +147,4 @@ import-warning-unsafe-link = Odrzucono łącze: { $detail }
 import-warning-nesting-too-deep = Zbyt głębokie zagnieżdżenie, obcięto: { $detail }
 import-warning-font-embedded-unreadable = Nieczytelna osadzona czcionka: { $detail }
 import-warning-truncated = Zbyt wiele ostrzeżeń: kolejne pominięto
+render-chart-too-many-values = za dużo wartości do narysowania ({ $count }, najwyżej { $max })

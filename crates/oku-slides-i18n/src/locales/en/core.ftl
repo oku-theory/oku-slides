@@ -5,7 +5,6 @@ op-index-out-of-range = Position out of range
 op-invalid-value = Invalid value for { $subject }
 op-invalid-value-because = Invalid value for { $subject }: { $reason }
 op-value-no-value = the parameter has no value
-op-value-no-dataset = the chart has no dataset
 op-value-grid-tracks = a grid has 1 to 24 columns and rows
 op-value-bad-item-id = an item id is a non-empty text without “/”
 op-value-missing-item-id = every item needs an id
@@ -152,12 +151,14 @@ op-choice-out-of-range = Value not allowed for { $subject }
 transaction-refused = Operation { $index } refused: { $reason }
 
 sources-unreadable = Unreadable sources
+deck-inline-data = Element { $element } stores its data inside its options: this deck file is not in the current format
 sources-not-sources = This is not an Oku Slides sources archive
 sources-unsupported-version = These sources were written by a newer version of Oku Slides
 sources-bad-name = Rejected file name in the sources
 sources-missing-deck = The deck is missing from the sources
 sources-too-large = The sources in this file are too large to open
 sources-too-deep = This deck nests elements too deeply
+sources-base-refused = A data file of this deck is damaged or could not be stored
 
 issue-empty-slide-id = empty slide identifier
 issue-duplicate-slide-id = duplicate slide identifier
@@ -205,13 +206,50 @@ usage-range-reversed = The start date { $since } is after the end date { $until 
 pack-token-entry-invalid = Invalid component token “{ $path }” in the pack manifest.
 pack-manifest-json = The pack manifest cannot be read: { $reason }
 pack-manifest-order = The pack's item order is invalid at “{ $name }”.
+pack-manifest-data-count = The pack holds { $count ->
+    [one] { $count } data
+   *[other] { $count } data
+}, at most { $max }.
+pack-manifest-data-base = The pack's data “{ $data }” refers to an external file; a pack's data hold their own cells.
+pack-manifest-data-cells = The pack's data hold { $count ->
+    [one] { $count } cell
+   *[other] { $count } cells
+}, at most { $max }.
 issue-unsupported-link = unsupported link: { $link }
 issue-highlight-zero = highlight colors are numbered from 1
 issue-unreadable-element = unreadable element, set aside
 issue-slot-repaired = element without a known slot, placed in { $slot }
 issue-unreadable-item = unreadable list item, set aside
 issue-unreadable-row = unreadable table row, set aside
-issue-data-truncated = data too large, truncated on read
+issue-data-truncated = data “{ $data }” too large, truncated on read and kept read-only
+issue-data-name-taken = the data name “{ $data }” is already taken
+issue-data-cell-type = data “{ $data }”: column “{ $column }” holds values that are not { $type }
+issue-data-too-many = too many data in the deck ({ $count }); not read: { $dropped }
+issue-data-base-missing = data “{ $data }”: its base file is missing, kept read-only
+issue-data-edits-lost = data “{ $data }”: edits to a replaced table were lost in the merge
+issue-data-inline-dropped = Element { $element }: its chart or table data were stored inside its options by an older version; they were removed
+issue-more = more issues not shown: { $count }
+op-data-deck-full = The deck's data would pass their limit: at most { $max } { $what ->
+    [row-ids] row ids
+    [overlay] edited cells
+    [text] bytes of text
+   *[data] data
+}
+op-data-missing = Data “{ $data }” not found
+op-data-name-taken = The data name “{ $name }” is already taken
+op-data-column-in-use = Column “{ $column }” is shown by { $views }; bind them to other columns first (bind_data with columns)
+op-data-in-use = This data is shown by { $views }{ $more ->
+    [0] {""}
+    [one] {" "}and { $more } more view
+   *[other] {" "}and { $more } more views
+}; remove them or bind them to another data first
+op-data-column-missing = Data “{ $data }” has no column “{ $column }”
+op-data-not-view = Parameter “{ $param }” cannot show data: only a chart or table option can
+op-data-truncated = Data “{ $data }” was truncated on read and is read-only; replace its whole table to edit it
+op-data-rebind = Element { $subject } already shows other data; use bind_data to change them
+op-data-internal = A batch cannot set a table's base or overlay
+op-data-batch-too-large = The batch is too large: cell count { $count }, at most { $max }
+op-data-inline = Element { $subject } carries its data inside its options; add them as deck data with add_data and bind them with bind_data
 issue-unreadable-slide = unreadable slide, set aside
 issue-unreadable-field = unreadable deck field { $field }, reset
 issue-knowledge-unreadable = unreadable knowledge entry { $id }, set aside
@@ -286,3 +324,12 @@ issue-empty-item-id = list { $param } has an item without identifier
 issue-duplicate-item-id = list { $param } has a duplicate item identifier
 issue-invalid-item-id = list { $param } has an item identifier containing a slash
 issue-list-bounds = list { $param } has too few or too many items
+issue-view-truncated = { $element } shows only part of its data ({ $what ->
+    [rows] rows
+   *[columns] columns
+}: { $shown } of { $total })
+issue-render-budget = { $element } is not drawn: the deck's views read more data than a render allows
+issue-data-missing = { $element } names the data “{ $data }”, which is not in the deck
+issue-view-column-missing = { $element } reads the column “{ $column }”, which its data does not have
+issue-view-unreadable = { $element } is not drawn: its options cannot be read
+op-replica-full = The deck's history is nearly { $max } MiB, the most it can reopen: remove content before adding more.

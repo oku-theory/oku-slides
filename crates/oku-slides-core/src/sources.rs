@@ -1,4 +1,4 @@
-//! Le zip des sources (format `oku-slides-sources`, version 13) : le replica
+//! Le zip des sources (format `oku-slides-sources`, version 15) : le replica
 //! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
 //! versions de packs de widgets (`widgets/<hex>/widgets.json`,
 //! `widgets/<hex>/widgets/<nom>.typ`) et de layouts (`layouts/<hex>/layouts.json`,
@@ -14,15 +14,16 @@
 //! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
 //! `apply` attend un deck déjà canonique (celui que rend
 //! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 12) n'est plus lu.
+//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 14) n'est plus lu.
 //!
 //! Le bundle porte le registre des widgets, que son replica utilise à
 //! l'écriture ; la fusion et la restauration le passent à `validate`.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use oku_slides_data::{BaseId, BaseRef, DataId, Table};
 use sha2::{Digest, Sha256};
 use snafu::{ResultExt, ensure};
 
@@ -33,6 +34,7 @@ use crate::ops::Moved;
 use crate::pack::{PackFiles, PackManifest, PackVersion};
 use crate::pack_kind::PackKind;
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview, KnowledgeSync, ReplicaLimits};
+use crate::sources_bases::BaseFiles;
 use crate::usage::UsageLedger;
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
@@ -49,9 +51,7 @@ use themes::theme_issues;
 /// Value of the `format` field in a source zip's manifest.
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
 /// Version of the source format; follows each change of `REPLICA_FORMAT`.
-pub const SOURCES_VERSION: u32 = 14;
-/// Oldest source version still read: 13, whose replica (format 7) opens as format 8.
-pub(crate) const OLDEST_SOURCES_VERSION: u32 = 13;
+pub const SOURCES_VERSION: u32 = 15;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,6 +111,9 @@ pub struct SourceBundle {
     pub themes: BTreeMap<PackVersion, PackFiles>,
     /// Agent usage by turn, add-only (`usage.jsonl`); never part of the deck or the replica.
     pub usage: UsageLedger,
+    /// The data bases this bundle received (its file's, its compactions', its pastes'), add-only;
+    /// a data whose base is not among them reads as `issue-data-base-missing`.
+    pub bases: BTreeSet<BaseId>,
 }
 
 /// Two bundles are equal when they show the same deck, assets, fonts, packs, themes and usage.
@@ -124,6 +127,7 @@ impl PartialEq for SourceBundle {
             && self.packs == other.packs
             && self.themes == other.themes
             && self.usage == other.usage
+            && self.bases == other.bases
     }
 }
 
@@ -150,9 +154,10 @@ impl SourceBundle {
         crate::ops::normalize_hosts(&registry, &mut deck);
         crate::canonicalize(&mut deck);
         let replica = DeckReplica::new(&deck, registry).context(ReplicaSnafu)?;
-        let (assets, fonts, packs, themes, usage) = Default::default();
+        let (assets, fonts, packs, themes, usage, bases) = Default::default();
         let knowledge_generation = fresh_generation();
-        Ok(Self { replica, deck, knowledge_generation, knowledge_unsynced: false, assets, fonts, packs, themes, usage })
+        let knowledge_unsynced = false;
+        Ok(Self { replica, deck, knowledge_generation, knowledge_unsynced, assets, fonts, packs, themes, usage, bases })
     }
 
     /// A bundle around a replica read back by [`DeckReplica::from_snapshot`].
@@ -162,6 +167,7 @@ impl SourceBundle {
     /// pack and theme versions when they are missing. The usage ledger starts
     /// empty; `read_zip` sets it.
     #[must_use]
+    #[expect(clippy::too_many_arguments, reason = "the parts of one read bundle, each from its own file")]
     pub fn from_replica(
         replica: DeckReplica,
         (deck, mut issues): DeckRead,
@@ -169,6 +175,7 @@ impl SourceBundle {
         fonts: BTreeMap<String, Vec<u8>>,
         packs: BTreeMap<PackVersion, PackFiles>,
         themes: BTreeMap<PackVersion, PackFiles>,
+        bases: BTreeSet<BaseId>,
     ) -> (Self, Vec<Issue>) {
         let assets = Arc::new(assets);
         let bundle = Self {
@@ -181,6 +188,7 @@ impl SourceBundle {
             packs,
             themes,
             usage: UsageLedger::default(),
+            bases,
         };
         issues.extend(bundle.embedded_issues());
         (bundle, issues)
@@ -226,7 +234,39 @@ impl SourceBundle {
             }
         }
         issues.extend(theme_issues(&self.deck, &self.themes));
+        let mut seen = HashSet::new();
+        for data in self.deck.data.values() {
+            if let Some(base) = &data.table.base
+                && !self.bases.contains(&base.id)
+                && seen.insert(&data.name)
+            {
+                issues.push(crate::validate_data::base_missing(&data.name));
+            }
+        }
         issues
+    }
+
+    /// Folds data `id` into `base` in a new layer `epoch`, without an undo step (see
+    /// [`DeckReplica::compact_data`]); the base becomes known. `false`: nothing written.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`DeckReplica::compact_data`].
+    pub fn compact_data(
+        &mut self,
+        id: &DataId,
+        from: &Table,
+        epoch: String,
+        base: BaseRef,
+    ) -> Result<bool, SourcesError> {
+        let known = base.id.clone();
+        if !self.replica.compact_data(id, from, epoch, base).context(ReplicaSnafu)? {
+            return Ok(false);
+        }
+        self.bases.insert(known);
+        self.reread();
+        self.debug_assert_view_matches_replica();
+        Ok(true)
     }
 
     /// Ajoute une version de pack et renvoie son empreinte.
@@ -412,6 +452,11 @@ impl SourceBundle {
         self.replica.clear_undo();
     }
 
+    /// Drops the undo steps touching data `id` (see [`DeckReplica::drop_data_undo`]).
+    pub fn drop_data_undo(&mut self, id: &DataId) -> crate::replica::Dropped {
+        self.replica.drop_data_undo(id)
+    }
+
     /// Undoes the last step; `false` if there was none.
     ///
     /// # Errors
@@ -500,7 +545,8 @@ impl SourceBundle {
     ///
     /// The usage ledgers are united by turn.
     /// On equal names, ours are kept. The view is read back; its unreadable parts are
-    /// returned, followed by what `validate` reports (the bundle's registry).
+    /// returned, followed by what `validate` reports (the bundle's registry), then one
+    /// `issue-data-edits-lost` per data whose edits the merge lost.
     ///
     /// # Errors
     ///
@@ -523,9 +569,14 @@ impl SourceBundle {
             self.themes.entry(version).or_insert(files);
         }
         let usage_issues = self.usage.union(other.usage);
+        self.bases.extend(other.bases);
         let (deck, issues) = self.replica.deck();
         self.set_view(deck);
         let mut issues = self.with_validation(issues);
+        issues.extend(report.lost.iter().map(|id| {
+            let name = self.deck.data.get(id).map_or(id.as_str(), |d| d.name.as_str());
+            crate::validate_data::edits_lost(name)
+        }));
         issues.extend(usage_issues);
         Ok((report, issues))
     }
@@ -576,7 +627,17 @@ impl SourceBundle {
     ///
     /// Tree too deep to be reopened, or zip write refused.
     pub fn to_zip_with(&self, usage: bool) -> Result<Vec<u8>, SourcesError> {
-        Ok(self.write_zip(usage)?)
+        self.to_zip_bases(usage, None)
+    }
+
+    /// As [`Self::to_zip_with`], the bases the deck uses now copied from `bases`.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::to_zip_with`]; `Base` when a base cannot be read, or the deck has one and
+    /// `bases` is `None`.
+    pub fn to_zip_bases(&self, usage: bool, bases: Option<&dyn BaseFiles>) -> Result<Vec<u8>, SourcesError> {
+        Ok(self.write_zip(usage, bases)?)
     }
 
     /// Reads a source zip back. The bytes come from a file: untrusted;
@@ -596,7 +657,23 @@ impl SourceBundle {
         limits: SourceLimits,
         registry: Arc<WidgetRegistry>,
     ) -> Result<(Self, Vec<Issue>), SourcesError> {
-        Ok(Self::read_zip(bytes, limits, registry)?)
+        Self::from_zip_bases(bytes, limits, registry, None)
+    }
+
+    /// As [`Self::from_zip`], each `bases/` entry streamed into `bases` (hash checked) and known;
+    /// without a store they are skipped, unread and uncounted, and read as missing.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::from_zip`]; `TooLarge` for a base past the budget or
+    /// [`MAX_BASE_BYTES`](oku_slides_data::limits::MAX_BASE_BYTES), `Base` when the store refuses it.
+    pub fn from_zip_bases(
+        bytes: &[u8],
+        limits: SourceLimits,
+        registry: Arc<WidgetRegistry>,
+        bases: Option<&dyn BaseFiles>,
+    ) -> Result<(Self, Vec<Issue>), SourcesError> {
+        Ok(Self::read_zip(bytes, limits, registry, bases)?)
     }
 }
 

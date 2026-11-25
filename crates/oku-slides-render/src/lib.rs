@@ -31,6 +31,7 @@ mod palette;
 mod probe_cache;
 mod registry;
 mod tables;
+mod views;
 mod widget_probe;
 mod wire;
 mod world;
@@ -59,6 +60,7 @@ pub use registry::{
     PackSet, PackWidgets, Registries, base_probe, builtin_registry, is_pack_id, load_registry, probe_registry,
     registry_from_probe,
 };
+pub use views::{BaseRead, resolve_views};
 pub use widget_probe::{FileProbe, PROBE_PACK, ProbedPack, assemble, assemble_set, probe_file, probe_key};
 pub use wire::WireError;
 use world::OkuSlidesWorld;
@@ -230,6 +232,8 @@ pub struct Renderer {
     world: OkuSlidesWorld,
     /// Registre des widgets rendus (widgets qualifiés des packs).
     registry: Arc<WidgetRegistry>,
+    /// Reads based views; set only in the render worker ([`Renderer::set_bases`]).
+    bases: Option<Box<dyn BaseRead>>,
 }
 
 impl std::fmt::Debug for Renderer {
@@ -245,7 +249,7 @@ impl Renderer {
     ///
     /// Fails if the Typst world cannot be built (unreadable embedded library).
     pub fn new(fonts: Fonts) -> Result<Self, RenderError> {
-        Ok(Self { world: OkuSlidesWorld::new(fonts)?, registry: registry::empty_registry() })
+        Ok(Self { world: OkuSlidesWorld::new(fonts)?, registry: registry::empty_registry(), bases: None })
     }
 
     /// A renderer with the built-in packs: `base` (widgets) and `essentiel` (layouts).
@@ -273,18 +277,26 @@ impl Renderer {
         Ok(())
     }
 
+    /// The reader of based views, for the next decks; only the render worker has one, so an
+    /// in-process render draws a based view's failure frame.
+    pub fn set_bases(&mut self, bases: Box<dyn BaseRead>) {
+        self.bases = Some(bases);
+    }
+
     /// Registre des widgets rendus.
     pub fn registry(&self) -> &Arc<WidgetRegistry> {
         &self.registry
     }
 
-    /// Replaces the deck and assets to render.
+    /// Replaces the deck and assets to render. Its views are resolved first ([`resolve_views`]):
+    /// Typst sees each view's bounded dataset, never the deck's data.
     ///
     /// # Errors
     ///
     /// Fails if the deck cannot be serialized or if one of its charts cannot be drawn.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
-        self.world.set_deck(deck, assets, &self.registry)
+        let resolved = views::resolve_views(deck, &self.registry, self.bases.as_deref());
+        self.world.set_deck(&resolved, assets, &self.registry)
     }
 
     /// Theme tokens for the next renders (`None`: default tokens). They

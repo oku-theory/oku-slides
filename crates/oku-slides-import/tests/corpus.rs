@@ -84,6 +84,7 @@ fn hifi_issues(name: &str) -> Vec<String> {
         name: "Import".to_owned(),
         created: "2026-11-06T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let src = source(name);
     let plan = hifi::project(&src, &target).unwrap_or_else(|e| panic!("{name}: hi-fi: {e}"));
@@ -104,6 +105,7 @@ fn retrofit_issues(name: &str) -> Vec<String> {
         registry: &registry,
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let src = source(name);
     let plan = project(&src, &target).unwrap_or_else(|e| panic!("{name}: retrofit: {e}"));

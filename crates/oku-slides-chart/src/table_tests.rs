@@ -4,7 +4,9 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::{Cell, ChartErrorKind, DataOp};
+use oku_slides_data::DataCell;
+
+use crate::ChartErrorKind;
 
 fn table() -> TableOption {
     parse_table(&json!({
@@ -12,6 +14,11 @@ fn table() -> TableOption {
         "align": ["start", "auto", "end"]
     }))
     .unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// The inline data of `t`, which every table of these tests has.
+fn ds(t: &mut TableOption) -> &mut oku_slides_data::Dataset {
+    t.dataset.as_mut().unwrap_or_else(|| panic!("inline data expected"))
 }
 
 fn kind_of(v: &serde_json::Value) -> ChartErrorKind {
@@ -149,12 +156,6 @@ fn parse_table_duplicate_ids_reason_is_localized_in_french() {
 }
 
 #[test]
-fn table_data_insert_row_keeps_ids_aligned() {
-    let next = table_data(&table(), &DataOp::InsertRow { at: 1, cells: vec![], id: None }).unwrap();
-    assert_that!((next.dataset.ids.len(), next.dataset.columns.len())).is_equal_to((4, 3));
-}
-
-#[test]
 fn parse_table_ragged_reason_is_localized_in_french() {
     let err = parse_table(&json!({ "dataset": { "source": [["A", "B"], [1]] } })).unwrap_err();
     assert_that!(err.localize(&Localizer::new(Some("fr")))).contains("même nombre de cellules");
@@ -163,81 +164,8 @@ fn parse_table_ragged_reason_is_localized_in_french() {
 #[test]
 fn validate_table_non_finite_number_is_inconsistent() {
     let mut t = table();
-    t.dataset.source[1][1] = Cell::Number(f64::INFINITY);
+    ds(&mut t).source[1][1] = DataCell::Number(f64::INFINITY);
     assert_that!(validate_table(&t).unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
-}
-
-#[test]
-fn table_data_insert_column_at_zero_shifts_align() {
-    let next = table_data(&table(), &DataOp::InsertColumn { at: 0, cells: vec![], id: None }).unwrap();
-    assert_that!(next.align).is_equal_to(vec![
-        ColumnAlign::Auto,
-        ColumnAlign::Start,
-        ColumnAlign::Auto,
-        ColumnAlign::End,
-    ]);
-}
-
-#[test]
-fn table_data_insert_column_at_align_len_leaves_align() {
-    let mut t = table();
-    t.align = vec![ColumnAlign::End];
-    let next = table_data(&t, &DataOp::InsertColumn { at: 1, cells: vec![], id: None }).unwrap();
-    assert_that!(next.align).is_equal_to(vec![ColumnAlign::End]);
-}
-
-#[test]
-fn table_data_remove_column_drops_its_alignment() {
-    let next = table_data(&table(), &DataOp::RemoveColumn { at: 0 }).unwrap();
-    assert_that!(next.align).is_equal_to(vec![ColumnAlign::Auto, ColumnAlign::End]);
-}
-
-#[test]
-fn table_data_remove_column_beyond_align_leaves_it() {
-    let mut t = table();
-    t.align = vec![ColumnAlign::End];
-    let next = table_data(&t, &DataOp::RemoveColumn { at: 2 }).unwrap();
-    assert_that!(next.align).is_equal_to(vec![ColumnAlign::End]);
-}
-
-#[test]
-fn table_data_replace_with_fewer_columns_truncates_align() {
-    let next = table_data(&table(), &DataOp::Replace { source: vec![vec![Cell::Text("x".into())]] }).unwrap();
-    assert_that!(next.align).is_equal_to(vec![ColumnAlign::Start]);
-}
-
-#[test]
-fn table_data_set_cell_changes_only_that_cell() {
-    let mut expected = table();
-    expected.dataset.source[1][1] = Cell::Number(99.0);
-    let next = table_data(&table(), &DataOp::SetCell { row: 1, col: 1, value: Cell::Number(99.0) }).unwrap();
-    // Les identifiants absents sont tirés à la première op.
-    expected.dataset.ids.clone_from(&next.dataset.ids);
-    expected.dataset.columns.clone_from(&next.dataset.columns);
-    assert_that!(next).is_equal_to(expected);
-}
-
-#[test]
-fn table_data_insert_row_at_max_rows_is_inconsistent() {
-    let rows: Vec<Vec<usize>> = (0..MAX_TABLE_ROWS).map(|i| vec![i]).collect();
-    let t = parse_table(&json!({ "dataset": { "source": rows } })).unwrap();
-    let r = table_data(&t, &DataOp::InsertRow { at: 1, cells: vec![], id: None });
-    assert_that!(r.unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
-}
-
-#[test]
-fn table_data_insert_column_at_max_columns_is_inconsistent() {
-    let header: Vec<String> = (0..MAX_TABLE_COLUMNS).map(|i| format!("c{i}")).collect();
-    let t = parse_table(&json!({ "dataset": { "source": [header] } })).unwrap();
-    let r = table_data(&t, &DataOp::InsertColumn { at: 0, cells: vec![], id: None });
-    assert_that!(r.unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
-}
-
-#[test]
-fn table_data_replace_beyond_max_rows_is_inconsistent() {
-    let source = vec![vec![Cell::Null]; MAX_TABLE_ROWS + 1];
-    let r = table_data(&table(), &DataOp::Replace { source });
-    assert_that!(r.unwrap_err().kind()).is_equal_to(ChartErrorKind::Inconsistent);
 }
 
 #[test]
@@ -422,20 +350,6 @@ fn patch_table_with_null_weights_clears_them() {
     assert_that!(t.column_widths.is_empty() && t.row_heights.is_empty()).is_true();
 }
 
-#[test]
-fn table_data_insert_on_a_table_without_weights_adds_none() {
-    let op = DataOp::InsertColumn { at: 0, cells: vec![], id: None };
-    let t = table_data(&table(), &op).unwrap();
-    assert_that!(t.column_widths.is_empty()).is_true();
-}
-
-#[test]
-fn table_data_insert_column_at_the_end_appends_the_mean_width() {
-    let op = DataOp::InsertColumn { at: 3, cells: vec![], id: None };
-    let t = table_data(&weighted(), &op).unwrap();
-    assert_that!(t.column_widths).is_equal_to(vec![1.0, 2.0, 3.0, 2.0]);
-}
-
 #[rstest]
 #[case::exact(&[1.0, 2.0], 2, true)]
 #[case::short(&[1.0], 2, false)]
@@ -450,54 +364,4 @@ fn valid_weights_checks_length_and_bounds(#[case] w: &[f64], #[case] count: usiz
 fn table_without_weights_serializes_no_weight_key() {
     let v = serde_json::to_value(table()).unwrap();
     assert_that!(v.get("column-widths").is_none() && v.get("row-heights").is_none()).is_true();
-}
-
-#[test]
-fn table_data_insert_column_gives_it_the_mean_width() {
-    let op = DataOp::InsertColumn { at: 1, cells: vec![], id: None };
-    let t = table_data(&weighted(), &op).unwrap();
-    assert_that!(t.column_widths).is_equal_to(vec![1.0, 2.0, 2.0, 3.0]);
-}
-
-#[test]
-fn table_data_remove_column_drops_its_width() {
-    let t = table_data(&weighted(), &DataOp::RemoveColumn { at: 0 }).unwrap();
-    assert_that!(t.column_widths).is_equal_to(vec![2.0, 3.0]);
-}
-
-#[test]
-fn table_data_insert_row_gives_it_the_mean_height() {
-    let op = DataOp::InsertRow { at: 3, cells: vec![], id: None };
-    let t = table_data(&weighted(), &op).unwrap();
-    assert_that!(t.row_heights).is_equal_to(vec![1.0, 1.0, 4.0, 2.0]);
-}
-
-#[test]
-fn table_data_remove_row_drops_its_height() {
-    let t = table_data(&weighted(), &DataOp::RemoveRow { at: 1 }).unwrap();
-    assert_that!(t.row_heights).is_equal_to(vec![1.0, 4.0]);
-}
-
-#[test]
-fn table_data_set_cell_keeps_the_weights() {
-    let op = DataOp::SetCell { row: 1, col: 1, value: Cell::Number(3.0) };
-    let t = table_data(&weighted(), &op).unwrap();
-    assert_that!((t.column_widths, t.row_heights)).is_equal_to((vec![1.0, 2.0, 3.0], vec![1.0, 1.0, 4.0]));
-}
-
-#[rstest]
-#[case::same_shape(3, 3, true, true)]
-#[case::other_width(2, 3, false, true)]
-#[case::other_rows(3, 2, true, false)]
-fn table_data_replace_keeps_weights_only_where_the_count_is_unchanged(
-    #[case] columns: usize,
-    #[case] rows: usize,
-    #[case] widths_kept: bool,
-    #[case] heights_kept: bool,
-) {
-    let source = vec![vec![Cell::Text("x".into()); columns]; rows];
-    let t = table_data(&weighted(), &DataOp::Replace { source }).unwrap();
-    let kept = |kept: bool, w: Vec<f64>| if kept { w } else { vec![] };
-    assert_that!((t.column_widths, t.row_heights))
-        .is_equal_to((kept(widths_kept, vec![1.0, 2.0, 3.0]), kept(heights_kept, vec![1.0, 1.0, 4.0])));
 }

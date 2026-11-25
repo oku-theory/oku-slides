@@ -5,7 +5,6 @@ op-index-out-of-range = ตำแหน่งอยู่นอกช่วง
 op-invalid-value = ค่าไม่ถูกต้องสำหรับ { $subject }
 op-invalid-value-because = ค่าไม่ถูกต้องสำหรับ { $subject }: { $reason }
 op-value-no-value = พารามิเตอร์ไม่มีค่า
-op-value-no-dataset = แผนภูมิไม่มีชุดข้อมูล
 op-value-grid-tracks = กริดมี 1 ถึง 24 คอลัมน์และแถว
 op-value-bad-item-id = ตัวระบุรายการย่อยคือข้อความที่ไม่ว่างและไม่มี “/”
 op-value-missing-item-id = ทุกรายการย่อยต้องมีตัวระบุ
@@ -143,12 +142,14 @@ op-choice-out-of-range = ค่าไม่ได้รับอนุญาต�
 transaction-refused = การดำเนินการ { $index } ถูกปฏิเสธ: { $reason }
 
 sources-unreadable = อ่านซอร์สไม่ได้
+deck-inline-data = องค์ประกอบ { $element } เก็บข้อมูลไว้ในตัวเลือก: ไฟล์เด็คนี้ไม่ใช่รูปแบบปัจจุบัน
 sources-not-sources = นี่ไม่ใช่ไฟล์เก็บซอร์สของ Oku Slides
 sources-unsupported-version = ซอร์สนี้สร้างด้วย Oku Slides เวอร์ชันที่ใหม่กว่า
 sources-bad-name = ชื่อไฟล์ในซอร์สถูกปฏิเสธ
 sources-missing-deck = ไม่มีงานนำเสนอในซอร์ส
 sources-too-large = ซอร์สในไฟล์นี้มีขนาดใหญ่เกินกว่าจะเปิดได้
 sources-too-deep = เด็คนี้ซ้อนองค์ประกอบลึกเกินไป
+sources-base-refused = ไฟล์ข้อมูลของเด็คนี้เสียหายหรือไม่สามารถจัดเก็บได้
 
 issue-empty-slide-id = ตัวระบุสไลด์ว่างเปล่า
 issue-duplicate-slide-id = ตัวระบุสไลด์ซ้ำกัน
@@ -195,13 +196,43 @@ usage-range-reversed = วันที่เริ่มต้น { $since } อ
 pack-token-entry-invalid = โทเค็นคอมโพเนนต์ “{ $path }” ในไฟล์กำกับแพ็กไม่ถูกต้อง
 pack-manifest-json = อ่านไฟล์กำกับแพ็กไม่ได้: { $reason }
 pack-manifest-order = ลำดับรายการของแพ็กไม่ถูกต้องที่ “{ $name }”
+pack-manifest-data-count = แพ็กมีข้อมูล { $count } รายการ สูงสุด { $max } รายการ
+pack-manifest-data-base = ข้อมูล “{ $data }” ของแพ็กอ้างอิงไฟล์ภายนอก ข้อมูลของแพ็กต้องมีเซลล์ของตัวเอง
+pack-manifest-data-cells = ข้อมูลของแพ็กมี { $count } เซลล์ สูงสุด { $max } เซลล์
 issue-unsupported-link = ลิงก์ที่ไม่รองรับ: { $link }
 issue-highlight-zero = สีไฮไลต์เริ่มนับจาก 1
 issue-unreadable-element = องค์ประกอบที่อ่านไม่ได้ ถูกแยกไว้
 issue-slot-repaired = องค์ประกอบที่ไม่มีช่องที่รู้จัก ถูกวางไว้ใน { $slot }
 issue-unreadable-item = รายการย่อยที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-row = แถวของตารางที่อ่านไม่ได้ ถูกแยกไว้
-issue-data-truncated = ข้อมูลใหญ่เกินไป ถูกตัดทอนขณะอ่าน
+issue-data-truncated = ข้อมูล “{ $data }” ใหญ่เกินไป ถูกตัดทอนขณะอ่านและเก็บไว้แบบอ่านอย่างเดียว
+issue-data-name-taken = ชื่อข้อมูล “{ $data }” ถูกใช้แล้ว
+issue-data-cell-type = ข้อมูล “{ $data }”: คอลัมน์ “{ $column }” มีค่าที่ไม่ใช่ชนิด { $type }
+issue-data-too-many = ข้อมูลในเด็คมากเกินไป ({ $count }) ที่ไม่ได้อ่าน: { $dropped }
+issue-data-base-missing = ข้อมูล “{ $data }”: ไม่พบไฟล์ฐาน เก็บไว้แบบอ่านอย่างเดียว
+issue-data-edits-lost = ข้อมูล “{ $data }”: การแก้ไขตารางที่ถูกแทนที่สูญหายระหว่างการผสาน
+issue-data-inline-dropped = องค์ประกอบ { $element }: เวอร์ชันเก่าเก็บข้อมูลของแผนภูมิหรือตารางไว้ในตัวเลือก ข้อมูลนั้นถูกนำออกแล้ว
+issue-more = ปัญหาอื่นที่ไม่ได้แสดง: { $count }
+op-data-deck-full = ข้อมูลของเด็คจะเกินขีดจำกัด: { $what ->
+    [row-ids] รหัสแถว
+    [overlay] เซลล์ที่แก้ไข
+    [text] ไบต์ของข้อความ
+   *[data] ข้อมูล
+} ได้ไม่เกิน { $max }
+op-data-missing = ไม่พบข้อมูล “{ $data }”
+op-data-name-taken = ชื่อข้อมูล “{ $name }” ถูกใช้แล้ว
+op-data-column-in-use = คอลัมน์ “{ $column }” แสดงโดย { $views } ให้ผูกกับคอลัมน์อื่นก่อน (bind_data พร้อม columns)
+op-data-in-use = ข้อมูลนี้แสดงโดย { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}และอีก { $more } มุมมอง
+}{" "}ให้ลบหรือผูกกับข้อมูลอื่นก่อน
+op-data-column-missing = ข้อมูล “{ $data }” ไม่มีคอลัมน์ “{ $column }”
+op-data-not-view = พารามิเตอร์ “{ $param }” แสดงข้อมูลไม่ได้ ทำได้เฉพาะตัวเลือกของแผนภูมิหรือตาราง
+op-data-truncated = ข้อมูล “{ $data }” ถูกตัดทอนตอนอ่านและอ่านได้อย่างเดียว ให้แทนที่ตารางทั้งหมดเพื่อแก้ไข
+op-data-rebind = องค์ประกอบ { $subject } แสดงข้อมูลอื่นอยู่แล้ว ใช้ bind_data เพื่อเปลี่ยน
+op-data-internal = ชุดคำสั่งไม่สามารถตั้งค่าฐานหรือชั้นซ้อนของตารางได้
+op-data-batch-too-large = ชุดคำสั่งใหญ่เกินไป: จำนวนเซลล์ { $count } สูงสุด { $max }
+op-data-inline = องค์ประกอบ { $subject } เก็บข้อมูลไว้ในตัวเลือก ให้เพิ่มเป็นข้อมูลของเด็คด้วย add_data และผูกด้วย bind_data
 issue-unreadable-slide = สไลด์ที่อ่านไม่ได้ ถูกแยกไว้
 issue-unreadable-field = ช่อง { $field } ของงานนำเสนอที่อ่านไม่ได้ ถูกรีเซ็ต
 issue-knowledge-unreadable = รายการความรู้ { $id } ที่อ่านไม่ได้ ถูกแยกไว้
@@ -276,3 +307,12 @@ issue-empty-item-id = รายการ { $param } มีรายการย�
 issue-duplicate-item-id = รายการ { $param } มีตัวระบุของรายการย่อยซ้ำกัน
 issue-invalid-item-id = รายการ { $param } มีตัวระบุรายการย่อยที่มีเครื่องหมายทับ
 issue-list-bounds = รายการ { $param } มีรายการย่อยน้อยเกินไปหรือมากเกินไป
+issue-view-truncated = { $element } แสดงข้อมูลเพียงบางส่วน ({ $what ->
+    [rows] แถว
+   *[columns] คอลัมน์
+}: { $shown } จาก { $total })
+issue-render-budget = ไม่ได้วาด { $element }: มุมมองของงานนำเสนออ่านข้อมูลมากกว่าที่การเรนเดอร์อนุญาต
+issue-data-missing = { $element } อ้างถึงข้อมูล “{ $data }” ซึ่งไม่มีในงานนำเสนอ
+issue-view-column-missing = { $element } อ่านคอลัมน์ “{ $column }” ซึ่งไม่มีในข้อมูลของมัน
+issue-view-unreadable = ไม่ได้วาด { $element }: อ่านตัวเลือกของมันไม่ได้
+op-replica-full = ประวัติของงานนำเสนอใกล้ถึง { $max } MiB ซึ่งเป็นขนาดสูงสุดที่เปิดใหม่ได้: โปรดลบเนื้อหาก่อนเพิ่มอีก

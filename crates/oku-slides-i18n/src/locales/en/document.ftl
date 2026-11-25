@@ -145,3 +145,4 @@ import-warning-unsafe-link = Link refused: { $detail }
 import-warning-nesting-too-deep = Nesting too deep, cut off: { $detail }
 import-warning-font-embedded-unreadable = Embedded font unreadable: { $detail }
 import-warning-truncated = Too many warnings: the rest are omitted
+render-chart-too-many-values = too many values to draw ({ $count }, at most { $max })

@@ -23,7 +23,7 @@ fn left_covered(with_table: bool) -> Deck {
         .push(json!({ "id": "cache", "kind": base::SHAPE, "params": { "shape": "rect" }, "style": { "fill": "ink" },
         "frame": { "x": 6, "y": 6, "w": 264, "h": 128 } }));
     let deck = json!({ "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": elements } }] });
-    Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("{e}"))
+    crate::common::deck_with_data(deck)
 }
 
 fn hash(d: &Deck) -> u64 {

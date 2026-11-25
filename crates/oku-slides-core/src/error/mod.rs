@@ -7,13 +7,22 @@
 use oku_slides_i18n::{Localize, Localizer};
 use snafu::{Backtrace, IntoError, Snafu};
 
+mod data;
+mod deck_json;
 mod reason;
 mod token;
 
+pub(crate) use data::DataFault;
+pub use data::DataFaultKind;
+pub use deck_json::{DeckJsonError, DeckJsonErrorKind};
+pub(crate) use deck_json::{
+    DeckJsonFullSnafu, DeckJsonInlineSnafu, DeckJsonTooLargeSnafu, DeckJsonUnreadableSnafu, DeckJsonVersionSnafu,
+};
 pub(crate) use reason::{ExpectedType, Shape};
 pub use reason::{FrontmatterReason, KnowledgeLimit, KnowledgeReason, PathReason, ValueReason};
 pub(crate) use token::{
-    EmptyPathSnafu, ManifestJsonSnafu, ManifestOrderSnafu, ManifestTokensSnafu, MissingDefaultSnafu, PathConflictSnafu,
+    EmptyPathSnafu, ManifestDataBaseSnafu, ManifestDataCellsSnafu, ManifestDataCountSnafu, ManifestJsonSnafu,
+    ManifestOrderSnafu, ManifestTokensSnafu, MissingDefaultSnafu, PathConflictSnafu,
 };
 pub use token::{PackManifestError, PackManifestErrorKind, TokenEntryError, TokenEntryErrorKind};
 
@@ -71,6 +80,12 @@ pub enum OpErrorKind {
     ThemeCycle,
     /// Les thèmes épinglés ne sont pas exactement la fermeture du thème du deck.
     ThemeClosure,
+    /// The deck's data would pass a deck bound (see [`crate::check_deck_bounds`]).
+    DataDeckFull,
+    /// A data, its table or an op input refused by `oku-slides-data`.
+    Data(oku_slides_data::DataErrorKind),
+    /// A data op refused by the deck: missing data, column in use… (see [`DataFaultKind`]).
+    DataRefused(DataFaultKind),
     /// A knowledge op was refused (see [`KnowledgeReason`]).
     Knowledge,
 }
@@ -158,8 +173,27 @@ pub(crate) enum OpInner {
     ThemeCycle { chain: String, backtrace: Backtrace },
     #[snafu(display("the pinned themes are not the closure of the deck theme ({namespace})"))]
     ThemeClosure { namespace: String, backtrace: Backtrace },
+    /// `what`: `data`, `row-ids`, `overlay` or `text`.
+    #[snafu(display("the deck's data would pass its {what} limit of {max}"))]
+    DataDeckFull { what: &'static str, max: usize, backtrace: Backtrace },
+    #[snafu(display("data refused"))]
+    Data { source: oku_slides_data::DataError, backtrace: Backtrace },
+    #[snafu(display("{fault}"))]
+    DataRefused { fault: DataFault, backtrace: Backtrace },
     #[snafu(display("knowledge file {path}: {reason}"))]
     Knowledge { path: String, reason: KnowledgeReason, backtrace: Backtrace },
+}
+
+impl From<oku_slides_data::DataError> for OpError {
+    fn from(source: oku_slides_data::DataError) -> Self {
+        DataSnafu.into_error(source).into()
+    }
+}
+
+impl From<DataFault> for OpError {
+    fn from(fault: DataFault) -> Self {
+        DataRefusedSnafu { fault }.build().into()
+    }
 }
 
 /// Un refus de la chaîne d'un thème devient le refus de l'op qui la pose.
@@ -189,6 +223,12 @@ fn bound_reason(bound: &ListBound) -> String {
 }
 
 impl OpError {
+    /// The refusal of a data `data` the deck does not have (`op-data-missing`).
+    #[must_use]
+    pub fn data_missing(data: &str) -> Self {
+        DataFault::Missing { data: data.to_owned() }.into()
+    }
+
     /// Kind of the error, to handle it without reading the message.
     #[must_use]
     pub fn kind(&self) -> OpErrorKind {
@@ -216,7 +256,20 @@ impl OpError {
             OpInner::PackKindConflict { .. } => OpErrorKind::PackKindConflict,
             OpInner::ThemeCycle { .. } => OpErrorKind::ThemeCycle,
             OpInner::ThemeClosure { .. } => OpErrorKind::ThemeClosure,
+            OpInner::DataDeckFull { .. } => OpErrorKind::DataDeckFull,
+            OpInner::Data { ref source, .. } => OpErrorKind::Data(source.kind()),
+            OpInner::DataRefused { ref fault, .. } => OpErrorKind::DataRefused(fault.kind()),
             OpInner::Knowledge { .. } => OpErrorKind::Knowledge,
+        }
+    }
+
+    /// Whether a growing op would pass a data's or the deck's overlay cap: a fold makes room.
+    #[must_use]
+    pub fn is_overlay_full(&self) -> bool {
+        match &*self.0 {
+            OpInner::Data { source, .. } => source.is_overlay_full(),
+            OpInner::DataDeckFull { what, .. } => *what == "overlay",
+            _ => false,
         }
     }
 
@@ -245,8 +298,10 @@ impl OpError {
             | OpInner::PackKindConflict { namespace, .. }
             | OpInner::ThemeClosure { namespace, .. } => Some(namespace),
             OpInner::ThemeCycle { chain, .. } => Some(chain),
+            OpInner::DataDeckFull { what, .. } => Some(what),
+            OpInner::DataRefused { fault, .. } => fault.subject(),
             OpInner::Knowledge { path, .. } => Some(path),
-            OpInner::IndexOutOfRange { .. } | OpInner::BaseRequired { .. } => None,
+            OpInner::IndexOutOfRange { .. } | OpInner::BaseRequired { .. } | OpInner::Data { .. } => None,
         }
     }
 
@@ -333,6 +388,8 @@ pub enum SourcesErrorKind {
     TooDeep,
     /// Le replica (`deck.loro`) est illisible, trop gros, ou ne s'écrit pas.
     Replica(ReplicaErrorKind),
+    /// A data base refused by the store (hash mismatch, too large), or with no store to use.
+    Base,
 }
 
 #[derive(Debug, Snafu)]
@@ -356,6 +413,8 @@ pub(crate) enum SourcesInner {
     TotalTooLarge { max: usize, backtrace: Backtrace },
     #[snafu(display("elements nest deeper than {max} slots"))]
     TooDeep { max: usize, backtrace: Backtrace },
+    #[snafu(display("data base {id} refused"))]
+    Base { id: String, source: crate::sources_bases::BaseFilesError, backtrace: Backtrace },
     /// En boîte : l'erreur de replica porte déjà sa trace, et gonflerait
     /// chaque `Result` du zip.
     #[snafu(display("unusable deck.loro"))]
@@ -379,6 +438,7 @@ impl SourcesError {
             SourcesInner::MissingDeck { .. } => SourcesErrorKind::MissingDeck,
             SourcesInner::TotalTooLarge { .. } => SourcesErrorKind::TooLarge,
             SourcesInner::TooDeep { .. } => SourcesErrorKind::TooDeep,
+            SourcesInner::Base { .. } => SourcesErrorKind::Base,
             SourcesInner::Replica { ref source, .. } => SourcesErrorKind::Replica(source.kind()),
         }
     }
@@ -437,6 +497,14 @@ impl Localize for OpError {
         if let Some(text) = self.localize_pack(l) {
             return text;
         }
+        match &*self.0 {
+            OpInner::DataDeckFull { what, max, .. } => {
+                return l.tr_with("op-data-deck-full", &[("what", (*what).into()), ("max", (*max).into())]);
+            }
+            OpInner::Data { source, .. } => return source.localize(l),
+            OpInner::DataRefused { fault, .. } => return fault.localize(l),
+            _ => {}
+        }
         let id = match self.kind() {
             OpErrorKind::SlideNotFound => "op-slide-not-found",
             OpErrorKind::ElementNotFound => "op-element-not-found",
@@ -453,6 +521,9 @@ impl Localize for OpError {
             | OpErrorKind::PackKindConflict
             | OpErrorKind::ThemeCycle
             | OpErrorKind::ThemeClosure
+            | OpErrorKind::DataDeckFull
+            | OpErrorKind::Data(_)
+            | OpErrorKind::DataRefused(_)
             | OpErrorKind::Knowledge => "op-invalid-value",
             OpErrorKind::InvalidChart => "op-invalid-chart",
             OpErrorKind::InvalidTable => "op-invalid-table",
@@ -517,6 +588,7 @@ impl Localize for SourcesError {
             SourcesErrorKind::MissingDeck => "sources-missing-deck",
             SourcesErrorKind::TooLarge => "sources-too-large",
             SourcesErrorKind::TooDeep => "sources-too-deep",
+            SourcesErrorKind::Base => "sources-base-refused",
         })
     }
 }

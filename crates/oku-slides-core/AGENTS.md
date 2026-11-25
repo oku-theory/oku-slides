@@ -5,6 +5,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Bump SOURCES_VERSION whenever REPLICA_FORMAT changes. (ADR-0005, plan:2026-10-10-deck-en-arbre)
+- Never write back a data in Deck.truncated; a cut or base-backed data stays read-only until it reads whole. (spec:2026-11-21-data-entities-design)
 - Enforce list size bounds, nested totals included, in the core on every write path, agent included; define bound constants only there. (plan:2026-10-04-suivis-listes, t-528, t-495)
 - Validate links and highlights in rich list columns with the same rules as other rich params. (plan:2026-10-04-suivis-listes, t-527)
 - In SourceBundle::new, canonicalize before and after normalize_hosts so exact copies are dropped first. (plan:2026-10-09-finitions-ids, t-688)
@@ -47,7 +48,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Settled decisions
 
 - Never flatten or prune Loro history or assets when saving, so every past version still renders and merges. (ADR-0002)
-- Add no backward compatibility: refuse old deck, sources and replica formats; drop replaced ops, no aliases; except format 7, read as 8 with an empty knowledge. (spec:2026-09-27-widgets-typst-design, spec:2026-11-24-deck-knowledge-okf-design)
+- Add no backward compatibility: refuse old deck, sources and replica formats; drop replaced ops, no aliases. (spec:2026-09-27-widgets-typst-design, spec:2026-11-21-data-entities-design)
 - Let an inconsistent deck open and report issues via validate, but make ops refuse badly typed values. (spec:2026-09-27-widgets-typst-design)
 - Change a slide's kind with SetKind and its params with SetParam; slides have no name or description. (plan:2026-09-28-widgets-typst-2, plan:2026-10-19-packs-lot3-essentiel)
 - Use the registry-resolved grid (Slide::resolved_grid) for set_cell, validation and preview. (plan:2026-10-03-widgets-agent-a2ui)

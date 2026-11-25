@@ -21,10 +21,13 @@ fn classify_same_deck_returns_its_own_reply() {
 }
 
 #[test]
-fn classify_carry_assets_returns_its_own_reply() {
-    let element = serde_json::json!({"id": "e", "kind": "base/image", "params": {"asset": "sha256:ab"}});
-    let carry = req(serde_json::json!({"cmd": "carry_assets", "from": "t-1", "to": "t-2", "element": element}));
-    assert_that!((classify(&carry), broadcast(&carry))).is_equal_to(((false, false), None));
+fn classify_paste_element_changes_the_deck() {
+    let paste = req(serde_json::json!({"cmd": "paste_element", "from": "t-1", "to": "t-2", "label": "x", "ops": []}));
+    assert_that!((classify(&paste), broadcast(&paste), paste.changed_deck())).is_equal_to((
+        (false, false),
+        None,
+        Some("t-2"),
+    ));
 }
 
 #[test]

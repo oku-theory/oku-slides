@@ -465,6 +465,38 @@ ui-data-pane-close = إغلاق البيانات
 ui-data-pane-resize = تغيير حجم البيانات
 ui-data-pane-maximize = تكبير البيانات
 ui-data-pane-restore = تصغير البيانات
+ui-data-shared-by = بيانات مشتركة · { $count ->
+    [zero] { $count } عرض
+    [one] { $count } عرض
+    [two] { $count } عرضان
+    [few] { $count } عروض
+    [many] { $count } عرضًا
+   *[other] { $count } عرض
+}
+ui-data-tab = البيانات
+ui-data-add = إضافة بيانات
+ui-data-rename = إعادة التسمية
+ui-data-remove = إزالة
+ui-data-column-type = نوع العمود
+ui-data-type-text = نص
+ui-data-type-number = رقم
+ui-data-type-integer = عدد صحيح
+ui-data-type-bool = نعم/لا
+ui-data-type-date = تاريخ
+ui-data-views = { $count ->
+    [zero] { $count } عروض
+    [one] عرض واحد
+    [two] عرضان
+    [few] { $count } عروض
+    [many] { $count } عرضًا
+   *[other] { $count } عرض
+}
+ui-data-unused = غير مستخدمة
+ui-data-size = الأعمدة: { $columns } · الصفوف: { $rows }
+ui-data-page = الصفوف { $first }–{ $last } من { $total }
+ui-data-previous = الصفوف السابقة
+ui-data-next = الصفوف التالية
+ui-data-open = فتح البيانات
 ui-themes = السمات
 ui-offer-open = فتح: { $title }
 ui-offer-settings = إعدادات مقترحة: { $title }

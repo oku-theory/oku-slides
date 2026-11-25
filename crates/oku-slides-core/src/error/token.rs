@@ -70,6 +70,8 @@ pub enum PackManifestErrorKind {
     TokenEntry,
     /// `order` repeats a name, lists `_commun` or an unknown file.
     Order,
+    /// `data` passes a pack's bounds: too many data or cells, or a data with a `base`.
+    Data,
 }
 
 #[derive(Debug, Snafu)]
@@ -82,6 +84,12 @@ pub(crate) enum PackManifestInner {
     ManifestTokens { source: TokenEntryError, backtrace: Backtrace },
     #[snafu(display("invalid item order in the pack manifest at {name}"))]
     ManifestOrder { name: String, backtrace: Backtrace },
+    #[snafu(display("the pack manifest holds {count} data, at most {max}"))]
+    ManifestDataCount { count: usize, max: usize, backtrace: Backtrace },
+    #[snafu(display("data {data} of the pack manifest refers to a base"))]
+    ManifestDataBase { data: String, backtrace: Backtrace },
+    #[snafu(display("the data of the pack manifest hold {count} cells, at most {max}"))]
+    ManifestDataCells { count: usize, max: usize, backtrace: Backtrace },
 }
 
 impl PackManifestError {
@@ -92,6 +100,9 @@ impl PackManifestError {
             PackManifestInner::ManifestJson { .. } => PackManifestErrorKind::Json,
             PackManifestInner::ManifestTokens { .. } => PackManifestErrorKind::TokenEntry,
             PackManifestInner::ManifestOrder { .. } => PackManifestErrorKind::Order,
+            PackManifestInner::ManifestDataCount { .. }
+            | PackManifestInner::ManifestDataBase { .. }
+            | PackManifestInner::ManifestDataCells { .. } => PackManifestErrorKind::Data,
         }
     }
 
@@ -100,7 +111,11 @@ impl PackManifestError {
     pub fn token_entry(&self) -> Option<&TokenEntryError> {
         match &*self.0 {
             PackManifestInner::ManifestTokens { source, .. } => Some(source),
-            PackManifestInner::ManifestJson { .. } | PackManifestInner::ManifestOrder { .. } => None,
+            PackManifestInner::ManifestJson { .. }
+            | PackManifestInner::ManifestOrder { .. }
+            | PackManifestInner::ManifestDataCount { .. }
+            | PackManifestInner::ManifestDataBase { .. }
+            | PackManifestInner::ManifestDataCells { .. } => None,
         }
     }
 
@@ -109,7 +124,11 @@ impl PackManifestError {
     pub fn order_name(&self) -> Option<&str> {
         match &*self.0 {
             PackManifestInner::ManifestOrder { name, .. } => Some(name),
-            PackManifestInner::ManifestJson { .. } | PackManifestInner::ManifestTokens { .. } => None,
+            PackManifestInner::ManifestJson { .. }
+            | PackManifestInner::ManifestTokens { .. }
+            | PackManifestInner::ManifestDataCount { .. }
+            | PackManifestInner::ManifestDataBase { .. }
+            | PackManifestInner::ManifestDataCells { .. } => None,
         }
     }
 }
@@ -123,6 +142,15 @@ impl Localize for PackManifestError {
             PackManifestInner::ManifestTokens { source, .. } => source.localize(l),
             PackManifestInner::ManifestOrder { name, .. } => {
                 l.tr_with("pack-manifest-order", &[("name", name.as_str().into())])
+            }
+            PackManifestInner::ManifestDataCount { count, max, .. } => {
+                l.tr_with("pack-manifest-data-count", &[("count", (*count).into()), ("max", (*max).into())])
+            }
+            PackManifestInner::ManifestDataBase { data, .. } => {
+                l.tr_with("pack-manifest-data-base", &[("data", data.as_str().into())])
+            }
+            PackManifestInner::ManifestDataCells { count, max, .. } => {
+                l.tr_with("pack-manifest-data-cells", &[("count", (*count).into()), ("max", (*max).into())])
             }
         }
     }

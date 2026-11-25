@@ -18,10 +18,15 @@
 //! items part tout entière (voir `trim`). Une séance de frappe très longue
 //! peut donc perdre son annuler, d'un bloc, jamais à moitié.
 
-use std::sync::Arc;
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 
-use loro::{LoroDoc, LoroResult, UndoItemMeta, UndoManager, UndoOrRedo};
+use loro::event::DiffEvent;
+use loro::{Index, LoroDoc, LoroResult, UndoItemMeta, UndoManager, UndoOrRedo};
+use oku_slides_data::DataId;
+
+use super::data::DATA;
 
 /// Origine des commits non annulables.
 pub(super) const SILENT: &str = "oku-silent";
@@ -42,12 +47,25 @@ struct Step {
     items: usize,
     /// Clé de fusion : une application de même clé rejoint l'étape.
     merge: Option<String>,
+    /// The deck data its items write into (`data/<id>`).
+    data: BTreeSet<DataId>,
+}
+
+/// What [`Undo::drop_data`] dropped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dropped {
+    /// No undo or redo step touched the data.
+    Nothing,
+    /// Both stacks were emptied: Loro cannot drop selected items (`tests/loro_layer_probe.rs`).
+    Cut,
 }
 
 pub(super) struct Undo {
     manager: UndoManager,
     /// Items empilés par des commits locaux, pas encore rangés dans une étape.
     pushed: Arc<AtomicUsize>,
+    /// The data those items write into.
+    touched: Arc<Mutex<BTreeSet<DataId>>>,
     /// Steps to undo, the most recent on top.
     #[expect(clippy::struct_field_names, reason = "`undo` and `redo` stacks: the domain names, like the methods")]
     undo: Vec<Step>,
@@ -71,16 +89,22 @@ impl Undo {
         manager.set_merge_interval(0);
         manager.add_exclude_origin_prefix(SILENT);
         let pushed: Arc<AtomicUsize> = Arc::default();
+        let touched: Arc<Mutex<BTreeSet<DataId>>> = Arc::default();
         let p = Arc::clone(&pushed);
-        manager.set_on_push(Some(Box::new(move |kind, _span, _event| {
+        let t = Arc::clone(&touched);
+        manager.set_on_push(Some(Box::new(move |kind, _span, event| {
             if kind == UndoOrRedo::Undo {
                 p.fetch_add(1, Ordering::Relaxed);
+                if let Some(event) = event {
+                    data_of(&event, &mut t.lock().unwrap_or_else(PoisonError::into_inner));
+                }
             }
             UndoItemMeta::new()
         })));
         let mut undo = Self {
             manager,
             pushed,
+            touched,
             undo: Vec::new(),
             redo: Vec::new(),
             group: None,
@@ -96,6 +120,7 @@ impl Undo {
     /// Avec `merge`, ils rejoignent plutôt l'étape du sommet de même clé.
     pub(super) fn close_step(&mut self, label: &str, merge: Option<&str>) {
         let items = self.pushed.swap(0, Ordering::Relaxed);
+        let data = std::mem::take(&mut *self.touched.lock().unwrap_or_else(PoisonError::into_inner));
         // Un commit vide n'a rien empilé : pas d'étape, et le rétablir reste possible.
         if items == 0 {
             return;
@@ -106,20 +131,24 @@ impl Undo {
             Some((_, true)) => {
                 if let Some(top) = self.undo.last_mut() {
                     top.items += items;
+                    top.data.extend(data);
                 }
             }
             Some((group, open)) => {
                 self.steps += 1;
-                self.undo.push(Step { id: self.steps, label: group.clone(), items, merge: None });
+                self.undo.push(Step { id: self.steps, label: group.clone(), items, merge: None, data });
                 *open = true;
                 self.group_step = Some(self.steps);
             }
             None => match (merge, self.undo.last_mut()) {
-                (Some(k), Some(top)) if top.merge.as_deref() == Some(k) => top.items += items,
+                (Some(k), Some(top)) if top.merge.as_deref() == Some(k) => {
+                    top.items += items;
+                    top.data.extend(data);
+                }
                 _ => {
                     self.steps += 1;
                     let merge = merge.map(str::to_owned);
-                    self.undo.push(Step { id: self.steps, label: label.to_owned(), items, merge });
+                    self.undo.push(Step { id: self.steps, label: label.to_owned(), items, merge, data });
                 }
             },
         }
@@ -170,6 +199,7 @@ impl Undo {
     pub(super) fn clear(&mut self) {
         self.manager.clear();
         self.pushed.store(0, Ordering::Relaxed);
+        self.touched.lock().unwrap_or_else(PoisonError::into_inner).clear();
         self.undo.clear();
         self.redo.clear();
         if let Some((_, open)) = &mut self.group {
@@ -205,7 +235,7 @@ impl Undo {
         self.end_group();
         let Some(step) = self.undo.pop() else { return Ok(false) };
         let (done, r) = self.replay(step.items, UndoManager::undo);
-        self.redo.push(Step { id: step.id, label: step.label, items: done, merge: None });
+        self.redo.push(Step { id: step.id, label: step.label, items: done, merge: None, data: step.data });
         self.cut_merge();
         r.map(|()| true)
     }
@@ -215,7 +245,7 @@ impl Undo {
         self.end_group();
         let Some(step) = self.redo.pop() else { return Ok(false) };
         let (done, r) = self.replay(step.items, UndoManager::redo);
-        self.undo.push(Step { id: step.id, label: step.label, items: done, merge: None });
+        self.undo.push(Step { id: step.id, label: step.label, items: done, merge: None, data: step.data });
         self.cut_merge();
         r.map(|()| true)
     }
@@ -224,6 +254,7 @@ impl Undo {
     fn replay(&mut self, items: usize, f: fn(&mut UndoManager) -> LoroResult<bool>) -> (usize, LoroResult<()>) {
         // Rétablir empile des items d'annulation : ce ne sont pas des commits locaux.
         let pushed = self.pushed.load(Ordering::Relaxed);
+        let touched = self.touched.lock().unwrap_or_else(PoisonError::into_inner).clone();
         let mut done = 0;
         let mut r = Ok(());
         while done < items {
@@ -237,7 +268,23 @@ impl Undo {
             }
         }
         self.pushed.store(pushed, Ordering::Relaxed);
+        *self.touched.lock().unwrap_or_else(PoisonError::into_inner) = touched;
         (done, r)
+    }
+
+    /// Whether an undo or redo step writes into data `data`.
+    pub(super) fn touches(&self, data: &DataId) -> bool {
+        self.undo.iter().chain(&self.redo).any(|s| s.data.contains(data))
+    }
+
+    /// Drops the steps that write into data `data`, so no undo writes into a replaced layer.
+    /// Loro cannot drop selected items, so both stacks are emptied.
+    pub(super) fn drop_data(&mut self, data: &DataId) -> Dropped {
+        if !self.touches(data) {
+            return Dropped::Nothing;
+        }
+        self.clear();
+        Dropped::Cut
     }
 
     /// Nombre maximal d'étapes gardées ; `0` vaut `1`.
@@ -272,6 +319,22 @@ impl Undo {
 
     pub(super) fn can_redo(&self) -> bool {
         !self.redo.is_empty()
+    }
+}
+
+/// Adds to `data` the deck data an event writes into: changes under `deck/data/<id>`, and the
+/// keys set or removed in `deck/data` itself.
+fn data_of(event: &DiffEvent<'_>, data: &mut BTreeSet<DataId>) {
+    for diff in &event.events {
+        let under_data = matches!(diff.path.get(1), Some((_, Index::Key(k))) if k.as_str() == DATA);
+        if !under_data {
+            continue;
+        }
+        if let Some((_, Index::Key(id))) = diff.path.get(2) {
+            data.extend(DataId::try_from(id.to_string()).ok());
+        } else if let Some(map) = diff.diff.as_map() {
+            data.extend(map.updated.keys().filter_map(|k| DataId::try_from(k.to_string()).ok()));
+        }
     }
 }
 

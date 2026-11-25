@@ -449,8 +449,16 @@ pub enum WarningKind {
     NestingTooDeep(String),
     /// Police embarquée illisible (EOT compressé…).
     FontEmbeddedUnreadable(String),
-    /// Trop d'avertissements : les suivants sont omis.
+    /// Too many warnings: the next ones are left out.
     Truncated,
+    /// Inline chart or table values that changed when they became deck data: the Fluent key
+    /// of the change (`data-non-finite`, `data-row-cut`) and how many values it touched.
+    DataAdjusted {
+        /// Fluent key of the change, with a `$count` parameter.
+        key: &'static str,
+        /// Values or rows touched.
+        count: u64,
+    },
 }
 
 /// Avertissement.

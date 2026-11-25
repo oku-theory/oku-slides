@@ -22,7 +22,7 @@ fn chart(placement: Value) -> Value {
 }
 
 fn deck(slide: &Value) -> Deck {
-    serde_json::from_value(json!({ "slides": [slide] })).unwrap_or_else(|e| panic!("{e}"))
+    crate::common::deck_with_data(json!({ "slides": [slide] }))
 }
 
 /// Taille (largeur, hauteur) du SVG du graphique embarqué dans la page.

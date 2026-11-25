@@ -1,0 +1,58 @@
+data-cell-type = un valor no encaja en la columna «{ $column }», que contiene { $type ->
+    [number] números
+    [integer] números enteros
+    [bool] verdadero o falso
+    [date] fechas (AAAA-MM-DD)
+   *[text] texto de 16 KB como máximo
+}
+data-column-type = la columna «{ $column }» no puede convertirse sin pérdida en { $type ->
+    [number] una columna de números
+    [integer] una columna de enteros
+    [bool] una columna de verdadero o falso
+    [date] una columna de fechas
+   *[text] una columna de texto
+}, ver las filas { $rows }{ $more ->
+    [0] {""}
+    [one] {" "}y { $more } fila más
+   *[other] {" "}y { $more } filas más
+}
+data-no-row = la fila { $row } no existe
+data-no-column = la columna { $column } no existe
+data-id-taken = el identificador { $id } ya se usa en esta tabla
+data-id-invalid = el identificador «{ $id }» no es válido: usa de 1 a 64 letras, dígitos, - o _
+data-id-missing = una nueva fila, columna o tabla no tiene identificador
+data-too-large = { $what ->
+    [rows] los datos superarían su límite de { $max } { $max ->
+        [one] fila
+       *[other] filas
+    }
+    [columns] los datos superarían su límite de { $max } { $max ->
+        [one] columna
+       *[other] columnas
+    }
+    [text] una celda de texto superaría su límite de { $max } { $max ->
+        [one] byte
+       *[other] bytes
+    }
+   *[overlay] los datos superarían su límite de { $max } { $max ->
+        [one] celda editada
+       *[other] celdas editadas
+    }
+}
+data-invalid-name = «{ $name }» no es un nombre de datos válido: usa minúsculas, dígitos y _, sin empezar por un dígito
+data-non-finite = { $count ->
+    [one] { $count } número no es finito (NaN o infinito)
+   *[other] { $count } números no son finitos (NaN o infinito)
+}
+data-columns-invalid = la lista de columnas está vacía o nombra una columna dos veces
+data-row-width = una fila tiene más celdas que las { $max } { $max ->
+    [one] columna
+   *[other] columnas
+} de la tabla
+data-needs-base = estos datos guardan sus filas en un archivo base que esta edición aún no sabe leer
+data-base-row-cells = una tabla con archivo base solo da los id de sus filas, no celdas
+data-row-cut = { $count ->
+    [one] { $count } fila tenía más celdas que el encabezado; se quitaron las celdas sobrantes
+   *[other] { $count } filas tenían más celdas que el encabezado; se quitaron las celdas sobrantes
+}
+data-base-invalid = el archivo base de los datos está dañado o no coincide con su tabla

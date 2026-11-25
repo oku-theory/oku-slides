@@ -96,7 +96,7 @@ async fn an_invalid_value_says_why_in_the_user_language() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "apply", json!({ "ops": [{ "op": "set_grid", "slide": "s-libre", "columns": 30 }] })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(
+    assert_that!(untrusted_error_of(&r)).is_equal_to(
         "Opération 0 refusée : Valeur invalide pour grid : une grille a de 1 à 24 colonnes et lignes".to_owned(),
     );
 }

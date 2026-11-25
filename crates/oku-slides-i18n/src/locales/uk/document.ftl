@@ -147,3 +147,4 @@ import-warning-unsafe-link = Посилання відхилено: { $detail }
 import-warning-nesting-too-deep = Надто глибоке вкладення, обрізано: { $detail }
 import-warning-font-embedded-unreadable = Нечитабельний вбудований шрифт: { $detail }
 import-warning-truncated = Забагато попереджень: решту пропущено
+render-chart-too-many-values = забагато значень для малювання ({ $count }, щонайбільше { $max })

@@ -11,9 +11,10 @@ publish.workspace = true
 [dependencies]
 oku-slides-i18n.workspace = true
 oku-slides-apple-model.workspace = true
+oku-slides-data.workspace = true
 config.workspace = true
 opendal.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
 serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
@@ -25,8 +26,10 @@ axum = { workspace = true, optional = true }
 hyper = { workspace = true, optional = true }
 hyper-util = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
-sha2 = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
+sha2.workspace = true
+hex.workspace = true
+getrandom.workspace = true
+libc.workspace = true
 
 [features]
 # Boucle d'accept des serveurs HTTP locaux (`listen`) : délai d'en-têtes,
@@ -34,7 +37,7 @@ hex = { workspace = true, optional = true }
 listen = ["dep:axum", "dep:hyper", "dep:hyper-util", "tokio/net", "tokio/sync", "tokio/time", "tokio/macros"]
 
 # Téléchargement des modèles épinglés (dictée, agent local) : client HTTP et SHA-256.
-download = ["dep:ureq", "dep:sha2", "dep:hex"]
+download = ["dep:ureq"]
 
 # e2e fakes (`stt.fake_utterances`): only `just e2e` turns it on, through oku-slides-cli/e2e-fakes.
 # Without it the settings are refused at load; `just check` fails if the app pulls it in.
@@ -42,12 +45,10 @@ e2e-fakes = []
 
 [dev-dependencies]
 tiny_http.workspace = true
-sha2.workspace = true
-hex.workspace = true
 speculoos.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["io-util"] }
+tokio = { workspace = true, features = ["io-util", "macros"] }
 
 [lints]
 workspace = true

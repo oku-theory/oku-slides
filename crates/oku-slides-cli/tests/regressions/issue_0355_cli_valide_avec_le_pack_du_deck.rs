@@ -39,6 +39,7 @@ fn quote_pack(id: uuid::Uuid, namespace: &str) -> PackFiles {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let file = WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget"));
     manifest

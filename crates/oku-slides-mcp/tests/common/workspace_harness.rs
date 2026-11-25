@@ -48,6 +48,7 @@ fn add_library_pack(platform: &Platform, kind: PackKind, (id, namespace): (Uuid,
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let widgets = widgets
         .iter()

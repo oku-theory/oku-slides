@@ -4,7 +4,8 @@ use speculoos::prelude::*;
 use super::convert;
 use crate::labels::ChartLabels;
 use crate::model::{ChartKind, normalize};
-use crate::option::{Cell, ChartOption, SeriesType};
+use crate::option::{ChartOption, SeriesType};
+use oku_slides_data::DataCell;
 
 fn opt(v: serde_json::Value) -> ChartOption {
     serde_json::from_value(v).unwrap()
@@ -43,7 +44,7 @@ fn convert_bars_to_scatter_pairs_each_series_with_numbered_x() {
     // Une valeur absente n'est pas un point.
     assert_that!(s.series[1].points).is_equal_to(vec![(1.0, 4.0), (3.0, 6.0)]);
     let header = &scatter.dataset.as_ref().unwrap().source[0];
-    assert_that!(header[0].clone()).is_equal_to(Cell::Text("Nord (x)".into()));
+    assert_that!(header[0].clone()).is_equal_to(DataCell::Text("Nord (x)".into()));
 }
 
 #[test]
@@ -83,9 +84,9 @@ fn convert_scatter_with_numeric_categories_keeps_them_as_x() {
 }
 
 #[test]
-fn convert_scatter_with_minus_sign_categories_keeps_them_as_x() {
+fn convert_scatter_with_signed_categories_keeps_them_as_x() {
     let lines = opt(json!({
-        "dataset": { "source": [["Écart", "CA"], ["\u{2212}2,5", 1], ["-1", 2], ["3", 3]] },
+        "dataset": { "source": [["Écart", "CA"], ["-2,5", 1], ["-1", 2], ["+3", 3]] },
         "xAxis": { "type": "category" },
         "series": [{ "type": "line" }]
     }));
@@ -127,10 +128,10 @@ fn convert_unstacked_bars_to_lines_stays_unstacked() {
 fn convert_bars_to_waterfall_keeps_the_first_value_column_and_adds_totals() {
     let waterfall = convert(&bars(), SeriesType::Waterfall, en()).unwrap();
     assert_that!(waterfall.dataset.map(|d| d.source)).is_equal_to(Some(vec![
-        vec![Cell::Text("Mois".into()), Cell::Text("Nord".into()), Cell::Text("Total".into())],
-        vec![Cell::Text("Jan".into()), Cell::Number(3.0), Cell::Bool(false)],
-        vec![Cell::Text("Fév".into()), Cell::Number(5.0), Cell::Bool(false)],
-        vec![Cell::Text("Mar".into()), Cell::Number(7.0), Cell::Bool(false)],
+        vec![DataCell::Text("Mois".into()), DataCell::Text("Nord".into()), DataCell::Text("Total".into())],
+        vec![DataCell::Text("Jan".into()), DataCell::Number(3.0), DataCell::Bool(false)],
+        vec![DataCell::Text("Fév".into()), DataCell::Number(5.0), DataCell::Bool(false)],
+        vec![DataCell::Text("Mar".into()), DataCell::Number(7.0), DataCell::Bool(false)],
     ]));
     assert_that!(waterfall.series.len()).is_equal_to(1);
 }
@@ -143,9 +144,9 @@ fn convert_waterfall_to_bars_drops_the_total_column_and_empties_totals() {
     }));
     let bars = convert(&waterfall, SeriesType::Bar, en()).unwrap();
     assert_that!(bars.dataset.map(|d| d.source)).is_equal_to(Some(vec![
-        vec![Cell::Text("Poste".into()), Cell::Text("Montant".into())],
-        vec![Cell::Text("Début".into()), Cell::Number(100.0)],
-        vec![Cell::Text("Fin".into()), Cell::Null],
+        vec![DataCell::Text("Poste".into()), DataCell::Text("Montant".into())],
+        vec![DataCell::Text("Début".into()), DataCell::Number(100.0)],
+        vec![DataCell::Text("Fin".into()), DataCell::Null],
     ]));
 }
 
@@ -176,7 +177,7 @@ fn convert_to_scatter_with_changed_row_count_mints_new_ids() {
     let mut o = bars_with_ids();
     if let Some(d) = o.dataset.as_mut() {
         for (row, x) in [(1, "1"), (2, "1"), (3, "2")] {
-            d.source[row][0] = Cell::Text(x.into());
+            d.source[row][0] = DataCell::Text(x.into());
         }
     }
     let scatter = convert(&o, SeriesType::Scatter, en()).unwrap();

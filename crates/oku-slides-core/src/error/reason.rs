@@ -8,8 +8,6 @@
 pub enum ValueReason {
     /// Le paramètre n'a pas de valeur.
     NoValue,
-    /// Le graphique n'a pas de jeu de données.
-    NoDataset,
     /// Une grille a de 1 à 24 colonnes et lignes.
     GridTracks,
     /// Un id d'item est un texte non vide, sans `/`.
@@ -54,7 +52,6 @@ impl ValueReason {
     pub(super) fn key(self) -> &'static str {
         match self {
             ValueReason::NoValue => "op-value-no-value",
-            ValueReason::NoDataset => "op-value-no-dataset",
             ValueReason::GridTracks => "op-value-grid-tracks",
             ValueReason::BadItemId => "op-value-bad-item-id",
             ValueReason::MissingItemId => "op-value-missing-item-id",
@@ -78,7 +75,6 @@ impl std::fmt::Display for ValueReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             ValueReason::NoValue => "the parameter has no value",
-            ValueReason::NoDataset => "the chart has no dataset",
             ValueReason::GridTracks => "1 to 24 columns and rows",
             ValueReason::BadItemId => "an item id is a non-empty string without /",
             ValueReason::MissingItemId => "every item needs an id",

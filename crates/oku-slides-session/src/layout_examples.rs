@@ -11,7 +11,13 @@
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt};
 
-use oku_slides_core::{Deck, Moved, Op, ParamType, ParamValue, Params, Slide, WidgetFile, WidgetSchema};
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use oku_slides_core::{
+    Deck, Moved, Op, PackKind, ParamType, ParamValue, Params, Slide, WidgetFile, WidgetSchema, check_pack_data,
+};
+use oku_slides_data::{Data, DataId};
 
 use crate::error::{PackJsonSnafu, PackManifestSnafu, UnknownWidgetSnafu};
 use crate::pack::{PackManifest, now_created};
@@ -106,6 +112,20 @@ fn next_example(
     example
 }
 
+/// The data of `next` its slides name, for the manifest: an entry `next` keeps as `current`
+/// had it keeps its manifest form in `kept` (its `ftl:` markers), any other is written as is.
+fn example_data(next: &Deck, current: &Deck, kept: &BTreeMap<DataId, Arc<Data>>) -> BTreeMap<DataId, Arc<Data>> {
+    next.data
+        .iter()
+        .filter(|(id, _)| !next.data_users(id).is_empty())
+        .map(|(id, data)| {
+            let unchanged = current.data.get(id) == Some(data);
+            let entry = kept.get(id).filter(|_| unchanged).unwrap_or(data);
+            (id.clone(), entry.clone())
+        })
+        .collect()
+}
+
 impl Session {
     /// En mode pack sur un pack de layouts, écrit dans les exemples les changements que `next`
     /// (le deck de travail après `ops`) apporte aux slides des layouts ; `false` s'il n'y en a
@@ -126,6 +146,8 @@ impl Session {
         let edit = edit.clone();
         let emptying = emptying_ops(ops);
         let current = self.doc.sources.deck();
+        // A layout pack's examples name its data: a data edit is an example edit too.
+        let data_changed = edit.kind == PackKind::Layouts && next.data != current.data;
         let changed: Vec<(&Slide, &Slide, WidgetFile)> = next
             .slides
             .iter()
@@ -136,12 +158,17 @@ impl Session {
                 (before.params != after.params || empties).then_some((before, after, name))
             })
             .collect();
-        if changed.is_empty() {
+        if changed.is_empty() && !data_changed {
             return Ok(false);
         }
         let t = self.widget_target(None)?;
         let mut manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         let examples_before = manifest.examples.clone();
+        let data_before = manifest.data.clone();
+        if t.kind == PackKind::Layouts {
+            manifest.data = example_data(next, current, &manifest.data);
+            check_pack_data(&manifest.data).context(PackManifestSnafu { id: t.id })?;
+        }
         for (before, after, name) in &changed {
             let schema = self.registry.get(&after.kind).context(UnknownWidgetSnafu { name: name.as_str() })?;
             let neutral = preview_params(schema, &Map::new(), &self.localizer);
@@ -154,7 +181,7 @@ impl Session {
             }
         }
         // Rien de changé dans les exemples (une valeur neutre réglée à l'identique) : transaction ordinaire.
-        if manifest.examples == examples_before {
+        if manifest.examples == examples_before && manifest.data == data_before {
             return Ok(false);
         }
         manifest.parent.clone_from(&edit.parent);

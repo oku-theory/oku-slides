@@ -43,6 +43,7 @@ fn plan(fixture: &str) -> ImportPlan {
         name: "Import".to_owned(),
         created: "2026-10-11T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     hifi::project(&source(fixture), &target).unwrap_or_else(|e| panic!("projection : {e}"))
 }
@@ -123,7 +124,9 @@ fn hifi_slide_kinds_are_deck_layouts_or_essentiel_blank() {
 
 #[test]
 fn hifi_twice_gives_the_same_plan() {
-    assert_that!(plan("kitchen")).is_equal_to(plan("kitchen"));
+    // Lifted data draw random ids: the plans match once those are numbered by appearance.
+    let stable = |p: ImportPlan| (common::stable_data_ids(&p.ops), ImportPlan { ops: Vec::new(), ..p });
+    assert_that!(stable(plan("kitchen"))).is_equal_to(stable(plan("kitchen")));
 }
 
 #[test]

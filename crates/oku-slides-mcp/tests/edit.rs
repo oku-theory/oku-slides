@@ -69,10 +69,46 @@ async fn apply_schema_accepts_every_op_kind_in_tool_list() {
     assert_that!(description).contains("move_element moves an element with its children");
     let schema = serde_json::to_string(&apply.input_schema).unwrap();
     for op in
-        ["set_param", "set_chart_option", "set_data", "set_table_option", "add_slide", "set_theme", "move_element"]
+        ["set_param", "set_chart_option", "edit_data", "set_table_option", "add_slide", "set_theme", "move_element"]
     {
         assert_that!(schema.contains(op)).named(op).is_true();
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tool_list_has_edit_data_not_set_data() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let apply = tools.iter().find(|t| t.name == "apply").unwrap();
+    let schema = serde_json::to_string(&apply.input_schema).unwrap();
+    let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+    assert_that!(names).does_not_contain("set_data");
+    assert_that!(schema).contains("\"edit_data\"");
+    assert_that!(schema).does_not_contain("\"set_data\"");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_edit_data_on_chart_changes_cell() {
+    let h = start().await;
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let setup = json!([
+        { "op": "add_data", "id": "d-mcp", "name": "mcp", "table": {
+            "columns": [{ "id": "mois", "name": "Mois" }, { "id": "ventes", "name": "Ventes" }],
+            "rows": [{ "id": "jan", "cells": ["Jan", 3] }] } },
+        { "op": "add_element", "slot": { "owner": { "slide": "s-libre" }, "param": "blocks" },
+          "element": { "id": "e-mcp", "kind": kinds::base::CHART, "params": { "option": {
+            "data": "d-mcp", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } } },
+    ]);
+    let r = call(&c, "apply", json!({ "ops": setup })).await;
+    assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
+    let edit = json!([{ "op": "edit_data", "data": "d-mcp",
+        "change": { "op": "set_cell", "row": "jan", "column": "ventes", "value": 9 } }]);
+    let r = call(&c, "apply", json!({ "ops": edit })).await;
+    assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
+    let s = h.session.lock().unwrap();
+    let dataset = s.deck().data.get("d-mcp").unwrap().table.to_dataset(None, 0..1, 100).unwrap();
+    assert_that!(dataset.source[1][1].as_f64()).is_equal_to(Some(9.0));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -284,4 +320,78 @@ async fn in_history_outline_says_history_and_apply_is_refused() {
     let mut s = h.session.lock().unwrap();
     s.handle(oku_slides_session::Request::HistoryClose).unwrap();
     assert_that!(s.deck().theme.clone()).is_equal_to(theme);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_tool_schema_lists_data_ops() {
+    let h = start().await;
+    let c = server(&h).await;
+    let schema = tool_schema(&c, "apply").await.to_string();
+    for op in ["add_data", "bind_data", "remove_data", "rename_data", "set_column_type", "edit_data"] {
+        assert_that!(schema.contains(&format!("\"{op}\""))).named(op).is_true();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_batch_over_100000_cells_is_refused() {
+    let h = start().await;
+    let c = server(&h).await;
+    let rows: Vec<serde_json::Value> = (0..50_001).map(|r| json!({ "id": format!("r{r}"), "cells": [r, r] })).collect();
+    let table = json!({ "columns": [{ "id": "a", "name": "A" }, { "id": "b", "name": "B" }], "rows": rows });
+    let r =
+        call(&c, "apply", json!({ "ops": [{ "op": "add_data", "id": "d1", "name": "grand", "table": table }] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let reply = json_of(&r);
+    assert_that!(reply["untrusted"]).is_equal_to(json!(true));
+    let expected =
+        h.localizer.tr_with("op-data-batch-too-large", &[("count", 100_002.into()), ("max", 100_000.into())]);
+    assert_that!(reply["error"].as_str().unwrap_or_default()).contains(expected.as_str());
+    assert_that!(h.session.lock().unwrap().deck().data.is_empty()).is_true();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_remove_data_in_use_returns_view_list_untrusted() {
+    let h = start().await;
+    let c = server(&h).await;
+    let setup = json!([
+        { "op": "add_data", "id": "d1", "name": "ventes", "table": {
+            "columns": [{ "id": "mois", "name": "Mois" }, { "id": "ventes", "name": "Ventes" }],
+            "rows": [{ "id": "jan", "cells": ["Jan", 3] }] } },
+        { "op": "add_element", "slot": { "owner": { "slide": "s-libre" }, "param": "blocks" },
+          "element": { "id": "e-vue", "kind": kinds::base::CHART, "params": { "option": {
+            "data": "d1", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } } },
+    ]);
+    let r = call(&c, "apply", json!({ "ops": setup })).await;
+    assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
+    let r = call(&c, "apply", json!({ "ops": [{ "op": "remove_data", "data": "d1" }] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let reply = json_of(&r);
+    assert_that!(reply["untrusted"]).is_equal_to(json!(true));
+    let error = reply["error"].as_str().unwrap_or_default().to_owned();
+    assert_that!(error.as_str()).contains("Cette donnée est affichée par");
+    assert_that!(error.as_str()).contains("e-vue");
+    assert_that!(h.session.lock().unwrap().deck().data.len()).is_equal_to(1);
+}
+
+/// A non-data op refused with a message that names a data's column still comes back untrusted:
+/// the column is the user's text.
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_non_data_op_refusal_naming_a_column_is_untrusted() {
+    let h = start().await;
+    let c = server(&h).await;
+    let setup = json!([
+        { "op": "add_data", "id": "d1", "name": "ventes", "table": {
+            "columns": [{ "id": "mois", "name": "Mois" }, { "id": "ventes", "name": "Ventes" }],
+            "rows": [{ "id": "jan", "cells": ["Jan", 3] }] } },
+        { "op": "add_element", "slot": { "owner": { "slide": "s-libre" }, "param": "blocks" },
+          "element": { "id": "e-vue", "kind": kinds::base::CHART, "params": { "option": {
+            "data": "d1", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } } },
+    ]);
+    let r = call(&c, "apply", json!({ "ops": setup })).await;
+    assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
+    let refused = json!([{ "op": "set_chart_option", "target": { "slide": "s-libre", "element": "e-vue" },
+        "param": "option", "patch": { "columns": ["mois", "colonne-absente"] } }]);
+    let r = call(&c, "apply", json!({ "ops": refused })).await;
+    assert_that!(r.is_error).named(&text_of(&r)).is_equal_to(Some(true));
+    assert_that!(untrusted_error_of(&r)).contains("colonne-absente");
 }

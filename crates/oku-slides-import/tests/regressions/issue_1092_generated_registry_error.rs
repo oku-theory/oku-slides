@@ -30,6 +30,7 @@ fn issue_1092_registry_with_a_nested_widget_name_is_a_generated_registry_error()
         name: "Import".to_owned(),
         created: "2026-10-23T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let kind = hifi::project(&source, &target).map(|_| ()).map_err(|e| e.kind());
     assert_that!(kind).is_equal_to(Err(ImportErrorKind::GeneratedRegistry));

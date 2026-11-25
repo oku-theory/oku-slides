@@ -143,3 +143,4 @@ import-warning-unsafe-link = लिंक अस्वीकार किया 
 import-warning-nesting-too-deep = नेस्टिंग बहुत गहरी, काटी गई: { $detail }
 import-warning-font-embedded-unreadable = एम्बेड किया गया फ़ॉन्ट अपठनीय: { $detail }
 import-warning-truncated = बहुत अधिक चेतावनियाँ: बाकी छोड़ दी गईं
+render-chart-too-many-values = बनाने के लिए बहुत अधिक मान ({ $count }, अधिकतम { $max })

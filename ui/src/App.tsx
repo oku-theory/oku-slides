@@ -1,7 +1,7 @@
 import { StagePreviewContext, createStagePreviewStore } from "./a2ui/stagePreview";
 import { useEffect, useMemo, useState } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { ImportTarget, InterfaceChange, SlideView, Surface } from "./api";
+import type { ImportTarget, InterfaceChange, Op, SlideView, Surface } from "./api";
 import { errorText, inTauri, workspace, tabApi } from "./api";
 import { bumpVoiceSeq } from "./voiceSeq";
 import { packGestures, widgetGesture } from "./packGestures";
@@ -53,6 +53,7 @@ import ThemePanels from "./ThemePanels";
 import HostSettings from "./HostSettings";
 import { HOST_WIDGET, useHostSettings } from "./useHostSettings";
 import { useDataSettings } from "./useDataSettings";
+import { useDeckData } from "./useDeckData";
 import { useElementSettings } from "./useElementSettings";
 import { useInspector } from "./useInspector";
 import { SidePanel, useSidePanel } from "./SidePanel";
@@ -227,9 +228,14 @@ export default function App({
     addElement(c.widget);
   };
   const addSlide = () => setPicking(true);
+  // A paste goes through the workspace: the host copies what the element names from its tab.
+  const pasteElement = async (from: string, to: string, label: string, ops: Op[]) => {
+    dropCut();
+    return (await run(workspace.pasteElement(from, to, label, ops))) !== null;
+  };
   useClipboardEvents({
-    tab, api, snap, snapRef, view, selected, editing, dialogOpen, packTab, themeTab, apply, addElement,
-    setSelected, say, share: onCopy, clip, setCutMark, dropCut,
+    tab, api, snap, snapRef, view, selected, editing, dialogOpen, packTab, themeTab, apply, pasteElement,
+    addElement, setSelected, say, share: onCopy, clip, setCutMark, dropCut,
   });
 
   const { open, autosave, saveCopy } = useFileActions({ api, snap, snapRef, run, say, onOpen, onImportPick });
@@ -241,9 +247,12 @@ export default function App({
   const selectedElement = view && selected ? findElement(view.slide, selected) : undefined;
   // Each read only while its place is open.
   const element = useElementSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab || !keptUi.inspector, run, say);
-  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab || !keptUi.dataPane, run, say);
-  /** The inspector's and data pane's surface actions: host surfaces, never sent to the agent. */
-  const paneAction = (s: Surface, a: A2uiClientAction) => element.onAction(s, a) || data.onAction(s, a);
+  // A view's data name opens its data in the pane (`deckData`, set up below; called on a click).
+  const data = useDataSettings(api, snap, view?.slide.id ?? null, selectedElement, packTab || !keptUi.dataPane, run, say,
+    (id) => deckData.openSheet(id));
+  /** The inspector's, data pane's and Data tab's surface actions: host surfaces, never sent to the agent. */
+  const paneAction = (s: Surface, a: A2uiClientAction) =>
+    element.onAction(s, a) || data.onAction(s, a) || deckData.onAction(s, a);
 
   // The slide shown: a pack tab's item slide, else the deck's current one.
   const shownSlide = packTab ? item.slide : current;
@@ -263,6 +272,20 @@ export default function App({
     snap, keptUi, selected: selectedElement, closeBoxes: side.closeBoxes,
     // The agent offer opened from its chip: App re-renders only when it comes or goes.
     offer: agentStatus.offer ? <SlotView slot={agentSlots.inspector} /> : undefined,
+  });
+  // The side panel's Data tab, one open at a time with the inspector (not kept by the host).
+  const [dataTab, setDataTab] = useState(false);
+  useEffect(() => {
+    if (keptUi.inspector) setDataTab(false);
+  }, [keptUi.inspector]);
+  const deckData = useDeckData({
+    api, snap, listOpen: inspector.available && dataTab, paneOpen: inspector.pane, selected,
+    onPane: inspector.onPane,
+    select: (slide, id) => {
+      showSlide(slide);
+      setSelected(id);
+    },
+    run, say,
   });
   // A receipt's trace: its slide shows, its element is selected, then the inspector or the data pane
   // opens (also from the agent window).
@@ -401,11 +424,27 @@ export default function App({
           packs={agentSlots.side}
           themes={agentSlots.sideThemes}
           inspector={inspector.open ? <Inspector element={element} {...inspector.props} onAction={paneAction} onError={(e) => say(errorText(e), true)} /> : null}
+          data={dataTab ? (
+            // The tab opens at once; the list fills it when the session sends it.
+            <div className="data-tab">
+              {deckData.list.surface && (
+                <HostSettings surface={deckData.list.surface} outcome={deckData.list.outcome} onAction={paneAction} onError={(e) => say(e, true)} />
+              )}
+            </div>
+          ) : null}
           updates={snap.pack_updates > 0}
           onPacks={side.openPacks}
           onThemes={() => side.openThemes(view?.slide.id ?? null)}
           onInspector={inspector.onInspector}
-          onFold={inspector.onFold}
+          onData={() => {
+            side.closeBoxes();
+            keptUi.setInspector(false);
+            setDataTab(true);
+          }}
+          onFold={() => {
+            setDataTab(false);
+            inspector.onFold();
+          }}
           onCloseBox={side.closeBoxes}
         />
       )}
@@ -460,7 +499,7 @@ export default function App({
         </div>
         <SlotView slot={agentSlots.drawer} />
         {inspector.pane && (
-          <DataPane data={data} onAction={paneAction} onError={(e) => say(errorText(e), true)} onClose={inspector.closePane}
+          <DataPane data={deckData.sheetOpen ? deckData.sheet : data} onAction={paneAction} onError={(e) => say(errorText(e), true)} onClose={inspector.closePane}
             height={keptUi.dataHeight} onHeight={keptUi.setDataHeight} />
         )}
       </main>

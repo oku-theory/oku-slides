@@ -5,7 +5,6 @@ op-index-out-of-range = 位置が範囲外です
 op-invalid-value = { $subject } の値が無効です
 op-invalid-value-because = { $subject } の値が無効です：{ $reason }
 op-value-no-value = パラメーターに値がありません
-op-value-no-dataset = グラフにデータセットがありません
 op-value-grid-tracks = グリッドの列と行は 1～24 です
 op-value-bad-item-id = 項目 ID は「/」を含まない空でないテキストです
 op-value-missing-item-id = 各項目には ID が必要です
@@ -143,12 +142,14 @@ op-choice-out-of-range = { $subject } に許可されていない値です
 transaction-refused = 操作 { $index } が拒否されました：{ $reason }
 
 sources-unreadable = ソースを読み込めません
+deck-inline-data = 要素 { $element } はデータをオプション内に保存しています：このデッキファイルは現在の形式ではありません
 sources-not-sources = Oku Slides のソースアーカイブではありません
 sources-unsupported-version = このソースは新しいバージョンの Oku Slides で書き込まれています
 sources-bad-name = ソース内のファイル名が拒否されました
 sources-missing-deck = ソースにプレゼンテーションがありません
 sources-too-large = このファイルのソースは大きすぎて開けません
 sources-too-deep = このデッキは要素の入れ子が深すぎます
+sources-base-refused = このデッキのデータファイルが破損しているか、保存できませんでした
 
 issue-empty-slide-id = スライドの識別子が空です
 issue-duplicate-slide-id = スライドの識別子が重複しています
@@ -195,13 +196,43 @@ usage-range-reversed = 開始日 { $since } が終了日 { $until } より後に
 pack-token-entry-invalid = パックのマニフェストにあるコンポーネントトークン「{ $path }」が無効です。
 pack-manifest-json = パックのマニフェストを読み込めません: { $reason }
 pack-manifest-order = パックの項目の順序が「{ $name }」で無効です。
+pack-manifest-data-count = パックのデータは { $count }件です（最大 { $max }件）。
+pack-manifest-data-base = パックのデータ「{ $data }」は外部ファイルを参照しています。パックのデータは自身のセルを持つ必要があります。
+pack-manifest-data-cells = パックのデータのセルは { $count }個です（最大 { $max }個）。
 issue-unsupported-link = サポートされていないリンク：{ $link }
 issue-highlight-zero = ハイライトの色番号は 1 から始まります
 issue-unreadable-element = 読み取れない要素を除外しました
 issue-slot-repaired = 既知のスロットがない要素を { $slot } に配置しました
 issue-unreadable-item = 読み取れないリスト項目を除外しました
 issue-unreadable-row = 読み取れない表の行を除外しました
-issue-data-truncated = データが大きすぎるため、読み込み時に切り詰めました
+issue-data-truncated = データ「{ $data }」が大きすぎるため、読み込み時に切り詰めて読み取り専用にしました
+issue-data-name-taken = データ名「{ $data }」はすでに使われています
+issue-data-cell-type = データ「{ $data }」: 列「{ $column }」に { $type } 型でない値があります
+issue-data-too-many = デッキのデータが多すぎます（{ $count }）。読み込まなかったもの: { $dropped }
+issue-data-base-missing = データ「{ $data }」: ベースファイルがないため、読み取り専用にしました
+issue-data-edits-lost = データ「{ $data }」: 置き換えられた表への編集がマージで失われました
+issue-data-inline-dropped = 要素 { $element }：古いバージョンがグラフや表のデータをオプション内に保存していました。削除しました
+issue-more = 表示していない問題があと{ $count }件あります
+op-data-deck-full = デッキのデータが上限を超えます: { $what ->
+    [row-ids] 行 ID
+    [overlay] 編集済みセル
+    [text] テキストのバイト数
+   *[data] データ
+} は最大 { $max } です
+op-data-missing = データ「{ $data }」が見つかりません
+op-data-name-taken = データ名「{ $name }」はすでに使われています
+op-data-column-in-use = 列「{ $column }」は { $views } が表示しています。先にそれらを別の列に紐付けてください（columns を指定した bind_data）
+op-data-in-use = このデータは { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}ほか { $more }件のビュー
+}{" "}が表示しています。先にそれらを削除するか、別のデータに紐付けてください
+op-data-column-missing = データ「{ $data }」に列「{ $column }」はありません
+op-data-not-view = パラメーター「{ $param }」はデータを表示できません。表示できるのはグラフまたは表のオプションだけです
+op-data-truncated = データ「{ $data }」は読み込み時に切り詰められ、読み取り専用です。編集するには表全体を置き換えてください
+op-data-rebind = 要素 { $subject } はすでに別のデータを表示しています。変更するには bind_data を使ってください
+op-data-internal = バッチでは表のベースやオーバーレイを設定できません
+op-data-batch-too-large = バッチが大きすぎます: セル数 { $count }、上限 { $max }
+op-data-inline = 要素 { $subject } はデータをオプション内に持っています。add_data でデッキのデータとして追加し、bind_data で結び付けてください
 issue-unreadable-slide = 読み取れないスライドを除外しました
 issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
 issue-knowledge-unreadable = 読み取れないナレッジ項目 { $id } を除外しました
@@ -276,3 +307,12 @@ issue-empty-item-id = リスト { $param } に識別子のない項目があり�
 issue-duplicate-item-id = リスト { $param } に識別子が重複した項目があります
 issue-invalid-item-id = リスト { $param } にスラッシュを含む項目の識別子があります
 issue-list-bounds = リスト { $param } の項目数が少なすぎるか多すぎます
+issue-view-truncated = { $element }はデータの一部だけを表示しています（{ $what ->
+    [rows] 行
+   *[columns] 列
+}：{ $total }中{ $shown }）
+issue-render-budget = { $element }は描画されません：デッキのビューが1回の描画で許される量を超えるデータを読み込みます
+issue-data-missing = { $element }はデータ「{ $data }」を指定していますが、デッキにありません
+issue-view-column-missing = { $element }は列「{ $column }」を読み込みますが、そのデータにはありません
+issue-view-unreadable = { $element }は描画されません：オプションを読み取れません
+op-replica-full = プレゼンテーションの履歴が再び開ける上限の { $max } MiB に近づいています：追加する前に内容を削除してください。

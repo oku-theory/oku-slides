@@ -196,8 +196,9 @@ fn numeric_texts_ignores_row_and_column_ids() {
 }
 
 #[test]
-fn cell_as_f64_accepts_both_minus_signs() {
-    use crate::option::Cell;
-    assert_that!(Cell::Text("-2.5".to_owned()).as_f64()).is_equal_to(Some(-2.5));
-    assert_that!(Cell::Text("\u{2212}2,5".to_owned()).as_f64()).is_equal_to(Some(-2.5));
+fn cell_as_f64_accepts_the_ascii_minus_only() {
+    use oku_slides_data::DataCell;
+    assert_that!(DataCell::Text("-2.5".to_owned()).as_f64()).is_equal_to(Some(-2.5));
+    assert_that!(DataCell::Text("-2,5".to_owned()).as_f64()).is_equal_to(Some(-2.5));
+    assert_that!(DataCell::Text("\u{2212}2,5".to_owned()).as_f64()).is_none();
 }

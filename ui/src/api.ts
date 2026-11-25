@@ -6,6 +6,7 @@
 
 import type { Surface } from "./agentApi";
 import type { DataEdit } from "./chart/dataEdit";
+import type { DataAction } from "./dataActions";
 import { host } from "./hostCall";
 import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin, ThemeTabView } from "./packTypes";
 import type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledgeTypes";
@@ -275,6 +276,9 @@ type Request =
   | { cmd: "host_settings"; widget: string | null }
   | { cmd: "data_panel"; slide: string; element: string }
   | { cmd: "data_edit"; slide: string; element: string; edit: DataEdit }
+  | { cmd: "data_list" }
+  | { cmd: "data_sheet"; data: string; offset: number }
+  | { cmd: "data_action"; action: DataAction }
   | { cmd: "element_panel"; slide: string; element: string }
   | { cmd: "element_param"; slide: string; element: string; key: string; value: unknown }
   | { cmd: "element_list"; slide: string; element: string; key: string; change: ListOp }
@@ -341,6 +345,12 @@ export function tabApi(tab: string) {
     dataPanel: (slide: string, element: string) => call<Surface | null>({ cmd: "data_panel", slide, element }),
     /** Applique une modification de la surface `host-data` : une étape d'annulation. */
     dataEdit: (slide: string, element: string, edit: DataEdit) => call<Snapshot>({ cmd: "data_edit", slide, element, edit }),
+    /** `deck-data` surface: the deck's data; `null` outside an editable deck. */
+    dataList: () => call<Surface | null>({ cmd: "data_list" }),
+    /** `data-sheet` surface: 100 rows of `data` from `offset`; `null` for a missing data. */
+    dataSheet: (data: string, offset: number) => call<Surface | null>({ cmd: "data_sheet", data, offset }),
+    /** Applies an action of the data panel: one undo step. */
+    dataAction: (action: DataAction) => call<Snapshot>({ cmd: "data_action", action }),
     /** `host-element` surface: the settings of `element`; `null` for an unknown element or outside an editable deck. */
     elementPanel: (slide: string, element: string) => call<Surface | null>({ cmd: "element_panel", slide, element }),
     /** Sets the param `key` of the element (`null` clears it): one undo step. */

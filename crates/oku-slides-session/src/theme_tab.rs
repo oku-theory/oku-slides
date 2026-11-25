@@ -24,6 +24,7 @@ use crate::agent::bounds::label;
 use crate::deck_closure::{Pinned, combined_pins};
 use crate::deck_pack::builtin_pin;
 use crate::error::{LeaseMissingSnafu, PackTabNotFreshSnafu, SourcesSnafu, UnknownPackSnafu, UnknownThemeSnafu};
+use crate::example_text::localized_data;
 use crate::library::builtin_versions;
 use crate::pack::{BASE_PACK, ESSENTIEL_PACK};
 use crate::pack_lease::{LeaseScope, PackLease, covers};
@@ -88,6 +89,8 @@ pub(crate) fn specimen_deck(
         layouts: BTreeMap::new(),
         knowledge: BTreeMap::new(),
         slides: layout_slides(&essentiel.manifest, &essentiel.files, l),
+        data: localized_data(essentiel.manifest.id, &essentiel.manifest.data, l),
+        ..Deck::default()
     };
     // Examples may keep `""` (cleared text): the slides take the replica's shape.
     oku_slides_core::canonicalize(&mut deck);

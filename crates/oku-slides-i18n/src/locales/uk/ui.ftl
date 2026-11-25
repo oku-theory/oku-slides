@@ -461,6 +461,34 @@ ui-data-pane-close = Закрити дані
 ui-data-pane-resize = Змінити розмір даних
 ui-data-pane-maximize = Розгорнути дані
 ui-data-pane-restore = Згорнути дані
+ui-data-shared-by = Спільні дані · { $count ->
+    [one] { $count } подання
+    [few] { $count } подання
+    [many] { $count } подань
+   *[other] { $count } подання
+}
+ui-data-tab = Дані
+ui-data-add = Додати дані
+ui-data-rename = Перейменувати
+ui-data-remove = Видалити
+ui-data-column-type = Тип стовпця
+ui-data-type-text = Текст
+ui-data-type-number = Число
+ui-data-type-integer = Ціле число
+ui-data-type-bool = Так/ні
+ui-data-type-date = Дата
+ui-data-views = { $count ->
+    [one] { $count } подання
+    [few] { $count } подання
+    [many] { $count } подань
+   *[other] { $count } подання
+}
+ui-data-unused = Не використовуються
+ui-data-size = Стовпці: { $columns } · Рядки: { $rows }
+ui-data-page = Рядки { $first }–{ $last } з { $total }
+ui-data-previous = Попередні рядки
+ui-data-next = Наступні рядки
+ui-data-open = Відкрити дані
 ui-themes = Теми
 ui-offer-open = Відкрити: { $title }
 ui-offer-settings = Запропоновані налаштування: { $title }

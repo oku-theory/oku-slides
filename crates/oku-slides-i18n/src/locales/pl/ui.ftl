@@ -461,6 +461,34 @@ ui-data-pane-close = Zamknij dane
 ui-data-pane-resize = Zmień rozmiar danych
 ui-data-pane-maximize = Powiększ dane
 ui-data-pane-restore = Zmniejsz dane
+ui-data-shared-by = Dane wspólne · { $count ->
+    [one] { $count } widok
+    [few] { $count } widoki
+    [many] { $count } widoków
+   *[other] { $count } widoku
+}
+ui-data-tab = Dane
+ui-data-add = Dodaj dane
+ui-data-rename = Zmień nazwę
+ui-data-remove = Usuń
+ui-data-column-type = Typ kolumny
+ui-data-type-text = Tekst
+ui-data-type-number = Liczba
+ui-data-type-integer = Liczba całkowita
+ui-data-type-bool = Tak/nie
+ui-data-type-date = Data
+ui-data-views = { $count ->
+    [one] { $count } widok
+    [few] { $count } widoki
+    [many] { $count } widoków
+   *[other] { $count } widoku
+}
+ui-data-unused = Nieużywane
+ui-data-size = Kolumny: { $columns } · Wiersze: { $rows }
+ui-data-page = Wiersze { $first }–{ $last } z { $total }
+ui-data-previous = Poprzednie wiersze
+ui-data-next = Następne wiersze
+ui-data-open = Otwórz dane
 ui-themes = Motywy
 ui-offer-open = Otwórz: { $title }
 ui-offer-settings = Proponowane ustawienia: { $title }

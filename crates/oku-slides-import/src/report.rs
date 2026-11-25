@@ -344,11 +344,15 @@ fn warning_message(kind: &WarningKind) -> (&'static str, Option<&str>) {
         WarningKind::NestingTooDeep(d) => ("import-warning-nesting-too-deep", Some(d)),
         WarningKind::FontEmbeddedUnreadable(d) => ("import-warning-font-embedded-unreadable", Some(d)),
         WarningKind::Truncated => ("import-warning-truncated", None),
+        WarningKind::DataAdjusted { key, .. } => (key, None),
     }
 }
 
 impl Localize for Warning {
     fn localize(&self, l: &Localizer) -> String {
+        if let WarningKind::DataAdjusted { key, count } = self.kind {
+            return l.tr_with(key, &[("count", count.into())]);
+        }
         match warning_message(&self.kind) {
             (id, Some(detail)) => l.tr_with(id, &[("detail", detail.into())]),
             (id, None) => l.tr(id),

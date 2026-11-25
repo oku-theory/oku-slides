@@ -11,6 +11,7 @@ use std::sync::atomic::Ordering;
 use oku_slides_agent::{AgentCommand, CloseDecision, ReportFrom};
 use oku_slides_session::{AGENT_WINDOW_LABEL, Request, Workspace, WorkspaceRequest};
 use oku_slides_stt::{Status, Stt, SttRequest};
+use serde::de::DeserializeOwned;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Manager};
 
@@ -41,7 +42,8 @@ pub async fn blocking<T: Send + 'static>(
 /// mise à jour ici ne compile plus.
 fn classify(req: &WorkspaceRequest) -> (bool, bool) {
     match req {
-        // `SameDeck` et `CarryAssets` ne changent pas la vue : leur réponse est rendue telle quelle ;
+        // `SameDeck` ne change pas la vue : sa réponse est rendue telle quelle ; `PasteElement`
+        // returns its target's snapshot and changes only that deck (`changed_deck`);
         // `SetLocale` et `SetScheme` ne touchent qu'aux réglages, pas aux onglets.
         WorkspaceRequest::View
         | WorkspaceRequest::Messages
@@ -49,7 +51,7 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::Scheme
         | WorkspaceRequest::SetScheme { .. }
         | WorkspaceRequest::SameDeck { .. }
-        | WorkspaceRequest::CarryAssets { .. }
+        | WorkspaceRequest::PasteElement { .. }
         | WorkspaceRequest::Clip
         | WorkspaceRequest::SetClip { .. }
         | WorkspaceRequest::PackOpener { .. } => (false, false),
@@ -92,7 +94,7 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::Messages
         | WorkspaceRequest::Scheme
         | WorkspaceRequest::SameDeck { .. }
-        | WorkspaceRequest::CarryAssets { .. }
+        | WorkspaceRequest::PasteElement { .. }
         | WorkspaceRequest::Clip
         | WorkspaceRequest::NewTab { .. }
         | WorkspaceRequest::Activate { .. }
@@ -127,6 +129,16 @@ fn emit_json(app: &AppHandle, event: &str, json: &str) {
     }
 }
 
+/// A request's JSON read as `T` once within `MAX_APPLY_BYTES`, the cap `serve` puts on its
+/// apply routes; past it, the localized refusal.
+fn capped<T: DeserializeOwned>(app: &AppHandle, req: serde_json::Value) -> Result<T, String> {
+    if let Err(e) = oku_slides_session::check_request_size(&req) {
+        let state = app.try_state::<AppState>().ok_or_else(|| "app not ready".to_owned())?;
+        return Err(state.refuse(&e));
+    }
+    serde_json::from_value(req).map_err(|e| e.to_string())
+}
+
 /// Une requête pour l'onglet `tab`.
 ///
 /// The detached agent window may send only its allowlist (`check_agent_request`, t-1469).
@@ -135,8 +147,9 @@ pub async fn request(
     app: AppHandle,
     window: tauri::WebviewWindow,
     tab: String,
-    req: Request,
+    req: serde_json::Value,
 ) -> Result<Response, String> {
+    let req: Request = capped(&app, req)?;
     let from_agent = window.label() == AGENT_WINDOW_LABEL;
     let reply = blocking(&app, move |app, state| {
         if state.closing.load(Ordering::SeqCst) {
@@ -178,11 +191,13 @@ pub async fn request(
 pub async fn workspace(
     app: AppHandle,
     window: tauri::WebviewWindow,
-    req: WorkspaceRequest,
+    req: serde_json::Value,
 ) -> Result<Response, String> {
+    let req: WorkspaceRequest = capped(&app, req)?;
     let from_agent = window.label() == AGENT_WINDOW_LABEL;
     let (changes, focus) = classify(&req);
     let event = broadcast(&req);
+    let changed_deck = req.changed_deck().map(str::to_owned);
     let reply = blocking(&app, move |app, state| {
         if state.closing.load(Ordering::SeqCst) {
             return Err(CLOSING.to_owned());
@@ -198,6 +213,11 @@ pub async fn workspace(
         // Un onglet importé à fine-tuner : son tour part dès que l'onglet existe (la vue suit).
         if let Some(tab) = outcome.tune_tab() {
             state.tune(tab);
+        }
+        // A paste changed its target deck: the tab bar, then the agent's orphan notes close.
+        if let Some(tab) = &changed_deck {
+            windows::emit_view(app);
+            state.stack.after_change(tab);
         }
         // A close's flush reached owner decks: the view, then their notes (once each).
         Workspace::drain_touched(&state.workspace, || windows::emit_view(app), |owner| state.stack.after_change(owner));

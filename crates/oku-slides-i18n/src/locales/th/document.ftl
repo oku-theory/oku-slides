@@ -137,3 +137,4 @@ import-warning-unsafe-link = ปฏิเสธลิงก์: { $detail }
 import-warning-nesting-too-deep = การซ้อนลึกเกินไป ถูกตัด: { $detail }
 import-warning-font-embedded-unreadable = อ่านฟอนต์ที่ฝังไว้ไม่ได้: { $detail }
 import-warning-truncated = คำเตือนมากเกินไป: ละคำเตือนที่เหลือ
+render-chart-too-many-values = มีค่าที่จะวาดมากเกินไป ({ $count } สูงสุด { $max })

@@ -5,7 +5,6 @@ op-index-out-of-range = Position hors limites
 op-invalid-value = Valeur invalide pour { $subject }
 op-invalid-value-because = Valeur invalide pour { $subject } : { $reason }
 op-value-no-value = le paramètre n'a pas de valeur
-op-value-no-dataset = le graphique n'a pas de jeu de données
 op-value-grid-tracks = une grille a de 1 à 24 colonnes et lignes
 op-value-bad-item-id = un identifiant d'item est un texte non vide, sans « / »
 op-value-missing-item-id = chaque item doit avoir un identifiant
@@ -152,12 +151,14 @@ op-choice-out-of-range = Valeur non permise pour { $subject }
 transaction-refused = Opération { $index } refusée : { $reason }
 
 sources-unreadable = Sources illisibles
+deck-inline-data = L’élément { $element } range ses données dans ses options : ce fichier de deck n’est pas au format actuel
 sources-not-sources = Ce n'est pas un zip de sources Oku Slides
 sources-unsupported-version = Ces sources viennent d'une version plus récente d'Oku Slides
 sources-bad-name = Nom de fichier refusé dans les sources
 sources-missing-deck = Le deck manque dans les sources
 sources-too-large = Les sources de ce fichier sont trop volumineuses pour être ouvertes
 sources-too-deep = Ce deck imbrique des éléments trop profondément
+sources-base-refused = Un fichier de données de ce deck est endommagé ou n’a pas pu être enregistré
 
 issue-empty-slide-id = identifiant de slide vide
 issue-duplicate-slide-id = identifiant de slide en double
@@ -205,13 +206,50 @@ usage-range-reversed = La date de début { $since } est après la date de fin { 
 pack-token-entry-invalid = Jeton de composant « { $path } » invalide dans le manifeste du pack.
 pack-manifest-json = Le manifeste du pack est illisible : { $reason }
 pack-manifest-order = L'ordre des éléments du pack est invalide à « { $name } ».
+pack-manifest-data-count = Le pack contient { $count ->
+    [one] { $count } donnée
+   *[other] { $count } données
+}, au plus { $max }.
+pack-manifest-data-base = La donnée « { $data } » du pack renvoie à un fichier externe ; les données d'un pack portent leurs propres cellules.
+pack-manifest-data-cells = Les données du pack contiennent { $count ->
+    [one] { $count } cellule
+   *[other] { $count } cellules
+}, au plus { $max }.
 issue-unsupported-link = lien non pris en charge : { $link }
 issue-highlight-zero = les couleurs de pastille se numérotent à partir de 1
 issue-unreadable-element = élément illisible, mis de côté
 issue-slot-repaired = élément sans slot connu, rangé dans { $slot }
 issue-unreadable-item = item de liste illisible, mis de côté
 issue-unreadable-row = ligne de tableau illisible, mise de côté
-issue-data-truncated = données trop grandes, tronquées à la lecture
+issue-data-truncated = données « { $data } » trop grandes, tronquées à la lecture et gardées en lecture seule
+issue-data-name-taken = le nom de données « { $data } » est déjà pris
+issue-data-cell-type = données « { $data } » : la colonne « { $column } » contient des valeurs qui ne sont pas de type { $type }
+issue-data-too-many = trop de données dans le deck ({ $count }) ; non lues : { $dropped }
+issue-data-base-missing = données « { $data } » : leur fichier de base manque, gardées en lecture seule
+issue-data-edits-lost = données « { $data } » : des modifications d'un tableau remplacé ont été perdues à la fusion
+issue-data-inline-dropped = Élément { $element } : les données de son graphique ou tableau étaient rangées dans ses options par une ancienne version ; elles ont été retirées
+issue-more = autres problèmes non affichés : { $count }
+op-data-deck-full = Les données du deck dépasseraient leur limite : au plus { $max } { $what ->
+    [row-ids] identifiants de ligne
+    [overlay] cellules modifiées
+    [text] octets de texte
+   *[data] données
+}
+op-data-missing = Donnée « { $data } » introuvable
+op-data-name-taken = Le nom de données « { $name } » est déjà pris
+op-data-column-in-use = La colonne « { $column } » est affichée par { $views } ; liez-les d’abord à d’autres colonnes (bind_data avec columns)
+op-data-in-use = Cette donnée est affichée par { $views }{ $more ->
+    [0] {""}
+    [one] {" "}et { $more } autre vue
+   *[other] {" "}et { $more } autres vues
+}{" "}; supprimez-les ou liez-les d’abord à une autre donnée
+op-data-column-missing = La donnée « { $data } » n’a pas de colonne « { $column } »
+op-data-not-view = Le paramètre « { $param } » ne peut pas afficher de données : seule une option de graphique ou de tableau le peut
+op-data-truncated = La donnée « { $data } » a été tronquée à la lecture et reste en lecture seule ; remplacer tout son tableau pour la modifier
+op-data-rebind = L’élément { $subject } affiche déjà d’autres données ; utiliser bind_data pour les changer
+op-data-internal = Un lot ne peut pas définir la base ni la surcouche d’un tableau
+op-data-batch-too-large = Lot trop grand : nombre de cellules { $count }, au plus { $max }
+op-data-inline = L’élément { $subject } porte ses données dans ses options ; ajoutez-les comme données du deck avec add_data et liez-les avec bind_data
 issue-unreadable-slide = slide illisible, mise de côté
 issue-unreadable-field = champ { $field } du deck illisible, réinitialisé
 issue-knowledge-unreadable = entrée de connaissances { $id } illisible, mise de côté
@@ -286,3 +324,12 @@ issue-empty-item-id = la liste { $param } a un item sans identifiant
 issue-duplicate-item-id = la liste { $param } a un identifiant d'item en double
 issue-invalid-item-id = la liste { $param } a un identifiant d'item qui contient une barre oblique
 issue-list-bounds = la liste { $param } a trop peu ou trop d'items
+issue-view-truncated = { $element } ne montre qu’une partie de ses données ({ $what ->
+    [rows] lignes
+   *[columns] colonnes
+} : { $shown } sur { $total })
+issue-render-budget = { $element } n’est pas dessiné : les vues du deck lisent plus de données qu’un rendu n’en permet
+issue-data-missing = { $element } nomme les données « { $data } », absentes du deck
+issue-view-column-missing = { $element } lit la colonne « { $column } », absente de ses données
+issue-view-unreadable = { $element } n’est pas dessiné : ses options sont illisibles
+op-replica-full = L'historique du deck approche { $max } Mio, le maximum qu'il peut rouvrir : retirez du contenu avant d'en ajouter.

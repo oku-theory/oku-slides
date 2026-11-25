@@ -35,6 +35,7 @@ fn manifest(id: Uuid, namespace: &str, name: &str, requires: &[&str]) -> PackMan
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     }
 }
 

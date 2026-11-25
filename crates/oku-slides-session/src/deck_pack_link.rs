@@ -284,10 +284,13 @@ impl Session {
         if self.deck_links.is_empty() {
             return Ok(());
         }
+        // The trial copies go through the store: a deck with a base has no zip without it.
+        let files = self.bases.files();
         let copy = |s: &SourceBundle| {
-            let zip = s.to_zip().context(SourcesSnafu)?;
+            let zip = s.to_zip_bases(true, Some(&files)).context(SourcesSnafu)?;
             let (bundle, _) =
-                SourceBundle::from_zip(&zip, self.source_limits, self.registry.clone()).context(SourcesSnafu)?;
+                SourceBundle::from_zip_bases(&zip, self.source_limits, self.registry.clone(), Some(&files))
+                    .context(SourcesSnafu)?;
             Ok::<_, crate::SessionError>(bundle)
         };
         let mut trial = copy(&self.doc.sources)?;

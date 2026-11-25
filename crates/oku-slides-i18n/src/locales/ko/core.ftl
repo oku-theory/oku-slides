@@ -5,7 +5,6 @@ op-index-out-of-range = 위치가 범위를 벗어났습니다
 op-invalid-value = { $subject }의 값이 올바르지 않습니다
 op-invalid-value-because = { $subject }의 값이 올바르지 않습니다: { $reason }
 op-value-no-value = 매개변수에 값이 없습니다
-op-value-no-dataset = 차트에 데이터 세트가 없습니다
 op-value-grid-tracks = 그리드의 열과 행은 1~24개입니다
 op-value-bad-item-id = 항목 ID는 “/”가 없는 비어 있지 않은 텍스트입니다
 op-value-missing-item-id = 모든 항목에는 ID가 필요합니다
@@ -143,12 +142,14 @@ op-choice-out-of-range = { $subject }에 허용되지 않는 값입니다
 transaction-refused = 작업 { $index }이(가) 거부되었습니다: { $reason }
 
 sources-unreadable = 소스를 읽을 수 없습니다
+deck-inline-data = 요소 { $element }이(가) 데이터를 옵션 안에 저장합니다: 이 덱 파일은 현재 형식이 아닙니다
 sources-not-sources = Oku Slides 소스 아카이브가 아닙니다
 sources-unsupported-version = 더 새로운 버전의 Oku Slides에서 작성된 소스입니다
 sources-bad-name = 소스에 허용되지 않는 파일 이름이 있습니다
 sources-missing-deck = 소스에 프레젠테이션이 없습니다
 sources-too-large = 이 파일의 소스가 너무 커서 열 수 없습니다
 sources-too-deep = 이 덱은 요소를 너무 깊게 중첩합니다
+sources-base-refused = 이 덱의 데이터 파일이 손상되었거나 저장할 수 없습니다
 
 issue-empty-slide-id = 슬라이드 식별자가 비어 있음
 issue-duplicate-slide-id = 슬라이드 식별자 중복
@@ -195,13 +196,43 @@ usage-range-reversed = 시작일 { $since }이(가) 종료일 { $until }보다 �
 pack-token-entry-invalid = 팩 매니페스트의 구성 요소 토큰 “{ $path }”이(가) 잘못되었습니다.
 pack-manifest-json = 팩 매니페스트를 읽을 수 없습니다: { $reason }
 pack-manifest-order = 팩의 항목 순서가 “{ $name }”에서 올바르지 않습니다.
+pack-manifest-data-count = 팩에 데이터가 { $count }개 있습니다(최대 { $max }개).
+pack-manifest-data-base = 팩의 데이터 “{ $data }”가 외부 파일을 참조합니다. 팩의 데이터는 자체 셀을 가져야 합니다.
+pack-manifest-data-cells = 팩의 데이터에 셀이 { $count }개 있습니다(최대 { $max }개).
 issue-unsupported-link = 지원되지 않는 링크: { $link }
 issue-highlight-zero = 강조 색상 번호는 1부터 시작합니다
 issue-unreadable-element = 읽을 수 없는 요소를 따로 두었습니다
 issue-slot-repaired = 알려진 슬롯이 없는 요소를 { $slot }에 배치했습니다
 issue-unreadable-item = 읽을 수 없는 목록 항목을 따로 두었습니다
 issue-unreadable-row = 읽을 수 없는 표 행을 따로 두었습니다
-issue-data-truncated = 데이터가 너무 커서 읽을 때 잘랐습니다
+issue-data-truncated = 데이터 “{ $data }”가 너무 커서 읽을 때 잘랐으며 읽기 전용으로 유지합니다
+issue-data-name-taken = 데이터 이름 “{ $data }”은(는) 이미 사용 중입니다
+issue-data-cell-type = 데이터 “{ $data }”: 열 “{ $column }”에 { $type } 형식이 아닌 값이 있습니다
+issue-data-too-many = 덱에 데이터가 너무 많습니다({ $count }). 읽지 않은 항목: { $dropped }
+issue-data-base-missing = 데이터 “{ $data }”: 기본 파일이 없어 읽기 전용으로 유지합니다
+issue-data-edits-lost = 데이터 “{ $data }”: 교체된 표에 대한 편집이 병합 중 손실되었습니다
+issue-data-inline-dropped = 요소 { $element }: 이전 버전이 차트나 표의 데이터를 옵션 안에 저장했습니다. 삭제되었습니다
+issue-more = 표시되지 않은 문제가 { $count }개 더 있습니다
+op-data-deck-full = 덱 데이터가 한도를 넘게 됩니다: { $what ->
+    [row-ids] 행 ID
+    [overlay] 편집된 셀
+    [text] 텍스트 바이트
+   *[data] 데이터
+} 최대 { $max }
+op-data-missing = 데이터 “{ $data }”을(를) 찾을 수 없습니다
+op-data-name-taken = 데이터 이름 “{ $name }”은(는) 이미 사용 중입니다
+op-data-column-in-use = 열 “{ $column }”을(를) { $views }이(가) 표시합니다. 먼저 다른 열에 연결하세요(columns를 지정한 bind_data)
+op-data-in-use = 이 데이터는 { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}외 { $more }개 보기
+}이(가) 표시합니다. 먼저 삭제하거나 다른 데이터에 연결하세요
+op-data-column-missing = 데이터 “{ $data }”에 열 “{ $column }”이(가) 없습니다
+op-data-not-view = 매개변수 “{ $param }”은(는) 데이터를 표시할 수 없습니다. 차트나 표 옵션만 가능합니다
+op-data-truncated = 데이터 “{ $data }”은(는) 읽을 때 잘려 읽기 전용입니다. 편집하려면 표 전체를 바꾸세요
+op-data-rebind = 요소 { $subject }은(는) 이미 다른 데이터를 표시합니다. 바꾸려면 bind_data를 사용하세요
+op-data-internal = 일괄 작업으로 표의 기반이나 오버레이를 설정할 수 없습니다
+op-data-batch-too-large = 일괄 작업이 너무 큽니다: 셀 수 { $count }, 최대 { $max }
+op-data-inline = 요소 { $subject }의 데이터가 옵션 안에 있습니다. add_data로 덱 데이터로 추가하고 bind_data로 연결하세요
 issue-unreadable-slide = 읽을 수 없는 슬라이드를 따로 두었습니다
 issue-unreadable-field = 읽을 수 없는 덱 항목 { $field }을(를) 초기화했습니다
 issue-knowledge-unreadable = 읽을 수 없는 지식 항목 { $id }을(를) 따로 두었습니다
@@ -276,3 +307,12 @@ issue-empty-item-id = 목록 { $param }에 식별자가 없는 항목이 있습�
 issue-duplicate-item-id = 목록 { $param }에 식별자가 중복된 항목이 있습니다
 issue-invalid-item-id = 목록 { $param }에 슬래시가 들어간 항목 식별자가 있습니다
 issue-list-bounds = 목록 { $param }의 항목이 너무 적거나 너무 많습니다
+issue-view-truncated = { $element }에 데이터의 일부만 표시됩니다 ({ $what ->
+    [rows] 행
+   *[columns] 열
+}: { $total }개 중 { $shown }개)
+issue-render-budget = { $element }을(를) 그리지 않음: 덱의 보기가 한 번의 렌더링에서 허용되는 것보다 많은 데이터를 읽습니다
+issue-data-missing = { $element }이(가) 덱에 없는 데이터 “{ $data }”를 지정합니다
+issue-view-column-missing = { $element }이(가) 데이터에 없는 열 “{ $column }”을(를) 읽습니다
+issue-view-unreadable = { $element }을(를) 그리지 않음: 옵션을 읽을 수 없습니다
+op-replica-full = 프레젠테이션 기록이 다시 열 수 있는 최대 크기인 { $max } MiB에 가까워졌습니다: 더 추가하기 전에 콘텐츠를 제거하세요.

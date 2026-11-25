@@ -28,6 +28,7 @@ pub mod retrofit;
 pub mod source;
 
 mod collect;
+mod deck_budget;
 mod error;
 mod formula;
 mod limits;

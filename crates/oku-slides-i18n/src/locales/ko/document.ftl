@@ -137,3 +137,4 @@ import-warning-unsafe-link = 링크가 거부되었습니다: { $detail }
 import-warning-nesting-too-deep = 중첩이 너무 깊어 잘렸습니다: { $detail }
 import-warning-font-embedded-unreadable = 포함된 글꼴을 읽을 수 없습니다: { $detail }
 import-warning-truncated = 경고가 너무 많습니다. 이후 경고는 생략됩니다
+render-chart-too-many-values = 그릴 값이 너무 많습니다 ({ $count }개, 최대 { $max }개)

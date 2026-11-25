@@ -21,3 +21,4 @@ mod issue_1057_trust_follows_content;
 mod issue_1293_unknown_theme_color_falls_back;
 mod issue_1385_table_row_overflow_takes_slack_first;
 mod issue_1414_render_stays_offline;
+mod issue_1690_cell_text_is_not_typst;

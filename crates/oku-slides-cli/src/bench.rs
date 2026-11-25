@@ -4,7 +4,10 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use color_eyre::eyre::{ContextCompat, Result, bail};
-use oku_slides_core::{Deck, Op, Paragraph, ParamValue, SourceBundle, SourceLimits, Target};
+use oku_slides_core::{
+    ChartLabels, Deck, Op, Origin, Paragraph, ParamValue, PrepareCtx, SourceBundle, SourceLimits, Target, fresh_ids,
+    prepare_ops,
+};
 use oku_slides_render::{Fonts, Renderer};
 
 use crate::out::Out;
@@ -68,7 +71,12 @@ pub fn bench(
             param: "body".into(),
             value,
         };
-        op.apply(&mut deck, &registry)?;
+        let mut ids = fresh_ids();
+        let labels = ChartLabels::english();
+        let mut ctx = PrepareCtx { deck: &deck, registry: &registry, labels, ids: &mut *ids, origin: Origin::Host };
+        for op in prepare_ops(vec![op], &mut ctx)?.ops {
+            op.apply(&mut deck, &registry)?;
+        }
         r.set_deck(&deck, &assets)?;
         let t = Instant::now();
         last = Some(r.compile()?);

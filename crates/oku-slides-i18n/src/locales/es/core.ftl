@@ -5,7 +5,6 @@ op-index-out-of-range = Posición fuera de rango
 op-invalid-value = Valor no válido para { $subject }
 op-invalid-value-because = Valor no válido para { $subject }: { $reason }
 op-value-no-value = el parámetro no tiene valor
-op-value-no-dataset = el gráfico no tiene conjunto de datos
 op-value-grid-tracks = una cuadrícula tiene de 1 a 24 columnas y filas
 op-value-bad-item-id = un identificador de ítem es un texto no vacío, sin «/»
 op-value-missing-item-id = cada ítem necesita un identificador
@@ -152,12 +151,14 @@ op-choice-out-of-range = Valor no permitido para { $subject }
 transaction-refused = Operación { $index } rechazada: { $reason }
 
 sources-unreadable = Fuentes ilegibles
+deck-inline-data = El elemento { $element } guarda sus datos dentro de sus opciones: este archivo de deck no tiene el formato actual
 sources-not-sources = Esto no es un archivo de fuentes de Oku Slides
 sources-unsupported-version = Estas fuentes se crearon con una versión más reciente de Oku Slides
 sources-bad-name = Nombre de archivo rechazado en las fuentes
 sources-missing-deck = Falta la presentación en las fuentes
 sources-too-large = Las fuentes de este archivo son demasiado grandes para abrirlas
 sources-too-deep = Esta presentación anida elementos a demasiada profundidad
+sources-base-refused = Un archivo de datos de esta presentación está dañado o no se pudo guardar
 
 issue-empty-slide-id = identificador de diapositiva vacío
 issue-duplicate-slide-id = identificador de diapositiva duplicado
@@ -205,13 +206,50 @@ usage-range-reversed = La fecha de inicio { $since } es posterior a la fecha de 
 pack-token-entry-invalid = Token de componente «{ $path }» no válido en el manifiesto del paquete.
 pack-manifest-json = No se puede leer el manifiesto del paquete: { $reason }
 pack-manifest-order = El orden de los elementos del pack no es válido en «{ $name }».
+pack-manifest-data-count = El paquete contiene { $count ->
+    [one] { $count } dato
+   *[other] { $count } datos
+}, como máximo { $max }.
+pack-manifest-data-base = Los datos «{ $data }» del paquete remiten a un archivo externo; los datos de un paquete contienen sus propias celdas.
+pack-manifest-data-cells = Los datos del paquete contienen { $count ->
+    [one] { $count } celda
+   *[other] { $count } celdas
+}, como máximo { $max }.
 issue-unsupported-link = enlace no admitido: { $link }
 issue-highlight-zero = los colores de resaltado se numeran desde 1
 issue-unreadable-element = elemento ilegible, apartado
 issue-slot-repaired = elemento sin slot conocido, colocado en { $slot }
 issue-unreadable-item = ítem de lista ilegible, apartado
 issue-unreadable-row = fila de tabla ilegible, apartada
-issue-data-truncated = datos demasiado grandes, truncados al leer
+issue-data-truncated = datos «{ $data }» demasiado grandes, truncados al leer y conservados en solo lectura
+issue-data-name-taken = el nombre de datos «{ $data }» ya está en uso
+issue-data-cell-type = datos «{ $data }»: la columna «{ $column }» contiene valores que no son de tipo { $type }
+issue-data-too-many = demasiados datos en la presentación ({ $count }); no leídos: { $dropped }
+issue-data-base-missing = datos «{ $data }»: falta su archivo base, conservados en solo lectura
+issue-data-edits-lost = datos «{ $data }»: se perdieron en la fusión cambios hechos a una tabla reemplazada
+issue-data-inline-dropped = Elemento { $element }: una versión anterior guardó los datos de su gráfico o tabla dentro de sus opciones; se han eliminado
+issue-more = otros problemas no mostrados: { $count }
+op-data-deck-full = Los datos de la presentación superarían su límite: como máximo { $max } { $what ->
+    [row-ids] identificadores de fila
+    [overlay] celdas modificadas
+    [text] bytes de texto
+   *[data] datos
+}
+op-data-missing = Datos «{ $data }» no encontrados
+op-data-name-taken = El nombre de datos «{ $name }» ya está en uso
+op-data-column-in-use = La columna «{ $column }» la muestran { $views }; vincúlalos primero a otras columnas (bind_data con columns)
+op-data-in-use = Estos datos los muestran { $views }{ $more ->
+    [0] {""}
+    [one] {" "}y { $more } vista más
+   *[other] {" "}y { $more } vistas más
+}; elimínalas o vincúlalas primero a otros datos
+op-data-column-missing = Los datos «{ $data }» no tienen la columna «{ $column }»
+op-data-not-view = El parámetro «{ $param }» no puede mostrar datos: solo una opción de gráfico o de tabla puede
+op-data-truncated = Los datos «{ $data }» se truncaron al leerse y son de solo lectura; reemplaza toda su tabla para editarlos
+op-data-rebind = El elemento { $subject } ya muestra otros datos; usa bind_data para cambiarlos
+op-data-internal = Un lote no puede fijar la base ni la capa de cambios de una tabla
+op-data-batch-too-large = El lote es demasiado grande: número de celdas { $count }, como máximo { $max }
+op-data-inline = El elemento { $subject } lleva sus datos dentro de sus opciones; añádelos como datos del deck con add_data y vincúlalos con bind_data
 issue-unreadable-slide = diapositiva ilegible, apartada
 issue-unreadable-field = campo { $field } del deck ilegible, restablecido
 issue-knowledge-unreadable = entrada de conocimiento { $id } ilegible, apartada
@@ -286,3 +324,12 @@ issue-empty-item-id = la lista { $param } tiene un ítem sin identificador
 issue-duplicate-item-id = la lista { $param } tiene un identificador de ítem duplicado
 issue-invalid-item-id = la lista { $param } tiene un identificador de elemento con una barra
 issue-list-bounds = la lista { $param } tiene muy pocos o demasiados ítems
+issue-view-truncated = { $element } solo muestra parte de sus datos ({ $what ->
+    [rows] filas
+   *[columns] columnas
+}: { $shown } de { $total })
+issue-render-budget = { $element } no se dibuja: las vistas de la presentación leen más datos de los que permite un renderizado
+issue-data-missing = { $element } nombra los datos «{ $data }», que no están en la presentación
+issue-view-column-missing = { $element } lee la columna «{ $column }», que sus datos no tienen
+issue-view-unreadable = { $element } no se dibuja: sus opciones no se pueden leer
+op-replica-full = El historial de la presentación casi alcanza { $max } MiB, el máximo para volver a abrirla: quita contenido antes de añadir más.

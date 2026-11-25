@@ -255,6 +255,7 @@ pub(crate) fn pack_manifest(
         styles: BTreeMap::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: BTreeMap::new(),
     }
 }
 

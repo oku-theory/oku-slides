@@ -1,7 +1,7 @@
-// Rendu d'un deck JSON v9 (le modèle de données de l'app Oku Slides).
+// Rendu d'un deck JSON v10 (le modèle de données de l'app Oku Slides).
 //
 // {
-//   "version": 9,
+//   "version": 10,
 //   "params": { "title": "…", "author": "…", "date": "…" },
 //   "vars":   { "client": "Acme" },
 //   "tokens": { "color": { "accent": "#8a5a1c" } },

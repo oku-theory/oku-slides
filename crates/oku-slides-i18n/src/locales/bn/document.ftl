@@ -140,3 +140,4 @@ import-warning-unsafe-link = লিঙ্ক প্রত্যাখ্যা�
 import-warning-nesting-too-deep = নেস্টিং খুব গভীর, কেটে দেওয়া হয়েছে: { $detail }
 import-warning-font-embedded-unreadable = এমবেড করা ফন্ট পড়া যায়নি: { $detail }
 import-warning-truncated = অনেক বেশি সতর্কবার্তা: বাকিগুলো বাদ দেওয়া হয়েছে
+render-chart-too-many-values = আঁকার জন্য অনেক বেশি মান ({ $count }, সর্বোচ্চ { $max })

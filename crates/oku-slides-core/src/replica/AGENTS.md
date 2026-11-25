@@ -16,9 +16,9 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep apply of an unchanged deck write-free; only read repairs may write, once, on the first apply. (ADR-0005, plan:2026-10-10-deck-en-arbre)
 - Remove nodes with this peer's deletion mark in their meta, never tree.delete; reconciling never clears a mark. (ADR-0006, plan:2026-10-10-deck-en-arbre)
 - Create a fresh node when a deleted id is added again; never match or revive a marked node. (ADR-0006, plan:2026-10-10-deck-en-arbre)
+- Remove a data by marking its map with this peer's deletion mark, so undo keeps a peer's edits; delete the key only when its id is added again. Unlike tree marks, `compact` never purges data marks: a removed table stays in the doc and `data_lost` walks it on each merge. (plan:2026-11-21-data-entities-phase1, t-1690)
 - Never read, index or write below a marked node; a marked node hides its whole subtree. (ADR-0006, plan:2026-10-10-deck-en-arbre)
-- Create the slot map only with ensure_mergeable_map, never get_or_create_container. (ADR-0006, plan:2026-10-10-deck-en-arbre)
-- Key slot entries by the parent TreeID string, and ignore keys that are not canonical TreeIDs. (ADR-0006, plan:2026-10-10-deck-en-arbre)
+- Create the slot map only with ensure_mergeable_map, never get_or_create_container; key its entries by the parent TreeID string and ignore keys that are not canonical TreeIDs. (ADR-0006, plan:2026-10-10-deck-en-arbre)
 - On import and merge, refuse as corrupted only tree states no code path produces, undo and redo included. (ADR-0006, plan:2026-10-10-deck-en-arbre)
 - Identify slides and elements by the id in their meta, never by their TreeID. (ADR-0006, plan:2026-10-09-elements-en-arbre)
 - Pair elements across slides only via move_element, or an id unique in two kept slides with the same kind. (ADR-0006, plan:2026-10-10-deck-en-arbre)
@@ -31,9 +31,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Merge two replicas only when their deck_uid is equal; otherwise fail with Unrelated. (spec:2026-09-27-sources-loro-design)
 - Never record a history version for a change whose message starts with PART (oku-part:). (t-290)
 - Write choice, asset and other non-prose params as Loro atoms, never merged per character. (spec:2026-09-27-widgets-typst-design)
-- Keep the knowledge bundle in the root container `knowledge`, never under `deck`, and read its text verbatim. (plan:2026-11-24-deck-knowledge-okf-lot1-core)
-- Sync the knowledge root only when the bundle changed; the caller says which, never a default (plan:2026-11-25-deck-knowledge-okf-lot3-approval, t-1731)
-- Drop knowledge entries only past READ_FACTOR times a limit, measuring text with len_utf8 before copying it; below that, keep every readable file. (plan:2026-11-25-deck-knowledge-okf-lot2-mcp-index, t-1730)
+- Give each compaction epoch its own data layer and report edits to a replaced layer as lost, never drop them silently. (plan:2026-11-21-data-entities-phase1, t-1690)
+- Keep the knowledge bundle in the root container `knowledge`, never under `deck`, and read its text verbatim; sync that root only when the bundle changed, the caller saying which, never a default; drop entries only past READ_FACTOR times a limit, measuring text with len_utf8 before copying it, and below that keep every readable file. (plan:2026-11-24-deck-knowledge-okf-lot1-core, plan:2026-11-25-deck-knowledge-okf-lot2-mcp-index, plan:2026-11-25-deck-knowledge-okf-lot3-approval, t-1730, t-1731)
 
 ## Pitfalls
 
@@ -53,7 +52,8 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 - Apply edits by diffing the Deck into the replica; never translate Op variants into Loro mutations. (ADR-0002)
 - Restore a version as one undoable apply, tried first on a fork; never use Loro revert_to. (ADR-0002, spec:2026-09-27-sources-loro-design)
-- Store host datasets as row, column and cell containers matched by id, never as one JSON atom. (ADR-0004, plan:2026-10-08-fusion-cellules)
+- Store data only as deck data entities; never store a `dataset` in a host option; drop one a format-9 peer wrote on read, with issue-data-inline-dropped; refuse older formats, whose charts hold their data inline, never strip them. (ADR-0015, spec:2026-11-21-data-entities-design)
+- Write each new data generation as a new table container under data/<id>; report edits to a losing table as issue-data-edits-lost, never merge them. (spec:2026-11-21-data-entities-design)
 - Keep the whole deck in one LoroTree whose roots, and only they, are slides; elements are descendants. (ADR-0006, plan:2026-10-10-deck-en-arbre)
 - Store one deletion mark key per peer, never a shared boolean, so one undo cannot cancel a peer's removal. (plan:2026-10-10-deck-en-arbre)
 - Never add commits between the movs of an application, for lists or the deck tree. (ADR-0006, t-893)

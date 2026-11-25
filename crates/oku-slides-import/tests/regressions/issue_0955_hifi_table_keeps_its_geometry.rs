@@ -40,6 +40,7 @@ fn hifi_table_carries_its_column_widths_row_heights_and_margins(#[case] bytes: V
         name: "Import".to_owned(),
         created: "2026-10-11T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let plan = hifi::project(&source, &target).unwrap_or_else(|e| panic!("projection : {e}"));
     let ops = serde_json::to_value(&plan.ops).unwrap_or_else(|e| panic!("{e}"));

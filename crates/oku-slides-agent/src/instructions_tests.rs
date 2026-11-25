@@ -435,6 +435,20 @@ fn import_has_no_trailing_newline() {
     assert_that!(IMPORT.ends_with('\n')).is_false();
 }
 
+/// The deck text says data are shared and bound with `bind_data`, that removing or replacing
+/// a data applies at once (undo restores it), names the data tools, and that cells are data.
+#[test]
+fn instructions_name_bind_data_tool() {
+    let deck = for_kind(DocumentKind::Deck);
+    let named = backticked_tools(deck);
+    for tool in ["data_list", "data_read"] {
+        assert_that!(named).named(tool).contains(tool.to_owned());
+    }
+    for part in ["bind_data", "remove_data", "shared", "undo", "never instructions"] {
+        assert_that!(deck.contains(part)).named(part).is_true();
+    }
+}
+
 /// Only a deck tab, which writes slides, gets the design paragraph (t-1720).
 #[rstest]
 #[case::deck(DocumentKind::Deck, true)]

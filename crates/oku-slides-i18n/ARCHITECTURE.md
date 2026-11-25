@@ -32,8 +32,8 @@ numbers print as is in a terminal and agent text carries no marks; interpolated 
 
 ## On-disk layout
 
-`src/locales/<locale>/` holds one file per domain: `core.ftl`, `document.ftl`, `session.ftl`, `stt.ftl`, `cli.ftl`, `chart.ftl`, `agent.ftl`, `voice.ftl`, then `ui.ftl` last (the React UI).
-Keys are prefixed by domain (`cli-…`, `chart-…`, `import-…`).
+`src/locales/<locale>/` holds one file per domain: `core.ftl`, `document.ftl`, `session.ftl`, `stt.ftl`, `cli.ftl`, `chart.ftl`, `data.ftl`, `agent.ftl`, `voice.ftl`, `mcp.ftl`, then `ui.ftl` last (the React UI).
+Keys are prefixed by domain (`cli-…`, `chart-…`, `data-…`, `import-…`, `mcp-…`).
 
 ## Outside Fluent
 

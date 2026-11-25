@@ -89,7 +89,7 @@ fn check_agent_workspace_open_on_a_tab_no_window_holds_is_forbidden(#[case] req:
 #[case::import_tab(json!({ "cmd": "import_tab", "window": "w-1", "path": "/x.pptx", "mode": "hifi" }))]
 #[case::open_help(json!({ "cmd": "open_help", "window": "w-1" }))]
 #[case::same_deck(json!({ "cmd": "same_deck", "path": "/x.okuslides.pdf" }))]
-#[case::carry_assets(json!({ "cmd": "carry_assets", "from": "t-1", "to": "t-1", "element": element() }))]
+#[case::paste_element(json!({ "cmd": "paste_element", "from": "t-1", "to": "t-1", "label": "x", "ops": [] }))]
 #[case::clip(json!({ "cmd": "clip" }))]
 #[case::set_clip(json!({ "cmd": "set_clip", "clip": { "tab": "t-1", "text": "x", "element": element(), "origin": "w-1" } }))]
 #[case::activate(json!({ "cmd": "activate", "tab": "t-1" }))]

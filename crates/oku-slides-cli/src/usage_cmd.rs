@@ -105,7 +105,8 @@ pub(crate) fn read_deck_usage(
     limits: SourceLimits,
     registry: &Arc<WidgetRegistry>,
 ) -> Result<Opened> {
-    read_document(storage, path, limits, registry).map_err(|e| {
+    // The ledger lives in the replica: the data bases need not be stored.
+    read_document(storage, path, limits, registry, None).map_err(|e| {
         let context = l.tr_with("cli-reading", &[("path", path.display().to_string().into())]);
         eyre!(shown_text(&format!("{context}: {}", e.one_line())))
     })

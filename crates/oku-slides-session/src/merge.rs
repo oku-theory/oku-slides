@@ -3,7 +3,9 @@
 
 use std::path::{Path, PathBuf};
 
+use oku_slides_core::replica::Dropped;
 use oku_slides_core::{MergeReport, SourceBundle};
+use oku_slides_data::DataId;
 use oku_slides_i18n::Localizer;
 use snafu::{ResultExt, ensure};
 
@@ -70,10 +72,29 @@ impl Session {
             return crate::document_kind::refused_in_theme_tab();
         }
         ensure!(matches!(self.mode, Mode::Deck), EditingPackSnafu);
-        let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
+        let opened = read_document(&self.storage, path, self.source_limits, &self.registry, Some(&self.bases.files()))?;
         ensure!(opened.pdf, NotOkuSlidesSnafu);
         self.refuse_linked_merge(&opened.sources)?;
         self.absorb(opened.sources, &file_name(path), false)
+    }
+
+    /// Drops the undo steps writing into data whose layer the merge replaced, with a notice.
+    ///
+    /// Their edits are gone from the merged deck: undoing them would write into a layer no
+    /// longer read. Loro cuts both stacks whole (`Dropped::Cut`), so the notice says so.
+    fn drop_lost_undo(&mut self, lost: &[DataId]) {
+        let mut names = Vec::new();
+        for id in lost {
+            if self.doc.sources.drop_data_undo(id) == Dropped::Cut {
+                let name =
+                    self.doc.sources.deck().data.get(id).map_or_else(|| id.as_str().to_owned(), |d| d.name.clone());
+                names.push(name);
+            }
+        }
+        if !names.is_empty() {
+            let text = self.localizer.tr_with("session-data-undo-cut", &[("data", names.join(", ").into())]);
+            self.set_notice(text);
+        }
     }
 
     /// Fusionne `theirs` dans le document ; `file` nomme sa provenance dans l'avis.
@@ -84,13 +105,14 @@ impl Session {
     /// `on_save` : une fusion qui n'importe rien ne pose pas d'avis. A merge that may pass the
     /// sources budget is refused before the merge itself changes anything (`SourcesOverBudget`);
     /// the widget session ends first.
-    fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
+    pub(crate) fn absorb(&mut self, theirs: SourceBundle, file: &str, on_save: bool) -> Result<MergeReport> {
         // Le deck reçoit un autre état : la séance des widgets finit (`Save` compris).
         self.end_widget_session();
         let count = |s: &SourceBundle| (s.fonts.len(), s.assets.len(), s.packs.len(), s.themes.len());
         let before = count(&self.doc.sources);
         self.ensure_sources_room(merge_bytes(&self.doc.sources, &theirs)?)?;
         let (report, issues) = self.doc.sources.merge(theirs).map_err(merge_error)?;
+        self.drop_lost_undo(&report.lost);
         // Parties illisibles journalisées comme avant ; les constats de
         // validation ne sont pas des pertes.
         log_issues(&issues, &self.localizer, IssuesAt::Merge);
@@ -143,7 +165,7 @@ impl Session {
             return OnDisk::Unchanged;
         }
         // Changé : décodé seulement maintenant, pour savoir de quel deck il s'agit.
-        match parse_document(&bytes, hash, self.source_limits, &self.registry) {
+        match parse_document(&bytes, hash, self.source_limits, &self.registry, Some(&self.bases.files())) {
             Ok(o) if o.pdf && o.sources.replica().deck_uid() == self.doc.sources.replica().deck_uid() => {
                 OnDisk::SameDeck(Box::new(o.sources))
             }

@@ -5,7 +5,6 @@ op-index-out-of-range = Posição fora do intervalo
 op-invalid-value = Valor inválido para { $subject }
 op-invalid-value-because = Valor inválido para { $subject }: { $reason }
 op-value-no-value = o parâmetro não tem valor
-op-value-no-dataset = o gráfico não tem conjunto de dados
 op-value-grid-tracks = uma grade tem de 1 a 24 colunas e linhas
 op-value-bad-item-id = um identificador de item é um texto não vazio, sem “/”
 op-value-missing-item-id = cada item precisa de um identificador
@@ -152,12 +151,14 @@ op-choice-out-of-range = Valor não permitido para { $subject }
 transaction-refused = Operação { $index } recusada: { $reason }
 
 sources-unreadable = Fontes ilegíveis
+deck-inline-data = O elemento { $element } guarda os seus dados nas suas opções: este ficheiro de deck não está no formato atual
 sources-not-sources = Isto não é um arquivo de fontes do Oku Slides
 sources-unsupported-version = Estas fontes foram gravadas por uma versão mais recente do Oku Slides
 sources-bad-name = Nome de arquivo rejeitado nas fontes
 sources-missing-deck = A apresentação está ausente das fontes
 sources-too-large = As fontes deste arquivo são grandes demais para serem abertas
 sources-too-deep = Esta apresentação aninha elementos com profundidade excessiva
+sources-base-refused = Um ficheiro de dados desta apresentação está danificado ou não pôde ser guardado
 
 issue-empty-slide-id = identificador de slide vazio
 issue-duplicate-slide-id = identificador de slide duplicado
@@ -205,13 +206,50 @@ usage-range-reversed = A data inicial { $since } é posterior à data final { $u
 pack-token-entry-invalid = Token de componente “{ $path }” inválido no manifesto do pacote.
 pack-manifest-json = Não foi possível ler o manifesto do pacote: { $reason }
 pack-manifest-order = A ordem dos itens do pack é inválida em “{ $name }”.
+pack-manifest-data-count = O pacote contém { $count ->
+    [one] { $count } dado
+   *[other] { $count } dados
+}, no máximo { $max }.
+pack-manifest-data-base = Os dados “{ $data }” do pacote remetem a um arquivo externo; os dados de um pacote contêm as próprias células.
+pack-manifest-data-cells = Os dados do pacote contêm { $count ->
+    [one] { $count } célula
+   *[other] { $count } células
+}, no máximo { $max }.
 issue-unsupported-link = link não suportado: { $link }
 issue-highlight-zero = as cores de destaque são numeradas a partir de 1
 issue-unreadable-element = elemento ilegível, deixado de lado
 issue-slot-repaired = elemento sem slot conhecido, colocado em { $slot }
 issue-unreadable-item = item de lista ilegível, deixado de lado
 issue-unreadable-row = linha de tabela ilegível, deixada de lado
-issue-data-truncated = dados grandes demais, truncados na leitura
+issue-data-truncated = dados «{ $data }» grandes demais, truncados na leitura e mantidos somente leitura
+issue-data-name-taken = o nome de dados «{ $data }» já está em uso
+issue-data-cell-type = dados «{ $data }»: a coluna «{ $column }» contém valores que não são do tipo { $type }
+issue-data-too-many = dados demais na apresentação ({ $count }); não lidos: { $dropped }
+issue-data-base-missing = dados «{ $data }»: falta o arquivo base, mantidos somente leitura
+issue-data-edits-lost = dados «{ $data }»: alterações em uma tabela substituída foram perdidas na mesclagem
+issue-data-inline-dropped = Elemento { $element }: uma versão anterior guardou os dados do seu gráfico ou tabela nas suas opções; foram removidos
+issue-more = outros problemas não exibidos: { $count }
+op-data-deck-full = Os dados da apresentação passariam do limite: no máximo { $max } { $what ->
+    [row-ids] IDs de linha
+    [overlay] células alteradas
+    [text] bytes de texto
+   *[data] dados
+}
+op-data-missing = Dados «{ $data }» não encontrados
+op-data-name-taken = O nome de dados «{ $name }» já está em uso
+op-data-column-in-use = A coluna «{ $column }» é mostrada por { $views }; vincule-os primeiro a outras colunas (bind_data com columns)
+op-data-in-use = Estes dados são mostrados por { $views }{ $more ->
+    [0] {""}
+    [one] {" "}e mais { $more } vista
+   *[other] {" "}e mais { $more } vistas
+}; remova-as ou vincule-as primeiro a outros dados
+op-data-column-missing = Os dados «{ $data }» não têm a coluna «{ $column }»
+op-data-not-view = O parâmetro «{ $param }» não pode mostrar dados: só uma opção de gráfico ou de tabela pode
+op-data-truncated = Os dados «{ $data }» foram truncados na leitura e são só de leitura; substitua toda a tabela para os editar
+op-data-rebind = O elemento { $subject } já mostra outros dados; use bind_data para os mudar
+op-data-internal = Um lote não pode definir a base nem a sobreposição de uma tabela
+op-data-batch-too-large = O lote é grande demais: número de células { $count }, no máximo { $max }
+op-data-inline = O elemento { $subject } traz os seus dados nas suas opções; adicione-os como dados do deck com add_data e ligue-os com bind_data
 issue-unreadable-slide = slide ilegível, deixado de lado
 issue-unreadable-field = campo { $field } do deck ilegível, redefinido
 issue-knowledge-unreadable = entrada de conhecimento { $id } ilegível, deixada de lado
@@ -286,3 +324,12 @@ issue-empty-item-id = a lista { $param } tem um item sem identificador
 issue-duplicate-item-id = a lista { $param } tem um identificador de item duplicado
 issue-invalid-item-id = a lista { $param } tem um identificador de item com uma barra
 issue-list-bounds = a lista { $param } tem itens de menos ou de mais
+issue-view-truncated = { $element } mostra só parte dos seus dados ({ $what ->
+    [rows] linhas
+   *[columns] colunas
+}: { $shown } de { $total })
+issue-render-budget = { $element } não é desenhado: as vistas da apresentação leem mais dados do que uma renderização permite
+issue-data-missing = { $element } nomeia os dados «{ $data }», que não estão na apresentação
+issue-view-column-missing = { $element } lê a coluna «{ $column }», que os seus dados não têm
+issue-view-unreadable = { $element } não é desenhado: as suas opções não podem ser lidas
+op-replica-full = O histórico da apresentação está quase em { $max } MiB, o máximo para reabri-la: remova conteúdo antes de adicionar mais.

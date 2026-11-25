@@ -18,6 +18,8 @@ fn worker(timeout_ms: u64) -> RenderWorker {
             max_widget_kib: 256,
             max_widgets: 64,
             max_guide_chars: 4000,
+            data_timeout_ms: 120_000,
+            data_memory_mib: 4096,
         },
     )
 }

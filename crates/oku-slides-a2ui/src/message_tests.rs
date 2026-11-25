@@ -73,8 +73,15 @@ fn delete_surface_names_the_surface() {
 }
 
 #[test]
-fn catalog_id_v4_is_the_current_urn() {
-    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:v4");
+fn catalog_id_v5_is_the_current_urn() {
+    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:v5");
+}
+
+#[test]
+fn catalog_id_is_equal_in_rust_and_ts() {
+    let catalog = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ui/src/a2ui/catalog.tsx"));
+    let defined: Vec<&str> = catalog.lines().filter(|l| l.contains("const CATALOG_ID")).collect();
+    assert_that!(defined).is_equal_to(vec![format!("export const CATALOG_ID = \"{CATALOG_ID}\";").as_str()]);
 }
 
 #[test]

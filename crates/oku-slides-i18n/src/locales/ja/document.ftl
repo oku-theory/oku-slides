@@ -136,3 +136,4 @@ import-warning-unsafe-link = リンクを拒否しました: { $detail }
 import-warning-nesting-too-deep = 入れ子が深すぎるため切り詰めました: { $detail }
 import-warning-font-embedded-unreadable = 埋め込みフォントを読み取れません: { $detail }
 import-warning-truncated = 警告が多すぎます。以降の警告は省略されます
+render-chart-too-many-values = 描画する値が多すぎます（{ $count }、最大{ $max }）

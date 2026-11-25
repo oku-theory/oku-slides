@@ -94,6 +94,7 @@ pub(crate) fn token_deck(tokens: Value) -> Deck {
         layouts: BTreeMap::default(),
         knowledge: BTreeMap::default(),
         slides: Vec::new(),
+        ..Deck::default()
     }
 }
 

@@ -1,12 +1,13 @@
-// Vue des données d'un tableau (composant `TableData` de la surface `host-data`) : options
-// d'affichage, alignement des colonnes et grille de ses données (celle des graphiques).
-// Chaque geste part en une modification (`DataEdit`) que la session applique.
+// View of a table's data (`TableData` component of the `host-data` surface): display options,
+// column alignment and the grid of its data (the charts' one). Each gesture sends an edit
+// (`DataEdit`) the session applies.
 
 import type { ReactNode } from "react";
 
 import { ChartDataGrid } from "../chart/ChartDataGrid";
-import type { Cell } from "../chart/chartTypes";
+import type { Cell, DataChoice, DataRef } from "../chart/chartTypes";
 import type { DataEdit } from "../chart/dataEdit";
+import { DataPick } from "../chart/DataPick";
 import { t, tPlain } from "../i18n";
 import { stroke } from "../icons";
 import { IconToggle } from "../primitives";
@@ -25,22 +26,41 @@ const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
 /** Default column header written into the deck, so without isolation marks (t-1380). */
 const tableColumnName = (n: number) => tPlain("ui-table-column", { n: n + 1 });
 
-/** Les données d'un tableau et ses options ; chaque geste part en une modification (`onEdit`). */
-export function TableDataView({ source, headerRow, headerColumn, striped, align, onEdit }: {
-  /** dataset.source : ligne 0 = noms de colonnes ; vide sans données. */
+/** A table's data and options; each gesture is sent as an edit (`onEdit`). */
+export function TableDataView({ source, rowIds, columnIds, headerRow, headerColumn, striped, align, data, choices, onEdit, onOpen }: {
+  /** dataset.source: row 0 = column names; empty without data. */
   source: Cell[][];
+  /** Id of each data row, after the header. */
+  rowIds: readonly string[];
+  /** Id of each column. */
+  columnIds: readonly string[];
   headerRow: boolean;
   headerColumn: boolean;
   striped: boolean;
-  /** Alignement de chaque colonne ; sans entrée : `auto`. */
+  /** Each column's alignment; no entry: `auto`. */
   align: readonly string[];
+  /** The data the table shows. */
+  data: DataRef;
+  /** The data it can switch to, `data` included. */
+  choices: readonly DataChoice[];
   onEdit: (edit: DataEdit) => void;
+  /** Opens the view's data in the data pane. */
+  onOpen: (data: string) => void;
 }) {
-  if (source.length === 0) return <p className="a2ui-hint">{t("ui-table-no-data")}</p>;
+  const pick = <DataPick data={data} choices={choices} onEdit={onEdit} onOpen={onOpen} />;
+  if (source.length === 0) {
+    return (
+      <section className="table-panel chart-panel" aria-label={t("ui-table-panel")}>
+        {pick}
+        <p className="a2ui-hint">{t("ui-table-no-data")}</p>
+      </section>
+    );
+  }
   const flags: Record<TableFlag, boolean> = { "header-row": headerRow, "header-column": headerColumn, striped };
   const header = source[0] ?? [];
   return (
     <section className="table-panel chart-panel" aria-label={t("ui-table-panel")}>
+      {pick}
       <div className="panel-toolbar">
         <div className="table-options chart-options" role="group" aria-label={t("ui-table-options")}>
           {FLAGS.map(({ key, label, icon }) => (
@@ -66,9 +86,11 @@ export function TableDataView({ source, headerRow, headerColumn, striped, align,
       </div>
       <ChartDataGrid
         source={source}
+        rowIds={rowIds}
+        columnIds={columnIds}
         firstColumnIsLabel={headerColumn}
         newColumnName={tableColumnName}
-        onOp={(change) => onEdit({ edit: "cells", change })}
+        onEdit={onEdit}
       />
     </section>
   );

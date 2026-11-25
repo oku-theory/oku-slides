@@ -1,6 +1,7 @@
 // An agent edit opens nothing and selects nothing; its trace in the receipt opens the data pane on the
-// edited chart. The slide `s-ventes` and the chart `e-ventes` are the ones fixtures/agent/e2e.json edits for
-// "modifie le graphique des ventes"; both are removed at the end, the suite keeps its layout and slides.
+// edited chart. The data `d-ventes`, shown by the chart `e-ventes` of slide `s-ventes`, is the one
+// fixtures/agent/e2e.json edits for "modifie le graphique des ventes"; the slide is removed at the end, the
+// suite keeps its layout and slides.
 // Against `oku-slides serve fixtures/roadmap.json` with the fake agent. Run: just e2e
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
@@ -11,6 +12,7 @@ const URL = process.env.E2E_URL ?? 'http://127.0.0.1:4870/';
 const LOG = process.env.E2E_AGENT_LOG;
 const SLIDE = 's-ventes';
 const CHART = 'e-ventes';
+const DATA = 'd-ventes';
 const TEXT = 'modifie le graphique des ventes';
 const OPEN = '.inspector, .data-pane, .agent-popover, .side-panel.open';
 
@@ -19,14 +21,17 @@ const apply = async (p, label, ops) => {
   const done = await api(p, { cmd: 'apply', label, merge: null, ops });
   assert.ok(!done.error, JSON.stringify(done));
 };
-/** The slide `s-ventes` with its chart, as 150-data-panel adds its own. */
+/** The slide `s-ventes` with its chart on data `d-ventes`, with the ids the fake agent edits. */
 const addChart = async (p) => {
   await apply(p, 'slide', [{ op: 'add_slide', defaults: true, slide: { id: SLIDE, kind: 'essentiel/content', params: { title: 'Ventes' } } }]);
+  await apply(p, 'données', [{ op: 'add_data', id: DATA, name: 'ventes', table: {
+    columns: [{ id: 'mois', name: 'Mois' }, { id: 'ventes', name: 'Ventes' }, { id: 'objectif', name: 'Objectif' }],
+    rows: [{ id: 'jan', cells: ['Jan', 3, 4] }, { id: 'fev', cells: ['Fév', 5, 6] }],
+  } }]);
   await apply(p, 'graphique', [{
     op: 'add_element', slot: { owner: { slide: SLIDE }, param: 'blocks' }, defaults: true,
     element: { id: CHART, kind: 'base/chart', params: { option: {
-      dataset: { source: [['Mois', 'Ventes', 'Objectif'], ['Jan', 3, 4], ['Fév', 5, 6]] },
-      xAxis: { type: 'category' }, series: [{ type: 'bar' }, { type: 'bar' }],
+      data: DATA, xAxis: { type: 'category' }, series: [{ type: 'bar' }, { type: 'bar' }],
     } } },
   }]);
 };

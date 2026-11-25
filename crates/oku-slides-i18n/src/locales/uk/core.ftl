@@ -5,7 +5,6 @@ op-index-out-of-range = Позиція поза допустимим діапа�
 op-invalid-value = Недопустиме значення для { $subject }
 op-invalid-value-because = Недопустиме значення для { $subject }: { $reason }
 op-value-no-value = параметр не має значення
-op-value-no-dataset = діаграма не має набору даних
 op-value-grid-tracks = у сітці від 1 до 24 стовпців і рядків
 op-value-bad-item-id = ідентифікатор пункту — непорожній текст без «/»
 op-value-missing-item-id = кожен пункт потребує ідентифікатора
@@ -158,12 +157,14 @@ op-choice-out-of-range = Значення не дозволене для { $subj
 transaction-refused = Операцію { $index } відхилено: { $reason }
 
 sources-unreadable = Вихідні дані не читаються
+deck-inline-data = Елемент { $element } зберігає дані у своїх параметрах: цей файл презентації не в поточному форматі
 sources-not-sources = Це не архів вихідних даних Oku Slides
 sources-unsupported-version = Ці вихідні дані створено новішою версією Oku Slides
 sources-bad-name = Неприпустима назва файлу у вихідних даних
 sources-missing-deck = У вихідних даних немає презентації
 sources-too-large = Вихідні дані в цьому файлі завеликі, щоб їх відкрити
 sources-too-deep = У цій презентації елементи вкладено надто глибоко
+sources-base-refused = Файл даних цієї презентації пошкоджено або його не вдалося зберегти
 
 issue-empty-slide-id = порожній ідентифікатор слайда
 issue-duplicate-slide-id = повторюваний ідентифікатор слайда
@@ -213,13 +214,54 @@ usage-range-reversed = Початкова дата { $since } пізніша з�
 pack-token-entry-invalid = Неприпустимий токен компонента «{ $path }» у маніфесті пакета.
 pack-manifest-json = Не вдається прочитати маніфест пакета: { $reason }
 pack-manifest-order = Порядок елементів пакета недійсний на «{ $name }».
+pack-manifest-data-count = Пакет містить { $count ->
+    [one] { $count } набір даних
+    [few] { $count } набори даних
+   *[many] { $count } наборів даних
+}, не більше { $max }.
+pack-manifest-data-base = Дані «{ $data }» пакета посилаються на зовнішній файл; дані пакета містять власні клітинки.
+pack-manifest-data-cells = Дані пакета містять { $count ->
+    [one] { $count } клітинку
+    [few] { $count } клітинки
+   *[many] { $count } клітинок
+}, не більше { $max }.
 issue-unsupported-link = непідтримуване посилання: { $link }
 issue-highlight-zero = кольори виділення нумеруються з 1
 issue-unreadable-element = нечитабельний елемент, відкладено
 issue-slot-repaired = елемент без відомого слота, розміщено в { $slot }
 issue-unreadable-item = нечитабельний пункт списку, відкладено
 issue-unreadable-row = нечитабельний рядок таблиці, відкладено
-issue-data-truncated = дані завеликі, обрізано під час читання
+issue-data-truncated = дані «{ $data }» завеликі, обрізано під час читання й залишено лише для читання
+issue-data-name-taken = назва даних «{ $data }» уже зайнята
+issue-data-cell-type = дані «{ $data }»: стовпець «{ $column }» містить значення не типу { $type }
+issue-data-too-many = забагато даних у презентації ({ $count }); не прочитано: { $dropped }
+issue-data-base-missing = дані «{ $data }»: бракує базового файлу, залишено лише для читання
+issue-data-edits-lost = дані «{ $data }»: зміни заміненої таблиці втрачено під час злиття
+issue-data-inline-dropped = Елемент { $element }: стара версія зберегла дані його діаграми або таблиці в його параметрах; їх вилучено
+issue-more = інші непоказані проблеми: { $count }
+op-data-deck-full = Дані презентації перевищили б ліміт: щонайбільше { $max } { $what ->
+    [row-ids] ідентифікаторів рядків
+    [overlay] змінених клітинок
+    [text] байтів тексту
+   *[data] даних
+}
+op-data-missing = Дані «{ $data }» не знайдено
+op-data-name-taken = Назва даних «{ $name }» уже зайнята
+op-data-column-in-use = Стовпець «{ $column }» показують { $views }; спершу прив’яжіть їх до інших стовпців (bind_data з columns)
+op-data-in-use = Ці дані показують { $views }{ $more ->
+    [0] {""}
+    [one] {" "}і ще { $more } подання
+    [few] {" "}і ще { $more } подання
+    [many] {" "}і ще { $more } подань
+   *[other] {" "}і ще { $more } подання
+}; спочатку видаліть їх або прив’яжіть до інших даних
+op-data-column-missing = У даних «{ $data }» немає стовпця «{ $column }»
+op-data-not-view = Параметр «{ $param }» не може показувати дані: це вміє лише параметр діаграми чи таблиці
+op-data-truncated = Дані «{ $data }» обрізано під час читання, вони лише для читання; щоб змінити їх, замініть усю таблицю
+op-data-rebind = Елемент { $subject } уже показує інші дані; щоб змінити їх, використайте bind_data
+op-data-internal = Пакет не може задавати основу чи накладку таблиці
+op-data-batch-too-large = Пакет завеликий: кількість клітинок { $count }, не більше { $max }
+op-data-inline = Елемент { $subject } містить дані у своїх параметрах; додайте їх як дані презентації через add_data і прив’яжіть через bind_data
 issue-unreadable-slide = нечитабельний слайд, відкладено
 issue-unreadable-field = нечитабельне поле { $field } презентації, скинуто
 issue-knowledge-unreadable = нечитабельний запис знань { $id }, відкладено
@@ -294,3 +336,12 @@ issue-empty-item-id = у списку { $param } є пункт без ідент
 issue-duplicate-item-id = у списку { $param } повторюється ідентифікатор пункту
 issue-invalid-item-id = у списку { $param } є ідентифікатор пункту з косою рискою
 issue-list-bounds = у списку { $param } забагато або замало пунктів
+issue-view-truncated = { $element } показує лише частину своїх даних ({ $what ->
+    [rows] рядки
+   *[columns] стовпці
+}: { $shown } з { $total })
+issue-render-budget = { $element } не намальовано: подання презентації читають більше даних, ніж дозволяє рендеринг
+issue-data-missing = { $element } посилається на дані «{ $data }», яких немає в презентації
+issue-view-column-missing = { $element } читає стовпець «{ $column }», якого немає в його даних
+issue-view-unreadable = { $element } не намальовано: його параметри не читаються
+op-replica-full = Історія презентації майже досягла { $max } МіБ — максимуму, за якого її можна знову відкрити: видаліть вміст, перш ніж додавати новий.

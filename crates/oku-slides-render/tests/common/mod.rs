@@ -7,11 +7,13 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use oku_slides_core::ops::{Op, apply_all};
 use oku_slides_core::{
-    DECK_VERSION, Deck, Namespace, PackFiles, PackKind, ThemePin, WidgetFile,
+    DECK_VERSION, Deck, Namespace, PackFiles, PackKind, ThemePin, WidgetFile, WidgetRegistry,
     kinds::{base, essentiel},
     tokens::theme_layer,
 };
+use oku_slides_data::{DataId, Dataset, GivenIds, NewTable, new_id};
 use oku_slides_render::{
     Compiled, ElementBox, Fonts, Layout, PackSet, PackWidgets, Renderer, builtin_component_defaults, builtin_pack_set,
     load_registry,
@@ -88,7 +90,7 @@ pub fn compile_with_packs(packs: &[PackWidgets], blocks: &serde_json::Value) -> 
         "version": DECK_VERSION, "params": { "title": "T" },
         "slides": [{ "id": "s", "kind": essentiel::CONTENT, "params": { "blocks": blocks } }]
     });
-    let deck = Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"));
+    let deck = deck_with_data(deck);
     r.render(&deck, &BTreeMap::new()).unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -109,11 +111,61 @@ pub fn render_with_pack(pack: &PackWidgets, blocks: &serde_json::Value) -> Layou
 
 /// Un deck d'une slide `essentiel/blank` dont le slot `elements` tient le seul `element`.
 pub fn blank_with_element(element: &serde_json::Value) -> Deck {
-    let deck = json!({
+    deck_with_data(json!({
         "version": DECK_VERSION,
         "slides": [{ "id": "s", "kind": essentiel::BLANK, "params": { "elements": [element] } }]
-    });
+    }))
+}
+
+/// The deck `deck`, each inline `dataset` lifted into deck data `d1`, `d2`… named by a `data` ref.
+///
+/// Stored decks hold no `dataset` (ADR-0015); tests still write their tables as one.
+pub fn deck_with_data(mut deck: Value) -> Deck {
+    let mut tables = Vec::new();
+    lift_datasets(&mut deck["slides"], &mut tables);
+    if !tables.is_empty() {
+        let mut holder = Deck::from_json(r#"{"slides":[]}"#).unwrap_or_else(|e| panic!("{e}"));
+        let ops = tables
+            .into_iter()
+            .enumerate()
+            .map(|(i, table)| {
+                let id = format!("d{}", i + 1);
+                let data = DataId::try_from(id.clone()).unwrap_or_else(|e| panic!("{e}"));
+                Op::AddData { id: Some(data), name: id, label: None, table }
+            })
+            .collect();
+        apply_all(&mut holder, ops, &frozen_registry()).unwrap_or_else(|e| panic!("{e:?}"));
+        let stored: Value =
+            serde_json::from_str(&holder.to_json().unwrap_or_else(|e| panic!("{e}"))).unwrap_or_else(|e| panic!("{e}"));
+        deck["data"] = stored["data"].clone();
+    }
     Deck::from_json(&deck.to_string()).unwrap_or_else(|e| panic!("deck invalide : {e}"))
+}
+
+/// Replaces each `dataset` under `v` by a `data` ref to the table pushed on `tables`.
+fn lift_datasets(v: &mut Value, tables: &mut Vec<NewTable>) {
+    match v {
+        Value::Object(map) => {
+            if let Some(dataset) = map.remove("dataset") {
+                let dataset: Dataset = serde_json::from_value(dataset).unwrap_or_else(|e| panic!("{e}"));
+                let mut table = NewTable::from_dataset(&dataset).table;
+                table.fill_ids(None, &GivenIds::default(), &mut new_id);
+                tables.push(table);
+                map.insert("data".into(), json!(format!("d{}", tables.len())));
+            }
+            map.values_mut().for_each(|x| lift_datasets(x, tables));
+        }
+        Value::Array(items) => items.iter_mut().for_each(|x| lift_datasets(x, tables)),
+        _ => {}
+    }
+}
+
+/// Base registry, read from its frozen probe (`fixtures/widgets`): enough to add data.
+fn frozen_registry() -> Arc<WidgetRegistry> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/widgets/builtin-registry.json");
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{e}"));
+    let probe = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
+    Arc::new(WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("{e}")))
 }
 
 /// La boîte de l'élément `id` sur la page 1.

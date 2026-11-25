@@ -190,3 +190,35 @@ fn layout_bounds_error_localized_in_french_is_its_key(
     assert_that!(e.localize(&fr)).is_equal_to(fr.tr_with(key, &args));
     assert_that!(fr.tr_with(key, &args)).is_not_equal_to(english().tr_with(key, &args));
 }
+
+/// Each key Task 8 adds, with sample arguments.
+fn task8_samples() -> Vec<(&'static str, Vec<(&'static str, oku_slides_i18n::FluentValue<'static>)>)> {
+    vec![
+        ("mcp-data-unknown", vec![("data", "d-absente".into())]),
+        ("session-request-too-large", vec![("mib", 8.into())]),
+    ]
+}
+
+#[test]
+fn every_task8_key_formats_in_all_locales() {
+    for locale in available() {
+        let l = Localizer::new(Some(locale));
+        for (key, args) in task8_samples() {
+            assert_that!(l.has(key)).named(&format!("{locale} {key}")).is_true();
+            let text = l.tr_with(key, &args);
+            assert_that!(text.contains('{')).named(&format!("{locale} {key}: {text}")).is_false();
+            assert_that!(text.trim().is_empty()).named(&format!("{locale} {key}")).is_false();
+        }
+    }
+    let (en, fr) = (english(), Localizer::new(Some("fr")));
+    for (key, args) in task8_samples() {
+        assert_that!(fr.tr_with(key, &args)).named(key).is_not_equal_to(en.tr_with(key, &args));
+    }
+}
+
+#[test]
+fn data_unknown_error_localized_in_french_is_its_key() {
+    let fr = Localizer::new(Some("fr"));
+    let e = super::DataUnknownSnafu { data: "d-x" }.build();
+    assert_that!(e.localize(&fr)).is_equal_to(fr.tr_with("mcp-data-unknown", &[("data", "d-x".into())]));
+}

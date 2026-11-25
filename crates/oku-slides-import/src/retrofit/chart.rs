@@ -1,10 +1,10 @@
-//! Graphique source → options canoniques d'un widget `chart` (`host(chart)`).
+//! Source chart → canonical options of a `chart` widget (`host(chart)`).
 //!
-//! Forme canonique (`oku_slides_chart::canonicalize`) : toutes les données
-//! dans `dataset`, des séries nues qui lisent chacune leur colonne. Aucune
-//! couleur n'est émise : la palette du thème cible décide.
+//! Canonical form (`oku_slides_chart::canonicalize`): all the data in
+//! `dataset`, bare series each reading its column. No color is emitted:
+//! the target theme's palette decides.
 
-use oku_slides_core::dataset_row_budget;
+use oku_slides_data::limits::{MAX_OVERLAY, MAX_ROWS};
 use serde_json::{Value, json};
 
 use crate::report::LossKind;
@@ -86,9 +86,8 @@ fn scatter_grid(c: &source::Chart) -> Vec<Vec<Value>> {
 /// the band, for a `gapWidth` of g bar widths and n bars per category (one
 /// per series, one per stack), bars touching (t-1384). The title
 /// becomes `title.text`. A number format (`0%`, currency) is lost
-/// (`ChartFormat`): the model has none. `dataset.source` is cut to the core's
-/// review budget ([`dataset_row_budget`], header included), with the
-/// `ChartTruncated` loss.
+/// (`ChartFormat`): the model has none. `dataset.source` is cut to what deck
+/// data holds ([`row_budget`] data rows after the header), with the `ChartTruncated` loss.
 pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
     if c.series.is_empty() {
         return None;
@@ -170,13 +169,21 @@ pub(crate) fn chart(c: &source::Chart) -> Option<(Value, Vec<LossKind>)> {
         option["title"] = json!({ "text": title });
     }
     if let Some(rows) = option.pointer_mut("/dataset/source").and_then(Value::as_array_mut) {
-        let budget = dataset_row_budget(rows.first().and_then(Value::as_array).map_or(0, Vec::len));
-        if rows.len() > budget {
-            rows.truncate(budget);
+        // The header, then the data rows the budget holds.
+        let kept = row_budget(rows.first().and_then(Value::as_array).map_or(0, Vec::len)) + 1;
+        if rows.len() > kept {
+            rows.truncate(kept);
             losses.push(LossKind::ChartTruncated);
         }
     }
     Some((option, losses))
+}
+
+/// Data rows (the header apart) that one deck data of `columns` columns holds: [`MAX_ROWS`],
+/// and [`MAX_OVERLAY`] cells at most. A source chart has at most 256 series (lot 1), so at
+/// most 512 columns (a scatter pair each), under `MAX_COLUMNS`: columns are never cut.
+pub(crate) fn row_budget(columns: usize) -> usize {
+    MAX_ROWS.min(MAX_OVERLAY / columns.max(1))
 }
 
 /// Writes the value axis's gridlines and scale, and the bars' gap, into `option` (t-1384).

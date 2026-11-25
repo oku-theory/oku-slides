@@ -144,6 +144,35 @@ fn families_summary_names_what_the_evaluation_needed(#[case] family: Family, #[c
     assert_that!(family.summary()).contains(word);
 }
 
+#[test]
+fn families_route_edit_data() {
+    // `edit_data` is an op of `apply`, routed with the slide edits; no `set_data` tool is left.
+    let names = oku_slides_mcp::tool_names();
+    let apply = oku_slides_mcp::tool_descriptions_for(
+        DocumentKind::Deck,
+        &oku_slides_platform::config::Settings::defaults().unwrap().knowledge,
+    )
+    .into_iter()
+    .find_map(|(name, description)| (name == "apply").then_some(description))
+    .unwrap_or_default();
+    let listed = oku_slides_mcp::tool_names_for(DocumentKind::Deck);
+    let offered = offered_families(listed.iter().map(String::as_str));
+    assert_that!(families_of("apply").to_vec()).is_equal_to(vec![Family::Edit]);
+    assert_that!(names.iter().any(|t| t == "set_data" || t == "edit_data")).is_false();
+    // The deck's `apply`, routed to Edit, is the tool that documents `edit_data`.
+    assert_that!(apply.as_str()).contains("edit_data {data, change}");
+    assert_that!(offered).contains(Family::Edit);
+}
+
+/// The data tools read the deck's data for an edit: routed with the slide edits.
+#[rstest]
+#[case::list("data_list")]
+#[case::read("data_read")]
+fn families_route_data_tools_to_edit(#[case] tool: &str) {
+    assert_that!(oku_slides_mcp::tool_names().contains(&tool.to_owned())).is_true();
+    assert_that!(families_of(tool).to_vec()).is_equal_to(vec![Family::Edit]);
+}
+
 #[rstest]
 #[case("knowledge_list")]
 #[case("knowledge_read")]

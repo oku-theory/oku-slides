@@ -1,7 +1,7 @@
-//! Tableaux dans une session : conversion depuis et vers un graphique, édition, annulation.
+//! Tables in a session: conversion from and to a chart on the same deck data, edits, undo.
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 
-#[allow(dead_code, reason = "aides partagées : chaque binaire de test n'en utilise qu'une partie")]
+#[allow(dead_code, reason = "shared helpers: each test binary uses only some of them")]
 mod common;
 
 use common::{req, session, snapshot_json};
@@ -11,10 +11,10 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 fn ok<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
-    r.unwrap_or_else(|e| panic!("échec inattendu : {e:?}"))
+    r.unwrap_or_else(|e| panic!("unexpected failure: {e:?}"))
 }
 
-/// Une session sur un deck neuf, avec le graphique `g` sur la slide 2 ; rend l'id de la slide.
+/// A fresh deck with chart `g` on slide 2; returns the slide id.
 fn with_chart(s: &mut Session) -> String {
     ok(s.new_deck());
     let slide = s.snapshot().slides[1].id.to_string();
@@ -32,10 +32,36 @@ fn slide_json(s: &mut Session, slide: &str) -> Value {
 }
 
 fn element(s: &mut Session, slide: &str) -> Value {
-    // Le deck neuf porte déjà un bloc de texte : on cherche `g` par son id.
+    // The new deck already holds a text block: `g` is found by its id.
     let json = slide_json(s, slide);
     let blocks = json["slide"]["params"]["blocks"].as_array().cloned().unwrap_or_default();
     blocks.into_iter().find(|b| b["id"] == "g").unwrap_or(Value::Null)
+}
+
+/// The pane of `g`: the data its view shows, with the ids of its rows and columns.
+fn pane(s: &mut Session, slide: &str) -> Value {
+    let text = ok(s.handle(req(json!({ "cmd": "data_panel", "slide": slide, "element": "g" }))));
+    let surface: Value = ok(serde_json::from_str(&text));
+    let messages = surface["messages"].as_array().cloned().unwrap_or_default();
+    let components =
+        messages.iter().find_map(|m| m["updateComponents"]["components"].as_array().cloned()).unwrap_or_default();
+    components
+        .into_iter()
+        .find(|c| c["component"] == "ChartData" || c["component"] == "TableData")
+        .unwrap_or(Value::Null)
+}
+
+/// The data `g` names in `param`.
+fn data_of(s: &mut Session, slide: &str, param: &str) -> Value {
+    element(s, slide)["params"][param]["data"].clone()
+}
+
+/// Applies `change` to the data `g` names in `param`.
+fn edit_data(s: &mut Session, slide: &str, param: &str, change: &Value) {
+    let data = data_of(s, slide, param);
+    ok(s.handle(req(
+        json!({ "cmd": "apply", "label": "edit", "ops": [{ "op": "edit_data", "data": data, "change": change }] }),
+    )));
 }
 
 fn show_as(s: &mut Session, slide: &str, view: &str) -> Result<String, oku_slides_session::SessionError> {
@@ -49,17 +75,30 @@ fn show_as_table_keeps_id_and_dataset() {
     ok(show_as(&mut s, &slide, "table"));
     let e = element(&mut s, &slide);
     assert_that!(e["kind"]).is_equal_to(json!(kinds::base::TABLE));
-    assert_that!(e["params"]["data"]["dataset"]["source"][2]).is_equal_to(json!(["y", 3.0, 4.0]));
+    assert_that!(pane(&mut s, &slide)["source"][2].clone()).is_equal_to(json!(["y", 3.0, 4.0]));
+}
+
+#[test]
+fn show_as_table_keeps_same_data_id() {
+    let mut s = session();
+    let slide = with_chart(&mut s);
+    let data = data_of(&mut s, &slide, "option");
+    let columns = pane(&mut s, &slide)["column_ids"].clone();
+    ok(show_as(&mut s, &slide, "table"));
+    assert_that!((data_of(&mut s, &slide, "data"), pane(&mut s, &slide)["column_ids"].clone()))
+        .is_equal_to((data.clone(), columns));
+    assert_that!(element(&mut s, &slide)["params"]["data"].get("dataset").cloned()).is_none();
+    assert_that!(data.is_string()).is_true();
 }
 
 #[test]
 fn show_as_table_makes_a_base_table_with_the_same_dataset() {
     let mut s = session();
     let slide = with_chart(&mut s);
-    let before = element(&mut s, &slide)["params"]["option"]["dataset"]["source"].clone();
+    let before = pane(&mut s, &slide)["source"].clone();
     ok(show_as(&mut s, &slide, "table"));
     let after = element(&mut s, &slide);
-    assert_that!((after["kind"].as_str(), after["params"]["data"]["dataset"]["source"].clone()))
+    assert_that!((after["kind"].as_str(), pane(&mut s, &slide)["source"].clone()))
         .is_equal_to((Some(kinds::base::TABLE), before));
 }
 
@@ -106,13 +145,14 @@ fn show_as_table_on_a_chart_beyond_table_limits_is_refused() {
     let mut s = session();
     ok(s.new_deck());
     let slide = s.snapshot().slides[1].id.to_string();
-    // 21 colonnes : une de plus que MAX_TABLE_COLUMNS.
+    // 21 columns, all read by its 20 series: one more than MAX_TABLE_COLUMNS.
     let header: Vec<Value> = (0..21).map(|i| json!(format!("c{i}"))).collect();
     let row: Vec<Value> = (0..21).map(|i| json!(i)).collect();
+    let series: Vec<Value> = (0..20).map(|_| json!({ "type": "bar" })).collect();
     ok(s.handle(req(json!({ "cmd": "apply", "label": "graphique large", "ops": [{
         "op": "add_element", "slot": { "owner": { "slide": slide }, "param": "blocks" },
         "element": { "id": "g", "kind": kinds::base::CHART, "params": { "option": {
-            "dataset": { "source": [header, row] }, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } } }] }))));
+            "dataset": { "source": [header, row] }, "xAxis": { "type": "category" }, "series": series } } } }] }))));
     let before = slide_json(&mut s, &slide);
     assert_that!(show_as(&mut s, &slide, "table").is_err()).is_true();
     assert_that!(slide_json(&mut s, &slide)).is_equal_to(before);
@@ -132,16 +172,20 @@ fn set_table_option_then_undo_restores_the_table() {
 }
 
 #[test]
-fn set_data_on_a_table_then_undo_restores_the_cell() {
+fn edit_data_on_a_table_then_undo_restores_the_cell() {
     let mut s = session();
     let slide = with_chart(&mut s);
     ok(show_as(&mut s, &slide, "table"));
-    ok(s.handle(req(json!({ "cmd": "apply", "label": "cellule", "ops": [{ "op": "set_data",
-        "target": { "slide": slide, "element": "g" }, "param": "data",
-        "change": { "op": "set_cell", "row": 1, "col": 1, "value": 9 } }] }))));
-    assert_that!(element(&mut s, &slide)["params"]["data"]["dataset"]["source"][1][1]).is_equal_to(json!(9.0));
+    let p = pane(&mut s, &slide);
+    edit_data(
+        &mut s,
+        &slide,
+        "data",
+        &json!({ "op": "set_cell", "row": p["row_ids"][0], "column": p["column_ids"][1], "value": 9 }),
+    );
+    assert_that!(pane(&mut s, &slide)["source"][1][1].clone()).is_equal_to(json!(9.0));
     ok(s.handle(req(json!({ "cmd": "undo" }))));
-    assert_that!(element(&mut s, &slide)["params"]["data"]["dataset"]["source"][1][1]).is_equal_to(json!(1.0));
+    assert_that!(pane(&mut s, &slide)["source"][1][1].clone()).is_equal_to(json!(1.0));
 }
 
 #[test]
@@ -182,9 +226,12 @@ fn show_as_round_trip_after_removing_a_middle_column_keeps_each_series_color() {
                 { "type": "line", "itemStyle": { "color": "#00ff00" } },
                 { "type": "line", "itemStyle": { "color": "#0000ff" } }] } } } }] }))));
     ok(show_as(&mut s, &slide, "table"));
-    ok(s.handle(req(json!({ "cmd": "apply", "label": "colonne", "ops": [{ "op": "set_data",
-        "target": { "slide": slide, "element": "g" }, "param": "data",
-        "change": { "op": "remove_column", "at": 2 } }] }))));
+    // The pane's removal: the table's projection drops the column first, which the data then loses.
+    let column = pane(&mut s, &slide)["column_ids"][2].clone();
+    let change = json!({ "op": "remove_column", "column": column });
+    ok(s.handle(req(
+        json!({ "cmd": "data_edit", "slide": slide, "element": "g", "edit": { "edit": "cells", "change": change } }),
+    )));
     ok(show_as(&mut s, &slide, "chart"));
     let series = element(&mut s, &slide)["params"]["option"]["series"].as_array().cloned().unwrap_or_default();
     let colors: Vec<_> = series.iter().map(|s| s["itemStyle"]["color"].clone()).collect();

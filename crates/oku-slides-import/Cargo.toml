@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 oku-slides-chart.workspace = true
 oku-slides-core.workspace = true
+oku-slides-data.workspace = true
 oku-slides-i18n.workspace = true
 roxmltree.workspace = true
 serde.workspace = true

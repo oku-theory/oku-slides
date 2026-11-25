@@ -43,6 +43,12 @@ deck's widget packs.
 - **Tables**: the same data grid; header row, first column as header, striped rows
   and per-column alignment (automatic puts numbers at the end). A chart converts to
   a table and back.
+- **Data**: a chart's or a table's data is a named deck data that several views can show;
+  a cell edited in one view's grid changes them all. The side panel's Data tab lists each
+  data with its size and views: add, rename, open it in the data pane (column types), or
+  remove it, refused while a view shows it (the refusal names them). A pasted copy of a
+  chart or table brings its own copy of the data (`name_2`). PowerPoint import keeps
+  chart and table data, cut to what one deck holds (reported as truncated).
 - **Widgets**: packs ship Typst widgets: `base` (text, card, image, shape, chart, table,
   stack) and layout packs such as `essentiel`, whose widgets are whole slides. In pack
   mode, the Widgets section of the pile opens their code next to a live preview. Rendering runs in a

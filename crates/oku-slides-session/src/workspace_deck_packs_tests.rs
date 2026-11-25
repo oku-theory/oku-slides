@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
-use oku_slides_core::{Element, Namespace};
+use oku_slides_core::Namespace;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -400,17 +400,13 @@ fn forward_is_persisted_on_both_sides() {
 }
 
 #[test]
-fn links_reach_the_owner_through_carry_and_notices() {
+fn links_reach_the_owner_through_paste_and_notices() {
     within_secs(60, || {
         let (f, pin) = deck_packs_resumed();
         let p = f.deck_pack_tab(pin.id);
         let other = f.new_tab();
-        let element: Element = f.with("t-1", |s| {
-            let found = s.deck().slides.iter().find_map(|x| x.locate("c-1").map(|l| l.element.clone()));
-            found.unwrap_or_else(|| panic!("c-1"))
-        });
         let f = f.restart(|_, _| {});
-        f.send(json!({"cmd": "carry_assets", "from": other, "to": "t-1", "element": element}));
+        f.send(json!({"cmd": "paste_element", "from": other, "to": "t-1", "label": "x", "ops": []}));
         assert_that!(links_in(&f, "t-1")).is_equal_to(vec![p.clone()]);
         let f = f.restart(|_, _| {});
         let session = Workspace::lock(&f.ws).session("t-1").unwrap_or_else(|e| panic!("{}", e.one_line()));

@@ -75,6 +75,7 @@ fn peer(deck: &Deck, snap: &[u8], author: &str) -> SourceBundle {
         std::collections::BTreeMap::default(),
         std::collections::BTreeMap::default(),
         std::collections::BTreeMap::default(),
+        std::collections::BTreeSet::default(),
     );
     b.set_author(Some(author.into()));
     let _ = deck;
@@ -133,6 +134,7 @@ fn merge_counts_nameless_peers_as_anonymous() {
         std::collections::BTreeMap::default(),
         std::collections::BTreeMap::default(),
         std::collections::BTreeMap::default(),
+        std::collections::BTreeSet::default(),
     );
     b.apply(titled(&deck, "Un"), "Un", None).unwrap();
     let (report, _) = a.merge(b).unwrap();

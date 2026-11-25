@@ -17,6 +17,7 @@
 //! Ordre de démarrage d'un binaire : journaux → réglages → infrastructure →
 //! état de l'app.
 
+pub mod bases;
 pub mod config;
 pub mod config_write;
 pub mod errors;
@@ -36,11 +37,12 @@ mod test_support;
 pub mod updates;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use oku_slides_i18n::{LiveLocalizer, Localizer};
 use snafu::{Backtrace, ResultExt, Snafu};
 
+use crate::bases::{BaseStore, BaseStoreError};
 use crate::config::{ConfigError, Settings};
 use crate::storage::{Storage, StorageError};
 
@@ -103,6 +105,8 @@ pub struct Platform {
     ///
     /// The process's own, unless [`Platform::with_login_path`] put the login shell's first.
     pub program_path: ProgramPath,
+    /// The data base store, opened on first use and shared by every clone.
+    bases: Arc<Mutex<Option<BaseStore>>>,
 }
 
 /// Démarrage impossible : réglages ou fichiers.
@@ -166,7 +170,26 @@ impl Platform {
             render_launch: RenderLaunch::InProcess,
             program: None,
             program_path: ProgramPath::fixed(std::env::var_os("PATH")),
+            bases: Arc::default(),
         })
+    }
+
+    /// The data base store in the data folder, created on first call; clones share it.
+    ///
+    /// Lazy: a process that never opens a deck (dictation, the local agent) writes nothing.
+    ///
+    /// # Errors
+    ///
+    /// If the store's folders cannot be created.
+    pub fn bases(&self) -> Result<BaseStore, BaseStoreError> {
+        let mut slot = self.bases.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(store) = &*slot {
+            return Ok(store.clone());
+        }
+        let sources = &self.settings.sources;
+        let store = BaseStore::new(self.storage.clone(), &self.settings.paths.data(), sources.max_store_bytes())?;
+        *slot = Some(store.clone());
+        Ok(store)
     }
 
     /// Cette plateforme, dont l'agent local se lance avec `program` (tests).

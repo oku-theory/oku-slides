@@ -1,10 +1,21 @@
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-use crate::{Action, Component, ComponentKind, Dynamic, SeriesSwatch};
+use crate::{Action, Component, ComponentKind, DataChoice, DataRef, Dynamic, SeriesSwatch};
 
 fn edit_action() -> Action {
     Action::event("data", [("edit", Dynamic::path("/edit"))])
+}
+
+fn data() -> DataRef {
+    DataRef { id: "d1".into(), name: "ventes".into(), label: None, users: 2 }
+}
+
+fn choices() -> Vec<DataChoice> {
+    vec![
+        DataChoice { id: "d1".into(), name: "ventes".into(), label: None },
+        DataChoice { id: "d2".into(), name: "budget".into(), label: Some("Budget".into()) },
+    ]
 }
 
 fn chart() -> Component {
@@ -13,10 +24,14 @@ fn chart() -> Component {
         ComponentKind::ChartData {
             kind: Some("bar".into()),
             source: vec![vec![json!("Mois"), json!("Ventes")], vec![json!("Jan"), json!(3)]],
+            row_ids: vec!["jan".into()],
+            column_ids: vec!["mois".into(), "ventes".into()],
             checkbox_columns: vec![],
             stacked: None,
             series: vec![SeriesSwatch { name: "Ventes".into(), color: Some("#1f4e79".into()) }],
             palette: vec!["#1f4e79".into()],
+            data: data(),
+            choices: choices(),
             edit: Dynamic::path("/edit"),
             action: edit_action(),
         },
@@ -28,10 +43,14 @@ fn table() -> Component {
         "data",
         ComponentKind::TableData {
             source: vec![vec![json!("A"), json!("B")], vec![json!(1), Value::Null]],
+            row_ids: vec!["r1".into()],
+            column_ids: vec!["a".into(), "b".into()],
             header_row: true,
             header_column: false,
             striped: true,
             align: vec!["auto".into(), "end".into()],
+            data: data(),
+            choices: choices(),
             edit: Dynamic::path("/edit"),
             action: edit_action(),
         },
@@ -39,50 +58,57 @@ fn table() -> Component {
 }
 
 #[test]
-fn chart_data_json_round_trip_is_identity() {
+fn chart_grid_json_round_trip_is_identity() {
     let json = serde_json::to_value(chart()).unwrap();
     assert_that!(serde_json::from_value::<Component>(json).ok()).is_equal_to(Some(chart()));
 }
 
 #[test]
-fn chart_data_json_names_the_component_chart_data() {
+fn chart_grid_json_names_its_component() {
     let json = serde_json::to_value(chart()).unwrap();
     assert_that!(json["component"].clone()).is_equal_to(json!("ChartData"));
 }
 
 #[test]
-fn chart_data_json_omits_an_absent_stack() {
+fn chart_grid_json_omits_an_absent_stack() {
     let json = serde_json::to_value(chart()).unwrap();
     assert_that!(json.get("stacked")).is_none();
 }
 
 #[test]
-fn table_data_json_round_trip_is_identity() {
+fn table_grid_json_round_trip_is_identity() {
     let json = serde_json::to_value(table()).unwrap();
     assert_that!(serde_json::from_value::<Component>(json).ok()).is_equal_to(Some(table()));
 }
 
 #[test]
-fn chart_data_agent_allowed_is_false() {
+fn chart_grid_agent_allowed_is_false() {
     assert_that!(chart().agent_allowed()).is_false();
 }
 
 #[test]
-fn table_data_agent_allowed_is_false() {
+fn table_grid_agent_allowed_is_false() {
     assert_that!(table().agent_allowed()).is_false();
 }
 
 #[test]
-fn chart_data_actions_are_its_data_action() {
+fn chart_grid_actions_are_its_data_action() {
     assert_that!(chart().kind.actions()).is_equal_to(vec![&edit_action()]);
 }
 
 #[test]
-fn table_data_without_action_is_none() {
+fn table_grid_without_action_is_none() {
     assert_that!(table().kind.without_action()).is_none();
 }
 
 #[test]
-fn chart_data_has_no_children() {
+fn chart_grid_has_no_children() {
     assert_that!(chart().kind.children()).is_empty();
+}
+
+#[test]
+fn table_grid_json_omits_an_absent_label() {
+    let json = serde_json::to_value(table()).unwrap();
+    assert_that!((json["data"].clone(), json["choices"][0].clone()))
+        .is_equal_to((json!({ "id": "d1", "name": "ventes", "users": 2 }), json!({ "id": "d1", "name": "ventes" })));
 }

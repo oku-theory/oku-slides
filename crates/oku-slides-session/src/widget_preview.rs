@@ -322,7 +322,9 @@ impl Session {
         let kind = qualify(&t.namespace, name.as_str());
         let Some(schema) = probe.registry.get(&kind).cloned() else { return Ok(no_schema(&name)) };
         let inputs = self.preview_inputs(pack, &name, &schema, params)?;
-        let deck = self.preview_deck(&schema, &inputs, span);
+        let mut deck = self.preview_deck(&schema, &inputs, span);
+        // The example values name the pack's example data alone, never the open deck's.
+        deck.data = self.example_data(pack)?;
         let pack = probe.pack.as_ref();
         let set = self.preview_set(&t.namespace, pack)?;
         let registry = self.registry_for(&set)?;

@@ -42,6 +42,7 @@ fn cheap_pack(library: &PackLibrary) -> Op {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let note = WidgetFile::parse("note").unwrap_or_else(|| panic!("nom"));
     let files = manifest

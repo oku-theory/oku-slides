@@ -14,7 +14,6 @@ fn invalid(reason: ValueReason) -> OpError {
 /// `op-invalid-value` dit pourquoi la valeur est refusée, dans la langue de l'utilisateur.
 #[rstest]
 #[case::no_value(ValueReason::NoValue, "the parameter has no value", "le paramètre n'a pas de valeur")]
-#[case::no_dataset(ValueReason::NoDataset, "the chart has no dataset", "le graphique n'a pas de jeu de données")]
 #[case::grid_tracks(
     ValueReason::GridTracks,
     "a grid has 1 to 24 columns and rows",
@@ -308,4 +307,14 @@ fn token_entry_error_localizes_with_its_key_and_path() {
         assert_that!(err.localize(l)).is_equal_to(l.tr_with("pack-token-entry-invalid", &[("path", "card.bg".into())]));
     }
     assert_that!(err.localize(english())).is_not_equal_to(err.localize(&Localizer::new(Some("fr"))));
+}
+
+/// A missing data refuses with `op-data-missing`, naming the data, in the user's language.
+#[test]
+fn data_missing_names_the_data_in_the_user_language() {
+    let err = OpError::data_missing("d-ventes");
+    assert_that!(err.kind()).is_equal_to(OpErrorKind::DataRefused(super::DataFaultKind::Missing));
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(err.localize(&fr)).contains("d-ventes");
+    assert_that!(err.localize(&fr)).is_equal_to(fr.tr_with("op-data-missing", &[("data", "d-ventes".into())]));
 }

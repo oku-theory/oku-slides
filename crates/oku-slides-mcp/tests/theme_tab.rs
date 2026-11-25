@@ -70,7 +70,7 @@ async fn theme_tab_apply_of_set_theme_is_refused() {
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
     let r = call(&c, "apply", json!({ "ops": [{ "op": "set_theme", "theme": theme_ref("pro") }] })).await;
     assert_that!(r.is_error).is_equal_to(Some(true));
-    assert_that!(text_of(&r)).is_equal_to(wrong_document(&h, "theme"));
+    assert_that!(untrusted_error_of(&r)).is_equal_to(wrong_document(&h, "theme"));
     let outline = json_of(&call(&c, "deck_outline", json!({})).await);
     assert_that!(outline["edited_theme"]["name"].as_str()).is_equal_to(Some("Papier"));
 }

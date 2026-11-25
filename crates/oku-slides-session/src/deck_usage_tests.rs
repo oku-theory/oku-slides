@@ -29,7 +29,7 @@ pub(crate) fn record(n: u128) -> UsageRecord {
 /// The ledger of the file at `path`, as a reader sees it.
 pub(crate) fn ledger_in(path: &std::path::Path) -> UsageLedger {
     let s = session();
-    crate::read_document(&s.storage, path, s.source_limits, &s.registry)
+    crate::read_document(&s.storage, path, s.source_limits, &s.registry, Some(&s.bases.files()))
         .unwrap_or_else(|e| panic!("{}: {}", path.display(), e.one_line()))
         .sources
         .usage

@@ -56,7 +56,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use oku_slides_core::{Issue, SourceBundle, apply_all, validate};
+use oku_slides_core::{Issue, Origin, SourceBundle, apply_all, validate};
 use oku_slides_import::CheckedPlan;
 use oku_slides_platform::Platform;
 use oku_slides_platform::config::ImportWitness;
@@ -66,7 +66,7 @@ use crate::ProbedWidgets;
 
 pub use diff::{ImportDiff, MARGIN, ZOOM};
 pub use error::{ImportError, ImportErrorKind};
-use error::{LibrarySnafu, OpSnafu, RegistrySnafu, Result, SourcesSnafu, ThresholdSnafu};
+use error::{LibrarySnafu, OpSnafu, PrepareSnafu, RegistrySnafu, Result, SourcesSnafu, ThresholdSnafu};
 use input::Input;
 pub use overflow::note_overflows;
 pub use queue::LISTED;
@@ -216,12 +216,15 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
     // Les packs intégrés `base` et `essentiel` : la cible du hi-fi et le premier replica de l'import.
     let base = oku_slides_render::builtin_registry(fonts).context(RegistrySnafu)?;
     let name = request.pptx.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    let localizer = platform.live_localizer.current();
+    // Lifted data takes its default column names in the interface's language, stored as is.
+    let labels = oku_slides_chart::ChartLabels::new(&localizer);
     let prepared = match &request.target {
         ImportTarget::Retrofit { layouts, theme } => {
-            retrofit::prepare(platform, &base, (layouts, theme.as_deref(), request.packs), &input)?
+            retrofit::prepare(platform, &base, (layouts, theme.as_deref(), request.packs), &labels, &input)?
         }
         ImportTarget::Hifi { .. } => {
-            let args = hifi::HifiArgs { fonts, base: &base, name, system_fonts: request.system_fonts };
+            let args = hifi::HifiArgs { fonts, base: &base, labels: &labels, name, system_fonts: request.system_fonts };
             hifi::prepare(platform, args, &input)?
         }
     };
@@ -234,8 +237,10 @@ pub fn import(platform: &Platform, fonts: &Fonts, request: &ImportRequest) -> Re
     // Le thème du plan (Neutre en hi-fi) vient sans épinglages : sa fermeture est prise dans la bibliothèque.
     let themes = crate::ThemeLibrary::user(platform);
     crate::deck_theme::embed_op_closures(&themes, &mut bundle, &mut ops).context(LibrarySnafu)?;
+    // The plan's own `prepared` already lifted its view data and reported it.
+    let ops = crate::data_ops::prepare(&deck, &widgets.registry, &labels, ops, Origin::Host).context(PrepareSnafu)?.ops;
     apply_all(&mut deck, ops, &widgets.registry).context(OpSnafu)?;
-    let label = platform.live_localizer.current().tr("session-import-label");
+    let label = localizer.tr("session-import-label");
     bundle.apply(deck, &label, None).context(SourcesSnafu)?;
     // The whole deck must reopen: packs, themes and history join the plan's estimate here.
     let limits = crate::files::source_limits(&platform.settings);

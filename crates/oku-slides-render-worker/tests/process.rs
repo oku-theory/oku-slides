@@ -37,6 +37,8 @@ fn worker(timeout_ms: u64, memory_mib: u64) -> RenderWorker {
             max_widget_kib: 256,
             max_widgets: 64,
             max_guide_chars: 4000,
+            data_timeout_ms: 120_000,
+            data_memory_mib: 4096,
         },
     )
 }
@@ -144,4 +146,39 @@ fn process_probe_pack_with_a_file_that_allocates_gives_a_diagnostic_and_accuses_
     assert_that!(probe.files[&gros].is_valid()).is_false();
     assert_that!(probe.pack).is_none();
     assert_that!(w.is_faulty(&pack)).is_false();
+}
+
+/// → the sandboxed worker (sandbox-exec on macOS) opens a base from the store's folder the host
+/// named in its Hello, and answers its rows.
+#[cfg(target_os = "macos")]
+#[test]
+fn worker_reads_base_through_sandbox() {
+    use oku_slides_data::{Data, DataCell, DataKind};
+    use oku_slides_platform::bases::BaseStore;
+    use oku_slides_platform::storage::Storage;
+    use oku_slides_render_worker::DataWorker;
+
+    let dir = tempfile::tempdir().unwrap();
+    let store = BaseStore::new(Storage::local().unwrap(), dir.path(), 1 << 30).unwrap();
+    let (table, file) = oku_slides_data::test_support::based_table(3, 2);
+    store.adopt(file.path(), 1 << 30).unwrap();
+    let data = Data { name: "sales".into(), label: None, inline: false, kind: DataKind::Manual, table };
+    let settings = RenderSettings {
+        timeout_ms: 30_000,
+        probe_budget_ms: 30_000,
+        memory_mib: 4096,
+        max_frame_mib: 256,
+        max_widget_kib: 256,
+        max_widgets: 64,
+        max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
+    };
+    let worker = DataWorker::new(launch(), &settings, store);
+
+    let read = worker.read(&data, None, 0..3, 100).unwrap().unwrap();
+
+    // Header, then the three rows; row 2's second column is 2 × 1000 + 1 (`based_table`).
+    assert_that!(read.dataset.source).has_length(4);
+    assert_that!(read.dataset.source[3][1].clone()).is_equal_to(DataCell::Number(2001.0));
 }

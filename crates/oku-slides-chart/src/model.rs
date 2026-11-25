@@ -4,16 +4,19 @@
 //! de ce modèle. C'est ici que se résolvent `dataset` + `encode`, les données
 //! en ligne et les valeurs par défaut d'ECharts.
 
-use crate::data_ops::validate_ids;
+use oku_slides_data::{DataCell, Dataset};
+
 use crate::error::{ChartError, InconsistentSnafu, InvalidOptionSnafu, Result};
+use crate::ids::validate_ids;
 use crate::labels::ChartLabels;
 use crate::option::{
-    Axis, AxisType, Cell, ChartOption, ColumnRef, DataItem, Dataset, HAlign, ItemValue, Length, NamedItem, Radius,
-    RoseType, Series, SeriesType,
+    Axis, AxisType, ChartOption, ColumnRef, DataItem, HAlign, ItemValue, Length, NamedItem, Radius, RoseType, Series,
+    SeriesType,
 };
+use crate::refs::{check_columns, check_ref_null};
 use crate::scale::{check_axis, stacked_extent, value_scale};
 use oku_slides_i18n::Message;
-use snafu::ResultExt;
+use snafu::{ResultExt, ensure};
 
 /// Which of the bottom and left axes a chart draws.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,11 +169,42 @@ pub struct RadarSeries {
 ///
 /// # Errors
 ///
-/// Fails if the JSON leaves the v1 subset or if the options are inconsistent.
+/// Fails if the JSON leaves the v1 subset, sets `data` to `null`, has invalid
+/// `columns`, or if the options are inconsistent. Options without inline data
+/// are checked for their shape only: their data come from the deck, and
+/// options without any data are left to the caller ([`require_data_in_chart`]).
 pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
+    check_ref_null(json)?;
     let option: ChartOption = serde_json::from_value(json.clone()).context(InvalidOptionSnafu)?;
-    normalize(&option, ChartLabels::english())?;
+    check_columns(option.data.as_ref(), option.columns.as_deref())?;
+    check_option(&option)?;
     Ok(option)
+}
+
+/// Normalizes options carrying inline data; checks the shape of the others.
+pub(crate) fn check_option(option: &ChartOption) -> Result<()> {
+    if option.has_inline() { normalize(option, ChartLabels::english()).map(|_| ()) } else { check_shape(option) }
+}
+
+/// Refuses options that have neither a data ref nor inline data.
+///
+/// # Errors
+///
+/// Fails with the reason `normalize` gives for a chart without data.
+pub fn require_data_in_chart(option: &ChartOption) -> Result<()> {
+    if option.data.is_none() && !option.has_inline() {
+        normalize(option, ChartLabels::english())?;
+    }
+    Ok(())
+}
+
+/// Checks what does not depend on the data: series, colors, axes, bar gap.
+fn check_shape(option: &ChartOption) -> Result<()> {
+    ensure!(!option.series.is_empty(), InconsistentSnafu { reason: Message::new("chart-no-series") });
+    check_colors(option)?;
+    check_axis(option.x_axis.as_ref())?;
+    check_axis(option.y_axis.as_ref())?;
+    check_bar_gap(option)
 }
 
 /// Resolves the options into a model.
@@ -182,15 +216,12 @@ pub fn parse_option(json: &serde_json::Value) -> Result<ChartOption> {
 /// Fails if the options are inconsistent: no series, mixed series
 /// types, column not found, invalid color, invalid `dataset` identifiers…
 pub fn normalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartModel> {
+    check_shape(option)?;
     let first = option.series.first().ok_or_else(|| inconsistent(Message::new("chart-no-series")))?;
-    check_colors(option)?;
-    check_axis(option.x_axis.as_ref())?;
-    check_axis(option.y_axis.as_ref())?;
-    check_bar_gap(option)?;
     if let Some(d) = &option.dataset {
         validate_ids(d)?;
     }
-    let table = option.dataset.as_ref().map(Table::new).transpose()?;
+    let table = option.dataset.as_ref().map(Table::new);
 
     let kind = match first.kind {
         SeriesType::Bar | SeriesType::Line => ChartKind::Cartesian(cartesian(option, table.as_ref(), labels)?),
@@ -257,17 +288,16 @@ pub(crate) fn inconsistent(reason: Message) -> ChartError {
     InconsistentSnafu { reason }.build().into()
 }
 
-/// Vue sur `dataset.source` : en-têtes + lignes de données.
+/// View on `dataset.source`: headers and data rows; an empty source has neither.
 pub(crate) struct Table<'a> {
     pub headers: Vec<String>,
-    pub rows: &'a [Vec<Cell>],
+    pub rows: &'a [Vec<DataCell>],
 }
 
 impl<'a> Table<'a> {
-    pub fn new(dataset: &'a Dataset) -> Result<Self> {
-        let (header, rows) =
-            dataset.source.split_first().ok_or_else(|| inconsistent(Message::new("chart-dataset-header")))?;
-        Ok(Table { headers: header.iter().map(Cell::as_label).collect(), rows })
+    pub fn new(dataset: &'a Dataset) -> Self {
+        let (header, rows) = dataset.source.split_first().map_or((&[][..], &[][..]), |(h, r)| (h.as_slice(), r));
+        Table { headers: header.iter().map(DataCell::as_label).collect(), rows }
     }
 
     pub fn column(&self, r: &ColumnRef) -> Result<usize> {
@@ -298,11 +328,11 @@ impl<'a> Table<'a> {
     }
 
     fn labels(&self, col: usize) -> Vec<String> {
-        self.rows.iter().map(|r| r.get(col).map(Cell::as_label).unwrap_or_default()).collect()
+        self.rows.iter().map(|r| r.get(col).map(DataCell::as_label).unwrap_or_default()).collect()
     }
 
     fn numbers(&self, col: usize) -> Vec<Option<f64>> {
-        self.rows.iter().map(|r| r.get(col).and_then(Cell::as_f64)).collect()
+        self.rows.iter().map(|r| r.get(col).and_then(DataCell::as_f64)).collect()
     }
 }
 
@@ -415,7 +445,7 @@ fn waterfall(option: &ChartOption, table: Option<&Table<'_>>) -> Result<Waterfal
     let col = t.resolve(s.encode.as_ref().and_then(|e| e.y.as_ref()), 1)?;
     let name = s.name.clone().unwrap_or_else(|| t.headers[col].clone());
     let steps = t.numbers(col);
-    let totals = t.rows.iter().map(|r| r.get(col + 1).is_some_and(Cell::is_checked)).collect::<Vec<_>>();
+    let totals = t.rows.iter().map(|r| r.get(col + 1).is_some_and(DataCell::is_checked)).collect::<Vec<_>>();
     let val_axis = option.y_axis.as_ref();
     // Where the engine keeps its own scale (no automatic step), charts-rs stops the
     // axis right at the highest bar and cuts its label: round beyond the running sums.

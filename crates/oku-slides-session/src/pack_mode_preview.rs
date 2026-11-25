@@ -8,13 +8,17 @@
 //! est refusée (`PackModePreview`), et l'écriture ou le retrait d'un fichier
 //! de widget les réaligne (`realign_widget_previews`).
 
+use std::collections::BTreeSet;
+
 use oku_slides_core::{
     Deck, Element, Op, PackFiles, PackKind, ParamValue, Slide, WidgetFile, item_order, kinds, qualify,
 };
+use oku_slides_data::DataId;
 use oku_slides_i18n::Localizer;
 use snafu::ensure;
 
 use crate::error::PackModePreviewSnafu;
+use crate::example_text::localized_data;
 use crate::pack::PackManifest;
 use crate::pack_mode::manifest_example_params;
 use crate::{Mode, Result, Session};
@@ -60,6 +64,7 @@ pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, 
     if files.kind() != PackKind::Widgets {
         return;
     }
+    deck.data = localized_data(manifest.id, &manifest.data, l);
     let (mut kept, others): (Vec<Slide>, Vec<Slide>) =
         std::mem::take(&mut deck.slides).into_iter().partition(|s| s.id.starts_with(PREVIEW_PREFIX));
     deck.slides = others;
@@ -74,14 +79,26 @@ pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, 
     oku_slides_core::canonicalize(deck);
 }
 
-/// Les slides que vise `op`.
-fn op_slides(op: &Op) -> Vec<&str> {
+/// The data whose every view `op` changes: an edit, a rename or a retype.
+fn changed_data(op: &Op) -> Option<&DataId> {
     match op {
+        Op::EditData { data, .. } | Op::RenameData { data, .. } | Op::SetColumnType { data, .. } => Some(data),
+        _ => None,
+    }
+}
+
+/// The slides `op` changes on `deck`: a data change changes every slide showing the data.
+fn op_slides(deck: &Deck, op: &Op) -> Vec<String> {
+    let slides: Vec<&str> = match op {
+        Op::EditData { data, .. } | Op::RenameData { data, .. } | Op::SetColumnType { data, .. } => {
+            return deck.data_users(data).into_iter().map(|v| v.slide).collect();
+        }
         Op::SetParam { target, .. }
         | Op::SetKind { target, .. }
         | Op::SetChartOption { target, .. }
         | Op::SetTableOption { target, .. }
-        | Op::SetData { target, .. }
+        | Op::BindData { target, .. }
+        | Op::PutViewData { target, .. }
         | Op::EditList { target, .. } => vec![&target.slide],
         Op::SetStyle { slide, .. }
         | Op::ReplaceStyle { slide, .. }
@@ -104,19 +121,29 @@ fn op_slides(op: &Op) -> Vec<&str> {
         | Op::UnsetToken { .. }
         | Op::SetTokens { .. }
         | Op::SetVar { .. }
+        | Op::AddData { .. }
+        | Op::RemoveData { .. }
         | Op::KnowledgeWrite { .. }
         | Op::KnowledgeEdit { .. }
         | Op::KnowledgeMove { .. }
         | Op::KnowledgeDelete { .. } => Vec::new(),
-    }
+    };
+    slides.into_iter().map(str::to_owned).collect()
 }
 
 impl Session {
-    /// Refuse, en édition d'un pack de widgets, une transaction qui touche une slide d'aperçu.
+    /// Refuses, while editing a widget pack, a batch that changes a preview slide.
     pub(crate) fn ensure_no_preview_ops(&self, ops: &[Op]) -> Result<()> {
         let Mode::Pack { edit, .. } = &self.mode else { return Ok(()) };
         let previews = edit.kind == PackKind::Widgets;
-        let refused = previews && ops.iter().flat_map(op_slides).any(|s| s.starts_with(PREVIEW_PREFIX));
+        // A data's views are walked once: later edits of it change the same slides.
+        let mut edited = BTreeSet::new();
+        let refused = previews
+            && ops
+                .iter()
+                .filter(|op| changed_data(op).is_none_or(|data| edited.insert(data)))
+                .flat_map(|op| op_slides(self.deck(), op))
+                .any(|s| s.starts_with(PREVIEW_PREFIX));
         ensure!(!refused, PackModePreviewSnafu);
         Ok(())
     }

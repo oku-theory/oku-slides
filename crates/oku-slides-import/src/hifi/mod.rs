@@ -37,6 +37,7 @@ mod widget;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use oku_slides_chart::ChartLabels;
 use oku_slides_core::{Deck, Namespace, Op, PackKind, PackPin, Slide, WidgetRegistry, apply_all, kinds};
 use serde_json::Value;
 use uuid::Uuid;
@@ -51,9 +52,10 @@ use self::table::{TableLook, first_table};
 use self::theme::{masterless_tokens, theme_colors, theme_master, theme_tokens};
 use self::typst::GenCtx;
 use crate::coverage::coverage;
+use crate::deck_budget::{DeckBudget, report_cuts};
 use crate::error::ImportError;
 use crate::fonts::{FontCatalog, resolve, sought};
-use crate::plan::ImportPlan;
+use crate::plan::{ImportPlan, ItemTarget};
 use crate::report::{ImportReport, Loss, LossKind, Mode, SlideReport};
 use crate::retrofit::text::note;
 use crate::source::{SourceDeck, ThemeFonts};
@@ -80,6 +82,8 @@ pub struct HifiTarget<'a> {
     pub created: String,
     /// Les bornes de la sonde des packs : le pack généré s'y tient.
     pub limits: PackLimits,
+    /// Chart labels in the user's language: the default column names of lifted data.
+    pub labels: &'a ChartLabels,
 }
 
 /// The plan that builds the faithful Oku deck of `deck`.
@@ -130,8 +134,12 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan,
     let mut examples = BTreeMap::new();
     let mut slides = Vec::new();
     let mut dropped: BTreeSet<&str> = pack.dropped.iter().map(String::as_str).collect();
+    // The plan fills a new deck.
+    let mut budget = DeckBudget::of(&Deck::empty());
     for src in &deck.slides {
-        let Projected { slide, mut report, assets: drawn, origins: o, targets: t } = project_slide(src, &cx);
+        let Projected { mut slide, mut report, assets: drawn, origins: o, targets: t } = project_slide(src, &cx);
+        let cuts = budget.fit(&registry, &mut slide);
+        report_cuts(&mut report, &cuts, &element_origins(&t));
         // Un layout sans widget est dit une fois, à sa première slide.
         if let Some(layout) = src.layout.as_deref().and_then(|l| dropped.take(l))
             && let Some(l) = deck.layouts.iter().find(|x| x.id == layout)
@@ -171,23 +179,38 @@ pub fn project(deck: &SourceDeck, target: &HifiTarget<'_>) -> Result<ImportPlan,
     plan.schemas = pack.schemas().cloned().collect();
     plan.fonts = fonts.files;
 
-    // La couverture ne dépend pas du thème : sans la fermeture que la session remplit, le cœur
-    // refuserait `set_theme`, que le deck de mesure prend donc sans thème.
-    let measured = plan
-        .ops
-        .iter()
+    // Coverage does not depend on the theme: without the closure the session fills in, the core
+    // would refuse `set_theme`, so the measured deck takes it without a theme. The ops are
+    // prepared on that deck too (a refused op would stop the lifting of inline data), then
+    // `set_theme` gets its target theme back.
+    let measured: Vec<Op> = std::mem::take(&mut plan.ops)
+        .into_iter()
         .map(|op| match op {
             Op::SetTheme { .. } => Op::SetTheme { theme: None, themes: BTreeMap::new() },
-            op => op.clone(),
+            op => op,
         })
         .collect();
+    let measured =
+        crate::plan::prepared(&Deck::empty(), &registry, target.labels, measured, &mut plan.report.warnings)?;
     let mut scratch = Deck::empty();
-    // Valide par construction : un refus du cœur est un bogue, rendu en erreur d'import.
-    apply_all(&mut scratch, measured, &registry).map_err(crate::error::plan_refused)?;
+    // Valid by construction: a refusal of the core is a bug, given as an import error.
+    apply_all(&mut scratch, measured.clone(), &registry).map_err(crate::error::plan_refused)?;
+    plan.ops = measured
+        .into_iter()
+        .map(|op| match op {
+            Op::SetTheme { .. } => theme_op(target),
+            op => op,
+        })
+        .collect();
     plan.report.coverage = Some(coverage(deck, &scratch, &registry, &origins, None, &|_| false));
     plan.origins = origins;
     plan.groups = groups::repeated(deck);
     Ok(plan)
+}
+
+/// The op that sets the target theme.
+fn theme_op(target: &HifiTarget<'_>) -> Op {
+    Op::SetTheme { theme: Some(target.theme.clone()), themes: BTreeMap::new() }
 }
 
 /// The plan's leading ops, before the slides' ones.
@@ -205,7 +228,7 @@ fn head_ops(target: &HifiTarget<'_>, deck_pack: PackPin, tokens: Value, lang: Op
             pin: target.essentiel.clone(),
         },
         // The theme closure (`themes`) is the session's, which reads the manifests.
-        Op::SetTheme { theme: Some(target.theme.clone()), themes: BTreeMap::new() },
+        theme_op(target),
         Op::SetTokens { tokens },
         Op::AddPack { kind: PackKind::Layouts, namespace: Namespace::deck_layouts(), pin: deck_pack },
     ];
@@ -239,6 +262,18 @@ fn theme_families<'a>(deck: &'a SourceDeck) -> Vec<&'a str> {
         [f.major.as_str(), f.minor.as_str()].into_iter().chain(scripts).collect()
     };
     fonts.map(all).unwrap_or_default()
+}
+
+/// The (item, element) pairs of a slide's `targets`, as [`report_cuts`] reads them.
+fn element_origins(targets: &[(String, ItemTarget)]) -> Vec<(String, String)> {
+    targets
+        .iter()
+        .filter_map(|(item, target)| match target {
+            ItemTarget::Elements(ids) => Some(ids.iter().map(move |id| (item.clone(), id.clone()))),
+            ItemTarget::Param(_) => None,
+        })
+        .flatten()
+        .collect()
 }
 
 /// Attache chaque perte du pack à la première slide de son layout, sinon de

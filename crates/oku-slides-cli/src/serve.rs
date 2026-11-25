@@ -17,7 +17,7 @@ use oku_slides_agent::{AgentCommand, ReportFrom, Stack, Voices};
 use oku_slides_platform::{Limits, Platform, serve_connections};
 use oku_slides_render::Fonts;
 use oku_slides_session::{
-    AGENT_WINDOW_LABEL, Localize, Workspace, WorkspaceOutcome, WorkspaceRequest, check_agent_request,
+    AGENT_WINDOW_LABEL, Localize, MAX_APPLY_BYTES, Workspace, WorkspaceOutcome, WorkspaceRequest, check_agent_request,
     check_agent_workspace,
 };
 use oku_slides_stt::{Speaker, Stt};
@@ -51,6 +51,9 @@ const SERVE_DIR: &str = "serve";
 
 /// Taille maximale du corps d'une requête `/api*` : au-delà, 413.
 const MAX_BODY: u64 = 64 * 1024 * 1024;
+
+/// The routes whose requests may apply ops: their body stops at `MAX_APPLY_BYTES`, not `MAX_BODY`.
+const APPLY_ROUTES: [&str; 2] = ["/api", "/api/workspace"];
 
 /// Délai laissé aux requêtes en cours à l'arrêt, puis au runtime pour finir
 /// ses tâches : au-delà, elles sont abandonnées.
@@ -226,13 +229,20 @@ impl Shared {
                     Err(e) => refused(e),
                     Ok(()) if would_empty(&self.workspace, &r) => last_window(),
                     Ok(()) => {
+                        let changed_deck = r.changed_deck().map(str::to_owned);
                         let (outcome, closed) = Workspace::closed_by(&self.workspace, |ws| Workspace::apply(ws, r));
                         // Onglets fermés (ou vierges remplacés) : leur agent s'arrête.
                         for gone in &closed {
                             self.stack.tab_closed(gone);
                         }
                         match outcome {
-                            Ok(WorkspaceOutcome::Applied(json)) => (StatusCode::OK, json),
+                            Ok(WorkspaceOutcome::Applied(json)) => {
+                                // A paste changed its target deck: the agent's orphan notes close.
+                                if let Some(tab) = &changed_deck {
+                                    self.stack.after_change(tab);
+                                }
+                                (StatusCode::OK, json)
+                            }
                             // Un onglet importé à fine-tuner : son tour part, puis la vue, comme un fichier ouvert.
                             Ok(WorkspaceOutcome::Tune { json, tab }) => {
                                 // The tab itself says why an unusable agent did not start.
@@ -314,13 +324,13 @@ fn stays_inside(rel: &str) -> bool {
     Path::new(rel).components().all(|c| matches!(c, Component::Normal(_)))
 }
 
-/// Lit le corps d'une requête ; `None` s'il dépasse `MAX_BODY`.
-async fn read_body(mut body: Body) -> Result<Option<Vec<u8>>, axum::Error> {
+/// The body of a request; `None` past `max` bytes.
+async fn read_body(mut body: Body, max: u64) -> Result<Option<Vec<u8>>, axum::Error> {
     let mut bytes = Vec::new();
     while let Some(frame) = std::future::poll_fn(|cx| Pin::new(&mut body).poll_frame(cx)).await {
         if let Ok(data) = frame?.into_data() {
             bytes.extend_from_slice(&data);
-            if bytes.len() as u64 > MAX_BODY {
+            if bytes.len() as u64 > max {
                 return Ok(None);
             }
         }
@@ -357,12 +367,13 @@ async fn handle(State(shared): State<Arc<Shared>>, req: Request) -> Response {
     }
     let worker = Arc::clone(&shared);
     let done = if parts.method == Method::POST && API.contains(&url.as_str()) {
+        let max = if APPLY_ROUTES.contains(&url.as_str()) { MAX_APPLY_BYTES as u64 } else { MAX_BODY };
         // `Content-Length` annonce déjà trop : refusé sans attendre le corps.
-        if body.size_hint().lower() > MAX_BODY {
+        if body.size_hint().lower() > max {
             tracing::warn!(url, "corps de requête trop long");
             return too_large();
         }
-        let body = match read_body(body).await {
+        let body = match read_body(body, max).await {
             Ok(Some(body)) => body,
             Ok(None) => {
                 tracing::warn!(url, "corps de requête trop long");
@@ -426,6 +437,8 @@ pub fn serve(
     let (host, port) = (settings.serve.host.as_str(), port.unwrap_or(settings.serve.port));
     // Le serveur, les outils MCP et l'agent : un seul runtime tokio.
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    // The tabs lease their data bases: the lease file is kept fresh while the server runs.
+    let leases = platform.bases()?.spawn_refresh(runtime.handle());
     let listener = runtime.block_on(tokio::net::TcpListener::bind((host, port)))?;
     let bound = listener.local_addr()?;
     // Joignable depuis le réseau : un jeton par lancement, exigé par la garde (t-193).
@@ -486,6 +499,7 @@ pub fn serve(
     // porte tourne encore ; `block_on` est permis ici, hors contexte async.
     runtime.block_on(shared.stack.shutdown());
     drop(shared);
+    drop(leases);
     runtime.shutdown_timeout(GRACE);
     out.line("cli-stopped", &[])?;
     Ok(())

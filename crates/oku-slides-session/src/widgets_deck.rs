@@ -199,6 +199,7 @@ impl Session {
             tokens: Vec::new(),
             order: Vec::new(),
             guides: Guides::default(),
+            data: BTreeMap::new(),
         };
         let files = manifest.to_files(kind, BTreeMap::new()).context(PackJsonSnafu { id })?;
         Ok(WidgetTarget { kind, namespace, id, version: files.version(), files })

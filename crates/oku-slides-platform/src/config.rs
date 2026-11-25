@@ -154,6 +154,8 @@ pub struct SourcesSettings {
     /// History, assets and fonts included; also roughly bounds the
     /// output of an import (an early estimate, not a guarantee of reopening).
     pub max_sources_mib: usize,
+    /// Maximum size of the store of data bases, in MiB; past it, compaction is skipped.
+    pub max_store_mib: u64,
     /// Délai de compaction des nœuds supprimés (jours) ; 0 : jamais.
     pub compact_after_days: u32,
 }
@@ -176,6 +178,10 @@ pub struct RenderSettings {
     pub max_widgets: usize,
     /// Maximum length of an agent guide of a pack or theme, in characters.
     pub max_guide_chars: usize,
+    /// Maximum duration of a data read, compaction or retype check in the data process (ms).
+    pub data_timeout_ms: u64,
+    /// Maximum memory of the data process (MiB).
+    pub data_memory_mib: u64,
 }
 
 /// Import d'une présentation (`oku-slides import`).
@@ -251,6 +257,12 @@ impl SourcesSettings {
     #[must_use]
     pub fn max_sources_bytes(&self) -> usize {
         self.max_sources_mib.saturating_mul(1024 * 1024)
+    }
+
+    /// [`Self::max_store_mib`] in bytes.
+    #[must_use]
+    pub fn max_store_bytes(&self) -> u64 {
+        self.max_store_mib.saturating_mul(1024 * 1024)
     }
 }
 

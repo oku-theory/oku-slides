@@ -162,6 +162,15 @@ pub(crate) struct SlotState {
     pub(crate) last_assets: Vec<String>,
     /// Derniers jetons de thème posés ; rejoués après une relance.
     pub(crate) theme: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The data the worker holds for this slot, with the base path sent; forgotten on reconnect.
+    pub(crate) data: BTreeMap<String, SentData>,
+}
+
+/// A data as last sent to the worker: the same `Arc` and path are not sent again.
+#[derive(Debug, Clone)]
+pub(crate) struct SentData {
+    pub(crate) data: Arc<oku_slides_data::Data>,
+    pub(crate) base: Option<PathBuf>,
 }
 
 /// Ce qu'un travailleur neuf doit recevoir pour reprendre là où l'ancien était.
@@ -187,9 +196,14 @@ pub(crate) struct Link {
     started: bool,
     /// Le soffice que le bac à sable laisse lancer.
     pub(crate) soffice: Option<PathBuf>,
+    /// The folder of data bases, the only one the worker reads them from (`Hello`).
+    pub(crate) bases: Option<PathBuf>,
     /// Faux travailleurs des tests (scripts shell, qui exécutent `head` et `cat`) : sans bac à sable.
     #[cfg(test)]
     pub(crate) unsandboxed: bool,
+    /// Byte length of each request frame written (header and payload), for the frame-size tests.
+    #[cfg(test)]
+    pub(crate) written: Vec<usize>,
 }
 
 impl Link {
@@ -207,8 +221,11 @@ impl Link {
             restarts: 0,
             started: false,
             soffice: None,
+            bases: None,
             #[cfg(test)]
             unsandboxed: false,
+            #[cfg(test)]
+            written: Vec::new(),
         }
     }
 
@@ -239,6 +256,11 @@ impl Link {
     /// Un travailleur a déjà été lancé, même mort depuis.
     pub(crate) fn started(&self) -> bool {
         self.started
+    }
+
+    /// The connected worker's sandbox folder, the only one it may write to.
+    pub(crate) fn work_dir(&self) -> Option<&Path> {
+        self.conn.as_ref()?.sandbox.as_ref().map(Sandbox::work)
     }
 
     /// Une connexion est ouverte (le travailleur peut être mort sans le savoir).
@@ -296,6 +318,7 @@ impl Link {
         // both evictions alike, or the host would list assets the worker dropped (t-1295).
         for slot in self.state.slots.values_mut() {
             slot.last_assets.clear();
+            slot.data.clear();
         }
         let ready = self.hello().and_then(|()| self.replay());
         if let Err(e) = &ready {
@@ -309,7 +332,7 @@ impl Link {
     /// Poignée de main : version du protocole de l'hôte, et canari refusé sous bac à sable.
     fn hello(&mut self) -> Result<(), RenderError> {
         let canary = self.conn.as_ref().and_then(|c| c.sandbox.as_ref()).map(|s| s.canary().to_owned());
-        let req = Request::Hello { version: PROTOCOL_VERSION, canary: canary.clone() };
+        let req = Request::Hello { version: PROTOCOL_VERSION, canary: canary.clone(), bases: self.bases.clone() };
         let (reply, _) = self.raw_call(&req, &[])?;
         check_hello(&reply, canary.as_deref())
     }
@@ -402,6 +425,9 @@ impl Link {
         // Avant l'envoi : la réponse ne peut pas arriver avant.
         *conn.expected.lock().unwrap_or_else(PoisonError::into_inner) = FrameLimits::reply_to(req, max);
         match write_frame(&mut conn.input, req, payload, FrameLimits::requests(max)) {
+            #[cfg(test)]
+            Ok(()) => self.written.push(serde_json::to_vec(req).map_or(0, |h| h.len()) + payload.len() + 8),
+            #[cfg(not(test))]
             Ok(()) => {}
             Err(e @ (FrameError::TooLarge { .. } | FrameError::Json { .. })) => {
                 return Err(RenderError::frame(e.to_string()));

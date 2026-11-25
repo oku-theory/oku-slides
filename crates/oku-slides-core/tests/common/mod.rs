@@ -77,3 +77,19 @@ pub fn list_registry() -> WidgetRegistry {
     let probe = serde_json::from_value(probe).unwrap_or_else(|e| panic!("sonde : {e}"));
     WidgetRegistry::from_probe(probe).unwrap_or_else(|e| panic!("sonde : {e}"))
 }
+
+/// One slide `s` and the deck data `d`: columns `c1` Month, `c2` Sales, `c3` Goal; two rows.
+pub fn data_deck() -> oku_slides_core::Deck {
+    let mut deck = oku_slides_core::Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#)
+        .unwrap_or_else(|e| panic!("{e}"));
+    let add: oku_slides_core::Op = serde_json::from_value(serde_json::json!({
+        "op": "add_data", "id": "d", "name": "sales", "table": {
+            "generation": "g1",
+            "columns": [{ "id": "c1", "name": "Month" }, { "id": "c2", "name": "Sales" }, { "id": "c3", "name": "Goal" }],
+            "rows": [{ "id": "r1", "cells": ["Jan", 10.0, 12.0] }, { "id": "r2", "cells": ["Feb", 14.0, 12.0] }]
+        }
+    }))
+    .unwrap_or_else(|e| panic!("{e}"));
+    add.apply(&mut deck, &registry()).unwrap_or_else(|e| panic!("{e}"));
+    deck
+}

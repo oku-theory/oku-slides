@@ -1,7 +1,7 @@
 //! t-1182 : l'élément copié n'existait que dans la fenêtre où il l'avait été ;
 //! coller dans une autre fenêtre ne collait que son texte. L'hôte le garde
 //! (`SetClip`, relu par `Clip`) et le diffuse ; le collage apporte ses images
-//! comme entre deux onglets (`CarryAssets`, t-1178).
+//! comme entre deux onglets (`PasteElement`, t-1178).
 
 use std::sync::Mutex;
 
@@ -95,16 +95,12 @@ fn paste_into_another_window_brings_the_image_bytes() {
     send(&ws, json!({ "cmd": "set_clip", "clip": clip(&a, &element, "w-1") }));
     // La fenêtre w-2 relit l'élément copié, puis colle dans son onglet.
     let copied = send(&ws, json!({ "cmd": "clip" }))["clip"].clone();
-    let carried =
-        send(&ws, json!({ "cmd": "carry_assets", "from": copied["tab"], "to": b, "element": copied["element"] }));
-    assert_that!(carried).is_equal_to(json!({ "carried": 1 }));
-    // L'élément collé est celui que l'hôte a gardé : son asset a survécu à l'aller-retour.
+    // The pasted element is the one the host kept: its asset survived the round trip.
     let mut copy: Element =
-        serde_json::from_value(copied["element"].clone()).unwrap_or_else(|e| panic!("élément : {e}"));
+        serde_json::from_value(copied["element"].clone()).unwrap_or_else(|e| panic!("element: {e}"));
     copy.id = "e-image-copie".into();
     let slot = json!({ "owner": { "slide": "s-libre" }, "param": "elements" });
-    let paste = op(json!({ "op": "add_element", "slot": slot, "element": copy.clone() }));
-    on(&ws, &b, |s| s.apply("coller", vec![paste], None))
-        .unwrap_or_else(|e| panic!("collage refusé : {}", e.one_line()));
+    let ops = [json!({ "op": "add_element", "slot": slot, "element": copy.clone() })];
+    send(&ws, json!({ "cmd": "paste_element", "from": copied["tab"], "to": b, "label": "coller", "ops": ops }));
     assert_that!(on(&ws, &b, |s| s.element_assets(&copy))).is_equal_to(vec![png()]);
 }

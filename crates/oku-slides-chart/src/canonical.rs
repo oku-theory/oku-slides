@@ -1,16 +1,17 @@
-//! Forme canonique stockée dans le deck (replica `deck.loro`) : toutes les données dans
-//! `dataset`, pour que la grille puisse les éditer.
+//! Canonical form of chart options: all their data in `dataset`, which the core's
+//! `prepare_ops` then lifts into deck data (ADR-0015).
 //!
-//! Le LLM peut écrire des données en ligne (`xAxis.data`, `series.data`),
-//! très courant dans les exemples ECharts ; elles sont déplacées dans
-//! `dataset` avant stockage. En forme canonique, une série cartésienne n'a ni
-//! `encode` ni `name` : la série i lit la colonne i + 1 et prend son nom de
-//! l'en-tête, donc renommer une colonne dans la grille renomme la série.
+//! The LLM may write inline data (`xAxis.data`, `series.data`), very common in ECharts
+//! examples; they move into `dataset` first. In canonical form a cartesian series has neither
+//! `encode` nor `name`: series i reads column i + 1 and takes its name from the header, so
+//! renaming a column in the grid renames the series.
 
 use crate::error::Result;
 use crate::labels::ChartLabels;
 use crate::model::{ChartKind, normalize};
-use crate::option::{Axis, AxisType, Cell, ChartOption, ColumnRef, Dataset, Encode, Series, SeriesType};
+use oku_slides_data::{DataCell, Dataset};
+
+use crate::option::{Axis, AxisType, ChartOption, ColumnRef, Encode, Series, SeriesType};
 
 /// Moves inline data into `dataset`. No effect if the options
 /// already use `dataset`. Missing headers come from `labels`.
@@ -25,13 +26,13 @@ pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartO
         return Ok(option.clone());
     }
     let mut out = option.clone();
-    let text = |s: &str| Cell::Text(s.to_owned());
-    let num = |v: Option<f64>| v.map_or(Cell::Null, Cell::Number);
+    let text = |s: &str| DataCell::Text(s.to_owned());
+    let num = |v: Option<f64>| v.map_or(DataCell::Null, DataCell::Number);
     let or = |s: &str, d: &str| {
         if s.is_empty() { d.to_owned() } else { s.to_owned() }
     };
 
-    let source: Vec<Vec<Cell>> = match &model.kind {
+    let source: Vec<Vec<DataCell>> = match &model.kind {
         ChartKind::Cartesian(c) => {
             let mut header = vec![text(&or(&c.category_label, labels.category()))];
             header.extend(c.series.iter().map(|s| text(&s.name)));
@@ -76,8 +77,8 @@ pub fn canonicalize(option: &ChartOption, labels: &ChartLabels) -> Result<ChartO
                 sc.series
                     .iter()
                     .flat_map(|s| match s.points.get(i) {
-                        Some((x, y)) => [Cell::Number(*x), Cell::Number(*y)],
-                        None => [Cell::Null, Cell::Null],
+                        Some((x, y)) => [DataCell::Number(*x), DataCell::Number(*y)],
+                        None => [DataCell::Null, DataCell::Null],
                     })
                     .collect()
             });
@@ -155,7 +156,7 @@ pub(crate) fn fresh_series(template: &Series) -> Series {
 /// Before column `at` is removed: removes the series that reads it.
 ///
 /// No effect on the category column (`at == 0`) or outside canonical form.
-pub(crate) fn remove_column_series(option: &mut ChartOption, at: usize) {
+pub fn remove_column_series(option: &mut ChartOption, at: usize) {
     if at >= 1 && at <= option.series.len() && option.series.len() > 1 && is_canonical_cartesian(option) {
         option.series.remove(at - 1);
     }
@@ -165,7 +166,7 @@ pub(crate) fn remove_column_series(option: &mut ChartOption, at: usize) {
 ///
 /// The neighbour is the series before, otherwise the one after. No effect on the
 /// category column (`at == 0`) or outside canonical form.
-pub(crate) fn insert_column_series(option: &mut ChartOption, at: usize) {
+pub fn insert_column_series(option: &mut ChartOption, at: usize) {
     if at == 0 || at > option.series.len() + 1 || !is_canonical_cartesian(option) {
         return;
     }

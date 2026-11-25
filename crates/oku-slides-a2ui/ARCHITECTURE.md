@@ -1,7 +1,7 @@
 # oku-slides-a2ui
 
 The A2UI v0.9 protocol messages the session sends to the UI, and the catalog
-`urn:oku-slides:a2ui:catalog:v4` (`CATALOG_ID`). The crate only describes data: no state, no
+`urn:oku-slides:a2ui:catalog:v5` (`CATALOG_ID`). The crate only describes data: no state, no
 rendering, no disk access.
 
 ## Key types
@@ -9,8 +9,7 @@ rendering, no disk access.
 - `ServerMessage` (`message.rs`): `createSurface`, `updateComponents`, `updateDataModel`,
   `deleteSurface`, serialized as v0.9; `CATALOG_ID` lives here.
 - `Component { id, kind }` and `ComponentKind` (`component.rs`): the catalog (layout, text, card,
-  buttons, `Receipt`, `Timeline`, `Prompt`, `DiffText`, `SlideThumb`, `ThemeChoice`, `Notice`,
-  `ChartData`, `TableData`…); constructors `card`, `column`, `row`, `text`, `button`;
+  buttons, the host's below…); constructors `card`, `column`, `row`, `text`, `button`;
   `button_builder` (`button.rs`, `ButtonBuilder`: `primary`, `danger`, `icon`, `build`).
 - Prop types (`props.rs`): `Tone`, `TextVariant`, `ButtonIcon`, `ChoiceOption` (its docs stay free of
   rustdoc links: MCP input schemas embed it outside the playbook's cleaning), `TimelineStep`,
@@ -24,9 +23,10 @@ rendering, no disk access.
 - Helpers on `ComponentKind`: `children` (child ids), `actions` (actions it carries), `is_field` (a
   data-bound input, refused by `render`), `without_action` (the component without its action, or
   nothing), `agent_allowed` (allowed in `render`; `Prompt`, `Timeline`, `Receipt`, `SlideThumb`,
-  `Notice`, `ThemeChoice`, `ChartData`, `TableData` are reserved to the host).
+  `Notice`, `ThemeChoice`, `ChartData`, `TableData`, `DataList`, `DataSheet` are reserved to the host).
 - `SeriesSwatch` (`data.rs`): a colourable series of `ChartData`. `ChartData` / `TableData` carry a
-  chart's or table's data; the UI writes one edit at their `edit` path, then sends `action`.
+  chart's or table's data, `DataList` (`DataRow`, `DataUser`) the deck's data, `DataSheet` a page of
+  one data's rows; the UI writes one edit at their `edit` path, then sends `action`.
 
 `ComponentKind` and its types derive `schemars::JsonSchema` (`oneOf`, one branch per component,
 named in `properties.component`); their docs are what agents read. `playbook/`: `examples()`, every

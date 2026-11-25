@@ -3,7 +3,7 @@
 //! L'interface l'envoie au ⌘C (`SetClip`), l'hôte le numérote, le diffuse aux
 //! fenêtres (évènement `clip`) et le rend à une fenêtre qui s'ouvre (`Clip`). Le
 //! numéro dit aux fenêtres quelle copie est la dernière, quel que soit l'ordre
-//! d'arrivée des évènements. Ses images ne voyagent qu'au collage (`CarryAssets`) ;
+//! d'arrivée des évènements. Ses images ne voyagent qu'au collage (`PasteElement`) ;
 //! il n'est jamais enregistré.
 
 use oku_slides_core::Element;

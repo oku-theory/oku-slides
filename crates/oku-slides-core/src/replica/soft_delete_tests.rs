@@ -536,7 +536,14 @@ fn apply_without_birth(r: &mut DeckReplica, deck: &Deck) {
         doc.set_next_commit_message(&crate::replica::part_message("Coller"));
         doc.commit();
     };
-    ok(DeckReplica::reconcile_doc(doc, deck, r.env(), &split, None, &[], crate::KnowledgeSync::Changed));
+    ok(DeckReplica::reconcile_doc(
+        doc,
+        deck,
+        r.env(),
+        crate::replica::Steps { split: &split, born: None, moves: &[] },
+        None,
+        crate::KnowledgeSync::Changed,
+    ));
     doc.set_next_commit_message("Coller");
     doc.commit();
     r.undo.close_step("Coller", None);

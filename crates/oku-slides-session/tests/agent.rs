@@ -61,7 +61,7 @@ fn report_surface_on_a_slide_carries_its_reference_not_its_svg() {
     };
     let r = s.report_surface("report-1", &spec, &[]).unwrap();
     for surface in [&r.surface, r.plain.as_ref().unwrap()] {
-        let json = serde_json::to_value(surface).unwrap();
+        let json = serde_json::to_value(surface).unwrap_or_else(|e| panic!("surface: {e}"));
         let text = json.to_string();
         assert_that!(text.contains("<svg")).is_false();
         assert_that!(receipt_card(&json)["slide"]).is_equal_to(json!({ "id": "s-libre", "hash": hash }));
@@ -629,6 +629,47 @@ fn variants_surface_renders_each_variant_without_touching_deck() {
     assert_that!(v1["action"]["event"]["context"]["index"].as_i64()).is_some().is_equal_to(1);
     assert_that!(s.deck()).is_equal_to(&before);
     assert_that!(s.snapshot().can_undo).is_false();
+}
+
+/// The variant svgs of `surface`, by thumbnail id `v0`, `v1`.
+fn variant_svgs(surface: &Surface) -> Vec<String> {
+    let json = serde_json::to_value(surface).unwrap_or_else(|e| panic!("surface: {e}"));
+    let components = json["messages"][1]["updateComponents"]["components"].as_array().cloned().unwrap_or_default();
+    ["v0", "v1"]
+        .iter()
+        .map(|id| components.iter().find(|c| c["id"] == *id).and_then(|c| c["svg"].as_str()).unwrap_or("").to_owned())
+        .collect()
+}
+
+#[test]
+fn variant_preview_renders_bound_chart() {
+    let mut s = session();
+    s.open(&fixture_path()).unwrap();
+    let setup: Vec<Op> = serde_json::from_value(json!([
+        { "op": "add_data", "id": "d-var", "name": "variantes", "table": {
+            "columns": [{ "id": "m", "name": "M" }, { "id": "v", "name": "V" }],
+            "rows": [{ "id": "a", "cells": ["a", 1] }, { "id": "b", "cells": ["b", 2] }] } },
+        { "op": "add_element", "slot": { "owner": { "slide": "s-libre" }, "param": "blocks" },
+          "element": { "id": "g-var", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
+            "data": "d-var", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } } },
+    ]))
+    .unwrap();
+    s.apply("setup", setup, None).unwrap();
+    let cell = |value: f64| -> Vec<Op> {
+        serde_json::from_value(json!([{ "op": "edit_data", "data": "d-var",
+            "change": { "op": "set_cell", "row": "a", "column": "v", "value": value } }]))
+        .unwrap()
+    };
+    let spec = ShowVariants {
+        slide: "s-libre".into(),
+        variants: vec![
+            Variant { label: "Trois".into(), ops: cell(3.0) },
+            Variant { label: "Neuf".into(), ops: cell(9.0) },
+        ],
+    };
+    let svgs = variant_svgs(&s.variants_surface("show-var", &spec).unwrap());
+    assert_that!(svgs.iter().all(|svg| svg.contains("<svg"))).is_true();
+    assert_that!(svgs[0]).is_not_equal_to(&svgs[1]);
 }
 
 #[test]

@@ -94,6 +94,8 @@ pub(crate) enum ImportInner {
     Sources { source: oku_slides_core::SourcesError, backtrace: Backtrace },
     #[snafu(display("import plan refused"))]
     Op { source: oku_slides_core::TransactionError, backtrace: Backtrace },
+    #[snafu(display("import batch refused before it applies"))]
+    Prepare { source: oku_slides_core::OpError, backtrace: Backtrace },
 }
 
 impl ImportError {
@@ -101,7 +103,7 @@ impl ImportError {
     #[must_use]
     pub fn kind(&self) -> ImportErrorKind {
         use ImportInner::{
-            BadPack, BadPackFiles, BadTheme, Library, NotLayoutPack, Op, PackDir, PackMissing, PackTooLarge,
+            BadPack, BadPackFiles, BadTheme, Library, NotLayoutPack, Op, PackDir, PackMissing, PackTooLarge, Prepare,
             Presentation, ProbeFailed, ProbeLimit, ProbeMismatch, Read, ReadThread, ReaderPanic, Registry, Sources,
             Threshold, TooLarge, UnknownPack, UnknownTheme,
         };
@@ -119,7 +121,7 @@ impl ImportError {
             ProbeMismatch { .. } | ProbeLimit { .. } | ProbeFailed { .. } => ImportErrorKind::Probe,
             Library { .. } => ImportErrorKind::Library,
             Registry { .. } => ImportErrorKind::Render,
-            Sources { .. } | Op { .. } => ImportErrorKind::Apply,
+            Sources { .. } | Op { .. } | Prepare { .. } => ImportErrorKind::Apply,
         }
     }
 
@@ -144,7 +146,7 @@ impl Localize for ImportError {
     /// Le message, ou celui de l'erreur d'en dessous s'il parle à l'utilisateur.
     fn localize(&self, l: &Localizer) -> String {
         use ImportInner::{
-            BadPack, BadPackFiles, BadTheme, Library, NotLayoutPack, Op, PackDir, PackMissing, PackTooLarge,
+            BadPack, BadPackFiles, BadTheme, Library, NotLayoutPack, Op, PackDir, PackMissing, PackTooLarge, Prepare,
             Presentation, ProbeFailed, ProbeLimit, ProbeMismatch, Read, ReadThread, ReaderPanic, Registry, Sources,
             Threshold, TooLarge, UnknownPack, UnknownTheme,
         };
@@ -181,6 +183,7 @@ impl Localize for ImportError {
             Registry { source, .. } => source.localize(l),
             Sources { source, .. } => source.localize(l),
             Op { source, .. } => source.localize(l),
+            Prepare { source, .. } => source.localize(l),
         }
     }
 }

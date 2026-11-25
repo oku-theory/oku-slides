@@ -18,22 +18,28 @@
 //! liste gardée que le schéma ne lit plus repart, au geste suivant sur elle
 //! (`edit_example_list`), des items par défaut que montre l'aperçu.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 
 use serde_json::{Map, Value};
 use snafu::{OptionExt, ResultExt, ensure};
 
 use oku_slides_core::{
-    ListItem, ListOp, ListPath, ListSpec, Namespace, ParamType, ParamValue, WidgetFile, default_items, param_value,
+    ListItem, ListOp, ListPath, ListSpec, Namespace, Op, PackPin, ParamType, ParamValue, Params, WidgetFile,
+    check_external, default_items, param_value, split_kind,
 };
+use oku_slides_data::{Data, DataId};
 
 use crate::agent::clip;
+use crate::data_copy::copy_data_ops;
 use crate::error::{
-    NotEditingPackSnafu, PackManifestSnafu, TrialEncodeSnafu, TrialUndeclaredSnafu, TrialValueSnafu,
-    UnknownWidgetSnafu, WidgetInvalidSnafu,
+    NotEditingPackSnafu, PackManifestSnafu, PackVersionMissingSnafu, PrepareSnafu, TrialEncodeSnafu,
+    TrialUndeclaredSnafu, TrialValueSnafu, UnknownWidgetSnafu, WidgetInvalidSnafu,
 };
-use crate::example_text::localized_examples;
+use crate::example_text::{localized_data, localized_examples};
 use crate::pack::PackManifest;
+use crate::pack_mode::styled_like;
 use crate::widget_params::{checked_value, same_as};
 use crate::widget_preview::preview_params;
 use crate::widgets_edit::{WidgetTarget, parse_name, trial_fits};
@@ -72,6 +78,105 @@ impl Session {
         let manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
         let values = manifest.examples.get(name).map(|v| localized_examples(manifest.id, v, &self.localizer));
         Ok(values.unwrap_or_default())
+    }
+
+    /// The example data of pack `pack` (see `widget_target`), localized as its values are.
+    pub(crate) fn example_data(&self, pack: Option<&Namespace>) -> Result<BTreeMap<DataId, Arc<Data>>> {
+        let t = self.widget_target(pack)?;
+        let manifest = PackManifest::from_files(&t.files).context(PackManifestSnafu { id: t.id })?;
+        Ok(localized_data(manifest.id, &manifest.data, &self.localizer))
+    }
+
+    /// `ops` with one `AddData` before them per pack example data their new elements and slides name.
+    ///
+    /// A view of an added element or slide naming a data the deck lacks, and no `AddData` of
+    /// the batch adds, is read from the manifest of the added kind's pack, else of its own
+    /// kind's pack (pinned in `pins`): a layout's example holds its elements' data, a widget's
+    /// its own. The data is copied once (`copy_data_ops`, under an id the batch does not add)
+    /// and every such view names the copy.
+    ///
+    /// Any view naming a pinned pack's example data id gets that data, whatever brought the
+    /// element: a typed one too. A paste never comes here: its refs name copies of its
+    /// source's data (`with_pasted_data`).
+    /// A batch with copies is checked as external, then prepared as the host's (the copies
+    /// carry their cells); `true` says so.
+    ///
+    /// # Errors
+    ///
+    /// `Prepare` for a batch the core refuses; a pinned version missing or with a broken manifest.
+    pub(crate) fn with_example_data(
+        &self,
+        pins: &BTreeMap<Namespace, PackPin>,
+        mut ops: Vec<Op>,
+    ) -> Result<(Vec<Op>, bool)> {
+        let deck = self.doc.sources.deck();
+        let added: BTreeSet<String> = ops.iter().filter_map(op_data_id).map(str::to_owned).collect();
+        let mut found: BTreeSet<Owned> = BTreeSet::new();
+        for op in &mut ops {
+            each_added(op, &mut |owners, params| {
+                for id in view_refs(params) {
+                    if !deck.data.contains_key(id.as_str()) && !added.contains(id.as_str()) {
+                        found.insert((owners.clone(), id));
+                    }
+                }
+            });
+        }
+        let mut sources: BTreeMap<Namespace, BTreeMap<DataId, Arc<Data>>> = BTreeMap::new();
+        let mut from: BTreeMap<Owned, Namespace> = BTreeMap::new();
+        for (owners, id) in found {
+            for ns in [&owners.0, &owners.1] {
+                if !sources.contains_key(ns) {
+                    sources.insert(ns.clone(), self.pinned_data(pins, ns)?);
+                }
+                if sources.get(ns).is_some_and(|d| d.contains_key(&id)) {
+                    from.insert((owners.clone(), id.clone()), ns.clone());
+                    break;
+                }
+            }
+        }
+        let mut scratch = styled_like(deck, Vec::new());
+        let mut copies = Vec::new();
+        let mut maps: BTreeMap<Namespace, BTreeMap<DataId, DataId>> = BTreeMap::new();
+        for (ns, source) in &sources {
+            let refs: Vec<DataId> = from.iter().filter(|(_, n)| *n == ns).map(|((_, id), _)| id.clone()).collect();
+            if refs.is_empty() {
+                continue;
+            }
+            let (ops, map) =
+                copy_data_ops(source, &refs, &scratch, &added, &mut oku_slides_data::new_id).context(PrepareSnafu)?;
+            for op in &ops {
+                if let Op::AddData { id: Some(new), name, .. } = op
+                    && let Some(data) = map.iter().find(|(_, n)| *n == new).and_then(|(old, _)| source.get(old))
+                {
+                    scratch.data.insert(new.clone(), Arc::new(Data { name: name.clone(), ..Data::clone(data) }));
+                }
+            }
+            copies.extend(ops);
+            maps.insert(ns.clone(), map);
+        }
+        if copies.is_empty() {
+            return Ok((ops, false));
+        }
+        for op in &mut ops {
+            each_added(op, &mut |owners, params| {
+                rename_refs(params, &|id| {
+                    let ns = from.get(&(owners.clone(), id.clone()))?;
+                    maps.get(ns)?.get(id).cloned()
+                });
+            });
+        }
+        check_external(&ops).context(PrepareSnafu)?;
+        copies.extend(ops);
+        Ok((copies, true))
+    }
+
+    /// The example data of the pack pinned under `ns` in `pins`, localized; none if `ns` is not pinned.
+    fn pinned_data(&self, pins: &BTreeMap<Namespace, PackPin>, ns: &Namespace) -> Result<BTreeMap<DataId, Arc<Data>>> {
+        let Some(pin) = pins.get(ns) else { return Ok(BTreeMap::new()) };
+        let files = self.doc.sources.packs.get(&pin.version);
+        let files = files.context(PackVersionMissingSnafu { id: pin.id, version: pin.version.clone() })?;
+        let manifest = PackManifest::from_files(files).context(PackManifestSnafu { id: pin.id })?;
+        Ok(localized_data(manifest.id, &manifest.data, &self.localizer))
     }
 
     /// Sets example values of `widget`, all or nothing.
@@ -197,9 +302,84 @@ impl Session {
     }
 }
 
+/// The id an `AddData` names.
+pub(crate) fn op_data_id(op: &Op) -> Option<&str> {
+    match op {
+        Op::AddData { id: Some(id), .. } => Some(id.as_str()),
+        _ => None,
+    }
+}
+
+/// The namespaces of a view's owners: the added element's or slide's, then the view's own element's.
+pub(crate) type Owners = (Namespace, Namespace);
+
+/// A view's data ref with its owners.
+type Owned = (Owners, DataId);
+
+/// Calls `f` on the params of the element or slide `op` adds and of the elements of its slots,
+/// at any depth, with their `Owners`. A kind without a namespace takes its parent's.
+pub(crate) fn each_added(op: &mut Op, f: &mut dyn FnMut(&Owners, &mut Params)) {
+    let (kind, params) = match op {
+        Op::AddElement { element, .. } => (&element.kind, &mut element.params),
+        Op::AddSlide { slide, .. } => (&slide.kind, &mut slide.params),
+        _ => return,
+    };
+    if let Some(ns) = namespace_of(kind) {
+        each_params(&(ns.clone(), ns), params, f);
+    }
+}
+
+/// `f` on `params`, then on the params of the elements of its slots.
+fn each_params(owners: &Owners, params: &mut Params, f: &mut dyn FnMut(&Owners, &mut Params)) {
+    f(owners, params);
+    for value in params.0.values_mut() {
+        if let ParamValue::Slot(elements) = value {
+            for e in elements {
+                let own = namespace_of(&e.kind).unwrap_or_else(|| owners.1.clone());
+                each_params(&(owners.0.clone(), own), &mut e.params, f);
+            }
+        }
+    }
+}
+
+/// The namespace of `kind`, if it has one.
+fn namespace_of(kind: &str) -> Option<Namespace> {
+    split_kind(kind).and_then(|(ns, _)| Namespace::parse(ns))
+}
+
+/// The data the views of `params` name, as `Deck::data_users` reads them.
+pub(crate) fn view_refs(params: &Params) -> Vec<DataId> {
+    params
+        .0
+        .values()
+        .filter_map(|v| match v {
+            ParamValue::Value(v) => v.get("data").and_then(Value::as_str),
+            ParamValue::Text(_) | ParamValue::Rich(_) | ParamValue::Slot(_) | ParamValue::List(_) => None,
+        })
+        .filter_map(|id| DataId::try_from(id.to_owned()).ok())
+        .collect()
+}
+
+/// The views of `params` name the copy `copy` gives for their data, if any.
+pub(crate) fn rename_refs(params: &mut Params, copy: &dyn Fn(&DataId) -> Option<DataId>) {
+    for value in params.0.values_mut() {
+        if let ParamValue::Value(v) = value
+            && let Some(Value::String(id)) = v.get_mut("data")
+            && let Ok(old) = DataId::try_from(id.clone())
+            && let Some(new) = copy(&old)
+        {
+            new.as_str().clone_into(id);
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "widget_examples_tests.rs"]
 mod widget_examples_tests;
+
+#[cfg(test)]
+#[path = "widget_examples_data_tests.rs"]
+mod widget_examples_data_tests;
 
 #[cfg(test)]
 #[path = "widget_examples_list_tests.rs"]

@@ -7,6 +7,7 @@
 //! ([`param_value`]), slot qui accepte l'élément.
 
 mod check;
+mod data;
 mod edit;
 mod grid;
 mod host;
@@ -15,7 +16,9 @@ mod list;
 mod list_path;
 mod moving;
 mod packs;
+mod refs;
 mod value;
+mod view_data;
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -25,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use snafu::{IntoError, OptionExt, ResultExt};
 
-use oku_slides_chart::DataOp;
+use oku_slides_data::{ColumnType, DataId, NewTable, TableOp};
 
 use crate::error::{
     DuplicateIdSnafu, ElementNotFoundSnafu, InvalidValueSnafu, OpError, ParseValueSnafu, SlideNotFoundSnafu,
@@ -41,6 +44,7 @@ use crate::theme_chain::{ThemePin, check_closure};
 use crate::widget::{Category, HostType, ParamSchema, ParamType, SlotMode, WidgetRegistry, WidgetSchema};
 
 use check::{check_accepts, check_params};
+pub use data::bind_choices;
 use edit::{
     add_element, add_slide, move_slide, replace_element, set_cell, set_deck_param, set_frame, set_kind, set_param,
     set_tokens, unset_token,
@@ -55,6 +59,7 @@ pub use list_path::ListPath;
 pub use moving::Moved;
 pub use packs::{pack_users, remove_pack_refusal};
 pub use value::{GRID_TRACKS, param_value};
+pub use view_data::Seal;
 
 /// A slide, or an element of a slide.
 ///
@@ -188,17 +193,6 @@ pub enum Op {
         param: String,
         /// JSON Merge Patch of the display options, without `dataset`.
         patch: Value,
-    },
-    /// Changes the data of a chart or table.
-    ///
-    /// `dataset.source`, row 0 = column names; `param` is of type `host`.
-    SetData {
-        /// Slide or element that holds the chart or table.
-        target: Target,
-        /// Parameter of type `host`.
-        param: String,
-        /// Change to the data (rows, columns, cells).
-        change: DataOp,
     },
     /// Changes a `list` parameter, with items addressed by their id.
     ///
@@ -342,6 +336,85 @@ pub enum Op {
         /// New value; `null` removes it.
         value: Value,
     },
+    /// Adds a data to the deck: a named table that charts and tables bind to.
+    ///
+    /// Leave `id` and the row and column ids out: they are drawn for you.
+    AddData {
+        /// Id of the new data; drawn when left out.
+        #[serde(default)]
+        id: Option<DataId>,
+        /// Name shown to the user, unique in the deck (case ignored).
+        name: String,
+        /// Optional longer label.
+        #[serde(default)]
+        label: Option<String>,
+        /// The columns and rows of the table.
+        table: NewTable,
+    },
+    /// Edits the table of a data: a cell, a row, a column, or the whole table.
+    ///
+    /// Every chart and table bound to the data follows.
+    EditData {
+        /// Id of the data.
+        data: DataId,
+        /// The change to its table.
+        change: TableOp,
+    },
+    /// Binds a chart or table parameter to a data, optionally to some columns.
+    ///
+    /// Without `columns`, the view keeps the columns it reads.
+    BindData {
+        /// Slide or element that holds the chart or table.
+        target: Target,
+        /// Parameter of type `host(chart)` or `host(table)`.
+        param: String,
+        /// Id of the data.
+        data: DataId,
+        /// Column ids the view reads, in order; all of them when left out.
+        #[serde(default)]
+        columns: Option<Vec<String>>,
+    },
+    /// Removes a data no view shows; refused while a chart or table reads it.
+    RemoveData {
+        /// Id of the data.
+        data: DataId,
+    },
+    /// Renames a data: a valid name, unique in the deck (case ignored).
+    RenameData {
+        /// Id of the data.
+        data: DataId,
+        /// The new name.
+        name: String,
+    },
+    /// Changes the type of a column; refused when a cell does not convert.
+    SetColumnType {
+        /// Id of the data.
+        data: DataId,
+        /// Id of the column.
+        column: String,
+        /// The new type: `text`, `number`, `integer`, `bool` or `date`.
+        #[serde(rename = "type")]
+        ty: ColumnType,
+    },
+    /// Stores the inline data of a view as a data: host only, made by `prepare_ops`.
+    #[schemars(skip)]
+    PutViewData {
+        /// Slide or element that holds the chart or table.
+        target: Target,
+        /// Parameter of type `host(chart)` or `host(table)`.
+        param: String,
+        /// Id of the data: the view's own inline data, else a new one.
+        id: DataId,
+        /// Name of a new data.
+        name: String,
+        /// Label of the data, from the view's title.
+        label: Option<String>,
+        /// The view's table, ids filled.
+        table: NewTable,
+        /// Set by `prepare_ops` only: a deserialized op is refused.
+        #[serde(skip)]
+        seal: Seal,
+    },
     /// Writes a knowledge file: creates it, or replaces its text and keeps its id.
     ///
     /// The text is stored byte for byte and must pass the OKF frontmatter check. Creating needs
@@ -464,6 +537,11 @@ fn target_ref<'a>(deck: &'a Deck, t: &Target) -> Result<(&'a str, &'a Params, Ca
             Ok((&e.kind, &e.params, Category::Element))
         }
     }
+}
+
+/// The widget and params of a target, if it exists.
+pub(crate) fn target_params<'a>(deck: &'a Deck, t: &Target) -> Option<(&'a str, &'a Params)> {
+    target_ref(deck, t).ok().map(|(kind, params, _)| (kind, params))
 }
 
 fn target_mut<'a>(deck: &'a mut Deck, t: &Target) -> Result<(&'a mut String, &'a mut Params), OpError> {
@@ -637,6 +715,16 @@ impl Op {
     /// refuses the element, id taken, position out of bounds or slot depth
     /// exceeded.
     pub fn apply(self, deck: &mut Deck, registry: &WidgetRegistry) -> Result<(), OpError> {
+        let guard = refs::scope(&self).map(|slide| refs::Guard::take(deck, registry, slide));
+        self.apply_unchecked(deck, registry)?;
+        match guard {
+            Some(guard) => guard.check(deck, registry),
+            None => Ok(()),
+        }
+    }
+
+    /// `apply` without the data ref check of the views the op changed.
+    fn apply_unchecked(self, deck: &mut Deck, registry: &WidgetRegistry) -> Result<(), OpError> {
         match self {
             Op::SetParam { target, param, value } => set_param(deck, registry, &target, &param, value),
             Op::SetDeckParam { key, value } => set_deck_param(deck, &key, value),
@@ -650,11 +738,6 @@ impl Op {
                 let subject = target.element.as_deref().unwrap_or(&target.slide);
                 let (kind, params) = target_mut(deck, &target)?;
                 host::set_option(widget(registry, kind)?, params, &param, HostType::Table, &patch, subject)
-            }
-            Op::SetData { target, param, change } => {
-                let subject = target.element.as_deref().unwrap_or(&target.slide);
-                let (kind, params) = target_mut(deck, &target)?;
-                host::set_data(registry, kind, params, &param, &change, subject)
             }
             Op::EditList { target, param, change } => list::edit_list(deck, registry, &target, &param, change),
             Op::SetStyle { slide, element, style } => {
@@ -721,10 +804,33 @@ impl Op {
                 set_or_remove_map(&mut deck.vars, &key, value);
                 Ok(())
             }
+            Op::AddData { id, name, label, table } => data::add_data(deck, id, name, label.as_deref(), table),
+            Op::EditData { data, change } => data::edit_data(deck, &data, &change),
+            Op::BindData { target, param, data, columns } => {
+                data::bind_data(deck, registry, &target, &param, &data, columns)
+            }
+            Op::RemoveData { data } => data::remove_data(deck, &data),
+            Op::RenameData { data, name } => data::rename_data(deck, &data, name),
+            Op::SetColumnType { data, column, ty } => data::set_column_type(deck, &data, &column, ty),
+            Op::PutViewData { target, param, id, name, label, table, seal } => {
+                let put = view_data::Put { target: &target, param: &param, id, name, label, table };
+                view_data::put_view_data(deck, registry, put, seal)
+            }
             Op::KnowledgeWrite { path, text, id } => knowledge::write(deck, &path, text, id),
             Op::KnowledgeEdit { path, old, new } => knowledge::edit(deck, &path, &old, &new),
             Op::KnowledgeMove { from, to } => knowledge::relocate(deck, &from, &to),
             Op::KnowledgeDelete { path } => knowledge::delete(deck, &path),
+        }
+    }
+}
+
+impl Op {
+    /// Whether the op may grow the deck's data past its bounds.
+    fn grows_data(&self) -> bool {
+        match self {
+            Op::AddData { .. } | Op::PutViewData { .. } | Op::RenameData { .. } | Op::SetColumnType { .. } => true,
+            Op::EditData { change, .. } => !matches!(change, TableOp::RemoveRow { .. } | TableOp::RemoveColumn { .. }),
+            _ => false,
         }
     }
 }
@@ -755,10 +861,17 @@ pub fn apply_all_moving(
 ) -> Result<Vec<Moved>, TransactionError> {
     let mut next = deck.clone();
     let mut moves = Vec::new();
+    let mut growing = None;
     for (index, op) in ops.into_iter().enumerate() {
         let effect = moving::Effect::of(&op);
+        if op.grows_data() {
+            growing = Some(index);
+        }
         op.apply(&mut next, registry).map_err(|source| TransactionSnafu { index }.into_error(source))?;
         effect.record(&mut moves);
+    }
+    if let Some(index) = growing {
+        crate::data_bounds::check_deck_bounds(&next).map_err(|source| TransactionSnafu { index }.into_error(source))?;
     }
     crate::canonicalize(&mut next);
     *deck = next;

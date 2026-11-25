@@ -295,6 +295,7 @@ fn manifest(name: &str) -> PackManifest {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     }
 }
 
@@ -738,4 +739,23 @@ fn from_files_with_a_bad_order_localizes_in_french() {
     assert_that!(err.order_name()).is_equal_to(Some("zz"));
     let fr = oku_slides_i18n::Localizer::new(Some("fr"));
     assert_that!(oku_slides_i18n::Localize::localize(&err, &fr)).contains("« zz »");
+}
+
+/// A manifest of `len` bytes: `{}` after blanks.
+fn padded_manifest(len: usize) -> Vec<u8> {
+    let mut bytes = vec![b' '; len - 2];
+    bytes.extend_from_slice(b"{}");
+    bytes
+}
+
+#[test]
+fn pack_files_from_bytes_at_the_manifest_cap_is_read() {
+    let bytes = padded_manifest(MAX_PACK_MANIFEST_BYTES);
+    assert_that!(PackFiles::from_bytes(PackKind::Widgets, &bytes, []).is_some()).is_true();
+}
+
+#[test]
+fn pack_files_from_bytes_past_the_manifest_cap_is_refused() {
+    let bytes = padded_manifest(MAX_PACK_MANIFEST_BYTES + 1);
+    assert_that!(PackFiles::from_bytes(PackKind::Widgets, &bytes, []).is_none()).is_true();
 }

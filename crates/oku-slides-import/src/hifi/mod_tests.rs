@@ -79,6 +79,7 @@ fn projected_with(deck: &SourceDeck, fonts: &FontCatalog) -> ImportPlan {
         name: "Import".into(),
         created: "2026-10-11T08:00:00Z".into(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let plan = project(deck, &target).unwrap();
     let registry = registry_with_deck_layouts(&plan.schemas);
@@ -328,4 +329,43 @@ fn project_maps_a_free_text_item_to_its_element_in_origins() {
     let plan = projected(&deck(vec![source_slide(1, Some("l1"), vec![text])]));
     let element = extras(slide(&plan, 0)).into_iter().next().unwrap();
     assert_that!(plan.origins.get("s1/3")).is_equal_to(Some(&element.id));
+}
+
+/// Past `MAX_DATA` data, the hi-fi plan still applies: the last chart comes in without data,
+/// reported on its item.
+#[test]
+fn project_past_max_data_imports_the_chart_without_data() {
+    use oku_slides_data::limits::MAX_DATA;
+    let last = u32::try_from(MAX_DATA).unwrap() + 1;
+    let chart = |n: u32| {
+        let c = crate::source::Chart {
+            kind: crate::source::ChartKind::Column,
+            grouping: crate::source::Grouping::Clustered,
+            title: None,
+            categories: vec!["T1".into()],
+            series: vec![crate::source::Series {
+                name: "a".into(),
+                values: vec![Some(1.0)],
+                color: None,
+                x: None,
+                format: None,
+            }],
+            legend: false,
+            axes: crate::source::Axes { x: true, y: true },
+            value_axis: crate::source::ValueAxis::default(),
+            gap_width: None,
+        };
+        source_slide(n, Some("l1"), vec![item(&format!("s{n}/9"), (60.0, 150.0, 400.0, 300.0), ItemKind::Chart(c))])
+    };
+    let plan = projected(&deck((1..=last).map(chart).collect()));
+    let cut: Vec<(usize, Option<String>)> = plan
+        .report
+        .slides
+        .iter()
+        .enumerate()
+        .flat_map(|(i, s)| {
+            s.losses.iter().filter(|l| l.kind == LossKind::ChartTruncated).map(move |l| (i, l.item.clone()))
+        })
+        .collect();
+    assert_that!(cut).is_equal_to(vec![(MAX_DATA, Some(format!("s{last}/9")))]);
 }

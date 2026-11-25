@@ -612,7 +612,7 @@ impl Workspace {
             | WorkspaceRequest::Scheme
             | WorkspaceRequest::SetScheme { .. }
             | WorkspaceRequest::SameDeck { .. }
-            | WorkspaceRequest::CarryAssets { .. }
+            | WorkspaceRequest::PasteElement { .. }
             | WorkspaceRequest::Clip
             | WorkspaceRequest::SetClip { .. }
             | WorkspaceRequest::NewTab { .. }

@@ -17,6 +17,10 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Spawn a macOS worker only through sandbox-exec with worker.sb, and refuse it unless its Hello canary is denied. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 - Never hardlink a file into the worker's work dir; Seatbelt checks the path, so copy it. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 - Call with_soffice with the ReferenceWitness::Soffice program before a soffice worker's first request; its sandbox execs only that path. (spec:2026-10-17-render-worker-sandbox-design, t-931)
+- Parse Parquet bytes only in the worker; the host never decodes a base. (t-1690)
+- Read a base only by a path inside the Hello bases folder, opened without following links. (t-1690)
+- Write a compaction only directly inside the bases folder or the worker's work dir, and remove its output on any refusal. (t-1690)
+- Send a cached data whose cells alone changed as PatchData, so a one-cell edit stays under 64 KiB; a patch for an unknown id is ignored and the next Render's MissingData resends it whole. (t-1690)
 
 ## Pitfalls
 

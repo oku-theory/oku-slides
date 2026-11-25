@@ -11,6 +11,7 @@ use snafu::ResultExt;
 use oku_slides_core::{Deck, PackVersion};
 
 use crate::error::RenderSnafu;
+use crate::example_text::localized_data;
 use crate::pack::PackManifest;
 use crate::pack_mode::{layout_slides, styled_like};
 use crate::param_fields::kind_name;
@@ -78,7 +79,9 @@ impl Session {
             let layouts = if let Some(p) = cached {
                 p.views.clone()
             } else {
-                let deck = styled_like(style, layout_slides(&manifest, &files, &self.localizer));
+                let mut deck = styled_like(style, layout_slides(&manifest, &files, &self.localizer));
+                // The layouts' examples name the pack's data alone, never the user deck's.
+                deck.data = localized_data(manifest.id, &manifest.data, &self.localizer);
                 let views = self.with_fallback(|_| Ok(vec![deck.clone()]), |s| s.render_previews(&deck))?;
                 self.pack_cache.0.retain(|p| p.version != pin.version);
                 self.pack_cache.0.push(Previews { version: pin.version, deck, views: views.clone() });

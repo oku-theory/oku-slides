@@ -1,9 +1,10 @@
 // The selected chart's or table's data, in a `host-data` surface built by the session and shown
 // in the data pane under the stage. Each change goes to the element of the surface shown, never
-// to the current selection; a refusal rereads the surface.
+// to the current selection; a refusal rereads the surface. Its data name opens the data (`onOpen`).
 
 import type { Element, Snapshot, TabApi } from "./api";
 import type { DataEdit } from "./chart/dataEdit";
+import { isPanelAction } from "./dataActions";
 import { ownPanel } from "./hostParams";
 import type { HostSettings } from "./useHostSettings";
 import { useSelectionSurface } from "./useSelectionSurface";
@@ -30,6 +31,7 @@ export function useDataSettings(
   off: boolean,
   run: (p: Promise<Snapshot>) => Promise<Snapshot | null>,
   say: (m: string, error?: boolean) => void,
+  onOpen: (data: string) => void,
 ): HostSettings {
   const data = !!snap && ownPanel(snap.host_params, selected?.kind) !== null;
   return useSelectionSurface({
@@ -40,8 +42,12 @@ export function useDataSettings(
     selected,
     off: off || !data,
     fetch: (api, scope) => api.dataPanel(scope.slide, scope.element),
-    send: (api, scope, { name, context }) =>
-      name === "data" && isEdit(context.edit) ? api.dataEdit(scope.slide, scope.element, context.edit) : null,
+    send: (api, scope, { name, context }) => {
+      if (name !== "data") return null;
+      if (isEdit(context.edit)) return api.dataEdit(scope.slide, scope.element, context.edit);
+      if (isPanelAction(context.edit) && context.edit.action === "open-data") onOpen(context.edit.data);
+      return null;
+    },
     run,
     say,
   });

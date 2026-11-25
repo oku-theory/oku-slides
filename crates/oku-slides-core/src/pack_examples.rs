@@ -8,6 +8,7 @@ use serde_json::{Map, Value};
 
 use crate::model::Style;
 use crate::pack::WidgetFile;
+use crate::prepare_view::brings_inline;
 
 /// Les valeurs d'exemple d'un widget dans `widgets.json`, telles qu'écrites.
 #[derive(Deserialize)]
@@ -32,6 +33,10 @@ struct StoredCase {
 /// autres sont oubliés. Une entrée mal formée (nom qui n'est pas celui d'un
 /// fichier de widget, valeurs qui ne sont pas un objet) est écartée avec un
 /// diagnostic au journal ; les autres restent. Les valeurs vides sont omises.
+///
+/// A value holding inline chart or table data (`dataset`, series or axis `data`), as packs
+/// wrote them before examples named the pack's `data`, is dropped with a diagnostic: the
+/// widget's other values stay, and the pack keeps loading.
 ///
 /// Les bornes des valeurs (`PLAIN_MAX`…) dépendent du schéma du widget : elles
 /// s'appliquent à leur usage (`trial_fits`), pas ici.
@@ -58,6 +63,16 @@ where
                     return None;
                 }
             };
+            let values: Map<String, Value> = values
+                .into_iter()
+                .filter(|(param, value)| {
+                    let inline = brings_inline(value);
+                    if inline {
+                        diagnose(&name, &format!("example value `{param}` holds inline chart or table data, ignored"));
+                    }
+                    !inline
+                })
+                .collect();
             (!values.is_empty()).then_some((widget, values))
         })
         .collect())
@@ -95,11 +110,13 @@ where
 /// Problèmes distincts déjà signalés : au-delà, plus rien n'est retenu.
 const DIAGNOSED_MAX: usize = 256;
 
+/// The problems already reported, as `widget\0problem`.
+static SEEN: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+
 /// Signale un problème de `examples` : au journal (`warn`) la première fois
 /// dans le processus, puis en `debug` (le manifeste est relu à chaque accès
 /// à la bibliothèque).
 fn diagnose(widget: &str, problem: &str) {
-    static SEEN: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
     let key = format!("{widget}\0{problem}");
     let first = {
         let mut seen = SEEN.lock().unwrap_or_else(PoisonError::into_inner);
@@ -110,4 +127,10 @@ fn diagnose(widget: &str, problem: &str) {
     } else {
         tracing::debug!(widget, "widgets.json : {problem}");
     }
+}
+
+/// Whether `problem` was reported for `widget` in this process.
+#[cfg(test)]
+pub(crate) fn diagnosed(widget: &str, problem: &str) -> bool {
+    SEEN.lock().unwrap_or_else(PoisonError::into_inner).contains(&format!("{widget}\0{problem}"))
 }

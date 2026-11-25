@@ -20,8 +20,10 @@ afterEach(async () => {
   m.host.remove();
 });
 
-type Props = { source: (string | number)[][]; headerRow: boolean; headerColumn: boolean; striped: boolean; align: string[] };
-const DEFAULTS: Props = { source: [["A", "B"], ["x", 1]], headerRow: true, headerColumn: false, striped: false, align: [] };
+type Props = { source: (string | number)[][]; rowIds: string[]; columnIds: string[]; headerRow: boolean; headerColumn: boolean; striped: boolean; align: string[];
+  data: { id: string; name: string; users: number }; choices: { id: string; name: string }[] };
+const DEFAULTS: Props = { source: [["A", "B"], ["x", 1]], rowIds: ["r1"], columnIds: ["ca", "cb"], headerRow: true, headerColumn: false, striped: false, align: [],
+  data: { id: "d1", name: "ventes", users: 1 }, choices: [{ id: "d1", name: "ventes" }] };
 
 async function mount(props: Partial<Props> = {}, numberLang?: string) {
   const host = document.createElement("div");
@@ -81,9 +83,9 @@ describe("TableDataView", () => {
     const { host, edits } = await mount();
     const [, addColumn] = host.querySelectorAll(".cdg-actions button");
     await act(async () => (addColumn as HTMLButtonElement).click());
-    expect(edits[0]).toMatchObject({ edit: "cells", change: { op: "insert_column", at: 2 } });
-    const cells = (edits[0] as { change: { cells: string[] } }).change.cells;
-    expect(cells[0]).not.toContain("Series");
+    expect(edits[0]).toMatchObject({ edit: "cells", change: { op: "insert_column", after: "cb" } });
+    const name = (edits[0] as { change: { name: string } }).change.name;
+    expect(name).not.toContain("Series");
   });
 
   test("TableDataView without data shows the no-data hint", async () => {

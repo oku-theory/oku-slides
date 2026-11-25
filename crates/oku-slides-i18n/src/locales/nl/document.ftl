@@ -146,3 +146,4 @@ import-warning-unsafe-link = Koppeling geweigerd: { $detail }
 import-warning-nesting-too-deep = Nesting te diep, afgekapt: { $detail }
 import-warning-font-embedded-unreadable = Ingesloten lettertype onleesbaar: { $detail }
 import-warning-truncated = Te veel waarschuwingen: de rest wordt weggelaten
+render-chart-too-many-values = te veel waarden om te tekenen ({ $count }, hoogstens { $max })

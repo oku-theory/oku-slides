@@ -7,6 +7,7 @@
 //! illisible ou impossible à écrire, sans son chemin ; un asset ou un pack inconnu, avec le renvoi
 //! (images collées, outil `packs`) que l'interface ne montre pas.
 
+use oku_slides_data::strip_controls;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_session::{SessionError, SessionErrorKind};
 use rust_mcp_sdk::schema::CallToolResult;
@@ -136,13 +137,15 @@ pub(crate) enum ToolError {
     Workspace { source: oku_slides_session::agent::WorkspaceRefusal, backtrace: Backtrace },
     #[snafu(display("response not serializable"))]
     Response { source: serde_json::Error, backtrace: Backtrace },
+    #[snafu(display("no data has the id {data}"))]
+    DataUnknown { data: String, backtrace: Backtrace },
 }
 
 impl Localize for ToolError {
     fn localize(&self, l: &Localizer) -> String {
         use ToolError::{
-            A2uiElsewhere, A2uiHostOnly, A2uiUnknown, AfterTurnTaken, App, Arguments, ContinueInOtherTab, Denied,
-            EmptyDictationChange, EmptyInterface, EmptySpeechChange, HistoryIndex, HistoryNotOpened, Hub,
+            A2uiElsewhere, A2uiHostOnly, A2uiUnknown, AfterTurnTaken, App, Arguments, ContinueInOtherTab, DataUnknown,
+            Denied, EmptyDictationChange, EmptyInterface, EmptySpeechChange, HistoryIndex, HistoryNotOpened, Hub,
             ImportExtension, ImportHifiTarget, LastWindow, LayoutMin, LayoutRange, NoBoxTurn, NoFile, NoPack,
             NoPackUpdate, NoTurn, NotPresenting, NotShown, OpenElsewhere, PackChange, PackId, PacksDeckMode,
             Paragraphs, PathParent, PathRelative, Playbook, PresentSlide, QuitUnsaved, Response, RewriteText, Session,
@@ -233,6 +236,7 @@ impl Localize for ToolError {
                 None => source.localize(l),
             },
             Response { .. } => l.tr("session-response"),
+            DataUnknown { data, .. } => l.tr_with("mcp-data-unknown", &[("data", strip_controls(data).into())]),
         }
     }
 }
@@ -270,6 +274,13 @@ impl Tools {
     pub(crate) fn fail_with(&self, e: &ToolError) -> CallToolResult {
         tracing::info!(error = %snafu::Report::from_error(e), "outil de l'agent refusé");
         fail(e.localize(&self.localizer.current()))
+    }
+
+    /// [`Tools::fail_with`] for an error that may quote the user's data: its text goes in
+    /// `{untrusted: true, error}`.
+    pub(crate) fn fail_untrusted(&self, e: &ToolError) -> CallToolResult {
+        tracing::info!(error = %snafu::Report::from_error(e), "outil de l'agent refusé");
+        fail(serde_json::json!({ "untrusted": true, "error": e.localize(&self.localizer.current()) }).to_string())
     }
 }
 

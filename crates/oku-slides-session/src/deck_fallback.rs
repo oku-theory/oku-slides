@@ -50,6 +50,8 @@ impl Session {
 
     /// [`Session::render_deck`] without recording its outcome.
     fn render_deck_once(&mut self, deck: &Deck) -> Result<RemoteCompiled> {
+        // A paste or a compaction may have made more bases known since the last render.
+        self.sync_bases();
         self.probe_remaining();
         let layer = self.theme_layer(deck)?;
         self.open_deck_renderer()?;

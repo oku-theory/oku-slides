@@ -9,6 +9,44 @@
   "vars": {
     "client": "Acme"
   },
+  "data": {
+    "ventes": {
+      "name": "ventes",
+      "kind": "manual",
+      "table": {
+        "generation": "g1",
+        "columns": [
+          {
+            "id": "mois",
+            "name": "Mois",
+            "type": "text"
+          },
+          {
+            "id": "ventes",
+            "name": "Ventes",
+            "type": "number"
+          },
+          {
+            "id": "marge",
+            "name": "Marge",
+            "type": "number"
+          }
+        ],
+        "rows": [
+          "jan",
+          "fev"
+        ],
+        "cells": {
+          "jan/mois": "Jan",
+          "jan/ventes": 3,
+          "jan/marge": 0.2,
+          "fev/mois": "Fév",
+          "fev/ventes": 5,
+          "fev/marge": 0.25
+        }
+      }
+    }
+  },
   "slides": [
     {
       "id": "s-titre",
@@ -95,22 +133,7 @@
             "kind": "base/chart",
             "params": {
               "option": {
-                "dataset": {
-                  "source": [
-                    [
-                      "Mois",
-                      "Ventes"
-                    ],
-                    [
-                      "Jan",
-                      3
-                    ],
-                    [
-                      "Fév",
-                      5
-                    ]
-                  ]
-                },
+                "data": "ventes",
                 "xAxis": {
                   "type": "category"
                 },
@@ -127,25 +150,7 @@
             "kind": "base/table",
             "params": {
               "data": {
-                "dataset": {
-                  "source": [
-                    [
-                      "Mois",
-                      "Ventes",
-                      "Marge"
-                    ],
-                    [
-                      "Jan",
-                      3,
-                      0.2
-                    ],
-                    [
-                      "Fév",
-                      5,
-                      0.25
-                    ]
-                  ]
-                },
+                "data": "ventes",
                 "header-column": true,
                 "striped": true
               }
@@ -508,5 +513,5 @@
       }
     }
   ],
-  "version": 9
+  "version": 10
 }

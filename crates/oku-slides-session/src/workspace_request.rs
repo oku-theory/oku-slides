@@ -81,18 +81,19 @@ pub enum WorkspaceRequest {
         /// Le fichier (normalisé à la réception).
         path: PathBuf,
     },
-    /// Apporte à `to` les assets d'un élément copié dans `from`.
+    /// Pastes into `to` an element copied in `from`: `to`'s snapshot.
     ///
-    /// Avant le collage. `to` les garde en mémoire à la place des précédents, et ne
-    /// les range dans son bundle que si le collage les cite : `{ "carried": n }` ;
-    /// ne change pas la vue.
-    CarryAssets {
-        /// Onglet où l'élément a été copié.
+    /// `ops` add the copy; the host brings from `from` the assets and data they name, copies
+    /// the data under fresh ids and names, and applies everything as one undo step.
+    PasteElement {
+        /// Tab the element was copied in.
         from: String,
-        /// Onglet où il est collé.
+        /// Tab it is pasted in.
         to: String,
-        /// L'élément copié, tel que le presse-papiers le garde.
-        element: Box<oku_slides_core::Element>,
+        /// The undo step's label.
+        label: String,
+        /// The ops adding the copy.
+        ops: Vec<oku_slides_core::Op>,
     },
     /// Le dernier élément copié et son numéro : `{ "clip": … | null, "seq": n }`.
     Clip,
@@ -203,6 +204,17 @@ pub enum WorkspaceRequest {
         /// The pack tab.
         tab: String,
     },
+}
+
+impl WorkspaceRequest {
+    /// The tab whose deck the request changes once applied: a paste's target.
+    #[must_use]
+    pub fn changed_deck(&self) -> Option<&str> {
+        match self {
+            Self::PasteElement { to, .. } => Some(to),
+            _ => None,
+        }
+    }
 }
 
 /// Un onglet de la vue.

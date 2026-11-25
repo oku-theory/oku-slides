@@ -11,7 +11,7 @@ fn plain(text: &str) -> String {
 }
 
 fn report(changes: usize, authors: &[&str], anonymous: usize) -> MergeReport {
-    MergeReport { changes, authors: authors.iter().map(|a| (*a).to_owned()).collect(), anonymous }
+    MergeReport { changes, authors: authors.iter().map(|a| (*a).to_owned()).collect(), anonymous, lost: Vec::new() }
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn save_merging_nothing_new_sets_no_notice() {
 fn absorb_bringing_only_a_new_theme_version_marks_the_document_modified() {
     let d = dir();
     let (mut s, path) = saved(&d);
-    let opened = read_document(&s.storage, &path, s.source_limits, &s.registry).unwrap();
+    let opened = read_document(&s.storage, &path, s.source_limits, &s.registry, Some(&s.bases.files())).unwrap();
     let mut theirs = opened.sources;
     let pro = crate::ThemeLibrary::new(None, s.storage.clone()).current_version(crate::PRO_THEME).unwrap();
     theirs.add_theme(pro.files);
@@ -251,4 +251,58 @@ fn save_copy_leaves_unsaved_changes_unsaved() {
 #[case("/d/deck", "/d/deck.oku-slides.pdf")]
 fn deck_path_ends_with_the_deck_extension(#[case] given: &str, #[case] written: &str) {
     assert_that!(deck_path(Path::new(given))).is_equal_to(PathBuf::from(written));
+}
+
+// ---- Lost layers ------------------------------------------------------------------------
+
+/// A merge that replaced the layer our undo steps write into drops those steps, with a notice:
+/// an undo would write into the dead layer and be lost again.
+#[test]
+fn merge_lost_layer_drops_undo_steps() {
+    let data = crate::test_support::fresh_dir("oku-slides-merge-lost-");
+    let mut s = crate::test_support::session_on(data.path());
+    s.open(&PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"))).unwrap();
+    let table = serde_json::json!({ "generation": "g1",
+        "columns": [{ "id": "c1", "name": "Mois" }, { "id": "c2", "name": "ventes", "type": "number" }],
+        "rows": [{ "id": "r1", "cells": ["Jan", 10] }, { "id": "r2", "cells": ["Fév", 12] }] });
+    let add = serde_json::json!({ "op": "add_data", "id": "d9", "name": "ventes", "table": table });
+    s.apply("données", vec![serde_json::from_value(add).unwrap()], None).unwrap();
+    let d9 = oku_slides_data::DataId::try_from("d9".to_owned()).unwrap();
+    // Their copy of the deck folds d9 into a base: a new layer.
+    let zip = s.doc.sources.to_zip_bases(false, Some(&s.bases.files())).unwrap();
+    let (mut theirs, _) =
+        SourceBundle::from_zip_bases(&zip, s.source_limits, s.registry.clone(), Some(&s.bases.files())).unwrap();
+    let base = crate::bases::bases_tests::put_base(s.bases.store(), b"their base");
+    let from = theirs.deck().data[&d9].table.clone();
+    assert_that!(theirs.compact_data(&d9, &from, "e2".to_owned(), base).unwrap()).is_true();
+    // Ours edits a cell of the old layer: an undo step on d9.
+    let edit = serde_json::json!({ "op": "edit_data", "data": "d9",
+        "change": { "op": "set_cell", "row": "r1", "column": "c2", "value": 11 } });
+    s.apply("cellule", vec![serde_json::from_value(edit).unwrap()], None).unwrap();
+    assert_that!(s.doc.sources.replica().undo_touches_data(&d9)).is_true();
+    s.doc.notice = None;
+
+    let report = s.absorb(theirs, "theirs.oku-slides.pdf", false).unwrap();
+
+    assert_that!(report.lost).is_equal_to(vec![d9.clone()]);
+    assert_that!(s.doc.sources.replica().undo_touches_data(&d9)).is_false();
+    assert_that!(s.can_undo()).is_false();
+    assert_that!(s.can_redo()).is_false();
+    // → the session is French: the notice is the `fr` text naming the data.
+    let cut = s.localizer.tr_with("session-data-undo-cut", &[("data", "ventes".into())]);
+    assert_that!(s.doc.notice.clone().unwrap_or_default()).contains(cut.as_str());
+}
+
+#[test]
+fn session_data_undo_cut_formats_in_all_locales() {
+    let args = [("data", "ventes".into())];
+    for locale in oku_slides_i18n::available() {
+        let l = Localizer::new(Some(locale));
+        assert_that!(l.has("session-data-undo-cut")).named(locale).is_true();
+        let text = l.tr_with("session-data-undo-cut", &args);
+        assert_that!(text.contains('{') || !text.contains("ventes")).named(&format!("{locale}: {text}")).is_false();
+    }
+    let (en, fr) = (Localizer::new(Some("en")), Localizer::new(Some("fr")));
+    assert_that!(fr.tr_with("session-data-undo-cut", &args))
+        .is_not_equal_to(en.tr_with("session-data-undo-cut", &args));
 }

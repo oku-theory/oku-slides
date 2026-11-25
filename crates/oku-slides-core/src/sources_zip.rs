@@ -1,26 +1,30 @@
-//! Writes and reads back the sources zip: manifest, `deck.loro`, assets and fonts.
+//! Writes and reads back the sources zip: manifest, `deck.loro`, assets, data bases
+//! (`bases/<hex>.parquet`, streamed to and from the base store) and fonts.
 //!
 //! Then come the pack versions (`sources_packs.rs`), the theme versions (`sources_themes.rs`)
 //! and the agent usage ledger, `usage.jsonl`, read last under its own cap. The read is
 //! bounded: its bytes are not trusted.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Cursor, Read, Seek, Write};
 use std::sync::Arc;
 
-use snafu::{OptionExt, ResultExt, ensure};
+use oku_slides_data::BaseId;
+use oku_slides_data::limits::{MAX_BASE_BYTES, MAX_DECK_BASE_BYTES};
+use snafu::{IntoError, OptionExt, ResultExt, ensure};
 use zip::write::SimpleFileOptions;
 
 use super::packs::{PackPart, RawPack, pack_dir, pack_entry, report_discarded, verify_packs, write_packs};
 use super::themes::{THEME_VERSIONS_DIR, report_discarded_themes, theme_entry, verify_themes, write_themes};
-use super::{OLDEST_SOURCES_VERSION, SOURCES_FORMAT, SOURCES_VERSION, SourceBundle, SourceLimits};
+use super::{SOURCES_FORMAT, SOURCES_VERSION, SourceBundle, SourceLimits};
 use crate::error::{
-    BadNameSnafu, IoSnafu, JsonSnafu, MissingDeckSnafu, NotSourcesSnafu, ReplicaError, ReplicaSnafu, SourcesInner,
-    TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
+    BadNameSnafu, BaseSnafu, IoSnafu, JsonSnafu, MissingDeckSnafu, NotSourcesSnafu, ReplicaError, ReplicaSnafu,
+    SourcesInner, TooLargeSnafu, TotalTooLargeSnafu, UnsupportedVersionSnafu, ZipSnafu,
 };
 use crate::pack::PackVersion;
 use crate::pack_kind::PackKind;
 use crate::replica::DeckReplica;
+use crate::sources_bases::BaseFiles;
 use crate::usage::{USAGE_FILE, USAGE_MAX_BYTES, UsageLedger};
 use crate::validate::Issue;
 use crate::widget::WidgetRegistry;
@@ -82,6 +86,81 @@ fn read_entry(
     Ok(data)
 }
 
+/// Folder of the data bases in the zip: `bases/<hex>.parquet`.
+const BASES_DIR: &str = "bases/";
+
+/// Writes one stored `bases/<hex>.parquet` entry per base the deck uses now, copied from `bases`.
+fn write_bases<W: Write + Seek>(
+    zw: &mut zip::ZipWriter<W>,
+    bundle: &SourceBundle,
+    bases: Option<&dyn BaseFiles>,
+    stored: SimpleFileOptions,
+) -> Result<(), SourcesInner> {
+    let mut written = BTreeSet::new();
+    for data in bundle.deck().data.values() {
+        let Some(base) = &data.table.base else { continue };
+        if !written.insert(&base.id) {
+            continue;
+        }
+        let id = || BaseSnafu { id: base.id.as_str() };
+        let store = bases.ok_or_else(|| id().into_error("no base store".into()))?;
+        let mut r = store.open(&base.id).map_err(|e| id().into_error(e))?;
+        zw.start_file(format!("{BASES_DIR}{}.parquet", base.id.hex()), stored).context(ZipSnafu)?;
+        std::io::copy(&mut r, zw).context(IoSnafu)?;
+    }
+    Ok(())
+}
+
+/// The bases an opened zip put into the store, and what the deck may still hold of them.
+struct BaseBudget {
+    known: BTreeSet<BaseId>,
+    /// Bytes left under [`MAX_DECK_BASE_BYTES`].
+    left: u64,
+    /// The zip's whole budget, for the error.
+    total: usize,
+}
+
+impl BaseBudget {
+    /// Streams entry `file` (`<hex>.parquet`) of announced size `size` into `store`, within
+    /// [`MAX_BASE_BYTES`], the deck's bases and the zip's `budget`; past them: `TotalTooLarge`.
+    fn put(
+        &mut self,
+        store: &dyn BaseFiles,
+        file: &str,
+        f: impl Read,
+        size: usize,
+        budget: &mut usize,
+    ) -> Result<(), SourcesInner> {
+        let total = self.total;
+        let hex = file.strip_suffix(".parquet").context(BadNameSnafu { name: file })?;
+        let id = BaseId::try_from(format!("sha256:{hex}")).ok().context(BadNameSnafu { name: file })?;
+        let cap = MAX_BASE_BYTES.min(self.left).min(u64::try_from(*budget).unwrap_or(u64::MAX));
+        ensure!(u64::try_from(size).unwrap_or(u64::MAX) <= cap, TotalTooLargeSnafu { max: total });
+        let mut counted = Counted { inner: f.take(cap.saturating_add(1)), read: 0 };
+        let put = store.put(&mut counted, &id, cap);
+        ensure!(counted.read <= cap, TotalTooLargeSnafu { max: total });
+        put.map_err(|e| BaseSnafu { id: id.as_str() }.into_error(e))?;
+        *budget -= usize::try_from(counted.read).unwrap_or(usize::MAX);
+        self.left -= counted.read;
+        self.known.insert(id);
+        Ok(())
+    }
+}
+
+/// A reader that counts what it gave.
+struct Counted<R> {
+    inner: R,
+    read: u64,
+}
+
+impl<R: Read> Read for Counted<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.read += n as u64;
+        Ok(n)
+    }
+}
+
 /// Reads `usage.jsonl`, last, under [`USAGE_MAX_BYTES`] only; never fails the deck.
 ///
 /// Its cap is its own, outside `SourceLimits.total_bytes`: a deck whose assets fill the budget
@@ -118,7 +197,7 @@ fn read_usage<R: Read + Seek>(za: &mut zip::ZipArchive<R>) -> (UsageLedger, Vec<
 }
 
 impl SourceBundle {
-    pub(super) fn write_zip(&self, usage: bool) -> Result<Vec<u8>, SourcesInner> {
+    pub(super) fn write_zip(&self, usage: bool, bases: Option<&dyn BaseFiles>) -> Result<Vec<u8>, SourcesInner> {
         let mut buf = Cursor::new(Vec::new());
         {
             let mut zw = zip::ZipWriter::new(&mut buf);
@@ -140,6 +219,7 @@ impl SourceBundle {
                 zw.start_file(format!("assets/{}", asset_name(id)?), stored).context(ZipSnafu)?;
                 zw.write_all(bytes).context(IoSnafu)?;
             }
+            write_bases(&mut zw, self, bases, stored)?;
             for (name, bytes) in &self.fonts {
                 zw.start_file(format!("fonts/{}", safe_name(name)?), stored).context(ZipSnafu)?;
                 zw.write_all(bytes).context(IoSnafu)?;
@@ -159,6 +239,7 @@ impl SourceBundle {
         bytes: &[u8],
         limits: SourceLimits,
         registry: Arc<WidgetRegistry>,
+        bases: Option<&dyn BaseFiles>,
     ) -> Result<(Self, Vec<Issue>), SourcesInner> {
         let max = limits.replica_bytes;
         let mut za = zip::ZipArchive::new(Cursor::new(bytes)).context(ZipSnafu)?;
@@ -169,6 +250,7 @@ impl SourceBundle {
         let mut raw_themes: BTreeMap<PackVersion, Vec<u8>> = BTreeMap::new();
         // Octets décompressés encore permis (anti-bombe de décompression).
         let mut budget = limits.total_bytes;
+        let mut received = BaseBudget { known: BTreeSet::new(), left: MAX_DECK_BASE_BYTES, total: limits.total_bytes };
         for i in 0..za.len() {
             // `usage.jsonl` is read after the loop (`read_usage`): skipped by name before
             // `by_index` opens it, since an entry it cannot open (encrypted) must not fail the deck.
@@ -207,6 +289,12 @@ impl SourceBundle {
                 raw_packs.entry((kind, version)).or_default().put(part, data);
                 continue;
             }
+            if let Some(file) = name.strip_prefix(BASES_DIR) {
+                if let Some(store) = bases {
+                    received.put(store, file, f, size, &mut budget)?;
+                }
+                continue; // Without a store: neither read nor counted, the data read as missing.
+            }
             let known = name == "manifest.json" || name.starts_with("assets/") || name.starts_with("fonts/");
             if !known {
                 continue; // Entrées inconnues (dont l'ancien `deck.json`) : ni lues, ni comptées.
@@ -229,10 +317,9 @@ impl SourceBundle {
         }
         let manifest = manifest.context(NotSourcesSnafu)?;
         ensure!(manifest.format == SOURCES_FORMAT, NotSourcesSnafu);
-        // Older than the oldest version read (13, whose format-7 replica opens as format 8):
-        // not a sources file this app reads, and never converted (spec t-188).
-        ensure!(manifest.version >= OLDEST_SOURCES_VERSION, NotSourcesSnafu);
-        ensure!(manifest.version <= SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
+        // Older: not a sources file this app reads, never converted (spec t-188).
+        ensure!(manifest.version >= SOURCES_VERSION, NotSourcesSnafu);
+        ensure!(manifest.version == SOURCES_VERSION, UnsupportedVersionSnafu { version: manifest.version });
         let (replica, read) = match snapshot.context(MissingDeckSnafu)? {
             Snapshot::Bytes(data) => {
                 DeckReplica::from_snapshot(&data, limits.replica(), registry).context(ReplicaSnafu)?
@@ -243,7 +330,7 @@ impl SourceBundle {
         };
         let (packs, discarded_packs) = verify_packs(raw_packs);
         let (themes, discarded_themes) = verify_themes(raw_themes);
-        let (mut bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes);
+        let (mut bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes, received.known);
         report_discarded(&mut issues, &discarded_packs);
         report_discarded_themes(&mut issues, &discarded_themes);
         let (usage, usage_issues) = read_usage(&mut za);

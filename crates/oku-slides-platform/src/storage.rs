@@ -126,8 +126,23 @@ const LFS_POINTER: &[u8] = b"version https://git-lfs.github.com/spec/v1";
 #[derive(Clone)]
 pub struct Storage {
     roots: Arc<Mutex<HashMap<PathBuf, blocking::Operator>>>,
-    /// Fait tourner les tâches des opérateurs ; gardé en vie avec eux.
-    runtime: Arc<tokio::runtime::Runtime>,
+    /// Enters the operators' runtime to build one.
+    handle: tokio::runtime::Handle,
+    /// Runs the operators' tasks; kept alive with them.
+    _runtime: Arc<OwnedRuntime>,
+}
+
+/// The operators' runtime, shut down without blocking when the last [`Storage`] goes: a plain
+/// drop waits for its threads, which panics on an async task (a session dropped there).
+struct OwnedRuntime(Option<tokio::runtime::Runtime>);
+
+impl Drop for OwnedRuntime {
+    fn drop(&mut self) {
+        if let Some(runtime) = self.0.take() {
+            // No task is left: every operation blocked until done.
+            runtime.shutdown_background();
+        }
+    }
 }
 
 /// Un chemin, vu d'OpenDAL : sa racine et sa clé sous cette racine.
@@ -173,7 +188,11 @@ impl Storage {
             .enable_all()
             .build()
             .context(RuntimeSnafu)?;
-        Ok(Self { roots: Arc::new(Mutex::new(HashMap::new())), runtime: Arc::new(runtime) })
+        Ok(Self {
+            roots: Arc::new(Mutex::new(HashMap::new())),
+            handle: runtime.handle().clone(),
+            _runtime: Arc::new(OwnedRuntime(Some(runtime))),
+        })
     }
 
     /// L'opérateur de la racine de `path`, et la clé du chemin sous elle.
@@ -186,7 +205,7 @@ impl Storage {
         let root_str = root.to_str().context(InvalidPathSnafu { path })?;
         let op = opendal::Operator::new(services::Fs::default().root(root_str)).context(SetupSnafu)?;
         let op = {
-            let _entered = self.runtime.enter();
+            let _entered = self.handle.enter();
             blocking::Operator::new(op).context(SetupSnafu)?
         };
         roots.insert(root, op.clone());
@@ -349,6 +368,20 @@ impl Storage {
         let (op, key) = self.at(path)?;
         match op.stat(&key) {
             Ok(meta) => Ok(Some(meta.content_length())),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e).context(AccessSnafu { action: "stat", path })?,
+        }
+    }
+
+    /// Last modification time of the file, if it exists and the system gives one.
+    ///
+    /// # Errors
+    ///
+    /// If the path is unusable or unreadable.
+    pub fn modified(&self, path: &Path) -> Result<Option<std::time::SystemTime>, StorageError> {
+        let (op, key) = self.at(path)?;
+        match op.stat(&key) {
+            Ok(meta) => Ok(meta.last_modified().map(std::time::SystemTime::from)),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e).context(AccessSnafu { action: "stat", path })?,
         }

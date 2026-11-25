@@ -27,7 +27,7 @@ fn op_names(v: &serde_json::Value, out: &mut Vec<String>) {
 fn every_op_variant_is_mirrored_in_the_ui_op_type() {
     // The generated schema, knowledge ops included.
     let schema = serde_json::to_value(schemars::schema_for!(Vec<Op>)).unwrap();
-    // `Op` alone: `DataOp` and `ListOp`, its sub-ops, also have an `op` field.
+    // `Op` alone: `TableOp` and `ListOp`, its sub-ops, also have an `op` field.
     let op = schema.get("$defs").or_else(|| schema.get("definitions")).and_then(|d| d.get("Op")).unwrap();
     let mut names = Vec::new();
     op_names(op.get("oneOf").or_else(|| op.get("anyOf")).unwrap(), &mut names);
@@ -81,4 +81,52 @@ fn ops_schema_descriptions_have_no_french_letters() {
     assert_that!(all.len()).is_greater_than(0);
     let french: Vec<&str> = all.into_iter().filter(|d| d.contains(FRENCH_LETTERS)).collect();
     assert_that!(french).is_empty();
+}
+
+/// The `Op` variant of the schema named `name`.
+fn op_variant<'a>(schema: &'a serde_json::Value, name: &str) -> &'a serde_json::Value {
+    let defs = schema.get("$defs").or_else(|| schema.get("definitions")).unwrap();
+    let op = defs.get("Op").unwrap();
+    let variants = op.get("oneOf").or_else(|| op.get("anyOf")).and_then(serde_json::Value::as_array).unwrap();
+    variants
+        .iter()
+        .find(|v| {
+            let mut names = Vec::new();
+            op_names(v, &mut names);
+            names == [name]
+        })
+        .unwrap()
+}
+
+/// Each data op sample parses, round trips, names a schema variant and gives its required fields.
+#[test]
+fn ops_schema_validates_one_sample_of_each_data_op_including_remove_rename_retype() {
+    let schema = ops_schema().unwrap();
+    let samples = [
+        serde_json::json!({ "op": "add_data", "name": "Sales",
+            "table": { "columns": [{ "name": "Month" }], "rows": [{ "cells": ["Jan"] }] } }),
+        serde_json::json!({ "op": "edit_data", "data": "d1",
+            "change": { "op": "set_cell", "row": "r1", "column": "c1", "value": 3 } }),
+        serde_json::json!({ "op": "bind_data", "target": { "slide": "s", "element": "g" }, "param": "option",
+            "data": "d1", "columns": ["c1"] }),
+        serde_json::json!({ "op": "remove_data", "data": "d1" }),
+        serde_json::json!({ "op": "rename_data", "data": "d1", "name": "ventes" }),
+        serde_json::json!({ "op": "set_column_type", "data": "d1", "column": "c2", "type": "integer" }),
+    ];
+    for sample in samples {
+        let name = sample["op"].as_str().unwrap();
+        let variant = op_variant(&schema, name);
+        let required: Vec<&str> = variant
+            .get("required")
+            .and_then(serde_json::Value::as_array)
+            .unwrap()
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .collect();
+        let missing: Vec<&&str> = required.iter().filter(|f| sample.get(**f).is_none()).collect();
+        assert_that!(missing).is_empty();
+        let op: super::Op = serde_json::from_value(sample.clone()).unwrap();
+        let back: super::Op = serde_json::from_value(serde_json::to_value(&op).unwrap()).unwrap();
+        assert_that!(back).is_equal_to(op);
+    }
 }

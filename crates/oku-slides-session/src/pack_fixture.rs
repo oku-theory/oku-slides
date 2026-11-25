@@ -33,6 +33,7 @@ pub fn pin_behind_library(s: &mut Session) -> Namespace {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let files = |m: PackManifest| {
         m.to_files(PackKind::Widgets, std::collections::BTreeMap::new())

@@ -22,6 +22,8 @@ pub struct MergeReport {
     pub authors: Vec<String>,
     /// Pairs sans nom parmi ces modifications.
     pub anonymous: usize,
+    /// Data whose edits on one side were lost to a concurrent new generation, sorted.
+    pub lost: Vec<oku_slides_data::DataId>,
 }
 
 /// Les modifications de `doc` absentes de `before`.
@@ -50,7 +52,7 @@ pub(super) fn report_since(doc: &LoroDoc, before: &VersionVector) -> MergeReport
             None => anonymous += 1,
         }
     }
-    MergeReport { changes, authors: authors.into_iter().collect(), anonymous }
+    MergeReport { changes, authors: authors.into_iter().collect(), anonymous, lost: Vec::new() }
 }
 
 pub(super) fn author_of(doc: &LoroDoc, peer: u64) -> Option<String> {

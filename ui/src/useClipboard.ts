@@ -1,7 +1,7 @@
 // Le presse-papiers d'un onglet : copier, couper et coller l'élément sélectionné (partagé par les fenêtres), et la coupe marquée.
 
 import { useCallback, useEffect, useState } from "react";
-import { errorText, workspace, type Element, type Op, type Paragraph, type SlideView, type Snapshot, type TabApi } from "./api";
+import { errorText, type Element, type Op, type Paragraph, type SlideView, type Snapshot, type TabApi } from "./api";
 import type { AddWidget } from "./packTypes";
 import { BASE } from "./builtinKinds";
 import { copyAfterRefusedMove, findElement, literalToParagraphs, moveOps, pasteOps } from "./deck";
@@ -21,15 +21,18 @@ export function movesHere(clip: Clip, tab: string): boolean {
   return clip.cut !== undefined && clip.tab === tab;
 }
 
-/** Colle une copie de `clip` ; venue d'un autre onglet, ses assets passent d'abord. */
-export async function pasteCopy(
-  clip: Clip,
-  tab: string,
-  carry: (from: string, to: string, element: Element) => Promise<unknown>,
-  paste: () => Promise<boolean>,
-): Promise<boolean> {
-  if (clip.tab !== tab) await carry(clip.tab, tab, clip.element);
-  return paste();
+/** Sends `paste_element`: true if the host applied the ops. */
+export type PasteElement = (from: string, to: string, label: string, ops: Op[]) => Promise<boolean>;
+
+/**
+ * Pastes a copy of `clip` on the slide of `view` in `tab`; the copy's id once applied.
+ *
+ * The host brings the assets and data its views name from the copy's tab, even this one
+ * (t-1178, t-1690).
+ */
+export async function pasteCopy(clip: Clip, tab: string, view: SlideView, send: PasteElement): Promise<string | null> {
+  const { id, ops } = pasteOps(view, clip.element);
+  return (await send(clip.tab, tab, t("ui-undo-paste"), ops)) ? id : null;
 }
 
 /** La coupe en cours, et de quoi l'abandonner. */
@@ -95,6 +98,8 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
   /** A theme tab: its specimens take no element, copied or pasted. */
   themeTab: boolean;
   apply: (label: string, ops: Op[]) => Promise<boolean>;
+  /** Pastes a copied element through the workspace (`paste_element`). */
+  pasteElement: PasteElement;
   addElement: (widget: AddWidget, override?: { text: Paragraph[]; label: string }) => void;
   setSelected: (id: string | null) => void;
   say: (text: string, error?: boolean) => void;
@@ -104,8 +109,8 @@ interface ClipboardEventsContext extends Omit<Clipboard, "cutMark"> {
 
 /** ⌘C, ⌘X et ⌘V, écoutés sur la fenêtre et réabonnés à chaque rendu. */
 export function useClipboardEvents({
-  tab, api, snap, snapRef, view, selected, editing, dialogOpen, packTab, themeTab, apply, addElement,
-  setSelected, say, share, clip, setCutMark, dropCut,
+  tab, api, snap, snapRef, view, selected, editing, dialogOpen, packTab, themeTab, apply, pasteElement,
+  addElement, setSelected, say, share, clip, setCutMark, dropCut,
 }: ClipboardEventsContext) {
   useEffect(() => {
     const skip = (e: ClipboardEvent) =>
@@ -138,17 +143,10 @@ export function useClipboardEvents({
         // Le slot libre de la slide (canAdd le demande) doit accepter le kind de l'élément copié.
         if (!canAdd(view.slide.kind, element.kind, snap?.free_slots ?? {})) return;
         const here = view;
-        const copyHere = () => {
-          const { id, ops } = pasteOps(here, element);
-          const applyPaste = () => apply(t("ui-undo-paste"), ops).then((ok) => {
-            if (ok) setSelected(id);
-            return ok;
-          });
-          // Venue d'un autre onglet : ses images passent d'abord dans la mémoire de celui-ci, et
-          // dans son bundle si le collage les cite (t-1178). `apply` dit ses propres refus ; seul
-          // l'échec de cet apport reste à dire.
-          return pasteCopy(copied, tab, workspace.carryAssets, applyPaste).catch((err) => say(errorText(err), true));
-        };
+        // `pasteElement` says its own refusals.
+        const copyHere = () => pasteCopy(copied, tab, here, pasteElement).then((id) => {
+          if (id) setSelected(id);
+        });
         // `!from` pour le typage : `movesHere` le vérifie aussi.
         if (!from || !movesHere(copied, tab)) {
           copyHere();

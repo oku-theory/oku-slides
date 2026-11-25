@@ -35,6 +35,7 @@ fn add_pack(data: &std::path::Path, name: &str) {
         order: Vec::new(),
         tokens: vec![],
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let quote = WidgetFile::parse("quote").unwrap_or_else(|| panic!("widget name"));
     let files = manifest

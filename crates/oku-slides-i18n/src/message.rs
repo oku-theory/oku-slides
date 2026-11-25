@@ -71,6 +71,15 @@ impl Message {
     pub fn id(&self) -> &'static str {
         self.id
     }
+
+    /// The number given as parameter `name`; `None` when absent or given as text.
+    #[must_use]
+    pub fn number(&self, name: &str) -> Option<f64> {
+        self.args.iter().find(|(n, _)| *n == name).and_then(|(_, v)| match v {
+            Arg::Number(n) => Some(*n),
+            Arg::Text(_) => None,
+        })
+    }
 }
 
 impl Localize for Message {

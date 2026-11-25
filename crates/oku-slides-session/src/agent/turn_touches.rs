@@ -225,10 +225,13 @@ fn holds_data(registry: &WidgetRegistry, kind: &str) -> bool {
         .is_some_and(|w| w.host_param(HostType::Chart).is_some() || w.host_param(HostType::Table).is_some())
 }
 
-/// The touches of `ops`, applied in order to `deck`: one per op on an element, none for a slide
-/// or deck op. An element the batch cannot name a widget for makes core refuse the batch.
+/// The touches of `ops`, applied in order to `deck`: one per op on an element, one per view of
+/// the data for a data edit, rename or retype (views of `deck`), none for a slide or deck op.
+/// An element the batch cannot name a widget for makes core refuse the batch.
 pub(crate) fn touches_of(deck: &Deck, registry: &WidgetRegistry, ops: &[Op]) -> Vec<Touch> {
     let mut kinds = Known { deck, registry, added: HashMap::new() };
+    // The views of each edited data, walked once per batch: they are those of `deck`.
+    let mut views = HashMap::new();
     let mut out = Vec::new();
     for op in ops {
         let (slide, element, data, removed, from) = match op {
@@ -236,7 +239,10 @@ pub(crate) fn touches_of(deck: &Deck, registry: &WidgetRegistry, ops: &[Op]) -> 
                 let Some(element) = &target.element else { continue };
                 (&target.slide, element, false, false, None)
             }
-            Op::SetData { target, .. } | Op::SetChartOption { target, .. } | Op::SetTableOption { target, .. } => {
+            Op::SetChartOption { target, .. }
+            | Op::SetTableOption { target, .. }
+            | Op::BindData { target, .. }
+            | Op::PutViewData { target, .. } => {
                 let Target { slide, element: Some(element) } = target else { continue };
                 (slide, element, true, false, None)
             }
@@ -259,7 +265,18 @@ pub(crate) fn touches_of(deck: &Deck, registry: &WidgetRegistry, ops: &[Op]) -> 
                 }
                 (&to.owner.slide, element, false, false, Some(slide.clone()))
             }
+            Op::EditData { data, .. } | Op::RenameData { data, .. } | Op::SetColumnType { data, .. } => {
+                // Every view of the data changes; those the batch binds later are its BindData touches.
+                for view in views.entry(data.clone()).or_insert_with(|| deck.data_users(data)).iter() {
+                    let Some((kind, text)) = kinds.of(&view.slide, &view.element) else { continue };
+                    let (slide, element) = (view.slide.clone(), view.element.clone());
+                    out.push(Touch { slide, element, kind, text, from: None, changes: 1, removed: false, data: true });
+                }
+                continue;
+            }
             Op::SetDeckParam { .. }
+            | Op::AddData { .. }
+            | Op::RemoveData { .. }
             | Op::SetGrid { .. }
             | Op::AddSlide { .. }
             | Op::RemoveSlide { .. }

@@ -64,6 +64,7 @@ fn looping_pack_render_falls_back_to_base_widgets() {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let files = manifest
         .to_files(

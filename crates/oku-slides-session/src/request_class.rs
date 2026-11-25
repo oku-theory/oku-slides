@@ -5,6 +5,18 @@
 use super::Request;
 
 impl Request {
+    /// Whether the request may ask a data fold ([`crate::Session::apply_folding`]).
+    pub(crate) fn may_fold(&self) -> bool {
+        matches!(
+            self,
+            Self::Apply { .. }
+                | Self::DataEdit { .. }
+                | Self::DataAction { .. }
+                | Self::ChartKind { .. }
+                | Self::ShowAs { .. }
+        )
+    }
+
     /// True for a request only a pack tab takes (`Session::ensure_fits`).
     pub(crate) fn pack_only(&self) -> bool {
         matches!(self, Self::SetPreviewTheme { .. })
@@ -56,6 +68,7 @@ impl Request {
             | Self::EditExampleList { .. }
             | Self::HostToken { .. }
             | Self::DataEdit { .. }
+            | Self::DataAction { .. }
             | Self::ElementParam { .. }
             | Self::ElementList { .. }
             | Self::UsePackVersion { .. }
@@ -71,6 +84,8 @@ impl Request {
             | Self::HostSettings { .. }
             | Self::HostTheme { .. }
             | Self::DataPanel { .. }
+            | Self::DataList
+            | Self::DataSheet { .. }
             | Self::ElementPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
@@ -120,6 +135,7 @@ impl Request {
                 | Self::ReorderWidgets { .. }
                 | Self::HostToken { .. }
                 | Self::DataEdit { .. }
+                | Self::DataAction { .. }
                 | Self::ElementParam { .. }
                 | Self::ElementList { .. }
                 | Self::SetExampleValue { .. }
@@ -184,6 +200,7 @@ impl Request {
             | Self::ChartKind { .. }
             | Self::ShowAs { .. }
             | Self::DataEdit { .. }
+            | Self::DataAction { .. }
             | Self::ElementParam { .. }
             | Self::ElementList { .. }
             | Self::SavePack { as_new: false }
@@ -210,6 +227,8 @@ impl Request {
             | Self::HostSettings { .. }
             | Self::HostTheme { .. }
             | Self::DataPanel { .. }
+            | Self::DataList
+            | Self::DataSheet { .. }
             | Self::ElementPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }
@@ -288,6 +307,7 @@ impl Request {
             | Self::SetExampleValue { .. }
             | Self::EditExampleList { .. }
             | Self::DataEdit { .. }
+            | Self::DataAction { .. }
             | Self::ElementParam { .. }
             | Self::ElementList { .. }
             | Self::UsePackVersion { .. }
@@ -295,6 +315,8 @@ impl Request {
             | Self::UseThemeVersion { .. }
             | Self::HostSettings { .. }
             | Self::DataPanel { .. }
+            | Self::DataList
+            | Self::DataSheet { .. }
             | Self::ElementPanel { .. }
             | Self::Layouts
             | Self::Packs { .. }

@@ -29,13 +29,24 @@ impl Workspace {
     /// Locks the workspace before and after, never during the call. A deck-pack
     /// tab's due save is then forwarded to its owner deck: the call returns once
     /// the owner has answered. Owners a forward changed go to `take_touched`.
+    /// An edit's fold and a data pane's base rows run with the tab's lock released.
     ///
     /// # Blocking
     ///
     /// Waits for the tab's session, then, for a forward, for its owner's.
     pub fn request(ws: &Mutex<Self>, tab: &str, req: Request) -> (Result<String>, bool) {
-        let (reply, changed) = Self::acquire(ws, tab, Forward::Yes, |s| s.handle(req));
-        (reply.and_then(|r| r), changed)
+        let (reply, changed) = match &req {
+            Request::DataPanel { slide, element } => Self::data_panel(ws, tab, &req, slide, element),
+            Request::DataSheet { data, offset } => Self::data_sheet(ws, tab, &req, data, *offset),
+            _ if req.may_fold() => Self::request_folding(ws, tab, &req),
+            _ => {
+                let (reply, changed) = Self::acquire(ws, tab, Forward::Yes, |s| s.handle(req));
+                (reply.and_then(|r| r), changed)
+            }
+        };
+        // Detached: each job commits under the tab's lock when its worker is done.
+        drop(Self::schedule_compactions(ws, tab));
+        (reply, changed)
     }
 
     /// `f` on the tab's session, woken if needed; `true`: redraw the tab bar.

@@ -17,9 +17,11 @@
 //! - [`serve`] : la boucle du travailleur ([`ServeError`] si le tube est illisible).
 //! - [`exit_if_worker`] : à appeler en tête de `main`.
 
+mod base_files;
 mod client;
 mod compiled;
 mod confine;
+mod data_worker;
 mod error;
 #[cfg(target_os = "macos")]
 mod footprint;
@@ -40,6 +42,7 @@ mod watchdog;
 
 pub use client::RenderWorker;
 pub use compiled::RemoteCompiled;
+pub use data_worker::{DataRead, DataResult, DataWorker};
 pub use pack_probe::PackProbe;
 pub use reference::{ReferenceWitness, RemoteReference};
 pub use serve::{ServeError, exit_if_worker, serve};

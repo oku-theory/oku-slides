@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use speculoos::prelude::*;
 
 use super::param_value;
-use crate::error::OpErrorKind;
+use crate::error::{DataFaultKind, OpErrorKind};
 use crate::model::Paragraph;
 use crate::params::ParamValue;
 use crate::widget::{HostType, ParamType, SlotMode};
@@ -56,7 +56,7 @@ fn param_value_accepted_returns_the_value(#[case] ty: ParamType, #[case] value: 
 
 #[test]
 fn param_value_chart_option_returns_its_json() {
-    let option = json!({ "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] });
+    let option = json!({ "data": "d", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] });
     let got = param_value(&chart(), "option", option).unwrap();
     assert_that!(matches!(got, Some(ParamValue::Value(Value::Object(_))))).is_true();
 }
@@ -77,7 +77,8 @@ fn param_value_chart_option_returns_its_json() {
 #[case::chart_null(chart(), json!(null), OpErrorKind::ParamType)]
 #[case::chart_inconsistent(chart(), json!({ "series": [] }), OpErrorKind::InvalidChart)]
 #[case::chart_unreadable(chart(), json!({ "series": 3 }), OpErrorKind::InvalidChart)]
-#[case::table_ragged(table_ty(), json!({ "dataset": { "source": [["A", "B"], [1]] } }), OpErrorKind::InvalidTable)]
+#[case::table_inline(table_ty(), json!({ "dataset": { "source": [["A", "B"], [1, 2]] } }), OpErrorKind::DataRefused(DataFaultKind::Inline))]
+#[case::chart_inline(chart(), json!({ "xAxis": { "data": ["a"] }, "series": [{ "type": "bar", "data": [1] }] }), OpErrorKind::DataRefused(DataFaultKind::Inline))]
 #[case::table_not_object(table_ty(), json!("x"), OpErrorKind::ParamType)]
 #[case::slot(slot(), json!([]), OpErrorKind::ParamType)]
 fn param_value_refused_returns_error(#[case] ty: ParamType, #[case] value: Value, #[case] kind: OpErrorKind) {

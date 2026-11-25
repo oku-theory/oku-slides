@@ -1,5 +1,9 @@
 //! Textes d'exemple traduits des packs intégrés : marqueurs `ftl:` de leurs exemples.
 
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use oku_slides_data::{Data, DataCell, DataId};
 use serde_json::{Map, Value};
 use uuid::Uuid;
 
@@ -17,16 +21,54 @@ const KEY_PREFIX: &str = "session-example-";
 ///
 /// Un pack qui n'est pas intégré garde chaque texte tel quel.
 pub(crate) fn localized_examples(manifest_id: Uuid, values: &Map<String, Value>, l: &Localizer) -> Map<String, Value> {
-    if BuiltinPack::ALL.into_iter().any(|b| builtin_id(b) == manifest_id) {
-        resolved_examples(values, l)
-    } else {
-        values.clone()
-    }
+    if is_builtin(manifest_id) { resolved_examples(values, l) } else { values.clone() }
 }
 
 /// Les exemples `values` aux marqueurs écrits en clair, pour une copie qui n'est plus intégrée.
 pub(crate) fn resolved_examples(values: &Map<String, Value>, l: &Localizer) -> Map<String, Value> {
     values.iter().map(|(k, v)| (k.clone(), resolved(v, l))).collect()
+}
+
+/// The example data `data` of pack `manifest_id`, localized if it is built in.
+///
+/// Markers in labels, column names and text cells read in the language of `l`; a pack that is
+/// not built in keeps every text as written.
+pub(crate) fn localized_data(
+    manifest_id: Uuid,
+    data: &BTreeMap<DataId, Arc<Data>>,
+    l: &Localizer,
+) -> BTreeMap<DataId, Arc<Data>> {
+    if is_builtin(manifest_id) { resolved_data(data, l) } else { data.clone() }
+}
+
+/// The example data `data`, their markers written out, for a copy that is no longer built in.
+pub(crate) fn resolved_data(data: &BTreeMap<DataId, Arc<Data>>, l: &Localizer) -> BTreeMap<DataId, Arc<Data>> {
+    data.iter().map(|(id, d)| (id.clone(), Arc::new(resolved_one(d, l)))).collect()
+}
+
+/// `data`, its label, column names and text cells localized.
+fn resolved_one(data: &Data, l: &Localizer) -> Data {
+    let text = |s: &String| text_of(s, l).unwrap_or_else(|| s.clone());
+    let mut out = data.clone();
+    out.label = data.label.as_ref().map(text);
+    for column in &mut out.table.columns {
+        column.name = text(&column.name);
+    }
+    out.table.cells = data
+        .table
+        .cells
+        .iter()
+        .map(|(key, cell)| match cell {
+            DataCell::Text(s) => (key.clone(), DataCell::Text(text(s))),
+            other => (key.clone(), other.clone()),
+        })
+        .collect();
+    out
+}
+
+/// Whether `manifest_id` is a built-in pack's.
+fn is_builtin(manifest_id: Uuid) -> bool {
+    BuiltinPack::ALL.into_iter().any(|b| builtin_id(b) == manifest_id)
 }
 
 /// `value`, ses marqueurs traduits ; récursif sur les objets et les listes.

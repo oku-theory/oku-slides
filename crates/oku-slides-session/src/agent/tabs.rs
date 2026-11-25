@@ -355,11 +355,24 @@ impl TabSession {
         })?;
         // `Sessions::with` calls `f` at most once; `Ok` without a call is
         // an implementation bug.
-        out.ok_or_else(|| {
-            crate::error::AgentFormSnafu { reason: super::AgentFormReason::SessionNotCalled { tab: self.tab.clone() } }
-                .build()
-                .into()
-        })
+        out.ok_or_else(|| self.not_called())
+    }
+
+    /// [`TabSession::with`] for an edit an overlay cap may refuse: the fold the edit asks
+    /// ([`Session::apply_folding`]) runs with the tab's lock released, then `f` runs once more.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the tab is unknown to the host, or if the host did not call `f`.
+    pub fn with_folding<R>(&self, f: impl FnMut(&mut Session) -> R) -> crate::Result<R> {
+        crate::data_compact::folding(|g| self.sessions.with(&self.tab, g), f)?.ok_or_else(|| self.not_called())
+    }
+
+    /// The error of a host that answered without calling `f`.
+    fn not_called(&self) -> crate::SessionError {
+        crate::error::AgentFormSnafu { reason: super::AgentFormReason::SessionNotCalled { tab: self.tab.clone() } }
+            .build()
+            .into()
     }
 }
 

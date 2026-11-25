@@ -15,6 +15,7 @@
 ## Pitfalls
 
 - Use a unique temp file per Storage::write_atomic call, since two tabs may write in parallel. (plan:2026-09-26-onglets-fenetres)
+- Run BaseStore I/O from Drop through off_runtime: a store dropped on an async task must not block on the storage runtime. (t-1690)
 
 ## Settled decisions
 

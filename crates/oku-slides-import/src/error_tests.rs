@@ -75,3 +75,23 @@ fn plan_refused_error_has_its_kind_and_a_localized_text() {
     assert_that!(err.kind()).is_equal_to(ImportErrorKind::PlanRefused);
     assert_that!(err.localize(&Localizer::new(Some("fr")))).is_not_equal_to(err.localize(english()));
 }
+
+/// The core never refuses a generated plan before it applies (a bug): built from a refused batch.
+#[test]
+fn plan_unprepared_error_has_the_plan_refused_kind_and_a_localized_text() {
+    let table = serde_json::json!({
+        "base": { "id": format!("sha256:{}", "a".repeat(64)), "bytes": 1, "rows": 0, "columns": [] },
+        "columns": [], "rows": []
+    });
+    let op = serde_json::from_value(serde_json::json!({ "op": "add_data", "name": "a", "table": table })).unwrap();
+    let err = plan_unprepared(oku_slides_core::check_external(&[op]).unwrap_err());
+    assert_that!(err.kind()).is_equal_to(ImportErrorKind::PlanRefused);
+    assert_that!(err.localize(&Localizer::new(Some("fr")))).is_not_equal_to(err.localize(english()));
+}
+
+#[test]
+fn plan_warning_uncounted_error_has_the_plan_refused_kind_and_a_localized_text() {
+    let err = plan_warning_uncounted("data-row-cut");
+    assert_that!(err.kind()).is_equal_to(ImportErrorKind::PlanRefused);
+    assert_that!(err.localize(&Localizer::new(Some("fr")))).is_not_equal_to(err.localize(english()));
+}

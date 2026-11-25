@@ -4,13 +4,14 @@
 
 use std::sync::Arc;
 
-use oku_slides_core::{Deck, Op, Paragraph, apply_all};
+use oku_slides_core::{Deck, Op, Origin, Paragraph, apply_all};
 use serde::Deserialize;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt, ensure};
 
 use super::forms::{self, FieldKind, ParamField, Place, ShowParams, ShowVariants, Surface};
 use super::{AgentFormReason, check_len, check_options};
+use crate::data_ops::prepared;
 use crate::deck_theme::fill_op_closures;
 use crate::error::{AgentFormSnafu, KnowledgeOpsInPreviewSnafu, NoSlideSnafu, RenderSnafu};
 use crate::{Mode, Result, Session};
@@ -151,6 +152,7 @@ impl Session {
             let mut ops = vec![op];
             fill_op_closures(&self.themes, &self.doc.sources.themes, &mut ops)?;
             let mut deck = self.deck().clone();
+            let ops = prepared(&deck, &self.registry, &self.chart_labels, ops, Origin::External)?.ops;
             apply_all(&mut deck, ops, &self.registry).map_err(|e| refused(format!("fields[{i}]"), e))?;
         }
         let palette = self.slide_palette();
@@ -217,6 +219,7 @@ impl Session {
             let mut ops = variant.ops.clone();
             fill_op_closures(&self.themes, &self.doc.sources.themes, &mut ops)?;
             let mut deck = self.doc.sources.deck().clone();
+            let ops = prepared(&deck, &self.registry, &self.chart_labels, ops, Origin::External)?.ops;
             apply_all(&mut deck, ops, &self.registry).map_err(|e| refused(format!("variants[{i}]"), e))?;
             decks.push(deck);
         }

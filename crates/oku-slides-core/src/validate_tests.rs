@@ -9,7 +9,9 @@ use crate::model::Element;
 use crate::test_registry::registry;
 
 fn deck(slides: &Value) -> Deck {
-    serde_json::from_value(json!({ "version": 9, "slides": slides })).unwrap()
+    let data =
+        json!({ "d": { "name": "d", "kind": "manual", "table": { "generation": "g", "columns": [], "rows": [] } } });
+    serde_json::from_value(json!({ "version": 10, "data": data, "slides": slides })).unwrap()
 }
 
 /// Une slide `content` dont le slot `slot` porte `elements`.
@@ -120,9 +122,12 @@ fn validate_unknown_param_is_reported_with_its_name() {
 #[case::asset_given_a_number(json!({ "kind": "base/image", "params": { "asset": 1 } }))]
 #[case::slot_given_paragraphs(json!({ "kind": "test/frame-box", "frame": { "x": 0, "y": 0, "w": 1, "h": 1 }, "params": { "children": [{ "runs": [] }] } }))]
 #[case::chart_given_a_string(json!({ "kind": "base/chart", "params": { "option": "barres" } }))]
+#[case::chart_with_a_stored_dataset(json!({ "kind": "base/chart", "params": { "option": {
+    "dataset": { "source": [["month", "sales"], ["jan", 3]] }, "series": [{ "type": "bar" }]
+} } }))]
 #[case::chart_without_a_valid_series(json!({ "kind": "base/chart", "params": { "option": {
-    "dataset": { "source": [["Poste", "A", "B"], ["Début", 1, 2]] },
-    "series": [{ "type": "waterfall" }, { "type": "waterfall" }]
+    "data": "d",
+    "series": []
 } } }))]
 fn validate_param_of_the_wrong_shape_is_reported(#[case] element: Value) {
     let mut element = element;
@@ -146,8 +151,8 @@ fn validate_grid_param_of_the_wrong_shape_is_reported(#[case] grid: Value) {
 #[case::rich_as_empty_slot(json!({ "kind": "base/text", "params": { "body": [] } }))]
 #[case::number_in_range(json!({ "kind": "base/stack", "params": { "layout": "rows", "count": 3 } }))]
 #[case::valid_chart(json!({ "kind": "base/chart", "params": { "option": {
-    "dataset": { "source": [["mois", "ventes"], ["jan", 3]] },
-    "series": [{ "type": "bar", "encode": { "x": "mois", "y": "ventes" } }]
+    "data": "d",
+    "series": [{ "type": "bar" }]
 } } }))]
 fn validate_param_of_the_right_shape_is_accepted(#[case] element: Value) {
     let mut element = element;

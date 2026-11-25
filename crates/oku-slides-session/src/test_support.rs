@@ -94,6 +94,7 @@ pub(crate) fn manifest(
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     }
 }
 
@@ -708,4 +709,33 @@ pub(crate) fn theme_choices(
     let (choices, slot) = job.run();
     s.restore_preview_slot(slot);
     Ok(Some(choices))
+}
+
+/// `fixtures/roadmap.json` with the data `d1`, shown by the charts `ch1` (`s-libre`) and `ch2` (`s-constat`).
+pub(crate) fn roadmap_with_data_views() -> oku_slides_core::Deck {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let mut deck = oku_slides_core::Deck::from_json(&text).unwrap_or_else(|e| panic!("{path} : {e}"));
+    let table = serde_json::json!({
+        "generation": "g1",
+        "columns": [{ "id": "c1", "name": "Month" }, { "id": "c2", "name": "sales" }],
+        "rows": [{ "id": "r1", "cells": ["Jan", 10] }, { "id": "r2", "cells": ["Feb", 12] }]
+    });
+    let chart = |slide: &str, param: &str, id: &str| {
+        serde_json::json!({
+            "op": "add_element",
+            "slot": { "owner": { "slide": slide }, "param": param },
+            "element": { "id": id, "kind": "base/chart", "params": { "option": {
+                "data": "d1", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }]
+            } } }
+        })
+    };
+    let ops = [
+        serde_json::json!({ "op": "add_data", "id": "d1", "name": "sales", "table": table }),
+        chart("s-libre", "elements", "ch1"),
+        chart("s-constat", "blocks", "ch2"),
+    ];
+    let ops = ops.into_iter().map(|v| serde_json::from_value(v).unwrap()).collect();
+    oku_slides_core::apply_all(&mut deck, ops, &registry()).unwrap_or_else(|e| panic!("{e:?}"));
+    deck
 }

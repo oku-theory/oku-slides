@@ -8,6 +8,7 @@ use oku_slides_platform::storage::StorageError;
 use snafu::{Backtrace, IntoError, Snafu};
 
 use crate::agent::bounds::label;
+use crate::request_cap::MIB;
 
 /// Une requête de l'interface qui n'a pas abouti. La session est intacte.
 ///
@@ -40,6 +41,8 @@ pub enum SessionErrorKind {
     NoTable,
     /// Le graphique n'a pas pu changer de type.
     Chart,
+    /// The new chart type needs columns a data other views show lacks.
+    ChartKindShared,
     /// Un pack intégré ne se supprime pas.
     BuiltinPack,
     /// Pas de dossier pour la bibliothèque de l'utilisateur.
@@ -142,6 +145,12 @@ pub enum SessionErrorKind {
     UnknownAsset,
     /// An addition would push the deck's sources past `[sources] max_sources_mib`.
     SourcesOverBudget,
+    /// A growing op would push the replica past 90 % of `[sources] max_replica_mib`.
+    ReplicaFull,
+    /// A column type change or a view conversion waits for, or outlived, a read of its data's base.
+    BaseStale,
+    /// A column insert or remove meets a view of its data that cannot follow it.
+    ViewUnfollowed,
     /// Arguments d'une surface de l'agent invalides.
     AgentForm,
     /// Adresse de l'agent : ni la slide ni un de ses éléments.
@@ -214,6 +223,8 @@ pub enum SessionErrorKind {
     TrialValue,
     /// Valeur d'essai impossible à garder.
     TrialEncode,
+    /// A request's JSON longer than `MAX_APPLY_BYTES`.
+    RequestTooLarge,
 }
 
 #[derive(Debug, Snafu)]
@@ -223,6 +234,8 @@ pub(crate) enum SessionInner {
     Read { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("cannot write {}", path.display()))]
     Write { path: PathBuf, source: StorageError, backtrace: Backtrace },
+    #[snafu(display("the data base store is unavailable"))]
+    Bases { source: oku_slides_platform::bases::BaseStoreError, backtrace: Backtrace },
     #[snafu(display("this PDF was not created by Oku Slides: it cannot be edited"))]
     NotOkuSlides { backtrace: Backtrace },
     #[snafu(display("unreadable PDF"))]
@@ -233,6 +246,8 @@ pub(crate) enum SessionInner {
     DeckJson { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("transaction refused"))]
     Op { source: oku_slides_core::TransactionError, backtrace: Backtrace },
+    #[snafu(display("batch refused before it applies"))]
+    Prepare { source: oku_slides_core::OpError, backtrace: Backtrace },
     #[snafu(display("rendering failed"))]
     Render { source: oku_slides_render::RenderError, backtrace: Backtrace },
     #[snafu(display("widgets unavailable"))]
@@ -249,6 +264,8 @@ pub(crate) enum SessionInner {
     NoTable { id: String, backtrace: Backtrace },
     #[snafu(display("chart conversion failed"))]
     Chart { source: oku_slides_chart::ChartError, backtrace: Backtrace },
+    #[snafu(display("chart {} cannot change type: its data is shown elsewhere and lacks columns", label(id)))]
+    ChartKindShared { id: String, backtrace: Backtrace },
     #[snafu(display("built-in pack {id} cannot be deleted"))]
     BuiltinPack { id: String, backtrace: Backtrace },
     #[snafu(display("no folder for the user {kind} library"))]
@@ -360,6 +377,12 @@ pub(crate) enum SessionInner {
     UnknownAsset { asset: String, backtrace: Backtrace },
     #[snafu(display("this addition would pass the sources budget of {limit_mib} MiB"))]
     SourcesOverBudget { limit_mib: u64, backtrace: Backtrace },
+    #[snafu(display("the replica is near its cap of {max_mib} MiB"))]
+    ReplicaFull { max_mib: u64, backtrace: Backtrace },
+    #[snafu(display("data {data} changed while its base was read"))]
+    BaseStale { data: String, backtrace: Backtrace },
+    #[snafu(display("view {} cannot follow a column change of its data", label(view)))]
+    ViewUnfollowed { view: String, backtrace: Backtrace },
     #[snafu(display("pasted image refused: {reason:?}"))]
     Paste { reason: crate::agent::PasteReason, backtrace: Backtrace },
     #[snafu(display("{} is neither slide {} nor one of its elements", label(owner), label(slide)))]
@@ -420,7 +443,7 @@ pub(crate) enum SessionInner {
     #[snafu(display("{path} is used by: {}", users.join(", ")))]
     TokenInUse { path: String, users: Vec<String>, backtrace: Backtrace },
     #[snafu(display("unreadable help deck"))]
-    HelpDeck { source: serde_json::Error, backtrace: Backtrace },
+    HelpDeck { source: oku_slides_core::DeckJsonError, backtrace: Backtrace },
     #[snafu(display("unreadable version"))]
     Version { source: oku_slides_core::ReplicaError, backtrace: Backtrace },
     #[snafu(display("invalid widget name: {}", label(name)))]
@@ -463,6 +486,8 @@ pub(crate) enum SessionInner {
     NoFreeCopyName { from: String, backtrace: Backtrace },
     #[snafu(display("the new order must list each item once"))]
     WidgetOrderMismatch { missing: Vec<String>, extra: Vec<String>, backtrace: Backtrace },
+    #[snafu(display("the request is longer than {max} bytes"))]
+    RequestTooLarge { max: usize, backtrace: Backtrace },
 }
 
 impl SessionError {
@@ -471,27 +496,28 @@ impl SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one kind per variant")]
     pub fn kind(&self) -> SessionErrorKind {
         use SessionInner::{
-            AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
-            EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeApprovalInvalid,
-            KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting, KnowledgeChangeAwaiting,
-            KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeNotFound, KnowledgeOpsInPreview,
-            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated,
-            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath,
-            NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op,
-            PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview,
-            PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
-            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing,
-            Registry, Render, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists,
-            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
-            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
-            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
-            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
-            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            AgentForm, AgentWindowForbidden, BaseStale, Bases, BuiltinPack, CannotPresent, Chart, ChartKindShared,
+            DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul,
+            GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
+            InvalidWidgetName, KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite,
+            KnowledgeAwaiting, KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound,
+            KnowledgeNotFound, KnowledgeOpsInPreview, KnowledgePathInvalid, KnowledgeQueryInvalid,
+            KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved,
+            NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack,
+            NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
+            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled, PackNotMakeCurrent,
+            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
+            Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render, ReplicaFull, RequestTooLarge,
+            RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists, ThemeClosure,
+            ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated,
+            ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong,
+            TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab,
+            UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme,
+            UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed, WidgetExists, WidgetHasNul, WidgetInUse,
             WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
-            Read { .. } | Write { .. } | GuideApprovalsWrite { .. } => SessionErrorKind::File,
+            Read { .. } | Write { .. } | GuideApprovalsWrite { .. } | Bases { .. } => SessionErrorKind::File,
             KnowledgeApprovalsWrite { .. } => SessionErrorKind::KnowledgeApprovalsWrite,
             KnowledgeApprovalsDamaged { .. } => SessionErrorKind::KnowledgeApprovalsDamaged,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
@@ -507,13 +533,14 @@ impl SessionError {
             | ThemeIdMismatch { .. }
             | Version { .. }
             | HelpDeck { .. } => SessionErrorKind::InvalidDocument,
-            Op { .. } => SessionErrorKind::Op,
+            Op { .. } | Prepare { .. } => SessionErrorKind::Op,
             Render { .. } | NotRendered { .. } | Registry { .. } | TrustedPackBroken { .. } => SessionErrorKind::Render,
             NoPath { .. } => SessionErrorKind::NoPath,
             NoSlide { .. } => SessionErrorKind::NoSlide,
             NoChart { .. } => SessionErrorKind::NoChart,
             NoTable { .. } => SessionErrorKind::NoTable,
             Chart { .. } => SessionErrorKind::Chart,
+            ChartKindShared { .. } => SessionErrorKind::ChartKindShared,
             BuiltinPack { .. } => SessionErrorKind::BuiltinPack,
             NoLibraryDir { .. } => SessionErrorKind::NoLibraryDir,
             UnknownPack { .. } => SessionErrorKind::UnknownPack,
@@ -564,6 +591,9 @@ impl SessionError {
             Paste { .. } => SessionErrorKind::Paste,
             UnknownAsset { .. } => SessionErrorKind::UnknownAsset,
             SourcesOverBudget { .. } => SessionErrorKind::SourcesOverBudget,
+            ReplicaFull { .. } => SessionErrorKind::ReplicaFull,
+            BaseStale { .. } => SessionErrorKind::BaseStale,
+            ViewUnfollowed { .. } => SessionErrorKind::ViewUnfollowed,
             UnknownOwner { .. } => SessionErrorKind::UnknownOwner,
             UnknownField { .. } => SessionErrorKind::UnknownField,
             FieldNeeded { .. } => SessionErrorKind::FieldNeeded,
@@ -605,6 +635,7 @@ impl SessionError {
             TrialTooLong { .. } => SessionErrorKind::TrialTooLong,
             TrialValue { .. } => SessionErrorKind::TrialValue,
             TrialEncode { .. } => SessionErrorKind::TrialEncode,
+            RequestTooLarge { .. } => SessionErrorKind::RequestTooLarge,
         }
     }
 
@@ -734,29 +765,31 @@ impl Localize for SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one Fluent key per variant")]
     fn localize(&self, l: &Localizer) -> String {
         use SessionInner::{
-            AgentForm, AgentWindowForbidden, BuiltinPack, CannotPresent, Chart, DeckJson, DeckOnly, DeckPackMismatch,
-            EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen,
-            HostKey, Import, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName, KnowledgeApprovalInvalid,
-            KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting, KnowledgeChangeAwaiting,
-            KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeNotFound, KnowledgeOpsInPreview,
-            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated,
-            NamespaceChanged, NamespaceReserved, NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath,
-            NoSlide, NoTable, NoWorkDir, NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op,
-            PackAlreadyCurrent, PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview,
-            PackModeSlides, PackNotInstalled, PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch,
-            PackTabNotFresh, PackTokens, PackVersionMissing, Paste, Pdf, Read, ReadOnly, ReceivedParentMissing,
-            Registry, Render, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists,
-            ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson,
-            ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed,
-            TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed,
-            UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab,
-            UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, WidgetExists, WidgetHasNul, WidgetInUse,
+            AgentForm, AgentWindowForbidden, BaseStale, Bases, BuiltinPack, CannotPresent, Chart, ChartKindShared,
+            DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul,
+            GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
+            InvalidWidgetName, KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite,
+            KnowledgeAwaiting, KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound,
+            KnowledgeNotFound, KnowledgeOpsInPreview, KnowledgePathInvalid, KnowledgeQueryInvalid,
+            KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved,
+            NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack,
+            NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
+            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled, PackNotMakeCurrent,
+            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
+            Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render, ReplicaFull, RequestTooLarge,
+            RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists, ThemeClosure,
+            ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated,
+            ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong,
+            TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab,
+            UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme,
+            UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed, WidgetExists, WidgetHasNul, WidgetInUse,
             WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
             Read { path, .. } => l.tr_with("session-read", &path_arg(path)),
             Write { path, .. } => l.tr_with("session-write", &path_arg(path)),
+            Bases { .. } => l.tr("session-bases-unavailable"),
             GuideApprovalsWrite { path, .. } => l.tr_with("session-guide-approvals-write", &path_arg(path)),
             KnowledgeApprovalsWrite { .. } => l.tr("session-knowledge-approvals-write"),
             KnowledgeApprovalsDamaged { .. } => l.tr("session-knowledge-approvals-damaged"),
@@ -765,12 +798,14 @@ impl Localize for SessionError {
             Sources { source, .. } => source.localize(l),
             DeckJson { .. } => l.tr("session-invalid-deck"),
             Op { source, .. } => source.localize(l),
+            Prepare { source, .. } => source.localize(l),
             Render { source, .. } => source.localize(l),
             Registry { source, .. } => source.localize(l),
             NotRendered { .. } => l.tr("session-not-rendered"),
             NoPath { .. } => l.tr("session-no-path"),
             NoSlide { id, .. } => l.tr_with("session-no-slide", &[("id", label(id).into())]),
             NoChart { id, .. } => l.tr_with("session-no-chart", &[("subject", label(id).into())]),
+            ChartKindShared { id, .. } => l.tr_with("session-chart-kind-shared", &[("subject", label(id).into())]),
             NoTable { id, .. } => l.tr_with("session-no-table", &[("subject", label(id).into())]),
             Chart { source, .. } => source.localize(l),
             BuiltinPack { .. } => l.tr("session-builtin-pack"),
@@ -879,6 +914,9 @@ impl Localize for SessionError {
             SourcesOverBudget { limit_mib, .. } => {
                 l.tr_with("session-sources-over-budget", &[("limit", (*limit_mib).into())])
             }
+            ReplicaFull { max_mib, .. } => l.tr_with("op-replica-full", &[("max", (*max_mib).into())]),
+            BaseStale { data, .. } => l.tr_with("session-data-base-stale", &[("data", data.as_str().into())]),
+            ViewUnfollowed { view, .. } => l.tr_with("session-data-view-unfollowed", &[("view", label(view).into())]),
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.localize(l).into())]),
             UnknownOwner { slide, owner, .. } => {
                 l.tr_with("session-unknown-owner", &[("slide", label(slide).into()), ("owner", label(owner).into())])
@@ -961,6 +999,7 @@ impl Localize for SessionError {
                     &[("missing", names(missing).into()), ("extra", names(extra).into())],
                 )
             }
+            RequestTooLarge { max, .. } => l.tr_with("session-request-too-large", &[("mib", (*max / MIB).into())]),
         }
     }
 }

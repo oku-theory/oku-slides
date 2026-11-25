@@ -1,11 +1,11 @@
-// Catalogue A2UI d'Oku Slides (v3) : réglages du dock et surfaces de l'agent. Rendu par
-// @a2ui/react ; les messages sont validés contre ces schémas zod par
-// @a2ui/web_core.
+// Oku Slides A2UI catalog (v5): dock settings and agent surfaces. Rendered by @a2ui/react;
+// @a2ui/web_core validates messages against these zod schemas.
 //
-// Noms et propriétés reprennent le catalogue de base v0.9 ; `RichTextField`, `Stepper`, `ListTable`,
+// Names and properties follow the v0.9 basic catalog; `RichTextField`, `Stepper`, `ListTable`,
 // `ChoiceChips`, `ColorField`, `SlideThumb`, `ThemeChoice`, `DiffText`, `Prompt`, `Timeline`,
-// `Receipt`, `Disclosure`, `Badge`, `Markdown`, `Notice`, `ChartData`, `TableData` sont propres à Oku Slides.
-// Miroir du crate Rust oku-slides-a2ui (même CATALOG_ID).
+// `Receipt`, `Disclosure`, `Badge`, `Markdown`, `Notice`, `ChartData`, `TableData`, `DataList`,
+// `DataSheet` are Oku Slides' own.
+// Mirror of the Rust crate oku-slides-a2ui (same CATALOG_ID).
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -25,10 +25,10 @@ import { StagePreviewContext } from "./stagePreview";
 import { Hex, ToneSchema, toneClass } from "./schemas";
 import { svgSrc } from "./svgSrc";
 import { ThemeChoice } from "./ThemeChoice";
-import { ChartData, TableData } from "./dataComponents";
+import { ChartData, DataList, DataSheet, TableData } from "./dataComponents";
 import { Badge, Disclosure, Markdown, Prompt, Receipt, Timeline } from "./turnComponents";
 
-export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v4";
+export const CATALOG_ID = "urn:oku-slides:a2ui:catalog:v5";
 
 const ColumnApi = { name: "Column", schema: z.object({ children: CommonSchemas.ChildList }).strict() };
 const CardApi = { name: "Card", schema: z.object({ child: CommonSchemas.ComponentId, tone: ToneSchema.optional() }).strict() };
@@ -678,5 +678,5 @@ const Notice = createComponentImplementation(NoticeApi, ({ props, buildChild, co
 /** Le catalogue des surfaces d'Oku Slides : réglages du dock et agent. */
 export const catalog = new Catalog(CATALOG_ID, "0.9", [
   Column, Row, Card, Text, TextField, RichText, Stepper, Button, ChoiceChips, Slider, ColorField, Select, Switch, ListTableField, SlideThumb, ThemeChoice, DiffText,
-  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice, ChartData, TableData,
+  Prompt, Timeline, Receipt, Disclosure, Badge, Markdown, Notice, ChartData, TableData, DataList, DataSheet,
 ]);

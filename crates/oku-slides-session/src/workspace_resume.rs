@@ -169,8 +169,8 @@ impl Workspace {
         // Avant toute relecture : ce que ce lancement met de côté reste
         // intact jusqu'au suivant, quels que soient le réglage et l'horloge.
         ws.prune_failed(dir);
-        let cited = match ws.restore(dir) {
-            Ok(cited) => cited,
+        let (cited, restored) = match ws.restore(dir) {
+            Ok(cited) => (cited, true),
             Err(e) => {
                 tracing::warn!(error = %oku_slides_platform::errors::one_line(&e), "reprise de l'espace de travail impossible");
                 ws.tabs.clear();
@@ -186,11 +186,15 @@ impl Workspace {
                         ws.dir = None;
                     }
                 }
-                HashSet::new()
+                (HashSet::new(), false)
             }
         };
         // Un orphelin qu'on n'a pas pu supprimer garde son numéro : jamais réutilisé.
         let listed = ws.remove_orphans(&cited);
+        // A workspace set aside keeps its tabs elsewhere: their bases are unknown, none is collected.
+        if restored {
+            ws.collect_bases(dir);
+        }
         ws.layout.next_tab = ws.layout.next_tab.max(listed.saturating_add(1)).min(MAX_NUMBER);
         // Empty drafts a crash left with no tab (t-1251): those no restored tab shows.
         let shown = super::tabs::shown_drafts(ws.tabs.values().map(|t| &t.info));

@@ -11,24 +11,26 @@ use oku_slides_i18n::Message;
 use snafu::{ResultExt, ensure};
 
 use crate::error::{InvalidOptionSnafu, InvalidPatchSnafu, PatchTouchesDatasetSnafu, Result};
-use crate::labels::ChartLabels;
-use crate::model::normalize;
+use crate::model::check_option;
 use crate::option::ChartOption;
+use crate::refs::check_ref_null;
 
 /// Applies `patch` and returns the new options and the inverse patch.
 ///
 /// # Errors
 ///
-/// Fails if the patch touches `dataset`, is not an object, adds inline data
-/// next to a `dataset` or makes the options invalid or inconsistent.
+/// Fails if the patch touches `dataset`, is not an object, sets `data` to
+/// `null`, adds inline data next to a `dataset` or a data ref, or makes the options invalid
+/// or inconsistent.
 pub fn apply_option_patch(option: &ChartOption, patch: &Value) -> Result<(ChartOption, Value)> {
     let (next, inverse): (ChartOption, Value) = merge_patch(option, patch)?;
-    // Avec un `dataset`, les données en ligne le contrediraient : la grille
-    // éditerait l'un, le graphique montrerait l'autre.
+    // Next to a `dataset` or a data ref, inline data would contradict it: the grid would
+    // edit one, the chart show the other. `prepare_ops` turns such a patch into a whole option.
     let inline = next.series.iter().any(|s| s.data.is_some())
         || [&next.x_axis, &next.y_axis].into_iter().flatten().any(|a| a.data.is_some());
-    ensure!(next.dataset.is_none() || !inline, InvalidPatchSnafu { reason: Message::new("chart-patch-inline-data") });
-    normalize(&next, ChartLabels::english())?;
+    let has_data = next.dataset.is_some() || next.data.is_some();
+    ensure!(!has_data || !inline, InvalidPatchSnafu { reason: Message::new("chart-patch-inline-data") });
+    check_option(&next)?;
     Ok((next, inverse))
 }
 
@@ -36,6 +38,7 @@ pub fn apply_option_patch(option: &ChartOption, patch: &Value) -> Result<(ChartO
 pub(crate) fn merge_patch<T: Serialize + DeserializeOwned>(option: &T, patch: &Value) -> Result<(T, Value)> {
     ensure!(patch.get("dataset").is_none(), PatchTouchesDatasetSnafu);
     ensure!(patch.is_object(), InvalidPatchSnafu { reason: Message::new("chart-patch-object") });
+    check_ref_null(patch)?;
     let before = serde_json::to_value(option).context(InvalidOptionSnafu)?;
     let inverse = reverse_merge_patch(&before, patch);
     let mut after = before;

@@ -80,15 +80,44 @@ pub(crate) struct FocusArgs {
     pub slide: Option<String>,
 }
 
+/// The notice of a session snapshot, its other fields left unread.
+#[derive(Deserialize)]
+struct SnapshotNotice {
+    notice: Option<String>,
+}
+
 impl Tools {
     /// A request of the agent that changes the session (traced in its turn); `Changed` if it succeeds.
+    ///
+    /// The snapshot's notice (inline data lifted with a warning, say) joins the reply: the
+    /// snapshot sent it once, to the agent, and the user sees it in the agent's answer. It may
+    /// quote the user's data, so the reply says `untrusted`.
     pub(crate) async fn change(&self, req: Request) -> CallToolResult {
-        let done = self.with_session(move |s| s.handle_by_agent(req).map(|_| ())).await;
+        self.change_told(req, false).await
+    }
+
+    /// [`Tools::change`]; an error goes in the untrusted wrapper when `untrusted_error`.
+    async fn change_told(&self, req: Request, untrusted_error: bool) -> CallToolResult {
+        let done = self.with_folding(move |s| s.handle_by_agent(req.clone())).await;
         let ok = done.is_ok();
-        let result = self.reply(done, |()| {
-            self.hub.emit(McpEvent::Changed);
-            self.json_result(&json!({ "ok": true }))
-        });
+        let result = match done {
+            Ok(snapshot) => {
+                self.hub.emit(McpEvent::Changed);
+                match serde_json::from_str::<SnapshotNotice>(&snapshot) {
+                    Ok(SnapshotNotice { notice: Some(notice) }) => {
+                        self.json_result(&json!({ "ok": true, "untrusted": true, "notice": notice }))
+                    }
+                    Ok(SnapshotNotice { notice: None }) => self.json_result(&json!({ "ok": true })),
+                    // The change is done; only its notice is lost, and the log says so.
+                    Err(error) => {
+                        tracing::error!(%error, "snapshot unreadable: notice not sent to the agent");
+                        self.json_result(&json!({ "ok": true }))
+                    }
+                }
+            }
+            Err(e) if untrusted_error => self.fail_untrusted(&e),
+            Err(e) => self.fail_with(&e),
+        };
         if ok {
             self.prune_surfaces().await;
         }
@@ -110,8 +139,13 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let label = label.unwrap_or_else(|| self.localizer.current().tr("agent-undo-apply"));
-        self.change(Request::Apply { label, ops, merge: None }).await
+        let label = label.unwrap_or_else(|| {
+            let l = self.localizer.current();
+            oku_slides_session::data_undo_label(&l, &ops).unwrap_or_else(|| l.tr("agent-undo-apply"))
+        });
+        // Any op may name a data or a view's data, whose refusal quotes the user's data
+        // (a data's or a column's name, a view's id).
+        self.change_told(Request::Apply { label, ops, merge: None }, true).await
     }
 
     pub(crate) async fn chart_kind(&self, args: Value) -> CallToolResult {
@@ -120,7 +154,8 @@ impl Tools {
             Err(r) => return r,
         };
         let label = self.localizer.current().tr("agent-undo-apply");
-        self.change(Request::ChartKind { label, slide, element, kind }).await
+        // Its refusal may name the view's data or columns.
+        self.change_told(Request::ChartKind { label, slide, element, kind }, true).await
     }
 
     pub(crate) async fn show_as(&self, args: Value) -> CallToolResult {
@@ -129,7 +164,8 @@ impl Tools {
             Err(r) => return r,
         };
         let label = self.localizer.current().tr("agent-undo-apply");
-        self.change(Request::ShowAs { label, slide, element, view }).await
+        // Its refusal may name the view's data or columns.
+        self.change_told(Request::ShowAs { label, slide, element, view }, true).await
     }
 
     /// Adds a library pack's current version to the deck (deck mode).

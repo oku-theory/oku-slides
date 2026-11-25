@@ -86,6 +86,7 @@ pub(crate) fn prepare(
     platform: &Platform,
     base: &Arc<WidgetRegistry>,
     (wanted, theme, lookup): (&[String], Option<&str>, PackLookup),
+    labels: &oku_slides_chart::ChartLabels,
     input: &Input,
 ) -> Result<Prepared> {
     let library = PackLibrary::user(platform);
@@ -129,6 +130,7 @@ pub(crate) fn prepare(
         registry: &widgets.registry,
         colors: ColorTokens::from_tokens(&tokens),
         page: PageTokens::from_tokens(&tokens),
+        labels,
     };
     let plan = retrofit::project(&input.source, &target)
         .and_then(|plan| plan.check_budget(&input.limits))

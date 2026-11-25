@@ -1,4 +1,4 @@
-//! `render`: a free composition of catalog v4 components by the agent, checked here.
+//! `render`: a free composition of catalog v5 components by the agent, checked here.
 //! An error goes back to the agent (`AgentForm`), readable, so it can fix it.
 
 use std::collections::{HashMap, HashSet};
@@ -19,7 +19,7 @@ use crate::error::AgentFormSnafu;
 #[derive(Debug, Clone, PartialEq, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Render {
-    /// Components of the Oku Slides A2UI catalog v4; one has id "root".
+    /// Components of the Oku Slides A2UI catalog v5; one has id "root".
     ///
     /// A2UI v0.9 shape: {id, component, …}. Values are literal: no {path} bindings.
     pub components: Vec<serde_json::Value>,
@@ -104,6 +104,8 @@ fn check_content(i: usize, c: &Component, name: &str) -> Result<()> {
         | ComponentKind::ThemeChoice { .. }
         | ComponentKind::ChartData { .. }
         | ComponentKind::TableData { .. }
+        | ComponentKind::DataList { .. }
+        | ComponentKind::DataSheet { .. }
         | ComponentKind::Prompt { .. }
         | ComponentKind::Timeline { .. }
         | ComponentKind::Receipt { .. }

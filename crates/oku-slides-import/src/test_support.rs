@@ -200,6 +200,7 @@ pub(crate) fn apply_blocks(blocks: Vec<Element>) -> Result<Deck, oku_slides_core
     let mut deck = Deck::empty();
     let mut ops = builtin_pins();
     ops.push(Op::AddSlide { index: None, defaults: false, slide });
+    let ops = prepared(&deck, &registry(), ops);
     apply_all(&mut deck, ops, &registry())?;
     Ok(deck)
 }
@@ -284,7 +285,8 @@ pub(crate) fn source_deck(slides: Vec<SourceSlide>) -> SourceDeck {
 pub(crate) fn applied(ops: Vec<Op>, assets: &[String]) -> Deck {
     let registry = registry();
     let mut deck = Deck::empty();
-    apply_all(&mut deck, ops, &registry).unwrap_or_else(|e| panic!("ops refusées : {e:?}"));
+    let ops = prepared(&deck, &registry, ops);
+    apply_all(&mut deck, ops, &registry).unwrap_or_else(|e| panic!("ops refused: {e:?}"));
     let known: HashSet<String> = assets.iter().cloned().collect();
     let issues = validate(&deck, &registry, Some(&known));
     assert!(issues.is_empty(), "issues : {issues:?}");
@@ -345,4 +347,10 @@ pub(crate) fn app_fonts() -> FontCatalog {
         catalog.add(FontOrigin::App, fs::read(p).unwrap());
     }
     catalog
+}
+
+/// `ops` prepared as the session prepares an import; panics if the core refuses them.
+fn prepared(deck: &Deck, registry: &WidgetRegistry, ops: Vec<Op>) -> Vec<Op> {
+    crate::plan::prepared(deck, registry, oku_slides_chart::ChartLabels::english(), ops, &mut Vec::new())
+        .unwrap_or_else(|e| panic!("ops refused before applying: {e:?}"))
 }

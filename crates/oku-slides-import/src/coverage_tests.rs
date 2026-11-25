@@ -256,6 +256,26 @@ fn coverage_finds_a_table_by_its_grid_and_its_cell_runs() {
     assert_that!((c.tables, c.runs)).is_equal_to((Ratio { found: 1, total: 1 }, Ratio { found: 3, total: 3 }));
 }
 
+/// A table that reads deck data is measured on that data; its unnamed header column matches
+/// the source's covered header cell.
+#[test]
+fn coverage_finds_a_table_bound_to_deck_data() {
+    let json = json!({
+        "version": oku_slides_core::DECK_VERSION,
+        "data": { "d": { "name": "t", "kind": "manual", "table": {
+            "generation": "g",
+            "columns": [{ "id": "a", "name": "Titre", "type": "text" }, { "id": "b", "name": "", "type": "text" }],
+            "rows": ["r1"],
+            "cells": { "r1/a": "A", "r1/b": "1" } } } },
+        "slides": [{ "id": "s1", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [
+            { "id": "s1-1", "kind": base::TABLE, "params": { "data": { "data": "d" } } }] } }]
+    });
+    let d = Deck::from_json(&json.to_string()).unwrap();
+    let c =
+        coverage(&source(vec![source_slide(1, None, vec![table_item()])]), &d, &registry(), &BTreeMap::new(), Some(1));
+    assert_that!((c.tables, c.runs)).is_equal_to((Ratio { found: 1, total: 1 }, Ratio { found: 3, total: 3 }));
+}
+
 #[test]
 fn coverage_misses_a_table_whose_grid_differs() {
     let data = json!({ "dataset": { "source": [["Titre", null], ["A", "2"]] } });

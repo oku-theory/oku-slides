@@ -31,6 +31,10 @@ use crate::replica::PARAGRAPH_SEPARATOR;
 ///   flottant, comme le stocke Loro ; `tokens` objet vide → `null` ;
 /// - un identifiant par slide, par élément d'une slide et par item d'une
 ///   liste ([`unique_ids`], la réparation que fait aussi la relecture).
+///
+/// Data tables are left alone: they are made canonical where they enter, when a table parses
+/// ([`Table::canonicalize`](oku_slides_data::Table::canonicalize)) or is read from the replica,
+/// and table edits keep them so.
 pub fn canonicalize(deck: &mut Deck) {
     let p = &mut deck.params;
     for field in [&mut p.title, &mut p.subtitle, &mut p.author, &mut p.date, &mut p.organization] {

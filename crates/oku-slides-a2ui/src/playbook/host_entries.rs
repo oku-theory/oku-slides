@@ -6,7 +6,7 @@ use super::entries::{lit, palette};
 use super::{Example, example};
 use crate::action::{Action, Dynamic};
 use crate::component::{Component, ComponentKind as K};
-use crate::data::SeriesSwatch;
+use crate::data::{DataChoice, DataRef, DataRow, DataUser, SeriesSwatch};
 use crate::props::{PromptImage, SlideRef, StepStatus, TimelineStep, ToolCallDetail};
 
 /// The action a host data component sends after writing `/edit`.
@@ -129,7 +129,7 @@ pub(super) fn notice() -> Vec<Example> {
     )]
 }
 
-pub(super) fn chart_data() -> Vec<Example> {
+pub(super) fn chart_grid() -> Vec<Example> {
     vec![example(
         "bar",
         "A chart's data table, series colors and stacking.",
@@ -141,6 +141,8 @@ pub(super) fn chart_data() -> Vec<Example> {
                 vec![json!("Jan"), json!(3), json!(4)],
                 vec![json!("Feb"), json!(5), json!(4)],
             ],
+            row_ids: vec!["jan".into(), "feb".into()],
+            column_ids: vec!["month".into(), "sales".into(), "target".into()],
             checkbox_columns: vec![],
             stacked: Some(false),
             series: vec![
@@ -148,6 +150,11 @@ pub(super) fn chart_data() -> Vec<Example> {
                 SeriesSwatch { name: "Target".into(), color: Some("#1f4e79".into()) },
             ],
             palette: palette(),
+            data: DataRef { id: "sales".into(), name: "sales".into(), label: Some("Monthly sales".into()), users: 2 },
+            choices: vec![
+                DataChoice { id: "sales".into(), name: "sales".into(), label: Some("Monthly sales".into()) },
+                DataChoice { id: "budget".into(), name: "budget".into(), label: None },
+            ],
             edit: Dynamic::path("/edit"),
             action: data_action(),
         },
@@ -156,17 +163,91 @@ pub(super) fn chart_data() -> Vec<Example> {
     )]
 }
 
-pub(super) fn table_data() -> Vec<Example> {
+pub(super) fn table_grid() -> Vec<Example> {
     vec![example(
         "default",
         "A table's cells and display options.",
         false,
         K::TableData {
             source: vec![vec![json!("A"), json!("B")], vec![json!(1), Value::Null]],
+            row_ids: vec!["r1".into()],
+            column_ids: vec!["a".into(), "b".into()],
             header_row: true,
             header_column: false,
             striped: true,
             align: vec!["auto".into(), "end".into()],
+            data: DataRef { id: "scores".into(), name: "scores".into(), label: None, users: 1 },
+            choices: vec![DataChoice { id: "scores".into(), name: "scores".into(), label: None }],
+            edit: Dynamic::path("/edit"),
+            action: data_action(),
+        },
+        vec![],
+        json!({ "edit": null }),
+    )]
+}
+
+pub(super) fn data_list() -> Vec<Example> {
+    let user = |slide: &str, element: &str, label: &str| DataUser {
+        slide: slide.into(),
+        element: element.into(),
+        label: label.into(),
+    };
+    let row = |id: &str, label: Option<&str>, users: Vec<DataUser>, error: Option<&str>| DataRow {
+        id: id.into(),
+        name: id.into(),
+        label: label.map(Into::into),
+        kind: "manual".into(),
+        columns: 3,
+        rows: 12,
+        users,
+        error: error.map(Into::into),
+    };
+    let list = |rows| K::DataList { rows, edit: Dynamic::path("/edit"), action: data_action() };
+    vec![
+        example(
+            "default",
+            "The deck's data: size, views, one unused.",
+            false,
+            list(vec![
+                row(
+                    "sales",
+                    Some("Monthly sales"),
+                    vec![user("s1", "ch1", "Slide 1 · ch1"), user("s3", "tb1", "Slide 3 · tb1")],
+                    None,
+                ),
+                row("budget", None, vec![], None),
+            ]),
+            vec![],
+            json!({ "edit": null }),
+        ),
+        example(
+            "refused",
+            "A removal refused: the views that use it, inline.",
+            false,
+            list(vec![row("sales", None, vec![user("s1", "ch1", "Slide 1 · ch1")], Some("Data used by ch1"))]),
+            vec![],
+            json!({ "edit": null }),
+        ),
+    ]
+}
+
+pub(super) fn data_sheet() -> Vec<Example> {
+    vec![example(
+        "default",
+        "One data's rows, a page at a time, with its column types.",
+        false,
+        K::DataSheet {
+            data: DataRef { id: "sales".into(), name: "sales".into(), label: None, users: 1 },
+            source: vec![
+                vec![json!("Month"), json!("Sales")],
+                vec![json!("Jan"), json!(3)],
+                vec![json!("Feb"), json!(5)],
+            ],
+            row_ids: vec!["jan".into(), "feb".into()],
+            column_ids: vec!["month".into(), "sales".into()],
+            types: vec!["text".into(), "number".into()],
+            offset: 0,
+            total: 2,
             edit: Dynamic::path("/edit"),
             action: data_action(),
         },

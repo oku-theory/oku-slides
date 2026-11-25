@@ -703,23 +703,40 @@ fn every_form() -> Vec<super::Surface> {
         super::data_surface(
             "host-data",
             "Graphique".into(),
-            crate::data_panel::chart_data(
-                &json!({ "dataset": { "source": [["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]] },
+            crate::data_panel::chart_grid(
+                &json!({ "data": "d-ventes",
                     "series": [{ "type": "bar" }, { "type": "bar", "stack": "total", "itemStyle": { "color": "#1F4E79" } }] }),
+                &covering_dataset(&json!([["Mois", "Ventes", "Objectif"], ["Jan", 3, 4]]), &["mois", "ventes", "objectif"]),
                 &["#1f4e79".into(), "#c2573a".into()],
+                oku_slides_a2ui::DataRef { id: "d-ventes".into(), name: "ventes".into(), label: Some("Ventes".into()), users: 2 },
+                vec![
+                    oku_slides_a2ui::DataChoice { id: "d-ventes".into(), name: "ventes".into(), label: Some("Ventes".into()) },
+                    oku_slides_a2ui::DataChoice { id: "d-budget".into(), name: "budget".into(), label: None },
+                ],
             ),
         ),
         super::data_surface(
             "host-data",
             "Tableau".into(),
-            crate::data_panel::table_data(
-                &json!({ "dataset": { "source": [["A", "B"], [1, null]] }, "striped": true, "align": ["auto", "end"] }),
+            crate::data_panel::table_grid(
+                &json!({ "data": "d-table", "striped": true, "align": ["auto", "end"] }),
+                &covering_dataset(&json!([["A", "B"], [1, null]]), &["a", "b"]),
+                oku_slides_a2ui::DataRef { id: "d-table".into(), name: "table".into(), label: None, users: 1 },
+                vec![oku_slides_a2ui::DataChoice { id: "d-table".into(), name: "table".into(), label: None }],
             ),
         ),
     ]
     .into_iter()
     .chain(crate::voice_panel::voice_panel_tests::covering_views().iter().map(|v| crate::VoicePanel::build(v, &l).surface()))
     .collect()
+}
+
+/// A dataset of `source` with column ids `columns` and rows `r1`, `r2`, ...
+fn covering_dataset(source: &serde_json::Value, columns: &[&str]) -> oku_slides_data::Dataset {
+    let mut dataset: oku_slides_data::Dataset = serde_json::from_value(json!({ "source": source })).unwrap();
+    dataset.ids = std::iter::once(String::new()).chain((1..dataset.source.len()).map(|i| format!("r{i}"))).collect();
+    dataset.columns = columns.iter().map(|c| (*c).to_owned()).collect();
+    dataset
 }
 
 /// La vue du panneau des packs de `fixtures/roadmap.json`, aux versions figées : chaque

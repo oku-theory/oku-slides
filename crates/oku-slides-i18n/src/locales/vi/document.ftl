@@ -137,3 +137,4 @@ import-warning-unsafe-link = Liên kết bị từ chối: { $detail }
 import-warning-nesting-too-deep = Lồng nhau quá sâu, đã cắt: { $detail }
 import-warning-font-embedded-unreadable = Không đọc được phông chữ nhúng: { $detail }
 import-warning-truncated = Quá nhiều cảnh báo: các cảnh báo tiếp theo bị bỏ qua
+render-chart-too-many-values = quá nhiều giá trị để vẽ ({ $count }, tối đa { $max })

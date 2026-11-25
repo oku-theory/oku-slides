@@ -27,7 +27,9 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
+use std::sync::Arc;
 
+use oku_slides_data::{Data, DataId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -45,6 +47,7 @@ use crate::error::{
 use crate::layout_profile::LayoutProfile;
 use crate::model::Style;
 use crate::namespace::Namespace;
+use crate::pack_data::{MAX_PACK_DATA, check_pack_data};
 use crate::pack_guides::Guides;
 use crate::pack_kind::PackKind;
 use crate::pack_order::{check_order, normalized_order};
@@ -221,6 +224,11 @@ pub struct PackFiles {
     widgets: BTreeMap<WidgetFile, String>,
 }
 
+/// The most bytes a pack manifest (`widgets.json`, `layouts.json`) may hold: read from an
+/// untrusted pack, it is refused before it is parsed. A manifest of today is a few kB; this
+/// also bounds the cells of its data, which no visitor counts while parsing.
+const MAX_PACK_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
+
 impl PackFiles {
     /// The files read under the announced digest `hex`, if their content yields it.
     ///
@@ -243,15 +251,19 @@ impl PackFiles {
         Self { kind, manifest, widgets }
     }
 
-    /// Depuis des octets lus (zip, disque) ; `None` si le manifeste n'est pas
-    /// un objet JSON, ou si un fichier de widget n'est pas de l'UTF-8 ou
-    /// contient un octet `0` (le séparateur du contenu canonique : deux
-    /// versions différentes y auraient la même empreinte).
+    /// From bytes read (zip, disk).
+    ///
+    /// `None` when the manifest passes [`MAX_PACK_MANIFEST_BYTES`] or is not a JSON object, or
+    /// when a widget file is not UTF-8 or holds a `0` byte (the separator of the canonical
+    /// content: two different versions would share a digest).
     pub fn from_bytes<'a>(
         kind: PackKind,
         pack_json: &[u8],
         widgets: impl IntoIterator<Item = (WidgetFile, &'a [u8])>,
     ) -> Option<Self> {
+        if pack_json.len() > MAX_PACK_MANIFEST_BYTES {
+            return None;
+        }
         let Ok(Value::Object(manifest)) = serde_json::from_slice(pack_json) else { return None };
         let widgets = widgets
             .into_iter()
@@ -450,21 +462,34 @@ pub struct PackManifest {
     /// The agent's guides; empty, the key is not written (versions without guides keep their digest).
     #[serde(default, skip_serializing_if = "Guides::is_empty")]
     pub guides: Guides,
+    /// The data the examples name, by id, copied into a deck with the example that names them.
+    ///
+    /// Bounded by [`crate::pack_data::check_pack_data`]; empty, the key is not written (versions
+    /// without data keep their digest).
+    #[serde(
+        default,
+        skip_serializing_if = "BTreeMap::is_empty",
+        deserialize_with = "oku_slides_data::bounded::btree::<_, _, _, { MAX_PACK_DATA }>"
+    )]
+    pub data: BTreeMap<DataId, Arc<Data>>,
 }
 
 impl PackManifest {
-    /// Reads the manifest of `files` and checks its `tokens` entries ([`check_entries`]).
+    /// Reads the manifest of `files` and checks its `tokens` entries ([`check_entries`]), its
+    /// `order` and the bounds of its `data`.
     ///
     /// A refused entry fails the read ([`PackManifestError::token_entry`]).
     ///
     /// # Errors
     ///
-    /// Manifest that does not have the shape of a `PackManifest`, or refused `tokens` entry.
+    /// Manifest that does not have the shape of a `PackManifest`, refused `tokens` entry or
+    /// `order`, or `data` past a pack's bounds.
     pub fn from_files(files: &PackFiles) -> Result<Self, PackManifestError> {
         let manifest: Self =
             serde_json::from_value(Value::Object(files.manifest().clone())).context(ManifestJsonSnafu)?;
         check_entries(&manifest.tokens).context(ManifestTokensSnafu)?;
         check_order(&manifest.order, files)?;
+        check_pack_data(&manifest.data)?;
         Ok(manifest)
     }
 

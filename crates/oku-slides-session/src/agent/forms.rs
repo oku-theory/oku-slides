@@ -308,8 +308,8 @@ pub(crate) fn surface(
     }
 }
 
-/// Surface `id` des données d'un graphique ou d'un tableau : un titre, puis `data`
-/// (`ChartData` ou `TableData`), dont la modification s'écrit en `/edit`.
+/// Surface `id` of a chart's or a table's data: a title, then `data` (`ChartData` or
+/// `TableData`), whose edit is written at `/edit`.
 pub(crate) fn data_surface(id: &str, title: String, data: ComponentKind) -> Surface {
     let components = vec![
         Component::column("root", &["title", "data"]),

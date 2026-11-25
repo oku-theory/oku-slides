@@ -1,6 +1,6 @@
 // L'espace de travail de l'hôte : fenêtres, onglets, import d'un .pptx, glisser d'un onglet.
 
-import type { Element, Messages, SchemeSetting } from "./api";
+import type { Element, Messages, Op, SchemeSetting, Snapshot } from "./api";
 import { host } from "./hostCall";
 import type { PackKind } from "./packTypes";
 
@@ -148,7 +148,7 @@ type WorkspaceRequest =
   | ({ cmd: "import_tab"; window: string; path: string; tune?: boolean } & ImportTarget)
   | { cmd: "open_help"; window: string; slide?: string }
   | { cmd: "same_deck"; path: string }
-  | { cmd: "carry_assets"; from: string; to: string; element: Element }
+  | { cmd: "paste_element"; from: string; to: string; label: string; ops: Op[] }
   | { cmd: "clip" }
   | { cmd: "set_clip"; clip: SharedClip }
   | { cmd: "activate"; tab: string }
@@ -188,9 +188,9 @@ export const workspace = {
   openHelp: (window: string) => ws<WorkspaceView>({ cmd: "open_help", window }),
   /** L'onglet qui tient déjà le deck de `path` sous un autre fichier. Ne change rien. */
   sameDeck: (path: string) => ws<{ tab: string | null; title: string | null }>({ cmd: "same_deck", path }),
-  /** Avant un collage venu de `from` : copie ses assets vers `to`. */
-  carryAssets: (from: string, to: string, element: Element) =>
-    ws<{ carried: number }>({ cmd: "carry_assets", from, to, element }),
+  /** Applies `ops` pasting into `to` an element copied in `from`, with its assets and data. */
+  pasteElement: (from: string, to: string, label: string, ops: Op[]) =>
+    ws<Snapshot>({ cmd: "paste_element", from, to, label, ops }),
   /** Le dernier élément copié, dans n'importe quelle fenêtre. */
   clip: () => ws<ClipReply>({ cmd: "clip" }),
   /** Retient l'élément copié pour toutes les fenêtres (diffusé : `clip`). */

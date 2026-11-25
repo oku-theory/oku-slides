@@ -2,7 +2,6 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::data_ops::DataOp;
 
 fn opt(v: serde_json::Value) -> ChartOption {
     serde_json::from_value(v).unwrap()
@@ -76,7 +75,7 @@ fn normalize_renamed_column_renames_the_series() {
         ChartLabels::english(),
     )
     .unwrap();
-    DataOp::SetCell { row: 0, col: 1, value: Cell::Text("CA".into()) }.apply(o.dataset.as_mut().unwrap()).unwrap();
+    o.dataset.as_mut().unwrap().source[0][1] = DataCell::Text("CA".into());
     let ChartKind::Cartesian(c) = normalize(&o, ChartLabels::english()).unwrap().kind else { panic!() };
     assert_that!(c.series[0].name.as_str()).is_equal_to("CA");
 }
@@ -88,9 +87,7 @@ fn sync_series_with_columns_added_column_adds_a_series() {
         "xAxis": { "type": "category" },
         "series": [{ "type": "line" }]
     }));
-    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Objectif".into()), Cell::Number(12.0)], id: None }
-        .apply(o.dataset.as_mut().unwrap())
-        .unwrap();
+    push_column(&mut o, "Objectif", 12.0);
     sync_series_with_columns(&mut o);
     assert_that!(o.series).has_length(2);
     assert_that!(normalize(&o, ChartLabels::english())).is_ok();
@@ -105,11 +102,12 @@ fn canonicalize_unnamed_data_takes_headers_in_the_user_language() {
     }));
     let header = |o: &ChartOption| o.dataset.as_ref().map(|d| d.source[0].clone()).unwrap_or_default();
     let canon = canonicalize(&bars, &fr).unwrap();
-    assert_that!(header(&canon)).is_equal_to(vec![Cell::Text("Catégorie".into()), Cell::Text("Série 1".into())]);
+    assert_that!(header(&canon))
+        .is_equal_to(vec![DataCell::Text("Catégorie".into()), DataCell::Text("Série 1".into())]);
 
     let pie = opt(json!({ "series": [{ "type": "pie", "data": [{ "name": "a", "value": 1 }] }] }));
     let canon = canonicalize(&pie, ChartLabels::english()).unwrap();
-    assert_that!(header(&canon)).is_equal_to(vec![Cell::Text("Name".into()), Cell::Text("Value".into())]);
+    assert_that!(header(&canon)).is_equal_to(vec![DataCell::Text("Name".into()), DataCell::Text("Value".into())]);
 }
 
 #[test]
@@ -119,9 +117,7 @@ fn sync_series_with_columns_added_column_joins_the_stack() {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar", "stack": "total" }]
     }));
-    DataOp::InsertColumn { at: 2, cells: vec![Cell::Text("Sud".into()), Cell::Number(12.0)], id: None }
-        .apply(o.dataset.as_mut().unwrap())
-        .unwrap();
+    push_column(&mut o, "Sud", 12.0);
     sync_series_with_columns(&mut o);
     assert_that!(o.series.iter().map(|s| s.stack.as_deref()).collect::<Vec<_>>())
         .is_equal_to(vec![Some("total"), Some("total")]);
@@ -158,4 +154,11 @@ fn canonicalize_with_inline_data_over_dataset_mints_new_ids() {
     }));
     let d = canonicalize(&o, ChartLabels::english()).unwrap().dataset.unwrap();
     assert_that!((d.ids.is_empty(), d.columns.is_empty())).is_equal_to((true, true));
+}
+
+/// Appends the value column `name` to the inline dataset, one `value` per data row.
+fn push_column(o: &mut ChartOption, name: &str, value: f64) {
+    let source = &mut o.dataset.as_mut().unwrap().source;
+    source[0].push(DataCell::Text(name.into()));
+    source.iter_mut().skip(1).for_each(|r| r.push(DataCell::Number(value)));
 }

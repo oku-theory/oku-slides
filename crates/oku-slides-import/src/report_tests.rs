@@ -166,6 +166,8 @@ fn loss_localize_repeated_decor_in_french_agrees_with_one_slide() {
 #[case(WarningKind::NestingTooDeep("grpSp".into()))]
 #[case(WarningKind::FontEmbeddedUnreadable("font1.fntdata".into()))]
 #[case(WarningKind::Truncated)]
+#[case(WarningKind::DataAdjusted { key: "data-row-cut", count: 3 })]
+#[case(WarningKind::DataAdjusted { key: "data-non-finite", count: 1 })]
 fn warning_localize_in_every_locale_formats_its_own_message(#[case] kind: WarningKind) {
     let (id, detail) = warning_message(&kind);
     let warning = Warning { slide: Some(1), item: None, kind: kind.clone() };

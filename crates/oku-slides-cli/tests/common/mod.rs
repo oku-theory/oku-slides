@@ -215,7 +215,7 @@ pub fn builtin_pins() -> (oku_slides_core::PackPin, oku_slides_core::PackPin, Ve
     (base, essentiel, vec![base_files, essentiel_files])
 }
 
-/// Un deck JSON (version 9) de `slides` qui épingle les packs de widgets `widgets`, plus `base`
+/// Un deck JSON (version 10) de `slides` qui épingle les packs de widgets `widgets`, plus `base`
 /// et le pack de layouts `essentiel` : un deck qui épingle un pack n'en reçoit pas d'autre.
 pub fn deck_json(widgets: serde_json::Value, slides: serde_json::Value) -> serde_json::Value {
     let (base, essentiel, _) = builtin_pins();
@@ -223,7 +223,7 @@ pub fn deck_json(widgets: serde_json::Value, slides: serde_json::Value) -> serde
     if let Some(map) = widgets.as_object_mut() {
         map.insert("base".to_owned(), serde_json::json!(base));
     }
-    let mut deck = serde_json::json!({ "version": 9, "widgets": widgets, "layouts": { "essentiel": essentiel } });
+    let mut deck = serde_json::json!({ "version": 10, "widgets": widgets, "layouts": { "essentiel": essentiel } });
     deck["slides"] = slides;
     deck
 }

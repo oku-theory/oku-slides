@@ -8,7 +8,7 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 
 - `main.rs`: `Cli` and `Cmd` (clap), with help text from Fluent `cli-cmd-…` and
   `cli-arg-…` keys (`command`); `run` dispatches each `Cmd`. Shared helpers load a deck
-  from JSON or `.oku-slides.pdf` (`load_bundle`), embed its pack and theme, and write the
+  from JSON or `.oku-slides.pdf` (`load_bundle`; data bases go to the data folder's `BaseStore`, leased for the run), embed its pack and theme, and write the
   document (`write_document`, `write_rendered`).
 - `out.rs`: `Out`, localized command output on stdout; a closed pipe ends the command.
 - `library.rs`: `deck_pack_versions`, the versions of a deck's widget then layout packs, each
@@ -37,7 +37,7 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 `serve_connections` runs with `Limits` from `[serve]`. `handle` calls `guard::check` first (ADR-0003;
 off loopback also the launch `Token` of the printed URL, by Bearer header or cookie), then routes
 `POST /api`, `/api/workspace`, `/api/stt`, `/api/agent` (page reports: `ReportFrom::of` on the window the page names in `x-oku-window`), `/api/close-decision` (the agent's close decision, taken by that window), `GET /api/events` (SSE: `Clients`,
-`SseBody`), and static files from `--ui` (default `ui/dist`). Ctrl-C stops it in `GRACE`.
+`SseBody`), and static files from `--ui` (default `ui/dist`). Ctrl-C stops it in `GRACE`. A body past `MAX_BODY` (64 MiB), or `MAX_APPLY_BYTES` (8 MiB, session) on the apply routes `/api` and `/api/workspace`, is a 413.
 
 ## Extension points
 

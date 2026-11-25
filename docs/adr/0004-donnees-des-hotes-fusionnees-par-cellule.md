@@ -1,6 +1,6 @@
 # ADR-0004: Host data merged cell by cell
 
-- **Status:** accepted
+- **Status:** superseded by [ADR-0015](0015-deck-data-entities.md)
 - **Date:** 2026-10-08
 - **Tasks:** t-589
 - **Partially supersedes:** [ADR-0002](0002-sources-du-deck-en-crdt-loro.md)

@@ -16,12 +16,11 @@ fn deck_with_one_chart() -> Deck {
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar" }]
     });
-    serde_json::from_value(json!({ "slides": [
+    crate::common::deck_with_data(json!({ "slides": [
         { "id": "libre", "kind": essentiel::BLANK, "params": {
           "elements": [{ "id": "g", "kind": base::CHART, "params": { "option": option },
                          "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
     ] }))
-    .unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Polices livrées utilisées par les thèmes intégrés.

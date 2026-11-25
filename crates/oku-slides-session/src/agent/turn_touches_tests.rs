@@ -128,7 +128,6 @@ const PIN: &str = "sha256:000000000000000000000000000000000000000000000000000000
 #[case::set_chart_option(json!({ "op": "set_chart_option", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "option", "patch": {} }), Some(("s-libre", "e-texte", true, false)))]
 #[case::set_chart_option_on_a_slide(json!({ "op": "set_chart_option", "target": { "slide": "s-libre" }, "param": "option", "patch": {} }), None)]
 #[case::set_table_option(json!({ "op": "set_table_option", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "data", "patch": {} }), Some(("s-libre", "e-texte", true, false)))]
-#[case::set_data(json!({ "op": "set_data", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "option", "change": { "op": "set_cell", "row": 1, "col": 1, "value": 5 } }), Some(("s-libre", "e-texte", true, false)))]
 #[case::edit_list(json!({ "op": "edit_list", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "items", "change": { "op": "remove", "item": "d0" } }), Some(("s-libre", "e-texte", false, false)))]
 #[case::edit_list_on_a_slide(json!({ "op": "edit_list", "target": { "slide": "s-libre" }, "param": "items", "change": { "op": "remove", "item": "d0" } }), None)]
 #[case::add_element(json!({ "op": "add_element", "slot": { "owner": { "slide": "s-libre" }, "param": "elements" }, "element": { "id": "n1", "kind": "base/shape" } }), Some(("s-libre", "n1", false, false)))]
@@ -145,6 +144,10 @@ const PIN: &str = "sha256:000000000000000000000000000000000000000000000000000000
 #[case::unset_token(json!({ "op": "unset_token", "path": ["color", "accent"] }), None)]
 #[case::set_tokens(json!({ "op": "set_tokens", "tokens": null }), None)]
 #[case::set_var(json!({ "op": "set_var", "key": "client", "value": "Acme" }), None)]
+#[case::add_data(json!({ "op": "add_data", "id": "d1", "name": "sales", "table": { "columns": [], "rows": [] } }), None)]
+#[case::edit_data_without_views(json!({ "op": "edit_data", "data": "d1", "change": { "op": "remove_row", "row": "r1" } }), None)]
+#[case::bind_data(json!({ "op": "bind_data", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "option", "data": "d1" }), Some(("s-libre", "e-texte", true, false)))]
+#[case::put_view_data(json!({ "op": "put_view_data", "target": { "slide": "s-libre", "element": "e-texte" }, "param": "option", "id": "d1", "name": "sales", "table": { "columns": [], "rows": [] } }), Some(("s-libre", "e-texte", true, false)))]
 fn touches_of_each_op(#[case] v: Value, #[case] expected: Option<(&str, &str, bool, bool)>) {
     let touches = touches_of(&deck(), &crate::test_support::registry(), &[op(v)]);
     let got: Vec<(String, String, bool, bool)> =
@@ -168,4 +171,26 @@ fn touches_of_takes_the_kind_of_an_element_added_earlier_in_the_batch() {
     let style = op(json!({ "op": "set_style", "slide": "s-libre", "element": "n1", "style": {} }));
     let touches = touches_of(&deck(), &crate::test_support::registry(), &[add, style]);
     assert_that!(touches.last().map(|t| t.kind.clone())).is_equal_to(Some("base/image".to_owned()));
+}
+
+#[test]
+fn turn_touches_count_bind_and_edit_data() {
+    let deck = crate::test_support::roadmap_with_data_views();
+    let edit = op(json!({ "op": "edit_data", "data": "d1", "change": { "op": "remove_row", "row": "r1" } }));
+    let bind = op(json!({ "op": "bind_data", "target": { "slide": "s-libre", "element": "e-texte" },
+        "param": "option", "data": "d1" }));
+    let touches = touches_of(&deck, &crate::test_support::registry(), &[edit, bind]);
+    let got: Vec<(String, String, bool)> = touches.into_iter().map(|t| (t.slide, t.element, t.data)).collect();
+    let want = [("s-constat", "ch2"), ("s-libre", "ch1"), ("s-libre", "e-texte")];
+    assert_that!(got).is_equal_to(want.map(|(s, e)| (s.to_owned(), e.to_owned(), true)).to_vec());
+}
+
+#[test]
+fn turn_touches_of_repeated_edit_data_touch_every_view_each_time() {
+    let deck = crate::test_support::roadmap_with_data_views();
+    let edit = op(json!({ "op": "edit_data", "data": "d1", "change": { "op": "remove_row", "row": "r1" } }));
+    let touches = touches_of(&deck, &crate::test_support::registry(), &[edit.clone(), edit]);
+    let got: Vec<(String, String)> = touches.into_iter().map(|t| (t.slide, t.element)).collect();
+    let want = [("s-constat", "ch2"), ("s-libre", "ch1"), ("s-constat", "ch2"), ("s-libre", "ch1")];
+    assert_that!(got).is_equal_to(want.map(|(s, e)| (s.to_owned(), e.to_owned())).to_vec());
 }

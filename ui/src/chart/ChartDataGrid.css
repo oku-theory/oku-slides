@@ -38,3 +38,4 @@ button.swatch { cursor: pointer; }
 
 .table-align { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: var(--space-2); }
 .table-align label { display: grid; gap: var(--space-1); font-size: 12px; }
+.cdg-type { flex: none; max-width: 10ch; border: 0; background: transparent; font: inherit; font-size: 11px; color: var(--ink-muted); }

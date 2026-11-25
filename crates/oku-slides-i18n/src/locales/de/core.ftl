@@ -5,7 +5,6 @@ op-index-out-of-range = Position außerhalb des gültigen Bereichs
 op-invalid-value = Ungültiger Wert für { $subject }
 op-invalid-value-because = Ungültiger Wert für { $subject }: { $reason }
 op-value-no-value = der Parameter hat keinen Wert
-op-value-no-dataset = das Diagramm hat keinen Datensatz
 op-value-grid-tracks = ein Raster hat 1 bis 24 Spalten und Zeilen
 op-value-bad-item-id = eine Eintrags-ID ist ein nicht leerer Text ohne „/“
 op-value-missing-item-id = jeder Eintrag braucht eine ID
@@ -152,12 +151,14 @@ op-choice-out-of-range = Wert für { $subject } nicht zulässig
 transaction-refused = Vorgang { $index } abgelehnt: { $reason }
 
 sources-unreadable = Quellen nicht lesbar
+deck-inline-data = Element { $element } speichert seine Daten in seinen Optionen: Diese Deck-Datei hat nicht das aktuelle Format
 sources-not-sources = Dies ist kein Oku-Slides-Quellarchiv
 sources-unsupported-version = Diese Quellen wurden mit einer neueren Version von Oku Slides erstellt
 sources-bad-name = Unzulässiger Dateiname in den Quellen
 sources-missing-deck = Die Präsentation fehlt in den Quellen
 sources-too-large = Die Quellen in dieser Datei sind zu groß zum Öffnen
 sources-too-deep = Dieses Deck verschachtelt Elemente zu tief
+sources-base-refused = Eine Datendatei dieses Decks ist beschädigt oder konnte nicht gespeichert werden
 
 issue-empty-slide-id = leere Folienkennung
 issue-duplicate-slide-id = doppelte Folienkennung
@@ -205,13 +206,47 @@ usage-range-reversed = Das Startdatum { $since } liegt nach dem Enddatum { $unti
 pack-token-entry-invalid = Ungültiges Komponenten-Token „{ $path }“ im Paketmanifest.
 pack-manifest-json = Das Paketmanifest kann nicht gelesen werden: { $reason }
 pack-manifest-order = Die Reihenfolge der Elemente des Packs ist bei „{ $name }“ ungültig.
+pack-manifest-data-count = Das Pack enthält { $count } Daten, höchstens { $max }.
+pack-manifest-data-base = Die Daten „{ $data }“ des Packs verweisen auf eine externe Datei; die Daten eines Packs enthalten ihre eigenen Zellen.
+pack-manifest-data-cells = Die Daten des Packs enthalten { $count ->
+    [one] { $count } Zelle
+   *[other] { $count } Zellen
+}, höchstens { $max }.
 issue-unsupported-link = nicht unterstützter Link: { $link }
 issue-highlight-zero = Hervorhebungsfarben werden ab 1 nummeriert
 issue-unreadable-element = unlesbares Element, beiseitegelegt
 issue-slot-repaired = Element ohne bekannten Slot, abgelegt in { $slot }
 issue-unreadable-item = unlesbarer Listeneintrag, beiseitegelegt
 issue-unreadable-row = unlesbare Tabellenzeile, beiseitegelegt
-issue-data-truncated = Daten zu groß, beim Lesen gekürzt
+issue-data-truncated = Daten „{ $data }“ zu groß, beim Lesen gekürzt und schreibgeschützt behalten
+issue-data-name-taken = der Datenname „{ $data }“ ist bereits vergeben
+issue-data-cell-type = Daten „{ $data }“: Spalte „{ $column }“ enthält Werte, die nicht vom Typ { $type } sind
+issue-data-too-many = zu viele Daten im Deck ({ $count }); nicht gelesen: { $dropped }
+issue-data-base-missing = Daten „{ $data }“: ihre Basisdatei fehlt, schreibgeschützt behalten
+issue-data-edits-lost = Daten „{ $data }“: Änderungen an einer ersetzten Tabelle gingen beim Zusammenführen verloren
+issue-data-inline-dropped = Element { $element }: Die Daten seines Diagramms oder seiner Tabelle wurden von einer älteren Version in seinen Optionen gespeichert; sie wurden entfernt
+issue-more = weitere, nicht angezeigte Probleme: { $count }
+op-data-deck-full = Die Daten des Decks würden ihr Limit überschreiten: höchstens { $max } { $what ->
+    [row-ids] Zeilen-IDs
+    [overlay] geänderte Zellen
+    [text] Byte Text
+   *[data] Daten
+}
+op-data-missing = Daten „{ $data }“ nicht gefunden
+op-data-name-taken = Der Datenname „{ $name }“ ist bereits vergeben
+op-data-column-in-use = Die Spalte „{ $column }“ wird von { $views } angezeigt; binden Sie diese zuerst an andere Spalten (bind_data mit columns)
+op-data-in-use = Diese Daten werden von { $views }{ $more ->
+    [0] {""}
+    [one] {" "}und { $more } weiteren Ansicht
+   *[other] {" "}und { $more } weiteren Ansichten
+}{" "}angezeigt; entfernen Sie diese oder binden Sie sie zuerst an andere Daten
+op-data-column-missing = Die Daten „{ $data }“ haben keine Spalte „{ $column }“
+op-data-not-view = Der Parameter „{ $param }“ kann keine Daten anzeigen: nur eine Diagramm- oder Tabellenoption kann das
+op-data-truncated = Die Daten „{ $data }“ wurden beim Lesen gekürzt und sind schreibgeschützt; zum Bearbeiten die ganze Tabelle ersetzen
+op-data-rebind = Das Element { $subject } zeigt bereits andere Daten; zum Ändern bind_data verwenden
+op-data-internal = Ein Stapel kann Basis oder Überlagerung einer Tabelle nicht setzen
+op-data-batch-too-large = Der Stapel ist zu groß: Zellenanzahl { $count }, höchstens { $max }
+op-data-inline = Element { $subject } trägt seine Daten in seinen Optionen; fügen Sie sie mit add_data als Deck-Daten hinzu und binden Sie sie mit bind_data
 issue-unreadable-slide = unlesbare Folie, beiseitegelegt
 issue-unreadable-field = unlesbares Deck-Feld { $field }, zurückgesetzt
 issue-knowledge-unreadable = unlesbarer Wissenseintrag { $id }, beiseitegelegt
@@ -286,3 +321,12 @@ issue-empty-item-id = Liste { $param } hat einen Eintrag ohne Kennung
 issue-duplicate-item-id = Liste { $param } hat eine doppelte Eintragskennung
 issue-invalid-item-id = Liste { $param } hat eine Eintragskennung mit einem Schrägstrich
 issue-list-bounds = Liste { $param } hat zu wenige oder zu viele Einträge
+issue-view-truncated = { $element } zeigt nur einen Teil seiner Daten ({ $what ->
+    [rows] Zeilen
+   *[columns] Spalten
+}: { $shown } von { $total })
+issue-render-budget = { $element } wird nicht gezeichnet: die Ansichten des Decks lesen mehr Daten, als ein Rendern erlaubt
+issue-data-missing = { $element } nennt die Daten „{ $data }“, die nicht im Deck sind
+issue-view-column-missing = { $element } liest die Spalte „{ $column }“, die seine Daten nicht haben
+issue-view-unreadable = { $element } wird nicht gezeichnet: seine Optionen sind nicht lesbar
+op-replica-full = Der Verlauf der Präsentation erreicht fast { $max } MiB, das Maximum zum erneuten Öffnen: Entfernen Sie Inhalte, bevor Sie weitere hinzufügen.

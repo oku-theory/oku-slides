@@ -565,6 +565,8 @@ fn resume_with_unreadable_state_and_failed_quarantine_disables_resume_but_keeps_
     let doc_bytes = br#"{"deck":{"version":1,"theme":"papier","slides":[]}}"#.to_vec();
     std::fs::write(resume_dir.join("deck/document.json"), &doc_bytes).unwrap();
 
+    // The base store a previous launch created stays writable.
+    std::fs::create_dir_all(data.join("bases/leases")).unwrap();
     // Le dossier parent en lecture seule empêche de créer un dossier voisin :
     // le déplacement de côté échoue.
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o555)).unwrap();

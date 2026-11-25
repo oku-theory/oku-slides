@@ -5,7 +5,6 @@ op-index-out-of-range = स्थिति सीमा से बाहर ह�
 op-invalid-value = { $subject } के लिए अमान्य मान
 op-invalid-value-because = { $subject } के लिए अमान्य मान: { $reason }
 op-value-no-value = पैरामीटर का कोई मान नहीं है
-op-value-no-dataset = चार्ट में कोई डेटासेट नहीं है
 op-value-grid-tracks = ग्रिड में 1 से 24 कॉलम और पंक्तियाँ होती हैं
 op-value-bad-item-id = आइटम की पहचान “/” के बिना एक गैर-खाली टेक्स्ट होती है
 op-value-missing-item-id = हर आइटम की एक पहचान होनी चाहिए
@@ -143,12 +142,14 @@ op-choice-out-of-range = { $subject } के लिए यह मान अन�
 transaction-refused = ऑपरेशन { $index } अस्वीकृत: { $reason }
 
 sources-unreadable = स्रोत पढ़े नहीं जा सकते
+deck-inline-data = तत्व { $element } अपना डेटा अपने विकल्पों में रखता है: यह डेक फ़ाइल वर्तमान प्रारूप में नहीं है
 sources-not-sources = यह Oku Slides स्रोत आर्काइव नहीं है
 sources-unsupported-version = ये स्रोत Oku Slides के नए संस्करण से लिखे गए थे
 sources-bad-name = स्रोतों में अस्वीकृत फ़ाइल नाम
 sources-missing-deck = स्रोतों में प्रेज़ेंटेशन नहीं है
 sources-too-large = इस फ़ाइल के स्रोत खोलने के लिए बहुत बड़े हैं
 sources-too-deep = यह डेक तत्वों को बहुत गहराई तक नेस्ट करता है
+sources-base-refused = इस डेक की एक डेटा फ़ाइल क्षतिग्रस्त है या सहेजी नहीं जा सकी
 
 issue-empty-slide-id = खाली स्लाइड पहचानकर्ता
 issue-duplicate-slide-id = दोहराया गया स्लाइड पहचानकर्ता
@@ -196,13 +197,44 @@ usage-range-reversed = आरंभ तिथि { $since } समाप्त�
 pack-token-entry-invalid = पैक मैनिफ़ेस्ट में अमान्य कंपोनेंट टोकन “{ $path }”।
 pack-manifest-json = पैक मैनिफ़ेस्ट पढ़ा नहीं जा सका: { $reason }
 pack-manifest-order = पैक के आइटमों का क्रम “{ $name }” पर अमान्य है।
+pack-manifest-data-count = पैक में { $count } डेटा हैं, अधिकतम { $max }।
+pack-manifest-data-base = पैक का डेटा “{ $data }” किसी बाहरी फ़ाइल को संदर्भित करता है; पैक के डेटा में उनके अपने सेल होते हैं।
+pack-manifest-data-cells = पैक के डेटा में { $count } सेल हैं, अधिकतम { $max }।
 issue-unsupported-link = असमर्थित लिंक: { $link }
 issue-highlight-zero = हाइलाइट रंगों की गिनती 1 से होती है
 issue-unreadable-element = अपठनीय तत्व, अलग रखा गया
 issue-slot-repaired = ज्ञात स्लॉट के बिना तत्व, { $slot } में रखा गया
 issue-unreadable-item = अपठनीय सूची आइटम, अलग रखा गया
 issue-unreadable-row = अपठनीय तालिका पंक्ति, अलग रखी गई
-issue-data-truncated = डेटा बहुत बड़ा है, पढ़ते समय काटा गया
+issue-data-truncated = डेटा “{ $data }” बहुत बड़ा है, पढ़ते समय काटा गया और केवल-पठन रखा गया
+issue-data-name-taken = डेटा नाम “{ $data }” पहले से उपयोग में है
+issue-data-cell-type = डेटा “{ $data }”: कॉलम “{ $column }” में ऐसे मान हैं जो { $type } प्रकार के नहीं हैं
+issue-data-too-many = डेक में बहुत अधिक डेटा ({ $count }); नहीं पढ़े गए: { $dropped }
+issue-data-base-missing = डेटा “{ $data }”: इसकी आधार फ़ाइल नहीं मिली, केवल-पठन रखा गया
+issue-data-edits-lost = डेटा “{ $data }”: बदली गई तालिका के संपादन मर्ज में खो गए
+issue-data-inline-dropped = तत्व { $element }: एक पुराने संस्करण ने उसके चार्ट या तालिका का डेटा उसके विकल्पों में रखा था; उसे हटा दिया गया
+issue-more = और समस्याएँ नहीं दिखाई गईं: { $count }
+op-data-deck-full = डेक का डेटा अपनी सीमा पार कर जाएगा: अधिकतम { $max } { $what ->
+    [row-ids] पंक्ति आईडी
+    [overlay] संपादित सेल
+    [text] बाइट टेक्स्ट
+   *[data] डेटा
+}
+op-data-missing = डेटा “{ $data }” नहीं मिला
+op-data-name-taken = डेटा नाम “{ $name }” पहले से उपयोग में है
+op-data-column-in-use = कॉलम “{ $column }” को { $views } दिखाते हैं; पहले उन्हें दूसरे कॉलमों से जोड़ें (columns के साथ bind_data)
+op-data-in-use = यह डेटा { $views }{ $more ->
+    [0] {""}
+    [one] {" "}और { $more } अन्य दृश्य
+   *[other] {" "}और { $more } अन्य दृश्य
+}{" "}दिखाते हैं; पहले उन्हें हटाएँ या किसी दूसरे डेटा से जोड़ें
+op-data-column-missing = डेटा “{ $data }” में कॉलम “{ $column }” नहीं है
+op-data-not-view = पैरामीटर “{ $param }” डेटा नहीं दिखा सकता: यह केवल चार्ट या तालिका विकल्प कर सकता है
+op-data-truncated = डेटा “{ $data }” पढ़ते समय छोटा किया गया और केवल पढ़ने योग्य है; संपादित करने के लिए उसकी पूरी तालिका बदलें
+op-data-rebind = एलिमेंट { $subject } पहले से अन्य डेटा दिखाता है; बदलने के लिए bind_data का उपयोग करें
+op-data-internal = एक बैच किसी तालिका का आधार या ओवरले सेट नहीं कर सकता
+op-data-batch-too-large = बैच बहुत बड़ा है: सेल की संख्या { $count }, अधिकतम { $max }
+op-data-inline = तत्व { $subject } अपना डेटा अपने विकल्पों में रखता है; उसे add_data से डेक डेटा के रूप में जोड़ें और bind_data से जोड़ें
 issue-unreadable-slide = अपठनीय स्लाइड, अलग रखी गई
 issue-unreadable-field = प्रस्तुति का अपठनीय फ़ील्ड { $field }, रीसेट किया गया
 issue-knowledge-unreadable = अपठनीय ज्ञान प्रविष्टि { $id }, अलग रखी गई
@@ -277,3 +309,12 @@ issue-empty-item-id = सूची { $param } में एक आइटम क�
 issue-duplicate-item-id = सूची { $param } में आइटम की पहचान दोहराई गई है
 issue-invalid-item-id = सूची { $param } में स्लैश वाला आइटम पहचानकर्ता है
 issue-list-bounds = सूची { $param } में आइटम बहुत कम या बहुत ज़्यादा हैं
+issue-view-truncated = { $element } अपने डेटा का केवल एक भाग दिखाता है ({ $what ->
+    [rows] पंक्तियाँ
+   *[columns] कॉलम
+}: { $total } में से { $shown })
+issue-render-budget = { $element } नहीं बनाया गया: डेक के व्यू एक रेंडर की अनुमति से अधिक डेटा पढ़ते हैं
+issue-data-missing = { $element } डेटा “{ $data }” का नाम लेता है, जो डेक में नहीं है
+issue-view-column-missing = { $element } कॉलम “{ $column }” पढ़ता है, जो उसके डेटा में नहीं है
+issue-view-unreadable = { $element } नहीं बनाया गया: उसके विकल्प पढ़े नहीं जा सकते
+op-replica-full = प्रस्तुति का इतिहास लगभग { $max } MiB तक पहुँच गया है, जो इसे फिर से खोलने की अधिकतम सीमा है: और जोड़ने से पहले सामग्री हटाएँ।

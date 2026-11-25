@@ -23,8 +23,10 @@ use std::time::Instant;
 use snafu::ResultExt;
 
 use oku_slides_core::{Deck, Namespace, PackFiles, PackPin, PackVersion, SourceBundle, WidgetFile, WidgetRegistry};
+use oku_slides_data::BaseId;
 use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
+use oku_slides_platform::bases::BaseStore;
 use oku_slides_platform::errors::one_line;
 use oku_slides_render::{Fonts, PackSet, PackWidgets, RegistryError, RenderError, is_trusted_pack};
 use oku_slides_render_worker::{RenderSlot, RenderWorker};
@@ -175,14 +177,21 @@ impl ProbedWidgets {
     ///
     /// A shipped (trusted) built-in pack is never dropped: if unreadable or
     /// its probe failed, its error is returned, like the failed assembly of a set that holds one.
+    ///
+    /// With `bases`, the renders read data bases from that store, among those
+    /// [`Self::set_known_bases`] names; without, a based view draws its failure frame.
     pub fn probe(
         platform: &Platform,
+        bases: Option<&BaseStore>,
         base: &Arc<WidgetRegistry>,
         deck: &Deck,
         packs: &BTreeMap<PackVersion, PackFiles>,
     ) -> Result<Self, RegistryError> {
         let l: &Localizer = &platform.localizer;
-        let worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
+        let mut worker = RenderWorker::new(platform.render_launch.clone(), platform.settings.render.clone());
+        if let Some(store) = bases {
+            worker = worker.with_bases(store.clone());
+        }
         let (start, total) = (Instant::now(), platform.settings.render.probe_budget().saturating_mul(PROBE_BUDGETS));
         let (mut usable, mut unprobed, mut probe_failed, mut off) =
             (Vec::new(), BTreeMap::new(), None, BTreeSet::new());
@@ -281,8 +290,16 @@ impl ProbedWidgets {
     /// Fails if the render process gives no slot, or rejects these widgets.
     pub fn slot(&self, fonts: &Fonts, l: &Localizer) -> Result<RenderSlot, RenderError> {
         let mut slot = self.worker.slot(fonts, l, self.registry.clone())?;
-        slot.set_widgets(&self.set, self.registry.clone())?;
+        if self.has_packs() {
+            slot.set_widgets(&self.set, self.registry.clone())?;
+        }
         Ok(slot)
+    }
+
+    /// The bases the renders may read (those the deck's sources hold), from the store given to
+    /// [`Self::probe`].
+    pub fn set_known_bases(&self, known: BTreeSet<BaseId>) {
+        self.worker.set_known_bases(known);
     }
 }
 
@@ -313,7 +330,7 @@ pub fn sources_with_packs(
         bundle.add_pack(files);
     }
     adopt_default_packs(library, &mut bundle).context(LibrarySnafu)?;
-    let widgets = ProbedWidgets::probe(platform, base, bundle.deck(), &bundle.packs).context(RegistrySnafu)?;
+    let widgets = ProbedWidgets::probe(platform, None, base, bundle.deck(), &bundle.packs).context(RegistrySnafu)?;
     if !Arc::ptr_eq(&widgets.registry, base) {
         let packs = std::mem::take(&mut bundle.packs);
         bundle = SourceBundle::new(bundle.deck().clone(), widgets.registry.clone()).context(SourcesSnafu)?;

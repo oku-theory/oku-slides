@@ -14,6 +14,9 @@
 //! | tableau | un tableau dont `dataset.source` est la grille source (cellules couvertes `null`) |
 //! | graphique | un graphique dont une colonne de `dataset.source` porte les valeurs de chaque série |
 //!
+//! A view that reads deck data is measured on the whole data it names (`columns` kept, no row
+//! cut): the dataset a render would draw before its display limits.
+//!
 //! Frontières de mots : un run qui commence (ou finit) par une lettre ou un
 //! chiffre séparé de son voisin dans la source (espace, ponctuation, bord du
 //! paragraphe) doit l'être aussi dans le texte trouvé ; un run collé à un
@@ -32,8 +35,10 @@
 //! est hors du compte : le deck le recalcule, son texte en cache n'est pas
 //! un contenu.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
+use oku_slides_chart::MAX_TABLE_CELL_CHARS;
 use oku_slides_core::kinds::base;
 use oku_slides_core::{Deck, Element, HostType, ParamType, ParamValue, Params, Slide, WidgetRegistry};
 use serde_json::Value;
@@ -41,6 +46,35 @@ use serde_json::Value;
 use crate::report::{Coverage, Missing, Ratio};
 use crate::retrofit::text::plain;
 use crate::source::{self, Caps, Fill, Item, ItemKind, SLIDE_NUMBER, SourceDeck, TextBox};
+
+/// `option` with the dataset of the deck data it names, every row; unchanged without a ref.
+///
+/// A ref that does not resolve (missing data or column, a data with a base) gives no dataset,
+/// so its content counts as missing.
+fn resolved<'d>(deck: Option<&Deck>, option: &'d Value) -> Cow<'d, Value> {
+    let (Some(deck), Some(id)) = (deck, option.get("data").and_then(Value::as_str)) else {
+        return Cow::Borrowed(option);
+    };
+    let columns: Option<Vec<String>> = option
+        .get("columns")
+        .and_then(Value::as_array)
+        .map(|c| c.iter().filter_map(Value::as_str).map(str::to_owned).collect());
+    let mut out = option.clone();
+    if let Value::Object(o) = &mut out {
+        o.remove("data");
+        o.remove("columns");
+        let table = deck.data.iter().find(|(d, _)| d.as_str() == id).map(|(_, d)| &d.table);
+        let dataset = table.and_then(|t| t.to_dataset(columns.as_deref(), 0..t.rows.len(), MAX_TABLE_CELL_CHARS).ok());
+        if let Some(mut dataset) = dataset {
+            dataset.ids.clear();
+            dataset.columns.clear();
+            if let Ok(v) = serde_json::to_value(dataset) {
+                o.insert("dataset".to_owned(), v);
+            }
+        }
+    }
+    Cow::Owned(out)
+}
 
 /// Longueur (en caractères) sous laquelle un run se cherche par son paragraphe entier.
 const SHORT_RUN: usize = 3;
@@ -62,8 +96,10 @@ struct Seen<'d> {
     texts: Vec<String>,
     by_element: BTreeMap<&'d str, Vec<String>>,
     images: Vec<&'d str>,
-    tables: Vec<&'d Value>,
-    charts: Vec<&'d Value>,
+    tables: Vec<Cow<'d, Value>>,
+    charts: Vec<Cow<'d, Value>>,
+    /// The deck whose data the views read.
+    deck: Option<&'d Deck>,
 }
 
 impl<'d> Seen<'d> {
@@ -77,7 +113,7 @@ impl<'d> Seen<'d> {
     }
 
     /// Les cellules textuelles d'un `dataset.source`.
-    fn data_texts(&mut self, option: &'d Value, owners: &[&'d str]) {
+    fn data_texts(&mut self, option: &Value, owners: &[&'d str]) {
         let rows = option.pointer("/dataset/source").and_then(Value::as_array).into_iter().flatten();
         for row in rows {
             for cell in row.as_array().into_iter().flatten() {
@@ -103,12 +139,13 @@ impl<'d> Seen<'d> {
                 }
                 (ParamValue::Slot(children), _) => self.elements(children, registry, owners),
                 (ParamValue::Value(v), Some(t)) => {
+                    let v = resolved(self.deck, v);
+                    self.data_texts(&v, owners);
                     match t.host() {
                         Some(HostType::Table) => self.tables.push(v),
                         Some(HostType::Chart) => self.charts.push(v),
-                        Some(HostType::Path) | None => continue,
+                        Some(HostType::Path) | None => {}
                     }
-                    self.data_texts(v, owners);
                 }
                 _ => {}
             }
@@ -125,7 +162,7 @@ impl<'d> Seen<'d> {
 
     /// Ce que montre `slide`, plus le titre et le sous-titre du deck.
     fn of(deck: &'d Deck, slide: Option<&'d Slide>, with_deck: bool, registry: &WidgetRegistry) -> Self {
-        let mut seen = Seen::default();
+        let mut seen = Seen { deck: Some(deck), ..Seen::default() };
         if with_deck {
             for t in [&deck.params.title, &deck.params.subtitle].into_iter().flatten() {
                 seen.text(t, &[]);
@@ -237,6 +274,19 @@ fn table_grid(t: &source::Table) -> Value {
     Value::Array(rows.collect())
 }
 
+/// `shown` holds the cells of `grid`; a header cell left empty reads as `""` once it names a
+/// data column, and stays the same empty cell.
+fn same_grid(shown: &Value, grid: &Value) -> bool {
+    let empty = |v: &Value| v.is_null() || v.as_str() == Some("");
+    let rows = |v: &Value| v.as_array().cloned().unwrap_or_default();
+    let (a, b) = (rows(shown), rows(grid));
+    a.len() == b.len()
+        && a.iter().zip(&b).enumerate().all(|(i, (x, y))| {
+            let (x, y) = (rows(x), rows(y));
+            x.len() == y.len() && x.iter().zip(&y).all(|(c, d)| c == d || (i == 0 && empty(c) && empty(d)))
+        })
+}
+
 /// Les données de `option` portent-elles les catégories de `c` (colonne 0) et, pour chaque
 /// série, une colonne distincte de mêmes valeurs ?
 fn chart_matches(c: &source::Chart, option: &Value) -> bool {
@@ -331,7 +381,8 @@ impl Tally {
                     self.runs(slide, probes(&c.text, Some(&cell_text(c))), texts);
                 }
                 let grid = table_grid(t);
-                let found = seen.tables.iter().any(|v| v.pointer("/dataset/source") == Some(&grid));
+                let found =
+                    seen.tables.iter().any(|v| v.pointer("/dataset/source").is_some_and(|s| same_grid(s, &grid)));
                 count(&mut self.c.tables, found);
                 if !found {
                     self.c.missing.push(Missing::Table { slide, item: item.id.clone() });

@@ -34,7 +34,6 @@ fn every_path_reason_key_exists_in_every_locale() {
 fn every_value_reason_key_exists_in_every_locale() {
     let reasons = [
         ValueReason::NoValue,
-        ValueReason::NoDataset,
         ValueReason::GridTracks,
         ValueReason::BadItemId,
         ValueReason::MissingItemId,

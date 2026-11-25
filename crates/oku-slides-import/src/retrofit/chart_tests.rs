@@ -5,7 +5,7 @@ use serde_json::json;
 use speculoos::prelude::*;
 
 use super::*;
-use crate::test_support::{apply_blocks, element_with};
+use crate::test_support::{apply_blocks, builtin_pins, element_with, registry};
 
 fn series(name: &str, values: &[f64]) -> source::Series {
     source::Series {
@@ -266,26 +266,54 @@ fn chart_element_of_every_kind_is_accepted_by_add_slide(
     assert_that!(apply_blocks(vec![element_with("c", base::CHART, "option", option)])).is_ok();
 }
 
-/// Au-delà des bornes de relecture du cœur, les lignes sont coupées à
-/// l'émission (en-tête compris) avec la perte `ChartTruncated` (t-817).
+/// Beyond what deck data holds, data rows are cut on emission with the
+/// `ChartTruncated` loss (t-817).
 #[rstest]
 #[case(ChartKind::Column, 2)]
 #[case(ChartKind::Scatter, 2)]
-fn chart_beyond_the_replica_row_budget_is_cut_with_a_loss(#[case] kind: ChartKind, #[case] columns: usize) {
-    // Le plus que lit le lecteur : une ligne de plus que le budget, en-tête compris.
-    let points = 10_000;
-    let values: Vec<f64> = (0..points).map(f64::from).collect();
+fn chart_beyond_the_deck_data_row_budget_is_cut_with_a_loss(#[case] kind: ChartKind, #[case] columns: usize) {
+    let points = row_budget(columns) + 1;
+    let values: Vec<f64> = (0..points).map(count_f64).collect();
     let mut c = source_chart(kind, Grouping::Standard);
     c.categories = Vec::new();
     c.series = vec![series("Ventes", &values)];
     let (option, losses) = chart(&c).unwrap();
     let rows = option["dataset"]["source"].as_array().unwrap();
-    assert_that!(rows.len()).is_equal_to(oku_slides_core::dataset_row_budget(columns));
+    // The header, then the budget's data rows.
+    assert_that!(rows.len()).is_equal_to(row_budget(columns) + 1);
     assert_that!(losses).contains(LossKind::ChartTruncated);
 }
 
+#[rstest]
+#[case::two_columns(2, oku_slides_data::limits::MAX_ROWS)]
+#[case::wide(1_000, 200)]
+#[case::no_column(0, oku_slides_data::limits::MAX_ROWS)]
+fn row_budget_is_the_smaller_of_the_row_and_cell_bounds(#[case] columns: usize, #[case] expected: usize) {
+    assert_that!(row_budget(columns)).is_equal_to(expected);
+}
+
+/// A chart of 3 columns (categories and two series): [`MAX_ROWS`] data rows fill one data
+/// exactly, the core takes them all; one more is cut and reported → `ChartTruncated`.
+#[rstest]
+#[case::at_the_bound(MAX_ROWS, MAX_ROWS, false)]
+#[case::one_past(MAX_ROWS + 1, MAX_ROWS, true)]
+fn import_table_bounds(#[case] points: usize, #[case] kept: usize, #[case] cut: bool) {
+    let values: Vec<f64> = (0..points).map(count_f64).collect();
+    let mut c = source_chart(ChartKind::Column, Grouping::Standard);
+    c.categories = Vec::new();
+    c.series = vec![series("2025", &values), series("2026", &values)];
+    let (option, losses) = chart(&c).unwrap();
+    let rows = option["dataset"]["source"].as_array().unwrap();
+    assert_that!(rows.len()).is_equal_to(kept + 1);
+    assert_that!(rows[0].as_array().map(Vec::len)).is_equal_to(Some(3));
+    assert_that!(losses.contains(&LossKind::ChartTruncated)).is_equal_to(cut);
+    let deck = apply_blocks(vec![element_with("c", base::CHART, "option", option)]).unwrap();
+    let data = deck.data.values().next().unwrap();
+    assert_that!(data.table.rows.len()).is_equal_to(kept);
+}
+
 #[test]
-fn chart_within_the_replica_row_budget_keeps_every_row() {
+fn chart_within_the_deck_data_row_budget_keeps_every_row() {
     let (option, losses) = chart(&source_chart(ChartKind::Column, Grouping::Standard)).unwrap();
     assert_that!(option["dataset"]["source"].as_array().map(Vec::len)).is_equal_to(Some(4));
     assert_that!(losses).does_not_contain(LossKind::ChartTruncated);
@@ -389,4 +417,30 @@ fn chart_value_axis_options_are_canonical() {
     let parsed = parse_option(&option).unwrap();
     let canonical = canonicalize(&parsed, ChartLabels::english()).unwrap();
     assert_that!(serde_json::to_value(canonical).unwrap()).is_equal_to(option);
+}
+
+/// An import prepared on a deck that holds an earlier one: its chart `X` gets the data name
+/// `x_2`, and both data stay distinct.
+#[test]
+fn import_twice_into_one_deck_makes_distinct_data() {
+    let mut c = source_chart(ChartKind::Column, Grouping::Clustered);
+    c.title = Some("X".to_owned());
+    let registry = registry();
+    let mut deck = oku_slides_core::Deck::empty();
+    oku_slides_core::apply_all(&mut deck, builtin_pins(), &registry).unwrap();
+    for slide in ["s1", "s2"] {
+        let mut s = oku_slides_core::Slide::new(slide, oku_slides_core::kinds::essentiel::CONTENT);
+        let blocks = vec![element_with("c", base::CHART, "option", option_of(&c))];
+        s.params.set("blocks", oku_slides_core::ParamValue::Slot(blocks));
+        let ops = vec![oku_slides_core::Op::AddSlide { index: None, defaults: false, slide: s }];
+        let ops =
+            crate::plan::prepared(&deck, &registry, oku_slides_chart::ChartLabels::english(), ops, &mut Vec::new())
+                .unwrap();
+        oku_slides_core::apply_all(&mut deck, ops, &registry).unwrap();
+    }
+    let names: Vec<&str> = deck.data.values().map(|d| d.name.as_str()).collect();
+    assert_that!(names.len()).is_equal_to(2);
+    assert_that!(names.contains(&"x")).is_true();
+    assert_that!(names.contains(&"x_2")).is_true();
+    assert_that!(deck.data.values().all(|d| d.table.rows.len() == 3)).is_true();
 }

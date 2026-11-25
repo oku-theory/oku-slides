@@ -13,6 +13,7 @@ Design decisions: [`adr/`](adr/README.md). Contributor and agent rules: [`AGENTS
 | `crates/oku-slides-render` | Embedded Typst: one SVG per slide, PDF, element boxes |
 | `crates/oku-slides-render-worker` | Typst rendering in a worker process, bounded in time and memory |
 | `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
+| `crates/oku-slides-data` | Deck data: data model and table edits, dataset types, number rules, identifiers |
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
 | `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report, content coverage and visual gap |
 | `crates/oku-slides-reference` | Reference rendering of an imported presentation (`office2pdf` or LibreOffice witness, run by the render worker) and `hayro` rasterization of its pages |
@@ -119,6 +120,14 @@ CLI (`cargo install tauri-cli --version "^2"`), on a Mac Xcode with the macOS 26
 (required: the Swift bridge to Apple's dictation engine is always built), and [Git LFS](https://git-lfs.com) for the fonts in
 `assets/fonts` (`git lfs install` before cloning, otherwise `git lfs pull`).
 The `typst` CLI is optional (`just typst`). `just doctor` checks everything.
+
+Data bases are Parquet files read by polars, compiled only into the render worker
+(`oku-slides-data` feature `engine`). Polars needs a C toolchain (the Xcode command-line tools on a Mac,
+MSVC on Windows, `cc` on Linux) for its compressors, makes a cold build of the workspace tests much longer
+(about 25 minutes on a loaded Mac; run the first `just test` in the background), and grows the binaries:
+`cargo build --release -p oku-slides-render-worker` went from 86.7 MB (82.7 MiB) to 115.0 MB (109.7 MiB),
++27 MiB (t-1690, macOS arm64). Its features stay minimal (`dtype-date`, `parquet`): `lazy` and `sql` would
+pull an HTTP client into the worker, which `just render-offline-deps` refuses.
 
 ```sh
 just dev      # desktop app in development (installs the interface dependencies)

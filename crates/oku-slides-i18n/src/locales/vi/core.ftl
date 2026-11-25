@@ -5,7 +5,6 @@ op-index-out-of-range = Vị trí nằm ngoài phạm vi
 op-invalid-value = Giá trị không hợp lệ cho { $subject }
 op-invalid-value-because = Giá trị không hợp lệ cho { $subject }: { $reason }
 op-value-no-value = tham số không có giá trị
-op-value-no-dataset = biểu đồ không có tập dữ liệu
 op-value-grid-tracks = lưới có từ 1 đến 24 cột và hàng
 op-value-bad-item-id = mã của một mục là văn bản không rỗng, không có “/”
 op-value-missing-item-id = mỗi mục cần có một mã
@@ -143,12 +142,14 @@ op-choice-out-of-range = Giá trị không được phép cho { $subject }
 transaction-refused = Thao tác { $index } bị từ chối: { $reason }
 
 sources-unreadable = Không đọc được nguồn
+deck-inline-data = Phần tử { $element } lưu dữ liệu trong tùy chọn của nó: tệp deck này không ở định dạng hiện tại
 sources-not-sources = Đây không phải là kho nguồn Oku Slides
 sources-unsupported-version = Nguồn này được tạo bởi phiên bản Oku Slides mới hơn
 sources-bad-name = Tên tệp trong nguồn bị từ chối
 sources-missing-deck = Nguồn không chứa bản trình bày
 sources-too-large = Nguồn trong tệp này quá lớn để mở
 sources-too-deep = Bản trình bày này lồng các phần tử quá sâu
+sources-base-refused = Một tệp dữ liệu của bản trình bày này bị hỏng hoặc không thể lưu
 
 issue-empty-slide-id = mã trang chiếu trống
 issue-duplicate-slide-id = mã trang chiếu bị trùng
@@ -195,13 +196,43 @@ usage-range-reversed = Ngày bắt đầu { $since } sau ngày kết thúc { $un
 pack-token-entry-invalid = Mã thông báo thành phần “{ $path }” không hợp lệ trong tệp kê khai của gói.
 pack-manifest-json = Không đọc được tệp kê khai của gói: { $reason }
 pack-manifest-order = Thứ tự các mục của gói không hợp lệ tại “{ $name }”.
+pack-manifest-data-count = Gói chứa { $count } dữ liệu, tối đa { $max }.
+pack-manifest-data-base = Dữ liệu “{ $data }” của gói tham chiếu đến một tệp bên ngoài; dữ liệu của gói phải chứa ô của riêng nó.
+pack-manifest-data-cells = Dữ liệu của gói chứa { $count } ô, tối đa { $max }.
 issue-unsupported-link = liên kết không được hỗ trợ: { $link }
 issue-highlight-zero = màu tô sáng được đánh số từ 1
 issue-unreadable-element = phần tử không đọc được, đã để riêng
 issue-slot-repaired = phần tử không có ô chứa đã biết, được đặt vào { $slot }
 issue-unreadable-item = mục danh sách không đọc được, đã để riêng
 issue-unreadable-row = hàng bảng không đọc được, đã để riêng
-issue-data-truncated = dữ liệu quá lớn, đã cắt bớt khi đọc
+issue-data-truncated = dữ liệu “{ $data }” quá lớn, đã cắt bớt khi đọc và giữ ở chế độ chỉ đọc
+issue-data-name-taken = tên dữ liệu “{ $data }” đã được dùng
+issue-data-cell-type = dữ liệu “{ $data }”: cột “{ $column }” chứa giá trị không thuộc kiểu { $type }
+issue-data-too-many = quá nhiều dữ liệu trong bản trình bày ({ $count }); chưa đọc: { $dropped }
+issue-data-base-missing = dữ liệu “{ $data }”: thiếu tệp gốc, giữ ở chế độ chỉ đọc
+issue-data-edits-lost = dữ liệu “{ $data }”: các chỉnh sửa trên một bảng đã bị thay thế bị mất khi hợp nhất
+issue-data-inline-dropped = Phần tử { $element }: một phiên bản cũ đã lưu dữ liệu biểu đồ hoặc bảng trong tùy chọn của nó; dữ liệu đó đã bị xóa
+issue-more = các vấn đề khác không hiển thị: { $count }
+op-data-deck-full = Dữ liệu của bản trình bày sẽ vượt giới hạn: tối đa { $max } { $what ->
+    [row-ids] mã dòng
+    [overlay] ô đã sửa
+    [text] byte văn bản
+   *[data] dữ liệu
+}
+op-data-missing = Không tìm thấy dữ liệu “{ $data }”
+op-data-name-taken = Tên dữ liệu “{ $name }” đã được dùng
+op-data-column-in-use = Cột “{ $column }” đang được { $views } hiển thị; hãy liên kết chúng với các cột khác trước (bind_data với columns)
+op-data-in-use = Dữ liệu này được hiển thị bởi { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}và { $more } chế độ xem khác
+}; hãy xóa chúng hoặc liên kết chúng với dữ liệu khác trước
+op-data-column-missing = Dữ liệu “{ $data }” không có cột “{ $column }”
+op-data-not-view = Tham số “{ $param }” không thể hiển thị dữ liệu: chỉ tùy chọn biểu đồ hoặc bảng mới làm được
+op-data-truncated = Dữ liệu “{ $data }” đã bị cắt khi đọc và chỉ đọc; hãy thay toàn bộ bảng để chỉnh sửa
+op-data-rebind = Phần tử { $subject } đã hiển thị dữ liệu khác; dùng bind_data để thay đổi
+op-data-internal = Một lô không thể đặt phần nền hay lớp phủ của bảng
+op-data-batch-too-large = Lô quá lớn: số ô { $count }, tối đa { $max }
+op-data-inline = Phần tử { $subject } mang dữ liệu trong tùy chọn của nó; hãy thêm chúng làm dữ liệu của deck bằng add_data và liên kết bằng bind_data
 issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
 issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
 issue-knowledge-unreadable = mục tri thức { $id } không đọc được, đã để riêng
@@ -276,3 +307,12 @@ issue-empty-item-id = danh sách { $param } có một mục không có mã đị
 issue-duplicate-item-id = danh sách { $param } có mã định danh mục bị trùng
 issue-invalid-item-id = danh sách { $param } có mã định danh mục chứa dấu gạch chéo
 issue-list-bounds = danh sách { $param } có quá ít hoặc quá nhiều mục
+issue-view-truncated = { $element } chỉ hiển thị một phần dữ liệu ({ $what ->
+    [rows] hàng
+   *[columns] cột
+}: { $shown } trên { $total })
+issue-render-budget = { $element } không được vẽ: các chế độ xem của bản trình bày đọc nhiều dữ liệu hơn mức một lần kết xuất cho phép
+issue-data-missing = { $element } nêu dữ liệu “{ $data }”, không có trong bản trình bày
+issue-view-column-missing = { $element } đọc cột “{ $column }”, không có trong dữ liệu của nó
+issue-view-unreadable = { $element } không được vẽ: không đọc được các tùy chọn của nó
+op-replica-full = Lịch sử của bản trình bày gần đạt { $max } MiB, mức tối đa để mở lại: hãy xóa bớt nội dung trước khi thêm.

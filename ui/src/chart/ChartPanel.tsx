@@ -1,6 +1,6 @@
-// Vue des données d'un graphique (composant `ChartData` de la surface `host-data`) : son type,
-// l'empilement, la couleur des séries et la grille de ses données. Chaque geste part en une
-// modification (`DataEdit`) que la session applique, puis la surface est relue.
+// View of a chart's data (`ChartData` component of the `host-data` surface): its type, stacking,
+// series colors and the grid of its data. Each gesture sends an edit (`DataEdit`) the session
+// applies, then the surface is read again.
 
 import type { ReactNode } from "react";
 
@@ -10,13 +10,14 @@ import { IconToggle } from "../primitives";
 import { ShowAsButton } from "../table/ShowAsButton";
 import { ChartDataGrid } from "./ChartDataGrid";
 import { CHART_KINDS, type ChartKind, asChartKind } from "./chartDeck";
-import type { Cell } from "./chartTypes";
+import type { Cell, DataChoice, DataRef } from "./chartTypes";
 import type { DataEdit } from "./dataEdit";
+import { DataPick } from "./DataPick";
 import { SeriesColors } from "./SeriesColors";
 
 const kindLabel = (kind: ChartKind) => t("ui-chart-kind", { kind });
 
-/** Pictogramme de chaque type ; le nom reste en `aria-label` et en infobulle. */
+/** Each kind's icon; the name stays as `aria-label` and tooltip. */
 const KIND_ICON: Record<ChartKind, ReactNode> = {
   bar: stroke(<><path d="M4 20h16" /><path d="M7 20v-6M12 20V6M17 20v-9" /></>),
   line: stroke(<><path d="M4 20h16" /><path d="M4 15l5-5 4 3 7-7" /></>),
@@ -26,28 +27,39 @@ const KIND_ICON: Record<ChartKind, ReactNode> = {
   waterfall: stroke(<><path d="M4 20h16" /><path d="M6 20v-8M10 12V7M14 7v5M18 12v8" /><path d="M6 12h4M10 7h4M14 12h4" /></>),
 };
 
-/** Une série qu'on peut colorer : son nom et sa couleur propre (absente : la palette). */
+/** A series one can color: its name and its own color (absent: the palette). */
 export type SeriesSwatch = { name: string; color?: string };
 
-/** Les données d'un graphique et ses réglages ; chaque geste part en une modification (`onEdit`). */
-export function ChartDataView({ kind, source, checkboxColumns, stacked, series, palette, onEdit }: {
-  /** Type de la première série ; absent sans données. */
+/** A chart's data and settings; each gesture is sent as an edit (`onEdit`). */
+export function ChartDataView({ kind, source, rowIds, columnIds, checkboxColumns, stacked, series, palette, data, choices, onEdit, onOpen }: {
+  /** Type of the first series; absent without data. */
   kind?: string;
-  /** dataset.source : ligne 0 = en-têtes ; vide sans données. */
+  /** dataset.source: row 0 = headers; empty without data. */
   source: Cell[][];
-  /** Colonnes de cases à cocher (le Total d'une cascade). */
+  /** Id of each data row, after the header. */
+  rowIds: readonly string[];
+  /** Id of each column. */
+  columnIds: readonly string[];
+  /** Checkbox columns (the Total of a waterfall). */
   checkboxColumns: readonly number[];
-  /** Séries empilées ; absent quand l'empilement n'a pas de sens. */
+  /** Stacked series; absent when stacking makes no sense. */
   stacked?: boolean;
   series: readonly SeriesSwatch[];
-  /** Palette des graphiques du thème, en `#rrggbb`. */
+  /** The theme's chart palette, as `#rrggbb`. */
   palette: readonly string[];
+  /** The data the chart shows. */
+  data: DataRef;
+  /** The data it can switch to, `data` included. */
+  choices: readonly DataChoice[];
   onEdit: (edit: DataEdit) => void;
+  /** Opens the view's data in the data pane. */
+  onOpen: (data: string) => void;
 }) {
   const current = asChartKind(kind);
   const hasData = source.length > 0;
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
+      <DataPick data={data} choices={choices} onEdit={onEdit} onOpen={onOpen} />
       <div className="panel-toolbar">
         <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
           {CHART_KINDS.map((k) => (
@@ -65,7 +77,7 @@ export function ChartDataView({ kind, source, checkboxColumns, stacked, series, 
       <SeriesColors series={series} colors={palette} onColor={(index, color) => onEdit({ edit: "color", index, color })} />
       {current === "waterfall" && <p className="a2ui-hint">{t("ui-chart-waterfall-hint")}</p>}
       {hasData ? (
-        <ChartDataGrid source={source} checkboxColumns={checkboxColumns} onOp={(change) => onEdit({ edit: "cells", change })} />
+        <ChartDataGrid source={source} rowIds={rowIds} columnIds={columnIds} checkboxColumns={checkboxColumns} onEdit={onEdit} />
       ) : (
         <p className="a2ui-hint">{t("ui-chart-no-data")}</p>
       )}

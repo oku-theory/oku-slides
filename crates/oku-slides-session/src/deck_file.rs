@@ -15,7 +15,7 @@ use crate::deck_closure::combined_pins;
 use crate::deck_widgets::DeckWidgets;
 use crate::error::{InPackTabSnafu, PdfSnafu, SourcesSnafu, WriteSnafu};
 use crate::files::{EXTENSION, read_document};
-use crate::{Document, Result, Session, blank_deck, charts, deck_pack, deck_theme};
+use crate::{Document, Result, Session, blank_deck, deck_pack, deck_theme};
 
 /// Au-delà, le nom est coupé : les systèmes de fichiers limitent à 255 octets.
 const MAX_STEM_CHARS: usize = 120;
@@ -75,6 +75,8 @@ impl Session {
     /// par défaut et ses besoins (voir `deck_pack`).
     pub(crate) fn load_document(&mut self, mut doc: Document) -> Result<()> {
         self.end_widget_session();
+        // Before any write: the replica already dropped the inline data the view still holds.
+        let dropped = self.lift_inline_sources(&mut doc.sources)?;
         deck_pack::adopt_default_packs(&self.library, &mut doc.sources)?;
         deck_theme::adopt_default_theme(&self.themes, &mut doc.sources)?;
         // Une reprise ou un fichier peut porter une fermeture cassée par une fusion.
@@ -82,6 +84,10 @@ impl Session {
             tracing::warn!(error = %e.one_line(), "épinglages des thèmes non réparés");
         }
         let (widgets, notice) = self.resolve_widgets(&combined_pins(doc.sources.deck()), &doc.sources.packs)?;
+        let notice = match (notice, self.dropped_notice(&dropped)) {
+            (Some(a), Some(b)) => Some(format!("{a}\n\n{b}")),
+            (a, b) => a.or(b),
+        };
         self.install_document(doc, widgets, notice)?;
         self.refresh_pack_updates();
         self.rerender()
@@ -89,8 +95,8 @@ impl Session {
 
     /// Installs `doc` with its resolved widgets as the document; adopts nothing.
     ///
-    /// Its charts are put in canonical form first; `notice` (the widgets'
-    /// one) is set on it. Neither renders nor reads the library.
+    /// The inline data of its widgets' charts and tables are lifted into deck data first, those
+    /// that do not lift stripped and noticed; `notice` (the widgets' one) is set on it. Neither renders nor reads the library.
     ///
     /// # Errors
     ///
@@ -106,15 +112,8 @@ impl Session {
         notice: Option<String>,
     ) -> Result<()> {
         doc.sources.set_registry(widgets.registry.clone());
-        let mut deck = doc.sources.deck().clone();
-        charts::canonicalize_deck(&mut deck, &self.chart_labels, &widgets.registry);
-        // Les options réécrites reprennent la forme canonique (clés triées),
-        // celle que relit le replica.
-        oku_slides_core::canonicalize(&mut deck);
-        if deck != *doc.sources.deck() {
-            // Forme canonique des graphiques : pas une action de l'utilisateur.
-            doc.sources.apply_silent(deck).context(SourcesSnafu)?;
-        }
+        // The views of the deck's own widgets, now known.
+        let dropped = self.lift_inline_sources(&mut doc.sources)?;
         // Le rendu des nouvelles polices (avec les nouveaux widgets) et les
         // widgets sont prêts avant de remplacer le document : si l'un
         // échoue, l'ancien document, son registre et son rendu restent.
@@ -125,6 +124,7 @@ impl Session {
         // L'avis des thèmes écartés posé sur le deck vierge, pas encore vu, suit le document (reprise d'onglet).
         let carried = self.carried_themes_notice();
         self.doc = doc;
+        self.sync_bases();
         if let Some(text) = carried {
             self.set_notice(text);
         }
@@ -141,6 +141,9 @@ impl Session {
         if let Some(notice) = notice {
             self.set_notice(notice);
         }
+        if let Some(text) = self.dropped_notice(&dropped) {
+            self.set_notice(text);
+        }
         self.ui.slide = None;
         self.ui = std::mem::take(&mut self.ui).sanitized(false);
         self.theme_list = self.themes.themes();
@@ -154,7 +157,7 @@ impl Session {
     /// Fails if the file cannot be read or is not a recognized document, or if it does not load (see
     /// [`Self::load`]).
     pub fn open(&mut self, path: &Path) -> Result<()> {
-        let opened = read_document(&self.storage, path, self.source_limits, &self.registry)?;
+        let opened = read_document(&self.storage, path, self.source_limits, &self.registry, Some(&self.bases.files()))?;
         let (pdf, modified_elsewhere) = (opened.pdf, opened.modified_elsewhere);
         let notice = opened.notice(&self.localizer);
         // Un deck JSON n'est pas un document Oku Slides : on ne l'écrasera pas.
@@ -212,7 +215,11 @@ impl Session {
     /// `pdf` is a fresh render, or the file's own bytes when only the
     /// sources changed. `[usage] store_in_deck` off writes no ledger.
     pub(crate) fn write_pdf(&self, path: &Path, pdf: &[u8]) -> Result<String> {
-        let zip = self.doc.sources.to_zip_with(self.doc_defaults.store_usage).context(SourcesSnafu)?;
+        let zip = self
+            .doc
+            .sources
+            .to_zip_bases(self.doc_defaults.store_usage, Some(&self.bases.files()))
+            .context(SourcesSnafu)?;
         let out = oku_slides_pdf::embed_sources(pdf, &zip).context(PdfSnafu)?;
         let bytes = out.len();
         let hash = oku_slides_core::asset_id(&out);

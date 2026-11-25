@@ -32,3 +32,5 @@ mod issue_0965_widget_text_too_long;
 mod issue_1068_namespace_pinned_under_both_kinds;
 mod issue_1104_manifest_errors_are_localized;
 mod issue_1381_widget_names_and_values_capped;
+mod issue_1690_compaction_of_truncated_data;
+mod issue_1690_v12_deck_refused;

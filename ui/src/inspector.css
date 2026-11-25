@@ -114,3 +114,19 @@ body:has(.row-divider.active) { cursor: row-resize; user-select: none; -webkit-u
     background: var(--paper-000); box-shadow: var(--shadow-object);
   }
 }
+
+/* The side panel's Data tab and a data's rows in the data pane. */
+.data-tab .host-settings { width: auto; padding: 0; background: none; box-shadow: none; }
+.data-list { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); }
+.data-list-add { align-self: flex-start; }
+.data-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.data-row { display: flex; flex-direction: column; gap: 2px; }
+.data-row-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.data-row-name { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: inherit; cursor: pointer; text-align: start; }
+.data-row-rename { font: inherit; border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 2px 6px; background: transparent; color: inherit; }
+.data-row-size, .data-row-error { margin: 0; }
+.data-row-users { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.data-row-user { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.data-row-error { color: var(--danger); }
+.data-sheet { display: flex; flex-direction: column; gap: var(--space-2); }
+.data-sheet-pages { display: flex; align-items: center; gap: var(--space-2); }

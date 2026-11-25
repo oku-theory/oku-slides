@@ -4,14 +4,21 @@
 //! `oku-slides` (`render-deck`) : les noms de champs et les valeurs par défaut
 //! doivent rester alignés sur `typst/oku-slides/src/data.typ`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
+use oku_slides_data::limits::{MAX_DATA, MAX_DECK_JSON_BYTES};
+use oku_slides_data::{Data, DataId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use snafu::{ResultExt, ensure};
 
 use crate::HeadingLevel;
-use crate::error::ValueReason;
+use crate::error::{
+    DeckJsonError, DeckJsonFullSnafu, DeckJsonInlineSnafu, DeckJsonTooLargeSnafu, DeckJsonUnreadableSnafu,
+    DeckJsonVersionSnafu, ValueReason,
+};
 use crate::knowledge::KnowledgeFile;
 use crate::namespace::Namespace;
 use crate::pack::PackPin;
@@ -21,7 +28,7 @@ use crate::theme_chain::ThemePin;
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 9;
+pub const DECK_VERSION: u32 = 10;
 
 /// A complete deck.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -50,11 +57,41 @@ pub struct Deck {
     /// Layout packs of the deck, by namespace; their `requires` name widget packs.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub layouts: BTreeMap<Namespace, PackPin>,
+    /// Data of the deck, by id, at most [`MAX_DATA`].
+    #[serde(
+        default,
+        skip_serializing_if = "BTreeMap::is_empty",
+        deserialize_with = "oku_slides_data::bounded::btree::<_, _, _, { MAX_DATA }>"
+    )]
+    pub data: BTreeMap<DataId, Arc<Data>>,
     /// Knowledge bundle (Open Knowledge Format files), by file id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub knowledge: BTreeMap<String, KnowledgeFile>,
     /// Slides of the deck, in presentation order.
     pub slides: Vec<Slide>,
+    /// Data cut on the last replica read: never written back. Recomputed on each read.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub truncated: BTreeSet<DataId>,
+}
+
+impl Default for Deck {
+    fn default() -> Self {
+        Self {
+            version: DECK_VERSION,
+            theme: None,
+            themes: BTreeMap::new(),
+            params: DeckParams::default(),
+            vars: BTreeMap::new(),
+            tokens: Value::Null,
+            widgets: BTreeMap::new(),
+            layouts: BTreeMap::new(),
+            data: BTreeMap::new(),
+            knowledge: BTreeMap::new(),
+            slides: Vec::new(),
+            truncated: BTreeSet::new(),
+        }
+    }
 }
 
 fn default_version() -> u32 {
@@ -528,7 +565,20 @@ impl Deck {
     /// be given a decision here.
     #[must_use]
     pub fn without_knowledge(&self) -> Self {
-        let Self { version, theme, themes, params, vars, tokens, widgets, layouts, knowledge: _, slides } = self;
+        let Self {
+            version,
+            theme,
+            themes,
+            params,
+            vars,
+            tokens,
+            widgets,
+            layouts,
+            data,
+            knowledge: _,
+            slides,
+            truncated,
+        } = self;
         Self {
             version: *version,
             theme: theme.clone(),
@@ -538,26 +588,17 @@ impl Deck {
             tokens: tokens.clone(),
             widgets: widgets.clone(),
             layouts: layouts.clone(),
+            data: data.clone(),
             knowledge: BTreeMap::new(),
             slides: slides.clone(),
+            truncated: truncated.clone(),
         }
     }
 
     /// Deck vide de la version courante : aucune slide.
     #[must_use]
     pub fn empty() -> Self {
-        Self {
-            version: DECK_VERSION,
-            theme: None,
-            themes: BTreeMap::new(),
-            params: DeckParams::default(),
-            vars: BTreeMap::new(),
-            tokens: Value::Null,
-            widgets: BTreeMap::new(),
-            layouts: BTreeMap::new(),
-            knowledge: BTreeMap::new(),
-            slides: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Les épinglages du deck de sorte `kind`.
@@ -599,19 +640,22 @@ impl Deck {
         self.slides.iter().position(|s| s.id == id)
     }
 
-    /// Reads a deck from JSON. Refuses a deck of a version other than
-    /// [`DECK_VERSION`]: read as a v4, it would silently lose fields.
+    /// Reads a deck from JSON. Refuses JSON over [`MAX_DECK_JSON_BYTES`] before parsing, a
+    /// deck of a version other than [`DECK_VERSION`] (read as an older one, it would silently
+    /// lose fields), a deck over the deck data bounds ([`crate::check_deck_bounds`]), and a
+    /// deck whose chart or table stores inline data: data live in [`Deck::data`].
     ///
     /// # Errors
     ///
-    /// Invalid JSON, JSON that does not have the shape of a deck, or another version.
-    pub fn from_json(s: &str) -> serde_json::Result<Self> {
-        let deck: Self = serde_json::from_str(s)?;
-        if deck.version != DECK_VERSION {
-            return Err(serde::de::Error::custom(format!(
-                "unsupported deck version {} (expected {DECK_VERSION})",
-                deck.version
-            )));
+    /// Too large, invalid JSON or not the shape of a deck (a data bound passed while parsing
+    /// included), another version, over a deck bound, or stored inline data.
+    pub fn from_json(s: &str) -> Result<Self, DeckJsonError> {
+        ensure!(s.len() <= MAX_DECK_JSON_BYTES, DeckJsonTooLargeSnafu { max: MAX_DECK_JSON_BYTES });
+        let deck: Self = serde_json::from_str(s).context(DeckJsonUnreadableSnafu)?;
+        ensure!(deck.version == DECK_VERSION, DeckJsonVersionSnafu { found: deck.version });
+        crate::check_deck_bounds(&deck).context(DeckJsonFullSnafu)?;
+        if let Some(element) = stored_inline(&deck) {
+            return Err(DeckJsonInlineSnafu { element }.build().into());
         }
         Ok(deck)
     }
@@ -624,6 +668,26 @@ impl Deck {
     pub fn to_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
     }
+}
+
+/// The first slide or element with a chart or table option storing inline data.
+///
+/// Without a registry, a param is such an option when its value reads as a chart or a table
+/// option; its inline data are what [`brings_inline`](crate::brings_inline) finds.
+fn stored_inline(deck: &Deck) -> Option<&str> {
+    let view = |v: &Value| {
+        serde_json::from_value::<oku_slides_chart::ChartOption>(v.clone()).is_ok()
+            || serde_json::from_value::<oku_slides_chart::TableOption>(v.clone()).is_ok()
+    };
+    let stores = |params: &Params| {
+        params.iter().any(|(_, v)| matches!(v, ParamValue::Value(v) if crate::brings_inline(v) && view(v)))
+    };
+    deck.slides.iter().find_map(|slide| {
+        if stores(&slide.params) {
+            return Some(slide.id.as_str());
+        }
+        slide.walk().find(|l| stores(&l.element.params)).map(|l| l.element.id.as_str())
+    })
 }
 
 #[cfg(test)]

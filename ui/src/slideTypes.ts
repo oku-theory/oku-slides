@@ -1,7 +1,7 @@
 // A slide as the host sends it (frames, runs, elements, field and item views) and its edit ops.
 
 import type { SlideKind } from "./api";
-import type { DataOp } from "./chart/chartTypes";
+import type { Cell as DataCell } from "./chart/chartTypes";
 import type { Cell, ZoneView } from "./grid";
 import type { PackKind, PackPin } from "./packTypes";
 
@@ -187,7 +187,6 @@ export type Op =
   | { op: "replace_element"; slide: string; element: Element }
   | { op: "set_chart_option"; target: Target; param: string; patch: unknown }
   | { op: "set_table_option"; target: Target; param: string; patch: unknown }
-  | { op: "set_data"; target: Target; param: string; change: DataOp }
   | { op: "edit_list"; target: Target; param: string; change: ListOp }
   | { op: "add_element"; slot: SlotRef; index?: number; defaults?: boolean; element: Element }
   | { op: "remove_element"; slide: string; element: string }
@@ -203,10 +202,36 @@ export type Op =
   | { op: "unset_token"; path: string[] }
   | { op: "set_tokens"; tokens: unknown }
   | { op: "set_var"; key: string; value: unknown }
+  | { op: "add_data"; id?: string; name: string; label?: string; table: NewTable }
+  | { op: "edit_data"; data: string; change: TableOp }
+  | { op: "bind_data"; target: Target; param: string; data: string; columns?: string[] }
+  | { op: "remove_data"; data: string }
+  | { op: "rename_data"; data: string; name: string }
+  | { op: "set_column_type"; data: string; column: string; type: ColumnType }
   | { op: "knowledge_write"; path: string; text: string; id?: string }
   | { op: "knowledge_edit"; path: string; old: string; new: string }
   | { op: "knowledge_move"; from: string; to: string }
   | { op: "knowledge_delete"; path: string };
+
+/** Type of a column: what its cells hold (`ColumnType` of `oku-slides-data`). */
+export type ColumnType = "text" | "number" | "integer" | "bool" | "date";
+
+/** A whole table (`NewTable` of `oku-slides-data`); ids left out are drawn by the core. */
+export interface NewTable {
+  generation?: string;
+  columns: { id?: string; name: string; type?: ColumnType }[];
+  rows: { id?: string; cells?: DataCell[] }[];
+}
+
+/** One edit of a data's table (`TableOp` of `oku-slides-data`), rows and columns by id. */
+export type TableOp =
+  | { op: "set_cell"; row: string; column: string; value: DataCell }
+  | { op: "rename_column"; column: string; name: string }
+  | { op: "insert_row"; id?: string; after?: string; cells?: Record<string, DataCell> }
+  | { op: "remove_row"; row: string }
+  | { op: "insert_column"; id?: string; after?: string; name: string; cells?: Record<string, DataCell> }
+  | { op: "remove_column"; column: string }
+  | { op: "replace"; table: NewTable };
 
 /** Changement d'une liste (`edit_list` du cœur) : insertion, retrait, déplacement, champ d'un item. */
 export type ListOp =

@@ -86,6 +86,8 @@ fn kind_info(kind: &ComponentKind) -> (&'static str, Group) {
         K::Notice { .. } => ("Notice", HostOnly),
         K::ChartData { .. } => ("ChartData", HostOnly),
         K::TableData { .. } => ("TableData", HostOnly),
+        K::DataList { .. } => ("DataList", HostOnly),
+        K::DataSheet { .. } => ("DataSheet", HostOnly),
     }
 }
 

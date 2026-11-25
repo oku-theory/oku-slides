@@ -2,7 +2,7 @@
 
 use std::string::FromUtf8Error;
 
-use oku_slides_core::{TransactionError, WidgetError};
+use oku_slides_core::{OpError, TransactionError, WidgetError};
 use oku_slides_i18n::{Localize, Localizer};
 use snafu::{Backtrace, IntoError, Snafu};
 
@@ -48,7 +48,9 @@ impl ImportError {
             Inner::NoProfiles { .. } => ImportErrorKind::NoProfiles,
             Inner::GeneratedRegistry { .. } => ImportErrorKind::GeneratedRegistry,
             Inner::GeneratedPack { .. } => ImportErrorKind::GeneratedPack,
-            Inner::PlanRefused { .. } => ImportErrorKind::PlanRefused,
+            Inner::PlanRefused { .. } | Inner::PlanUnprepared { .. } | Inner::PlanWarningUncounted { .. } => {
+                ImportErrorKind::PlanRefused
+            }
         }
     }
 }
@@ -107,6 +109,10 @@ enum Inner {
     GeneratedPack { source: serde_json::Error, backtrace: Backtrace },
     #[snafu(display("the core refuses the generated import plan"))]
     PlanRefused { source: TransactionError, backtrace: Backtrace },
+    #[snafu(display("the core refuses the generated import plan before it applies"))]
+    PlanUnprepared { source: OpError, backtrace: Backtrace },
+    #[snafu(display("the core warns {key} about the import plan without a count"))]
+    PlanWarningUncounted { key: &'static str, backtrace: Backtrace },
 }
 
 // Constructeurs plutôt que `.context()` : `clip` n'est appelé que sur le chemin d'erreur, et
@@ -157,6 +163,14 @@ pub(crate) fn generated_pack(source: serde_json::Error) -> ImportError {
 
 pub(crate) fn plan_refused(source: TransactionError) -> ImportError {
     ImportError(Box::new(PlanRefusedSnafu.into_error(source)))
+}
+
+pub(crate) fn plan_unprepared(source: OpError) -> ImportError {
+    ImportError(Box::new(PlanUnpreparedSnafu.into_error(source)))
+}
+
+pub(crate) fn plan_warning_uncounted(key: &'static str) -> ImportError {
+    ImportError(Box::new(PlanWarningUncountedSnafu { key }.build()))
 }
 
 pub(crate) fn not_a_presentation(content_type: &str) -> ImportError {

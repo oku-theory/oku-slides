@@ -450,6 +450,27 @@ ui-data-pane-close = डेटा बंद करें
 ui-data-pane-resize = डेटा का आकार बदलें
 ui-data-pane-maximize = डेटा बड़ा करें
 ui-data-pane-restore = डेटा छोटा करें
+ui-data-shared-by = { $count ->
+    [one] { $count } दृश्य द्वारा साझा
+   *[other] { $count } दृश्यों द्वारा साझा
+}
+ui-data-tab = डेटा
+ui-data-add = डेटा जोड़ें
+ui-data-rename = नाम बदलें
+ui-data-remove = हटाएँ
+ui-data-column-type = कॉलम का प्रकार
+ui-data-type-text = टेक्स्ट
+ui-data-type-number = संख्या
+ui-data-type-integer = पूर्णांक
+ui-data-type-bool = हाँ/नहीं
+ui-data-type-date = तारीख
+ui-data-views = { $count } व्यू
+ui-data-unused = अप्रयुक्त
+ui-data-size = कॉलम: { $columns } · पंक्तियाँ: { $rows }
+ui-data-page = { $total } में से पंक्तियाँ { $first }–{ $last }
+ui-data-previous = पिछली पंक्तियाँ
+ui-data-next = अगली पंक्तियाँ
+ui-data-open = डेटा खोलें
 ui-themes = थीम
 ui-offer-open = खोलें: { $title }
 ui-offer-settings = प्रस्तावित सेटिंग्स: { $title }

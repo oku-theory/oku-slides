@@ -5,7 +5,6 @@ op-index-out-of-range = অবস্থান সীমার বাইরে
 op-invalid-value = { $subject }-এর জন্য অবৈধ মান
 op-invalid-value-because = { $subject }-এর জন্য অবৈধ মান: { $reason }
 op-value-no-value = প্যারামিটারের কোনো মান নেই
-op-value-no-dataset = চার্টের কোনো ডেটাসেট নেই
 op-value-grid-tracks = গ্রিডে 1 থেকে 24টি কলাম ও সারি থাকে
 op-value-bad-item-id = আইটেমের আইডি হলো “/” ছাড়া একটি অ-খালি টেক্সট
 op-value-missing-item-id = প্রতিটি আইটেমের একটি আইডি দরকার
@@ -143,12 +142,14 @@ op-choice-out-of-range = { $subject }-এর জন্য মানটি অন
 transaction-refused = অপারেশন { $index } প্রত্যাখ্যাত: { $reason }
 
 sources-unreadable = উৎস পড়া যাচ্ছে না
+deck-inline-data = উপাদান { $element } তার ডেটা তার বিকল্পে রাখে: এই ডেক ফাইলটি বর্তমান ফরম্যাটে নেই
 sources-not-sources = এটি কোনো Oku Slides উৎস আর্কাইভ নয়
 sources-unsupported-version = এই উৎসগুলো Oku Slides-এর নতুন সংস্করণে লেখা হয়েছে
 sources-bad-name = উৎসে প্রত্যাখ্যাত ফাইলের নাম
 sources-missing-deck = উৎসে প্রেজেন্টেশনটি নেই
 sources-too-large = এই ফাইলের উৎসগুলি খোলার জন্য খুব বড়
 sources-too-deep = এই ডেকে উপাদানগুলি খুব গভীরভাবে নেস্ট করা আছে
+sources-base-refused = এই ডেকের একটি ডেটা ফাইল ক্ষতিগ্রস্ত বা সংরক্ষণ করা যায়নি
 
 issue-empty-slide-id = খালি স্লাইড শনাক্তকারী
 issue-duplicate-slide-id = স্লাইড শনাক্তকারী পুনরাবৃত্ত
@@ -196,13 +197,43 @@ usage-range-reversed = শুরুর তারিখ { $since } শেষে�
 pack-token-entry-invalid = প্যাক ম্যানিফেস্টে অবৈধ কম্পোনেন্ট টোকেন “{ $path }”।
 pack-manifest-json = প্যাক ম্যানিফেস্ট পড়া যাচ্ছে না: { $reason }
 pack-manifest-order = প্যাকের আইটেমের ক্রম “{ $name }” এ অবৈধ।
+pack-manifest-data-count = প্যাকে { $count }টি ডেটা আছে, সর্বোচ্চ { $max }।
+pack-manifest-data-base = প্যাকের ডেটা “{ $data }” একটি বাহ্যিক ফাইল নির্দেশ করে; প্যাকের ডেটা নিজস্ব সেল ধারণ করে।
+pack-manifest-data-cells = প্যাকের ডেটায় { $count }টি সেল আছে, সর্বোচ্চ { $max }।
 issue-unsupported-link = অসমর্থিত লিঙ্ক: { $link }
 issue-highlight-zero = হাইলাইট রঙের নম্বর 1 থেকে শুরু
 issue-unreadable-element = অপাঠযোগ্য উপাদান, আলাদা রাখা হয়েছে
 issue-slot-repaired = পরিচিত স্লট ছাড়া উপাদান, { $slot }-এ রাখা হয়েছে
 issue-unreadable-item = অপাঠযোগ্য তালিকার আইটেম, আলাদা রাখা হয়েছে
 issue-unreadable-row = অপাঠযোগ্য টেবিলের সারি, আলাদা রাখা হয়েছে
-issue-data-truncated = ডেটা খুব বড়, পড়ার সময় ছেঁটে ফেলা হয়েছে
+issue-data-truncated = ডেটা “{ $data }” খুব বড়, পড়ার সময় ছেঁটে শুধু-পঠনযোগ্য রাখা হয়েছে
+issue-data-name-taken = ডেটার নাম “{ $data }” আগে থেকেই ব্যবহৃত
+issue-data-cell-type = ডেটা “{ $data }”: কলাম “{ $column }”-এ এমন মান আছে যা { $type } ধরনের নয়
+issue-data-too-many = ডেকে অনেক বেশি ডেটা ({ $count }); পড়া হয়নি: { $dropped }
+issue-data-base-missing = ডেটা “{ $data }”: এর মূল ফাইল নেই, শুধু-পঠনযোগ্য রাখা হয়েছে
+issue-data-edits-lost = ডেটা “{ $data }”: প্রতিস্থাপিত টেবিলের সম্পাদনা একত্রীকরণে হারিয়ে গেছে
+issue-data-inline-dropped = উপাদান { $element }: একটি পুরোনো সংস্করণ এর চার্ট বা টেবিলের ডেটা এর বিকল্পে রেখেছিল; সেগুলি সরানো হয়েছে
+issue-more = আরও সমস্যা দেখানো হয়নি: { $count }
+op-data-deck-full = ডেকের ডেটা তার সীমা ছাড়িয়ে যাবে: সর্বোচ্চ { $max } { $what ->
+    [row-ids] সারি আইডি
+    [overlay] সম্পাদিত ঘর
+    [text] বাইট লেখা
+   *[data] ডেটা
+}
+op-data-missing = ডেটা “{ $data }” পাওয়া যায়নি
+op-data-name-taken = ডেটার নাম “{ $name }” আগে থেকেই ব্যবহৃত
+op-data-column-in-use = কলাম “{ $column }” দেখায় { $views }; আগে সেগুলোকে অন্য কলামে যুক্ত করুন (columns সহ bind_data)
+op-data-in-use = এই ডেটা দেখায় { $views }{ $more ->
+    [0] {""}
+   *[other] {" "}এবং আরও { $more }টি ভিউ
+}; আগে সেগুলো সরান বা অন্য ডেটার সঙ্গে যুক্ত করুন
+op-data-column-missing = ডেটা “{ $data }”-তে কলাম “{ $column }” নেই
+op-data-not-view = প্যারামিটার “{ $param }” ডেটা দেখাতে পারে না: শুধু চার্ট বা টেবিলের অপশন পারে
+op-data-truncated = ডেটা “{ $data }” পড়ার সময় ছেঁটে ফেলা হয়েছে এবং শুধু পড়ার জন্য; সম্পাদনা করতে পুরো টেবিলটি বদলান
+op-data-rebind = উপাদান { $subject } ইতিমধ্যে অন্য ডেটা দেখাচ্ছে; বদলাতে bind_data ব্যবহার করুন
+op-data-internal = একটি ব্যাচ কোনো টেবিলের ভিত্তি বা ওভারলে সেট করতে পারে না
+op-data-batch-too-large = ব্যাচটি খুব বড়: সেলের সংখ্যা { $count }, সর্বোচ্চ { $max }
+op-data-inline = উপাদান { $subject } তার ডেটা তার বিকল্পে বহন করে; add_data দিয়ে সেগুলি ডেকের ডেটা হিসেবে যোগ করুন এবং bind_data দিয়ে যুক্ত করুন
 issue-unreadable-slide = অপাঠযোগ্য স্লাইড, আলাদা রাখা হয়েছে
 issue-unreadable-field = উপস্থাপনার অপাঠযোগ্য ক্ষেত্র { $field }, পুনরায় সেট করা হয়েছে
 issue-knowledge-unreadable = অপাঠযোগ্য জ্ঞান এন্ট্রি { $id }, আলাদা রাখা হয়েছে
@@ -277,3 +308,12 @@ issue-empty-item-id = { $param } তালিকার একটি আইটে
 issue-duplicate-item-id = { $param } তালিকায় একটি আইটেমের শনাক্তকারী পুনরাবৃত্ত হয়েছে
 issue-invalid-item-id = তালিকা { $param }-এ স্ল্যাশযুক্ত একটি আইটেম শনাক্তকারী আছে
 issue-list-bounds = { $param } তালিকায় আইটেম খুব কম বা খুব বেশি
+issue-view-truncated = { $element } তার ডেটার শুধু একটি অংশ দেখায় ({ $what ->
+    [rows] সারি
+   *[columns] কলাম
+}: { $total }টির মধ্যে { $shown }টি)
+issue-render-budget = { $element } আঁকা হয়নি: ডেকের ভিউগুলো একটি রেন্ডারের অনুমতির চেয়ে বেশি ডেটা পড়ে
+issue-data-missing = { $element } “{ $data }” ডেটার নাম দেয়, যা ডেকে নেই
+issue-view-column-missing = { $element } “{ $column }” কলাম পড়ে, যা এর ডেটায় নেই
+issue-view-unreadable = { $element } আঁকা হয়নি: এর অপশনগুলো পড়া যায় না
+op-replica-full = উপস্থাপনার ইতিহাস প্রায় { $max } MiB, যা আবার খোলার সর্বোচ্চ সীমা: আরও যোগ করার আগে বিষয়বস্তু সরান।

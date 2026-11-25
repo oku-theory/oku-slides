@@ -39,7 +39,10 @@ impl Harness {
 
     fn roadmap(&mut self) -> u64 {
         assert!(matches!(self.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]).0, Response::Ok));
-        match self.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]).0 {
+        match self
+            .call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![], data: vec![] }, &[])
+            .0
+        {
             Response::Compiled(h) => h.generation,
             other => panic!("{other:?}"),
         }
@@ -73,7 +76,7 @@ fn serve_svg_of_released_generation_returns_stale() {
 fn serve_keeps_an_older_generation_until_released() {
     let mut h = Harness::new();
     let first = h.roadmap();
-    h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
+    h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![], data: vec![] }, &[]);
     let (resp, _) = h.call(&Request::Svg { slot: 1, generation: first, page: 0 }, &[]);
     assert_that!(matches!(resp, Response::Bytes)).is_true();
 }
@@ -83,10 +86,12 @@ fn serve_generations_grow_across_slots() {
     let mut h = Harness::new();
     let first = h.roadmap();
     h.call(&Request::OpenSlot { slot: 2, fonts: vec![] }, &[]);
-    let second = match h.call(&Request::Render { slot: 2, deck: Box::new(fixture_deck()), assets: vec![] }, &[]).0 {
-        Response::Compiled(h) => h.generation,
-        other => panic!("{other:?}"),
-    };
+    let second =
+        match h.call(&Request::Render { slot: 2, deck: Box::new(fixture_deck()), assets: vec![], data: vec![] }, &[]).0
+        {
+            Response::Compiled(h) => h.generation,
+            other => panic!("{other:?}"),
+        };
     assert_that!(second).is_greater_than(first);
 }
 
@@ -121,7 +126,8 @@ fn serve_open_slot_with_unknown_font_returns_setup_error() {
 #[test]
 fn serve_render_on_unknown_slot_returns_error_and_keeps_serving() {
     let mut h = Harness::new();
-    let (resp, _) = h.call(&Request::Render { slot: 9, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
+    let (resp, _) =
+        h.call(&Request::Render { slot: 9, deck: Box::new(fixture_deck()), assets: vec![], data: vec![] }, &[]);
     assert_that!(matches!(resp, Response::Error { .. })).is_true();
     let (resp, _) = h.call(&Request::SetLanguage { locale: "fr".into() }, &[]);
     assert_that!(matches!(resp, Response::Ok)).is_true();
@@ -151,7 +157,8 @@ fn worker_render_without_a_listed_asset_answers_missing_assets() {
     w.handle(Request::PutAsset { id: "a".into() }, vec![1]);
     w.handle(Request::OpenSlot { slot: 1, fonts: vec![] }, Vec::new());
     let assets = vec!["a".into(), "b".into()];
-    let (resp, _) = w.handle(Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets }, Vec::new());
+    let (resp, _) =
+        w.handle(Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets, data: vec![] }, Vec::new());
     let Response::MissingAssets { ids } = resp else { panic!("{resp:?}") };
     assert_that!(ids).is_equal_to(vec!["b".to_string()]);
     assert_that!(w.next_generation).is_equal_to(0);
@@ -166,11 +173,17 @@ fn worker_render_evicts_assets_outside_the_union_of_last_assets() {
     }
     w.handle(Request::OpenSlot { slot: 1, fonts: vec![] }, Vec::new());
     w.handle(Request::OpenSlot { slot: 2, fonts: vec![] }, Vec::new());
-    w.handle(Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec!["a".into()] }, Vec::new());
+    w.handle(
+        Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec!["a".into()], data: vec![] },
+        Vec::new(),
+    );
     // Le second emplacement n'a pas encore rendu : `b` n'est dans aucun `last_assets` mais `a` reste.
     assert_that!(w.assets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec!["a".to_string()]);
     w.handle(Request::PutAsset { id: "b".into() }, vec![2]);
-    w.handle(Request::Render { slot: 2, deck: Box::new(fixture_deck()), assets: vec!["b".into()] }, Vec::new());
+    w.handle(
+        Request::Render { slot: 2, deck: Box::new(fixture_deck()), assets: vec!["b".into()], data: vec![] },
+        Vec::new(),
+    );
     assert_that!(w.assets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec!["a".to_string(), "b".to_string()]);
     w.handle(Request::CloseSlot { slot: 1 }, Vec::new());
     assert_that!(w.assets.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec!["b".to_string()]);
@@ -233,7 +246,8 @@ fn serve_set_theme_tokens_reach_the_render() {
     let tokens = tokens.as_object().cloned();
     let (resp, _) = h.call(&Request::SetTheme { slot: 1, tokens }, &[]);
     assert_that!(matches!(resp, Response::Ok)).is_true();
-    let (resp, _) = h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
+    let (resp, _) =
+        h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![], data: vec![] }, &[]);
     let Response::Compiled(header) = resp else { panic!("{resp:?}") };
     let (_, svg) = h.call(&Request::Svg { slot: 1, generation: header.generation, page: 0 }, &[]);
     assert_that!(String::from_utf8(svg).unwrap()).contains("#000000");
@@ -315,7 +329,8 @@ fn serve_reference_with_unknown_font_returns_setup() {
 #[test]
 fn serve_hello_answers_the_worker_protocol_version() {
     let mut h = Harness::new();
-    let (resp, _) = h.call(&Request::Hello { version: crate::protocol::PROTOCOL_VERSION + 1, canary: None }, &[]);
+    let (resp, _) =
+        h.call(&Request::Hello { version: crate::protocol::PROTOCOL_VERSION + 1, canary: None, bases: None }, &[]);
     assert_that!(matches!(resp, Response::Hello { version, .. } if version == crate::protocol::PROTOCOL_VERSION))
         .is_true();
 }
@@ -331,14 +346,15 @@ fn serve_drop_fonts_forgets_them_for_the_next_slots() {
     let (resp, _) = h.call(&Request::OpenSlot { slot: 2, fonts: vec!["carlito".into()] }, &[]);
     assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
     // L'emplacement déjà ouvert garde sa copie : il rend encore.
-    let (resp, _) = h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![] }, &[]);
+    let (resp, _) =
+        h.call(&Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![], data: vec![] }, &[]);
     assert_that!(matches!(resp, Response::Compiled(_))).is_true();
 }
 
 #[test]
 fn hello_without_canary_answers_none() {
     let mut h = Harness::new();
-    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary: None }, &[]);
+    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary: None, bases: None }, &[]);
     assert_that!(matches!(resp, Response::Hello { canary: None, .. })).is_true();
 }
 
@@ -347,7 +363,7 @@ fn hello_with_a_writable_canary_answers_written() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = Harness::new();
     let canary = Some(dir.path().join("c"));
-    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary }, &[]);
+    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary, bases: None }, &[]);
     assert_that!(matches!(resp, Response::Hello { canary: Some(Canary::Written), .. })).is_true();
 }
 
@@ -367,4 +383,180 @@ fn reference_empties_the_work_dir_afterwards() {
     let _ = h.call(&req, &[]);
     assert_that!(work.path().join("planted").exists()).is_false();
     assert_that!(work.path().exists()).is_true();
+}
+
+/// A one-slide deck whose chart reads data `d`, or a data `data` names.
+fn bound_chart_deck(data: &str) -> oku_slides_core::Deck {
+    let json = serde_json::json!({
+        "version": oku_slides_core::DECK_VERSION,
+        "data": { "d": { "name": "ventes", "kind": "manual", "table": {
+            "generation": "g",
+            "columns": [{ "id": "m", "name": "Mois", "type": "text" }, { "id": "v", "name": "Ventes", "type": "number" }],
+            "rows": ["r1", "r2"],
+            "cells": { "r1/m": "Jan", "r1/v": 3, "r2/m": "Fév", "r2/v": 5 }
+        } } },
+        "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::BLANK, "params": { "elements": [{
+            "id": "g", "kind": oku_slides_core::kinds::base::CHART, "frame": { "x": 0, "y": 0, "w": 800, "h": 450 },
+            "params": { "option": { "data": data, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } }
+        }] } }]
+    });
+    oku_slides_core::Deck::from_json(&json.to_string()).unwrap()
+}
+
+/// Renders `deck` as the host does: each data with `PutData`, then the deck without them.
+fn page_svg(h: &mut Harness, mut deck: oku_slides_core::Deck) -> String {
+    let mut data = Vec::new();
+    for (id, d) in std::mem::take(&mut deck.data) {
+        let put = Request::PutData { slot: 1, id: id.as_str().to_owned(), base: None };
+        assert_that!(matches!(h.call(&put, &serde_json::to_vec(&*d).unwrap()).0, Response::Ok)).is_true();
+        data.push(id.as_str().to_owned());
+    }
+    let (resp, _) = h.call(&Request::Render { slot: 1, deck: Box::new(deck), assets: vec![], data }, &[]);
+    let Response::Compiled(header) = resp else { panic!("{resp:?}") };
+    let (_, svg) = h.call(&Request::Svg { slot: 1, generation: header.generation, page: 0 }, &[]);
+    String::from_utf8(svg).unwrap()
+}
+
+#[test]
+fn worker_renders_bound_chart_through_set_deck() {
+    let mut h = Harness::new();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
+    let set = oku_slides_render::builtin_pack_set().unwrap();
+    let packs = set.packs().iter().map(crate::client::wire).collect();
+    assert_that!(matches!(h.call(&Request::SetWidgets { slot: 1, packs }, &[]).0, Response::Ok)).is_true();
+    let defaults = oku_slides_render::builtin_component_defaults().unwrap();
+    let layer = oku_slides_core::tokens::theme_layer(defaults.iter().map(|(ns, d)| (ns, d.clone())), []);
+    h.call(&Request::SetTheme { slot: 1, tokens: Some(layer) }, &[]);
+    // The chart is drawn as an embedded image; an unresolved view draws a failure frame instead.
+    assert_that!(page_svg(&mut h, bound_chart_deck("d"))).contains("<image");
+    assert_that!(page_svg(&mut h, bound_chart_deck("nowhere"))).does_not_contain("<image");
+}
+
+#[test]
+fn serve_render_with_unsent_data_answers_missing_data() {
+    let mut h = Harness::new();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
+    let req = Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![], data: vec!["sales".into()] };
+    let (resp, _) = h.call(&req, &[]);
+    assert_that!(matches!(resp, Response::MissingData { ref ids } if ids == &["sales".to_owned()])).is_true();
+}
+
+#[test]
+fn serve_put_data_with_base_outside_bases_folder_is_refused() {
+    let mut h = Harness::new();
+    let bases = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let hello = Request::Hello {
+        version: crate::protocol::PROTOCOL_VERSION,
+        canary: None,
+        bases: Some(bases.path().to_owned()),
+    };
+    assert_that!(matches!(h.call(&hello, &[]).0, Response::Hello { .. })).is_true();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
+    let (table, _file) = oku_slides_data::test_support::based_table(2, 2);
+    let data = oku_slides_data::Data {
+        name: "sales".into(),
+        label: None,
+        inline: false,
+        kind: oku_slides_data::DataKind::Manual,
+        table,
+    };
+    let json = serde_json::to_vec(&data).unwrap();
+    let base = Some(elsewhere.path().join("ab.parquet"));
+    let (resp, _) = h.call(&Request::PutData { slot: 1, id: "sales".into(), base }, &json);
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
+}
+
+/// → a `PatchData` for an id the worker lacks is ignored: the next Render answers `MissingData`.
+#[test]
+fn serve_patch_data_of_unknown_id_leaves_it_missing() {
+    let mut h = Harness::new();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
+    let patch = oku_slides_data::CellPatch { set: vec![], removed: vec![] };
+    let req = Request::PatchData { slot: 1, id: "sales".into() };
+    assert_that!(matches!(h.call(&req, &serde_json::to_vec(&patch).unwrap()).0, Response::Ok)).is_true();
+    let req = Request::Render { slot: 1, deck: Box::new(fixture_deck()), assets: vec![], data: vec!["sales".into()] };
+    let (resp, _) = h.call(&req, &[]);
+    assert_that!(matches!(resp, Response::MissingData { ref ids } if ids == &["sales".to_owned()])).is_true();
+}
+
+/// → a `PatchData` edits the cached data: the page equals one drawn from the edited data sent whole.
+#[test]
+fn serve_patch_data_edits_the_cached_data() {
+    let mut h = Harness::new();
+    h.call(&Request::OpenSlot { slot: 1, fonts: vec![] }, &[]);
+    let set = oku_slides_render::builtin_pack_set().unwrap();
+    let packs = set.packs().iter().map(crate::client::wire).collect();
+    h.call(&Request::SetWidgets { slot: 1, packs }, &[]);
+    let defaults = oku_slides_render::builtin_component_defaults().unwrap();
+    let layer = oku_slides_core::tokens::theme_layer(defaults.iter().map(|(ns, d)| (ns, d.clone())), []);
+    h.call(&Request::SetTheme { slot: 1, tokens: Some(layer) }, &[]);
+    let older = bound_chart_deck("d");
+    let mut newer = older.clone();
+    let d = newer.data.get_mut("d").unwrap();
+    oku_slides_data::test_support::set_cell(
+        &mut std::sync::Arc::make_mut(d).table,
+        "r2",
+        "v",
+        oku_slides_data::DataCell::Number(40.0),
+    );
+    let expected = page_svg(&mut h, newer.clone());
+    page_svg(&mut h, older.clone());
+    let patch = oku_slides_data::CellPatch::between(&older.data["d"], &newer.data["d"]).unwrap();
+    let req = Request::PatchData { slot: 1, id: "d".into() };
+    assert_that!(matches!(h.call(&req, &serde_json::to_vec(&patch).unwrap()).0, Response::Ok)).is_true();
+    let mut deck = newer;
+    deck.data.clear();
+    let (resp, _) =
+        h.call(&Request::Render { slot: 1, deck: Box::new(deck), assets: vec![], data: vec!["d".into()] }, &[]);
+    let Response::Compiled(header) = resp else { panic!("{resp:?}") };
+    let (_, svg) = h.call(&Request::Svg { slot: 1, generation: header.generation, page: 0 }, &[]);
+    assert_that!(String::from_utf8(svg).unwrap() == expected).is_true();
+    assert_that!(expected.contains("<image")).is_true();
+}
+
+/// A worker that said `Hello` with `bases`, its work dir `work`, and a based data's JSON.
+fn data_harness(bases: &std::path::Path, work: Option<PathBuf>) -> (Harness, Vec<u8>) {
+    let mut h = Harness::with_work(work);
+    let hello =
+        Request::Hello { version: crate::protocol::PROTOCOL_VERSION, canary: None, bases: Some(bases.to_owned()) };
+    assert_that!(matches!(h.call(&hello, &[]).0, Response::Hello { .. })).is_true();
+    let data = oku_slides_data::Data {
+        name: "sales".into(),
+        label: None,
+        inline: false,
+        kind: oku_slides_data::DataKind::Manual,
+        table: oku_slides_data::test_support::sized(2, 2),
+    };
+    (h, serde_json::to_vec(&data).unwrap())
+}
+
+/// → a compaction writing outside the bases and work folders is refused, with or without a
+/// work folder, and leaves no file there (t-1690).
+#[rstest::rstest]
+#[case::without_work_dir(false)]
+#[case::with_work_dir(true)]
+fn serve_compact_data_out_outside_its_folders_is_refused(#[case] with_work: bool) {
+    let bases = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let (mut h, json) = data_harness(bases.path(), with_work.then(|| work.path().to_owned()));
+    let out = elsewhere.path().join("compact.parquet");
+    let (resp, _) = h.call(&Request::CompactData { base: None, out: out.clone() }, &json);
+    assert_that!(matches!(resp, Response::Error { error: oku_slides_render::WireError::Setup { .. } })).is_true();
+    assert_that!(out.exists()).is_false();
+}
+
+/// → a compaction writes inside the bases folder, or inside the work folder when it has one.
+#[rstest::rstest]
+#[case::into_bases(false)]
+#[case::into_work(true)]
+fn serve_compact_data_out_inside_its_folders_is_written(#[case] into_work: bool) {
+    let bases = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let (mut h, json) = data_harness(bases.path(), Some(work.path().to_owned()));
+    let out = if into_work { work.path() } else { bases.path() }.join("compact.parquet");
+    let (resp, _) = h.call(&Request::CompactData { base: None, out: out.clone() }, &json);
+    assert_that!(matches!(resp, Response::Compacted { .. })).is_true();
+    assert_that!(out.exists()).is_true();
 }

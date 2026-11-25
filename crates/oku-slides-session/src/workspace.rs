@@ -221,9 +221,9 @@ impl Workspace {
         if let WorkspaceRequest::SameDeck { path } = &req {
             return Self::same_deck(ws, path);
         }
-        // Prend deux sessions l'une après l'autre : jamais sous le verrou (voir `workspace_carry.rs`).
-        if let WorkspaceRequest::CarryAssets { from, to, element } = &req {
-            return Self::carry_assets(ws, from, to, element);
+        // Takes two sessions one after the other, never under the lock (see `workspace_paste.rs`).
+        if let WorkspaceRequest::PasteElement { from, to, label, ops } = req {
+            return Self::paste_element(ws, &from, &to, &label, ops);
         }
         // Holds the pack's opening lock, then each lock in sequence (see `workspace_packs.rs`).
         if let WorkspaceRequest::OpenPack { tab, pack, widget } = &req {
@@ -383,8 +383,17 @@ mod slot;
 #[path = "workspace_same_deck.rs"]
 mod same_deck;
 
-#[path = "workspace_carry.rs"]
-mod carry;
+#[path = "workspace_bases.rs"]
+mod bases;
+
+#[path = "workspace_compact.rs"]
+mod compact;
+
+#[path = "workspace_data.rs"]
+mod data;
+
+#[path = "workspace_paste.rs"]
+mod paste;
 
 #[path = "workspace_clip.rs"]
 mod clip;

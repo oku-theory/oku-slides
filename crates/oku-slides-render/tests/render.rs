@@ -227,7 +227,7 @@ fn chart_deck() -> Deck {
           "elements": [{ "id": "g2", "kind": base::CHART, "params": { "option": option },
                          "frame": { "x": 100, "y": 100, "w": 900, "h": 500 } }] } }
     ] });
-    Deck::from_json(&json.to_string()).unwrap_or_else(|e| panic!("{e}"))
+    common::deck_with_data(json)
 }
 
 #[test]

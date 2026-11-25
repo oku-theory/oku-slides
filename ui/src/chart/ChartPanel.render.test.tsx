@@ -37,7 +37,8 @@ async function mount({
   const edits: DataEdit[] = [];
   await act(async () => {
     root.render(createElement(ChartDataView, {
-      kind, source, checkboxColumns: [], stacked, series, palette: ["#0077b6", "#e76f51"], onEdit: (e: DataEdit) => edits.push(e),
+      kind, source, rowIds: ["r1"], columnIds: ["c0", "c1", "c2"], checkboxColumns: [], stacked, series, palette: ["#0077b6", "#e76f51"],
+      data: { id: "d1", name: "ventes", users: 1 }, choices: [{ id: "d1", name: "ventes" }], onEdit: (e: DataEdit) => edits.push(e),
     }));
   });
   return { host, edits };
@@ -90,10 +91,10 @@ describe("ChartDataView", () => {
     expectIconOnly(column);
   });
 
-  test("ChartDataView adding a row sends a cells edit", async () => {
+  test("ChartDataView adding a row sends an add_row edit", async () => {
     const { host, edits } = await mount();
     await click(host.querySelectorAll(".cdg-actions button")[0]);
-    expect(edits[0]).toMatchObject({ edit: "cells", change: { op: "insert_row", at: 2 } });
+    expect(edits[0]).toEqual({ edit: "add_row" });
   });
 
   test("ChartDataView picking a palette colour sends a color edit", async () => {

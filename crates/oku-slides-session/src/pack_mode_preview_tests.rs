@@ -124,3 +124,36 @@ fn reorder_widgets_in_a_widget_pack_reorders_the_preview_slides() {
         ["widget-text", "widget-table", "widget-stack", "widget-shape", "widget-image", "widget-chart", "widget-card"];
     assert_that!(previews).is_equal_to(want.map(String::from).to_vec());
 }
+
+#[test]
+fn op_slides_of_edit_data_lists_every_view_slide() {
+    let deck = crate::test_support::roadmap_with_data_views();
+    let op: Op = serde_json::from_value(
+        json!({ "op": "edit_data", "data": "d1", "change": { "op": "remove_row", "row": "r1" } }),
+    )
+    .unwrap();
+    assert_that!(super::op_slides(&deck, &op)).is_equal_to(vec!["s-constat".to_owned(), "s-libre".to_owned()]);
+}
+
+#[test]
+fn bind_data_on_preview_slide_is_refused() {
+    let (_data, mut s) = editing_base();
+    let table = json!({ "columns": [{ "id": "c1", "name": "x" }], "rows": [{ "id": "r1", "cells": [1] }] });
+    let add: Op = serde_json::from_value(json!({ "op": "add_data", "id": "d1", "name": "x", "table": table })).unwrap();
+    s.apply("x", vec![add], None).unwrap();
+    let before = s.deck().clone();
+    let bind: Op = serde_json::from_value(json!({ "op": "bind_data",
+        "target": { "slide": "widget-chart", "element": "widget-chart-block" }, "param": "option", "data": "d1" }))
+    .unwrap();
+    let err = s.apply("x", vec![bind], None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::PackModePreview);
+    assert_that!(s.deck().clone()).is_equal_to(before);
+}
+
+#[test]
+fn base_pack_previews_render_without_failure_frame() {
+    let (_data, mut s) = editing_base();
+    let (_, issues) = oku_slides_core::plan_views(s.deck(), &s.registry);
+    assert_that!(issues).is_empty();
+    assert_that!(s.svg("widget-chart").unwrap().contains("<image")).is_true();
+}

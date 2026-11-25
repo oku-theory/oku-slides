@@ -145,3 +145,4 @@ import-warning-unsafe-link = Collegamento rifiutato: { $detail }
 import-warning-nesting-too-deep = Annidamento troppo profondo, troncato: { $detail }
 import-warning-font-embedded-unreadable = Carattere incorporato illeggibile: { $detail }
 import-warning-truncated = Troppi avvisi: i successivi sono omessi
+render-chart-too-many-values = troppi valori da disegnare ({ $count }, al massimo { $max })

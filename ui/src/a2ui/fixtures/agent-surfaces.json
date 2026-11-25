@@ -13,7 +13,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-1",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -103,7 +103,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-2",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -195,7 +195,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "perm-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -299,7 +299,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-4",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -489,7 +489,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-5",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -713,7 +713,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-6",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -805,7 +805,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "turn-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -906,7 +906,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-7",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -962,7 +962,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-8",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1053,7 +1053,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "report-8",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1138,7 +1138,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "report-10",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1232,7 +1232,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "render-9",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1302,7 +1302,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-widget",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1541,7 +1541,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-element",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1623,7 +1623,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-theme-picker",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1713,7 +1713,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-packs",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -1864,7 +1864,7 @@
             {
               "id": "widgets/base/guide-text",
               "component": "Text",
-              "text": "# Using Base\n\nBase holds the element widgets every deck pins: `base/text`, `base/card`, `base/image`, `base/shape`, `base/chart`, `base/table` and `base/stack`. Put them in a slide's blocks (laid out by the slide) or its elements (placed freely on the slide's grid).\n\n## Which widget\n\n- `base/text`: prose, bullet and numbered lists, headings. The only widget with typography: size, color, weight, font, align, leading, spacing, indent, inset and valign come from the element's style. Prefer one text holding a list to several texts.\n- `base/card`: one point in a box: `kicker`, `title`, a rich `body`, and `highlight` to put it on the theme's dark highlight colors. Use 2 to 4 cards side by side for parallel points; highlight one at most. In a frame or a grid cell, a card fills its place.\n- `base/image`: a deck asset (`asset`), `fit` cover (crops to fill, the default), contain (whole image) or stretch. In the flow it keeps its proportions.\n- `base/shape`: rect, ellipse, line or path, styled by fill, stroke, stroke-width and radius; it defaults to a `surface` fill and `md` radius. A path is `{\"d\": \"M x y L x y C … Q … Z\"}`, coordinates relative to the frame (0 to 1). Use shapes for accents, separators and diagrams, not as text boxes.\n- `base/chart`: an ECharts-style `option` (bar, line, pie, scatter, radar, waterfall), colored by the theme's chart.palette.\n- `base/table`: cells in `data.dataset.source`, one array per row; the first row is the header unless `header-row` is false; `header-column`, `striped` and a per-column `align` are optional. At most 100 rows and 20 columns. Numbers are written in the deck language; true shows ✓. Cells are plain text.\n- `base/stack`: keeps flow children together in rows, columns or a grid of `count` columns, with a `gap` from xs to xxl (default lg).\n\n## Height in a slide's blocks\n\nText, card, shape and stack keep their own height; image and chart share the height left; a table keeps its height when it fits its share, otherwise it takes one and shrinks to fit.\n\n## Avoid\n\n- Literal colors where a theme color name fits (ink, ink-muted, accent, on-accent, surface, rule): theme names follow a theme change, literals do not.\n- Long paragraphs in cards, more than 4 cards in a row, a table for two or three numbers (cards or a chart read better).\n- Shapes or stacked texts that imitate a card, a list or a table.\n\n## Theme tokens\n\nBase's component tokens restyle every card or table of the deck at once:\n\n- component.base.card: bg, border-color, border-width, radius, top-rule-color, top-rule-width, padding-x, padding-y, title-size, title-weight, title-color, gap, height (auto or fill), highlight-bg, highlight-ink, highlight-title, highlight-kicker.\n- component.base.table: size, header-bg, header-color, header-weight, body-bg, stripe-bg, rule-color, rule-width, padding-x, padding-y.",
+              "text": "# Using Base\n\nBase holds the element widgets every deck pins: `base/text`, `base/card`, `base/image`, `base/shape`, `base/chart`, `base/table` and `base/stack`. Put them in a slide's blocks (laid out by the slide) or its elements (placed freely on the slide's grid).\n\n## Which widget\n\n- `base/text`: prose, bullet and numbered lists, headings. The only widget with typography: size, color, weight, font, align, leading, spacing, indent, inset and valign come from the element's style. Prefer one text holding a list to several texts.\n- `base/card`: one point in a box: `kicker`, `title`, a rich `body`, and `highlight` to put it on the theme's dark highlight colors. Use 2 to 4 cards side by side for parallel points; highlight one at most. In a frame or a grid cell, a card fills its place.\n- `base/image`: a deck asset (`asset`), `fit` cover (crops to fill, the default), contain (whole image) or stretch. In the flow it keeps its proportions.\n- `base/shape`: rect, ellipse, line or path, styled by fill, stroke, stroke-width and radius; it defaults to a `surface` fill and `md` radius. A path is `{\"d\": \"M x y L x y C … Q … Z\"}`, coordinates relative to the frame (0 to 1). Use shapes for accents, separators and diagrams, not as text boxes.\n- `base/chart`: an ECharts-style `option` (bar, line, pie, scatter, radar, waterfall), colored by the theme's chart.palette; its `data` names a deck data, the first column the categories.\n- `base/table`: `data` names a deck data (`{\"data\": \"<id>\"}`, optional `columns`), or holds inline cells in `dataset.source`, one array per row, which become a data; the first row is the header unless `header-row` is false; `header-column`, `striped` and a per-column `align` are optional. At most 100 rows and 20 columns. Numbers are written in the deck language; true shows ✓. Cells are plain text.\n- `base/stack`: keeps flow children together in rows, columns or a grid of `count` columns, with a `gap` from xs to xxl (default lg).\n\n## Height in a slide's blocks\n\nText, card, shape and stack keep their own height; image and chart share the height left; a table keeps its height when it fits its share, otherwise it takes one and shrinks to fit.\n\n## Avoid\n\n- Literal colors where a theme color name fits (ink, ink-muted, accent, on-accent, surface, rule): theme names follow a theme change, literals do not.\n- Long paragraphs in cards, more than 4 cards in a row, a table for two or three numbers (cards or a chart read better).\n- Shapes or stacked texts that imitate a card, a list or a table.\n\n## Theme tokens\n\nBase's component tokens restyle every card or table of the deck at once:\n\n- component.base.card: bg, border-color, border-width, radius, top-rule-color, top-rule-width, padding-x, padding-y, title-size, title-weight, title-color, gap, height (auto or fill), highlight-bg, highlight-ink, highlight-title, highlight-kicker.\n- component.base.table: size, header-bg, header-color, header-weight, body-bg, stripe-bg, rule-color, rule-width, padding-x, padding-y.",
               "variant": "caption"
             },
             {
@@ -2205,7 +2205,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-data",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2239,9 +2239,17 @@
                 ],
                 [
                   "Jan",
-                  3,
-                  4
+                  3.0,
+                  4.0
                 ]
+              ],
+              "row_ids": [
+                "r1"
+              ],
+              "column_ids": [
+                "mois",
+                "ventes",
+                "objectif"
               ],
               "checkbox_columns": [],
               "stacked": false,
@@ -2257,6 +2265,23 @@
               "palette": [
                 "#1f4e79",
                 "#c2573a"
+              ],
+              "data": {
+                "id": "d-ventes",
+                "name": "ventes",
+                "label": "Ventes",
+                "users": 2
+              },
+              "choices": [
+                {
+                  "id": "d-ventes",
+                  "name": "ventes",
+                  "label": "Ventes"
+                },
+                {
+                  "id": "d-budget",
+                  "name": "budget"
+                }
               ],
               "edit": {
                 "path": "/edit"
@@ -2296,7 +2321,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-data",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2327,9 +2352,16 @@
                   "B"
                 ],
                 [
-                  1,
+                  1.0,
                   null
                 ]
+              ],
+              "row_ids": [
+                "r1"
+              ],
+              "column_ids": [
+                "a",
+                "b"
               ],
               "header_row": true,
               "header_column": false,
@@ -2337,6 +2369,17 @@
               "align": [
                 "auto",
                 "end"
+              ],
+              "data": {
+                "id": "d-table",
+                "name": "table",
+                "users": 1
+              },
+              "choices": [
+                {
+                  "id": "d-table",
+                  "name": "table"
+                }
               ],
               "edit": {
                 "path": "/edit"
@@ -2376,7 +2419,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -2948,7 +2991,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -3413,7 +3456,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {
@@ -3882,7 +3925,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v4"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
         }
       },
       {

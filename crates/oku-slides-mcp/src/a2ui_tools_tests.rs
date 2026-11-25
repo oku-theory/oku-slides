@@ -86,8 +86,8 @@ fn examples_for_theme_choice_outside_a_deck_tab_is_host_only() {
 #[case::prompt("Prompt")]
 #[case::timeline("Timeline")]
 #[case::notice("Notice")]
-#[case::chart_data("ChartData")]
-#[case::table_data("TableData")]
+#[case::chart_grid("ChartData")]
+#[case::table_grid("TableData")]
 fn examples_for_a_host_only_component_is_a2ui_host_only(#[case] name: &str) {
     let e = deck(&[name]).unwrap_err();
     assert_that!(matches!(e, ToolError::A2uiHostOnly { .. })).is_true();

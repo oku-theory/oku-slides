@@ -1,9 +1,52 @@
 ---
 source: crates/oku-slides-import/tests/retrofit.rs
-assertion_line: 198
-expression: plan.ops
+expression: stable_data_ids(&plan.ops)
 ---
 [
+  {
+    "op": "put_view_data",
+    "target": {
+      "slide": "s1",
+      "element": "s1-1"
+    },
+    "param": "data",
+    "id": "<drawn-0>",
+    "name": "data",
+    "label": null,
+    "table": {
+      "generation": "<drawn-1>",
+      "columns": [
+        {
+          "id": "<drawn-2>",
+          "name": "Titre",
+          "type": "text"
+        },
+        {
+          "id": "<drawn-3>",
+          "name": "",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        {
+          "id": "<drawn-4>",
+          "cells": [
+            "A",
+            "1"
+          ]
+        },
+        {
+          "id": "<drawn-5>",
+          "cells": [
+            "B",
+            "2"
+          ]
+        }
+      ],
+      "base": null,
+      "overlay": {}
+    }
+  },
   {
     "op": "add_slide",
     "slide": {
@@ -16,31 +59,75 @@ expression: plan.ops
             "kind": "base/table",
             "params": {
               "data": {
-                "dataset": {
-                  "source": [
-                    [
-                      "Titre",
-                      null
-                    ],
-                    [
-                      "A",
-                      "1"
-                    ],
-                    [
-                      "B",
-                      "2"
-                    ]
-                  ]
-                },
+                "striped": true,
                 "header-row": true,
                 "header-column": false,
-                "striped": true
+                "data": "<drawn-0>"
               }
             }
           }
         ],
         "title": "Tableau"
       }
+    }
+  },
+  {
+    "op": "put_view_data",
+    "target": {
+      "slide": "s2",
+      "element": "s2-1-1"
+    },
+    "param": "option",
+    "id": "<drawn-6>",
+    "name": "ventes_2026",
+    "label": "Ventes 2026",
+    "table": {
+      "generation": "<drawn-7>",
+      "columns": [
+        {
+          "id": "<drawn-8>",
+          "name": "",
+          "type": "text"
+        },
+        {
+          "id": "<drawn-9>",
+          "name": "Nord",
+          "type": "number"
+        },
+        {
+          "id": "<drawn-10>",
+          "name": "Sud",
+          "type": "number"
+        }
+      ],
+      "rows": [
+        {
+          "id": "<drawn-11>",
+          "cells": [
+            "T1",
+            10.0,
+            4.0
+          ]
+        },
+        {
+          "id": "<drawn-12>",
+          "cells": [
+            "T2",
+            null,
+            null
+          ]
+        },
+        {
+          "id": "<drawn-13>",
+          "cells": [
+            "T3",
+            12.5,
+            6.0
+          ]
+        }
+      ],
+      "base": null,
+      "overlay": {}
     }
   },
   {
@@ -60,29 +147,11 @@ expression: plan.ops
                   "kind": "base/chart",
                   "params": {
                     "option": {
-                      "dataset": {
-                        "source": [
-                          [
-                            "",
-                            "Nord",
-                            "Sud"
-                          ],
-                          [
-                            "T1",
-                            10.0,
-                            4.0
-                          ],
-                          [
-                            "T2",
-                            null,
-                            null
-                          ],
-                          [
-                            "T3",
-                            12.5,
-                            6.0
-                          ]
-                        ]
+                      "title": {
+                        "text": "Ventes 2026"
+                      },
+                      "legend": {
+                        "show": false
                       },
                       "xAxis": {
                         "type": "category",
@@ -106,12 +175,12 @@ expression: plan.ops
                           "stack": "total"
                         }
                       ],
-                      "legend": {
-                        "show": false
-                      },
-                      "title": {
-                        "text": "Ventes 2026"
-                      }
+                      "columns": [
+                        "<drawn-8>",
+                        "<drawn-9>",
+                        "<drawn-10>"
+                      ],
+                      "data": "<drawn-6>"
                     }
                   }
                 },

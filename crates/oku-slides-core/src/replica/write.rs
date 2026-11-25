@@ -310,7 +310,7 @@ impl Writer<'_> {
     }
 }
 
-fn item_id(list: &LoroMovableList, i: usize) -> String {
+pub(super) fn item_id(list: &LoroMovableList, i: usize) -> String {
     match list.get(i) {
         Some(ValueOrContainer::Container(Container::Map(m))) => match m.get("id") {
             Some(ValueOrContainer::Value(LoroValue::String(s))) => s.to_string(),

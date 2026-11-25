@@ -4,8 +4,8 @@ use speculoos::prelude::*;
 
 use crate::ComponentKind;
 
-/// The 26 catalog components, in `ComponentKind` declaration order.
-pub(crate) const CATALOG: [&str; 26] = [
+/// The 28 catalog components, in `ComponentKind` declaration order.
+pub(crate) const CATALOG: [&str; 28] = [
     "Column",
     "Card",
     "Text",
@@ -32,6 +32,8 @@ pub(crate) const CATALOG: [&str; 26] = [
     "Notice",
     "ChartData",
     "TableData",
+    "DataList",
+    "DataSheet",
 ];
 
 /// The component names of the `ComponentKind` schema, in branch order.

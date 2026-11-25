@@ -25,6 +25,8 @@ fn settings() -> RenderSettings {
         max_widget_kib: 256,
         max_widgets: 64,
         max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
     }
 }
 
@@ -43,7 +45,7 @@ impl Fake {
     fn replying(replies: &[Response], then: &str) -> Self {
         let dir = tempfile::Builder::new().prefix("oku-slides-fake-worker-").tempdir().unwrap();
         let mut hello = Vec::new();
-        let req = Request::Hello { version: PROTOCOL_VERSION, canary: None };
+        let req = Request::Hello { version: PROTOCOL_VERSION, canary: None, bases: None };
         write_frame(&mut hello, &req, &[], FrameLimits::uniform(usize::MAX)).unwrap();
         let mut answer = Vec::new();
         for reply in replies {
@@ -125,11 +127,11 @@ fn bounded_failure_while_flushing_the_deferred_queue_blames_the_pack() {
 fn render_refused_again_after_the_resend_is_a_frame_error() {
     let fonts = oku_slides_render::Fonts::default();
     let asset = "sha256:aa".to_owned();
-    let missing = Response::MissingAssets { ids: vec![asset.clone()] };
+    let missing = || Response::MissingAssets { ids: vec![asset.clone()] };
     let mut replies = vec![Response::Hello { version: PROTOCOL_VERSION, canary: None }];
     // `PutFont` of each font, `SetLanguage`, `OpenSlot`, then `PutAsset`, `Render`, twice.
-    replies.extend(std::iter::repeat_n(Response::Ok, fonts.files().count() + 3));
-    replies.extend([missing.clone(), Response::Ok, missing]);
+    replies.extend((0..fonts.files().count() + 3).map(|_| Response::Ok));
+    replies.extend([missing(), Response::Ok, missing()]);
     let fake = Fake::replying(&replies, "cat >/dev/null");
     let w = RenderWorker::new(fake.launch(), settings());
     w.link().unsandboxed = true;

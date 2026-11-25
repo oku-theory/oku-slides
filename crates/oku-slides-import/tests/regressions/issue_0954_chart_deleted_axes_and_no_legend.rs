@@ -39,6 +39,7 @@ fn hifi_chart_without_axes_or_legend_hides_them(#[case] bytes: Vec<u8>) {
         name: "Import".to_owned(),
         created: "2026-10-11T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     let plan = hifi::project(&source, &target).unwrap_or_else(|e| panic!("projection : {e}"));
     let registry = common::registry_with_deck_layouts(&plan.schemas);

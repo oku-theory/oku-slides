@@ -15,12 +15,12 @@ fn default_limits_are_conservative_and_non_zero() {
 
 #[test]
 fn default_limits_output_budget_matches_reopenable_sources() {
-    assert_that!(ReadLimits::default().max_output_bytes).is_equal_to(256 << 20);
+    assert_that!(ReadLimits::default().max_output_bytes).is_equal_to(1024 << 20);
 }
 
 #[test]
 fn default_limits_replica_budget_matches_reopenable_history() {
-    assert_that!(ReadLimits::default().max_replica_bytes).is_equal_to(32 << 20);
+    assert_that!(ReadLimits::default().max_replica_bytes).is_equal_to(64 << 20);
 }
 
 #[test]

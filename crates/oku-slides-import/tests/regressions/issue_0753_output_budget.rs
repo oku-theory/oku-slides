@@ -37,6 +37,7 @@ fn plan(bytes: &[u8], limits: &ReadLimits) -> ImportPlan {
         name: "Import".to_owned(),
         created: "2026-10-14T08:00:00Z".to_owned(),
         limits: PackLimits::default(),
+        labels: oku_slides_chart::ChartLabels::english(),
     };
     hifi::project(&source, &target).unwrap_or_else(|e| panic!("projection : {e}"))
 }

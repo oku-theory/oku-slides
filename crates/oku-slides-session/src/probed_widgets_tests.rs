@@ -167,7 +167,7 @@ fn probe_of(pins: BTreeMap<Namespace, PackPin>, packs: Vec<PackFiles>) -> Probed
     let mut deck = Deck::empty();
     deck.widgets = pins;
     let packs = packs.into_iter().map(|f| (f.version(), f)).collect();
-    ProbedWidgets::probe(&platform, &base, &deck, &packs).unwrap()
+    ProbedWidgets::probe(&platform, None, &base, &deck, &packs).unwrap()
 }
 
 #[test]

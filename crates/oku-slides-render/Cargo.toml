@@ -11,6 +11,8 @@ publish.workspace = true
 [dependencies]
 oku-slides-i18n.workspace = true
 oku-slides-core.workspace = true
+# Data types only (no `engine`): bases are read through `BaseRead`, never parsed here (t-1690).
+oku-slides-data.workspace = true
 oku-slides-chart.workspace = true
 serde_json.workspace = true
 snafu.workspace = true

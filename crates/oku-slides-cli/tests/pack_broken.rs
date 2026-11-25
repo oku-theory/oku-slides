@@ -31,6 +31,7 @@ fn user_pack(dir: &std::path::Path, widgets: &[(&str, &str)]) -> PackPin {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let widgets = widgets
         .iter()

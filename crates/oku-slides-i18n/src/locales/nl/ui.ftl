@@ -456,6 +456,30 @@ ui-data-pane-close = Gegevens sluiten
 ui-data-pane-resize = Grootte van gegevens wijzigen
 ui-data-pane-maximize = Gegevens vergroten
 ui-data-pane-restore = Gegevens verkleinen
+ui-data-shared-by = Gedeeld door { $count ->
+    [one] { $count } weergave
+   *[other] { $count } weergaven
+}
+ui-data-tab = Gegevens
+ui-data-add = Gegevens toevoegen
+ui-data-rename = Naam wijzigen
+ui-data-remove = Verwijderen
+ui-data-column-type = Kolomtype
+ui-data-type-text = Tekst
+ui-data-type-number = Getal
+ui-data-type-integer = Geheel getal
+ui-data-type-bool = Ja/nee
+ui-data-type-date = Datum
+ui-data-views = { $count ->
+    [one] { $count } weergave
+   *[other] { $count } weergaven
+}
+ui-data-unused = Ongebruikt
+ui-data-size = Kolommen: { $columns } · Rijen: { $rows }
+ui-data-page = Rijen { $first }–{ $last } van { $total }
+ui-data-previous = Vorige rijen
+ui-data-next = Volgende rijen
+ui-data-open = Gegevens openen
 ui-themes = Thema's
 ui-offer-open = Openen: { $title }
 ui-offer-settings = Aangeboden instellingen: { $title }

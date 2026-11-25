@@ -6,6 +6,7 @@ mod common;
 use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use oku_slides_chart::MAX_TABLE_ROWS;
 use oku_slides_core::Deck;
 use oku_slides_core::kinds::{base, essentiel};
 use oku_slides_render::Compiled;
@@ -20,7 +21,7 @@ fn deck_of(slides: &Value, tokens: Option<Value>) -> Deck {
     if let Some(t) = tokens {
         d["tokens"] = t;
     }
-    Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}"))
+    common::deck_with_data(d)
 }
 
 /// Une slide de contenu dont l'unique bloc est le tableau `t1`.
@@ -165,8 +166,8 @@ fn table_without_data_differs_from_an_unknown_element() {
 #[test]
 fn malformed_table_data_renders_the_placeholder() {
     for bad in [
-        json!({ "dataset": { "source": [5] } }),
-        json!({ "dataset": "x" }),
+        json!({ "data": 5 }),
+        json!({ "data": { "source": [5] } }),
         json!({ "dataset": { "source": [["A"]] }, "header-row": "oui" }),
     ] {
         assert_that!(flow_hash(&bad)).is_equal_to(hash(&placeholder()));
@@ -174,8 +175,9 @@ fn malformed_table_data_renders_the_placeholder() {
 }
 
 #[test]
-fn oversized_table_data_renders_the_placeholder() {
-    assert_that!(flow_hash(&rows(200))).is_equal_to(hash(&placeholder()));
+fn oversized_table_data_renders_its_first_rows() {
+    // The view plan reads the header and the first `MAX_TABLE_ROWS - 1` rows of deck data.
+    assert_that!(flow_hash(&rows(200))).is_equal_to(flow_hash(&rows(MAX_TABLE_ROWS - 1)));
 }
 
 /// Un widget de pack à paramètre `host("table")` : un bloc haut d'un pt par ligne reçue (10 pt sans données).
@@ -186,14 +188,15 @@ const GRID: &str = r#"#import "/oku-slides/lib.typ": widget, params as p
 })"#;
 
 #[test]
-fn table_of_a_pack_widget_is_sanitized_before_typst() {
+fn table_of_a_pack_widget_reads_at_most_the_row_cap() {
     let pack = common::pack("grid", &[("grid", GRID)]);
     let layout = common::render_with_packs(
         &[pack],
         &json!([{ "id": "g", "kind": "test/grid", "params": { "data": rows(500) } }]),
     );
-    // Comme pour `base/table` : au-delà de 100 lignes, les données sont retirées avant Typst.
-    assert_that!(common::box_of(&layout, "g").h).is_less_than(20.0);
+    // As for `base/table`: the view plan hands Typst the header and `MAX_TABLE_ROWS - 1` rows.
+    assert_that!(common::box_of(&layout, "g").h)
+        .is_close_to(f64::from(u32::try_from(MAX_TABLE_ROWS).unwrap_or_else(|e| panic!("{e}"))), 0.5);
 }
 
 #[test]
@@ -249,7 +252,7 @@ fn lang_hash(lang: Option<&str>, cell: &Value) -> u64 {
     if let Some(l) = lang {
         d["params"] = json!({ "lang": l });
     }
-    hash(&Deck::from_json(&d.to_string()).unwrap_or_else(|e| panic!("{e}")))
+    hash(&common::deck_with_data(d))
 }
 
 #[test]

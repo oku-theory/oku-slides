@@ -35,6 +35,8 @@
 mod canonical;
 mod capabilities;
 mod color;
+mod data_bounds;
+mod data_users;
 pub mod error;
 mod fields;
 mod heading_level;
@@ -49,14 +51,18 @@ mod namespace;
 pub mod num;
 pub mod ops;
 pub mod pack;
+mod pack_data;
 mod pack_examples;
 mod pack_guides;
 mod pack_kind;
 mod pack_order;
 pub mod params;
+mod prepare;
+mod prepare_view;
 pub mod replica;
 mod shape_path;
 pub mod sources;
+mod sources_bases;
 #[cfg(test)]
 pub(crate) mod test_registry;
 pub mod theme_chain;
@@ -65,16 +71,20 @@ pub mod tokens;
 pub mod usage;
 pub mod usage_report;
 pub mod validate;
+mod validate_data;
+mod views;
 pub mod widget;
 
 pub use canonical::canonicalize;
 pub use capabilities::{Capabilities, CapabilityKind};
 pub use color::{color_names, is_hex_color};
+pub use data_bounds::{DeckLoad, check_deck_bounds};
+pub use data_users::ViewRef;
 pub use error::{
-    FrontmatterReason, HeadingLevelError, KnowledgeLimit, KnowledgeReason, ListBound, NamespaceError, OpError,
-    OpErrorKind, PackManifestError, PackManifestErrorKind, PackVersionError, PathReason, ReplicaError,
-    ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind, TokenEntryError, TokenEntryErrorKind,
-    TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
+    DataFaultKind, DeckJsonError, DeckJsonErrorKind, FrontmatterReason, HeadingLevelError, KnowledgeLimit,
+    KnowledgeReason, ListBound, NamespaceError, OpError, OpErrorKind, PackManifestError, PackManifestErrorKind,
+    PackVersionError, PathReason, ReplicaError, ReplicaErrorKind, SchemaFault, SourcesError, SourcesErrorKind,
+    TokenEntryError, TokenEntryErrorKind, TransactionError, ValueReason, WidgetError, WidgetErrorKind, WidgetFileError,
 };
 pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
@@ -87,25 +97,30 @@ pub use localized_text::LocalizedText;
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;
 pub use namespace::{Namespace, qualify, split_kind};
+pub use oku_slides_chart::ChartLabels;
 pub use ops::{
     GRID_TRACKS, ITEM_ID_MAX, LIST_ITEMS_MAX, ListOp, ListPath, ListSpec, Moved, NESTED_ITEMS_MAX, Op, PLAIN_MAX,
-    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, default_items, ops_schema,
-    pack_users, param_value, remove_pack_refusal, text_fits,
+    RICH_BYTES_MAX, RICH_PARAGRAPHS_MAX, SlotRef, Target, apply_all, apply_all_moving, bind_choices, default_items,
+    ops_schema, pack_users, param_value, remove_pack_refusal, text_fits,
 };
 pub use pack::{
     COMMON_WIDGET_FILE, PackFiles, PackManifest, PackPin, PackScope, PackVersion, ThemeManifest, WidgetFile,
     now_created,
 };
+pub use pack_data::{MAX_PACK_DATA, check_pack_data};
 pub use pack_guides::{GuideKind, Guides};
 pub use pack_kind::PackKind;
 pub use pack_order::{item_order, normalized_order};
 pub use params::{ListItem, ParamValue, Params};
+pub use prepare::{Origin, PrepareCtx, Prepared, check_external, fresh_ids, prepare_ops};
+pub use prepare_view::{brings_inline, strip_inline};
 pub use replica::{
     DeckRead, DeckReplica, HistoryPreview, KnowledgeSync, MergeReport, ReplicaLimits, SlideChanges, Version,
-    dataset_row_budget, slide_changes,
+    slide_changes,
 };
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
+pub use sources_bases::{BaseFiles, BaseFilesError};
 pub use theme_chain::{ThemeChainError, ThemePin, check_closure, linearize};
 pub use token_spec::{ComponentToken, Control, check_entries};
 pub use usage::{
@@ -116,6 +131,7 @@ pub use usage_report::{
     By, CostTotal, Range, UsageRangeError, UsageRangeErrorKind, UsageReport, UsageRow, aggregate, parse_day,
 };
 pub use validate::{Issue, asset_refs, element_asset_refs, knowledge_asset_refs, validate};
+pub use views::{MAX_RESOLVED_BYTES, MAX_RESOLVED_CELLS, PlanOutcome, ViewPlan, plan_views};
 pub use widget::{
     Category, Grow, HostType, PARAM_NAME_MAX, ParamSchema, ParamType, SCHEMA_LIST_MAX, SlotMode,
     WIDGET_DESCRIPTION_MAX, WIDGET_LABEL_MAX, WidgetRegistry, WidgetSchema, is_text,

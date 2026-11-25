@@ -15,6 +15,7 @@ async-trait.workspace = true
 tracing.workspace = true
 oku-slides-core.workspace = true
 oku-slides-chart.workspace = true
+oku-slides-data.workspace = true
 oku-slides-a2ui.workspace = true
 oku-slides-render.workspace = true
 oku-slides-render-worker.workspace = true

@@ -13,7 +13,8 @@ use snafu::ResultExt;
 use crate::error::{InvalidOptionSnafu, Result};
 use crate::labels::ChartLabels;
 use crate::model::{ChartKind, is_horizontal, normalize};
-use crate::option::{Cell, ChartOption, Dataset, SeriesType, format_number, parse_number};
+use crate::option::{ChartOption, SeriesType};
+use oku_slides_data::{DataCell, Dataset, format_number, parse_number};
 
 /// Tableau neutre : libellés des lignes et colonnes de valeurs.
 struct Table {
@@ -55,6 +56,9 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
     }
     let mut out: ChartOption = serde_json::from_value(skeleton).context(InvalidOptionSnafu)?;
     out.title.clone_from(&option.title);
+    // The view keeps its data: the prepared batch decides whether to replace it or add one.
+    out.data.clone_from(&option.data);
+    out.columns.clone_from(&option.columns);
     out.legend.clone_from(&option.legend);
     // A hidden side stays hidden (t-954): bottom and left, whatever the axis there.
     for (to, from) in [(&mut out.x_axis, &option.x_axis), (&mut out.y_axis, &option.y_axis)] {
@@ -75,8 +79,8 @@ pub fn convert(option: &ChartOption, kind: SeriesType, labels: &ChartLabels) -> 
 /// `source` with the previous identifiers, where its size has not changed.
 ///
 /// The `ids` are kept for an equal row count, the `columns` for an equal width.
-fn kept_ids(before: Option<&Dataset>, source: Vec<Vec<Cell>>) -> Dataset {
-    let width = |s: &[Vec<Cell>]| s.first().map_or(0, Vec::len);
+fn kept_ids(before: Option<&Dataset>, source: Vec<Vec<DataCell>>) -> Dataset {
+    let width = |s: &[Vec<DataCell>]| s.first().map_or(0, Vec::len);
     let Some(before) = before else { return Dataset { source, ..Dataset::default() } };
     let ids = if before.source.len() == source.len() { before.ids.clone() } else { Vec::new() };
     let columns = if width(&before.source) == width(&source) { before.columns.clone() } else { Vec::new() };
@@ -135,11 +139,11 @@ fn shared_stack(option: &ChartOption) -> Option<&str> {
 }
 
 /// En-têtes puis une ligne par libellé, avec les `width` premières colonnes.
-fn grid(table: &Table, width: usize) -> Vec<Vec<Cell>> {
-    let mut header = vec![Cell::Text(table.label.clone())];
-    header.extend(table.columns.iter().take(width).map(|(name, _)| Cell::Text(name.clone())));
+fn grid(table: &Table, width: usize) -> Vec<Vec<DataCell>> {
+    let mut header = vec![DataCell::Text(table.label.clone())];
+    header.extend(table.columns.iter().take(width).map(|(name, _)| DataCell::Text(name.clone())));
     let rows = table.rows.iter().enumerate().map(|(i, row)| {
-        let mut cells = vec![Cell::Text(row.clone())];
+        let mut cells = vec![DataCell::Text(row.clone())];
         cells.extend(table.columns.iter().take(width).map(|(_, v)| cell(v.get(i).copied().flatten())));
         cells
     });
@@ -147,12 +151,12 @@ fn grid(table: &Table, width: usize) -> Vec<Vec<Cell>> {
 }
 
 /// La première colonne de valeurs, suivie d'une colonne Total décochée.
-fn waterfall_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
+fn waterfall_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<DataCell>> {
     grid(table, 1)
         .into_iter()
         .enumerate()
         .map(|(i, mut row)| {
-            row.push(if i == 0 { Cell::Text(labels.total().to_owned()) } else { Cell::Bool(false) });
+            row.push(if i == 0 { DataCell::Text(labels.total().to_owned()) } else { DataCell::Bool(false) });
             row
         })
         .collect()
@@ -165,26 +169,27 @@ fn count_f64(n: usize) -> f64 {
 }
 
 /// Une paire de colonnes (x, y) par série ; une valeur absente n'est pas un point.
-fn scatter_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<Cell>> {
+fn scatter_grid(table: &Table, labels: &ChartLabels) -> Vec<Vec<DataCell>> {
     let parsed: Option<Vec<f64>> = table.rows.iter().map(|r| parse_number(r)).collect();
     // Without readable abscissas, rows are numbered from 1.
     let xs = parsed.unwrap_or_else(|| (1..=table.rows.len()).map(count_f64).collect());
-    let header = table.columns.iter().flat_map(|(name, _)| [Cell::Text(labels.x_of(name)), Cell::Text(name.clone())]);
+    let header =
+        table.columns.iter().flat_map(|(name, _)| [DataCell::Text(labels.x_of(name)), DataCell::Text(name.clone())]);
     let rows = xs.iter().enumerate().map(|(i, x)| {
         table
             .columns
             .iter()
             .flat_map(|(_, v)| match v.get(i).copied().flatten() {
-                Some(y) => [Cell::Number(*x), Cell::Number(y)],
-                None => [Cell::Null, Cell::Null],
+                Some(y) => [DataCell::Number(*x), DataCell::Number(y)],
+                None => [DataCell::Null, DataCell::Null],
             })
             .collect()
     });
     std::iter::once(header.collect()).chain(rows).collect()
 }
 
-fn cell(v: Option<f64>) -> Cell {
-    v.map_or(Cell::Null, Cell::Number)
+fn cell(v: Option<f64>) -> DataCell {
+    v.map_or(DataCell::Null, DataCell::Number)
 }
 
 #[cfg(test)]

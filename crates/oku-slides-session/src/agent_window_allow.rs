@@ -40,7 +40,7 @@ pub fn check_agent_workspace(ws: &Workspace, req: &WorkspaceRequest) -> Result<(
         | WorkspaceRequest::ImportTab { .. }
         | WorkspaceRequest::OpenHelp { .. }
         | WorkspaceRequest::SameDeck { .. }
-        | WorkspaceRequest::CarryAssets { .. }
+        | WorkspaceRequest::PasteElement { .. }
         | WorkspaceRequest::Clip
         | WorkspaceRequest::SetClip { .. }
         | WorkspaceRequest::Activate { .. }
@@ -84,6 +84,9 @@ pub fn check_agent_request(ws: &Workspace, tab: &str, req: &Request) -> Result<(
         | Request::HostToken { .. }
         | Request::DataPanel { .. }
         | Request::DataEdit { .. }
+        | Request::DataList
+        | Request::DataSheet { .. }
+        | Request::DataAction { .. }
         | Request::ElementPanel { .. }
         | Request::ElementParam { .. }
         | Request::ElementList { .. }

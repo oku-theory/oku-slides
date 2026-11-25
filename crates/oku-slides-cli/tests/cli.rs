@@ -13,13 +13,18 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use common::{
-    FIXTURE, Server, assert_stdout_lacks, assert_success, builtin_pins, deck_json, free_port, http, oku_slides,
-    request, workdir,
+    FIXTURE, Server, Workdir, assert_stdout_lacks, assert_success, builtin_pins, deck_json, free_port, http,
+    oku_slides, request, workdir,
 };
 use oku_slides_core::{
     Deck, Guides, Namespace, PackFiles, PackPin, SourceBundle, SourceLimits, WidgetFile, WidgetRegistry,
 };
-use oku_slides_session::{PackLibrary, PackManifest, Storage};
+use oku_slides_platform::RenderLaunch;
+use oku_slides_platform::bases::BaseStore;
+use oku_slides_platform::config::Settings;
+use oku_slides_render_worker::DataWorker;
+use oku_slides_session::{PackLibrary, PackManifest, Storage, StoreFiles};
+use rstest::rstest;
 use speculoos::prelude::*;
 
 fn run(cmd: &mut Command) -> Output {
@@ -71,6 +76,96 @@ fn render_writes_one_svg_per_page_and_the_layout() {
     assert_that!(out_dir.join("page-08.svg").exists()).is_true();
     let layout = std::fs::read_to_string(out_dir.join("layout.json")).unwrap();
     assert_that!(layout).contains("\"slides\"");
+}
+
+/// A chart bound to a deck data is drawn: `save` embeds the built-in packs, then `render`
+/// draws the saved file through `Renderer::set_deck`, which resolves the view.
+#[test]
+fn render_command_draws_chart_bound_to_data() {
+    let dir = workdir("render-data");
+    let slides = serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": {
+        "title": "T", "blocks": [{ "id": "g", "kind": oku_slides_core::kinds::base::CHART,
+            "params": { "option": { "data": "d", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } }] } }]);
+    let json = serde_json::json!({ "version": oku_slides_core::DECK_VERSION, "slides": slides,
+        "data": { "d": { "name": "ventes", "kind": "manual", "table": {
+            "generation": "g",
+            "columns": [{ "id": "m", "name": "Mois", "type": "text" }, { "id": "v", "name": "Ventes", "type": "number" }],
+            "rows": ["r1", "r2"],
+            "cells": { "r1/m": "Jan", "r1/v": 3, "r2/m": "Fév", "r2/v": 5 } } } } });
+    let deck = dir.join("deck.json");
+    std::fs::write(&deck, serde_json::to_vec(&json).unwrap()).unwrap();
+    let pdf = dir.join("deck.oku-slides.pdf");
+    assert_success("save", &run(oku_slides(&dir, "en").arg("save").arg(&deck).arg(&pdf)), &[]);
+    let out_dir = dir.join("out");
+    assert_success("render", &run(oku_slides(&dir, "en").arg("render").arg(&pdf).arg("--out").arg(&out_dir)), &[]);
+    // A drawn chart is an embedded image; a failure frame is not.
+    assert_that!(std::fs::read_to_string(out_dir.join("page-01.svg")).unwrap()).contains("<image");
+}
+
+/// `pdf` with its data folded onto a base in a store of `dir`, written to `to`.
+fn with_base(dir: &Path, pdf: &Path, to: &Path) {
+    let bytes = std::fs::read(pdf).unwrap_or_else(|e| panic!("{e}"));
+    let zip = oku_slides_pdf::extract_sources(&bytes)
+        .unwrap_or_else(|e| panic!("{e}"))
+        .unwrap_or_else(|| panic!("no sources"))
+        .zip;
+    let storage = Storage::local().unwrap_or_else(|e| panic!("{e}"));
+    let store = BaseStore::new(storage, &dir.join("store"), 1 << 30).unwrap_or_else(|e| panic!("{e}"));
+    let files = StoreFiles::new(&store);
+    let (mut bundle, _) =
+        SourceBundle::from_zip_bases(&zip, LIMITS, base_registry(), Some(&files)).unwrap_or_else(|e| panic!("{e}"));
+    let (id, data) =
+        bundle.deck().data.iter().next().map_or_else(|| panic!("no data"), |(id, d)| (id.clone(), d.clone()));
+    // A real Parquet base, written by the data worker as the app's compaction does.
+    let settings = Settings::defaults().unwrap_or_else(|e| panic!("{e}")).render;
+    let worker = DataWorker::new(RenderLaunch::InProcess, &settings, store.clone());
+    let base = worker.compact(&data, 1 << 30).unwrap_or_else(|e| panic!("{e}")).unwrap_or_else(|e| panic!("{e}"));
+    assert_that!(bundle.compact_data(&id, &data.table, "e2".to_owned(), base).unwrap_or_else(|e| panic!("{e:?}")))
+        .is_true();
+    let zip = bundle.to_zip_bases(true, Some(&files)).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(to, oku_slides_pdf::embed_sources(&bytes, &zip).unwrap_or_else(|e| panic!("{e:?}")))
+        .unwrap_or_else(|e| panic!("{e}"));
+}
+
+/// The first page of `pdf` rendered by the CLI, after checking the run.
+fn first_page(dir: &Path, pdf: &Path, name: &str) -> String {
+    let out_dir = dir.join(name);
+    let out = run(oku_slides(dir, "fr").arg("render").arg(pdf).arg("--out").arg(&out_dir));
+    assert_success("render", &out, &[]);
+    let missing =
+        oku_slides_i18n::Localizer::new(Some("fr")).tr_with("issue-data-base-missing", &[("data", "ventes".into())]);
+    let missing = missing.replace(['\u{2068}', '\u{2069}'], "");
+    assert_that!(stderr(&out).replace(['\u{2068}', '\u{2069}'], "")).does_not_contain(missing.as_str());
+    std::fs::read_to_string(out_dir.join("page-01.svg")).unwrap_or_else(|e| panic!("page-01.svg : {e}"))
+}
+
+/// → the base comes in from the PDF's sources into the CLI's store, and the render process reads
+/// it: the chart over the base draws as the same chart over cells, not a failure frame.
+#[test]
+fn render_of_a_deck_with_a_base_resolves_it() {
+    let dir = workdir("render-base");
+    let chart = serde_json::json!({ "id": "c", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
+        "data": "d", "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] } } });
+    let slides = serde_json::json!([{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT,
+        "params": { "title": "T", "blocks": [chart] } }]);
+    let json = serde_json::json!({ "version": oku_slides_core::DECK_VERSION, "slides": slides,
+        "data": { "d": { "name": "ventes", "kind": "manual", "table": {
+            "generation": "g", "columns": [{ "id": "m", "name": "Mois", "type": "text" },
+                { "id": "v", "name": "Ventes", "type": "number" }],
+            "rows": ["r1", "r2"], "cells": { "r1/m": "Jan", "r1/v": 12, "r2/m": "Fév", "r2/v": 30 } } } } });
+    let deck = dir.join("deck.json");
+    std::fs::write(&deck, serde_json::to_vec(&json).unwrap_or_else(|e| panic!("{e:?}")))
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let saved = dir.join("saved.oku-slides.pdf");
+    assert_success("save", &run(oku_slides(&dir, "fr").arg("save").arg(&deck).arg(&saved)), &[]);
+    let pdf = dir.join("based.oku-slides.pdf");
+    with_base(&dir, &saved, &pdf);
+
+    let (over_cells, over_base) = (first_page(&dir, &saved, "cells"), first_page(&dir, &pdf, "based"));
+
+    // A drawn chart is an embedded image; a failure frame is not.
+    assert_that!(over_base).contains("<image");
+    assert_that!(over_base == over_cells).is_true();
 }
 
 #[test]
@@ -462,6 +557,72 @@ fn serve_body_over_64_mib_answers_413() {
     assert_that!(status).is_equal_to(200);
 }
 
+/// A server on the fixture, on its own fresh data and decks folders.
+fn capped_server(name: &str) -> (Workdir, u16, Server) {
+    let dir = workdir(name);
+    let port = free_port();
+    let server = Server(
+        oku_slides(&dir, "fr")
+            .env("OKU_SLIDES_PATHS__MODELS", dir.join("models"))
+            .env("OKU_SLIDES_PATHS__DECKS", dir.join("decks"))
+            .args(["serve", FIXTURE, "--port", &port.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap_or_else(|e| panic!("serveur : {e}")),
+    );
+    // Le serveur est prêt.
+    assert_that!(http(port, "POST", "/api/workspace", r#"{"cmd":"view"}"#).0).is_equal_to(200);
+    (dir, port, server)
+}
+
+/// `json` followed by spaces up to `bytes` bytes.
+fn padded(json: &str, bytes: usize) -> String {
+    format!("{json}{}", " ".repeat(bytes - json.len()))
+}
+
+/// The status of a POST to `path` with `body`; with none, of its head alone announcing `bytes`.
+fn status_of(port: u16, path: &str, bytes: usize, body: Option<&str>) -> u16 {
+    use std::io::Write as _;
+    let Some(body) = body else {
+        let mut s = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap_or_else(|e| panic!("connexion : {e}"));
+        let head = format!(
+            "POST {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n\
+             Content-Length: {bytes}\r\n\r\n"
+        );
+        s.write_all(head.as_bytes()).unwrap_or_else(|e| panic!("requête : {e}"));
+        s.set_read_timeout(Some(Duration::from_secs(5))).unwrap_or_else(|e| panic!("délai : {e}"));
+        let mut buf = [0u8; 12];
+        s.read_exact(&mut buf).unwrap_or_else(|e| panic!("pas de réponse sans le corps : {e}"));
+        let head = String::from_utf8_lossy(&buf).to_string();
+        return head.trim_start_matches("HTTP/1.1 ").trim().parse().unwrap_or_else(|e| panic!("{head}: {e}"));
+    };
+    http(port, "POST", path, body).0
+}
+
+/// The apply routes take a body of 8 MiB, not one byte more (413).
+#[rstest]
+#[case::tab_at_cap("/api", r#"{"tab":"t-1","req":{"cmd":"snapshot"}}"#, 8 * 1024 * 1024, 200)]
+#[case::tab_over_cap("/api", r#"{"tab":"t-1","req":{"cmd":"snapshot"}}"#, 8 * 1024 * 1024 + 1, 413)]
+#[case::workspace_at_cap("/api/workspace", r#"{"cmd":"view"}"#, 8 * 1024 * 1024, 200)]
+#[case::workspace_over_cap("/api/workspace", r#"{"cmd":"view"}"#, 8 * 1024 * 1024 + 1, 413)]
+fn http_apply_body(#[case] path: &str, #[case] json: &str, #[case] bytes: usize, #[case] status: u16) {
+    let (_dir, port, _server) = capped_server("serve-apply-cap");
+    let body = padded(json, bytes);
+    let sent = (status == 200).then_some(body.as_str());
+    assert_that!(status_of(port, path, bytes, sent)).is_equal_to(status);
+}
+
+/// The 8 MiB cap is the apply routes' own: dictation still takes a longer body.
+#[test]
+fn http_body_limit_does_not_apply_to_other_routes() {
+    let (_dir, port, _server) = capped_server("serve-other-cap");
+    let body = padded(r#"{"cmd":"status"}"#, 8 * 1024 * 1024 + 1);
+    let (status, reply) = http(port, "POST", "/api/stt", &body);
+    assert_that!(status).is_equal_to(200);
+    assert_that!(reply).contains("\"state\":\"idle\"");
+}
+
 /// `[serve] header_timeout_ms` et `max_connections` viennent des réglages : une
 /// connexion muette est fermée après le délai, une connexion de trop aussitôt.
 #[test]
@@ -691,6 +852,7 @@ fn pack_files(id: uuid::Uuid, widgets: &[(&str, &str)]) -> PackFiles {
         tokens: Vec::new(),
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let widgets = widgets
         .iter()

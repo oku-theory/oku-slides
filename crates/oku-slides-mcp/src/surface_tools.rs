@@ -157,8 +157,8 @@ impl Tools {
             let (spec, t, p) = (spec.clone(), text.clone(), paragraphs.clone());
             let label = self.localizer.current().tr("agent-undo-rewrite");
             let done = self
-                .with_session(move |s| {
-                    let ops = s.rewrite_ops(&spec, &t, p)?;
+                .with_folding(move |s| {
+                    let ops = s.rewrite_ops(&spec, &t, p.clone())?;
                     s.apply_by_agent(&label, ops, None)
                 })
                 .await;

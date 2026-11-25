@@ -57,3 +57,13 @@ fn resolved_examples_writes_markers_in_plain_text() {
     let out = resolved_examples(values.as_object().unwrap(), &Localizer::new(Some("fr")));
     assert_that!(out["title"].as_str()).is_equal_to(Some("Titre de la carte"));
 }
+
+#[test]
+fn example_data_column_names_are_localized_fr() {
+    let base = crate::library::builtin_versions().iter().find(|b| b.manifest.id == BASE_ID).unwrap();
+    let fr = Localizer::new(Some("fr"));
+    let data = super::localized_data(BASE_ID, &base.manifest.data, &fr);
+    let chart = data.get("base-example-chart").unwrap();
+    let names: Vec<&str> = chart.table.columns.iter().map(|c| c.name.as_str()).collect();
+    assert_that!(names).is_equal_to(vec!["Catégorie", "Valeur"]);
+}

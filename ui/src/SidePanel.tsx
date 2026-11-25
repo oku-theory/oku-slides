@@ -1,9 +1,9 @@
 /**
- * A deck tab's left side panel: a rail of tabs (Packs, Themes, Inspector) and the open tab's body.
+ * A deck tab's left side panel: a rail of tabs (Packs, Themes, Inspector, Data) and the open tab's body.
  *
  * The packs tab shows the hub's `host-packs` box, the themes tab its `host-theme-picker`, which
  * `AgentPanel` puts in its `side` and `sideThemes` slots; one box at a time wins over the inspector
- * while it is open, and the inspector shows again once it goes. A click on the pressed tab folds
+ * while it is open, and the inspector (or the deck's data) shows again once it goes. A click on the pressed tab folds
  * the panel to its rail; so does the fold button at the rail's foot, which reopens the last tab.
  */
 import type { ReactNode } from "react";
@@ -24,6 +24,8 @@ export interface SidePanelProps {
   themes: Slot;
   /** The inspector's body while it is kept open; `null` otherwise. */
   inspector: ReactNode;
+  /** The deck's data list while its tab is open; `null` otherwise. */
+  data: ReactNode;
   /** A pin is older than the library's version: a dot on the packs tab. */
   updates: boolean;
   /** Opens the packs tab. */
@@ -32,6 +34,8 @@ export interface SidePanelProps {
   onThemes: () => void;
   /** Opens the inspector tab. */
   onInspector: () => void;
+  /** Opens the Data tab. */
+  onData: () => void;
   /** Folds the panel to its rail. */
   onFold: () => void;
   /** Closes the open box only, packs or themes (Escape, or its pressed tab over a kept inspector). */
@@ -39,17 +43,17 @@ export interface SidePanelProps {
 }
 
 /** A tab of the side panel; its rail toggle has the class `<tab>-toggle`. */
-type SideTab = "packs" | "themes" | "inspector";
+type SideTab = "packs" | "themes" | "inspector" | "data";
 
 /**
  * The rail and, when a tab is open, its body beside it. A pressed tab folds the panel, except a box
  * (packs, themes) over a kept inspector, which closes that box only. Focus left in a body that goes
  * returns to the rail.
  */
-export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes, onInspector, onFold, onCloseBox }: SidePanelProps) {
+export function SidePanel({ packs, themes, inspector, data, updates, onPacks, onThemes, onInspector, onData, onFold, onCloseBox }: SidePanelProps) {
   const packsBody = useSlot(packs);
   const themesBody = useSlot(themes);
-  const tab: SideTab | null = packsBody ? "packs" : themesBody ? "themes" : inspector ? "inspector" : null;
+  const tab: SideTab | null = packsBody ? "packs" : themesBody ? "themes" : inspector ? "inspector" : data ? "data" : null;
   const box = tab === "packs" || tab === "themes";
   // With an update, the accessible name and the tooltip say it too (one Fluent sentence).
   const packsLabel = t(updates ? "ui-side-packs-update" : "ui-side-packs");
@@ -64,7 +68,7 @@ export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes
   useEffect(() => {
     if (tab) shown.current = tab;
   }, [tab]);
-  const opens: Record<SideTab, () => void> = { packs: onPacks, themes: onThemes, inspector: onInspector };
+  const opens: Record<SideTab, () => void> = { packs: onPacks, themes: onThemes, inspector: onInspector, data: onData };
   useEffect(() => {
     const inside = () => (focusInBody.current = !!body.current?.contains(document.activeElement));
     document.addEventListener("focusin", inside);
@@ -79,9 +83,9 @@ export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes
     const target = tab ?? was;
     if (target) rail.current?.querySelector<HTMLButtonElement>(`.${target}-toggle`)?.focus();
   }, [tab, packsBody, themesBody]);
-  /** A tab's toggle: opens it, or, pressed, closes its box over a kept inspector or folds the panel. */
+  /** A tab's toggle: opens it, or, pressed, closes its box over a kept inspector or data list, or folds the panel. */
   const toggle = (own: SideTab, open: () => void) =>
-    tab !== own ? open : own !== "inspector" && inspector ? onCloseBox : onFold;
+    tab !== own ? open : (own === "packs" || own === "themes") && (inspector || data) ? onCloseBox : onFold;
   return (
     <div className={`side-panel${tab ? " open" : ""}`}>
       <nav ref={rail} className="side-rail" aria-label={t("ui-side-panel")}>
@@ -106,6 +110,13 @@ export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes
           onToggle={toggle("inspector", onInspector)}
           icon={Icon.inspector}
         />
+        <IconToggle
+          className="token ghost data-toggle"
+          label={t("ui-data-tab")}
+          pressed={tab === "data"}
+          onToggle={toggle("data", onData)}
+          icon={Icon.table}
+        />
         <IconButton
           className="token ghost fold-toggle"
           aria-expanded={!!tab}
@@ -124,7 +135,7 @@ export function SidePanel({ packs, themes, inspector, updates, onPacks, onThemes
             onCloseBox();
           }}
         >
-          {tab === "packs" ? packsBody : tab === "themes" ? themesBody : inspector}
+          {tab === "packs" ? packsBody : tab === "themes" ? themesBody : tab === "inspector" ? inspector : data}
         </div>
       )}
     </div>

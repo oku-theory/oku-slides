@@ -30,8 +30,7 @@ pub(super) enum Ctx {
     /// `tokens`, `style`, `frame`, `cell`, extras des `params` du deck :
     /// cartes à feuilles LWW.
     Opaque,
-    /// Option d'un paramètre `host`, lue comme [`Ctx::Opaque`] ; sa clé
-    /// `dataset` peut porter des colonnes et des lignes à identifiant.
+    /// Option of a `host` param, read as [`Ctx::Opaque`] except a stored `dataset`, dropped.
     Host,
     /// The root map `knowledge`: one entry per file, by file id.
     Knowledge,
@@ -97,16 +96,16 @@ pub(super) const RICH: &str = "rich";
 /// Clé de la carte d'un paramètre `list`, qui porte sa `LoroMovableList`.
 pub(super) const LIST: &str = "list";
 
-/// Clé de l'option d'un hôte qui porte ses données.
+/// Key of the inline data an older writer stored in a host option: dropped on read.
 pub(super) const DATASET: &str = "dataset";
 
-/// Clé de la carte d'un `dataset` qui porte ses identifiants de colonnes.
+/// Key of a data table's map that holds its column list.
 pub(super) const COLUMNS: &str = "columns";
 
-/// Clé de la carte d'un `dataset` qui porte ses lignes.
+/// Key of a data table's map that holds its row ids.
 pub(super) const ROWS: &str = "rows";
 
-/// Clé d'une ligne qui porte ses cellules, par identifiant de colonne.
+/// Key of a data table's layer that holds its cells.
 pub(super) const CELLS: &str = "cells";
 
 impl Ctx {
@@ -154,7 +153,7 @@ impl Ctx {
     /// pack écrivent ainsi dans la même carte `widgets` (ou `layouts`, `themes`).
     pub(super) fn maps(self) -> &'static [&'static str] {
         match self {
-            Ctx::Deck => &["widgets", "layouts", "themes"],
+            Ctx::Deck => &["widgets", "layouts", "themes", super::data::DATA],
             _ => &[],
         }
     }
@@ -168,10 +167,12 @@ impl Ctx {
     }
 
     /// Vrai pour une clé du replica, jamais lue ni écrite comme un champ :
-    /// dans la méta d'une slide ou d'un élément, `SLOT`, `SLIDE` et le préfixe `DELETED`.
+    /// dans la méta d'une slide ou d'un élément, `SLOT`, `SLIDE` et le préfixe `DELETED`;
+    /// in the deck, `data`, read and written apart (`data.rs`).
     pub(super) fn reserved(self, key: &str) -> bool {
         match self {
             Ctx::Slide | Ctx::Element => key == SLOT || key == SLIDE || key.starts_with(DELETED),
+            Ctx::Deck => key == super::data::DATA,
             _ => false,
         }
     }

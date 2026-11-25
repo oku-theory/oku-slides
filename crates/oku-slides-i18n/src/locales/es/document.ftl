@@ -145,3 +145,4 @@ import-warning-unsafe-link = Vínculo rechazado: { $detail }
 import-warning-nesting-too-deep = Anidamiento demasiado profundo, cortado: { $detail }
 import-warning-font-embedded-unreadable = Fuente incrustada ilegible: { $detail }
 import-warning-truncated = Demasiadas advertencias: se omiten las siguientes
+render-chart-too-many-values = demasiados valores para dibujar ({ $count }, como máximo { $max })

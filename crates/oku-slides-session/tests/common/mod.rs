@@ -164,6 +164,7 @@ pub fn add_user_pack(data: &std::path::Path, name: &str) -> uuid::Uuid {
         tokens: vec![],
         order: Vec::new(),
         guides: Guides::default(),
+        data: std::collections::BTreeMap::new(),
     };
     let quote = oku_slides_core::WidgetFile::parse("quote").unwrap_or_else(|| panic!("nom de widget invalide"));
     let widgets = std::collections::BTreeMap::from([(quote, WIDGET.to_owned())]);

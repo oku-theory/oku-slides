@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::action::{Action, Dynamic};
-use crate::data::SeriesSwatch;
+use crate::data::{DataChoice, DataRef, DataRow, SeriesSwatch};
 use crate::list::ListColumn;
 use crate::props::{ButtonIcon, ChoiceOption, DiffSegment, PromptImage, SlideRef, TextVariant, TimelineStep, Tone};
 
@@ -20,7 +20,8 @@ pub struct Component {
 
 /// Components of the [`CATALOG_ID`](crate::CATALOG_ID) catalog. Names and properties follow
 /// those of the v0.9 basic catalog; `Stepper`, `ChoiceChips`, `ColorField`,
-/// `SlideThumb`, `ThemeChoice`, `DiffText`, `Notice`, `ChartData`, `TableData` are specific to Oku Slides.
+/// `SlideThumb`, `ThemeChoice`, `DiffText`, `Notice`, `ChartData`, `TableData`, `DataList`,
+/// `DataSheet` are specific to Oku Slides.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "component")]
 pub enum ComponentKind {
@@ -341,6 +342,10 @@ pub enum ComponentKind {
         kind: Option<String>,
         /// `dataset.source`: row 0 = headers; numbers, texts, booleans or `null`.
         source: Vec<Vec<Value>>,
+        /// The data's id of each row of `source` after the header, which edits name.
+        row_ids: Vec<String>,
+        /// The data's id of each column of `source`, which edits name.
+        column_ids: Vec<String>,
         /// Columns edited as checkboxes (the Total of a waterfall).
         checkbox_columns: Vec<usize>,
         /// Stacked series; absent when stacking makes no sense.
@@ -350,6 +355,10 @@ pub enum ComponentKind {
         series: Vec<SeriesSwatch>,
         /// The theme's chart palette, as `#rrggbb`.
         palette: Vec<String>,
+        /// The data the chart shows.
+        data: DataRef,
+        /// The data it can switch to, `data` included.
+        choices: Vec<DataChoice>,
         /// Where the UI writes the requested change.
         edit: Dynamic<Value>,
         /// Sent after `edit` is written.
@@ -359,6 +368,10 @@ pub enum ComponentKind {
     TableData {
         /// `dataset.source`: row 0 = column names.
         source: Vec<Vec<Value>>,
+        /// The data's id of each row of `source` after the header, which edits name.
+        row_ids: Vec<String>,
+        /// The data's id of each column of `source`, which edits name.
+        column_ids: Vec<String>,
         /// First row as a header.
         header_row: bool,
         /// First column as a header.
@@ -367,6 +380,43 @@ pub enum ComponentKind {
         striped: bool,
         /// Alignment of each column (`auto`, `start`, `center`, `end`); no entry: `auto`.
         align: Vec<String>,
+        /// The data the table shows.
+        data: DataRef,
+        /// The data it can switch to, `data` included.
+        choices: Vec<DataChoice>,
+        /// Where the UI writes the requested change.
+        edit: Dynamic<Value>,
+        /// Sent after `edit` is written.
+        action: Action,
+    },
+    /// The deck's data, with their size and views (host only).
+    ///
+    /// A gesture writes its request into `edit` (`select`, `add`, `rename`, `remove`,
+    /// `open-element`…), then `action` fires.
+    DataList {
+        /// The deck's data, in id order.
+        rows: Vec<DataRow>,
+        /// Where the UI writes the requested change.
+        edit: Dynamic<Value>,
+        /// Sent after `edit` is written.
+        action: Action,
+    },
+    /// A page of one data's rows, all its columns, editable (host only).
+    DataSheet {
+        /// The data shown.
+        data: DataRef,
+        /// The page: row 0 = column names.
+        source: Vec<Vec<Value>>,
+        /// The data's id of each row of `source` after the header.
+        row_ids: Vec<String>,
+        /// The data's id of each column.
+        column_ids: Vec<String>,
+        /// The type of each column (`text`, `number`, `integer`, `bool`, `date`).
+        types: Vec<String>,
+        /// Index of the page's first row in the data.
+        offset: u32,
+        /// The data's number of rows.
+        total: u32,
         /// Where the UI writes the requested change.
         edit: Dynamic<Value>,
         /// Sent after `edit` is written.
@@ -420,7 +470,9 @@ impl ComponentKind {
             | Self::Badge { .. }
             | Self::Markdown { .. }
             | Self::ChartData { .. }
-            | Self::TableData { .. } => Vec::new(),
+            | Self::TableData { .. }
+            | Self::DataList { .. }
+            | Self::DataSheet { .. } => Vec::new(),
         }
     }
 
@@ -431,7 +483,9 @@ impl ComponentKind {
             Self::Button { action, .. }
             | Self::Notice { close: action, .. }
             | Self::ChartData { action, .. }
-            | Self::TableData { action, .. } => vec![action],
+            | Self::TableData { action, .. }
+            | Self::DataList { action, .. }
+            | Self::DataSheet { action, .. } => vec![action],
             Self::TextField { action, .. }
             | Self::RichTextField { action, .. }
             | Self::Stepper { action, .. }
@@ -458,12 +512,17 @@ impl ComponentKind {
         }
     }
 
-    /// The same component, read-only; `None` for a button, a banner or a data grid.
+    /// The same component, read-only; `None` for a button, a banner, a data grid or list.
     #[must_use]
     pub fn without_action(self) -> Option<Self> {
         Some(match self {
-            // Without an action, a button, a banner or a data grid makes no sense.
-            Self::Button { .. } | Self::Notice { .. } | Self::ChartData { .. } | Self::TableData { .. } => return None,
+            // Without an action, a button, a banner, a data grid or list makes no sense.
+            Self::Button { .. }
+            | Self::Notice { .. }
+            | Self::ChartData { .. }
+            | Self::TableData { .. }
+            | Self::DataList { .. }
+            | Self::DataSheet { .. } => return None,
             Self::TextField { label, help, value, .. } => Self::TextField { label, help, value, action: None },
             Self::RichTextField { label, help, value, source, palette, .. } => {
                 Self::RichTextField { label, help, value, source, palette, action: None }
@@ -529,7 +588,7 @@ impl ComponentKind {
 
 impl Component {
     /// `false` for host-only components (`Prompt`, `Timeline`, `Receipt`, `SlideThumb`, `Notice`,
-    /// `ThemeChoice`, `ChartData`, `TableData`).
+    /// `ThemeChoice`, `ChartData`, `TableData`, `DataList`, `DataSheet`).
     ///
     /// A receipt goes through the `report` tool (bounds, thumbnail rendered by the host); a thumbnail
     /// is always rendered by the host.
@@ -545,6 +604,8 @@ impl Component {
                 | ComponentKind::ThemeChoice { .. }
                 | ComponentKind::ChartData { .. }
                 | ComponentKind::TableData { .. }
+                | ComponentKind::DataList { .. }
+                | ComponentKind::DataSheet { .. }
         )
     }
 

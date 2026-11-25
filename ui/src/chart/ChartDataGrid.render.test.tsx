@@ -1,4 +1,4 @@
-// Rendu de la grille des données dans un DOM happy-dom.
+// The data grid rendered in a happy-dom DOM.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import "../test/dom";
@@ -21,15 +21,17 @@ afterEach(async () => {
 });
 
 const SOURCE = [["Mois", "Ventes"], ["Jan", 12345.5], ["Fév", 1234.5]];
+const ROW_IDS = ["r-jan", "r-fev"];
+const COLUMN_IDS = ["c-mois", "c-ventes"];
 
-async function mount(numberLang: string | null | undefined, onOp = (_op: unknown) => {}, source: unknown[][] = SOURCE) {
+async function mount(numberLang: string | null | undefined, onEdit = (_edit: unknown) => {}, source: unknown[][] = SOURCE) {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   mounted = { root, host };
   await act(async () => {
-    const grid = createElement(ChartDataGrid, { source, onOp });
-    // `undefined` : pas de fournisseur ; `null` : fournisseur d'un deck sans langue.
+    const grid = createElement(ChartDataGrid, { source, rowIds: ROW_IDS, columnIds: COLUMN_IDS, onEdit });
+    // `undefined`: no provider; `null`: the provider of a deck without a language.
     root.render(numberLang === undefined ? grid : createElement(NumberLangContext.Provider, { value: numberLang }, grid));
   });
   return [...host.querySelectorAll("input.cdg-number")] as HTMLInputElement[];
@@ -93,6 +95,73 @@ describe("ChartDataGrid", () => {
       inputs[0].value = "12,346.5";
       inputs[0].blur();
     });
-    expect(ops[0]).toEqual({ op: "set_cell", row: 1, col: 1, value: 12346.5 });
+    expect(ops[0]).toEqual({
+      edit: "cells",
+      change: { op: "set_cell", row: "r-jan", column: "c-ventes", value: 12346.5 },
+    });
+  });
+
+  test("ChartDataGrid emits edit_data with row and column ids", async () => {
+    const ops: unknown[] = [];
+    await mount("en", (op) => ops.push(op));
+    const host = mounted?.host as HTMLElement;
+    const header = host.querySelector("thead input") as HTMLInputElement;
+    await act(async () => {
+      header.focus();
+      header.value = "Month";
+      header.blur();
+    });
+    const [removeColumn] = host.querySelectorAll("thead .cdg-remove");
+    const [removeRow] = host.querySelectorAll("tbody .cdg-remove");
+    const [addRow, addColumn] = host.querySelectorAll(".cdg-actions button");
+    for (const b of [removeColumn, removeRow, addRow, addColumn]) await act(async () => (b as HTMLButtonElement).click());
+    const cells = (change: unknown) => ({ edit: "cells", change });
+    expect(ops).toEqual([
+      cells({ op: "rename_column", column: "c-mois", name: "Month" }),
+      cells({ op: "remove_column", column: "c-mois" }),
+      cells({ op: "remove_row", row: "r-jan" }),
+      // The pane may show only the first rows: a new row goes after the data's last one.
+      { edit: "add_row" },
+      cells({ op: "insert_column", after: "c-ventes", name: expect.any(String) }),
+    ]);
+  });
+
+  test("ChartDataGrid paste emits one paste edit anchored by row and column ids", async () => {
+    const edits: unknown[] = [];
+    const inputs = await mount("en", (edit) => edits.push(edit));
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", { value: { getData: () => "1\t2\n3\t4" } });
+    await act(async () => {
+      inputs[1].dispatchEvent(paste);
+    });
+    expect(edits).toEqual([
+      { edit: "paste", row: "r-fev", column: "c-ventes", cells: [[1, 2], [3, 4]], names: [expect.any(String)] },
+    ]);
+  });
+
+  test("column header menu emits set-type", async () => {
+    const types: unknown[] = [];
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mounted = { root, host };
+    await act(async () => {
+      root.render(createElement(ChartDataGrid, {
+        source: SOURCE, rowIds: ROW_IDS, columnIds: COLUMN_IDS, onEdit: () => {},
+        columnTypes: ["text", "number"], onType: (column: string, type: string) => types.push([column, type]),
+      }));
+    });
+    const menus = [...host.querySelectorAll("select.cdg-type")] as HTMLSelectElement[];
+    expect(menus.map((m) => m.value)).toEqual(["text", "number"]);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(menus[0], "date");
+      menus[0]?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(types).toEqual([["c-mois", "date"]]);
+  });
+
+  test("ChartDataGrid without onType shows no type menu", async () => {
+    await mount("en");
+    expect(document.querySelector("select.cdg-type")).toBeNull();
   });
 });

@@ -8,6 +8,7 @@
 //! `color` (palette des séries) et `series.itemStyle.color` (une série), en
 //! `#rgb` ou `#rrggbb`.
 
+use oku_slides_data::{DataId, Dataset};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +22,12 @@ pub struct ChartOption {
     /// Legend; shown by default, except for a pie or a waterfall.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legend: Option<Legend>,
+    /// The deck data the chart reads, by id; never next to inline data.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<DataId>,
+    /// Column ids of `data` the chart reads, in order; all of them if absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub columns: Option<Vec<String>>,
     /// Tabular data; the first row holds the column headers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dataset: Option<Dataset>,
@@ -40,6 +47,14 @@ pub struct ChartOption {
     /// Palette of the series, in order (`#rgb` or `#rrggbb`); the theme's if absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Vec<String>>,
+}
+
+impl ChartOption {
+    /// Does the option carry its own data: a `dataset` or a series' `data`?
+    #[must_use]
+    pub fn has_inline(&self) -> bool {
+        self.dataset.is_some() || self.series.iter().any(|s| s.data.is_some())
+    }
 }
 
 /// Chart title and its subtitle.
@@ -79,83 +94,6 @@ pub enum HAlign {
     Center,
     /// Right-aligned.
     Right,
-}
-
-/// Tabular data shared by the series, with stable identifiers.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Dataset {
-    /// 2D table; row 0 holds the column names.
-    pub source: Vec<Vec<Cell>>,
-    /// Stable identifier of each row, header included.
-    ///
-    /// Do not supply them: the core draws them.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ids: Vec<String>,
-    /// Stable identifier of each column.
-    ///
-    /// Do not supply them: the core draws them.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub columns: Vec<String>,
-}
-
-/// Cell of `dataset.source`: number, text, boolean or empty.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(untagged)]
-pub enum Cell {
-    /// Number.
-    Number(f64),
-    /// Text; read as a number if it looks like one (decimal comma accepted).
-    Text(String),
-    /// Checkbox (the Total column of a waterfall).
-    Bool(bool),
-    /// Empty cell.
-    Null,
-}
-
-impl Cell {
-    /// Numeric value: a number, or a text that looks like one.
-    #[must_use]
-    pub fn as_f64(&self) -> Option<f64> {
-        match self {
-            Cell::Number(n) => Some(*n),
-            Cell::Text(s) => parse_number(s),
-            Cell::Bool(_) | Cell::Null => None,
-        }
-    }
-
-    /// Case cochée ; toute autre cellule compte comme décochée.
-    #[must_use]
-    pub fn is_checked(&self) -> bool {
-        matches!(self, Cell::Bool(true))
-    }
-
-    /// Displayed text: whole numbers without decimals, empty for an empty cell.
-    #[must_use]
-    pub fn as_label(&self) -> String {
-        match self {
-            Cell::Number(n) => format_number(*n),
-            Cell::Text(s) => s.clone(),
-            Cell::Bool(b) => b.to_string(),
-            Cell::Null => String::new(),
-        }
-    }
-}
-
-/// Nombre saisi en texte : virgule ou point décimal, signe « - » ou « − ».
-pub(crate) fn parse_number(s: &str) -> Option<f64> {
-    s.trim().replace(',', ".").replace('\u{2212}', "-").parse().ok()
-}
-
-/// Displayed number, without decimals if it is whole.
-pub(crate) fn format_number(n: f64) -> String {
-    if n.fract() == 0.0 && n.abs() < 1e15 {
-        #[expect(clippy::cast_possible_truncation, reason = "integer with absolute value below 1e15, exact in i64")]
-        let entier = n as i64;
-        format!("{entier}")
-    } else {
-        format!("{n}")
-    }
 }
 
 /// Cartesian axis: categories or values, optional bounds.

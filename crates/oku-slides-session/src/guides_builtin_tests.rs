@@ -86,7 +86,7 @@ fn previous_hex(pack: BuiltinPack) -> String {
 
 /// The previous shipped base, as kept in `fixtures/packs` (t-1385 changed more than its guides).
 fn previous_base() -> PackFiles {
-    crate::deck_widgets::deck_widgets_tests::fixture_pack("packs/base-100fe5ab")
+    crate::deck_widgets::deck_widgets_tests::fixture_pack("packs/base-55c2f60c")
 }
 
 /// The previous shipped Papier: the current theme without guides and without parent.

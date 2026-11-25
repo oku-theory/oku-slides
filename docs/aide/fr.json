@@ -1,5 +1,5 @@
 {
- "version": 9,
+ "version": 10,
  "params": {
   "title": "Aide d'Oku Slides",
   "subtitle": "Ergonomie, raccourcis, bibliothèque Typst, format de fichier",
@@ -3249,7 +3249,7 @@
            "bold": true
           },
           {
-           "t": " : le deck JSON v9 est la relecture canonique du replica."
+           "t": " : le deck JSON v10 est la relecture canonique du replica."
           }
          ],
          "list": "bullet"
@@ -3277,7 +3277,7 @@
    "kind": "essentiel/content",
    "params": {
     "kicker": ".oku-slides.pdf",
-    "title": "Le deck JSON (version 9)",
+    "title": "Le deck JSON (version 10)",
     "layout": "default",
     "blocks": [
      {
@@ -3295,7 +3295,7 @@
         {
          "runs": [
           {
-           "t": "  \"version\": 9,"
+           "t": "  \"version\": 10,"
           }
          ]
         },
