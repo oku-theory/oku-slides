@@ -38,13 +38,15 @@ async fn prompt_sends_instructions_context_then_text_and_streams_chunks() {
     assert_that!(chunk).is_equal_to(AgentEvent::Chunk { turn: 1, text: "Je regarde.".into() });
     until(&mut rx, ended).await;
     let blocks = logged(&h.log, "session/prompt")[0]["prompt"].as_array().cloned().unwrap();
-    assert_that!(blocks.len()).is_equal_to(6);
+    assert_that!(blocks.len()).is_equal_to(7);
     assert_that!(blocks[1]["text"].as_str().unwrap().starts_with("This tab edits a deck.")).is_true();
     assert_that!(blocks[2]["text"].as_str().unwrap().contains("preview_widget")).is_true();
-    assert_that!(blocks[3]["text"].as_str().unwrap().starts_with("<oku-slides-guides>")).is_true();
-    assert_that!(blocks[4]["text"].as_str().unwrap().starts_with("<oku-slides-context>")).is_true();
-    assert_that!(blocks[4]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
-    assert_that!(blocks[5]["text"].as_str()).is_equal_to(Some("rends le titre plus court"));
+    // A deck tab gets the design paragraph after the widgets one (t-1720).
+    assert_that!(blocks[3]["text"].as_str().unwrap().starts_with("Design: ")).is_true();
+    assert_that!(blocks[4]["text"].as_str().unwrap().starts_with("<oku-slides-guides>")).is_true();
+    assert_that!(blocks[5]["text"].as_str().unwrap().starts_with("<oku-slides-context>")).is_true();
+    assert_that!(blocks[5]["text"].as_str().unwrap().contains("slide: s-libre")).is_true();
+    assert_that!(blocks[6]["text"].as_str()).is_equal_to(Some("rends le titre plus court"));
 }
 
 /// The texts of the blocks of prompt `n` of the log.

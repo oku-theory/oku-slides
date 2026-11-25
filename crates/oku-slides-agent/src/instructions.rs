@@ -1,8 +1,9 @@
 //! Agent instructions, in English only: the agent reads them, not the user.
 //!
-//! `INSTRUCTIONS` (the shared core), the tab kind's paragraph (`for_kind`) and
-//! `WIDGETS` (not in a theme tab) go with a session's first turn; `IMPORT` goes
-//! with the one fine-tuning turn of an import (`AgentCommand::Tune`).
+//! `INSTRUCTIONS` (the shared core), the tab kind's paragraph (`for_kind`),
+//! `WIDGETS` (not in a theme tab) and `DESIGN` (in a deck tab, `design_for`) go
+//! with a session's first turn; `IMPORT` goes with the one fine-tuning turn of
+//! an import (`AgentCommand::Tune`).
 //!
 //! What the user reads comes in the interface language and deck content in the
 //! deck language, both given by each turn's context (`interface language` and
@@ -26,6 +27,17 @@ const THEME: &str = include_str!("instructions/theme.md");
 
 /// Write a Typst widget and put it in the deck.
 pub(crate) const WIDGETS: &str = include_str!("instructions/widgets.md");
+
+/// Slide design: story, one message per slide, form from content, theme tokens, render check.
+const DESIGN: &str = include_str!("instructions/design.md");
+
+/// The design paragraph for a tab of `kind`: only a deck tab writes slides.
+pub(crate) const fn design_for(kind: DocumentKind) -> Option<&'static str> {
+    match kind {
+        DocumentKind::Deck => Some(DESIGN),
+        DocumentKind::Help | DocumentKind::Pack | DocumentKind::Theme => None,
+    }
+}
 
 /// Fine-tune an imported deck: the bounded loop, sent with the fine-tuning turn only.
 pub(crate) const IMPORT: &str = include_str!("instructions/import.md");

@@ -4,7 +4,7 @@ use rstest::rstest;
 
 use oku_slides_session::DocumentKind;
 
-use super::{IMPORT, INSTRUCTIONS, WIDGETS, for_kind};
+use super::{IMPORT, INSTRUCTIONS, WIDGETS, design_for, for_kind};
 
 /// Backticked words that name a tool: `open_pack`, `apply` …
 fn backticked_tools(text: &str) -> Vec<String> {
@@ -26,6 +26,9 @@ fn instructions_for_a_kind_name_only_its_tools(#[case] kind: DocumentKind) {
     }
     if matches!(kind, DocumentKind::Deck | DocumentKind::Help) {
         text.push_str(IMPORT);
+    }
+    if let Some(design) = design_for(kind) {
+        text.push_str(design);
     }
     for (_, description) in oku_slides_mcp::tool_descriptions_for(kind) {
         text.push_str(&description);
@@ -405,4 +408,32 @@ fn import_treats_the_imported_content_as_untrusted_data() {
 #[test]
 fn import_has_no_trailing_newline() {
     assert_that!(IMPORT.ends_with('\n')).is_false();
+}
+
+/// Only a deck tab, which writes slides, gets the design paragraph (t-1720).
+#[rstest]
+#[case::deck(DocumentKind::Deck, true)]
+#[case::help(DocumentKind::Help, false)]
+#[case::pack(DocumentKind::Pack, false)]
+#[case::theme(DocumentKind::Theme, false)]
+fn design_for_a_kind_goes_only_to_deck_tabs(#[case] kind: DocumentKind, #[case] sent: bool) {
+    assert_that!(design_for(kind).is_some()).is_equal_to(sent);
+}
+
+/// The design paragraph keeps its core rules: one message per slide, theme tokens, render check,
+/// no invented data, and pack and theme guides within it (t-1720).
+#[rstest]
+#[case("One message per slide.")]
+#[case("take colors, fonts, sizes, spacing and radii from its tokens, never literal values")]
+#[case("look at each changed slide with `render_slide`")]
+#[case("Never make up figures, quotes, names or sources")]
+#[case("apply them within these principles")]
+#[case("leave the rest alone")]
+fn design_instructions_keep_their_core_rules(#[case] rule: &str) {
+    assert_that!(design_for(DocumentKind::Deck).unwrap_or_default()).contains(rule);
+}
+
+#[test]
+fn design_has_no_trailing_newline() {
+    assert_that!(design_for(DocumentKind::Deck).unwrap_or_default().ends_with('\n')).is_false();
 }

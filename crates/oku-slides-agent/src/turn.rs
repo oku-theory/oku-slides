@@ -9,7 +9,7 @@ use oku_slides_session::DocumentKind;
 use tokio::sync::mpsc;
 
 use crate::events::as_text;
-use crate::instructions::{IMPORT, INSTRUCTIONS, WIDGETS, for_kind};
+use crate::instructions::{IMPORT, INSTRUCTIONS, WIDGETS, design_for, for_kind};
 use crate::tab_agent::{Command, Ctx, Instruction};
 use crate::{AgentEvent, AgentState};
 
@@ -87,13 +87,16 @@ pub(crate) async fn run(
     ctx.hub.set_permission_note(permission_note(&received, &ctx.localizer.current()));
     ctx.emit(AgentEvent::Status { state: AgentState::Working });
     tracing::debug!(tab = %ctx.tab.tab(), kind = ctx.kind.as_str(), turn, "agent turn starts");
-    let mut blocks = Vec::with_capacity(5);
+    let mut blocks = Vec::with_capacity(8);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
         blocks.push(ContentBlock::Text(TextContent::new(for_kind(ctx.kind))));
         // A theme tab writes no widget.
         if ctx.kind != DocumentKind::Theme {
             blocks.push(ContentBlock::Text(TextContent::new(WIDGETS)));
+        }
+        if let Some(design) = design_for(ctx.kind) {
+            blocks.push(ContentBlock::Text(TextContent::new(design)));
         }
     }
     if tune {
