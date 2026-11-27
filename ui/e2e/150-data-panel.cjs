@@ -132,10 +132,10 @@ const dataRows = async (p) => (await components(p, { cmd: 'data_list' })).find((
   await until(p, async () => (added = (await dataRows(p)).find((r) => !before.includes(r.id))), "aucune donnée n'est ajoutée");
   assert.deepEqual([added.columns, added.rows, added.users.length], [1, 1, 0]);
   const row = p.locator(`${LIST} .data-row`).filter({ has: p.locator('.data-row-unused') });
-  await row.locator('.data-row-rename').fill('e2e-donnees');
+  await row.locator('.data-row-rename').fill('e2e_donnees');
   await row.locator('.data-row-rename').press('Enter');
-  await until(p, async () => (await dataRows(p)).find((r) => r.id === added.id)?.name === 'e2e-donnees', "le renommage n'est pas posé");
-  await p.locator(`${LIST} .data-row-name`, { hasText: 'e2e-donnees' }).click();
+  await until(p, async () => (await dataRows(p)).find((r) => r.id === added.id)?.name === 'e2e_donnees', "le renommage n'est pas posé");
+  await p.locator(`${LIST} .data-row-name`, { hasText: 'e2e_donnees' }).click();
   const sheet = p.locator(SHEET);
   await sheet.locator('select.cdg-type').first().waitFor({ timeout: 15000 });
   await sheet.locator('select.cdg-type').first().selectOption('number');

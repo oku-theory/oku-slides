@@ -84,3 +84,16 @@ fn compacted_base_reads_back_editable_without_issue() {
     assert_that!(back.0.truncated.contains(&did())).is_false();
     assert_that!(back.0.data[&did()].table.base.clone()).is_equal_to(Some(base()));
 }
+
+/// Compaction applies an emptied bundle with `KnowledgeSync::Unchanged`: the stored knowledge
+/// must survive, which a switch to `Changed` would break.
+#[test]
+fn compaction_keeps_knowledge_bundle() {
+    let mut start = deck();
+    let file = crate::KnowledgeFile { path: "/a.md".to_owned(), text: "body".to_owned() };
+    start.knowledge.insert(format!("{:032x}", 1), file);
+    let mut r = DeckReplica::new(&start, crate::test_registry::shared()).unwrap();
+    let from = r.deck().0.data[&did()].table.clone();
+    r.compact_data(&did(), &from, "e2".to_owned(), base()).unwrap();
+    assert_that!(r.deck().0.knowledge).is_equal_to(start.knowledge);
+}

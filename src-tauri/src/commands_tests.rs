@@ -171,3 +171,48 @@ fn validate_link_largest_insert_accepts() {
     let insert = serde_json::json!({"to": "main", "kind": "insert", "tab": "t-1", "id": "i-1", "text": text});
     assert_that!(validate_link(&insert)).is_ok();
 }
+
+/// `{"cmd": <cmd>, "pad": "x…"}`, whose JSON takes exactly `bytes` bytes.
+fn padded(cmd: &str, bytes: usize) -> serde_json::Value {
+    let len = serde_json::to_vec(&serde_json::json!({ "cmd": cmd, "pad": "" })).map_or(0, |v| v.len());
+    serde_json::json!({ "cmd": cmd, "pad": "x".repeat(bytes - len) })
+}
+
+/// The French size refusal, as `AppState::refuse` gives it.
+fn refuse_fr(e: &oku_slides_session::SessionError) -> String {
+    use oku_slides_session::Localize;
+    assert_that!(e.kind()).is_equal_to(oku_slides_session::SessionErrorKind::RequestTooLarge);
+    e.localize(&oku_slides_session::Localizer::new(Some("fr")))
+}
+
+fn too_large_fr() -> String {
+    oku_slides_session::Localizer::new(Some("fr")).tr_with("session-request-too-large", &[("mib", 8.into())])
+}
+
+#[test]
+fn request_command_reads_a_request_at_the_apply_cap() {
+    let read = read_capped::<Request>(padded("snapshot", oku_slides_session::MAX_APPLY_BYTES), |_| {
+        panic!("a request at the cap is not refused")
+    });
+    assert_that!(matches!(read, Ok(Request::Snapshot))).is_true();
+}
+
+#[test]
+fn request_command_refuses_a_request_past_the_apply_cap_localized() {
+    let read = read_capped::<Request>(padded("snapshot", oku_slides_session::MAX_APPLY_BYTES + 1), refuse_fr);
+    assert_that!(read.err()).is_equal_to(Some(too_large_fr()));
+}
+
+#[test]
+fn workspace_command_reads_a_request_at_the_apply_cap() {
+    let read = read_capped::<WorkspaceRequest>(padded("view", oku_slides_session::MAX_APPLY_BYTES), |_| {
+        panic!("a request at the cap is not refused")
+    });
+    assert_that!(read.map(|r| classify(&r))).is_equal_to(Ok((false, false)));
+}
+
+#[test]
+fn workspace_command_refuses_a_request_past_the_apply_cap_localized() {
+    let read = read_capped::<WorkspaceRequest>(padded("view", oku_slides_session::MAX_APPLY_BYTES + 1), refuse_fr);
+    assert_that!(read.err()).is_equal_to(Some(too_large_fr()));
+}

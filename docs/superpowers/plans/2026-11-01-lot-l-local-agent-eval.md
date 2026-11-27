@@ -242,3 +242,33 @@ Final run (3), Apple engine, about 5.5 s per request (route + first Act); the fu
     ok  route knowledge                BAD tool ask_choice                 6.7s | fr Cherche dans la base de connaissance ce qu'on sait des concurrents
     ok  route knowledge,edit           BAD tool slide                      5.9s | fr Note dans la base de connaissance que le client veut un ton sobre
     ok  route edit,knowledge           BAD tool knowledge_list             5.9s | en Save to the knowledge base that the budget is 40k
+
+## 2026-11-26 — a `data` family for `data_list` and `data_read` (t-1690, t-1766), Apple Foundation Models
+
+t-1690 routed the two new data tools to `edit`. Same engine, command and temp-dir rule as the 2026-11-25 run.
+Baseline: the 2026-11-25 runs, 30/36 route and 25/36 first tool. Bar: each at least baseline minus 1 (29, 24).
+The set grows to 38 with 2 data requests (« Montre-moi les chiffres du graphique de la slide 3 », "What data
+tables does this deck have?"), expected first tool `data_list` or `data_read`. Each variant was run with the 38
+requests (the 2 new ones expecting the variant's family):
+
+| Routing of `data_list`, `data_read` | Old 36 route | Old 36 first tool | New 2 route | New 2 first tool |
+|---|---|---|---|---|
+| none (tools removed from `edit`, t-1690 reverted) | 30/36 | 25/36 | — | — |
+| `edit` (t-1690 as merged) | 30/36 | 23/36 | 1/2 | 1/2 |
+| `knowledge` | 30/36 | 25/36 | 2/2 | 2/2 |
+| new `data` family: "read the deck's data: the tables behind its charts and tables" | 32/36 | 27/36 | 2/2 | 2/2 |
+
+With `edit`, the two "add a slide" requests lose their first tool (`focus` and `slide` instead of `deck_outline`):
+the Act step sees two more tools and picks worse. Kept: the `data` family, run 3 times with identical results
+(34/38 route, 29/38 first tool). Against the reverted baseline it gains « Change le thème du deck » (route
+`edit,packs`, `show_themes`) and « Télécharge le modèle de dictée » (route `files,configure`,
+`download_dictation_model`), and loses nothing; the token-cost question still fails, now routed to `data` instead
+of `knowledge`. The gains on old requests come from a different routing prompt, not from data, so treat them as
+noise until another run confirms them. Runs: `.superpowers/sdd/data-followups/eval-data.log`,
+`eval-final-2.log`, `eval-final-3.log`. Data and changed lines, run 3:
+
+    ok  route edit,packs               ok  tool show_themes                7.0s | fr Change le thème du deck
+    ok  route files,configure          ok  tool download_dictation_model   6.7s | fr Télécharge le modèle de dictée
+    BAD route data                     BAD tool data_list                  5.5s | fr Combien m'a coûté ce deck en tokens ?
+    ok  route data,present             ok  tool data_list                  5.1s | fr Montre-moi les chiffres du graphique de la slide 3
+    ok  route data                     ok  tool data_list                  4.7s | en What data tables does this deck have?

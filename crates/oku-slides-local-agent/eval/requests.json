@@ -34,5 +34,7 @@
   {"lang": "en", "request": "List the notes in the deck's knowledge base", "families": ["knowledge"], "first_tool": ["knowledge_list"]},
   {"lang": "fr", "request": "Cherche dans la base de connaissance ce qu'on sait des concurrents", "families": ["knowledge"], "first_tool": ["knowledge_search", "knowledge_list"]},
   {"lang": "fr", "request": "Note dans la base de connaissance que le client veut un ton sobre", "families": ["knowledge"], "first_tool": ["knowledge_write"]},
-  {"lang": "en", "request": "Save to the knowledge base that the budget is 40k", "families": ["knowledge"], "first_tool": ["knowledge_write"]}
+  {"lang": "en", "request": "Save to the knowledge base that the budget is 40k", "families": ["knowledge"], "first_tool": ["knowledge_write"]},
+  {"lang": "fr", "request": "Montre-moi les chiffres du graphique de la slide 3", "families": ["data"], "first_tool": ["data_list", "data_read"]},
+  {"lang": "en", "request": "What data tables does this deck have?", "families": ["data"], "first_tool": ["data_list"]}
 ]

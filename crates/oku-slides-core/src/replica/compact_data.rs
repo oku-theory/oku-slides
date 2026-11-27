@@ -37,7 +37,10 @@ impl DeckReplica {
         // A truncated data is never written back; its compaction is the exception, as the
         // new layer holds the prefix read, now within the bounds.
         deck.truncated.remove(id);
-        // The deck was read from this replica: its knowledge bundle is the replica's own.
+        // The deck was read from this replica: its knowledge bundle is the replica's own, so
+        // the root is left alone. Dropping the bundle spares reconcile_doc copying and
+        // serializing up to 16 MiB that Unchanged then ignores.
+        deck.knowledge.clear();
         self.apply_silent(&deck, KnowledgeSync::Unchanged)?;
         Ok(true)
     }

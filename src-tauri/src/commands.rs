@@ -132,9 +132,18 @@ fn emit_json(app: &AppHandle, event: &str, json: &str) {
 /// A request's JSON read as `T` once within `MAX_APPLY_BYTES`, the cap `serve` puts on its
 /// apply routes; past it, the localized refusal.
 fn capped<T: DeserializeOwned>(app: &AppHandle, req: serde_json::Value) -> Result<T, String> {
+    read_capped(req, |e| {
+        app.try_state::<AppState>().map_or_else(|| "app not ready".to_owned(), |state| state.refuse(e))
+    })
+}
+
+/// [`capped`] without Tauri: `refuse` turns the size refusal into its message.
+fn read_capped<T: DeserializeOwned>(
+    req: serde_json::Value,
+    refuse: impl FnOnce(&oku_slides_session::SessionError) -> String,
+) -> Result<T, String> {
     if let Err(e) = oku_slides_session::check_request_size(&req) {
-        let state = app.try_state::<AppState>().ok_or_else(|| "app not ready".to_owned())?;
-        return Err(state.refuse(&e));
+        return Err(refuse(&e));
     }
     serde_json::from_value(req).map_err(|e| e.to_string())
 }

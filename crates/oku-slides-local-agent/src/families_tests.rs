@@ -86,11 +86,11 @@ fn families_of_a_dictation_or_agent_tool_is_configure(#[case] tool: &str) {
     assert_that!(families_of(tool)).is_equal_to(&[Family::Configure][..]);
 }
 
-use Family::{Configure, Edit, Files, Knowledge, Packs, Present, Troubleshoot};
+use Family::{Configure, Data, Edit, Files, Knowledge, Packs, Present, Troubleshoot};
 
 #[rstest]
 #[case(DocumentKind::Deck, Family::ROUTABLE.to_vec())]
-#[case(DocumentKind::Help, vec![Edit, Present, Files, Packs, Configure, Troubleshoot])]
+#[case(DocumentKind::Help, vec![Edit, Data, Present, Files, Packs, Configure, Troubleshoot])]
 #[case(DocumentKind::Pack, vec![Edit, Packs, Configure, Troubleshoot])]
 #[case(DocumentKind::Theme, vec![Edit, Packs, Configure, Troubleshoot])]
 fn offered_families_follow_the_tab_kind_tools(#[case] kind: DocumentKind, #[case] expected: Vec<Family>) {
@@ -164,13 +164,14 @@ fn families_route_edit_data() {
     assert_that!(offered).contains(Family::Edit);
 }
 
-/// The data tools read the deck's data for an edit: routed with the slide edits.
+/// The data tools have their own family: routed with the slide edits, they cost two
+/// first-tool picks on the eval set (2026-11-26, t-1766).
 #[rstest]
 #[case::list("data_list")]
 #[case::read("data_read")]
-fn families_route_data_tools_to_edit(#[case] tool: &str) {
+fn families_route_data_tools_to_data(#[case] tool: &str) {
     assert_that!(oku_slides_mcp::tool_names().contains(&tool.to_owned())).is_true();
-    assert_that!(families_of(tool).to_vec()).is_equal_to(vec![Family::Edit]);
+    assert_that!(families_of(tool).to_vec()).is_equal_to(vec![Family::Data]);
 }
 
 #[rstest]

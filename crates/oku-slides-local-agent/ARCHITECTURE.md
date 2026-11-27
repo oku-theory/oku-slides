@@ -29,14 +29,14 @@ no network, and acts only through the MCP tools of the tab (no `fs`, no `termina
   `route_completion` / `act_completion`. Unknown, rejected or `Invalid` calls get one repair (`error: …`); a transport
   failure fails the turn (`Engine`); a failure ends with a `report` titled in the prompt's locale, one `local-agent-retry` fact. Cancel: no report.
 - `mcp` : `McpTools`, the `ToolPort` over one `rust-mcp-sdk` client per session. `tool_error` : `ToolError`: `Rejected` (repairable), `Transport`, `Schema`.
-- `families` : `Family` (edit, knowledge, present, files, packs, configure, troubleshoot, plus the always-exposed `AskReport`),
+- `families` : `Family` (edit, knowledge, data, present, files, packs, configure, troubleshoot, plus the always-exposed `AskReport`),
   `families_of(tool)` and `Family::summary` (tuned on the eval set), `offered_families` (tools shared by every kind and
   spanning several families are ignored; `Configure` always), `parse_route`, `route_grammar` (GBNF over the offered keys).
 - `chatml` : `render`, the hand-written Qwen3 ChatML prompt with its `<tools>` block (llama.cpp skips the GGUF template). `reply` : `parse`, model text into a `Reply`.
 - `compact` : `ToolSpec`, `compact` (first sentence, not at `e.g.`/`i.e.`, plus required-argument hints like
   `report`'s `facts: 1-4 short lines`; schema without descriptions), `exposed` (routed families + `AskReport`, each tool once).
 - `error` : `LocalAgentError`, opaque, logs only. `bin/oku-slides-local-agent-dev` : test launcher. `eval/requests.json` +
-  `eval_tests`: 36 requests; the ignored test runs Route and the first Act on the configured engine.
+  `eval_tests`: 38 requests; the ignored test runs Route and the first Act on the configured engine.
 
 ## Flow
 

@@ -12,6 +12,8 @@ pub(crate) enum Family {
     Edit,
     /// The deck's knowledge base.
     Knowledge,
+    /// The deck's data tables.
+    Data,
     /// Start, steer and stop a presentation.
     Present,
     /// Open, create, save, merge, history.
@@ -28,9 +30,10 @@ pub(crate) enum Family {
 
 impl Family {
     /// The families the model can pick.
-    pub(crate) const ROUTABLE: [Family; 7] = [
+    pub(crate) const ROUTABLE: [Family; 8] = [
         Family::Edit,
         Family::Knowledge,
+        Family::Data,
         Family::Present,
         Family::Files,
         Family::Packs,
@@ -43,6 +46,7 @@ impl Family {
         match self {
             Family::Edit => "edit",
             Family::Knowledge => "knowledge",
+            Family::Data => "data",
             Family::Present => "present",
             Family::Files => "files",
             Family::Packs => "packs",
@@ -57,6 +61,7 @@ impl Family {
         match self {
             Family::Edit => "change slides, elements, charts, tables or the deck's theme; go to a slide",
             Family::Knowledge => "read, search or write the deck's knowledge base: notes, sources; save or note facts",
+            Family::Data => "read the deck's data: the tables behind its charts and tables",
             Family::Present => "start, steer or stop a presentation",
             Family::Files => "open, create, save, copy, move or merge deck files, or browse their history",
             Family::Packs => "create or edit widget packs, slide layouts and theme designs",
@@ -71,11 +76,11 @@ impl Family {
 
 /// The families of an MCP tool; empty when the tool is unknown.
 pub(crate) fn families_of(tool: &str) -> &'static [Family] {
-    use Family::{AskReport, Configure, Edit, Files, Knowledge, Packs, Present, Troubleshoot};
+    use Family::{AskReport, Configure, Data, Edit, Files, Knowledge, Packs, Present, Troubleshoot};
     match tool {
-        "apply" | "slide" | "focus" | "widgets" | "chart_kind" | "data_list" | "data_read" | "show_as"
-        | "show_params" | "show_variants" | "show_themes" | "show_packs" | "add_pack" | "remove_pack" | "undo"
-        | "redo" | "undo_turn" => &[Edit],
+        "apply" | "slide" | "focus" | "widgets" | "chart_kind" | "show_as" | "show_params" | "show_variants"
+        | "show_themes" | "show_packs" | "add_pack" | "remove_pack" | "undo" | "redo" | "undo_turn" => &[Edit],
+        "data_list" | "data_read" => &[Data],
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
         "knowledge_list" | "knowledge_read" | "knowledge_search" | "knowledge_write" | "knowledge_edit"
