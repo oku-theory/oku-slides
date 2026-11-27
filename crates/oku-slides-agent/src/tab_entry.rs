@@ -23,18 +23,18 @@ use crate::turns::{TurnOut, Turns};
 use crate::voice_port::AppVoice;
 use crate::{AgentEvent, AgentHandle, AgentState, Link, ToolsAccess};
 
-/// Un évènement relayé : canal (`"mcp"`, `"agent"`) et JSON enveloppé.
+/// A relayed event: its channel (`"mcp"`, `"agent"`) and wrapped JSON.
 pub(crate) type Out = (&'static str, String);
 
-/// Un évènement et son onglet, sérialisé tel quel (sans `Value` intermédiaire).
+/// An event and its tab, serialized as is (no intermediate `Value`).
 #[derive(Serialize)]
 struct Envelope<'a, E> {
     tab: &'a str,
     event: &'a E,
 }
 
-/// Envoie sur `channel` le JSON `{"tab": …, "event": …}` ; un évènement
-/// qui ne se sérialise pas est journalisé et sauté (jamais une chaîne vide).
+/// Sends the JSON `{"tab": …, "event": …}` on `channel`; an event that does not serialize
+/// is logged and skipped (never an empty string).
 pub(crate) fn emit(out: &mpsc::UnboundedSender<Out>, channel: &'static str, tab: &str, event: &impl Serialize) {
     match serde_json::to_string(&Envelope { tab, event }) {
         Ok(json) => {
@@ -44,34 +44,34 @@ pub(crate) fn emit(out: &mpsc::UnboundedSender<Out>, channel: &'static str, tab:
     }
 }
 
-/// Le brouillon d'un onglet : son texte (`None` : fermé) et ses images collées.
+/// A tab's draft: its text (`None`: closed) and its attachments.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Draft {
-    /// Le texte écrit ; `None` : brouillon fermé.
+    /// The written text; `None`: the draft is closed.
     pub text: Option<String>,
-    /// Les images collées, dans l'ordre du collage.
-    pub images: Vec<AttachmentRef>,
+    /// The attached images and documents, in the order they were attached.
+    pub attachments: Vec<AttachmentRef>,
 }
 
-/// Ce que la pile utilise d'un onglet, sans garder la table verrouillée.
+/// What the stack uses of a tab, without keeping the table locked.
 #[derive(Debug, Clone)]
 pub(crate) struct TabLink {
     tab: String,
     pub hub: Arc<SurfaceHub>,
-    /// Le gardien de l'onglet : seul passage vers sa conversation.
+    /// The tab's keeper: the only way to its conversation.
     pub keeper: Keeper,
-    /// Vers la tâche qui démarre les outils puis l'agent, et lui relaie les commandes.
+    /// To the task that starts the tools then the agent, and relays the commands to it.
     cmds: mpsc::UnboundedSender<Command>,
     status: Arc<Mutex<AgentState>>,
     /// Why the tab's last turn ran on the local agent; `None`: on the selected one.
     pub fallback: Arc<Mutex<Option<String>>>,
-    /// Le brouillon de l'onglet, tenu pour toutes ses vues.
+    /// The tab's draft, held for all its views.
     draft: Arc<Mutex<Draft>>,
-    /// La session de l'onglet : magasin des images collées.
+    /// The tab's session: the store of its attachments.
     pub session: TabSession,
-    /// Sérialise les collages : le plafond du brouillon et la liste à garder du magasin se lisent et s'écrivent d'un bloc.
+    /// Serializes attaches: the draft's caps and the store's keep list are read and written in one step.
     ///
-    /// Ordre des verrous : celui-ci, puis la session (`TabSession::with`), puis le brouillon ; rien d'autre ne le prend.
+    /// Lock order: this one, then the session (`TabSession::with`), then the draft; nothing else takes it.
     pub paste: Arc<Mutex<()>>,
 }
 
@@ -80,60 +80,62 @@ impl TabLink {
         let _ = self.cmds.send(cmd);
     }
 
-    /// Garde le texte du brouillon et le diffuse ; le fermer (`None`) en retire les images.
+    /// Keeps the draft's text and broadcasts it; closing it (`None`) drops its attachments.
     ///
-    /// Diffusé à toutes les vues de l'onglet, sous le même verrou : l'ordre des diffusions est celui des écritures.
+    /// Broadcast to every view of the tab under the same lock: broadcasts follow the order of the writes.
     pub fn set_draft(&self, out: &mpsc::UnboundedSender<Out>, text: Option<String>, origin: Option<String>) {
         let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
         if text.is_none() {
-            draft.images.clear();
+            draft.attachments.clear();
         }
         draft.text.clone_from(&text);
-        let images = draft.images.clone();
-        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin, images });
+        let attachments = draft.attachments.clone();
+        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin, attachments });
     }
 
     /// Puts `text` in an empty draft and broadcasts it; returns whether it was set.
     ///
-    /// A draft holding non-blank text or images is kept as is; a closed one (`None`) counts as
+    /// A draft holding non-blank text or attachments is kept as is; a closed one (`None`) counts as
     /// empty and opens. Takes only the draft lock, once, so the check and the write are one step.
     pub fn prefill_draft(&self, out: &mpsc::UnboundedSender<Out>, text: String) -> bool {
         let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
-        let held = draft.text.as_deref().is_some_and(|t| !t.trim().is_empty()) || !draft.images.is_empty();
+        let held = draft.text.as_deref().is_some_and(|t| !t.trim().is_empty()) || !draft.attachments.is_empty();
         if held {
             return false;
         }
         draft.text = Some(text.clone());
-        let event = AgentEvent::Draft { text: Some(text), origin: None, images: draft.images.clone() };
+        let event = AgentEvent::Draft { text: Some(text), origin: None, attachments: draft.attachments.clone() };
         emit(out, "agent", &self.tab, &event);
         true
     }
 
-    /// Ajoute une image au brouillon (une fois), en l'ouvrant vide s'il était fermé.
-    pub fn add_image(&self, out: &mpsc::UnboundedSender<Out>, image: AttachmentRef) {
+    /// Adds an attachment to the draft (once), opening it empty if it was closed.
+    pub fn add_attachment(&self, out: &mpsc::UnboundedSender<Out>, attachment: AttachmentRef) {
         let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
-        if !draft.images.iter().any(|i| i.id == image.id) {
-            draft.images.push(image);
+        if !draft.attachments.iter().any(|i| i.id() == attachment.id()) {
+            draft.attachments.push(attachment);
         }
         let text = Some(draft.text.take().unwrap_or_default());
         draft.text.clone_from(&text);
-        emit(out, "agent", &self.tab, &AgentEvent::Draft { text, origin: None, images: draft.images.clone() });
-    }
-
-    /// Retire l'image `id` du brouillon.
-    pub fn remove_image(&self, out: &mpsc::UnboundedSender<Out>, id: &str) {
-        let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
-        draft.images.retain(|i| i.id != id);
-        let event = AgentEvent::Draft { text: draft.text.clone(), origin: None, images: draft.images.clone() };
+        let event = AgentEvent::Draft { text, origin: None, attachments: draft.attachments.clone() };
         emit(out, "agent", &self.tab, &event);
     }
 
-    /// Les images du brouillon.
-    pub fn draft_images(&self) -> Vec<AttachmentRef> {
-        self.draft.lock().unwrap_or_else(PoisonError::into_inner).images.clone()
+    /// Removes attachment `id` from the draft.
+    pub fn remove_attachment(&self, out: &mpsc::UnboundedSender<Out>, id: &str) {
+        let mut draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
+        draft.attachments.retain(|i| i.id() != id);
+        let event =
+            AgentEvent::Draft { text: draft.text.clone(), origin: None, attachments: draft.attachments.clone() };
+        emit(out, "agent", &self.tab, &event);
     }
 
-    /// Envoie l'état de l'agent et le brouillon ; les surfaces des tours sont rejouées par le hub.
+    /// The draft's attachments.
+    pub fn draft_attachments(&self) -> Vec<AttachmentRef> {
+        self.draft.lock().unwrap_or_else(PoisonError::into_inner).attachments.clone()
+    }
+
+    /// Sends the agent's state and the draft; the hub replays the turns' surfaces.
     pub fn replay(&self, out: &mpsc::UnboundedSender<Out>) {
         let state = *self.status.lock().unwrap_or_else(PoisonError::into_inner);
         emit(out, "agent", &self.tab, &AgentEvent::Status { state });
@@ -141,9 +143,10 @@ impl TabLink {
         if reason.is_some() {
             emit(out, "agent", &self.tab, &AgentEvent::Fallback { reason });
         }
-        // Sous le verrou, comme `set_draft` : jamais un brouillon périmé diffusé après un plus récent.
+        // Under the lock, as in `set_draft`: a stale draft is never broadcast after a newer one.
         let draft = self.draft.lock().unwrap_or_else(PoisonError::into_inner);
-        let event = AgentEvent::Draft { text: draft.text.clone(), origin: None, images: draft.images.clone() };
+        let event =
+            AgentEvent::Draft { text: draft.text.clone(), origin: None, attachments: draft.attachments.clone() };
         emit(out, "agent", &self.tab, &event);
     }
 }
@@ -197,7 +200,7 @@ impl TabEntry {
         let fallback = Arc::new(Mutex::new(None));
         let closed = cancel.clone();
         let mcp = hub.subscribe();
-        // Après l'abonnement du relais : la liste qu'envoie la relecture des fils n'est jamais perdue.
+        // After the relay subscribed: the list the thread replay sends is never lost.
         let keeper = {
             let _rt = rt.enter();
             Keeper::spawn(session.clone(), hub.clone())
@@ -250,17 +253,13 @@ impl TabEntry {
 
 impl Drop for TabEntry {
     fn drop(&mut self) {
-        // Une réponse en attente ne doit jamais bloquer l'arrêt du serveur
-        // d'outils ; une question posée ensuite (permission ACP tardive) non plus.
+        // A pending answer must never block the tool server's shutdown, nor must a question
+        // asked afterwards (a late ACP permission).
         self.link.hub.close();
         self.cancel.cancel();
     }
 }
 
-/// Relaie le hub. Si le relais a pris du retard, un `changed` fait tout
-/// relire à l'interface et `surfaces` lui redonne la liste entière. Faible :
-/// le relais ne doit pas garder le hub (et son émetteur) en vie, sinon `recv`
-/// ne rendrait jamais `Closed`. S'arrête à la fermeture de l'onglet (`closed`).
 /// Where a tab's hub events go: the interface, and the read-aloud.
 struct McpRelay {
     tab: String,
@@ -269,6 +268,10 @@ struct McpRelay {
     reader: Option<crate::reader::ReaderTx>,
 }
 
+/// Relays the hub. When the relay falls behind, a `changed` makes the interface reread
+/// everything and `surfaces` gives it the whole list again. The hub is held weakly: the relay
+/// must not keep the hub (and its sender) alive, or `recv` would never return `Closed`. Stops
+/// when the tab closes (`closed`).
 async fn relay_mcp(to: McpRelay, mut rx: broadcast::Receiver<McpEvent>, closed: CancellationToken) {
     let McpRelay { tab, hub, out, reader } = to;
     loop {
@@ -288,11 +291,11 @@ async fn relay_mcp(to: McpRelay, mut rx: broadcast::Receiver<McpEvent>, closed: 
             }
             Err(RecvError::Lagged(_)) => {
                 emit(&out, "mcp", &tab, &McpEvent::Changed);
-                // Les évènements encore en file rejouent ensuite par-dessus : sans
-                // risque : `surface` et `surface_patch` écrivent des clés entières (le rejeu
-                // converge) et `close_surface` est idempotent. Une commande de la page perdue
-                // (`present`, `interface`, `open_history`) ne se rejoue pas : son outil a déjà
-                // répondu (l'historique, lui, attend d'être ouvert, et le dit sinon).
+                // The events still queued replay on top, safely: `surface` and
+                // `surface_patch` write whole keys (the replay converges) and `close_surface` is
+                // idempotent. A lost page command (`present`, `interface`, `open_history`) is not
+                // replayed: its tool already answered (the history waits to be opened, and says
+                // so otherwise).
                 let Some(hub) = hub.upgrade() else { return };
                 let list = hub.visible_surfaces();
                 emit(&out, "mcp", &tab, &McpEvent::Surfaces { list });
@@ -302,14 +305,14 @@ async fn relay_mcp(to: McpRelay, mut rx: broadcast::Receiver<McpEvent>, closed: 
     }
 }
 
-/// Le relais des évènements de l'agent d'un onglet.
+/// The relay of a tab's agent events.
 ///
-/// L'état et la disponibilité partent à l'interface, le reste met à jour les surfaces des tours ;
-/// plus rien une fois l'onglet fermé (`closed`), même si son agent n'a pas encore fini de s'arrêter.
+/// State and availability go to the interface, the rest updates the turns' surfaces; nothing
+/// goes once the tab is closed (`closed`), even if its agent has not finished stopping.
 struct Relay {
     tab: String,
     hub: Arc<SurfaceHub>,
-    /// Écrit le fil d'un tour fini.
+    /// Writes the thread of an ended turn.
     keeper: Keeper,
     localizer: oku_slides_i18n::LiveLocalizer,
     turns: Turns,
@@ -336,7 +339,7 @@ impl Relay {
             }
             _ => {}
         }
-        // Tous les évènements, `Status` compris, passent aux tours (le repos clôt un tour dont la fin s'est perdue).
+        // Every event, `Status` included, goes to the turns (idle ends a turn whose end was lost).
         for out in self.turns.apply(e, Instant::now(), &self.localizer.current()) {
             match out {
                 TurnOut::Show(surface) => self.hub.emit(McpEvent::surface(surface)),
@@ -361,7 +364,7 @@ impl Relay {
             match received {
                 Ok(e) => self.emit(&e),
                 Err(RecvError::Lagged(n)) => {
-                    // Évènements perdus : le tour se clôt au retour de l'agent au repos (voir `Turns`).
+                    // Events lost: the turn ends when the agent is idle again (see `Turns`).
                     tracing::debug!(tab = %self.tab, lost = n, "relais de l'agent en retard");
                 }
                 Err(RecvError::Closed) => return,
@@ -472,12 +475,12 @@ impl Agent {
         self.keeper.restored().await;
         // Each prompt gets the error in the thread, in the language of the moment.
         while let Some(cmd) = next(&cancel, &mut rx).await {
-            if let Command::Prompt(Instruction { text, images, origin, .. }) = cmd {
+            if let Command::Prompt(Instruction { text, attachments, origin, .. }) = cmd {
                 let n = self.hub.begin_turn_from(origin);
                 relay.emit(&AgentEvent::UserText {
                     turn: n,
                     text,
-                    images: images.iter().map(AttachmentRef::shown).collect(),
+                    images: attachments.iter().filter_map(AttachmentRef::shown).collect(),
                 });
                 let message = say(&self.localizer.current());
                 relay.emit(&AgentEvent::Error { turn: n, message, spoken: SpokenFailure::NoTools });

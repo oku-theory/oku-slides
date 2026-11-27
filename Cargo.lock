@@ -4921,7 +4921,6 @@ dependencies = [
  "bitflags 2.13.2",
  "brotli-decompressor 5.0.3",
  "cbc 0.2.1",
- "chrono",
  "ecb",
  "encoding_rs",
  "flate2",
@@ -4933,7 +4932,6 @@ dependencies = [
  "nom 8.0.0",
  "rand 0.10.3",
  "rangemap",
- "rayon",
  "sha2 0.11.0",
  "stringprep",
  "thiserror 2.0.21",
@@ -6253,6 +6251,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "oku-slides-extract"
+version = "12.3.0"
+dependencies = [
+ "insta",
+ "lopdf",
+ "oku-slides-core",
+ "oku-slides-import",
+ "png 0.18.1",
+ "pulldown-cmark",
+ "roxmltree 0.21.1",
+ "snafu",
+ "speculoos",
+ "zip",
+]
+
+[[package]]
 name = "oku-slides-i18n"
 version = "12.3.0"
 dependencies = [
@@ -6444,7 +6458,9 @@ dependencies = [
  "libc",
  "oku-slides-core",
  "oku-slides-data",
+ "oku-slides-extract",
  "oku-slides-i18n",
+ "oku-slides-import",
  "oku-slides-platform",
  "oku-slides-reference",
  "oku-slides-render",
@@ -6457,6 +6473,7 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "tracing",
+ "zip",
 ]
 
 [[package]]
@@ -6465,6 +6482,7 @@ version = "12.3.0"
 dependencies = [
  "async-trait",
  "fontdb",
+ "getrandom 0.3.4",
  "hex",
  "insta",
  "loro",

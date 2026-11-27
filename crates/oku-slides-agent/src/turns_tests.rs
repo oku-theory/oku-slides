@@ -625,7 +625,7 @@ fn turns_conversation_event_clears_every_turn() {
 fn apply_draft_event_emits_nothing() {
     let mut turns = Turns::default();
     let out = turns.apply(
-        &AgentEvent::Draft { text: Some("x".into()), origin: None, images: Vec::new() },
+        &AgentEvent::Draft { text: Some("x".into()), origin: None, attachments: Vec::new() },
         Instant::now(),
         &fr(),
     );

@@ -16,7 +16,7 @@ pub const MAX_ORIGIN_BYTES: usize = 64;
 pub enum AgentCommand {
     /// An instruction for the tab's agent.
     ///
-    /// With pasted images (`images`), it is never taken for an answer to a question nor for a
+    /// With attachments (`attachments`), it is never taken for an answer to a question nor for a
     /// shortcut word.
     Prompt {
         /// The target tab.
@@ -30,9 +30,9 @@ pub enum AgentCommand {
         /// (`quickTarget`). Absent, or a question no longer waiting: an ordinary instruction.
         #[serde(default)]
         answer: Option<String>,
-        /// The pasted images sent with the instruction (draft ids `sha256:…`).
+        /// The draft's attachments sent with the instruction (ids `sha256:…`): images and documents.
         #[serde(default)]
-        images: Vec<String>,
+        attachments: Vec<String>,
     },
     /// Fine-tunes the imported tab: a turn in the tab's conversation, starting the agent.
     ///
@@ -88,20 +88,24 @@ pub enum AgentCommand {
         /// The view writing it, returned with the echo.
         origin: Option<String>,
     },
-    /// A pasted image (`data`: its bytes in base64), added to the tab's draft.
+    /// An attachment (`data`: its bytes in base64), added to the tab's draft: an image, or in a
+    /// deck tab a document.
     ///
-    /// Refused without a started agent, beyond `[paste] max_draft_images`, or by the session.
-    PasteImage {
+    /// Refused without a started agent, beyond `[paste] max_draft_images` images or
+    /// `max_draft_documents` documents, or by the session.
+    Attach {
         /// The target tab.
         tab: String,
-        /// The image bytes, in base64.
+        /// The file name; a document's kind is checked against its extension.
+        name: String,
+        /// The bytes, in base64.
         data: String,
     },
-    /// Removes image `id` from the draft.
-    RemoveImage {
+    /// Removes attachment `id` from the draft.
+    RemoveAttachment {
         /// The target tab.
         tab: String,
-        /// Id of the image to remove.
+        /// Id of the attachment to remove.
         id: String,
     },
     /// The interface opens the deck's packs panel: the surface goes to this tab.
@@ -173,8 +177,8 @@ impl AgentCommand {
             | Self::Resync { tab }
             | Self::Follow { tab }
             | Self::SetDraft { tab, .. }
-            | Self::PasteImage { tab, .. }
-            | Self::RemoveImage { tab, .. }
+            | Self::Attach { tab, .. }
+            | Self::RemoveAttachment { tab, .. }
             | Self::ShowPacks { tab }
             | Self::ShowThemes { tab, .. }
             | Self::ShowSettings { tab }

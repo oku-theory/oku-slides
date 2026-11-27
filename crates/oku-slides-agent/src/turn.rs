@@ -35,8 +35,10 @@ pub(crate) struct Pending {
 ///
 /// The prompt: the instructions (the session's first turn: the core, the tab kind's
 /// paragraph, then the widget text outside a theme tab), the import's (a fine-tuning
-/// turn), the context, the pasted images, then the instruction's text, always last.
-/// `see_images`: the agent gets image blocks. `prompting` is called just before `session/prompt` is sent.
+/// turn), the context, the attached images, the attached documents' block, then the
+/// instruction's text, always last.
+/// `see_images`: the agent gets image blocks. `agent` names the agent in the knowledge stamps.
+/// `prompting` is called just before `session/prompt` is sent.
 #[expect(
     clippy::too_many_arguments,
     reason = "the parameters come from the ACP connection; grouping them would add a type with no other use"
@@ -50,9 +52,10 @@ pub(crate) async fn run(
     instruction: Instruction,
     first: bool,
     see_images: bool,
+    agent: Option<String>,
     prompting: impl FnOnce(),
 ) -> agent_client_protocol::Result<(Pending, Option<Usage>)> {
-    let Instruction { text, ui, tune, images, .. } = instruction;
+    let Instruction { text, ui, tune, attachments, .. } = instruction;
     let tab = ctx.tab.clone();
     let text_for_begin = text.clone();
     // The guides and the knowledge index are sent again to an ACP session that does not hold them.
@@ -60,10 +63,12 @@ pub(crate) async fn run(
     let blocking = tokio::task::spawn_blocking(move || {
         tab.with(|s| {
             s.begin_turn(turn, &text_for_begin);
-            let pasted: Vec<_> = images
+            // Named in the stamps of the knowledge files the turn writes; `end_turn` clears it.
+            s.set_agent_label(agent.as_deref());
+            let pasted: Vec<_> = attachments
                 .into_iter()
                 .map(|r| {
-                    let bytes = s.pasted_image(&r.id).map(|(_, b)| b);
+                    let bytes = s.attached(r.id()).map(|(_, b)| b);
                     (r, bytes)
                 })
                 .collect();
@@ -120,6 +125,7 @@ pub(crate) async fn run(
     }
     blocks.push(ContentBlock::Text(TextContent::new(context)));
     blocks.extend(crate::prompt_images::image_blocks(&pasted, see_images, ctx.prompt_limits));
+    blocks.extend(crate::prompt_images::document_block(&pasted));
     blocks.push(ContentBlock::Text(TextContent::new(text)));
     prompting();
     let request = cx.send_request(PromptRequest::new(session.clone(), blocks)).block_task();

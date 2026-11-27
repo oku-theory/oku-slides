@@ -92,6 +92,19 @@ pub fn trunc_usize(v: f64) -> usize {
     v as usize
 }
 
+/// A `usize` count or size as a `u64`, exact: no supported target has a wider `usize`.
+#[must_use]
+pub fn count_u64(n: usize) -> u64 {
+    const _: () = assert!(usize::BITS <= u64::BITS, "count_u64 assumes a usize of at most 64 bits");
+    n as u64
+}
+
+/// A 64-bit size or count as a `usize`, saturated at `usize::MAX` where it is narrower.
+#[must_use]
+pub fn size_usize(n: u64) -> usize {
+    usize::try_from(n).unwrap_or(usize::MAX)
+}
+
 /// `v` in single precision, to nearest; outside `f32`, infinity of the same sign.
 #[must_use]
 #[expect(clippy::cast_possible_truncation, reason = "rounding to f32 precision is the intended conversion")]

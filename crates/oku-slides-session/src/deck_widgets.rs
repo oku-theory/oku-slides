@@ -430,6 +430,12 @@ impl Session {
         // Mode pack : une op sur la slide d'un layout s'écrit dans son exemple (`layout_examples`).
         let pack_ops = matches!(self.mode, crate::Mode::Pack { .. }).then(|| ops.clone());
         let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
+        // An agent's knowledge writes get their provenance in this same batch (`knowledge_write`).
+        if let Some(authored) = &authored
+            && self.turn_touches.recording()
+        {
+            self.stamp_knowledge_writes(&mut next, authored, &registry)?;
+        }
         // Une image collée que le deck cite désormais entre dans les sources (en ajout seul).
         self.embed_op_assets(&next, &registry)?;
         // Pack mode takes no knowledge op (`ensure_caller_ops`): nothing to approve on this path.

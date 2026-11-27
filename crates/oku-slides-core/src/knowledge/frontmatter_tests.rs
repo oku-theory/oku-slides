@@ -242,6 +242,7 @@ fn every_frontmatter_reason_key_exists_in_every_locale() {
         FrontmatterReason::Tag,
         FrontmatterReason::TooDeep,
         FrontmatterReason::AfterDocumentEnd,
+        FrontmatterReason::FlowMapping,
         FrontmatterReason::TypeMissing,
         bad_at("generated.at"),
         FrontmatterReason::NotAllowed { key: "k".to_owned() },
@@ -301,4 +302,28 @@ proptest! {
         let _ = check_text(&path, &text);
         let _ = check_text(&index, &text);
     }
+}
+
+/// t-1760: a top-level mapping's scalar entries are read in file order, nulls and nested values
+/// left out, so the session reads an import's `part`, `of`, `series` and `body` from it.
+#[test]
+fn scalar_mapping_reads_scalars_in_order() {
+    let text = concept("type: R\nx-import: {type: \"PDF\", part: 2, of: 3, gone: ~, nested: {a: 1}, list: [1]}");
+    let entries = scalar_mapping(&text, "x-import").unwrap().unwrap();
+    let expected: Vec<(String, String)> =
+        [("type", "PDF"), ("part", "2"), ("of", "3")].map(|(k, v)| (k.to_owned(), v.to_owned())).into();
+    assert_that!(entries).is_equal_to(expected);
+}
+
+#[rstest]
+#[case::absent("type: R")]
+#[case::scalar("type: R\nx-import: yes")]
+#[case::sequence("type: R\nx-import: [1, 2]")]
+fn scalar_mapping_absent_or_not_a_mapping_is_none(#[case] yaml: &str) {
+    assert_that!(scalar_mapping(&concept(yaml), "x-import")).is_equal_to(Ok(None));
+}
+
+#[test]
+fn scalar_mapping_unreadable_frontmatter_is_its_reason() {
+    assert_that!(scalar_mapping("no frontmatter\n", "x-import")).is_equal_to(Err(FrontmatterReason::Missing));
 }

@@ -161,7 +161,20 @@ ui-draft-send-title = Naar de agent sturen (⌘↩)
 ui-draft-discard = Weggooien
 ui-pasted-image = { $type } { $size }
 ui-draft-images = Geplakte afbeeldingen
+ui-draft-attachments = Bijlagen
 ui-draft-remove-image = Deze afbeelding verwijderen
+ui-attachment-remove = { $name } verwijderen
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } kB
+}
+ui-attach-empty = { $name } is leeg.
+ui-attach-too-large = { $name } is groter dan de limiet van { NUMBER($mb) } MB.
+ui-attach-too-many-images = Het concept bevat al zoveel afbeeldingen als mogelijk ({ $max }).
+ui-attach-too-many-documents = Het concept bevat al zoveel documenten als mogelijk ({ $max }).
+ui-attach-not-ready = Bijlagen zijn nog niet klaar: probeer het zo opnieuw.
+ui-attach-too-many-files = Te veel bestanden tegelijk: de limiet is { $max }.
+ui-attach-files = Bestanden bijvoegen
 ui-draft-send-needs-text = Zeg wat ermee moet gebeuren
 ui-agent-state-idle = Agent
 ui-agent-state-starting = De agent start…

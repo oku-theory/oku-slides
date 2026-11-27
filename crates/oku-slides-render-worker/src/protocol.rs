@@ -5,12 +5,14 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 use oku_slides_core::PackKind;
+use oku_slides_core::knowledge::{Cut, DocumentType, ExtractLimits, ExtractRefusal};
 use oku_slides_data::{BaseRef, ColumnType, DataError, Dataset};
+use oku_slides_import::ReadLimits;
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 8;
+pub(crate) const PROTOCOL_VERSION: u32 = 9;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
@@ -160,6 +162,21 @@ pub(crate) enum Request {
     ReleaseReference {
         reference: u64,
     },
+    /// Extracts the document of the payload, of kind `kind`, within `limits` and `read`;
+    /// `token` names its image placeholders (`oku-image-<token>-<i>`).
+    ExtractDocument {
+        kind: DocumentType,
+        limits: ExtractLimits,
+        read: ReadLimits,
+        token: String,
+    },
+}
+
+/// One image of an [`Response::Extracted`] reply: its media type and its length in the payload.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct ImageMeta {
+    pub(crate) mime: String,
+    pub(crate) len: usize,
 }
 
 /// Ce que le travailleur dit d'un rendu réussi.
@@ -216,6 +233,18 @@ pub(crate) enum Response {
     /// A `Render` refused: these listed assets were never received (t-1295).
     MissingAssets {
         ids: Vec<String>,
+    },
+    /// An extracted document. Payload: its `markdown_len` bytes of Markdown, then each image
+    /// of `images` in order; `cut` says what was left out, images past the frame included.
+    Extracted {
+        title: Option<String>,
+        markdown_len: usize,
+        images: Vec<ImageMeta>,
+        cut: Vec<Cut>,
+    },
+    /// The document of an `ExtractDocument` cannot be imported.
+    ExtractRefused {
+        refusal: ExtractRefusal,
     },
     /// A `Render` refused: these listed data were never received.
     MissingData {

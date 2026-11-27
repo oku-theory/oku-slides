@@ -167,7 +167,20 @@ ui-draft-send-title = Надіслати агенту (⌘↩)
 ui-draft-discard = Видалити
 ui-pasted-image = { $type } { $size }
 ui-draft-images = Вставлені зображення
+ui-draft-attachments = Вкладення
 ui-draft-remove-image = Прибрати це зображення
+ui-attachment-remove = Прибрати { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } МБ
+   *[kb] { NUMBER($size) } КБ
+}
+ui-attach-empty = { $name } порожній.
+ui-attach-too-large = { $name } перевищує обмеження в { NUMBER($mb) } МБ.
+ui-attach-too-many-images = У чернетці вже максимум зображень ({ $max }).
+ui-attach-too-many-documents = У чернетці вже максимум документів ({ $max }).
+ui-attach-not-ready = Вкладення ще не готові: спробуйте трохи пізніше.
+ui-attach-too-many-files = Забагато файлів одразу: межа — { $max }.
+ui-attach-files = Прикріпити файли
 ui-draft-send-needs-text = Скажіть, що з ним зробити
 ui-agent-state-idle = Агент
 ui-agent-state-starting = Агент запускається…

@@ -266,7 +266,8 @@ impl SourcesSettings {
     }
 }
 
-/// Bornes des images collées dans le brouillon de l'agent (`[paste]`).
+/// Bounds of what is attached to the agent's draft (`[paste]`): pasted images and, in a deck tab,
+/// documents.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[non_exhaustive]
 pub struct PasteSettings {
@@ -276,7 +277,11 @@ pub struct PasteSettings {
     pub max_image_pixels: u64,
     /// Images au plus dans un brouillon.
     pub max_draft_images: usize,
-    /// Taille cumulée des images gardées par onglet (Mio).
+    /// Size limit of one attached document (MiB), at most [`Self::MAX_DOCUMENT_MIB_MAX`].
+    pub max_document_mib: NonZeroUsize,
+    /// Documents at most in one draft.
+    pub max_draft_documents: NonZeroUsize,
+    /// Total size of the attachments (images and documents) a tab keeps (MiB).
     pub max_kept_mib: usize,
     /// Plus grande image envoyée à l'agent en bloc image (Mio).
     pub prompt_image_mib: usize,
@@ -334,6 +339,23 @@ impl PromptImageLimits {
 }
 
 impl PasteSettings {
+    /// Attachments at most in one draft: [`Self::max_draft_images`] plus
+    /// [`Self::max_draft_documents`], saturating.
+    #[must_use]
+    pub fn max_draft_attachments(&self) -> usize {
+        self.max_draft_images.saturating_add(self.max_draft_documents.get())
+    }
+
+    /// Ceiling of [`Self::max_document_mib`]: base64 of 47 MiB (about 62.7 MiB) plus its JSON
+    /// envelope fits the dev server's `MAX_BODY` (64 MiB); 48 would not.
+    pub const MAX_DOCUMENT_MIB_MAX: usize = 47;
+
+    /// [`Self::max_document_mib`] in bytes, at most [`Self::MAX_DOCUMENT_MIB_MAX`] MiB.
+    #[must_use]
+    pub fn max_document_bytes(&self) -> usize {
+        self.max_document_mib.get().min(Self::MAX_DOCUMENT_MIB_MAX).saturating_mul(1024 * 1024)
+    }
+
     /// [`Self::max_image_mib`] en octets.
     #[must_use]
     pub fn max_image_bytes(&self) -> usize {
@@ -422,10 +444,12 @@ pub struct UsageSettings {
     pub store_in_deck: bool,
 }
 
-/// Limits on what the agent reads of the deck knowledge base (`[knowledge]`).
+/// Limits on what the agent reads of the deck knowledge base, and on importing documents into it
+/// (`[knowledge]`).
 ///
 /// Each value can only lower its ceiling: a larger one counts as the ceiling. Zero is refused at
-/// load: no index line, no index byte or no search hit would ever be given.
+/// load: no index line, no index byte, no search hit, no sheet cell or no extraction would ever
+/// be given.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[non_exhaustive]
 pub struct KnowledgeSettings {
@@ -435,6 +459,14 @@ pub struct KnowledgeSettings {
     pub index_kib: NonZeroUsize,
     /// Maximum number of hits one knowledge search returns.
     pub search_hits: NonZeroUsize,
+    /// Rows kept per sheet of an imported spreadsheet.
+    pub sheet_rows: NonZeroUsize,
+    /// Columns kept per sheet of an imported spreadsheet.
+    pub sheet_columns: NonZeroUsize,
+    /// Time limit of one document extraction worker (ms).
+    pub extract_timeout_ms: NonZeroU64,
+    /// Memory limit of one document extraction worker (MiB).
+    pub extract_memory_mib: NonZeroU64,
 }
 
 impl KnowledgeSettings {
@@ -444,6 +476,14 @@ impl KnowledgeSettings {
     pub const INDEX_KIB_MAX: usize = 64;
     /// Ceiling of [`Self::search_hits`].
     pub const SEARCH_HITS_MAX: usize = 200;
+    /// Ceiling of [`Self::sheet_rows`].
+    pub const SHEET_ROWS_MAX: usize = 20_000;
+    /// Ceiling of [`Self::sheet_columns`].
+    pub const SHEET_COLUMNS_MAX: usize = 256;
+    /// Ceiling of [`Self::extract_timeout_ms`].
+    pub const EXTRACT_TIMEOUT_MS_MAX: u64 = 600_000;
+    /// Ceiling of [`Self::extract_memory_mib`].
+    pub const EXTRACT_MEMORY_MIB_MAX: u64 = 2048;
 
     /// [`Self::index_entries`], at most [`Self::INDEX_ENTRIES_MAX`].
     #[must_use]
@@ -461,6 +501,30 @@ impl KnowledgeSettings {
     #[must_use]
     pub fn effective_search_hits(&self) -> usize {
         self.search_hits.get().min(Self::SEARCH_HITS_MAX)
+    }
+
+    /// [`Self::sheet_rows`], at most [`Self::SHEET_ROWS_MAX`].
+    #[must_use]
+    pub fn effective_sheet_rows(&self) -> usize {
+        self.sheet_rows.get().min(Self::SHEET_ROWS_MAX)
+    }
+
+    /// [`Self::sheet_columns`], at most [`Self::SHEET_COLUMNS_MAX`].
+    #[must_use]
+    pub fn effective_sheet_columns(&self) -> usize {
+        self.sheet_columns.get().min(Self::SHEET_COLUMNS_MAX)
+    }
+
+    /// [`Self::extract_timeout_ms`], at most [`Self::EXTRACT_TIMEOUT_MS_MAX`].
+    #[must_use]
+    pub fn effective_extract_timeout_ms(&self) -> u64 {
+        self.extract_timeout_ms.get().min(Self::EXTRACT_TIMEOUT_MS_MAX)
+    }
+
+    /// [`Self::extract_memory_mib`], at most [`Self::EXTRACT_MEMORY_MIB_MAX`].
+    #[must_use]
+    pub fn effective_extract_memory_mib(&self) -> u64 {
+        self.extract_memory_mib.get().min(Self::EXTRACT_MEMORY_MIB_MAX)
     }
 }
 

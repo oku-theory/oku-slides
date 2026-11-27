@@ -335,6 +335,30 @@ fn serve_hello_answers_the_worker_protocol_version() {
         .is_true();
 }
 
+/// Version 9 merges `ExtractDocument` (t-1755) with the data requests (t-1690): `Hello` answers it.
+#[test]
+fn protocol_version_matches_constant() {
+    let mut h = Harness::new();
+    let (resp, _) = h.call(&Request::Hello { version: PROTOCOL_VERSION, canary: None, bases: None }, &[]);
+    assert_that!(PROTOCOL_VERSION).is_equal_to(9);
+    assert_that!(matches!(resp, Response::Hello { version, .. } if version == PROTOCOL_VERSION)).is_true();
+}
+
+#[test]
+fn serve_extract_document_answers_the_extraction_in_its_payload() {
+    let mut h = Harness::new();
+    let req = Request::ExtractDocument {
+        kind: oku_slides_core::knowledge::DocumentType::Text,
+        limits: crate::test_documents::limits(),
+        read: crate::test_documents::read(),
+        token: crate::test_documents::TOKEN.into(),
+    };
+    let (resp, payload) = h.call(&req, b"plain words");
+    let Response::Extracted { markdown_len, images, .. } = resp else { panic!("{resp:?}") };
+    assert_that!((markdown_len, images.len())).is_equal_to((payload.len(), 0));
+    assert_that!(String::from_utf8(payload).unwrap()).contains("plain words");
+}
+
 #[test]
 fn serve_drop_fonts_forgets_them_for_the_next_slots() {
     let mut h = Harness::new();

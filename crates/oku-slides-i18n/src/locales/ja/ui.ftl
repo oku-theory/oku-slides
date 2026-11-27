@@ -161,7 +161,20 @@ ui-draft-send-title = エージェントに送信 (⌘↩)
 ui-draft-discard = 破棄
 ui-pasted-image = { $type } { $size }
 ui-draft-images = 貼り付けた画像
+ui-draft-attachments = 添付ファイル
 ui-draft-remove-image = この画像を削除
+ui-attachment-remove = { $name } を削除
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } は空です。
+ui-attach-too-large = { $name } は上限の { NUMBER($mb) }MB を超えています。
+ui-attach-too-many-images = 下書きにはこれ以上画像を追加できません（{ $max }）。
+ui-attach-too-many-documents = 下書きにはこれ以上文書を追加できません（{ $max }）。
+ui-attach-not-ready = 添付の準備がまだできていません。少ししてからもう一度お試しください。
+ui-attach-too-many-files = 一度に添付するファイルが多すぎます（上限は{ $max }個）。
+ui-attach-files = ファイルを添付
 ui-draft-send-needs-text = この画像をどうするか指示してください
 ui-agent-state-idle = エージェント
 ui-agent-state-starting = エージェントを起動中…

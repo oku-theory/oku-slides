@@ -3,6 +3,8 @@ use oku_slides_i18n::{Localize, Localizer};
 use serde_json::json;
 use speculoos::prelude::*;
 
+use crate::agent::Upload;
+
 use super::*;
 use crate::import::{ImportErrorKind, ImportRequest, ImportTarget, PackLookup, import};
 use crate::test_support::{fresh_dir, opened_on, png, pptx_fixture, session, session_on, settings_on};
@@ -40,12 +42,12 @@ fn ensure_sources_room_over_budget_refuses_with_kind() {
 #[test]
 fn embed_op_assets_over_budget_adds_nothing() {
     let mut s = session();
-    let pasted = s.paste_image(png(4, 4, 21), &[]).unwrap();
+    let pasted = s.attach(Upload::new(png(4, 4, 21), ""), &[]).unwrap();
     tight(&mut s);
     let deck = s.doc.sources.deck().clone();
-    let e = s.apply("image", vec![set_image(&pasted.id)], None).unwrap_err();
+    let e = s.apply("image", vec![set_image(pasted.id())], None).unwrap_err();
     assert_that!(e.kind()).is_equal_to(SessionErrorKind::SourcesOverBudget);
-    assert_that!(s.doc.sources.assets.contains_key(&pasted.id)).is_false();
+    assert_that!(s.doc.sources.assets.contains_key(pasted.id())).is_false();
     assert_that!(s.doc.sources.deck()).is_equal_to(&deck);
 }
 
@@ -96,8 +98,8 @@ fn merge_over_budget_refuses() {
     // Their copy of the same deck brings an image ours does not hold.
     let mut theirs = session_on(data.path());
     theirs.open(&path).unwrap();
-    let pasted = theirs.paste_image(png(4, 4, 23), &[]).unwrap();
-    theirs.apply("image", vec![set_image(&pasted.id)], None).unwrap();
+    let pasted = theirs.attach(Upload::new(png(4, 4, 23), ""), &[]).unwrap();
+    theirs.apply("image", vec![set_image(pasted.id())], None).unwrap();
     let copy = data.path().join("copie.oku-slides.pdf");
     theirs.save(Some(&copy)).unwrap();
     // Ours holds a heavier asset theirs lacks: their copy alone reads within the budget.
@@ -105,7 +107,7 @@ fn merge_over_budget_refuses() {
     tight(&mut ours);
     let e = ours.merge_file(&copy).unwrap_err();
     assert_that!(e.kind()).is_equal_to(SessionErrorKind::SourcesOverBudget);
-    assert_that!(ours.doc.sources.assets.contains_key(&pasted.id)).is_false();
+    assert_that!(ours.doc.sources.assets.contains_key(pasted.id())).is_false();
 }
 
 /// A grey PNG of `side` × `side` pixels that deflate cannot shrink.

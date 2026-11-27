@@ -157,7 +157,8 @@ impl Session {
     /// Closes the turn's group, on the deck set aside too (pack mode, history); returns its traces.
     ///
     /// A deck-pack tab's outbox becomes due (`mark_due`); an owner deck asks
-    /// for its links' parked sends (`pull_links`). No turn open: no traces.
+    /// for its links' parked sends (`pull_links`). No turn open: no traces. The agent label of
+    /// the knowledge stamps is cleared (`set_agent_label`).
     pub fn end_turn(&mut self) -> Vec<Trace> {
         self.end_widget_session();
         self.doc.sources.end_group();
@@ -165,6 +166,7 @@ impl Session {
             stash.sources.end_group();
         }
         self.turn_steps_end();
+        self.agent_label = None;
         // A deck-pack tab's saves of the turn go to its owner; an owner pulls its parked ones.
         self.mark_due();
         self.pull_links();

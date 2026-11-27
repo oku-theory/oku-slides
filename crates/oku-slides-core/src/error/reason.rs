@@ -332,6 +332,8 @@ pub enum FrontmatterReason {
     TooDeep,
     /// Text follows a YAML document end (`...`) inside the block.
     AfterDocumentEnd,
+    /// The block is not one block mapping with one key per line, or it has a `...` end.
+    FlowMapping,
     /// A concept file has no non-empty `type`.
     TypeMissing,
     /// `generated` is not a mapping whose `at` is an RFC 3339 timestamp with an offset.
@@ -361,6 +363,7 @@ impl FrontmatterReason {
             FrontmatterReason::Tag => "knowledge-frontmatter-tag",
             FrontmatterReason::TooDeep => "knowledge-frontmatter-too-deep",
             FrontmatterReason::AfterDocumentEnd => "knowledge-frontmatter-after-document-end",
+            FrontmatterReason::FlowMapping => "knowledge-frontmatter-flow-mapping",
             FrontmatterReason::TypeMissing => "knowledge-frontmatter-type-missing",
             FrontmatterReason::BadTimestamp { .. } => "knowledge-frontmatter-bad-timestamp",
             FrontmatterReason::NotAllowed { .. } => "knowledge-frontmatter-not-allowed",
@@ -402,6 +405,9 @@ impl std::fmt::Display for FrontmatterReason {
             FrontmatterReason::TooDeep => f.write_str("the frontmatter is nested too deeply"),
             FrontmatterReason::AfterDocumentEnd => {
                 f.write_str("the frontmatter has text after the YAML document end ...")
+            }
+            FrontmatterReason::FlowMapping => {
+                f.write_str("the frontmatter must be one block mapping, one key per line, without a `...` end")
             }
             FrontmatterReason::TypeMissing => f.write_str("the frontmatter needs a non-empty type"),
             FrontmatterReason::BadTimestamp { key } => {

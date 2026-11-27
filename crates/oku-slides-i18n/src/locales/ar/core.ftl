@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = لا يجوز أن تستخدم الترويسة �
 knowledge-frontmatter-tag = لا يجوز أن تستخدم الترويسة وسوم YAML
 knowledge-frontmatter-too-deep = الترويسة متداخلة بعمق زائد
 knowledge-frontmatter-after-document-end = الترويسة تحتوي على نص بعد نهاية المستند ...
+knowledge-frontmatter-flow-mapping = يجب أن تكون الترويسة تعيينًا كتليًا واحدًا، مفتاحًا واحدًا في كل سطر، دون نهاية `...`
 knowledge-frontmatter-type-missing = تحتاج الترويسة إلى نوع غير فارغ
 knowledge-frontmatter-bad-timestamp = يجب أن تكون قيمة "{ $key }" في الترويسة تاريخًا ووقتًا بصيغة RFC 3339 مع إزاحة المنطقة الزمنية
 knowledge-frontmatter-not-allowed = المفتاح "{ $key }" غير مسموح به في ترويسة هذا الملف
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = الحزمة تحتوي على عدد كبير
 knowledge-reason-file-too-large = الملف كبير جدًا
 knowledge-reason-total-too-large = الحزمة كبيرة جدًا
 knowledge-reason-over-limit = تجاوزت قاعدة المعرفة حدودها: حذف الملفات وحده يعيدها تحتها
+knowledge-no-text-layer = لا يحتوي ملف PDF هذا على طبقة نص (إنه مسح ضوئي): صدّره مع النص أو الصق نصه
+knowledge-legacy-format = لا يمكن قراءة تنسيق Office القديم هذا: احفظه بصيغة .pptx أو .docx أو .xlsx
+knowledge-document-encrypted = هذا المستند محمي بكلمة مرور: احفظ نسخة غير محمية
+knowledge-unsupported-document = لا يمكن استيراد هذا النوع من المستندات: PDF أو DOCX أو PPTX أو XLSX أو ODS أو Markdown أو نص
+knowledge-document-damaged = هذا المستند تالف ولا يمكن قراءته
+knowledge-document-type-mismatch = محتوى هذا الملف لا يطابق اسمه
+knowledge-document-too-large = هذا المستند أكبر من أن يُستورد
 op-knowledge = ملف المعرفة { $path }: { $reason }
 op-unknown-widget = أداة غير معروفة: { $subject }
 op-unknown-namespace = لا يحتوي هذا العرض على حزمة { $pack }.
@@ -296,6 +304,7 @@ issue-knowledge-invalid = ملف المعرفة { $path } غير صالح: { $re
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

@@ -1,7 +1,10 @@
 use rstest::rstest;
 use speculoos::prelude::*;
 
-use super::{byte, count_f64, floor_i32, int_f64, narrow_f32, round_i64, round_u32, size_f64, trunc_u32, trunc_usize};
+use super::{
+    byte, count_f64, count_u64, floor_i32, int_f64, narrow_f32, round_i64, round_u32, size_f64, size_usize, trunc_u32,
+    trunc_usize,
+};
 
 #[rstest]
 #[case(f64::NAN, 0)]
@@ -72,4 +75,17 @@ fn to_float_small_integers_are_exact() {
     assert_that!(count_f64(42)).is_equal_to(42.0);
     assert_that!(size_f64(1 << 40)).is_equal_to(1_099_511_627_776.0);
     assert_that!(int_f64(-7)).is_equal_to(-7.0);
+}
+
+#[test]
+fn size_usize_fitting_value_kept() {
+    assert_that!(size_usize(42)).is_equal_to(42);
+    assert_that!(size_usize(u64::from(u32::MAX))).is_equal_to(usize::try_from(u32::MAX).unwrap());
+}
+
+#[test]
+fn count_u64_largest_usize_kept_exactly() {
+    assert_that!(count_u64(42)).is_equal_to(42);
+    // `usize::MAX` is 2^BITS - 1: built from its width, not converted.
+    assert_that!(u128::from(count_u64(usize::MAX))).is_equal_to((1u128 << usize::BITS) - 1);
 }

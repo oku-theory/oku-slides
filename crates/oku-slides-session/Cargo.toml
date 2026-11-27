@@ -31,13 +31,14 @@ uuid.workspace = true
 png.workspace = true
 sha2.workspace = true
 hex.workspace = true
+getrandom.workspace = true
 oku-slides-import.workspace = true
 oku-slides-reference.workspace = true
 fontdb.workspace = true
 
 [features]
 # Expose `voice_fixture` to other crates' tests.
-test-support = []
+test-support = ["oku-slides-core/test-support"]
 
 [dev-dependencies]
 oku-slides-core = { workspace = true, features = ["test-support"] }
@@ -64,4 +65,10 @@ harness = false
 # Own main: it is also the render process (`--render-worker`), as in the app.
 name = "issue_1295_imported_images_survive_reopening"
 path = "tests/regressions/issue_1295_imported_images_survive_reopening.rs"
+harness = false
+
+[[test]]
+# Own main: it is also the render process (`--render-worker`), which extracts the document.
+name = "issue_1759_import_with_real_child_worker"
+path = "tests/regressions/issue_1759_import_with_real_child_worker.rs"
 harness = false

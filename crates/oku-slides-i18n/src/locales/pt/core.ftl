@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = o cabeçalho não pode usar âncoras nem aliases d
 knowledge-frontmatter-tag = o cabeçalho não pode usar tags de YAML
 knowledge-frontmatter-too-deep = o cabeçalho tem aninhamento profundo demais
 knowledge-frontmatter-after-document-end = o cabeçalho tem texto depois do fim de documento YAML ...
+knowledge-frontmatter-flow-mapping = o cabeçalho deve ser um único mapeamento em bloco, uma chave por linha, sem fim `...`
 knowledge-frontmatter-type-missing = o cabeçalho precisa de um tipo não vazio
 knowledge-frontmatter-bad-timestamp = o valor "{ $key }" do cabeçalho deve ser uma data e hora RFC 3339 com deslocamento de fuso
 knowledge-frontmatter-not-allowed = a chave "{ $key }" não é permitida no cabeçalho deste arquivo
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = o pacote tem arquivos demais
 knowledge-reason-file-too-large = o arquivo é grande demais
 knowledge-reason-total-too-large = o pacote é grande demais
 knowledge-reason-over-limit = a base de conhecimento passou dos seus limites: só excluir arquivos a traz de volta para baixo deles
+knowledge-no-text-layer = este PDF não tem camada de texto (é um escaneamento): exporte-o com texto ou cole o texto dele
+knowledge-legacy-format = este formato antigo do Office não pode ser lido: salve-o como .pptx, .docx ou .xlsx
+knowledge-document-encrypted = este documento está protegido por senha: salve uma cópia sem proteção
+knowledge-unsupported-document = este tipo de documento não pode ser importado: PDF, DOCX, PPTX, XLSX, ODS, Markdown ou texto
+knowledge-document-damaged = este documento está danificado e não pode ser lido
+knowledge-document-type-mismatch = o conteúdo deste arquivo não corresponde ao nome dele
+knowledge-document-too-large = este documento é grande demais para ser importado
 op-knowledge = Arquivo de conhecimento { $path }: { $reason }
 op-unknown-widget = Widget desconhecido: { $subject }
 op-unknown-namespace = Esta apresentação não tem o pacote { $pack }.
@@ -286,6 +294,7 @@ issue-knowledge-invalid = arquivo de conhecimento { $path } inválido: { $reason
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

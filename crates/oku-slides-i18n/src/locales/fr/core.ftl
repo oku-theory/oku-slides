@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = l'en-tête ne doit pas utiliser d'ancres ni d'alia
 knowledge-frontmatter-tag = l'en-tête ne doit pas utiliser de balises YAML
 knowledge-frontmatter-too-deep = l'en-tête est imbriqué trop profondément
 knowledge-frontmatter-after-document-end = l'en-tête contient du texte après la fin de document YAML ...
+knowledge-frontmatter-flow-mapping = l'en-tête doit être un seul mapping en bloc, une clé par ligne, sans fin `...`
 knowledge-frontmatter-type-missing = l'en-tête doit avoir un type non vide
 knowledge-frontmatter-bad-timestamp = la valeur « { $key } » de l'en-tête doit être une date RFC 3339 avec décalage horaire
 knowledge-frontmatter-not-allowed = la clé « { $key } » n'est pas permise dans l'en-tête de ce fichier
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = le dossier a trop de fichiers
 knowledge-reason-file-too-large = le fichier est trop volumineux
 knowledge-reason-total-too-large = le dossier est trop volumineux
 knowledge-reason-over-limit = la base de connaissances dépasse ses limites : seule la suppression de fichiers la ramène en dessous
+knowledge-no-text-layer = ce PDF n’a pas de couche de texte (un scan) : exportez-le avec son texte, ou collez son texte
+knowledge-legacy-format = cet ancien format Office ne peut pas être lu : enregistrez-le en .pptx, .docx ou .xlsx
+knowledge-document-encrypted = ce document est protégé par un mot de passe : enregistrez-en une copie non protégée
+knowledge-unsupported-document = ce type de document ne peut pas être importé : PDF, DOCX, PPTX, XLSX, ODS, Markdown ou texte
+knowledge-document-damaged = ce document est endommagé et ne peut pas être lu
+knowledge-document-type-mismatch = le contenu de ce fichier ne correspond pas à son nom
+knowledge-document-too-large = ce document est trop volumineux pour être importé
 op-knowledge = Fichier de connaissances { $path } : { $reason }
 op-unknown-widget = Widget inconnu : { $subject }
 op-unknown-namespace = Ce deck n'a pas de pack { $pack }.
@@ -286,6 +294,7 @@ issue-knowledge-invalid = fichier de connaissances { $path } invalide : { $reaso
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

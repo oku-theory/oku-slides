@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = 머리말에서는 YAML 앵커와 별칭을 사용
 knowledge-frontmatter-tag = 머리말에서는 YAML 태그를 사용할 수 없습니다
 knowledge-frontmatter-too-deep = 머리말의 중첩이 너무 깊습니다
 knowledge-frontmatter-after-document-end = 머리말에 YAML 문서 끝 ... 뒤에 텍스트가 있습니다
+knowledge-frontmatter-flow-mapping = 머리말은 한 줄에 키 하나인 블록 매핑 하나여야 하며 `...` 끝을 쓸 수 없습니다
 knowledge-frontmatter-type-missing = 머리말에는 비어 있지 않은 type이 필요합니다
 knowledge-frontmatter-bad-timestamp = 머리말의 "{ $key }" 값은 시간대 오프셋이 있는 RFC 3339 날짜·시간이어야 합니다
 knowledge-frontmatter-not-allowed = 이 파일의 머리말에서는 "{ $key }" 키를 사용할 수 없습니다
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = 번들에 파일이 너무 많습니다
 knowledge-reason-file-too-large = 파일이 너무 큽니다
 knowledge-reason-total-too-large = 번들이 너무 큽니다
 knowledge-reason-over-limit = 지식 베이스가 한도를 넘었습니다: 파일을 삭제해야만 한도 안으로 돌아옵니다
+knowledge-no-text-layer = 이 PDF에는 텍스트 레이어가 없습니다(스캔본): 텍스트와 함께 내보내거나 텍스트를 붙여 넣으세요
+knowledge-legacy-format = 이 이전 Office 형식은 읽을 수 없습니다: .pptx, .docx 또는 .xlsx로 저장하세요
+knowledge-document-encrypted = 이 문서는 암호로 보호되어 있습니다: 보호되지 않은 사본을 저장하세요
+knowledge-unsupported-document = 이 종류의 문서는 가져올 수 없습니다: PDF, DOCX, PPTX, XLSX, ODS, Markdown 또는 텍스트
+knowledge-document-damaged = 이 문서는 손상되어 읽을 수 없습니다
+knowledge-document-type-mismatch = 이 파일의 내용이 이름과 맞지 않습니다
+knowledge-document-too-large = 이 문서는 너무 커서 가져올 수 없습니다
 op-knowledge = 지식 파일 { $path }: { $reason }
 op-unknown-widget = 알 수 없는 위젯: { $subject }
 op-unknown-namespace = 이 덱에는 팩 { $pack }이(가) 없습니다.
@@ -269,6 +277,7 @@ issue-knowledge-invalid = 지식 파일 { $path }이(가) 유효하지 않습니
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

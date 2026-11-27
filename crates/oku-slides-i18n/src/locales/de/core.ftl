@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = das Frontmatter darf keine YAML-Anker oder -Aliase
 knowledge-frontmatter-tag = das Frontmatter darf keine YAML-Tags verwenden
 knowledge-frontmatter-too-deep = das Frontmatter ist zu tief verschachtelt
 knowledge-frontmatter-after-document-end = das Frontmatter enthält Text nach dem YAML-Dokumentende ...
+knowledge-frontmatter-flow-mapping = das Frontmatter muss ein einziges Block-Mapping sein, ein Schlüssel pro Zeile, ohne `...`-Ende
 knowledge-frontmatter-type-missing = das Frontmatter braucht einen nicht leeren Typ
 knowledge-frontmatter-bad-timestamp = der Frontmatter-Wert „{ $key }“ muss ein RFC-3339-Zeitpunkt mit Zeitzonenversatz sein
 knowledge-frontmatter-not-allowed = der Frontmatter-Schlüssel „{ $key }“ ist in dieser Datei nicht erlaubt
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = das Bündel enthält zu viele Dateien
 knowledge-reason-file-too-large = die Datei ist zu groß
 knowledge-reason-total-too-large = das Bündel ist zu groß
 knowledge-reason-over-limit = die Wissensbasis überschreitet ihre Grenzen: nur das Löschen von Dateien bringt sie wieder darunter
+knowledge-no-text-layer = dieses PDF hat keine Textebene (ein Scan): exportieren Sie es mit Text oder fügen Sie seinen Text ein
+knowledge-legacy-format = dieses ältere Office-Format kann nicht gelesen werden: speichern Sie es als .pptx, .docx oder .xlsx
+knowledge-document-encrypted = dieses Dokument ist durch ein Passwort geschützt: speichern Sie eine ungeschützte Kopie
+knowledge-unsupported-document = diese Art von Dokument kann nicht importiert werden: PDF, DOCX, PPTX, XLSX, ODS, Markdown oder Text
+knowledge-document-damaged = dieses Dokument ist beschädigt und kann nicht gelesen werden
+knowledge-document-type-mismatch = der Inhalt dieser Datei passt nicht zu ihrem Namen
+knowledge-document-too-large = dieses Dokument ist zu groß für den Import
 op-knowledge = Wissensdatei { $path }: { $reason }
 op-unknown-widget = Unbekanntes Widget: { $subject }
 op-unknown-namespace = Dieses Deck hat kein Paket { $pack }.
@@ -283,6 +291,7 @@ issue-knowledge-invalid = Wissensdatei { $path } ist ungültig: { $reason ->
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

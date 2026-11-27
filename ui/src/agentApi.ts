@@ -1,9 +1,12 @@
 // The agent of a tab: its events, surfaces and close decisions, and the commands sent to it.
 
 import type { A2uiMessage } from "@a2ui/web_core/v0_9";
+import type { Attachment } from "./agent/attachments";
 import { host } from "./hostCall";
 import { locale } from "./i18n";
 import type { PresentCommand, PresentMode } from "./present";
+
+export type { Attachment };
 
 /** Ce que voit l'utilisateur au moment de la consigne (bloc de contexte). */
 export interface AgentUi {
@@ -26,19 +29,11 @@ export type AgentState = "idle" | "starting" | "working";
  */
 export type AgentEvent =
   | { kind: "status"; state: AgentState }
-  | { kind: "draft"; text: string | null; origin: string | null; images: PastedImage[] }
+  | { kind: "draft"; text: string | null; origin: string | null; attachments: Attachment[] }
   | { kind: "voice" }
   | { kind: "availability"; unusable: string | null }
   /** The tab's turns run on the local agent standing in for the selected one (`reason`), or no longer (`null`). */
   | { kind: "fallback"; reason: string | null };
-
-/** Une image collée dans le brouillon, tenue par l'hôte (`AttachmentRef`). */
-export interface PastedImage {
-  id: string;
-  mime: string;
-  width: number;
-  height: number;
-}
 
 /** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
 export type Place = "sheet" | "thread" | "drawer" | "modal" | "popover" | "inspector";
@@ -116,15 +111,15 @@ export interface InterfaceChange {
 
 /** Commandes vers l'agent (crate oku-slides-agent, `AgentCommand`), un onglet par commande. */
 type AgentCommand =
-  | { cmd: "prompt"; tab: string; text: string; ui: AgentUiSent; answer: string | null; images: string[] }
+  | { cmd: "prompt"; tab: string; text: string; ui: AgentUiSent; answer: string | null; attachments: string[] }
   | { cmd: "cancel"; tab: string }
   | { cmd: "new_conversation"; tab: string }
   | { cmd: "surface_action"; tab: string; surface: string; name: string; context: Record<string, unknown> }
   | { cmd: "resync"; tab: string }
   | { cmd: "follow"; tab: string }
   | { cmd: "set_draft"; tab: string; text: string | null; origin: string }
-  | { cmd: "paste_image"; tab: string; data: string }
-  | { cmd: "remove_image"; tab: string; id: string }
+  | { cmd: "attach"; tab: string; name: string; data: string }
+  | { cmd: "remove_attachment"; tab: string; id: string }
   | { cmd: "show_packs"; tab: string }
   | { cmd: "show_themes"; tab: string; slide: string | null }
   | { cmd: "show_settings"; tab: string }
@@ -143,12 +138,12 @@ export function agentApi(tab: string) {
      * `answer` : la question à laquelle la consigne répond (`answerTarget`) ; sans elle,
      * ou si elle n'attend plus, une consigne ordinaire.
      */
-    prompt: (text: string, ui: AgentUi, answer: string | null, images: string[] = []) =>
-      agentCall({ cmd: "prompt", tab, text, ui: { ...ui, locale: locale() }, answer, images }),
-    /** Une image collée (octets en base64), ajoutée au brouillon par l'hôte. */
-    pasteImage: (data: string) => agentCall({ cmd: "paste_image", tab, data }),
-    /** Retire l'image `id` du brouillon. */
-    removeImage: (id: string) => agentCall({ cmd: "remove_image", tab, id }),
+    prompt: (text: string, ui: AgentUi, answer: string | null, attachments: string[] = []) =>
+      agentCall({ cmd: "prompt", tab, text, ui: { ...ui, locale: locale() }, answer, attachments }),
+    /** An attached file (`name`, bytes in base64), added to the draft by the host. */
+    attach: (name: string, data: string) => agentCall({ cmd: "attach", tab, name, data }),
+    /** Removes attachment `id` from the draft. */
+    removeAttachment: (id: string) => agentCall({ cmd: "remove_attachment", tab, id }),
     cancel: () => agentCall({ cmd: "cancel", tab }),
     newConversation: () => agentCall({ cmd: "new_conversation", tab }),
     surfaceAction: (surface: string, name: string, context: Record<string, unknown>) =>

@@ -281,13 +281,13 @@ impl Stack {
     fn voice_prompt(&self, seq: u64, tab: &str, text: String, origin: TurnOrigin) {
         let ui = self.reports.last_context(tab).map(|c| c.ui).unwrap_or_default();
         match self.route_prompt(tab, None, &text, ui.slide.as_deref(), &[]) {
-            Ok(Some((t, images))) => {
+            Ok(Some((t, attachments))) => {
                 tracing::debug!(seq, ?origin, "voice: prompt");
-                t.send(Command::Prompt(Instruction { text, ui, tune: false, images, origin }));
+                t.send(Command::Prompt(Instruction { text, ui, tune: false, attachments, origin }));
             }
             Ok(None) => tracing::debug!(seq, "voice: handled by the host"),
             // No channel tells a tab an error outside a turn, so the log tells it (never the
-            // text). With no images this cannot fail today.
+            // text). With no attachments this cannot fail today.
             Err(_) => tracing::warn!(seq, "voice: prompt refused"),
         }
     }

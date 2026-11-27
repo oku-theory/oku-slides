@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = ヘッダーでは YAML のアンカーとエイ�
 knowledge-frontmatter-tag = ヘッダーでは YAML のタグを使えません
 knowledge-frontmatter-too-deep = ヘッダーの入れ子が深すぎます
 knowledge-frontmatter-after-document-end = ヘッダーの YAML 文書終端 ... の後にテキストがあります
+knowledge-frontmatter-flow-mapping = ヘッダーは1行に1キーのブロックマッピング1つで、`...` 終端を含まない必要があります
 knowledge-frontmatter-type-missing = ヘッダーには空でない type が必要です
 knowledge-frontmatter-bad-timestamp = ヘッダーの値「{ $key }」はオフセット付きの RFC 3339 日時である必要があります
 knowledge-frontmatter-not-allowed = キー「{ $key }」はこのファイルのヘッダーでは使えません
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = バンドルのファイルが多すぎます
 knowledge-reason-file-too-large = ファイルが大きすぎます
 knowledge-reason-total-too-large = バンドルが大きすぎます
 knowledge-reason-over-limit = ナレッジベースが上限を超えています: ファイルを削除することでのみ上限内に戻せます
+knowledge-no-text-layer = このPDFにはテキストレイヤーがありません（スキャン画像です）: テキスト付きで書き出すか、テキストを貼り付けてください
+knowledge-legacy-format = この古いOffice形式は読み込めません: .pptx、.docx、.xlsxで保存してください
+knowledge-document-encrypted = この文書はパスワードで保護されています: 保護されていないコピーを保存してください
+knowledge-unsupported-document = この種類の文書は取り込めません: PDF、DOCX、PPTX、XLSX、ODS、Markdown、テキストのいずれかです
+knowledge-document-damaged = この文書は破損していて読み込めません
+knowledge-document-type-mismatch = このファイルの内容は名前と一致しません
+knowledge-document-too-large = この文書は大きすぎて取り込めません
 op-knowledge = ナレッジファイル { $path }: { $reason }
 op-unknown-widget = 不明なウィジェット：{ $subject }
 op-unknown-namespace = このデッキにはパック { $pack } がありません。
@@ -269,6 +277,7 @@ issue-knowledge-invalid = ナレッジファイル { $path } は無効です: { 
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

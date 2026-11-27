@@ -161,7 +161,20 @@ ui-draft-send-title = Ajana gönder (⌘↩)
 ui-draft-discard = Sil
 ui-pasted-image = { $type } { $size }
 ui-draft-images = Yapıştırılan görseller
+ui-draft-attachments = Ekler
 ui-draft-remove-image = Bu görseli kaldır
+ui-attachment-remove = { $name } öğesini kaldır
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } boş.
+ui-attach-too-large = { $name }, { NUMBER($mb) } MB sınırını aşıyor.
+ui-attach-too-many-images = Taslak alabileceği kadar görsel içeriyor ({ $max }).
+ui-attach-too-many-documents = Taslak alabileceği kadar belge içeriyor ({ $max }).
+ui-attach-not-ready = Ekler henüz hazır değil: birazdan yeniden deneyin.
+ui-attach-too-many-files = Aynı anda çok fazla dosya: sınır { $max }.
+ui-attach-files = Dosya ekle
 ui-draft-send-needs-text = Onunla ne yapılacağını söyleyin
 ui-agent-state-idle = Ajan
 ui-agent-state-starting = Ajan başlatılıyor…

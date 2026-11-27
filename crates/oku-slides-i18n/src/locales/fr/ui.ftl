@@ -161,7 +161,20 @@ ui-draft-send-title = Envoyer à l'agent (⌘↩)
 ui-draft-discard = Effacer
 ui-pasted-image = { $type } { $size }
 ui-draft-images = Images collées
+ui-draft-attachments = Pièces jointes
 ui-draft-remove-image = Retirer cette image
+ui-attachment-remove = Retirer { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } Mo
+   *[kb] { NUMBER($size) } Ko
+}
+ui-attach-empty = { $name } est vide.
+ui-attach-too-large = { $name } dépasse la limite de { NUMBER($mb) } Mo.
+ui-attach-too-many-images = Le brouillon a déjà autant d'images qu'il peut en contenir ({ $max }).
+ui-attach-too-many-documents = Le brouillon a déjà autant de documents qu'il peut en contenir ({ $max }).
+ui-attach-not-ready = Les pièces jointes ne sont pas encore prêtes : réessayez dans un instant.
+ui-attach-too-many-files = Trop de fichiers à la fois : la limite est de { $max }.
+ui-attach-files = Joindre des fichiers
 ui-draft-send-needs-text = Dites ce qu'il faut en faire
 ui-agent-state-idle = Agent
 ui-agent-state-starting = L'agent démarre…

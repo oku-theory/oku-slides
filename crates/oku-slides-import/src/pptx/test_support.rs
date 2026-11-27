@@ -6,6 +6,7 @@ use std::io::{Cursor, Write};
 use zip::write::SimpleFileOptions;
 
 use crate::ReadLimits;
+use crate::bounded::{EOCD, ZIP64_LOCATOR};
 use crate::error::ImportError;
 use crate::pptx::context::{PartCtx, PartSpec, Shared};
 use crate::pptx::package::Package;
@@ -37,6 +38,30 @@ pub(crate) fn zip_of(parts: &[(&str, &[u8])]) -> Vec<u8> {
         w.write_all(data).unwrap();
     }
     w.finish().unwrap().into_inner()
+}
+
+/// The tail of a Zip64 archive alone: a Zip64 record announcing `entries`, its locator (when
+/// `locator`), then a saturated EOCD.
+pub(crate) fn zip64_tail(entries: u64, locator: bool) -> Vec<u8> {
+    let mut v = vec![0u8; 8]; // any bytes before the record
+    let record = v.len() as u64;
+    v.extend_from_slice(&[0x50, 0x4b, 0x06, 0x06]);
+    v.extend_from_slice(&44u64.to_le_bytes()); // size of the rest of the record
+    v.extend_from_slice(&[45, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // versions, disks
+    v.extend_from_slice(&entries.to_le_bytes()); // entries on this disk
+    v.extend_from_slice(&entries.to_le_bytes()); // entries in all
+    v.extend_from_slice(&[0; 16]); // size and offset of the central directory
+    if locator {
+        v.extend_from_slice(&ZIP64_LOCATOR);
+        v.extend_from_slice(&[0; 4]);
+        v.extend_from_slice(&record.to_le_bytes());
+        v.extend_from_slice(&1u32.to_le_bytes());
+    }
+    v.extend_from_slice(&EOCD);
+    v.extend_from_slice(&[0; 6]);
+    v.extend_from_slice(&0xFFFFu16.to_le_bytes());
+    v.extend_from_slice(&[0; 10]);
+    v
 }
 
 /// Octets d'un paquet de test ; `pkg()` l'ouvre (le `Package` emprunte ces octets).

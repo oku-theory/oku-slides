@@ -85,6 +85,6 @@ test("useAgentThread status follows status events", async () => {
   const h = await mountHook(true);
   await act(async () => h.state().onAgentEvent({ kind: "status", state: "working" }));
   expect(h.state().state).toBe("working");
-  await act(async () => h.state().onAgentEvent({ kind: "draft", text: "x", origin: null, images: [] }));
+  await act(async () => h.state().onAgentEvent({ kind: "draft", text: "x", origin: null, attachments: [] }));
   expect(h.state().state).toBe("working");
 });

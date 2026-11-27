@@ -17,7 +17,7 @@ export interface DraftActions {
    * « Envoyer » : le texte ne quitte le brouillon qu'une fois la consigne partie ; une dictée
    * arrivée entre-temps y reste. Ignored while another send is in flight.
    */
-  sendDraft: (text: string, images: string[]) => Promise<void>;
+  sendDraft: (text: string, attachments: string[]) => Promise<void>;
 }
 
 /** Ce dont les sorties du brouillon ont besoin. */
@@ -29,24 +29,24 @@ export interface DraftActionsDeps {
    */
   flight: { current: boolean };
   /** Removes a sent image from a draft that keeps text added during the send. */
-  removeImage: (id: string) => void;
+  removeAttachment: (id: string) => void;
   editing: boolean;
   /** Écrit le texte au curseur ; `false` : plus d'édition en cours, il revient au brouillon. */
   insert: (text: string) => boolean | Promise<boolean>;
-  prompt: (text: string, images: string[]) => Promise<boolean>;
+  prompt: (text: string, attachments: string[]) => Promise<boolean>;
 }
 
 /** Route le texte dicté et envoie le brouillon à l'agent. */
-export function draftActions({ draft, flight, editing, insert, prompt, removeImage }: DraftActionsDeps): DraftActions {
+export function draftActions({ draft, flight, editing, insert, prompt, removeAttachment }: DraftActionsDeps): DraftActions {
   const write = async (text: string) => {
     if (!(await insert(text))) draft.append(text);
   };
-  const sendDraft = async (text: string, images: string[]) => {
+  const sendDraft = async (text: string, attachments: string[]) => {
     if (flight.current) return;
     flight.current = true;
     try {
-      // Images pasted during the send stay with the text added meanwhile; sent ones go.
-      if ((await prompt(text, images)) && draft.drop(text)) images.forEach(removeImage);
+      // Attachments added during the send stay with the text added meanwhile; sent ones go.
+      if ((await prompt(text, attachments)) && draft.drop(text)) attachments.forEach(removeAttachment);
     } finally {
       flight.current = false;
     }
@@ -57,7 +57,7 @@ export function draftActions({ draft, flight, editing, insert, prompt, removeIma
       const next = draft.append(text);
       // A refused prompt has said why (toast); the draft stays open with the text. During
       // another send the text just stays in the draft.
-      if (send) void sendDraft(next.text.trim(), next.images.map((i) => i.id));
+      if (send) void sendDraft(next.text.trim(), next.attachments.map((i) => i.id));
     },
     sendDraft,
   };
@@ -65,8 +65,8 @@ export function draftActions({ draft, flight, editing, insert, prompt, removeIma
 
 /** The prompt of an agent panel; without a mounted panel it says so and sends nothing. */
 export function promptThrough(handle: { current: Pick<AgentHandle, "prompt"> | null }, fail: (message: string) => void) {
-  return (text: string, images: string[]): Promise<boolean> => {
-    if (handle.current) return handle.current.prompt(text, images);
+  return (text: string, attachments: string[]): Promise<boolean> => {
+    if (handle.current) return handle.current.prompt(text, attachments);
     fail(t("ui-agent-panel-missing"));
     return Promise.resolve(false);
   };

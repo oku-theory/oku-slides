@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = l'intestazione non può usare ancore o alias YAML
 knowledge-frontmatter-tag = l'intestazione non può usare tag YAML
 knowledge-frontmatter-too-deep = l'intestazione ha un annidamento troppo profondo
 knowledge-frontmatter-after-document-end = l'intestazione contiene testo dopo la fine del documento YAML ...
+knowledge-frontmatter-flow-mapping = l'intestazione deve essere un unico mapping a blocchi, una chiave per riga, senza fine `...`
 knowledge-frontmatter-type-missing = l'intestazione richiede un tipo non vuoto
 knowledge-frontmatter-bad-timestamp = il valore "{ $key }" dell'intestazione deve essere una data e ora RFC 3339 con fuso orario
 knowledge-frontmatter-not-allowed = la chiave "{ $key }" non è consentita nell'intestazione di questo file
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = il pacchetto ha troppi file
 knowledge-reason-file-too-large = il file è troppo grande
 knowledge-reason-total-too-large = il pacchetto è troppo grande
 knowledge-reason-over-limit = la base di conoscenza supera i suoi limiti: solo eliminare dei file la riporta sotto
+knowledge-no-text-layer = questo PDF non ha un livello di testo (una scansione): esportalo con il testo o incollane il testo
+knowledge-legacy-format = questo vecchio formato Office non può essere letto: salvalo come .pptx, .docx o .xlsx
+knowledge-document-encrypted = questo documento è protetto da password: salvane una copia non protetta
+knowledge-unsupported-document = questo tipo di documento non può essere importato: PDF, DOCX, PPTX, XLSX, ODS, Markdown o testo
+knowledge-document-damaged = questo documento è danneggiato e non può essere letto
+knowledge-document-type-mismatch = il contenuto di questo file non corrisponde al suo nome
+knowledge-document-too-large = questo documento è troppo grande per essere importato
 op-knowledge = File di conoscenza { $path }: { $reason }
 op-unknown-widget = Widget sconosciuto: { $subject }
 op-unknown-namespace = Questa presentazione non ha il pacchetto { $pack }.
@@ -286,6 +294,7 @@ issue-knowledge-invalid = file di conoscenza { $path } non valido: { $reason ->
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

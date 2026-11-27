@@ -161,7 +161,20 @@ ui-draft-send-title = एजेंट को भेजें (⌘↩)
 ui-draft-discard = हटाएँ
 ui-pasted-image = { $type } { $size }
 ui-draft-images = चिपकाई गई छवियाँ
+ui-draft-attachments = संलग्नक
 ui-draft-remove-image = इस छवि को हटाएँ
+ui-attachment-remove = { $name } हटाएँ
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } खाली है।
+ui-attach-too-large = { $name } { NUMBER($mb) } MB की सीमा से बड़ा है।
+ui-attach-too-many-images = ड्राफ़्ट में पहले से अधिकतम छवियाँ हैं ({ $max })।
+ui-attach-too-many-documents = ड्राफ़्ट में पहले से अधिकतम दस्तावेज़ हैं ({ $max })।
+ui-attach-not-ready = संलग्नक अभी तैयार नहीं हैं: थोड़ी देर में फिर से कोशिश करें।
+ui-attach-too-many-files = एक साथ बहुत अधिक फ़ाइलें: सीमा { $max } है।
+ui-attach-files = फ़ाइलें संलग्न करें
 ui-draft-send-needs-text = बताइए कि इसका क्या करना है
 ui-agent-state-idle = एजेंट
 ui-agent-state-starting = एजेंट शुरू हो रहा है…

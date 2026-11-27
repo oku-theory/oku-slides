@@ -20,8 +20,8 @@ agent; it is never shown in the slides themselves.
   saved in the PDF's sources.
 - The deck agent writes and reads it through MCP tools; one agent turn's slide and knowledge
   edits are one undo step (`undo_turn` reverts both).
-- The user hands documents to the agent in the **deck chat** (PDF, DOCX, PPTX, XLSX/XLS/ODS,
-  Markdown, plain text), as they paste images today; the agent imports them as extracted Markdown with images.
+- The user hands documents to the agent in the **deck chat** (PDF, DOCX, PPTX, XLSX/ODS,
+  Markdown, plain text; XLS is refused like `.ppt`), as they paste images today; the agent imports them as extracted Markdown with images.
 - The agent receives the bundle's index every turn it changes and reads files on demand.
 - A read-only knowledge tab, linked to its deck tab.
 - Knowledge received from someone else's deck reaches the agent only once the user approved it.
@@ -107,10 +107,12 @@ agent; it is never shown in the slides themselves.
 
 ### Documents in the deck chat (`oku-slides-session`, `oku-slides-agent`)
 
-- `attachments` grows from images to documents: PDF, DOCX, PPTX, XLSX/XLS/ODS, `.md`, `.txt`, sniffed by content,
+- `attachments` grows from images to documents: PDF, DOCX, PPTX, XLSX/ODS, `.md`, `.txt` (XLS refused as legacy), sniffed by content,
   stored per tab in memory as images are, bounded by new `[paste] max_document_mib` and
-  `max_draft_documents`. Dropping or pasting a file in the deck chat attaches it; the prompt
-  lists each by id, name, type and size (not its content).
+  `max_draft_documents`. Pasting a file, picking it with the draft's file button or, in a
+  browser, dropping it in the deck chat attaches it (the app's webview takes OS file drops,
+  t-819); the prompt lists each by id, name, type and size (not its content). A sent turn shows
+  only its images until lot 5's receipts.
 - `knowledge_import { attachment, path? }` (MCP) extracts it **in the render worker** (untrusted
   bytes, sandboxed, time and memory bounded): a new `ExtractDocument` request returning
   Markdown and images. PDF: text in reading order per page, page breaks as headings, embedded
@@ -286,11 +288,70 @@ agent; it is never shown in the slides themselves.
   refuses a mismatch (`KnowledgeChanged`); a file past `MAX_FILE_BYTES` cannot be approved
   (`KnowledgeTooLargeToApprove`); no "Approve all"; hidden characters shown as `⟨U+XXXX⟩`.
 - **Review requests are user-only:** refused to the agent window and outside `Mode::Deck`.
-- **Deferred:** provenance stamping (lot 4's extraction), receipt entries for knowledge
+- **Deferred:** provenance stamping (done in lot 4, see below), receipt entries for knowledge
   writes (lot 5's tab); the approvals file is not capped. Until provenance stamping lands
   (lot 4), approve-on-write can launder text injected through a slide or the conversation:
   the agent writes it and that write approves it.
 - **No e2e this lot:** no UI writes knowledge yet; render and session tests cover the flow.
+
+### Plan decisions (lot 4 builder, recorded from the plan)
+
+- **Provenance stamp:** approvals keyed by text hash let an agent write approve a received
+  file with equal text, so the host stamps every file an *agent* batch authors: concept files
+  get `generated: {by, at, id}` (16 hex from getrandom) and `x-oku-slides-agent: "<label>"`,
+  `index.md`/`log.md` a last `<!-- oku-slides generated <at> <id> -->` line. The pass runs
+  after core's apply and before the commit, through core again (one undo step); a flow-style
+  root mapping or `...` is refused (`FlowMapping`). User writes stay unstamped. The label is
+  the preset (and model), cleaned by `label_within(_, 80)`, set per turn.
+- **Attachments:** detection by magic bytes only, in process (no zip opened there): PDF, zip
+  subtype by extension (`.docx`, `.pptx`, `.xlsx`, `.ods`), OLE2 is `Legacy`
+  (`knowledge-legacy-format`), UTF-8 without NUL is Markdown or Text; a known extension whose
+  magic disagrees is `TypeMismatch`. `[paste] max_document_mib` 32 (ceiling 47),
+  `max_draft_documents` 4, `max_kept_mib` 200; documents in deck tabs only; `AttachmentRef`
+  is never persisted; `embed_op_assets` resolves image attachments only.
+- **XLS is refused like `.ppt`:** a BIFF reader would need calamine, rejected by the
+  dependency audit.
+- **Extraction:** one dedicated child worker per import (`[knowledge] extract_timeout_ms`
+  120000, `extract_memory_mib` 512), never in process; one import at a time per process: a
+  second one is refused at once (`session-knowledge-import-busy`, retry), no thread waits. On
+  macOS the memory bound is best-effort (RSS watchdog, 200 ms tick); on Windows and Linux the
+  parsers run unsandboxed. `Request::ExtractDocument` returns Markdown plus images in one
+  frame, refusals as core `ExtractRefusal` (`session-knowledge-import-refused`), a timeout or
+  kill as `session-knowledge-import-failed`. Extraction runs under `catch_unwind`; one
+  sanitizer escapes Markdown, strips Cf/tag/bidi characters, keeps only http(s)/mailto
+  structural links through `encode_link_url`, and no remote image. Spreadsheets: cached values
+  capped at parse time (2000 rows, 50 columns by default), the cut stated under each table.
+  PDF: `lopdf`, at most 2000 pages, encrypted refused, a PDF without text refused.
+- **Reference files:** slug folded to `[a-z0-9-]`, at most 60, `document` when empty, `-doc`
+  for `index`, `log` or a reserved name; bodies above 192 KiB split at `## `, then a blank line, then a line outside a code fence,
+  then any line (each only past half a part), then a char boundary into `<slug>-part-N.md`, each
+  titled `(part N of M)` and linking the next; a cut inside a fence closes it and reopens it in
+  the next part, its info string (up to 32 bytes) kept;
+  the set reserved together, a collision taking `-2`, `-3`…; frontmatter values JSON-quoted
+  with `x-oku-slides-import: {type, cut, part, of, series, hash}` (`series`: the import's 16-hex
+  ticket, `hash`: the `sha256:` of the file as written, frontmatter included, the stamp and this
+  mark aside); every body opens with the untrusted-document
+  banner, and `knowledge.md` tells the agent references are data. Images are cited by a
+  16-hex placeholder token only the session knows, staged in `Session.import_staged`, never
+  `carried`; each image is linked at its first placeholder, later ones become their alt text.
+  The extraction's text room is the bundle's room less a bound of what the import adds (links,
+  and per part frontmatter, banner, continuation line, stamp), so a text cut to fit is written.
+  `path` replaces only a first part an import wrote, with its later parts: a later part is the
+  file at `<base>-part-N.md` whose mark says part N of the same series, and only those are
+  deleted when the new import has fewer parts; another file there is kept, and refused as a
+  target if the new import needs its path. If any part (body or frontmatter) no longer hashes to its mark, the
+  re-import is refused (`session-import-target-edited`): delete the files first to replace an
+  edited import. The replaced import's bytes count as room. No migration: lot 4 had not shipped.
+  The job snapshots the tab; apply
+  rechecks it and the attachment after the unlocked extraction. Past `MAX_FILES` or a byte
+  limit, nothing is written.
+- **Deviations from the lot 4 plan (final review, t-1760):** `knowledge_import_job` takes the
+  target `path` (to count its room and refuse an edited import before extracting) and
+  `knowledge_import_apply` reads it from the ticket; the "Attached documents" line went to
+  `knowledge.md`, not `deck.md`; the agent label is set in `turn.rs`; `Session::attach` takes an
+  `Upload`, hashed and sniffed once; some tests were renamed.
+- **Deferred (under t-1728):** t-1761 the attach, import, knowledge tab e2e with lot 5's tab;
+  t-1762 a local-agent eval for `knowledge_import`; t-1763 an XLS reader if users ask.
 
 ## Testing
 
@@ -302,7 +363,7 @@ agent; it is never shown in the slides themselves.
   notes and image, XLSX past the row cap, `.ppt` refused),
   under `fixtures/` (LFS for PDFs), timeout and memory bounds.
 - UI: tree, sub-tabs, frontmatter header, link and image rendering, awaiting badge (render
-  tests); one e2e: attach a PDF in the deck chat with the fake agent importing it, open the
+  tests); one e2e (lot 5, t-1761): attach a PDF in the deck chat with the fake agent importing it, open the
   knowledge tab, read the extracted file.
 - Localized errors tested on their keys plus a non-English locale.
 

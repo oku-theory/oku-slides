@@ -40,7 +40,7 @@
 - In CodeMirror, call EditorView.requestMeasure when the hidden code editor shows again, and set the cursor colour explicitly (black is invisible on dark themes). (plan:2026-10-03-widgets-onglets, t-460, t-1157)
 - Do not rely on tsc -b to typecheck test files; ui/tsconfig.json excludes them and bun test only strips types, so they are never typechecked. (plan:2026-10-08-widget-tableau)
 - Never free an A2UI surface in an effect cleanup; it cannot know whether the next message list extends the old one. (plan:2026-10-03-agent-a2ui, t-291)
-- Implement drags with pointer events and draggable={false} images; the Tauri webview reserves HTML5 drag-and-drop for file drops. (t-819)
+- In the Tauri webview OS file drops never reach the page (t-819): implement drags with pointer events and draggable={false} images, and take draft attachments from the picker button or paste, pre-checked against Snapshot.attach_limits (names cut to 255 characters) with the host as the authority. (t-819, t-1758, t-1760)
 
 ## Testing
 

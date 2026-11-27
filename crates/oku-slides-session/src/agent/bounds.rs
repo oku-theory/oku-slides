@@ -82,6 +82,18 @@ pub fn label(text: &str) -> String {
 /// What [`label`] does, cut at `max` characters instead of [`LABEL_MAX`].
 #[must_use]
 pub fn label_within(text: &str, max: usize) -> String {
+    let clipped = clip(&cleaned_words(text), max);
+    if clipped.is_empty() { "…".to_owned() } else { clipped }
+}
+
+/// Whether [`label`] keeps a visible character of `text` instead of giving its `"…"` stand-in.
+#[must_use]
+pub fn has_visible_text(text: &str) -> bool {
+    !cleaned_words(text).is_empty()
+}
+
+/// The text [`label`] cuts: controls as spaces, invisibles removed, quotes mapped, whitespace collapsed.
+fn cleaned_words(text: &str) -> String {
     let cleaned: String = text
         .chars()
         .filter_map(|c| {
@@ -96,9 +108,7 @@ pub fn label_within(text: &str, max: usize) -> String {
             }
         })
         .collect();
-    let words = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-    let clipped = clip(&words, max);
-    if clipped.is_empty() { "…".to_owned() } else { clipped }
+    cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Rejects agent text that is too long (`max` characters) or holds an invisible control.

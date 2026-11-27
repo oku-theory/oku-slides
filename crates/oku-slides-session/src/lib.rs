@@ -19,7 +19,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
@@ -34,6 +34,8 @@ pub use oku_slides_platform::Platform;
 pub use oku_slides_platform::config::Settings;
 pub use oku_slides_platform::storage::Storage;
 pub use oku_slides_render::Fonts;
+
+pub use crate::knowledge_import::{ExtractRunner, ImportJob, ImportOutcome, ImportTicket};
 use oku_slides_render::{PackSet, RenderError, RenderErrorKind};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot, RenderWorker};
 
@@ -76,6 +78,7 @@ mod deck_widgets;
 mod document_kind;
 mod element_panel;
 mod error;
+mod error_kind;
 mod example_text;
 mod fields;
 mod files;
@@ -90,6 +93,8 @@ mod items;
 mod knowledge_approvals;
 #[cfg(any(test, feature = "test-support"))]
 pub mod knowledge_fixture;
+mod knowledge_import;
+mod knowledge_import_files;
 mod knowledge_review;
 mod knowledge_view;
 mod knowledge_write;
@@ -426,6 +431,12 @@ pub struct Session {
     attachments: agent::attachments::Attachments,
     /// Assets apportés par le dernier élément collé depuis un autre onglet (`carried_assets`).
     carried: carried_assets::HeldAssets,
+    /// Images of the import being applied, by asset id; empty outside `knowledge_import_apply`.
+    import_staged: BTreeMap<String, Vec<u8>>,
+    /// What extracts an attached document (`knowledge_import`); tests replace it.
+    extract_runner: Arc<dyn knowledge_import::ExtractRunner>,
+    /// The slot an import holds while it runs: the process's ([`knowledge_import::IMPORTS`]).
+    import_slot: Arc<Mutex<()>>,
     /// Reprise activée (app de bureau) : l'état est écrit après chaque
     /// commande, par un fil dédié (`resume_writer`).
     resume: Option<resume_writer::Writer>,
@@ -441,6 +452,10 @@ pub struct Session {
     turn_steps: agent::turn_undo::TurnSteps,
     /// Elements the agent's tools changed, per turn (`agent::turn_touches`).
     turn_touches: agent::turn_touches::TurnTouches,
+    /// The agent of the open turn, cleaned, as the knowledge stamp names it (`knowledge_write`).
+    agent_label: Option<String>,
+    /// The time and random id of each knowledge stamp (`knowledge_write`); tests replace it.
+    stamp_source: knowledge_write::StampSource,
     /// La conversation de l'agent de l'onglet (`agent::conversation`).
     conversation: Option<agent::SavedConversation>,
     /// Épinglages (packs et thème) plus anciens que la bibliothèque (`deck_packs`), recalculés quand ils changent.
@@ -632,10 +647,19 @@ impl Session {
             ui_order: None,
             attachments: agent::attachments::Attachments::new(settings.paste.clone()),
             carried: carried_assets::HeldAssets::new(),
+            import_staged: BTreeMap::new(),
+            extract_runner: Arc::new(knowledge_import::ChildExtractRunner::new(
+                platform.render_launch.clone(),
+                &settings.render,
+                &settings.knowledge,
+            )),
+            import_slot: Arc::clone(&knowledge_import::IMPORTS),
             resume: None,
             agent_notes: Vec::new(),
             turn_steps: agent::turn_undo::TurnSteps::default(),
             turn_touches: agent::turn_touches::TurnTouches::default(),
+            agent_label: None,
+            stamp_source: knowledge_write::system_stamp_source(),
             conversation: None,
             pack_updates: 0,
             pack_updates_pins: None,
@@ -943,6 +967,7 @@ impl Session {
             guides: self.guides_view(),
             received_to_review: self.received_to_review(),
             knowledge: self.knowledge_summary(),
+            attach_limits: self.attachments.ui_limits(),
         }
     }
 

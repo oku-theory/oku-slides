@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+<w:body>
+<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>Market review</w:t></w:r></w:p>
+<w:p><w:pPr><w:pStyle w:val="Titre1"/></w:pPr><w:r><w:t>Summary</w:t></w:r></w:p>
+<w:p><w:r><w:t xml:space="preserve">Revenue rose by </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>twelve percent</w:t></w:r><w:r><w:t xml:space="preserve">, </w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>slightly</w:t></w:r><w:r><w:t xml:space="preserve"> above plan.</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t xml:space="preserve"> Hidden draft note.</w:t></w:r></w:p>
+<w:p><w:r><w:t xml:space="preserve">Costs held steady.</w:t></w:r><w:del w:id="1" w:author="Reviewer"><w:r><w:delText xml:space="preserve"> Deleted sentence.</w:delText></w:r></w:del><w:ins w:id="2" w:author="Reviewer"><w:r><w:t xml:space="preserve"> Inserted sentence.</w:t></w:r></w:ins></w:p>
+<w:p><w:commentRangeStart w:id="0"/><w:r><w:t>Commented words.</w:t></w:r><w:commentRangeEnd w:id="0"/><w:r><w:commentReference w:id="0"/></w:r></w:p>
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Steps</w:t></w:r></w:p>
+<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>Collect the data</w:t></w:r></w:p>
+<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>Check the totals</w:t></w:r></w:p>
+<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr></w:pPr><w:r><w:t>North region</w:t></w:r></w:p>
+<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="1"/><w:numId w:val="2"/></w:numPr></w:pPr><w:r><w:t>Coastal towns</w:t></w:r></w:p>
+<w:p><w:r><w:t xml:space="preserve">See the </w:t></w:r><w:hyperlink r:id="rIdLink1"><w:r><w:t>shared folder</w:t></w:r></w:hyperlink><w:r><w:t xml:space="preserve"> or </w:t></w:r><w:hyperlink r:id="rIdLink2"><w:r><w:t>javascript:alert(1)</w:t></w:r></w:hyperlink><w:r><w:t>.</w:t></w:r></w:p>
+<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/></w:tblPr><w:tblGrid><w:gridCol w:w="4000"/><w:gridCol w:w="4000"/></w:tblGrid>
+<w:tr><w:tc><w:tcPr/><w:p><w:r><w:t>Region</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Sales</w:t></w:r></w:p></w:tc></w:tr>
+<w:tr><w:tc><w:p><w:r><w:t>North</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>120</w:t></w:r></w:p></w:tc></w:tr>
+<w:tr><w:tc><w:p><w:r><w:t>South</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>95</w:t></w:r></w:p></w:tc></w:tr>
+</w:tbl>
+<w:p><w:r><w:drawing><wp:inline><wp:extent cx="914400" cy="914400"/><wp:docPr id="1" name="Picture 1" descr="A red square"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="image1.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId4"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr/></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
+<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>
+</w:body>
+</w:document>

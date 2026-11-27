@@ -365,16 +365,8 @@ fn write_barrier(r: &Run, next: Option<&Run>) -> String {
     }
     let body = format!("{}{body}{}", escape_inline(lead), escape_inline(trail));
     match &r.link {
-        Some(url) => {
-            // `<` initial ouvrirait une destination entre chevrons, `\` final
-            // échapperait la parenthèse fermante : les deux sont encodés.
-            let url = url.replace(' ', "%20").replace('(', "%28").replace(')', "%29").replace('\\', "%5C");
-            let url = match url.strip_prefix('<') {
-                Some(rest) => format!("%3C{rest}"),
-                None => url,
-            };
-            format!("[{body}]({url})")
-        }
+        // A leading `<` and every `\` are encoded (t-630).
+        Some(url) => format!("[{body}]({})", oku_slides_core::encode_link_url(url)),
         None => body,
     }
 }

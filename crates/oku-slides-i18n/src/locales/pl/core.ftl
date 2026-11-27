@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = nagłówek nie może używać kotwic ani aliasów 
 knowledge-frontmatter-tag = nagłówek nie może używać tagów YAML
 knowledge-frontmatter-too-deep = nagłówek jest zagnieżdżony zbyt głęboko
 knowledge-frontmatter-after-document-end = nagłówek zawiera tekst po końcu dokumentu YAML ...
+knowledge-frontmatter-flow-mapping = nagłówek musi być jednym mapowaniem blokowym, jeden klucz na wiersz, bez końca `...`
 knowledge-frontmatter-type-missing = nagłówek wymaga niepustego typu
 knowledge-frontmatter-bad-timestamp = wartość "{ $key }" w nagłówku musi być datą i godziną RFC 3339 z przesunięciem strefy
 knowledge-frontmatter-not-allowed = klucz "{ $key }" nie jest dozwolony w nagłówku tego pliku
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = paczka ma za dużo plików
 knowledge-reason-file-too-large = plik jest za duży
 knowledge-reason-total-too-large = paczka jest za duża
 knowledge-reason-over-limit = baza wiedzy przekracza swoje limity: tylko usunięcie plików sprowadzi ją z powrotem poniżej
+knowledge-no-text-layer = ten PDF nie ma warstwy tekstowej (to skan): wyeksportuj go z tekstem albo wklej jego tekst
+knowledge-legacy-format = tego starszego formatu Office nie można odczytać: zapisz go jako .pptx, .docx lub .xlsx
+knowledge-document-encrypted = ten dokument jest chroniony hasłem: zapisz niechronioną kopię
+knowledge-unsupported-document = tego rodzaju dokumentu nie można zaimportować: PDF, DOCX, PPTX, XLSX, ODS, Markdown lub tekst
+knowledge-document-damaged = ten dokument jest uszkodzony i nie można go odczytać
+knowledge-document-type-mismatch = zawartość tego pliku nie pasuje do jego nazwy
+knowledge-document-too-large = ten dokument jest za duży, aby go zaimportować
 op-knowledge = Plik wiedzy { $path }: { $reason }
 op-unknown-widget = Nieznany widżet: { $subject }
 op-unknown-namespace = Ta prezentacja nie ma pakietu { $pack }.
@@ -298,6 +306,7 @@ issue-knowledge-invalid = plik wiedzy { $path } jest nieprawidłowy: { $reason -
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

@@ -177,6 +177,7 @@ fn families_route_data_tools_to_edit(#[case] tool: &str) {
 #[case("knowledge_list")]
 #[case("knowledge_read")]
 #[case("knowledge_search")]
+#[case("knowledge_import")]
 fn families_of_a_knowledge_tool_is_knowledge(#[case] tool: &str) {
     assert_that!(families_of(tool)).is_equal_to(&[Knowledge][..]);
 }

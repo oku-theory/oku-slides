@@ -45,7 +45,7 @@ Ports in use: 4870 `just serve`, 4871 `.claude/launch.json` preview, 4872 `just 
 - Define CATALOG_ID once in Rust and once in TS with equal values, keeping no older catalog version. (plan:2026-10-03-agent-a2ui)
 - Change the Rust ComponentKind catalog and ui/src/a2ui/catalog.tsx together, in the same commit. (spec:2026-10-03-agent-a2ui-design)
 - Call exit_if_worker then exit_if_local_agent as the first lines of main in every app binary, before any other initialization. (spec:2026-09-29-compilation-bornee-design, spec:2026-10-18-agent-local-repli-design)
-- Encode a leading less-than as %3C and every backslash as %5C in link URLs in write_barrier and encodeLink. (plan:2026-10-09-petits-tickets-t678, t-630)
+- Encode a leading less-than as %3C and every backslash as %5C in link URLs, in Rust only through core's encode_link_url and in TS in encodeLink. (plan:2026-10-09-petits-tickets-t678, t-630, plan:2026-11-25-deck-knowledge-okf-lot4-documents, t-1752)
 - Order UI state saves on the host by page and seq; the host ignores a seq not above the last one for that page. (plan:2026-10-09-petits-tickets-t678)
 - Treat imported assets as untrusted bytes wherever they are served or displayed. (plan:2026-10-09-import-pptx-lot1)
 - Markdown round trips must never lose text; formatting may be lost only on spaces and punctuation. (plan:2026-09-27-markdown-lezer)
@@ -98,6 +98,7 @@ Read the matching file before touching its directory.
 - `crates/oku-slides-core/AGENTS.md` — deck model, ops
 - `crates/oku-slides-core/src/replica/AGENTS.md` — Loro replica
 - `crates/oku-slides-data/AGENTS.md` — data model, table edits, number rules
+- `crates/oku-slides-extract/AGENTS.md` — document extraction
 - `crates/oku-slides-i18n/AGENTS.md` — Fluent keys, locales
 - `crates/oku-slides-import/AGENTS.md` — PPTX import
 - `crates/oku-slides-local-agent/AGENTS.md` — local fallback agent

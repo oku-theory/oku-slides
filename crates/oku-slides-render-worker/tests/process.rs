@@ -148,6 +148,94 @@ fn process_probe_pack_with_a_file_that_allocates_gives_a_diagnostic_and_accuses_
     assert_that!(w.is_faulty(&pack)).is_false();
 }
 
+#[cfg(test)]
+#[path = "../src/test_documents.rs"]
+mod test_documents;
+
+/// The test's own sleeping hook, read by a debug worker only (t-1755).
+const SLEEP_HOOK: &str = "OKU_SLIDES_TEST_EXTRACT_SLEEP_MS";
+/// The test's own allocating hook, read by a debug worker only (t-1755).
+const ALLOC_HOOK: &str = "OKU_SLIDES_TEST_EXTRACT_ALLOC_MIB";
+
+/// Runs the test `name` of this binary again with `hook` set to `value`, which the workers it
+/// starts inherit; the test body runs there, as `hook` is set. No test sets an environment
+/// variable in its own process.
+fn rerun_with(name: &str, hook: &str, value: &str) {
+    let exe = std::env::current_exe().unwrap_or_else(|e| panic!("this test binary: {e}"));
+    let out = std::process::Command::new(exe)
+        .args(["--exact", name, "--nocapture", "--test-threads", "1"])
+        .env(hook, value)
+        .output()
+        .unwrap_or_else(|e| panic!("rerun of {name}: {e}"));
+    let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(out.status.success() && text.contains("1 passed"), "{name} under {hook}={value}:\n{text}");
+}
+
+/// The processes whose parent is this one.
+fn children() -> Vec<u32> {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let me = Pid::from_u32(std::process::id());
+    sys.processes().values().filter(|p| p.parent() == Some(me)).map(|p| p.pid().as_u32()).collect()
+}
+
+fn extract_docx(w: &RenderWorker) -> Result<oku_slides_core::knowledge::Extracted, oku_slides_render::RenderError> {
+    let doc = test_documents::docx_two_images();
+    let (limits, read) = (test_documents::limits(), test_documents::read());
+    let kind = oku_slides_core::knowledge::DocumentType::Docx;
+    w.extract_document(&doc, kind, &limits, &read, test_documents::TOKEN)
+        .map(|r| r.unwrap_or_else(|e| panic!("refused: {e}")))
+}
+
+#[test]
+fn extract_roundtrip_markdown_and_images_in_a_child() {
+    let out = extract_docx(&worker(30_000, 4096)).unwrap();
+    let lens: Vec<usize> = out.images.iter().map(|i| i.bytes.len()).collect();
+    let expected = [test_documents::png(2, 2).len(), test_documents::png(3, 1).len()];
+    assert_that!(lens).is_equal_to(expected.to_vec());
+    assert_that!(out.markdown.as_str()).contains(format!("](oku-image-{}-1)", test_documents::TOKEN).as_str());
+}
+
+#[test]
+fn extract_after_worker_restart_works() {
+    let w = worker(30_000, 4096);
+    let first = extract_docx(&w).unwrap();
+    w.kill_for_test();
+    assert_that!(extract_docx(&w).unwrap()).is_equal_to(first);
+}
+
+/// The worker sleeps 5 s before extracting; the 2 s timeout kills it.
+#[test]
+fn extract_timeout_kills_and_reports() {
+    if std::env::var_os(SLEEP_HOOK).is_none() {
+        return rerun_with("extract_timeout_kills_and_reports", SLEEP_HOOK, "5000");
+    }
+    let w = worker(2_000, 4096);
+    // Start the worker first: the timeout also bounds its launch.
+    w.slot(&Fonts::default(), &Localizer::new(Some("fr")), empty()).unwrap();
+    let pids = children();
+    assert_that!(pids.is_empty()).is_false();
+    let started = std::time::Instant::now();
+    let err = extract_docx(&w).unwrap_err();
+    assert_that!(started.elapsed()).is_less_than(std::time::Duration::from_secs(4));
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::Timeout);
+    let left = children();
+    assert_that!(pids.iter().any(|p| left.contains(p))).is_false();
+}
+
+/// The worker allocates 1 MiB every 5 ms before extracting, past its 256 MiB.
+///
+/// Best-effort on macOS, where the bound is an RSS watchdog: `.config/nextest.toml` retries it.
+#[test]
+fn extract_memory_limit_reports() {
+    if std::env::var_os(ALLOC_HOOK).is_none() {
+        return rerun_with("extract_memory_limit_reports", ALLOC_HOOK, "4096");
+    }
+    let err = extract_docx(&worker(60_000, 256)).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(RenderErrorKind::OutOfMemory);
+}
+
 /// → the sandboxed worker (sandbox-exec on macOS) opens a base from the store's folder the host
 /// named in its Hello, and answers its rows.
 #[cfg(target_os = "macos")]

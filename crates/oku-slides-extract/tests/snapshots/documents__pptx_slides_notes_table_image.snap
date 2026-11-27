@@ -1,0 +1,19 @@
+---
+source: crates/oku-slides-extract/tests/documents.rs
+expression: md
+---
+## Slide 1 — Quarterly results
+
+- Sales grew in every region.
+- **North** led the year.
+
+| Region | Sales |
+| --- | --- |
+| North | 120 |
+| South | 95 |
+
+![A red square](oku-image-0123456789abcdef-0)
+
+### Notes
+
+Mention the South recovery.

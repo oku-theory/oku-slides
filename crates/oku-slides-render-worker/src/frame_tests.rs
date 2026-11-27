@@ -123,6 +123,25 @@ fn reply_limits_bound_svg_below_pdf_and_other_replies_to_no_payload() {
     assert_that!(FrameLimits::reply_to(&pdf, 1024).header).is_equal_to(128);
 }
 
+/// t-1760: an extraction reply carries at most its Markdown and image bounds, within the frame.
+#[test]
+fn frame_reply_to_extract_capped_by_its_text_and_image_bounds() {
+    let req = |max_text_bytes: usize, max_image_bytes: u64| Request::ExtractDocument {
+        kind: oku_slides_core::knowledge::DocumentType::Pdf,
+        limits: oku_slides_core::knowledge::ExtractLimits {
+            max_text_bytes,
+            max_image_bytes,
+            ..crate::test_documents::limits()
+        },
+        read: crate::test_documents::read(),
+        token: crate::test_documents::TOKEN.into(),
+    };
+    assert_that!(FrameLimits::reply_to(&req(100, 200), 1024)).is_equal_to(FrameLimits { header: 128, payload: 300 });
+    assert_that!(FrameLimits::reply_to(&req(1 << 20, 1 << 20), 1024))
+        .is_equal_to(FrameLimits { header: 128, payload: 1024 });
+    assert_that!(FrameLimits::reply_to(&req(usize::MAX, u64::MAX), 1024).payload).is_equal_to(1024);
+}
+
 #[test]
 fn read_frame_with_reads_its_limits_after_the_first_byte() {
     let mut buf = Vec::new();

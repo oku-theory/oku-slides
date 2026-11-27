@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = başlıkta YAML çapaları veya takma adları kull
 knowledge-frontmatter-tag = başlıkta YAML etiketleri kullanılamaz
 knowledge-frontmatter-too-deep = başlık çok derin iç içe
 knowledge-frontmatter-after-document-end = başlıkta YAML belge sonu ... sonrasında metin var
+knowledge-frontmatter-flow-mapping = başlık tek bir blok eşlemesi olmalı, satır başına bir anahtar, `...` sonu olmadan
 knowledge-frontmatter-type-missing = başlıkta boş olmayan bir tür gerekir
 knowledge-frontmatter-bad-timestamp = başlıktaki "{ $key }" değeri saat dilimi farkı olan bir RFC 3339 tarih-saat olmalıdır
 knowledge-frontmatter-not-allowed = "{ $key }" anahtarına bu dosyanın başlığında izin verilmez
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = pakette çok fazla dosya var
 knowledge-reason-file-too-large = dosya çok büyük
 knowledge-reason-total-too-large = paket çok büyük
 knowledge-reason-over-limit = bilgi tabanı sınırlarını aştı: yalnızca dosya silmek onu yeniden sınırların altına indirir
+knowledge-no-text-layer = bu PDF'nin metin katmanı yok (bir tarama): metinle dışa aktarın ya da metnini yapıştırın
+knowledge-legacy-format = bu eski Office biçimi okunamıyor: .pptx, .docx veya .xlsx olarak kaydedin
+knowledge-document-encrypted = bu belge parolayla korunuyor: korumasız bir kopyasını kaydedin
+knowledge-unsupported-document = bu tür bir belge içe aktarılamaz: PDF, DOCX, PPTX, XLSX, ODS, Markdown veya metin
+knowledge-document-damaged = bu belge hasarlı ve okunamıyor
+knowledge-document-type-mismatch = bu dosyanın içeriği adıyla uyuşmuyor
+knowledge-document-too-large = bu belge içe aktarmak için çok büyük
 op-knowledge = Bilgi dosyası { $path }: { $reason }
 op-unknown-widget = Bilinmeyen bileşen: { $subject }
 op-unknown-namespace = Bu sunuda { $pack } paketi yok.
@@ -270,6 +278,7 @@ issue-knowledge-invalid = bilgi dosyası { $path } geçersiz: { $reason ->
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

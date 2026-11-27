@@ -22,7 +22,7 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   option ops); `moving.rs` (`move_element`); `packs.rs` (`add_pack`, `remove_pack` by kind, `pack_users`); `data.rs` (`add_data`, `edit_data`, `bind_data` and `bind_choices`, the data a view may switch to, `remove_data` refused while shown, `rename_data`, `set_column_type`); `view_data.rs` (`PutViewData`, host-only, `Seal`); `refs.rs` (data refs in options: absent data, rebind, the inline flag).
 - `data_users.rs`: `Deck::data_users`, the `ViewRef`s showing a data in document order. `views.rs`: `plan_views`, each view's columns and rows within the render budgets, and its issues.
 - `knowledge/`: the deck's OKF bundle (`KnowledgeFile` by id); two parsers, `path.rs` (`KnowledgePath`)
-  and `frontmatter.rs` (`check_text`, bounded YAML); `limits.rs` (with `READ_FACTOR`, the replica read ceiling); `issues.rs`: the `Issue::knowledge_*`; `normalize.rs` repairs a read bundle (its ceiling scan is `knowledge_over_limits`); `assets.rs` (`cited_images(path, text)`: CommonMark images into `/references/assets/`, each id with its bundle path).
+  and `frontmatter.rs` (`check_text`, bounded YAML); `stamp.rs` (an agent write's provenance); `limits.rs` (with `READ_FACTOR`, the replica read ceiling); `issues.rs`: the `Issue::knowledge_*`; `normalize.rs` repairs a read bundle (its ceiling scan is `knowledge_over_limits`); `assets.rs` (`cited_images(path, text)`: CommonMark images into `/references/assets/`, each id with its bundle path); `extract.rs`: the extraction contract (`DocumentType`, `ExtractLimits`, `Cut`, `ExtractRefusal` with its Fluent key); `sanitize.rs`: the characters imported text never keeps (`clean_text`, `is_clean_text`, the host's check of a worker's Markdown) and `escape_inline`.
 - `replica/`: `DeckReplica`, the deck in a `LoroDoc` (merge, history, undo): [`src/replica/ARCHITECTURE.md`](src/replica/ARCHITECTURE.md).
 - `pack.rs`: content-addressed `PackVersion` (sha-256 of `layouts\0` for a layout pack, the canonical manifest and widget files),
   `PackPin` (id, version, `requires`), `PackFiles` (with its `PackKind`), `WidgetFile`, `PackManifest` (`examples`, `styles`, read in
@@ -36,8 +36,8 @@ The replica is authoritative; `SourceBundle.deck` is only a view of it, used for
   checked against manifests and closure), `usage.jsonl` (read last, own cap, never fails), all add-only, verified on read
   (a forged version reported once, as a namespace under both kinds), unioned on merge; reads bounded by `SourceLimits`.
 - `tokens.rs`: `merge`, effective tokens, `theme_layer` (pack component defaults, then the chain). `validate.rs`: `Issue`s, cited assets (`asset_refs`, `element_asset_refs`, `knowledge_asset_refs`); `validate_data.rs`: data issues (capped at 200); `data_bounds.rs`: `check_deck_bounds`, `DeckLoad`;
-  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors (`color_names`: those a deck uses). `media.rs`: `sniff`, `dimensions`.
-  `num.rs`: named float/int casts (import, session). `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons. `usage.rs`: `UsageLedger`; `usage_report.rs`: `aggregate`, `Range`.
+  `canonical.rs`: `canonicalize`. `fields.rs`, `locate.rs`, `color.rs`: text fields, element lookup, colors (`color_names`: those a deck uses). `media.rs`: `sniff`, `dimensions`, `sniff_document` (a document's kind or its `SniffRefusal`).
+  `num.rs`: named float/int casts (import, session, `count_u64`). `link.rs`: `encode_link_url`, the one Markdown link encoder. `error/` (Snafu, Fluent): `OpError`, `ReplicaError`…; `reason.rs`: refusal reasons. `usage.rs`: `UsageLedger`; `usage_report.rs`: `aggregate`, `Range`.
 
 ## Extension points
 

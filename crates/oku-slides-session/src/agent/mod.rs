@@ -3,7 +3,7 @@
 //! `TabGate`, `TabOpen`). The MCP tools (`oku-slides-mcp`) and the ACP
 //! client (`oku-slides-agent`) go through here.
 //! Guides of the packs and themes a tab uses: `guides` (`AgentGuides`).
-//! Pasted images: `attachments` (`AttachmentRef`).
+//! Pasted images and, in a deck tab, attached documents: `attachments` (`AttachmentRef`).
 //! The focused tab, its window's tabs and windows, for the agent host: `workspace_port` (`AgentWorkspace`).
 //! Updates and quitting, asked of the app: `app_port` (`AppPort`).
 //! What the agent's tools changed in a turn: `turn_touches`, resolved by `traces` (`Trace`).
@@ -37,7 +37,7 @@ mod work_dir;
 pub mod workspace_port;
 
 pub use app_port::{AppPort, AppRefusal, UnavailableApp, UpdateAction, UpdateState};
-pub use attachments::{AttachmentRef, PASTE_TYPES, PasteReason};
+pub use attachments::{AttachLimits, AttachmentRef, PASTE_TYPES, PasteReason, Upload};
 pub use bounds::{DETAIL_CHARS, LABEL_MAX, NOTE_CHARS, PROMPT_MAX, TEXT_MAX, WHY_MAX, check_options, clip};
 pub use context::{AgentUi, TurnOrigin, UI_TEXT_MAX};
 pub use conversation::SavedConversation;

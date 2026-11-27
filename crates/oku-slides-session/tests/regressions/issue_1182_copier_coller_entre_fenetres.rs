@@ -10,6 +10,8 @@ use oku_slides_session::Workspace;
 use serde_json::json;
 use speculoos::prelude::*;
 
+use oku_slides_session::agent::Upload;
+
 use crate::common::{data_dir, fixture_path};
 use crate::workspace_support::{on, op, png, send, workspace};
 
@@ -25,10 +27,10 @@ fn two_windows(ws: &Mutex<Workspace>) -> (String, String, Element) {
         on(ws, tab, |s| s.open(&fixture_path())).unwrap_or_else(|e| panic!("ouverture : {}", e.one_line()));
     }
     let element = on(ws, &a, |s| {
-        let pasted = s.paste_image(png(), &[]).unwrap_or_else(|e| panic!("collage : {}", e.one_line()));
+        let pasted = s.attach(Upload::new(png(), ""), &[]).unwrap_or_else(|e| panic!("collage : {}", e.one_line()));
         let set = op(json!({
             "op": "set_param", "target": { "slide": "s-libre", "element": "e-image" },
-            "param": "asset", "value": pasted.id
+            "param": "asset", "value": pasted.id()
         }));
         s.apply("image", vec![set], None).unwrap_or_else(|e| panic!("apply : {}", e.one_line()));
         let slide = s.deck().slides.iter().find(|x| x.id == "s-libre").cloned();

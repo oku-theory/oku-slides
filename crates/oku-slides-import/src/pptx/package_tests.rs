@@ -2,7 +2,7 @@ use speculoos::prelude::*;
 
 use super::*;
 use crate::ImportErrorKind;
-use crate::pptx::test_support::{CT, LIMITS, ROOT_RELS, TestPkg, zip_of};
+use crate::pptx::test_support::{CT, LIMITS, ROOT_RELS, TestPkg, zip_of, zip64_tail};
 
 const PRES_RELS: &str = r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
@@ -74,12 +74,6 @@ fn resolve_path_climbs_parent_directories() {
 }
 
 #[test]
-fn declared_entries_reads_the_end_of_central_directory() {
-    let bytes = zip_of(&[("a", b"1"), ("b", b"2"), ("c", b"3")]);
-    assert_that!(declared_entries(&bytes)).is_equal_to(Some(3));
-}
-
-#[test]
 fn open_garbage_is_unreadable() {
     assert_that!(open_err(b"not a zip", &LIMITS)).is_equal_to(ImportErrorKind::Unreadable);
 }
@@ -148,19 +142,19 @@ fn bytes_after_a_too_large_read_nothing_and_fail() {
     let pkg = Package::open(t.bytes(), &ReadLimits { max_part_bytes: 1024, ..LIMITS }).unwrap();
     assert_that!(pkg.bytes("ppt/media/big.bin").map_err(|e| e.kind()).err())
         .is_equal_to(Some(ImportErrorKind::TooLarge));
-    let before = pkg.read_total.get();
+    let before = pkg.decompressed();
     assert_that!(pkg.bytes("ppt/media/small.bin").map_err(|e| e.kind()).err())
         .is_equal_to(Some(ImportErrorKind::TooLarge));
-    assert_that!(pkg.read_total.get()).is_equal_to(before);
+    assert_that!(pkg.decompressed()).is_equal_to(before);
 }
 
 #[test]
 fn bytes_over_the_part_limit_count_what_was_decompressed() {
     let t = TestPkg::with(&[("ppt/media/big.bin", &[7u8; 2048])]);
     let pkg = Package::open(t.bytes(), &ReadLimits { max_part_bytes: 1024, ..LIMITS }).unwrap();
-    let before = pkg.read_total.get();
+    let before = pkg.decompressed();
     assert_that!(pkg.bytes("ppt/media/big.bin").is_err()).is_true();
-    assert_that!(pkg.read_total.get()).is_equal_to(before + 1025);
+    assert_that!(pkg.decompressed()).is_equal_to(before + 1025);
 }
 
 #[test]
@@ -169,7 +163,7 @@ fn bytes_decompress_at_most_the_remaining_budget() {
     let opened = (CT.len() + ROOT_RELS.len()) as u64;
     let pkg = Package::open(t.bytes(), &ReadLimits { max_total_bytes: opened + 100, ..LIMITS }).unwrap();
     assert_that!(pkg.bytes("ppt/media/a.bin").map_err(|e| e.kind()).err()).is_equal_to(Some(ImportErrorKind::TooLarge));
-    assert_that!(pkg.read_total.get()).is_equal_to(opened + 101);
+    assert_that!(pkg.decompressed()).is_equal_to(opened + 101);
 }
 
 #[test]
@@ -178,9 +172,9 @@ fn rels_unreadable_fail_once_then_read_as_empty_without_rereading() {
     let pkg = t.pkg();
     assert_that!(pkg.rels("ppt/slides/slide1.xml").map_err(|e| e.kind()).err())
         .is_equal_to(Some(ImportErrorKind::Unreadable));
-    let before = pkg.read_total.get();
+    let before = pkg.decompressed();
     assert_that!(pkg.rels("ppt/slides/slide1.xml").map(|r| r.by_type("").len()).ok()).is_equal_to(Some(0));
-    assert_that!(pkg.read_total.get()).is_equal_to(before);
+    assert_that!(pkg.decompressed()).is_equal_to(before);
 }
 
 #[test]
@@ -193,39 +187,6 @@ fn text_and_rels_strip_a_utf8_bom() {
     let pkg = t.pkg();
     assert_that!(pkg.text("ppt/a.xml").ok()).is_equal_to(Some("<a/>".to_owned()));
     assert_that!(pkg.rels("ppt/presentation.xml").unwrap().target("rId2")).is_equal_to(Some("ppt/slides/slide1.xml"));
-}
-
-/// Fin d'archive Zip64 seule : enregistrement Zip64 annonçant `entries`, localisateur, puis EOCD saturé.
-fn zip64_tail(entries: u64, locator: bool) -> Vec<u8> {
-    let mut v = vec![0u8; 8]; // octets quelconques avant l'enregistrement
-    let record = v.len() as u64;
-    v.extend_from_slice(&[0x50, 0x4b, 0x06, 0x06]);
-    v.extend_from_slice(&44u64.to_le_bytes()); // taille du reste de l'enregistrement
-    v.extend_from_slice(&[45, 0, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // versions, disques
-    v.extend_from_slice(&entries.to_le_bytes()); // entrées sur ce disque
-    v.extend_from_slice(&entries.to_le_bytes()); // entrées en tout
-    v.extend_from_slice(&[0; 16]); // taille et décalage du répertoire central
-    if locator {
-        v.extend_from_slice(&ZIP64_LOCATOR);
-        v.extend_from_slice(&[0; 4]);
-        v.extend_from_slice(&record.to_le_bytes());
-        v.extend_from_slice(&1u32.to_le_bytes());
-    }
-    v.extend_from_slice(&EOCD);
-    v.extend_from_slice(&[0; 6]);
-    v.extend_from_slice(&0xFFFFu16.to_le_bytes());
-    v.extend_from_slice(&[0; 10]);
-    v
-}
-
-#[test]
-fn declared_entries_follows_the_zip64_locator() {
-    assert_that!(declared_entries(&zip64_tail(70_000, true))).is_equal_to(Some(70_000));
-}
-
-#[test]
-fn declared_entries_saturated_without_zip64_locator_is_unknown() {
-    assert_that!(declared_entries(&zip64_tail(70_000, false))).is_none();
 }
 
 #[test]

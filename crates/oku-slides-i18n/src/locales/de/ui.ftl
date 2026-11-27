@@ -161,7 +161,20 @@ ui-draft-send-title = An den Agenten senden (⌘↩)
 ui-draft-discard = Verwerfen
 ui-pasted-image = { $type } { $size }
 ui-draft-images = Eingefügte Bilder
+ui-draft-attachments = Anhänge
 ui-draft-remove-image = Dieses Bild entfernen
+ui-attachment-remove = { $name } entfernen
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } ist leer.
+ui-attach-too-large = { $name } überschreitet die Grenze von { NUMBER($mb) } MB.
+ui-attach-too-many-images = Der Entwurf enthält bereits so viele Bilder wie möglich ({ $max }).
+ui-attach-too-many-documents = Der Entwurf enthält bereits so viele Dokumente wie möglich ({ $max }).
+ui-attach-not-ready = Anhänge sind noch nicht bereit: Versuchen Sie es gleich noch einmal.
+ui-attach-too-many-files = Zu viele Dateien auf einmal: Die Grenze liegt bei { $max }.
+ui-attach-files = Dateien anhängen
 ui-draft-send-needs-text = Sagen Sie, was damit geschehen soll
 ui-agent-state-idle = Agent
 ui-agent-state-starting = Der Agent startet…

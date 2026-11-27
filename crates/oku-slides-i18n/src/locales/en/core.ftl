@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = the frontmatter must not use YAML anchors or alias
 knowledge-frontmatter-tag = the frontmatter must not use YAML tags
 knowledge-frontmatter-too-deep = the frontmatter is nested too deeply
 knowledge-frontmatter-after-document-end = the frontmatter has text after the YAML document end ...
+knowledge-frontmatter-flow-mapping = the frontmatter must be one block mapping, one key per line, without a `...` end
 knowledge-frontmatter-type-missing = the frontmatter needs a non-empty type
 knowledge-frontmatter-bad-timestamp = the frontmatter value "{ $key }" must be an RFC 3339 date-time with an offset
 knowledge-frontmatter-not-allowed = the frontmatter key "{ $key }" is not allowed in this file
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = the bundle has too many files
 knowledge-reason-file-too-large = the file is too large
 knowledge-reason-total-too-large = the bundle is too large
 knowledge-reason-over-limit = the knowledge base is past its limits: only deleting files brings it back under
+knowledge-no-text-layer = this PDF has no text layer (a scan): export it with text, or paste its text
+knowledge-legacy-format = this older Office format cannot be read: save it as .pptx, .docx or .xlsx
+knowledge-document-encrypted = this document is protected by a password: save an unprotected copy
+knowledge-unsupported-document = this kind of document cannot be imported: PDF, DOCX, PPTX, XLSX, ODS, Markdown or text
+knowledge-document-damaged = this document is damaged and cannot be read
+knowledge-document-type-mismatch = this file's content does not match its name
+knowledge-document-too-large = this document is too large to import
 op-knowledge = Knowledge file { $path }: { $reason }
 op-unknown-widget = Unknown widget: { $subject }
 op-unknown-namespace = This deck has no pack { $pack }.
@@ -286,6 +294,7 @@ issue-knowledge-invalid = knowledge file { $path } is invalid: { $reason ->
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

@@ -161,7 +161,20 @@ ui-draft-send-title = 傳送給 AI 代理 (⌘↩)
 ui-draft-discard = 捨棄
 ui-pasted-image = { $type } { $size }
 ui-draft-images = 已貼上的圖片
+ui-draft-attachments = 附件
 ui-draft-remove-image = 移除此圖片
+ui-attachment-remove = 移除 { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } 是空檔案。
+ui-attach-too-large = { $name } 超過了 { NUMBER($mb) }MB 的上限。
+ui-attach-too-many-images = 草稿中的圖片已達上限（{ $max }）。
+ui-attach-too-many-documents = 草稿中的文件已達上限（{ $max }）。
+ui-attach-not-ready = 附件尚未就緒：請稍後再試。
+ui-attach-too-many-files = 一次加入的檔案太多：上限為{ $max }個。
+ui-attach-files = 附加檔案
 ui-draft-send-needs-text = 請說明要如何處理它
 ui-agent-state-idle = AI 代理
 ui-agent-state-starting = AI 代理正在啟動…

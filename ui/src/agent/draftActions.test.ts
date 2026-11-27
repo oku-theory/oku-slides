@@ -1,25 +1,25 @@
 import { expect, test } from "bun:test";
-import type { PastedImage } from "../api";
+import type { Attachment } from "../api";
 import { afterSend, appendDraft } from "../draft";
 import { draftActions, promptThrough } from "./draftActions";
 
-function deps(over: Partial<Parameters<typeof draftActions>[0]> = {}, images: PastedImage[] = [], before: string | null = null) {
+function deps(over: Partial<Parameters<typeof draftActions>[0]> = {}, attachments: Attachment[] = [], before: string | null = null) {
   const log: string[] = [];
   let text = before;
   const base = {
     draft: {
-      append: (t: string) => (log.push(`append:${t}`), (text = appendDraft(text, t)), { text, images }),
+      append: (t: string) => (log.push(`append:${t}`), (text = appendDraft(text, t)), { text, attachments }),
       drop: (t: string) => {
         log.push(`drop:${t}`);
         text = afterSend(text, t);
         return text !== null;
       },
     },
-    removeImage: (id: string) => void log.push(`remove:${id}`),
+    removeAttachment: (id: string) => void log.push(`remove:${id}`),
     flight: { current: false },
     editing: false,
     insert: (t: string) => (log.push(`insert:${t}`), true),
-    prompt: async (t: string, images: string[]) => (log.push(["prompt", t, ...images].join(":")), true),
+    prompt: async (t: string, ids: string[]) => (log.push(["prompt", t, ...ids].join(":")), true),
   };
   return { log, actions: draftActions({ ...base, ...over }), text: () => text };
 }
@@ -61,7 +61,7 @@ test("draftActions envoyer passe les images à la consigne", async () => {
   expect(log).toEqual(["prompt:fais ceci:sha256:aa", "drop:fais ceci"]);
 });
 
-const IMAGE: PastedImage = { id: "sha256:aa", mime: "image/png", width: 1, height: 1 };
+const IMAGE: Attachment = { type: "image", id: "sha256:aa", mime: "image/png", width: 1, height: 1 };
 
 test("draftActions dictation finished by hand outside editing sends the whole draft then closes it", async () => {
   const { log, actions } = deps({}, [IMAGE], "avant ");
@@ -135,4 +135,12 @@ test("draftActions dictation during a send keeps it and drops only the sent imag
   await Promise.resolve();
   expect(log).toEqual(["append:un", "prompt:un:sha256:aa", "append:deux", "drop:un", "remove:sha256:aa"]);
   expect(text()).toBe("deux");
+});
+
+test("draftActions dictation finished by hand sends document attachments with the prompt", async () => {
+  const doc: Attachment = { type: "document", id: "sha256:dd", name: "a.pdf", kind: "pdf", bytes: 10 };
+  const { log, actions } = deps({}, [IMAGE, doc]);
+  actions.onDictated("lis", "auto", true);
+  await new Promise((r) => setTimeout(r));
+  expect(log).toContain("prompt:lis:sha256:aa:sha256:dd");
 });

@@ -1,8 +1,9 @@
 //! Traces of a turn: the elements the agent's tools changed, resolved for its receipt.
 //!
 //! The agent's tools write through `handle_by_agent` and `apply_by_agent`, which record what
-//! their applied ops touched (`turn_touches`); the user's writes, clicks on agent forms
-//! included, go through `handle` and `apply` and are never traced.
+//! their applied ops touched (`turn_touches`) and stamp the knowledge files they author with
+//! their provenance (`knowledge_write`); the user's writes, clicks on agent forms included, go
+//! through `handle` and `apply` and are never traced nor stamped.
 
 use std::ops::{Deref, DerefMut};
 
@@ -81,7 +82,8 @@ impl Drop for AgentWrites<'_> {
 }
 
 impl Session {
-    /// `handle` for an agent tool: deck ops applied by it are recorded for the open turn's receipt.
+    /// `handle` for an agent tool: deck ops applied by it are recorded for the open turn's receipt,
+    /// and the knowledge files it writes or edits stamped with their provenance.
     ///
     /// # Errors
     ///
@@ -90,8 +92,8 @@ impl Session {
         AgentWrites::new(self).handle(req)
     }
 
-    /// `apply` for an agent tool (hub-applied agent ops), recorded like `handle_by_agent`; an
-    /// overflowing data asks a fold ([`Session::apply_folding`]), which a caller going through
+    /// `apply` for an agent tool (hub-applied agent ops), recorded and stamped like `handle_by_agent`;
+    /// an overflowing data asks a fold ([`Session::apply_folding`]), which a caller going through
     /// `TabSession::with_folding` runs before retrying once.
     ///
     /// # Errors

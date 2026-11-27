@@ -79,7 +79,7 @@ pub(crate) fn families_of(tool: &str) -> &'static [Family] {
         "deck_outline" => &[Edit, Present, Files],
         "render_slide" => &[Edit, Troubleshoot],
         "knowledge_list" | "knowledge_read" | "knowledge_search" | "knowledge_write" | "knowledge_edit"
-        | "knowledge_move" | "knowledge_delete" => &[Knowledge],
+        | "knowledge_move" | "knowledge_delete" | "knowledge_import" => &[Knowledge],
         "present" => &[Present],
         "open" | "import" | "new" | "save" | "save_copy" | "move" | "merge" | "history" => &[Files],
         "layouts" => &[Edit, Packs],

@@ -33,6 +33,8 @@
 //!   `ReferencePng` en rastérise une page, `ReleaseReference` l'oublie. Une
 //!   référence absente répond `Error Stale` ; LibreOffice hors délai,
 //!   `Error Timeout` ; un autre échec du témoin, `Error Setup` (`reference: …`).
+//! - `ExtractDocument` extracts the payload document (`extract`): `Extracted`, its Markdown
+//!   and images in the payload, or `ExtractRefused`; the host checks the lengths.
 //! - Une requête qui échoue répond `Error` et la boucle continue ; une trame
 //!   illisible arrête `serve`.
 
@@ -67,7 +69,7 @@ use crate::watchdog::{Busy, Limits};
 pub struct ServeError(FrameError);
 
 /// Réponse et charge d'une requête.
-type Reply = (Response, Vec<u8>);
+pub(crate) type Reply = (Response, Vec<u8>);
 
 struct Slot {
     renderer: Renderer,
@@ -90,6 +92,8 @@ struct Worker {
     storage: Option<Storage>,
     /// Le dossier du travailleur (son TMPDIR), vidé après chaque référence.
     work: Option<PathBuf>,
+    /// The frame bound: an extraction's reply payload stays within it.
+    max_frame: usize,
     /// The only folder base files are read from (`Hello`), resolved.
     bases_dir: Option<PathBuf>,
     /// Base files sent with `PutData`, read by every slot's renderer.
@@ -113,7 +117,7 @@ fn serve_watched(
     busy: &Busy,
     work: Option<PathBuf>,
 ) -> Result<(), ServeError> {
-    let mut worker = Worker { work, ..Worker::default() };
+    let mut worker = Worker { work, max_frame, ..Worker::default() };
     while let Some(frame) = read_frame(&mut input, FrameLimits::requests(max_frame)).map_err(ServeError)? {
         busy.start(Instant::now());
         let (reply, payload) = match serde_json::from_slice::<Request>(&frame.header) {
@@ -236,6 +240,9 @@ impl Worker {
             Request::ReleaseReference { reference } => {
                 self.references.remove(&reference);
                 Ok(ok_reply())
+            }
+            Request::ExtractDocument { kind, limits, read, token } => {
+                crate::extract::answer(&payload, kind, &limits, &read, &token, self.max_frame)
             }
         };
         result.unwrap_or_else(error_reply)

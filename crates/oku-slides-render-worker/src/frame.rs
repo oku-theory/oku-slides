@@ -1,25 +1,27 @@
-//! Trames du tube : longueur de l'en-tête (u32 big-endian), en-tête JSON,
-//! longueur de la charge (u32 big-endian), charge brute.
+//! Pipe frames: the header length (u32 big-endian), the JSON header, the payload length
+//! (u32 big-endian), the raw payload.
 //!
-//! Bornes par partie et par sorte ([`FrameLimits`]), tirées de `max_frame_mib` :
-//! un en-tête (JSON : deck, pack, mise en page) au plus un huitième, un SVG au
-//! plus un quart, une police, un asset, un `.pptx`, un PNG ou un PDF la taille entière ;
-//! les autres réponses n'ont pas de charge.
+//! Bounds per part and per kind ([`FrameLimits`]), drawn from `max_frame_mib`: a header
+//! (JSON: deck, pack, layout) at most an eighth, an SVG at most a quarter, a font, an asset, a
+//! `.pptx`, a document, a PNG or a PDF the whole size, an extraction its Markdown and image
+//! bounds within it; the other replies have no payload.
 
 use std::io::{Read, Write};
 
+use oku_slides_core::knowledge::ExtractLimits;
+use oku_slides_core::num::size_usize;
 use serde::Serialize;
 use snafu::{ResultExt, ensure};
 
 use crate::error::{FrameError, IoSnafu, JsonSnafu, TooLargeSnafu, TruncatedSnafu};
 use crate::protocol::Request;
 
-/// Un en-tête de trame : au plus `max / HEADER_SHARE`.
+/// A frame header: at most `max / HEADER_SHARE`.
 const HEADER_SHARE: usize = 8;
-/// La charge d'un SVG : au plus `max / SVG_SHARE`.
+/// An SVG payload: at most `max / SVG_SHARE`.
 const SVG_SHARE: usize = 4;
 
-/// Bornes d'une trame, en octets : l'en-tête et la charge.
+/// The bounds of a frame, in bytes: its header and its payload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FrameLimits {
     pub(crate) header: usize,
@@ -27,39 +29,46 @@ pub(crate) struct FrameLimits {
 }
 
 impl FrameLimits {
-    /// La même borne `max` pour les deux parties.
+    /// The same bound `max` for both parts.
     pub(crate) fn uniform(max: usize) -> Self {
         Self { header: max, payload: max }
     }
 
-    /// Une requête de l'hôte : l'en-tête au plus `max / 8`, la charge (police, asset, `.pptx`) `max`.
+    /// A request from the host: the header at most `max / 8`, the payload (font, asset, `.pptx`) `max`.
     pub(crate) fn requests(max: usize) -> Self {
         Self { header: max / HEADER_SHARE, payload: max }
     }
 
-    /// La réponse à `req` : l'en-tête au plus `max / 8` ; la charge au plus
-    /// `max / 4` pour un SVG, `max` pour un PNG (d'une page ou d'une référence) ou un PDF, rien sinon.
+    /// The reply to `req`: the header at most `max / 8`; the payload at most `max / 4` for an
+    /// SVG, `max` for a PNG (of a page or a reference) or a PDF, an extraction's Markdown and
+    /// image bounds within `max`, nothing otherwise.
     pub(crate) fn reply_to(req: &Request, max: usize) -> Self {
         let payload = match req {
             Request::Svg { .. } => max / SVG_SHARE,
             Request::Png { .. } | Request::Pdf { .. } | Request::ReferencePng { .. } => max,
+            Request::ExtractDocument { limits, .. } => extract_payload(limits, max),
             _ => 0,
         };
         Self { header: max / HEADER_SHARE, payload }
     }
 }
 
-/// Une trame lue : en-tête JSON non interprété et charge brute.
+/// The payload bound of an extraction reply: its Markdown and image bounds, at most `max`.
+pub(crate) fn extract_payload(limits: &ExtractLimits, max: usize) -> usize {
+    max.min(limits.max_text_bytes.saturating_add(size_usize(limits.max_image_bytes)))
+}
+
+/// A frame read: its JSON header, not interpreted, and its raw payload.
 #[derive(Debug)]
 pub(crate) struct Frame {
     pub(crate) header: Vec<u8>,
     pub(crate) payload: Vec<u8>,
 }
 
-/// Écrit une trame (en-tête sérialisé en JSON, puis charge) et vide le tampon.
+/// Writes a frame (the header serialized as JSON, then the payload) and flushes the buffer.
 ///
-/// Chaque partie est bornée par `limits` : au-delà, `TooLarge` avant tout
-/// octet écrit (le flux reste utilisable).
+/// Each part is bounded by `limits`: past it, `TooLarge` before any byte is written (the
+/// stream stays usable).
 pub(crate) fn write_frame(
     w: &mut impl Write,
     header: &impl Serialize,
@@ -81,21 +90,21 @@ pub(crate) fn write_frame(
     w.flush().context(IoSnafu)
 }
 
-/// Lit une trame ; `None` à la fin propre du flux, entre deux trames.
+/// Reads a frame; `None` at a clean end of the stream, between two frames.
 ///
-/// Chaque partie est bornée par `limits` avant toute allocation.
+/// Each part is bounded by `limits` before anything is allocated.
 pub(crate) fn read_frame(r: &mut impl Read, limits: FrameLimits) -> Result<Option<Frame>, FrameError> {
     read_frame_with(r, || limits)
 }
 
-/// [`read_frame`], les bornes demandées à `limits` après le premier octet :
-/// celles de la requête envoyée entre-temps, pour un lecteur qui attendait déjà.
+/// [`read_frame`], its bounds asked of `limits` after the first byte: those of the request
+/// sent meanwhile, for a reader that was already waiting.
 pub(crate) fn read_frame_with(
     r: &mut impl Read,
     limits: impl FnOnce() -> FrameLimits,
 ) -> Result<Option<Frame>, FrameError> {
     let mut len = [0u8; 4];
-    // Fin propre : aucun octet avant la trame. Un signal (EINTR) n'en est pas une.
+    // A clean end: no byte before the frame. A signal (EINTR) is not one.
     let first = loop {
         match r.read(&mut len[..1]) {
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
@@ -113,7 +122,7 @@ pub(crate) fn read_frame_with(
     Ok(Some(Frame { header, payload }))
 }
 
-/// `payload` : la partie est la charge (sinon l'en-tête).
+/// `payload`: the part is the payload (otherwise the header).
 fn read_part(r: &mut impl Read, len: usize, max: usize, payload: bool) -> Result<Vec<u8>, FrameError> {
     ensure!(len <= max, TooLargeSnafu { len, max, payload });
     let mut buf = vec![0u8; len];

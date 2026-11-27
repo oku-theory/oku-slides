@@ -161,7 +161,20 @@ ui-draft-send-title = এজেন্টকে পাঠান (⌘↩)
 ui-draft-discard = বাতিল
 ui-pasted-image = { $type } { $size }
 ui-draft-images = পেস্ট করা ছবি
+ui-draft-attachments = সংযুক্তি
 ui-draft-remove-image = এই ছবিটি সরান
+ui-attachment-remove = { $name } সরান
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } খালি।
+ui-attach-too-large = { $name } { NUMBER($mb) } MB সীমা ছাড়িয়ে গেছে।
+ui-attach-too-many-images = খসড়ায় ইতিমধ্যে সর্বোচ্চ সংখ্যক ছবি আছে ({ $max })।
+ui-attach-too-many-documents = খসড়ায় ইতিমধ্যে সর্বোচ্চ সংখ্যক নথি আছে ({ $max })।
+ui-attach-not-ready = সংযুক্তি এখনও প্রস্তুত নয়: একটু পরে আবার চেষ্টা করুন।
+ui-attach-too-many-files = একসাথে অনেক বেশি ফাইল: সীমা { $max }।
+ui-attach-files = ফাইল সংযুক্ত করুন
 ui-draft-send-needs-text = বলুন এটি দিয়ে কী করতে হবে
 ui-agent-state-idle = এজেন্ট
 ui-agent-state-starting = এজেন্ট চালু হচ্ছে…

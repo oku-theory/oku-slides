@@ -9,7 +9,7 @@
 import { Suspense, lazy, useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
-import type { AgentUi, InterfaceChange, McpEvent, PastedImage, Surface } from "../api";
+import type { AgentUi, Attachment, InterfaceChange, McpEvent, Surface } from "../api";
 import type { PresentCommand } from "../present";
 import { agentApi } from "../api";
 import { SlideThumbsContext, type SlideThumbs } from "../a2ui/slideThumbs";
@@ -67,7 +67,7 @@ export interface AgentHandle {
    * Une consigne, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit
    * les touches. Vrai si elle est partie (un refus ou un échec est signalé).
    */
-  prompt: (text: string, images: string[]) => Promise<boolean>;
+  prompt: (text: string, attachments: string[]) => Promise<boolean>;
   /** Une action d'une surface (réglages de l'hôte d'abord, sinon l'agent). */
   onSurfaceAction: (s: Surface, a: A2uiClientAction) => void;
   /** Arrête le tour en cours. */
@@ -115,7 +115,7 @@ export interface AgentPanelProps {
   /** Où les touches rapides agissent ; défaut : toutes. */
   keyPlaces?: QuickTarget["kind"][];
   /** Un brouillon reçu de l'hôte. */
-  onDraft?: (e: { text: string | null; origin: string | null; images: PastedImage[] }) => void;
+  onDraft?: (e: { text: string | null; origin: string | null; attachments: Attachment[] }) => void;
   /**
    * La dictée ou l'agent ont changé (évènement `voice`), ou l'abonnement s'est rouvert (des
    * évènements ont pu manquer) : la dictée relit son état.
@@ -288,7 +288,7 @@ export function AgentPanel(props: AgentPanelProps) {
         },
         onAgent: (e) => {
           latest.current!.threadState.onAgentEvent(e);
-          if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin, images: e.images });
+          if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin, attachments: e.attachments });
           if (e.kind === "voice") latest.current!.props.onVoice?.();
           if (e.kind === "availability") latest.current!.props.onAvailability?.(e.unusable);
           if (e.kind === "fallback") latest.current!.props.onFallback?.(e.reason);
@@ -330,8 +330,8 @@ export function AgentPanel(props: AgentPanelProps) {
   /** Un tour en cours qui n'attend pas l'utilisateur (aucune question ne reçoit la consigne) : ⌘⇧D et Échap l'arrêtent. */
   const busy = agentBusy(agentState, answerTarget(keysTarget));
   /** Une consigne pour l'agent, avec ce que voit l'utilisateur ; elle répond par défaut à la question qui reçoit les touches. */
-  const promptAgent = (text: string, answer = answerTarget(keysTarget), images: string[] = []): Promise<boolean> => {
-    return agent.prompt(text, props.ui, answer, images).then(
+  const promptAgent = (text: string, answer = answerTarget(keysTarget), attachments: string[] = []): Promise<boolean> => {
+    return agent.prompt(text, props.ui, answer, attachments).then(
       () => true,
       (err) => {
         say(String(err), true);
@@ -392,7 +392,7 @@ export function AgentPanel(props: AgentPanelProps) {
     window.addEventListener("click", onClick, true);
     return () => window.removeEventListener("click", onClick, true);
   }, []);
-  useImperativeHandle(props.handle, () => ({ prompt: (text, images) => promptAgent(text, answerTarget(keysTarget), images), onSurfaceAction, cancel }));
+  useImperativeHandle(props.handle, () => ({ prompt: (text, attachments) => promptAgent(text, answerTarget(keysTarget), attachments), onSurfaceAction, cancel }));
 
   // `App` ne se re-rend que si l'une de ces valeurs change.
   const sheetOwner = sheet?.anchor?.owner ?? null;

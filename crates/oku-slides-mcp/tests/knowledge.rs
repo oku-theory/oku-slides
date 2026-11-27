@@ -11,13 +11,18 @@ use common::*;
 use oku_slides_core::asset_id;
 use oku_slides_i18n::Localizer;
 use oku_slides_session::Settings;
-use oku_slides_session::knowledge_fixture::{approve_knowledge, seed_knowledge};
+use oku_slides_session::knowledge_fixture::{approve_knowledge, seed_knowledge, unstamped};
 use rstest::rstest;
 use rust_mcp_sdk::schema::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-const TOOLS: [&str; 7] = [
+/// Taken by each test that imports: the import slot is the process's, so imports running at once
+/// in this binary (cargo test threads) would see a spurious busy.
+static IMPORTS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+const TOOLS: [&str; 8] = [
+    "knowledge_import",
     "knowledge_list",
     "knowledge_read",
     "knowledge_search",
@@ -325,7 +330,7 @@ async fn knowledge_write_then_read_returns_the_approved_text() {
     assert_that!(json_of(&w)).is_equal_to(json!({ "path": PRICING }));
     let r = call(&c, "knowledge_read", json!({ "path": PRICING })).await;
     assert_that!(r.is_error).is_none();
-    assert_that!(json_of(&r)["text"].clone()).is_equal_to(json!(PRICING_TEXT));
+    assert_that!(json_of(&r)["text"].as_str().map(unstamped)).is_equal_to(Some(PRICING_TEXT.to_owned()));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -336,7 +341,8 @@ async fn knowledge_edit_of_an_approved_file_replaces_the_passage() {
     assert_that!(e.is_error).is_none();
     assert_that!(json_of(&e)).is_equal_to(json!({ "path": ROADMAP }));
     let r = call(&c, "knowledge_read", json!({ "path": ROADMAP })).await;
-    assert_that!(json_of(&r)["text"].clone()).is_equal_to(json!(ROADMAP_TEXT.replace("nothing here", "ship it")));
+    assert_that!(json_of(&r)["text"].as_str().map(unstamped))
+        .is_equal_to(Some(ROADMAP_TEXT.replace("nothing here", "ship it")));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -397,7 +403,7 @@ async fn knowledge_write_over_an_awaiting_path_approves_it_and_leaves_the_others
     let written = call(&c, "knowledge_write", json!({ "path": SECRET, "text": PRICING_TEXT })).await;
     assert_that!(written.is_error).is_none();
     let read = call(&c, "knowledge_read", json!({ "path": SECRET })).await;
-    assert_that!(json_of(&read)["text"].clone()).is_equal_to(json!(PRICING_TEXT));
+    assert_that!(json_of(&read)["text"].as_str().map(unstamped)).is_equal_to(Some(PRICING_TEXT.to_owned()));
     let listed = call(&c, "knowledge_list", json!({ "dir": "/notes" })).await;
     let approvals: Vec<(Value, Value)> = listed_files(&listed);
     assert_that!(approvals).is_equal_to(vec![(json!(other), json!("awaiting")), (json!(SECRET), json!("approved"))]);
@@ -430,5 +436,81 @@ async fn knowledge_turn_writes_undo_in_one_step() {
     assert_that!(paths_of(&h).len()).is_equal_to(before.len() + 2);
     let u = call(&c, "undo_turn", json!({ "turn": turn })).await;
     assert_that!(u.is_error).is_not_equal_to(Some(true));
+    assert_that!(paths_of(&h)).is_equal_to(before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_import_of_an_attached_markdown_writes_a_readable_reference() {
+    let _one = IMPORTS.lock().await;
+    let h = two_files().await;
+    let id = attach(&h, b"# Budget\n\nForty thousand.\n", "Budget 2026.md");
+    let c = server(&h).await;
+    let r = call(&c, "knowledge_import", json!({ "attachment": id })).await;
+    assert_that!(r.is_error).is_none();
+    assert_that!(json_of(&r))
+        .is_equal_to(json!({ "paths": ["/references/budget-2026.md"], "images": 0, "cut": false }));
+    let read = call(&c, "knowledge_read", json!({ "path": "/references/budget-2026.md" })).await;
+    assert_that!(read.is_error).is_none();
+    assert_that!(json_of(&read)["text"].as_str().unwrap_or_default()).contains("Forty thousand.");
+}
+
+/// Attaches `bytes` named `name` to the harness's tab; its id.
+fn attach(h: &Harness, bytes: &[u8], name: &str) -> String {
+    let upload = oku_slides_session::agent::Upload::new(bytes.to_vec(), name);
+    let mut s = h.session.lock().unwrap_or_else(PoisonError::into_inner);
+    s.attach(upload, &[]).unwrap_or_else(|e| panic!("attach: {e}")).id().to_owned()
+}
+
+/// The text of the knowledge file `path`, read through `knowledge_read`.
+async fn read_text(c: &rust_mcp_sdk::mcp_client::ClientRuntime, path: &str) -> String {
+    let read = call(c, "knowledge_read", json!({ "path": path })).await;
+    assert_that!(read.is_error).is_none();
+    json_of(&read)["text"].as_str().unwrap_or_default().to_owned()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_import_with_a_path_replaces_the_earlier_import() {
+    let _one = IMPORTS.lock().await;
+    let h = two_files().await;
+    let first = attach(&h, b"# Budget\n\nForty thousand.\n", "Budget 2026.md");
+    let second = attach(&h, b"# Budget\n\nFifty thousand.\n", "Budget v2.md");
+    let c = server(&h).await;
+    let r = call(&c, "knowledge_import", json!({ "attachment": first })).await;
+    assert_that!(r.is_error).is_none();
+    let path = "/references/budget-2026.md";
+    let r = call(&c, "knowledge_import", json!({ "attachment": second, "path": path })).await;
+    assert_that!(r.is_error).is_none();
+    assert_that!(json_of(&r)).is_equal_to(json!({ "paths": [path], "images": 0, "cut": false }));
+    let text = read_text(&c, path).await;
+    assert_that!(text.as_str()).contains("Fifty thousand.");
+    assert_that!(text.as_str()).does_not_contain("Forty thousand.");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_import_onto_an_edited_import_is_an_error_in_the_user_language() {
+    let _one = IMPORTS.lock().await;
+    let h = two_files().await;
+    let first = attach(&h, b"# Budget\n\nForty thousand.\n", "Budget 2026.md");
+    let second = attach(&h, b"# Budget\n\nFifty thousand.\n", "Budget v2.md");
+    let c = server(&h).await;
+    let path = "/references/budget-2026.md";
+    assert_that!(call(&c, "knowledge_import", json!({ "attachment": first })).await.is_error).is_none();
+    let edit = call(&c, "knowledge_edit", json!({ "path": path, "old": "Forty", "new": "Sixty" })).await;
+    assert_that!(edit.is_error).is_none();
+    let r = call(&c, "knowledge_import", json!({ "attachment": second, "path": path })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let expected = Localizer::new(Some("fr")).tr_with("session-import-target-edited", &[("path", path.into())]);
+    assert_that!(text_of(&r).as_str()).contains(expected.as_str());
+    assert_that!(read_text(&c, path).await.as_str()).contains("Sixty thousand.");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn knowledge_import_of_an_unknown_attachment_is_an_error_in_the_user_language() {
+    let h = two_files().await;
+    let before = paths_of(&h);
+    let c = server(&h).await;
+    let r = call(&c, "knowledge_import", json!({ "attachment": "doc-absent" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(text_of(&r).as_str()).contains(Localizer::new(Some("fr")).tr("session-attachment-gone").as_str());
     assert_that!(paths_of(&h)).is_equal_to(before);
 }

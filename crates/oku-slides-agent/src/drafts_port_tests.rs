@@ -147,7 +147,7 @@ async fn prefill_emits_the_draft_to_the_tab_without_origin() {
     prefill(&f.starter, "t-2", REQUEST).await;
     let expected = serde_json::json!({
         "tab": "t-2",
-        "event": { "kind": "draft", "text": REQUEST, "origin": null, "images": [] },
+        "event": { "kind": "draft", "text": REQUEST, "origin": null, "attachments": [] },
     });
     assert_that!(f.drafts_sent()).is_equal_to(vec![expected]);
     f.finish().await;

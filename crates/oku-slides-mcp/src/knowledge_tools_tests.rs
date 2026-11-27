@@ -1,8 +1,9 @@
 use oku_slides_session::KnowledgeEntry;
+use rstest::rstest;
 use serde_json::json;
 use speculoos::prelude::*;
 
-use super::{ListedFile, search_description};
+use super::{KnowledgeImportArgs, ListedFile, search_description};
 
 fn entry(approved: bool) -> KnowledgeEntry {
     KnowledgeEntry {
@@ -51,4 +52,27 @@ fn listed_file_approved_values_are_cleaned_and_cut_as_in_the_index() {
     assert_that!(title.starts_with("ab t")).is_true();
     assert_that!(description.map(|d| d.chars().count())).is_equal_to(Some(200));
     assert_that!(status.map(|s| s.chars().count())).is_equal_to(Some(40));
+}
+
+#[test]
+fn knowledge_import_args_path_is_optional() {
+    let args: KnowledgeImportArgs = serde_json::from_value(json!({ "attachment": "doc-1" })).unwrap();
+    assert_that!(args.attachment.as_str()).is_equal_to("doc-1");
+    assert_that!(args.path).is_none();
+    let args: KnowledgeImportArgs =
+        serde_json::from_value(json!({ "attachment": "doc-1", "path": "/references/a.md" })).unwrap();
+    assert_that!(args.path).is_equal_to(Some("/references/a.md".to_owned()));
+}
+
+#[rstest]
+#[case::unknown_field(json!({ "attachment": "doc-1", "replace": true }))]
+#[case::attachment_not_a_string(json!({ "attachment": 7 }))]
+#[case::path_not_a_string(json!({ "attachment": "doc-1", "path": ["/references/a.md"] }))]
+fn knowledge_import_args_malformed_are_refused(#[case] args: serde_json::Value) {
+    assert_that!(serde_json::from_value::<KnowledgeImportArgs>(args)).is_err();
+}
+
+#[test]
+fn knowledge_import_args_without_attachment_are_refused() {
+    assert_that!(serde_json::from_value::<KnowledgeImportArgs>(json!({ "path": "/references/a.md" }))).is_err();
 }

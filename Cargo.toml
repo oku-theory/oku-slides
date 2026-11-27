@@ -27,6 +27,7 @@ oku-slides-agent = { path = "crates/oku-slides-agent" }
 oku-slides-local-agent = { path = "crates/oku-slides-local-agent" }
 oku-slides-apple-model = { path = "crates/oku-slides-apple-model" }
 oku-slides-render-worker = { path = "crates/oku-slides-render-worker" }
+oku-slides-extract = { path = "crates/oku-slides-extract" }
 oku-slides-import = { path = "crates/oku-slides-import" }
 oku-slides-reference = { path = "crates/oku-slides-reference" }
 # Agent : MCP 1.x (ère legacy ≤ 2025-11-25, celle des clients des agents ; voir écart 6) et ACP
@@ -58,7 +59,10 @@ sha2 = "0.10"
 # Parquet bases (t-1690): the render worker only, through oku-slides-data `engine`.
 polars = { version = "=0.53.0", default-features = false, features = ["dtype-date", "parquet"] }
 hex = "0.4"
-lopdf = "0.45"
+# PDF reading and writing (pdf crate, knowledge extraction): no default features, so neither
+# rayon nor chrono is linked. oku-slides-pdf's `load_mem` thus loses lopdf's parallel
+# object-stream load, accepted unmeasured (t-1760); nothing here uses chrono dates.
+lopdf = { version = "0.45", default-features = false }
 typst = "0.15.1"
 typst-pdf = "0.15.1"
 typst-svg = "0.15.1"

@@ -35,7 +35,7 @@ pub struct Frontmatter {
 }
 
 /// A parsed YAML node, kept only as far as validation and the index need it.
-enum Node {
+pub(super) enum Node {
     Scalar { text: String, plain: bool },
     Map(Vec<(String, Node)>),
     Seq,
@@ -43,7 +43,7 @@ enum Node {
 
 impl Node {
     /// The text of a scalar that is not a plain YAML null (`~`, `null`, empty).
-    fn text(&self) -> Option<&str> {
+    pub(super) fn text(&self) -> Option<&str> {
         match self {
             Node::Scalar { text, plain }
                 if !(*plain && matches!(text.as_str(), "" | "~" | "null" | "Null" | "NULL")) =>
@@ -89,7 +89,7 @@ pub fn split(text: &str) -> Result<(&str, &str), FrontmatterReason> {
 }
 
 /// The lines of `text` as (start offset, content without `\r\n`, offset of the next line).
-fn lines(text: &str) -> impl Iterator<Item = (usize, &str, usize)> {
+pub(crate) fn lines(text: &str) -> impl Iterator<Item = (usize, &str, usize)> {
     let mut at = 0;
     std::iter::from_fn(move || {
         if at >= text.len() {
@@ -126,6 +126,21 @@ pub fn frontmatter(text: &str) -> Result<Frontmatter, FrontmatterReason> {
             .any(|(k, v)| k == "stale" && matches!(v, Node::Scalar { text, plain: true } if text == "true")),
         keys: entries.into_iter().map(|(k, _)| k).collect(),
     })
+}
+
+/// The scalar entries of the top-level mapping `key` in the frontmatter of `text`, in file order,
+/// plain YAML nulls and nested values left out; `None` when `key` is absent or not a mapping.
+///
+/// # Errors
+///
+/// The structural [`FrontmatterReason`]s, as [`frontmatter`].
+pub fn scalar_mapping(text: &str, key: &str) -> Result<Option<Vec<(String, String)>>, FrontmatterReason> {
+    let (yaml, _) = split(text)?;
+    let entries = parse_block(yaml)?;
+    let Some((_, Node::Map(fields))) = entries.into_iter().find(|(k, _)| k == key) else {
+        return Ok(None);
+    };
+    Ok(Some(fields.into_iter().filter_map(|(k, v)| v.text().map(|t| (k, t.to_owned()))).collect()))
 }
 
 /// Checks the frontmatter of a file written at `path`.
@@ -170,7 +185,7 @@ pub fn check_text(path: &KnowledgePath, text: &str) -> Result<(), FrontmatterRea
 
 /// Parses the first YAML document of `yaml` into its top-level entries; after its `...` end only
 /// blank lines and comments may follow.
-fn parse_block(yaml: &str) -> Result<Vec<(String, Node)>, FrontmatterReason> {
+pub(super) fn parse_block(yaml: &str) -> Result<Vec<(String, Node)>, FrontmatterReason> {
     if yaml.len() > MAX_FRONTMATTER_BYTES {
         return Err(FrontmatterReason::TooLarge);
     }

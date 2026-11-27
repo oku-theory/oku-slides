@@ -161,7 +161,20 @@ ui-draft-send-title = 发送给智能体 (⌘↩)
 ui-draft-discard = 丢弃
 ui-pasted-image = { $type } { $size }
 ui-draft-images = 已粘贴的图片
+ui-draft-attachments = 附件
 ui-draft-remove-image = 移除此图片
+ui-attachment-remove = 移除 { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } 是空文件。
+ui-attach-too-large = { $name } 超过了 { NUMBER($mb) }MB 的上限。
+ui-attach-too-many-images = 草稿中的图片已达上限（{ $max }）。
+ui-attach-too-many-documents = 草稿中的文档已达上限（{ $max }）。
+ui-attach-not-ready = 附件尚未就绪：请稍后再试。
+ui-attach-too-many-files = 一次添加的文件太多：上限为{ $max }个。
+ui-attach-files = 附加文件
 ui-draft-send-needs-text = 请说明要如何处理它
 ui-agent-state-idle = 智能体
 ui-agent-state-starting = 智能体正在启动…

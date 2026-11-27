@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = ส่วนหัวต้องไม่ใช�
 knowledge-frontmatter-tag = ส่วนหัวต้องไม่ใช้แท็กของ YAML
 knowledge-frontmatter-too-deep = ส่วนหัวซ้อนลึกเกินไป
 knowledge-frontmatter-after-document-end = ส่วนหัวมีข้อความหลังจุดสิ้นสุดเอกสาร YAML ...
+knowledge-frontmatter-flow-mapping = ส่วนหัวต้องเป็นการแมปแบบบล็อกเดียว คีย์หนึ่งตัวต่อบรรทัด โดยไม่มีจุดสิ้นสุด `...`
 knowledge-frontmatter-type-missing = ส่วนหัวต้องมีประเภทที่ไม่ว่างเปล่า
 knowledge-frontmatter-bad-timestamp = ค่า "{ $key }" ในส่วนหัวต้องเป็นวันที่และเวลาแบบ RFC 3339 พร้อมส่วนต่างเขตเวลา
 knowledge-frontmatter-not-allowed = ไม่อนุญาตให้ใช้คีย์ "{ $key }" ในส่วนหัวของไฟล์นี้
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = ชุดนี้มีไฟล์มาก�
 knowledge-reason-file-too-large = ไฟล์ใหญ่เกินไป
 knowledge-reason-total-too-large = ชุดนี้ใหญ่เกินไป
 knowledge-reason-over-limit = ฐานความรู้เกินขีดจำกัดแล้ว: มีเพียงการลบไฟล์เท่านั้นที่ทำให้กลับมาอยู่ในขีดจำกัด
+knowledge-no-text-layer = PDF นี้ไม่มีชั้นข้อความ (เป็นภาพสแกน): ส่งออกใหม่พร้อมข้อความ หรือวางข้อความของมัน
+knowledge-legacy-format = อ่านรูปแบบ Office รุ่นเก่านี้ไม่ได้: บันทึกเป็น .pptx, .docx หรือ .xlsx
+knowledge-document-encrypted = เอกสารนี้ป้องกันด้วยรหัสผ่าน: บันทึกสำเนาที่ไม่มีการป้องกัน
+knowledge-unsupported-document = นำเข้าเอกสารประเภทนี้ไม่ได้: PDF, DOCX, PPTX, XLSX, ODS, Markdown หรือข้อความ
+knowledge-document-damaged = เอกสารนี้เสียหายและอ่านไม่ได้
+knowledge-document-type-mismatch = เนื้อหาของไฟล์นี้ไม่ตรงกับชื่อไฟล์
+knowledge-document-too-large = เอกสารนี้ใหญ่เกินกว่าจะนำเข้าได้
 op-knowledge = ไฟล์ความรู้ { $path }: { $reason }
 op-unknown-widget = ไม่รู้จักวิดเจ็ต: { $subject }
 op-unknown-namespace = เด็คนี้ไม่มีแพ็ก { $pack }
@@ -269,6 +277,7 @@ issue-knowledge-invalid = ไฟล์ความรู้ { $path } ไม่�
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

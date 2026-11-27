@@ -424,6 +424,13 @@ describe("composants du fil (v3)", () => {
     expect([...host.querySelectorAll(".a2ui-prompt-image")].map((e) => e.textContent)).toEqual(["\u2068PNG\u2069 \u20684×3\u2069"]);
   });
 
+  test("Prompt image list labelled as images", async () => {
+    const ftl = readFileSync(`${import.meta.dir}/../../../crates/oku-slides-i18n/src/locales/en/ui.ftl`, "utf8");
+    applyMessages({ locale: "en", resources: [ftl], chosen: null });
+    const { host } = await mount({ component: "Prompt", text: "Pose-la", images: [{ mime: "image/png", width: 4, height: 3 }] });
+    expect(host.querySelector(".a2ui-prompt-images")?.getAttribute("aria-label")).toBe("Pasted images");
+  });
+
   test("Timeline repliée ne montre que son résumé jusqu'au clic", async () => {
     const data = { steps: [{ label: "Slide 4 lue", status: "completed" }], collapsed: true, summary: "1 outil · 4 s" };
     const { host } = await mount(

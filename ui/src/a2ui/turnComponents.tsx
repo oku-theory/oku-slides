@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas, type ComponentContext } from "@a2ui/web_core/v0_9";
 import { Markdown as MarkdownView } from "../agent/Markdown";
-import { imageLabel } from "../agent/pastedImages";
+import { imageLabel } from "../agent/attachments";
 import { t } from "../i18n";
 import { useRememberedOpen } from "./openMemory";
 import { Hex, ToneSchema, toneClass } from "./schemas";
@@ -128,6 +128,7 @@ export const Prompt = createComponentImplementation(PromptApi, ({ props }) => (
   <div className="a2ui-prompt-turn">
     <p className="a2ui-prompt">{props.text}</p>
     {props.images && props.images.length > 0 && (
+      // Images only: attached documents show in lot 5's receipts, not in the sent turn.
       <ul className="a2ui-prompt-images" aria-label={t("ui-draft-images")}>
         {props.images.map((i, n) => (
           <li key={n} className="a2ui-prompt-image">

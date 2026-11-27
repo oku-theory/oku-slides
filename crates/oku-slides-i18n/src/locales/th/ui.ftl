@@ -158,7 +158,20 @@ ui-draft-send-title = ส่งถึงเอเจนต์ (⌘↩)
 ui-draft-discard = ทิ้ง
 ui-pasted-image = { $type } { $size }
 ui-draft-images = รูปภาพที่วางไว้
+ui-draft-attachments = ไฟล์แนบ
 ui-draft-remove-image = ลบรูปภาพนี้
+ui-attachment-remove = ลบ { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } ว่างเปล่า
+ui-attach-too-large = { $name } เกินขีดจำกัด { NUMBER($mb) } MB
+ui-attach-too-many-images = ฉบับร่างมีรูปภาพครบจำนวนสูงสุดแล้ว ({ $max })
+ui-attach-too-many-documents = ฉบับร่างมีเอกสารครบจำนวนสูงสุดแล้ว ({ $max })
+ui-attach-not-ready = ไฟล์แนบยังไม่พร้อม: โปรดลองอีกครั้งในอีกสักครู่
+ui-attach-too-many-files = ไฟล์มากเกินไปในครั้งเดียว: จำกัดที่ { $max } ไฟล์
+ui-attach-files = แนบไฟล์
 ui-draft-send-needs-text = บอกว่าจะให้ทำอะไรกับรูปนี้
 ui-agent-state-idle = เอเจนต์
 ui-agent-state-starting = เอเจนต์กำลังเริ่ม…

@@ -215,6 +215,7 @@ const DECK_TOOLS: &[&str] = &[
     "import_report",
     "knowledge_delete",
     "knowledge_edit",
+    "knowledge_import",
     "knowledge_list",
     "knowledge_move",
     "knowledge_read",

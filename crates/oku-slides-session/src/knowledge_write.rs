@@ -4,7 +4,10 @@
 //! text the user has not approved is tainted: an edit of it is refused, since its result would
 //! be approved with the received text inside, and so is a move, since core re-checks the text at
 //! the target and its refusal would quote a frontmatter key of it to the agent. A whole-text
-//! write clears the taint, a delete stays allowed. The ids the batch wrote or edited are approved
+//! write clears the taint, a delete stays allowed. Inside an agent call, each file the batch wrote
+//! or edited is stamped with a provenance whose id is random (`oku_slides_core::stamp`), in the
+//! same batch and undo step: an agent that writes a received file's text gets another text
+//! approved, never the received one. The ids the batch wrote or edited are approved
 //! once core applied it and the new deck rendered, just before the replica write; that write can
 //! still fail, so a refused apply can leave an approved hash of agent-authored text that was
 //! never installed. Nothing else approves: open, merge, receive, undo and redo never do.
@@ -13,13 +16,80 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use oku_slides_core::{Deck, KnowledgePath, Op, asset_id, knowledge_file_id};
-use snafu::ensure;
+use oku_slides_core::{Deck, KnowledgePath, Op, Provenance, WidgetRegistry, asset_id, knowledge_file_id, stamp};
+use snafu::{ResultExt, ensure};
+use time::OffsetDateTime;
 
-use crate::error::KnowledgeChangeAwaitingSnafu;
-use crate::{Result, Session};
+use crate::agent::bounds::label_within;
+use crate::error::{
+    KnowledgeChangeAwaitingSnafu, KnowledgePathInvalidSnafu, KnowledgeStampRandomSnafu, KnowledgeStampSnafu, OpSnafu,
+};
+use crate::{Result, Session, SessionError};
+
+/// The longest agent label a stamp carries, in characters.
+pub(crate) const AGENT_LABEL_MAX: usize = 80;
+
+/// Who a knowledge stamp names as its author: this app at its version.
+pub(crate) fn stamp_by() -> String {
+    format!("oku-slides/{}", env!("CARGO_PKG_VERSION"))
+}
+
+/// The time and random id of a knowledge stamp.
+pub(crate) type StampSource =
+    Box<dyn Fn() -> std::result::Result<(OffsetDateTime, [u8; 8]), getrandom::Error> + Send + Sync>;
+
+/// The system clock and random source.
+pub(crate) fn system_stamp_source() -> StampSource {
+    Box::new(|| {
+        let mut id = [0u8; 8];
+        getrandom::fill(&mut id)?;
+        Ok((OffsetDateTime::now_utc(), id))
+    })
+}
 
 impl Session {
+    /// Names the agent of the open turn in the knowledge stamps; `None` clears it.
+    ///
+    /// The label is cleaned and cut to 80 characters; `end_turn` clears it too.
+    pub fn set_agent_label(&mut self, label: Option<&str>) {
+        self.agent_label = label.map(|l| label_within(l, AGENT_LABEL_MAX));
+    }
+
+    /// Rewrites, in `next`, each file the batch authored with its text stamped, through core.
+    ///
+    /// Called inside an agent call only, on the deck the batch produced, so the stamp is part of
+    /// the same commit and undo step.
+    ///
+    /// # Errors
+    ///
+    /// `KnowledgeStampRandom` when the system has no random bytes, `KnowledgeStamp` when a
+    /// frontmatter cannot be stamped, `Op` when core refuses a stamped text (over a limit):
+    /// the whole batch is refused then.
+    pub(crate) fn stamp_knowledge_writes(
+        &self,
+        next: &mut Deck,
+        authored: &BTreeSet<String>,
+        registry: &WidgetRegistry,
+    ) -> Result<()> {
+        if !authored.iter().any(|id| next.knowledge.contains_key(id)) {
+            return Ok(());
+        }
+        let (at, id) = (self.stamp_source)().context(KnowledgeStampRandomSnafu)?;
+        let provenance = Provenance::new(stamp_by(), at, id, self.agent_label.clone());
+        let mut ops = Vec::new();
+        for (file_id, file) in authored.iter().filter_map(|id| next.knowledge.get(id).map(|f| (id, f))) {
+            let path = KnowledgePath::parse(&file.path).map_err(|reason| {
+                SessionError::from(KnowledgePathInvalidSnafu { path: file.path.clone(), reason }.build())
+            })?;
+            let text = stamp(&path, &file.text, &provenance).map_err(|reason| {
+                SessionError::from(KnowledgeStampSnafu { path: file.path.clone(), reason }.build())
+            })?;
+            ops.push(Op::KnowledgeWrite { path: file.path.clone(), text, id: Some(file_id.clone()) });
+        }
+        oku_slides_core::apply_all_moving(next, ops, registry).context(OpSnafu)?;
+        Ok(())
+    }
+
     /// Follows the knowledge files through `ops` and returns the ids the batch authored.
     ///
     /// A write to a free path without an id gets a minted one here, so core applies what was

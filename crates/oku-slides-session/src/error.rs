@@ -8,6 +8,7 @@ use oku_slides_platform::storage::StorageError;
 use snafu::{Backtrace, IntoError, Snafu};
 
 use crate::agent::bounds::label;
+pub use crate::error_kind::SessionErrorKind;
 use crate::request_cap::MIB;
 
 /// Une requête de l'interface qui n'a pas abouti. La session est intacte.
@@ -16,216 +17,6 @@ use crate::request_cap::MIB;
 /// `Result` de la session restent petits.
 #[derive(Debug, Snafu)]
 pub struct SessionError(Box<SessionInner>);
-
-/// The category of a [`SessionError`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum SessionErrorKind {
-    /// A file that cannot be read or written.
-    File,
-    /// This PDF holds no Oku Slides sources.
-    NotOkuSlides,
-    /// Unreadable sources or deck.
-    InvalidDocument,
-    /// An operation of the transaction was refused.
-    Op,
-    /// Rendering missing or impossible: Typst failure, widgets unavailable, broken trusted pack.
-    Render,
-    /// Aucun fichier : il faut choisir où enregistrer.
-    NoPath,
-    /// No slide has the requested id.
-    NoSlide,
-    /// L'élément n'est pas un graphique (ou n'existe pas).
-    NoChart,
-    /// L'élément n'est pas un tableau (ou n'existe pas).
-    NoTable,
-    /// Le graphique n'a pas pu changer de type.
-    Chart,
-    /// The new chart type needs columns a data other views show lacks.
-    ChartKindShared,
-    /// Un pack intégré ne se supprime pas.
-    BuiltinPack,
-    /// Pas de dossier pour la bibliothèque de l'utilisateur.
-    NoLibraryDir,
-    /// Pack inconnu.
-    UnknownPack,
-    /// Version de pack introuvable.
-    PackVersionMissing,
-    /// A received pack the library lacks: the user adds it first.
-    PackNotInstalled,
-    /// A received version to add that the open deck does not hold.
-    NotHeld,
-    /// A received theme whose parent the library still lacks.
-    ReceivedParentMissing,
-    /// Pack du deck seul, que la bibliothèque n'enregistre pas.
-    DeckOnly,
-    /// Pack dont la version du deck ne peut devenir ma version courante.
-    PackNotMakeCurrent,
-    /// Le deck épingle déjà ma version courante du pack.
-    PackAlreadyCurrent,
-    /// Le thème du deck n'est pas plus ancien que ma version courante.
-    ThemeNotOutdated,
-    /// Espace de noms déjà pris par un autre pack de la bibliothèque.
-    NamespaceTaken,
-    /// Espace de noms `deck`, réservé au pack propre d'un deck.
-    NamespaceReserved,
-    /// Nouvelle version d'un pack sous un autre espace de noms que les siennes.
-    NamespaceChanged,
-    /// Nouvelle version d'un pack d'une autre sorte (widgets, layouts) que les siennes.
-    PackKindChanged,
-    /// Espace de noms qu'aucun pack ne porte (bibliothèque ou deck).
-    UnknownNamespace,
-    /// Packs qui se requièrent en boucle.
-    RequiresCycle,
-    /// L'import d'une présentation PowerPoint n'a pas abouti.
-    Import,
-    /// Un outil d'ajustement de l'import a refusé l'appel (voir `TuneErrorKind`).
-    ImportTune,
-    /// Requête impossible pendant l'édition d'un pack.
-    EditingPack,
-    /// A request a pack tab refuses: close it to finish, or open from the deck's tab.
-    InPackTab,
-    /// The library pack is being edited in another tab.
-    PackOpenInTab,
-    /// An undo or redo would change a pack a deck-pack tab edits.
-    UndoInPackTab,
-    /// A deck-pack tab's save no longer matches what its owner deck embeds.
-    DeckPackMismatch,
-    /// A refused undo or redo could not be taken back.
-    UndoCompensationFailed,
-    /// The library theme is being edited in another tab.
-    ThemeOpenInTab,
-    /// The offered pack version no longer applies to this deck.
-    PackOfferExpired,
-    /// The session given to a new pack tab was not fresh.
-    PackTabNotFresh,
-    /// A library pack written without the lease of its editor.
-    LeaseMissing,
-    /// Requête qui demande l'édition d'un pack.
-    NotEditingPack,
-    /// En mode pack, une op qui ajoute, retire, déplace une slide ou change son widget.
-    PackModeSlides,
-    /// En mode pack, une op sur une slide d'aperçu d'un pack de widgets.
-    PackModePreview,
-    /// A request that makes no sense for the session's kind of document.
-    WrongDocument,
-    /// A preview's ops include a knowledge op: previews show slide changes only.
-    KnowledgeOpsInPreview,
-    /// An edit or a move of a knowledge file whose text the user has not approved.
-    KnowledgeChangeAwaiting,
-    /// No knowledge file at that path.
-    KnowledgeNotFound,
-    /// The knowledge file awaits the user's approval: its text cannot be read.
-    KnowledgeAwaiting,
-    /// A malformed knowledge path.
-    KnowledgePathInvalid,
-    /// A malformed knowledge folder.
-    KnowledgeDirInvalid,
-    /// A knowledge search query that is empty or too long.
-    KnowledgeQueryInvalid,
-    /// The knowledge approvals could not be saved: nothing was approved.
-    KnowledgeApprovalsWrite,
-    /// The knowledge approvals file exists but cannot be read or parsed: nothing was approved.
-    KnowledgeApprovalsDamaged,
-    /// No knowledge file has the id an approval names.
-    KnowledgeIdNotFound,
-    /// A knowledge file's text changed since the user was shown it: nothing was approved.
-    KnowledgeChanged,
-    /// A knowledge file over the read ceiling: it cannot be approved, only deleted.
-    KnowledgeTooLargeToApprove,
-    /// An approval that names a file twice or too many files.
-    KnowledgeApprovalInvalid,
-    /// Réglage de l'hôte inconnu.
-    HostKey,
-    /// La réponse n'a pas pu être écrite en JSON.
-    Response,
-    /// Une image collée refusée ([`SessionError::paste_reason_key`] dit pourquoi).
-    Paste,
-    /// Une op cite un asset ni dans le deck ni parmi les images collées.
-    UnknownAsset,
-    /// An addition would push the deck's sources past `[sources] max_sources_mib`.
-    SourcesOverBudget,
-    /// A growing op would push the replica past 90 % of `[sources] max_replica_mib`.
-    ReplicaFull,
-    /// A column type change or a view conversion waits for, or outlived, a read of its data's base.
-    BaseStale,
-    /// A column insert or remove meets a view of its data that cannot follow it.
-    ViewUnfollowed,
-    /// Arguments d'une surface de l'agent invalides.
-    AgentForm,
-    /// Adresse de l'agent : ni la slide ni un de ses éléments.
-    UnknownOwner,
-    /// Adresse de l'agent : pas un champ texte de l'objet.
-    UnknownField,
-    /// Adresse de l'agent : l'objet n'a pas de texte par défaut, il faut nommer son champ.
-    FieldNeeded,
-    /// Onglet inconnu (fermé entre-temps).
-    UnknownTab,
-    /// Fenêtre inconnue (fermée entre-temps).
-    UnknownWindow,
-    /// A request the detached agent window may not send.
-    AgentWindowForbidden,
-    /// Hôte à un seul document : pas d'autre onglet.
-    SingleDocument,
-    /// Fermeture refusée : travail non enregistré.
-    Unsaved,
-    /// Fusion refusée : ce PDF est une autre présentation.
-    MergeUnrelated,
-    /// Requête qui demande l'historique ouvert.
-    HistoryNotOpen,
-    /// Modifier, enregistrer ou fusionner pendant que l'historique est ouvert.
-    InHistory,
-    /// Un fichier existe déjà là où déplacer ou copier le deck.
-    TargetExists,
-    /// Modifier l'aide, montrée en lecture seule.
-    ReadOnly,
-    /// This tab cannot present its deck ([`crate::PresentRefusal`] says why).
-    CannotPresent,
-    /// Requête réservée à l'aide.
-    NotHelp,
-    /// A tab without a resume folder has no working folder for its agent.
-    NoWorkDir,
-    /// Annuler un tour de l'agent qui n'est plus la dernière modification du deck.
-    TurnNotOnTop,
-    /// Thème inconnu.
-    UnknownTheme,
-    /// Version de thème introuvable.
-    ThemeVersionMissing,
-    /// Des thèmes s'étendent en boucle.
-    ThemeCycle,
-    /// Un thème figure deux fois parmi ceux qu'étend le brouillon.
-    ThemeExtendsDuplicate,
-    /// Un parent du brouillon ne peut aller plus loin dans ce sens.
-    ThemeExtendsMove,
-    /// Les thèmes épinglés ne sont pas exactement le thème et ses parents.
-    ThemeClosure,
-    /// Valeur de jeton de design refusée par le schéma.
-    InvalidTokenValue,
-    /// Jeton de design encore référencé par d'autres jetons.
-    TokenInUse,
-    /// Nom, taille ou nombre de fichiers de widgets refusé.
-    InvalidWidget,
-    /// Agent guide too long or holding a NUL character.
-    InvalidGuide,
-    /// Widget utilisé par un modèle du pack.
-    WidgetInUse,
-    /// Fichier de widget introuvable.
-    UnknownWidget,
-    /// Le fichier du widget ne compile pas.
-    WidgetInvalid,
-    /// Essai d'un paramètre que le widget ne déclare pas.
-    TrialUndeclared,
-    /// Essai d'un paramètre non réglable dans l'aperçu.
-    TrialFixed,
-    /// Valeur d'essai trop longue.
-    TrialTooLong,
-    /// Valeur d'essai refusée pour le type du paramètre.
-    TrialValue,
-    /// Valeur d'essai impossible à garder.
-    TrialEncode,
-    /// A request's JSON longer than `MAX_APPLY_BYTES`.
-    RequestTooLarge,
-}
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -383,7 +174,7 @@ pub(crate) enum SessionInner {
     BaseStale { data: String, backtrace: Backtrace },
     #[snafu(display("view {} cannot follow a column change of its data", label(view)))]
     ViewUnfollowed { view: String, backtrace: Backtrace },
-    #[snafu(display("pasted image refused: {reason:?}"))]
+    #[snafu(display("attachment refused: {reason:?}"))]
     Paste { reason: crate::agent::PasteReason, backtrace: Backtrace },
     #[snafu(display("{} is neither slide {} nor one of its elements", label(owner), label(slide)))]
     UnknownOwner { slide: String, owner: String, backtrace: Backtrace },
@@ -460,8 +251,30 @@ pub(crate) enum SessionInner {
     GuideApprovalsWrite { path: PathBuf, source: StorageError, backtrace: Backtrace },
     #[snafu(display("cannot save the knowledge approvals"))]
     KnowledgeApprovalsWrite { backtrace: Backtrace },
+    #[snafu(display("knowledge file {}: {reason}", label(path)))]
+    KnowledgeStamp { path: String, reason: oku_slides_core::FrontmatterReason, backtrace: Backtrace },
+    #[snafu(display("no random bytes for the knowledge stamp"))]
+    KnowledgeStampRandom { source: getrandom::Error, backtrace: Backtrace },
     #[snafu(display("the knowledge approvals file is damaged"))]
     KnowledgeApprovalsDamaged { backtrace: Backtrace },
+    #[snafu(display("the document could not be extracted"))]
+    KnowledgeImportFailed { source: oku_slides_render::RenderError, backtrace: Backtrace },
+    #[snafu(display("the document was not imported: {refusal}"))]
+    KnowledgeImportRefused { refusal: oku_slides_core::knowledge::ExtractRefusal, backtrace: Backtrace },
+    #[snafu(display("attachment {} is no longer kept", label(id)))]
+    AttachmentGone { id: String, backtrace: Backtrace },
+    #[snafu(display("attachment {} is an image, not a document", label(id)))]
+    NotADocument { id: String, backtrace: Backtrace },
+    #[snafu(display("{} cannot receive an import", label(path)))]
+    ImportPathInvalid { path: String, backtrace: Backtrace },
+    #[snafu(display("{} is not an earlier import", label(path)))]
+    ImportTargetNotImport { path: String, backtrace: Backtrace },
+    #[snafu(display("{} was edited since its import", label(path)))]
+    ImportTargetEdited { path: String, backtrace: Backtrace },
+    #[snafu(display("another document import is running"))]
+    KnowledgeImportBusy { backtrace: Backtrace },
+    #[snafu(display("the tab changed during the import"))]
+    ImportTabChanged { backtrace: Backtrace },
     #[snafu(display("a pack holds at most {max} widget files"))]
     TooManyWidgets { max: usize, backtrace: Backtrace },
     #[snafu(display("widget {name} is still used by: {}", uses.join(", ")))]
@@ -496,30 +309,44 @@ impl SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one kind per variant")]
     pub fn kind(&self) -> SessionErrorKind {
         use SessionInner::{
-            AgentForm, AgentWindowForbidden, BaseStale, Bases, BuiltinPack, CannotPresent, Chart, ChartKindShared,
-            DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul,
-            GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
-            InvalidWidgetName, KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite,
-            KnowledgeAwaiting, KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound,
-            KnowledgeNotFound, KnowledgeOpsInPreview, KnowledgePathInvalid, KnowledgeQueryInvalid,
+            AgentForm, AgentWindowForbidden, AttachmentGone, BaseStale, Bases, BuiltinPack, CannotPresent, Chart,
+            ChartKindShared, DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite,
+            GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, ImportPathInvalid, ImportTabChanged,
+            ImportTargetEdited, ImportTargetNotImport, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName,
+            KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting,
+            KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeImportBusy,
+            KnowledgeImportFailed, KnowledgeImportRefused, KnowledgeNotFound, KnowledgeOpsInPreview,
+            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeStamp, KnowledgeStampRandom,
             KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved,
-            NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack,
-            NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
-            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled, PackNotMakeCurrent,
-            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
-            Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render, ReplicaFull, RequestTooLarge,
-            RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists, ThemeClosure,
-            ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated,
-            ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong,
-            TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab,
-            UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme,
-            UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed, WidgetExists, WidgetHasNul, WidgetInUse,
-            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
+            NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotADocument,
+            NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
+            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
+            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
+            PackVersionMissing, Paste, Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render,
+            ReplicaFull, RequestTooLarge, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget,
+            TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
+            ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode,
+            TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop,
+            UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner,
+            UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed,
+            WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write,
+            WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } | GuideApprovalsWrite { .. } | Bases { .. } => SessionErrorKind::File,
             KnowledgeApprovalsWrite { .. } => SessionErrorKind::KnowledgeApprovalsWrite,
+            KnowledgeStamp { .. } => SessionErrorKind::KnowledgeStamp,
+            KnowledgeStampRandom { .. } => SessionErrorKind::KnowledgeStampRandom,
             KnowledgeApprovalsDamaged { .. } => SessionErrorKind::KnowledgeApprovalsDamaged,
+            KnowledgeImportFailed { .. } => SessionErrorKind::KnowledgeImportFailed,
+            KnowledgeImportRefused { .. } => SessionErrorKind::KnowledgeImportRefused,
+            AttachmentGone { .. } => SessionErrorKind::AttachmentGone,
+            NotADocument { .. } => SessionErrorKind::NotADocument,
+            ImportPathInvalid { .. } => SessionErrorKind::ImportPathInvalid,
+            ImportTargetNotImport { .. } => SessionErrorKind::ImportTargetNotImport,
+            ImportTargetEdited { .. } => SessionErrorKind::ImportTargetEdited,
+            KnowledgeImportBusy { .. } => SessionErrorKind::KnowledgeImportBusy,
+            ImportTabChanged { .. } => SessionErrorKind::ImportTabChanged,
             NotOkuSlides { .. } => SessionErrorKind::NotOkuSlides,
             Pdf { .. }
             | Sources { .. }
@@ -675,7 +502,7 @@ impl SessionError {
         }
     }
 
-    /// La clé Fluent d'un collage refusé, pour une erreur [`SessionErrorKind::Paste`].
+    /// The Fluent key of a refused attachment, for a [`SessionErrorKind::Paste`] error.
     #[must_use]
     pub fn paste_reason_key(&self) -> Option<&'static str> {
         match &*self.0 {
@@ -765,25 +592,28 @@ impl Localize for SessionError {
     #[expect(clippy::too_many_lines, reason = "lookup table: one Fluent key per variant")]
     fn localize(&self, l: &Localizer) -> String {
         use SessionInner::{
-            AgentForm, AgentWindowForbidden, BaseStale, Bases, BuiltinPack, CannotPresent, Chart, ChartKindShared,
-            DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite, GuideHasNul,
-            GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, InHistory, InPackTab, InvalidTokenValue,
-            InvalidWidgetName, KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite,
-            KnowledgeAwaiting, KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound,
-            KnowledgeNotFound, KnowledgeOpsInPreview, KnowledgePathInvalid, KnowledgeQueryInvalid,
+            AgentForm, AgentWindowForbidden, AttachmentGone, BaseStale, Bases, BuiltinPack, CannotPresent, Chart,
+            ChartKindShared, DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite,
+            GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, ImportPathInvalid, ImportTabChanged,
+            ImportTargetEdited, ImportTargetNotImport, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName,
+            KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting,
+            KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeImportBusy,
+            KnowledgeImportFailed, KnowledgeImportRefused, KnowledgeNotFound, KnowledgeOpsInPreview,
+            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeStamp, KnowledgeStampRandom,
             KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved,
-            NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotEditingPack,
-            NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent, PackIdMismatch, PackJson,
-            PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled, PackNotMakeCurrent,
-            PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens, PackVersionMissing, Paste,
-            Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render, ReplicaFull, RequestTooLarge,
-            RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists, ThemeClosure,
-            ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated,
-            ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong,
-            TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab,
-            UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme,
-            UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed, WidgetExists, WidgetHasNul, WidgetInUse,
-            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
+            NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotADocument,
+            NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
+            PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
+            PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
+            PackVersionMissing, Paste, Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render,
+            ReplicaFull, RequestTooLarge, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget,
+            TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
+            ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode,
+            TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop,
+            UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner,
+            UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed,
+            WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write,
+            WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -792,7 +622,26 @@ impl Localize for SessionError {
             Bases { .. } => l.tr("session-bases-unavailable"),
             GuideApprovalsWrite { path, .. } => l.tr_with("session-guide-approvals-write", &path_arg(path)),
             KnowledgeApprovalsWrite { .. } => l.tr("session-knowledge-approvals-write"),
+            KnowledgeStamp { path, reason, .. } => {
+                l.tr_with("op-knowledge", &[("path", label(path).into()), ("reason", reason.message(l).into())])
+            }
+            KnowledgeStampRandom { .. } => l.tr("session-knowledge-stamp-random"),
             KnowledgeApprovalsDamaged { .. } => l.tr("session-knowledge-approvals-damaged"),
+            KnowledgeImportFailed { .. } => l.tr("session-knowledge-import-failed"),
+            KnowledgeImportRefused { refusal, .. } => {
+                l.tr_with("session-knowledge-import-refused", &[("reason", l.tr(refusal.key()).into())])
+            }
+            AttachmentGone { .. } => l.tr("session-attachment-gone"),
+            NotADocument { .. } => l.tr("session-not-a-document"),
+            ImportPathInvalid { path, .. } => l.tr_with("session-import-path-invalid", &[("path", label(path).into())]),
+            ImportTargetNotImport { path, .. } => {
+                l.tr_with("session-import-target-not-import", &[("path", label(path).into())])
+            }
+            ImportTargetEdited { path, .. } => {
+                l.tr_with("session-import-target-edited", &[("path", label(path).into())])
+            }
+            KnowledgeImportBusy { .. } => l.tr("session-knowledge-import-busy"),
+            ImportTabChanged { .. } => l.tr("session-import-tab-changed"),
             NotOkuSlides { .. } => l.tr("session-not-oku-slides"),
             Pdf { source, .. } => source.localize(l),
             Sources { source, .. } => source.localize(l),

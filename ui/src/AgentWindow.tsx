@@ -13,7 +13,7 @@ import { useSlideThumbs } from "./useSlideThumbs";
 import { useToast } from "./useToast";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
-import { usePastedImages } from "./agent/usePastedImages";
+import { useAttachments } from "./agent/useAttachments";
 import { AgentPanel, IDLE_AGENT, createAgentSlots, type AgentApi, type AgentHandle, type ThreadMode } from "./agent/AgentPanel";
 import { draftActions, promptThrough } from "./agent/draftActions";
 import { subscribeHost } from "./agent/events";
@@ -172,7 +172,7 @@ export function AgentWindowFor({
   const draft = useDraft(host.agent.setDraft);
   // Only its fallback badge: the import dialog, which asks for availability, is in the main window.
   const availability = useAgentAvailability(host.agent, false);
-  const pasted = usePastedImages(draft.state.images, host.agent.pasteImage, (m) => say(m, true));
+  const attached = useAttachments(draft.state.attachments, host.agent.attach, (m) => say(m, true), snap?.attach_limits ?? null);
   const insertOrKeep = async (text: string) => {
     const ok = await insertWithAck(transport, tab, text);
     if (!ok) say(t("ui-agent-kept-in-draft"), true);
@@ -185,7 +185,7 @@ export function AgentWindowFor({
     editing: context?.editing ?? false,
     insert: insertOrKeep,
     prompt: promptThrough(handle, (m) => say(m, true)),
-    removeImage: (id) => void host.agent.removeImage(id).catch((e) => say(errorText(e), true)),
+    removeAttachment: (id) => void host.agent.removeAttachment(id).catch((e) => say(errorText(e), true)),
   });
   // La dernière frappe est chez l'hôte avant que la fenêtre se ferme.
   const flush = draft.flush;
@@ -316,11 +316,11 @@ export function AgentWindowFor({
         ready={status.ready}
         shortcuts={false}
         onChange={draft.change}
-        images={draft.state.images}
-        thumbs={pasted.thumbs}
-        onPasteImages={pasted.onPaste}
-        onRemoveImage={(id) => void host.agent.removeImage(id).catch((e) => say(String(e), true))}
-        onSend={(text, images) => void actions.sendDraft(text, images)}
+        attachments={draft.state.attachments}
+        thumbs={attached.thumbs}
+        onAttachFiles={attached.onAttach}
+        onRemoveAttachment={(id) => void host.agent.removeAttachment(id).catch((e) => say(String(e), true))}
+        onSend={(text, attachments) => void actions.sendDraft(text, attachments)}
         onDiscard={draft.close}
       />
       {dictation(actions.onDictated)}

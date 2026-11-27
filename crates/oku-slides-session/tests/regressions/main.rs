@@ -70,3 +70,4 @@ mod issue_1690_open_lifts_inline_data;
 mod issue_1690_paste_copies_data;
 mod issue_1690_view_conversion_reads_off_lock;
 mod issue_1744_received_knowledge_not_laundered;
+mod issue_1751_agent_write_does_not_launder;

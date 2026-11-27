@@ -1,3 +1,5 @@
+# Per-test nextest settings, read by every `cargo nextest run` in the workspace.
+
 # Tests that reach every data bound (t-1690) run one at a time, with a longer timeout.
 [test-groups]
 slow = { max-threads = 1 }
@@ -6,3 +8,8 @@ slow = { max-threads = 1 }
 filter = "test(/worst_case/) | test(/single_150000/) | test(/near_512_mib/)"
 test-group = "slow"
 slow-timeout = "300s"
+
+# The worker memory bound is an RSS watchdog on macOS, best-effort under load (t-1760).
+[[profile.default.overrides]]
+filter = "package(oku-slides-render-worker) & test(=extract_memory_limit_reports)"
+retries = 2

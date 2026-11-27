@@ -26,6 +26,7 @@
 //! - [`Guides`], [`GuideKind`]: the agent's edit and use guides in a pack or theme manifest.
 //! - [`Capabilities`]: what a pack or theme version holds, read from its files alone ([`CapabilityKind`]).
 //! - [`PackKind`]: the kind of a pack (element `widgets`, slide `layouts`); [`LayoutProfile`]: preset of a layout for import.
+//! - [`encode_link_url`]: a link destination written into Markdown.
 //! - [`kinds`]: the kinds of the built-in `base` and `essentiel` packs, the only place they are written.
 //! - [`media`]: actual type of a media file ([`media::sniff`]) and raster dimensions read from its header.
 //! - [`num`]: bounded, named conversions between floats and integers ([`num::round_u32`]…).
@@ -43,6 +44,7 @@ mod heading_level;
 pub mod kinds;
 pub mod knowledge;
 mod layout_profile;
+mod link;
 mod localized_text;
 pub mod locate;
 pub mod media;
@@ -89,10 +91,11 @@ pub use error::{
 pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
 pub use knowledge::{
-    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, check_text, cited_images, frontmatter, knowledge_file_id,
-    knowledge_over_limits, normalize,
+    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, Provenance, check_text, cited_images, frontmatter,
+    knowledge_file_id, knowledge_over_limits, normalize, stamp,
 };
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
+pub use link::encode_link_url;
 pub use localized_text::LocalizedText;
 pub use locate::{Located, MAX_SLOT_DEPTH, Walk, slot_depth};
 pub use model::*;

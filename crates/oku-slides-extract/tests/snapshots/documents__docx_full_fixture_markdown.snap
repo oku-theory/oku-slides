@@ -1,0 +1,32 @@
+---
+source: crates/oku-slides-extract/tests/documents.rs
+expression: md
+---
+# Market review
+
+# Summary
+
+Revenue rose by **twelve percent**, *slightly* above plan.
+
+Costs held steady. Inserted sentence.
+
+Commented words.
+
+## Steps
+
+1. Collect the data
+1. Check the totals
+
+- North region
+    - Coastal towns
+
+See the [shared folder](https://example.com/share%5Cdocs) or javascript:alert(1).
+
+| Region | Sales |
+| --- | --- |
+| North | 120 |
+| South | 95 |
+
+![A red square](oku-image-0123456789abcdef-0)
+
+… not imported: hidden text, tracked deletions, comments

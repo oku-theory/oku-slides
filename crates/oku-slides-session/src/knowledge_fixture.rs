@@ -5,6 +5,7 @@
 
 use std::path::Path;
 
+pub use oku_slides_core::knowledge::unstamped;
 use oku_slides_core::{KnowledgeFile, asset_id};
 
 use crate::Session;

@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REAL_TIMERS, debounced, type Timers } from "../debounce";
-import type { PastedImage } from "../api";
+import type { Attachment } from "../api";
 import { afterSend, appendDraft } from "../draft";
 import { randomId } from "../randomId";
 
@@ -15,16 +15,16 @@ export interface DraftState {
   text: string | null;
   dictations: number;
   typing: number;
-  /** Images collées, tenues par l'hôte. */
-  images: PastedImage[];
+  /** Attachments (images and documents), held by the host. */
+  attachments: Attachment[];
 }
 
 export interface Draft {
   state: DraftState;
   /** Brouillon reçu de l'hôte ; l'écho d'un envoi de cette vue est ignoré. */
-  onHost: (e: { text: string | null; origin: string | null; images: PastedImage[] }) => void;
+  onHost: (e: { text: string | null; origin: string | null; attachments: Attachment[] }) => void;
   /** Texte dicté ajouté (envoyé tout de suite) ; renvoie le brouillon à jour. */
-  append: (text: string) => { text: string; images: PastedImage[] };
+  append: (text: string) => { text: string; attachments: Attachment[] };
   /** Ouvre le brouillon pour écrire (⌘K ; envoyé tout de suite). */
   type: () => void;
   /** Frappe (envoyée après DRAFT_TYPING_MS). */
@@ -33,16 +33,16 @@ export interface Draft {
   close: () => void;
   /**
    * `text` went to the agent: removes it, keeping what was added since; closes when empty.
-   * Returns `true` when text remains (the caller removes the images it sent).
+   * Returns `true` when text remains (the caller removes the attachments it sent).
    */
   drop: (text: string) => boolean;
   /** Envoie tout de suite la frappe en attente ; résolue une fois tous les envois partis. */
   flush: () => Promise<void>;
 }
 
-const EMPTY: DraftState = { text: null, dictations: 0, typing: 0, images: [] };
+const EMPTY: DraftState = { text: null, dictations: 0, typing: 0, attachments: [] };
 
-const sameImages = (a: PastedImage[], b: PastedImage[]) => a.length === b.length && a.every((x, i) => x.id === b[i]?.id);
+const sameAttachments = (a: Attachment[], b: Attachment[]) => a.length === b.length && a.every((x, i) => x.id === b[i]?.id);
 
 export function useDraft(setDraft: (text: string | null, origin: string) => Promise<void>, timers: Timers = REAL_TIMERS): Draft {
   const [state, setState] = useState<DraftState>(EMPTY);
@@ -101,9 +101,9 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     [typing, send],
   );
   const onHost = useCallback(
-    (e: { text: string | null; origin: string | null; images: PastedImage[] }) => {
-      // Les images viennent de l'hôte seul : chaque évènement, écho compris, les donne.
-      if (!sameImages(current.current.images, e.images)) write({ ...current.current, images: e.images });
+    (e: { text: string | null; origin: string | null; attachments: Attachment[] }) => {
+      // Attachments come from the host alone: every event, echo included, gives them.
+      if (!sameAttachments(current.current.attachments, e.attachments)) write({ ...current.current, attachments: e.attachments });
       const own = e.origin?.startsWith(`${view}:`) ? Number(e.origin.slice(view.length + 1)) : null;
       if (own !== null) {
         settled.current = Math.max(settled.current, own);
@@ -129,7 +129,7 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
       const next = appendDraft(d.text, text);
       write({ ...d, text: next, dictations: d.dictations + 1 });
       now(next);
-      return { text: next, images: d.images };
+      return { text: next, attachments: d.attachments };
     },
     [write, now],
   );
@@ -148,7 +148,7 @@ export function useDraft(setDraft: (text: string | null, origin: string) => Prom
     [write, typing],
   );
   const close = useCallback(() => {
-    write({ ...current.current, text: null, images: [] });
+    write({ ...current.current, text: null, attachments: [] });
     now(null);
   }, [write, now]);
   const drop = useCallback(

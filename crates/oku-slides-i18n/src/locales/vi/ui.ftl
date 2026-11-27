@@ -158,7 +158,20 @@ ui-draft-send-title = Gửi cho tác nhân AI (⌘↩)
 ui-draft-discard = Bỏ
 ui-pasted-image = { $type } { $size }
 ui-draft-images = Ảnh đã dán
+ui-draft-attachments = Tệp đính kèm
 ui-draft-remove-image = Xóa ảnh này
+ui-attachment-remove = Xóa { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name } trống.
+ui-attach-too-large = { $name } vượt quá giới hạn { NUMBER($mb) } MB.
+ui-attach-too-many-images = Bản nháp đã có số ảnh tối đa ({ $max }).
+ui-attach-too-many-documents = Bản nháp đã có số tài liệu tối đa ({ $max }).
+ui-attach-not-ready = Tệp đính kèm chưa sẵn sàng: hãy thử lại sau giây lát.
+ui-attach-too-many-files = Quá nhiều tệp cùng lúc: giới hạn là { $max }.
+ui-attach-files = Đính kèm tệp
 ui-draft-send-needs-text = Hãy nói cần làm gì với ảnh này
 ui-agent-state-idle = Tác nhân AI
 ui-agent-state-starting = Tác nhân AI đang khởi động…

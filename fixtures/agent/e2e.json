@@ -28,6 +28,7 @@
       "chunks": ["Thème ouvert."]
     },
     "portée slides": { "chunks": ["Réponse des slides."] },
+    "lis le document joint": { "chunks": ["Document reçu."] },
     "propose les thèmes": {
       "mcp": [
         { "tool": "show_themes", "args": { "slide": "s-libre" } },

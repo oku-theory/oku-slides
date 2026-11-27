@@ -184,9 +184,10 @@ impl Stack {
             return Ok(());
         }
         match cmd {
-            AgentCommand::Prompt { tab, text, ui, answer, images } => {
-                if let Some((t, images)) = self.route_prompt(&tab, answer, &text, ui.slide.as_deref(), &images)? {
-                    t.send(Command::Prompt(Instruction { text, ui, tune: false, images, origin: TurnOrigin::Typed }));
+            AgentCommand::Prompt { tab, text, ui, answer, attachments: ids } => {
+                if let Some((t, attachments)) = self.route_prompt(&tab, answer, &text, ui.slide.as_deref(), &ids)? {
+                    let origin = TurnOrigin::Typed;
+                    t.send(Command::Prompt(Instruction { text, ui, tune: false, attachments, origin }));
                 }
             }
             AgentCommand::Tune { tab } => {
@@ -197,7 +198,7 @@ impl Stack {
                     text,
                     ui,
                     tune: true,
-                    images: Vec::new(),
+                    attachments: Vec::new(),
                     origin: TurnOrigin::Typed,
                 }));
             }
@@ -256,21 +257,21 @@ impl Stack {
                 // Opened by the user: no turn, so the box cannot leave the thread.
                 t.hub.show_settings(None);
             }
-            AgentCommand::PasteImage { tab, data } => {
+            AgentCommand::Attach { tab, name, data } => {
                 let l = self.platform.live_localizer.current();
                 let Some(t) = self.tab(&tab) else {
                     return Err(CommandError::from(NoAgentSnafu.build()).localize(&l));
                 };
-                return crate::paste::paste_image(&t, &self.out_tx, &self.platform.settings.paste, &data).map_err(
+                return crate::attach::attach(&t, &self.out_tx, &self.platform.settings.paste, &name, &data).map_err(
                     |e| {
-                        tracing::info!(tab, error = %snafu::Report::from_error(&e), "image collée refusée");
+                        tracing::info!(tab, error = %snafu::Report::from_error(&e), "attachment refused");
                         e.localize(&l)
                     },
                 );
             }
-            AgentCommand::RemoveImage { tab, id } => {
+            AgentCommand::RemoveAttachment { tab, id } => {
                 if let Some(t) = self.tab(&tab) {
-                    t.remove_image(&self.out_tx, &id);
+                    t.remove_attachment(&self.out_tx, &id);
                 } else {
                     let e = CommandError::from(NoAgentSnafu.build());
                     return Err(e.localize(&self.platform.live_localizer.current()));
@@ -309,9 +310,9 @@ impl Stack {
         self.tab(tab).and_then(|t| t.hub.turn_origin(turn))
     }
 
-    /// Routes an instruction: answer, theme shortcut, or the agent with its images.
+    /// Routes an instruction: answer, theme shortcut, or the agent with its attachments.
     ///
-    /// Returns the tab and resolved images of an instruction that goes to the agent; `None` when
+    /// Returns the tab and resolved attachments of an instruction that goes to the agent; `None` when
     /// nothing goes to the agent: tab closed, question answered or kept open (a guard or a
     /// permission typed to), or theme picker shown.
     pub(crate) fn route_prompt(
@@ -320,7 +321,7 @@ impl Stack {
         answer: Option<String>,
         text: &str,
         slide: Option<&str>,
-        images: &[String],
+        attachments: &[String],
     ) -> Result<Option<(TabLink, Vec<AttachmentRef>)>, String> {
         // Closed in the meantime: ignored, as in `handle`.
         let Some(t) = self.open(tab) else { return Ok(None) };
@@ -329,7 +330,7 @@ impl Stack {
         // instruction (a new turn; during a turn, it interrupts then replaces it).
         // A guarded confirmation or a permission keeps it open ("say it or click"): no prompt,
         // and the running turn goes on.
-        if images.is_empty()
+        if attachments.is_empty()
             && let Some(id) = answer
         {
             match t.hub.answer(&id, text) {
@@ -341,18 +342,19 @@ impl Stack {
         // no turn nor agent; a running turn goes on.
         // Outside deck mode, or if it fails (logged), the instruction goes to the agent.
         let ui = self.platform.live_localizer.current();
-        if images.is_empty()
+        if attachments.is_empty()
             && is_spoken_theme_shortcut(text, &ui, || self.voice.dictation_locale())
             && show_theme_shortcut(&t, tab, slide)
         {
             return Ok(None);
         }
-        let images =
-            crate::paste::resolve_images(&t, images, self.platform.settings.paste.max_draft_images).map_err(|e| {
-                tracing::info!(tab, error = %snafu::Report::from_error(&e), "consigne refusée");
-                e.localize(&self.platform.live_localizer.current())
-            })?;
-        Ok(Some((t, images)))
+        let paste = &self.platform.settings.paste;
+        let max = paste.max_draft_attachments();
+        let attachments = crate::attach::resolve_attachments(&t, attachments, max).map_err(|e| {
+            tracing::info!(tab, error = %snafu::Report::from_error(&e), "instruction refused");
+            e.localize(&self.platform.live_localizer.current())
+        })?;
+        Ok(Some((t, attachments)))
     }
 
     /// Sets the tab's draft after checking its sizes; the error is localized.
@@ -527,7 +529,7 @@ impl Stack {
     /// Repos, aucun brouillon, aucune surface.
     fn replay_closed(&self, tab: &str) {
         emit(&self.out_tx, "agent", tab, &AgentEvent::idle());
-        emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None, images: Vec::new() });
+        emit(&self.out_tx, "agent", tab, &AgentEvent::Draft { text: None, origin: None, attachments: Vec::new() });
         emit(&self.out_tx, "mcp", tab, &McpEvent::Surfaces { list: Vec::new() });
     }
 

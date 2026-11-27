@@ -122,8 +122,8 @@ pub enum AgentEvent {
         text: Option<String>,
         /// The view that wrote it; absent when the host replays it. A view ignores its own echoes.
         origin: Option<String>,
-        /// The draft's pasted images; the host alone decides, every view takes them up.
-        images: Vec<AttachmentRef>,
+        /// The draft's attachments (images and documents); the host alone decides, every view takes them up.
+        attachments: Vec<AttachmentRef>,
     },
     /// Is the chosen agent usable? `unusable`: why not, localized.
     Availability {

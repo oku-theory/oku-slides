@@ -365,7 +365,7 @@ async fn set_draft_is_broadcast_with_its_tab_and_origin() {
     stack.handle(cmd(json!({ "cmd": "set_draft", "tab": "t-1", "text": "à dire", "origin": "v-1" }))).unwrap();
     let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
     assert_that!(draft["event"].clone())
-        .is_equal_to(json!({ "kind": "draft", "text": "à dire", "origin": "v-1", "images": [] }));
+        .is_equal_to(json!({ "kind": "draft", "text": "à dire", "origin": "v-1", "attachments": [] }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -422,7 +422,7 @@ async fn follow_replays_the_draft_without_origin() {
     stack.handle(cmd(json!({ "cmd": "follow", "tab": "t-1" }))).unwrap();
     let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
     assert_that!(draft["event"].clone())
-        .is_equal_to(json!({ "kind": "draft", "text": "gardé", "origin": null, "images": [] }));
+        .is_equal_to(json!({ "kind": "draft", "text": "gardé", "origin": null, "attachments": [] }));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -452,7 +452,7 @@ async fn resync_replays_the_draft() {
     stack.handle(cmd(json!({ "cmd": "resync", "tab": "t-1" }))).unwrap();
     let (_, draft) = next(&rx, from, is("agent", "draft", "t-1")).await;
     assert_that!(draft["event"].clone())
-        .is_equal_to(json!({ "kind": "draft", "text": "encore là", "origin": null, "images": [] }));
+        .is_equal_to(json!({ "kind": "draft", "text": "encore là", "origin": null, "attachments": [] }));
 }
 
 #[tokio::test(flavor = "multi_thread")]

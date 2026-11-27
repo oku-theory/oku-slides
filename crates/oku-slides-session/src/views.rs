@@ -141,6 +141,8 @@ pub struct Snapshot<'a> {
     pub received_to_review: Vec<crate::received_review::ReceivedReview>,
     /// Knowledge files awaiting approval and ceilings passed; `None` outside a deck or when all is well.
     pub knowledge: Option<crate::KnowledgeSummary>,
+    /// The attachment bounds the interface checks before sending a file to the agent's draft.
+    pub attach_limits: crate::agent::AttachLimits,
 }
 
 /// The guides of the pack or theme a tab edits, with the length they may reach.

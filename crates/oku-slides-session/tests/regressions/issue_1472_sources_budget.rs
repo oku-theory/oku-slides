@@ -7,6 +7,8 @@ use oku_slides_session::{SessionErrorKind, Settings};
 use serde_json::json;
 use speculoos::prelude::*;
 
+use oku_slides_session::agent::Upload;
+
 use crate::common::{fixture_path, req, session_with_settings};
 
 /// A grey PNG of about 1.2 MiB that deflate cannot shrink.
@@ -31,17 +33,17 @@ fn heavy_png() -> Vec<u8> {
 }
 
 #[test]
-fn issue_1472_pasted_image_past_budget_is_refused() {
+fn issue_1472_attached_image_past_budget_is_refused() {
     let data = crate::common::data_dir();
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.sources.max_sources_mib = 1;
     let mut s = session_with_settings(&data, settings);
     s.open(&fixture_path()).unwrap_or_else(|e| panic!("ouverture : {}", e.one_line()));
-    let pasted = s.paste_image(heavy_png(), &[]).unwrap_or_else(|e| panic!("collage : {}", e.one_line()));
+    let pasted = s.attach(Upload::new(heavy_png(), ""), &[]).unwrap_or_else(|e| panic!("collage : {}", e.one_line()));
     let before = s.deck().clone();
     let apply = req(json!({ "cmd": "apply", "label": "image", "ops": [{
         "op": "set_param", "target": { "slide": "s-libre", "element": "e-image" },
-        "param": "asset", "value": pasted.id
+        "param": "asset", "value": pasted.id()
     }]}));
     let e = s.handle(apply).unwrap_err();
     assert_that!(e.kind()).is_equal_to(SessionErrorKind::SourcesOverBudget);

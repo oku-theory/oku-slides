@@ -2,6 +2,8 @@ use oku_slides_core::{Element, Op};
 use serde_json::json;
 use speculoos::prelude::*;
 
+use crate::agent::Upload;
+
 use crate::test_support::{png, session};
 use crate::{Session, SessionErrorKind};
 
@@ -23,8 +25,8 @@ fn image_element(s: &Session) -> Element {
 fn session_with_image(seed: u8) -> (Session, Vec<u8>) {
     let mut s = session();
     let bytes = png(4, 4, seed);
-    let r = s.paste_image(bytes.clone(), &[]).unwrap();
-    s.apply("image", vec![set_image(&r.id)], None).unwrap();
+    let r = s.attach(Upload::new(bytes.clone(), ""), &[]).unwrap();
+    s.apply("image", vec![set_image(r.id())], None).unwrap();
     (s, bytes)
 }
 

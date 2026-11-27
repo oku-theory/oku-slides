@@ -23,18 +23,24 @@ pub(crate) enum CommandInner {
     UnknownAgent { id: String, backtrace: Backtrace },
     #[snafu(display("draft already holds {max} images"))]
     TooManyImages { max: usize, backtrace: Backtrace },
-    #[snafu(display("pasted image data is not base64"))]
-    ImageNotBase64 { source: base64::DecodeError, backtrace: Backtrace },
-    #[snafu(display("pasted image {id} is no longer kept"))]
-    ImageGone { id: String, backtrace: Backtrace },
+    #[snafu(display("draft already holds {max} documents"))]
+    TooManyDocuments { max: usize, backtrace: Backtrace },
+    #[snafu(display("attachment data is not base64"))]
+    AttachmentNotBase64 { source: base64::DecodeError, backtrace: Backtrace },
+    #[snafu(display("attachment data of {len} base64 bytes passes the {max} allowed"))]
+    AttachmentTooLarge { len: usize, max: usize, backtrace: Backtrace },
+    #[snafu(display("attachment {id} is no longer kept"))]
+    AttachmentGone { id: String, backtrace: Backtrace },
+    #[snafu(display("a message cites more than {max} attachments"))]
+    TooManyAttachments { max: usize, backtrace: Backtrace },
     #[snafu(display("page report from a window that does not hold the tab"))]
     ReportElsewhere { backtrace: Backtrace },
     #[snafu(display("page report over its size limits"))]
     UiTooLarge { backtrace: Backtrace },
     #[snafu(display("page report number {seq} is out of range"))]
     SeqExhausted { seq: u64, backtrace: Backtrace },
-    /// Cause boxée : l'erreur de session grossirait toute `CommandError`.
-    #[snafu(display("pasted image refused by the session"))]
+    /// Boxed cause: the session error would make every `CommandError` larger.
+    #[snafu(display("attachment refused by the session"))]
     PasteRefused {
         #[snafu(source(from(oku_slides_session::SessionError, Box::new)))]
         source: Box<oku_slides_session::SessionError>,
@@ -50,8 +56,15 @@ impl Localize for CommandError {
             CommandInner::NoAgent { .. } => l.tr("agent-error-draft-no-agent"),
             CommandInner::UnknownAgent { .. } => l.tr("agent-error-unknown-agent"),
             CommandInner::TooManyImages { .. } => l.tr("agent-error-too-many-images"),
-            CommandInner::ImageNotBase64 { .. } => l.tr("agent-error-image-not-base64"),
-            CommandInner::ImageGone { .. } => l.tr("agent-error-image-gone"),
+            CommandInner::TooManyDocuments { max, .. } => {
+                l.tr_with("agent-error-too-many-documents", &[("max", oku_slides_core::num::count_u64(*max).into())])
+            }
+            CommandInner::AttachmentNotBase64 { .. } => l.tr("agent-error-attachment-not-base64"),
+            CommandInner::AttachmentTooLarge { .. } => l.tr("agent-error-attachment-too-large"),
+            CommandInner::AttachmentGone { .. } => l.tr("agent-error-attachment-gone"),
+            CommandInner::TooManyAttachments { max, .. } => {
+                l.tr_with("agent-error-too-many-attachments", &[("max", oku_slides_core::num::count_u64(*max).into())])
+            }
             CommandInner::ReportElsewhere { .. } => l.tr("agent-error-report-elsewhere"),
             CommandInner::UiTooLarge { .. } => l.tr("agent-error-ui-too-large"),
             CommandInner::SeqExhausted { .. } => l.tr("agent-error-seq-exhausted"),

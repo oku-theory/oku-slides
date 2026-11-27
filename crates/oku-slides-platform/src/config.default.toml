@@ -117,16 +117,22 @@ max_input_mib = 256
 witness = "office2pdf"
 
 [paste]
-# Images collées dans le brouillon de l'agent : PNG, JPEG, GIF ou WebP.
+# What is attached to the agent's draft: images (PNG, JPEG, GIF or WebP) and, in a deck tab,
+# documents (PDF, DOCX, PPTX, XLSX, ODS, Markdown or text).
 # Taille maximale d'une image (Mio).
 max_image_mib = 10
 # Pixels au plus d'une image, lus dans son en-tête avant tout décodage (64 Mpx, comme l'import).
 max_image_pixels = 67108864
 # Images au plus dans un brouillon.
 max_draft_images = 8
-# Taille cumulée des images gardées par onglet (Mio) ; au-delà, les plus anciennes hors du
-# brouillon sont oubliées. Une image posée dans le deck n'en dépend plus.
-max_kept_mib = 100
+# Size limit of one document (MiB); at most 47 (base64 fits the 64 MiB request body), a larger value counts as 47.
+max_document_mib = 32
+# Documents at most in one draft.
+max_draft_documents = 4
+# Total size of the attachments a tab keeps (MiB); past it, the oldest outside the draft are
+# forgotten, and an attachment the draft alone would push past it is refused. An image placed in
+# the deck no longer depends on it.
+max_kept_mib = 200
 # Plus grande image montrée à l'agent (Mio) ; au-delà, il n'en reçoit que l'identifiant.
 prompt_image_mib = 5
 # Plus grand côté (pixels) d'une image montrée à l'agent ; au-delà, il n'en reçoit que l'identifiant.
@@ -181,6 +187,14 @@ index_entries = 200
 index_kib = 16
 # Maximum number of hits one knowledge search returns.
 search_hits = 50
+# Rows and columns kept per sheet of an imported spreadsheet (ceilings 20000 and 256); the rest
+# is counted and stated under the table.
+sheet_rows = 2000
+sheet_columns = 50
+# Time (ms, ceiling 600000) and memory (MiB, ceiling 2048) limits of the worker that extracts
+# an imported document.
+extract_timeout_ms = 120000
+extract_memory_mib = 512
 
 [stt]
 # Rythme de la boucle d'écoute (ms).

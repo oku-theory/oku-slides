@@ -18,7 +18,10 @@ doc = false
 oku-slides-core.workspace = true
 # Parquet bases are parsed only here, in the worker (t-1690).
 oku-slides-data = { workspace = true, features = ["engine"] }
+# Knowledge documents are parsed only here, in the child worker (t-1755).
+oku-slides-extract.workspace = true
 oku-slides-i18n.workspace = true
+oku-slides-import.workspace = true
 oku-slides-platform.workspace = true
 oku-slides-reference.workspace = true
 oku-slides-render.workspace = true
@@ -42,6 +45,8 @@ oku-slides-data = { workspace = true, features = ["test-support"] }
 oku-slides-reference = { workspace = true, features = ["test-support"] }
 speculoos.workspace = true
 rstest.workspace = true
+# The Word documents of the extraction tests, zipped on the fly.
+zip.workspace = true
 
 [lints]
 workspace = true

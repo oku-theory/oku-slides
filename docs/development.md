@@ -15,6 +15,7 @@ Design decisions: [`adr/`](adr/README.md). Contributor and agent rules: [`AGENTS
 | `crates/oku-slides-chart` | Charts and tables: ECharts option subset, SVG via charts-rs, table model, data operations |
 | `crates/oku-slides-data` | Deck data: data model and table edits, dataset types, number rules, identifiers |
 | `crates/oku-slides-pdf` | Source blob inside the PDF (`/PieceInfo`): write, read, strip |
+| `crates/oku-slides-extract` | Knowledge document extraction: Markdown, text, XLSX, ODS, DOCX, PPTX and PDF into sanitized, bounded Markdown; pure, run by the extraction worker, so its parsers link into the app binary |
 | `crates/oku-slides-import` | PPTX import: `SourceDeck` intermediate representation, reader, retrofit and high-fidelity projectors, font resolution, report, content coverage and visual gap |
 | `crates/oku-slides-reference` | Reference rendering of an imported presentation (`office2pdf` or LibreOffice witness, run by the render worker) and `hayro` rasterization of its pages |
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server, and the PPTX import pipeline the CLI and the app share |

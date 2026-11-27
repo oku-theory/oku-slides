@@ -121,6 +121,28 @@ describe("évènements en SSE (développement)", () => {
     expect(FakeSource.last.closed).toBe(true);
   });
 
+  test("draft event with an unknown attachment type is dropped, a document delivered", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    const draft = (attachment: Record<string, unknown>) => ({ kind: "draft", text: "x", origin: null, attachments: [attachment] });
+    const doc = { type: "document", id: "sha256:dd", name: "a.pdf", kind: "pdf", bytes: 10 };
+    FakeSource.last.emit("agent", envelope(TAB, draft({ type: "video", id: "sha256:aa" })));
+    FakeSource.last.emit("agent", envelope(TAB, draft(doc)));
+    expect(r.agent).toEqual([draft(doc) as AgentEvent]);
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("sha256");
+    warn.mockRestore();
+  });
+
+  test("draft with unknown document kind still applies", () => {
+    const r = recorder();
+    subscribeSse("/api/events", TAB, r.handlers);
+    const doc = { type: "document", id: "sha256:dd", name: "a.epub", kind: "epub", bytes: 10 };
+    const draft = { kind: "draft", text: "x", origin: null, attachments: [doc] };
+    FakeSource.last.emit("agent", envelope(TAB, draft));
+    expect(r.agent).toEqual([draft as AgentEvent]);
+  });
+
   test("focus with an empty slide is dropped, a deselect delivered", () => {
     const r = recorder();
     subscribeSse("/api/events", TAB, r.handlers);

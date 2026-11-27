@@ -158,7 +158,20 @@ ui-draft-send-title = 에이전트에게 보내기 (⌘↩)
 ui-draft-discard = 버리기
 ui-pasted-image = { $type } { $size }
 ui-draft-images = 붙여넣은 이미지
+ui-draft-attachments = 첨부 파일
 ui-draft-remove-image = 이 이미지 제거
+ui-attachment-remove = { $name } 제거
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } MB
+   *[kb] { NUMBER($size) } KB
+}
+ui-attach-empty = { $name }이(가) 비어 있습니다.
+ui-attach-too-large = { $name }이(가) { NUMBER($mb) }MB 제한을 초과합니다.
+ui-attach-too-many-images = 초안에 더 이상 이미지를 추가할 수 없습니다({ $max }).
+ui-attach-too-many-documents = 초안에 더 이상 문서를 추가할 수 없습니다({ $max }).
+ui-attach-not-ready = 첨부 파일이 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요.
+ui-attach-too-many-files = 한 번에 너무 많은 파일을 추가했습니다(최대 { $max }개).
+ui-attach-files = 파일 첨부
 ui-draft-send-needs-text = 이미지로 무엇을 할지 말씀해 주세요
 ui-agent-state-idle = 에이전트
 ui-agent-state-starting = 에이전트 시작 중…

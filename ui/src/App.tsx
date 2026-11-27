@@ -32,7 +32,7 @@ import { useKeptUi } from "./useKeptUi";
 import { changeLocale, t } from "./i18n";
 import Dictation from "./Dictation";
 import { DictationDraft } from "./DictationDraft";
-import { usePastedImages } from "./agent/usePastedImages";
+import { useAttachments } from "./agent/useAttachments";
 import { useDictation } from "./useDictation";
 import { promptThrough } from "./agent/draftActions";
 import { useContextWriter } from "./useVoiceContext";
@@ -338,9 +338,9 @@ export default function App({
     editing,
     prompt: promptThrough(agentHandle, (m) => say(m, true)),
     setDraft: agent.setDraft,
-    removeImage: (id) => void agent.removeImage(id).catch((e) => say(errorText(e), true)),
+    removeAttachment: (id) => void agent.removeAttachment(id).catch((e) => say(errorText(e), true)),
   });
-  const pasted = usePastedImages(dictation.draft.state.images, agent.pasteImage, (m) => say(m, true));
+  const attached = useAttachments(dictation.draft.state.attachments, agent.attach, (m) => say(m, true), snap?.attach_limits ?? null);
 
   // --- Fenêtre de l'agent : ce qu'elle apprend d'ici, ce qu'elle y écrit ------
   useAgentLink({ tab, agentDetached, editing, dictation, agentUiNow, agentStatus, dialogOpen, packTab, deckLook, reveal: trace.reveal });
@@ -530,11 +530,11 @@ export default function App({
           ready={agentStatus.ready}
           shortcuts={deckMode}
           onChange={dictation.draft.change}
-          images={dictation.draft.state.images}
-          thumbs={pasted.thumbs}
-          onPasteImages={pasted.onPaste}
-          onRemoveImage={(id) => void agent.removeImage(id).catch((e) => say(errorText(e), true))}
-          onSend={(text, images) => void dictation.actions.sendDraft(text, images)}
+          attachments={dictation.draft.state.attachments}
+          thumbs={attached.thumbs}
+          onAttachFiles={attached.onAttach}
+          onRemoveAttachment={(id) => void agent.removeAttachment(id).catch((e) => say(errorText(e), true))}
+          onSend={(text, attachments) => void dictation.actions.sendDraft(text, attachments)}
           onDiscard={dictation.draft.close}
         />}
       </aside>

@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = tiêu đề không được dùng neo hoặc bí d
 knowledge-frontmatter-tag = tiêu đề không được dùng thẻ YAML
 knowledge-frontmatter-too-deep = tiêu đề lồng nhau quá sâu
 knowledge-frontmatter-after-document-end = tiêu đề có văn bản sau phần kết thúc tài liệu YAML ...
+knowledge-frontmatter-flow-mapping = tiêu đề phải là một ánh xạ khối duy nhất, mỗi dòng một khóa, không có phần kết thúc `...`
 knowledge-frontmatter-type-missing = tiêu đề cần một kiểu không để trống
 knowledge-frontmatter-bad-timestamp = giá trị "{ $key }" trong tiêu đề phải là ngày giờ RFC 3339 kèm độ lệch múi giờ
 knowledge-frontmatter-not-allowed = khóa "{ $key }" không được phép trong tiêu đề của tệp này
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = gói có quá nhiều tệp
 knowledge-reason-file-too-large = tệp quá lớn
 knowledge-reason-total-too-large = gói quá lớn
 knowledge-reason-over-limit = cơ sở tri thức đã vượt quá giới hạn: chỉ xóa tệp mới đưa nó trở lại dưới giới hạn
+knowledge-no-text-layer = PDF này không có lớp văn bản (bản quét): hãy xuất lại kèm văn bản hoặc dán văn bản của nó
+knowledge-legacy-format = không đọc được định dạng Office cũ này: hãy lưu thành .pptx, .docx hoặc .xlsx
+knowledge-document-encrypted = tài liệu này được bảo vệ bằng mật khẩu: hãy lưu một bản không có bảo vệ
+knowledge-unsupported-document = không nhập được loại tài liệu này: PDF, DOCX, PPTX, XLSX, ODS, Markdown hoặc văn bản
+knowledge-document-damaged = tài liệu này bị hỏng và không đọc được
+knowledge-document-type-mismatch = nội dung của tệp này không khớp với tên của nó
+knowledge-document-too-large = tài liệu này quá lớn để nhập
 op-knowledge = Tệp tri thức { $path }: { $reason }
 op-unknown-widget = Tiện ích không xác định: { $subject }
 op-unknown-namespace = Bản trình bày này không có gói { $pack }.
@@ -269,6 +277,7 @@ issue-knowledge-invalid = tệp tri thức { $path } không hợp lệ: { $reaso
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

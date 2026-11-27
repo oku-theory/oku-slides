@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = de koptekst mag geen YAML-ankers of -aliassen gebr
 knowledge-frontmatter-tag = de koptekst mag geen YAML-tags gebruiken
 knowledge-frontmatter-too-deep = de koptekst is te diep genest
 knowledge-frontmatter-after-document-end = de koptekst bevat tekst na het YAML-documenteinde ...
+knowledge-frontmatter-flow-mapping = de koptekst moet één blokmapping zijn, één sleutel per regel, zonder `...`-einde
 knowledge-frontmatter-type-missing = de koptekst heeft een niet-leeg type nodig
 knowledge-frontmatter-bad-timestamp = de waarde "{ $key }" in de koptekst moet een RFC 3339-datumtijd met tijdzoneverschil zijn
 knowledge-frontmatter-not-allowed = de sleutel "{ $key }" is niet toegestaan in de koptekst van dit bestand
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = de bundel heeft te veel bestanden
 knowledge-reason-file-too-large = het bestand is te groot
 knowledge-reason-total-too-large = de bundel is te groot
 knowledge-reason-over-limit = de kennisbank overschrijdt haar limieten: alleen bestanden verwijderen brengt haar er weer onder
+knowledge-no-text-layer = deze pdf heeft geen tekstlaag (een scan): exporteer hem met tekst of plak de tekst
+knowledge-legacy-format = dit oudere Office-formaat kan niet worden gelezen: sla het op als .pptx, .docx of .xlsx
+knowledge-document-encrypted = dit document is beveiligd met een wachtwoord: sla een onbeveiligde kopie op
+knowledge-unsupported-document = dit soort document kan niet worden geïmporteerd: PDF, DOCX, PPTX, XLSX, ODS, Markdown of tekst
+knowledge-document-damaged = dit document is beschadigd en kan niet worden gelezen
+knowledge-document-type-mismatch = de inhoud van dit bestand past niet bij de naam
+knowledge-document-too-large = dit document is te groot om te importeren
 op-knowledge = Kennisbestand { $path }: { $reason }
 op-unknown-widget = Onbekende widget: { $subject }
 op-unknown-namespace = Deze presentatie heeft geen pakket { $pack }.
@@ -283,6 +291,7 @@ issue-knowledge-invalid = kennisbestand { $path } is ongeldig: { $reason ->
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

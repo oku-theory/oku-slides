@@ -173,7 +173,20 @@ ui-draft-send-title = إرسال إلى الوكيل (⌘↩)
 ui-draft-discard = تجاهل
 ui-pasted-image = { $type } { $size }
 ui-draft-images = الصور الملصقة
+ui-draft-attachments = المرفقات
 ui-draft-remove-image = إزالة هذه الصورة
+ui-attachment-remove = إزالة { $name }
+ui-attachment-size = { $unit ->
+    [mb] { NUMBER($size) } م.ب
+   *[kb] { NUMBER($size) } ك.ب
+}
+ui-attach-empty = { $name } فارغ.
+ui-attach-too-large = يتجاوز { $name } الحد البالغ { NUMBER($mb) } م.ب.
+ui-attach-too-many-images = تحتوي المسودة بالفعل على أقصى عدد من الصور ({ $max }).
+ui-attach-too-many-documents = تحتوي المسودة بالفعل على أقصى عدد من المستندات ({ $max }).
+ui-attach-not-ready = المرفقات ليست جاهزة بعد: أعد المحاولة بعد لحظة.
+ui-attach-too-many-files = ملفات كثيرة جدًا دفعة واحدة: الحد هو { $max }.
+ui-attach-files = إرفاق ملفات
 ui-draft-send-needs-text = قل ما يجب فعله بها
 ui-agent-state-idle = الوكيل
 ui-agent-state-starting = الوكيل يبدأ…

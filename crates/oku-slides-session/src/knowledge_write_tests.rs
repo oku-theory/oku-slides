@@ -1,12 +1,12 @@
 use oku_slides_core::knowledge::is_file_id;
-use oku_slides_core::knowledge::limits::MAX_FILE_BYTES;
+use oku_slides_core::knowledge::limits::{MAX_FILE_BYTES, MAX_FRONTMATTER_BYTES};
 use oku_slides_core::{KnowledgeReason, Op, asset_id};
 use oku_slides_i18n::{Localize, Localizer};
 use speculoos::prelude::*;
 use tempfile::TempDir;
 
 use crate::SessionErrorKind;
-use crate::knowledge_fixture::{approve_knowledge, seed_knowledge};
+use crate::knowledge_fixture::{approve_knowledge, seed_knowledge, unstamped};
 use crate::test_support::{add_pack, add_version, fresh_dir, manifest_ns, opened_on, session_on};
 use crate::{Session, SessionError};
 
@@ -213,7 +213,7 @@ fn undo_redo_of_agent_write_never_approves() {
     assert_that!(text_at(&s, "/a.md").as_deref()).is_equal_to(Some(RECEIVED));
     assert_that!(s.knowledge_file("/a.md").unwrap_err().kind()).is_equal_to(SessionErrorKind::KnowledgeAwaiting);
     s.redo().unwrap();
-    assert_that!(s.knowledge_file("/a.md").unwrap().text.as_str()).is_equal_to(MINE);
+    assert_that!(unstamped(&s.knowledge_file("/a.md").unwrap().text)).is_equal_to(MINE.to_owned());
     assert_that!(s.library.knowledge_approvals().count()).is_equal_to(count);
 }
 
@@ -286,5 +286,117 @@ fn apply_silent_ops_refuses_knowledge_ops() {
 fn apply_by_agent_path_approves() {
     let (_data, mut s) = seeded(&[], &[]);
     s.apply_by_agent("x", vec![write("/a.md", MINE)], None).unwrap();
+    assert_that!(unstamped(&s.knowledge_file("/a.md").unwrap().text)).is_equal_to(MINE.to_owned());
+}
+
+/// Stamps from a counter: each batch gets a distinct id, at a fixed time.
+fn counted_stamps(s: &mut Session) {
+    let n = std::sync::atomic::AtomicU8::new(0);
+    s.stamp_source = Box::new(move || {
+        let id = n.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Ok((time::macros::datetime!(2026-11-25 10:20:30.456 UTC), [id; 8]))
+    });
+}
+
+#[test]
+fn agent_write_of_received_text_leaves_it_awaiting() {
+    let (_data, mut s) = seeded(&[("/a.md", RECEIVED)], &[]);
+    s.apply_by_agent("x", vec![write("/b.md", RECEIVED)], None).unwrap();
+    assert_that!(approved(&s, RECEIVED)).is_false();
+    assert_that!(s.knowledge_file("/a.md").unwrap_err().kind()).is_equal_to(SessionErrorKind::KnowledgeAwaiting);
+    let written = s.knowledge_file("/b.md").unwrap().text;
+    assert_that!(written.as_str()).is_not_equal_to(RECEIVED);
+    assert_that!(unstamped(&written)).is_equal_to(RECEIVED.to_owned());
+}
+
+#[test]
+fn agent_edit_result_restamped_and_approved() {
+    let (_data, mut s) = seeded(&[("/a.md", MINE)], &[MINE]);
+    counted_stamps(&mut s);
+    s.apply_by_agent("x", vec![edit("/a.md", "mine", "ours")], None).unwrap();
+    let first = s.knowledge_file("/a.md").unwrap().text;
+    s.apply_by_agent("x", vec![edit("/a.md", "ours", "theirs")], None).unwrap();
+    let second = s.knowledge_file("/a.md").unwrap().text;
+    assert_that!(unstamped(&second)).is_equal_to("---\ntype: Note\n---\ntheirs\n".to_owned());
+    assert_that!(second.matches("generated:").count()).is_equal_to(1);
+    assert_that!(second.contains("0101010101010101")).is_true();
+    assert_that!(first.contains("0000000000000000")).is_true();
+    assert_that!(approved(&s, &second)).is_true();
+}
+
+#[test]
+fn stamp_past_frontmatter_limit_refuses_batch_nothing_approved() {
+    let (_data, mut s) = seeded(&[], &[]);
+    let pad = "x".repeat(MAX_FRONTMATTER_BYTES - "type: Note\ntitle: \n".len());
+    let text = format!("---\ntype: Note\ntitle: {pad}\n---\nbody\n");
+    let before = s.library.knowledge_approvals().count();
+    let err = s.apply_by_agent("x", vec![write("/a.md", &text), write("/b.md", MINE)], None).unwrap_err();
+    assert_that!(knowledge_reason(&err))
+        .is_equal_to(Some(KnowledgeReason::Frontmatter(oku_slides_core::FrontmatterReason::TooLarge)));
+    assert_that!(s.knowledge_file("/b.md").unwrap_err().kind()).is_equal_to(SessionErrorKind::KnowledgeNotFound);
+    assert_that!(s.library.knowledge_approvals().count()).is_equal_to(before);
+    s.apply("x", vec![write("/a.md", &text)], None).unwrap();
+}
+
+#[test]
+fn user_apply_knowledge_write_not_stamped() {
+    let (_data, mut s) = seeded(&[], &[]);
+    s.set_agent_label(Some("claude"));
+    s.apply("x", vec![write("/a.md", MINE)], None).unwrap();
     assert_that!(s.knowledge_file("/a.md").unwrap().text.as_str()).is_equal_to(MINE);
+}
+
+#[test]
+fn agent_apply_with_label_carries_cleaned_label() {
+    let (_data, mut s) = seeded(&[], &[]);
+    s.set_agent_label(Some("omp\n\"x\"\u{202e}"));
+    s.apply_by_agent("x", vec![write("/a.md", MINE)], None).unwrap();
+    let text = s.knowledge_file("/a.md").unwrap().text;
+    assert_that!(text.contains("x-oku-slides-agent: \"omp \u{2bc}x\u{2bc}\"\n")).is_true();
+}
+
+#[test]
+fn agent_label_after_end_turn_absent() {
+    let (_data, mut s) = seeded(&[], &[]);
+    s.begin_turn(1, "go");
+    s.set_agent_label(Some("omp"));
+    s.end_turn();
+    s.apply_by_agent("x", vec![write("/a.md", MINE)], None).unwrap();
+    let text = s.knowledge_file("/a.md").unwrap().text;
+    assert_that!(text.contains("x-oku-slides-agent")).is_false();
+    assert_that!(text.contains("generated:")).is_true();
+}
+
+#[test]
+fn agent_batch_undo_redo_one_step_same_stamp() {
+    let (_data, mut s) = seeded(&[], &[]);
+    s.apply_by_agent("x", vec![write("/a.md", MINE), write("/b.md", NOTE)], None).unwrap();
+    let stamped = text_at(&s, "/a.md");
+    assert_that!(stamped.as_deref().is_some_and(|t| t.contains("generated:"))).is_true();
+    s.undo().unwrap();
+    assert_that!(text_at(&s, "/a.md")).is_none();
+    assert_that!(text_at(&s, "/b.md")).is_none();
+    s.redo().unwrap();
+    assert_that!(text_at(&s, "/a.md")).is_equal_to(stamped);
+}
+
+#[test]
+fn agent_write_flow_mapping_refused_localized_in_fr() {
+    let (_data, mut s) = seeded(&[], &[]);
+    let err = s.apply_by_agent("x", vec![write("/a.md", "---\n{type: Note}\n---\n")], None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::KnowledgeStamp);
+    let fr = Localizer::new(Some("fr"));
+    assert_that!(err.localize(&fr)).contains(fr.tr("knowledge-frontmatter-flow-mapping"));
+    assert_that!(text_at(&s, "/a.md")).is_none();
+}
+
+#[test]
+fn agent_apply_stamp_source_failure_refuses_batch() {
+    let (_data, mut s) = seeded(&[], &[]);
+    s.stamp_source = Box::new(|| Err(getrandom::Error::UNSUPPORTED));
+    let err = s.apply_by_agent("x", vec![write("/a.md", MINE)], None).unwrap_err();
+    assert_that!(err.kind()).is_equal_to(SessionErrorKind::KnowledgeStampRandom);
+    assert_that!(err.localize(&Localizer::new(Some("fr"))))
+        .contains(Localizer::new(Some("fr")).tr("session-knowledge-stamp-random"));
+    assert_that!(text_at(&s, "/a.md")).is_none();
 }

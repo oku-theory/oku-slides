@@ -50,7 +50,8 @@ args = ["--acp"]
 | `[sources]` | Size caps of the sources read from a PDF; `compact_after_days` before deletions are purged |
 | `[render]` | Typst worker bounds: time, memory, message size, widget files per pack |
 | `[import]` | PPTX import: witness, score threshold, LibreOffice paths, agent tuning tries, input size cap |
-| `[paste]` | Images pasted into the agent draft: size, pixels, count, what the agent is shown |
+| `[paste]` | What is attached to the agent draft: image size, pixels and count, document size and count, total kept (`max_kept_mib`, default 200), what the agent is shown |
+| `[knowledge]` | Deck knowledge base: agent index size (`index_entries`, `index_kib`), `search_hits`, rows and columns kept per imported sheet, extraction worker time and memory |
 | `[serve]` | Dev server `host`, `port`, header timeout and connection cap (also the agent's tool server) |
 | `[i18n]`, `[appearance]`, `[author]` | Interface language, light or dark scheme, name in deck history |
 | `[stt]`, `[stt.vad]` | Dictation timing, Apple engine on or off, API timeout; voice detection thresholds and pauses |

@@ -57,8 +57,8 @@ pub(crate) struct Instruction {
     pub ui: AgentUi,
     /// Tour de fine-tuning d'un import : les consignes d'import partent, cachées, avant le contexte.
     pub tune: bool,
-    /// Les images collées envoyées avec la consigne.
-    pub images: Vec<AttachmentRef>,
+    /// The images and documents attached to the instruction.
+    pub attachments: Vec<AttachmentRef>,
     /// How the turn began: typed, a hands-free utterance, or one after the wake phrase.
     pub origin: TurnOrigin,
 }
@@ -187,7 +187,7 @@ impl AgentHandle {
 
     /// Une consigne pour la conversation de l'onglet.
     pub fn prompt(&self, text: String, ui: AgentUi) {
-        self.instruct(Instruction { text, ui, tune: false, images: Vec::new(), origin: TurnOrigin::Typed });
+        self.instruct(Instruction { text, ui, tune: false, attachments: Vec::new(), origin: TurnOrigin::Typed });
     }
 
     /// Une consigne, ordinaire ou de fine-tuning.
@@ -309,7 +309,7 @@ impl TabAgent {
         self.ctx.emit(AgentEvent::UserText {
             turn: n,
             text: instruction.text.clone(),
-            images: instruction.images.iter().map(AttachmentRef::shown).collect(),
+            images: instruction.attachments.iter().filter_map(AttachmentRef::shown).collect(),
         });
         let mut known = self.known_session().await;
         // Routed first: the local agent may stand in for an unusable selected one.
@@ -340,8 +340,10 @@ impl TabAgent {
             }
         };
         self.ensure_model(&live, &id).await;
+        let agent = self.agent_label(&live, &id);
         let prompting = || self.link.prompting(live.generation, &id);
-        match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, live.caps.image, prompting)
+        let images = live.caps.image;
+        match crate::turn::run(&self.ctx, &live.cx, rx, n, id.clone(), instruction, fresh, images, agent, prompting)
             .await
         {
             Ok((mut pending, usage)) => {
@@ -425,6 +427,16 @@ impl TabAgent {
         let r = live.cx.send_request(request).block_task().await?;
         self.adopt(live, turn, &r.session_id, false, r.config_options.as_deref());
         Ok(r.session_id)
+    }
+
+    /// The agent the turn's knowledge stamps name: the preset, then ` / <model>` when session
+    /// `id` told its model; `None` for a link built without a preset.
+    fn agent_label(&self, live: &Live, id: &SessionId) -> Option<String> {
+        let preset = self.link.preset()?;
+        Some(match self.link.models().session(live.generation, id) {
+            Some(options) => format!("{preset} / {}", options.current),
+            None => preset,
+        })
     }
 
     /// Asks session `id` for the chosen model, if the agent offers it and the session uses another.

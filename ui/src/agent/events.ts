@@ -6,6 +6,7 @@ import { z } from "zod";
 import { inTauri } from "../api";
 import type { AgentEvent, McpEvent } from "../api";
 import { NOTES_MIN, PILE_MAX, PILE_MIN } from "../columns";
+import { attachment } from "./attachments";
 
 /** The longest slide id a present `show` command may carry. */
 export const PRESENT_SLIDE_MAX = 64;
@@ -85,6 +86,21 @@ function validMcp(e: McpEvent): boolean {
   return false;
 }
 
+/** A draft event (`AgentEvent::Draft`): its attachments are images or documents. */
+const draftEvent = z.object({
+  kind: z.literal("draft"),
+  text: z.string().nullable(),
+  origin: z.string().nullable(),
+  attachments: z.array(attachment),
+});
+
+/** False for a draft event its schema refuses: it is dropped, with a warning naming only its kind. */
+function validAgent(e: AgentEvent): boolean {
+  if (e.kind !== "draft" || draftEvent.safeParse(e).success) return true;
+  console.warn("agent event dropped: invalid", e.kind);
+  return false;
+}
+
 /** Les rappels d'un abonnement aux évènements de l'hôte. */
 export interface HostHandlers {
   onMcp: (e: McpEvent) => void;
@@ -138,7 +154,7 @@ export function subscribeTauri(load: () => Promise<Listen>, tab: string, h: Host
   load()
     .then(async (listen) => {
       keep(await listen("oku-slides:mcp", deliver(h.onMcp, validMcp)));
-      keep(await listen("oku-slides:agent", deliver(h.onAgent)));
+      keep(await listen("oku-slides:agent", deliver(h.onAgent, validAgent)));
       if (!closed) h.onReady?.();
     })
     .catch((e) => h.onError?.(String(e)));
@@ -156,7 +172,7 @@ export function subscribeSse(url: string, tab: string, h: HostHandlers): () => v
     if (value && valid(value)) cb(value);
   };
   source.addEventListener("mcp", deliver(h.onMcp, validMcp));
-  source.addEventListener("agent", deliver(h.onAgent));
+  source.addEventListener("agent", deliver(h.onAgent, validAgent));
   // Une reconnexion donne `error` puis `open` : `onReady` suit l'erreur signalée.
   source.addEventListener("open", () => h.onReady?.());
   source.addEventListener("error", () => h.onError?.(`event stream error: ${url}`));

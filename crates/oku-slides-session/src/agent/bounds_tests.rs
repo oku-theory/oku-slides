@@ -3,7 +3,7 @@ use speculoos::prelude::*;
 
 use oku_slides_a2ui::ChoiceOption;
 
-use super::{LABEL_MAX, TEXT_MAX, check_hex, check_options, check_text, clip, label, label_within};
+use super::{LABEL_MAX, TEXT_MAX, check_hex, check_options, check_text, clip, has_visible_text, label, label_within};
 
 #[test]
 fn check_text_at_the_limit_passes() {
@@ -192,4 +192,15 @@ fn label_within_clips_to_its_max(#[case] len: usize, #[case] expected: String) {
 fn label_within_cleans_like_label() {
     let text = " \"a\"\n\u{202E}b ";
     assert_that!(label_within(text, 200)).is_equal_to(label(text));
+}
+
+#[rstest]
+#[case::empty("", false)]
+#[case::blank(" \t ", false)]
+#[case::controls("\n\u{1B}\u{202E}\u{200B}", false)]
+#[case::letter("a", true)]
+#[case::ellipsis("…", true)]
+#[case::letter_among_controls("\u{202E} a\n", true)]
+fn has_visible_text_says_whether_label_keeps_a_character(#[case] text: &str, #[case] visible: bool) {
+    assert_that!(has_visible_text(text)).is_equal_to(visible);
 }

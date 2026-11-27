@@ -17,7 +17,11 @@
 //! [`metrics::score`], l'écart visuel d'une slide hi-fi à un rendu de référence.
 //! [`fonts::resolve`] choisit la police de chaque famille source et les
 //! fichiers à embarquer dans le deck.
+//!
+//! [`bounded`] is the generic bounded zip and XML reader, shared with the knowledge document
+//! extractor.
 
+pub mod bounded;
 pub mod coverage;
 pub mod fonts;
 pub mod hifi;

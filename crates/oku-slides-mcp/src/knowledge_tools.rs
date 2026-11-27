@@ -1,22 +1,28 @@
-//! The deck knowledge base: `knowledge_list`, `knowledge_read`, `knowledge_search`, and the writes
-//! `knowledge_write`, `knowledge_edit`, `knowledge_move`, `knowledge_delete`.
+//! The deck knowledge base: `knowledge_list`, `knowledge_read`, `knowledge_search`, the writes
+//! `knowledge_write`, `knowledge_edit`, `knowledge_move`, `knowledge_delete`, and
+//! `knowledge_import` of an attached document.
 //!
 //! Deck tabs only. The session decides what is open (approved texts only); a read attaches the
 //! cited images that fit `[paste]`'s prompt limits, and lists every one with why it is not shown.
 //! A write builds one op and goes through the agent's apply path: the session mints file ids,
-//! refuses an edit or a move of an awaiting file and approves what the agent wrote.
+//! refuses an edit or a move of an awaiting file and approves what the agent wrote. An import
+//! locks the session to snapshot the attachment, extracts it unlocked in a child worker, then
+//! locks again to write the reference files.
 
 use base64::Engine as _;
 use oku_slides_core::Op;
 use oku_slides_platform::config::{ImageRefusal, PromptImageLimits};
 use oku_slides_session::Request;
 use oku_slides_session::agent::PASTE_TYPES;
-use oku_slides_session::{KnowledgeEntry, KnowledgeHits, KnowledgeImage, KnowledgeRead};
+use oku_slides_session::{ImportOutcome, KnowledgeEntry, KnowledgeHits, KnowledgeImage, KnowledgeRead};
 use rust_mcp_sdk::schema::{CallToolResult, ImageContent};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use snafu::ResultExt;
 
+use crate::McpEvent;
+use crate::tool_error::{SessionSnafu, TaskSnafu, ToolError};
 use crate::tools::Tools;
 
 /// The `knowledge_search` description; `{search_hits}` is the effective hit cap.
@@ -74,6 +80,20 @@ pub(crate) struct KnowledgeEditArgs {
     pub old: String,
     /// What replaces it.
     pub new: String,
+}
+
+/// The attached document `knowledge_import` imports.
+///
+/// Lengths are bounded downstream: `attachment` is only looked up among the tab's ids, `path` is
+/// parsed as a knowledge path (at most `PATH_MAX_BYTES`), and errors quote neither raw.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct KnowledgeImportArgs {
+    /// The attachment's id, as the prompt lists it.
+    pub attachment: String,
+    /// A /references/….md file an earlier import wrote, to replace; absent: a new file.
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 /// The file `knowledge_move` moves.
@@ -265,6 +285,36 @@ impl Tools {
             Err(r) => return r,
         };
         self.knowledge_change(Op::KnowledgeDelete { path: path.clone() }, path).await
+    }
+
+    /// Imports an attached document as reference files: job and apply under the session lock,
+    /// the extraction between them without it.
+    pub(crate) async fn knowledge_import(&self, args: Value) -> CallToolResult {
+        let KnowledgeImportArgs { attachment, path } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let imported = self.import_attachment(attachment, path).await;
+        let ok = imported.is_ok();
+        let result = self.reply(imported, |o| {
+            self.hub.emit(McpEvent::Changed);
+            self.json_result(&json!({ "paths": o.paths, "images": o.images, "cut": o.cut }))
+        });
+        if ok {
+            self.prune_surfaces().await;
+        }
+        result
+    }
+
+    /// The three steps of [`Self::knowledge_import`].
+    async fn import_attachment(&self, attachment: String, path: Option<String>) -> Result<ImportOutcome, ToolError> {
+        let job = self.with_session(move |s| s.knowledge_import_job(&attachment, path.as_deref())).await?;
+        let (job, extracted) = tokio::task::spawn_blocking(move || job.run().map(|e| (job, e)))
+            .await
+            .context(TaskSnafu)?
+            .context(SessionSnafu)?;
+        let label = self.localizer.current().tr("agent-undo-apply");
+        self.with_session(move |s| s.knowledge_import_apply(&label, job.ticket(), extracted)).await
     }
 }
 

@@ -1,0 +1,26 @@
+[package]
+name = "oku-slides-extract"
+description = "Bounded extraction of an imported document (Markdown, text, XLSX, ODS, DOCX, PPTX, PDF) into sanitized Markdown for the deck knowledge base."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+oku-slides-core.workspace = true
+oku-slides-import.workspace = true
+lopdf.workspace = true
+png.workspace = true
+pulldown-cmark.workspace = true
+roxmltree.workspace = true
+snafu.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+speculoos.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true

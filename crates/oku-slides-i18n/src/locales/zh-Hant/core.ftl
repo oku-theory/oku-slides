@@ -38,6 +38,7 @@ knowledge-frontmatter-alias = 標頭不能使用 YAML 錨點或別名
 knowledge-frontmatter-tag = 標頭不能使用 YAML 標籤
 knowledge-frontmatter-too-deep = 標頭巢狀過深
 knowledge-frontmatter-after-document-end = 標頭在 YAML 文件結束符 ... 之後還有文字
+knowledge-frontmatter-flow-mapping = 標頭必須是單一區塊對映，每行一個鍵，不能有 `...` 結束符
 knowledge-frontmatter-type-missing = 標頭需要非空的 type
 knowledge-frontmatter-bad-timestamp = 標頭的值「{ $key }」必須是帶時區偏移的 RFC 3339 日期時間
 knowledge-frontmatter-not-allowed = 此檔案的標頭不允許使用鍵「{ $key }」
@@ -54,6 +55,13 @@ knowledge-reason-too-many-files = 知識包中的檔案太多
 knowledge-reason-file-too-large = 檔案太大
 knowledge-reason-total-too-large = 知識包太大
 knowledge-reason-over-limit = 知識庫已超出其限制：只有刪除檔案才能使其回到限制以內
+knowledge-no-text-layer = 此 PDF 沒有文字層（是掃描檔）：請連同文字匯出，或貼上其文字
+knowledge-legacy-format = 無法讀取這種舊版 Office 格式：請另存為 .pptx、.docx 或 .xlsx
+knowledge-document-encrypted = 此文件受密碼保護：請儲存一份未加保護的副本
+knowledge-unsupported-document = 無法匯入此類文件：支援 PDF、DOCX、PPTX、XLSX、ODS、Markdown 或文字
+knowledge-document-damaged = 此文件已損毀，無法讀取
+knowledge-document-type-mismatch = 此檔案的內容與其名稱不符
+knowledge-document-too-large = 此文件太大，無法匯入
 op-knowledge = 知識檔案 { $path }：{ $reason }
 op-unknown-widget = 未知的元件：{ $subject }
 op-unknown-namespace = 此簡報沒有套件 { $pack }。
@@ -269,6 +277,7 @@ issue-knowledge-invalid = 知識檔案 { $path } 無效：{ $reason ->
         [knowledge-frontmatter-tag] { knowledge-frontmatter-tag }
         [knowledge-frontmatter-too-deep] { knowledge-frontmatter-too-deep }
         [knowledge-frontmatter-after-document-end] { knowledge-frontmatter-after-document-end }
+        [knowledge-frontmatter-flow-mapping] { knowledge-frontmatter-flow-mapping }
         [knowledge-frontmatter-type-missing] { knowledge-frontmatter-type-missing }
         [knowledge-frontmatter-bad-timestamp] { knowledge-frontmatter-bad-timestamp }
        *[knowledge-frontmatter-not-allowed] { knowledge-frontmatter-not-allowed }

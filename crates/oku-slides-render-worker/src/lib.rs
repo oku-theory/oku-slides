@@ -14,6 +14,8 @@
 //! - [`RemoteReference`] : le rendu de référence d'une présentation importée,
 //!   fait par le témoin ([`ReferenceWitness`]) dans le travailleur ; PNG de
 //!   ses pages à la demande.
+//! - `RenderWorker::extract_document`: a knowledge document turned into Markdown and images
+//!   in a worker built for it (`extract`), never in process.
 //! - [`serve`] : la boucle du travailleur ([`ServeError`] si le tube est illisible).
 //! - [`exit_if_worker`] : à appeler en tête de `main`.
 
@@ -23,6 +25,7 @@ mod compiled;
 mod confine;
 mod data_worker;
 mod error;
+mod extract;
 #[cfg(target_os = "macos")]
 mod footprint;
 mod frame;
@@ -36,6 +39,8 @@ mod serve;
 mod slot;
 #[cfg(unix)]
 mod stdio;
+#[cfg(test)]
+pub(crate) mod test_documents;
 #[cfg(test)]
 pub(crate) mod test_packs;
 mod watchdog;

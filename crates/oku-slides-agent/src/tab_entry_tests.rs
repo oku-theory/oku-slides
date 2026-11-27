@@ -55,7 +55,7 @@ fn prompt() -> Command {
         text: "perdue".into(),
         ui: AgentUi::default(),
         tune: false,
-        images: Vec::new(),
+        attachments: Vec::new(),
         origin: oku_slides_session::agent::TurnOrigin::Typed,
     })
 }
@@ -281,7 +281,7 @@ async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::
 }
 
 fn text_draft(text: Option<&str>) -> super::Draft {
-    super::Draft { text: text.map(str::to_owned), images: Vec::new() }
+    super::Draft { text: text.map(str::to_owned), attachments: Vec::new() }
 }
 
 /// The draft events sent on `rx` so far, as JSON.
@@ -307,7 +307,7 @@ async fn prefill_draft_on_an_empty_draft_sets_it_and_emits_it_without_origin(#[c
     let (out, mut rx) = mpsc::unbounded_channel();
     assert_that!(link.prefill_draft(&out, "Passe les titres en bleu.".into())).is_true();
     let expected =
-        serde_json::json!({ "kind": "draft", "text": "Passe les titres en bleu.", "origin": null, "images": [] });
+        serde_json::json!({ "kind": "draft", "text": "Passe les titres en bleu.", "origin": null, "attachments": [] });
     assert_that!(drafts_sent(&mut rx)).is_equal_to(vec![expected]);
     drop_off_runtime(link, platform).await;
 }
@@ -324,8 +324,8 @@ async fn prefill_draft_on_a_non_blank_draft_keeps_it_and_emits_nothing() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn prefill_draft_on_a_draft_holding_only_images_keeps_it() {
-    let image = AttachmentRef { id: "sha256:00".into(), mime: "image/png".into(), width: 1, height: 1 };
-    let (link, platform, _dir) = link_with(super::Draft { text: Some(String::new()), images: vec![image] }).await;
+    let image = AttachmentRef::Image { id: "sha256:00".into(), mime: "image/png".into(), width: 1, height: 1 };
+    let (link, platform, _dir) = link_with(super::Draft { text: Some(String::new()), attachments: vec![image] }).await;
     let (out, mut rx) = mpsc::unbounded_channel();
     assert_that!(link.prefill_draft(&out, "écrasé ?".into())).is_false();
     assert_that!(drafts_sent(&mut rx)).is_empty();

@@ -54,6 +54,8 @@ export const Icon = {
   paneRestore: stroke(<path d="M7 6l5 5 5-5M7 12l5 5 5-5" />),
   detach: stroke(<><path d="M14 4h6v6" /><path d="M20 4l-8 8" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>),
   attach: stroke(<><path d="M10 20H4v-6" /><path d="M4 20l8-8" /><path d="M6 10V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5" /></>),
+  /** A paper clip: attach files to the agent draft. */
+  paperclip: stroke(<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />),
   newChat: stroke(<><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5z" /><path d="M12.5 9.5v6M9.5 12.5h6" /></>),
   addRow: stroke(<><rect x="4" y="4" width="16" height="10" rx="1.5" /><path d="M4 9h16" /><path d="M12 16.5v4M10 18.5h4" /></>),
   addColumn: stroke(<><rect x="4" y="4" width="10" height="16" rx="1.5" /><path d="M9 4v16" /><path d="M16.5 12h4M18.5 10v4" /></>),

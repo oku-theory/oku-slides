@@ -26,6 +26,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+use oku_slides_core::num::count_u64;
 use oku_slides_platform::config::RenderSettings;
 use oku_slides_platform::{RENDER_WORKER_ENV, RenderLaunch};
 use oku_slides_render::RenderError;
@@ -62,16 +63,16 @@ pub(crate) fn fingerprint_hex(pack: &WirePack) -> String {
     hex::encode(h.finalize())
 }
 
-/// Erreur du lien pour une trame de sortie illisible, réponse à `req`.
+/// The link error for an unreadable output frame, the answer to `req`.
 ///
-/// Un tube rompu ou une trame tronquée : le travailleur est mort en écrivant
-/// (`WorkerLost`). Une trame trop grande ou un en-tête non JSON : `Frame` ;
-/// le SVG d'une page au-delà de sa borne le dit (`page_too_large`).
+/// A broken pipe or a truncated frame: the worker died while writing
+/// (`WorkerLost`). A frame too large or a header that is not JSON: `Frame`;
+/// a page's SVG past its bound says so (`page_too_large`).
 fn frame_failure(e: &FrameError, req: &Request) -> RenderError {
     match e {
         FrameError::Io { .. } | FrameError::Truncated { .. } => RenderError::worker_lost(e.to_string()),
         FrameError::TooLarge { payload: true, max, .. } if matches!(req, Request::Svg { .. }) => {
-            RenderError::page_too_large(u64::try_from(*max / (1024 * 1024)).unwrap_or(u64::MAX))
+            RenderError::page_too_large(count_u64(*max / (1024 * 1024)))
         }
         FrameError::TooLarge { .. } | FrameError::Json { .. } => RenderError::frame(e.to_string()),
     }

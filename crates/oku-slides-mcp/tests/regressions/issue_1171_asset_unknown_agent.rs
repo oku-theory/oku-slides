@@ -19,3 +19,23 @@ async fn apply_citing_an_unknown_asset_points_the_agent_to_pasted_images() {
     assert_that!(r.is_error).is_equal_to(Some(true));
     assert_that!(untrusted_error_of(&r)).is_equal_to(h.localizer.tr("agent-error-asset-unknown"));
 }
+
+/// An attached document is not an asset: the agent citing its id as an image hears the same.
+#[tokio::test(flavor = "multi_thread")]
+async fn apply_citing_an_attached_document_is_an_unknown_asset() {
+    let h = start().await;
+    let attached = h
+        .session
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .attach(oku_slides_session::agent::Upload::new(b"# Plan\n".to_vec(), "plan.md"), &[]);
+    let id = attached.unwrap_or_else(|e| panic!("attach: {}", e.one_line())).id().to_owned();
+    let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
+    let op = json!({
+        "op": "set_param", "target": { "slide": "s-libre", "element": "e-image" }, "param": "asset", "value": id
+    });
+    let r = call(&c, "apply", json!({ "ops": [op] })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(untrusted_error_of(&r)).is_equal_to(h.localizer.tr("agent-error-asset-unknown"));
+    assert_that!(h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner).attached(&id).is_some()).is_true();
+}

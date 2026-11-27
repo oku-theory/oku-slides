@@ -332,6 +332,36 @@ fn knowledge_value_of_one_is_kept() {
 }
 
 #[test]
+fn knowledge_extract_settings_ceilings_and_zero() {
+    let defaults = Settings::defaults().unwrap().knowledge;
+    let effective = |k: &KnowledgeSettings| {
+        (
+            k.effective_sheet_rows(),
+            k.effective_sheet_columns(),
+            k.effective_extract_timeout_ms(),
+            k.effective_extract_memory_mib(),
+        )
+    };
+    assert_that!(effective(&defaults)).is_equal_to((2000, 50, 120_000, 512));
+    let above = env(&[
+        ("OKU_SLIDES_KNOWLEDGE__SHEET_ROWS", "20001"),
+        ("OKU_SLIDES_KNOWLEDGE__SHEET_COLUMNS", "257"),
+        ("OKU_SLIDES_KNOWLEDGE__EXTRACT_TIMEOUT_MS", "600001"),
+        ("OKU_SLIDES_KNOWLEDGE__EXTRACT_MEMORY_MIB", "4096"),
+    ]);
+    let k = Settings::from_sources(None, above).unwrap().knowledge;
+    assert_that!(effective(&k)).is_equal_to((20_000, 256, 600_000, 2048));
+    for key in [
+        "OKU_SLIDES_KNOWLEDGE__SHEET_ROWS",
+        "OKU_SLIDES_KNOWLEDGE__SHEET_COLUMNS",
+        "OKU_SLIDES_KNOWLEDGE__EXTRACT_TIMEOUT_MS",
+        "OKU_SLIDES_KNOWLEDGE__EXTRACT_MEMORY_MIB",
+    ] {
+        assert_that!(Settings::from_sources(None, env(&[(key, "0")]))).named(key).is_err();
+    }
+}
+
+#[test]
 fn knowledge_approvals_sit_beside_the_guide_approvals() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.paths.knowledge_approvals())
@@ -700,6 +730,36 @@ fn defaults_paste_is_ten_mib_eight_images_five_mib_shown() {
         max_side: 8000,
         total_bytes: 20 << 20,
     });
+}
+
+#[test]
+fn defaults_paste_documents_thirty_two_mib_four_per_draft_two_hundred_kept() {
+    let s = Settings::defaults().unwrap();
+    assert_that!((s.paste.max_document_bytes(), s.paste.max_draft_documents.get(), s.paste.max_kept_bytes()))
+        .is_equal_to((32 << 20, 4, 200 << 20));
+}
+
+#[test]
+fn paste_max_draft_attachments_sums_images_and_documents() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.paste.max_draft_attachments()).is_equal_to(12);
+    let mut huge = s.paste.clone();
+    huge.max_draft_images = usize::MAX;
+    assert_that!(huge.max_draft_attachments()).is_equal_to(usize::MAX);
+}
+
+#[test]
+fn paste_max_document_mib_past_ceiling_counts_as_ceiling() {
+    let settings = settings_from_toml("[paste]\nmax_document_mib = 4096\n").unwrap();
+    assert_that!(settings.paste.max_document_bytes()).is_equal_to(PasteSettings::MAX_DOCUMENT_MIB_MAX << 20);
+    assert_that!(PasteSettings::MAX_DOCUMENT_MIB_MAX).is_equal_to(47);
+}
+
+#[rstest::rstest]
+#[case("OKU_SLIDES_PASTE__MAX_DOCUMENT_MIB")]
+#[case("OKU_SLIDES_PASTE__MAX_DRAFT_DOCUMENTS")]
+fn paste_document_limit_of_zero_is_refused(#[case] key: &str) {
+    assert_that!(Settings::from_sources(None, env(&[(key, "0")]))).named(key).is_err();
 }
 
 #[test]

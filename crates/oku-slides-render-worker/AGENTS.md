@@ -17,6 +17,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Spawn a macOS worker only through sandbox-exec with worker.sb, and refuse it unless its Hello canary is denied. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 - Never hardlink a file into the worker's work dir; Seatbelt checks the path, so copy it. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 - Call with_soffice with the ReferenceWitness::Soffice program before a soffice worker's first request; its sandbox execs only that path. (spec:2026-10-17-render-worker-sandbox-design, t-931)
+- Extract documents only in a child worker built for it with the `[knowledge]` bounds, never in a deck's render worker or in process (plan:2026-11-25-deck-knowledge-okf-lot4-documents, t-1755)
 - Parse Parquet bytes only in the worker; the host never decodes a base. (t-1690)
 - Read a base only by a path inside the Hello bases folder, opened without following links. (t-1690)
 - Write a compaction only directly inside the bases folder or the worker's work dir, and remove its output on any refusal. (t-1690)
@@ -31,6 +32,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep render worker stdout free of anything but protocol frames; the worker redirects stdout to stderr. (t-341)
 - Keep allow default (LibreOffice needs the launchservicesd lookup) and the /tmp OSL_PIPE socket rule in worker.sb. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 - Keep (deny network*) in worker.sb: the received dialog's offline line relies on it, and sandbox tests pin it. (t-1499)
+- Expect the extraction test hooks (OKU_SLIDES_TEST_EXTRACT_SLEEP_MS, OKU_SLIDES_TEST_EXTRACT_ALLOC_MIB) in every debug worker; they compile out of release builds, so never rely on them outside tests. (t-1760)
 - Read a Windows process identity with a fresh sysinfo System; a cached entry keeps the handle and a stale start time. (t-1471)
 - Pass every Seatbelt path parameter through storage::canonical; Seatbelt matches real paths, so /var never matches /private/var. (spec:2026-10-17-render-worker-sandbox-design, t-912)
 

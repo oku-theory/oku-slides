@@ -18,6 +18,7 @@
 mod after_turn;
 mod agent_command;
 mod agent_switch;
+mod attach;
 mod choice;
 mod command_error;
 mod config;
@@ -29,7 +30,6 @@ mod keeper;
 mod link;
 mod model_download;
 mod page_reports;
-mod paste;
 mod permission;
 mod prompt_images;
 mod reader;

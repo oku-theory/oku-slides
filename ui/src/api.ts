@@ -10,6 +10,7 @@ import type { DataAction } from "./dataActions";
 import { host } from "./hostCall";
 import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin, ThemeTabView } from "./packTypes";
 import type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledgeTypes";
+import type { AttachLimits } from "./agent/attachments";
 import type { GuideKind, GuidesView, ReceivedReview, VersionRef } from "./receivedTypes";
 import type { ExtendsEdit, Frame, ListOp, Op, SlideView, TokenAction } from "./slideTypes";
 import type { View } from "./table/ShowAsButton";
@@ -24,7 +25,7 @@ export type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeTex
 export type { Capabilities, CapabilityTotals, GuideKind, GuideOrigin, Guides, GuidesView, ReceivedRelation, ReceivedReview, VersionRef } from "./receivedTypes";
 export type { Element, ElementStyle, ExtendsEdit, FieldView, Frame, HeadingLevel, ItemView, ListOp, ListView, ObjectTarget, Op, Paragraph, Params, Run, Slide, SlideView, SlotRef, Target, TextStyle, TokenAction } from "./slideTypes";
 export { agentApi, takeCloseDecision } from "./agentApi";
-export type { AgentEvent, AgentState, AgentUi, AgentUiSent, Anchor, CloseDecision, CloseTarget, InterfaceChange, McpEvent, PastedImage, Place, Surface } from "./agentApi";
+export type { AgentEvent, AgentState, AgentUi, AgentUiSent, Anchor, Attachment, CloseDecision, CloseTarget, InterfaceChange, McpEvent, Place, Surface } from "./agentApi";
 
 export type SlideKind = string;
 
@@ -126,6 +127,8 @@ export interface Snapshot {
   received_to_review: ReceivedReview[];
   /** Knowledge files awaiting approval and ceilings passed; `null` outside a deck or when all is well. */
   knowledge: KnowledgeSummary | null;
+  /** The attachment bounds the draft checks before sending a file (`[paste]`); the host checks again. */
+  attach_limits: AttachLimits;
 }
 
 

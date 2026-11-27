@@ -3,6 +3,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import "./test/dom";
+import type { Attachment } from "./api";
 import { applyMessages } from "./i18n";
 import { resetMessages } from "./test/messages";
 
@@ -34,7 +35,7 @@ async function mount(
     typing = 0,
     ready = true,
     shortcuts = false,
-    images = [] as { id: string; mime: string; width: number; height: number }[],
+    attachments = [] as Attachment[],
     thumbs = new Map<string, string>(),
   } = {},
 ) {
@@ -58,10 +59,10 @@ async function mount(
         ready,
         shortcuts,
         onChange: (v: string) => changes.push(v),
-        images,
+        attachments,
         thumbs,
-        onPasteImages: (f: File[]) => pastes.push(f),
-        onRemoveImage: (id: string) => removed.push(id),
+        onAttachFiles: (f: File[]) => pastes.push(f),
+        onRemoveAttachment: (id: string) => removed.push(id),
         onSend: (v: string, ids: string[]) => (sent.push(v), sentImages.push(ids)),
         onDiscard: () => discarded++,
       }),
@@ -269,9 +270,9 @@ describe("brouillon de dictée", () => {
     Object.defineProperty(e, "clipboardData", { value: { getData: () => text, files: [png()] } });
     return e;
   };
-  const one = [{ id: "sha256:aa", mime: "image/png", width: 4, height: 3 }];
+  const one: Attachment[] = [{ type: "image", id: "sha256:aa", mime: "image/png", width: 4, height: 3 }];
 
-  test("coller une image appelle onPasteImages, sans coller de texte", async () => {
+  test("coller une image appelle onAttachFiles, sans coller de texte", async () => {
     const m = await mount("Pose-la");
     const e = paste("");
     await act(async () => m.note().dispatchEvent(e));
@@ -284,26 +285,102 @@ describe("brouillon de dictée", () => {
     expect(m.pastes.length).toBe(0);
   });
 
+  const pdf = (name = "plan.pdf") => new File([new Uint8Array([37, 80, 68, 70])], name, { type: "application/pdf" });
+  const drop = (files: File[]) => {
+    const e = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(e, "dataTransfer", { value: { types: ["Files"], files } });
+    return e;
+  };
+  const document_ = (name: string): Attachment => ({ type: "document", id: "sha256:dd", name, kind: "pdf", bytes: 2048 });
+
+  test("DictationDraft drop pdf calls onAttachFiles", async () => {
+    const m = await mount("Lis-le");
+    const e = drop([pdf()]);
+    await act(async () => m.note().dispatchEvent(e));
+    expect([m.pastes.map((f) => f.map((x) => x.name)), e.defaultPrevented]).toEqual([[["plan.pdf"]], true]);
+  });
+
+  test("DictationDraft paste text file keeps text in draft", async () => {
+    const m = await mount("Lis-le");
+    const e = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(e, "clipboardData", { value: { getData: () => "un paragraphe copié", files: [pdf()] } });
+    await act(async () => m.note().dispatchEvent(e));
+    expect([m.pastes.length, e.defaultPrevented]).toEqual([0, false]);
+  });
+
+  test("DictationDraft paste finder file copy calls onAttachFiles", async () => {
+    const m = await mount("Lis-le");
+    const e = new Event("paste", { bubbles: true, cancelable: true });
+    // A Finder copy puts the file's name in the text with the file itself.
+    Object.defineProperty(e, "clipboardData", { value: { getData: () => "plan.pdf", files: [pdf()] } });
+    await act(async () => m.note().dispatchEvent(e));
+    expect([m.pastes.length, e.defaultPrevented]).toEqual([1, true]);
+  });
+
+  test("DictationDraft document chip shows name and size and removes", async () => {
+    const m = await mount("Lis-le", { attachments: [document_("plan.pdf")] });
+    const chip = m.host.querySelector(".draft-document");
+    expect(chip?.querySelector(".draft-name")?.textContent).toBe("\u2068plan.pdf\u2069");
+    expect(chip?.textContent).toContain("2 Ko");
+    const remove = chip?.querySelector("button") as HTMLButtonElement;
+    expect(remove.getAttribute("aria-label")).toBe("Retirer \u2068plan.pdf\u2069");
+    await act(async () => remove.click());
+    expect(m.removed).toEqual(["sha256:dd"]);
+  });
+
+  test("DictationDraft document chip of 2 MB shows its size in megabytes", async () => {
+    const m = await mount("Lis-le", { attachments: [{ ...document_("gros.pdf"), bytes: 2 * 1024 * 1024 }] });
+    expect(m.host.querySelector(".draft-document .draft-size")?.textContent).toBe("2 Mo");
+  });
+
+  test("DictationDraft document chip title drops hidden controls", async () => {
+    const m = await mount("Lis-le", { attachments: [document_("evil\u202Efdp.exe")] });
+    expect(m.host.querySelector(".draft-name")?.getAttribute("title")).toBe("evilfdp.exe");
+  });
+
+  test("DictationDraft picker button attaches the chosen files", async () => {
+    const m = await mount("Lis-le");
+    const button = m.host.querySelector(".draft-pick") as HTMLButtonElement;
+    const input = m.host.querySelector("input[type=file]") as HTMLInputElement;
+    let opened = 0;
+    input.click = () => void opened++;
+    expectIconOnly(button);
+    expect(button.getAttribute("aria-label")).toBe("Joindre des fichiers");
+    await act(async () => button.click());
+    Object.defineProperty(input, "files", { value: [pdf(), png()], configurable: true });
+    await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
+    expect([opened, input.multiple, m.pastes.map((f) => f.map((x) => x.name))]).toEqual([1, true, [["plan.pdf", "x.png"]]]);
+  });
+
+  test("DictationDraft chip name renders markup literally", async () => {
+    const m = await mount("Lis-le", { attachments: [document_("<img src=x onerror=alert(1)>.pdf")] });
+    const chip = m.host.querySelector(".draft-document");
+    expect([chip?.querySelector("img"), chip?.querySelector(".draft-name")?.textContent]).toEqual([
+      null,
+      "\u2068<img src=x onerror=alert(1)>.pdf\u2069",
+    ]);
+  });
+
   test("une puce par image, son bouton la retire", async () => {
-    const m = await mount("Pose-la", { images: one });
+    const m = await mount("Pose-la", { attachments: one });
     expect(m.host.querySelector(".draft-image")?.textContent).toContain("\u2068PNG\u2069 \u20684×3\u2069");
     await act(async () => (m.host.querySelector(".draft-image button") as HTMLButtonElement).click());
     expect(m.removed).toEqual(["sha256:aa"]);
   });
 
   test("la miniature locale s'affiche quand la vue a l'image", async () => {
-    const m = await mount("x", { images: one, thumbs: new Map([["sha256:aa", "blob:t"]]) });
+    const m = await mount("x", { attachments: one, thumbs: new Map([["sha256:aa", "blob:t"]]) });
     expect(m.host.querySelector(".draft-image img")?.getAttribute("src")).toBe("blob:t");
   });
 
   test("envoyer passe le texte et les ids des images", async () => {
-    const m = await mount("Pose-la", { images: one });
+    const m = await mount("Pose-la", { attachments: one });
     await act(async () => m.send().click());
     expect([m.sent, m.sentImages]).toEqual([["Pose-la"], [["sha256:aa"]]]);
   });
 
   test("des images sans texte : l'envoi attend le texte, et le dit", async () => {
-    const m = await mount("", { images: one });
+    const m = await mount("", { attachments: one });
     expect([m.send().disabled, m.send().title]).toEqual([true, "Dites ce qu'il faut en faire"]);
   });
 });
