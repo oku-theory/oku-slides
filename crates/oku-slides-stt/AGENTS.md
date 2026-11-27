@@ -5,10 +5,10 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 ## Invariants
 
 - Gate Swift-bridge-only code (duplex, microphone permission) with cfg(any(test, target_os = "macos")); never lift dead_code for other platforms. (t-1205)
-- Keep all unsafe code of the stt crate in src/microphone_ffi.rs, src/speak/apple_ffi.rs and src/duplex_ffi.rs, with a SAFETY comment on every unsafe block. (spec:2026-10-03-dictee-native-macos-design, plan:2026-11-01-lot-m-hands-free, plan:2026-11-05-lot-o-backlog)
-- In the Swift bridge, call free(ctx) once after the last callback; never use try! or force unwraps. (spec:2026-10-03-dictee-native-macos-design)
-- Keep the C ABI and its codes (microphone, voice, duplex) identical on the Rust and Swift sides. (plan:2026-10-03-dictee-native-macos)
-- Have Swift callbacks only push frames or signal DONE; only Rust threads may write Inner. (spec:2026-10-03-dictee-native-macos-design)
+- Keep all unsafe code of the stt crate in src/microphone_ffi.rs, src/speak/apple_ffi.rs and src/duplex_ffi.rs, with a SAFETY comment on every unsafe block. (plan:2026-11-01-lot-m-hands-free, plan:2026-11-05-lot-o-backlog)
+- In the Swift bridge, call free(ctx) once after the last callback; never use try! or force unwraps. (t-1791)
+- Keep the C ABI and its codes (microphone, voice, duplex) identical on the Rust and Swift sides. (t-1791)
+- Have Swift callbacks only push frames or signal DONE; only Rust threads may write Inner. (t-1791)
 - Read dictation API secrets only from the variables named in ApiConfig; never store, log or send them to the UI. (spec:2026-10-23-dictee-api-design, t-1213)
 - Store, show and call only the normalized_url form of the dictation API address; refuse invalid settings at use. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Check API variables with key_present or missing_variable; read their values only in ApiTranscriber. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1213)
