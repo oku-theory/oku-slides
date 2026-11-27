@@ -3,7 +3,7 @@
 
 import { host } from "./hostCall";
 
-export type SttModel = "apple" | "parakeet" | "api";
+export type SttModel = "parakeet" | "api";
 /** `listening`: hands-free, each utterance goes to the host, never to the page. */
 export type SttState = "idle" | "downloading" | "recording" | "transcribing" | "listening";
 
@@ -37,8 +37,6 @@ export interface SttConfig {
   /** Stops listening by itself after `silence` seconds of silence. */
   auto_stop: boolean;
   silence: number;
-  /** Settings version (kept by the host). */
-  version: number;
   api: SttApiConfig;
   /** Hands-free listening, chosen by the user only; every launch starts paused. */
   hands_free: boolean;

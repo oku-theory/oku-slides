@@ -19,8 +19,6 @@ pub const DICTATION_LANGUAGES: [(&str, &str); 7] = [
 /// D'où vient un modèle de dictée.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModelKind {
-    /// La reconnaissance du système.
-    Apple,
     /// A model on this computer (Parakeet).
     Local,
     /// Un service distant compatible OpenAI.
@@ -30,7 +28,7 @@ pub enum ModelKind {
 /// Un modèle de dictée ; son id est celui de `oku-slides-stt` (`Model::id`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelView {
-    /// The model id: `apple`, `parakeet` or `api`.
+    /// The model id: `parakeet` or `api`.
     pub id: String,
     /// D'où il vient.
     pub kind: ModelKind,
@@ -81,8 +79,6 @@ pub struct DictationView {
     pub models: Vec<ModelView>,
     /// Le code de la langue fixée ; `None` pour la détection.
     pub language: Option<String>,
-    /// Le code de la langue détectée par le système, s'il y en a une.
-    pub detected: Option<String>,
     /// La dictée s'arrête seule après un silence.
     pub auto_stop: bool,
     /// La durée du silence, en secondes.
@@ -97,46 +93,6 @@ pub struct DictationView {
     pub idle: bool,
 }
 
-/// Pourquoi le téléchargement du modèle de l'agent local a échoué.
-#[derive(Debug, Clone, PartialEq)]
-pub enum LocalFailure {
-    /// Le téléchargement a échoué.
-    Failed,
-    /// Le fichier reçu était endommagé.
-    Integrity,
-    /// Le fichier reçu est trop court.
-    Incomplete {
-        /// Les octets reçus.
-        got: u64,
-        /// Les octets attendus.
-        expected: u64,
-    },
-    /// L'utilisateur l'a annulé.
-    Cancelled,
-}
-
-/// L'état du modèle de l'agent local.
-#[derive(Debug, Clone, PartialEq)]
-pub enum LocalModelView {
-    /// Le modèle manque : il faut le télécharger.
-    NeedsDownload {
-        /// Sa taille, en octets.
-        size: u64,
-    },
-    /// Le téléchargement tourne.
-    Running {
-        /// L'avancement, de 0 à 100.
-        percent: u8,
-    },
-    /// Le dernier téléchargement a échoué.
-    Failed {
-        /// La taille du modèle, en octets.
-        size: u64,
-        /// La cause.
-        failure: LocalFailure,
-    },
-}
-
 /// Un agent proposé au choix.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AgentPresetView {
@@ -144,8 +100,8 @@ pub struct AgentPresetView {
     pub id: String,
     /// Son nom.
     pub name: String,
-    /// Sa commande, pour un agent externe.
-    pub hint: Option<String>,
+    /// Sa commande et ses arguments.
+    pub command: String,
 }
 
 /// A model the active agent offers.
@@ -189,8 +145,6 @@ pub struct AgentsView {
     pub busy: bool,
     /// L'environnement impose l'agent : pas de choix.
     pub locked: bool,
-    /// Le modèle de l'agent local, quand il compte.
-    pub local: Option<LocalModelView>,
     /// L'id de l'agent choisi, en attente de la fin des réponses.
     pub pending: Option<String>,
     /// The active agent's models; `None` when it offers no model choice.
@@ -361,10 +315,6 @@ pub enum VoiceEvent {
         /// L'id de l'agent.
         id: String,
     },
-    /// Télécharger le modèle de l'agent local.
-    DownloadAgentModel,
-    /// Annuler le téléchargement du modèle de l'agent local.
-    CancelAgentModelDownload,
     /// Choose the model the active agent's sessions use.
     SelectAgentModel {
         /// The model's value id, offered by the agent.
@@ -412,8 +362,6 @@ pub fn voice_event(name: &str, context: &Map<String, Value>) -> Option<VoiceEven
         "download" => Some(VoiceEvent::DownloadDictation { model: text("model")? }),
         "cancel_download" => Some(VoiceEvent::CancelDictationDownload),
         "select" => Some(VoiceEvent::SelectAgent { id: text("id")? }),
-        "download_agent_model" => Some(VoiceEvent::DownloadAgentModel),
-        "cancel_agent_model_download" => Some(VoiceEvent::CancelAgentModelDownload),
         "agent_model" => Some(VoiceEvent::SelectAgentModel { id: text("id").filter(|id| !id.is_empty())? }),
         "read_aloud" => speech(SpeechPatch { read_aloud: Some(flag("on")?), ..Default::default() }),
         "speech_voice" => speech(SpeechPatch { voice: Some(text("id")?), ..Default::default() }),

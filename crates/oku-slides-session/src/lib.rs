@@ -234,15 +234,11 @@ pub use views::{
     EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
     SlideView, Snapshot, TabInfo, Target, UiState,
 };
-pub use voice_panel::{
-    HOST_VOICE, VoicePanel, agent_download_progress, gigabytes_text, local_failure_text, model_label, seconds_text,
-    size_text,
-};
+pub use voice_panel::{HOST_VOICE, VoicePanel, model_label, seconds_text, size_text};
 pub use voice_view::{
     AgentModelView, AgentModelsView, AgentPresetView, AgentsView, ApiView, DICTATION_LANGUAGES, DictationLanguage,
-    DictationPatch, DictationView, DownloadView, LocalFailure, LocalModelView, ModelKind, ModelView, SPEECH_RATES,
-    SpeechPatch, SpeechStatusView, SpeechView, SpeechVoiceView, VoiceEvent, VoiceView, read_aloud_after_hands_free,
-    voice_event,
+    DictationPatch, DictationView, DownloadView, ModelKind, ModelView, SPEECH_RATES, SpeechPatch, SpeechStatusView,
+    SpeechView, SpeechVoiceView, VoiceEvent, VoiceView, read_aloud_after_hands_free, voice_event,
 };
 pub use widget_preview::{PreviewBox, PreviewFormat, WidgetPreview};
 pub use widgets_edit::{WidgetChange, WidgetDiagnostic, WidgetStatus};

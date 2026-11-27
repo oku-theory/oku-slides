@@ -1,7 +1,7 @@
 //! What the agent holds of the blocks sent once, then again on change: guides and knowledge index.
 //!
 //! Each block remembers the ACP session it last went to with the digest of its content, so a
-//! turn on another session (a new thread, the local agent standing in, the main agent back)
+//! turn on another session (a new thread, another agent, the first agent back)
 //! gets it again. A failed `session/prompt` forgets both ([`Session::forget_sent_blocks`]):
 //! what it carried may never have reached the agent.
 

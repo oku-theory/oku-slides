@@ -161,58 +161,6 @@ pub async fn stack_with_command(script: Value, command: &str) -> (TestStack, Rel
     (stack, seen)
 }
 
-/// A test stack whose chosen agent is the built-in preset, with no app program.
-pub async fn stack_with_builtin(script: Value) -> (TestStack, Relayed) {
-    let options = Options { builtin: true, ..Options::default() };
-    let (stack, seen, _, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
-    (stack, seen)
-}
-
-/// A stack on `t-1` whose selected agent `faux` runs `command` (the fake agent if `None`) on
-/// `script`, with a built-in `local` preset: the fake agent again, on `local_script` (log
-/// `log-local.jsonl`, returned), through a launcher standing for the app binary.
-///
-/// `ready`: the local engine is the fake one (ready), else Gguf without its model. The launcher
-/// is a shell script: on Unix only.
-pub async fn stack_with_fallback(
-    script: Value,
-    command: Option<&str>,
-    local_script: Value,
-    ready: bool,
-) -> (TestStack, Relayed, PathBuf) {
-    let local = Some(LocalOptions { script: local_script, ready });
-    let options = Options { command: command.map(str::to_owned), local, ..Options::default() };
-    let (stack, seen, log, _) = build_stack_with(script, None, &["t-1"], First::Fixture, options).await;
-    let local_log = log.with_file_name("log-local.jsonl");
-    (stack, seen, local_log)
-}
-
-/// The fake agent launched as the app binary would be for the built-in preset (`--local-agent`).
-fn local_launcher(dir: &Path, script: &Value) -> PathBuf {
-    let (script_path, log) = (dir.join("script-local.json"), dir.join("log-local.jsonl"));
-    std::fs::write(&script_path, script.to_string()).unwrap_or_else(|e| panic!("local script: {e}"));
-    let fake = env!("CARGO_BIN_EXE_oku-slides-fake-agent");
-    let launcher = dir.join("oku-slides-app");
-    let body =
-        format!("#!/bin/sh\nexec '{fake}' --script '{}' --log '{}' \"$@\"\n", script_path.display(), log.display());
-    std::fs::write(&launcher, body).unwrap_or_else(|e| panic!("local launcher: {e}"));
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755))
-            .unwrap_or_else(|e| panic!("launcher permissions: {e}"));
-    }
-    launcher
-}
-
-/// The engine of a ready local agent: the fake one, in debug builds only.
-fn ready_engine() -> oku_slides_platform::config::LocalEngine {
-    #[cfg(debug_assertions)]
-    return oku_slides_platform::config::LocalEngine::Fake;
-    #[cfg(not(debug_assertions))]
-    return oku_slides_platform::config::LocalEngine::Gguf;
-}
-
 /// A test stack; `t-1`'s session is born as `first` says. Also returns its resume folder.
 async fn build_stack(script: Value, tabs: &[&str], first: First) -> (TestStack, Relayed, PathBuf, PathBuf) {
     build_stack_with(script, None, tabs, first, Options::default()).await
@@ -225,36 +173,13 @@ struct Options {
     locked: bool,
     /// The program of the active agent `faux`; absent: the fake agent.
     command: Option<String>,
-    /// The active agent is the built-in preset (no program).
-    builtin: bool,
-    /// A built-in `local` preset besides the selected one, run by the fake agent.
-    local: Option<LocalOptions>,
     /// The read-aloud voice; `None`: nothing is read aloud.
     speaker: Option<oku_slides_stt::Speaker>,
-}
-
-/// The built-in `local` preset of a test stack.
-struct LocalOptions {
-    /// The fake agent's script when it runs as the local agent.
-    script: Value,
-    /// The local engine is ready (fake), else Gguf without its model.
-    ready: bool,
 }
 
 /// The fake agent's arguments on `script`, logging into `log`.
 fn fake_args(script: &Path, log: &Path) -> Vec<String> {
     vec!["--script".into(), script.to_string_lossy().into_owned(), "--log".into(), log.to_string_lossy().into_owned()]
-}
-
-/// Adds the built-in `local` preset to `settings`; returns the app binary standing in for it.
-fn with_local(settings: &mut Settings, local: &LocalOptions) -> PathBuf {
-    settings.local_agent.engine =
-        if local.ready { ready_engine() } else { oku_slides_platform::config::LocalEngine::Gguf };
-    settings
-        .agent
-        .insert_preset("local", AgentPreset::builtin("Local", Builtin::Local))
-        .unwrap_or_else(|e| panic!("local agent: {e}"));
-    local_launcher(settings.paths.data.as_deref().unwrap_or_else(|| panic!("folder")), &local.script)
 }
 
 /// As [`build_stack`]; `bis`: the script of a second fake agent, `bis` (log `log-bis.jsonl`);
@@ -266,7 +191,7 @@ async fn build_stack_with(
     first: First,
     options: Options,
 ) -> (TestStack, Relayed, PathBuf, PathBuf) {
-    let Options { locked, command: active, builtin, local, speaker } = options;
+    let Options { locked, command: active, speaker } = options;
     let dir = test_dir("oku-slides-stack-");
     let (script_path, log) = (dir.path().join("script.json"), dir.path().join("log.jsonl"));
     let data = dir.path().to_owned();
@@ -295,13 +220,7 @@ async fn build_stack_with(
         // Never the real Documents folder: decks without a file stay here.
         settings.paths.decks = settings.paths.data.as_ref().map(|d| d.join("decks"));
         settings.i18n.locale = Some("fr".into());
-        // Never the real model hub: a test download fails at once (port refused).
-        settings.models.hub_url = "http://127.0.0.1:9".into();
-        settings.models.download_retries = 0;
-        // Gguf, not auto: Apple's model, ready on some test Macs, would leave nothing to download.
-        settings.local_agent.engine = oku_slides_platform::config::LocalEngine::Gguf;
-        let preset =
-            if builtin { AgentPreset::builtin("Faux", Builtin::Local) } else { AgentPreset::new("Faux", active, args) };
+        let preset = AgentPreset::new("Faux", active, args);
         let agent = &mut settings.agent;
         agent.insert_preset("faux", preset).unwrap_or_else(|e| panic!("faux agent: {e}"));
         agent.select("faux").unwrap_or_else(|e| panic!("faux agent: {e}"));
@@ -311,12 +230,7 @@ async fn build_stack_with(
                 .unwrap_or_else(|e| panic!("bis agent: {e}"));
         }
         settings.agent.locked = locked;
-        let launcher = local.map(|local| with_local(&mut settings, &local));
         let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}"));
-        let platform = match launcher {
-            Some(program) => platform.with_program(program),
-            None => platform,
-        };
         let fixture = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json"));
         let new = || Session::new(Fonts::default(), &platform).unwrap_or_else(|e| panic!("session: {e}"));
         // Each tab resumes in its own folder: its agent works in `work/` there.

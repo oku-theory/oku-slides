@@ -5,10 +5,6 @@ Oku Slides speech: dictation and OS voice. Dictation: microphone -> voice detect
 
 ## Engines
 
-- **Apple** (`Model::Apple`, macOS 26+, setting `stt.apple`): continuous `SpeechAnalyzer`
-  through a static Swift bridge (`swift/`, `build.rs`, `apple.rs`). Language resolved by `locale.rs`, installed by the system. Building needs the macOS 26 SDK;
-  the app runs from macOS 13.4 (Parakeet only before 26). Off macOS, `#[cfg]` leaves out what only
-  the bridge produces (`stream::raw`, the result events, `Availability::Ready`, `SpeechDenied`).
 - **Parakeet** (TDT 0.6B v3, int8 ONNX; 25 European languages, others greyed and refused at start):
   parakeet-rs on ONNX Runtime (`parakeet.rs`), CPU only (CoreML: about 2× slower, other text); pinned
   files from Hugging Face via `oku_slides_platform::models` (`models.rs`), phrase by phrase (`dictation_phrase.rs`).
@@ -24,10 +20,9 @@ Oku Slides speech: dictation and OS voice. Dictation: microphone -> voice detect
 
 ## Flow
 
-`saved_config.rs` reads `config.json` once, at launch; one that does not parse is renamed `config.json.invalid-<secs>[-<n>]`; one it cannot read or rename blocks saving.
+`saved_config.rs` reads `config.json` once, at launch; one naming the retired `apple` engine loads on Parakeet with its other settings; one that does not parse (an old id such as `turbo`) is renamed `config.json.invalid-<secs>[-<n>]`; one it cannot read or rename blocks saving.
 `listen_loop` (`listen.rs`): microphone (`audio.rs`) -> 16 kHz -> earshot (`vad.rs`,
-automatic stop) -> `Sink`: phrase jobs (Parakeet, API), or the `Stream` of a continuous engine
-whose events `dictation_stream.rs` applies (`results.rs`). `microphone.rs`: `Stt::microphone` (bridge `oku_speech_microphone`, never asks; `Unknown` off macOS), `Stt::model_files` (missing, partial, complete) for diagnosis. Lossy numeric casts (sample counts, seconds, positions) live in `num.rs` (named like `oku_slides_core::num`), each with its reason.
+automatic stop) -> `Sink`: phrase jobs (Parakeet, API). `microphone.rs`: `Stt::microphone` (bridge `oku_speech_microphone` in `microphone_ffi.rs`, never asks; `Unknown` off macOS), `Stt::model_files` (missing, partial, complete) for diagnosis. Lossy numeric casts (sample counts, seconds, positions) live in `num.rs` (named like `oku_slides_core::num`), each with its reason.
 Hands-free listening (`State::Listening`, `utterance.rs`): no auto-stop; after each silence of `config.silence` the phrases since the last close become one `Utterance` (phrase engines: `Job::Flush`),
 timed by sample offsets, sent on the single channel `Stt::utterances` hands out once. `SuspendGuard`s drop audio and the utterance in progress; `epoch` drops their late results. `capture.rs`: `start`,
 `listen`, launch and download. `Config.hands_free` is saved, never started by itself at launch. Feature `e2e-fakes` (`just e2e` only, no release build): `fake_source.rs` listens to the lines appended to `stt.fake_utterances`.
@@ -46,5 +41,5 @@ Duplex (`duplex.rs`, macOS, `OkuDuplex.swift`, `unsafe` in `duplex_ffi.rs`): one
 
 ## Extension points and dependencies
 
-`stream::StreamEngine`, `phrase_engine::PhraseEngine` (Parakeet, API): other dictation engines.
+`phrase_engine::PhraseEngine` (Parakeet, API): other dictation engines.
 `oku-slides-platform` (settings, storage), `oku-slides-i18n` (messages), `windows` (Windows voice).

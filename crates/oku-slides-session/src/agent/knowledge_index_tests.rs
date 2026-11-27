@@ -161,15 +161,15 @@ fn agent_knowledge_after_forget_sent_blocks_sends_again() {
     assert_that!(s.agent_knowledge("acp", false)).is_equal_to(sent);
 }
 
-/// The local agent standing in runs another ACP session: it gets the index, and so does the main
+/// Another agent runs another ACP session: it gets the index, and so does the first
 /// agent's session once the base changed while it was away.
 #[test]
 fn agent_knowledge_turn_on_another_session_sends_again() {
     let (_data, mut s) = two_files();
     s.agent_knowledge("main", true);
-    assert_that!(s.agent_knowledge("local", false)).is_some();
+    assert_that!(s.agent_knowledge("other", false)).is_some();
     set_knowledge(&mut s, &owned(&[("/a.md", ROADMAP), ("/b.md", AWAITING), ("/c.md", "new\n")]));
-    assert_that!(s.agent_knowledge("local", false)).is_some();
+    assert_that!(s.agent_knowledge("other", false)).is_some();
     let back = s.agent_knowledge("main", false);
     assert_that!(back.as_deref().map(file_lines).map(|l| l.len())).is_equal_to(Some(3));
     assert_that!(s.agent_knowledge("main", false)).is_none();

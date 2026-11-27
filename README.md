@@ -38,8 +38,7 @@ Oku Slides does not ship its own AI. It is a **harness for agents**: it gives an
 tools to read and edit a deck, and the guardrails that keep you in control.
 
 - **Bring your own agent.** Claude, Codex, Gemini and omp come preconfigured; any agent speaking
-  the [Agent Client Protocol](https://agentclientprotocol.com) works. A built-in local
-  agent runs on your computer with no account or network.
+  the [Agent Client Protocol](https://agentclientprotocol.com) works.
 - **Narrow, safe tools.** The agent gets no file system or terminal access from Oku Slides:
   it works only through the app's own tools, served locally with a token per tab.
 - **Everything undoes.** A whole agent turn is a single ⌘Z.
@@ -53,7 +52,7 @@ Oku Slides improves with them, without giving up control of your documents.
 
 ## Features
 
-- **Voice dictation, on device.** Apple's speech engine on macOS 26+, or Parakeet running
+- **Voice dictation, on device.** Parakeet running
   locally (25 European languages); voice detection, sentence-by-sentence transcription. Optionally
   OpenAI or Azure OpenAI for company setups.
 - **Agent editing.** One conversation per tab, several tabs working at once, questions and
@@ -83,9 +82,8 @@ Oku Slides improves with them, without giving up control of your documents.
    On macOS 12 or an Intel Mac, use
    [v10.3.1](https://github.com/oku-theory/oku-slides/releases/tag/v10.3.1), the last version
    for them, and decline its update offers.
-2. Pick an agent. Claude is the default; Codex, Gemini, omp or the built-in local agent can be
-   chosen instead (ask the agent, or see [configuration](docs/configuration.md)). Cloud
-   agents need their own account; the local one needs nothing.
+2. Pick an agent. Claude is the default; Codex, Gemini or omp can be chosen instead (ask the
+   agent, or see [configuration](docs/configuration.md)). Each agent needs its own account.
 3. Press **⌘D** (or the mic) and speak. Your words land in a draft in the right panel:
    review it, then send it to the agent with **⌘↩**. You can also type an instruction
    with **⌘K**.
@@ -109,8 +107,7 @@ Press **⌘?** in the app for the built-in help.
 
 Oku Slides is written in Rust ([Tauri 2](https://tauri.app), [Typst](https://typst.app),
 [Loro](https://loro.dev)) with a React + TypeScript interface. With Rust, [Bun](https://bun.sh),
-[just](https://just.systems), cmake, the Tauri CLI, Git LFS and, on a Mac, Xcode with the
-macOS 26 SDK:
+[just](https://just.systems), cmake, the Tauri CLI, Git LFS and, on a Mac, Xcode:
 
 ```sh
 git lfs install && git clone git@github.com:oku-theory/oku-slides.git && cd oku-slides

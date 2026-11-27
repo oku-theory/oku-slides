@@ -113,7 +113,7 @@ impl Session {
     /// when that session holds it.
     ///
     /// `first` forces the send (a new thread, a resume). Records what it returns as sent to
-    /// `session`, so a turn on another session (the local agent standing in) sends it again.
+    /// `session`, so a turn on another session (another agent) sends it again.
     pub fn agent_knowledge(&mut self, session: &str, first: bool) -> Option<String> {
         if !matches!(self.mode, Mode::Deck) {
             return None;

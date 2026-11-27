@@ -11,3 +11,4 @@ mod issue_1211_dictation_system_roots;
 mod issue_1216_unreadable_config_kept;
 mod issue_1663_drop_during_load;
 mod issue_1663_old_model_ids;
+mod issue_1791_apple_engine_keeps_settings;

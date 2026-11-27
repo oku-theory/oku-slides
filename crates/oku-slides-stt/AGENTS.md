@@ -4,12 +4,11 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Invariants
 
-- Gate Apple-bridge-only code with cfg(any(test, target_os = "macos")); never lift dead_code for other platforms. (t-1205)
-- Keep all unsafe code of the stt crate in src/apple.rs, src/speak/apple_ffi.rs and src/duplex_ffi.rs, with a SAFETY comment on every unsafe block. (spec:2026-10-03-dictee-native-macos-design, plan:2026-11-01-lot-m-hands-free, plan:2026-11-05-lot-o-backlog)
-- In the Swift bridge, call free(ctx) once after the last event; never use try! or force unwraps. (spec:2026-10-03-dictee-native-macos-design)
-- Keep the C ABI and the stream::raw event and error codes identical on the Rust and Swift sides. (plan:2026-10-03-dictee-native-macos)
-- Have Swift callbacks only send on an mpsc channel; only the Rust dictation thread may write Inner. (spec:2026-10-03-dictee-native-macos-design)
-- Migrate old dictation config once at load, in memory only; configure always writes CONFIG_VERSION. (spec:2026-10-03-dictee-native-macos-design)
+- Gate Swift-bridge-only code (duplex, microphone permission) with cfg(any(test, target_os = "macos")); never lift dead_code for other platforms. (t-1205)
+- Keep all unsafe code of the stt crate in src/microphone_ffi.rs, src/speak/apple_ffi.rs and src/duplex_ffi.rs, with a SAFETY comment on every unsafe block. (spec:2026-10-03-dictee-native-macos-design, plan:2026-11-01-lot-m-hands-free, plan:2026-11-05-lot-o-backlog)
+- In the Swift bridge, call free(ctx) once after the last callback; never use try! or force unwraps. (spec:2026-10-03-dictee-native-macos-design)
+- Keep the C ABI and its codes (microphone, voice, duplex) identical on the Rust and Swift sides. (plan:2026-10-03-dictee-native-macos)
+- Have Swift callbacks only push frames or signal DONE; only Rust threads may write Inner. (spec:2026-10-03-dictee-native-macos-design)
 - Read dictation API secrets only from the variables named in ApiConfig; never store, log or send them to the UI. (spec:2026-10-23-dictee-api-design, t-1213)
 - Store, show and call only the normalized_url form of the dictation API address; refuse invalid settings at use. (spec:2026-10-23-reglages-dictee-a2ui-design)
 - Check API variables with key_present or missing_variable; read their values only in ApiTranscriber. (spec:2026-10-23-reglages-dictee-a2ui-design, t-1213)
@@ -29,14 +28,13 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Testing
 
-- Set stt.apple to false in tests built on Stt::new so Parakeet tests stay deterministic on macOS 26. (spec:2026-10-03-dictee-native-macos-design, t-1663)
 - Time utterances by sample offsets; test closing on silence with sample fixtures, never wall clock. (plan:2026-11-01-lot-m-hands-free, t-996)
 - Test AVFoundation main-queue callbacks only from tests/duplex.rs's own main, which runs the main run loop. (plan:2026-11-05-lot-o-backlog, t-1526)
 
 ## Settled decisions
 
-- Use the Apple engine only on macOS 26+ with stt.apple enabled; keep Parakeet as the engine elsewhere. (plan:2026-10-03-dictee-native-macos, t-393, t-1663)
-- Never silently fall back from the Apple speech engine to Parakeet; grey out unsupported languages instead. (spec:2026-10-03-dictee-native-macos-design, t-1663)
+- Offer only Parakeet and the API for dictation; Apple's SpeechAnalyzer engine is gone, and a config.json that still names it switches to Parakeet keeping its other settings. (t-1791)
+- Grey out languages Parakeet does not know instead of switching engine silently. (t-1663)
 - Load Parakeet model files by path through parakeet-rs; download and delete only through Storage. (spec:2026-11-18-dictee-parakeet-design, t-1663)
 - Set `ORT_LIB_LOCATION` to build offline: ort-sys downloads ONNX Runtime at build time. (t-1663)
 - Never migrate the API query parameters of 7.0.0 and earlier; refuse such settings until the user writes an API field again. (t-1233)

@@ -41,17 +41,6 @@ pub(crate) fn trunc_usize(x: f64) -> usize {
     x as usize
 }
 
-/// Like [`trunc_usize`], as `u64`; only the Apple bridge counts in `u64`.
-#[cfg(any(test, target_os = "macos"))]
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "truncation intended; `as` saturates: negative or NaN gives 0, infinity u64::MAX"
-)]
-pub(crate) fn trunc_u64(x: f64) -> u64 {
-    x as u64
-}
-
 /// An `f64` brought down to the nearest `f32`.
 ///
 /// Outside the `f32` range, it becomes the infinity of its sign.

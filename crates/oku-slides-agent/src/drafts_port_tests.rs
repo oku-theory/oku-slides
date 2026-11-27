@@ -76,7 +76,6 @@ async fn fixture(known: bool) -> Fixture {
         Launch {
             command: "sh".into(),
             args: vec!["-c".into(), format!("touch '{}'", launched.display())],
-            env: Vec::new(),
             path: None,
             process_dir: dir.path().join("agent-process"),
             ready_within: Duration::from_secs(5),

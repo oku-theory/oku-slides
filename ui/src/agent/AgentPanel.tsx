@@ -123,10 +123,6 @@ export interface AgentPanelProps {
   onVoice?: () => void;
   /** La disponibilité de l'agent reçue de l'hôte (`useAgentAvailability`) ; `null` : utilisable. */
   onAvailability?: (unusable: string | null) => void;
-  /** A fallback received from the host (`useAgentAvailability`); `null`: back on the selected agent. */
-  onFallback?: (reason: string | null) => void;
-  /** Why the local agent stands in for the selected one (`useAgentAvailability`); shown while set. */
-  fallback?: string | null;
   /** Touches rapides coupées : édition d'un texte, pointage, widget actif. */
   keysOff: boolean;
   /** Le fil se montre (pas dans l'aide). */
@@ -291,7 +287,6 @@ export function AgentPanel(props: AgentPanelProps) {
           if (e.kind === "draft") latest.current!.props.onDraft?.({ text: e.text, origin: e.origin, attachments: e.attachments });
           if (e.kind === "voice") latest.current!.props.onVoice?.();
           if (e.kind === "availability") latest.current!.props.onAvailability?.(e.unusable);
-          if (e.kind === "fallback") latest.current!.props.onFallback?.(e.reason);
         },
         onError: (m) => console.warn(m),
         // Abonné ou reconnecté : l'hôte redonne les surfaces, et le deck est relu
@@ -533,7 +528,6 @@ export function AgentPanel(props: AgentPanelProps) {
         onError={onError}
         undoTurn={props.undoTurn}
         onUndoTurn={props.onUndoTurn}
-        fallback={props.fallback ?? null}
       />
     </SlideThumbsContext.Provider>
   );

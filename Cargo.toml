@@ -24,8 +24,6 @@ oku-slides-platform = { path = "crates/oku-slides-platform" }
 oku-slides-i18n = { path = "crates/oku-slides-i18n" }
 oku-slides-mcp = { path = "crates/oku-slides-mcp" }
 oku-slides-agent = { path = "crates/oku-slides-agent" }
-oku-slides-local-agent = { path = "crates/oku-slides-local-agent" }
-oku-slides-apple-model = { path = "crates/oku-slides-apple-model" }
 oku-slides-render-worker = { path = "crates/oku-slides-render-worker" }
 oku-slides-extract = { path = "crates/oku-slides-extract" }
 oku-slides-import = { path = "crates/oku-slides-import" }
@@ -142,7 +140,7 @@ http = "1"
 # Same 0.13 as async-openai and tauri: the dictation API's own client (headers, redirects, proxy).
 # Its rustls feature brings aws-lc-rs beside the ring other clients use; each names its provider.
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
-# Pont Swift du moteur de dictée d'Apple (build.rs de oku-slides-stt).
+# Swift bridge (build.rs of oku-slides-stt: the OS voice, echo cancellation, the microphone).
 swift-rs = "1.0.8"
 # Windows OS voice (oku-slides-stt speak/windows.rs): WinRT speech synthesis played by a MediaPlayer.
 windows = { version = "0.62", default-features = false, features = [
@@ -153,11 +151,6 @@ windows = { version = "0.62", default-features = false, features = [
   "Foundation",
   "Foundation_Collections",
 ] }
-# Local fallback agent (Gguf engine, Apple silicon): llama.cpp with Metal. Batch 3 audit
-# (t-1022): MIT / Apache-2.0, minos 12.0 (the app now requires 13.4), +6 MB. `common`: GBNF
-# grammars; no openmp.
-llama-cpp-2 = { version = "=0.1.158", default-features = false, features = ["metal", "common"] }
-llama-cpp-sys-2 = { version = "=0.1.158", default-features = false }
 # App de bureau
 tauri = "2.12"
 tauri-build = "2"

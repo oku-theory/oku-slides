@@ -12,7 +12,7 @@ use crate::test_support::{fresh_dir, platform_in};
 
 /// A French dictation whose microphone is a silent WAV.
 fn stt(dir: &std::path::Path) -> Stt {
-    Stt::new(&platform_in(dir, "fr", |s| s.apple = false))
+    Stt::new(&platform_in(dir, "fr"))
 }
 
 #[rstest]

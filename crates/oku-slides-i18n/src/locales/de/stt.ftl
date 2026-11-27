@@ -11,7 +11,6 @@ stt-download = Das Modell konnte nicht heruntergeladen werden
 stt-download-incomplete = Unvollständiger Download: { $got } von { $expected } Bytes
 stt-cancelled = Download abgebrochen
 stt-receiver-taken = Das freihändige Zuhören ist bereits anderswo verbunden
-stt-speech-denied = Erlaube die Spracherkennung in den Systemeinstellungen › Datenschutz & Sicherheit
 stt-locale-unsupported = Die Diktier-Engine unterstützt diese Sprache nicht ({ $language })
 stt-api-key-missing = Setze die Umgebungsvariable { $var }, um die Diktier-API zu nutzen
 stt-api-key-invalid = Die Umgebungsvariable { $var } enthält einen Wert, der nicht in einem HTTP-Header gesendet werden kann
@@ -27,7 +26,6 @@ stt-voice-rate = Die Sprechgeschwindigkeit muss zwischen dem 0,5- und 2-Fachen d
 speech-barge-in-unavailable-os = Oku ins Wort zu fallen erfordert Echounterdrückung, die es nur unter macOS gibt.
 
 stt-model-parakeet = Parakeet v3 (25 europäische Sprachen)
-stt-model-apple = Apple (System)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = Diktiermodell heruntergeladen

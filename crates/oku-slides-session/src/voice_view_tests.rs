@@ -81,8 +81,6 @@ fn ctx(v: Value) -> Map<String, Value> {
 #[case("download", json!({"model": "parakeet"}), Some(VoiceEvent::DownloadDictation { model: "parakeet".into() }))]
 #[case("cancel_download", json!({}), Some(VoiceEvent::CancelDictationDownload))]
 #[case("select", json!({"id": "bis"}), Some(VoiceEvent::SelectAgent { id: "bis".into() }))]
-#[case("download_agent_model", json!({}), Some(VoiceEvent::DownloadAgentModel))]
-#[case("cancel_agent_model_download", json!({}), Some(VoiceEvent::CancelAgentModelDownload))]
 #[case("agent_model", json!({"id": "gpt-5"}), Some(VoiceEvent::SelectAgentModel { id: "gpt-5".into() }))]
 #[case("read_aloud", json!({"on": true}), Some(VoiceEvent::Speech(SpeechPatch { read_aloud: Some(true), ..Default::default() })))]
 #[case("speech_voice", json!({"id": "v-fr"}), Some(VoiceEvent::Speech(SpeechPatch { voice: Some("v-fr".into()), ..Default::default() })))]

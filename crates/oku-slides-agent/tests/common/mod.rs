@@ -7,8 +7,8 @@ mod stack;
 
 #[allow(unused_imports, reason = "each test file uses only some of the stack builders")]
 pub use stack::{
-    TestStack, stack_locked, stack_resumed, stack_resumed_from, stack_with_builtin, stack_with_command,
-    stack_with_fallback, stack_with_sink, stack_with_sink_and_log, stack_with_speaker, stack_with_two_agents,
+    TestStack, stack_locked, stack_resumed, stack_resumed_from, stack_with_command, stack_with_sink,
+    stack_with_sink_and_log, stack_with_speaker, stack_with_two_agents,
 };
 
 use std::path::{Path, PathBuf};
@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use oku_slides_agent::{AgentEvent, AgentHandle, AgentState, Keeper, Launch, Link, ToolsAccess, agent_fingerprint};
 use oku_slides_mcp::{Applied, SettingsPort, SurfaceHub, ToolServer, Tools};
-use oku_slides_platform::config::{AgentPreset, Builtin};
+use oku_slides_platform::config::AgentPreset;
 use oku_slides_session::agent::turn_view::{TurnState, TurnView, turn_surface};
 use oku_slides_session::agent::{AgentWorkspace, FocusSource, FocusedTab, Surface, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
@@ -206,7 +206,6 @@ async fn start_tabs_ready_within(
             "--log".into(),
             log.to_string_lossy().into_owned(),
         ],
-        env: Vec::new(),
         path: None,
         process_dir: dir.path().join(PROCESS_DIR),
         ready_within,

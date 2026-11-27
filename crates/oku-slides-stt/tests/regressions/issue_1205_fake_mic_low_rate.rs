@@ -46,7 +46,6 @@ fn stt(dir: &Path, wav: PathBuf) -> Stt {
     settings.paths.decks = Some(dir.join("data").join("decks"));
     settings.paths.models = Some(dir.join("models"));
     settings.stt.fake_mic = Some(wav);
-    settings.stt.apple = false;
     settings.i18n.locale = Some("fr".into());
     let stt = Stt::new(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")));
     // `PATH` is set on every OS: the key counts as present. No request is sent while nothing is said.

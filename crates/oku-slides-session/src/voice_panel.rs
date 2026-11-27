@@ -14,8 +14,7 @@ use serde_json::{Value, json};
 use crate::agent::Surface;
 use crate::agent::forms::{Place, lit, surface};
 use crate::voice_view::{
-    AgentModelsView, AgentsView, DICTATION_LANGUAGES, DictationView, LocalFailure, LocalModelView, ModelKind,
-    ModelView, VoiceView,
+    AgentModelsView, AgentsView, DICTATION_LANGUAGES, DictationView, ModelKind, ModelView, VoiceView,
 };
 
 /// Surface de la boîte des réglages de la dictée et de l'agent.
@@ -69,7 +68,7 @@ impl VoicePanel {
     pub fn build(view: &VoiceView, l: &Localizer) -> Self {
         let mut data = json!({
             "choice": view.agents.active,
-            "progress": { "dictation": "", "agent": "" },
+            "progress": { "dictation": "" },
             "notice": { "busy": "", "pending": "" },
         });
         let mut b = Builder::default();
@@ -111,7 +110,7 @@ impl VoicePanel {
 pub fn model_label(model: &ModelView, api_model: &str, l: &Localizer) -> String {
     match model.kind {
         ModelKind::Api => l.tr_with("voice-model-api", &[("model", api_model.into())]),
-        ModelKind::Apple | ModelKind::Local => l.tr(&format!("voice-model-{}", model.id)),
+        ModelKind::Local => l.tr(&format!("voice-model-{}", model.id)),
     }
 }
 
@@ -133,40 +132,9 @@ pub fn seconds_text(seconds: f32, l: &Localizer) -> String {
     l.tr_with("voice-seconds", &[("value", value.into())])
 }
 
-/// Des gigaoctets au dixième, écrits dans la langue.
-pub fn gigabytes_text(bytes: u64, l: &Localizer) -> String {
-    let gb = (size_f64(bytes) / 1e8).round() / 10.0;
-    NumberFormat::for_lang(Some(l.locale())).format(gb)
-}
-
-/// The local agent's model download at `percent`, as the box and a fallback turn show it.
-#[must_use]
-pub fn agent_download_progress(percent: u8, l: &Localizer) -> String {
-    l.tr_with("agent-model-downloading", &[("percent", percent_text(u64::from(percent), l).into())])
-}
-
-/// Why the local agent's model download failed, localized.
-#[must_use]
-pub fn local_failure_text(failure: &LocalFailure, l: &Localizer) -> String {
-    match failure {
-        LocalFailure::Failed => l.tr("agent-model-download-failed"),
-        LocalFailure::Integrity => l.tr("agent-model-download-integrity"),
-        LocalFailure::Incomplete { got, expected } => l.tr_with(
-            "agent-model-download-incomplete",
-            &[("got", count_text(*got, l).into()), ("expected", count_text(*expected, l).into())],
-        ),
-        LocalFailure::Cancelled => l.tr("agent-model-download-cancelled"),
-    }
-}
-
 /// La valeur d'une durée dans le modèle de données : `1.5`, `3`, `1.2`.
 fn secs_value(v: f32) -> String {
     format!("{v}")
-}
-
-/// Un nombre entier écrit dans la langue.
-fn count_text(n: u64, l: &Localizer) -> String {
-    NumberFormat::for_lang(Some(l.locale())).format(size_f64(n))
 }
 
 /// Un pourcentage entier écrit dans la langue.
@@ -188,7 +156,6 @@ fn model_hint(m: &ModelView, d: &DictationView, l: &Localizer) -> String {
         }
         ModelKind::Local if m.installed => parts.push(l.tr("voice-installed")),
         ModelKind::Local => parts.push(l.tr("voice-not-installed")),
-        ModelKind::Apple => {}
     }
     parts.join(" · ")
 }
@@ -196,7 +163,6 @@ fn model_hint(m: &ModelView, d: &DictationView, l: &Localizer) -> String {
 /// Les composants de la dictée.
 fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value) {
     let chosen = d.models.iter().find(|m| m.id == d.model);
-    let apple = d.models.iter().any(|m| m.kind == ModelKind::Apple);
     data["model"] = json!(d.model);
     data["language"] = json!(d.language.clone().unwrap_or_default());
     data["silence"] = json!(if d.auto_stop { secs_value(d.silence) } else { "off".to_owned() });
@@ -210,8 +176,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
     });
 
     b.text("d-title", l.tr("voice-dictation-title"), TextVariant::H4);
-    let intro = if apple { "voice-dictation-intro-apple" } else { "voice-dictation-intro" };
-    b.text("d-intro", l.tr(intro), TextVariant::Caption);
+    b.text("d-intro", l.tr("voice-dictation-intro"), TextVariant::Caption);
 
     let options = d
         .models
@@ -258,7 +223,7 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
         b.text("d-api-azure-note", l.tr("voice-api-azure-note"), TextVariant::Caption);
     }
 
-    b.push(Component::new("d-language", language_select(d, chosen, l)));
+    b.push(Component::new("d-language", language_select(d, l)));
     b.push(Component::new("d-silence", silence_select(d, l)));
     b.push(Component::new("d-hands-free", hands_free_switch(l)));
     b.text("d-note", l.tr("voice-phrases-note"), TextVariant::Caption);
@@ -282,7 +247,6 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
             ModelKind::Local if m.available => {
                 Some(l.tr_with("voice-download-now", &[("size", size_text(m.size, l).into())]))
             }
-            ModelKind::Apple => Some(l.tr("voice-download-language")),
             ModelKind::Local | ModelKind::Api => None,
         };
         if let Some(label) = label {
@@ -293,16 +257,8 @@ fn dictation(d: &DictationView, l: &Localizer, b: &mut Builder, data: &mut Value
 }
 
 /// The list of dictation languages.
-///
-/// The automatic entry names the language Apple detected.
-fn language_select(d: &DictationView, chosen: Option<&ModelView>, l: &Localizer) -> ComponentKind {
-    let auto = match d.detected.as_deref().and_then(|c| DICTATION_LANGUAGES.iter().find(|(code, _)| *code == c)) {
-        Some((_, name)) if chosen.is_some_and(|m| m.kind == ModelKind::Apple) => {
-            l.tr_with("voice-language-auto-resolved", &[("language", (*name).into())])
-        }
-        _ => l.tr("voice-language-auto"),
-    };
-    let mut languages = vec![ChoiceOption { id: String::new(), label: auto, hint: None }];
+fn language_select(d: &DictationView, l: &Localizer) -> ComponentKind {
+    let mut languages = vec![ChoiceOption { id: String::new(), label: l.tr("voice-language-auto"), hint: None }];
     languages.extend(DICTATION_LANGUAGES.iter().map(|(code, name)| ChoiceOption {
         id: (*code).to_owned(),
         label: (*name).to_owned(),
@@ -358,7 +314,7 @@ fn agents(a: &AgentsView, l: &Localizer, b: &mut Builder, data: &mut Value) {
     let options = a
         .presets
         .iter()
-        .map(|p| ChoiceOption { id: p.id.clone(), label: p.name.clone(), hint: p.hint.clone() })
+        .map(|p| ChoiceOption { id: p.id.clone(), label: p.name.clone(), hint: Some(p.command.clone()) })
         .collect();
     let chips = ComponentKind::ChoiceChips {
         options,
@@ -370,27 +326,6 @@ fn agents(a: &AgentsView, l: &Localizer, b: &mut Builder, data: &mut Value) {
         agent_models(models, l, b, data);
     }
 
-    let reason = |size: u64| l.tr_with("agent-local-needs-download", &[("gigabytes", gigabytes_text(size, l).into())]);
-    let download = || Action::named("download_agent_model");
-    match &a.local {
-        None => {}
-        Some(LocalModelView::NeedsDownload { size }) => {
-            b.text("a-local-reason", reason(*size), TextVariant::Caption);
-            b.button("a-download", l.tr("agent-model-download"), download());
-        }
-        Some(LocalModelView::Running { percent }) => {
-            data["progress"]["agent"] = json!(agent_download_progress(*percent, l));
-        }
-        Some(LocalModelView::Failed { size, failure }) => {
-            b.text("a-local-reason", reason(*size), TextVariant::Caption);
-            b.text("a-error", local_failure_text(failure, l), TextVariant::Caption);
-            b.button("a-download", l.tr("agent-model-download"), download());
-        }
-    }
-    b.bound("a-progress", "/progress/agent");
-    if matches!(a.local, Some(LocalModelView::Running { .. })) {
-        b.button("a-cancel", l.tr("agent-model-cancel"), Action::named("cancel_agent_model_download"));
-    }
     b.bound("a-pending", "/notice/pending");
     if let Some(id) = &a.pending {
         let name = a.presets.iter().find(|p| &p.id == id).map_or(id.as_str(), |p| p.name.as_str());

@@ -1,14 +1,12 @@
 use speculoos::prelude::*;
 
 use super::*;
-use crate::stream::{Availability, NoStreamEngine};
-use crate::test_support::{ScriptedEngine, french_platform, fresh_dir, platform_in};
+use crate::test_support::{fresh_dir, platform_in};
 
 /// Une plateforme isolée : ses modèles dans `dir`.
 fn platform(dir: &Path) -> Platform {
     let mut settings = oku_slides_platform::config::Settings::defaults().unwrap();
     settings.paths.models = Some(dir.to_path_buf());
-    settings.stt.apple = false;
     Platform::with_settings(settings).unwrap()
 }
 
@@ -89,121 +87,12 @@ fn start_request_reads_vocabulary_list() {
 }
 
 #[test]
-fn download_apple_model_is_refused() {
-    let dir = fresh_dir("apple-download");
+fn download_api_model_is_refused() {
+    let dir = fresh_dir("api-download");
     let settings = oku_slides_platform::config::Settings::defaults().unwrap();
     let storage = oku_slides_platform::storage::Storage::local().unwrap();
-    let err = download(Model::Apple, dir.path(), &settings.models, &storage, |_, _| true).unwrap_err();
+    let err = download(Model::Api, dir.path(), &settings.models, &storage, |_, _| true).unwrap_err();
     assert_that!(err.kind()).is_equal_to(SttErrorKind::Model);
-}
-
-fn config(model: Model, version: u32) -> Config {
-    Config { model, version, ..Config::default() }
-}
-
-#[test]
-fn migrate_old_config_switches_to_apple_when_available() {
-    assert_that!(migrate(config(Model::Parakeet, 0), true, true).model).is_equal_to(Model::Apple);
-}
-
-#[test]
-fn migrate_old_config_without_apple_keeps_model() {
-    assert_that!(migrate(config(Model::Api, 0), false, false).model).is_equal_to(Model::Api);
-}
-
-#[test]
-fn migrate_old_config_with_unknown_language_keeps_model() {
-    let migrated = migrate(config(Model::Parakeet, 0), true, false);
-    assert_that!((migrated.model, migrated.version)).is_equal_to((Model::Parakeet, CONFIG_VERSION));
-}
-
-#[test]
-fn migrate_current_config_keeps_user_choice() {
-    assert_that!(migrate(config(Model::Parakeet, CONFIG_VERSION), true, true).model).is_equal_to(Model::Parakeet);
-}
-
-#[test]
-fn migrate_apple_on_machine_without_it_falls_back_to_parakeet() {
-    assert_that!(migrate(config(Model::Apple, CONFIG_VERSION), false, false).model).is_equal_to(Model::Parakeet);
-}
-
-#[test]
-fn migrate_apple_with_unknown_language_keeps_apple() {
-    assert_that!(migrate(config(Model::Apple, CONFIG_VERSION), true, false).model).is_equal_to(Model::Apple);
-}
-
-#[test]
-fn config_json_without_version_reads_version_zero() {
-    let c: Config = serde_json::from_str(r#"{"model":"parakeet"}"#).unwrap();
-    assert_that!(c.version).is_equal_to(0);
-}
-
-fn apple_stt(dir: &Path, french: Availability) -> Stt {
-    Stt::with_engine(&french_platform(dir, |_| {}), Arc::new(ScriptedEngine::new(french, &[])), None)
-}
-
-#[test]
-fn new_config_with_interface_language_unknown_to_apple_stays_parakeet() {
-    let dir = fresh_dir("apple-de");
-    let engine = Arc::new(ScriptedEngine::new(Availability::Ready, &[]));
-    let stt = Stt::with_engine(&platform_in(dir.path(), "de", |_| {}), engine, None);
-    assert_that!(stt.status().config.model).is_equal_to(Model::Parakeet);
-}
-
-#[test]
-fn status_with_stream_engine_lists_apple_first_and_ready() {
-    let dir = fresh_dir("apple-status");
-    let status = apple_stt(dir.path(), Availability::Ready).status();
-    let apple = &status.models[0];
-    assert_that!((apple.id, apple.installed, apple.available)).is_equal_to((Model::Apple, true, true));
-}
-
-#[test]
-fn new_config_with_stream_engine_chooses_apple() {
-    let dir = fresh_dir("apple-default");
-    assert_that!(apple_stt(dir.path(), Availability::Ready).status().config.model).is_equal_to(Model::Apple);
-}
-
-#[test]
-fn status_with_apple_auto_language_reports_interface_language() {
-    let dir = fresh_dir("apple-detected");
-    assert_that!(apple_stt(dir.path(), Availability::Ready).status().detected).is_equal_to(Some("fr".to_owned()));
-}
-
-#[test]
-fn status_without_stream_engine_omits_apple() {
-    let dir = fresh_dir("apple-none");
-    let stt = Stt::with_engine(&french_platform(dir.path(), |_| {}), Arc::new(NoStreamEngine), None);
-    assert_that!(stt.status().models.iter().any(|m| m.id == Model::Apple)).is_false();
-}
-
-#[test]
-fn configure_unknown_language_makes_apple_unavailable() {
-    let dir = fresh_dir("apple-xx");
-    let stt = apple_stt(dir.path(), Availability::Ready);
-    // Dictée au repos : le résultat de `configure` est sans objet ici.
-    let _applied = stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
-    assert_that!(stt.status().models[0].available).is_false();
-}
-
-#[test]
-fn configure_always_writes_current_version() {
-    let dir = fresh_dir("apple-version");
-    let stt = apple_stt(dir.path(), Availability::Ready);
-    // Dictée au repos : le résultat de `configure` est sans objet ici.
-    let _applied = stt.configure(Config { version: 0, ..stt.status().config });
-    assert_that!(stt.status().config.version).is_equal_to(CONFIG_VERSION);
-}
-
-#[test]
-fn start_apple_with_unknown_language_reports_error() {
-    let dir = fresh_dir("apple-start-xx");
-    let stt = apple_stt(dir.path(), Availability::Ready);
-    // Dictée au repos : le résultat de `configure` est sans objet ici.
-    let _applied = stt.configure(Config { language: Some("xx".into()), ..stt.status().config });
-    stt.start(Vec::new());
-    assert_that!(stt.status().error.as_deref())
-        .is_equal_to(Some("Le moteur de dictée ne prend pas en charge cette langue (xx)"));
 }
 
 fn api_config(url: &str, key_env: &str) -> Config {
@@ -278,7 +167,6 @@ fn engine_api_with_negative_timeout_returns_model_error() {
     let dir = fresh_dir("oku-slides-stt-");
     let mut settings = oku_slides_platform::config::Settings::defaults().unwrap();
     settings.paths.models = Some(dir.path().to_path_buf());
-    settings.stt.apple = false;
     settings.stt.api_timeout_secs = -1.0;
     let stt = Stt::new(&Platform::with_settings(settings).unwrap());
     // Dictée au repos : le résultat de `configure` est sans objet ici.
@@ -339,7 +227,7 @@ fn api_model_installed_follows_the_key_variable() {
 /// Parakeet's entry in the status of a dictation in UI `locale`, with `language` chosen.
 fn parakeet_info(locale: &str, language: Option<&str>) -> ModelInfo {
     let dir = fresh_dir("parakeet-info");
-    let stt = Stt::new(&platform_in(dir.path(), locale, |s| s.apple = false));
+    let stt = Stt::new(&platform_in(dir.path(), locale));
     // Dictation idle: the result of `configure` does not matter here.
     let _applied = stt.configure(Config { language: language.map(str::to_owned), ..stt.status().config });
     stt.status().models.into_iter().find(|m| m.id == Model::Parakeet).unwrap()
@@ -366,15 +254,9 @@ fn model_info_chosen_language_wins_over_ui_locale() {
 }
 
 #[test]
-fn model_info_apple_and_api_unchanged() {
-    let dir = fresh_dir("apple-api-info");
-    let stt = apple_stt(dir.path(), Availability::Ready);
-    // Dictation idle: the result of `configure` does not matter here.
-    let _applied = stt.configure(Config { language: Some("fr".into()), ..stt.status().config });
-    let available = |id| stt.status().models.into_iter().find(|m| m.id == id).map(|m| m.available);
-    assert_that!((available(Model::Apple), available(Model::Api))).is_equal_to((Some(true), Some(true)));
+fn model_info_api_is_available_whatever_the_language() {
     let dir = fresh_dir("api-info-ja");
-    let stt = Stt::new(&platform_in(dir.path(), "ja", |s| s.apple = false));
+    let stt = Stt::new(&platform_in(dir.path(), "ja"));
     let api = stt.status().models.into_iter().find(|m| m.id == Model::Api).unwrap();
     assert_that!(api.available).is_true();
 }
@@ -391,7 +273,7 @@ impl PhraseEngine for NoLanguageEngine {
 #[test]
 fn auto_language_leaves_detected_empty() {
     let dir = fresh_dir("auto-language");
-    let stt = Stt::new(&platform_in(dir.path(), "fr", |s| s.apple = false));
+    let stt = Stt::new(&platform_in(dir.path(), "fr"));
     let config = stt.status().config;
     stt.state().engine = Some((engine_key(&config), Arc::new(NoLanguageEngine)));
     let session = {

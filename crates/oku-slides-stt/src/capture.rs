@@ -1,6 +1,6 @@
 //! Starting a capture: dictation or listening, after the model download when one is missing.
 //!
-//! [`Stt::launch`] checks the engine (Apple language, API settings, model on disk), then
+//! [`Stt::launch`] checks the engine (API settings, model on disk), then
 //! [`Stt::begin_recording`] opens the microphone and the engine's sink and spawns `listen_loop`.
 //! A missing model goes through [`Stt::fetch`]; [`Stt::finish_download`] says what starts after it.
 
@@ -11,10 +11,8 @@ use std::time::{Duration, Instant};
 
 use oku_slides_i18n::Localize;
 
-use crate::dictation_stream::Held;
 use crate::error::{ApiConfigSnafu, ApiKeyMissingSnafu, LocaleUnsupportedSnafu, NotDownloadableSnafu};
-use crate::utterance::ListenClock;
-use crate::{Download, Mode, Model, Sink, State, Stt, SttError, SttErrorKind, locale, models, valid_api_access};
+use crate::{Download, Mode, Model, Sink, State, Stt, SttError, SttErrorKind, models, valid_api_access};
 
 impl Stt {
     /// Starts dictation (downloading the model first if missing).
@@ -33,31 +31,20 @@ impl Stt {
     ///
     /// `from` is `Idle`, or `Listening` for a restart after new settings.
     pub(crate) fn launch(&self, vocabulary: Vec<String>, mode: Mode, from: State) {
-        let (model, apple, api) = {
+        let (model, api) = {
             let mut g = self.state();
             if g.state != from {
                 return;
             }
             g.error = None;
             g.vocabulary = vocabulary;
-            (g.config.model, g.apple.clone(), g.config.api.clone())
+            (g.config.model, g.config.api.clone())
         };
         #[cfg(feature = "e2e-fakes")]
         if mode == Mode::Listen
             && let Some(path) = self.settings.fake_utterances.clone()
         {
             self.begin_fake(path, from);
-            return;
-        }
-        if model == Model::Apple {
-            match apple {
-                Some((_, a)) if a.is_ready() => self.begin_recording(mode, from),
-                Some(_) => {
-                    // Nothing more to say: the failure is already in the state.
-                    let _started = self.download_language(Some(mode));
-                }
-                None => self.refuse(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into()),
-            }
             return;
         }
         if model == Model::Api {
@@ -105,9 +92,6 @@ impl Stt {
 
     /// Downloads `model`, then starts `then` on success; listening, if on, stops and resumes instead.
     pub(crate) fn fetch(&self, model: Model, then: Option<Mode>) -> bool {
-        if model == Model::Apple {
-            return self.download_language(then);
-        }
         if model == Model::Api {
             self.report(&NotDownloadableSnafu.build().into());
             return false;
@@ -189,7 +173,7 @@ impl Stt {
                 return;
             }
         };
-        let (session, model, apple, vocabulary) = {
+        let (session, model) = {
             let mut g = self.state();
             if g.shut || g.state != from {
                 // Shut down, or another capture started meanwhile: the microphone closes.
@@ -203,52 +187,22 @@ impl Stt {
             g.phrases.discard();
             g.partial.clear();
             g.detected = None;
-            if g.config.model == Model::Apple {
-                g.detected = g.apple.as_ref().map(|(tag, _)| locale::language(tag));
-            }
             g.stop_in = None;
             g.barge = barge;
             g.started = Some(Instant::now());
-            // A clock left by an earlier listening would misplace this stream's finals.
-            g.clock = ListenClock { origin: Instant::now(), stream_base: 0 };
-            (g.session, g.config.model, g.apple.clone(), g.vocabulary.clone())
+            (g.session, g.config.model)
         };
-        let sink = match (model, apple) {
-            (Model::Apple, Some((tag, _))) => {
-                let timeout = match self.apple_finish_timeout() {
-                    Ok(timeout) => timeout,
-                    Err(e) => {
-                        self.state().reset();
-                        self.report(&e);
-                        return;
-                    }
-                };
-                let (stream, events) = self.streaming.open(&tag, &vocabulary);
-                let held = Held::default();
-                let (worker, worker_held) = (self.worker(), held.clone());
-                std::thread::spawn(move || worker.stream_loop(session, &events, &worker_held, timeout));
-                Sink::Stream { stream, held }
-            }
-            (Model::Apple, None) => {
-                // `start` prevents it; to be safe, no listening without a language.
-                self.state().reset();
-                self.report(&LocaleUnsupportedSnafu { locale: self.wanted_language() }.build().into());
-                return;
-            }
-            _ => {
-                let (jobs, rx) = mpsc::channel();
-                let busy = Arc::new(AtomicBool::new(false));
-                let worker = self.worker();
-                let worker_busy = busy.clone();
-                if !self.spawn_transcriber(move || worker.transcribe_loop(session, &rx, &worker_busy)) {
-                    // Shut down since the state check: shutdown already reset it.
-                    return;
-                }
-                Sink::Phrase { jobs, busy, previews: model.previews() }
-            }
-        };
+        let (jobs, rx) = mpsc::channel();
+        let busy = Arc::new(AtomicBool::new(false));
+        let worker = self.worker();
+        let worker_busy = busy.clone();
+        if !self.spawn_transcriber(move || worker.transcribe_loop(session, &rx, &worker_busy)) {
+            // Shut down since the state check: shutdown already reset it.
+            return;
+        }
+        let sink = Sink { jobs, busy, previews: model.previews() };
         let listener = self.worker();
-        std::thread::spawn(move || listener.listen_loop(session, recorder, sink));
+        std::thread::spawn(move || listener.listen_loop(session, recorder, &sink));
     }
 }
 

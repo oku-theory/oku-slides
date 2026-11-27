@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CONFIG_VERSION, State, Stt};
+use crate::{State, Stt};
 
 /// The read-aloud settings besides the switch, saved with the dictation's.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -51,7 +51,6 @@ impl Stt {
             let barge_in_changed = config.speech.barge_in != speech.barge_in;
             config.read_aloud = read_aloud;
             config.speech = speech;
-            config.version = CONFIG_VERSION;
             self.save(&config);
             if !config.speech.barge_in {
                 // Off, a failed duplex start no longer matters: the box shows the switch again.

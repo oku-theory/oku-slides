@@ -1,14 +1,12 @@
-//! Compile le pont Swift du moteur d'Apple (macOS seulement).
+//! Builds the Swift bridge: OS voice, duplex audio, microphone permission (macOS only).
 
 fn main() {
     println!("cargo:rerun-if-changed=swift/Package.swift");
     println!("cargo:rerun-if-changed=swift/Sources");
-    // swift-rs n'est une dépendance de build que sur macOS (Cargo.toml).
+    // swift-rs is a build dependency on macOS only (Cargo.toml).
     #[cfg(target_os = "macos")]
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
         swift_rs::SwiftLinker::new("13.4").with_package("OkuSpeech", "swift/").link();
-        for framework in ["Speech", "AVFoundation", "CoreMedia"] {
-            println!("cargo:rustc-link-lib=framework={framework}");
-        }
+        println!("cargo:rustc-link-lib=framework=AVFoundation");
     }
 }

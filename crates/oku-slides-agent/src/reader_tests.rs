@@ -79,7 +79,6 @@ fn on(focused: &str) -> T {
     settings.paths.data = Some(dir.path().to_owned());
     settings.paths.decks = Some(dir.path().join("decks"));
     settings.paths.models = Some(dir.path().join("models"));
-    settings.stt.apple = false;
     settings.i18n.locale = Some("fr".into());
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}"));
     let stt = Stt::new(&platform);

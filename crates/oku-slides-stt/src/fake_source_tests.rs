@@ -22,7 +22,6 @@ fn fake_stt(dir: &Path) -> (Stt, PathBuf) {
     settings.paths.models = Some(dir.join("models"));
     settings.i18n.locale = Some("fr".into());
     "http://127.0.0.1:9".clone_into(&mut settings.models.hub_url);
-    settings.stt.apple = false;
     settings.stt.fake_utterances = Some(file.clone());
     (Stt::new(&Platform::with_settings(settings).unwrap()), file)
 }

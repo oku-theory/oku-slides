@@ -16,8 +16,8 @@ use oku_slides_mcp::{
     ApiTarget, Checked, Diagnosis, DictationDiagnosis, Origin, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
 };
 use oku_slides_session::{
-    ApiView, DICTATION_LANGUAGES, DictationLanguage, DictationPatch, DictationView, DownloadView, LocalModelView,
-    ModelKind, ModelView, VoiceEvent, VoiceView,
+    ApiView, DICTATION_LANGUAGES, DictationLanguage, DictationPatch, DictationView, DownloadView, ModelKind, ModelView,
+    VoiceEvent, VoiceView,
 };
 use oku_slides_stt::{
     ApiAccessProblem, Config, Model, ModelInfo, SILENCE_RANGE, Speaker, State, Status, Stt, api_access_problem,
@@ -29,11 +29,6 @@ use tokio::sync::watch;
 
 use crate::agent_switch::{AgentSwitch, PromptGuard, Requested, Switch};
 use crate::choice::{AgentChoice, ModelRefusal, Refusal};
-
-#[path = "fallback.rs"]
-mod fallback;
-
-pub(crate) use fallback::{TurnRoute, both_reasons};
 
 /// La réponse d'un changement d'agent demandé quand rien ne tournait, selon son issue.
 ///
@@ -67,7 +62,6 @@ fn confirmed(checked: &Checked, origin: &Origin) -> Result<(), VoiceError> {
 /// Un modèle de la dictée, tel que la boîte le montre.
 fn model_view(m: &ModelInfo) -> ModelView {
     let kind = match m.id {
-        Model::Apple => ModelKind::Apple,
         Model::Api => ModelKind::Api,
         Model::Parakeet => ModelKind::Local,
     };
@@ -83,7 +77,6 @@ fn dictation_view(s: &Status) -> DictationView {
         model: config.model.id().into(),
         models: s.models.iter().map(model_view).collect(),
         language: config.language.clone().filter(|c| !c.is_empty()),
-        detected: s.detected.clone(),
         auto_stop: config.auto_stop,
         silence: config.silence,
         hands_free: config.hands_free,
@@ -383,28 +376,16 @@ impl AppVoice {
         crate::shortcut::dictation_locale(chosen.as_deref(), detected.as_deref())
     }
 
+    /// Why the selected agent cannot serve a turn, localized; `None` if it seems usable.
+    ///
+    /// May block: reads the disk.
+    pub(crate) fn availability(&self) -> Option<String> {
+        self.choice.availability()
+    }
+
     /// La langue courante de l'interface.
     pub(crate) fn localizer(&self) -> Arc<Localizer> {
         self.choice.localizer()
-    }
-
-    /// Lance le téléchargement du modèle de l'agent local (`apply(DownloadAgentModel)`).
-    ///
-    /// Chaque pourcent et la fin font avancer la révision : la boîte de chaque onglet se
-    /// rafraîchit (`voice_refresh`). Peut bloquer : lit le disque.
-    fn download_agent_model(&self, origin: &Origin) -> Result<VoiceApplied, VoiceError> {
-        confirmed(&self.check_agent_model()?, origin)?;
-        let me = self.me.clone();
-        let started = self.choice.start_download(move || {
-            if let Some(voice) = me.upgrade() {
-                voice.bump();
-            }
-        });
-        if !started {
-            return Err(refused(VoiceErrorKind::NothingToDownload));
-        }
-        self.bump();
-        Ok(VoiceApplied::Now)
     }
 
     fn stt(&self) -> Result<&Stt, VoiceError> {
@@ -450,24 +431,6 @@ impl AppVoice {
         Ok(VoiceApplied::Now)
     }
 
-    fn check_agent_model(&self) -> Result<Checked, VoiceError> {
-        match self.choice.local_panel() {
-            Some(LocalModelView::NeedsDownload { size } | LocalModelView::Failed { size, .. }) => {
-                Ok(Checked { agent_model_size: Some(size), ..Checked::default() })
-            }
-            Some(LocalModelView::Running { .. }) | None => Err(refused(VoiceErrorKind::NothingToDownload)),
-        }
-    }
-
-    fn check_cancel_agent_model(&self) -> Result<Checked, VoiceError> {
-        match self.choice.local_panel() {
-            Some(LocalModelView::Running { .. }) => Ok(Checked::default()),
-            Some(LocalModelView::NeedsDownload { .. } | LocalModelView::Failed { .. }) | None => {
-                Err(refused(VoiceErrorKind::NothingToCancel))
-            }
-        }
-    }
-
     fn check_cancel_dictation(&self) -> Result<(&Stt, Checked), VoiceError> {
         let stt = self.stt()?;
         if !cancel_dictation_allowed(stt.status().state) {
@@ -494,8 +457,7 @@ impl AppVoice {
     fn user_select(&self, id: &str) -> Result<VoiceApplied, VoiceError> {
         {
             let mut state = self.switch.lock();
-            // Chosen again while the local agent stands in for it: retried below, at once.
-            if self.choice.active() == id && self.choice.fallback_reason().is_none() {
+            if self.choice.active() == id {
                 let had_pending = state.user_select();
                 drop(state);
                 if had_pending {
@@ -578,8 +540,6 @@ impl VoicePort for AppVoice {
             VoiceEvent::DownloadDictation { model } => check_download(&self.stt()?.status(), model).map(|(c, _)| c),
             VoiceEvent::CancelDictationDownload => self.check_cancel_dictation().map(|(_, c)| c),
             VoiceEvent::SelectAgent { id } => self.check_agent(id),
-            VoiceEvent::DownloadAgentModel => self.check_agent_model(),
-            VoiceEvent::CancelAgentModelDownload => self.check_cancel_agent_model(),
             VoiceEvent::SelectAgentModel { id } => self.check_model_choice(id).map(|(_, c)| c),
             VoiceEvent::Speech(patch) => self.check_speech(patch).map(|(c, _, _)| c),
         }
@@ -601,13 +561,6 @@ impl VoicePort for AppVoice {
                     Origin::User => self.user_select(&id),
                     Origin::Agent { tab, .. } => Ok(self.agent_select(&tab, &id)),
                 }
-            }
-            VoiceEvent::DownloadAgentModel => self.download_agent_model(&origin),
-            VoiceEvent::CancelAgentModelDownload => {
-                self.check_cancel_agent_model()?;
-                self.choice.cancel_download();
-                self.bump();
-                Ok(VoiceApplied::Now)
             }
             // Only the box sends it: no tool of the agent chooses its model.
             VoiceEvent::SelectAgentModel { id } => self.select_model(&id),

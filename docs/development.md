@@ -21,12 +21,10 @@ Design decisions: [`adr/`](adr/README.md). Contributor and agent rules: [`AGENTS
 | `crates/oku-slides-session` | Editing session (open deck, history, rendering, file), shared by the app and the dev server, and the PPTX import pipeline the CLI and the app share |
 | `crates/oku-slides-platform` | Foundation: logging, settings, storage, languages; bounded accept loop for local HTTP servers |
 | `crates/oku-slides-i18n` | Fluent messages (20 languages, English as the reference) and language selection |
-| `crates/oku-slides-stt` | Speech: dictation (microphone, voice detection, Apple's engine on macOS 26+, local Parakeet or an API) and OS voice (macOS, Windows, Speech Dispatcher) |
+| `crates/oku-slides-stt` | Speech: dictation (microphone, voice detection, local Parakeet or an API) and OS voice (macOS, Windows, Speech Dispatcher) |
 | `crates/oku-slides-a2ui` | A2UI v0.9 surfaces (component catalog), shared by the panel and the agent |
 | `crates/oku-slides-mcp` | Agent MCP tools (local HTTP, token): reading, `apply`, surfaces, confirmations |
 | `crates/oku-slides-agent` | Voice agent: ACP client (agent as a subprocess), turns, stack for the app and the server; fake agent for tests |
-| `crates/oku-slides-local-agent` | Built-in fallback ACP agent (`--local-agent`): routing by tool families, bounded MCP tool loop, final `report`; Apple Foundation Models or Gguf (llama.cpp) engine, no account or network |
-| `crates/oku-slides-apple-model` | Swift bridge to Apple's on-device language model (Foundation Models, macOS 26+, weak-linked): availability and one guided reply |
 | `crates/oku-slides-cli` | `oku-slides` tool: render, save, reopen, PPTX import, benchmarks, dev server |
 | `src-tauri` | Tauri 2 desktop app |
 | `ui` | React + TypeScript interface (Papier design system) |
@@ -116,9 +114,9 @@ the library layout packs; a widget written for it goes to the deck's own packs, 
 ## Running the app
 
 Everything runs from the repository root with [just](https://just.systems).
-Prerequisites: Rust, [Bun](https://bun.sh), just, cmake (for llama.cpp, the local agent), the Tauri
-CLI (`cargo install tauri-cli --version "^2"`), on a Mac Xcode with the macOS 26 SDK
-(required: the Swift bridge to Apple's dictation engine is always built), and [Git LFS](https://git-lfs.com) for the fonts in
+Prerequisites: Rust, [Bun](https://bun.sh), just, cmake, the Tauri
+CLI (`cargo install tauri-cli --version "^2"`), on a Mac Xcode
+(required: the Swift bridge to the OS voice and the microphone is always built), and [Git LFS](https://git-lfs.com) for the fonts in
 `assets/fonts` (`git lfs install` before cloning, otherwise `git lfs pull`).
 The `typst` CLI is optional (`just typst`). `just doctor` checks everything.
 

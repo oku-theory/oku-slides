@@ -31,7 +31,6 @@ fn voice_error_every_kind_has_a_translation(
         VoiceErrorKind::ApiReservedToUser,
         VoiceErrorKind::HandsFreeReservedToUser,
         VoiceErrorKind::Changed,
-        VoiceErrorKind::NothingToDownload,
         VoiceErrorKind::UnknownAgent,
         VoiceErrorKind::AgentLocked,
         VoiceErrorKind::AgentNotSaved,

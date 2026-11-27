@@ -11,7 +11,6 @@ stt-download = Не вдалося завантажити модель
 stt-download-incomplete = Завантаження не завершено: { $got } байт із { $expected }
 stt-cancelled = Завантаження скасовано
 stt-receiver-taken = Прослуховування без рук уже під’єднано в іншому місці
-stt-speech-denied = Дозвольте розпізнавання мовлення в Системних параметрах › Конфіденційність і безпека
 stt-locale-unsupported = Рушій диктування не підтримує цю мову ({ $language })
 stt-api-key-missing = Задайте змінну середовища { $var }, щоб користуватися API диктування
 stt-api-key-invalid = Змінна середовища { $var } містить значення, яке не можна надіслати в заголовку HTTP
@@ -27,7 +26,6 @@ stt-voice-rate = Швидкість мовлення має бути від 0,5 
 speech-barge-in-unavailable-os = Щоб перебивати Oku, потрібне придушення луни, доступне лише в macOS.
 
 stt-model-parakeet = Parakeet v3 (25 європейських мов)
-stt-model-apple = Apple (системний)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = Модель диктування завантажено

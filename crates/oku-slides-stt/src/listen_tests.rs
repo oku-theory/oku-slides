@@ -7,8 +7,7 @@ use oku_slides_i18n::{Localize, Localizer};
 use speculoos::prelude::*;
 
 use crate::dictation_phrase::Job;
-use crate::stream::Availability;
-use crate::test_support::{FinalsAt, Part, ScriptedEngine, french_platform, fresh_dir, listening_stt, wait_until};
+use crate::test_support::{Part, fresh_dir, listening_stt, wait_until};
 use crate::utterance::Spoken;
 use crate::{Config, State, Stt, SttErrorKind, Utterance};
 
@@ -195,23 +194,6 @@ fn listen_download_cancel_while_listening_resumes_listening() {
 }
 
 #[test]
-fn apple_dictation_after_suspended_listening_keeps_its_text() {
-    let dir = fresh_dir("listen-apple-dictation");
-    let engine = ScriptedEngine::new(Availability::Ready, &["Un."]);
-    let pushed = engine.pushed.clone();
-    let stt = Stt::with_engine(&french_platform(dir.path(), |_| {}), Arc::new(engine), None);
-    stt.listen(Vec::new());
-    wait_until(&stt, "audio pushed", |_| pushed.load(std::sync::atomic::Ordering::Relaxed) > 0);
-    drop(stt.suspend());
-    wait_until(&stt, "clock rebased", |_| stt.state().clock.stream_base > 0);
-    stt.stop();
-    stt.start(Vec::new());
-    stt.stop();
-    let s = wait_until(&stt, "dictation done", |s| s.state == State::Idle && s.seq > 0);
-    assert_that!(s.text).is_equal_to(Some("Un.".to_owned()));
-}
-
-#[test]
 fn utterances_second_call_is_refused() {
     let dir = fresh_dir("listen-receiver");
     let (stt, _engine) = listening_stt(dir.path(), &[Part::Silence(1.0)], 1.5);
@@ -247,22 +229,6 @@ fn listen_status_never_carries_utterance_text() {
     let s = stt.status();
     assert_that!((s.committed, s.partial)).is_equal_to((String::new(), String::new()));
     stt.cancel();
-}
-
-#[test]
-fn apple_finals_after_silence_close_one_utterance() {
-    let dir = fresh_dir("listen-apple");
-    let mut engine = ScriptedEngine::new(Availability::Ready, &["Un.", "Deux."]);
-    engine.finals_at = FinalsAt::FirstPush;
-    let stt = Stt::with_engine(&french_platform(dir.path(), |_| {}), Arc::new(engine), None);
-    assert_that!(stt.configure(Config { silence: 0.5, ..stt.status().config })).is_true();
-    let rx = stt.utterances().unwrap();
-    stt.listen(Vec::new());
-    let heard = next(&rx, "the Apple utterance");
-    assert_that!(heard.text).is_equal_to("Un. Deux.".to_owned());
-    // Both finals in one utterance: the silence closed once, after them.
-    assert_that!(heard.speech_secs).is_equal_to(2.0);
-    assert_that!(stt.status().state).is_equal_to(State::Listening);
 }
 
 /// The listening tests rely on it: one speech part is one utterance at a 1.5 s silence.

@@ -1,17 +1,15 @@
 use std::path::Path;
-use std::sync::Arc;
 
 use rstest::rstest;
 use speculoos::prelude::*;
 
 use super::{Microphone, ModelFiles};
-use crate::stream::NoStreamEngine;
 use crate::test_support::{french_platform, fresh_dir};
 use crate::{ApiConfig, Config, Model, Stt};
 
 /// Local dictation only (Parakeet by default), its models in `dir`.
 fn stt(dir: &Path) -> Stt {
-    Stt::with_engine(&french_platform(dir, |s| s.apple = false), Arc::new(NoStreamEngine), None)
+    Stt::new(&french_platform(dir))
 }
 
 /// Writes an empty `name` in the Parakeet model's folder.

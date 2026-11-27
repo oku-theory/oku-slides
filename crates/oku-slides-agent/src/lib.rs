@@ -28,7 +28,6 @@ mod events;
 mod instructions;
 mod keeper;
 mod link;
-mod model_download;
 mod page_reports;
 mod permission;
 mod prompt_images;

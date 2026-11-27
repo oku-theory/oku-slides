@@ -31,9 +31,7 @@ export type AgentEvent =
   | { kind: "status"; state: AgentState }
   | { kind: "draft"; text: string | null; origin: string | null; attachments: Attachment[] }
   | { kind: "voice" }
-  | { kind: "availability"; unusable: string | null }
-  /** The tab's turns run on the local agent standing in for the selected one (`reason`), or no longer (`null`). */
-  | { kind: "fallback"; reason: string | null };
+  | { kind: "availability"; unusable: string | null };
 
 /** Où s'affiche une surface : fiche, fil, tiroir ou fenêtre. */
 export type Place = "sheet" | "thread" | "drawer" | "modal" | "popover" | "inspector";

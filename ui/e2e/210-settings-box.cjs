@@ -1,7 +1,6 @@
 // La boîte des réglages de la dictée et de l'agent (`host-voice`), ouverte par le ⚙ de la dictée :
-// changer d'agent et lire la réponse du second, changer la langue (le micro suit), « Local » sans
-// modèle, puis le modèle API : l'adresse et la variable de la clé se règlent dans la boîte, et la
-// valeur de la clé n'apparaît nulle part (page, champs, évènements, réponses, journal de l'agent).
+// changer d'agent et lire la réponse du second, changer la langue (le micro suit), puis le modèle API :
+// l'adresse et la variable de la clé se règlent dans la boîte, et la valeur de la clé n'apparaît nulle part (page, champs, évènements, réponses, journal de l'agent).
 // Contre `oku-slides serve` lancé par `just e2e` (deux presets : « Faux » choisi, « Faux bis » ;
 // `OKU_E2E_DICTATION_KEY` exportée). L'agent, la langue, le modèle, l'adresse de l'API et la
 // variable de la clé sont ceux de tout le serveur : la spec les remet comme elle les a trouvés.
@@ -106,21 +105,11 @@ const openBox = async (p) => {
     await language.selectOption({ value: start.config.language ?? '' });
     await untilValue(p, () => status(p), (s) => (s.config.language ?? null) === (start.config.language ?? null), 'langue de départ');
 
-    // 6. « Local » sans modèle : sur Apple silicon, la boîte propose de le télécharger (jamais cliqué :
-    // 2,5 Go) ; ailleurs, l'agent local ne tourne pas et rien n'est proposé.
-    await clickAction(p, chip(p, 'a-agents', 'Local'), 'select');
-    await untilChosen(p, 'a-agents', 'Local');
-    if (process.platform === 'darwin' && process.arch === 'arm64') {
-      await p.locator(part('a-download')).waitFor();
-    } else {
-      assert.equal(await p.locator(part('a-download')).count(), 0, 'aucun téléchargement hors Apple silicon');
-    }
-
-    // 7. Retour à « Faux ».
+    // 6. Retour à « Faux ».
     await clickAction(p, chip(p, 'a-agents', 'Faux'), 'select');
     await untilChosen(p, 'a-agents', 'Faux');
 
-    // 8. Le modèle API : adresse et variable réglées dans la boîte ; la clé reste invisible.
+    // 7. Le modèle API : adresse et variable réglées dans la boîte ; la clé reste invisible.
     const bodies = [];
     const collect = async (r) => {
       if (!/\/api\/(agent|stt)$/.test(r.url())) return;
@@ -155,7 +144,7 @@ const openBox = async (p) => {
     assert.ok(log.length > 0, "journal de l'agent vide");
     assert.ok(!log.includes(SECRET), "la clé dans le journal de l'agent");
 
-    // 9. Fermer : le popover se ferme.
+    // 8. Fermer : le popover se ferme.
     await p.locator(`${part('close')} button`).click();
     await p.waitForSelector(BOX, { state: 'detached' });
   } catch (e) {

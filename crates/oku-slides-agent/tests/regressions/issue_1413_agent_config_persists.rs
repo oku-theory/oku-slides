@@ -49,7 +49,6 @@ async fn issue_1413_config_written_by_a_turn_never_reaches_the_next_agent() {
     let launch = Launch {
         command: env!("CARGO_BIN_EXE_oku-slides-fake-agent").to_owned(),
         args: vec!["--script".into(), script.display().to_string(), "--log".into(), log.display().to_string()],
-        env: Vec::new(),
         path: None,
         process_dir: h.process_dir(),
         ready_within: oku_slides_agent::READY_WITHIN,

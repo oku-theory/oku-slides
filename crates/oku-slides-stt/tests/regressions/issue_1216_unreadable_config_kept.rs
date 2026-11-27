@@ -21,7 +21,6 @@ fn stt(dir: &Path) -> Stt {
     settings.paths.data = Some(dir.join("data"));
     settings.paths.decks = Some(dir.join("data").join("decks"));
     settings.paths.models = Some(dir.join("models"));
-    settings.stt.apple = false;
     Stt::new(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")))
 }
 

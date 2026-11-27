@@ -6,8 +6,7 @@
 use oku_slides_i18n::Localizer;
 use oku_slides_session::agent::bounds::clip;
 use oku_slides_session::{
-    DictationLanguage, DictationPatch, HOST_VOICE, ModelKind, ModelView, SpeechPatch, VoiceEvent, model_label,
-    size_text,
+    DictationLanguage, DictationPatch, HOST_VOICE, ModelView, SpeechPatch, VoiceEvent, model_label, size_text,
 };
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
@@ -32,7 +31,7 @@ const API_TARGET_KEYS: [&str; 9] =
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SetDictationArgs {
-    /// Dictation model: apple | parakeet | api.
+    /// Dictation model: parakeet | api.
     pub model: Option<String>,
     /// Language code (fr, en…) or "auto".
     pub language: Option<String>,
@@ -67,7 +66,7 @@ pub(crate) struct SetSpeechArgs {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ModelArg {
-    /// Dictation model: apple | parakeet.
+    /// Dictation model: parakeet.
     pub model: String,
 }
 
@@ -243,45 +242,12 @@ impl Tools {
         };
         let l = self.localizer.current();
         let name = clip(&preset.name, 80);
-        let message = match &preset.hint {
-            Some(command) => {
-                l.tr_with("agent-confirm-agent", &[("name", name.into()), ("command", clip(command, 120).into())])
-            }
-            None => l.tr_with("agent-confirm-agent-builtin", &[("name", name.into())]),
-        };
+        let message =
+            l.tr_with("agent-confirm-agent", &[("name", name.into()), ("command", clip(&preset.command, 120).into())]);
         if !self.hub.confirm(message, ConfirmAsk::Plain(ConfirmAction::SelectAgent)).await {
             return self.denied();
         }
         self.apply_voice(event, true).await
-    }
-
-    /// Télécharge le modèle de l'agent local, après confirmation.
-    pub(crate) async fn download_agent_model(&self) -> CallToolResult {
-        let checked = match self.voice_check(VoiceEvent::DownloadAgentModel).await {
-            Ok(c) => c,
-            Err(e) => return self.fail_with(&e),
-        };
-        let Some(size) = checked.agent_model_size else {
-            tracing::error!("modèle de l'agent vérifié sans sa taille");
-            return self.fail_with(&refusal(VoiceErrorKind::NothingToDownload));
-        };
-        let l = self.localizer.current();
-        if !self
-            .hub
-            .confirm(
-                l.tr_with("agent-confirm-agent-model", &[("size", size_text(size, &l).into())]),
-                ConfirmAsk::Plain(ConfirmAction::Download),
-            )
-            .await
-        {
-            return self.denied();
-        }
-        self.apply_voice(VoiceEvent::DownloadAgentModel, true).await
-    }
-
-    /// Arrête le téléchargement du modèle de l'agent local.
-    pub(crate) async fn cancel_agent_model_download(&self) -> CallToolResult {
-        self.checked_then_apply(VoiceEvent::CancelAgentModelDownload).await
     }
 
     /// Vérifie puis applique sans question.
@@ -343,11 +309,8 @@ fn api_question(t: &ApiTarget, l: &Localizer) -> String {
 
 /// La question d'un modèle à télécharger, nommé et pesé.
 fn download_question(m: &ModelView, api_model: &str, l: &Localizer) -> String {
-    match m.kind {
-        ModelKind::Apple => l.tr("agent-confirm-dictation-language"),
-        ModelKind::Local | ModelKind::Api => l.tr_with(
-            "agent-confirm-dictation-download",
-            &[("name", model_label(m, api_model, l).into()), ("size", size_text(m.size, l).into())],
-        ),
-    }
+    l.tr_with(
+        "agent-confirm-dictation-download",
+        &[("name", model_label(m, api_model, l).into()), ("size", size_text(m.size, l).into())],
+    )
 }

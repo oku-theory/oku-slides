@@ -19,7 +19,7 @@ pub const APP_ID: &str = "me.dartiguenave.oku-slides";
 #[path = "config_agent.rs"]
 mod agent;
 
-pub use agent::{AgentPreset, AgentSettings, AgentSettingsError, Builtin};
+pub use agent::{AgentPreset, AgentSettings, AgentSettingsError};
 
 const DEFAULTS: &str = include_str!("config.default.toml");
 
@@ -62,8 +62,6 @@ pub struct Settings {
     pub models: ModelsSettings,
     /// Offered ACP agents and the active agent.
     pub agent: AgentSettings,
-    /// Local fallback agent, without network.
-    pub local_agent: LocalAgentSettings,
     /// App update checks.
     pub updates: UpdateSettings,
     /// Author recorded in the deck history.
@@ -106,7 +104,7 @@ impl UpdateSettings {
 pub struct PathSettings {
     /// App data folder; absent: the system one.
     pub data: Option<PathBuf>,
-    /// Downloaded models (dictation, local agent).
+    /// Downloaded models (dictation).
     pub models: Option<PathBuf>,
     /// Packs de widgets de l'utilisateur (la bibliothèque).
     pub widgets: Option<PathBuf>,
@@ -569,7 +567,7 @@ pub struct AppearanceSettings {
     pub scheme: Option<String>,
 }
 
-/// Téléchargement des modèles (dictée, agent local).
+/// Downloaded models (dictation).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct ModelsSettings {
@@ -614,10 +612,6 @@ pub struct SttSettings {
     #[cfg(feature = "e2e-fakes")]
     #[serde(default)]
     pub fake_speech: Option<PathBuf>,
-    /// Proposer le moteur de dictée d'Apple (macOS 26+).
-    pub apple: bool,
-    /// Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
-    pub apple_finish_timeout_secs: f32,
     /// Attente maximale d'une réponse de l'API de dictée (s).
     pub api_timeout_secs: f32,
     /// Splitting of the voice into sentences.
@@ -644,40 +638,6 @@ pub struct VadSettings {
     pub post_roll: f32,
     /// Longueur maximale d'une phrase (s).
     pub max_phrase: f32,
-}
-
-/// Le moteur de l'agent local de repli (`[local_agent] engine`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LocalEngine {
-    /// Le meilleur moteur disponible sur cette machine.
-    #[default]
-    Auto,
-    /// Apple's on-device model (Foundation Models, macOS 26+ with Apple Intelligence).
-    Apple,
-    /// llama.cpp sur Apple silicon, avec le modèle Qwen3 téléchargé.
-    Gguf,
-    /// Rejoue un script (tests, builds de débogage).
-    #[cfg(debug_assertions)]
-    Fake,
-}
-
-/// Réglages de l'agent local de repli.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[non_exhaustive]
-pub struct LocalAgentSettings {
-    /// The engine that answers (Apple's model, llama.cpp or a replayed script).
-    pub engine: LocalEngine,
-    /// Contexte du modèle (jetons).
-    pub context: u32,
-    /// Température d'échantillonnage des actions (0 : glouton).
-    pub temperature: f32,
-    /// Longueur maximale d'une réponse (jetons).
-    pub max_reply_tokens: u32,
-    /// Script rejoué par le moteur `fake`.
-    pub fake_script: Option<PathBuf>,
-    /// Journal des appels du moteur `fake`.
-    pub fake_log: Option<PathBuf>,
 }
 
 impl Settings {
@@ -725,7 +685,20 @@ impl Settings {
         if let Some(path) = file {
             builder = builder.add_source(config::File::from(path).format(config::FileFormat::Toml).required(false));
         }
-        let config = builder.add_source(env).build().context(ConfigSnafu)?;
+        let config = builder.clone().add_source(env.clone()).build().context(ConfigSnafu)?;
+        let config = match retired_selection(&config) {
+            Some(retired) => {
+                let default = default_selected()?;
+                tracing::warn!(retired, default, "agent.selected names a retired agent: the default agent runs");
+                builder
+                    .add_source(env)
+                    .set_override("agent.selected", default)
+                    .context(ConfigSnafu)?
+                    .build()
+                    .context(ConfigSnafu)?
+            }
+            None => config,
+        };
         // `[agent]` is checked here first: inside `try_deserialize`, config-rs would append
         // " for key `agent`" to the message. A raw shape error is left to `try_deserialize`.
         if let Ok(raw) = config.get::<agent::RawAgentSettings>("agent") {
@@ -734,6 +707,27 @@ impl Settings {
         refuse_fakes(&config)?;
         config.try_deserialize().context(ConfigSnafu)
     }
+}
+
+/// Agent presets Oku Slides no longer ships: `local`, the built-in fallback agent (t-1791).
+///
+/// Kept while configs from 2026 may still select it; delete with [`retired_selection`] after.
+const RETIRED_PRESETS: [&str; 1] = ["local"];
+
+/// The retired preset that `agent.selected` still names, when no preset of that id is declared.
+fn retired_selection(config: &config::Config) -> Option<String> {
+    let selected = config.get_string("agent.selected").ok()?;
+    let declared = config.get_table("agent.presets").is_ok_and(|presets| presets.contains_key(&selected));
+    (RETIRED_PRESETS.contains(&selected.as_str()) && !declared).then_some(selected)
+}
+
+/// The embedded default `agent.selected`.
+fn default_selected() -> Result<String, ConfigError> {
+    let defaults = config::Config::builder()
+        .add_source(config::File::from_str(DEFAULTS, config::FileFormat::Toml))
+        .build()
+        .context(ConfigSnafu)?;
+    defaults.get_string("agent.selected").context(ConfigSnafu)
 }
 
 /// The fake utterance source setting, honoured only by builds with the `e2e-fakes` feature.

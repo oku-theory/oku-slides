@@ -11,7 +11,6 @@ stt-download = 无法下载模型
 stt-download-incomplete = 下载不完整：{ $got } / { $expected } 字节
 stt-cancelled = 下载已取消
 stt-receiver-taken = 免提聆听已连接到其他位置
-stt-speech-denied = 请在“系统设置 › 隐私与安全性”中允许语音识别
 stt-locale-unsupported = 听写引擎不支持此语言（{ $language }）
 stt-api-key-missing = 设置环境变量 { $var } 以使用听写 API
 stt-api-key-invalid = 环境变量 { $var } 的值无法在 HTTP 标头中发送
@@ -27,7 +26,6 @@ stt-voice-rate = 朗读速度必须介于正常速度的0.5倍到2倍之间
 speech-barge-in-unavailable-os = 在 Oku 说话时插话需要回声消除，仅在 macOS 上可用。
 
 stt-model-parakeet = Parakeet v3（25种欧洲语言）
-stt-model-apple = Apple（系统）
 stt-model-api = API（{ $model }）
 
 log-model-downloaded = 听写模型已下载

@@ -27,7 +27,7 @@
 
 - Make probe budget tests deterministic: use probe_budget_ms = 0 and assert behaviour, never measured elapsed time. (t-571, t-576)
 - Start an integration test crate that panics in helpers with #![expect(clippy::panic, reason)]; allow-panic-in-tests skips them. (t-1186)
-- Under heavy machine load, re-run timed-out render-worker, local-agent or CLI import tests with nextest --retries 2 before blaming a change. (t-1154)
+- Under heavy machine load, re-run timed-out render-worker or CLI import tests with nextest --retries 2 before blaming a change. (t-1154)
 
 ## Settled decisions
 

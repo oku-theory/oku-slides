@@ -43,7 +43,7 @@ pub(crate) enum EngineKey {
 pub(crate) fn engine_key(config: &Config) -> EngineKey {
     match config.model {
         Model::Api => EngineKey::Api(config.api.clone()),
-        model => EngineKey::Local(model),
+        model @ Model::Parakeet => EngineKey::Local(model),
     }
 }
 

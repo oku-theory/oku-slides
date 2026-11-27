@@ -356,7 +356,6 @@ impl Turns {
             AgentEvent::Status { .. }
             | AgentEvent::Draft { .. }
             | AgentEvent::Availability { .. }
-            | AgentEvent::Fallback { .. }
             | AgentEvent::Voice => return Vec::new(),
             AgentEvent::Chunk { turn, .. }
             | AgentEvent::ToolCall { turn, .. }
@@ -435,7 +434,6 @@ impl Turns {
             | AgentEvent::Conversation
             | AgentEvent::Draft { .. }
             | AgentEvent::Availability { .. }
-            | AgentEvent::Fallback { .. }
             | AgentEvent::Voice => return out,
         }
         out.extend(t.patch(l));

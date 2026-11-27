@@ -22,18 +22,6 @@ fn settings_defaults_models_hub_is_hugging_face() {
 }
 
 #[test]
-fn defaults_stt_offers_apple_engine() {
-    let s = Settings::defaults().unwrap();
-    assert_that!(s.stt.apple).is_true();
-}
-
-#[test]
-fn defaults_stt_apple_finish_timeout_is_five_seconds() {
-    let s = Settings::defaults().unwrap();
-    assert_that!(s.stt.apple_finish_timeout_secs).is_equal_to(5.0);
-}
-
-#[test]
 fn defaults_stt_api_timeout_is_thirty_seconds() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.stt.api_timeout_secs).is_equal_to(30.0);
@@ -149,10 +137,10 @@ fn app_id_names_oku_slides() {
 }
 
 #[test]
-fn defaults_agent_presets_are_claude_codex_gemini_local_omp_with_claude_selected() {
+fn defaults_agent_presets_are_claude_codex_gemini_omp_with_claude_selected() {
     let s = Settings::defaults().unwrap();
     assert_that!(s.agent.presets().map(|(id, _)| id).collect::<Vec<_>>())
-        .is_equal_to(vec!["claude", "codex", "gemini", "local", "omp"]);
+        .is_equal_to(vec!["claude", "codex", "gemini", "omp"]);
     assert_that!(s.agent.selected()).is_equal_to("claude");
     let claude = s.agent.active();
     assert_that!(claude.command.as_str()).is_equal_to("npx");
@@ -202,7 +190,7 @@ fn config_file_preset_is_added_without_dropping_the_defaults() {
     )
     .unwrap();
     let s = Settings::from_sources(Some(&file), Settings::environment().source(Some(HashMap::new()))).unwrap();
-    assert_that!(s.agent.presets().count()).is_equal_to(6);
+    assert_that!(s.agent.presets().count()).is_equal_to(5);
     assert_that!(s.agent.active().command.as_str()).is_equal_to("/bin/faux");
 }
 
@@ -239,7 +227,7 @@ fn unknown_selected_agent_load_error_keeps_the_text_of_before_t1202() {
         .source(Some(HashMap::from([("OKU_SLIDES_AGENT__SELECTED".to_owned(), "mistral".to_owned())])));
     let e = Settings::from_sources(None, env).unwrap_err();
     assert_that!(crate::errors::one_line(&e)).is_equal_to(
-        "invalid settings: agent.selected = \"mistral\" names no [agent.presets] entry (known: claude, codex, gemini, local, omp)"
+        "invalid settings: agent.selected = \"mistral\" names no [agent.presets] entry (known: claude, codex, gemini, omp)"
             .to_owned(),
     );
 }
@@ -248,7 +236,7 @@ fn unknown_selected_agent_load_error_keeps_the_text_of_before_t1202() {
 fn preset_without_launch_load_error_keeps_the_text_of_before_t1202() {
     let e = settings_from_toml("[agent]\nselected = \"x\"\n[agent.presets.x]\nname = \"X\"\n").unwrap_err();
     assert_that!(crate::errors::one_line(&e))
-        .is_equal_to("invalid settings: [agent.presets.x] needs exactly one of command or builtin".to_owned());
+        .is_equal_to("invalid settings: [agent.presets.x] needs a command".to_owned());
 }
 
 #[test]
@@ -664,61 +652,36 @@ fn settings_from_toml(toml: &str) -> Result<Settings, ConfigError> {
 }
 
 #[test]
-fn agent_settings_builtin_preset_loads() {
-    let toml = "[agent]\nselected = \"local\"\n[agent.presets.local]\nname = \"Local\"\nbuiltin = \"local\"\n";
+fn agent_settings_preset_without_command_is_refused() {
+    let toml = "[agent]\nselected = \"x\"\n[agent.presets.x]\nname = \"X\"\n";
+    let err = settings_from_toml(toml).unwrap_err();
+    assert_that!(snafu::Report::from_error(&err).to_string()).contains("[agent.presets.x] needs a command");
+}
+
+#[test]
+fn settings_defaults_offer_no_local_preset() {
+    let settings = settings_from_toml("").unwrap();
+    assert_that!(settings.agent.preset("local")).is_none();
+}
+
+#[test]
+fn retired_local_selection_loads_the_default_agent() {
+    let settings = settings_from_toml("[agent]\nselected = \"local\"\n").unwrap();
+    assert_that!(settings.agent.selected()).is_equal_to("claude");
+}
+
+#[test]
+fn retired_local_selection_with_a_declared_local_preset_keeps_it() {
+    let toml = "[agent]\nselected = \"local\"\n[agent.presets.local]\nname = \"Mine\"\ncommand = \"mine\"\n";
     let settings = settings_from_toml(toml).unwrap();
-    assert_that!(settings.agent.active().builtin).is_equal_to(Some(Builtin::Local));
-    assert_that!(settings.agent.active().command.as_str()).is_empty();
-}
-
-#[rstest]
-#[case::both("name = \"X\"\ncommand = \"npx\"\nbuiltin = \"local\"")]
-#[case::neither("name = \"X\"")]
-fn agent_settings_preset_without_exactly_one_launch_is_refused(#[case] body: &str) {
-    let toml = format!("[agent]\nselected = \"x\"\n[agent.presets.x]\n{body}\n");
-    let err = settings_from_toml(&toml).unwrap_err();
-    assert_that!(snafu::Report::from_error(&err).to_string())
-        .contains("[agent.presets.x] needs exactly one of command or builtin");
+    assert_that!(settings.agent.selected()).is_equal_to("local");
+    assert_that!(settings.agent.active().command.as_str()).is_equal_to("mine");
 }
 
 #[test]
-fn settings_defaults_have_local_builtin_preset() {
-    let settings = settings_from_toml("").unwrap();
-    let local = settings.agent.preset("local").unwrap();
-    assert_that!(local.name.as_str()).is_equal_to("Local");
-    assert_that!(local.builtin).is_equal_to(Some(Builtin::Local));
-    assert_that!(local.command.as_str()).is_empty();
-}
-
-#[test]
-fn agent_preset_builtin_constructor_has_no_command() {
-    let preset = AgentPreset::builtin("Local", Builtin::Local);
-    assert_that!(preset.command.as_str()).is_empty();
-    assert_that!(preset.builtin).is_equal_to(Some(Builtin::Local));
-}
-
-#[test]
-fn settings_defaults_local_agent_engine_is_auto() {
-    let settings = settings_from_toml("").unwrap();
-    assert_that!(settings.local_agent.engine).is_equal_to(LocalEngine::Auto);
-    assert_that!(settings.local_agent.context).is_equal_to(16384);
-}
-
-#[rstest]
-#[case::auto("auto", LocalEngine::Auto)]
-#[case::apple("apple", LocalEngine::Apple)]
-#[case::gguf("gguf", LocalEngine::Gguf)]
-fn local_agent_engine_name_loads_from_toml(#[case] name: &str, #[case] engine: LocalEngine) {
-    let settings = settings_from_toml(&format!("[local_agent]\nengine = \"{name}\"\n")).unwrap();
-    assert_that!(settings.local_agent.engine).is_equal_to(engine);
-}
-
-#[cfg(debug_assertions)]
-#[test]
-fn local_agent_fake_engine_loads_from_toml() {
-    let settings = settings_from_toml("[local_agent]\nengine = \"fake\"\nfake_script = \"s.json\"\n").unwrap();
-    assert_that!(settings.local_agent.engine).is_equal_to(LocalEngine::Fake);
-    assert_that!(settings.local_agent.fake_script).is_equal_to(Some(PathBuf::from("s.json")));
+fn old_local_agent_section_is_ignored() {
+    let settings = settings_from_toml("[local_agent]\nengine = \"gguf\"\n");
+    assert_that!(settings).is_ok();
 }
 
 #[test]

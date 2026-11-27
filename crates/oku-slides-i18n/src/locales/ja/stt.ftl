@@ -11,7 +11,6 @@ stt-download = モデルをダウンロードできませんでした
 stt-download-incomplete = ダウンロードが不完全です：{ $expected } バイト中 { $got } バイト
 stt-cancelled = ダウンロードをキャンセルしました
 stt-receiver-taken = ハンズフリーの聞き取りはすでに別の場所に接続されています
-stt-speech-denied = システム設定 › プライバシーとセキュリティで音声認識を許可してください
 stt-locale-unsupported = 音声入力エンジンはこの言語に対応していません ({ $language })
 stt-api-key-missing = 音声入力 API を使うには、環境変数 { $var } を設定してください
 stt-api-key-invalid = 環境変数 { $var } の値は HTTP ヘッダーで送信できません
@@ -27,7 +26,6 @@ stt-voice-rate = 読み上げ速度は通常の0.5倍から2倍の間にして�
 speech-barge-in-unavailable-os = Oku の発話中に話しかけて止めるにはエコーキャンセルが必要で、macOS でのみ使えます。
 
 stt-model-parakeet = Parakeet v3（ヨーロッパの25言語）
-stt-model-apple = Apple（システム）
 stt-model-api = API ({ $model })
 
 log-model-downloaded = 音声入力モデルをダウンロードしました

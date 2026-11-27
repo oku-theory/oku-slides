@@ -51,7 +51,6 @@ fn platform(dir: &Path, hub_url: &str, fake_mic: Option<PathBuf>) -> Platform {
     settings.models.download_backoff_secs = 0;
     settings.stt.fake_mic = fake_mic;
     settings.i18n.locale = Some("fr".into());
-    settings.stt.apple = false;
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"))
 }
 

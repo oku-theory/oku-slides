@@ -1,5 +1,4 @@
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_platform::local_agent::Unavailable;
 use oku_slides_session::agent::SpokenFailure;
 use rstest::rstest;
 use snafu::IntoError;
@@ -55,48 +54,9 @@ fn unusable_spawn_is_not_said_as_not_found() {
 }
 
 #[rstest]
-#[case::needs_download(Unusable::LocalNeedsDownload { size: 2_497_281_120 }, "agent-local-needs-download")]
-#[case::intel(Unusable::LocalIntelMac, "agent-local-intel-mac")]
-#[case::other_os(Unusable::LocalUnsupportedOs, "agent-local-unsupported-os")]
-#[case::apple_off(Unusable::LocalAppleOff, "agent-local-apple-off")]
-#[case::apple_not_ready(Unusable::LocalAppleNotReady, "agent-local-apple-not-ready")]
-#[case::apple_unsupported(Unusable::LocalAppleUnsupported, "agent-local-apple-unsupported")]
-fn unusable_local_states_localize_with_their_key(#[case] u: Unusable, #[case] key: &str) {
-    let fr = Localizer::new(Some("fr"));
-    let text = u.localize(&fr);
-    // La clé existe en français : sinon le texte serait la clé elle-même.
-    assert_that!(text.as_str()).is_not_equal_to(key);
-    assert_that!(text).is_not_equal_to(u.localize(&Localizer::new(Some("en"))));
-}
-
-#[test]
-fn unusable_needs_download_shows_size_in_gigabytes() {
-    let text = Unusable::LocalNeedsDownload { size: 2_497_281_120 }.localize(&Localizer::new(Some("en")));
-    assert_that!(text).contains("2.5");
-}
-
-#[rstest]
-#[case::intel(Unavailable::IntelMac, Unusable::LocalIntelMac)]
-#[case::other_os(Unavailable::UnsupportedOs, Unusable::LocalUnsupportedOs)]
-#[case::download(Unavailable::NeedsDownload { size: 7 }, Unusable::LocalNeedsDownload { size: 7 })]
-#[case::apple_off(Unavailable::AppleIntelligenceOff, Unusable::LocalAppleOff)]
-#[case::apple_not_ready(Unavailable::AppleModelNotReady, Unusable::LocalAppleNotReady)]
-#[case::apple_unsupported(Unavailable::AppleUnsupported, Unusable::LocalAppleUnsupported)]
-fn unusable_from_unavailable_keeps_the_state(#[case] u: Unavailable, #[case] expected: Unusable) {
-    assert_that!(Unusable::from(u)).is_equal_to(expected);
-}
-
-#[test]
-fn unusable_needs_download_interpolates_gigabytes_in_french() {
-    let text = Unusable::LocalNeedsDownload { size: 2_497_281_120 }.localize(&Localizer::new(Some("fr")));
-    assert_that!(text).contains("2,5 Go");
-}
-
-#[rstest]
 #[case::not_found(NotFoundSnafu { command: "/Users/x/agent" }.into_error(io(std::io::ErrorKind::NotFound)).into(), SpokenFailure::NoStart)]
 #[case::spawn(SpawnSnafu { command: "/Users/x/agent" }.into_error(io(std::io::ErrorKind::PermissionDenied)).into(), SpokenFailure::NoStart)]
 #[case::no_http(NoHttpSnafu.build().into(), SpokenFailure::NoStart)]
-#[case::no_program(crate::error::NoProgramSnafu.build().into(), SpokenFailure::NoStart)]
 #[case::stopped(StoppedSnafu { message: "SECRET-77" }.build().into(), SpokenFailure::Stopped)]
 #[case::request(RequestSnafu { message: "SECRET-77" }.build().into(), SpokenFailure::Refused)]
 fn spoken_of_an_error_follows_its_variant(#[case] e: AgentError, #[case] spoken: SpokenFailure) {

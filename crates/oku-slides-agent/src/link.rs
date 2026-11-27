@@ -26,8 +26,7 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tokio_util::sync::CancellationToken;
 
 use crate::error::{
-    AgentError, NoHttpSnafu, NoProgramSnafu, NotFoundSnafu, ProcessDirSnafu, ProcessDirTaskSnafu, SpawnSnafu,
-    StoppedSnafu, Unusable,
+    AgentError, NoHttpSnafu, NotFoundSnafu, ProcessDirSnafu, ProcessDirTaskSnafu, SpawnSnafu, StoppedSnafu, Unusable,
 };
 use crate::events::from_update;
 use crate::permission::choice;
@@ -257,12 +256,6 @@ impl Link {
         self.inner.stderr.lines()
     }
 
-    /// The stderr tail itself, to write lines into.
-    #[cfg(test)]
-    pub(crate) fn stderr(&self) -> StderrTail {
-        self.inner.stderr.clone()
-    }
-
     /// Advances each time [`Link::offered_models`] may show something else.
     pub(crate) fn models_revision(&self) -> watch::Receiver<u64> {
         self.inner.models.subscribe()
@@ -300,22 +293,9 @@ impl Link {
     /// Programme non lançable ou agent sans MCP en HTTP, depuis moins de [`FAILURE_TTL`] ;
     /// jamais un arrêt, ni un programme introuvable (revérifié en direct par la pile).
     pub(crate) fn failure(&self) -> Option<Unusable> {
-        self.failure_at().map(|(unusable, _)| unusable)
-    }
-
-    /// As [`Link::failure`], with the time it happened: kept by a fallback across a switch.
-    pub(crate) fn failure_at(&self) -> Option<(Unusable, Instant)> {
         let epoch = self.launch_now().1;
         let failure = self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner);
-        failure
-            .as_ref()
-            .filter(|f| f.epoch == epoch && f.at.elapsed() < FAILURE_TTL)
-            .map(|f| (f.unusable.clone(), f.at))
-    }
-
-    /// Oublie l'échec retenu : l'état de l'agent a changé depuis (modèle téléchargé).
-    pub(crate) fn forget_failure(&self) {
-        *self.inner.failure.lock().unwrap_or_else(PoisonError::into_inner) = None;
+        failure.as_ref().filter(|f| f.epoch == epoch && f.at.elapsed() < FAILURE_TTL).map(|f| f.unusable.clone())
     }
 
     /// Retient l'issue d'un lancement de l'époque `epoch` : son échec, ou rien après un succès.
@@ -431,11 +411,7 @@ impl Link {
         epoch: u64,
         stop: CancellationToken,
     ) -> Result<Live, AgentError> {
-        let Launch { command, args, env, ready_within, path, process_dir } = launch;
-        // Presets are checked at load: only the built-in one without the app binary has no command.
-        if command.is_empty() {
-            return Err(NoProgramSnafu.build().into());
-        }
+        let Launch { command, args, ready_within, path, process_dir } = launch;
         // Never the app's own folder (the repository in `just dev`): some agents read config there.
         // Emptied at each launch: what an earlier agent wrote there never configures this one.
         let (dir, storage) = (process_dir.clone(), self.inner.storage.clone());
@@ -466,7 +442,6 @@ impl Link {
         }
         let mut child = command_line
             .args(&args)
-            .envs(env.iter().map(|(k, v)| (k, v)))
             .current_dir(&process_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

@@ -106,9 +106,7 @@ e2e port="4872": install
     mkdir -p "$tmp/data"
     # Le journal du faux agent (`--log`) : les specs y lisent le résultat des appels MCP (220-import).
     log="$tmp/fake-agent.log"
-    # The Gguf engine whatever the Mac: 210-settings-box downloads the local agent's model,
-    # which `auto` skips where Apple's model is ready.
-    printf '[agent]\nselected = "e2e"\n\n[agent.presets.e2e]\nname = "Faux"\ncommand = "%s"\nargs = ["--script", "%s", "--log", "%s"]\n\n[agent.presets.e2e-bis]\nname = "Faux bis"\ncommand = "%s"\nargs = ["--script", "%s"]\n\n[local_agent]\nengine = "gguf"\n' \
+    printf '[agent]\nselected = "e2e"\n\n[agent.presets.e2e]\nname = "Faux"\ncommand = "%s"\nargs = ["--script", "%s", "--log", "%s"]\n\n[agent.presets.e2e-bis]\nname = "Faux bis"\ncommand = "%s"\nargs = ["--script", "%s"]\n' \
       "$bin/oku-slides-fake-agent" "$PWD/fixtures/agent/e2e.json" "$log" "$bin/oku-slides-fake-agent" "$PWD/fixtures/agent/e2e-bis.json" > "$tmp/data/config.toml"
     "$bin/oku-slides" --fonts {{fonts}} serve "{{deck}}" --ui ui/dist --port "$port" &
     server=$!
@@ -565,11 +563,9 @@ doctor:
       if command -v "$tool" >/dev/null; then echo "✓ $tool"; else echo "✗ $tool manquant"; ok=0; fi
     done
     if cargo tauri --version >/dev/null 2>&1; then echo "✓ cargo tauri"; else echo "✗ cargo tauri manquant : cargo install tauri-cli --version '^2'"; ok=0; fi
-    command -v cmake >/dev/null || echo "  cmake sert à compiler llama.cpp (agent local) : brew install cmake"
-    # Le pont Swift de la dictée d'Apple exige le SDK de macOS 26 ou plus.
+    # Le pont Swift (voix du système, annulation d'écho, micro) se compile avec Xcode.
     if [ "$(uname)" = Darwin ]; then
-      sdk="$(xcrun --show-sdk-version 2>/dev/null)"
-      if [ -n "$sdk" ] && [ "${sdk%%.*}" -ge 26 ] 2>/dev/null; then echo "✓ Xcode, SDK macOS $sdk"; else echo "✗ Xcode avec le SDK macOS 26+ manquant (SDK : ${sdk:-aucun}) : installez Xcode 26 ou plus"; ok=0; fi
+      if xcrun --find swift >/dev/null 2>&1; then echo "✓ Xcode, SDK macOS $(xcrun --show-sdk-version 2>/dev/null)"; else echo "✗ Xcode manquant (pont Swift) : installez Xcode"; ok=0; fi
     fi
     if command -v typst >/dev/null; then echo "✓ typst (optionnel)"; else echo "· typst absent (optionnel, pour just typst)"; fi
     if command -v git-lfs >/dev/null; then echo "✓ git-lfs"; else echo "✗ git-lfs manquant (polices de assets/fonts) : brew install git-lfs && git lfs install"; ok=0; fi
@@ -581,13 +577,9 @@ doctor:
     if grep -lq "^version https://git-lfs" {{fonts}}/*.ttf {{fonts}}/*.otf 2>/dev/null; then echo "✗ polices non récupérées (pointeurs LFS) : git lfs pull"; ok=0; else echo "✓ polices"; fi
     [ "$ok" = 1 ]
 
-# Transcribes a WAV file with a dictation model (parakeet, apple or api; language optional)
+# Transcribes a WAV file with a dictation model (parakeet or api; language optional)
 transcribe wav model="parakeet" lang="":
     cargo run -q --release -p oku-slides-stt --example transcribe -- {{wav}} {{model}} {{lang}}
-
-# Dictée par le moteur d'Apple, pour de vrai (macOS 26, français installé).
-test-apple:
-    cargo nextest run -p oku-slides-stt --run-ignored ignored-only -E 'binary_id(oku-slides-stt::apple) | test(/^apple::/)'
 
 # The deck at every data bound, in release: a debug build rereads the whole deck after each edit (t-1690).
 test-bounds:

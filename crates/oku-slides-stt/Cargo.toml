@@ -1,6 +1,6 @@
 [package]
 name = "oku-slides-stt"
-description = "Oku Slides speech: dictation (microphone, voice detection, Parakeet, Apple or API) and OS voices."
+description = "Oku Slides speech: dictation (microphone, voice detection, Parakeet or API) and OS voices."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,7 +17,6 @@ e2e-fakes = ["oku-slides-platform/e2e-fakes"]
 test-support = []
 
 [dependencies]
-sys-locale.workspace = true
 oku-slides-i18n.workspace = true
 oku-slides-platform = { workspace = true, features = ["download"] }
 tracing.workspace = true

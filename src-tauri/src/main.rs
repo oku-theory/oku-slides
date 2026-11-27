@@ -237,8 +237,6 @@ fn with_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::W
 fn main() -> color_eyre::Result<()> {
     // Relancé en processus de rendu (`--render-worker`) : sert le tube, puis termine.
     oku_slides_render_worker::exit_if_worker();
-    // Relancé en agent local (`--local-agent`) : sert ACP sur stdin/stdout, puis termine.
-    oku_slides_local_agent::exit_if_local_agent();
     color_eyre::install()?;
     oku_slides_platform::telemetry::init();
     // Launched from the Finder, the app has launchd's `PATH`: the login shell's leads (t-956).

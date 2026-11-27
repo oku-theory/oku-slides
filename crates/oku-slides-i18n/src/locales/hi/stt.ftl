@@ -11,7 +11,6 @@ stt-download = मॉडल डाउनलोड नहीं हो सका
 stt-download-incomplete = अधूरा डाउनलोड: { $expected } में से { $got } बाइट
 stt-cancelled = डाउनलोड रद्द किया गया
 stt-receiver-taken = हैंड्स-फ़्री सुनना पहले से कहीं और जुड़ा हुआ है
-stt-speech-denied = सिस्टम सेटिंग्ज › गोपनीयता और सुरक्षा में वाक् पहचान की अनुमति दें
 stt-locale-unsupported = डिक्टेशन इंजन इस भाषा का समर्थन नहीं करता ({ $language })
 stt-api-key-missing = डिक्टेशन API का उपयोग करने के लिए एनवायरनमेंट वेरिएबल { $var } सेट करें
 stt-api-key-invalid = पर्यावरण चर { $var } में ऐसा मान है जिसे HTTP हेडर में नहीं भेजा जा सकता
@@ -27,7 +26,6 @@ stt-voice-rate = पढ़ने की गति सामान्य गत�
 speech-barge-in-unavailable-os = Oku के बोलते समय बीच में बोलने के लिए इको रद्दीकरण चाहिए, जो केवल macOS पर उपलब्ध है।
 
 stt-model-parakeet = Parakeet v3 (25 यूरोपीय भाषाएँ)
-stt-model-apple = Apple (सिस्टम)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = डिक्टेशन मॉडल डाउनलोड हो गया

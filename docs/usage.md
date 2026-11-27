@@ -102,9 +102,8 @@ deck's widget packs.
 ## Dictation
 
 Everything happens on the machine, unless you choose the API engine
-([OpenAI or Azure OpenAI](#dictation-through-azure-openai-in-a-company)). On macOS 26+, Apple's speech engine is the default when it knows the language
-(streaming, language installed by the system; `[stt] apple = false` turns it off).
-Otherwise, NVIDIA's Parakeet TDT 0.6B v3 runs on ONNX Runtime (through
+([OpenAI or Azure OpenAI](#dictation-through-azure-openai-in-a-company)).
+NVIDIA's Parakeet TDT 0.6B v3 runs on ONNX Runtime (through
 [parakeet-rs](https://crates.io/crates/parakeet-rs)), int8-quantized weights, on the CPU.
 It understands 25 European languages and detects which one is spoken; for any other
 language it is greyed out. On the first press of the mic, the model downloads once, then
@@ -112,8 +111,7 @@ listening starts on its own.
 
 | Model | Size | Use |
 | --- | --- | --- |
-| Apple (macOS 26+) | — | Default when it knows the language; streaming |
-| Parakeet v3 | 670 MB | Default otherwise; fast and accurate, 25 European languages |
+| Parakeet v3 | 670 MB | Default; fast and accurate, 25 European languages |
 
 - **Voice detection** ([earshot](https://crates.io/crates/earshot)): only spoken
   passages are transcribed; listening stops by itself after a silence (1.5 s by default, adjustable,
@@ -143,7 +141,6 @@ it or extend it, then **send it to the agent** (⌘↩). A pause never sends for
 ```sh
 just transcribe voice.wav parakeet                # split into sentences, transcribe, measure
 OKU_SLIDES_STT__FAKE_MIC=voice.wav cargo run -p oku-slides-cli --features e2e-fakes -- --fonts assets/fonts serve fixtures/roadmap.json  # simulate the mic (e2e-fakes builds only)
-just test-apple                                   # Apple's engine for real (macOS 26, French installed)
 ```
 
 ### Dictation through Azure OpenAI in a company

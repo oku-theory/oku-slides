@@ -11,7 +11,6 @@ stt-download = Nie udało się pobrać modelu
 stt-download-incomplete = Niepełne pobieranie: { $got } z { $expected } bajtów
 stt-cancelled = Pobieranie anulowane
 stt-receiver-taken = Słuchanie bez użycia rąk jest już połączone gdzie indziej
-stt-speech-denied = Zezwól na rozpoznawanie mowy w Ustawieniach systemowych › Prywatność i ochrona
 stt-locale-unsupported = Silnik dyktowania nie obsługuje tego języka ({ $language })
 stt-api-key-missing = Ustaw zmienną środowiskową { $var }, aby używać API dyktowania
 stt-api-key-invalid = Zmienna środowiskowa { $var } zawiera wartość, której nie można wysłać w nagłówku HTTP
@@ -27,7 +26,6 @@ stt-voice-rate = Tempo mowy musi wynosić od 0,5 do 2 razy normalnego tempa
 speech-barge-in-unavailable-os = Mówienie, gdy Oku mówi, wymaga tłumienia echa, dostępnego tylko w macOS.
 
 stt-model-parakeet = Parakeet v3 (25 języków europejskich)
-stt-model-apple = Apple (systemowy)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = Model dyktowania pobrany

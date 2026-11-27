@@ -11,7 +11,7 @@ use speculoos::prelude::*;
 /// Fragment of the unknown-selected rule's English text.
 const UNKNOWN_SELECTED: &str = "names no [agent.presets] entry";
 /// Fragment of the one-launch rule's English text.
-const PRESET_LAUNCH: &str = "needs exactly one of command or builtin";
+const PRESET_LAUNCH: &str = "needs a command";
 
 fn faux() -> AgentPreset {
     AgentPreset::new("Faux", "/bin/faux", Vec::new())
@@ -62,7 +62,7 @@ fn agent_settings_insert_then_select_makes_the_preset_active() {
     agent.select("faux").unwrap_or_else(|e| panic!("select: {e}"));
     assert_that!(agent.active()).is_equal_to(&faux());
     assert_that!(agent.preset("claude")).is_some();
-    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "faux", "gemini", "local", "omp"]);
+    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "faux", "gemini", "omp"]);
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn agent_settings_presets_keep_id_order_when_the_active_sorts_last() {
     let mut agent = defaults();
     agent.insert_preset("zed", faux()).unwrap_or_else(|e| panic!("insert: {e}"));
     agent.select("zed").unwrap_or_else(|e| panic!("select: {e}"));
-    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "gemini", "local", "omp", "zed"]);
+    assert_that!(ids(&agent)).is_equal_to(vec!["claude", "codex", "gemini", "omp", "zed"]);
 }
 
 #[test]

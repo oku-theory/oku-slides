@@ -60,8 +60,8 @@ enum AgentSettingsInner {
     /// The selected id names no preset.
     #[snafu(display("agent.selected = {selected:?} names no [agent.presets] entry (known: {})", known.join(", ")))]
     UnknownSelected { selected: String, known: Vec<String>, backtrace: Backtrace },
-    /// A preset has both or neither of `command` and `builtin`.
-    #[snafu(display("[agent.presets.{id}] needs exactly one of command or builtin"))]
+    /// A preset has an empty `command`.
+    #[snafu(display("[agent.presets.{id}] needs a command"))]
     PresetLaunch { id: String, backtrace: Backtrace },
 }
 
@@ -79,29 +79,18 @@ impl oku_slides_i18n::Localize for AgentSettingsError {
     }
 }
 
-/// An agent provided by Oku Slides itself, without an external program.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Builtin {
-    /// The local fallback agent (`oku-slides-local-agent`), launched by this binary.
-    Local,
-}
-
 /// An offered agent: its display name and how to launch it.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[non_exhaustive]
 pub struct AgentPreset {
     /// Proper name shown as is (not translated).
     pub name: String,
-    /// Launched program (looked up in `PATH`); empty for a builtin agent.
+    /// Launched program (looked up in `PATH`); a preset without one is refused.
     #[serde(default)]
     pub command: String,
     /// Program arguments.
     #[serde(default)]
     pub args: Vec<String>,
-    /// Builtin agent: exclusive with `command`.
-    #[serde(default)]
-    pub builtin: Option<Builtin>,
     /// Model asked of each session, a value of the agent's `model` option; absent: its default.
     #[serde(default)]
     pub model: Option<String>,
@@ -110,12 +99,7 @@ pub struct AgentPreset {
 impl AgentPreset {
     /// An offered agent launched by a program (tests, tools).
     pub fn new(name: impl Into<String>, command: impl Into<String>, args: Vec<String>) -> Self {
-        Self { name: name.into(), command: command.into(), args, builtin: None, model: None }
-    }
-
-    /// An agent built into Oku Slides.
-    pub fn builtin(name: impl Into<String>, builtin: Builtin) -> Self {
-        Self { name: name.into(), command: String::new(), args: Vec::new(), builtin: Some(builtin), model: None }
+        Self { name: name.into(), command: command.into(), args, model: None }
     }
 }
 
@@ -127,8 +111,7 @@ impl AgentSettings {
     ///
     /// # Errors
     ///
-    /// If a preset has not exactly one of `command` and `builtin`, or if `selected` names
-    /// no preset.
+    /// If a preset has an empty `command`, or if `selected` names no preset.
     pub fn new(
         selected: impl Into<String>,
         mut presets: BTreeMap<String, AgentPreset>,
@@ -202,7 +185,7 @@ impl AgentSettings {
     ///
     /// # Errors
     ///
-    /// If `preset` has not exactly one of `command` and `builtin`; nothing changes then.
+    /// If `preset` has an empty `command`; nothing changes then.
     pub fn insert_preset(&mut self, id: impl Into<String>, preset: AgentPreset) -> Result<(), AgentSettingsError> {
         let id = id.into();
         check_launch(&id, &preset)?;
@@ -215,9 +198,9 @@ impl AgentSettings {
     }
 }
 
-/// Checks that `preset` has exactly one of `command` and `builtin`.
+/// Checks that `preset` has a command to launch.
 fn check_launch(id: &str, preset: &AgentPreset) -> Result<(), AgentSettingsError> {
-    if preset.command.is_empty() == preset.builtin.is_none() {
+    if preset.command.is_empty() {
         return Err(PresetLaunchSnafu { id }.build().into());
     }
     Ok(())

@@ -5,7 +5,7 @@ use crate::voice_view::{
     SpeechVoiceView, VoiceView,
 };
 
-/// The reference view: Apple unavailable, Parakeet installed and chosen, API without a key.
+/// The reference view: Parakeet installed and chosen, API without a key.
 #[must_use]
 pub fn voice_view_fixture() -> VoiceView {
     let model =
@@ -14,12 +14,10 @@ pub fn voice_view_fixture() -> VoiceView {
         dictation: Some(DictationView {
             model: "parakeet".into(),
             models: vec![
-                model("apple", ModelKind::Apple, 0, false, false),
                 model("parakeet", ModelKind::Local, 670_479_942, true, true),
                 model("api", ModelKind::Api, 0, false, true),
             ],
             language: None,
-            detected: None,
             auto_stop: true,
             silence: 1.5,
             hands_free: false,
@@ -36,14 +34,14 @@ pub fn voice_view_fixture() -> VoiceView {
             idle: true,
         }),
         agents: AgentsView {
-            presets: vec![
-                AgentPresetView { id: "faux".into(), name: "Faux".into(), hint: Some("fake --script s".into()) },
-                AgentPresetView { id: "local".into(), name: "Local".into(), hint: None },
-            ],
+            presets: vec![AgentPresetView {
+                id: "faux".into(),
+                name: "Faux".into(),
+                command: "fake --script s".into(),
+            }],
             active: "faux".into(),
             busy: false,
             locked: false,
-            local: None,
             pending: None,
             models: None,
         },

@@ -10,7 +10,7 @@ use crate::{Config, Mode, Model, State, Stt};
 #[test]
 fn begin_recording_refused_once_state_moved_on() {
     let dir = fresh_dir("capture-race");
-    let stt = Stt::new(&platform_in(dir.path(), "fr", |s| s.apple = false));
+    let stt = Stt::new(&platform_in(dir.path(), "fr"));
     // Another `listen` won the race: listening already started from idle.
     let session = {
         let mut g = stt.state();
@@ -30,7 +30,6 @@ fn start_parakeet_not_installed_starts_download() {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("settings: {e}"));
     settings.paths.models = Some(dir.path().join("models"));
     settings.i18n.locale = Some("fr".into());
-    settings.stt.apple = false;
     settings.models.hub_url = format!("http://{}", hub.local_addr().unwrap_or_else(|e| panic!("hub: {e}")));
     settings.models.download_retries = 0;
     let stt = Stt::new(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")));
@@ -44,7 +43,7 @@ fn start_parakeet_not_installed_starts_download() {
 #[test]
 fn start_parakeet_in_japanese_refuses_locale_unsupported() {
     let dir = fresh_dir("parakeet-ja");
-    let stt = Stt::new(&platform_in(dir.path(), "fr", |s| s.apple = false));
+    let stt = Stt::new(&platform_in(dir.path(), "fr"));
     let installed = Model::Parakeet.path(&dir.path().join("models"));
     std::fs::create_dir_all(&installed).unwrap_or_else(|e| panic!("model: {e}"));
     std::fs::write(installed.join(oku_slides_platform::models::COMPLETE), b"").unwrap_or_else(|e| panic!("model: {e}"));

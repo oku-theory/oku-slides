@@ -320,24 +320,12 @@ describe("vocabulaire", () => {
   });
 });
 
-const apple = (available: boolean) => ({ id: "apple" as const, label: "Apple (système)", size: 0, installed: available, available });
-
-describe("modèle Apple", () => {
-  test("Dictation Apple language to download shows no size", async () => {
+describe("modèle indisponible", () => {
+  test("Dictation Parakeet chosen for a language it lacks says why", async () => {
     engine.restore();
     engine = fakeStt("bonjour", {
-      config: { model: "apple", language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false, barge_in: true } },
-      models: [{ ...apple(true), installed: false }],
-    });
-    const { host } = await mount();
-    expect(host.querySelector(".dictation-line .caption")?.textContent).toBe("ui-dictation-to-download-language");
-  });
-
-  test("Dictation Apple chosen but unavailable says why", async () => {
-    engine.restore();
-    engine = fakeStt("bonjour", {
-      config: { model: "apple", language: "xx", auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false, barge_in: true } },
-      models: [apple(false)],
+      config: { model: "parakeet", language: "ja", auto_stop: false, silence: 2, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false, read_aloud: null, speech: { voice: null, rate: 1, in_presentation: false, barge_in: true } },
+      models: [{ id: "parakeet" as const, label: "Parakeet v3", size: 670_479_942, installed: true, available: false }],
     });
     const { host } = await mount();
     expect(host.querySelector(".dictation-line .caption")?.textContent).toBe("ui-dictation-model-unavailable");
@@ -383,7 +371,7 @@ describe("raccourci relayé", () => {
 });
 
 const apiModel = (installed: boolean) => ({ id: "api" as const, label: "API (gpt-4o-transcribe)", size: 0, installed, available: true });
-const apiConfig = { model: "api" as const, language: null, auto_stop: false, silence: 2, version: 1, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false };
+const apiConfig = { model: "api" as const, language: null, auto_stop: false, silence: 2, api: { url: "https://api.openai.com/v1", model: "gpt-4o-transcribe", key_env: "OPENAI_API_KEY", api_version: "", headers: [] }, hands_free: false };
 
 describe("modèle API", () => {
   test("Dictation API without key says so in the idle caption", async () => {

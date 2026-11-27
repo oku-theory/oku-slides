@@ -9,12 +9,11 @@ the CLI, the session, the agent and dictation.
   `LiveLocalizer` (language switched hot, shared by clones) and a `RenderLaunch`
   (`InProcess` or `Process`). `Platform::load` builds it once at startup; it clones cheaply.
   `RENDER_WORKER_ENV` marks a render worker process, which never launches another one.
-  `Platform.program` is this executable (`None` in tests); `LOCAL_AGENT_FLAG` runs the local agent;
   `program_path` (`ProgramPath`, `login_path.rs`: the app's `with_login_path` reads the login shell's `PATH` on a thread).
 - `telemetry`: `init` installs the `tracing` subscriber, first; `NETWORK_DEBUG_ENV` adds HTTP/TLS logs, `ACP_DEBUG_ENV` ACP messages (`ACP_TARGET`); `log_ring.rs`: a `WARN`-floored ring under the same filter (`recent_problems`, 50 lines, each event's `tab` kept apart, `captured`: secrets then home redacted, cut to 500 chars); `log_secrets.rs`: `register_secret` (8+ chars, process-wide), `redact_secrets`; `async_openai=off` follows any `RUST_LOG`. `errors`: `one_line`.
 - `config`: `Settings`, its sections (`PathSettings`, `RenderSettings`, `SttSettings`, `UsageSettings`, …), `APP_ID`; `PromptImageLimits::admit` decides which images an agent is shown (`ImageRefusal`); `stt.fake_utterances` and `stt.fake_speech` exist only with feature `e2e-fakes`; those and `stt.fake_mic` (set in code by tests) are refused at load otherwise.
-  `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (a `command` xor a
-  `Builtin`), the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
+  `config` (file `config_agent.rs`): `AgentSettings`, named `AgentPreset`s (each a `command`),
+  the active one valid by construction (`new`, `select`, `insert_preset`, and on load).
 - `updates`: updater decisions without Tauri: `InstallMode`, `UpdateStatus` (with "Later"), `Progress`
   (1 % steps, 512 MiB cap), `download_source` (trusted `UpdateSource`), `UpdateStage`, `InstallFailure`,
   `check_due` on an hourly `CHECK_TICK`, `UpdateMarks` (failed version, notice, "Later" on disk).
@@ -27,7 +26,6 @@ the CLI, the session, the agent and dictation.
   retries capped per file; waits cancellable; nothing past `PinnedFile.size`; `DownloadError::kind`. `http` (feature `download`): `system_tls` for every ureq agent.
 - `bases`: `BaseStore`, content-addressed Parquet bases in `<data>/bases/<hex>.parquet`: `adopt` (no symlink, hashed copy), `put_stream`, `open`,
   `lease`/`release` (refcount plus a lease file per process, stale after 30 min; `spawn_refresh` rewrites it every 5 min in app and serve), `gc` under `bases/.lock` (10 min grace), `max_store_mib` quota.
-- `local_agent`: pinned Qwen3 `AGENT_MODEL`, `Target`, `resolve` (engine × target × `AppleModel` × model on disk; `auto`: Apple when ready, else Gguf), `local_engine` (probes Apple only for `auto`/`apple`) → `ReadyEngine` or `Unavailable`.
 - `listen` (feature `listen`): `serve_connections`, bounded by `Limits`, replaces `axum::serve`.
 
 Startup: `telemetry::init` → `Platform::load` (settings → storage → `Localizer` from `i18n.locale`, else the system language) → app state.
@@ -42,8 +40,8 @@ the data dir, then `OKU_SLIDES_<SECTION>__<KEY>` env vars (`OKU_SLIDES_STT__VAD_
 ## Extension points
 
 - A setting: a field in a `Settings` section and its default in `config.default.toml`.
-- An agent preset: `[agent.presets.<id>]` in `config.default.toml`, exactly one of `command`, `builtin`.
+- An agent preset: `[agent.presets.<id>]` in `config.default.toml`, with a `command`.
 
 ## Dependencies
 
-`oku-slides-i18n` (the `Localizer`); `oku-slides-apple-model` (Apple's model availability); `oku-slides-data` (`BaseId`); `sha2`, `hex`, `getrandom`, `libc`; `ureq` (feature `download`).
+`oku-slides-i18n` (the `Localizer`); `oku-slides-data` (`BaseId`); `sha2`, `hex`, `getrandom`, `libc`; `ureq` (feature `download`).

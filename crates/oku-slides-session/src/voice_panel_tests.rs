@@ -43,6 +43,12 @@ fn with(f: impl FnOnce(&mut DictationView)) -> VoiceView {
     v
 }
 
+/// API chosen, Parakeet unavailable for the language.
+fn unavailable_parakeet(d: &mut DictationView) {
+    d.model = "api".into();
+    d.models[0].available = false;
+}
+
 /// The reference view with Parakeet chosen and not downloaded yet.
 fn parakeet_missing(f: impl FnOnce(&mut DictationView)) -> VoiceView {
     with(|d| {
@@ -90,10 +96,8 @@ pub(crate) fn covering_views() -> Vec<VoiceView> {
     let mut agent = voice_view_fixture();
     agent.agents.locked = true;
     agent.agents.busy = true;
-    agent.agents.pending = Some("local".into());
-    agent.agents.local = Some(LocalModelView::Failed { size: 2_500_000_000, failure: LocalFailure::Integrity });
+    agent.agents.pending = Some("faux".into());
     let mut running = voice_view_fixture();
-    running.agents.local = Some(LocalModelView::Running { percent: 40 });
     running.agents.models = Some(offered(Some("mini")));
     vec![api, local, agent, running]
 }
@@ -118,21 +122,21 @@ fn voice_panel_close_button_sends_dismiss() {
 
 #[test]
 fn voice_panel_unavailable_model_is_not_a_chip() {
-    let p = VoicePanel::build(&voice_view_fixture(), &en());
-    assert_that!(option_ids(&component(&p, "d-models"))).is_equal_to(vec!["parakeet".to_owned(), "api".to_owned()]);
+    let p = VoicePanel::build(&with(unavailable_parakeet), &en());
+    assert_that!(option_ids(&component(&p, "d-models"))).is_equal_to(vec!["api".to_owned()]);
 }
 
 #[test]
 fn voice_panel_unavailable_model_is_named_below_the_chips() {
-    let p = VoicePanel::build(&voice_view_fixture(), &fr());
+    let p = VoicePanel::build(&with(unavailable_parakeet), &fr());
     assert_that!(component(&p, "d-unavailable")["text"].clone())
-        .is_equal_to(json!("Indisponible pour cette langue : Apple (système)"));
+        .is_equal_to(json!("Indisponible pour cette langue : Parakeet v3"));
 }
 
 #[test]
 fn voice_panel_chosen_unavailable_model_stays_a_chip() {
-    let p = VoicePanel::build(&with(|d| d.model = "apple".into()), &en());
-    assert_that!(option_ids(&component(&p, "d-models"))).contains("apple".to_owned());
+    let p = VoicePanel::build(&with(|d| d.models[0].available = false), &en());
+    assert_that!(option_ids(&component(&p, "d-models"))).contains("parakeet".to_owned());
 }
 
 #[test]
@@ -145,8 +149,7 @@ fn voice_panel_model_chip_label_is_the_short_name() {
 fn every_model_has_a_voice_model_label_and_note(#[values("en", "fr")] locale: &str) {
     let l = Localizer::new(Some(locale));
     let models = voice_view_fixture().dictation.map(|d| d.models).unwrap_or_default();
-    assert_that!(models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>())
-        .is_equal_to(vec!["apple", "parakeet", "api"]);
+    assert_that!(models.iter().map(|m| m.id.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["parakeet", "api"]);
     for m in &models {
         asserting(&format!("label of {}", m.id))
             .that(&model_label(m, "gpt-4o-transcribe", &l))
@@ -261,7 +264,7 @@ fn voice_panel_progress_change_keeps_the_layout() {
 
 #[rstest]
 #[case::busy(|a: &mut AgentsView| a.busy = true)]
-#[case::pending(|a: &mut AgentsView| a.pending = Some("local".into()))]
+#[case::pending(|a: &mut AgentsView| a.pending = Some("faux".into()))]
 fn voice_panel_notice_change_keeps_the_layout(#[case] change: fn(&mut AgentsView)) {
     let a = VoicePanel::build(&voice_view_fixture(), &en());
     let b = VoicePanel::build(&agents(change), &en());
@@ -291,44 +294,15 @@ fn voice_panel_busy_text_is_in_the_data_model() {
 
 #[test]
 fn voice_panel_pending_text_names_the_agent() {
-    let p = VoicePanel::build(&agents(|a| a.pending = Some("local".into())), &fr());
+    let p = VoicePanel::build(&agents(|a| a.pending = Some("faux".into())), &fr());
     assert_that!(data(&p)["notice"]["pending"].clone())
-        .is_equal_to(json!("Passage à Local dès qu'aucune réponse ne tourne."));
-}
-
-#[test]
-fn voice_panel_apple_auto_language_names_the_detected_one() {
-    let v = with(|d| {
-        d.model = "apple".into();
-        d.models.insert(
-            0,
-            ModelView { id: "apple".into(), kind: ModelKind::Apple, size: 0, installed: true, available: true },
-        );
-        d.detected = Some("fr".into());
-    });
-    let options = component(&VoicePanel::build(&v, &en()), "d-language")["options"].clone();
-    assert_that!(options[0]["label"].as_str().unwrap_or("")).contains("Français");
+        .is_equal_to(json!("Passage à Faux dès qu'aucune réponse ne tourne."));
 }
 
 #[test]
 fn voice_panel_unlisted_language_is_still_an_option() {
     let p = VoicePanel::build(&with(|d| d.language = Some("ja".into())), &en());
     assert_that!(option_ids(&component(&p, "d-language"))).contains("ja".to_owned());
-}
-
-#[rstest]
-#[case(LocalModelView::NeedsDownload { size: 2_500_000_000 }, "a-download")]
-#[case(LocalModelView::Running { percent: 40 }, "a-cancel")]
-#[case(LocalModelView::Failed { size: 2_500_000_000, failure: LocalFailure::Integrity }, "a-error")]
-fn voice_panel_local_agent_state_shows_its_component(#[case] local: LocalModelView, #[case] id: &str) {
-    assert_that!(ids(&VoicePanel::build(&agents(|a| a.local = Some(local)), &en()))).contains(id.to_owned());
-}
-
-#[test]
-fn voice_panel_local_agent_reason_formats_gigabytes_in_french() {
-    let p =
-        VoicePanel::build(&agents(|a| a.local = Some(LocalModelView::NeedsDownload { size: 2_500_000_000 })), &fr());
-    assert_that!(component(&p, "a-local-reason")["text"].as_str().unwrap_or("")).contains("2,5");
 }
 
 #[rstest]
@@ -340,9 +314,9 @@ fn voice_panel_agent_chips_send_select_unless_locked(#[case] locked: bool, #[cas
 }
 
 #[test]
-fn voice_panel_builtin_agent_chip_has_no_hint() {
+fn voice_panel_agent_chip_hint_is_the_command_line() {
     let p = VoicePanel::build(&voice_view_fixture(), &en());
-    assert_that!(option(&p, "a-agents", "local").get("hint").cloned()).is_none();
+    assert_that!(option(&p, "a-agents", "faux")["hint"].as_str().unwrap_or("")).is_equal_to("fake --script s");
 }
 
 #[test]
@@ -408,8 +382,6 @@ fn voice_panel_every_action_parses_back_into_an_event() {
         "download",
         "cancel_download",
         "select",
-        "download_agent_model",
-        "cancel_agent_model_download",
         "agent_model",
         "read_aloud",
         "speech_voice",

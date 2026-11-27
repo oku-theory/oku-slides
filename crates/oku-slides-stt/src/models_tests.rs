@@ -4,18 +4,18 @@ use speculoos::prelude::*;
 use super::*;
 
 #[rstest]
-fn model_serde_name_is_its_id(#[values(Model::Apple, Model::Parakeet, Model::Api)] model: Model) {
+fn model_serde_name_is_its_id(#[values(Model::Parakeet, Model::Api)] model: Model) {
     assert_that!(serde_json::to_string(&model).unwrap()).is_equal_to(format!("\"{}\"", model.id()));
 }
 
 #[rstest]
-fn model_from_id_round_trips(#[values(Model::Apple, Model::Parakeet, Model::Api)] model: Model) {
+fn model_from_id_round_trips(#[values(Model::Parakeet, Model::Api)] model: Model) {
     assert_that!(Model::from_id(model.id())).is_equal_to(Some(model));
 }
 
 #[test]
 fn model_all_lists_every_variant_tested_above() {
-    assert_that!(Model::ALL.len()).is_equal_to(3);
+    assert_that!(Model::ALL.len()).is_equal_to(2);
 }
 
 #[test]
@@ -24,12 +24,12 @@ fn model_from_id_unknown_is_none() {
 }
 
 #[rstest]
-fn old_model_ids_do_not_deserialize(#[values("turbo", "large", "base")] id: &str) {
+fn old_model_ids_do_not_deserialize(#[values("turbo", "large", "base", "apple")] id: &str) {
     assert_that!(serde_json::from_str::<Model>(&format!("\"{id}\""))).is_err();
 }
 
 #[rstest]
-fn model_from_id_old_id_is_none(#[values("turbo", "large", "base")] id: &str) {
+fn model_from_id_old_id_is_none(#[values("turbo", "large", "base", "apple")] id: &str) {
     assert_that!(Model::from_id(id)).is_none();
 }
 

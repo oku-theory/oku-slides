@@ -207,11 +207,6 @@ preview_step_secs = 0.5
 min_phrase_secs = 0.3
 # Silence après lequel le compte à rebours de l'arrêt s'affiche (s).
 countdown_after_secs = 0.3
-# Offer Apple's dictation engine (macOS 26+), chosen by default;
-# false: Parakeet only.
-apple = true
-# Attente maximale du texte final du moteur d'Apple après l'arrêt (s).
-apple_finish_timeout_secs = 5.0
 # Attente maximale d'une réponse de l'API de dictée (s).
 api_timeout_secs = 30.0
 # Simulated microphone: replays this WAV file instead (e2e-fakes builds only, refused otherwise).
@@ -235,7 +230,7 @@ post_roll = 0.25
 max_phrase = 25.0
 
 [models]
-# Hub of downloaded models (dictation, local agent); retries in a row of a cut, stalled or
+# Hub of downloaded models (dictation); retries in a row of a cut, stalled or
 # refused download (the count starts over once 1 MiB more arrived; the .part is resumed),
 # and wait before the first retry (s), multiplied at each next one.
 hub_url = "https://huggingface.co"
@@ -277,25 +272,6 @@ args = ["-y", "@google/gemini-cli@0.63.0", "--acp"]
 name = "omp"
 command = "omp"
 args = ["acp"]
-
-# Agent intégré : un petit modèle qui tourne sur ce Mac, sans compte ni réseau
-# (moteur choisi par [local_agent]).
-[agent.presets.local]
-name = "Local"
-builtin = "local"
-
-[local_agent]
-# The local fallback agent's engine: "auto" (Apple's model when ready, else gguf), "apple"
-# (Apple's on-device model, macOS 26+ with Apple Intelligence on, nothing to download) or "gguf"
-# (llama.cpp on Apple silicon, Qwen3 4B model downloaded from the agent panel).
-engine = "auto"
-# Contexte du modèle (jetons), température, longueur maximale d'une réponse (jetons).
-context = 16384
-temperature = 0.3
-max_reply_tokens = 1024
-# Tests (builds de débogage) : engine = "fake" rejoue ce script et journalise chaque appel.
-# fake_script = "script.json"
-# fake_log = "log.jsonl"
 
 [updates]
 # Chercher une version plus récente au lancement, puis toutes les `check_interval_hours` heures

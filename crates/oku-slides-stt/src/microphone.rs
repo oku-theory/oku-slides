@@ -57,7 +57,7 @@ pub enum ModelFiles {
     Missing,
     /// A download of it runs, or a `.part` file of it is left.
     Partial,
-    /// Ready: files verified, Apple language installed, or API key present.
+    /// Ready: files verified, or API key present.
     Complete,
 }
 
@@ -79,7 +79,7 @@ impl Stt {
     pub fn microphone(&self) -> Microphone {
         #[cfg(target_os = "macos")]
         {
-            Microphone::from_code(crate::apple::microphone_code())
+            Microphone::from_code(crate::microphone_ffi::microphone_code())
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -89,15 +89,13 @@ impl Stt {
 
     /// The state of the chosen model's files in `status`. Reads the disk.
     ///
-    /// Apple and the API have no files: Apple is `Complete` once its language is installed, the
-    /// API once its key variable is set, `Missing` otherwise (never `Partial`).
+    /// The API has no files: it is `Complete` once its key variable is set, `Missing` otherwise
+    /// (never `Partial`).
     #[must_use]
     pub fn model_files(&self, status: &Status) -> ModelFiles {
         let model = status.config.model;
         let installed = status.models.iter().any(|m| m.id == model && m.installed);
-        if installed
-            || (!matches!(model, Model::Apple | Model::Api) && is_complete(&self.storage, &model.path(&self.dir)))
-        {
+        if installed || (model != Model::Api && is_complete(&self.storage, &model.path(&self.dir))) {
             return ModelFiles::Complete;
         }
         if status.download.as_ref().is_some_and(|d| d.model == model) || self.has_part(model) {
@@ -108,7 +106,7 @@ impl Stt {
 
     /// True if a `.part` file of `model` is left in its folder.
     fn has_part(&self, model: Model) -> bool {
-        if matches!(model, Model::Apple | Model::Api) {
+        if model == Model::Api {
             return false;
         }
         match self.storage.list_files(&model.path(&self.dir)) {

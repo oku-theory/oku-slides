@@ -1,9 +1,8 @@
-//! Agent errors: not found, no app binary, no HTTP, stopped, request refused, no working folder.
+//! Agent errors: not found, no HTTP, stopped, request refused, no working folder.
 
 use std::path::PathBuf;
 
 use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_platform::local_agent::Unavailable;
 use oku_slides_platform::storage::StorageError;
 use oku_slides_session::agent::SpokenFailure;
 use snafu::{Backtrace, Snafu};
@@ -17,8 +16,6 @@ pub struct AgentError(pub(crate) AgentInner);
 pub(crate) enum AgentInner {
     #[snafu(display("agent command not found: {command}"))]
     NotFound { command: String, source: std::io::Error, backtrace: Backtrace },
-    #[snafu(display("built-in agent without the app binary to run"))]
-    NoProgram { backtrace: Backtrace },
     #[snafu(display("agent could not start: {command}"))]
     Spawn { command: String, source: std::io::Error, backtrace: Backtrace },
     #[snafu(display("the agent cannot reach MCP servers over HTTP"))]
@@ -48,7 +45,6 @@ impl AgentError {
     pub fn spoken(&self) -> SpokenFailure {
         match &self.0 {
             AgentInner::NotFound { .. }
-            | AgentInner::NoProgram { .. }
             | AgentInner::Spawn { .. }
             | AgentInner::NoHttp { .. }
             | AgentInner::WorkDir { .. }
@@ -68,7 +64,6 @@ impl AgentError {
             AgentInner::NotFound { command, .. } => Some(Unusable::NotFound { command: command.clone() }),
             AgentInner::Spawn { command, .. } => Some(Unusable::Spawn { command: command.clone() }),
             AgentInner::NoHttp { .. } => Some(Unusable::NoHttp),
-            AgentInner::NoProgram { .. } => Some(Unusable::NoProgram),
             AgentInner::Stopped { .. }
             | AgentInner::Request { .. }
             | AgentInner::WorkDir { .. }
@@ -90,33 +85,6 @@ pub(crate) enum Unusable {
     Spawn { command: String },
     /// Il ne sait pas joindre les outils MCP en HTTP.
     NoHttp,
-    /// Agent intégré, mais ce processus n'est pas l'app (tests, outils).
-    NoProgram,
-    /// Agent local : le modèle de `size` octets reste à télécharger.
-    LocalNeedsDownload { size: u64 },
-    /// Agent local : il faut un Mac avec puce Apple.
-    LocalIntelMac,
-    /// Agent local : pas encore disponible sur ce système.
-    LocalUnsupportedOs,
-    /// Local agent: Apple Intelligence is turned off.
-    LocalAppleOff,
-    /// Local agent: Apple's model is still getting ready.
-    LocalAppleNotReady,
-    /// Local agent: Apple's model cannot run on this Mac (device or macOS).
-    LocalAppleUnsupported,
-}
-
-impl From<Unavailable> for Unusable {
-    fn from(unavailable: Unavailable) -> Self {
-        match unavailable {
-            Unavailable::IntelMac => Self::LocalIntelMac,
-            Unavailable::UnsupportedOs => Self::LocalUnsupportedOs,
-            Unavailable::NeedsDownload { size } => Self::LocalNeedsDownload { size },
-            Unavailable::AppleIntelligenceOff => Self::LocalAppleOff,
-            Unavailable::AppleModelNotReady => Self::LocalAppleNotReady,
-            Unavailable::AppleUnsupported => Self::LocalAppleUnsupported,
-        }
-    }
 }
 
 impl Localize for Unusable {
@@ -125,16 +93,6 @@ impl Localize for Unusable {
             Self::NotFound { command } => l.tr_with("agent-not-found", &[("command", command.as_str().into())]),
             Self::Spawn { command } => l.tr_with("agent-spawn-failed", &[("command", command.as_str().into())]),
             Self::NoHttp => l.tr("agent-no-http"),
-            Self::NoProgram => l.tr("agent-local-no-program"),
-            Self::LocalNeedsDownload { size } => l.tr_with(
-                "agent-local-needs-download",
-                &[("gigabytes", oku_slides_session::gigabytes_text(*size, l).into())],
-            ),
-            Self::LocalIntelMac => l.tr("agent-local-intel-mac"),
-            Self::LocalUnsupportedOs => l.tr("agent-local-unsupported-os"),
-            Self::LocalAppleOff => l.tr("agent-local-apple-off"),
-            Self::LocalAppleNotReady => l.tr("agent-local-apple-not-ready"),
-            Self::LocalAppleUnsupported => l.tr("agent-local-apple-unsupported"),
         }
     }
 }
@@ -172,7 +130,6 @@ impl Localize for AgentError {
             AgentInner::NotFound { command, .. } => Unusable::NotFound { command: command.clone() }.localize(l),
             AgentInner::Spawn { command, .. } => Unusable::Spawn { command: command.clone() }.localize(l),
             AgentInner::NoHttp { .. } => Unusable::NoHttp.localize(l),
-            AgentInner::NoProgram { .. } => Unusable::NoProgram.localize(l),
             AgentInner::Stopped { .. } => l.tr("agent-stopped"),
             AgentInner::Request { message, .. } => l.tr_with("agent-failed", &[("message", message.as_str().into())]),
             // The path stays in Display, for the logs: never quoted to the user.

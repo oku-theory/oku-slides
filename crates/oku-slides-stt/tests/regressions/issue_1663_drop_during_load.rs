@@ -46,7 +46,6 @@ fn stt(dir: &Path) -> Stt {
     settings.paths.decks = Some(dir.join("data").join("decks"));
     settings.paths.models = Some(models);
     settings.stt.fake_mic = Some(wav);
-    settings.stt.apple = false;
     settings.i18n.locale = Some("fr".into());
     Stt::new(&Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")))
 }

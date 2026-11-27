@@ -56,15 +56,13 @@ pub struct Checked {
     pub download: Option<(ModelView, String)>,
     /// L'agent choisi.
     pub agent: Option<AgentPresetView>,
-    /// Taille du modèle de l'agent local à télécharger.
-    pub agent_model_size: Option<u64>,
 }
 
 impl Checked {
     /// La demande attend une confirmation de l'utilisateur.
     #[must_use]
     pub fn needs_confirmation(&self) -> bool {
-        self.api.is_some() || self.download.is_some() || self.agent.is_some() || self.agent_model_size.is_some()
+        self.api.is_some() || self.download.is_some() || self.agent.is_some()
     }
 }
 
@@ -105,8 +103,6 @@ pub enum VoiceErrorKind {
     HandsFreeReservedToUser,
     /// L'état a changé depuis la question : il faudrait confirmer à nouveau.
     Changed,
-    /// Rien à télécharger pour l'agent choisi.
-    NothingToDownload,
     /// Agent absent de la configuration.
     UnknownAgent,
     /// Le choix de l'agent est imposé.
@@ -146,7 +142,6 @@ impl VoiceErrorKind {
             Self::ApiReservedToUser => "voice-error-api-reserved",
             Self::HandsFreeReservedToUser => "voice-error-hands-free-reserved",
             Self::Changed => "voice-error-changed",
-            Self::NothingToDownload => "voice-error-nothing-to-download",
             Self::UnknownAgent => "agent-error-unknown-agent",
             Self::AgentLocked => "agent-error-agent-locked",
             Self::AgentNotSaved => "agent-error-agent-not-saved",

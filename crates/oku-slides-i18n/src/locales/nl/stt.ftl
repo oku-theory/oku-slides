@@ -11,7 +11,6 @@ stt-download = Het model kon niet worden gedownload
 stt-download-incomplete = Onvolledige download: { $got } van { $expected } bytes
 stt-cancelled = Download geannuleerd
 stt-receiver-taken = Handsfree luisteren is al ergens anders gekoppeld
-stt-speech-denied = Sta spraakherkenning toe in Systeeminstellingen › Privacy en beveiliging
 stt-locale-unsupported = De dicteerengine ondersteunt deze taal niet ({ $language })
 stt-api-key-missing = Stel de omgevingsvariabele { $var } in om de dicteer-API te gebruiken
 stt-api-key-invalid = De omgevingsvariabele { $var } bevat een waarde die niet in een HTTP-header kan worden verzonden
@@ -27,7 +26,6 @@ stt-voice-rate = De spreeksnelheid moet tussen 0,5 en 2 keer de normale snelheid
 speech-barge-in-unavailable-os = Door Oku heen praten vereist echo-onderdrukking, alleen beschikbaar op macOS.
 
 stt-model-parakeet = Parakeet v3 (25 Europese talen)
-stt-model-apple = Apple (systeem)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = Dicteermodel gedownload

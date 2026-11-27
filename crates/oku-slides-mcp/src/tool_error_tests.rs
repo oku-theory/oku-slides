@@ -57,10 +57,7 @@ const KEYS: &[&str] = &[
     "agent-after-turn-quit-unsaved",
     "agent-confirm-dictation-api",
     "agent-confirm-dictation-download",
-    "agent-confirm-dictation-language",
     "agent-confirm-agent",
-    "agent-confirm-agent-builtin",
-    "agent-confirm-agent-model",
 ];
 
 #[test]

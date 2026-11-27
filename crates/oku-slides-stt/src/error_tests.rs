@@ -58,22 +58,10 @@ fn localize_each_kind_speaks_to_the_user() {
         (cancelled_download(), SttErrorKind::Cancelled, "Téléchargement annulé"),
         (failed_download(), SttErrorKind::Download, "Le modèle n'a pas pu être téléchargé"),
         (
-            SpeechDeniedSnafu.build().into(),
-            SttErrorKind::Permission,
-            "Autorisez la reconnaissance vocale dans Réglages Système › Confidentialité et sécurité",
-        ),
-        (
             LocaleUnsupportedSnafu { locale: "xx" }.build().into(),
             SttErrorKind::Model,
             "Le moteur de dictée ne prend pas en charge cette langue (xx)",
         ),
-        (
-            AssetInstallSnafu { reason: "x" }.build().into(),
-            SttErrorKind::Download,
-            "Le modèle n'a pas pu être téléchargé",
-        ),
-        (AnalyzerSnafu { reason: "x" }.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
-        (FinishTimeoutSnafu.build().into(), SttErrorKind::Transcription, "La transcription a échoué"),
         (NotDownloadableSnafu.build().into(), SttErrorKind::Model, "Modèle de dictée illisible"),
         (
             ApiKeyInvalidSnafu { var: "OPENAI_API_KEY" }.build().into(),

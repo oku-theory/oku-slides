@@ -277,15 +277,15 @@ fn agent_guides_after_forget_sent_blocks_sends_again() {
     assert_that!(s.agent_guides("acp", false)).is_some();
 }
 
-/// The local agent standing in runs another ACP session: it gets the guides, and so does the
-/// main agent's session once the list changed while it was away.
+/// Another agent runs another ACP session: it gets the guides, and so does the
+/// first agent's session once the list changed while it was away.
 #[test]
 fn agent_guides_turn_on_another_session_sends_again() {
     let (_d, mut s) = deck_pinning_base_with_use_guide("a");
     s.agent_guides("main", true);
-    assert_that!(s.agent_guides("local", false)).is_some();
+    assert_that!(s.agent_guides("other", false)).is_some();
     pin_another_pack_with_use_guide(&mut s, "bee");
-    assert_that!(s.agent_guides("local", false)).is_some();
+    assert_that!(s.agent_guides("other", false)).is_some();
     assert_that!(s.agent_guides("main", false).map(|g| g.block)).is_some().contains("bee");
     assert_that!(s.agent_guides("main", false)).is_none();
 }
@@ -297,19 +297,19 @@ fn agent_guides_list_emptied_on_another_first_turn_retracts_to_a_later_turn() {
     s.set_guide_by_agent(GuideKind::Edit, "x".into()).unwrap();
     s.agent_guides("main", true);
     s.handle(Request::SetGuide { which: GuideKind::Edit, text: String::new() }).unwrap();
-    assert_that!(s.agent_guides("local", true)).is_none();
+    assert_that!(s.agent_guides("other", true)).is_none();
     let back = s.agent_guides("main", false).map(|g| g.block);
     assert_that!(back).is_some().contains("There are no guides now.");
     assert_that!(s.agent_guides("main", false)).is_none();
 }
 
-/// A fallback turn that took the guides last still leaves the main session hearing they are gone.
+/// Another session that took the guides last still leaves the main session hearing they are gone.
 #[test]
-fn agent_guides_list_emptied_after_a_fallback_turn_retracts_to_the_main_session() {
+fn agent_guides_list_emptied_after_another_session_retracts_to_the_main_session() {
     let (_d, mut s) = guideless_theme_tab();
     s.set_guide_by_agent(GuideKind::Edit, "x".into()).unwrap();
     s.agent_guides("main", true);
-    assert_that!(s.agent_guides("local", true)).is_some();
+    assert_that!(s.agent_guides("other", true)).is_some();
     s.handle(Request::SetGuide { which: GuideKind::Edit, text: String::new() }).unwrap();
     let back = s.agent_guides("main", false).map(|g| g.block);
     assert_that!(back).is_some().contains("There are no guides now.");

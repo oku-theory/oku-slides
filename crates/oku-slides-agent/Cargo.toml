@@ -18,7 +18,7 @@ oku-slides-core.workspace = true
 oku-slides-session.workspace = true
 oku-slides-mcp.workspace = true
 oku-slides-i18n.workspace = true
-oku-slides-platform = { workspace = true, features = ["download"] }
+oku-slides-platform.workspace = true
 oku-slides-stt.workspace = true
 agent-client-protocol = { workspace = true, features = ["unstable_end_turn_token_usage"] }
 rust-mcp-sdk.workspace = true

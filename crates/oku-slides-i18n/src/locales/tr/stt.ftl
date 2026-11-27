@@ -11,7 +11,6 @@ stt-download = Model indirilemedi
 stt-download-incomplete = Eksik indirme: { $got } / { $expected } bayt
 stt-cancelled = İndirme iptal edildi
 stt-receiver-taken = Eller serbest dinleme zaten başka bir yere bağlı
-stt-speech-denied = Sistem Ayarları › Gizlilik ve Güvenlik bölümünde konuşma tanımaya izin verin
 stt-locale-unsupported = Dikte motoru bu dili desteklemiyor ({ $language })
 stt-api-key-missing = Dikte API'sini kullanmak için { $var } ortam değişkenini ayarlayın
 stt-api-key-invalid = { $var } ortam değişkeni bir HTTP başlığında gönderilemeyen bir değer içeriyor
@@ -27,7 +26,6 @@ stt-voice-rate = Okuma hızı normal hızın 0,5 ile 2 katı arasında olmalıd�
 speech-barge-in-unavailable-os = Oku konuşurken araya girmek yankı engelleme gerektirir; yalnızca macOS'ta kullanılabilir.
 
 stt-model-parakeet = Parakeet v3 (25 Avrupa dili)
-stt-model-apple = Apple (sistem)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = Dikte modeli indirildi

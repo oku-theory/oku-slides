@@ -276,7 +276,7 @@ fn downloading(received: u64) -> impl Fn(&mut VoiceView) {
 
 #[rstest]
 #[case::busy(|v: &mut VoiceView| v.agents.busy = true, "/notice/busy", "Changer d'agent interrompra le tour en cours.")]
-#[case::pending(|v: &mut VoiceView| v.agents.pending = Some("local".into()), "/notice/pending", "Passage à Local dès qu'aucune réponse ne tourne.")]
+#[case::pending(|v: &mut VoiceView| v.agents.pending = Some("local".into()), "/notice/pending", "Passage à local dès qu'aucune réponse ne tourne.")]
 #[tokio::test(flavor = "multi_thread")]
 async fn refresh_with_only_new_notices_sends_their_text_as_a_patch(
     #[case] change: fn(&mut VoiceView),
@@ -525,7 +525,7 @@ async fn download_dictation_model_refused_opens_no_dialog() {
 async fn select_agent_confirmation_names_the_agent_and_its_command(#[case] part: &str) {
     let h = start().await;
     lock(&h.voice.checked).agent =
-        Some(AgentPresetView { id: "bis".into(), name: "Bis".into(), hint: Some("fake --bis".into()) });
+        Some(AgentPresetView { id: "bis".into(), name: "Bis".into(), command: "fake --bis".into() });
     let (text, _, _) = guarded_message(&h, "select_agent", json!({"id": "bis"}), false).await;
     assert_that!(text).contains(part);
 }
@@ -533,7 +533,8 @@ async fn select_agent_confirmation_names_the_agent_and_its_command(#[case] part:
 #[tokio::test(flavor = "multi_thread")]
 async fn select_agent_confirmed_reports_the_port_answer() {
     let h = start().await;
-    lock(&h.voice.checked).agent = Some(AgentPresetView { id: "bis".into(), name: "Bis".into(), hint: None });
+    lock(&h.voice.checked).agent =
+        Some(AgentPresetView { id: "bis".into(), name: "Bis".into(), command: "fake --bis".into() });
     *lock(&h.voice.answer) = Some(VoiceApplied::WhenIdle);
     let (_, _, r) = guarded_message(&h, "select_agent", json!({"id": "bis"}), true).await;
     assert_that!(json_of(&r)).is_equal_to(json!({ "applied": "when_idle" }));
@@ -542,7 +543,8 @@ async fn select_agent_confirmed_reports_the_port_answer() {
 #[tokio::test(flavor = "multi_thread")]
 async fn select_agent_declined_applies_nothing() {
     let h = start().await;
-    lock(&h.voice.checked).agent = Some(AgentPresetView { id: "bis".into(), name: "Bis".into(), hint: None });
+    lock(&h.voice.checked).agent =
+        Some(AgentPresetView { id: "bis".into(), name: "Bis".into(), command: "fake --bis".into() });
     guarded_message(&h, "select_agent", json!({"id": "bis"}), false).await;
     assert_that!(*lock(&h.voice.applied)).is_empty();
 }
@@ -556,19 +558,7 @@ async fn select_agent_unchanged_goes_through_the_port_without_asking() {
 }
 
 #[rstest]
-#[case(true, 1)]
-#[case(false, 0)]
-#[tokio::test(flavor = "multi_thread")]
-async fn download_agent_model_is_confirmed(#[case] yes: bool, #[case] applied: usize) {
-    let h = start().await;
-    lock(&h.voice.checked).agent_model_size = Some(2_500_000_000);
-    guarded_message(&h, "download_agent_model", json!({}), yes).await;
-    assert_that!(*lock(&h.voice.applied)).has_length(applied);
-}
-
-#[rstest]
 #[case("cancel_dictation_download", VoiceEvent::CancelDictationDownload)]
-#[case("cancel_agent_model_download", VoiceEvent::CancelAgentModelDownload)]
 #[tokio::test(flavor = "multi_thread")]
 async fn cancel_tools_apply_at_once(#[case] tool: &str, #[case] event: VoiceEvent) {
     let h = start().await;

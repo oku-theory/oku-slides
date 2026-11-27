@@ -1602,7 +1602,7 @@
            "bold": true
           },
           {
-           "t": ": dictation and local agent models, and the dictation settings (config.json)."
+           "t": ": dictation models and the dictation settings (config.json)."
           }
          ],
          "list": "bullet"
@@ -1772,31 +1772,7 @@
            "bold": true
           },
           {
-           "t": ": the agent, a key of [agent.presets] (claude, codex, gemini, local, omp); the agent choice is then locked. An unknown key stops the launch."
-          }
-         ],
-         "list": "bullet"
-        },
-        {
-         "runs": [
-          {
-           "t": "OKU_SLIDES_LOCAL_AGENT__ENGINE",
-           "bold": true
-          },
-          {
-           "t": ": auto or gguf, the engine of the local agent."
-          }
-         ],
-         "list": "bullet"
-        },
-        {
-         "runs": [
-          {
-           "t": "OKU_SLIDES_STT__APPLE",
-           "bold": true
-          },
-          {
-           "t": ": false keeps Parakeet only, without Apple's engine."
+           "t": ": the agent, a key of [agent.presets] (claude, codex, gemini, omp); the agent choice is then locked. An unknown key stops the launch."
           }
          ],
          "list": "bullet"

@@ -63,7 +63,6 @@ mod scenario {
         settings.paths.decks = Some(dir.path().join("decks"));
         settings.paths.models = Some(dir.path().join("models"));
         settings.i18n.locale = Some("en".into());
-        settings.stt.apple = false;
         let platform = Platform::with_settings(settings).map_err(|e| format!("platform: {e}"))?;
         let stt = Stt::new(&platform);
         // The API engine on a closed loopback port: built at once, called only for a phrase,

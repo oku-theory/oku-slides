@@ -128,7 +128,6 @@ fn second_launch(h: &Harness, script: &serde_json::Value) -> (oku_slides_agent::
             "--log".into(),
             log.to_string_lossy().into_owned(),
         ],
-        env: Vec::new(),
         path: None,
         process_dir: h.process_dir(),
         ready_within: oku_slides_agent::READY_WITHIN,

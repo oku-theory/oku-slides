@@ -54,11 +54,10 @@ args = ["--acp"]
 | `[knowledge]` | Deck knowledge base: agent index size (`index_entries`, `index_kib`), `search_hits`, rows and columns kept per imported sheet, extraction worker time and memory |
 | `[serve]` | Dev server `host`, `port`, header timeout and connection cap (also the agent's tool server) |
 | `[i18n]`, `[appearance]`, `[author]` | Interface language, light or dark scheme, name in deck history |
-| `[stt]`, `[stt.vad]` | Dictation timing, Apple engine on or off, API timeout; voice detection thresholds and pauses |
+| `[stt]`, `[stt.vad]` | Dictation timing, API timeout; voice detection thresholds and pauses |
 | `[models]` | Model download host, retries and timeouts |
-| `[agent]`, `[agent.presets.<id>]` | Active agent and the agents offered: `name`, then exactly one of `command` (with `args`) or `builtin` |
+| `[agent]`, `[agent.presets.<id>]` | Active agent and the agents offered: `name`, `command`, `args`, optional `model` |
 | `[usage]` | `store_in_deck`: record agent usage in each deck (default `true`); `false` also drops it at the next save |
-| `[local_agent]` | Built-in fallback agent: engine, context, temperature, reply length |
 | `[updates]` | `check_automatically`, `check_interval_hours` |
 
 Every key, with its default and a comment, is in
@@ -81,7 +80,6 @@ the next change in the box. A file that does not parse is kept aside as
 | `OKU_SLIDES_PATHS__DECKS` | Where new decks are saved automatically (default `Documents/Oku Slides`) |
 | `OKU_SLIDES_PATHS__MODELS` | Dictation models folder |
 | `OKU_SLIDES_PATHS__FONTS` | Extra fonts (TTF/OTF) |
-| `OKU_SLIDES_STT__APPLE` | `false`: Parakeet only |
 | `OKU_SLIDES_STT__FAKE_MIC` | WAV file replayed instead of the microphone; refused at load without the `e2e-fakes` feature |
 | `OKU_SLIDES_STT__VAD__PAUSE` | Pause that ends a sentence (s), like any `[stt.vad]` key |
 | `OKU_SLIDES_SERVE__PORT` | Dev server port |

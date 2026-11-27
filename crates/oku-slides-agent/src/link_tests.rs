@@ -33,7 +33,6 @@ fn launch(command: &str, data: &Path) -> Launch {
     Launch {
         command: command.to_owned(),
         args: Vec::new(),
-        env: Vec::new(),
         path: None,
         process_dir: data.join("agent-process"),
         ready_within: std::time::Duration::from_secs(5),

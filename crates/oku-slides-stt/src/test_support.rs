@@ -1,16 +1,15 @@
 //! Outillage des tests unitaires de `oku-slides-stt`.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError, mpsc};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
 use oku_slides_platform::Platform;
-use oku_slides_platform::config::{Settings, SttSettings};
+use oku_slides_platform::config::Settings;
 
 use crate::phrase_engine::PhraseEngine;
-use crate::stream::{Availability, Event, Stream, StreamEngine};
-use crate::{Config, Model, Status, Stt, SttError, Transcript, locale};
+use crate::{Config, Model, Status, Stt, SttError, Transcript};
 
 /// Un dossier neuf, créé atomiquement sous un nom aléatoire (t-273).
 ///
@@ -18,159 +17,6 @@ use crate::{Config, Model, Status, Stt, SttError, Transcript, locale};
 /// (nextest lance un processus par test). Supprimé au `drop`.
 pub(crate) fn fresh_dir(prefix: &str) -> tempfile::TempDir {
     tempfile::Builder::new().prefix(prefix).tempdir().unwrap_or_else(|e| panic!("dossier de test impossible : {e}"))
-}
-
-/// When a [`ScriptedEngine`] stream sends its finals.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum FinalsAt {
-    /// At `finish`, as a dictation ends.
-    Finish,
-    /// At the first `push` (listening: the stream is never finished).
-    FirstPush,
-}
-
-/// Un moteur en continu factice : français seulement, rejoue `finals` à `finish`.
-#[derive(Debug)]
-pub(crate) struct ScriptedEngine {
-    french: Mutex<Availability>,
-    finals: Vec<String>,
-    /// `finish` ne rend jamais `Done`.
-    pub hang: bool,
-    /// Le premier `push` rend une erreur du moteur.
-    pub fail: bool,
-    /// When `finals` are sent.
-    pub finals_at: FinalsAt,
-    /// Délai avant les événements de `install` (laisse voir une annulation).
-    pub install_delay: Duration,
-    /// `install` envoie `Progress` sans fin, sans jamais `Done`.
-    pub install_progress_forever: bool,
-    /// Échantillons reçus ; `cancel` appelé.
-    pub pushed: Arc<AtomicUsize>,
-    pub cancelled: Arc<AtomicBool>,
-    /// Canaux gardés ouverts par `hang`.
-    kept: Arc<Mutex<Vec<mpsc::Sender<Event>>>>,
-}
-
-impl ScriptedEngine {
-    pub(crate) fn new(french: Availability, finals: &[&str]) -> Self {
-        Self {
-            french: Mutex::new(french),
-            finals: finals.iter().map(|s| (*s).to_owned()).collect(),
-            hang: false,
-            fail: false,
-            finals_at: FinalsAt::Finish,
-            install_delay: Duration::ZERO,
-            install_progress_forever: false,
-            pushed: Arc::default(),
-            cancelled: Arc::default(),
-            kept: Arc::default(),
-        }
-    }
-
-    fn french(&self) -> std::sync::MutexGuard<'_, Availability> {
-        self.french.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-impl StreamEngine for ScriptedEngine {
-    fn supported(&self) -> bool {
-        true
-    }
-
-    fn availability(&self, tag: &str) -> Availability {
-        if locale::language(tag) == "fr" { *self.french() } else { Availability::Unsupported }
-    }
-
-    fn install(&self, _tag: &str) -> mpsc::Receiver<Event> {
-        let (tx, rx) = mpsc::channel();
-        let delay = self.install_delay;
-        if self.install_progress_forever {
-            // Plus vite que le tic : la réception n'expire jamais ; s'arrête quand on lâche le canal.
-            std::thread::spawn(move || {
-                while tx.send(Event::Progress { received: 1, total: 2 }).is_ok() {
-                    std::thread::sleep(Duration::from_millis(1));
-                }
-            });
-            return rx;
-        }
-        *self.french() = Availability::Ready;
-        std::thread::spawn(move || {
-            std::thread::sleep(delay);
-            tx.send(Event::Progress { received: 1, total: 2 }).ok();
-            tx.send(Event::Progress { received: 2, total: 2 }).ok();
-            tx.send(Event::Done).ok();
-        });
-        rx
-    }
-
-    fn open(&self, _tag: &str, _vocabulary: &[String]) -> (Box<dyn Stream>, mpsc::Receiver<Event>) {
-        let (tx, rx) = mpsc::channel();
-        let stream = ScriptedStream {
-            tx,
-            finals: self.finals.clone(),
-            hang: self.hang,
-            fail: self.fail,
-            finals_at: self.finals_at,
-            pushed: self.pushed.clone(),
-            cancelled: self.cancelled.clone(),
-            kept: self.kept.clone(),
-        };
-        (Box::new(stream), rx)
-    }
-}
-
-#[derive(Debug)]
-struct ScriptedStream {
-    tx: mpsc::Sender<Event>,
-    finals: Vec<String>,
-    hang: bool,
-    fail: bool,
-    finals_at: FinalsAt,
-    pushed: Arc<AtomicUsize>,
-    cancelled: Arc<AtomicBool>,
-    kept: Arc<Mutex<Vec<mpsc::Sender<Event>>>>,
-}
-
-impl ScriptedStream {
-    /// The scripted finals, one second each from the stream's start.
-    fn send_finals(&self) {
-        let mut start = 0.0;
-        for text in &self.finals {
-            self.tx.send(Event::Final { text: text.clone(), start, end: start + 1.0 }).ok();
-            start += 1.0;
-        }
-    }
-}
-
-impl Stream for ScriptedStream {
-    fn push(&mut self, samples: &[f32]) {
-        if self.pushed.fetch_add(samples.len(), Ordering::Relaxed) == 0 {
-            let event = if self.fail {
-                Event::Failed(crate::error::AnalyzerSnafu { reason: "panne" }.build().into())
-            } else {
-                Event::Partial(" bonjour ".into())
-            };
-            self.tx.send(event).ok();
-            if self.finals_at == FinalsAt::FirstPush {
-                self.send_finals();
-            }
-        }
-    }
-
-    fn finish(&mut self) {
-        if self.finals_at == FinalsAt::Finish {
-            self.send_finals();
-        }
-        if self.hang {
-            self.kept.lock().unwrap_or_else(PoisonError::into_inner).push(self.tx.clone());
-        } else {
-            self.tx.send(Event::Done).ok();
-        }
-    }
-
-    fn cancel(&mut self) {
-        self.cancelled.store(true, Ordering::Relaxed);
-    }
 }
 
 /// Un WAV muet de `secs` secondes à 16 kHz, en guise de micro.
@@ -190,18 +36,17 @@ pub(crate) fn silent_wav(dir: &Path, secs: f32) -> PathBuf {
     path
 }
 
-/// Une plateforme en français, ses modèles dans `dir`, un micro muet ; `tune` ajuste la dictée.
-pub(crate) fn french_platform(dir: &Path, tune: impl FnOnce(&mut SttSettings)) -> Platform {
-    platform_in(dir, "fr", tune)
+/// Une plateforme en français, ses modèles dans `dir`, un micro muet .
+pub(crate) fn french_platform(dir: &Path) -> Platform {
+    platform_in(dir, "fr")
 }
 
 /// Une plateforme dans la langue `locale`, sinon comme [`french_platform`].
-pub(crate) fn platform_in(dir: &Path, locale: &str, tune: impl FnOnce(&mut SttSettings)) -> Platform {
+pub(crate) fn platform_in(dir: &Path, locale: &str) -> Platform {
     let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
     settings.paths.models = Some(dir.join("models"));
     settings.i18n.locale = Some(locale.into());
     settings.stt.fake_mic = Some(silent_wav(dir, 1.0));
-    tune(&mut settings.stt);
     Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"))
 }
 
@@ -333,7 +178,7 @@ pub(crate) fn speech_wav(dir: &Path, parts: &[Part]) -> PathBuf {
     path
 }
 
-/// Parakeet listening on `parts`, its engine faked; `stt.apple = false`, silence `silence` s.
+/// Parakeet listening on `parts`, its engine faked, silence `silence` s.
 pub(crate) fn listening_stt(dir: &Path, parts: &[Part], silence: f32) -> (Stt, Arc<CountingEngine>) {
     listening_stt_with(dir, parts, silence, Duration::ZERO)
 }
@@ -351,7 +196,6 @@ pub(crate) fn listening_stt_with(
     // Never the real hub: a download started by a test fails at once.
     "http://127.0.0.1:9".clone_into(&mut settings.models.hub_url);
     settings.models.download_retries = 0;
-    settings.stt.apple = false;
     settings.stt.fake_mic = Some(speech_wav(dir, parts));
     let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
     let installed = Model::Parakeet.path(&dir.join("models"));

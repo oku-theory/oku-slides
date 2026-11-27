@@ -10,7 +10,6 @@ publish.workspace = true
 
 [dependencies]
 oku-slides-i18n.workspace = true
-oku-slides-apple-model.workspace = true
 oku-slides-data.workspace = true
 config.workspace = true
 opendal.workspace = true
@@ -36,7 +35,7 @@ libc.workspace = true
 # plafond de connexions, arrêt borné. Activée par la CLI et `oku-slides-mcp`.
 listen = ["dep:axum", "dep:hyper", "dep:hyper-util", "tokio/net", "tokio/sync", "tokio/time", "tokio/macros"]
 
-# Téléchargement des modèles épinglés (dictée, agent local) : client HTTP et SHA-256.
+# Téléchargement des modèles épinglés (dictée) : client HTTP et SHA-256.
 download = ["dep:ureq"]
 
 # e2e fakes (`stt.fake_utterances`): only `just e2e` turns it on, through oku-slides-cli/e2e-fakes.

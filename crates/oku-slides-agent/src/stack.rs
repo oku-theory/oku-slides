@@ -61,8 +61,6 @@ pub struct Stack {
     table: Arc<Mutex<Table>>,
     out_tx: mpsc::UnboundedSender<Out>,
     out_rx: Mutex<Option<mpsc::UnboundedReceiver<Out>>>,
-    /// L'agent choisi : celui du prochain lancement, sa disponibilité, le panneau.
-    choice: Arc<AgentChoice>,
     /// La dictée et l'agent de l'app : la boîte des réglages de chaque onglet.
     pub(crate) voice: Arc<AppVoice>,
     /// The host's workspace: the tab that has the focus.
@@ -97,9 +95,9 @@ impl Stack {
     ) -> Arc<Self> {
         let Voices { stt, speaker } = voices;
         let a = platform.settings.agent.active();
-        let model = a.builtin.is_none().then(|| a.model.clone()).flatten();
         let launch = AgentChoice::launch_of(a, platform);
-        let link = Link::for_preset(platform.settings.agent.selected(), launch, model, platform.storage.clone());
+        let link =
+            Link::for_preset(platform.settings.agent.selected(), launch, a.model.clone(), platform.storage.clone());
         let (out_tx, out_rx) = mpsc::unbounded_channel();
         let choice = Arc::new(AgentChoice::new(platform, link.clone()));
         let voice = AppVoice::new(stt.clone(), speaker.clone(), choice.clone(), rt.clone());
@@ -130,7 +128,6 @@ impl Stack {
             });
             Self {
                 speaker,
-                choice,
                 voice,
                 workspace,
                 app,
@@ -426,9 +423,8 @@ impl Stack {
     /// Starts the fine-tuning turn of the imported tab `tab` (see [`AgentCommand::Tune`]); `true` if it started.
     ///
     /// For the host, when an import asks for its fine-tuning; starts the tab's agent. Refused
-    /// only if neither the selected agent nor the local one can run (a model download included):
-    /// nothing starts, and the tab gets the reason (`AgentEvent::Availability`), as after a failed
-    /// launch; a refused command is logged. May block (reads the disk): call it off the runtime threads.
+    /// only if the selected agent cannot run: nothing starts, and the tab gets the reason
+    /// (`AgentEvent::Availability`), as after a failed launch; a refused command is logged. May block (reads the disk): call it off the runtime threads.
     pub fn tune(&self, tab: &str) -> bool {
         if let Some(reason) = self.availability() {
             tracing::warn!(tab, reason, "import fine-tuning not started: agent unusable");
@@ -446,10 +442,8 @@ impl Stack {
 
     /// Why no agent can serve a turn, localized; `None` if one seems usable.
     ///
-    /// The selected agent's reason (its program not found, the local engine's state for the
-    /// built-in agent, else the recent failure of its last launch), and the local agent's when
-    /// it cannot stand in for it either (a model to download counts as able). May block: reads
-    /// the disk.
+    /// The selected agent's reason (its program not found, else the recent failure of its last
+    /// launch). May block: reads the disk.
     pub fn availability(&self) -> Option<String> {
         self.voice.availability()
     }
@@ -503,8 +497,6 @@ impl Stack {
         self.closing.store(true, Ordering::SeqCst);
         // No more agent switch (a pending choice drops); the dictation joins its threads.
         self.voice.shutdown();
-        // Le `.part` du modèle (2,5 Go) ne doit pas grossir après la fin de l'app.
-        self.choice.cancel_download();
         let gone = {
             let mut table = self.table();
             table.shut = true;

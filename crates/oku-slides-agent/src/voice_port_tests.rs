@@ -59,7 +59,6 @@ pub(crate) fn build_with(
     let presets = [("faux".to_owned(), preset("Faux")), ("bis".to_owned(), preset("Bis"))].into_iter().collect();
     settings.agent = AgentSettings::new("faux", presets).unwrap();
     settings.i18n.locale = Some("fr".into());
-    settings.stt.apple = false;
     tweak(&mut settings);
     let platform = oku_slides_session::Platform::with_settings(settings).unwrap();
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(1).enable_all().build().unwrap();
@@ -397,7 +396,6 @@ fn view_api_key_found_for_a_set_variable() {
 #[case(VoiceEvent::DownloadDictation { model: "api".into() }, VoiceErrorKind::NotDownloadable)]
 #[case(VoiceEvent::DownloadDictation { model: "nope".into() }, VoiceErrorKind::UnknownModel)]
 #[case(VoiceEvent::CancelDictationDownload, VoiceErrorKind::NothingToCancel)]
-#[case(VoiceEvent::CancelAgentModelDownload, VoiceErrorKind::NothingToCancel)]
 #[case(VoiceEvent::SelectAgent { id: "nope".into() }, VoiceErrorKind::UnknownAgent)]
 #[case::model_before_any_session(VoiceEvent::SelectAgentModel { id: "deep".into() }, VoiceErrorKind::UnknownAgentModel)]
 fn check_refuses_before_any_change(#[case] event: VoiceEvent, #[case] kind: VoiceErrorKind) {
@@ -484,7 +482,6 @@ fn diagnosis_missing_agent_program_names_it_unusable() {
     let agent = t.voice.diagnosis().agent;
     assert_that!(agent.selected.as_str()).is_equal_to("gone");
     assert_that!(agent.name.as_str()).is_equal_to("Missing");
-    assert_that!(agent.builtin).is_false();
     let expected = crate::error::Unusable::NotFound { command: "oku-no-such-program-t1449".into() }
         .localize(&oku_slides_i18n::Localizer::new(Some("fr")));
     assert_that!(agent.unusable).is_equal_to(Some(expected));

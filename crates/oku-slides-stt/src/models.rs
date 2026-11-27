@@ -1,5 +1,5 @@
 //! Dictation models: Parakeet TDT 0.6B v3 in ONNX (int8), downloaded on demand from
-//! Hugging Face, pinned by commit and SHA-256; Apple and the API have nothing to download.
+//! Hugging Face, pinned by commit and SHA-256; the API has nothing to download.
 
 use std::path::{Path, PathBuf};
 
@@ -35,8 +35,6 @@ pub(crate) fn parakeet_supports(language: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Model {
-    /// Apple's engine (macOS 26+): streaming, language installed by the system.
-    Apple,
     /// Parakeet TDT 0.6B v3, int8: 25 European languages, on the CPU.
     #[default]
     Parakeet,
@@ -46,13 +44,12 @@ pub enum Model {
 
 impl Model {
     /// Every model, in display order.
-    pub const ALL: [Model; 3] = [Model::Apple, Model::Parakeet, Model::Api];
+    pub const ALL: [Model; 2] = [Model::Parakeet, Model::Api];
 
     /// The model's id, the same as its serde name.
     #[must_use]
     pub fn id(self) -> &'static str {
         match self {
-            Model::Apple => "apple",
             Model::Parakeet => "parakeet",
             Model::Api => "api",
         }
@@ -68,7 +65,6 @@ impl Model {
     #[must_use]
     pub fn repo(self) -> &'static str {
         match self {
-            Model::Apple => "apple",
             Model::Parakeet => PARAKEET_REPO,
             Model::Api => "api",
         }
@@ -105,7 +101,7 @@ impl Model {
     #[must_use]
     pub fn size(self) -> u64 {
         match self {
-            Model::Apple | Model::Api => 0,
+            Model::Api => 0,
             Model::Parakeet => 670_479_942,
         }
     }
@@ -113,7 +109,6 @@ impl Model {
     /// Display name, in the user's language; the API shows its model.
     pub fn label(self, l: &Localizer, api: &ApiConfig) -> String {
         match self {
-            Model::Apple => l.tr("stt-model-apple"),
             Model::Parakeet => l.tr("stt-model-parakeet"),
             Model::Api => l.tr_with("stt-model-api", &[("model", api.model.as_str().into())]),
         }
@@ -131,10 +126,10 @@ impl Model {
         dir.join(self.repo().replace('/', "--"))
     }
 
-    /// True if the model's files are on disk (never for Apple or the API).
+    /// True if the model's files are on disk (never for the API).
     #[must_use]
     pub fn is_installed(self, storage: &Storage, dir: &Path) -> bool {
-        !matches!(self, Model::Apple | Model::Api) && models::is_complete(storage, &self.path(dir))
+        self != Model::Api && models::is_complete(storage, &self.path(dir))
     }
 }
 
@@ -146,7 +141,7 @@ impl Model {
 ///
 /// # Errors
 ///
-/// For Apple and the API (nothing to download), on a network or disk failure, a file
+/// For the API (nothing to download), on a network or disk failure, a file
 /// with an unexpected fingerprint, or a cancellation by `progress`.
 pub fn download(
     model: Model,
@@ -155,7 +150,7 @@ pub fn download(
     storage: &Storage,
     progress: impl FnMut(u64, u64) -> bool,
 ) -> Result<PathBuf, SttError> {
-    ensure!(!matches!(model, Model::Apple | Model::Api), NotDownloadableSnafu);
+    ensure!(model != Model::Api, NotDownloadableSnafu);
     let dest = model.path(dir);
     models::download(&model.files(), &dest, model.size(), settings, storage, progress).context(DownloadSnafu)?;
     Ok(dest)

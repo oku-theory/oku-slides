@@ -8,7 +8,6 @@
 //! - [`config_write`] : écriture d'une clé dans `config.toml`.
 //! - [`find_program`] : un programme externe, par son chemin ou dans `PATH`.
 //! - [`Platform`] : réglages, fichiers et langue, réunis au démarrage.
-//! - [`local_agent`] : l'état du moteur de l'agent local (modèle, machine).
 //! - `http` (feature `download`) : `system_tls`, TLS for outgoing HTTP clients.
 //! - [`models`] : fichiers de modèles épinglés, téléchargés et vérifiés (feature `download`).
 //! - `listen` (feature `listen`) : boucle d'accept bornée des serveurs HTTP
@@ -25,7 +24,6 @@ pub mod errors;
 pub mod http;
 #[cfg(feature = "listen")]
 mod listen;
-pub mod local_agent;
 mod log_ring;
 mod log_secrets;
 mod login_path;
@@ -69,9 +67,6 @@ pub enum RenderLaunch {
 /// aurait oublié `exit_if_worker` ne se relance pas en chaîne.
 pub const RENDER_WORKER_ENV: &str = "OKU_SLIDES_RENDER_WORKER";
 
-/// Argument qui fait d'un binaire de l'app l'agent local (voir `oku-slides-local-agent`).
-pub const LOCAL_AGENT_FLAG: &str = "--local-agent";
-
 /// Le lancement du rendu d'un binaire `program` ; `in_worker` : ce processus
 /// est lui-même un travailleur (voir [`RENDER_WORKER_ENV`]), il rend sur un fil.
 pub(crate) fn render_launch_for(program: PathBuf, in_worker: bool) -> RenderLaunch {
@@ -99,8 +94,6 @@ pub struct Platform {
     pub live_localizer: LiveLocalizer,
     /// Where Typst rendering runs: on a thread or in a bounded subprocess.
     pub render_launch: RenderLaunch,
-    /// Ce binaire, relancé pour l'agent local ; `None` hors de l'app (tests).
-    pub program: Option<PathBuf>,
     /// The `PATH` where external programs (agent, soffice) are found and launched.
     ///
     /// The process's own, unless [`Platform::with_login_path`] put the login shell's first.
@@ -151,7 +144,6 @@ impl Platform {
         let program = std::env::current_exe().context(CurrentExeSnafu)?;
         let in_worker = std::env::var_os(RENDER_WORKER_ENV).is_some();
         Ok(Self::with_settings(Settings::load().context(SettingsSnafu)?)?
-            .with_program(program.clone())
             .with_render_launch(render_launch_for(program, in_worker)))
     }
 
@@ -168,7 +160,6 @@ impl Platform {
             live_localizer: LiveLocalizer::new(localizer.clone()),
             localizer,
             render_launch: RenderLaunch::InProcess,
-            program: None,
             program_path: ProgramPath::fixed(std::env::var_os("PATH")),
             bases: Arc::default(),
         })
@@ -176,7 +167,7 @@ impl Platform {
 
     /// The data base store in the data folder, created on first call; clones share it.
     ///
-    /// Lazy: a process that never opens a deck (dictation, the local agent) writes nothing.
+    /// Lazy: a process that never opens a deck writes nothing.
     ///
     /// # Errors
     ///
@@ -190,13 +181,6 @@ impl Platform {
         let store = BaseStore::new(self.storage.clone(), &self.settings.paths.data(), sources.max_store_bytes())?;
         *slot = Some(store.clone());
         Ok(store)
-    }
-
-    /// Cette plateforme, dont l'agent local se lance avec `program` (tests).
-    #[must_use]
-    pub fn with_program(mut self, program: PathBuf) -> Self {
-        self.program = Some(program);
-        self
     }
 
     /// This platform, its `path` led by the login shell's `PATH` (app launched from the Finder).

@@ -15,7 +15,7 @@ const WITHIN: Duration = Duration::from_secs(10);
 
 /// A dictation in French that never opens a microphone: only its suspension is read.
 fn stt(dir: &std::path::Path) -> Stt {
-    Stt::new(&platform_in(dir, "fr", |s| s.apple = false))
+    Stt::new(&platform_in(dir, "fr"))
 }
 
 fn speech(text: &str) -> Speech {

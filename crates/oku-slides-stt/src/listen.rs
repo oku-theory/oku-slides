@@ -5,15 +5,12 @@
 //! `config.silence` (see `utterance.rs`), drops the samples captured while suspended, and
 //! rebases its clock whenever the utterance in progress is discarded.
 
-use std::sync::PoisonError;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use crate::audio::{self, SAMPLE_RATE_F32};
 use crate::dictation_phrase::Job;
-use crate::dictation_stream::cancel_held;
 use crate::num::count_f32;
-use crate::utterance::ListenClock;
 use crate::vad::Segmenter;
 use crate::{Sink, State, Stt};
 
@@ -24,8 +21,6 @@ struct Ear {
     fresh: Vec<f32>,
     /// End of the last preview sent (sample).
     previewed: usize,
-    /// Samples given to a continuous engine so far.
-    pushed: usize,
     /// Listening: end of the last phrase closed into an utterance (sample).
     closed_upto: usize,
     /// Listening: end of the last phrase kept (sample).
@@ -36,14 +31,13 @@ struct Ear {
 
 impl Stt {
     /// Listens: microphone → 16 kHz → voice detection → engine.
-    pub(crate) fn listen_loop(&self, session: u64, mut recorder: audio::Recorder, mut sink: Sink) {
+    pub(crate) fn listen_loop(&self, session: u64, mut recorder: audio::Recorder, sink: &Sink) {
         let s = &self.settings;
         let mut ear = Ear {
             seg: Segmenter::new(s.vad),
             resampler: None,
             fresh: Vec::new(),
             previewed: 0,
-            pushed: 0,
             closed_upto: 0,
             last_phrase_end: 0,
             // No epoch yet: the first listening tick rebases, dropping the samples captured
@@ -55,55 +49,38 @@ impl Stt {
             let (state, auto_stop, silence_limit, suspended, epoch) = {
                 let g = self.state();
                 if g.session != session {
-                    drop(g);
-                    // Dictation abandoned: the streaming engine stops too.
-                    if let Sink::Stream { stream, .. } = &mut sink {
-                        stream.cancel();
-                    }
                     return;
                 }
                 (g.state, g.config.auto_stop, g.config.silence, g.suspends > 0, g.epoch)
             };
             if state == State::Listening {
-                self.listen_tick(&recorder, &mut ear, &mut sink, silence_limit, (suspended, epoch));
+                self.listen_tick(&recorder, &mut ear, sink, silence_limit, (suspended, epoch));
                 continue;
             }
-            self.pull(&recorder, &mut ear, &mut sink);
+            self.pull(&recorder, &mut ear, sink);
 
             if state != State::Recording {
                 // Stop asked: last samples, last sentence.
                 recorder.finish();
-                self.pull(&recorder, &mut ear, &mut sink);
-                match sink {
-                    Sink::Phrase { jobs, .. } => {
-                        if let Some(phrase) = ear.seg.close() {
-                            self.send_final(&ear.seg, phrase, &jobs);
-                        }
-                        jobs.send(Job::Done).ok();
-                    }
-                    Sink::Stream { mut stream, held } => {
-                        stream.finish();
-                        // Handed to the results thread; if it is already gone, it is cancelled here.
-                        *held.lock().unwrap_or_else(PoisonError::into_inner) = Some(stream);
-                        if !self.alive(session) {
-                            cancel_held(&held);
-                        }
-                    }
+                self.pull(&recorder, &mut ear, sink);
+                if let Some(phrase) = ear.seg.close() {
+                    self.send_final(&ear.seg, phrase, &sink.jobs);
                 }
+                sink.jobs.send(Job::Done).ok();
                 return;
             }
 
             // Preview of the sentence in progress (phrase engines), when the transcription thread is free.
             let seg = &ear.seg;
             let current = seg.current();
-            if let Sink::Phrase { jobs, busy, previews: true } = &sink
+            if sink.previews
                 && let Some(p) = current
-                && !busy.load(Ordering::Relaxed)
+                && !sink.busy.load(Ordering::Relaxed)
                 && count_f32(p.end.saturating_sub(ear.previewed.max(p.start))) >= s.preview_step_secs * SAMPLE_RATE_F32
             {
                 ear.previewed = p.end;
-                busy.store(true, Ordering::Relaxed);
-                jobs.send(Job::Preview { audio: seg.slice(p).to_vec() }).ok();
+                sink.busy.store(true, Ordering::Relaxed);
+                sink.jobs.send(Job::Preview { audio: seg.slice(p).to_vec() }).ok();
             }
 
             // Automatic stop after a silence (or if nothing is said).
@@ -118,8 +95,8 @@ impl Stt {
                 g.speaking = seg.speaking;
                 g.phrase_open = current.is_some();
                 g.stop_in = stop_in;
-                // A phrase engine's preview follows the sentence in progress; the streaming engine's, its results.
-                if current.is_none() && matches!(sink, Sink::Phrase { .. }) {
+                // The preview follows the sentence in progress.
+                if current.is_none() {
                     g.partial.clear();
                 }
                 if stop && g.state == State::Recording {
@@ -137,7 +114,7 @@ impl Stt {
         &self,
         recorder: &audio::Recorder,
         ear: &mut Ear,
-        sink: &mut Sink,
+        sink: &Sink,
         silence_limit: f32,
         (suspended, epoch): (bool, u64),
     ) {
@@ -166,7 +143,7 @@ impl Stt {
         ear.last_phrase_end = 0;
         ear.epoch = Some(epoch);
         let mut g = self.state();
-        g.clock = ListenClock { origin: Instant::now(), stream_base: ear.pushed };
+        g.clock = Instant::now();
         // A late final placed on the old clock before this rebase is not part of what follows.
         g.phrases.discard();
         g.partial.clear();
@@ -177,33 +154,22 @@ impl Stt {
         if ear.seg.current().is_some() || ear.seg.silence() < silence_limit {
             return;
         }
-        let mut g = self.state();
+        let g = self.state();
         if g.epoch != epoch {
             return; // discarded meanwhile: the next tick rebases
         }
         let Some(upto) = g.phrases.next_index() else { return };
-        match sink {
-            Sink::Phrase { jobs, .. } => {
-                if ear.last_phrase_end <= ear.closed_upto {
-                    return;
-                }
-                ear.closed_upto = ear.last_phrase_end;
-                drop(g);
-                // Closed once the phrases before `upto` are transcribed.
-                jobs.send(Job::Flush { upto, epoch }).ok();
-            }
-            Sink::Stream { .. } => {
-                // The finals since the last close; the stream itself goes on.
-                if !g.phrases.is_empty() {
-                    let spoken = g.phrases.take_upto(upto);
-                    g.close_utterance(&spoken, self.settings.min_phrase_secs);
-                }
-            }
+        if ear.last_phrase_end <= ear.closed_upto {
+            return;
         }
+        ear.closed_upto = ear.last_phrase_end;
+        drop(g);
+        // Closed once the phrases before `upto` are transcribed.
+        sink.jobs.send(Job::Flush { upto, epoch }).ok();
     }
 
     /// Samples arrived: 16 kHz, voice detection, then the engine.
-    fn pull(&self, recorder: &audio::Recorder, ear: &mut Ear, sink: &mut Sink) {
+    fn pull(&self, recorder: &audio::Recorder, ear: &mut Ear, sink: &Sink) {
         let (samples, rate) = recorder.take();
         if samples.is_empty() {
             return;
@@ -211,18 +177,9 @@ impl Stt {
         ear.fresh.clear();
         ear.resampler.get_or_insert_with(|| audio::Resampler::new(rate)).push(&samples, &mut ear.fresh);
         let phrases = ear.seg.push(&ear.fresh);
-        match sink {
-            Sink::Phrase { jobs, .. } => {
-                for phrase in phrases {
-                    if self.send_final(&ear.seg, phrase, jobs) {
-                        ear.last_phrase_end = ear.last_phrase_end.max(phrase.end);
-                    }
-                }
-            }
-            Sink::Stream { stream, .. } => {
-                stream.push(&ear.fresh);
-                // Saturating: usize::MAX samples is millions of years at 16 kHz.
-                ear.pushed = ear.pushed.saturating_add(ear.fresh.len());
+        for phrase in phrases {
+            if self.send_final(&ear.seg, phrase, &sink.jobs) {
+                ear.last_phrase_end = ear.last_phrase_end.max(phrase.end);
             }
         }
     }

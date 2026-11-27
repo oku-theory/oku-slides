@@ -11,7 +11,6 @@ stt-download = ดาวน์โหลดโมเดลไม่ได้
 stt-download-incomplete = ดาวน์โหลดไม่ครบ: { $got } จาก { $expected } ไบต์
 stt-cancelled = ยกเลิกการดาวน์โหลดแล้ว
 stt-receiver-taken = การฟังแบบแฮนด์ฟรีเชื่อมต่อกับที่อื่นอยู่แล้ว
-stt-speech-denied = อนุญาตการรู้จำเสียงพูดในการตั้งค่าระบบ › ความเป็นส่วนตัวและความปลอดภัย
 stt-locale-unsupported = เอนจินการพิมพ์ด้วยเสียงไม่รองรับภาษานี้ ({ $language })
 stt-api-key-missing = ตั้งค่าตัวแปรสภาพแวดล้อม { $var } เพื่อใช้ API การพิมพ์ตามคำบอก
 stt-api-key-invalid = ตัวแปรสภาพแวดล้อม { $var } มีค่าที่ส่งในส่วนหัว HTTP ไม่ได้
@@ -27,7 +26,6 @@ stt-voice-rate = ความเร็วในการอ่านต้อง
 speech-barge-in-unavailable-os = การพูดแทรก Oku ต้องใช้การตัดเสียงสะท้อน ซึ่งมีเฉพาะบน macOS
 
 stt-model-parakeet = Parakeet v3 (ภาษายุโรป 25 ภาษา)
-stt-model-apple = Apple (ระบบ)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = ดาวน์โหลดโมเดลการพิมพ์ด้วยเสียงแล้ว

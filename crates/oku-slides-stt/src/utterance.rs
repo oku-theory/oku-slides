@@ -3,7 +3,7 @@
 //! In listening mode (`State::Listening`) each stretch of speech followed by a silence of
 //! `config.silence` becomes one [`Utterance`], handed to the host on the channel of
 //! [`Stt::utterances`](crate::Stt::utterances). Its times come from sample offsets on the
-//! listening clock ([`ListenClock`]), rebased at each resume. Its text is never logged.
+//! listening clock (`Inner::clock`), rebased at each resume. Its text is never logged.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -89,6 +89,7 @@ impl Phrases {
     }
 
     /// No phrase kept.
+    #[cfg(test)]
     pub(crate) fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -114,14 +115,6 @@ impl Phrases {
         }
         self.items.clear();
     }
-}
-
-/// The listening clock: sample offset 0 is `origin`; a stream final at `stream_base` is offset 0.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct ListenClock {
-    pub origin: Instant,
-    /// Samples given to a continuous engine before `origin`.
-    pub stream_base: usize,
 }
 
 /// `origin` plus `offset` samples at 16 kHz; `None` on overflow.
@@ -176,7 +169,7 @@ impl Inner {
 
     /// Closes the given phrases into an utterance, unless they are noise.
     pub(crate) fn close_utterance(&self, spoken: &[Spoken], min_secs: f32) {
-        if let Some(draft) = draft(spoken, self.clock.origin, min_secs) {
+        if let Some(draft) = draft(spoken, self.clock, min_secs) {
             self.deliver(draft);
         }
     }

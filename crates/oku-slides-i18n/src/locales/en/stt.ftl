@@ -11,7 +11,6 @@ stt-download = The model could not be downloaded
 stt-download-incomplete = Incomplete download: { $got } bytes out of { $expected }
 stt-cancelled = Download cancelled
 stt-receiver-taken = Hands-free listening is already connected elsewhere
-stt-speech-denied = Allow speech recognition in System Settings › Privacy & Security
 stt-locale-unsupported = The dictation engine does not support this language ({ $language })
 stt-api-key-missing = Set the environment variable { $var } to use the dictation API
 stt-api-key-invalid = The environment variable { $var } holds a value that cannot be sent in an HTTP header
@@ -27,7 +26,6 @@ stt-voice-rate = The speaking rate must be between 0.5 and 2 times the normal ra
 speech-barge-in-unavailable-os = Talking over Oku needs echo cancellation, available on macOS only.
 
 stt-model-parakeet = Parakeet v3 (25 European languages)
-stt-model-apple = Apple (system)
 stt-model-api = API ({ $model })
 
 log-model-downloaded = Dictation model downloaded

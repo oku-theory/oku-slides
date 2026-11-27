@@ -40,7 +40,7 @@ because the agent does not know turn numbers; ACP events carry theirs (`oku-slid
 - Ports live with who implements them. Host ports (`AppPort`, `AgentWorkspace`, `Sessions`) are in
   `oku-slides-session`, since `src-tauri` does not depend on mcp; stack ports (`SettingsPort`,
   `VoicePort`, `TabPort`) are here, implemented by `oku-slides-agent`.
-- New tool: an entry `(Tool, Kinds)` in `list_all`, an arm in `Tools::call`, a family in the local agent's `families_of`; its errors are `ToolError` variants with a Fluent key.
+- New tool: an entry `(Tool, Kinds)` in `list_all`, an arm in `Tools::call`; its errors are `ToolError` variants with a Fluent key.
 
 ## Dependencies
 

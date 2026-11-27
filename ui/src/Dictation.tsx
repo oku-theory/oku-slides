@@ -24,12 +24,8 @@ const NAMED: [string, string][] = [
   ["nl", "Nederlands"],
 ];
 
-/** Langues de la dictée, chacune dans sa langue ; « auto » dit celle retenue (`resolved`) s'il la connaît. */
-const languages = (resolved: string | null = null): [string | null, string][] => {
-  const name = resolved ? NAMED.find(([code]) => code === resolved)?.[1] : undefined;
-  const auto = name ? t("ui-dictation-language-auto-resolved", { language: name }) : t("ui-dictation-language-auto");
-  return [[null, auto], ...NAMED];
-};
+/** Langues de la dictée, chacune dans sa langue. */
+const languages = (): [string | null, string][] => [[null, t("ui-dictation-language-auto")], ...NAMED];
 
 const mo = (bytes: number) =>
   bytes >= 1e9 ? t("ui-size-gb", { value: bytes / 1e9 }) : t("ui-size-mb", { value: Math.round(bytes / 1e6) });
@@ -281,7 +277,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
   }
 
   const model = status.models.find((m) => m.id === status.config.model);
-  const langs = languages(status.config.model === "apple" ? status.detected : null);
+  const langs = languages();
   const language = langs.find(([code]) => code === status.config.language)?.[1] ?? status.config.language;
   const { state } = status;
   const handsFree = status.config.hands_free && (state === "idle" || state === "listening");
@@ -366,7 +362,7 @@ export default function Dictation({ destination, vocabulary, onText, onError, ag
         )}
         {toDownload && (
           <div className="dictation-line">
-            <span className="caption">{t(model.size > 0 ? "ui-dictation-to-download" : "ui-dictation-to-download-language", { size: mo(model.size) })}</span>
+            <span className="caption">{t("ui-dictation-to-download", { size: mo(model.size) })}</span>
           </div>
         )}
         {keyMissing && (

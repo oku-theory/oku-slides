@@ -1,4 +1,4 @@
-//! `cargo run --release -p oku-slides-stt --example transcribe -- <file.wav> [parakeet|apple|api] [language]`
+//! `cargo run --release -p oku-slides-stt --example transcribe -- <file.wav> [parakeet|api] [language]`
 //! Downloads the model if missing (into the app's models folder, see the
 //! settings), splits the audio into phrases (voice detection) and transcribes
 //! them as a dictation.
@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let wav = args.next().ok_or("fichier .wav attendu")?;
     let model = match args.next() {
-        Some(id) => Model::from_id(&id).ok_or_else(|| format!("unknown model {id}: parakeet, apple or api"))?,
+        Some(id) => Model::from_id(&id).ok_or_else(|| format!("unknown model {id}: parakeet or api"))?,
         None => Model::Parakeet,
     };
     let language = args.next();
@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (settings, storage) = (&platform.settings, &platform.storage);
     let dir = settings.paths.models();
 
-    // Apple's language installs itself, in `transcribe_samples`; the API has nothing to download.
+    // The API has nothing to download.
     if model == Model::Parakeet && !model.is_installed(storage, &dir) {
         eprintln!("↓ {} …", model.label(&platform.localizer, &oku_slides_stt::ApiConfig::default()));
         let mut last = 0;

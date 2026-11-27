@@ -63,20 +63,17 @@ async function mount({
   promptFails = false,
   mode = DRIVE,
   keyPlaces,
-  fallback,
   offersInline,
   inspector = true,
 }: {
   promptFails?: boolean;
   mode?: ThreadMode;
   keyPlaces?: QuickTarget["kind"][];
-  fallback?: string | null;
   offersInline?: boolean;
   /** The tab can show the inspector (a deck tab): it gets `onOpenInspector`. */
   inspector?: boolean;
 } = {}) {
   let voices = 0;
-  const fallbacks: (string | null)[] = [];
   const renders = { app: 0, stage: 0, pile: 0 };
   let handlers: HostHandlers | null = null;
   const subscribe = (_tab: string, h: HostHandlers) => {
@@ -144,8 +141,6 @@ async function mount({
         ui: UI,
         onDraft: (e: { text: string | null; origin: string | null }) => void drafts.push(e),
         onVoice: () => void voices++,
-        onFallback: (reason: string | null) => void fallbacks.push(reason),
-        fallback,
         offersInline,
         selected,
         onOpenInspector: inspector ? () => void inspectorOpens++ : undefined,
@@ -188,7 +183,7 @@ async function mount({
     for (let i = 0; i < 50 && !cond(); i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   };
   const reselect = async (id: string | null) => act(async () => select(id));
-  return { inspectorOpens: () => inspectorOpens, reselect, host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptArgs, resyncs: () => resyncs, newConversations: () => newConversations, follows, actions, hostActions, voices: () => voices, fallbacks };
+  return { inspectorOpens: () => inspectorOpens, reselect, host, renders, mcp, until, handlers: () => handlers!, handle, prompts, focus, presented, interfaces, histories: () => histories, changed: () => changed, said, slots, drafts, promptArgs, resyncs: () => resyncs, newConversations: () => newConversations, follows, actions, hostActions, voices: () => voices };
 }
 
 const sheet = surface("q-1", "Choisir", { place: "sheet", live: true, question: true, anchor: { slide: "s1", owner: "e1" } });
@@ -350,28 +345,6 @@ test("AgentPanel voice event calls onVoice", async () => {
   const m = await mount();
   await act(async () => m.handlers().onAgent({ kind: "voice" }));
   expect(m.voices()).toBe(1);
-});
-
-test("AgentPanel fallback event calls onFallback with its reason", async () => {
-  const m = await mount();
-  await act(async () => m.handlers().onAgent({ kind: "fallback", reason: "Agent introuvable : npx." }));
-  await act(async () => m.handlers().onAgent({ kind: "fallback", reason: null }));
-  expect(m.fallbacks).toEqual(["Agent introuvable : npx.", null]);
-});
-
-test("AgentPanel shows the local agent badge with its reason while fallback is set", async () => {
-  const m = await mount({ fallback: "Agent introuvable : npx." });
-  await m.mcp({ kind: "surfaces", list: [dock] });
-  const badge = m.host.querySelector(".agent-thread-head .agent-fallback");
-  expect(badge?.textContent).toBe(t("ui-agent-fallback"));
-  expect(badge?.getAttribute("title")).toBe("Agent introuvable : npx.");
-});
-
-test("AgentPanel shows no local agent badge without fallback", async () => {
-  const m = await mount({ fallback: null });
-  await m.mcp({ kind: "surfaces", list: [dock] });
-  expect(m.host.querySelector(".agent-thread-head")).not.toBeNull();
-  expect(m.host.querySelector(".agent-fallback")).toBeNull();
 });
 
 // Une reconnexion a pu manquer des évènements : la dictée relit son état.

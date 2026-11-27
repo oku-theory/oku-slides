@@ -1,38 +1,17 @@
-use std::path::PathBuf;
-
 use agent_client_protocol::schema::v1::SessionId;
-use oku_slides_i18n::{Localize, Localizer};
-use oku_slides_platform::config::{AgentPreset, AgentSettings, Builtin, LocalEngine};
-use oku_slides_platform::local_agent::{AGENT_MODEL_SIZE, Target, Unavailable, agent_model_dir, local_engine};
-use oku_slides_session::{AgentModelsView, AgentPresetView, LocalModelView, Platform, Settings};
+use oku_slides_i18n::Localizer;
+use oku_slides_platform::config::{AgentPreset, AgentSettings};
+use oku_slides_session::{AgentModelsView, Platform, Settings};
 use speculoos::prelude::*;
 
 use super::{AgentChoice, ModelRefusal, Refusal};
-use crate::error::Unusable;
 use crate::session_model::{ModelOptions, ModelValue};
 use crate::{Launch, Link};
-
-/// Une plateforme sur `data`, l'agent « local » choisi ; `program` : le binaire de l'app.
-fn platform(data: &std::path::Path, program: Option<PathBuf>) -> Platform {
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
-    settings.paths.data = Some(data.to_path_buf());
-    settings.paths.decks = Some(data.join("decks"));
-    settings.agent.select("local").unwrap_or_else(|e| panic!("agent : {e}"));
-    settings.i18n.locale = Some("fr".into());
-    // Gguf, not auto: Apple's model, ready on some test Macs, would hide the download.
-    settings.local_agent.engine = LocalEngine::Gguf;
-    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
-    match program {
-        Some(p) => platform.with_program(p),
-        None => platform,
-    }
-}
 
 fn choice(platform: &Platform) -> AgentChoice {
     let launch = Launch {
         command: String::new(),
         args: Vec::new(),
-        env: Vec::new(),
         path: None,
         process_dir: platform.settings.paths.data().join(crate::config::AGENT_PROCESS_DIR),
         ready_within: std::time::Duration::from_secs(1),
@@ -42,133 +21,6 @@ fn choice(platform: &Platform) -> AgentChoice {
 
 fn fr() -> Localizer {
     Localizer::new(Some("fr"))
-}
-
-/// Ce que dit `availability` d'un modèle absent sur cette machine.
-fn expected_without_model() -> Unusable {
-    match Target::current() {
-        Target::AppleSilicon => {
-            Unavailable::NeedsDownload { size: oku_slides_platform::local_agent::AGENT_MODEL_SIZE }.into()
-        }
-        Target::IntelMac => Unusable::LocalIntelMac,
-        Target::Other => Unusable::LocalUnsupportedOs,
-    }
-}
-
-#[test]
-fn availability_local_without_model_needs_download() {
-    let dir = tempfile::tempdir().unwrap();
-    let platform = platform(dir.path(), Some(PathBuf::from("/app")));
-    let expected = Some(expected_without_model().localize(&fr()));
-    assert_that!(choice(&platform).availability()).is_equal_to(expected);
-}
-
-#[test]
-fn availability_local_with_complete_marker_is_ready() {
-    let dir = tempfile::tempdir().unwrap();
-    let platform = platform(dir.path(), Some(PathBuf::from("/app")));
-    let models = agent_model_dir(&platform.settings);
-    std::fs::create_dir_all(&models).unwrap();
-    std::fs::write(models.join(oku_slides_platform::models::COMPLETE), b"").unwrap();
-    let expected = match Target::current() {
-        Target::AppleSilicon => None,
-        _ => Some(expected_without_model().localize(&fr())),
-    };
-    assert_that!(choice(&platform).availability()).is_equal_to(expected);
-}
-
-#[test]
-fn availability_after_successful_download_forgets_a_stale_link_failure() {
-    let dir = tempfile::tempdir().unwrap();
-    let platform = platform(dir.path(), Some(PathBuf::from("/app")));
-    let models = agent_model_dir(&platform.settings);
-    std::fs::create_dir_all(&models).unwrap();
-    std::fs::write(models.join(oku_slides_platform::models::COMPLETE), b"").unwrap();
-    let choice = choice(&platform);
-    // Un prompt lancé avant le téléchargement : le fils est sorti « indisponible ».
-    choice.link.remember_at(0, Some(Unusable::NoHttp), std::time::Instant::now());
-    let stale = Some(Unusable::NoHttp.localize(&fr()));
-    let expected = match Target::current() {
-        Target::AppleSilicon => None,
-        _ => Some(expected_without_model().localize(&fr())),
-    };
-    if Target::current() == Target::AppleSilicon {
-        assert_that!(choice.availability()).is_equal_to(stale);
-    }
-    choice.download_changed();
-    assert_that!(choice.availability()).is_equal_to(expected);
-}
-
-#[cfg(debug_assertions)]
-#[test]
-fn availability_local_fake_engine_is_ready() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
-    settings.paths.data = Some(dir.path().to_path_buf());
-    settings.paths.decks = Some(dir.path().join("decks"));
-    settings.agent.select("local").unwrap_or_else(|e| panic!("agent : {e}"));
-    settings.i18n.locale = Some("fr".into());
-    settings.local_agent.engine = oku_slides_platform::config::LocalEngine::Fake;
-    let platform = Platform::with_settings(settings).unwrap().with_program(PathBuf::from("/app"));
-    assert_that!(choice(&platform).availability()).is_none();
-}
-
-#[test]
-fn availability_local_without_program_is_no_program() {
-    let dir = tempfile::tempdir().unwrap();
-    let platform = platform(dir.path(), None);
-    let expected = Some(Unusable::NoProgram.localize(&fr()));
-    assert_that!(choice(&platform).availability()).is_equal_to(expected);
-}
-
-#[test]
-fn local_panel_command_preset_is_none_and_start_download_refused() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
-    settings.paths.data = Some(dir.path().to_path_buf());
-    settings.paths.decks = Some(dir.path().join("decks"));
-    settings.agent.select("claude").unwrap_or_else(|e| panic!("agent : {e}"));
-    settings.i18n.locale = Some("fr".into());
-    let platform = Platform::with_settings(settings).unwrap();
-    let choice = std::sync::Arc::new(choice(&platform));
-    assert_that!(choice.local_panel()).is_none();
-    assert_that!(choice.start_download(|| {})).is_false();
-}
-
-#[test]
-fn local_panel_local_without_model_offers_the_download_on_apple_silicon() {
-    let dir = tempfile::tempdir().unwrap();
-    let platform = platform(dir.path(), Some(PathBuf::from("/app")));
-    let expected = match Target::current() {
-        Target::AppleSilicon => Some(LocalModelView::NeedsDownload { size: AGENT_MODEL_SIZE }),
-        _ => None,
-    };
-    assert_that!(choice(&platform).local_panel()).is_equal_to(expected);
-}
-
-/// The local agent on Apple's engine, in `data`, with an app binary.
-fn apple_platform(data: &std::path::Path) -> Platform {
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("settings: {e}"));
-    settings.paths.data = Some(data.to_path_buf());
-    settings.paths.decks = Some(data.join("decks"));
-    settings.agent.select("local").unwrap_or_else(|e| panic!("agent: {e}"));
-    settings.i18n.locale = Some("fr".into());
-    settings.local_agent.engine = LocalEngine::Apple;
-    Platform::with_settings(settings).unwrap_or_else(|e| panic!("platform: {e}")).with_program(PathBuf::from("/app"))
-}
-
-#[test]
-fn local_panel_apple_engine_offers_no_download() {
-    let dir = tempfile::tempdir().unwrap();
-    assert_that!(choice(&apple_platform(dir.path())).local_panel()).is_none();
-}
-
-#[test]
-fn availability_apple_engine_says_local_engine_reason() {
-    let dir = tempfile::tempdir().unwrap();
-    let platform = apple_platform(dir.path());
-    let expected = local_engine(&platform.settings, &platform.storage).err().map(|u| Unusable::from(u).localize(&fr()));
-    assert_that!(choice(&platform).availability()).is_equal_to(expected);
 }
 
 /// Une plateforme sur `data` à deux agents, `faux` (choisi) et `bis` ; `locked` : choix imposé.
@@ -233,17 +85,13 @@ fn agents_view_lists_presets_with_the_active_one() {
 }
 
 #[test]
-fn agents_view_builtin_has_no_hint() {
+fn agents_view_gives_each_preset_its_command_line() {
     let dir = tempfile::tempdir().unwrap();
-    let mut settings = Settings::defaults().unwrap_or_else(|e| panic!("réglages : {e}"));
-    settings.paths.data = Some(dir.path().to_path_buf());
-    settings.paths.decks = Some(dir.path().join("decks"));
-    let presets = [("local".to_owned(), AgentPreset::builtin("Local", Builtin::Local))].into_iter().collect();
-    settings.agent = AgentSettings::new("local", presets).unwrap_or_else(|e| panic!("agent : {e}"));
-    let platform = Platform::with_settings(settings).unwrap_or_else(|e| panic!("plateforme : {e}"));
-    let view = choice(&platform).agents_view();
-    let expected = AgentPresetView { id: "local".into(), name: "Local".into(), hint: None };
-    assert_that!(view.presets).is_equal_to(vec![expected]);
+    let platform = two_agents(dir.path(), false);
+    let commands: Vec<(String, String)> =
+        choice(&platform).agents_view().presets.into_iter().map(|p| (p.id, p.command)).collect();
+    assert_that!(commands)
+        .is_equal_to(vec![("bis".to_owned(), "true".to_owned()), ("faux".to_owned(), "fake --script s".to_owned())]);
 }
 
 /// Settings on `data` with the external preset `id`, active, asking `model`.
@@ -277,14 +125,6 @@ fn new_seeds_the_chosen_model_from_the_preset() {
     let dir = tempfile::tempdir().unwrap();
     let choice = choice(&codex_platform(dir.path(), Some("deep")));
     assert_that!(choice.chosen_model("codex")).is_equal_to(Some("deep".to_owned()));
-}
-
-#[test]
-fn agents_view_builtin_agent_shows_no_models() {
-    let dir = tempfile::tempdir().unwrap();
-    let choice = choice(&platform(dir.path(), Some(PathBuf::from("/app"))));
-    offer(&choice);
-    assert_that!(choice.agents_view().models).is_none();
 }
 
 #[test]

@@ -18,8 +18,6 @@ pub struct AgentDiagnosis {
     pub selected: String,
     /// Its name, shown as is.
     pub name: String,
-    /// True for the agent built into Oku Slides.
-    pub builtin: bool,
     /// Why it is unusable, localized; `None` when it seems usable.
     pub unusable: Option<String>,
     /// The last lines (at most 40) it wrote to stderr since its last launch.
@@ -31,7 +29,7 @@ pub struct AgentDiagnosis {
 pub struct DictationDiagnosis {
     /// Microphone permission: `granted`, `denied`, `restricted`, `undetermined` or `unknown`.
     pub microphone: String,
-    /// The chosen engine: `apple`, `parakeet` or `api`.
+    /// The chosen engine: `parakeet` or `api`.
     pub engine: String,
     /// The engine's files: `missing`, `partial` or `complete`.
     pub model: String,

@@ -2,9 +2,7 @@
 //!
 //! The OS voices that read answers aloud live in `speak/` ([`SpeechEngine`]).
 //!
-//! Three engines, two of them on the machine:
-//! - Apple (macOS 26+): SpeechAnalyzer transcribes continuously, as the
-//!   audio comes in, through a Swift bridge (`apple.rs`).
+//! Two engines:
 //! - Parakeet TDT 0.6B v3 (`parakeet.rs`): ONNX Runtime on the CPU, via
 //!   parakeet-rs; 25 European languages, the engine elsewhere or on request.
 //! - OpenAI or Azure OpenAI API (`api.rs`, async-openai): sentence by sentence, without preview.
@@ -24,13 +22,10 @@ mod api;
 mod api_check;
 mod api_extra;
 mod api_http;
-#[cfg(target_os = "macos")]
-mod apple;
 mod audio;
 mod barge_in;
 mod capture;
 mod dictation_phrase;
-mod dictation_stream;
 mod duplex;
 #[cfg(any(test, target_os = "macos"))]
 mod duplex_ffi;
@@ -41,20 +36,18 @@ mod fake_source;
 #[cfg(any(test, feature = "test-support"))]
 pub mod hand_voice;
 mod listen;
-mod locale;
 mod microphone;
+#[cfg(target_os = "macos")]
+mod microphone_ffi;
 mod models;
 mod num;
 mod parakeet;
 mod phrase_engine;
-#[cfg(any(test, target_os = "macos"))]
-mod results;
 mod saved_config;
 mod shutdown;
 mod speak;
 mod speaker;
 mod speech_config;
-mod stream;
 #[cfg(test)]
 mod test_support;
 mod utterance;
@@ -77,7 +70,6 @@ pub use api_extra::{
 };
 pub use audio::{SAMPLE_RATE, resample};
 use dictation_phrase::{EngineKey, Job, engine_key};
-use dictation_stream::Held;
 pub use duplex::Duplex;
 pub use echo::ECHO_HORIZON;
 use error::ReceiverTakenSnafu;
@@ -99,8 +91,7 @@ pub use speak::{
 };
 pub use speaker::{SPEECH_GUARD, SPEECH_HOLD, Speaker, SpeakerClock, Speech, SpeechEnded, SystemClock, watchdog};
 pub use speech_config::SpeechConfig;
-use stream::{Availability, Stream, StreamEngine};
-use utterance::{ListenClock, Phrases};
+use utterance::Phrases;
 pub use utterance::{SuspendGuard, Utterance, UtteranceSeq};
 
 /// Where dictation stands, for the UI.
@@ -140,14 +131,11 @@ enum Mode {
 /// Durées de silence acceptées pour l'arrêt seul (s).
 pub const SILENCE_RANGE: RangeInclusive<f32> = 0.5..=10.0;
 
-/// Version des réglages de la dictée : 1 depuis le moteur d'Apple.
-const CONFIG_VERSION: u32 = 1;
-
 /// Dictation settings, saved in `config.json` in the models folder.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
-    /// Chosen engine: Apple, Parakeet or the API.
+    /// Chosen engine: Parakeet or the API.
     pub model: Model,
     /// Code de langue (`fr`, `en`…) ou `None` pour la détection automatique.
     pub language: Option<String>,
@@ -155,8 +143,6 @@ pub struct Config {
     pub auto_stop: bool,
     /// Durée de ce silence (s).
     pub silence: f32,
-    /// Version des réglages : 0 avant le moteur d'Apple (bascule unique).
-    pub version: u32,
     /// Réglages de l'API de transcription (modèle `Api`).
     pub api: ApiConfig,
     /// Hands-free listening chosen by the user; never started by itself at launch.
@@ -174,30 +160,12 @@ impl Default for Config {
             language: None,
             auto_stop: true,
             silence: 1.5,
-            version: 0,
             api: ApiConfig::default(),
             hands_free: false,
             read_aloud: None,
             speech: SpeechConfig::default(),
         }
     }
-}
-
-/// Settings from before Apple's engine: switched to it once, if it serves here.
-///
-/// `apple`: the engine exists on this machine; `language`: it knows the chosen
-/// language (ready or to download). Without the engine, Apple becomes Parakeet.
-fn migrate(mut config: Config, apple: bool, language: bool) -> Config {
-    if config.version < CONFIG_VERSION {
-        if apple && language {
-            config.model = Model::Apple;
-        }
-        config.version = CONFIG_VERSION;
-    }
-    if config.model == Model::Apple && !apple {
-        config.model = Model::Parakeet;
-    }
-    config
 }
 
 /// A dictation engine as the UI offers it.
@@ -207,9 +175,9 @@ pub struct ModelInfo {
     pub id: Model,
     /// Display name, in the UI language.
     pub label: String,
-    /// Bytes to download (0 for Apple and the API).
+    /// Bytes to download (0 for the API).
     pub size: u64,
-    /// Ready to serve: files on disk, language installed or key present.
+    /// Ready to serve: files on disk or key present.
     pub installed: bool,
     /// Faux : le modèle ne gère pas la langue choisie.
     pub available: bool,
@@ -289,12 +257,11 @@ pub enum SttRequest {
     Cancel,
 }
 
-/// Where a dictation's audio goes.
-enum Sink {
-    /// Phrase-by-phrase engine (Parakeet, API): closed phrases and previews, as jobs.
-    Phrase { jobs: mpsc::Sender<Job>, busy: Arc<AtomicBool>, previews: bool },
-    /// Moteur en continu : tout l'audio, au fil de l'eau ; confié à `held` à l'arrêt.
-    Stream { stream: Box<dyn Stream>, held: Held },
+/// Where a dictation's audio goes: the phrase-by-phrase engine's jobs (closed phrases, previews).
+struct Sink {
+    jobs: mpsc::Sender<Job>,
+    busy: Arc<AtomicBool>,
+    previews: bool,
 }
 
 #[expect(
@@ -331,8 +298,6 @@ struct Inner {
     /// Incrémenté à chaque dictée : les fils d'une dictée abandonnée
     /// s'arrêtent d'eux-mêmes.
     session: u64,
-    /// Langue du moteur d'Apple et sa disponibilité (None : aucune langue connue).
-    apple: Option<(String, Availability)>,
     /// The single sender of utterances, kept across capture restarts.
     utterances: mpsc::Sender<Utterance>,
     /// Its receiver, until the host takes it ([`Stt::utterances`]).
@@ -342,7 +307,7 @@ struct Inner {
     /// Changes when the utterance in progress is discarded: its late results are dropped.
     epoch: u64,
     /// Origin of the listening sample offsets, rebased at each resume.
-    clock: ListenClock,
+    clock: Instant,
     /// The duplex voice while listening goes through the duplex: barge-in may apply.
     barge: Option<Arc<dyn SpeechEngine>>,
     /// Why the duplex did not start last time; `None` once it starts, or before any try.
@@ -418,11 +383,6 @@ pub struct Stt {
     storage: Storage,
     localizer: Arc<Localizer>,
     cancel_download: Arc<AtomicBool>,
-    /// Moteur en continu (Apple), et s'il existe ici.
-    streaming: Arc<dyn StreamEngine>,
-    apple_supported: bool,
-    /// Langue du système, lue au démarrage (dernier repli du moteur d'Apple).
-    system_locale: Option<String>,
     /// False while an unreadable `config.json` could not be kept aside: never overwritten (t-1216).
     savable: bool,
     /// Transcription threads, joined at shutdown (t-1663).
@@ -442,31 +402,9 @@ impl Stt {
     /// l'écoute (réglages), fichiers, langue des messages.
     #[must_use]
     pub fn new(platform: &Platform) -> Self {
-        Self::with_engine(platform, stream::engine(&platform.settings.stt), sys_locale::get_locale())
-    }
-
-    /// La dictée, avec ce moteur en continu (Apple, ou un moteur factice en test).
-    pub(crate) fn with_engine(
-        platform: &Platform,
-        streaming: Arc<dyn StreamEngine>,
-        system_locale: Option<String>,
-    ) -> Self {
         let dir = platform.settings.paths.models();
         let storage = platform.storage.clone();
-        let apple_supported = streaming.supported();
         let saved_config::Loaded { config, savable } = saved_config::load(&storage, &dir);
-        // Bascule unique vers Apple : seulement s'il connaît la langue retenue.
-        let resolved = apple_supported
-            .then(|| {
-                resolve_apple(
-                    &*streaming,
-                    config.language.as_deref(),
-                    platform.localizer.locale(),
-                    system_locale.as_deref(),
-                )
-            })
-            .flatten();
-        let config = migrate(config, apple_supported, resolved.is_some());
         let (utterances, receiver) = mpsc::channel();
         let inner = Arc::new(Mutex::new(Inner {
             state: State::Idle,
@@ -489,19 +427,18 @@ impl Stt {
             engine: None,
             session: 0,
             installed: Model::ALL.map(|m| m.is_installed(&storage, &dir)),
-            apple: None,
             utterances,
             receiver: Some(receiver),
             suspends: 0,
             epoch: 0,
-            clock: ListenClock { origin: Instant::now(), stream_base: 0 },
+            clock: Instant::now(),
             barge: None,
             barge_failure: None,
             shut: false,
         }));
         let transcribers = shutdown::Transcribers::default();
         let cancel_download = Arc::new(AtomicBool::new(false));
-        let stt = Self {
+        Self {
             _owner: Some(shutdown::Owner::new(inner.clone(), transcribers.clone(), cancel_download.clone())),
             inner,
             transcribers,
@@ -511,28 +448,8 @@ impl Stt {
             storage,
             localizer: platform.localizer.clone(),
             cancel_download,
-            streaming,
-            apple_supported,
-            system_locale,
             savable,
-        };
-        stt.refresh_apple();
-        stt
-    }
-
-    /// Langue du moteur d'Apple et sa disponibilité, d'après les réglages.
-    fn refresh_apple(&self) {
-        if !self.apple_supported {
-            return;
         }
-        let chosen = self.state().config.language.clone();
-        let resolved =
-            resolve_apple(&*self.streaming, chosen.as_deref(), self.localizer.locale(), self.system_locale.as_deref());
-        let mut g = self.state();
-        if g.config.model == Model::Apple {
-            g.detected = resolved.as_ref().map(|(tag, _)| locale::language(tag));
-        }
-        g.apple = resolved;
     }
 
     /// Langue voulue pour la dictée : la choisie, sinon celle de l'interface.
@@ -548,7 +465,6 @@ impl Stt {
 
     fn model_info(&self, model: Model, installed: bool, g: &Inner) -> ModelInfo {
         let (installed, available) = match model {
-            Model::Apple => (g.apple.as_ref().is_some_and(|(_, a)| a.is_ready()), g.apple.is_some()),
             // "Installed": the key is there; it is never returned.
             Model::Api => (g.config.api.key_present(), true),
             // Greyed out for a language it does not know; read from `g`, already locked.
@@ -605,7 +521,6 @@ impl Stt {
             models: Model::ALL
                 .iter()
                 .zip(g.installed)
-                .filter(|(m, _)| **m != Model::Apple || self.apple_supported)
                 .map(|(&m, installed)| self.model_info(m, installed, &g))
                 .collect(),
             download: g.download.clone(),
@@ -633,7 +548,6 @@ impl Stt {
     #[must_use = "faux : la dictée était occupée, rien n'a changé"]
     pub fn configure(&self, mut config: Config) -> bool {
         config.silence = config.silence.clamp(*SILENCE_RANGE.start(), *SILENCE_RANGE.end());
-        config.version = CONFIG_VERSION;
         let restart = {
             let mut g = self.state();
             if !g.state.accepts_settings() {
@@ -652,7 +566,6 @@ impl Stt {
             g.config = config;
             restart
         };
-        self.refresh_apple();
         if let Some(vocabulary) = restart {
             // Still `Listening` meanwhile, so a Start in between is refused.
             self.launch(vocabulary, Mode::Listen, State::Listening);
@@ -736,12 +649,8 @@ impl Stt {
     /// # Errors
     ///
     /// If the engine does not load (missing model, misconfigured API) or a sentence
-    /// fails; with Apple, if the language is missing or the engine does not finish in time.
+    /// fails.
     pub fn transcribe_samples(&self, audio: &[f32]) -> Result<(String, Vec<TimedPhrase>), SttError> {
-        let model = self.state().config.model;
-        if model == Model::Apple {
-            return self.transcribe_stream(audio);
-        }
         let (mut language, vocabulary) = {
             let g = self.state();
             (g.config.language.clone(), g.vocabulary.clone())
@@ -762,16 +671,6 @@ impl Stt {
         }
         Ok((join(texts.iter()), phrases))
     }
-}
-
-/// Langue du moteur d'Apple : la choisie, sinon l'interface, sinon le système.
-fn resolve_apple(
-    streaming: &dyn StreamEngine,
-    chosen: Option<&str>,
-    ui: &str,
-    system: Option<&str>,
-) -> Option<(String, Availability)> {
-    locale::resolve(chosen, ui, system, |tag| streaming.availability(tag))
 }
 
 /// Phrase transcrite : début et fin (s), texte.

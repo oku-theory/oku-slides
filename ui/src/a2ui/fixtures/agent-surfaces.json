@@ -2434,7 +2434,6 @@
                 "d-title",
                 "d-intro",
                 "d-models",
-                "d-unavailable",
                 "d-api-url",
                 "d-api-model",
                 "d-api-key-env",
@@ -2455,7 +2454,6 @@
                 "s-barge-in",
                 "a-title",
                 "a-agents",
-                "a-progress",
                 "a-pending",
                 "a-busy",
                 "close"
@@ -2470,7 +2468,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
+              "text": "Parakeet, sur cet ordinateur. Il comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -2501,12 +2499,6 @@
                   }
                 }
               }
-            },
-            {
-              "id": "d-unavailable",
-              "component": "Text",
-              "text": "Indisponible pour cette langue : Apple (système)",
-              "variant": "caption"
             },
             {
               "id": "d-api-url",
@@ -2891,10 +2883,6 @@
                   "id": "faux",
                   "label": "Faux",
                   "hint": "fake --script s"
-                },
-                {
-                  "id": "local",
-                  "label": "Local"
                 }
               ],
               "value": {
@@ -2909,13 +2897,6 @@
                     }
                   }
                 }
-              }
-            },
-            {
-              "id": "a-progress",
-              "component": "Text",
-              "text": {
-                "path": "/progress/agent"
               }
             },
             {
@@ -2953,8 +2934,7 @@
           "value": {
             "choice": "faux",
             "progress": {
-              "dictation": "Téléchargement de Parakeet v3 · 25 %",
-              "agent": ""
+              "dictation": "Téléchargement de Parakeet v3 · 25 %"
             },
             "notice": {
               "busy": "",
@@ -3006,7 +2986,6 @@
                 "d-title",
                 "d-intro",
                 "d-models",
-                "d-unavailable",
                 "d-language",
                 "d-silence",
                 "d-hands-free",
@@ -3020,7 +2999,6 @@
                 "s-barge-in",
                 "a-title",
                 "a-agents",
-                "a-progress",
                 "a-pending",
                 "a-busy",
                 "close"
@@ -3035,7 +3013,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
+              "text": "Parakeet, sur cet ordinateur. Il comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -3066,12 +3044,6 @@
                   }
                 }
               }
-            },
-            {
-              "id": "d-unavailable",
-              "component": "Text",
-              "text": "Indisponible pour cette langue : Apple (système)",
-              "variant": "caption"
             },
             {
               "id": "d-language",
@@ -3356,10 +3328,6 @@
                   "id": "faux",
                   "label": "Faux",
                   "hint": "fake --script s"
-                },
-                {
-                  "id": "local",
-                  "label": "Local"
                 }
               ],
               "value": {
@@ -3374,13 +3342,6 @@
                     }
                   }
                 }
-              }
-            },
-            {
-              "id": "a-progress",
-              "component": "Text",
-              "text": {
-                "path": "/progress/agent"
               }
             },
             {
@@ -3418,8 +3379,7 @@
           "value": {
             "choice": "faux",
             "progress": {
-              "dictation": "",
-              "agent": ""
+              "dictation": ""
             },
             "notice": {
               "busy": "",
@@ -3471,7 +3431,6 @@
                 "d-title",
                 "d-intro",
                 "d-models",
-                "d-unavailable",
                 "d-language",
                 "d-silence",
                 "d-hands-free",
@@ -3484,10 +3443,6 @@
                 "s-barge-in",
                 "a-title",
                 "a-agents",
-                "a-local-reason",
-                "a-error",
-                "a-download",
-                "a-progress",
                 "a-pending",
                 "a-busy",
                 "a-locked",
@@ -3503,7 +3458,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
+              "text": "Parakeet, sur cet ordinateur. Il comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -3534,12 +3489,6 @@
                   }
                 }
               }
-            },
-            {
-              "id": "d-unavailable",
-              "component": "Text",
-              "text": "Indisponible pour cette langue : Apple (système)",
-              "variant": "caption"
             },
             {
               "id": "d-language",
@@ -3807,43 +3756,10 @@
                   "id": "faux",
                   "label": "Faux",
                   "hint": "fake --script s"
-                },
-                {
-                  "id": "local",
-                  "label": "Local"
                 }
               ],
               "value": {
                 "path": "/choice"
-              }
-            },
-            {
-              "id": "a-local-reason",
-              "component": "Text",
-              "text": "L'agent local a d'abord besoin de télécharger son modèle (2,5 Go).",
-              "variant": "caption"
-            },
-            {
-              "id": "a-error",
-              "component": "Text",
-              "text": "Le modèle téléchargé était endommagé et a été supprimé.",
-              "variant": "caption"
-            },
-            {
-              "id": "a-download",
-              "component": "Button",
-              "label": "Télécharger le modèle",
-              "action": {
-                "event": {
-                  "name": "download_agent_model"
-                }
-              }
-            },
-            {
-              "id": "a-progress",
-              "component": "Text",
-              "text": {
-                "path": "/progress/agent"
               }
             },
             {
@@ -3887,12 +3803,11 @@
           "value": {
             "choice": "faux",
             "progress": {
-              "dictation": "",
-              "agent": ""
+              "dictation": ""
             },
             "notice": {
               "busy": "Changer d'agent interrompra le tour en cours.",
-              "pending": "Passage à Local dès qu'aucune réponse ne tourne."
+              "pending": "Passage à Faux dès qu'aucune réponse ne tourne."
             },
             "model": "parakeet",
             "language": "",
@@ -3940,7 +3855,6 @@
                 "d-title",
                 "d-intro",
                 "d-models",
-                "d-unavailable",
                 "d-language",
                 "d-silence",
                 "d-hands-free",
@@ -3955,8 +3869,6 @@
                 "a-agents",
                 "a-model",
                 "a-model-note",
-                "a-progress",
-                "a-cancel",
                 "a-pending",
                 "a-busy",
                 "close"
@@ -3971,7 +3883,7 @@
             {
               "id": "d-intro",
               "component": "Text",
-              "text": "Apple, intégré au système, ou Parakeet, sur cet ordinateur, qui comprend 25 langues européennes.",
+              "text": "Parakeet, sur cet ordinateur. Il comprend 25 langues européennes.",
               "variant": "caption"
             },
             {
@@ -4002,12 +3914,6 @@
                   }
                 }
               }
-            },
-            {
-              "id": "d-unavailable",
-              "component": "Text",
-              "text": "Indisponible pour cette langue : Apple (système)",
-              "variant": "caption"
             },
             {
               "id": "d-language",
@@ -4275,10 +4181,6 @@
                   "id": "faux",
                   "label": "Faux",
                   "hint": "fake --script s"
-                },
-                {
-                  "id": "local",
-                  "label": "Local"
                 }
               ],
               "value": {
@@ -4330,23 +4232,6 @@
               "variant": "caption"
             },
             {
-              "id": "a-progress",
-              "component": "Text",
-              "text": {
-                "path": "/progress/agent"
-              }
-            },
-            {
-              "id": "a-cancel",
-              "component": "Button",
-              "label": "Annuler",
-              "action": {
-                "event": {
-                  "name": "cancel_agent_model_download"
-                }
-              }
-            },
-            {
               "id": "a-pending",
               "component": "Text",
               "text": {
@@ -4381,8 +4266,7 @@
           "value": {
             "choice": "faux",
             "progress": {
-              "dictation": "",
-              "agent": "Téléchargement du modèle… 40 %"
+              "dictation": ""
             },
             "notice": {
               "busy": "",

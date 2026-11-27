@@ -1,5 +1,5 @@
 // swift-tools-version:5.9
-// Swift bridge to Apple's dictation engine, linked as a static library (build.rs).
+// Swift bridge to the OS voice, the duplex audio and the microphone permission, linked as a static library (build.rs).
 import PackageDescription
 
 let package = Package(

@@ -25,6 +25,8 @@ pub(crate) struct Loaded {
 
 /// The saved settings, or the defaults when the file is missing or invalid.
 ///
+/// A file naming the retired `apple` engine loads on Parakeet with its other settings.
+///
 /// A file that does not parse is renamed `config.json.invalid-<secs>[-<n>]` first. If it
 /// cannot be read or renamed, `savable` is false so `configure` never writes over it. The
 /// log names the line and column, never serde's message: it can quote a literal header
@@ -41,7 +43,7 @@ pub(crate) fn load(storage: &Storage, dir: &Path) -> Loaded {
             return defaults(false);
         }
     };
-    match serde_json::from_slice(&bytes) {
+    match parse(&bytes) {
         Ok(config) => {
             let config: Config = config;
             if !config.api.legacy_query.is_empty() {
@@ -63,6 +65,19 @@ pub(crate) fn load(storage: &Storage, dir: &Path) -> Loaded {
             defaults(kept.is_some())
         }
     }
+}
+
+/// The engine id of the removed Apple dictation (t-1791), once the default on macOS 26.
+const RETIRED_APPLE: &str = "apple";
+
+/// Parses `bytes`, switching the retired `apple` engine to Parakeet and keeping every other setting.
+fn parse(bytes: &[u8]) -> serde_json::Result<Config> {
+    let mut value: serde_json::Value = serde_json::from_slice(bytes)?;
+    if let Some(model) = value.get_mut("model").filter(|m| m.as_str() == Some(RETIRED_APPLE)) {
+        tracing::warn!("moteur de dictée d'Apple retiré : Parakeet, les autres réglages gardés");
+        *model = serde_json::to_value(crate::Model::Parakeet)?;
+    }
+    serde_json::from_value(value)
 }
 
 /// Renames `file` to a free `<name>.invalid-<secs>[-<n>]` beside it; `None` if that fails.

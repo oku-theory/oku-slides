@@ -96,7 +96,6 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         Launch {
             command: "sh".into(),
             args: vec!["-c".into(), format!("touch '{}'", launched.display())],
-            env: Vec::new(),
             path: None,
             process_dir: dir.path().join("agent-process"),
             ready_within: Duration::from_secs(5),
@@ -131,7 +130,6 @@ async fn agent_run_with_tab_already_closed_sends_no_queued_prompt() {
         localizer,
         turns: Turns::default(),
         status: Arc::new(Mutex::new(AgentState::Idle)),
-        fallback: Arc::default(),
         out,
         closed: CancellationToken::new(),
     };
@@ -180,7 +178,6 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
         Launch {
             command: "sh".into(),
             args: vec!["-c".into(), format!("touch '{}'", launched.display())],
-            env: Vec::new(),
             path: None,
             process_dir: dir.path().join("agent-process"),
             ready_within: Duration::from_secs(5),
@@ -213,7 +210,6 @@ async fn agent_run_on_a_closed_tab_answers_unknown_tab() {
         localizer,
         turns: Turns::default(),
         status: Arc::new(Mutex::new(AgentState::Idle)),
-        fallback: Arc::default(),
         out,
         closed: CancellationToken::new(),
     };
@@ -255,7 +251,6 @@ async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::
         Launch {
             command: "true".into(),
             args: Vec::new(),
-            env: Vec::new(),
             path: None,
             process_dir: dir.path().join("agent-process"),
             ready_within: Duration::from_secs(5),
@@ -272,7 +267,6 @@ async fn link_with(draft: super::Draft) -> (super::TabLink, Platform, tempfile::
         keeper,
         cmds,
         status: Arc::new(Mutex::new(AgentState::Idle)),
-        fallback: Arc::default(),
         draft: Arc::new(Mutex::new(draft)),
         session: tab,
         paste: Arc::default(),

@@ -85,7 +85,6 @@ fn read_with_dictation_hides_its_config_version() {
     settings.paths.data = Some(dir.path().to_owned());
     settings.paths.decks = Some(dir.path().join("decks"));
     settings.paths.models = Some(dir.path().join("models"));
-    settings.stt.apple = false; // pas de requête au système
     let p = Platform::with_settings(settings).unwrap();
     let v = AppSettings::new(&p, Some(oku_slides_stt::Stt::new(&p))).read();
     assert_that!((v.contains_key("dictation.model"), v.contains_key("dictation.version"))).is_equal_to((true, false));
@@ -96,7 +95,6 @@ fn speech_platform() -> (Platform, tempfile::TempDir) {
     settings.paths.data = Some(dir.path().to_owned());
     settings.paths.decks = Some(dir.path().join("decks"));
     settings.paths.models = Some(dir.path().join("models"));
-    settings.stt.apple = false;
     settings.i18n.locale = Some("fr".into());
     (Platform::with_settings(settings).unwrap(), dir)
 }

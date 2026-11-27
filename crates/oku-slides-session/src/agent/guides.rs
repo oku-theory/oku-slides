@@ -234,7 +234,7 @@ impl Session {
     /// The guides block for a turn on ACP session `session`: `None` when that session holds it.
     ///
     /// `first` forces the send (a new thread, a resume). Records what it returns as sent to
-    /// `session`, so a turn on another session (the local agent standing in) sends it again.
+    /// `session`, so a turn on another session (another agent) sends it again.
     /// An emptied list sends the "no guides" block once, only to the session that holds older guides.
     pub fn agent_guides(&mut self, session: &str, first: bool) -> Option<AgentGuides> {
         let entries = self.guide_entries();

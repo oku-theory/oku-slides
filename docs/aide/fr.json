@@ -1602,7 +1602,7 @@
            "bold": true
           },
           {
-           "t": " : les modèles de la dictée et de l'agent local, et les réglages de la dictée (config.json)."
+           "t": " : les modèles de la dictée et ses réglages (config.json)."
           }
          ],
          "list": "bullet"
@@ -1772,31 +1772,7 @@
            "bold": true
           },
           {
-           "t": " : l'agent, une clé de [agent.presets] (claude, codex, gemini, local, omp) ; le choix de l'agent est alors verrouillé. Une clé inconnue empêche le lancement."
-          }
-         ],
-         "list": "bullet"
-        },
-        {
-         "runs": [
-          {
-           "t": "OKU_SLIDES_LOCAL_AGENT__ENGINE",
-           "bold": true
-          },
-          {
-           "t": " : auto ou gguf, le moteur de l'agent local."
-          }
-         ],
-         "list": "bullet"
-        },
-        {
-         "runs": [
-          {
-           "t": "OKU_SLIDES_STT__APPLE",
-           "bold": true
-          },
-          {
-           "t": " : false garde Parakeet seul, sans le moteur d'Apple."
+           "t": " : l'agent, une clé de [agent.presets] (claude, codex, gemini, omp) ; le choix de l'agent est alors verrouillé. Une clé inconnue empêche le lancement."
           }
          ],
          "list": "bullet"

@@ -132,8 +132,6 @@ impl Tools {
             "download_dictation_model" => self.download_dictation_model(args).await,
             "cancel_dictation_download" => self.cancel_dictation_download().await,
             "select_agent" => self.select_agent(args).await,
-            "download_agent_model" => self.download_agent_model().await,
-            "cancel_agent_model_download" => self.cancel_agent_model_download().await,
             "move" => self.move_file(args).await,
             "merge" => self.merge(args).await,
             "history" => self.history(args).await,

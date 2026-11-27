@@ -7,5 +7,5 @@ allow-panic-in-tests = true
 # Product names written as is in docs; ".." keeps the default list.
 doc-valid-idents = [
   "ECharts", "OKLab", "OpenDAL", "LibreOffice", "PowerPoint", "DrawingML", "CommonMark", "WKWebView", "SmartArt",
-  "OpenAI", "CTranslate2", "ChatML", "MicroType", "PptxGenJS", "AppImage", "SplitMix64", "SpeechAnalyzer", "..",
+  "OpenAI", "CTranslate2", "ChatML", "MicroType", "PptxGenJS", "AppImage", "SplitMix64", "..",
 ]

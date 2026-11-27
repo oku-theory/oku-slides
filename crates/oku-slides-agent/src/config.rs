@@ -1,10 +1,10 @@
 //! How to launch the agent (one subprocess for the app).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use oku_slides_platform::ProgramPath;
-use oku_slides_platform::config::{AgentPreset, Builtin};
+use oku_slides_platform::config::AgentPreset;
 
 /// The agent process's working folder, under the data folder.
 pub(crate) const AGENT_PROCESS_DIR: &str = "agent-process";
@@ -20,8 +20,6 @@ pub struct Launch {
     pub command: String,
     /// Arguments passed to `command`, in order.
     pub args: Vec<String>,
-    /// Variables ajoutées à l'environnement de l'agent (tests : moteur factice de l'agent local).
-    pub env: Vec<(String, String)>,
     /// The `PATH` where `command` is looked up, also the agent's own; `None`: the process's.
     pub path: Option<ProgramPath>,
     /// The agent process's working folder: the app's own, `<data>/agent-process`.
@@ -33,18 +31,16 @@ pub struct Launch {
 }
 
 impl Launch {
-    /// Le lancement de `preset` ; un agent intégré relance `program` avec son argument.
-    ///
-    /// `None` : agent intégré et pas de binaire de l'app connu (tests, outils).
+    /// Le lancement de `preset` : sa commande et ses arguments.
     #[must_use]
-    pub fn for_preset(preset: &AgentPreset, program: Option<&Path>, process_dir: PathBuf) -> Option<Self> {
-        let (command, args) = match preset.builtin {
-            None => (preset.command.clone(), preset.args.clone()),
-            Some(Builtin::Local) => {
-                (program?.to_string_lossy().into_owned(), vec![oku_slides_platform::LOCAL_AGENT_FLAG.to_owned()])
-            }
-        };
-        Some(Self { command, args, env: Vec::new(), path: None, process_dir, ready_within: READY_WITHIN })
+    pub fn for_preset(preset: &AgentPreset, process_dir: PathBuf) -> Self {
+        Self {
+            command: preset.command.clone(),
+            args: preset.args.clone(),
+            path: None,
+            process_dir,
+            ready_within: READY_WITHIN,
+        }
     }
 }
 

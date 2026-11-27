@@ -9,7 +9,7 @@ use crate::{Mode, Model, State, Stt};
 
 fn stt(name: &str) -> (tempfile::TempDir, Stt) {
     let dir = fresh_dir(name);
-    let stt = Stt::new(&platform_in(dir.path(), "fr", |s| s.apple = false));
+    let stt = Stt::new(&platform_in(dir.path(), "fr"));
     (dir, stt)
 }
 

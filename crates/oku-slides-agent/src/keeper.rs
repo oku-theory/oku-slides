@@ -143,7 +143,7 @@ async fn run(tab: TabSession, hub: Arc<SurfaceHub>, mut rx: mpsc::UnboundedRecei
 
 /// The session another agent took over: (agent fingerprint, session id); memory only.
 ///
-/// While the local agent stands in, the selected agent's session waits here.
+/// While another agent runs, the previous agent's session waits here.
 type Aside = Option<(String, String)>;
 
 /// Applique un ordre à la session et au hub de l'onglet.

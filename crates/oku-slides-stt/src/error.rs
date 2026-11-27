@@ -30,14 +30,12 @@ pub enum SttErrorKind {
     AudioFile,
     /// Modèle absent ou illisible.
     Model,
-    /// The engine could not transcribe the audio (Parakeet, API, Apple).
+    /// The engine could not transcribe the audio (Parakeet, API).
     Transcription,
     /// Model download impossible (network, disk, integrity).
     Download,
     /// Téléchargement annulé par l'utilisateur.
     Cancelled,
-    /// Autorisation refusée (reconnaissance vocale).
-    Permission,
     /// The utterance receiver was already handed out.
     ReceiverTaken,
     /// No OS voice can speak.
@@ -86,18 +84,8 @@ pub(crate) enum SttInner {
     Cancelled { backtrace: Backtrace },
     #[snafu(display("model download failed"))]
     Download { source: DownloadError, backtrace: Backtrace },
-    /// Only the Apple bridge reports it.
-    #[cfg(any(test, target_os = "macos"))]
-    #[snafu(display("speech recognition not allowed"))]
-    SpeechDenied { backtrace: Backtrace },
     #[snafu(display("language not supported by the dictation engine: {locale}"))]
     LocaleUnsupported { locale: String, backtrace: Backtrace },
-    #[snafu(display("language download failed: {reason}"))]
-    AssetInstall { reason: String, backtrace: Backtrace },
-    #[snafu(display("system transcription failed: {reason}"))]
-    Analyzer { reason: String, backtrace: Backtrace },
-    #[snafu(display("system transcription did not finish in time"))]
-    FinishTimeout { backtrace: Backtrace },
     #[snafu(display("this model is installed by the system"))]
     NotDownloadable { backtrace: Backtrace },
     #[snafu(display("the utterance receiver was already handed out"))]
@@ -146,19 +134,18 @@ impl SttError {
     /// Kind of the error, to react without reading the message.
     #[must_use]
     pub fn kind(&self) -> SttErrorKind {
+        #[cfg(any(test, target_os = "macos"))]
+        use SttInner::DuplexStart;
         #[cfg(feature = "e2e-fakes")]
         use SttInner::VoiceLog;
         #[cfg(windows)]
         use SttInner::VoiceWinRt;
         use SttInner::{
-            Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
-            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, FinishTimeout, LocaleUnsupported,
-            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, ModelLoad, NoMicrophone,
-            NotDownloadable, ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable,
-            Wav, ZeroSetting,
+            ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus, AudioFile,
+            Cancelled, Download, EchoCancel, LocaleUnsupported, MicrophoneConfig, MicrophonePlay, MicrophoneStream,
+            MicrophoneTimeout, ModelLoad, NoMicrophone, NotDownloadable, ReceiverTaken, Transcribe, UnsupportedFormat,
+            VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
         };
-        #[cfg(any(test, target_os = "macos"))]
-        use SttInner::{DuplexStart, SpeechDenied};
         #[cfg(any(all(test, unix), target_os = "linux"))]
         use SttInner::{VoiceIo, VoiceRefused};
         match *self.0 {
@@ -180,8 +167,6 @@ impl SttError {
             | ApiKeyInvalid { .. }
             | ApiConfig { .. } => SttErrorKind::Model,
             Transcribe { .. }
-            | Analyzer { .. }
-            | FinishTimeout { .. }
             | ApiHttp { .. }
             | ApiStatus { .. }
             | ApiResponse { .. }
@@ -190,9 +175,7 @@ impl SttError {
             Cancelled { .. } => SttErrorKind::Cancelled,
             ReceiverTaken { .. } => SttErrorKind::ReceiverTaken,
             Download { ref source, .. } if source.kind() == DownloadErrorKind::Cancelled => SttErrorKind::Cancelled,
-            Download { .. } | AssetInstall { .. } => SttErrorKind::Download,
-            #[cfg(any(test, target_os = "macos"))]
-            SpeechDenied { .. } => SttErrorKind::Permission,
+            Download { .. } => SttErrorKind::Download,
             VoiceUnavailable { reason, .. } => SttErrorKind::VoiceUnavailable { reason },
             VoiceFailed { .. } | VoiceRate { .. } => SttErrorKind::VoiceFailed,
             #[cfg(any(all(test, unix), target_os = "linux"))]
@@ -207,19 +190,18 @@ impl SttError {
 
 impl Localize for SttError {
     fn localize(&self, l: &Localizer) -> String {
+        #[cfg(any(test, target_os = "macos"))]
+        use SttInner::DuplexStart;
         #[cfg(feature = "e2e-fakes")]
         use SttInner::VoiceLog;
         #[cfg(windows)]
         use SttInner::VoiceWinRt;
         use SttInner::{
-            Analyzer, ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus,
-            AssetInstall, AudioFile, Cancelled, Download, EchoCancel, FinishTimeout, LocaleUnsupported,
-            MicrophoneConfig, MicrophonePlay, MicrophoneStream, MicrophoneTimeout, ModelLoad, NoMicrophone,
-            NotDownloadable, ReceiverTaken, Transcribe, UnsupportedFormat, VoiceFailed, VoiceRate, VoiceUnavailable,
-            Wav, ZeroSetting,
+            ApiClient, ApiConfig, ApiHttp, ApiKeyInvalid, ApiKeyMissing, ApiResponse, ApiRuntime, ApiStatus, AudioFile,
+            Cancelled, Download, EchoCancel, LocaleUnsupported, MicrophoneConfig, MicrophonePlay, MicrophoneStream,
+            MicrophoneTimeout, ModelLoad, NoMicrophone, NotDownloadable, ReceiverTaken, Transcribe, UnsupportedFormat,
+            VoiceFailed, VoiceRate, VoiceUnavailable, Wav, ZeroSetting,
         };
-        #[cfg(any(test, target_os = "macos"))]
-        use SttInner::{DuplexStart, SpeechDenied};
         #[cfg(any(all(test, unix), target_os = "linux"))]
         use SttInner::{VoiceIo, VoiceRefused};
         match &*self.0 {
@@ -234,12 +216,7 @@ impl Localize for SttError {
             UnsupportedFormat { format, .. } => l.tr_with("stt-audio-format", &[("format", format.as_str().into())]),
             AudioFile { .. } | Wav { .. } => l.tr("stt-audio-file"),
             ModelLoad { .. } | ZeroSetting { .. } | NotDownloadable { .. } => l.tr("stt-model"),
-            Transcribe { .. }
-            | Analyzer { .. }
-            | FinishTimeout { .. }
-            | ApiResponse { .. }
-            | ApiClient { .. }
-            | ApiRuntime { .. } => l.tr("stt-transcription"),
+            Transcribe { .. } | ApiResponse { .. } | ApiClient { .. } | ApiRuntime { .. } => l.tr("stt-transcription"),
             ApiKeyMissing { var, .. } => l.tr_with("stt-api-key-missing", &[("var", var.as_str().into())]),
             ApiKeyInvalid { var, .. } => l.tr_with("stt-api-key-invalid", &[("var", var.as_str().into())]),
             ApiConfig { .. } => l.tr("stt-api-config"),
@@ -255,11 +232,8 @@ impl Localize for SttError {
                 }
                 _ => l.tr("stt-download"),
             },
-            AssetInstall { .. } => l.tr("stt-download"),
             Cancelled { .. } => l.tr("stt-cancelled"),
             ReceiverTaken { .. } => l.tr("stt-receiver-taken"),
-            #[cfg(any(test, target_os = "macos"))]
-            SpeechDenied { .. } => l.tr("stt-speech-denied"),
             LocaleUnsupported { locale, .. } => {
                 l.tr_with("stt-locale-unsupported", &[("language", locale.as_str().into())])
             }
