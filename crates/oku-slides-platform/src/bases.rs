@@ -21,7 +21,7 @@ use oku_slides_data::BaseId;
 use sha2::{Digest, Sha256};
 use snafu::{Backtrace, ResultExt, Snafu, ensure};
 
-use crate::storage::{Storage, StorageError};
+use crate::storage::{Storage, StorageError, StorageErrorKind};
 
 /// How often a process rewrites its lease file.
 pub const LEASE_REFRESH: Duration = Duration::from_mins(5);
@@ -294,7 +294,17 @@ impl BaseStore {
                 storage.delete(&file).context(StorageSnafu)?;
                 continue;
             }
-            let bytes = storage.read_limited(&file, 1 << 20).context(StorageSnafu)?;
+            // Another store's `write_atomic` in flight: its content reaches that store's lease
+            // file on rename. A dead writer's leftover is deleted above once stale.
+            if file.extension().is_some_and(|ext| ext == "tmp") {
+                continue;
+            }
+            let bytes = match storage.read_limited(&file, 1 << 20) {
+                Ok(bytes) => bytes,
+                // Its owner dropped it since the listing: it protects nothing any more.
+                Err(e) if e.kind() == StorageErrorKind::NotFound => continue,
+                Err(e) => Err(e).context(StorageSnafu)?,
+            };
             // Lease files are written atomically: one that does not parse is damaged, and the
             // bases it protects are unknown, so nothing is collected this round.
             match serde_json::from_slice::<Vec<String>>(&bytes) {
