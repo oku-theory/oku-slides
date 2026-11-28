@@ -202,12 +202,16 @@ Stored rows and columns always carry an id; only op input (`NewTable`) may leave
   counting its own (shared data counts once per view); a view past it draws the failure frame.
 - An option edit without `data` keeps the previous ref; `"data": null` is refused (no unbinding
   in phase 1).
-- A pack widget `list` param becomes a binding `{ "data": <DataId> }`. Its schema's columns map
-  to data columns **by name**, with compatible types (`plain`/`choice`/`asset` → text, `flag` →
+- A pack widget flat `list` param becomes a binding `{ "data": <DataId>, "fields": {<schema
+  column>: <column id>} }`. Its schema's columns map to data columns **by name** at bind, stored
+  by id so a rename keeps the view, with compatible types (`plain`/`choice`/`asset` → text, `flag` →
   bool, `number` → number/integer, `rich` → text holding the editing markdown). A data that does
   not match is refused at bind time; adapting one is a query (`SELECT nom AS name …`).
-  - `rich` cells become markdown strings: the markdown round-trip invariant keeps their text,
-    but they merge per cell, no longer per character.
+  - `rich` cells become markdown strings, read and written by core (the UI's lezer reader and
+    core's agree on a shared corpus): the markdown round-trip invariant keeps their text, but they
+    merge per cell, no longer per character.
+  - A list with a nested `list` column stays inline and cannot be bound.
+  - A list over a query data is read-only, like the query grid.
 - `show_as` (chart ↔ table) keeps the same `data` ref: no copy.
 - Copying a view (copy-paste, in or across decks; the app has no duplicate command) copies its
   data: the copy gets a new data (`ventes_2`), never a silent link to the original. Pasting is
@@ -324,7 +328,7 @@ deferred.
 
 - **Ops** (core `Op`, all undoable, one step each): `add_data`, `remove_data` (refused while a
   view or query uses it; the error lists them), `rename_data`, `set_query`, `edit_data` (an
-  id-based table edit, replacing today's positional `DataOp` and `set_data`), `set_column_type`,
+  id-based table edit with `move_row`, replacing today's positional `DataOp` and `set_data`), `set_column_type`,
   `bind_data` (view or list param → data), `tag_version`, `remove_tag`. No confirmation step:
   `remove_data` and `Replace` apply directly and undo restores.
 - **MCP tools**: list data (name, kind, schema, row count, users), read a data (first N rows, or
@@ -362,7 +366,7 @@ deferred.
 1. Data entity, table and chart views (manual data only).
 1b. Pack-widget `list` params as views. Its own plan: list columns may be `rich` (markdown
    cells, Typst needs paragraphs back) and lists nest one level, which a scalar data cannot hold;
-   a nested-list column keeps its list inline or is refused at bind (decided in that plan).
+   a nested-list column keeps its list inline (decided in that plan).
 2. Derived data: crate, validation, worker, recompute, cache.
 3. Tags and `AT (VERSION => …)`.
 4. Linked sources (separate design): source spec, declared key column, refresh as a diff by key
@@ -608,6 +612,21 @@ Choices the phase 2 plan made within this design:
 - The element panel shows a view over a query read-only with its view controls; Kind and ShowAs
   stay disabled (visible): the session refuses those conversions over a query, because converting
   copies the query's rows.
+
+## Plan calls (phase 1b plan, 2026-11-28)
+
+Choices the phase 1b plan (`2026-11-28-data-entities-phase1b.md`) made within this design:
+
+- The binding stores `fields` by column id; a later retype or a query result losing a column
+  renders that field absent with an issue; rows past the schema `max` are cut with an issue.
+- Every flat list is a view: an inline flat list is creation input, lifted by `prepare_ops` to a
+  data named after the param; `edit_list` on a bound list becomes `edit_data` (new `move_row`).
+- One render function resolves list views; the session calls it too, so fields and item boxes
+  never wait for a render. Only base cells come from the worker, cached by base id; a based list
+  whose cells are not cached yet is pending (issue, no items), never an older value.
+- Formats: replica, deck, sources, render-worker protocol and A2UI catalog each bump once;
+  phase 3 bumps the same ones, so whichever plan runs second bumps from what `main` carries.
+- Restricting link schemes in rich text stays out of scope (rich params and cells alike).
 
 ## Plan calls (phase 3 plan, 2026-11-28)
 
