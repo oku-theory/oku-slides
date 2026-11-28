@@ -5,6 +5,33 @@ All notable changes to Oku Slides are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [13.0.0] - 2026-11-28
+
+### Added
+
+- *(session)* approve deck knowledge before the agent reads it (t-1728)
+- *(core)* [**breaking**] data entities, phase 1 (t-1690)
+- *(knowledge)* [**breaking**] attach documents and import them into deck knowledge (t-1728)
+- [**breaking**] remove the local fallback agent and Apple dictation (t-1791)
+- *(data)* [**breaking**] query data computed by SQL in the render worker (t-1770, t-1771, t-1772, t-1773, t-1774, t-1775, t-1776, t-1777, t-1778, t-1779, t-1780, t-1793)
+- *(knowledge)* read-only knowledge tab for each deck (t-1728, t-1790)
+
+### Fixed
+
+- *(platform)* gc skips lease writes in flight (t-1782)
+- *(data)* phase 1 follow-ups: compaction, apply cap, data routing (t-1764, t-1765, t-1766, t-1767, t-1768, t-1769)
+- *(session)* compute a query again when its worker is lost (t-1794)
+
+### Performance
+
+- *(mcp)* one shared HTTP client for MCP callers (t-1796)
+
+### Documentation
+
+- remove the local agent and Apple dictation plans and specs (t-1791)
+- *(data)* phase 3 plan, tags and AT (VERSION => …) (t-1797)
+- *(data)* phase 1b plan, pack list params as data views (t-1808)
+
 ## [12.3.0] - 2026-11-25
 
 ### Added
