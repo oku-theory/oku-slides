@@ -72,3 +72,9 @@ harness = false
 name = "issue_1759_import_with_real_child_worker"
 path = "tests/regressions/issue_1759_import_with_real_child_worker.rs"
 harness = false
+
+[[test]]
+# Own main: it is also the query worker (`--render-worker`), whose first launch hangs.
+name = "issue_1794_query_worker_timeout_computes_again"
+path = "tests/regressions/issue_1794_query_worker_timeout_computes_again.rs"
+harness = false

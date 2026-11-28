@@ -298,6 +298,10 @@ deferred.
   edit path (`spawn_blocking` / worker), then re-renders their views. A query that fails puts the
   data in an error state: its views show the placeholder and an issue names the error. No last
   good result is shown in its place (no silent fallback).
+  A worker lost, replaced or timed out is not the query's failure: the query stays pending and
+  runs again, three times at most for the same inputs, then fails with the worker's error (t-1794).
+  The host cannot tell a hung worker from a slow query, so a query over the timeout fails after
+  three timeouts.
 - **Result cache**: computed results are not Loro state (they would bloat the history). They go
   in the sources zip as add-only, bounded, content-addressed entries `data/<hex>.json`, keyed by
   hash(sql, input result hashes, tag frontiers read, engine version). Opening a deck renders from

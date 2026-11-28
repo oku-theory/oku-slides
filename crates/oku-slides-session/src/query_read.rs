@@ -46,7 +46,10 @@ impl QueryPreview {
     ///
     /// The query's refusal or failure, or the read's.
     pub fn run(self) -> Result<(Arc<Data>, Dataset)> {
-        let out = run_query(&self.runner, &self.query, &self.inputs).map_err(OpError::from).context(PrepareSnafu)?;
+        let out = run_query(&self.runner, &self.query, &self.inputs)
+            .into_result()
+            .map_err(OpError::from)
+            .context(PrepareSnafu)?;
         let data =
             Arc::new(Data { name: String::new(), label: None, inline: false, source: Source::Manual(out.table()) });
         let columns = out.columns.iter().take(self.columns).map(|c| c.id.clone()).collect();

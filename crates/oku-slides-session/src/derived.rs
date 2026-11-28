@@ -16,6 +16,12 @@
 //! it ([`Session::query_issues`]). A query reading a failed input fails too, naming it
 //! (`data-query-input-failed`), and computes again once the input's key changes. A query
 //! reading a pending or broken input stays pending: the input says why.
+//!
+//! A job whose worker was lost, replaced or timed out ([`QueryReply::Lost`]) is not the query's
+//! fault: its query stays pending and computes again, at most [`QUERY_ATTEMPTS`] times for one
+//! key, then fails with the last error like a refused query (t-1794). A query timeout counts as
+//! lost: the host cannot tell a hung worker from a slow query, so a query that truly exceeds the
+//! bound fails after [`QUERY_ATTEMPTS`] times the timeout, holding the one query worker.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -23,14 +29,17 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use oku_slides_core::{Deck, Issue, ViewRef, plan_views};
 use oku_slides_data::sql::{EngineQuery, parse_query};
-use oku_slides_data::{BaseId, Data, DataError, DataId, Source, Table};
+use oku_slides_data::{BaseId, Data, DataError, DataErrorKind, DataId, Source, Table};
 use oku_slides_i18n::{Localize, Message};
 use oku_slides_platform::bases::BaseStore;
-use oku_slides_render::{Results, with_results};
-use oku_slides_render_worker::{DataWorker, QueryOut, engine_version};
+use oku_slides_render::{RenderErrorKind, Results, with_results};
+use oku_slides_render_worker::{DataResult, DataWorker, QueryOut, engine_version};
 use sha2::{Digest, Sha256};
 
 use crate::Session;
+
+/// Runs of one query for one key before a lost worker fails it.
+pub(crate) const QUERY_ATTEMPTS: u8 = 3;
 
 /// What a query result depends on: sha256 of the engine version, the SQL and the input keys
 /// in name order.
@@ -93,13 +102,15 @@ pub(crate) struct Derived {
     pub(crate) states: BTreeMap<DataId, QueryState>,
     /// The data a job is computing, each cleared when its job is dropped.
     in_flight: Arc<Mutex<BTreeSet<DataId>>>,
+    /// The runs each data lost to its worker for a key, cleared once it lands otherwise.
+    lost: BTreeMap<DataId, (ResultKey, u8)>,
     store: BaseStore,
 }
 
 impl Derived {
     /// No result yet; the ready ones will be leased in `store`.
     pub(crate) fn new(store: BaseStore) -> Self {
-        Self { states: BTreeMap::new(), in_flight: Arc::default(), store }
+        Self { states: BTreeMap::new(), in_flight: Arc::default(), lost: BTreeMap::new(), store }
     }
 
     /// The bases of the ready results, which the render worker reads.
@@ -117,6 +128,7 @@ impl Derived {
     }
 
     fn remove(&mut self, id: &DataId) {
+        self.lost.remove(id);
         if let Some(QueryState::Ready { out, .. }) = self.states.remove(id) {
             release(&self.store, &out.base.id);
         }
@@ -209,21 +221,10 @@ pub(crate) fn result_data(data: &Data, table: &Table) -> Arc<Data> {
     Arc::new(Data { source: Source::Manual(table.clone()), ..data.clone() })
 }
 
-/// Runs `query` over `inputs` in `worker`; a worker failure is told as the query's.
+/// Runs `query` over `inputs` in `worker`: its result, its refusal, or its worker lost.
 /// Blocking: call it with no session lock held.
-pub(crate) fn run_query(
-    worker: &DataWorker,
-    query: &EngineQuery,
-    inputs: &[(String, Arc<Data>)],
-) -> Result<QueryOut, DataError> {
-    match worker.run_query(query, inputs) {
-        Ok(done) => done,
-        Err(e) => {
-            let reason = oku_slides_platform::errors::one_line(&e);
-            tracing::warn!(error = %reason, "query worker failed");
-            Err(DataError::query_run(reason))
-        }
-    }
+pub(crate) fn run_query(worker: &DataWorker, query: &EngineQuery, inputs: &[(String, Arc<Data>)]) -> QueryReply {
+    QueryReply::of(worker.run_query(query, inputs))
 }
 
 /// Drops the lease a ready result held on its base.
@@ -354,22 +355,51 @@ pub(crate) struct QueryJob {
     store: BaseStore,
 }
 
-/// How a query job ended.
+/// How a query run ended.
 #[derive(Debug)]
 pub(crate) enum QueryReply {
     /// The result, its base adopted (and leased) in the store.
     Done(QueryOut),
-    /// The query was refused, or its worker failed.
+    /// The query was refused, or its worker failed for it (out of memory, a bad frame).
     Refused(DataError),
+    /// Its worker was lost, replaced or timed out: a run again may succeed.
+    Lost(DataError),
+}
+
+impl QueryReply {
+    /// The reply of a worker's `run`: a timeout, a lost or replaced worker is [`QueryReply::Lost`].
+    pub(crate) fn of(run: DataResult<QueryOut>) -> Self {
+        match run {
+            Ok(Ok(out)) => QueryReply::Done(out),
+            Ok(Err(error)) if error.kind() == DataErrorKind::QueryTimeout => QueryReply::Lost(error),
+            Ok(Err(error)) => QueryReply::Refused(error),
+            Err(e) => {
+                let reason = oku_slides_platform::errors::one_line(&e);
+                tracing::warn!(error = %reason, "query worker failed");
+                let error = DataError::query_run(reason);
+                match e.kind() {
+                    RenderErrorKind::WorkerLost | RenderErrorKind::Stale | RenderErrorKind::Timeout => {
+                        QueryReply::Lost(error)
+                    }
+                    _ => QueryReply::Refused(error),
+                }
+            }
+        }
+    }
+
+    /// The result, or why there is none.
+    pub(crate) fn into_result(self) -> Result<QueryOut, DataError> {
+        match self {
+            QueryReply::Done(out) => Ok(out),
+            QueryReply::Refused(error) | QueryReply::Lost(error) => Err(error),
+        }
+    }
 }
 
 impl QueryJob {
     /// Runs the query in the data worker. Blocking; call it with no session lock held.
     pub(crate) fn run(&self) -> QueryReply {
-        match run_query(&self.worker, &self.query, &self.inputs) {
-            Ok(out) => QueryReply::Done(out),
-            Err(error) => QueryReply::Refused(error),
-        }
+        run_query(&self.worker, &self.query, &self.inputs)
     }
 
     /// Drops a job whose result is not kept: a written base loses its adoption lease.
@@ -485,9 +515,25 @@ impl Derived {
             job.abandon(reply);
             return None;
         }
+        let reply = match reply {
+            QueryReply::Lost(error) => {
+                let runs = match self.lost.get(&job.data) {
+                    Some((key, runs)) if *key == job.key => runs.saturating_add(1),
+                    _ => 1,
+                };
+                if runs < QUERY_ATTEMPTS {
+                    self.lost.insert(job.data.clone(), (job.key, runs));
+                    // Still pending: the next `jobs` takes it again.
+                    return Some(Landed::Retried(error));
+                }
+                QueryReply::Refused(error)
+            }
+            reply => reply,
+        };
+        self.lost.remove(&job.data);
         let (state, landed) = match reply {
             QueryReply::Done(out) => (QueryState::ready(job.key, out), Landed::Ready),
-            QueryReply::Refused(error) => {
+            QueryReply::Lost(error) | QueryReply::Refused(error) => {
                 let issue = deck.data.get(&job.data).map(|data| failed(&data.name, &error));
                 (QueryState::Failed { key: job.key, error }, Landed::Failed(issue))
             }
@@ -504,6 +550,8 @@ pub(crate) enum Landed {
     Ready,
     /// Failed, raising this issue (none when the data is gone).
     Failed(Option<Issue>),
+    /// Its worker was lost for this reason: still pending, it computes again.
+    Retried(DataError),
 }
 
 impl Session {
@@ -572,6 +620,10 @@ impl Session {
     pub(crate) fn finish_query(&mut self, job: QueryJob, reply: QueryReply) -> bool {
         match self.derived.land(self.doc.sources.deck(), job, reply) {
             None => false,
+            Some(Landed::Retried(error)) => {
+                tracing::warn!(error = %error.localize(&self.localizer), "query worker lost: computed again");
+                false
+            }
             // A failed query keeps the placeholder its pending one drew.
             Some(Landed::Failed(issue)) => {
                 if let Some(issue) = issue {
@@ -597,3 +649,7 @@ pub use cache::DeckResults;
 #[cfg(test)]
 #[path = "derived_tests.rs"]
 pub(crate) mod derived_tests;
+
+#[cfg(test)]
+#[path = "derived_lost_tests.rs"]
+mod derived_lost_tests;
