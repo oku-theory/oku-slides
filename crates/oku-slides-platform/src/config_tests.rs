@@ -73,6 +73,13 @@ fn defaults_bound_the_base_store_and_the_data_process() {
 }
 
 #[test]
+fn defaults_bound_the_query_process() {
+    let s = Settings::defaults().unwrap();
+    assert_that!(s.render.query_timeout_ms).is_equal_to(30_000);
+    assert_that!(s.render.query_memory_mib).is_equal_to(4096);
+}
+
+#[test]
 fn max_sources_bytes_saturates_instead_of_overflowing() {
     let mut s = Settings::defaults().unwrap();
     s.sources.max_sources_mib = usize::MAX;
@@ -380,6 +387,8 @@ fn render_settings_probe_budget_is_in_milliseconds() {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     assert_that!(r.probe_budget()).is_equal_to(std::time::Duration::from_millis(250));
 }
@@ -396,6 +405,8 @@ fn render_settings_memory_bytes_converts_mib() {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     assert_that!(r.memory_bytes()).is_equal_to(3 * 1024 * 1024);
 }
@@ -412,6 +423,8 @@ fn render_settings_timeout_is_in_milliseconds() {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     assert_that!(r.timeout()).is_equal_to(std::time::Duration::from_millis(1500));
 }
@@ -428,6 +441,8 @@ fn render_settings_max_frame_bytes_converts_mib() {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     assert_that!(r.max_frame_bytes()).is_equal_to(512 * 1024 * 1024);
 }
@@ -459,6 +474,8 @@ fn render_settings_max_frame_bytes_saturates_instead_of_overflowing() {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     assert_that!((r.max_frame_bytes(), r.memory_bytes())).is_equal_to((usize::MAX, u64::MAX));
 }

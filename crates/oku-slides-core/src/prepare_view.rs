@@ -139,7 +139,7 @@ impl Lifter<'_> {
         let lifted = oku_slides_data::NewTable::from_dataset(&dataset);
         let mut table = lifted.table;
         let own = own_inline(scratch, target, param, owner);
-        let keep = own.as_ref().and_then(|id| scratch.data.get(id)).map(|d| &d.table);
+        let keep = own.as_ref().and_then(|id| scratch.data.get(id)).and_then(|d| d.table());
         let in_batch = own.as_ref().and_then(|id| self.given_tables.get(id));
         table.fill_ids(keep, in_batch.unwrap_or(&GivenIds::default()), ids);
         let id = if let Some(id) = own {

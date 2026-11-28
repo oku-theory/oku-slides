@@ -13,3 +13,4 @@ mod issue_1000_new_conversation_keeps_turn;
 mod issue_1413_agent_config_persists;
 mod issue_1413_cwd_outside_deck;
 mod issue_1522_spoken_answers_kept;
+mod issue_1779_stale_cancel_ignored;

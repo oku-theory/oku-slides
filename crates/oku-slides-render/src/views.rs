@@ -7,14 +7,19 @@
 //! failure frame. A dataset stored next to
 //! a `data` ref is never trusted: the plan's one replaces it. A param without `data` is left as
 //! is: a deck holds no inline dataset (ADR-0015), and the sanitizer bounds what it carries.
+//!
+//! A query data's views read its result ([`Results`]), a table over the result's base; a
+//! query whose result is pending or failed has none, and its views draw the failure frame.
 
-use std::collections::HashMap;
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
+use std::sync::Arc;
 
 use oku_slides_chart::MAX_TABLE_CELL_CHARS;
 use oku_slides_core::{Deck, PlanOutcome, ViewPlan, WidgetRegistry, plan_views};
 use oku_slides_core::{HostType, ParamValue, Params};
-use oku_slides_data::{DataError, Dataset, Table};
+use oku_slides_data::{Data, DataError, DataId, Dataset, Source, Table};
 use serde_json::Value as Json;
 
 /// Reads a view over a data's base file: only the render worker has one ([`Renderer::set_bases`]).
@@ -36,15 +41,43 @@ pub trait BaseRead: Send {
     ) -> Result<Dataset, DataError>;
 }
 
-/// `deck` with every view's dataset resolved and no data; `deck` is left unchanged. A based
-/// data's views read through `bases`; without it they draw a failure frame.
+/// The result of each query data: a table over the result's base with an empty overlay, or
+/// `None` while it is pending or after it failed.
+pub type Results = BTreeMap<DataId, Option<Table>>;
+
+/// `deck` with each query data that has a result in `results` turned into a data entered by
+/// hand over that result: its name, label and views kept. Others are left as they are.
 #[must_use]
-pub fn resolve_views(deck: &Deck, registry: &WidgetRegistry, bases: Option<&dyn BaseRead>) -> Deck {
-    let (plans, _) = plan_views(deck, registry);
+pub fn with_results<'a>(deck: &'a Deck, results: &Results) -> Cow<'a, Deck> {
+    let ready: Vec<(&DataId, &Table)> = results
+        .iter()
+        .filter_map(|(id, table)| Some((id, table.as_ref()?)))
+        .filter(|(id, _)| deck.data.get(*id).is_some_and(|d| d.sql().is_some()))
+        .collect();
+    if ready.is_empty() {
+        return Cow::Borrowed(deck);
+    }
+    let mut out = deck.clone();
+    for (id, table) in ready {
+        if let Some(data) = out.data.get_mut(id) {
+            let derived = Data { source: Source::Manual(table.clone()), ..(**data).clone() };
+            *data = Arc::new(derived);
+        }
+    }
+    Cow::Owned(out)
+}
+
+/// `deck` with every view's dataset resolved and no data; `deck` is left unchanged. A based
+/// data's views read through `bases`; without it they draw a failure frame. A query data's
+/// views read its result in `results` ([`with_results`]).
+#[must_use]
+pub fn resolve_views(deck: &Deck, registry: &WidgetRegistry, bases: Option<&dyn BaseRead>, results: &Results) -> Deck {
+    let derived = with_results(deck, results);
+    let (plans, _) = plan_views(&derived, registry);
     let mut datasets: HashMap<(&str, &str, &str), Option<Json>> = HashMap::new();
     for plan in &plans {
         let key = (plan.view.slide.as_str(), plan.view.element.as_str(), plan.view.param.as_str());
-        datasets.insert(key, dataset(deck, plan, bases));
+        datasets.insert(key, dataset(&derived, plan, bases));
     }
     let mut out = deck.clone();
     out.data.clear();
@@ -61,7 +94,8 @@ fn dataset(deck: &Deck, plan: &ViewPlan, bases: Option<&dyn BaseRead>) -> Option
     if !matches!(plan.outcome, PlanOutcome::Resolve { .. }) {
         return None;
     }
-    let table = &deck.data.get(plan.data.as_str())?.table;
+    // A plan resolves only a manual data: a query data without a result plans as derived.
+    let table = deck.data.get(plan.data.as_str())?.table()?;
     let read = match (&table.base, bases) {
         (None, _) => table.to_dataset(Some(&plan.columns), plan.rows.clone(), MAX_TABLE_CELL_CHARS),
         (Some(_), Some(bases)) => bases.read_view(table, &plan.columns, plan.rows.clone(), MAX_TABLE_CELL_CHARS),

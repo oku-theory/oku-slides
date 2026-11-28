@@ -223,6 +223,6 @@ fn prepared_names_default_columns_with_the_given_labels() {
     let mut applied = deck.clone();
     oku_slides_core::apply_all(&mut applied, ops, &registry).unwrap();
     let names: Vec<String> =
-        applied.data.values().flat_map(|d| d.table.columns.iter().map(|c| c.name.clone())).collect();
+        applied.data.values().flat_map(|d| d.table().unwrap().columns.iter().map(|c| c.name.clone())).collect();
     assert_that!(names).contains(fr.tr("chart-default-category"));
 }

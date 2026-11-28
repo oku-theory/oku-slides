@@ -51,7 +51,7 @@ fn table(rows: usize, width: usize) -> NewTable {
 }
 
 fn add(id: Option<&str>, name: &str, table: NewTable) -> Op {
-    Op::AddData { id: id.map(did), name: name.to_owned(), label: None, table }
+    Op::AddData { id: id.map(did), name: name.to_owned(), label: None, table: Some(table), sql: None }
 }
 
 fn added_id(op: &Op) -> String {
@@ -70,7 +70,7 @@ fn agent_add_data_without_ids_parses_then_prepare_draws() {
     }))
     .unwrap();
     let prepared = prepare(&deck(), vec![op], Origin::External).unwrap();
-    let Op::AddData { id, table, .. } = &prepared.ops[0] else { panic!("add_data expected") };
+    let Op::AddData { id, table: Some(table), .. } = &prepared.ops[0] else { panic!("add_data expected") };
     assert_that!(id.is_some()).is_true();
     assert_that!(table.generation.is_some()).is_true();
     assert_that!(table.columns.iter().all(|c| c.id.is_some())).is_true();
@@ -108,8 +108,8 @@ fn prepare_fills_insert_row_and_column_ids() {
     });
     assert_that!(filled).is_true();
     apply_all(&mut deck, prepared.ops, &registry()).unwrap();
-    assert_that!(deck.data[&data].table.rows.len()).is_equal_to(2);
-    assert_that!(deck.data[&data].table.columns.len()).is_equal_to(2);
+    assert_that!(deck.data[&data].table().unwrap().rows.len()).is_equal_to(2);
+    assert_that!(deck.data[&data].table().unwrap().columns.len()).is_equal_to(2);
 }
 
 #[test]
@@ -146,7 +146,7 @@ fn prepare_sees_earlier_ops_of_the_batch() {
     assert_that!(filled).is_true();
     let mut deck = deck();
     apply_all(&mut deck, prepared.ops, &registry()).unwrap();
-    assert_that!(deck.data[&did("d1")].table.rows.len()).is_equal_to(2);
+    assert_that!(deck.data[&did("d1")].table().unwrap().rows.len()).is_equal_to(2);
 }
 
 #[test]
@@ -213,7 +213,7 @@ fn prepare_drawn_row_id_avoids_row_id_given_later_in_batch() {
     assert_that!(prepared.ops[0]).is_equal_to(edit_x(insert(Some("d2"))));
     let mut deck = deck_with_x();
     apply_all(&mut deck, prepared.ops, &registry()).unwrap();
-    assert_that!(deck.data[&did("x")].table.rows.len()).is_equal_to(3);
+    assert_that!(deck.data[&did("x")].table().unwrap().rows.len()).is_equal_to(3);
 }
 
 #[test]
@@ -224,7 +224,7 @@ fn prepare_drawn_column_id_avoids_column_id_given_later_in_batch() {
     assert_that!(prepared.ops[0]).is_equal_to(edit_x(insert_column(Some("d3"))));
     let mut deck = deck_with_x();
     apply_all(&mut deck, prepared.ops, &registry()).unwrap();
-    assert_that!(deck.data[&did("x")].table.columns.len()).is_equal_to(3);
+    assert_that!(deck.data[&did("x")].table().unwrap().columns.len()).is_equal_to(3);
 }
 
 #[rstest]
@@ -257,6 +257,36 @@ fn bind_data_counts_its_weight_toward_the_cap(#[case] extra: usize, #[case] acce
     let target = crate::ops::Target { slide: "s".into(), element: Some("g".into()) };
     let bind = Op::BindData { target, param: "option".into(), data: did("x"), columns: None };
     let mut ops = vec![bind; binds];
+    ops.extend((0..extra).map(|_| edit_x(TableOp::RemoveRow { row: "r".into() })));
+    let result = check_external(&ops);
+    if accepted {
+        assert_that!(result).is_ok();
+    } else {
+        let err = result.unwrap_err();
+        assert_that!(err.kind()).is_equal_to(OpErrorKind::DataRefused(DataFaultKind::BatchTooLarge));
+    }
+}
+
+#[rstest]
+#[case::empty("", 1)]
+#[case::under_a_kib(&"x".repeat(1023), 1)]
+#[case::one_kib(&"x".repeat(1024), 2)]
+#[case::max(&"x".repeat(16_384), 17)]
+fn query_weight_counts_one_plus_its_kibs(#[case] sql: &str, #[case] weight: usize) {
+    assert_that!(query_weight(sql)).is_equal_to(weight);
+}
+
+#[rstest]
+#[case::at_cap(0, true)]
+#[case::over_cap(1, false)]
+fn query_ops_count_their_weight_toward_the_cap(#[case] extra: usize, #[case] accepted: bool) {
+    // 15 KiB of SQL weighs 16: the cap holds that many queries, half added, half set.
+    let sql = format!("SELECT * FROM sales{}", " ".repeat(15 * 1024 - 19));
+    let count = MAX_BATCH_CELLS / query_weight(&sql);
+    assert_that!(count * query_weight(&sql)).is_equal_to(MAX_BATCH_CELLS);
+    let add = Op::AddData { id: None, name: "q".into(), label: None, table: None, sql: Some(sql.clone()) };
+    let set = Op::SetQuery { data: did("x"), sql };
+    let mut ops: Vec<Op> = (0..count).map(|i| if i % 2 == 0 { add.clone() } else { set.clone() }).collect();
     ops.extend((0..extra).map(|_| edit_x(TableOp::RemoveRow { row: "r".into() })));
     let result = check_external(&ops);
     if accepted {
@@ -388,9 +418,9 @@ fn inline_echarts_series_becomes_data() {
     assert_that!(option["series"][0].get("data")).is_none();
     let data = &deck.data[&did(&bound(&deck, "g"))];
     assert_that!(data.inline).is_true();
-    let names: Vec<&str> = data.table.columns.iter().map(|c| c.name.as_str()).collect();
+    let names: Vec<&str> = data.table().unwrap().columns.iter().map(|c| c.name.as_str()).collect();
     assert_that!(names).is_equal_to(vec!["Catégorie", "Série 1"]);
-    assert_that!(data.table.rows.len()).is_equal_to(2);
+    assert_that!(data.table().unwrap().rows.len()).is_equal_to(2);
 }
 
 #[test]
@@ -402,7 +432,7 @@ fn merge_patch_touching_dataset_becomes_put_view_data() {
     assert_that!(matches!(prepared.ops[1], Op::SetParam { .. })).is_true();
     let mut deck = deck;
     apply_all(&mut deck, prepared.ops, &registry()).unwrap();
-    assert_that!(deck.data[&did(&bound(&deck, "g"))].table.rows.len()).is_equal_to(1);
+    assert_that!(deck.data[&did(&bound(&deck, "g"))].table().unwrap().rows.len()).is_equal_to(1);
 }
 
 #[test]
@@ -449,8 +479,10 @@ fn reset_inline_three_times_in_one_batch_keeps_one_data() {
     );
     assert_that!(deck.data.len()).is_equal_to(1);
     let data = deck.data.values().next().unwrap();
-    assert_that!(data.table.cell(data.table.rows.get(0).unwrap(), &data.table.columns[1].id))
-        .is_equal_to(oku_slides_data::CellRead::Overlay(&DataCell::Number(5.0)));
+    assert_that!(
+        data.table().unwrap().cell(data.table().unwrap().rows.get(0).unwrap(), &data.table().unwrap().columns[1].id)
+    )
+    .is_equal_to(oku_slides_data::CellRead::Overlay(&DataCell::Number(5.0)));
 }
 
 #[test]
@@ -486,7 +518,7 @@ fn reset_inline_on_shared_view_creates_new_data() {
 fn reset_inline_after_cell_edit_creates_new_data() {
     let mut deck = deck_with_views();
     let id = bound(&deck, "g");
-    let data = &deck.data[&did(&id)].table;
+    let data = deck.data[&did(&id)].table().unwrap();
     let (row, column) = (data.rows.get(0).unwrap().to_owned(), data.columns[1].id.clone());
     let edit = Op::EditData { data: did(&id), change: TableOp::SetCell { row, column, value: DataCell::Number(4.0) } };
     run(&mut deck, vec![edit]);
@@ -498,14 +530,14 @@ fn reset_inline_after_cell_edit_creates_new_data() {
 fn replace_in_place_keeps_column_ids_by_name_and_row_ids_by_position() {
     let mut deck = deck_with_views();
     let id = did(&bound(&deck, "g"));
-    let before = deck.data[&id].table.clone();
+    let before = deck.data[&id].table().unwrap().clone();
     let renamed = json!({
         "dataset": { "source": [["Sales", "Month"], [1, "Jan"], [2, "Feb"], [3, "Mar"]] },
         "xAxis": { "type": "category" },
         "series": [{ "type": "bar", "encode": { "x": 1, "y": 0 } }]
     });
     run(&mut deck, vec![Op::SetParam { target: target("g"), param: "option".into(), value: renamed }]);
-    let after = &deck.data[&id].table;
+    let after = deck.data[&id].table().unwrap();
     let by_name = |t: &oku_slides_data::Table, n: &str| t.columns.iter().find(|c| c.name == n).unwrap().id.clone();
     assert_that!(by_name(after, "Month")).is_equal_to(by_name(&before, "Month"));
     assert_that!(by_name(after, "Sales")).is_equal_to(by_name(&before, "Sales"));
@@ -545,13 +577,13 @@ fn inline_cleared_by(#[case] by: Clears) {
             Op::BindData { target: target("h"), param: "option".into(), data: id.clone(), columns: None }
         }
         Clears::EditData => {
-            let t = &deck.data[&id].table;
+            let t = deck.data[&id].table().unwrap();
             let (row, column) = (t.rows.get(0).unwrap().to_owned(), t.columns[1].id.clone());
             Op::EditData { data: id.clone(), change: TableOp::SetCell { row, column, value: DataCell::Number(4.0) } }
         }
         Clears::Rename => Op::RenameData { data: id.clone(), name: "renamed".into() },
         Clears::SetColumnType => {
-            let column = deck.data[&id].table.columns[1].id.clone();
+            let column = deck.data[&id].table().unwrap().columns[1].id.clone();
             Op::SetColumnType { data: id.clone(), column, ty: oku_slides_data::ColumnType::Text }
         }
     };
@@ -641,8 +673,8 @@ fn prepare_moves_inline_series_to_a_localized_dataset() {
     let mut deck = deck();
     run(&mut deck, vec![add_elem("g", "base/chart", &inline_chart_option())]);
     let data = &deck.data[&did(&bound(&deck, "g"))];
-    assert_that!(data.table.columns[0].name.as_str()).is_equal_to("Catégorie");
-    assert_that!(data.table.columns[1].name.as_str()).is_equal_to("Série 1");
+    assert_that!(data.table().unwrap().columns[0].name.as_str()).is_equal_to("Catégorie");
+    assert_that!(data.table().unwrap().columns[1].name.as_str()).is_equal_to("Série 1");
 }
 
 #[test]
@@ -854,4 +886,28 @@ fn every_task4d_key_formats_in_all_locales() {
     for key in TASK4D_RENAMED {
         assert_that!(fr.tr(key)).named(key).is_not_equal_to(en.tr(key));
     }
+}
+
+/// An inline data read back as a query (a replica can hold one) is never switched to manual in
+/// place by a view's new inline table: the put is refused as derived.
+#[test]
+fn reset_inline_over_a_query_data_is_refused_as_derived() {
+    let mut deck = deck_with_views();
+    let id = did(&bound(&deck, "g"));
+    let data = std::sync::Arc::make_mut(deck.data.get_mut(&id).unwrap());
+    data.source = oku_slides_data::Source::Query { sql: "SELECT 1".into() };
+    let before = deck.clone();
+    let registry = registry();
+    let labels = ChartLabels::new(&Localizer::new(Some("fr")));
+    let mut ids = counter();
+    let mut ctx =
+        PrepareCtx { deck: &mut deck, registry: &registry, labels: &labels, ids: &mut ids, origin: Origin::External };
+    let prepared = prepare_ops(vec![put_chart([3.0, 4.0])], &mut ctx).unwrap();
+    let mut applied = before.clone();
+    let err = apply_all(&mut applied, prepared.ops, &registry).unwrap_err();
+    assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::DataRefused(DataFaultKind::Derived));
+    let fr = Localizer::new(Some("fr"));
+    let expected = fr.tr_with("op-data-derived", &[("data", id.as_str().into())]);
+    assert_that!(err.op_error().localize(&fr)).is_equal_to(expected);
+    assert_that!(deck.data).is_equal_to(&before.data);
 }

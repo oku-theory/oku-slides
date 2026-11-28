@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use oku_slides_data::limits::{MAX_DATA, MAX_DECK_OVERLAY, MAX_DECK_ROW_IDS, MAX_DECK_TEXT_BYTES, MAX_ROWS};
-use oku_slides_data::{Column, ColumnType, Data, DataCell, DataId, DataKind, Rows, Table};
+use oku_slides_data::{Column, ColumnType, Data, DataCell, DataId, Rows, Source, Table};
 use rstest::rstest;
 use speculoos::prelude::*;
 
@@ -17,15 +17,14 @@ fn sized_data(i: usize, rows: usize, overlay: usize, label: usize) -> Arc<Data> 
         name: format!("d{i}"),
         label: (label > 0).then(|| "x".repeat(label)),
         inline: false,
-        kind: DataKind::Manual,
-        table: Table {
+        source: Source::Manual(Table {
             generation: "g".to_owned(),
             epoch: String::new(),
             columns: vec![Column { id: "c".to_owned(), name: String::new(), ty: ColumnType::Number }],
             rows: Rows::repaired((0..rows).map(|r| format!("r{r}"))),
             base: None,
             cells,
-        },
+        }),
     })
 }
 

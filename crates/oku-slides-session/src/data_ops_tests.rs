@@ -183,3 +183,46 @@ fn data_undo_label_names_task5_ops(#[case] ops: Vec<Op>, #[case] key: &str) {
     let fr = Localizer::new(Some("fr"));
     assert_that!(data_undo_label(&fr, &ops)).is_equal_to(Some(fr.tr(key)));
 }
+
+fn add_query(id: &str, name: &str, sql: &str) -> Op {
+    op(json!({ "op": "add_data", "id": id, "name": name, "sql": sql }))
+}
+
+fn sql_of<'a>(s: &'a Session, id: &str) -> Option<&'a str> {
+    s.deck().data.iter().find(|(k, _)| k.as_str() == id).and_then(|(_, d)| d.sql())
+}
+
+#[test]
+fn undo_set_query_restores_sql() {
+    let mut s = session_with_data();
+    s.apply("query", vec![add_query("d3", "top", "SELECT * FROM sales")], None).unwrap();
+    let set = op(json!({ "op": "set_query", "data": "d3", "sql": "SELECT * FROM months" }));
+    let fr = Localizer::new(Some("fr"));
+    let label = data_undo_label(&fr, std::slice::from_ref(&set)).unwrap();
+    assert_that!(label.as_str()).is_equal_to(fr.tr("session-undo-data-query").as_str());
+    s.apply(&label, vec![set], None).unwrap();
+    assert_that!(sql_of(&s, "d3")).is_equal_to(Some("SELECT * FROM months"));
+    assert_that!(undo_label(&s)).is_equal_to(Some(label));
+
+    s.undo().unwrap();
+    assert_that!(sql_of(&s, "d3")).is_equal_to(Some("SELECT * FROM sales"));
+    s.redo().unwrap();
+    assert_that!(sql_of(&s, "d3")).is_equal_to(Some("SELECT * FROM months"));
+}
+
+#[test]
+fn rename_data_rewrites_reader_sql_one_undo_step() {
+    let mut s = session_with_data();
+    s.apply("query", vec![add_query("d3", "top", "SELECT Month FROM sales WHERE sales > 10")], None).unwrap();
+    let before = s.deck().clone();
+    s.apply("rename", vec![op(json!({ "op": "rename_data", "data": "d1", "name": "ventes" }))], None).unwrap();
+    let rewritten = sql_of(&s, "d3").unwrap().to_owned();
+    let inputs = oku_slides_data::sql::parse_query(&rewritten).unwrap().inputs();
+    assert_that!(inputs.into_iter().collect::<Vec<_>>()).is_equal_to(vec!["ventes".to_owned()]);
+
+    // One undo puts back both the name and the reader's query.
+    s.undo().unwrap();
+    assert_that!(*s.deck()).is_equal_to(&before);
+    s.redo().unwrap();
+    assert_that!(sql_of(&s, "d3")).is_equal_to(Some(rewritten.as_str()));
+}

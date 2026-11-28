@@ -102,7 +102,8 @@ fn undo_remove_data_after_peer_set_cell_keeps_peer_edit() {
     assert_that!(issues).is_empty();
     assert_that!(b.deck().0).is_equal_to(&restored);
     let data = restored.data.get(&did("d")).unwrap_or_else(|| panic!("d not restored"));
-    assert_that!(data.table.cell("r1", "c2")).is_equal_to(oku_slides_data::CellRead::Overlay(&DataCell::Number(99.0)));
+    assert_that!(data.table().unwrap_or_else(|| panic!("a manual data")).cell("r1", "c2"))
+        .is_equal_to(oku_slides_data::CellRead::Overlay(&DataCell::Number(99.0)));
 }
 
 #[test]

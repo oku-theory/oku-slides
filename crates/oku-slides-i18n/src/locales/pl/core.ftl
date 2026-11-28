@@ -246,6 +246,11 @@ issue-data-too-many = zbyt wiele danych w prezentacji ({ $count }); nieodczytane
 issue-data-base-missing = dane „{ $data }”: brak pliku bazowego, zachowane tylko do odczytu
 issue-data-edits-lost = dane „{ $data }”: zmiany w zastąpionej tabeli zostały utracone przy scalaniu
 issue-data-inline-dropped = Element { $element }: starsza wersja zapisała dane jego wykresu lub tabeli w jego opcjach; zostały usunięte
+issue-data-kind-unknown = dane „{ $data }”: nieznany rodzaj „{ $kind }”, może z nowszej wersji; nie odczytano
+issue-data-query-cycle = dane „{ $data }”: ich zapytanie odczytuje samo siebie, bezpośrednio lub przez inne zapytania; nie obliczono
+issue-data-query-missing-input = dane „{ $data }”: ich zapytanie odczytuje „{ $input }”, czego nie ma w prezentacji; nie obliczono
+issue-data-query-invalid = dane „{ $data }”: ich zapytanie jest nieprawidłowe ({ $reason }); nie obliczono
+issue-data-query-failed = dane „{ $data }”: ich zapytanie nie powiodło się ({ $reason }); brak wyniku
 issue-more = pozostałe niewyświetlone problemy: { $count }
 op-data-deck-full = Dane prezentacji przekroczyłyby swój limit: najwyżej { $max } { $what ->
     [row-ids] identyfikatorów wierszy
@@ -270,6 +275,20 @@ op-data-rebind = Element { $subject } pokazuje już inne dane; użyj bind_data, 
 op-data-internal = Partia nie może ustawić bazy ani nakładki tabeli
 op-data-batch-too-large = Partia jest za duża: liczba komórek { $count }, najwyżej { $max }
 op-data-inline = Element { $subject } przenosi dane w swoich opcjach; dodaj je jako dane decku przez add_data i powiąż przez bind_data
+op-data-derived = dane „{ $data }” pochodzą z zapytania: edytuj zapytanie, nie wiersze
+op-data-source = Dane mają tabelę albo zapytanie (sql), dokładnie jedno z nich
+op-data-cycle = Dane „{ $data }” odczytywałyby same siebie przez swoje zapytania; usuń pętlę
+op-data-unknown-input = Zapytanie odczytuje „{ $name }”, czego nie ma wśród danych prezentacji
+op-data-not-query = Dane „{ $data }” nie są zapytaniem; edytuj ich tabelę przez edit_data
+op-data-read-by-queries = Te dane odczytują zapytania { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}i wyświetlają { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}oraz jeszcze { $more }
+}; najpierw je edytuj lub usuń
+op-data-rename-captured = Zapytanie danych „{ $reader }” już nazywa jedną ze swoich tabel „{ $name }”; zmień nazwę tej tabeli w zapytaniu (set_query) lub wybierz inną nazwę
+op-data-name-ambiguous = Kilka danych nosi nazwę „{ $name }”, a zapytania czytają tę nazwę i nie wiadomo, które; najpierw zmień te zapytania (set_query)
 issue-unreadable-slide = nieczytelny slajd, odłożony
 issue-unreadable-field = nieczytelne pole { $field } prezentacji, zresetowane
 issue-knowledge-unreadable = nieczytelny wpis wiedzy { $id }, odłożony

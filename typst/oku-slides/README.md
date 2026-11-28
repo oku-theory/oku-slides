@@ -36,7 +36,7 @@ The pack files import `/oku-slides/lib.typ`: compile with `--root` at `typst/`.
 
 From a JSON: `#render-deck(json("deck.json"), theme: merge(packs, papier), widgets: …)`,
 where `packs` merges the `pack-tokens(…)` of each pack
-(see `examples/deck.json` and [Deck JSON](#deck-json-v10)); slide kinds
+(see `examples/deck.json` and [Deck JSON](#deck-json-v11)); slide kinds
 need the `essentiel` pack's layouts and element kinds the `base` pack's widgets
 (see `examples/from-json.typ`).
 
@@ -179,7 +179,7 @@ JSON has no comments: what used to explain the values is here.
   `"fill"` (all the available height). `app`: `null` derives the color from the
   slides' background and ink.
 
-## Deck JSON (v10)
+## Deck JSON (v11)
 
 Each slide and each element names its widget (`kind`) and carries its
 parameters (`params`), described by its schema (see [Widgets](#widgets)).
@@ -189,7 +189,7 @@ body area) or a `cell` of the slide's grid.
 
 ```json
 {
-  "version": 10,
+  "version": 11,
   "params": { "title": "Feuille de route", "subtitle": "Pour {{client}}", "author": "Matthieu" },
   "vars": { "client": "Acme" },
   "slides": [

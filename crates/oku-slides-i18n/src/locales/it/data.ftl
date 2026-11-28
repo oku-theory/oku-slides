@@ -56,3 +56,37 @@ data-row-cut = { $count ->
    *[other] { $count } righe avevano più celle dell’intestazione; le celle in eccesso sono state rimosse
 }
 data-base-invalid = il file di base dei dati è danneggiato o non corrisponde alla sua tabella
+data-source-mismatch = l’origine dei dati non corrisponde al loro tipo: i dati manuali contengono una tabella, i dati di query una query
+data-inline-query = i dati di query non possono essere incorporati: i dati incorporati provengono sempre da una tabella
+data-query-parse = la query non si legge: controlla la riga { $line }, colonna { $column }
+data-query-construct = la query usa «{ $construct }», che le query sui dati non supportano
+data-query-too-long = la query supera { $max } { $max ->
+    [one] byte
+   *[other] byte
+}
+data-query-too-deep = la query è annidata troppo in profondità
+data-query-rewrite = non è stato possibile preparare la query per il motore; è un bug di Oku Slides
+data-query-unknown-function = la query chiama «{ $function }», che le query sui dati non supportano
+data-query-run = la query non è riuscita: { $reason }
+data-query-input-failed = il suo input «{ $input }» non è riuscito
+data-query-too-large = { $what ->
+    [rows] il risultato della query supera { $max } { $max ->
+        [one] riga
+       *[other] righe
+    }; non viene mai troncato
+    [columns] il risultato della query supera { $max } { $max ->
+        [one] colonna
+       *[other] colonne
+    }; non viene mai troncato
+   *[text] una cella di testo del risultato supera { $max } { $max ->
+        [one] byte
+       *[other] byte
+    }; il risultato non viene mai troncato
+}
+data-query-column-type = la colonna di risultato «{ $column }» ha un tipo che i dati non possono contenere: convertila in testo, numero, intero, booleano o data
+data-query-duplicate-column = due colonne di risultato si chiamano «{ $column }»: rinominane una con AS
+data-query-float-operand = «{ $function }» non si può applicare a «{ $operand }», che contiene numeri decimali: convertilo prima in intero
+data-query-timeout = la query è durata più di { $seconds } { $seconds ->
+    [one] secondo
+   *[other] secondi
+} ed è stata interrotta

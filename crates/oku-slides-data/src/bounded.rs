@@ -66,6 +66,36 @@ where
     deserializer.deserialize_map(Map::<BTreeMap<K, V>, K, V, MAX>(PhantomData))
 }
 
+/// A string of at most `MAX` UTF-8 bytes, refused before it is copied.
+///
+/// # Errors
+///
+/// The deserializer's error, or an invalid length past `MAX` bytes.
+pub fn string<'de, D, const MAX: usize>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_str(Text::<MAX>)
+}
+
+/// Visits a string, failing past `MAX` bytes.
+struct Text<const MAX: usize>;
+
+impl<const MAX: usize> Visitor<'_> for Text<MAX> {
+    type Value = String;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "a string of at most {MAX} bytes")
+    }
+
+    fn visit_str<E: de::Error>(self, text: &str) -> Result<String, E> {
+        if text.len() > MAX {
+            return Err(E::invalid_length(text.len(), &self));
+        }
+        Ok(text.to_owned())
+    }
+}
+
 /// Visits a list into `C`, failing past `MAX` items.
 struct Seq<C, T, const MAX: usize>(PhantomData<(C, T)>);
 

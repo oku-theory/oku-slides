@@ -202,7 +202,8 @@ export type Op =
   | { op: "unset_token"; path: string[] }
   | { op: "set_tokens"; tokens: unknown }
   | { op: "set_var"; key: string; value: unknown }
-  | { op: "add_data"; id?: string; name: string; label?: string; table: NewTable }
+  | { op: "add_data"; id?: string; name: string; label?: string; table?: NewTable; sql?: string }
+  | { op: "set_query"; data: string; sql: string }
   | { op: "edit_data"; data: string; change: TableOp }
   | { op: "bind_data"; target: Target; param: string; data: string; columns?: string[] }
   | { op: "remove_data"; data: string }

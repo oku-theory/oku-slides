@@ -246,6 +246,11 @@ issue-data-too-many = بيانات كثيرة جدًا في العرض ({ $count
 issue-data-base-missing = البيانات «{ $data }»: ملفها الأساسي مفقود، أُبقيت للقراءة فقط
 issue-data-edits-lost = البيانات «{ $data }»: فُقدت عند الدمج تعديلات على جدول مستبدَل
 issue-data-inline-dropped = العنصر { $element }: خزّن إصدار أقدم بيانات مخططه أو جدوله داخل خياراته؛ أُزيلت
+issue-data-kind-unknown = البيانات «{ $data }»: نوع غير معروف «{ $kind }»، ربما من إصدار أحدث؛ لم تُقرأ
+issue-data-query-cycle = البيانات «{ $data }»: استعلامها يقرأ نفسه، مباشرةً أو عبر استعلامات أخرى؛ لم تُحسب
+issue-data-query-missing-input = البيانات «{ $data }»: استعلامها يقرأ «{ $input }» غير الموجود في العرض؛ لم تُحسب
+issue-data-query-invalid = البيانات «{ $data }»: استعلامها غير صالح ({ $reason })؛ لم تُحسب
+issue-data-query-failed = البيانات «{ $data }»: فشل استعلامها ({ $reason })؛ لا نتيجة
 issue-more = مشكلات أخرى غير معروضة: { $count }
 op-data-deck-full = ستتجاوز بيانات العرض حدّها: { $max } على الأكثر من { $what ->
     [row-ids] معرّفات الصفوف
@@ -268,6 +273,20 @@ op-data-rebind = العنصر { $subject } يعرض بيانات أخرى بال
 op-data-internal = لا يمكن لدفعة أن تعيّن أساس جدول أو طبقته
 op-data-batch-too-large = الدفعة كبيرة جدًا: عدد الخلايا { $count }، والحد الأقصى { $max }
 op-data-inline = يحمل العنصر { $subject } بياناته داخل خياراته؛ أضفها كبيانات للعرض باستخدام add_data واربطها باستخدام bind_data
+op-data-derived = البيانات «{ $data }» مشتقة من استعلام: عدّل استعلامها لا صفوفها
+op-data-source = تأخذ البيانات إما جدولًا وإما استعلامًا (sql)، واحدًا منهما بالضبط
+op-data-cycle = البيانات «{ $data }» ستقرأ نفسها عبر استعلاماتها؛ أزل الحلقة
+op-data-unknown-input = يقرأ الاستعلام «{ $name }»، وهو ليس من بيانات العرض
+op-data-not-query = البيانات «{ $data }» ليست استعلامًا؛ عدّل جدولها باستخدام edit_data
+op-data-read-by-queries = تقرأ هذه البيانات الاستعلاماتُ { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}وتعرضها { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}و{ $more } غيرها
+}؛ عدّلها أو أزلها أولًا
+op-data-rename-captured = استعلام «{ $reader }» يسمّي بالفعل أحد جداوله الخاصة «{ $name }»؛ أعد تسمية ذلك الجدول في استعلامه (set_query) أو اختر اسمًا آخر
+op-data-name-ambiguous = عدة بيانات تحمل الاسم «{ $name }» واستعلامات تقرأ هذا الاسم دون أن يُعرف أيّها؛ عدّل هذه الاستعلامات أولًا (set_query)
 issue-unreadable-slide = شريحة غير مقروءة، نُحّيت جانبًا
 issue-unreadable-field = حقل العرض { $field } غير مقروء، أُعيد تعيينه
 issue-knowledge-unreadable = إدخال معرفة غير مقروء { $id }، نُحّي جانبًا

@@ -69,10 +69,13 @@ impl Drop for SessionBases {
 }
 
 impl crate::Session {
-    /// Leases the bases the document knows and lets the render worker read them.
+    /// Leases the bases the document knows and lets the render worker read them, and those of
+    /// the query results (leased by their adoption).
     pub(crate) fn sync_bases(&mut self) {
         self.bases.sync(&self.doc.sources.bases);
-        self.worker.set_known_bases(self.doc.sources.bases.clone());
+        let mut known = self.doc.sources.bases.clone();
+        known.extend(self.derived.bases());
+        self.worker.set_known_bases(known);
     }
 
     /// Unknows `ids` (a refused paste's bases) and releases their leases.

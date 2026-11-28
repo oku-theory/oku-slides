@@ -56,3 +56,37 @@ data-row-cut = { $count ->
    *[other] { $count } Zeilen hatten mehr Zellen als die Kopfzeile; die überzähligen Zellen wurden entfernt
 }
 data-base-invalid = die Basisdatei der Daten ist beschädigt oder passt nicht zu ihrer Tabelle
+data-source-mismatch = die Quelle der Daten passt nicht zu ihrer Art: manuelle Daten enthalten eine Tabelle, Abfragedaten eine Abfrage
+data-inline-query = Abfragedaten können nicht eingebettet sein: eingebettete Daten stammen immer aus einer Tabelle
+data-query-parse = die Abfrage lässt sich nicht lesen: Zeile { $line }, Spalte { $column } prüfen
+data-query-construct = die Abfrage verwendet „{ $construct }“, was Datenabfragen nicht unterstützen
+data-query-too-long = die Abfrage ist länger als { $max } { $max ->
+    [one] Byte
+   *[other] Bytes
+}
+data-query-too-deep = die Abfrage ist zu tief verschachtelt
+data-query-rewrite = die Abfrage konnte nicht für die Engine vorbereitet werden; das ist ein Fehler in Oku Slides
+data-query-unknown-function = die Abfrage ruft „{ $function }“ auf, was Datenabfragen nicht unterstützen
+data-query-run = die Abfrage ist fehlgeschlagen: { $reason }
+data-query-input-failed = ihre Eingabe „{ $input }“ ist fehlgeschlagen
+data-query-too-large = { $what ->
+    [rows] das Abfrageergebnis hat mehr als { $max } { $max ->
+        [one] Zeile
+       *[other] Zeilen
+    }; es wird nie gekürzt
+    [columns] das Abfrageergebnis hat mehr als { $max } { $max ->
+        [one] Spalte
+       *[other] Spalten
+    }; es wird nie gekürzt
+   *[text] eine Textzelle des Abfrageergebnisses ist länger als { $max } { $max ->
+        [one] Byte
+       *[other] Bytes
+    }; es wird nie gekürzt
+}
+data-query-column-type = die Ergebnisspalte „{ $column }“ hat einen Typ, den Daten nicht aufnehmen können: wandle sie in Text, Zahl, Ganzzahl, Wahrheitswert oder Datum um
+data-query-duplicate-column = zwei Ergebnisspalten heißen „{ $column }“: benenne eine davon mit AS um
+data-query-float-operand = „{ $function }“ lässt sich nicht auf „{ $operand }“ anwenden, das Dezimalzahlen enthält: wandle es zuerst in eine Ganzzahl um
+data-query-timeout = die Abfrage lief länger als { $seconds } { $seconds ->
+    [one] Sekunde
+   *[other] Sekunden
+} und wurde abgebrochen

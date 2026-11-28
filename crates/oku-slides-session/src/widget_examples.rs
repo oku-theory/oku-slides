@@ -32,7 +32,7 @@ use oku_slides_core::{
 use oku_slides_data::{Data, DataId};
 
 use crate::agent::clip;
-use crate::data_copy::copy_data_ops;
+use crate::data_copy::{Queries, copy_data_ops};
 use crate::error::{
     NotEditingPackSnafu, PackManifestSnafu, PackVersionMissingSnafu, PrepareSnafu, TrialEncodeSnafu,
     TrialUndeclaredSnafu, TrialValueSnafu, UnknownWidgetSnafu, WidgetInvalidSnafu,
@@ -143,7 +143,8 @@ impl Session {
                 continue;
             }
             let (ops, map) =
-                copy_data_ops(source, &refs, &scratch, &added, &mut oku_slides_data::new_id).context(PrepareSnafu)?;
+                copy_data_ops(source, &refs, &scratch, &added, &mut oku_slides_data::new_id, Queries::Refused)
+                    .context(PrepareSnafu)?;
             for op in &ops {
                 if let Op::AddData { id: Some(new), name, .. } = op
                     && let Some(data) = map.iter().find(|(_, n)| *n == new).and_then(|(old, _)| source.get(old))

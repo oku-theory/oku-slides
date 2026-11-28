@@ -220,6 +220,11 @@ issue-data-too-many = quá nhiều dữ liệu trong bản trình bày ({ $count
 issue-data-base-missing = dữ liệu “{ $data }”: thiếu tệp gốc, giữ ở chế độ chỉ đọc
 issue-data-edits-lost = dữ liệu “{ $data }”: các chỉnh sửa trên một bảng đã bị thay thế bị mất khi hợp nhất
 issue-data-inline-dropped = Phần tử { $element }: một phiên bản cũ đã lưu dữ liệu biểu đồ hoặc bảng trong tùy chọn của nó; dữ liệu đó đã bị xóa
+issue-data-kind-unknown = dữ liệu “{ $data }”: loại không xác định “{ $kind }”, có thể từ phiên bản mới hơn; không đọc
+issue-data-query-cycle = dữ liệu “{ $data }”: truy vấn của nó tự đọc lại chính nó, trực tiếp hoặc qua các truy vấn khác; không tính
+issue-data-query-missing-input = dữ liệu “{ $data }”: truy vấn của nó đọc “{ $input }”, không có trong bản trình chiếu; không tính
+issue-data-query-invalid = dữ liệu “{ $data }”: truy vấn của nó không hợp lệ ({ $reason }); không tính
+issue-data-query-failed = dữ liệu “{ $data }”: truy vấn của nó thất bại ({ $reason }); không có kết quả
 issue-more = các vấn đề khác không hiển thị: { $count }
 op-data-deck-full = Dữ liệu của bản trình bày sẽ vượt giới hạn: tối đa { $max } { $what ->
     [row-ids] mã dòng
@@ -241,6 +246,20 @@ op-data-rebind = Phần tử { $subject } đã hiển thị dữ liệu khác; d
 op-data-internal = Một lô không thể đặt phần nền hay lớp phủ của bảng
 op-data-batch-too-large = Lô quá lớn: số ô { $count }, tối đa { $max }
 op-data-inline = Phần tử { $subject } mang dữ liệu trong tùy chọn của nó; hãy thêm chúng làm dữ liệu của deck bằng add_data và liên kết bằng bind_data
+op-data-derived = dữ liệu “{ $data }” được suy ra từ một truy vấn: hãy sửa truy vấn, không sửa các hàng
+op-data-source = Một dữ liệu nhận hoặc một bảng hoặc một truy vấn (sql), đúng một trong hai
+op-data-cycle = Dữ liệu “{ $data }” sẽ tự đọc lại chính nó qua các truy vấn; hãy bỏ vòng lặp
+op-data-unknown-input = Truy vấn đọc “{ $name }”, không phải dữ liệu nào của bản trình chiếu
+op-data-not-query = Dữ liệu “{ $data }” không phải truy vấn; hãy sửa bảng của nó bằng edit_data
+op-data-read-by-queries = Dữ liệu này được các truy vấn { $queries } đọc{ $shown ->
+    [0] {""}
+   *[other] {" "}và được { $views } hiển thị
+}{ $more ->
+    [0] {""}
+   *[other] {" "}và { $more } mục khác
+}; hãy sửa hoặc xóa chúng trước
+op-data-rename-captured = Truy vấn của “{ $reader }” đã đặt tên “{ $name }” cho một bảng của chính nó; hãy đổi tên bảng đó trong truy vấn (set_query) hoặc chọn tên khác
+op-data-name-ambiguous = Nhiều dữ liệu cùng tên “{ $name }” và có truy vấn đọc tên này nên không rõ là dữ liệu nào; hãy sửa các truy vấn đó trước (set_query)
 issue-unreadable-slide = trang chiếu không đọc được, đã để riêng
 issue-unreadable-field = trường { $field } của bản trình bày không đọc được, đã đặt lại
 issue-knowledge-unreadable = mục tri thức { $id } không đọc được, đã để riêng

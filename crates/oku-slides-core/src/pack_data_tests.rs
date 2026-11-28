@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_data::limits::MAX_BATCH_CELLS;
-use oku_slides_data::{BaseId, BaseRef, Column, ColumnType, Data, DataCell, DataId, DataKind, Rows, Table};
+use oku_slides_data::{BaseId, BaseRef, Column, ColumnType, Data, DataCell, DataId, Rows, Source, Table};
 use rstest::rstest;
 use speculoos::prelude::*;
 use uuid::Uuid;
@@ -24,15 +24,14 @@ fn data(cells: usize, base: bool) -> Arc<Data> {
         name: "d".to_owned(),
         label: None,
         inline: false,
-        kind: DataKind::Manual,
-        table: Table {
+        source: Source::Manual(Table {
             generation: "g".to_owned(),
             epoch: String::new(),
             columns: vec![Column { id: "c".to_owned(), name: "C".to_owned(), ty: ColumnType::Number }],
             rows,
             base,
             cells: overlay,
-        },
+        }),
     })
 }
 

@@ -10,3 +10,4 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 - Keep Table::apply all or nothing: check everything before the first change. (plan:2026-11-21-data-entities-phase1)
 - Draw a new id only through new_id and check it with valid_id; never build an id by hand. (ADR-0004, plan:2026-11-21-data-entities-phase1)
 - Compile polars (feature engine) only into the render worker; the host never decodes a base. (plan:2026-11-21-data-entities-phase1, t-1690)
+- Parse SQL in the host (sqlparser, whitelist) and execute it only in the render worker; the host never runs a query. (plan:2026-11-26-data-entities-phase2, t-1780)

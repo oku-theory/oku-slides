@@ -79,19 +79,26 @@ pub(crate) fn realign_widget_previews(deck: &mut Deck, manifest: &PackManifest, 
     oku_slides_core::canonicalize(deck);
 }
 
-/// The data whose every view `op` changes: an edit, a rename or a retype.
+/// The data whose every view `op` changes: an edit, a rename, a retype or a new query.
 fn changed_data(op: &Op) -> Option<&DataId> {
     match op {
-        Op::EditData { data, .. } | Op::RenameData { data, .. } | Op::SetColumnType { data, .. } => Some(data),
+        Op::EditData { data, .. }
+        | Op::RenameData { data, .. }
+        | Op::SetColumnType { data, .. }
+        | Op::SetQuery { data, .. } => Some(data),
         _ => None,
     }
 }
 
-/// The slides `op` changes on `deck`: a data change changes every slide showing the data.
+/// The slides `op` changes on `deck`: a data change changes every slide showing the data, or a
+/// query reading it.
 fn op_slides(deck: &Deck, op: &Op) -> Vec<String> {
     let slides: Vec<&str> = match op {
-        Op::EditData { data, .. } | Op::RenameData { data, .. } | Op::SetColumnType { data, .. } => {
-            return deck.data_users(data).into_iter().map(|v| v.slide).collect();
+        Op::EditData { data, .. }
+        | Op::RenameData { data, .. }
+        | Op::SetColumnType { data, .. }
+        | Op::SetQuery { data, .. } => {
+            return crate::derived::dependent_views(deck, data).into_iter().map(|v| v.slide).collect();
         }
         Op::SetParam { target, .. }
         | Op::SetKind { target, .. }

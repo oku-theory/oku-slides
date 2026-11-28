@@ -38,7 +38,7 @@ fn hex_color_normalizes_or_refuses(#[case] value: Value, #[case] expected: Optio
 fn chart_grid_scatter_names_series_by_their_first_column() {
     let option = json!({ "series": [{ "type": "scatter" }, { "type": "scatter" }] });
     let ComponentKind::ChartData { series, .. } =
-        chart_grid(&option, &dataset(&["x1", "y1", "x2", "y2"]), &[], data(), Vec::new())
+        chart_grid(&option, &dataset(&["x1", "y1", "x2", "y2"]), &[], data(), Vec::new(), None)
     else {
         panic!("ChartData expected")
     };
@@ -49,7 +49,8 @@ fn chart_grid_scatter_names_series_by_their_first_column() {
 #[test]
 fn chart_grid_pie_has_no_colourable_series() {
     let option = json!({ "series": [{ "type": "pie" }] });
-    let ComponentKind::ChartData { series, .. } = chart_grid(&option, &dataset(&["M", "V"]), &[], data(), Vec::new())
+    let ComponentKind::ChartData { series, .. } =
+        chart_grid(&option, &dataset(&["M", "V"]), &[], data(), Vec::new(), None)
     else {
         panic!("ChartData expected")
     };
@@ -60,7 +61,7 @@ fn chart_grid_pie_has_no_colourable_series() {
 fn chart_grid_shared_stack_group_is_stacked() {
     let option = json!({ "series": [{ "type": "bar", "stack": "total" }, { "type": "line", "stack": "total" }] });
     let ComponentKind::ChartData { stacked, .. } =
-        chart_grid(&option, &dataset(&["M", "A", "B"]), &[], data(), Vec::new())
+        chart_grid(&option, &dataset(&["M", "A", "B"]), &[], data(), Vec::new(), None)
     else {
         panic!("ChartData expected")
     };
@@ -69,9 +70,14 @@ fn chart_grid_shared_stack_group_is_stacked() {
 
 #[test]
 fn chart_grid_keeps_only_valid_palette_colours() {
-    let ComponentKind::ChartData { palette, .. } =
-        chart_grid(&json!({ "series": [] }), &Dataset::default(), &["#ABC".into(), "x".into()], data(), Vec::new())
-    else {
+    let ComponentKind::ChartData { palette, .. } = chart_grid(
+        &json!({ "series": [] }),
+        &Dataset::default(),
+        &["#ABC".into(), "x".into()],
+        data(),
+        Vec::new(),
+        None,
+    ) else {
         panic!("ChartData expected")
     };
     assert_that!(palette).is_equal_to(vec!["#aabbcc".to_owned()]);
@@ -80,7 +86,7 @@ fn chart_grid_keeps_only_valid_palette_colours() {
 #[test]
 fn table_grid_without_flags_takes_the_defaults() {
     let ComponentKind::TableData { header_row, header_column, striped, align, .. } =
-        table_grid(&json!({}), &dataset(&["A"]), data(), Vec::new())
+        table_grid(&json!({}), &dataset(&["A"]), data(), Vec::new(), None)
     else {
         panic!("TableData expected")
     };
@@ -90,7 +96,7 @@ fn table_grid_without_flags_takes_the_defaults() {
 #[test]
 fn chart_grid_carries_the_row_and_column_ids_without_the_header() {
     let ComponentKind::ChartData { row_ids, column_ids, .. } =
-        chart_grid(&json!({ "series": [{ "type": "bar" }] }), &dataset(&["M", "V"]), &[], data(), Vec::new())
+        chart_grid(&json!({ "series": [{ "type": "bar" }] }), &dataset(&["M", "V"]), &[], data(), Vec::new(), None)
     else {
         panic!("ChartData expected")
     };

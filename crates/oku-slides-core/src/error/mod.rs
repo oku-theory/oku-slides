@@ -229,6 +229,33 @@ impl OpError {
         DataFault::Missing { data: data.to_owned() }.into()
     }
 
+    /// The refusal of a manual edit of the query data `data` (`op-data-derived`).
+    #[must_use]
+    pub fn data_derived(data: &str) -> Self {
+        DataFault::Derived { data: data.to_owned() }.into()
+    }
+
+    /// The refusal of a query reading `name`, which no data of the deck has (`op-data-unknown-input`).
+    #[must_use]
+    pub fn data_unknown_input(name: &str) -> Self {
+        DataFault::UnknownInput { name: name.to_owned() }.into()
+    }
+
+    /// The refusal of a query reading `name`, which several data have (`op-data-name-ambiguous`).
+    #[must_use]
+    pub fn data_name_ambiguous(name: &str) -> Self {
+        DataFault::NameAmbiguous { name: name.to_owned() }.into()
+    }
+
+    /// The data fault refusing the op, for tests asserting on its fields.
+    #[cfg(test)]
+    pub(crate) fn data_fault(&self) -> Option<&DataFault> {
+        match &*self.0 {
+            OpInner::DataRefused { fault, .. } => Some(fault),
+            _ => None,
+        }
+    }
+
     /// Kind of the error, to handle it without reading the message.
     #[must_use]
     pub fn kind(&self) -> OpErrorKind {
@@ -650,6 +677,8 @@ pub(crate) enum ReplicaInner {
     SlotsTooDeep { max: usize, backtrace: Backtrace },
     #[snafu(display("deck tree deeper than {max} levels, removed elements included: not saved"))]
     TreeTooDeep { max: usize, backtrace: Backtrace },
+    #[snafu(display("data {id} would change kind in place"))]
+    DataKindSwitch { id: String, backtrace: Backtrace },
 }
 
 impl ReplicaError {
@@ -672,6 +701,7 @@ impl ReplicaError {
             | ReplicaInner::TreeOrder { .. }
             | ReplicaInner::SlidesInParams { .. }
             | ReplicaInner::SlotsTooDeep { .. }
+            | ReplicaInner::DataKindSwitch { .. }
             | ReplicaInner::DeckJson { .. } => ReplicaErrorKind::Write,
         }
     }

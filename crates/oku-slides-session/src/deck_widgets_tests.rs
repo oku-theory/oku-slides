@@ -423,7 +423,7 @@ fn version_absent_from_the_sources_renders_base_widgets_with_a_notice() {
     let path = data.0.join("absent.json");
     let id = uuid::Uuid::new_v4();
     let pin = json!({ "id": id, "version": format!("sha256:{}", "0".repeat(64)) });
-    let deck = json!({ "version": 10, "widgets": { namespace_of(id).as_str(): pin },
+    let deck = json!({ "version": 11, "widgets": { namespace_of(id).as_str(): pin },
         "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::TITLE }] });
     std::fs::write(&path, serde_json::to_vec(&deck).unwrap()).unwrap();
     let mut s = session_in(&data.0);

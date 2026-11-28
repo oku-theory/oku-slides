@@ -95,7 +95,7 @@ fn sheet(surface: &Surface) -> (Vec<Vec<Value>>, Vec<String>, Vec<String>, u32, 
 fn data_list_reports_kind_size_and_users() {
     let s = with_data(data_and_chart());
     let fr = Localizer::new(Some("fr"));
-    let rows = data_list(s.deck(), &fr);
+    let rows = data_list(s.deck(), &s.query_statuses(), &fr);
     let label = fr.tr_with("session-data-user", &[("slide", 7.into()), ("element", "ch1".into())]);
     let user = DataUser { slide: "s-libre".into(), element: "ch1".into(), label };
     assert_that!(rows).is_equal_to(vec![DataRow {
@@ -106,6 +106,7 @@ fn data_list_reports_kind_size_and_users() {
         columns: 2,
         rows: 2,
         users: vec![user],
+        state: None,
         error: None,
     }]);
 }
@@ -129,8 +130,8 @@ fn add_action_creates_named_data_one_undo_step() {
     let deck = s.deck();
     assert_that!(deck.data.len()).is_equal_to(1);
     let data = deck.data.values().next().unwrap_or_else(|| panic!("no data"));
-    let columns: Vec<_> = data.table.columns.iter().map(|c| (c.name.clone(), c.ty)).collect();
-    assert_that!((data.name.as_str(), columns, data.table.rows.len())).is_equal_to((
+    let columns: Vec<_> = data.table().unwrap().columns.iter().map(|c| (c.name.clone(), c.ty)).collect();
+    assert_that!((data.name.as_str(), columns, data.table().unwrap().rows.len())).is_equal_to((
         "data",
         vec![("a".to_owned(), ColumnType::Text)],
         1,
@@ -173,7 +174,7 @@ fn set_type_action_refusal_names_rows() {
     assert_that!(shown.as_str()).contains("r1");
     let d9 = listed(&s).into_iter().find(|r| r.id == "d9").unwrap_or_else(|| panic!("d9 gone"));
     assert_that!(d9.error.unwrap_or_default().as_str()).contains("r1");
-    assert_that!(s.deck().data[&id("d9")].table.columns[0].ty).is_equal_to(ColumnType::Text);
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().columns[0].ty).is_equal_to(ColumnType::Text);
 }
 
 #[test]
@@ -209,7 +210,7 @@ fn based(s: &mut Session) {
     let job = s.compaction_job(&id("d9"), now, true).unwrap_or_else(|| panic!("no job"));
     let reply = job.run();
     assert_that!(s.finish_compaction(job, reply, now)).is_true();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_some()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_some()).is_true();
 }
 
 #[test]
@@ -483,7 +484,7 @@ fn cell_edit_succeeds_with_a_view_it_cannot_read() {
     act(&mut s, cells("d9", json!({ "op": "set_cell", "row": "r1", "column": "c2", "value": 8 })))
         .unwrap_or_else(|e| panic!("set: {}", e.one_line()));
     act(&mut s, DataAction::AddRow { data: "d9".into() }).unwrap_or_else(|e| panic!("add row: {}", e.one_line()));
-    assert_that!(s.deck().data[&id("d9")].table.rows.len()).is_equal_to(3);
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().rows.len()).is_equal_to(3);
 }
 
 #[rstest]
@@ -497,5 +498,8 @@ fn column_edit_with_a_view_it_cannot_follow_is_refused(#[case] change: Value) {
         let expected = l.tr_with("session-data-view-unfollowed", &[("view", "ch1".into())]);
         assert_that!(e.localize(&l)).named(locale).is_equal_to(expected);
     }
-    assert_that!(s.deck().data[&id("d9")].table.columns.len()).is_equal_to(2);
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().columns.len()).is_equal_to(2);
 }
+
+#[path = "data_list_query_tests.rs"]
+mod data_list_query_tests;

@@ -107,7 +107,7 @@ describe("catalog v5", () => {
   });
 
   test("v5 surface with a remove icon button is accepted", () => {
-    expect(CATALOG_ID).toBe("urn:oku-slides:a2ui:catalog:v5");
+    expect(CATALOG_ID).toBe("urn:oku-slides:a2ui:catalog:v6");
     expect(
       typesOf([
         { id: "root", component: "Row", children: ["up", "down", "rm"] },

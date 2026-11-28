@@ -156,6 +156,14 @@ pub enum SessionErrorKind {
     BaseStale,
     /// A column insert or remove meets a view of its data that cannot follow it.
     ViewUnfollowed,
+    /// A view bound to a query data whose result is pending or failed.
+    QueryNoResult,
+    /// A query data pasted into another deck has no ready result to copy.
+    QueryPasteNoResult,
+    /// A query data read while its result is pending or failed.
+    QueryReadNoResult,
+    /// A query preview reads a query data whose result is still pending.
+    QueryInputPending,
     /// Arguments d'une surface de l'agent invalides.
     AgentForm,
     /// Adresse de l'agent : ni la slide ni un de ses éléments.

@@ -19,12 +19,14 @@
 //!   `Render` are dropped (the host applies the same rule).
 //! - `PutData` keeps a data of a slot (its JSON payload), with its base path, refused unless
 //!   directly inside the `bases` folder of `Hello`; `PatchData` sets the overlay cells a cell
-//!   edit changed in one it holds; `DropData` forgets some. `Render` answers
-//!   `MissingData` with the listed `data` it lacks, else renders the deck with them.
-//! - `ReadData`, `CompactData` and `CheckColumnType` (the session's data link) read a data's
-//!   base through the engine, after the same path check; `CompactData` writes `out`, refused
-//!   unless directly inside the bases folder or the worker's folder. The data's refusal answers
-//!   `DataRefused`.
+//!   edit changed in one it holds; `PutResult` keeps a query data's ready result (a table over
+//!   its base, same path check); `DropData` forgets some, and their results. `Render` answers
+//!   `MissingData` with the listed `data` and `results` it lacks, else renders the deck with
+//!   them, each query data reading its listed result or, unlisted, drawing its failure frame.
+//! - `ReadData`, `CompactData`, `CheckColumnType` and `RunQuery` (the session's data link) read
+//!   data bases through the engine, after the same path check; `CompactData` and `RunQuery`
+//!   write `out`, refused unless directly inside the bases folder or the worker's folder. The
+//!   data's refusal answers `DataRefused`.
 //! - `Svg`, `Png` et `Pdf` d'une génération absente répondent `Error Stale`.
 //! - `Release` retire les générations nommées ; `CloseSlot` l'emplacement.
 //! - `Reference` rend la charge (un `.pptx`) par le témoin nommé (`Office2Pdf`
@@ -46,13 +48,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use oku_slides_core::{Namespace, PackKind, WidgetFile};
-use oku_slides_data::{CellPatch, ColumnType, Data, DataError, DataId, engine};
+use oku_slides_data::{CellPatch, ColumnType, Data, DataError, DataId, Source, Table, engine};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::storage::Storage;
 use oku_slides_reference::{
     Office2Pdf, ReferenceError, ReferenceErrorKind, ReferencePdf, ReferenceRenderer, SlideSpan, Soffice,
 };
-use oku_slides_render::{Compiled, Fonts, PackSet, PackWidgets, Registries, RenderError, Renderer, WireError};
+use oku_slides_render::{Compiled, Fonts, PackSet, PackWidgets, Registries, RenderError, Renderer, Results, WireError};
 use serde_json::{Map, Value};
 use snafu::Snafu;
 
@@ -77,6 +79,8 @@ struct Slot {
     last_assets: Vec<String>,
     /// The data `PutData` sent, by id.
     data: BTreeMap<String, Arc<Data>>,
+    /// The query results `PutResult` sent, by data id.
+    results: BTreeMap<String, Table>,
 }
 
 #[derive(Default)]
@@ -136,6 +140,14 @@ fn serve_watched(
 /// A data sent as JSON; unreadable: `Error Frame`.
 fn parse_data(json: &[u8]) -> Result<Data, WireError> {
     serde_json::from_slice(json).map_err(|e| WireError::Frame { message: format!("data: {e}") })
+}
+
+/// The table of a manual data; a query data, whose rows are derived, has none to read or write.
+fn parse_table(json: &[u8]) -> Result<Table, WireError> {
+    match parse_data(json)?.source {
+        Source::Manual(table) => Ok(table),
+        Source::Query { .. } => Err(WireError::Frame { message: "data: a query data has no table".to_owned() }),
+    }
 }
 
 fn error_reply(error: WireError) -> Reply {
@@ -202,19 +214,22 @@ impl Worker {
             Request::SetTheme { slot, tokens } => self.set_theme(slot, tokens),
             Request::PutData { slot, id, base } => self.put_data(slot, id, base.as_deref(), &payload),
             Request::PatchData { slot, id } => self.patch_data(slot, &id, &payload),
+            Request::PutResult { slot, id, base } => self.put_result(slot, id, base.as_deref(), &payload),
             Request::DropData { slot, ids } => {
                 if let Some(s) = self.slots.get_mut(&slot) {
                     for id in ids {
                         s.data.remove(&id);
+                        s.results.remove(&id);
                     }
                 }
                 Ok(ok_reply())
             }
-            Request::Render { slot, deck, assets, data } => self.render(slot, *deck, assets, &data),
+            Request::Render { slot, deck, assets, data, results } => self.render(slot, *deck, assets, &data, &results),
             Request::ReadData { base, columns, rows, max_cell_chars } => {
                 self.read_data(&payload, &base, columns, rows, max_cell_chars)
             }
             Request::CompactData { base, out } => self.compact_data(&payload, base.as_deref(), &out),
+            Request::RunQuery { query, inputs, out } => self.run_query(&payload, &query, &inputs, &out),
             Request::CheckColumnType { base, column, ty } => self.check_column_type(&payload, &base, &column, ty),
             Request::Svg { slot, generation, page } => {
                 self.with(slot, generation, |c| c.svg(page).map(String::into_bytes))
@@ -365,7 +380,13 @@ impl Worker {
             renderer.set_language(l).map_err(|e| render_error(&e))?;
         }
         renderer.set_bases(Box::new(self.base_paths.clone()));
-        let s = Slot { renderer, generations: BTreeMap::new(), last_assets: Vec::new(), data: BTreeMap::new() };
+        let s = Slot {
+            renderer,
+            generations: BTreeMap::new(),
+            last_assets: Vec::new(),
+            data: BTreeMap::new(),
+            results: BTreeMap::new(),
+        };
         self.slots.insert(slot, s);
         Ok(ok_reply())
     }
@@ -391,6 +412,7 @@ impl Worker {
         mut deck: oku_slides_core::Deck,
         assets: Vec<String>,
         data: &[String],
+        results: &[String],
     ) -> Result<Reply, WireError> {
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         // Rendering without them would draw missing-image frames: the host sends them again.
@@ -398,7 +420,12 @@ impl Worker {
         if !missing.is_empty() {
             return Ok((Response::MissingAssets { ids: missing }, Vec::new()));
         }
-        let missing: Vec<String> = data.iter().filter(|id| !s.data.contains_key(*id)).cloned().collect();
+        let missing: Vec<String> = data
+            .iter()
+            .filter(|id| !s.data.contains_key(*id))
+            .chain(results.iter().filter(|id| !s.results.contains_key(*id)))
+            .cloned()
+            .collect();
         if !missing.is_empty() {
             return Ok((Response::MissingData { ids: missing }, Vec::new()));
         }
@@ -407,6 +434,12 @@ impl Worker {
             let key = DataId::try_from(id.clone()).map_err(|e| setup(format!("data id: {e}")))?;
             deck.data.insert(key, s.data[id].clone());
         }
+        let mut ready = Results::new();
+        for id in results {
+            let key = DataId::try_from(id.clone()).map_err(|e| setup(format!("data id: {e}")))?;
+            ready.insert(key, Some(s.results[id].clone()));
+        }
+        s.renderer.set_results(ready);
         let compiled = s.renderer.render(&deck, &self.assets).map_err(|e| render_error(&e))?;
         self.next_generation += 1;
         let generation = self.next_generation;
@@ -432,7 +465,10 @@ impl Worker {
     fn put_data(&mut self, slot: SlotId, id: String, base: Option<&Path>, json: &[u8]) -> Result<Reply, WireError> {
         let data = parse_data(json)?;
         if let Some(path) = base {
-            let base = data.table.base.as_ref().ok_or_else(|| setup("a base path for a data without base".into()))?;
+            let base = data
+                .table()
+                .and_then(|t| t.base.as_ref())
+                .ok_or_else(|| setup("a base path for a data without base".into()))?;
             let path = check_base_path(self.bases_dir.as_deref(), path)?;
             self.base_paths.insert(base.id.clone(), path);
         }
@@ -441,12 +477,27 @@ impl Worker {
         Ok(ok_reply())
     }
 
+    /// Keeps the ready result of query data `id` of `slot`, and its base file once checked.
+    fn put_result(&mut self, slot: SlotId, id: String, base: Option<&Path>, json: &[u8]) -> Result<Reply, WireError> {
+        let table: Table =
+            serde_json::from_slice(json).map_err(|e| WireError::Frame { message: format!("result: {e}") })?;
+        if let Some(path) = base {
+            let base = table.base.as_ref().ok_or_else(|| setup("a base path for a result without base".into()))?;
+            let path = check_base_path(self.bases_dir.as_deref(), path)?;
+            self.base_paths.insert(base.id.clone(), path);
+        }
+        let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
+        s.results.insert(id, table);
+        Ok(ok_reply())
+    }
+
     fn patch_data(&mut self, slot: SlotId, id: &str, json: &[u8]) -> Result<Reply, WireError> {
         let patch: CellPatch =
             serde_json::from_slice(json).map_err(|e| WireError::Frame { message: format!("cell patch: {e}") })?;
         let s = self.slots.get_mut(&slot).ok_or_else(|| setup(format!("unknown slot {slot}")))?;
         if let Some(data) = s.data.get_mut(id) {
-            *data = Arc::new(patch.applied(data));
+            let patched = patch.applied(data).ok_or_else(|| setup(format!("a cell patch for query data {id}")))?;
+            *data = Arc::new(patched);
         }
         Ok(ok_reply())
     }
@@ -459,17 +510,17 @@ impl Worker {
         rows: std::ops::Range<usize>,
         max_cell_chars: usize,
     ) -> Result<Reply, WireError> {
-        let data = parse_data(json)?;
+        let table = parse_table(json)?;
         let path = check_base_path(self.bases_dir.as_deref(), base)?;
-        let columns = columns.unwrap_or_else(|| data.table.columns.iter().map(|c| c.id.clone()).collect());
+        let columns = columns.unwrap_or_else(|| table.columns.iter().map(|c| c.id.clone()).collect());
         let read = open_base(&path)
-            .and_then(|file| engine::read_view(&data.table, file, &columns, rows, max_cell_chars))
+            .and_then(|file| engine::read_view(&table, file, &columns, rows, max_cell_chars))
             .map(|read| Response::Read { dataset: read.dataset, misfit: read.misfit.into_iter().collect() });
         Ok((read.unwrap_or_else(|error| Response::DataRefused { error }), Vec::new()))
     }
 
     fn compact_data(&self, json: &[u8], base: Option<&Path>, out: &Path) -> Result<Reply, WireError> {
-        let data = parse_data(json)?;
+        let table = parse_table(json)?;
         let base = base.map(|b| check_base_path(self.bases_dir.as_deref(), b)).transpose()?;
         let out = check_out_path(&[self.bases_dir.as_deref(), self.work.as_deref()], out)?;
         let mut file = std::fs::OpenOptions::new()
@@ -481,7 +532,7 @@ impl Worker {
             .as_deref()
             .map(open_base)
             .transpose()
-            .and_then(|base| engine::write_base(&data.table, base, &mut file))
+            .and_then(|base| engine::write_base(&table, base, &mut file))
             .and_then(|base| file.sync_all().map(|()| base).map_err(|e| DataError::base_invalid(e.to_string())));
         Ok((
             written.map_or_else(|error| Response::DataRefused { error }, |base| Response::Compacted { base }),
@@ -490,9 +541,9 @@ impl Worker {
     }
 
     fn check_column_type(&self, json: &[u8], base: &Path, column: &str, ty: ColumnType) -> Result<Reply, WireError> {
-        let data = parse_data(json)?;
+        let table = parse_table(json)?;
         let path = check_base_path(self.bases_dir.as_deref(), base)?;
-        let checked = open_base(&path).and_then(|file| engine::check_column_type(&data.table, file, column, ty));
+        let checked = open_base(&path).and_then(|file| engine::check_column_type(&table, file, column, ty));
         Ok((checked.map_or_else(|error| Response::DataRefused { error }, |()| Response::Ok), Vec::new()))
     }
 
@@ -586,6 +637,9 @@ fn protocol_output() -> std::io::Result<Box<dyn Write>> {
 fn protocol_output() -> std::io::Result<Box<dyn Write>> {
     Ok(Box::new(std::io::stdout()))
 }
+
+#[path = "serve_query.rs"]
+mod serve_query;
 
 #[cfg(test)]
 #[path = "serve_tests.rs"]

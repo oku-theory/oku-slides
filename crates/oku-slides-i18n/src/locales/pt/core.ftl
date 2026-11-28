@@ -236,6 +236,11 @@ issue-data-too-many = dados demais na apresentação ({ $count }); não lidos: {
 issue-data-base-missing = dados «{ $data }»: falta o arquivo base, mantidos somente leitura
 issue-data-edits-lost = dados «{ $data }»: alterações em uma tabela substituída foram perdidas na mesclagem
 issue-data-inline-dropped = Elemento { $element }: uma versão anterior guardou os dados do seu gráfico ou tabela nas suas opções; foram removidos
+issue-data-kind-unknown = dados «{ $data }»: tipo desconhecido «{ $kind }», talvez de uma versão mais recente; não lidos
+issue-data-query-cycle = dados «{ $data }»: a consulta lê a si mesma, diretamente ou por meio de outras consultas; não calculados
+issue-data-query-missing-input = dados «{ $data }»: a consulta lê «{ $input }», que não está na apresentação; não calculados
+issue-data-query-invalid = dados «{ $data }»: a consulta não é válida ({ $reason }); não calculados
+issue-data-query-failed = dados «{ $data }»: a consulta falhou ({ $reason }); sem resultado
 issue-more = outros problemas não exibidos: { $count }
 op-data-deck-full = Os dados da apresentação passariam do limite: no máximo { $max } { $what ->
     [row-ids] IDs de linha
@@ -258,6 +263,20 @@ op-data-rebind = O elemento { $subject } já mostra outros dados; use bind_data 
 op-data-internal = Um lote não pode definir a base nem a sobreposição de uma tabela
 op-data-batch-too-large = O lote é grande demais: número de células { $count }, no máximo { $max }
 op-data-inline = O elemento { $subject } traz os seus dados nas suas opções; adicione-os como dados do deck com add_data e ligue-os com bind_data
+op-data-derived = os dados «{ $data }» são derivados de uma consulta: edite a consulta, não as linhas
+op-data-source = Uns dados têm uma tabela ou uma consulta (sql), exatamente uma das duas
+op-data-cycle = Os dados «{ $data }» voltariam a ler-se a si mesmos através das suas consultas; remova o ciclo
+op-data-unknown-input = A consulta lê «{ $name }», que não são dados da apresentação
+op-data-not-query = Os dados «{ $data }» não são uma consulta; edite a tabela com edit_data
+op-data-read-by-queries = Estes dados são lidos pelas consultas { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}e mostrados por { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}e mais { $more }
+}; edite-os ou remova-os primeiro
+op-data-rename-captured = A consulta de «{ $reader }» já chama «{ $name }» uma de suas próprias tabelas; renomeie essa tabela na consulta (set_query) ou escolha outro nome
+op-data-name-ambiguous = Vários dados se chamam «{ $name }» e consultas leem esse nome sem que se saiba qual; edite essas consultas primeiro (set_query)
 issue-unreadable-slide = slide ilegível, deixado de lado
 issue-unreadable-field = campo { $field } do deck ilegível, redefinido
 issue-knowledge-unreadable = entrada de conhecimento { $id } ilegível, deixada de lado

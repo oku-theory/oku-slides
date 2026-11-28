@@ -11,13 +11,15 @@ pub struct Message {
     args: Vec<(&'static str, Arg)>,
 }
 
-/// Paramètre d'un [`Message`] : texte ou nombre.
+/// A [`Message`] parameter: text, number or a nested message.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Arg {
     /// Text inserted into the message as is.
     Text(String),
     /// Number, which Fluent formats and agrees according to the language.
     Number(f64),
+    /// A message said in the same language as the one holding it (a reason, say).
+    Message(Box<Message>),
 }
 
 /// Numbers that `f64` represents exactly: lossless conversion.
@@ -43,6 +45,12 @@ number_arg_rounded!(usize, u64, i64);
 impl From<String> for Arg {
     fn from(s: String) -> Self {
         Arg::Text(s)
+    }
+}
+
+impl From<Message> for Arg {
+    fn from(m: Message) -> Self {
+        Arg::Message(Box::new(m))
     }
 }
 
@@ -77,7 +85,7 @@ impl Message {
     pub fn number(&self, name: &str) -> Option<f64> {
         self.args.iter().find(|(n, _)| *n == name).and_then(|(_, v)| match v {
             Arg::Number(n) => Some(*n),
-            Arg::Text(_) => None,
+            Arg::Text(_) | Arg::Message(_) => None,
         })
     }
 }
@@ -91,6 +99,7 @@ impl Localize for Message {
                 let v = match value {
                     Arg::Text(s) => FluentValue::from(s.as_str()),
                     Arg::Number(n) => FluentValue::from(*n),
+                    Arg::Message(m) => FluentValue::from(m.localize(l)),
                 };
                 (*name, v)
             })

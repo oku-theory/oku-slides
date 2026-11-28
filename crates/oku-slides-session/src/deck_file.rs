@@ -124,6 +124,7 @@ impl Session {
         // L'avis des thèmes écartés posé sur le deck vierge, pas encore vu, suit le document (reprise d'onglet).
         let carried = self.carried_themes_notice();
         self.doc = doc;
+        self.seed_cached_results();
         self.sync_bases();
         if let Some(text) = carried {
             self.set_notice(text);
@@ -214,7 +215,9 @@ impl Session {
     ///
     /// `pdf` is a fresh render, or the file's own bytes when only the
     /// sources changed. `[usage] store_in_deck` off writes no ledger.
-    pub(crate) fn write_pdf(&self, path: &Path, pdf: &[u8]) -> Result<String> {
+    /// The cached query results are the current ready ones.
+    pub(crate) fn write_pdf(&mut self, path: &Path, pdf: &[u8]) -> Result<String> {
+        self.fill_cached_results();
         let zip = self
             .doc
             .sources

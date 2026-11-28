@@ -93,9 +93,9 @@ fn fold_now(s: &mut Session, data: &str) -> bool {
 /// The cells of `data`, read through the worker when it has a base.
 fn cells(s: &Session, data: &str) -> Value {
     let d = &s.deck().data[&id(data)];
-    let rows = d.table.rows.len();
+    let rows = d.table().unwrap().rows.len();
     let set = s
-        .rows_read(d, None, 0..rows, usize::MAX)
+        .rows_read(&id(data), d, None, 0..rows, usize::MAX)
         .and_then(RowsRead::run)
         .unwrap_or_else(|e| panic!("read: {}", e.one_line()));
     serde_json::to_value(set).unwrap_or_else(|e| panic!("{e}"))
@@ -124,7 +124,7 @@ fn compaction_keeps_every_cell_value() {
     let before = cells(&s, "d9");
     assert_that!(s.compactions_due(Instant::now())).contains(id("d9"));
     assert_that!(compact_now(&mut s)).is_true();
-    let table = &s.deck().data[&id("d9")].table;
+    let table = s.deck().data[&id("d9")].table().unwrap();
     assert_that!(table.base.is_some()).is_true();
     assert_that!(table.overlay_len()).is_equal_to(0);
     assert_that!(cells(&s, "d9")).is_equal_to(before);
@@ -144,7 +144,7 @@ fn compaction_is_not_an_undo_step() {
     // The one undo undoes the edit of d8, not the compaction of d9.
     s.undo().unwrap_or_else(|e| panic!("undo: {}", e.one_line()));
     assert_that!(cells(&s, "d8")).is_equal_to(before);
-    assert_that!(s.deck().data[&id("d9")].table.base.is_some()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_some()).is_true();
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn edit_during_compaction_drops_the_job() {
     let reply = job.run();
     apply(&mut s, vec![set_cell("d9", "r3", 99)]);
     assert_that!(s.finish_compaction(job, reply, now)).is_false();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_none()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_none()).is_true();
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn compaction_dropped_when_generation_changed() {
     let replace = json!({ "op": "edit_data", "data": "d9", "change": { "op": "replace", "table": table(3) } });
     apply(&mut s, vec![op(replace)]);
     assert_that!(s.finish_compaction(job, reply, now)).is_false();
-    assert_that!(s.deck().data[&id("d9")].table.rows.len()).is_equal_to(3);
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().rows.len()).is_equal_to(3);
 }
 
 fn key(seq: u64) -> JobKey {
@@ -220,7 +220,7 @@ fn store_full_skips_and_reports_fr() {
     assert_that!(compact_now(&mut s)).is_false();
     let full = s.localizer.tr_with("session-data-store-full", &[("data", "ventes".into())]);
     assert_that!(s.doc.notice.clone().unwrap_or_default()).contains(full.as_str());
-    assert_that!(s.deck().data[&id("d9")].table.base.is_none()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_none()).is_true();
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn fold_cuts_undo_with_notice_fr() {
     s.doc.notice = None;
     assert_that!(fold_now(&mut s, "d9")).is_true();
     assert_that!(s.can_undo()).is_false();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_some()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_some()).is_true();
     let cut = s.localizer.tr_with("session-data-undo-cut", &[("data", "ventes".into())]);
     assert_that!(s.doc.notice.clone().unwrap_or_default()).contains(cut.as_str());
 }
@@ -242,7 +242,7 @@ fn apply_folding_passes_other_errors_through() {
     let mut s = opened_with(dir.path(), 4);
     let e = s.apply_folding("x", vec![set_cell("d7", "r1", 1)], None).err().unwrap_or_else(|| panic!("applied"));
     assert_that!(e.transaction().is_some_and(|t| t.op_error().is_overlay_full())).is_false();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_none()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_none()).is_true();
 }
 
 /// `d9` folded onto a base (empty overlay) and `d8` of four rows in its overlay.

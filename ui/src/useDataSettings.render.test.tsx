@@ -143,4 +143,13 @@ describe("useDataSettings", () => {
     const other = { ...surface(), id: "host-widget" } as Surface;
     expect(m.out.h!.onAction(other, action("param", { key: "x" }))).toBe(false);
   });
+
+  test("useDataSettings rereads on a new snapshot of the same render", async () => {
+    // A failed query does not render the slide again: its new state comes with a new snapshot only.
+    const f = fake();
+    const selected = element("g", "base/chart");
+    const m = await mountData(f.fake, { snap: snapshot(), selected });
+    await m.render({ snap: snapshot(), selected });
+    expect(f.reads).toEqual([["s1", "g"], ["s1", "g"]]);
+  });
 });

@@ -30,4 +30,4 @@ pub trait BaseFiles {
 
 #[cfg(test)]
 #[path = "sources_bases_tests.rs"]
-mod sources_bases_tests;
+pub(crate) mod sources_bases_tests;

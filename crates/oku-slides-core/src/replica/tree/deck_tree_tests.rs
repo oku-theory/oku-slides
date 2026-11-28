@@ -882,8 +882,8 @@ fn merge_of_a_format_2_peer_is_refused() {
     let (mut a, b) = (open(), open());
     ok(meta_of(&b).insert("format", 2_i64));
     b.doc.commit();
-    let Err(e) = a.merge(&b) else { panic!("un pair au format 2 devait être refusé") };
+    let Err(e) = a.merge(&b) else { panic!("a format-2 peer must be refused") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(9)));
+    assert_that!(format_of_meta(&a)).is_equal_to(Some(LoroValue::I64(10)));
     assert_that!(a.deck().0).is_equal_to(&deck);
 }

@@ -38,7 +38,7 @@ fn chart(data: &str) -> Value {
 /// A deck holding data `d` and the views `ops` add.
 fn deck(data: NewTable, ops: Vec<Op>) -> Deck {
     let mut deck = Deck::from_json(r#"{"slides":[{"id":"s","kind":"essentiel/content"}]}"#).unwrap();
-    let mut all = vec![Op::AddData { id: Some(did("d")), name: "d".into(), label: None, table: data }];
+    let mut all = vec![Op::AddData { id: Some(did("d")), name: "d".into(), label: None, table: Some(data), sql: None }];
     all.extend(ops);
     apply_all(&mut deck, all, &registry()).unwrap();
     deck
@@ -108,7 +108,13 @@ fn plan_cell_budget(#[case] extra: usize, #[case] second: PlanOutcome) {
     let rows = MAX_RESOLVED_CELLS / 4;
     let mut deck = deck(table(rows, 2, None), vec![view("a", "base/chart", chart("d"))]);
     let ops = vec![
-        Op::AddData { id: Some(did("e")), name: "e".into(), label: None, table: table(rows + extra, 2, None) },
+        Op::AddData {
+            id: Some(did("e")),
+            name: "e".into(),
+            label: None,
+            table: Some(table(rows + extra, 2, None)),
+            sql: None,
+        },
         view("b", "base/chart", chart("e")),
     ];
     apply_all(&mut deck, ops, &registry()).unwrap();
@@ -154,7 +160,7 @@ fn plan_byte_budget(#[case] extra: usize, #[case] last: PlanOutcome) {
     let mut e = radar();
     e["data"] = json!("e");
     let ops = vec![
-        Op::AddData { id: Some(did("e")), name: "e".into(), label: None, table: text_table(&cells) },
+        Op::AddData { id: Some(did("e")), name: "e".into(), label: None, table: Some(text_table(&cells)), sql: None },
         view("w", "base/chart", e),
     ];
     apply_all(&mut deck, ops, &registry()).unwrap();
@@ -188,7 +194,7 @@ fn plan_projected_column_removed_by_a_peer_reports_without_panic() {
     option["columns"] = json!(["c0", "c1"]);
     let mut deck = deck(table(1, 2, None), vec![view("g", "base/chart", option)]);
     let data = deck.data.get_mut(&did("d")).unwrap();
-    std::sync::Arc::make_mut(data).table.columns.pop();
+    std::sync::Arc::make_mut(data).table_mut().unwrap().columns.pop();
     let (plans, issues) = plan_views(&deck, &registry());
     assert_that!(plans[0].outcome).is_equal_to(PlanOutcome::MissingColumn("c1".into()));
     let expected = Message::new("issue-view-column-missing").arg("element", "g").arg("column", "c1");

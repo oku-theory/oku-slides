@@ -21,7 +21,7 @@ fn keys(issues: &[Issue]) -> Vec<&str> {
 
 /// Folds `d9` of `bundle` onto `base`, as the host commits a compaction.
 fn compact(bundle: &mut SourceBundle, base: BaseRef) {
-    let from = bundle.deck().data[&id("d9")].table.clone();
+    let from = bundle.deck().data[&id("d9")].table().unwrap().clone();
     let done = bundle.compact_data(&id("d9"), &from, "e2".to_owned(), base).unwrap_or_else(|e| panic!("{e:?}"));
     assert_that!(done).is_true();
 }
@@ -55,7 +55,7 @@ fn peer_edit_vs_compaction(#[case] compaction_first: bool) {
     // The edit is lost everywhere: every copy holds the compacted layer, and only it.
     assert_that!(ours.deck().data).is_equal_to(&theirs.deck().data);
     assert_that!(s.deck().data).is_equal_to(&theirs.deck().data);
-    let table = &s.deck().data[&id("d9")].table;
+    let table = s.deck().data[&id("d9")].table().unwrap();
     assert_that!(table.base.as_ref()).is_equal_to(Some(&base));
     assert_that!(table.cell("r1", "c2")).is_equal_to(CellRead::Base);
     // The editor's undo step on d9 would write into the dead layer: dropped, with the notice.
@@ -83,6 +83,6 @@ fn missing_base_during_merge_reports_without_panic() {
     assert_that!(keys(&issues)).contains("issue-data-base-missing");
     s.absorb(second, "theirs.oku-slides.pdf", false).unwrap_or_else(|e| panic!("absorb: {e:?}"));
     let d9 = &s.deck().data[&id("d9")];
-    assert_that!(d9.table.base.as_ref().map(|b| &b.id)).is_equal_to(Some(&absent));
-    assert_that!(s.rows_read(d9, None, 0..4, usize::MAX).and_then(RowsRead::run).is_err()).is_true();
+    assert_that!(d9.table().unwrap().base.as_ref().map(|b| &b.id)).is_equal_to(Some(&absent));
+    assert_that!(s.rows_read(&id("d9"), d9, None, 0..4, usize::MAX).and_then(RowsRead::run).is_err()).is_true();
 }

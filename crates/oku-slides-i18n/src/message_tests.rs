@@ -16,3 +16,13 @@ fn message_number_reads_a_number_parameter_only() {
     assert_that!(m.number("name")).is_none();
     assert_that!(m.number("absent")).is_none();
 }
+
+#[test]
+fn message_nested_as_arg_localizes_in_the_same_locale() {
+    let reason = Message::new("chart-series-empty").arg("index", 2usize);
+    let m = Message::new("data-row-cut").arg("count", 3usize).arg("name", reason.clone());
+    let fr = Localizer::new(Some("fr"));
+    let expected = fr.tr_with("data-row-cut", &[("count", 3usize.into()), ("name", reason.localize(&fr).into())]);
+    assert_that!(m.localize(&fr)).is_equal_to(expected);
+    assert_that!(m.number("name")).is_none();
+}

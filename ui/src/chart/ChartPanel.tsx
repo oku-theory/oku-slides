@@ -1,9 +1,10 @@
 // View of a chart's data (`ChartData` component of the `host-data` surface): its type, stacking,
 // series colors and the grid of its data. Each gesture sends an edit (`DataEdit`) the session
-// applies, then the surface is read again.
+// applies, then the surface is read again. Over a query, the grid is its result, read-only.
 
 import type { ReactNode } from "react";
 
+import { type QueryView, QueryInView } from "../DataSheet";
 import { t } from "../i18n";
 import { Icon, stroke } from "../icons";
 import { IconToggle } from "../primitives";
@@ -31,7 +32,7 @@ const KIND_ICON: Record<ChartKind, ReactNode> = {
 export type SeriesSwatch = { name: string; color?: string };
 
 /** A chart's data and settings; each gesture is sent as an edit (`onEdit`). */
-export function ChartDataView({ kind, source, rowIds, columnIds, checkboxColumns, stacked, series, palette, data, choices, onEdit, onOpen }: {
+export function ChartDataView({ kind, source, rowIds, columnIds, checkboxColumns, stacked, series, palette, data, choices, query, onEdit, onOpen }: {
   /** Type of the first series; absent without data. */
   kind?: string;
   /** dataset.source: row 0 = headers; empty without data. */
@@ -51,19 +52,23 @@ export function ChartDataView({ kind, source, rowIds, columnIds, checkboxColumns
   data: DataRef;
   /** The data it can switch to, `data` included. */
   choices: readonly DataChoice[];
+  /** Over a query data: its SQL, state, failure and inputs; `source` is its result. */
+  query?: QueryView;
   onEdit: (edit: DataEdit) => void;
   /** Opens the view's data in the data pane. */
   onOpen: (data: string) => void;
 }) {
   const current = asChartKind(kind);
   const hasData = source.length > 0;
+  // Converting the chart reads its rows, which the session refuses for a query's (`op-data-derived`).
+  const convertible = hasData && !query;
   return (
     <section className="chart-panel" aria-label={t("ui-chart-panel")}>
       <DataPick data={data} choices={choices} onEdit={onEdit} onOpen={onOpen} />
       <div className="panel-toolbar">
         <div className="chart-kinds" role="group" aria-label={t("ui-chart-kinds")}>
           {CHART_KINDS.map((k) => (
-            <IconToggle key={k} label={kindLabel(k)} pressed={current === k} disabled={!hasData}
+            <IconToggle key={k} label={kindLabel(k)} pressed={current === k} disabled={!convertible}
               onToggle={() => k !== current && onEdit({ edit: "kind", kind: k })} icon={KIND_ICON[k]} />
           ))}
         </div>
@@ -72,11 +77,13 @@ export function ChartDataView({ kind, source, rowIds, columnIds, checkboxColumns
             <IconToggle label={t("ui-chart-stack")} pressed={stacked} onToggle={() => onEdit({ edit: "stack", stacked: !stacked })} icon={Icon.stack} />
           </div>
         )}
-        <ShowAsButton view="table" onShowAs={(view) => onEdit({ edit: "show_as", view })} disabled={!hasData} />
+        <ShowAsButton view="table" onShowAs={(view) => onEdit({ edit: "show_as", view })} disabled={!convertible} />
       </div>
       <SeriesColors series={series} colors={palette} onColor={(index, color) => onEdit({ edit: "color", index, color })} />
       {current === "waterfall" && <p className="a2ui-hint">{t("ui-chart-waterfall-hint")}</p>}
-      {hasData ? (
+      {query ? (
+        <QueryInView data={data.id} query={query} source={source} onOpen={onOpen} />
+      ) : hasData ? (
         <ChartDataGrid source={source} rowIds={rowIds} columnIds={columnIds} checkboxColumns={checkboxColumns} onEdit={onEdit} />
       ) : (
         <p className="a2ui-hint">{t("ui-chart-no-data")}</p>

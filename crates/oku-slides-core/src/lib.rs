@@ -61,10 +61,12 @@ mod pack_order;
 pub mod params;
 mod prepare;
 mod prepare_view;
+mod query_order;
 pub mod replica;
 mod shape_path;
 pub mod sources;
 mod sources_bases;
+mod sources_results;
 #[cfg(test)]
 pub(crate) mod test_registry;
 pub mod theme_chain;
@@ -117,6 +119,7 @@ pub use pack_order::{item_order, normalized_order};
 pub use params::{ListItem, ParamValue, Params};
 pub use prepare::{Origin, PrepareCtx, Prepared, check_external, fresh_ids, prepare_ops};
 pub use prepare_view::{brings_inline, strip_inline};
+pub use query_order::{QueryFault, QueryOrder};
 pub use replica::{
     DeckRead, DeckReplica, HistoryPreview, KnowledgeSync, MergeReport, ReplicaLimits, SlideChanges, Version,
     slide_changes,
@@ -124,6 +127,7 @@ pub use replica::{
 pub use shape_path::{PathCommand, SHAPE_PATH_COORD_MAX, SHAPE_PATH_MAX, ShapePath};
 pub use sources::{SourceBundle, SourceLimits, asset_id};
 pub use sources_bases::{BaseFiles, BaseFilesError};
+pub use sources_results::{CachedResult, ResultKeyHex};
 pub use theme_chain::{ThemeChainError, ThemePin, check_closure, linearize};
 pub use token_spec::{ComponentToken, Control, check_entries};
 pub use usage::{

@@ -74,7 +74,7 @@ fn set_theme_without_themes_reads_as_an_empty_map() {
 }
 
 #[test]
-fn deck_version_ten_reads_and_eleven_is_refused() {
-    assert_that!(Deck::from_json(r#"{"version": 10, "slides": []}"#).map(|d| d.version).ok()).is_equal_to(Some(10));
-    assert_that!(Deck::from_json(r#"{"version": 11, "slides": []}"#).is_err()).is_true();
+fn deck_version_eleven_reads_and_twelve_is_refused() {
+    assert_that!(Deck::from_json(r#"{"version": 11, "slides": []}"#).map(|d| d.version).ok()).is_equal_to(Some(11));
+    assert_that!(Deck::from_json(r#"{"version": 12, "slides": []}"#).is_err()).is_true();
 }

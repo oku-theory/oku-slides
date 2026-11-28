@@ -11,7 +11,7 @@ use crate::test_registry::registry;
 fn deck(slides: &Value) -> Deck {
     let data =
         json!({ "d": { "name": "d", "kind": "manual", "table": { "generation": "g", "columns": [], "rows": [] } } });
-    serde_json::from_value(json!({ "version": 10, "data": data, "slides": slides })).unwrap()
+    serde_json::from_value(json!({ "version": 11, "data": data, "slides": slides })).unwrap()
 }
 
 /// Une slide `content` dont le slot `slot` porte `elements`.

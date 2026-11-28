@@ -26,21 +26,24 @@ fn launch() -> RenderLaunch {
     RenderLaunch::Process { program: PathBuf::from(env!("CARGO_BIN_EXE_oku-slides-render-worker")) }
 }
 
+fn settings(timeout_ms: u64, memory_mib: u64) -> RenderSettings {
+    RenderSettings {
+        timeout_ms,
+        probe_budget_ms: timeout_ms,
+        memory_mib,
+        max_frame_mib: 256,
+        max_widget_kib: 256,
+        max_widgets: 64,
+        max_guide_chars: 4000,
+        data_timeout_ms: 120_000,
+        data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
+    }
+}
+
 fn worker(timeout_ms: u64, memory_mib: u64) -> RenderWorker {
-    RenderWorker::new(
-        launch(),
-        RenderSettings {
-            timeout_ms,
-            probe_budget_ms: timeout_ms,
-            memory_mib,
-            max_frame_mib: 256,
-            max_widget_kib: 256,
-            max_widgets: 64,
-            max_guide_chars: 4000,
-            data_timeout_ms: 120_000,
-            data_memory_mib: 4096,
-        },
-    )
+    RenderWorker::new(launch(), settings(timeout_ms, memory_mib))
 }
 
 /// Le registre d'un emplacement sans pack.
@@ -241,7 +244,7 @@ fn extract_memory_limit_reports() {
 #[cfg(target_os = "macos")]
 #[test]
 fn worker_reads_base_through_sandbox() {
-    use oku_slides_data::{Data, DataCell, DataKind};
+    use oku_slides_data::{Data, DataCell, Source};
     use oku_slides_platform::bases::BaseStore;
     use oku_slides_platform::storage::Storage;
     use oku_slides_render_worker::DataWorker;
@@ -250,19 +253,8 @@ fn worker_reads_base_through_sandbox() {
     let store = BaseStore::new(Storage::local().unwrap(), dir.path(), 1 << 30).unwrap();
     let (table, file) = oku_slides_data::test_support::based_table(3, 2);
     store.adopt(file.path(), 1 << 30).unwrap();
-    let data = Data { name: "sales".into(), label: None, inline: false, kind: DataKind::Manual, table };
-    let settings = RenderSettings {
-        timeout_ms: 30_000,
-        probe_budget_ms: 30_000,
-        memory_mib: 4096,
-        max_frame_mib: 256,
-        max_widget_kib: 256,
-        max_widgets: 64,
-        max_guide_chars: 4000,
-        data_timeout_ms: 120_000,
-        data_memory_mib: 4096,
-    };
-    let worker = DataWorker::new(launch(), &settings, store);
+    let data = Data { name: "sales".into(), label: None, inline: false, source: Source::Manual(table) };
+    let worker = DataWorker::new(launch(), &settings(30_000, 4096), store);
 
     let read = worker.read(&data, None, 0..3, 100).unwrap().unwrap();
 
@@ -270,3 +262,44 @@ fn worker_reads_base_through_sandbox() {
     assert_that!(read.dataset.source).has_length(4);
     assert_that!(read.dataset.source[3][1].clone()).is_equal_to(DataCell::Number(2001.0));
 }
+
+/// → a query past `query_timeout_ms` fails with `QueryTimeout` in its own worker, while a render
+/// runs to the end meanwhile (t-1774).
+#[test]
+fn slow_query_times_out_without_blocking_render() {
+    use oku_slides_data::{Data, DataErrorKind, Source};
+    use oku_slides_platform::bases::BaseStore;
+    use oku_slides_platform::storage::Storage;
+    use oku_slides_render_worker::DataWorker;
+
+    let dir = tempfile::tempdir().unwrap();
+    let store = BaseStore::new(Storage::local().unwrap(), dir.path(), 1 << 30).unwrap();
+    let (table, file) = oku_slides_data::test_support::based_table(SLOW_ROWS, 2);
+    store.adopt(file.path(), 1 << 30).unwrap();
+    let data = Arc::new(Data { name: "t".into(), label: None, inline: false, source: Source::Manual(table) });
+    let mut settings = settings(30_000, 4096);
+    settings.query_timeout_ms = 3_000;
+    let queries = DataWorker::query(launch(), &settings, store);
+    let sql = "SELECT count(*) AS n FROM t a CROSS JOIN t b \
+        WHERE regexp_matches(concat(a.C0, 'x', b.C1), '^(1|2)+[0-9]*x.*9') \
+        OR regexp_matches(concat(b.C0, 'y', a.C1), '^(3|4)+[0-9]*y.*8') \
+        OR regexp_matches(concat(a.C1, 'z', b.C0), '^(5|6)+[0-9]*z.*7') \
+        OR regexp_matches(concat(b.C1, 'w', a.C0), '^(7|8)+[0-9]*w.*6')";
+    let query = oku_slides_data::sql::parse_query(sql).unwrap().for_engine().unwrap();
+
+    let slow = std::thread::spawn(move || queries.run_query(&query, &[("t".to_owned(), data)]));
+    let w = worker(30_000, 4096);
+    let l = Localizer::new(Some("fr"));
+    let mut s = w.slot(&Fonts::default(), &l, empty()).unwrap();
+    let pages = s.render(&roadmap(), &BTreeMap::new()).unwrap().page_count();
+    let still_running = !slow.is_finished();
+    let refused = slow.join().unwrap().unwrap();
+
+    assert_that!(pages).is_greater_than(0);
+    assert_that!(still_running).is_true();
+    assert_that!(refused.map(|_| ()).map_err(|e| e.kind())).is_err_containing(DataErrorKind::QueryTimeout);
+}
+
+/// Rows of the slow query's input. Its self cross join with four regex tests runs about 9 s
+/// unloaded in under 1 GiB; a join of joins would hit the memory bound before the timeout.
+const SLOW_ROWS: usize = 10_000;

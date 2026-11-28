@@ -4,7 +4,7 @@ use std::sync::Arc;
 use oku_slides_core::{KnowledgeFile, WidgetRegistry};
 use oku_slides_data::limits::{MAX_DATA, MAX_DECK_OVERLAY, MAX_DECK_ROW_IDS, MAX_OVERLAY, MAX_ROWS};
 use oku_slides_data::test_support::{based_table, set_cell, sized};
-use oku_slides_data::{Data, DataCell, DataId, DataKind, Table};
+use oku_slides_data::{Data, DataCell, DataId, Source, Table};
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::bases::BaseStore;
@@ -30,12 +30,14 @@ fn worker() -> RenderWorker {
             max_guide_chars: 4000,
             data_timeout_ms: 120_000,
             data_memory_mib: 4096,
+            query_timeout_ms: 30_000,
+            query_memory_mib: 4096,
         },
     )
 }
 
 fn data(name: &str, table: Table) -> Arc<Data> {
-    Arc::new(Data { name: name.into(), label: None, inline: false, kind: DataKind::Manual, table })
+    Arc::new(Data { name: name.into(), label: None, inline: false, source: Source::Manual(table) })
 }
 
 fn id(name: &str) -> DataId {
@@ -74,7 +76,7 @@ fn one_cell_edit_sends_frame_under_64_kib() {
     slot.render(&deck, &BTreeMap::new()).unwrap();
     let first = std::mem::take(&mut w.link().written);
     let big = deck.data.get_mut("big").unwrap();
-    set_cell(&mut Arc::make_mut(big).table, "r7", "c1", DataCell::Number(-1.0));
+    set_cell(Arc::make_mut(big).table_mut().unwrap(), "r7", "c1", DataCell::Number(-1.0));
 
     slot.render(&deck, &BTreeMap::new()).unwrap();
 
@@ -131,7 +133,7 @@ fn cell_edit_on_compacted_data_reaches_chart_and_table() {
     let mut slot = builtin_slot(&w);
     let before = page(&mut slot, &deck);
     let edited = deck.data.get_mut("d").unwrap();
-    set_cell(&mut Arc::make_mut(edited).table, "r1", "c1", DataCell::Number(4242.0));
+    set_cell(Arc::make_mut(edited).table_mut().unwrap(), "r1", "c1", DataCell::Number(4242.0));
 
     let after = page(&mut slot, &deck);
 
@@ -157,7 +159,7 @@ fn with_knowledge() -> Deck {
 #[test]
 fn slot_render_request_has_no_knowledge() {
     let deck = with_knowledge();
-    let Request::Render { deck: sent, .. } = render_request(7, &deck, Vec::new()) else {
+    let Request::Render { deck: sent, .. } = render_request(7, &deck, Vec::new(), &Results::new()) else {
         panic!("not a render request");
     };
     assert_that!(sent.knowledge.is_empty()).is_true();
@@ -178,6 +180,8 @@ fn render_same_pages_with_or_without_knowledge() {
             max_guide_chars: 4000,
             data_timeout_ms: 10_000,
             data_memory_mib: 4096,
+            query_timeout_ms: 30_000,
+            query_memory_mib: 4096,
         },
     );
     let mut slot = worker.slot(&Fonts::default(), &Localizer::new(Some("en")), Arc::default()).unwrap();
@@ -186,4 +190,20 @@ fn render_same_pages_with_or_without_knowledge() {
     let without = slot.render(&tiny_deck(), &BTreeMap::new()).unwrap();
     assert_that!(with.page_count()).is_greater_than(0);
     assert_that!(hashes(&with)).is_equal_to(hashes(&without));
+}
+
+#[test]
+fn slot_render_request_lists_ready_results_of_query_data_only() {
+    let mut deck = tiny_deck();
+    let query = Data { name: "q".into(), label: None, inline: false, source: Source::Query { sql: "SELECT 1".into() } };
+    let manual = Data { name: "m".into(), label: None, inline: false, source: Source::Manual(sized(1, 1)) };
+    let id = |s: &str| DataId::try_from(s.to_owned()).unwrap();
+    deck.data.insert(id("q"), Arc::new(query));
+    deck.data.insert(id("p"), Arc::new(Data { name: "p".into(), ..(*deck.data[&id("q")]).clone() }));
+    deck.data.insert(id("m"), Arc::new(manual));
+    let results = Results::from([(id("q"), Some(sized(1, 1))), (id("p"), None), (id("m"), Some(sized(1, 1)))]);
+    let Request::Render { results: listed, .. } = render_request(7, &deck, Vec::new(), &results) else {
+        panic!("not a render request");
+    };
+    assert_that!(listed).is_equal_to(vec!["q".to_owned()]);
 }

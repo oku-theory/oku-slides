@@ -56,3 +56,37 @@ data-row-cut = { $count ->
    *[other] { $count } lignes avaient plus de cellules que l’en-tête ; les cellules en trop ont été retirées
 }
 data-base-invalid = le fichier de base des données est endommagé ou ne correspond pas à sa table
+data-source-mismatch = la source des données ne correspond pas à leur type : des données manuelles portent un tableau, des données de requête une requête
+data-inline-query = des données de requête ne peuvent pas être intégrées : les données intégrées viennent toujours d’un tableau
+data-query-parse = la requête ne se lit pas : vérifier la ligne { $line }, colonne { $column }
+data-query-construct = la requête utilise « { $construct } », que les requêtes de données ne prennent pas en charge
+data-query-too-long = la requête dépasse { $max } { $max ->
+    [one] octet
+   *[other] octets
+}
+data-query-too-deep = la requête est trop imbriquée
+data-query-rewrite = la requête n’a pas pu être préparée pour le moteur ; c’est un bogue d’Oku Slides
+data-query-unknown-function = la requête appelle « { $function } », que les requêtes de données ne prennent pas en charge
+data-query-run = la requête a échoué : { $reason }
+data-query-input-failed = son entrée « { $input } » a échoué
+data-query-too-large = { $what ->
+    [rows] le résultat de la requête dépasse { $max } { $max ->
+        [one] ligne
+       *[other] lignes
+    } ; il n’est jamais tronqué
+    [columns] le résultat de la requête dépasse { $max } { $max ->
+        [one] colonne
+       *[other] colonnes
+    } ; il n’est jamais tronqué
+   *[text] une cellule de texte du résultat dépasse { $max } { $max ->
+        [one] octet
+       *[other] octets
+    } ; le résultat n’est jamais tronqué
+}
+data-query-column-type = la colonne de résultat « { $column } » a un type que les données ne peuvent pas contenir : la convertir en texte, nombre, entier, booléen ou date
+data-query-duplicate-column = deux colonnes de résultat s’appellent « { $column } » : renommer l’une d’elles avec AS
+data-query-float-operand = « { $function } » ne s’applique pas à « { $operand } », qui contient des nombres décimaux : le convertir d’abord en entier
+data-query-timeout = la requête a duré plus de { $seconds } { $seconds ->
+    [one] seconde
+   *[other] secondes
+} et a été arrêtée

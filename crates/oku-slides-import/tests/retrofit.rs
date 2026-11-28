@@ -505,9 +505,14 @@ fn imported_table_cells_equal_pptx_values() {
     let option = view_options(&deck, base::TABLE).into_iter().next().unwrap_or_else(|| panic!("a table"));
     let id = option["data"].as_str().unwrap_or_else(|| panic!("a data ref: {option}"));
     let data = deck.data.iter().find(|(d, _)| d.as_str() == id).map_or_else(|| panic!("data {id}"), |(_, d)| d);
-    let header: Vec<&str> = data.table.columns.iter().map(|c| c.name.as_str()).collect();
+    let header: Vec<&str> =
+        data.table().unwrap_or_else(|| panic!("a manual data")).columns.iter().map(|c| c.name.as_str()).collect();
     assert_that!(header).is_equal_to(vec!["Titre", ""]);
-    let dataset = data.table.to_dataset(None, 0..data.table.rows.len(), usize::MAX).unwrap_or_else(|e| panic!("{e}"));
+    let dataset = data
+        .table()
+        .unwrap_or_else(|| panic!("a manual data"))
+        .to_dataset(None, 0..data.table().unwrap_or_else(|| panic!("a manual data")).rows.len(), usize::MAX)
+        .unwrap_or_else(|e| panic!("{e}"));
     let cell = |row: usize, column: usize| dataset.source[row][column].as_label();
     // B2: the second column of the PPTX's second row, its first row under the header.
     assert_that!(cell(1, 1)).is_equal_to("1".to_owned());

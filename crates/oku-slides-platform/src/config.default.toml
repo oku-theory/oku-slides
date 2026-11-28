@@ -63,6 +63,10 @@ max_guide_chars = 4000
 data_timeout_ms = 120000
 # Maximum memory of the data process (MiB).
 data_memory_mib = 4096
+# Maximum duration of a query in the query process (ms).
+query_timeout_ms = 30000
+# Maximum memory of the query process (MiB).
+query_memory_mib = 4096
 
 [import]
 # Hi-fi import: gap (ΔE OKLab ×100) of a slide's worst non-suspect region to the

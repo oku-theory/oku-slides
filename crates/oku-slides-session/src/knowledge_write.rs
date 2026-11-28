@@ -176,6 +176,7 @@ impl Session {
                 | Op::BindData { .. }
                 | Op::RemoveData { .. }
                 | Op::RenameData { .. }
+                | Op::SetQuery { .. }
                 | Op::SetColumnType { .. }
                 | Op::PutViewData { .. } => {}
             }

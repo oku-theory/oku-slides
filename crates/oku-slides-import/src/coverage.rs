@@ -63,7 +63,7 @@ fn resolved<'d>(deck: Option<&Deck>, option: &'d Value) -> Cow<'d, Value> {
     if let Value::Object(o) = &mut out {
         o.remove("data");
         o.remove("columns");
-        let table = deck.data.iter().find(|(d, _)| d.as_str() == id).map(|(_, d)| &d.table);
+        let table = deck.data.iter().find(|(d, _)| d.as_str() == id).and_then(|(_, d)| d.table());
         let dataset = table.and_then(|t| t.to_dataset(columns.as_deref(), 0..t.rows.len(), MAX_TABLE_CELL_CHARS).ok());
         if let Some(mut dataset) = dataset {
             dataset.ids.clear();

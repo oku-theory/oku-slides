@@ -66,8 +66,9 @@ pub fn fresh_ids() -> Box<IdGen<'static>> {
 /// Refuses an external batch over [`MAX_BATCH_CELLS`] or giving host-only fields.
 ///
 /// Each op counts its cells, and at least one, so the cap also bounds the op count; a
-/// `remove_column` counts [`REMOVE_COLUMN_WEIGHT`], since it scans the whole overlay, and a
-/// `bind_data` counts [`BIND_DATA_WEIGHT`], since it may walk the whole deck.
+/// `remove_column` counts [`REMOVE_COLUMN_WEIGHT`], since it scans the whole overlay, a
+/// `bind_data` counts [`BIND_DATA_WEIGHT`], since it may walk the whole deck, and a query
+/// ([`query_weight`]) one per started KiB of its SQL, which every check parses.
 ///
 /// # Errors
 ///
@@ -77,10 +78,17 @@ pub fn check_external(ops: &[Op]) -> Result<(), OpError> {
     let mut count = 0usize;
     for op in ops {
         let cells = match op {
-            Op::AddData { table, .. } => {
-                internal_fields(table)?;
-                table.cell_count()
+            Op::AddData { table, sql, .. } => {
+                let cells = match table {
+                    Some(table) => {
+                        internal_fields(table)?;
+                        table.cell_count()
+                    }
+                    None => 0,
+                };
+                cells.saturating_add(sql.as_deref().map_or(0, query_weight))
             }
+            Op::SetQuery { sql, .. } => query_weight(sql),
             Op::EditData { change, .. } => match change {
                 TableOp::Replace { table } => {
                     internal_fields(table)?;
@@ -99,6 +107,11 @@ pub fn check_external(ops: &[Op]) -> Result<(), OpError> {
         return Err(DataFault::BatchTooLarge { count, max: MAX_BATCH_CELLS }.into());
     }
     Ok(())
+}
+
+/// The weight of a query op: 1, plus one per KiB of its SQL.
+fn query_weight(sql: &str) -> usize {
+    1 + sql.len() / 1024
 }
 
 fn internal_fields(table: &NewTable) -> Result<(), OpError> {
@@ -178,11 +191,13 @@ fn fill_ids(
                 *id = Some(DataId::try_from(fresh)?);
             }
             let in_batch = id.as_ref().and_then(|id| given.tables.get(id));
-            table.fill_ids(None, in_batch.unwrap_or(&GivenIds::default()), ids);
+            if let Some(table) = table {
+                table.fill_ids(None, in_batch.unwrap_or(&GivenIds::default()), ids);
+            }
         }
         Op::EditData { data, change } => {
-            if let Some(d) = scratch.data.get(data) {
-                change.fill_ids(&d.table, given.tables.get(data).unwrap_or(&GivenIds::default()), ids);
+            if let Some(t) = scratch.data.get(data).and_then(|d| d.table()) {
+                change.fill_ids(t, given.tables.get(data).unwrap_or(&GivenIds::default()), ids);
             }
         }
         _ => {}
@@ -204,7 +219,9 @@ impl Given {
             match op {
                 Op::AddData { id: Some(id), table, .. } => {
                     given.data.insert(id.as_str().to_owned());
-                    given.tables.entry(id.clone()).or_default().record_table(table);
+                    if let Some(table) = table {
+                        given.tables.entry(id.clone()).or_default().record_table(table);
+                    }
                 }
                 Op::EditData { data, change } => given.tables.entry(data.clone()).or_default().record(change),
                 _ => {}

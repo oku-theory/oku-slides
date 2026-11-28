@@ -1,6 +1,6 @@
 // View of a table's data (`TableData` component of the `host-data` surface): display options,
 // column alignment and the grid of its data (the charts' one). Each gesture sends an edit
-// (`DataEdit`) the session applies.
+// (`DataEdit`) the session applies. Over a query, the grid is its result, read-only.
 
 import type { ReactNode } from "react";
 
@@ -8,6 +8,7 @@ import { ChartDataGrid } from "../chart/ChartDataGrid";
 import type { Cell, DataChoice, DataRef } from "../chart/chartTypes";
 import type { DataEdit } from "../chart/dataEdit";
 import { DataPick } from "../chart/DataPick";
+import { type QueryView, QueryInView } from "../DataSheet";
 import { t, tPlain } from "../i18n";
 import { stroke } from "../icons";
 import { IconToggle } from "../primitives";
@@ -27,7 +28,7 @@ const FLAGS: { key: TableFlag; label: string; icon: ReactNode }[] = [
 const tableColumnName = (n: number) => tPlain("ui-table-column", { n: n + 1 });
 
 /** A table's data and options; each gesture is sent as an edit (`onEdit`). */
-export function TableDataView({ source, rowIds, columnIds, headerRow, headerColumn, striped, align, data, choices, onEdit, onOpen }: {
+export function TableDataView({ source, rowIds, columnIds, headerRow, headerColumn, striped, align, data, choices, query, onEdit, onOpen }: {
   /** dataset.source: row 0 = column names; empty without data. */
   source: Cell[][];
   /** Id of each data row, after the header. */
@@ -43,12 +44,14 @@ export function TableDataView({ source, rowIds, columnIds, headerRow, headerColu
   data: DataRef;
   /** The data it can switch to, `data` included. */
   choices: readonly DataChoice[];
+  /** Over a query data: its SQL, state, failure and inputs; `source` is its result. */
+  query?: QueryView;
   onEdit: (edit: DataEdit) => void;
   /** Opens the view's data in the data pane. */
   onOpen: (data: string) => void;
 }) {
   const pick = <DataPick data={data} choices={choices} onEdit={onEdit} onOpen={onOpen} />;
-  if (source.length === 0) {
+  if (source.length === 0 && !query) {
     return (
       <section className="table-panel chart-panel" aria-label={t("ui-table-panel")}>
         {pick}
@@ -68,7 +71,8 @@ export function TableDataView({ source, rowIds, columnIds, headerRow, headerColu
               onToggle={() => onEdit({ edit: "flag", flag: key, on: !flags[key] })} />
           ))}
         </div>
-        <ShowAsButton view="chart" onShowAs={(view) => onEdit({ edit: "show_as", view })} />
+        {/* Converting the table reads its rows, which the session refuses for a query's. */}
+        <ShowAsButton view="chart" onShowAs={(view) => onEdit({ edit: "show_as", view })} disabled={!!query} />
       </div>
       <div className="table-align" role="group" aria-label={t("ui-table-alignment")}>
         {header.map((name, i) => {
@@ -84,14 +88,18 @@ export function TableDataView({ source, rowIds, columnIds, headerRow, headerColu
           );
         })}
       </div>
-      <ChartDataGrid
-        source={source}
-        rowIds={rowIds}
-        columnIds={columnIds}
-        firstColumnIsLabel={headerColumn}
-        newColumnName={tableColumnName}
-        onEdit={onEdit}
-      />
+      {query ? (
+        <QueryInView data={data.id} query={query} source={source} onOpen={onOpen} />
+      ) : (
+        <ChartDataGrid
+          source={source}
+          rowIds={rowIds}
+          columnIds={columnIds}
+          firstColumnIsLabel={headerColumn}
+          newColumnName={tableColumnName}
+          onEdit={onEdit}
+        />
+      )}
     </section>
   );
 }

@@ -191,7 +191,7 @@ fn import_over_deck_budget_cuts_next_table_and_reports() {
     let source = deck(vec![chart_slide(1, MAX_ROWS), chart_slide(2, MAX_ROWS)]);
     let plan = plan_of(&source, &essentiel_profiles());
     let deck = deck_of(&plan);
-    let rows: Vec<usize> = deck.data.values().map(|d| d.table.rows.len()).collect();
+    let rows: Vec<usize> = deck.data.values().map(|d| d.table().unwrap().rows.len()).collect();
     assert_that!(rows.len()).is_equal_to(2);
     assert_that!(rows.contains(&MAX_ROWS)).is_true();
     let cut = rows.iter().copied().min().unwrap();

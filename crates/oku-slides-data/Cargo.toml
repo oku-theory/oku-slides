@@ -13,13 +13,18 @@ publish.workspace = true
 engine = ["dep:polars"]
 # Test helpers for other crates: based tables written through the engine.
 test-support = ["engine", "dep:tempfile"]
+# The DuckDB oracle of query results, for `tests/oracle.rs` only (`just test-oracle`): Cargo has
+# no optional dev-dependency, so it is an optional normal one no other crate enables.
+oracle = ["test-support", "dep:duckdb"]
 
 [dependencies]
+duckdb = { workspace = true, optional = true }
 oku-slides-i18n.workspace = true
 hex.workspace = true
 imbl.workspace = true
 polars = { workspace = true, optional = true }
 sha2.workspace = true
+sqlparser.workspace = true
 tempfile = { workspace = true, optional = true }
 serde.workspace = true
 # A normal dependency so float_roundtrip is on for every crate that parses deck data.
@@ -33,6 +38,10 @@ uuid.workspace = true
 speculoos.workspace = true
 tempfile.workspace = true
 rstest.workspace = true
+
+[[test]]
+name = "oracle"
+required-features = ["oracle"]
 
 [lints]
 workspace = true

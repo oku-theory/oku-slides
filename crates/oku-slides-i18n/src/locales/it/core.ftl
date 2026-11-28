@@ -236,6 +236,11 @@ issue-data-too-many = troppi dati nella presentazione ({ $count }); non letti: {
 issue-data-base-missing = dati «{ $data }»: manca il loro file di base, tenuti in sola lettura
 issue-data-edits-lost = dati «{ $data }»: modifiche a una tabella sostituita sono andate perse nell'unione
 issue-data-inline-dropped = Elemento { $element }: una versione precedente ha salvato i dati del suo grafico o tabella nelle sue opzioni; sono stati rimossi
+issue-data-kind-unknown = dati «{ $data }»: tipo sconosciuto «{ $kind }», forse di una versione più recente; non letti
+issue-data-query-cycle = dati «{ $data }»: la loro query rilegge sé stessa, direttamente o attraverso altre query; non calcolati
+issue-data-query-missing-input = dati «{ $data }»: la loro query legge «{ $input }», che non è nella presentazione; non calcolati
+issue-data-query-invalid = dati «{ $data }»: la loro query non è valida ({ $reason }); non calcolati
+issue-data-query-failed = dati «{ $data }»: la loro query non è riuscita ({ $reason }); nessun risultato
 issue-more = altri problemi non mostrati: { $count }
 op-data-deck-full = I dati della presentazione supererebbero il loro limite: al massimo { $max } { $what ->
     [row-ids] ID di riga
@@ -258,6 +263,20 @@ op-data-rebind = L'elemento { $subject } mostra già altri dati; usa bind_data p
 op-data-internal = Un lotto non può impostare la base o la sovrapposizione di una tabella
 op-data-batch-too-large = Il lotto è troppo grande: numero di celle { $count }, al massimo { $max }
 op-data-inline = L’elemento { $subject } porta i suoi dati nelle sue opzioni; aggiungili come dati del deck con add_data e collegali con bind_data
+op-data-derived = i dati «{ $data }» derivano da una query: modifica la query, non le righe
+op-data-source = Un dato ha una tabella oppure una query (sql), esattamente una delle due
+op-data-cycle = I dati «{ $data }» rileggerebbero sé stessi attraverso le loro query; rimuovi il ciclo
+op-data-unknown-input = La query legge «{ $name }», che non è un dato della presentazione
+op-data-not-query = I dati «{ $data }» non sono una query; modifica la loro tabella con edit_data
+op-data-read-by-queries = Questi dati sono letti dalle query { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}e mostrati da { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}e altri { $more }
+}; modificali o rimuovili prima
+op-data-rename-captured = La query di «{ $reader }» chiama già «{ $name }» una delle sue tabelle; rinomina quella tabella nella sua query (set_query) o scegli un altro nome
+op-data-name-ambiguous = Più dati si chiamano «{ $name }» e alcune query leggono quel nome senza che si sappia quale; modifica prima quelle query (set_query)
 issue-unreadable-slide = diapositiva illeggibile, messa da parte
 issue-unreadable-field = campo { $field } del deck illeggibile, reimpostato
 issue-knowledge-unreadable = voce di conoscenza { $id } illeggibile, messa da parte

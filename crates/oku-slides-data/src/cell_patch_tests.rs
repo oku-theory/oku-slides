@@ -2,10 +2,10 @@ use speculoos::prelude::*;
 
 use super::CellPatch;
 use crate::test_support::{set_cell, sized};
-use crate::{Data, DataCell, DataKind, Table};
+use crate::{Data, DataCell, Source, Table};
 
 fn data(table: Table) -> Data {
-    Data { name: "sales".into(), label: None, inline: false, kind: DataKind::Manual, table }
+    Data { name: "sales".into(), label: None, inline: false, source: Source::Manual(table) }
 }
 
 fn key(row: &str, column: &str) -> crate::CellKey {
@@ -20,14 +20,14 @@ fn cell_patch_between_versions_holds_only_the_edited_cell() {
     set_cell(&mut table, "r2", "c2", DataCell::Number(2.0));
     let older = data(table);
     let mut newer = older.clone();
-    set_cell(&mut newer.table, "r3", "c3", DataCell::Text("x".into()));
-    newer.table.cells.remove(&key("r1", "c1"));
+    set_cell(newer.table_mut().unwrap(), "r3", "c3", DataCell::Text("x".into()));
+    newer.table_mut().unwrap().cells.remove(&key("r1", "c1"));
 
     let patch = CellPatch::between(&older, &newer).unwrap();
 
     assert_that!(patch.set).is_equal_to(vec![(key("r3", "c3"), DataCell::Text("x".into()))]);
     assert_that!(patch.removed).is_equal_to(vec![key("r1", "c1")]);
-    assert_that!(patch.applied(&older)).is_equal_to(newer);
+    assert_that!(patch.applied(&older)).is_equal_to(Some(newer));
 }
 
 #[test]
@@ -43,4 +43,14 @@ fn cell_patch_between_renamed_versions_is_none() {
     let mut newer = older.clone();
     newer.name = "other".into();
     assert_that!(CellPatch::between(&older, &newer)).is_none();
+}
+
+/// → a query data has no cells: it goes whole, and no patch applies to it.
+#[test]
+fn cell_patch_of_a_query_data_is_none() {
+    let query =
+        Data { name: "top".into(), label: None, inline: false, source: Source::Query { sql: "SELECT 1".into() } };
+    assert_that!(CellPatch::between(&query, &query)).is_none();
+    let patch = CellPatch { set: Vec::new(), removed: vec![key("r1", "c1")] };
+    assert_that!(patch.applied(&query)).is_none();
 }

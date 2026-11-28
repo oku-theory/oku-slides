@@ -40,7 +40,7 @@ fn based(s: &mut Session) {
     let job = s.compaction_job(&d9, now, true).unwrap_or_else(|| panic!("no job"));
     let reply = job.run();
     assert_that!(s.finish_compaction(job, reply, now)).is_true();
-    assert_that!(s.deck().data[&d9].table.base.is_some()).is_true();
+    assert_that!(s.deck().data[&d9].table().unwrap().base.is_some()).is_true();
 }
 
 #[test]
@@ -105,7 +105,14 @@ fn folded(
 }
 
 fn column_type(s: &Session, column: &str) -> oku_slides_data::ColumnType {
-    s.deck().data[&d9()].table.columns.iter().find(|c| c.id == column).unwrap_or_else(|| panic!("no {column}")).ty
+    s.deck().data[&d9()]
+        .table()
+        .unwrap()
+        .columns
+        .iter()
+        .find(|c| c.id == column)
+        .unwrap_or_else(|| panic!("no {column}"))
+        .ty
 }
 
 #[test]
@@ -115,7 +122,9 @@ fn set_column_type_on_base_refuses_lossy_base_cell() {
     based(&mut s);
     let err = apply_checked(&mut s, &[retype("c1", "number")], |_| {}).unwrap_err();
     // The same refusal as the cells give before their fold, naming both rows.
-    let Some(Op::AddData { table, .. }) = data_and_chart().into_iter().next() else { panic!("no add_data") };
+    let Some(Op::AddData { table: Some(table), .. }) = data_and_chart().into_iter().next() else {
+        panic!("no add_data")
+    };
     let (mut cells, _) = table.into_table().unwrap_or_else(|e| panic!("{e}"));
     let fr = oku_slides_i18n::Localizer::new(Some("fr"));
     let expected = cells.set_column_type("c1", oku_slides_data::ColumnType::Number).unwrap_err();

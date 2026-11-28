@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::component::Component;
 
 /// Catalog of Oku Slides surfaces (panel and agent), implemented by the UI (`ui/src/a2ui`).
-pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v5";
+pub const CATALOG_ID: &str = "urn:oku-slides:a2ui:catalog:v6";
 
 /// Protocol version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

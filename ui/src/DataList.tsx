@@ -13,26 +13,46 @@ export interface DataUser {
   label: string;
 }
 
+/** A query's result state (`DataState`, oku-slides-a2ui). */
+export type DataState = "pending" | "ready" | "failed";
+
+/** The message of each data kind. */
+const KIND_LABEL = { manual: "ui-data-kind-manual", query: "ui-data-kind-query" } as const;
+
+/** The message of each query state. */
+export const STATE_LABEL: Record<DataState, string> = {
+  pending: "ui-data-state-pending",
+  ready: "ui-data-state-ready",
+  failed: "ui-data-state-failed",
+};
+
 /** A data of the deck, as the list shows it (`DataRow`, oku-slides-a2ui). */
 export interface DataRow {
   id: string;
   name: string;
   label?: string;
-  kind: string;
+  kind: "manual" | "query";
   columns: number;
   rows: number;
   users: readonly DataUser[];
+  /** A query's result state; absent for a data entered by hand. */
+  state?: DataState;
   /** The last action's refusal on this data, until the next edit. */
   error?: string;
 }
 
-/** The list and its Add button; each gesture is sent as a panel action (`onAction`). */
+/** The list and its Add buttons; each gesture is sent as a panel action (`onAction`). */
 export function DataListView({ rows, onAction }: { rows: readonly DataRow[]; onAction: (a: DataPanelAction) => void }) {
   return (
     <div className="data-list">
-      <Button ghost className="data-list-add" onClick={() => onAction({ action: "add" })}>
-        {Icon.add} {t("ui-data-add")}
-      </Button>
+      <div className="data-list-adds">
+        <Button ghost className="data-list-add" onClick={() => onAction({ action: "add" })}>
+          {Icon.add} {t("ui-data-add")}
+        </Button>
+        <Button ghost className="data-list-add-query" onClick={() => onAction({ action: "add-query" })}>
+          {Icon.add} {t("ui-data-add-query")}
+        </Button>
+      </div>
       <ul className="data-rows">
         {rows.map((row) => <DataListRow key={row.id} row={row} onAction={onAction} />)}
       </ul>
@@ -67,7 +87,11 @@ function DataListRow({ row, onAction }: { row: DataRow; onAction: (a: DataPanelA
         }}
         onBlur={(e) => rename(e.currentTarget.value)}
       />
-      <p className="data-row-size a2ui-hint">{t("ui-data-size", { columns: row.columns, rows: row.rows })}</p>
+      <p className="data-row-size a2ui-hint">
+        <span className="data-row-kind">{t(KIND_LABEL[row.kind])}</span>
+        {row.state && <span className={`data-row-state is-${row.state}`}>{t(STATE_LABEL[row.state])}</span>}
+        <span>{t("ui-data-size", { columns: row.columns, rows: row.rows })}</span>
+      </p>
       {row.users.length > 0 ? (
         <div className="data-row-users">
           <span className="data-row-views a2ui-hint" data-testid="data-row-views">{t("ui-data-views", { count: row.users.length })}</span>

@@ -16,15 +16,15 @@ pub struct CellPatch {
 
 impl CellPatch {
     /// The overlay edits that turn `older` into `newer`, or `None` when anything else differs
-    /// (name, label, kind, generation, epoch, base, columns or rows): that one goes whole.
+    /// (name, label, kind, generation, epoch, base, columns or rows), or for a query data, which
+    /// has no cells: that one goes whole.
     /// Shared overlay nodes are not visited, so a one-cell edit costs O(log n).
     #[must_use]
     pub fn between(older: &Data, newer: &Data) -> Option<Self> {
-        let (a, b) = (&older.table, &newer.table);
+        let (a, b) = (older.table()?, newer.table()?);
         let same = older.name == newer.name
             && older.label == newer.label
             && older.inline == newer.inline
-            && older.kind == newer.kind
             && a.generation == b.generation
             && a.epoch == b.epoch
             && a.base == b.base
@@ -45,17 +45,19 @@ impl CellPatch {
         Some(patch)
     }
 
-    /// `data` with this patch's cells set and removed.
+    /// `data` with this patch's cells set and removed; `None` for a query data, which has no
+    /// cells to patch.
     #[must_use]
-    pub fn applied(self, data: &Data) -> Data {
+    pub fn applied(self, data: &Data) -> Option<Data> {
         let mut data = data.clone();
+        let table = data.table_mut()?;
         for key in self.removed {
-            data.table.cells.remove(&key);
+            table.cells.remove(&key);
         }
         for (key, cell) in self.set {
-            data.table.cells.insert(key, cell);
+            table.cells.insert(key, cell);
         }
-        data
+        Some(data)
     }
 }
 

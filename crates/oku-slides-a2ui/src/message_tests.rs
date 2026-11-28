@@ -73,8 +73,8 @@ fn delete_surface_names_the_surface() {
 }
 
 #[test]
-fn catalog_id_v5_is_the_current_urn() {
-    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:v5");
+fn catalog_id_v6_is_the_current_urn() {
+    assert_that!(CATALOG_ID).is_equal_to("urn:oku-slides:a2ui:catalog:v6");
 }
 
 #[test]

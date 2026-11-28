@@ -58,7 +58,7 @@ fn bound(s: &Session) -> String {
 /// Cell (`row`, 1) of the deck's only data.
 fn value(s: &Session, row: usize) -> f64 {
     let data = s.deck().data.values().next().unwrap_or_else(|| panic!("no data"));
-    let table = &data.table;
+    let table = data.table().unwrap_or_else(|| panic!("a manual data"));
     let row = table.rows.get(row).unwrap_or_else(|| panic!("no row {row}"));
     match table.cell(row, &table.columns[1].id) {
         CellRead::Overlay(DataCell::Number(n)) => *n,
@@ -126,7 +126,7 @@ fn edit_on_row_150_reaches_chart_not_table() {
     // The view key: the slide as the renderer receives it, its views resolved. (Page hashes
     // move with any deck edit, so they cannot tell views apart.)
     let key = |s: &Session, slide: &str| {
-        let resolved = resolve_views(s.deck(), &registry(), None);
+        let resolved = resolve_views(s.deck(), &registry(), None, &oku_slides_render::Results::new());
         let found = resolved.slides.iter().find(|x| x.id == slide);
         ok(serde_json::to_value(&found.unwrap_or_else(|| panic!("slide {slide}")).params))
     };

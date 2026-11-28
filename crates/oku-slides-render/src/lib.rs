@@ -60,7 +60,7 @@ pub use registry::{
     PackSet, PackWidgets, Registries, base_probe, builtin_registry, is_pack_id, load_registry, probe_registry,
     registry_from_probe,
 };
-pub use views::{BaseRead, resolve_views};
+pub use views::{BaseRead, Results, resolve_views, with_results};
 pub use widget_probe::{FileProbe, PROBE_PACK, ProbedPack, assemble, assemble_set, probe_file, probe_key};
 pub use wire::WireError;
 use world::OkuSlidesWorld;
@@ -234,6 +234,8 @@ pub struct Renderer {
     registry: Arc<WidgetRegistry>,
     /// Reads based views; set only in the render worker ([`Renderer::set_bases`]).
     bases: Option<Box<dyn BaseRead>>,
+    /// The query results the next decks' views read ([`Renderer::set_results`]).
+    results: Results,
 }
 
 impl std::fmt::Debug for Renderer {
@@ -249,7 +251,12 @@ impl Renderer {
     ///
     /// Fails if the Typst world cannot be built (unreadable embedded library).
     pub fn new(fonts: Fonts) -> Result<Self, RenderError> {
-        Ok(Self { world: OkuSlidesWorld::new(fonts)?, registry: registry::empty_registry(), bases: None })
+        Ok(Self {
+            world: OkuSlidesWorld::new(fonts)?,
+            registry: registry::empty_registry(),
+            bases: None,
+            results: Results::new(),
+        })
     }
 
     /// A renderer with the built-in packs: `base` (widgets) and `essentiel` (layouts).
@@ -283,6 +290,12 @@ impl Renderer {
         self.bases = Some(bases);
     }
 
+    /// The query results the next decks' views read: a query data absent or `None` here draws
+    /// its views' failure frame.
+    pub fn set_results(&mut self, results: Results) {
+        self.results = results;
+    }
+
     /// Registre des widgets rendus.
     pub fn registry(&self) -> &Arc<WidgetRegistry> {
         &self.registry
@@ -295,7 +308,7 @@ impl Renderer {
     ///
     /// Fails if the deck cannot be serialized or if one of its charts cannot be drawn.
     pub fn set_deck(&mut self, deck: &Deck, assets: &BTreeMap<String, Vec<u8>>) -> Result<(), RenderError> {
-        let resolved = views::resolve_views(deck, &self.registry, self.bases.as_deref());
+        let resolved = views::resolve_views(deck, &self.registry, self.bases.as_deref(), &self.results);
         self.world.set_deck(&resolved, assets, &self.registry)
     }
 

@@ -4,19 +4,21 @@
 //! ([`Session::element_assets`]) and the data their views name (`Session::paste_source`).
 //! The target keeps the assets in memory (`Session::carry_assets`); they enter its bundle,
 //! and leave memory, when an op cites them (`Session::embed_op_assets`). The data is copied
-//! under fresh ids and names, every pasted view names its copy (`Session::with_pasted_data`),
+//! under fresh ids and names (a query data in another deck as its result, a manual data over
+//! the result's base), every pasted view names its copy (`Session::with_pasted_data`),
 //! and the paste is one undo step.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use oku_slides_core::{Element, Op, check_external};
-use oku_slides_data::{BaseId, Data, DataId};
+use oku_slides_data::{BaseId, Data, DataId, Table};
 use snafu::ResultExt;
 
-use crate::data_copy::copy_data_ops;
+use crate::data_copy::{Queries, copy_data_ops};
 use crate::data_panel::data_missing;
-use crate::error::PrepareSnafu;
+use crate::derived::QueryState;
+use crate::error::{PrepareSnafu, QueryPasteNoResultSnafu};
 use crate::widget_examples::{each_added, op_data_id, rename_refs, view_refs};
 use crate::{Request, Result, Session};
 
@@ -32,6 +34,13 @@ pub(crate) struct PasteSource {
     pub(crate) data: BTreeMap<DataId, Arc<Data>>,
     /// The bases of those data the source deck knows: the paste makes them known, and leased.
     pub(crate) bases: BTreeSet<BaseId>,
+    /// The ready results of the query data among them, as tables over their bases.
+    pub(crate) results: BTreeMap<DataId, Table>,
+    /// The tab they were read in.
+    pub(crate) from: String,
+    /// Whether the paste lands in that same tab: its query data are then copied as queries,
+    /// else as manual data holding their result.
+    pub(crate) same_deck: bool,
 }
 
 impl Session {
@@ -58,8 +67,11 @@ impl Session {
             each_added(&mut op, &mut |_, params| {
                 for id in view_refs(params) {
                     if let Some(data) = deck.data.get(&id) {
-                        let base = data.table.base.as_ref().map(|b| &b.id);
+                        let base = data.table().and_then(|t| t.base.as_ref()).map(|b| &b.id);
                         source.bases.extend(base.filter(|b| self.doc.sources.bases.contains(*b)).cloned());
+                        if let Some(QueryState::Ready { out, .. }) = self.query_state(&id) {
+                            source.results.insert(id.clone(), out.table());
+                        }
                         source.data.insert(id, Arc::clone(data));
                     }
                 }
@@ -78,6 +90,11 @@ impl Session {
         // The checks of an `Apply`; `apply_paste` checks the ops themselves (`ensure_caller_ops`).
         let prepared = self.prepare(&Request::Apply { label: label.to_owned(), ops: Vec::new(), merge: None })?;
         // Known before the copies are applied, so they render; a refused paste forgets them again.
+        if !source.same_deck {
+            // A result copied as values brings its base, which the source's results hold leased.
+            source.bases.extend(source.results.values().filter_map(|t| t.base.as_ref().map(|b| b.id.clone())));
+        }
+        let valued = pasted_as_values(&source);
         let brought: BTreeSet<BaseId> =
             std::mem::take(&mut source.bases).into_iter().filter(|b| !self.doc.sources.bases.contains(b)).collect();
         self.doc.sources.bases.extend(brought.iter().cloned());
@@ -85,6 +102,9 @@ impl Session {
         if let Err(e) = self.apply_paste(label, ops, source) {
             self.forget_bases(&brought);
             return Err(e);
+        }
+        for name in valued {
+            self.set_notice(self.localizer.tr_with("session-data-query-pasted-as-values", &[("data", name.into())]));
         }
         self.finish(prepared)
     }
@@ -113,20 +133,31 @@ impl Session {
     /// # Errors
     ///
     /// `op-data-missing` for a view naming a data neither `source` nor the batch holds;
+    /// `QueryPasteNoResult` for a query data with no ready result, pasted into another deck;
     /// `Prepare` for UI ops `check_external` refuses (sealed view data, a base, an overlay).
-    pub(crate) fn with_pasted_data(&self, source: &BTreeMap<DataId, Arc<Data>>, mut ops: Vec<Op>) -> Result<Vec<Op>> {
+    pub(crate) fn with_pasted_data(&self, source: &PasteSource, mut ops: Vec<Op>) -> Result<Vec<Op>> {
         let reserved: BTreeSet<String> = ops.iter().filter_map(op_data_id).map(str::to_owned).collect();
         let mut refs = Vec::new();
         for op in &mut ops {
             each_added(op, &mut |_, params| refs.extend(view_refs(params)));
         }
         refs.retain(|id| !reserved.contains(id.as_str()));
-        if let Some(missing) = refs.iter().find(|id| !source.contains_key(*id)) {
+        if let Some(missing) = refs.iter().find(|id| !source.data.contains_key(*id)) {
             return Err(data_missing(missing.as_str()));
+        }
+        let queries = if source.same_deck { Queries::Kept } else { Queries::Values(&source.results) };
+        if !source.same_deck
+            && let Some(data) = refs
+                .iter()
+                .filter_map(|id| source.data.get(id).map(|d| (id, d)))
+                .find_map(|(id, d)| (d.sql().is_some() && !source.results.contains_key(id)).then_some(&d.name))
+        {
+            return Err(QueryPasteNoResultSnafu { data: data.clone() }.build().into());
         }
         let deck = self.doc.sources.deck();
         let (mut copies, map) =
-            copy_data_ops(source, &refs, deck, &reserved, &mut oku_slides_data::new_id).context(PrepareSnafu)?;
+            copy_data_ops(&source.data, &refs, deck, &reserved, &mut oku_slides_data::new_id, queries)
+                .context(PrepareSnafu)?;
         for op in &mut ops {
             each_added(op, &mut |_, params| rename_refs(params, &|id| map.get(id).cloned()));
         }
@@ -134,6 +165,14 @@ impl Session {
         copies.extend(ops);
         Ok(copies)
     }
+}
+
+/// The names of the query data `source` brings as values, in id order.
+fn pasted_as_values(source: &PasteSource) -> Vec<String> {
+    if source.same_deck {
+        return Vec::new();
+    }
+    source.results.keys().filter_map(|id| source.data.get(id)).map(|d| d.name.clone()).collect()
 }
 
 #[cfg(test)]

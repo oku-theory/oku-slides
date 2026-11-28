@@ -64,3 +64,42 @@ data-row-cut = { $count ->
    *[many] { $count } wierszy miało więcej komórek niż nagłówek; nadmiarowe komórki usunięto
 }
 data-base-invalid = plik bazowy danych jest uszkodzony lub nie pasuje do ich tabeli
+data-source-mismatch = źródło danych nie pasuje do ich rodzaju: dane ręczne zawierają tabelę, dane z zapytania zawierają zapytanie
+data-inline-query = dane z zapytania nie mogą być osadzone: dane osadzone zawsze pochodzą z tabeli
+data-query-parse = nie można odczytać zapytania: sprawdź wiersz { $line }, kolumnę { $column }
+data-query-construct = zapytanie używa „{ $construct }”, czego zapytania danych nie obsługują
+data-query-too-long = zapytanie przekracza limit: { $max } { $max ->
+    [one] bajt
+    [few] bajty
+   *[many] bajtów
+}
+data-query-too-deep = zapytanie jest zagnieżdżone zbyt głęboko
+data-query-rewrite = nie udało się przygotować zapytania dla silnika; to błąd w Oku Slides
+data-query-unknown-function = zapytanie wywołuje „{ $function }”, czego zapytania danych nie obsługują
+data-query-run = zapytanie nie powiodło się: { $reason }
+data-query-input-failed = jego wejście „{ $input }” nie powiodło się
+data-query-too-large = { $what ->
+    [rows] wynik zapytania przekracza limit: { $max } { $max ->
+        [one] wiersz
+        [few] wiersze
+       *[many] wierszy
+    }; nigdy nie jest przycinany
+    [columns] wynik zapytania przekracza limit: { $max } { $max ->
+        [one] kolumna
+        [few] kolumny
+       *[many] kolumn
+    }; nigdy nie jest przycinany
+   *[text] komórka tekstowa wyniku przekracza limit: { $max } { $max ->
+        [one] bajt
+        [few] bajty
+       *[many] bajtów
+    }; wynik nigdy nie jest przycinany
+}
+data-query-column-type = kolumna wyniku „{ $column }” ma typ, którego dane nie mogą przechowywać: przekształć ją w tekst, liczbę, liczbę całkowitą, wartość logiczną lub datę
+data-query-duplicate-column = dwie kolumny wyniku nazywają się „{ $column }”: zmień nazwę jednej z nich za pomocą AS
+data-query-float-operand = „{ $function }” nie można zastosować do „{ $operand }”, który zawiera liczby dziesiętne: najpierw przekształć go w liczbę całkowitą
+data-query-timeout = zapytanie trwało dłużej niż limit: { $seconds } { $seconds ->
+    [one] sekunda
+    [few] sekundy
+   *[many] sekund
+} i zostało zatrzymane

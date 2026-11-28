@@ -1,6 +1,7 @@
 //! Deck-level data in the replica: `deck.data/<id>`, written by a keyed diff.
 //!
-//! Layout: `data/<id>` map (`name`, `label`, `kind`, `inline`) → `table`, a child map per
+//! Layout: `data/<id>` map (`name`, `label`, `kind`, `inline`); a query data adds its `sql`
+//! atom and has no table, a manual one holds `table`, a child map per
 //! generation (`generation`, `columns`, `rows`) → `layer`, a child map per epoch (`epoch`,
 //! `base`, `cells`). Columns are a movable list of `{id, name, type}` maps, rows a movable list
 //! of ids, cells a map keyed `<row id>/<column id>`. A new generation is a new `table`
@@ -16,18 +17,22 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use loro::{Container, Frontiers, LoroMap, LoroMovableList, LoroValue, ValueOrContainer};
-use oku_slides_data::{CellKey, Column, Data, DataCell, DataId, DataKind, IdRepair, Table, valid_id};
+use oku_slides_data::{CellKey, Column, Data, DataCell, DataId, IdRepair, Source, Table, valid_id};
 use snafu::ResultExt;
 
 use super::schema::{CELLS, COLUMNS, ROWS};
 use super::tree::is_marked;
 use super::write::{Res, Writer, item_id, json_to_loro, list_at, map_at, set_value};
-use crate::error::{DeckJsonSnafu, LoroSnafu};
+use crate::error::{DataKindSwitchSnafu, DeckJsonSnafu, LoroSnafu};
 use crate::model::Deck;
 
 /// Key of the deck map that holds the data.
 pub(super) const DATA: &str = "data";
-/// Key of a data's map that holds its current generation.
+/// Key of a data's map that holds its kind: `manual` or `query`.
+pub(super) const KIND: &str = "kind";
+/// Key of a query data's map that holds its SQL, last-writer-wins.
+pub(super) const SQL: &str = "sql";
+/// Key of a manual data's map that holds its current generation.
 pub(super) const TABLE: &str = "table";
 /// Key of a table's map that holds its base and its overlay.
 pub(super) const LAYER: &str = "layer";
@@ -100,6 +105,26 @@ fn cell_key(key: &CellKey) -> String {
     format!("{}/{}", key.row, key.column)
 }
 
+/// Refuses `deck` when one of its data has another kind than the live map of the same id.
+///
+/// A data never changes kind in place: no op switches it, and a whole-deck write that would
+/// (`apply`, `restore`) is refused before anything is written. Switching would delete one
+/// side's container, and a peer's concurrent edits to it would be lost without a report
+/// ([`lost`](super::data_lost) only compares tables).
+pub(super) fn check_kinds(root: &LoroMap, deck: &Deck) -> Res {
+    let Some(ValueOrContainer::Container(Container::Map(map))) = root.get(DATA) else { return Ok(()) };
+    for (id, data) in &deck.data {
+        if deck.truncated.contains(id) || removed(&map, id.as_str()) {
+            continue;
+        }
+        let Some(ValueOrContainer::Container(Container::Map(m))) = map.get(id.as_str()) else { continue };
+        if let Some(ValueOrContainer::Value(LoroValue::String(kind))) = m.get(KIND) {
+            snafu::ensure!(kind.as_str() == data.kind().as_str(), DataKindSwitchSnafu { id: id.as_str() });
+        }
+    }
+    Ok(())
+}
+
 /// The deletion mark a removal sets: this peer's key and the Unix time (s).
 pub(super) struct Mark<'a> {
     pub(super) key: &'a str,
@@ -150,18 +175,34 @@ fn sync_data(map: &LoroMap, data: &Data, old: Option<&Data>) -> Res {
         None if map.get("label").is_some() => map.delete("label").context(LoroSnafu)?,
         None => {}
     }
-    let kind = match data.kind {
-        DataKind::Manual => "manual",
-    };
-    set_value(map, "kind", LoroValue::from(kind))?;
+    set_value(map, KIND, LoroValue::from(data.kind().as_str()))?;
     set_value(map, "inline", LoroValue::Bool(data.inline))?;
-    let table = &data.table;
+    match &data.source {
+        Source::Manual(table) => {
+            if map.get(SQL).is_some() {
+                map.delete(SQL).context(LoroSnafu)?;
+            }
+            sync_manual(map, table, old.and_then(Data::table))
+        }
+        Source::Query { sql } => {
+            // A kind switch is only reachable through a whole-deck write, which `check_kinds`
+            // refuses up front; a table here belongs to a map whose kind was unreadable.
+            if map.get(TABLE).is_some() {
+                map.delete(TABLE).context(LoroSnafu)?;
+            }
+            set_value(map, SQL, LoroValue::from(sql.as_str()))
+        }
+    }
+}
+
+/// Brings the `table` of the data map `map` to `table`; `old` is what was last written there.
+fn sync_manual(map: &LoroMap, table: &Table, old: Option<&Table>) -> Res {
     let current = match map.get(TABLE) {
         Some(ValueOrContainer::Container(Container::Map(t))) if generation_of(&t) == table.generation => Some(t),
         _ => None,
     };
     let (container, old) = match current {
-        Some(t) => (t, old.map(|o| &o.table).filter(|o| o.generation == table.generation)),
+        Some(t) => (t, old.filter(|o| o.generation == table.generation)),
         None => (new_generation(map, table)?, None),
     };
     sync_table(&container, table, old)

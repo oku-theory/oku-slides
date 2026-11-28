@@ -45,7 +45,7 @@ fn scheduler_thread_runs_a_due_job_and_commits_it() {
     }
 
     let (base, overlay) = Workspace::with_session(&ws, &tab, |s| {
-        let table = &s.deck().data[&d9].table;
+        let table = s.deck().data[&d9].table().unwrap();
         (table.base.clone(), table.overlay_len())
     })
     .0

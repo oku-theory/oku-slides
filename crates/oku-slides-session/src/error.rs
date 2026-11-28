@@ -174,6 +174,14 @@ pub(crate) enum SessionInner {
     BaseStale { data: String, backtrace: Backtrace },
     #[snafu(display("view {} cannot follow a column change of its data", label(view)))]
     ViewUnfollowed { view: String, backtrace: Backtrace },
+    #[snafu(display("query data {data} has no result yet"))]
+    QueryNoResult { data: String, backtrace: Backtrace },
+    #[snafu(display("query data {data} has no result to paste"))]
+    QueryPasteNoResult { data: String, backtrace: Backtrace },
+    #[snafu(display("query data {data} has no result to read"))]
+    QueryReadNoResult { data: String, backtrace: Backtrace },
+    #[snafu(display("the query reads {name}, whose result is not ready"))]
+    QueryInputPending { name: String, backtrace: Backtrace },
     #[snafu(display("attachment refused: {reason:?}"))]
     Paste { reason: crate::agent::PasteReason, backtrace: Backtrace },
     #[snafu(display("{} is neither slide {} nor one of its elements", label(owner), label(slide)))]
@@ -322,15 +330,15 @@ impl SessionError {
             NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
             PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
             PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
-            PackVersionMissing, Paste, Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render,
-            ReplicaFull, RequestTooLarge, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget,
-            TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
-            ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode,
-            TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop,
-            UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner,
-            UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed,
-            WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write,
-            WrongDocument,
+            PackVersionMissing, Paste, Pdf, Prepare, QueryInputPending, QueryNoResult, QueryPasteNoResult,
+            QueryReadNoResult, Read, ReadOnly, ReceivedParentMissing, Registry, Render, ReplicaFull, RequestTooLarge,
+            RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists, ThemeClosure,
+            ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated,
+            ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong,
+            TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab,
+            UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme,
+            UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         match *self.0 {
             Read { .. } | Write { .. } | GuideApprovalsWrite { .. } | Bases { .. } => SessionErrorKind::File,
@@ -421,6 +429,10 @@ impl SessionError {
             ReplicaFull { .. } => SessionErrorKind::ReplicaFull,
             BaseStale { .. } => SessionErrorKind::BaseStale,
             ViewUnfollowed { .. } => SessionErrorKind::ViewUnfollowed,
+            QueryNoResult { .. } => SessionErrorKind::QueryNoResult,
+            QueryPasteNoResult { .. } => SessionErrorKind::QueryPasteNoResult,
+            QueryReadNoResult { .. } => SessionErrorKind::QueryReadNoResult,
+            QueryInputPending { .. } => SessionErrorKind::QueryInputPending,
             UnknownOwner { .. } => SessionErrorKind::UnknownOwner,
             UnknownField { .. } => SessionErrorKind::UnknownField,
             FieldNeeded { .. } => SessionErrorKind::FieldNeeded,
@@ -605,15 +617,15 @@ impl Localize for SessionError {
             NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
             PackIdMismatch, PackJson, PackKindChanged, PackManifest, PackModePreview, PackModeSlides, PackNotInstalled,
             PackNotMakeCurrent, PackOfferExpired, PackOpenInTab, PackPinMismatch, PackTabNotFresh, PackTokens,
-            PackVersionMissing, Paste, Pdf, Prepare, Read, ReadOnly, ReceivedParentMissing, Registry, Render,
-            ReplicaFull, RequestTooLarge, RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget,
-            TargetExists, ThemeClosure, ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch,
-            ThemeJson, ThemeNotOutdated, ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode,
-            TrialFixed, TrialTooLong, TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop,
-            UndoCompensationFailed, UndoInPackTab, UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner,
-            UnknownPack, UnknownTab, UnknownTheme, UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed,
-            WidgetExists, WidgetHasNul, WidgetInUse, WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write,
-            WrongDocument,
+            PackVersionMissing, Paste, Pdf, Prepare, QueryInputPending, QueryNoResult, QueryPasteNoResult,
+            QueryReadNoResult, Read, ReadOnly, ReceivedParentMissing, Registry, Render, ReplicaFull, RequestTooLarge,
+            RequiresCycle, Response, SingleDocument, Sources, SourcesOverBudget, TargetExists, ThemeClosure,
+            ThemeCycle, ThemeExtendsDuplicate, ThemeExtendsMove, ThemeIdMismatch, ThemeJson, ThemeNotOutdated,
+            ThemeOpenInTab, ThemeVersionMissing, TokenInUse, TooManyWidgets, TrialEncode, TrialFixed, TrialTooLong,
+            TrialUndeclared, TrialValue, TrustedPackBroken, Tune, TurnNotOnTop, UndoCompensationFailed, UndoInPackTab,
+            UnknownAsset, UnknownField, UnknownNamespace, UnknownOwner, UnknownPack, UnknownTab, UnknownTheme,
+            UnknownWidget, UnknownWindow, Unsaved, Version, ViewUnfollowed, WidgetExists, WidgetHasNul, WidgetInUse,
+            WidgetInvalid, WidgetOrderMismatch, WidgetTooLarge, Write, WrongDocument,
         };
         let path_arg = |path: &PathBuf| [("path", path.display().to_string().into())];
         match &*self.0 {
@@ -766,6 +778,16 @@ impl Localize for SessionError {
             ReplicaFull { max_mib, .. } => l.tr_with("op-replica-full", &[("max", (*max_mib).into())]),
             BaseStale { data, .. } => l.tr_with("session-data-base-stale", &[("data", data.as_str().into())]),
             ViewUnfollowed { view, .. } => l.tr_with("session-data-view-unfollowed", &[("view", label(view).into())]),
+            QueryNoResult { data, .. } => l.tr_with("session-data-query-no-result", &[("data", data.as_str().into())]),
+            QueryPasteNoResult { data, .. } => {
+                l.tr_with("session-data-query-paste-no-result", &[("data", data.as_str().into())])
+            }
+            QueryReadNoResult { data, .. } => {
+                l.tr_with("session-data-query-read-no-result", &[("data", data.as_str().into())])
+            }
+            QueryInputPending { name, .. } => {
+                l.tr_with("session-data-query-input-pending", &[("name", name.as_str().into())])
+            }
             AgentForm { reason, .. } => l.tr_with("session-agent-form", &[("reason", reason.localize(l).into())]),
             UnknownOwner { slide, owner, .. } => {
                 l.tr_with("session-unknown-owner", &[("slide", label(slide).into()), ("owner", label(owner).into())])

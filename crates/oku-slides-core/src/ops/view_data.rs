@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use oku_slides_data::{Data, DataError, DataId, DataKind, NewTable, clean_label, valid_name};
+use oku_slides_data::{Data, DataError, DataId, NewTable, Source, clean_label, valid_name};
 use serde_json::Value;
 
 use super::{Target, declared, target_mut, target_ref, widget};
@@ -55,9 +55,13 @@ pub(super) fn put_view_data(
         if !own {
             return Err(DataFault::Internal.into());
         }
+        // Never switch a data's kind in place (see `replica::data::check_kinds`).
+        if entry.table().is_none() {
+            return Err(OpError::data_derived(id.as_str()));
+        }
         let Some(entry) = deck.data.get_mut(&id) else { return Err(DataFault::Internal.into()) };
         let d = Arc::make_mut(entry);
-        d.table = table;
+        d.source = Source::Manual(table);
         if label.is_some() {
             d.label = label;
         }
@@ -70,7 +74,7 @@ pub(super) fn put_view_data(
         if !valid_name(&name) {
             return Err(DataError::invalid_name(&name).into());
         }
-        deck.data.insert(id.clone(), Arc::new(Data { name, label, inline: true, kind: DataKind::Manual, table }));
+        deck.data.insert(id.clone(), Arc::new(Data { name, label, inline: true, source: Source::Manual(table) }));
     }
     point_at(deck, registry, target, param, &id)
 }

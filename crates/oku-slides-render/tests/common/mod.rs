@@ -131,7 +131,7 @@ pub fn deck_with_data(mut deck: Value) -> Deck {
             .map(|(i, table)| {
                 let id = format!("d{}", i + 1);
                 let data = DataId::try_from(id.clone()).unwrap_or_else(|e| panic!("{e}"));
-                Op::AddData { id: Some(data), name: id, label: None, table }
+                Op::AddData { id: Some(data), name: id, label: None, table: Some(table), sql: None }
             })
             .collect();
         apply_all(&mut holder, ops, &frozen_registry()).unwrap_or_else(|e| panic!("{e:?}"));

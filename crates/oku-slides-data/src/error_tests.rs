@@ -27,9 +27,25 @@ fn samples(n: usize) -> Vec<(&'static str, Vec<(&'static str, FluentValue<'stati
         ("data-row-width", vec![("max", n.into())]),
         ("data-needs-base", vec![]),
         ("data-base-row-cells", vec![]),
+        ("data-source-mismatch", vec![]),
+        ("data-query-parse", vec![("line", "2".into()), ("column", "14".into())]),
+        ("data-query-construct", vec![("construct", "ATTACH".into())]),
+        ("data-query-too-long", vec![("max", n.into())]),
+        ("data-query-too-deep", vec![]),
+        ("data-query-rewrite", vec![]),
+        ("data-query-unknown-function", vec![("function", "read_csv".into())]),
+        ("data-query-run", vec![("reason", "column not found".into())]),
+        ("data-query-column-type", vec![("column", "moment".into())]),
+        ("data-query-duplicate-column", vec![("column", "product".into())]),
+        ("data-query-float-operand", vec![("function", "%".into()), ("operand", "price".into())]),
+        ("data-query-timeout", vec![("seconds", n.into())]),
+        ("data-query-input-failed", vec![("input", "Ventes".into())]),
     ];
     for what in ["rows", "columns", "text", "overlay"] {
         samples.push(("data-too-large", vec![("what", what.into()), ("max", n.into())]));
+    }
+    for what in QUERY_BOUNDS {
+        samples.push(("data-query-too-large", vec![("what", (*what).into()), ("max", n.into())]));
     }
     samples
 }
@@ -37,8 +53,19 @@ fn samples(n: usize) -> Vec<(&'static str, Vec<(&'static str, FluentValue<'stati
 /// Keys whose French text may equal the English one.
 const FR_EQUALS_EN: &[&str] = &[];
 
+/// The `$what` of `data-query-too-large`.
+const QUERY_BOUNDS: &[&str] = &["rows", "columns", "text"];
+
 /// Keys whose numeric variable picks a plural form.
-const NUMERIC: &[&str] = &["data-column-type", "data-non-finite", "data-row-width", "data-too-large"];
+const NUMERIC: &[&str] = &[
+    "data-column-type",
+    "data-non-finite",
+    "data-row-width",
+    "data-too-large",
+    "data-query-too-long",
+    "data-query-too-large",
+    "data-query-timeout",
+];
 
 #[test]
 fn every_data_key_formats_in_all_locales() {
@@ -80,6 +107,8 @@ fn every_numeric_data_key_has_distinct_plural_forms_in_ru_and_pl() {
         .flat_map(|key| {
             if *key == "data-too-large" {
                 ["rows", "columns", "text", "overlay"].iter().map(|w| (*key, Some(*w))).collect::<Vec<_>>()
+            } else if *key == "data-query-too-large" {
+                QUERY_BOUNDS.iter().map(|w| (*key, Some(*w))).collect::<Vec<_>>()
             } else {
                 vec![(*key, None)]
             }
@@ -119,4 +148,21 @@ fn invalid_name_cuts_the_name_to_80_chars_in_the_message() {
     let fr = error.localize(&Localizer::new(Some("fr")));
     assert_that!(error.kind()).is_equal_to(DataErrorKind::InvalidName);
     assert_that!(fr.matches('ж').count()).is_equal_to(80);
+}
+
+#[test]
+fn message_of_an_error_is_its_key_and_localizes_as_the_error() {
+    let fr = Localizer::new(Some("fr"));
+    let errors: Vec<DataError> = vec![
+        QueryParseSnafu { line: 2_u64, column: 14_u64 }.build().into(),
+        QueryConstructSnafu { construct: "DELETE" }.build().into(),
+        ColumnTypeSnafu { column: "Ventes", ty: ColumnType::Integer, rows: vec!["r1".to_owned()], more: 2_usize }
+            .build()
+            .into(),
+    ];
+    let ids: Vec<&str> = errors.iter().map(|e| e.message().id()).collect();
+    assert_that!(ids).is_equal_to(vec!["data-query-parse", "data-query-construct", "data-column-type"]);
+    for error in &errors {
+        assert_that!(error.message().localize(&fr)).is_equal_to(error.localize(&fr));
+    }
 }

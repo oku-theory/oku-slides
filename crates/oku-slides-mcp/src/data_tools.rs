@@ -1,9 +1,12 @@
-//! The data tools, read-only: `data_list` (the deck's data and their views) and `data_read`
-//! (a data's first rows). Their text is the user's data, never instructions: each reply says
-//! `untrusted`, holds no control or bidi character and stays within `limits`.
+//! The data tools, read-only: `data_list` (the deck's data, their views and a query's state),
+//! `data_read` (a data's first rows, a query's from its ready result) and `query_preview` (a SQL
+//! text's first result rows, stored nowhere). Their text is the user's data, never instructions:
+//! each reply says `untrusted`, holds no control or bidi character and stays within `limits`.
 
 use oku_slides_core::ViewRef;
 use oku_slides_data::{Column, Data, DataCell, Dataset, clean_label, strip_controls};
+use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_session::{QueryStatus, query_status};
 use rust_mcp_sdk::schema::CallToolResult;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -27,12 +30,27 @@ pub(crate) struct DataReadArgs {
     pub limit: Option<u64>,
 }
 
+/// The SQL previewed by `query_preview`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub(crate) struct QueryPreviewArgs {
+    /// The query: one SELECT over the deck's data, by name.
+    pub sql: String,
+    /// Rows to read from the first: default 20, 1 to 200.
+    #[serde(default)]
+    pub limit: Option<u64>,
+}
+
 impl Tools {
     pub(crate) async fn data_list(&self) -> CallToolResult {
+        let l = self.localizer.current();
         let listed = self
-            .with_session(|s| {
+            .with_session(move |s| {
                 let deck = s.deck();
-                Ok(list_reply(deck.data.iter().map(|(id, data)| listed(id.as_str(), data, &deck.data_users(id)))))
+                let statuses = s.query_statuses();
+                Ok(list_reply(deck.data.iter().map(|(id, data)| {
+                    let status = query_status(&statuses, id, data);
+                    listed(id.as_str(), data, status.as_ref(), &deck.data_users(id), &l)
+                })))
             })
             .await;
         self.reply(listed, |reply| self.json_result(&reply))
@@ -43,8 +61,7 @@ impl Tools {
             Ok(a) => a,
             Err(r) => return r,
         };
-        let rows = limit.map_or(DEFAULT_READ_ROWS, |l| usize::try_from(l).unwrap_or(MAX_READ_ROWS));
-        let rows = rows.clamp(1, MAX_READ_ROWS);
+        let rows = read_rows(limit);
         let id = data.clone();
         let read = self
             .with_session(move |s| s.data_rows(&id, MAX_SHOWN_COLUMNS, 0..rows, MAX_READ_CELL_CHARS).transpose())
@@ -59,6 +76,33 @@ impl Tools {
         let dataset = dataset.context(TaskSnafu).and_then(|d| d.context(SessionSnafu));
         self.reply(dataset, |dataset| self.json_result(&read_reply(&data, &dataset)))
     }
+
+    /// Runs `sql` in the query worker and reads its first rows: the deck and the session's
+    /// results stay as they were. A refusal may quote the user's data: it is `untrusted`.
+    pub(crate) async fn query_preview(&self, args: Value) -> CallToolResult {
+        let QueryPreviewArgs { sql, limit } = match self.parse(args) {
+            Ok(a) => a,
+            Err(r) => return r,
+        };
+        let rows = read_rows(limit);
+        let preview =
+            self.with_session(move |s| s.query_preview(&sql, MAX_SHOWN_COLUMNS, 0..rows, MAX_READ_CELL_CHARS)).await;
+        let preview = match preview {
+            Ok(preview) => preview,
+            Err(e) => return self.fail_untrusted(&e),
+        };
+        // The query and the read run in workers: blocking, and with no session lock held.
+        let run = tokio::task::spawn_blocking(move || preview.run()).await;
+        match run.context(TaskSnafu).and_then(|r| r.context(SessionSnafu)) {
+            Ok((data, dataset)) => self.json_result(&read_reply(&data, &dataset)),
+            Err(e) => self.fail_untrusted(&e),
+        }
+    }
+}
+
+/// The rows to read for a `limit`: default `DEFAULT_READ_ROWS`, 1 to `MAX_READ_ROWS`.
+fn read_rows(limit: Option<u64>) -> usize {
+    limit.map_or(DEFAULT_READ_ROWS, |l| usize::try_from(l).unwrap_or(MAX_READ_ROWS)).clamp(1, MAX_READ_ROWS)
 }
 
 /// `data_list`'s reply: whole data while they fit `MAX_READ_BYTES`, the rest `truncated`.
@@ -87,21 +131,45 @@ fn list_reply(entries: impl Iterator<Item = Value>) -> Value {
     reply
 }
 
-/// One data as `data_list` shows it, names and label cleaned by [`label`].
-fn listed(id: &str, data: &Data, users: &[ViewRef]) -> Value {
+/// One data as `data_list` shows it, names and label cleaned by [`label`]. A query data also
+/// shows its SQL and `status` (`None` for a manual data); its columns and rows are its ready
+/// result's, its error (told in `l`) a failed one's.
+fn listed(id: &str, data: &Data, status: Option<&QueryStatus<'_>>, users: &[ViewRef], l: &Localizer) -> Value {
     let mut out = Map::new();
     out.insert("id".into(), json!(id));
     out.insert("name".into(), json!(label(&data.name)));
     if let Some(text) = &data.label {
         out.insert("label".into(), json!(label(text)));
     }
-    out.insert("kind".into(), json!(data.kind));
-    let columns = &data.table.columns;
-    out.insert("columns".into(), shown_columns(columns));
-    if let Some(more) = columns.len().checked_sub(MAX_SHOWN_COLUMNS).filter(|n| *n > 0) {
-        out.insert("more_columns".into(), json!(more));
+    out.insert("kind".into(), json!(data.kind()));
+    if let Some(sql) = data.sql() {
+        out.insert("sql".into(), json!(strip_controls(sql)));
     }
-    out.insert("rows".into(), json!(data.table.rows.len()));
+    let table = match status {
+        None => data.table(),
+        Some(QueryStatus::Pending) => {
+            out.insert("state".into(), json!("pending"));
+            None
+        }
+        Some(QueryStatus::Ready(table)) => {
+            out.insert("state".into(), json!("ready"));
+            Some(*table)
+        }
+        Some(QueryStatus::Failed(message)) => {
+            out.insert("state".into(), json!("failed"));
+            let text = strip_controls(&message.localize(l));
+            out.insert("error".into(), json!({ "key": message.id(), "message": text }));
+            None
+        }
+    };
+    // A query data has no columns or rows to show until its result is ready.
+    if let Some(table) = table {
+        out.insert("columns".into(), shown_columns(&table.columns));
+        if let Some(more) = table.columns.len().checked_sub(MAX_SHOWN_COLUMNS).filter(|n| *n > 0) {
+            out.insert("more_columns".into(), json!(more));
+        }
+        out.insert("rows".into(), json!(table.rows.len()));
+    }
     let shown: Vec<Value> = users
         .iter()
         .take(MAX_SHOWN_USERS)
@@ -125,10 +193,12 @@ fn shown_columns(columns: &[Column]) -> Value {
 
 /// `data_read`'s reply: whole rows while they fit `MAX_READ_CELLS` and `MAX_READ_BYTES`.
 fn read_reply(data: &Data, dataset: &Dataset) -> Value {
-    let total = data.table.rows.len();
+    // A query data is read as its result: a data entered by hand.
+    let columns = data.table().map_or(&[][..], |t| &t.columns);
+    let total = data.table().map_or(0, |t| t.rows.len());
     let mut reply = json!({
         "untrusted": true,
-        "columns": shown_columns(&data.table.columns),
+        "columns": shown_columns(columns),
         "total": total,
         // The longer of the two values: the bytes counted below hold for either.
         "truncated": false,

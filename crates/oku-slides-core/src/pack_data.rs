@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_data::limits::MAX_BATCH_CELLS;
-use oku_slides_data::{Data, DataId};
+use oku_slides_data::{Data, DataId, Table};
 use snafu::ensure;
 
 use crate::error::{ManifestDataBaseSnafu, ManifestDataCellsSnafu, ManifestDataCountSnafu, PackManifestError};
@@ -23,10 +23,10 @@ pub const MAX_PACK_DATA: usize = 16;
 /// cells in all: the data must fit one batch that copies them into a deck.
 pub fn check_pack_data(data: &BTreeMap<DataId, Arc<Data>>) -> Result<(), PackManifestError> {
     ensure!(data.len() <= MAX_PACK_DATA, ManifestDataCountSnafu { count: data.len(), max: MAX_PACK_DATA });
-    if let Some((id, _)) = data.iter().find(|(_, d)| d.table.base.is_some()) {
+    if let Some((id, _)) = data.iter().find(|(_, d)| d.table().is_some_and(|t| t.base.is_some())) {
         return ManifestDataBaseSnafu { data: id.as_str() }.fail().map_err(Into::into);
     }
-    let count = data.values().map(|d| d.table.overlay_len()).sum::<usize>();
+    let count = data.values().filter_map(|d| d.table()).map(Table::overlay_len).sum::<usize>();
     ensure!(count <= MAX_BATCH_CELLS, ManifestDataCellsSnafu { count, max: MAX_BATCH_CELLS });
     Ok(())
 }

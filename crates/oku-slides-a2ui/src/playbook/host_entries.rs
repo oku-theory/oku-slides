@@ -6,7 +6,7 @@ use super::entries::{lit, palette};
 use super::{Example, example};
 use crate::action::{Action, Dynamic};
 use crate::component::{Component, ComponentKind as K};
-use crate::data::{DataChoice, DataRef, DataRow, DataUser, SeriesSwatch};
+use crate::data::{DataChoice, DataRef, DataRow, DataState, DataUser, QueryView, SeriesSwatch};
 use crate::props::{PromptImage, SlideRef, StepStatus, TimelineStep, ToolCallDetail};
 
 /// The action a host data component sends after writing `/edit`.
@@ -130,37 +130,75 @@ pub(super) fn notice() -> Vec<Example> {
 }
 
 pub(super) fn chart_grid() -> Vec<Example> {
-    vec![example(
-        "bar",
-        "A chart's data table, series colors and stacking.",
-        false,
-        K::ChartData {
-            kind: Some("bar".into()),
-            source: vec![
-                vec![json!("Month"), json!("Sales"), json!("Target")],
-                vec![json!("Jan"), json!(3), json!(4)],
-                vec![json!("Feb"), json!(5), json!(4)],
-            ],
-            row_ids: vec!["jan".into(), "feb".into()],
-            column_ids: vec!["month".into(), "sales".into(), "target".into()],
-            checkbox_columns: vec![],
-            stacked: Some(false),
-            series: vec![
-                SeriesSwatch { name: "Sales".into(), color: None },
-                SeriesSwatch { name: "Target".into(), color: Some("#1f4e79".into()) },
-            ],
-            palette: palette(),
-            data: DataRef { id: "sales".into(), name: "sales".into(), label: Some("Monthly sales".into()), users: 2 },
-            choices: vec![
-                DataChoice { id: "sales".into(), name: "sales".into(), label: Some("Monthly sales".into()) },
-                DataChoice { id: "budget".into(), name: "budget".into(), label: None },
-            ],
-            edit: Dynamic::path("/edit"),
-            action: data_action(),
-        },
-        vec![],
-        json!({ "edit": null }),
-    )]
+    vec![
+        example(
+            "bar",
+            "A chart's data table, series colors and stacking.",
+            false,
+            K::ChartData {
+                kind: Some("bar".into()),
+                source: vec![
+                    vec![json!("Month"), json!("Sales"), json!("Target")],
+                    vec![json!("Jan"), json!(3), json!(4)],
+                    vec![json!("Feb"), json!(5), json!(4)],
+                ],
+                row_ids: vec!["jan".into(), "feb".into()],
+                column_ids: vec!["month".into(), "sales".into(), "target".into()],
+                checkbox_columns: vec![],
+                stacked: Some(false),
+                series: vec![
+                    SeriesSwatch { name: "Sales".into(), color: None },
+                    SeriesSwatch { name: "Target".into(), color: Some("#1f4e79".into()) },
+                ],
+                palette: palette(),
+                data: DataRef {
+                    id: "sales".into(),
+                    name: "sales".into(),
+                    label: Some("Monthly sales".into()),
+                    users: 2,
+                },
+                choices: vec![
+                    DataChoice { id: "sales".into(), name: "sales".into(), label: Some("Monthly sales".into()) },
+                    DataChoice { id: "budget".into(), name: "budget".into(), label: None },
+                ],
+                query: None,
+                edit: Dynamic::path("/edit"),
+                action: data_action(),
+            },
+            vec![],
+            json!({ "edit": null }),
+        ),
+        example(
+            "query",
+            "A chart over a query: its settings, the query's result and SQL read-only, a link to its sheet.",
+            false,
+            K::ChartData {
+                kind: Some("bar".into()),
+                source: vec![vec![json!("month"), json!("sales")], vec![json!("Feb"), json!(5)]],
+                row_ids: vec!["r0".into()],
+                column_ids: vec!["month".into(), "sales".into()],
+                checkbox_columns: vec![],
+                stacked: Some(false),
+                series: vec![SeriesSwatch { name: "sales".into(), color: None }],
+                palette: palette(),
+                data: DataRef { id: "top_sales".into(), name: "top_sales".into(), label: None, users: 1 },
+                choices: vec![
+                    DataChoice { id: "top_sales".into(), name: "top_sales".into(), label: None },
+                    DataChoice { id: "sales".into(), name: "sales".into(), label: None },
+                ],
+                query: Some(QueryView {
+                    sql: "SELECT month, sales FROM sales WHERE sales > 3".into(),
+                    state: DataState::Ready,
+                    error: None,
+                    inputs: vec![DataChoice { id: "sales".into(), name: "sales".into(), label: None }],
+                }),
+                edit: Dynamic::path("/edit"),
+                action: data_action(),
+            },
+            vec![],
+            json!({ "edit": null }),
+        ),
+    ]
 }
 
 pub(super) fn table_grid() -> Vec<Example> {
@@ -178,6 +216,7 @@ pub(super) fn table_grid() -> Vec<Example> {
             align: vec!["auto".into(), "end".into()],
             data: DataRef { id: "scores".into(), name: "scores".into(), label: None, users: 1 },
             choices: vec![DataChoice { id: "scores".into(), name: "scores".into(), label: None }],
+            query: None,
             edit: Dynamic::path("/edit"),
             action: data_action(),
         },
@@ -200,13 +239,21 @@ pub(super) fn data_list() -> Vec<Example> {
         columns: 3,
         rows: 12,
         users,
+        state: None,
         error: error.map(Into::into),
+    };
+    let query = |id: &str, state: DataState, rows: u32| DataRow {
+        kind: "query".into(),
+        columns: if rows > 0 { 2 } else { 0 },
+        rows,
+        state: Some(state),
+        ..row(id, None, vec![], None)
     };
     let list = |rows| K::DataList { rows, edit: Dynamic::path("/edit"), action: data_action() };
     vec![
         example(
             "default",
-            "The deck's data: size, views, one unused.",
+            "The deck's data: size, views, one unused, two queries with their state.",
             false,
             list(vec![
                 row(
@@ -216,6 +263,8 @@ pub(super) fn data_list() -> Vec<Example> {
                     None,
                 ),
                 row("budget", None, vec![], None),
+                query("top_sales", DataState::Ready, 4),
+                query("by_region", DataState::Failed, 0),
             ]),
             vec![],
             json!({ "edit": null }),
@@ -232,26 +281,79 @@ pub(super) fn data_list() -> Vec<Example> {
 }
 
 pub(super) fn data_sheet() -> Vec<Example> {
-    vec![example(
-        "default",
-        "One data's rows, a page at a time, with its column types.",
-        false,
-        K::DataSheet {
-            data: DataRef { id: "sales".into(), name: "sales".into(), label: None, users: 1 },
-            source: vec![
-                vec![json!("Month"), json!("Sales")],
-                vec![json!("Jan"), json!(3)],
-                vec![json!("Feb"), json!(5)],
-            ],
-            row_ids: vec!["jan".into(), "feb".into()],
-            column_ids: vec!["month".into(), "sales".into()],
-            types: vec!["text".into(), "number".into()],
-            offset: 0,
-            total: 2,
-            edit: Dynamic::path("/edit"),
-            action: data_action(),
-        },
-        vec![],
-        json!({ "edit": null }),
-    )]
+    let sales = || DataRef { id: "sales".into(), name: "sales".into(), label: None, users: 1 };
+    let top = DataRef { id: "top_sales".into(), name: "top_sales".into(), label: None, users: 1 };
+    let inputs = vec![DataChoice { id: "sales".into(), name: "sales".into(), label: None }];
+    let query = |state, error: Option<&str>| QueryView {
+        sql: "SELECT month, sales FROM sales WHERE sales > 3".into(),
+        state,
+        error: error.map(Into::into),
+        inputs: inputs.clone(),
+    };
+    vec![
+        example(
+            "default",
+            "One data's rows, a page at a time, with its column types.",
+            false,
+            K::DataSheet {
+                data: sales(),
+                source: vec![
+                    vec![json!("Month"), json!("Sales")],
+                    vec![json!("Jan"), json!(3)],
+                    vec![json!("Feb"), json!(5)],
+                ],
+                row_ids: vec!["jan".into(), "feb".into()],
+                column_ids: vec!["month".into(), "sales".into()],
+                types: vec!["text".into(), "number".into()],
+                offset: 0,
+                total: 2,
+                query: None,
+                error: None,
+                edit: Dynamic::path("/edit"),
+                action: data_action(),
+            },
+            vec![],
+            json!({ "edit": null }),
+        ),
+        example(
+            "query",
+            "A query's SQL, its inputs and its ready result, read-only.",
+            false,
+            K::DataSheet {
+                data: top.clone(),
+                source: vec![vec![json!("month"), json!("sales")], vec![json!("Feb"), json!(5)]],
+                row_ids: vec!["r0".into()],
+                column_ids: vec!["month".into(), "sales".into()],
+                types: vec!["text".into(), "number".into()],
+                offset: 0,
+                total: 1,
+                query: Some(query(DataState::Ready, None)),
+                error: None,
+                edit: Dynamic::path("/edit"),
+                action: data_action(),
+            },
+            vec![],
+            json!({ "edit": null }),
+        ),
+        example(
+            "query-failed",
+            "A failed query: no rows, its error under the SQL, a refused edit above.",
+            false,
+            K::DataSheet {
+                data: top,
+                source: vec![vec![]],
+                row_ids: vec![],
+                column_ids: vec![],
+                types: vec![],
+                offset: 0,
+                total: 0,
+                query: Some(query(DataState::Failed, Some("Column \"amount\" not found"))),
+                error: Some("The query reads \"budget\", which is no data of the deck".into()),
+                edit: Dynamic::path("/edit"),
+                action: data_action(),
+            },
+            vec![],
+            json!({ "edit": null }),
+        ),
+    ]
 }

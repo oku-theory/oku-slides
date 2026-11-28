@@ -50,7 +50,7 @@ fn param(s: &mut Session, slide: &str, element: &str, name: &str) -> Value {
 /// The whole data `g` reads, every row and column.
 fn whole(s: &Session, data: &str) -> Dataset {
     let stored = s.deck().data.get(data).unwrap_or_else(|| panic!("no data {data}"));
-    ok(stored.table.to_dataset(None, 0..usize::MAX, usize::MAX))
+    ok(stored.table().unwrap_or_else(|| panic!("a manual data")).to_dataset(None, 0..usize::MAX, usize::MAX))
 }
 
 fn edit(s: &mut Session, slide: &str, element: &str, edit: &Value) -> oku_slides_session::Result<String> {

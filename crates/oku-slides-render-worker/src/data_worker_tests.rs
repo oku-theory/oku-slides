@@ -1,5 +1,5 @@
 use oku_slides_data::test_support::{based_table, set_cell, sized};
-use oku_slides_data::{Data, DataCell, DataErrorKind, DataKind, Table};
+use oku_slides_data::{Data, DataCell, DataErrorKind, Source, Table};
 use oku_slides_platform::RenderLaunch;
 use oku_slides_platform::bases::BaseStore;
 use oku_slides_platform::config::RenderSettings;
@@ -20,11 +20,13 @@ fn settings() -> RenderSettings {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     }
 }
 
 fn data(table: Table) -> Data {
-    Data { name: "sales".into(), label: None, inline: false, kind: DataKind::Manual, table }
+    Data { name: "sales".into(), label: None, inline: false, source: Source::Manual(table) }
 }
 
 /// A worker over a fresh store holding a based table of `rows` × 2 (`c0`, `c1`).
@@ -65,7 +67,7 @@ fn data_worker_read_without_base_is_refused() {
 #[test]
 fn data_worker_read_of_base_missing_from_store_is_refused() {
     let (_dir, worker, store, data) = setup(2);
-    std::fs::remove_file(store.path(&data.table.base.as_ref().unwrap().id)).unwrap();
+    std::fs::remove_file(store.path(&data.table().unwrap().base.as_ref().unwrap().id)).unwrap();
     let refused = worker.read(&data, None, 0..2, 100).unwrap();
     assert_that!(refused.map_err(|e| e.kind())).is_err_containing(DataErrorKind::BaseInvalid);
 }
@@ -73,13 +75,13 @@ fn data_worker_read_of_base_missing_from_store_is_refused() {
 #[test]
 fn data_worker_compact_folds_overlay_into_stored_base() {
     let (_dir, worker, store, mut data) = setup(4);
-    set_cell(&mut data.table, "r2", "c0", DataCell::Number(99.0));
+    set_cell(data.table_mut().unwrap(), "r2", "c0", DataCell::Number(99.0));
     let base = worker.compact(&data, 1 << 30).unwrap().unwrap();
     assert_that!(store.contains(&base.id)).is_ok_containing(true);
     assert_that!(base.rows).is_equal_to(4);
     let mut folded = data.clone();
-    folded.table.base = Some(base);
-    folded.table.cells.clear();
+    folded.table_mut().unwrap().base = Some(base);
+    folded.table_mut().unwrap().cells.clear();
     let read = worker.read(&folded, None, 2..3, 100).unwrap().unwrap();
     assert_that!(number(&read.dataset.source[1][0])).is_equal_to(99.0);
 }
@@ -96,7 +98,7 @@ fn files_in(dir: &std::path::Path) -> Vec<String> {
 #[test]
 fn data_worker_compact_refused_leaves_no_output_file() {
     let (_dir, worker, store, data) = setup(2);
-    std::fs::remove_file(store.path(&data.table.base.as_ref().unwrap().id)).unwrap();
+    std::fs::remove_file(store.path(&data.table().unwrap().base.as_ref().unwrap().id)).unwrap();
     let before = files_in(store.dir());
     let refused = worker.compact(&data, 1 << 30).unwrap();
     assert_that!(refused.map_err(|e| e.kind())).is_err_containing(DataErrorKind::BaseInvalid);
@@ -107,10 +109,43 @@ fn data_worker_compact_refused_leaves_no_output_file() {
 #[test]
 fn data_worker_compact_leaves_only_the_adopted_base() {
     let (_dir, worker, store, mut data) = setup(2);
-    set_cell(&mut data.table, "r1", "c0", DataCell::Number(5.0));
+    set_cell(data.table_mut().unwrap(), "r1", "c0", DataCell::Number(5.0));
     let mut before = files_in(store.dir());
     let base = worker.compact(&data, 1 << 30).unwrap().unwrap();
     before.push(format!("{}.parquet", base.id.hex()));
     before.sort();
     assert_that!(files_in(store.dir())).is_equal_to(before);
+}
+
+#[test]
+fn run_query_request_writes_base_in_store() {
+    let (_dir, worker, store, data) = setup(3);
+    let query = oku_slides_data::sql::parse_query("SELECT C0 + C1 AS s FROM sales ORDER BY s").unwrap();
+    let inputs = vec![("sales".to_owned(), std::sync::Arc::new(data))];
+
+    let out = worker.run_query(&query.for_engine().unwrap(), &inputs).unwrap().unwrap();
+
+    assert_that!(store.contains(&out.base.id)).is_ok_containing(true);
+    assert_that!(out.base.rows).is_equal_to(3);
+    assert_that!(out.columns.iter().map(|c| c.id.as_str()).collect::<Vec<_>>()).is_equal_to(vec!["s"]);
+}
+
+#[test]
+fn run_query_refused_by_the_engine_is_a_data_refusal() {
+    let (_dir, worker, _store, data) = setup(1);
+    let query = oku_slides_data::sql::parse_query("SELECT nope FROM sales").unwrap();
+    let inputs = vec![("sales".to_owned(), std::sync::Arc::new(data))];
+
+    let refused = worker.run_query(&query.for_engine().unwrap(), &inputs).unwrap();
+
+    assert_that!(refused.map(|_| ()).map_err(|e| e.kind())).is_err_containing(DataErrorKind::QueryRun);
+}
+
+#[test]
+fn engine_version_names_polars_protocol_and_whitelist() {
+    assert_that!(super::engine_version()).is_equal_to(format!(
+        "polars-0.53.0/protocol-{}/whitelist-{}",
+        crate::protocol::PROTOCOL_VERSION,
+        oku_slides_data::sql::WHITELIST_VERSION
+    ));
 }

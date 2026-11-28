@@ -44,7 +44,7 @@ fn based_tab(ws: &std::sync::Mutex<Workspace>, data: &crate::common::Data) -> St
         // Every request schedules the compactions due, run in the background.
         let pane = Request::DataPanel { slide: "s-libre".to_owned(), element: "ch1".to_owned() };
         drop(Workspace::request(ws, &tab, pane));
-        if on(ws, &tab, |s| s.deck().data.values().any(|d| d.table.base.is_some())) {
+        if on(ws, &tab, |s| s.deck().data.values().any(|d| d.table().is_some_and(|t| t.base.is_some()))) {
             return tab;
         }
         assert_that!(Instant::now() < deadline).named("d9 compacted in time").is_true();

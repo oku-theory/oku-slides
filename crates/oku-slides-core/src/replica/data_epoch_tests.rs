@@ -6,9 +6,9 @@ use super::*;
 /// `deck` with data `id` compacted into `epoch`: a base recorded, its overlay folded away.
 fn compacted(deck: &Deck, id: &str, epoch: &str) -> Deck {
     edited(deck, id, |d| {
-        d.table.epoch = epoch.to_owned();
-        d.table.base = Some(base());
-        d.table.cells.clear();
+        d.table_mut().unwrap().epoch = epoch.to_owned();
+        d.table_mut().unwrap().base = Some(base());
+        d.table_mut().unwrap().cells.clear();
     })
 }
 
@@ -36,8 +36,12 @@ fn edit_within_one_epoch_keeps_the_layer_container() {
     let deck = compacted(&sample(), "d1", "e2");
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let layer = layer_map(&r, "d1").id();
-    r.apply(&edited(&deck, "d1", |d| set_cell(&mut d.table, "r1", "c1", DataCell::Text("A".to_owned()))), "A", None)
-        .unwrap();
+    r.apply(
+        &edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r1", "c1", DataCell::Text("A".to_owned()))),
+        "A",
+        None,
+    )
+    .unwrap();
     assert_that!(layer_map(&r, "d1").id()).is_equal_to(layer);
     assert_that!(cells_map(&r, "d1").len()).is_equal_to(1);
 }
@@ -45,7 +49,7 @@ fn edit_within_one_epoch_keeps_the_layer_container() {
 #[test]
 fn edit_on_replaced_epoch_is_lost_reported_on_both_peers_and_docs_equal() {
     let deck = sample();
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(5.0)));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(5.0)));
     let (mut a, mut b) = peers(&deck);
     a.apply_silent(&compacted(&deck, "d1", "e2"), crate::KnowledgeSync::Changed).unwrap();
     b.apply(&db, "B", None).unwrap();

@@ -313,13 +313,15 @@ fn disable_unless_trusted(trusted: bool, e: RegistryError) -> Result<RegistryErr
 /// Without a pinned pack, the deck adopts the current version of `base` and `essentiel`
 /// and their requirements, which can be changed: they may have widgets. The packs
 /// are probed before any write; the sources are recreated with the probed
-/// registry, so that the replica and the validation have their widgets.
+/// registry, so that the replica and the validation have their widgets. With `bases`, the
+/// renders read data bases from that store (see [`ProbedWidgets::probe`]).
 ///
 /// # Errors
 ///
 /// Fails if the default packs are missing, if a pack cannot be probed, or if the sources cannot be recreated.
 pub fn sources_with_packs(
     platform: &Platform,
+    bases: Option<&BaseStore>,
     library: &PackLibrary,
     base: &Arc<WidgetRegistry>,
     deck: Deck,
@@ -330,7 +332,7 @@ pub fn sources_with_packs(
         bundle.add_pack(files);
     }
     adopt_default_packs(library, &mut bundle).context(LibrarySnafu)?;
-    let widgets = ProbedWidgets::probe(platform, None, base, bundle.deck(), &bundle.packs).context(RegistrySnafu)?;
+    let widgets = ProbedWidgets::probe(platform, bases, base, bundle.deck(), &bundle.packs).context(RegistrySnafu)?;
     if !Arc::ptr_eq(&widgets.registry, base) {
         let packs = std::mem::take(&mut bundle.packs);
         bundle = SourceBundle::new(bundle.deck().clone(), widgets.registry.clone()).context(SourcesSnafu)?;

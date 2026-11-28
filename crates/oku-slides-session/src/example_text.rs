@@ -51,18 +51,19 @@ fn resolved_one(data: &Data, l: &Localizer) -> Data {
     let text = |s: &String| text_of(s, l).unwrap_or_else(|| s.clone());
     let mut out = data.clone();
     out.label = data.label.as_ref().map(text);
-    for column in &mut out.table.columns {
-        column.name = text(&column.name);
+    if let Some(table) = out.table_mut() {
+        for column in &mut table.columns {
+            column.name = text(&column.name);
+        }
+        table.cells = table
+            .cells
+            .iter()
+            .map(|(key, cell)| match cell {
+                DataCell::Text(s) => (key.clone(), DataCell::Text(text(s))),
+                other => (key.clone(), other.clone()),
+            })
+            .collect();
     }
-    out.table.cells = data
-        .table
-        .cells
-        .iter()
-        .map(|(key, cell)| match cell {
-            DataCell::Text(s) => (key.clone(), DataCell::Text(text(s))),
-            other => (key.clone(), other.clone()),
-        })
-        .collect();
     out
 }
 

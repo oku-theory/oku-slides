@@ -233,6 +233,11 @@ issue-data-too-many = zu viele Daten im Deck ({ $count }); nicht gelesen: { $dro
 issue-data-base-missing = Daten „{ $data }“: ihre Basisdatei fehlt, schreibgeschützt behalten
 issue-data-edits-lost = Daten „{ $data }“: Änderungen an einer ersetzten Tabelle gingen beim Zusammenführen verloren
 issue-data-inline-dropped = Element { $element }: Die Daten seines Diagramms oder seiner Tabelle wurden von einer älteren Version in seinen Optionen gespeichert; sie wurden entfernt
+issue-data-kind-unknown = Daten „{ $data }“ haben die unbekannte Art „{ $kind }“, vielleicht aus einer neueren Version; nicht gelesen
+issue-data-query-cycle = Daten „{ $data }“: ihre Abfrage liest sich selbst wieder, direkt oder über andere Abfragen; nicht berechnet
+issue-data-query-missing-input = Daten „{ $data }“: ihre Abfrage liest „{ $input }“, das nicht im Deck ist; nicht berechnet
+issue-data-query-invalid = Daten „{ $data }“: ihre Abfrage ist ungültig ({ $reason }); nicht berechnet
+issue-data-query-failed = Daten „{ $data }“: ihre Abfrage ist fehlgeschlagen ({ $reason }); kein Ergebnis
 issue-more = weitere, nicht angezeigte Probleme: { $count }
 op-data-deck-full = Die Daten des Decks würden ihr Limit überschreiten: höchstens { $max } { $what ->
     [row-ids] Zeilen-IDs
@@ -255,6 +260,20 @@ op-data-rebind = Das Element { $subject } zeigt bereits andere Daten; zum Änder
 op-data-internal = Ein Stapel kann Basis oder Überlagerung einer Tabelle nicht setzen
 op-data-batch-too-large = Der Stapel ist zu groß: Zellenanzahl { $count }, höchstens { $max }
 op-data-inline = Element { $subject } trägt seine Daten in seinen Optionen; fügen Sie sie mit add_data als Deck-Daten hinzu und binden Sie sie mit bind_data
+op-data-derived = die Daten „{ $data }“ werden aus einer Abfrage abgeleitet: bearbeiten Sie die Abfrage, nicht die Zeilen
+op-data-source = Daten haben entweder eine Tabelle oder eine Abfrage (sql), genau eines davon
+op-data-cycle = Die Daten „{ $data }“ würden sich über ihre Abfragen selbst wieder lesen; entfernen Sie die Schleife
+op-data-unknown-input = Die Abfrage liest „{ $name }“, das keine Daten des Decks sind
+op-data-not-query = Die Daten „{ $data }“ sind keine Abfrage; bearbeiten Sie ihre Tabelle mit edit_data
+op-data-read-by-queries = Diese Daten werden von den Abfragen { $queries } gelesen{ $shown ->
+    [0] {""}
+   *[other] {" "}und von { $views } angezeigt
+}{ $more ->
+    [0] {""}
+   *[other] {" "}und { $more } weiteren
+}; bearbeiten oder entfernen Sie diese zuerst
+op-data-rename-captured = Die Abfrage von „{ $reader }“ nennt bereits eine ihrer eigenen Tabellen „{ $name }“; benennen Sie diese Tabelle in der Abfrage um (set_query) oder wählen Sie einen anderen Namen
+op-data-name-ambiguous = Mehrere Daten heißen „{ $name }“, und Abfragen lesen diesen Namen, ohne dass klar ist, welche; bearbeiten Sie zuerst diese Abfragen (set_query)
 issue-unreadable-slide = unlesbare Folie, beiseitegelegt
 issue-unreadable-field = unlesbares Deck-Feld { $field }, zurückgesetzt
 issue-knowledge-unreadable = unlesbarer Wissenseintrag { $id }, beiseitegelegt

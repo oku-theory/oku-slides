@@ -24,6 +24,8 @@ fn worker(timeout_ms: u64) -> RenderWorker {
             max_guide_chars: 4000,
             data_timeout_ms: 120_000,
             data_memory_mib: 4096,
+            query_timeout_ms: 30_000,
+            query_memory_mib: 4096,
         },
     )
 }
@@ -263,6 +265,8 @@ fn worker_with(timeout_ms: u64, max_widgets: usize) -> RenderWorker {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     RenderWorker::new(RenderLaunch::InProcess, settings)
 }
@@ -280,6 +284,8 @@ fn worker_without_budget(timeout_ms: u64) -> RenderWorker {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     RenderWorker::new(RenderLaunch::InProcess, settings)
 }
@@ -477,6 +483,8 @@ fn probe_pack_whose_link_cannot_start_leaves_its_files_unprobed() {
         max_guide_chars: 4000,
         data_timeout_ms: 120_000,
         data_memory_mib: 4096,
+        query_timeout_ms: 30_000,
+        query_memory_mib: 4096,
     };
     let w = RenderWorker::new(RenderLaunch::Process { program: "/inexistant/oku-slides".into() }, settings);
     let pack = PackWidgets::new("p", ns("p"), PackKind::Widgets, files(&[("quote", QUOTE)])).unwrap();

@@ -218,6 +218,7 @@ fn is_structural(op: &Op) -> bool {
         | Op::EditData { .. }
         | Op::RemoveData { .. }
         | Op::RenameData { .. }
+        | Op::SetQuery { .. }
         | Op::SetColumnType { .. }
         | Op::PutViewData { .. }
         | Op::BindData { .. }

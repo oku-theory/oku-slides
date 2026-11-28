@@ -236,6 +236,11 @@ issue-data-too-many = too many data in the deck ({ $count }); not read: { $dropp
 issue-data-base-missing = data “{ $data }”: its base file is missing, kept read-only
 issue-data-edits-lost = data “{ $data }”: edits to a replaced table were lost in the merge
 issue-data-inline-dropped = Element { $element }: its chart or table data were stored inside its options by an older version; they were removed
+issue-data-kind-unknown = data “{ $data }” has an unknown kind “{ $kind }”, perhaps from a newer version; not read
+issue-data-query-cycle = data “{ $data }”: its query reads itself back, directly or through other queries; not computed
+issue-data-query-missing-input = data “{ $data }”: its query reads “{ $input }”, which is not in the deck; not computed
+issue-data-query-invalid = data “{ $data }”: its query is not valid ({ $reason }); not computed
+issue-data-query-failed = data “{ $data }”: its query failed ({ $reason }); no result
 issue-more = more issues not shown: { $count }
 op-data-deck-full = The deck's data would pass their limit: at most { $max } { $what ->
     [row-ids] row ids
@@ -258,6 +263,20 @@ op-data-rebind = Element { $subject } already shows other data; use bind_data to
 op-data-internal = A batch cannot set a table's base or overlay
 op-data-batch-too-large = The batch is too large: cell count { $count }, at most { $max }
 op-data-inline = Element { $subject } carries its data inside its options; add them as deck data with add_data and bind them with bind_data
+op-data-derived = data “{ $data }” is derived from a query: edit its query, not its rows
+op-data-source = A data takes either a table or a query (sql), exactly one
+op-data-cycle = Data “{ $data }” would read itself back through its queries; remove the loop
+op-data-unknown-input = The query reads “{ $name }”, which is no data of the deck
+op-data-not-query = Data “{ $data }” is not a query; edit its table with edit_data
+op-data-read-by-queries = This data is read by the queries { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}and shown by { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}and { $more } more
+}; edit or remove them first
+op-data-rename-captured = The query of “{ $reader }” already names one of its own tables “{ $name }”; rename that table in its query (set_query) or choose another name
+op-data-name-ambiguous = Several data are named “{ $name }” and queries read that name, so which one they read is unclear; edit those queries first (set_query)
 issue-unreadable-slide = unreadable slide, set aside
 issue-unreadable-field = unreadable deck field { $field }, reset
 issue-knowledge-unreadable = unreadable knowledge entry { $id }, set aside

@@ -420,6 +420,13 @@ impl State {
         self.log("mcp/result", &serde_json::json!({ "session": session, "tool": step.tool, "out": out }));
     }
 
+    /// A fresh cancel notifier for `session` once its turn has played: a cancel that reached
+    /// a turn not waiting for one is not stored for the next turn.
+    fn fresh_notify(&self, session: &str) {
+        let mut map = self.wait_cancel.lock().unwrap_or_else(PoisonError::into_inner);
+        map.insert(session.to_owned(), Arc::new(Notify::new()));
+    }
+
     /// Notify de la session, créée au besoin.
     fn notify_for(&self, session: &str) -> Arc<Notify> {
         let mut map = self.wait_cancel.lock().unwrap_or_else(PoisonError::into_inner);
@@ -621,11 +628,14 @@ async fn play(
         cx.send_notification(chunk(session, text.clone()))?;
     }
     send_cost(cx, session, turn.cost.as_ref().filter(|c| !c.after_reply))?;
-    if turn.wait_cancel {
+    let stop = if turn.wait_cancel {
         state.notify_for(&session_key).notified().await;
-        return Ok(StopReason::Cancelled);
-    }
-    Ok(StopReason::EndTurn)
+        StopReason::Cancelled
+    } else {
+        StopReason::EndTurn
+    };
+    state.fresh_notify(&session_key);
+    Ok(stop)
 }
 
 impl Turn {

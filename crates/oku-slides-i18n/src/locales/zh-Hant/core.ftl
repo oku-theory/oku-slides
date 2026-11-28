@@ -220,6 +220,11 @@ issue-data-too-many = 簡報中的資料過多（{ $count }）；未讀取：{ $
 issue-data-base-missing = 資料「{ $data }」：缺少其基礎檔案，已設為唯讀
 issue-data-edits-lost = 資料「{ $data }」：對已取代表格的編輯在合併時遺失
 issue-data-inline-dropped = 元素 { $element }：舊版本把其圖表或表格的資料存放在選項中；這些資料已被移除
+issue-data-kind-unknown = 資料「{ $data }」：未知類型「{ $kind }」，可能來自較新版本；未讀取
+issue-data-query-cycle = 資料「{ $data }」：其查詢直接或透過其他查詢讀回自身；未計算
+issue-data-query-missing-input = 資料「{ $data }」：其查詢讀取的「{ $input }」不在簡報中；未計算
+issue-data-query-invalid = 資料「{ $data }」：其查詢無效（{ $reason }）；未計算
+issue-data-query-failed = 資料「{ $data }」：其查詢失敗（{ $reason }）；無結果
 issue-more = 另有{ $count }個問題未顯示
 op-data-deck-full = 簡報的資料將超出上限：{ $what ->
     [row-ids] 列 ID
@@ -241,6 +246,20 @@ op-data-rebind = 元素 { $subject } 已顯示其他資料；如需變更，請�
 op-data-internal = 批次不能設定表格的基礎或覆蓋層
 op-data-batch-too-large = 批次過大：儲存格數 { $count }，最多 { $max }
 op-data-inline = 元素 { $subject } 的資料放在其選項中；請用 add_data 將其新增為簡報資料，並用 bind_data 繫結
+op-data-derived = 資料「{ $data }」由查詢衍生：請編輯其查詢，而不是其列
+op-data-source = 資料只能取表格或查詢（sql）其中之一
+op-data-cycle = 資料「{ $data }」會透過其查詢讀回自身；請移除該迴圈
+op-data-unknown-input = 查詢讀取的「{ $name }」不是本簡報中的資料
+op-data-not-query = 資料「{ $data }」不是查詢；請用 edit_data 編輯其表格
+op-data-read-by-queries = 此資料被查詢 { $queries } 讀取{ $shown ->
+    [0] {""}
+   *[other] {"，"}並由 { $views } 顯示
+}{ $more ->
+    [0] {""}
+   *[other] {"，"}另有{ $more }個
+}；請先編輯或移除它們
+op-data-rename-captured = 「{ $reader }」的查詢已將其自身的一個表格命名為「{ $name }」；請在其查詢中重新命名該表格（set_query）或另選名稱
+op-data-name-ambiguous = 有多個資料名為「{ $name }」，且有查詢讀取該名稱，無法確定讀取哪一個；請先修改這些查詢（set_query）
 issue-unreadable-slide = 無法讀取的投影片，已移出
 issue-unreadable-field = 無法讀取的簡報欄位 { $field }，已重設
 issue-knowledge-unreadable = 無法讀取的知識項目 { $id }，已移出

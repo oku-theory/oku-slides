@@ -2,22 +2,26 @@
 //!
 //! A view names a deck data (`data` in its `host(chart)` or `host(table)` param); the pane shows
 //! the columns the view reads and its first `PANE_ROWS` rows, with their ids, which the edits
-//! of `data_edit` name.
+//! of `data_edit` name. A view over a query data keeps its settings but shows the columns it
+//! reads of its query's ready result, read-only, under the query's SQL (`query`): its rows are
+//! not edited here (`op-data-derived`).
 
+use std::collections::BTreeSet;
 use std::ops::Range;
 use std::sync::Arc;
 
-use oku_slides_a2ui::{Action, ComponentKind, DataChoice, DataRef, Dynamic, SeriesSwatch};
-use oku_slides_core::{Deck, HostType, OpError, PlanOutcome, ViewPlan, bind_choices, plan_views};
+use oku_slides_a2ui::{Action, ComponentKind, DataChoice, DataRef, Dynamic, QueryView, SeriesSwatch};
+use oku_slides_core::{Deck, HostType, Op, OpError, PlanOutcome, ViewPlan, WidgetRegistry, bind_choices, plan_views};
 use oku_slides_data::limits::MAX_TEXT_BYTES;
-use oku_slides_data::{Data, DataCell, DataError, DataId, Dataset};
+use oku_slides_data::{Data, DataCell, DataError, DataId, Dataset, Table};
+use oku_slides_render::with_results;
 use serde_json::Value;
-use snafu::{IntoError, OptionExt};
+use snafu::{IntoError, OptionExt, ResultExt};
 
 use crate::agent::Surface;
 use crate::agent::forms::data_surface;
 use crate::data_read::RowsRead;
-use crate::error::{NoChartSnafu, PrepareSnafu};
+use crate::error::{NoChartSnafu, OpSnafu, PrepareSnafu, QueryNoResultSnafu};
 use crate::{Result, Session, SessionError};
 
 /// The surface of the selected element's data.
@@ -63,6 +67,52 @@ pub(crate) fn data_missing(data: &str) -> SessionError {
     PrepareSnafu.into_error(OpError::data_missing(data)).into()
 }
 
+/// The table of the manual data `id`; a query data, whose rows are derived, is refused
+/// (`op-data-derived`).
+pub(crate) fn manual_table<'a>(id: &str, data: &'a Data) -> Result<&'a Table> {
+    data.table().ok_or_else(|| data_derived(id))
+}
+
+/// `op-data-derived`: the rows of query data `data` are not read here.
+fn data_derived(data: &str) -> SessionError {
+    PrepareSnafu.into_error(OpError::data_derived(data)).into()
+}
+
+impl Session {
+    /// Refuses a batch binding a view to a query data with no ready result after it
+    /// (`session-data-query-no-result`), or to columns its result lacks: the batch `ops` is
+    /// applied again over the deck with only the bound query data turned into data entered by
+    /// hand over their results after the batch. Their `set_query` ops are left out of that
+    /// replay (the results already follow them); other query data stay queries, so the batch
+    /// may set them. `next` is the deck after the batch.
+    pub(crate) fn check_query_binds(&self, ops: Vec<Op>, next: &Deck, registry: &WidgetRegistry) -> Result<()> {
+        let bound: Vec<&DataId> = ops
+            .iter()
+            .filter_map(|op| match op {
+                Op::BindData { data, .. } => Some(data),
+                _ => None,
+            })
+            .filter(|data| next.data.get(*data).is_some_and(|d| d.sql().is_some()))
+            .collect();
+        if bound.is_empty() {
+            return Ok(());
+        }
+        let mut after = self.query_results(next);
+        for data in &bound {
+            if !matches!(after.get(*data), Some(Some(_))) {
+                let name = next.data.get(*data).map_or_else(|| data.as_str().to_owned(), |d| d.name.clone());
+                return Err(QueryNoResultSnafu { data: name }.build().into());
+            }
+        }
+        let bound: BTreeSet<DataId> = bound.into_iter().cloned().collect();
+        after.retain(|id, _| bound.contains(id));
+        let ops = ops.into_iter().filter(|op| !matches!(op, Op::SetQuery { data, .. } if bound.contains(data)));
+        let mut over = with_results(self.doc.sources.deck(), &after).into_owned();
+        oku_slides_core::apply_all_moving(&mut over, ops.collect(), registry).context(OpSnafu)?;
+        Ok(())
+    }
+}
+
 /// What a view reads: its data, the columns and the rows.
 struct ViewSpan {
     data: DataId,
@@ -75,7 +125,10 @@ struct ViewSpan {
 #[derive(Debug)]
 pub(crate) struct PaneRead {
     target: DataTarget,
-    read: RowsRead,
+    /// The rows shown; none for a query without a ready result.
+    read: Option<RowsRead>,
+    /// Over a query data: its SQL, state, error and inputs.
+    query: Option<QueryView>,
     /// The pane's localized title.
     title: String,
     /// The deck's chart palette, for a chart's series swatches.
@@ -87,20 +140,21 @@ pub(crate) struct PaneRead {
 }
 
 impl PaneRead {
-    /// The `host-data` surface; `None` if the rows cannot be read. Blocking for a based data:
-    /// call it with no session lock held.
+    /// The `host-data` surface; `None` if the rows cannot be read. Blocking for a based data or
+    /// a query's result: call it with no session lock held.
     pub(crate) fn surface(self) -> Option<Surface> {
-        let dataset = match self.read.run() {
-            Ok(dataset) => dataset,
-            Err(error) => {
+        let dataset = match self.read.map(RowsRead::run) {
+            None => Dataset::default(),
+            Some(Ok(dataset)) => dataset,
+            Some(Err(error)) => {
                 let (slide, element) = (&self.target.slide, &self.target.element);
                 tracing::debug!(%slide, %element, %error, "no data pane for this view");
                 return None;
             }
         };
         let data = match self.target.host {
-            HostType::Table => table_grid(&self.target.value, &dataset, self.data, self.choices),
-            _ => chart_grid(&self.target.value, &dataset, &self.palette, self.data, self.choices),
+            HostType::Table => table_grid(&self.target.value, &dataset, self.data, self.choices, self.query),
+            _ => chart_grid(&self.target.value, &dataset, &self.palette, self.data, self.choices, self.query),
         };
         Some(data_surface(HOST_DATA, self.title, data))
     }
@@ -114,27 +168,56 @@ impl Session {
 
     /// The pane of `element`, to read with no lock held; `None` outside an editable deck, for
     /// a missing element or one without a chart or table, or for a view whose data does not
-    /// resolve.
+    /// resolve. A view over a query data reads its query's result.
     pub(crate) fn data_pane(&self, slide: &str, element: &str) -> Option<PaneRead> {
         if self.ensure_editable().is_err() {
             return None;
         }
         let target = self.data_target(slide, element)?;
-        let read = match self.view_read(&target, Some(0..PANE_ROWS), MAX_TEXT_BYTES) {
-            Ok(read) => read,
-            Err(error) => {
-                // The deck's issues already report a view that does not resolve.
-                tracing::debug!(%slide, %element, %error, "no data pane for this view");
-                return None;
-            }
-        };
         let title = match target.host {
             HostType::Table => "session-data-table",
             _ => "session-data-chart",
         };
-        let (title, palette) = (self.localizer.tr(title), self.appearance.chart_palette.clone());
-        let (data, choices) = binding(self.doc.sources.deck(), &target)?;
-        Some(PaneRead { target, read, title, palette, data, choices })
+        let title = self.localizer.tr(title);
+        let deck = self.doc.sources.deck();
+        // A view naming no data falls to `view_read`, which logs its refusal.
+        let over_query = target.data().ok().and_then(|named| deck.data.get_key_value(named));
+        let over_query = over_query.and_then(|(id, found)| Some((id, found, found.sql()?)));
+        let (read, query) = match over_query {
+            Some((id, found, sql)) => {
+                let (shown, query) = self.query_page(id, found, sql);
+                let read = shown.and_then(|result| self.result_pane(&target, id, result));
+                (read, Some(query))
+            }
+            None => match self.view_read(&target, Some(0..PANE_ROWS), MAX_TEXT_BYTES) {
+                Ok(read) => (Some(read), None),
+                Err(error) => {
+                    // The deck's issues already report a view that does not resolve.
+                    tracing::debug!(%slide, %element, %error, "no data pane for this view");
+                    return None;
+                }
+            },
+        };
+        let palette = self.appearance.chart_palette.clone();
+        let (data, choices) = binding(deck, &target)?;
+        Some(PaneRead { target, read, query, title, palette, data, choices })
+    }
+
+    /// The read of the columns `target` reads of `result`, the ready result of its query data
+    /// `id`, and its first `PANE_ROWS` rows; `None` for a view its result does not resolve,
+    /// such as one reading a column the result lacks, which the deck's issues report.
+    fn result_pane(&self, target: &DataTarget, id: &DataId, result: Arc<Data>) -> Option<RowsRead> {
+        let read = self.result_plan(target).and_then(|plan| {
+            let rows = 0..plan.rows.end.min(PANE_ROWS);
+            Ok((plan_columns(plan)?, rows))
+        });
+        match read {
+            Ok((columns, rows)) => Some(self.result_read(id, result, Some(columns), rows, MAX_TEXT_BYTES)),
+            Err(error) => {
+                tracing::debug!(element = %target.element, %error, "no result grid for this view");
+                None
+            }
+        }
     }
 
     /// The chart (else table) param of `element` on `slide`, if it has one.
@@ -185,7 +268,7 @@ impl Session {
         max_chars: usize,
     ) -> Result<RowsRead> {
         let span = self.view_span(target, rows)?;
-        self.rows_read(&span.stored, span.columns.as_deref(), span.rows, max_chars)
+        self.rows_read(&span.data, &span.stored, span.columns.as_deref(), span.rows, max_chars)
     }
 
     /// The data `target` reads, its columns and `rows` (all the rows it reads if `None`).
@@ -203,6 +286,7 @@ impl Session {
             // `to_dataset` refuses the missing column, with its reason.
             PlanOutcome::MissingColumn(_) => plan.view.columns,
             PlanOutcome::MissingData => return Err(data_missing(data)),
+            PlanOutcome::Derived => return Err(data_derived(data)),
             PlanOutcome::Unreadable => return Err(NoChartSnafu { id: &target.element }.build().into()),
         };
         let rows = rows.map_or(plan.rows.clone(), |r| r.start..r.end.min(plan.rows.end));
@@ -219,21 +303,49 @@ impl Session {
         plan_columns(self.view_plan(target)?)
     }
 
+    /// The column ids `target` reads, a view of a query data reading its ready result.
+    ///
+    /// # Errors
+    ///
+    /// As [`Session::view_columns`]; `QueryNoResult` for a query data without a ready result.
+    pub(crate) fn result_columns(&self, target: &DataTarget) -> Result<Vec<String>> {
+        let plan = self.result_plan(target)?;
+        if plan.outcome == PlanOutcome::Derived {
+            let deck = self.doc.sources.deck();
+            let name = deck.data.get(plan.data.as_str()).map_or_else(|| plan.data.clone(), |d| d.name.clone());
+            return Err(QueryNoResultSnafu { data: name }.build().into());
+        }
+        plan_columns(plan)
+    }
+
     /// The plan of view `target`.
     fn view_plan(&self, target: &DataTarget) -> Result<ViewPlan> {
-        let (plans, _) = plan_views(self.doc.sources.deck(), &self.registry);
-        let plan = plans
-            .into_iter()
-            .find(|p| p.view.slide == target.slide && p.view.element == target.element && p.view.param == target.param);
-        Ok(plan.context(NoChartSnafu { id: &target.element })?)
+        find_plan(self.doc.sources.deck(), &self.registry, target)
     }
+
+    /// The plan of view `target` over the deck with each ready query result in place of its
+    /// query data ([`with_results`]); a query data still pending or failed stays `Derived`.
+    fn result_plan(&self, target: &DataTarget) -> Result<ViewPlan> {
+        let deck = self.doc.sources.deck();
+        find_plan(&with_results(deck, &self.query_results(deck)), &self.registry, target)
+    }
+}
+
+/// The plan of view `target` in `deck`.
+fn find_plan(deck: &Deck, registry: &WidgetRegistry, target: &DataTarget) -> Result<ViewPlan> {
+    let (plans, _) = plan_views(deck, registry);
+    let plan = plans
+        .into_iter()
+        .find(|p| p.view.slide == target.slide && p.view.element == target.element && p.view.param == target.param);
+    Ok(plan.context(NoChartSnafu { id: &target.element })?)
 }
 
 /// The column ids a resolved `plan` reads, as the read of its rows would name them.
 ///
 /// # Errors
 ///
-/// The data's refusal of a missing column; `op-data-missing`; `NoChart` for an unreadable view.
+/// The data's refusal of a missing column; `op-data-missing`; `op-data-derived` for a view of
+/// a query data; `NoChart` for an unreadable view.
 pub(crate) fn plan_columns(plan: ViewPlan) -> Result<Vec<String>> {
     match plan.outcome {
         PlanOutcome::Resolve { .. } | PlanOutcome::OverBudget => Ok(plan.columns),
@@ -241,6 +353,7 @@ pub(crate) fn plan_columns(plan: ViewPlan) -> Result<Vec<String>> {
             Err(PrepareSnafu.into_error(OpError::from(DataError::no_column(&column))).into())
         }
         PlanOutcome::MissingData => Err(data_missing(&plan.data)),
+        PlanOutcome::Derived => Err(data_derived(&plan.data)),
         PlanOutcome::Unreadable => Err(NoChartSnafu { id: plan.view.element }.build().into()),
     }
 }
@@ -356,13 +469,14 @@ fn binding(deck: &Deck, target: &DataTarget) -> Option<(DataRef, Vec<DataChoice>
 }
 
 /// `ChartData` of a chart option showing `dataset`, with the theme's palette and the data it
-/// shows, and can switch to.
+/// shows, and can switch to; `query` over a query data.
 pub(crate) fn chart_grid(
     option: &Value,
     dataset: &Dataset,
     palette: &[String],
     data: DataRef,
     choices: Vec<DataChoice>,
+    query: Option<QueryView>,
 ) -> ComponentKind {
     let source = source(dataset);
     let kind = series(option).first().and_then(kind_of).map(str::to_owned);
@@ -380,14 +494,21 @@ pub(crate) fn chart_grid(
         column_ids: dataset.columns.clone(),
         data,
         choices,
+        query,
         edit: Dynamic::path("/edit"),
         action: data_action(),
     }
 }
 
 /// `TableData` of a table option showing `dataset` and its data; missing flags take their
-/// defaults.
-pub(crate) fn table_grid(option: &Value, dataset: &Dataset, data: DataRef, choices: Vec<DataChoice>) -> ComponentKind {
+/// defaults; `query` over a query data.
+pub(crate) fn table_grid(
+    option: &Value,
+    dataset: &Dataset,
+    data: DataRef,
+    choices: Vec<DataChoice>,
+    query: Option<QueryView>,
+) -> ComponentKind {
     let flag = |key: &str, default: bool| option.get(key).and_then(Value::as_bool).unwrap_or(default);
     let align = option
         .get("align")
@@ -403,6 +524,7 @@ pub(crate) fn table_grid(option: &Value, dataset: &Dataset, data: DataRef, choic
         align: align.unwrap_or_default(),
         data,
         choices,
+        query,
         edit: Dynamic::path("/edit"),
         action: data_action(),
     }
@@ -411,3 +533,7 @@ pub(crate) fn table_grid(option: &Value, dataset: &Dataset, data: DataRef, choic
 #[cfg(test)]
 #[path = "data_panel_tests.rs"]
 mod data_panel_tests;
+
+#[cfg(test)]
+#[path = "data_panel_query_tests.rs"]
+mod data_panel_query_tests;

@@ -1,12 +1,15 @@
 // The selected chart's or table's data, in a `host-data` surface built by the session and shown
 // in the data pane under the stage. Each change goes to the element of the surface shown, never
 // to the current selection; a refusal rereads the surface. Its data name opens the data (`onOpen`).
+// Every pane is reread on each snapshot, not only after a render: a pane over a query shows
+// its state and error, and a failed query does not render its slide again.
 
 import type { Element, Snapshot, TabApi } from "./api";
 import type { DataEdit } from "./chart/dataEdit";
 import { isPanelAction } from "./dataActions";
 import { ownPanel } from "./hostParams";
 import type { HostSettings } from "./useHostSettings";
+import { snapNumber } from "./snapNumber";
 import { useSelectionSurface } from "./useSelectionSurface";
 
 /** Surface des données du graphique ou du tableau sélectionné. */
@@ -41,6 +44,7 @@ export function useDataSettings(
     slide,
     selected,
     off: off || !data,
+    rev: snapNumber(snap),
     fetch: (api, scope) => api.dataPanel(scope.slide, scope.element),
     send: (api, scope, { name, context }) => {
       if (name !== "data") return null;

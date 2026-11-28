@@ -181,7 +181,13 @@ fn apply_inline_chart_stores_it_as_data_with_localized_headers() {
     request(&mut s, add).unwrap();
     // The series become deck data whose headers are in the user's language.
     let headers = |s: &Session| -> Vec<Vec<String>> {
-        s.deck().data.values().map(|d| d.table.columns.iter().map(|c| c.name.clone()).collect()).collect()
+        s.deck()
+            .data
+            .values()
+            .map(|d| {
+                d.table().unwrap_or_else(|| panic!("a manual data")).columns.iter().map(|c| c.name.clone()).collect()
+            })
+            .collect()
     };
     assert_that!(headers(&s)).is_equal_to(vec![vec!["Catégorie".to_owned(), "Série 1".to_owned()]]);
     // Annuler retire le graphique.
@@ -201,7 +207,10 @@ fn headers_of(s: &Session, slide: &str) -> Vec<String> {
         Some(oku_slides_core::ParamValue::Value(v)) => v["data"].as_str().unwrap_or_default().to_owned(),
         _ => String::new(),
     };
-    deck.data.get(data.as_str()).map(|d| d.table.columns.iter().map(|c| c.name.clone()).collect()).unwrap_or_default()
+    deck.data
+        .get(data.as_str())
+        .map(|d| d.table().unwrap_or_else(|| panic!("a manual data")).columns.iter().map(|c| c.name.clone()).collect())
+        .unwrap_or_default()
 }
 
 /// The `ChartData` or `TableData` component of the pane of `g`.
@@ -219,7 +228,7 @@ fn pane(s: &mut Session, slide: &str) -> serde_json::Value {
 fn open_deck_with_inline_chart_lifts_its_data_into_deck_data() {
     let dir = workdir();
     let file = dir.join("deck.json");
-    let deck = serde_json::json!({ "version": 10, "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [{
+    let deck = serde_json::json!({ "version": 11, "slides": [{ "id": "s", "kind": oku_slides_core::kinds::essentiel::CONTENT, "params": { "blocks": [{
         "id": "g", "kind": oku_slides_core::kinds::base::CHART, "params": { "option": {
             "xAxis": { "type": "category", "data": ["a", "b"] },
             "series": [{ "type": "bar", "name": "Ventes", "data": [1, 2] }] } } }] } }] });

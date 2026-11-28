@@ -125,7 +125,11 @@ fn picker_switches_away_from_inline_data_and_back() {
     ok(s.handle(req(json!({ "cmd": "apply", "label": "inline", "ops": [element] }))));
     let (lifted, inline, table) = {
         let (id, data) = s.deck().data.iter().next().unwrap_or_else(|| panic!("the dataset is lifted"));
-        (id.as_str().to_owned(), data.inline, ok(serde_json::to_value(&data.table)))
+        (
+            id.as_str().to_owned(),
+            data.inline,
+            ok(serde_json::to_value(data.table().unwrap_or_else(|| panic!("a manual data")))),
+        )
     };
     // Same columns (ids included), one row of its own.
     let columns = table["columns"].clone();

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::io::Read;
 use std::sync::Arc;
 
-use oku_slides_data::{BaseId, BaseRef, CellKey, Column, ColumnType, Data, DataCell, DataId, DataKind, Rows, Table};
+use oku_slides_data::{BaseId, BaseRef, CellKey, Column, ColumnType, Data, DataCell, DataId, Rows, Source, Table};
 use sha2::{Digest, Sha256};
 use speculoos::prelude::*;
 
@@ -15,7 +15,7 @@ const MAX: SourceLimits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 
 
 /// An in-memory store that checks hashes and bounds as the platform's does.
 #[derive(Default)]
-struct Store(RefCell<BTreeMap<BaseId, Vec<u8>>>);
+pub(crate) struct Store(pub(crate) RefCell<BTreeMap<BaseId, Vec<u8>>>);
 
 impl BaseFiles for Store {
     fn open(&self, id: &BaseId) -> Result<Box<dyn Read + '_>, super::BaseFilesError> {
@@ -37,7 +37,7 @@ impl BaseFiles for Store {
     }
 }
 
-fn id_of(bytes: &[u8]) -> BaseId {
+pub(crate) fn id_of(bytes: &[u8]) -> BaseId {
     BaseId::from_sha256(&Sha256::digest(bytes).into())
 }
 
@@ -60,7 +60,7 @@ fn data() -> Arc<Data> {
             .into_iter()
             .collect(),
     };
-    Arc::new(Data { name: "d".to_owned(), label: None, inline: false, kind: DataKind::Manual, table })
+    Arc::new(Data { name: "d".to_owned(), label: None, inline: false, source: Source::Manual(table) })
 }
 
 /// A bundle whose data `d1` was compacted over the base `bytes`.
@@ -72,7 +72,7 @@ fn based(bytes: &[u8]) -> SourceBundle {
 }
 
 fn compact(b: &mut SourceBundle, bytes: &[u8], epoch: &str) {
-    let from = b.deck().data[&did("d1")].table.clone();
+    let from = b.deck().data[&did("d1")].table().unwrap().clone();
     assert_that!(b.compact_data(&did("d1"), &from, epoch.to_owned(), base(bytes)).unwrap()).is_true();
 }
 

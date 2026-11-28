@@ -2,16 +2,20 @@
 //! ([`ProbedWidgets`]). Le rendu se fait en mémoire, ou par le processus de
 //! rendu quand le pack a des widgets valides : le code d'un pack reçu y est
 //! isolé et borné (délai, mémoire : spec t-327).
+//!
+//! The query results come first ([`results`]): seeded from the file's cache as an app open
+//! seeds them, the others computed blocking in the query worker, so no view draws a pending
+//! placeholder.
 
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{Result, WrapErr, eyre};
 
 use oku_slides_core::{Deck, SourceBundle};
 use oku_slides_i18n::Localize;
 use oku_slides_i18n::Localizer;
 use oku_slides_platform::Platform;
-use oku_slides_render::{Compiled, Diagnostic, Fonts, Layout, RenderError, Renderer};
+use oku_slides_render::{Compiled, Diagnostic, Fonts, Layout, RenderError, Renderer, Results};
 use oku_slides_render_worker::{RemoteCompiled, RenderSlot};
-use oku_slides_session::ProbedWidgets;
+use oku_slides_session::{DeckResults, ProbedWidgets};
 use oku_slides_session::{ThemeLibrary, sources_theme_layer};
 
 /// Calque de thème, par groupe.
@@ -75,18 +79,32 @@ pub(crate) fn render(
     l: &Localizer,
     fonts: Fonts,
     widgets: &ProbedWidgets,
-    bundle: &SourceBundle,
+    (bundle, results): (&SourceBundle, Results),
 ) -> Result<Rendered> {
     let deck = bundle.deck();
     let layer = sources_theme_layer(&ThemeLibrary::user(platform), bundle).map_err(|e| eyre!(e.localize(l)))?;
-    // Only the render process reads data bases: a based deck goes there even without a pack.
-    if !widgets.has_packs() && bundle.bases.is_empty() {
+    // Only the render process reads data bases and query results: such a deck goes there even
+    // without a pack.
+    if !widgets.has_packs() && bundle.bases.is_empty() && results.is_empty() {
         return local(l, fonts, bundle, deck, layer);
     }
     let mut slot = widgets.slot(&fonts, l)?;
     slot.set_theme(Some(&layer))?;
+    slot.set_results(results);
     let compiled = slot.render(deck, &bundle.assets)?;
     Ok(Rendered::Remote { compiled, _slot: slot })
+}
+
+/// The query results of `bundle`'s deck, its file's cache first, the others computed now; the
+/// render worker of `widgets` then knows their bases and the deck's.
+///
+/// A failed query is in [`DeckResults::issues`], for the caller to report.
+pub(crate) fn results(platform: &Platform, bundle: &SourceBundle, widgets: &ProbedWidgets) -> Result<DeckResults> {
+    let store = platform.bases().wrap_err_with(|| platform.localizer.tr("session-bases-unavailable"))?;
+    let (launch, settings) = (&platform.render_launch, &platform.settings.render);
+    let results = DeckResults::compute(bundle.deck(), &bundle.results, launch, settings, &store);
+    widgets.set_known_bases(bundle.bases.iter().cloned().chain(results.bases()).collect());
+    Ok(results)
 }
 
 /// Rendu en mémoire, avec les widgets de base et le calque de thème `layer`.

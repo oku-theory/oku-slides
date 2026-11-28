@@ -130,3 +130,33 @@ fn ops_schema_validates_one_sample_of_each_data_op_including_remove_rename_retyp
         assert_that!(back).is_equal_to(op);
     }
 }
+
+/// A query data and a new query parse, round trip and give their schema's required fields;
+/// `add_data` requires neither `table` nor `sql`, as it takes one of them.
+#[test]
+fn ops_schema_validates_add_data_with_sql_and_set_query() {
+    let schema = ops_schema().unwrap();
+    let samples = [
+        serde_json::json!({ "op": "add_data", "name": "top", "sql": "SELECT * FROM sales" }),
+        serde_json::json!({ "op": "set_query", "data": "d1", "sql": "SELECT Month FROM sales" }),
+    ];
+    for sample in samples {
+        let variant = op_variant(&schema, sample["op"].as_str().unwrap());
+        let required: Vec<&str> = variant
+            .get("required")
+            .and_then(serde_json::Value::as_array)
+            .unwrap()
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .collect();
+        assert_that!(required.iter().all(|f| sample.get(*f).is_some())).is_true();
+        if sample["op"] == "add_data" {
+            assert_that!(required.contains(&"table") || required.contains(&"sql")).is_false();
+        }
+        let op: super::Op = serde_json::from_value(sample.clone()).unwrap();
+        let back: super::Op = serde_json::from_value(serde_json::to_value(&op).unwrap()).unwrap();
+        assert_that!(back).is_equal_to(op);
+    }
+    let properties = &op_variant(&schema, "add_data")["properties"];
+    assert_that!(properties.get("sql").is_some()).is_true();
+}

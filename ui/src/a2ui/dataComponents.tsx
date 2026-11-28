@@ -20,6 +20,14 @@ const Source = z.array(z.array(CellSchema));
 /** Ids of the data's rows (after the header) or columns, which edits name. */
 const Ids = z.array(z.string()).readonly();
 
+/** A query's result state. */
+const DataStateSchema = z.enum(["pending", "ready", "failed"]);
+
+/** A query data's SQL, state, failure and the data it reads. */
+const QueryViewSchema = z
+  .object({ sql: z.string(), state: DataStateSchema, error: z.string().optional(), inputs: DataChoicesSchema })
+  .strict();
+
 /** `ChartData` schema: the host always sends literals, except `edit` (`/edit`). */
 export const ChartDataApi = {
   name: "ChartData",
@@ -35,6 +43,7 @@ export const ChartDataApi = {
       palette: z.array(Hex).readonly(),
       data: DataRefSchema,
       choices: DataChoicesSchema,
+      query: QueryViewSchema.optional(),
       edit: CommonSchemas.DynamicValue,
       action: CommonSchemas.Action,
     })
@@ -55,6 +64,7 @@ export const TableDataApi = {
       align: z.array(z.string()).readonly(),
       data: DataRefSchema,
       choices: DataChoicesSchema,
+      query: QueryViewSchema.optional(),
       edit: CommonSchemas.DynamicValue,
       action: CommonSchemas.Action,
     })
@@ -79,10 +89,11 @@ export const DataListApi = {
               id: z.string(),
               name: z.string(),
               label: z.string().optional(),
-              kind: z.literal("manual"),
+              kind: z.enum(["manual", "query"]),
               columns: Count,
               rows: Count,
               users: z.array(DataUserSchema).readonly(),
+              state: DataStateSchema.optional(),
               error: z.string().optional(),
             })
             .strict(),
@@ -97,7 +108,7 @@ export const DataListApi = {
 
 const ColumnTypeSchema = z.enum(["text", "number", "integer", "bool", "date"]);
 
-/** `DataSheet` schema: a page of one data's rows, every column typed. */
+/** `DataSheet` schema: a page of one data's rows, every column typed; a query's under its SQL. */
 export const DataSheetApi = {
   name: "DataSheet",
   schema: z
@@ -109,6 +120,8 @@ export const DataSheetApi = {
       types: z.array(ColumnTypeSchema).readonly(),
       offset: Count,
       total: Count,
+      query: QueryViewSchema.optional(),
+      error: z.string().optional(),
       edit: CommonSchemas.DynamicValue,
       action: CommonSchemas.Action,
     })
@@ -140,6 +153,7 @@ export const ChartData = createComponentImplementation(ChartDataApi, ({ props })
       palette={props.palette}
       data={props.data}
       choices={props.choices}
+      query={props.query}
       onEdit={(e) => void onEdit(e)}
       onOpen={(data) => void onEdit({ action: "open-data", data })}
     />
@@ -160,6 +174,7 @@ export const TableData = createComponentImplementation(TableDataApi, ({ props })
       align={props.align}
       data={props.data}
       choices={props.choices}
+      query={props.query}
       onEdit={(e) => void onEdit(e)}
       onOpen={(data) => void onEdit({ action: "open-data", data })}
     />
@@ -184,6 +199,8 @@ export const DataSheet = createComponentImplementation(DataSheetApi, ({ props })
       types={props.types}
       offset={props.offset}
       total={props.total}
+      query={props.query}
+      error={props.error}
       onAction={(a) => void send(a)}
     />
   );

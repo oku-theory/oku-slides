@@ -140,7 +140,8 @@ pub(crate) async fn run(
                 // Any command during a turn stops it, once. An instruction or a new
                 // conversation is applied afterwards.
                 if !cancel_sent {
-                    ctx.hub.cancel_asks();
+                    // Its questions too, those still on their way included.
+                    ctx.hub.cut_turn();
                     // Connection over: the turn will fail on its own.
                     if let Err(e) = cx.send_notification(CancelNotification::new(session.clone())) {
                         tracing::debug!(error = %e, "session/cancel not sent");

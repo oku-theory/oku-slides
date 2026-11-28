@@ -70,6 +70,8 @@ pub struct Workspace {
     library: PackLibrary,
     /// The dev server's tab whose page last reported the focus, and whether it still has it.
     page_focus: Option<(String, bool)>,
+    /// Told the tab whose query results landed off the lock (see [`Workspace::on_results`]).
+    results_sink: Option<ResultsSink>,
     /// The folder [`Workspace::new_in`] made for `dir`, removed on drop.
     ///
     /// Last field: dropped after the tabs, whose resume writers finish first.
@@ -141,6 +143,7 @@ impl Workspace {
             discard_at_quit: HashSet::new(),
             library: PackLibrary::user(platform),
             page_focus: None,
+            results_sink: None,
             own_dir: None,
         }
     }
@@ -389,6 +392,9 @@ mod bases;
 #[path = "workspace_compact.rs"]
 mod compact;
 
+#[path = "workspace_derived.rs"]
+mod derived;
+
 #[path = "workspace_data.rs"]
 mod data;
 
@@ -464,6 +470,7 @@ pub use import_pick::ImportPick;
 pub use layout::Rect;
 pub use request::{TabView, WindowView, WorkspaceOutcome, WorkspaceRequest, WorkspaceView};
 
+use derived::ResultsSink;
 use ids::{MAX_NUMBER, is_tab_id, number};
 use layout::{LAYOUT_VERSION, Layout, TabPlace, WindowLayout};
 use session::relock;

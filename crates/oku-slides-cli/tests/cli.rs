@@ -120,8 +120,12 @@ fn with_base(dir: &Path, pdf: &Path, to: &Path) {
     let settings = Settings::defaults().unwrap_or_else(|e| panic!("{e}")).render;
     let worker = DataWorker::new(RenderLaunch::InProcess, &settings, store.clone());
     let base = worker.compact(&data, 1 << 30).unwrap_or_else(|e| panic!("{e}")).unwrap_or_else(|e| panic!("{e}"));
-    assert_that!(bundle.compact_data(&id, &data.table, "e2".to_owned(), base).unwrap_or_else(|e| panic!("{e:?}")))
-        .is_true();
+    assert_that!(
+        bundle
+            .compact_data(&id, data.table().unwrap_or_else(|| panic!("a manual data")), "e2".to_owned(), base)
+            .unwrap_or_else(|e| panic!("{e:?}"))
+    )
+    .is_true();
     let zip = bundle.to_zip_bases(true, Some(&files)).unwrap_or_else(|e| panic!("{e}"));
     std::fs::write(to, oku_slides_pdf::embed_sources(&bytes, &zip).unwrap_or_else(|e| panic!("{e:?}")))
         .unwrap_or_else(|e| panic!("{e}"));

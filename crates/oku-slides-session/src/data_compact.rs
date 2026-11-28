@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use oku_slides_core::replica::Dropped;
 use oku_slides_core::{Deck, Op, OpErrorKind, TransactionError};
 use oku_slides_data::limits::{COMPACT_AT, MAX_BASE_BYTES, MAX_DECK_OVERLAY, MAX_OVERLAY};
-use oku_slides_data::{BaseRef, CellRead, Data, DataCell, DataId, Table, TableOp, new_id};
+use oku_slides_data::{BaseRef, CellRead, Data, DataCell, DataId, NewTable, Table, TableOp, new_id};
 use oku_slides_platform::bases::{BaseStore, BaseStoreErrorKind};
 use oku_slides_render_worker::DataWorker;
 
@@ -66,6 +66,8 @@ pub(crate) struct Job {
     data: DataId,
     key: JobKey,
     snapshot: Arc<Data>,
+    /// The snapshot's table: only a manual data is compacted.
+    table: Table,
     worker: Arc<DataWorker>,
     store: BaseStore,
 }
@@ -93,7 +95,7 @@ impl Job {
 
     /// Writes the new base. Blocking; call it with no session lock held.
     pub(crate) fn run(&self) -> Reply {
-        let extra = self.snapshot.table.base.as_ref().map_or(0, |b| b.bytes);
+        let extra = self.table.base.as_ref().map_or(0, |b| b.bytes);
         if let Err(e) = self.store.check_room(extra) {
             if e.kind() == BaseStoreErrorKind::Full {
                 return Reply::StoreFull;
@@ -172,7 +174,7 @@ impl Growth {
             |cells: &BTreeMap<String, DataCell>| cells.values().filter(|c| !matches!(c, DataCell::Null)).count();
         for op in ops {
             match op {
-                Op::AddData { table, .. } => growth.new += table.cell_count(),
+                Op::AddData { table, .. } => growth.new += table.as_ref().map_or(0, NewTable::cell_count),
                 Op::EditData { data, change } => {
                     let writes = growth.edits.entry(data.clone()).or_default();
                     match change {
@@ -200,12 +202,12 @@ impl Growth {
     /// A data's cap folds a data the batch pushes past it. The deck's folds the largest data
     /// the batch edits, else the deck's largest. Either way, the batch must then fit both caps.
     pub(crate) fn fold_target(&self, deck: &Deck, refusal: Refusal) -> Option<DataId> {
-        let overlay = |id: &DataId| deck.data.get(id).map_or(0, |d| d.table.overlay_len());
-        let writes = |id: &DataId, folded: bool| match (self.edits.get(id), deck.data.get(id)) {
-            (Some(w), Some(d)) => w.on(&d.table, folded),
+        let overlay = |id: &DataId| deck.data.get(id).and_then(|d| d.table()).map_or(0, Table::overlay_len);
+        let writes = |id: &DataId, folded: bool| match (self.edits.get(id), deck.data.get(id).and_then(|d| d.table())) {
+            (Some(w), Some(table)) => w.on(table, folded),
             _ => 0,
         };
-        let total: usize = deck.data.values().map(|d| d.table.overlay_len()).sum();
+        let total: usize = deck.data.values().filter_map(|d| d.table()).map(Table::overlay_len).sum();
         let unfolded: usize = self.new + self.edits.keys().map(|id| writes(id, false)).sum::<usize>();
         let cures = |id: &DataId| {
             let (own, after) = (writes(id, false), writes(id, true));
@@ -319,9 +321,11 @@ impl Session {
             self.deck().data.iter().map(|(id, d)| (id.clone(), Arc::clone(d))).collect();
         data.into_iter()
             .filter(|(id, d)| {
-                let key = self.compaction.key_of(id, &d.table);
+                // A query data has no overlay: its rows are derived, never compacted.
+                let Some(table) = d.table() else { return false };
+                let key = self.compaction.key_of(id, table);
                 is_due(
-                    d.table.overlay_len(),
+                    table.overlay_len(),
                     self.doc.sources.replica().undo_touches_data(id),
                     self.compaction.in_flight.contains(id),
                     self.compaction.backing_off(id, &key, now),
@@ -333,17 +337,18 @@ impl Session {
 
     /// Takes a job for `id` if it is still due at `now` (or unconditionally for a `fold`).
     ///
-    /// `None`: not due, or gone.
+    /// `None`: not due, gone, or a query data.
     pub(crate) fn compaction_job(&mut self, id: &DataId, now: Instant, fold: bool) -> Option<Job> {
         if !fold && !self.compactions_due(now).contains(id) {
             return None;
         }
         let snapshot = Arc::clone(self.deck().data.get(id)?);
+        let table = snapshot.table()?.clone();
         let worker = self.data_link.worker();
-        let key = self.compaction.key_of(id, &snapshot.table);
+        let key = self.compaction.key_of(id, &table);
         self.compaction.in_flight.insert(id.clone());
         let store = self.bases.store().clone();
-        Some(Job { data: id.clone(), key, snapshot, worker, store })
+        Some(Job { data: id.clone(), key, snapshot, table, worker, store })
     }
 
     /// Commits `job`'s `reply` at `now`; `true` if the data now reads from the new base.
@@ -353,7 +358,7 @@ impl Session {
     pub(crate) fn finish_compaction(&mut self, job: Job, reply: Reply, now: Instant) -> bool {
         let id = job.data;
         self.compaction.in_flight.remove(&id);
-        let current = self.deck().data.get(&id).map(|d| d.table.clone());
+        let current = self.deck().data.get(&id).and_then(|d| d.table()).cloned();
         let base = match reply {
             Reply::Written(base) => base,
             Reply::StoreFull => {
@@ -371,7 +376,7 @@ impl Session {
         let committed = match current {
             Some(table) if self.compaction.key_of(&id, &table) == job.key => {
                 let epoch = new_id(&|e| e == table.epoch);
-                match self.doc.sources.compact_data(&id, &job.snapshot.table, epoch, base.clone()) {
+                match self.doc.sources.compact_data(&id, &job.table, epoch, base.clone()) {
                     Ok(done) => done,
                     Err(e) => {
                         tracing::warn!(error = %e, data = ?id, "compaction not committed");

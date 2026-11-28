@@ -8,7 +8,7 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
-use super::{BaseRead, resolve_views};
+use super::{BaseRead, Results, resolve_views, with_results};
 
 /// Base registry, read from its frozen probe (`fixtures/widgets`).
 fn registry() -> WidgetRegistry {
@@ -49,7 +49,7 @@ fn chart(data: &str) -> Value {
 }
 
 fn add_data(id: &str, table: NewTable) -> Op {
-    Op::AddData { id: Some(did(id)), name: id.into(), label: None, table }
+    Op::AddData { id: Some(did(id)), name: id.into(), label: None, table: Some(table), sql: None }
 }
 
 /// A deck holding data `d` and the views `ops` add.
@@ -87,7 +87,12 @@ fn source(v: &Value) -> &Vec<Value> {
 fn resolve_projects_columns() {
     let mut option = chart("d");
     option["columns"] = json!(["c2", "c0"]);
-    let r = resolve_views(&deck(table(2, 3, None), vec![view("g", base::CHART, option)]), &registry(), None);
+    let r = resolve_views(
+        &deck(table(2, 3, None), vec![view("g", base::CHART, option)]),
+        &registry(),
+        None,
+        &Results::new(),
+    );
     let v = resolved(&r, "g");
     assert_that!(v["dataset"]["source"]).is_equal_to(json!([["C2", "C0"], [2.0, 0.0], [12.0, 10.0]]));
     // Ids serve edits only: the drawn dataset carries none.
@@ -104,14 +109,19 @@ fn resolve_two_projections_of_one_data() {
     let mut b = chart("d");
     b["columns"] = json!(["c0", "c2"]);
     let d = deck(table(1, 3, None), vec![view("a", base::CHART, a), view("b", base::CHART, b)]);
-    let r = resolve_views(&d, &registry(), None);
+    let r = resolve_views(&d, &registry(), None, &Results::new());
     assert_that!(resolved(&r, "a")["dataset"]["source"]).is_equal_to(json!([["C0", "C1"], [0.0, 1.0]]));
     assert_that!(resolved(&r, "b")["dataset"]["source"]).is_equal_to(json!([["C0", "C2"], [0.0, 2.0]]));
 }
 
 #[test]
 fn resolve_empties_data() {
-    let r = resolve_views(&deck(table(1, 2, None), vec![view("g", base::CHART, chart("d"))]), &registry(), None);
+    let r = resolve_views(
+        &deck(table(1, 2, None), vec![view("g", base::CHART, chart("d"))]),
+        &registry(),
+        None,
+        &Results::new(),
+    );
     assert_that!(r.data.is_empty()).is_true();
 }
 
@@ -119,7 +129,7 @@ fn resolve_empties_data() {
 fn resolve_leaves_input_deck_unchanged() {
     let d = deck(table(1, 2, None), vec![view("g", base::CHART, chart("d"))]);
     let before = d.clone();
-    let _ = resolve_views(&d, &registry(), None);
+    let _ = resolve_views(&d, &registry(), None, &Results::new());
     assert_that!(d).is_equal_to(before);
 }
 
@@ -127,7 +137,7 @@ fn resolve_leaves_input_deck_unchanged() {
 fn forged_param_with_inline_dataset_is_ignored() {
     let mut d = deck(table(1, 2, None), vec![view("g", base::CHART, chart("d"))]);
     set_value(&mut d, "g", |v| v["dataset"] = json!({ "source": [["X", "Y"], ["forged", 666]] }));
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(v.to_string()).does_not_contain("forged");
     assert_that!(v["dataset"]["source"]).is_equal_to(json!([["C0", "C1"], [0.0, 1.0]]));
 }
@@ -141,7 +151,7 @@ fn param_without_data_keeps_its_inline_dataset() {
         v.as_object_mut().unwrap().remove("data");
         v["dataset"] = inline.clone();
     });
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(v["dataset"]).is_equal_to(inline);
 }
 
@@ -151,7 +161,7 @@ fn param_without_data_keeps_its_inline_dataset() {
 #[case::many_over(150, 99)]
 fn resolve_table_rows_cut(#[case] rows: usize, #[case] shown: usize) {
     let d = deck(table(rows, 2, None), vec![view("t", base::TABLE, json!({ "data": "d" }))]);
-    let v = resolved(&resolve_views(&d, &registry(), None), "t");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "t");
     assert_that!(source(&v).len()).is_equal_to(shown + 1);
 }
 
@@ -160,7 +170,7 @@ fn resolve_table_rows_cut(#[case] rows: usize, #[case] shown: usize) {
 #[case::one_over(21, 20)]
 fn resolve_table_columns_cut(#[case] width: usize, #[case] shown: usize) {
     let d = deck(table(1, width, None), vec![view("t", base::TABLE, json!({ "data": "d" }))]);
-    let v = resolved(&resolve_views(&d, &registry(), None), "t");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "t");
     assert_that!(source(&v)[0].as_array().unwrap().len()).is_equal_to(shown);
 }
 
@@ -171,14 +181,14 @@ fn resolve_cell_over_1000_chars_is_cut(#[case] kind: &str) {
     let long = "é".repeat(1500);
     let option = if kind == base::TABLE { json!({ "data": "d" }) } else { chart("d") };
     let d = deck(table(1, 2, Some(&long)), vec![view("v", kind, option)]);
-    let v = resolved(&resolve_views(&d, &registry(), None), "v");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "v");
     assert_that!(source(&v)[1][0].as_str().unwrap().chars().count()).is_equal_to(1000);
 }
 
 #[test]
 fn resolve_chart_gets_only_used_columns() {
     let d = deck(table(2, 5, None), vec![view("g", base::CHART, chart("d"))]);
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(v["dataset"]["source"][0]).is_equal_to(json!(["C0", "C1"]));
 }
 
@@ -192,14 +202,14 @@ fn series_follow_column_ids_after_edit(#[case] change: TableOp, #[case] series: 
         json!({ "data": "d", "columns": ["c0", "c2"], "xAxis": { "type": "category" }, "series": [{ "type": "bar" }] });
     let mut d = deck(table(2, 4, None), vec![view("g", base::CHART, option)]);
     apply_all(&mut d, vec![Op::EditData { data: did("d"), change }], &registry()).unwrap();
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(v["dataset"]["source"]).is_equal_to(json!([["C0", series], [0.0, 2.0], [10.0, 12.0]]));
 }
 
 #[test]
 fn resolve_chart_never_cut() {
     let d = deck(table(3000, 2, None), vec![view("g", base::CHART, chart("d"))]);
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(source(&v).len()).is_equal_to(3001);
 }
 
@@ -215,7 +225,7 @@ fn resolve_cell_budget(#[case] extra: usize, #[case] second: bool) {
         view("a", base::CHART, chart("d")),
         view("b", base::CHART, chart("e")),
     ];
-    let r = resolve_views(&deck(table(rows, 2, None), ops), &registry(), None);
+    let r = resolve_views(&deck(table(rows, 2, None), ops), &registry(), None, &Results::new());
     assert_that!(resolved(&r, "a").get("dataset").is_some()).is_true();
     assert_that!(resolved(&r, "b").get("dataset").is_some()).is_equal_to(second);
 }
@@ -224,7 +234,7 @@ fn resolve_cell_budget(#[case] extra: usize, #[case] second: bool) {
 fn resolve_missing_data_reports_and_skips() {
     let mut d = deck(table(1, 2, None), vec![view("g", base::CHART, chart("d"))]);
     d.data.clear();
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(v.get("dataset")).is_none();
     let keys: Vec<&str> = validate(&d, &registry(), None).iter().map(|i| i.message.id()).collect();
     assert_that!(keys).contains("issue-data-missing");
@@ -235,8 +245,8 @@ fn resolve_projected_column_removed_by_peer_reports_without_panic() {
     let mut option = chart("d");
     option["columns"] = json!(["c0", "c1"]);
     let mut d = deck(table(1, 2, None), vec![view("g", base::CHART, option)]);
-    Arc::make_mut(d.data.get_mut(&did("d")).unwrap()).table.columns.pop();
-    let v = resolved(&resolve_views(&d, &registry(), None), "g");
+    Arc::make_mut(d.data.get_mut(&did("d")).unwrap()).table_mut().unwrap().columns.pop();
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "g");
     assert_that!(v.get("dataset")).is_none();
 }
 
@@ -245,7 +255,7 @@ fn based_deck() -> Deck {
     let mut d = deck(table(1, 2, None), vec![view("g", base::CHART, chart("d"))]);
     let id = BaseId::try_from(format!("sha256:{}", "a".repeat(64))).unwrap();
     let base_ref = BaseRef { id, bytes: 10, rows: 1, columns: Vec::new() };
-    Arc::make_mut(d.data.get_mut(&did("d")).unwrap()).table.base = Some(base_ref);
+    Arc::make_mut(d.data.get_mut(&did("d")).unwrap()).table_mut().unwrap().base = Some(base_ref);
     d
 }
 
@@ -269,7 +279,7 @@ impl BaseRead for FixedBase {
 
 #[test]
 fn in_process_render_of_based_view_draws_failure_frame() {
-    let v = resolved(&resolve_views(&based_deck(), &registry(), None), "g");
+    let v = resolved(&resolve_views(&based_deck(), &registry(), None, &Results::new()), "g");
     assert_that!(v.get("dataset")).is_none();
 }
 
@@ -277,7 +287,7 @@ fn in_process_render_of_based_view_draws_failure_frame() {
 #[test]
 fn based_view_reads_through_its_base_reader() {
     let bases = FixedBase(std::sync::Mutex::new(Vec::new()));
-    let v = resolved(&resolve_views(&based_deck(), &registry(), Some(&bases)), "g");
+    let v = resolved(&resolve_views(&based_deck(), &registry(), Some(&bases), &Results::new()), "g");
     assert_that!(source(&v)[1]).is_equal_to(json!([7.0, 7.0]));
     assert_that!(*bases.0.lock().unwrap()).is_equal_to(vec![vec!["c0".to_owned(), "c1".to_owned()]]);
 }
@@ -296,7 +306,7 @@ fn base_reader_refusal_draws_failure_frame() {
             Err(oku_slides_data::DataError::base_invalid("forged"))
         }
     }
-    let v = resolved(&resolve_views(&based_deck(), &registry(), Some(&Refusing)), "g");
+    let v = resolved(&resolve_views(&based_deck(), &registry(), Some(&Refusing), &Results::new()), "g");
     assert_that!(v.get("dataset")).is_none();
 }
 
@@ -306,7 +316,7 @@ fn table_positional_fields_index_resolved_columns() {
     let option =
         json!({ "data": "d", "columns": ["c2", "c0"], "align": ["end", "start"], "column-widths": [2.0, 1.0] });
     let d = deck(table(1, 3, None), vec![view("t", base::TABLE, option)]);
-    let v = resolved(&resolve_views(&d, &registry(), None), "t");
+    let v = resolved(&resolve_views(&d, &registry(), None, &Results::new()), "t");
     let parsed = oku_slides_chart::parse_table(&v).unwrap();
     assert_that!(parsed.dataset.unwrap().source[0].len()).is_equal_to(2);
     assert_that!(parsed.align.len()).is_equal_to(2);
@@ -325,7 +335,7 @@ fn plan_and_resolve_agree_on_issues() {
     let mut d = deck(table(120, 2, None), ops);
     set_value(&mut d, "missing", |v| v["data"] = json!("nowhere"));
     set_value(&mut d, "gone", |v| v["columns"] = json!(["c0", "c9"]));
-    let r = resolve_views(&d, &registry(), None);
+    let r = resolve_views(&d, &registry(), None, &Results::new());
     let (plans, issues) = plan_views(&d, &registry());
     for plan in &plans {
         let resolves = matches!(plan.outcome, PlanOutcome::Resolve { .. });
@@ -337,4 +347,52 @@ fn plan_and_resolve_agree_on_issues() {
     }
     let keys: Vec<&str> = issues.iter().map(|i| i.message.id()).collect();
     assert_that!(keys).is_equal_to(vec!["issue-view-truncated", "issue-data-missing", "issue-view-column-missing"]);
+}
+
+/// A deck holding data `d` and query data `q` reading it, with chart `g` on `q`.
+fn query_deck() -> Deck {
+    let mut deck = deck(table(2, 2, None), Vec::new());
+    let add = Op::AddData {
+        id: Some(did("q")),
+        name: "q".into(),
+        label: None,
+        table: None,
+        sql: Some("SELECT * FROM d".into()),
+    };
+    apply_all(&mut deck, vec![add, view("g", base::CHART, chart("q"))], &registry()).unwrap();
+    deck
+}
+
+/// The result of `q`: data `d`'s table with its row ids renumbered, as a ready result reads.
+fn result_table(rows: usize) -> oku_slides_data::Table {
+    let d = query_deck();
+    let mut t = d.data.get(&did("d")).unwrap().table().unwrap().clone();
+    t.rows = oku_slides_data::Rows::repaired((0..rows).map(|i| format!("r{i}")));
+    t
+}
+
+#[test]
+fn query_view_reads_its_ready_result() {
+    let results = Results::from([(did("q"), Some(result_table(2)))]);
+    let v = resolved(&resolve_views(&query_deck(), &registry(), None, &results), "g");
+    assert_that!(source(&v)).has_length(3);
+}
+
+#[rstest]
+#[case::pending(Results::new())]
+#[case::failed(Results::from([(did("q"), None)]))]
+fn query_view_without_result_draws_failure_frame(#[case] results: Results) {
+    let v = resolved(&resolve_views(&query_deck(), &registry(), None, &results), "g");
+    assert_that!(v.get("dataset")).is_none();
+}
+
+#[test]
+fn with_results_leaves_manual_data_and_names() {
+    let d = query_deck();
+    let results = Results::from([(did("q"), Some(result_table(2))), (did("d"), Some(result_table(1)))]);
+    let derived = with_results(&d, &results);
+    assert_that!(derived.data.get(&did("d"))).is_equal_to(d.data.get(&did("d")));
+    let q = derived.data.get(&did("q")).unwrap();
+    assert_that!(q.name.as_str()).is_equal_to("q");
+    assert_that!(q.table().map(|t| t.rows.len())).is_equal_to(Some(2));
 }

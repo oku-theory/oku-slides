@@ -25,7 +25,7 @@ fn zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
     buf.into_inner()
 }
 
-const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":15}"#;
+const MANIFEST: &[u8] = br#"{"format":"oku-slides-sources","version":16}"#;
 /// L'ancien `deck.json` (sources v1) : ignoré depuis les sources v2.
 const DECK_JSON: &[u8] = br#"{"slides":[]}"#;
 
@@ -120,8 +120,8 @@ fn sources_older_version_zip_is_refused(#[case] version: u32) {
 }
 
 #[test]
-fn from_zip_with_sources_version_16_returns_unsupported_version() {
-    let manifest = br#"{"format":"oku-slides-sources","version":16}"#;
+fn from_zip_with_sources_version_17_returns_unsupported_version() {
+    let manifest = br#"{"format":"oku-slides-sources","version":17}"#;
     let err = SourceBundle::from_zip(
         &zip(&[("manifest.json", manifest), ("deck.loro", &deck_loro())]),
         MAX,
@@ -132,13 +132,13 @@ fn from_zip_with_sources_version_16_returns_unsupported_version() {
 }
 
 #[test]
-fn to_zip_writes_sources_version_15() {
+fn to_zip_writes_sources_version_16() {
     let zip = SourceBundle::new(roadmap(), crate::test_registry::shared()).unwrap().to_zip().unwrap();
     let mut za = zip::ZipArchive::new(Cursor::new(zip)).unwrap();
     let mut manifest = String::new();
     std::io::Read::read_to_string(&mut za.by_name("manifest.json").unwrap(), &mut manifest).unwrap();
     let manifest: serde_json::Value = serde_json::from_str(&manifest).unwrap();
-    assert_that!(manifest["version"]).is_equal_to(serde_json::json!(15));
+    assert_that!(manifest["version"]).is_equal_to(serde_json::json!(16));
 }
 
 #[test]
@@ -551,7 +551,7 @@ fn concurrent_cell_edits_of_deck_data_both_survive_the_merge() {
     a.apply(with_op(&base, set_cell("fr", 7.0)), "A", None).unwrap();
     b.apply(with_op(&base, set_cell("de", 9.0)), "B", None).unwrap();
     a.merge(b).unwrap();
-    let table = &a.deck().data["d"].table;
+    let table = a.deck().data["d"].table().unwrap();
     let source = table.to_dataset(None, 0..10, 100).unwrap().source;
     assert_that!(serde_json::to_value(source).unwrap()).is_equal_to(serde_json::json!([
         ["Pays", "Ventes"],

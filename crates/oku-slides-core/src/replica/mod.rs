@@ -86,9 +86,10 @@ const FORMAT: &str = "format";
 /// 6 : `layouts` ; plus de nom ni de description de slide.
 /// 7 : `theme` est un espace de noms, `themes` ses épinglages (t-1095).
 /// 8: the root map `knowledge` (t-1721). 9: deck-level data, `deck.data` (t-1690);
-/// older formats are refused, their inline chart data never read.
+/// 10: query data, `kind` read and a `sql` atom (t-1771). Older formats are refused, their
+/// inline chart data never read.
 /// Changing it requires changing `SOURCES_VERSION`.
-const REPLICA_FORMAT: i64 = 9;
+const REPLICA_FORMAT: i64 = 10;
 
 /// Message prefix of an application's intermediate commit (nodes born
 /// marked, t-776): the state after it is not a version of the deck.
@@ -538,6 +539,7 @@ impl DeckReplica {
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         let root = doc.get_map(ROOT);
         let mark_key = schema::mark_key(doc.peer_id());
+        data::check_kinds(&root, deck)?;
         let writer = write::Writer { registry, split, mark_key: mark_key.clone(), moves, born, now, diff_budget_ms };
         writer.sync_map(&root, &obj, Ctx::Deck)?;
         if knowledge_sync == KnowledgeSync::Changed {

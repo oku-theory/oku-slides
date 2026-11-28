@@ -52,7 +52,7 @@ fn worst_case_session(data: &Path) -> Session {
 fn compact(s: &mut Session, data: &str) -> bool {
     let now = Instant::now();
     let undo_touches = s.doc.sources.replica().undo_touches_data(&id(data));
-    let overlay = s.deck().data[&id(data)].table.overlay_len();
+    let overlay = s.deck().data[&id(data)].table().unwrap().overlay_len();
     assert_that!(s.compactions_due(now))
         .named(&format!("due (undo touches {undo_touches}, overlay {overlay})"))
         .contains(id(data));
@@ -71,8 +71,8 @@ fn worst_case_deck_snapshot_and_frame_fit() {
     let dir = fresh_dir("oku-slides-compact-worst-");
     let mut s = worst_case_session(dir.path());
     let deck = s.deck();
-    let rows: usize = deck.data.values().map(|d| d.table.rows.len()).sum();
-    let overlay: usize = deck.data.values().map(|d| d.table.overlay_len()).sum();
+    let rows: usize = deck.data.values().map(|d| d.table().unwrap().rows.len()).sum();
+    let overlay: usize = deck.data.values().map(|d| d.table().unwrap().overlay_len()).sum();
     assert_that!((deck.data.len(), rows, overlay)).is_equal_to((MAX_DATA, MAX_DECK_ROW_IDS, MAX_DECK_OVERLAY));
     let mut compacted = 0;
     for round in 0..10 {

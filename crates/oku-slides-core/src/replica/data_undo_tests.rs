@@ -8,7 +8,7 @@ fn two() -> Deck {
 }
 
 fn cell_edit(deck: &Deck, id: &str) -> Deck {
-    edited(deck, id, |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(7.0)))
+    edited(deck, id, |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(7.0)))
 }
 
 #[test]

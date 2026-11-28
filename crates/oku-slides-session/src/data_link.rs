@@ -1,4 +1,5 @@
-//! The session's data worker, launched at the first read of a data with a base.
+//! The session's data workers: one for reads, launched at the first read of a data with a base,
+//! one for queries, launched at the first query job.
 
 use std::sync::{Arc, OnceLock};
 
@@ -13,6 +14,8 @@ pub(crate) struct DataLink {
     settings: RenderSettings,
     store: BaseStore,
     worker: OnceLock<Arc<DataWorker>>,
+    /// The worker running the queries, with their own bounds: a query does not wait for a read.
+    query: OnceLock<Arc<DataWorker>>,
     /// Times the worker was handed out, for tests proving a path reads no base.
     #[cfg(test)]
     handed: std::sync::atomic::AtomicUsize,
@@ -26,6 +29,7 @@ impl DataLink {
             settings,
             store,
             worker: OnceLock::new(),
+            query: OnceLock::new(),
             #[cfg(test)]
             handed: std::sync::atomic::AtomicUsize::new(0),
         }
@@ -38,6 +42,14 @@ impl DataLink {
         let worker = self
             .worker
             .get_or_init(|| Arc::new(DataWorker::new(self.launch.clone(), &self.settings, self.store.clone())));
+        Arc::clone(worker)
+    }
+
+    /// The query worker, created at the first call; a query job calls it with no session lock held.
+    pub(crate) fn query(&self) -> Arc<DataWorker> {
+        let worker = self
+            .query
+            .get_or_init(|| Arc::new(DataWorker::query(self.launch.clone(), &self.settings, self.store.clone())));
         Arc::clone(worker)
     }
 

@@ -271,20 +271,22 @@ Refused: any table function or file path (`read_csv`, `'x.parquet'`), `ATTACH`, 
 `ASOF` / `POSITIONAL` joins, `SAMPLE`, `SUMMARIZE` / `DESCRIBE`, FROM-first statements, lists,
 structs, lambdas, dot-call chaining. Anything `sqlparser` reads but the whitelist does not name
 is refused with a Fluent message naming the construct. The function whitelist is explicit.
+Phase 2 accepts only the subset fixed by the spike (see "Phase 2 spike"); the rest of this list is
+deferred.
 
 ### Execution
 
-- **polars** (features `lazy`, `parquet`, `sql`; user decision after the spike: +31 MB of
-  binary and about 6 min of cold build, accepted) reads the bases, applies the overlay, runs the
-  queries and writes the compacted bases.
+- **polars** (features `dtype-date`, `dtype-datetime`, `parquet`, `lazy`, `sql`: the chosen
+  engine; its measured cost in "Phase 2 spike" awaits the user's re-confirmation) reads the
+  bases, applies the overlay, runs the queries and writes the compacted bases.
 - A new crate **`oku-slides-data`**: data types, SQL validation, AST rewrites, and (behind an
   `engine` feature) the polars code. Core depends on it without the engine feature, so
   `apply_all` validates ops and queries without polars; only the render worker enables it (the
   session reaches it through the worker link), so Parquet is never parsed in the host.
-- Rewrites before polars: `AT (VERSION => …)` → a registered frame read at the tag; whatever
-  of the list `polars-sql` does not run natively (`PIVOT`, `UNPIVOT`, `QUALIFY`, `COLUMNS`… to be
-  measured by the spike) → AST rewrite or a direct polars call (`DataFrame::pivot`,
-  `unpivot`).
+- Rewrites before polars: `AT (VERSION => …)` → a registered frame read at the tag (phase 3);
+  the phase 2 rewrites listed in "Phase 2 spike", all plain SQL (no direct polars call, so the
+  engine request is SQL text only). Rewrites marked (s) need input schemas or expression types
+  and run where those are known.
 - Queries run in the **bounded, sandboxed worker** (same mechanism as the render worker: time,
   memory, no file, no network), as a new request kind on a **separate worker link** so a slow
   query never blocks slide rendering. It is the same app binary (`exit_if_worker` already
@@ -340,8 +342,10 @@ is refused with a Fluent message naming the construct. The function whitelist is
    (pessimistic data), a 3-column projection reads in 2.5 ms in 40 MB, and with a 10,000-edit
    overlay in 11.5 ms; pure Loro would need about 40 GB of memory. Concurrent compaction by any
    copy converges only with a peer acknowledgement before cleanup, hence host-only compaction.
-   Still to measure in phase 2: `polars-sql` coverage of the whitelist and `sqlparser` support
-   for `AT (VERSION => …)` in the DuckDB dialect.
+   Phase 2 spike, done (t-1770, "Phase 2 spike" below): `polars-sql` runs the core of the
+   whitelist; silent differences from DuckDB (NULL sums, integer division, NULL ordering, rounding,
+   window frames) get AST rewrites or are deferred. sqlparser 0.60 `DuckDbDialect` does **not**
+   parse `AT (VERSION => …)`, which phase 3 must solve first.
 1. Data entity, table and chart views (manual data only).
 1b. Pack-widget `list` params as views. Its own plan: list columns may be `rich` (markdown
    cells, Typst needs paragraphs back) and lists nest one level, which a scalar data cannot hold;
@@ -351,11 +355,175 @@ is refused with a Fluent message naming the construct. The function whitelist is
 4. Linked sources (separate design): source spec, declared key column, refresh as a diff by key
    written to Loro (so tags capture it), network outside the worker.
 
+## Phase 2 spike
+
+Measured on 2026-11-26 (t-1770): every query ran in DuckDB 2.0.1 (the oracle) and in polars-sql
+0.53 (features `lazy`, `sql`) on the same four frames, results compared row by row (floats to 10
+significant digits). sqlparser 0.60 `DuckDbDialect` parses the text; polars runs its `Display`.
+Spike code and raw results: `.superpowers/sdd/2026-11-26-data-entities-phase2/` (not committed).
+
+Verdicts: **native** (same rows and names as DuckDB), **rewrite** (an AST rewrite before polars
+gives the same rows; tested), **deferred** (refused in phase 2 with `data-query-construct`).
+(s) marks a rewrite that needs the input schemas or expression types.
+
+| Construct | Parses | Verdict | Rewrite or reason |
+|---|---|---|---|
+| SELECT, WHERE, DISTINCT, DISTINCT ON, LIMIT/OFFSET, FETCH FIRST, GROUP BY, HAVING, CASE, IN list, BETWEEN, [I]LIKE, IS [NOT] DISTINCT FROM, VALUES, `\|\|` | yes | native | |
+| `SUM` (aggregate and window) | yes | rewrite | `CASE WHEN COUNT(x) = 0 THEN NULL ELSE SUM(x) END` (polars sums no value to 0) |
+| `a / b` | yes | rewrite | `CAST(a AS DOUBLE) / b` (polars divides integers) |
+| `a % b`, `mod(a, b)`, both operands integer | yes | rewrite (s) | `CASE WHEN a % b <> 0 AND (a < 0) <> (b < 0) THEN a % b - b ELSE a % b END` (polars floors, DuckDB truncates); integer-exact, no DOUBLE detour |
+| `a % b`, `mod(a, b)`, either operand a float type | yes | deferred (s) | silent wrong results (below); refused from the input schemas |
+| `a // b`, both operands integer | yes | rewrite (s) | `CASE WHEN a % b <> 0 AND (a < 0) <> (b < 0) THEN a // b + 1 ELSE a // b END`; integer-exact |
+| `a // b`, either operand a float type | yes | deferred (s) | DuckDB 2.0.1 divides without flooring (`5.3 // 0.1` = 52.99999999999999), polars floors (52), and the CASE test uses polars' inexact float `%`; refused from the input schemas |
+| `round(x)` (n = 0) | yes | rewrite (s) | float `x`: `CASE WHEN abs(x) - floor(abs(x)) = 0.5 THEN sign(x) * (floor(abs(x)) + 1) ELSE round(x, 0) END` (polars rounds half to even); integer `x` native |
+| `round(x, n)`, n a literal > 0 | yes | native for integer `x`; deferred (s) for float `x` | integer `x` native; float `x` refused: no tested form matches DuckDB on binary edge values (below) |
+| `CAST(x AS <integer type>)` written by the user | yes | rewrite (s) | float `x`: `CAST(round(x) AS …)` with polars' half-even `round` (polars truncates, DuckDB rounds half to even) |
+| `ORDER BY` | yes | rewrite | explicit `NULLS LAST` on every key without one (polars puts NULLs first in DESC) |
+| SELECT without FROM | yes | rewrite | add `FROM (VALUES (1)) AS __one(__x)` (polars returned 0 rows for some multi-column ones) |
+| `1e3` literals | yes | rewrite | plain decimal literal (polars refuses the exponent) |
+| `IN (… NULL …)`, `NOT IN (subquery)` | yes | deferred | polars is two-valued here: different rows, silently |
+| IN / NOT IN list without NULL, IN (subquery) | yes | native | |
+| Uncorrelated scalar subquery whose SELECT is one ungrouped aggregate, in WHERE, the SELECT list or HAVING | yes | rewrite | the k-th one becomes `CROSS JOIN (SELECT agg AS __vk …) AS __sk` (`__s1` / `__v1`, `__s2` / `__v2`, …) and is read as `__sk.__vk`; in HAVING as `MAX(__sk.__vk)` (polars refuses all three forms natively) |
+| Any other scalar subquery (grouped, non-aggregate, correlated) | yes | deferred | may return zero or several rows, which a CROSS JOIN would turn into dropped or repeated rows |
+| EXISTS, correlated subqueries | yes | deferred | polars refuses them |
+| Derived tables, `WITH` (chained, column lists) | yes | native | a derived table needs an alias (polars) |
+| `WITH RECURSIVE` | yes | refused | |
+| INNER, LEFT, RIGHT, FULL, CROSS, NATURAL joins ON equalities; USING for INNER and LEFT | yes | native | |
+| FULL / RIGHT JOIN USING | yes | rewrite | `ON` plus `COALESCE(l.k, r.k) AS k` (polars leaves the key NULL) |
+| Comma join | yes | rewrite | `CROSS JOIN` |
+| INNER join ON with a non-equality term | yes | rewrite | move the term to `WHERE` |
+| Outer join on a non-equality condition | yes | deferred | polars refuses |
+| SEMI / ANTI join | yes | deferred | polars refuses; native with the `semi_anti_join` feature |
+| ASOF join | no (without MATCH_CONDITION) | deferred | DuckDB's `ASOF JOIN … ON a >= b` form does not parse |
+| POSITIONAL join | yes | refused | polars refuses; out of scope (Language) |
+| `*` over a join | yes | rewrite (s) | expand to columns, DuckDB names (`product_1`; a USING key once) — polars names it `product:p` |
+| UNION [ALL], set op + ORDER BY / LIMIT | yes | native | |
+| EXCEPT, INTERSECT | yes | deferred | native with polars `semi_anti_join` (not enabled); EXCEPT ALL refused even then |
+| UNION [ALL] BY NAME | yes | deferred | native with polars `diagonal_concat` (not enabled) |
+| ROW_NUMBER, LAG/LEAD (1–2 args), FIRST_VALUE, aggregates OVER (PARTITION BY) | yes | native | |
+| Window `ORDER BY` on a nullable key | yes | rewrite | derived table adds `k IS NULL AS __nK` (DESC: `IS NOT NULL`), order by it first (polars ignores NULLS FIRST/LAST in OVER) |
+| Window `ORDER BY` with mixed directions | yes | deferred | polars refuses |
+| Running SUM / COUNT / AVG with `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` | yes | rewrite | SUM rule with `SUM(COALESCE(x, 0))`; AVG = running SUM / `NULLIF(running COUNT, 0)` |
+| Aggregate OVER (ORDER BY) without that frame (RANGE) | yes | deferred | polars treats ties as ROWS: different rows, silently |
+| Running MIN / MAX, LAST_VALUE, other frames, LAG with default, RANK, DENSE_RANK, NTILE, PERCENT_RANK, CUME_DIST | yes | deferred | wrong rows on NULLs, or refused; RANK / DENSE_RANK run with polars `rank` (not enabled) but need the NULL-ordering rewrite; `ROWS n PRECEDING` stays refused with `dynamic_group_by` |
+| Named `WINDOW` | yes | native | SUM rule applies |
+| `GROUP BY ALL`, `ORDER BY ALL`, GROUP BY position / alias | yes | native | |
+| GROUP BY an expression repeated from the select list | yes | rewrite | group by its select-list position (polars fails on `EXTRACT`; the position, unlike the spike's alias, cannot be shadowed by a source column) |
+| Select alias in WHERE | yes | rewrite (s) | substitute the expression unless an input column has that name |
+| Select alias in GROUP BY / HAVING / ORDER BY | yes | native | |
+| `* EXCLUDE`, `* REPLACE`, `COLUMNS('re')` in the select list | yes | native | |
+| `* RENAME`, `COLUMNS(* …)`, `COLUMNS` inside a function or WHERE | no / yes | deferred | does not parse, or polars refuses |
+| QUALIFY | yes | rewrite | derived table with the window as `__qN`, filter outside (polars needs every referenced column selected) |
+| `min_by` / `max_by` | yes | deferred | rewrite via ROW_NUMBER works only as the sole aggregate |
+| Aggregate `FILTER (WHERE c)` | yes | rewrite | `agg(CASE WHEN c THEN x END)`; `COUNT(*)` → `COUNT(CASE WHEN c THEN 1 END)` |
+| `PIVOT (agg(x) [AS a] FOR col IN (v [AS n], …))`, one aggregate, literal list | yes | rewrite (s) | `GROUP BY` the other source columns, one `agg(CASE WHEN col = v THEN x END) AS v` (or `n_a`) per value |
+| `UNPIVOT [INCLUDE NULLS] (v FOR n IN (c, …))` | yes | rewrite (s) | `UNION ALL` of one SELECT per column, `WHERE c IS NOT NULL` unless INCLUDE NULLS |
+| DuckDB `PIVOT t ON … USING …`, `UNPIVOT t ON … INTO …`, `IN (ANY)`, several aggregates | no / yes | deferred | DuckDB forms do not parse in sqlparser 0.60; dynamic columns |
+| `AT (VERSION => …)`, `AT (TIMESTAMP => …)` | **no** | phase 3 | "Expected: ), found: =>": phase 3 needs a parser change or a pre-parse rewrite |
+| Unquoted identifiers in another case | yes | not rewritten | polars is case-sensitive: the query fails (`not found`), never wrong rows |
+
+Rewrite notes:
+
+- One pass: every rule matches only nodes the user wrote, and rewriter output is never rewritten
+  again. So the casts the rewriter emits (`/`, SUM, `d1 - d2` and `date_diff('day', …)`'s
+  `CAST(d AS INTEGER)`) escape the CAST rule, and the `round(x, 0)` the CAST rule emits stays
+  polars' half-even round: `CAST(2.5 AS INTEGER)` gives 2, as in DuckDB, whereas feeding it to the
+  `round` rule would give 3. The `%` and `//` forms emit no cast and
+  stay exact on BIGINT above 2^53, where a DOUBLE detour (`CAST(CAST(a AS DOUBLE) / b AS
+  BIGINT)`) gave wrong digits. They repeat their operands, which is safe because every whitelisted
+  function is deterministic.
+- `%` and `//` by zero: DuckDB 2.0.1 fails the query ("Division by zero"); polars, and so the
+  rewrite, return NULL. Phase 2 accepts NULL (DuckDB's `error_on_division_by_zero=false` result).
+- Float `%` is deferred: polars computes the remainder as `a - b * floor(a / b)`, DuckDB uses
+  `fmod`, and the error grows with `|a / b|` (4e-16 on `5.3 % 0.1`, but 0.875 against 0.825 on
+  `1000000000000000.8 % 0.9`), a silent wrong result. Float `//` is deferred too: DuckDB 2.0.1
+  returns the unfloored quotient on doubles while polars floors, and the `//` form tests the
+  inexact float `%`. The whitelist and Task 3 refuse `%`, `mod` and `//` when either operand has
+  a float type, known from the input schemas in the worker.
+- `round` on floats: DuckDB rounds the binary value half away from zero. The n = 0 form matches
+  DuckDB on ties (±0.5, 2.5), on 0.49999999999999994 (0, where `floor(x + 0.5)` gives 1), on
+  2^52 + 1, on NaN, ±inf (returned unchanged by both) and NULL. For n > 0, every form tried
+  (`sign(x) * floor(abs(x) * 10^n + 0.5) / 10^n`, then a tie test on `x * 10^n`) differs on
+  binary edge values: DuckDB gives `round(2.675, 2)` = 2.67 and `round(1.45, 1)` = 1.4, both forms
+  give 2.68 and 1.5 (`1.005` and `0.285` happen to match). Float `round(x, n > 0)` is therefore
+  deferred; Task 5 fuzzes the n = 0 form against the DuckDB oracle (ties, values next to ties,
+  large magnitudes, NaN, ±inf) and may enable n > 0 only with a form that passes the same fuzz.
+
+**Cost** (macOS arm64, release profile, load average 45 to 80 from other sessions, so times are
+indicative only):
+
+| Measure | Before | With `lazy` + `sql` (+ `dtype-datetime`) |
+|---|---|---|
+| Probe binary, stripped: reads and writes one Parquet; "after" adds one `SQLContext::execute` call | 20.7 MB | 71.1 MB (+50.4 MB) |
+| Same probe, unstripped | 29.3 MB | 102.3 MB (+73.0 MB) |
+| Probe cold build, no sccache: wall / CPU | 77 s / 600 s | 164 s / 1,365 s |
+| `oku-slides-app` release binary, features on but no SQL call site, unstripped / stripped | 222.1 / 169.7 MB | 227.1 / 172.9 MB (+5.0 / +3.2 MB) |
+| `oku-slides-app` rebuild after the feature switch (sccache on, 134 crates) | n/a: no like-for-like figure | 8 min 29 s wall, 227 s CPU |
+
+The probe rows are a probe figure (one standalone binary with one SQL call), not the app delta.
+The app itself was only measured with the features on and no caller, where the linker drops the
+SQL engine: +3 to 5 MB. Task 5 re-measures the app release binary once `run_query` exists, and
+that figure, not the probe's, is the app cost. There is no like-for-like app cold build figure:
+the one cold release build of the app took 97 min under that load and is not usable, and the
+8 min 29 s rebuild has no "before" run to compare with. The earlier "+31 MB, about 6 min" is
+superseded.
+
+Build findings: polars-io fails to compile with `lazy` + `sql` + `dtype-date` alone (the `csv`
+writer needs `chrono`), so `dtype-datetime` is required; it enables polars' own `chrono`, not a
+direct dependency. `lazy` pulls polars-stream, which always enables `cloud`: `object_store`
+0.13.2 enters the app (reqwest 0.12.28 is already there through rust-mcp-sdk). The worker
+sandbox (no network) still holds.
+
+Not enabled, measured with them on: `semi_anti_join`, `diagonal_concat`, `rank` would make
+EXCEPT, INTERSECT, SEMI / ANTI joins, UNION BY NAME and RANK native; adding them is a later call.
+
+Refused probes `DuckDbDialect` parses (the whitelist must refuse them): `read_csv(…)`,
+`'x.parquet'`, FROM-first, POSITIONAL, lists, structs, lambdas, dot calls, DESCRIBE, ATTACH,
+`WITH RECURSIVE`. `USING SAMPLE` and `SUMMARIZE` do not parse.
+
+**Functions** (`whitelist.rs`), native unless a rewrite is given:
+
+- Text: `upper`, `lower`, `length`, `char_length`, `substr` / `substring` (also `FROM … FOR …`;
+  start an integer literal, a negative one without length → `right(s, -start)`), `left`,
+  `right`, `replace` (pattern a non-empty literal), `trim`, `ltrim`, `rtrim`, `concat`,
+  `concat_ws`, `starts_with`, `ends_with`, `strpos`, `position`, `reverse`, `split_part`;
+  rewrites `contains` → `strpos(…) > 0`, `lcase`/`ucase` → `lower`/`upper`, `prefix`/`suffix`
+  → `starts_with`/`ends_with`, `regexp_matches` → polars `regexp_like`.
+- Numbers: `abs`, `round` (rewrite above; float with n > 0 deferred), `floor`, `ceil`,
+  `ceiling`, `sqrt`, `power`, `pow`, `exp`, `ln`, `log10`, `log2`, `sign`, `greatest`, `least`,
+  `mod` (integer operands, rewrite above), `pi`, `cbrt`, `degrees`, `radians`, `sin`, `cos`;
+  `log(x)` → `log10(x)`.
+- Conditions and casts: `coalesce`, `nullif`, `ifnull`, `if`, `CASE`, `CAST` / `::` / `TRY_CAST`
+  to DOUBLE, REAL, BIGINT, INTEGER (rewrite above), VARCHAR, TEXT, BOOLEAN, DATE.
+- Dates: `EXTRACT` / `date_part` of year, month, day, quarter, week, dow, isodow, doy, isoyear;
+  `strftime`, `strptime` (cast to DATE), DATE literals, `date('…')`, date comparisons.
+  Rewrites: `year`/`month`/`day`/`quarter`/`week`/`dayofweek`/`dayofmonth`/`dayofyear`/
+  `isodow`/`isoyear`/`datepart` → `EXTRACT`; `dayname`/`monthname` → `strftime('%A'/'%B')`;
+  `date_trunc('year'|'month', d)` → `date(strftime(d, '%Y-01-01'|'%Y-%m-01'))`;
+  `INTERVAL n UNIT` → `INTERVAL 'n units'` (unit plural unless n is 1, as polars
+  needs); `date_add(d, i)` → `d + i`; `d + n` → `d + INTERVAL 'n days'`; `d1 - d2`
+  and `date_diff('day', …)` → `CAST(d1 AS INTEGER) - CAST(d2 AS INTEGER)`;
+  `date_diff('month'|'year', …)` → `EXTRACT` arithmetic; `last_day`, `make_date` via `strftime`
+  / `date`. Date + interval and `date_trunc` give a DATE where DuckDB gives a TIMESTAMP at
+  midnight (same value; the oracle casts DuckDB's to DATE, phase 2 has no timestamp type).
+- Aggregates: `count(*)`, `count`, `count(DISTINCT)`, `sum` (rule above), `avg`, `min`, `max`,
+  `median`, `stddev`, `stddev_samp`, `variance`, `var_samp`, `quantile_cont`, `quantile_disc`,
+  `covar_samp`, `covar_pop`; `mean` → `avg`. `covar_pop` matched DuckDB natively, whereas
+  polars-sql 0.53 refuses `stddev_pop` and `var_pop` ("unsupported function"), hence deferred.
+- Deferred functions: `corr` (NaN where DuckDB gives NULL), `count_if`, `string_agg` /
+  `listagg` / `group_concat`, `bool_and` / `bool_or`, `first` / `last` / `any_value` /
+  `arbitrary`, `sum` / `avg (DISTINCT)`, `product`, `mode`, `approx_count_distinct`, `bit_*`,
+  `geomean`, `kurtosis`, `skewness`, `percentile_cont`, `stddev_pop`, `var_pop`, `lpad`, `rpad`,
+  `repeat`, `regexp_replace`, `SIMILAR TO`, `strlen`, `ascii`, `trunc`, `even`, `isnan`,
+  negative `round` digits, float `%` / `mod` / `//`, DECIMAL, `date_trunc('week'|'quarter')`,
+  `epoch`, `yearweek`, `current_date`.
+
 ## Testing
 
 - Unit tests per the crate rules; regression tests in `tests/regressions`.
 - **DuckDB as oracle**: `duckdb` (bundled) as a test-only dependency of `oku-slides-data`; the
-  same queries on the same data must give the same results. It never ships in the app.
+  same queries on the same data must give the same results. It never ships in the app. Floats
+  compare to 10 significant digits.
 - Localized errors tested on keys plus a non-English locale.
 
 ## Plan calls (phase 1 plan, 2026-11-21)
@@ -411,6 +579,22 @@ Choices the phase 1 plan made within this design:
   bytes are budgeted; text is cut to 1,000 chars.
 - The agent's destructive data ops apply without confirmation (D1); one agent turn is one undo
   group.
+
+## Plan calls (phase 2 plan, 2026-11-26)
+
+Choices the phase 2 plan made within this design:
+
+- Queries run through polars lazy plus its SQL context in the render worker; sqlparser parses
+  and whitelists in the host, which never executes. Polars and sqlparser are pinned.
+- Inputs are Parquet bases (overlay folded) and a query result is stored as a base and cached in
+  the deck under `data/<key>.json`; a failed query leaves the data in error state with no last
+  good result.
+- DuckDB is a test-only oracle behind the `oracle` feature of the data crate; `just test-oracle`
+  compares polars results to it and runs in `just ci`.
+- A cross-deck paste of a view over derived data copies the data as manual data.
+- The element panel shows a view over a query read-only with its view controls; Kind and ShowAs
+  stay disabled (visible): the session refuses those conversions over a query, because converting
+  copies the query's rows.
 
 ## Left to the builder
 

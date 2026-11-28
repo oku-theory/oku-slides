@@ -130,7 +130,7 @@ fn base() -> &'static WidgetRegistry {
 
 /// The data `d` that table `t` shows.
 fn table_of(deck: &Deck) -> Option<&Table> {
-    deck.data.get("d").map(|d| &d.table)
+    deck.data.get("d").and_then(|d| d.table())
 }
 
 /// The id of data `d`.

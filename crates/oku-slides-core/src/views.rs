@@ -55,6 +55,9 @@ pub enum PlanOutcome {
     },
     /// The view names a data the deck does not have.
     MissingData,
+    /// The view names a query data, whose rows the session computes: it plans the view on
+    /// the query's result.
+    Derived,
     /// The view reads a column its data does not have.
     MissingColumn(String),
     /// The view's option cannot be read: a column that is not an id, or a chart option that
@@ -123,8 +126,11 @@ impl Planner<'_> {
         projection: Option<Vec<String>>,
     ) -> ViewPlan {
         let mut plan = empty_plan(view, data, host);
-        let Some(table) = self.deck.data.get(data).map(|d| &d.table) else {
+        let Some(table) = self.deck.data.get(data).map(|d| d.table()) else {
             return plan;
+        };
+        let Some(table) = table else {
+            return ViewPlan { outcome: PlanOutcome::Derived, ..plan };
         };
         let mut columns = match projection {
             Some(columns) => columns,
@@ -176,10 +182,11 @@ impl Planner<'_> {
     fn issue(&mut self, plan: &ViewPlan) {
         let element = plan.view.element.as_str();
         let messages = match &plan.outcome {
-            PlanOutcome::Resolve { cut: false } => return,
+            // The session plans a derived view; a broken query has its own data issue.
+            PlanOutcome::Resolve { cut: false } | PlanOutcome::Derived => return,
             // A cut plan was made from this deck's data, which is still there.
             PlanOutcome::Resolve { cut: true } => {
-                let Some(table) = self.deck.data.get(plan.data.as_str()).map(|d| &d.table) else { return };
+                let Some(table) = self.deck.data.get(plan.data.as_str()).and_then(|d| d.table()) else { return };
                 let truncated = |what: &str, shown: usize, total: usize| {
                     (shown < total).then(|| {
                         Message::new("issue-view-truncated")

@@ -50,7 +50,8 @@ fn issue_1690_deck_overlay_refusal_no_fold_can_cure_keeps_undo() {
     let e = reply.err().unwrap_or_else(|| panic!("the edit passed the deck's overlay cap"));
     let kind = e.transaction().map(|t| t.op_error().kind());
     assert_that!(kind).is_equal_to(Some(OpErrorKind::DataDeckFull));
-    let (based, can_undo) = on(&ws, &tab, |s| (s.deck().data.values().any(|d| d.table.base.is_some()), s.can_undo()));
+    let (based, can_undo) =
+        on(&ws, &tab, |s| (s.deck().data.values().any(|d| d.table().is_some_and(|t| t.base.is_some())), s.can_undo()));
     assert_that!(based).is_false();
     assert_that!(can_undo).is_true();
 }

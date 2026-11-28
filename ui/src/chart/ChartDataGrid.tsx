@@ -110,7 +110,7 @@ export function ChartDataGrid({
                   label
                   lang={lang}
                   ariaLabel={t("ui-chart-column-name", { col: col + 1 })}
-                  onCommit={(value) => onOp({ op: "rename_column", column: columnIds[col], name: display(value, lang) })}
+                  onCommit={(value) => onOp({ op: "rename_column", column: columnIds[col], name: displayCell(value, lang) })}
                 />
                 {onType && columnTypes?.[col] && (
                   <select
@@ -233,10 +233,10 @@ type CellInputProps = {
 };
 
 function CellInput({ value, label, lang, ariaLabel, onCommit, onPasteGrid, testId }: CellInputProps) {
-  const shown = display(value, lang);
+  const shown = displayCell(value, lang);
   const commit = (raw: string) => {
     const next = label ? raw : parseNumber(raw, lang);
-    if (display(next, lang) !== shown) onCommit(next);
+    if (displayCell(next, lang) !== shown) onCommit(next);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") e.currentTarget.blur();
@@ -283,7 +283,8 @@ function CellCheck({ value, ariaLabel, onCommit }: {
   );
 }
 
-function display(c: Cell, lang: string): string {
+/** A cell as a grid shows it: numbers written in `lang`, empty for null. */
+export function displayCell(c: Cell, lang: string): string {
   if (c === null) return "";
   if (typeof c === "boolean") return String(c);
   if (typeof c === "number") return formatNumber(c, lang);

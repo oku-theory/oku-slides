@@ -1,4 +1,4 @@
-//! Validation of a deck's data: names, cell types, bounds, bases and truncations.
+//! Validation of a deck's data: names, cell types, bounds, bases, truncations and queries.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -7,6 +7,7 @@ use oku_slides_data::limits::MAX_DATA;
 use oku_slides_i18n::Message;
 
 use crate::model::Deck;
+use crate::query_order::QueryFault;
 use crate::validate::Issue;
 
 /// Data issues reported by one validation; past it, one `issue-more` counts the rest.
@@ -34,6 +35,12 @@ pub(crate) fn truncated(name: &str) -> Issue {
     data_issue(Message::new("issue-data-truncated").arg("data", name.to_owned()))
 }
 
+/// `issue-data-kind-unknown`: the data `name` has a `kind` this version does not know, and is
+/// not read.
+pub(crate) fn kind_unknown(name: &str, kind: &str) -> Issue {
+    data_issue(Message::new("issue-data-kind-unknown").arg("data", name.to_owned()).arg("kind", kind.to_owned()))
+}
+
 /// `issue-data-base-missing`: the base of the data `name` is not available.
 pub(crate) fn base_missing(name: &str) -> Issue {
     data_issue(Message::new("issue-data-base-missing").arg("data", name.to_owned()))
@@ -48,6 +55,11 @@ pub(crate) fn edits_lost(name: &str) -> Issue {
 pub(crate) fn cell_type(data: &str, column: &str, ty: &str) -> Issue {
     let message = Message::new("issue-data-cell-type").arg("data", data.to_owned()).arg("column", column.to_owned());
     data_issue(message.arg("type", ty.to_owned()))
+}
+
+/// `issue-data-query-*`: the query of the data `name` cannot compute, as `fault` says.
+pub(crate) fn query_fault(name: &str, fault: &QueryFault) -> Issue {
+    data_issue(fault.message(name))
 }
 
 /// Issues kept up to [`MAX_DATA_ISSUES`]; past it, only counted.
@@ -93,7 +105,7 @@ pub(crate) fn issues(deck: &Deck) -> Vec<Issue> {
         if !names.insert(data.name.to_lowercase()) {
             out.push(|| data_issue(Message::new("issue-data-name-taken").arg("data", data.name.clone())));
         }
-        let table = &data.table;
+        let Some(table) = data.table() else { continue };
         let index: HashMap<&str, usize> = table.columns.iter().enumerate().map(|(i, c)| (c.id.as_str(), i)).collect();
         let mut misfit = BTreeSet::new();
         for (key, cell) in &table.cells {
@@ -106,6 +118,11 @@ pub(crate) fn issues(deck: &Deck) -> Vec<Issue> {
         for column in misfit {
             let c = &table.columns[column];
             out.push(|| cell_type(&data.name, &c.name, c.ty.as_str()));
+        }
+    }
+    for (id, fault) in &deck.query_order().broken {
+        if let Some(data) = deck.data.get(id) {
+            out.push(|| query_fault(&data.name, fault));
         }
     }
     out.finish()

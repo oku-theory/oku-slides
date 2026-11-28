@@ -164,7 +164,8 @@ impl SurfaceHub {
         let id = surface.id.clone();
         {
             let mut state = self.state();
-            if state.closed || turn.is_some_and(|t| state.turn != Some(t)) {
+            let cut = state.cut.is_some() && state.cut == state.turn;
+            if state.closed || cut || turn.is_some_and(|t| state.turn != Some(t)) {
                 return Answer::Cancelled;
             }
             surface.turn = turn;
@@ -225,6 +226,20 @@ impl SurfaceHub {
     /// Libère toutes les questions en attente (Échap, nouveau tour, nouvelle conversation).
     pub fn cancel_asks(&self) {
         self.cancel_asks_where(|_| true);
+    }
+
+    /// The user stops the open turn: its waiting questions are released, and those it asks
+    /// until it ends are cancelled at once, as `cancel_asks` could not reach them.
+    ///
+    /// Under one lock with `ask`: a tool call still on its way when the turn is stopped would
+    /// otherwise wait for an answer forever, and its turn (an undo group) would never end.
+    pub fn cut_turn(&self) {
+        let asks = {
+            let mut state = self.state();
+            state.cut = state.turn;
+            state.take_asks()
+        };
+        Self::release(asks);
     }
 
     /// Libère les questions en attente que `which` désigne.

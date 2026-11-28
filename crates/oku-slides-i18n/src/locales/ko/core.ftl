@@ -220,6 +220,11 @@ issue-data-too-many = 덱에 데이터가 너무 많습니다({ $count }). 읽�
 issue-data-base-missing = 데이터 “{ $data }”: 기본 파일이 없어 읽기 전용으로 유지합니다
 issue-data-edits-lost = 데이터 “{ $data }”: 교체된 표에 대한 편집이 병합 중 손실되었습니다
 issue-data-inline-dropped = 요소 { $element }: 이전 버전이 차트나 표의 데이터를 옵션 안에 저장했습니다. 삭제되었습니다
+issue-data-kind-unknown = 데이터 “{ $data }”: 알 수 없는 종류 “{ $kind }”, 최신 버전의 것일 수 있습니다. 읽지 않았습니다
+issue-data-query-cycle = 데이터 “{ $data }”: 쿼리가 직접 또는 다른 쿼리를 통해 자기 자신을 다시 읽습니다. 계산하지 않았습니다
+issue-data-query-missing-input = 데이터 “{ $data }”: 쿼리가 덱에 없는 “{ $input }”을(를) 읽습니다. 계산하지 않았습니다
+issue-data-query-invalid = 데이터 “{ $data }”: 쿼리가 유효하지 않습니다({ $reason }). 계산하지 않았습니다
+issue-data-query-failed = 데이터 “{ $data }”: 쿼리가 실패했습니다({ $reason }). 결과가 없습니다
 issue-more = 표시되지 않은 문제가 { $count }개 더 있습니다
 op-data-deck-full = 덱 데이터가 한도를 넘게 됩니다: { $what ->
     [row-ids] 행 ID
@@ -241,6 +246,20 @@ op-data-rebind = 요소 { $subject }은(는) 이미 다른 데이터를 표시�
 op-data-internal = 일괄 작업으로 표의 기반이나 오버레이를 설정할 수 없습니다
 op-data-batch-too-large = 일괄 작업이 너무 큽니다: 셀 수 { $count }, 최대 { $max }
 op-data-inline = 요소 { $subject }의 데이터가 옵션 안에 있습니다. add_data로 덱 데이터로 추가하고 bind_data로 연결하세요
+op-data-derived = 데이터 “{ $data }”는 쿼리에서 파생됩니다. 행이 아니라 쿼리를 편집하세요
+op-data-source = 데이터에는 표나 쿼리(sql) 중 정확히 하나만 지정하세요
+op-data-cycle = 데이터 “{ $data }”가 쿼리를 통해 자기 자신을 다시 읽게 됩니다. 순환을 제거하세요
+op-data-unknown-input = 쿼리가 읽는 “{ $name }”은(는) 덱의 데이터가 아닙니다
+op-data-not-query = 데이터 “{ $data }”는 쿼리가 아닙니다. 표는 edit_data로 편집하세요
+op-data-read-by-queries = 이 데이터는 쿼리 { $queries }{ $shown ->
+    [0] {""}
+   *[other] {", "}뷰 { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}외 { $more }개
+}에서 사용합니다. 먼저 편집하거나 제거하세요
+op-data-rename-captured = “{ $reader }”의 쿼리가 이미 자신의 테이블 하나를 “{ $name }”(이)라고 부릅니다. 쿼리에서 그 테이블 이름을 바꾸거나(set_query) 다른 이름을 고르세요
+op-data-name-ambiguous = 이름이 “{ $name }”인 데이터가 여럿이고 쿼리가 이 이름을 읽어 어느 것인지 알 수 없습니다. 먼저 그 쿼리를 수정하세요(set_query)
 issue-unreadable-slide = 읽을 수 없는 슬라이드를 따로 두었습니다
 issue-unreadable-field = 읽을 수 없는 덱 항목 { $field }을(를) 초기화했습니다
 issue-knowledge-unreadable = 읽을 수 없는 지식 항목 { $id }을(를) 따로 두었습니다

@@ -233,6 +233,11 @@ issue-data-too-many = te veel gegevens in de presentatie ({ $count }); niet gele
 issue-data-base-missing = gegevens ‘{ $data }’: het basisbestand ontbreekt, alleen-lezen bewaard
 issue-data-edits-lost = gegevens ‘{ $data }’: wijzigingen aan een vervangen tabel zijn bij het samenvoegen verloren gegaan
 issue-data-inline-dropped = Element { $element }: een oudere versie bewaarde de gegevens van zijn grafiek of tabel in zijn opties; ze zijn verwijderd
+issue-data-kind-unknown = gegevens ‘{ $data }’: onbekende soort ‘{ $kind }’, misschien van een nieuwere versie; niet gelezen
+issue-data-query-cycle = gegevens ‘{ $data }’: hun query leest zichzelf terug, direct of via andere query’s; niet berekend
+issue-data-query-missing-input = gegevens ‘{ $data }’: hun query leest ‘{ $input }’, dat niet in het deck staat; niet berekend
+issue-data-query-invalid = gegevens ‘{ $data }’: hun query is ongeldig ({ $reason }); niet berekend
+issue-data-query-failed = gegevens ‘{ $data }’: hun query is mislukt ({ $reason }); geen resultaat
 issue-more = meer problemen niet getoond: { $count }
 op-data-deck-full = De gegevens van de presentatie zouden hun limiet overschrijden: hoogstens { $max } { $what ->
     [row-ids] rij-id's
@@ -255,6 +260,20 @@ op-data-rebind = Element { $subject } toont al andere gegevens; gebruik bind_dat
 op-data-internal = Een batch kan de basis of de overlay van een tabel niet instellen
 op-data-batch-too-large = De batch is te groot: aantal cellen { $count }, hoogstens { $max }
 op-data-inline = Element { $subject } draagt zijn gegevens in zijn opties; voeg ze toe als deckgegevens met add_data en koppel ze met bind_data
+op-data-derived = gegevens ‘{ $data }’ worden afgeleid uit een query: bewerk de query, niet de rijen
+op-data-source = Gegevens hebben een tabel of een query (sql), precies één van beide
+op-data-cycle = Gegevens ‘{ $data }’ zouden zichzelf via hun query’s teruglezen; verwijder de lus
+op-data-unknown-input = De query leest ‘{ $name }’, dat geen gegevens van het deck zijn
+op-data-not-query = Gegevens ‘{ $data }’ zijn geen query; bewerk hun tabel met edit_data
+op-data-read-by-queries = Deze gegevens worden gelezen door de query’s { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}en getoond door { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}en nog { $more }
+}; bewerk of verwijder die eerst
+op-data-rename-captured = De query van ‘{ $reader }’ noemt al een van zijn eigen tabellen ‘{ $name }’; hernoem die tabel in de query (set_query) of kies een andere naam
+op-data-name-ambiguous = Meerdere gegevens heten ‘{ $name }’ en query’s lezen die naam zonder dat duidelijk is welke; pas eerst die query’s aan (set_query)
 issue-unreadable-slide = onleesbare dia, apart gezet
 issue-unreadable-field = onleesbaar deckveld { $field }, hersteld
 issue-knowledge-unreadable = onleesbaar kennisitem { $id }, apart gezet

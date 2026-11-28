@@ -54,8 +54,10 @@ impl Session {
         self.sync_bases();
         self.probe_remaining();
         let layer = self.theme_layer(deck)?;
+        let results = self.query_results(deck);
         self.open_deck_renderer()?;
         let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
+        renderer.set_results(results.clone());
         let e = match render_themed(renderer, deck, &layer, &self.doc.sources.assets) {
             Ok(compiled) => return Ok(compiled),
             Err(e) => e,
@@ -65,6 +67,7 @@ impl Session {
         }
         self.open_deck_renderer()?;
         let renderer = self.renderer.as_mut().context(NotRenderedSnafu)?;
+        renderer.set_results(results);
         Ok(render_themed(renderer, deck, &layer, &self.doc.sources.assets).context(RenderSnafu)?)
     }
 

@@ -143,11 +143,12 @@ fn knowledge_lives_in_its_root_never_under_deck() {
     assert_that!(r.doc.get_map(KNOWLEDGE).len()).is_equal_to(1);
 }
 
-/// A previous format, 7 or 8 (with knowledge entries), is refused on open, never upgraded:
-/// its inline chart and table data would be dropped (t-1690).
+/// A previous format, 7 to 9 (with knowledge entries), is refused on open, never upgraded:
+/// its inline chart and table data would be dropped (t-1690), its data kind assumed (t-1771).
 #[rstest::rstest]
 #[case(7)]
 #[case(8)]
+#[case(9)]
 fn knowledge_previous_format_snapshot_is_refused(#[case] format: i64) {
     let r = ok(DeckReplica::new(&with_note(), registry()));
     ok(r.doc.get_map("meta").insert("format", format));
@@ -169,9 +170,9 @@ fn knowledge_format_8_snapshot_is_refused_with_localized_message_fr() {
 }
 
 #[test]
-fn knowledge_format_10_snapshot_is_refused() {
+fn knowledge_format_11_snapshot_is_refused() {
     let r = ok(DeckReplica::new(&roadmap(), registry()));
-    ok(r.doc.get_map("meta").insert("format", 10));
+    ok(r.doc.get_map("meta").insert("format", 11));
     r.doc.commit();
     let kind = DeckReplica::from_snapshot(&ok(r.snapshot()), 1 << 24, registry()).map(|_| ()).map_err(|e| e.kind());
     assert_that!(kind).is_equal_to(Err(ReplicaErrorKind::UnsupportedVersion));
@@ -387,10 +388,10 @@ fn format_of(r: &DeckReplica) -> Option<LoroValue> {
     }
 }
 
-/// A peer that rewrites the format to 7 or 8 is refused, never merged, and leaves `a` as it was.
+/// A peer that rewrites the format to 8 or 9 is refused, never merged, and leaves `a` as it was.
 #[rstest::rstest]
-#[case(7)]
 #[case(8)]
+#[case(9)]
 fn knowledge_merge_of_a_previous_format_peer_is_refused(#[case] format: i64) {
     let (mut a, b) = peers(&with_note(), 1, 2);
     ok(b.doc.get_map("meta").insert("format", format));
@@ -398,7 +399,7 @@ fn knowledge_merge_of_a_previous_format_peer_is_refused(#[case] format: i64) {
     let versions = a.history().len();
     let Err(e) = a.merge(&b) else { panic!("a format-{format} peer must be refused") };
     assert_that!(e.kind()).is_equal_to(ReplicaErrorKind::UnsupportedVersion);
-    assert_that!(format_of(&a)).is_equal_to(Some(LoroValue::I64(9)));
+    assert_that!(format_of(&a)).is_equal_to(Some(LoroValue::I64(10)));
     assert_that!(a.history().len()).is_equal_to(versions);
     assert_that!(a.deck().0).is_equal_to(with_note());
 }

@@ -15,8 +15,8 @@ English is the reference; 20 locales ship. No oku-slides dependency: every crate
     the React UI's own Fluent engine.
 - `live.rs`: `LiveLocalizer`, the interface language shared by its clones and switched
   hot (`set`); texts shown after a switch read `current` at each use.
-- `message.rs`: `Message` (Fluent id plus `Arg` values), built without a locale inside
-  an error and spoken later in the user's language or in English.
+- `message.rs`: `Message` (Fluent id plus `Arg` values: text, number or a nested message), built
+  without a locale inside an error and spoken later in the user's language or in English.
 - `keys.rs`: `platform_keys` and `pc_keys` rewrite macOS shortcuts (`⌘⇧S`) as `Ctrl+Shift+S` off macOS.
 - `fold.rs`: `fold`, the one case and accent fold (shortcuts, help search, namespaces); `shortcut.rs`:
   `THEME_SHORTCUT`, `theme_shortcuts` (its words in every locale, for the UI); `voice.rs`: `voice_forms`

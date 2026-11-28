@@ -14,7 +14,7 @@ use crate::common::{Data, data_dir, ok, req, session_in, snapshot_json};
 fn open_with(block: &Value) -> (Data, Session) {
     let data = data_dir();
     let file = data.as_ref().join("deck.json");
-    let deck = json!({ "version": 10, "slides": [{ "id": "s", "kind": kinds::essentiel::CONTENT,
+    let deck = json!({ "version": 11, "slides": [{ "id": "s", "kind": kinds::essentiel::CONTENT,
         "params": { "blocks": [block] } }] });
     std::fs::write(&file, deck.to_string()).unwrap_or_else(|e| panic!("écriture : {e}"));
     let mut s = session_in(data.as_ref());

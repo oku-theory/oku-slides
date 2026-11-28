@@ -20,7 +20,7 @@ afterEach(async () => {
   m.host.remove();
 });
 
-type Props = { source: (string | number)[][]; rowIds: string[]; columnIds: string[]; headerRow: boolean; headerColumn: boolean; striped: boolean; align: string[];
+type Props = { query?: { sql: string; state: "pending" | "ready" | "failed"; inputs: { id: string; name: string }[] }; source: (string | number)[][]; rowIds: string[]; columnIds: string[]; headerRow: boolean; headerColumn: boolean; striped: boolean; align: string[];
   data: { id: string; name: string; users: number }; choices: { id: string; name: string }[] };
 const DEFAULTS: Props = { source: [["A", "B"], ["x", 1]], rowIds: ["r1"], columnIds: ["ca", "cb"], headerRow: true, headerColumn: false, striped: false, align: [],
   data: { id: "d1", name: "ventes", users: 1 }, choices: [{ id: "d1", name: "ventes" }] };
@@ -32,7 +32,7 @@ async function mount(props: Partial<Props> = {}, numberLang?: string) {
   mounted = { root, host };
   const edits: DataEdit[] = [];
   await act(async () => {
-    const view = createElement(TableDataView, { ...DEFAULTS, ...props, onEdit: (e: DataEdit) => edits.push(e) });
+    const view = createElement(TableDataView, { ...DEFAULTS, ...props, onEdit: (e: DataEdit) => edits.push(e), onOpen: () => {} });
     root.render(numberLang === undefined ? view : createElement(NumberLangContext.Provider, { value: numberLang }, view));
   });
   return { host, edits };
@@ -106,5 +106,20 @@ describe("TableDataView", () => {
     const toolbar = host.querySelector(".panel-toolbar") as HTMLElement;
     expect(toolbar.querySelector(".table-options")).not.toBeNull();
     expect(toolbar.lastElementChild?.classList.contains("show-as")).toBe(true);
+  });
+
+  test("TableDataView over a query keeps its options and shows the result read-only", async () => {
+    const { host, edits } = await mount({ query: { sql: "SELECT A, B FROM m", state: "ready", inputs: [] } });
+    await act(async () => options(host)[2].click());
+    expect(edits).toEqual([{ edit: "flag", flag: "striped", on: true }]);
+    expect(host.querySelectorAll(".table-align select").length).toBe(2);
+    expect((host.querySelector(".show-as button") as HTMLButtonElement).disabled).toBe(true);
+    const cells = [...host.querySelectorAll(".data-query-result tbody td")].map((c) => c.textContent);
+    expect([cells, host.querySelectorAll(".cdg input").length]).toEqual([["x", "1"], 0]);
+  });
+
+  test("TableDataView over a pending query shows its state, not the no-data hint", async () => {
+    const { host } = await mount({ source: [], query: { sql: "SELECT A FROM m", state: "pending", inputs: [] } });
+    expect([!!host.querySelector(".data-query-sql"), !!host.querySelector(".table-options")]).toEqual([true, true]);
   });
 });

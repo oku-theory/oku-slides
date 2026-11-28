@@ -37,7 +37,8 @@ impl Workspace {
             return PasteSource::default();
         };
         // A tab sleeps only on resume: the one the element was just copied in is ready.
-        relock(&session).ready_session().map(|s| s.paste_source(ops)).unwrap_or_default()
+        let source = relock(&session).ready_session().map(|s| s.paste_source(ops)).unwrap_or_default();
+        PasteSource { from: tab.to_owned(), ..source }
     }
 
     /// Applies the paste `ops` in `to` with `source`, as one undo step; `to`'s snapshot.
@@ -46,8 +47,9 @@ impl Workspace {
         to: &str,
         label: &str,
         ops: Vec<Op>,
-        source: PasteSource,
+        mut source: PasteSource,
     ) -> Result<WorkspaceOutcome> {
+        source.same_deck = source.from == to;
         let snapshot = Self::with_session(ws, to, |s| s.paste(label, ops, source)).0.and_then(|r| r)?;
         Ok(WorkspaceOutcome::Applied(snapshot))
     }
@@ -56,3 +58,7 @@ impl Workspace {
 #[cfg(test)]
 #[path = "workspace_paste_tests.rs"]
 mod workspace_paste_tests;
+
+#[cfg(test)]
+#[path = "workspace_paste_query_tests.rs"]
+mod workspace_paste_query_tests;

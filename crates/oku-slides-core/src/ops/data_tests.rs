@@ -37,7 +37,7 @@ fn months() -> NewTable {
 }
 
 fn add(id: &str, name: &str, table: NewTable) -> Op {
-    Op::AddData { id: Some(did(id)), name: name.to_owned(), label: None, table }
+    Op::AddData { id: Some(did(id)), name: name.to_owned(), label: None, table: Some(table), sql: None }
 }
 
 fn deck() -> Deck {
@@ -204,6 +204,23 @@ fn bind_data_to_data_without_used_column_is_refused() {
     assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::DataRefused(DataFaultKind::ColumnMissing));
     let args = [("column", q("c2")), ("data", q("months"))];
     assert_that!(err.op_error().localize(&fr())).is_equal_to(fr().tr_with("op-data-column-missing", &args));
+}
+
+/// → a query data's columns are its result's, which the session checks: the core takes them.
+#[test]
+fn bind_data_to_query_data_leaves_columns_to_the_session() {
+    let mut deck = deck_with_data();
+    let query = Op::AddData {
+        id: Some(did("q")),
+        name: "top".into(),
+        label: None,
+        table: None,
+        sql: Some("SELECT * FROM sales".into()),
+    };
+    run(&mut deck, vec![query, add_chart("g", &chart_ref("d1"))]).unwrap();
+    run(&mut deck, vec![bind("g", "q", Some(vec!["zz"]))]).unwrap();
+    assert_that!(option_of(&deck, "g")["data"]).is_equal_to(json!("q"));
+    assert_that!(option_of(&deck, "g")["columns"]).is_equal_to(json!(["zz"]));
 }
 
 #[test]
@@ -587,7 +604,7 @@ fn set_column_type_converts_the_column_and_clears_inline() {
     Arc::make_mut(deck.data.get_mut(&did("d1")).unwrap()).inline = true;
     run(&mut deck, vec![retype("d1", "c2", ColumnType::Integer)]).unwrap();
     let data = &deck.data[&did("d1")];
-    assert_that!(data.table.columns[1].ty).is_equal_to(ColumnType::Integer);
+    assert_that!(data.table().unwrap().columns[1].ty).is_equal_to(ColumnType::Integer);
     assert_that!(data.inline).is_false();
 }
 
@@ -596,10 +613,13 @@ fn set_column_type_refusal_names_rows_fr() {
     let mut deck = deck_with_data();
     let err = refused(&mut deck, vec![retype("d1", "c1", ColumnType::Number)]);
     assert_that!(err.op_error().kind()).is_equal_to(OpErrorKind::Data(DataErrorKind::ColumnType));
-    let mut table = deck.data[&did("d1")].table.clone();
+    let mut table = deck.data[&did("d1")].table().unwrap().clone();
     let expected = table.set_column_type("c1", ColumnType::Number).unwrap_err().localize(&fr());
     let text = err.op_error().localize(&fr());
     assert_that!(text).is_equal_to(expected);
     assert_that!(text).contains("r1");
     assert_that!(text).contains("r2");
 }
+
+#[path = "data_query_tests.rs"]
+mod data_query_tests;

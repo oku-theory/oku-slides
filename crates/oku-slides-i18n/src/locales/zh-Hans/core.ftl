@@ -220,6 +220,11 @@ issue-data-too-many = 演示文稿中的数据过多（{ $count }）；未读取
 issue-data-base-missing = 数据“{ $data }”：缺少其基础文件，已设为只读
 issue-data-edits-lost = 数据“{ $data }”：对已替换表格的编辑在合并时丢失
 issue-data-inline-dropped = 元素 { $element }：旧版本把其图表或表格的数据存放在选项中；这些数据已被移除
+issue-data-kind-unknown = 数据“{ $data }”：未知类型“{ $kind }”，可能来自较新版本；未读取
+issue-data-query-cycle = 数据“{ $data }”：其查询直接或通过其他查询读回自身；未计算
+issue-data-query-missing-input = 数据“{ $data }”：其查询读取的“{ $input }”不在演示文稿中；未计算
+issue-data-query-invalid = 数据“{ $data }”：其查询无效（{ $reason }）；未计算
+issue-data-query-failed = 数据“{ $data }”：其查询失败（{ $reason }）；无结果
 issue-more = 另有{ $count }个问题未显示
 op-data-deck-full = 演示文稿的数据将超出上限：{ $what ->
     [row-ids] 行 ID
@@ -241,6 +246,20 @@ op-data-rebind = 元素 { $subject } 已显示其他数据；如需更改，请�
 op-data-internal = 批处理不能设置表格的基础或覆盖层
 op-data-batch-too-large = 批处理过大：单元格数 { $count }，最多 { $max }
 op-data-inline = 元素 { $subject } 的数据放在其选项中；请用 add_data 将其添加为演示文稿数据，并用 bind_data 绑定
+op-data-derived = 数据“{ $data }”由查询派生：请编辑其查询，而不是其行
+op-data-source = 数据只能取表格或查询（sql）其中之一
+op-data-cycle = 数据“{ $data }”会通过其查询读回自身；请去掉该循环
+op-data-unknown-input = 查询读取的“{ $name }”不是本演示文稿中的数据
+op-data-not-query = 数据“{ $data }”不是查询；请用 edit_data 编辑其表格
+op-data-read-by-queries = 此数据被查询 { $queries } 读取{ $shown ->
+    [0] {""}
+   *[other] {"，"}并由 { $views } 显示
+}{ $more ->
+    [0] {""}
+   *[other] {"，"}另有{ $more }个
+}；请先编辑或移除它们
+op-data-rename-captured = “{ $reader }”的查询已将其自身的一个表命名为“{ $name }”；请在其查询中重命名该表（set_query）或另选名称
+op-data-name-ambiguous = 有多个数据名为“{ $name }”，且有查询读取该名称，无法确定读取哪一个；请先修改这些查询（set_query）
 issue-unreadable-slide = 无法读取的幻灯片，已移出
 issue-unreadable-field = 无法读取的演示文稿字段 { $field }，已重置
 issue-knowledge-unreadable = 无法读取的知识条目 { $id }，已移出

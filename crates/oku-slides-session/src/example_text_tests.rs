@@ -64,6 +64,6 @@ fn example_data_column_names_are_localized_fr() {
     let fr = Localizer::new(Some("fr"));
     let data = super::localized_data(BASE_ID, &base.manifest.data, &fr);
     let chart = data.get("base-example-chart").unwrap();
-    let names: Vec<&str> = chart.table.columns.iter().map(|c| c.name.as_str()).collect();
+    let names: Vec<&str> = chart.table().unwrap().columns.iter().map(|c| c.name.as_str()).collect();
     assert_that!(names).is_equal_to(vec!["Catégorie", "Valeur"]);
 }

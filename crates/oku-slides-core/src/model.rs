@@ -28,7 +28,7 @@ use crate::theme_chain::ThemePin;
 use crate::widget::{ParamType, WidgetRegistry};
 
 /// Version du format de deck.
-pub const DECK_VERSION: u32 = 10;
+pub const DECK_VERSION: u32 = 11;
 
 /// A complete deck.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -102,7 +102,7 @@ fn resolved_param(deck: &Deck, id: &str, param: &str) -> serde_json::Value {
 fn golden_widgets_renders_shared_data_in_both_views() {
     let r = common::renderer();
     let deck = deck("tests/golden/widgets.json");
-    let resolved = oku_slides_render::resolve_views(&deck, r.registry(), None);
+    let resolved = oku_slides_render::resolve_views(&deck, r.registry(), None, &oku_slides_render::Results::new());
     let table = resolved_param(&resolved, "tb1", "data");
     let chart = resolved_param(&resolved, "g1", "option");
     let rows = serde_json::json!([["Mois", "Ventes", "Marge"], ["Jan", 3.0, 0.2], ["Fév", 5.0, 0.25]]);

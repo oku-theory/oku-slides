@@ -9,12 +9,14 @@
 
 mod cells;
 mod footer;
+mod query;
 mod read;
 mod write;
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 pub use footer::check_footer;
+pub use query::{QueryInput, QueryOut, run_query};
 pub use read::{ViewRead, check_column_type, read_view};
 pub use write::write_base;
 

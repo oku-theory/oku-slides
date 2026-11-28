@@ -125,8 +125,15 @@ Data bases are Parquet files read by polars, compiled only into the render worke
 MSVC on Windows, `cc` on Linux) for its compressors, makes a cold build of the workspace tests much longer
 (about 25 minutes on a loaded Mac; run the first `just test` in the background), and grows the binaries:
 `cargo build --release -p oku-slides-render-worker` went from 86.7 MB (82.7 MiB) to 115.0 MB (109.7 MiB),
-+27 MiB (t-1690, macOS arm64). Its features stay minimal (`dtype-date`, `parquet`): `lazy` and `sql` would
-pull an HTTP client into the worker, which `just render-offline-deps` refuses.
++27 MiB (t-1690, macOS arm64). Queries run on polars `lazy` and `sql` (t-1774); `lazy` pulls polars-stream,
+which forces polars-io `cloud`, so `reqwest`, `hyper`, `h2` and `object_store` enter the worker's tree.
+No code path calls polars' cloud reader, and the worker's Seatbelt profile `(deny network*)` is the
+wall; `just render-offline-deps` lets these four in only when polars-io pulls them and still refuses
+any other HTTP client. The release app
+(`cargo build --release -p oku-slides-app`) went from 222.1 MB to 296.1 MB, 169.7 MB to 220.2 MB
+stripped (+50.5 MB); after the feature change the release rebuild took 15 minutes on a loaded Mac
+(a cold one took about 97 minutes in t-1770). `just test-oracle` checks queries against DuckDB, which
+builds from C++ sources only under the `oracle` feature and is kept out of `just test`.
 
 ```sh
 just dev      # desktop app in development (installs the interface dependencies)

@@ -221,6 +221,11 @@ issue-data-too-many = डेक में बहुत अधिक डेटा
 issue-data-base-missing = डेटा “{ $data }”: इसकी आधार फ़ाइल नहीं मिली, केवल-पठन रखा गया
 issue-data-edits-lost = डेटा “{ $data }”: बदली गई तालिका के संपादन मर्ज में खो गए
 issue-data-inline-dropped = तत्व { $element }: एक पुराने संस्करण ने उसके चार्ट या तालिका का डेटा उसके विकल्पों में रखा था; उसे हटा दिया गया
+issue-data-kind-unknown = डेटा “{ $data }”: अज्ञात प्रकार “{ $kind }”, शायद नए संस्करण से; पढ़ा नहीं गया
+issue-data-query-cycle = डेटा “{ $data }”: इसकी क्वेरी खुद को पढ़ती है, सीधे या दूसरी क्वेरी के ज़रिए; गणना नहीं हुई
+issue-data-query-missing-input = डेटा “{ $data }”: इसकी क्वेरी “{ $input }” पढ़ती है, जो डेक में नहीं है; गणना नहीं हुई
+issue-data-query-invalid = डेटा “{ $data }”: इसकी क्वेरी मान्य नहीं है ({ $reason }); गणना नहीं हुई
+issue-data-query-failed = डेटा “{ $data }”: इसकी क्वेरी विफल रही ({ $reason }); कोई परिणाम नहीं
 issue-more = और समस्याएँ नहीं दिखाई गईं: { $count }
 op-data-deck-full = डेक का डेटा अपनी सीमा पार कर जाएगा: अधिकतम { $max } { $what ->
     [row-ids] पंक्ति आईडी
@@ -243,6 +248,20 @@ op-data-rebind = एलिमेंट { $subject } पहले से अन�
 op-data-internal = एक बैच किसी तालिका का आधार या ओवरले सेट नहीं कर सकता
 op-data-batch-too-large = बैच बहुत बड़ा है: सेल की संख्या { $count }, अधिकतम { $max }
 op-data-inline = तत्व { $subject } अपना डेटा अपने विकल्पों में रखता है; उसे add_data से डेक डेटा के रूप में जोड़ें और bind_data से जोड़ें
+op-data-derived = डेटा “{ $data }” एक क्वेरी से बनता है: उसकी पंक्तियाँ नहीं, उसकी क्वेरी बदलें
+op-data-source = डेटा में या तो एक तालिका या एक क्वेरी (sql) होती है, ठीक एक
+op-data-cycle = डेटा “{ $data }” अपनी क्वेरी के ज़रिए खुद को फिर से पढ़ेगा; लूप हटाएँ
+op-data-unknown-input = क्वेरी “{ $name }” पढ़ती है, जो डेक का कोई डेटा नहीं है
+op-data-not-query = डेटा “{ $data }” क्वेरी नहीं है; उसकी तालिका edit_data से बदलें
+op-data-read-by-queries = इस डेटा को क्वेरी { $queries } पढ़ती हैं{ $shown ->
+    [0] {""}
+   *[other] {" "}और { $views } दिखाते हैं
+}{ $more ->
+    [0] {""}
+   *[other] {" "}और { $more } अन्य
+}; पहले उन्हें बदलें या हटाएँ
+op-data-rename-captured = “{ $reader }” की क्वेरी अपनी ही एक तालिका का नाम पहले से “{ $name }” रखती है; क्वेरी में उस तालिका का नाम बदलें (set_query) या कोई दूसरा नाम चुनें
+op-data-name-ambiguous = कई डेटा का नाम “{ $name }” है और क्वेरी यह नाम पढ़ती हैं, यह साफ़ नहीं कि कौन-सा; पहले उन क्वेरी को संपादित करें (set_query)
 issue-unreadable-slide = अपठनीय स्लाइड, अलग रखी गई
 issue-unreadable-field = प्रस्तुति का अपठनीय फ़ील्ड { $field }, रीसेट किया गया
 issue-knowledge-unreadable = अपठनीय ज्ञान प्रविष्टि { $id }, अलग रखी गई

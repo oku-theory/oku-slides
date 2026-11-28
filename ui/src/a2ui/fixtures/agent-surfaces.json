@@ -13,7 +13,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-1",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -103,7 +103,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-2",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -195,7 +195,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "perm-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -299,7 +299,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-4",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -489,7 +489,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-5",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -713,7 +713,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "show-6",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -805,7 +805,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "turn-3",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -906,7 +906,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-7",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -962,7 +962,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "ask-8",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1053,7 +1053,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "report-8",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1138,7 +1138,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "report-10",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1232,7 +1232,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "render-9",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1302,7 +1302,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-widget",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1541,7 +1541,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-element",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1623,7 +1623,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-theme-picker",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -1713,7 +1713,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-packs",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -2205,7 +2205,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-data",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -2321,7 +2321,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-data",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -2419,7 +2419,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -2971,7 +2971,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -3416,7 +3416,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {
@@ -3840,7 +3840,7 @@
         "version": "v0.9",
         "createSurface": {
           "surfaceId": "host-voice",
-          "catalogId": "urn:oku-slides:a2ui:catalog:v5"
+          "catalogId": "urn:oku-slides:a2ui:catalog:v6"
         }
       },
       {

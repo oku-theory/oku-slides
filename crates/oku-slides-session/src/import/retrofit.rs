@@ -114,7 +114,7 @@ pub(crate) fn prepare(
         }
         profiles.extend(manifest.profiles.iter().map(|p| (manifest.namespace.clone(), p.clone())));
     }
-    let (mut bundle, widgets) = sources_with_packs(platform, &library, base, deck, packs)?;
+    let (mut bundle, widgets) = sources_with_packs(platform, None, &library, base, deck, packs)?;
     let themes = ThemeLibrary::user(platform);
     if let Some(wanted) = theme {
         let mut deck = bundle.deck().clone();

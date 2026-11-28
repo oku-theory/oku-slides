@@ -56,3 +56,37 @@ data-row-cut = { $count ->
    *[other] { $count } rows had more cells than the header; the extra cells were dropped
 }
 data-base-invalid = the data's base file is damaged or does not match its table
+data-source-mismatch = the data's source does not match its kind: a manual data holds a table, a query data holds a query
+data-inline-query = a query data cannot be inline: inline data always comes from a table
+data-query-parse = the query does not parse: check line { $line }, column { $column }
+data-query-construct = the query uses “{ $construct }”, which data queries do not support
+data-query-too-long = the query is longer than { $max } { $max ->
+    [one] byte
+   *[other] bytes
+}
+data-query-too-deep = the query is nested too deeply
+data-query-rewrite = the query could not be prepared for the engine; this is a bug in Oku Slides
+data-query-unknown-function = the query calls “{ $function }”, which data queries do not support
+data-query-run = the query failed: { $reason }
+data-query-input-failed = its input “{ $input }” failed
+data-query-too-large = { $what ->
+    [rows] the query result has more than { $max } { $max ->
+        [one] row
+       *[other] rows
+    }; it is never cut
+    [columns] the query result has more than { $max } { $max ->
+        [one] column
+       *[other] columns
+    }; it is never cut
+   *[text] a text cell of the query result is longer than { $max } { $max ->
+        [one] byte
+       *[other] bytes
+    }; it is never cut
+}
+data-query-column-type = the result column “{ $column }” has a type data cannot hold: cast it to text, a number, an integer, a boolean or a date
+data-query-duplicate-column = two result columns are named “{ $column }”: rename one of them with AS
+data-query-float-operand = “{ $function }” cannot be applied to “{ $operand }”, which holds decimal numbers: cast it to an integer first
+data-query-timeout = the query ran longer than { $seconds } { $seconds ->
+    [one] second
+   *[other] seconds
+} and was stopped

@@ -1,7 +1,7 @@
 //! Bounds on all the data of a deck, past those of each data.
 
-use oku_slides_data::Data;
 use oku_slides_data::limits::{MAX_DATA, MAX_DECK_OVERLAY, MAX_DECK_ROW_IDS, MAX_DECK_TEXT_BYTES};
+use oku_slides_data::{Data, Source};
 use snafu::ensure;
 
 use crate::error::DataDeckFullSnafu;
@@ -14,7 +14,7 @@ pub struct DeckLoad {
     pub row_ids: usize,
     /// Overlay entries.
     pub overlay: usize,
-    /// UTF-8 bytes of overlay text, names, labels and column names.
+    /// UTF-8 bytes of overlay text, names, labels, column names and queries.
     pub text: usize,
 }
 
@@ -22,10 +22,13 @@ impl DeckLoad {
     /// What `data` weighs.
     #[must_use]
     pub fn of(data: &Data) -> DeckLoad {
-        DeckLoad {
-            row_ids: data.table.rows.len(),
-            overlay: data.table.overlay_len(),
-            text: data.table.text_bytes() + data.name.len() + data.label.as_ref().map_or(0, String::len),
+        let named = data.name.len() + data.label.as_ref().map_or(0, String::len);
+        match &data.source {
+            Source::Manual(table) => {
+                DeckLoad { row_ids: table.rows.len(), overlay: table.overlay_len(), text: table.text_bytes() + named }
+            }
+            // Its rows are a result, not stored: only its query counts.
+            Source::Query { sql } => DeckLoad { row_ids: 0, overlay: 0, text: sql.len() + named },
         }
     }
 

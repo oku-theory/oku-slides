@@ -273,7 +273,7 @@ fn merge_lost_layer_drops_undo_steps() {
     let (mut theirs, _) =
         SourceBundle::from_zip_bases(&zip, s.source_limits, s.registry.clone(), Some(&s.bases.files())).unwrap();
     let base = crate::bases::bases_tests::put_base(s.bases.store(), b"their base");
-    let from = theirs.deck().data[&d9].table.clone();
+    let from = theirs.deck().data[&d9].table().unwrap().clone();
     assert_that!(theirs.compact_data(&d9, &from, "e2".to_owned(), base).unwrap()).is_true();
     // Ours edits a cell of the old layer: an undo step on d9.
     let edit = serde_json::json!({ "op": "edit_data", "data": "d9",

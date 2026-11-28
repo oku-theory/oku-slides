@@ -7,7 +7,7 @@ use oku_slides_data::limits::{
     MAX_TEXT_BYTES,
 };
 use oku_slides_data::{
-    BaseId, BaseRef, CellKey, CellRead, Column, ColumnType, Data, DataCell, DataId, DataKind, Rows, Table,
+    BaseId, BaseRef, CellKey, CellRead, Column, ColumnType, Data, DataCell, DataId, Rows, Source, Table,
 };
 use rstest::rstest;
 use speculoos::prelude::*;
@@ -57,8 +57,7 @@ fn data(name: &str, table: Table) -> Arc<Data> {
         name: name.to_owned(),
         label: Some("Sales by country".to_owned()),
         inline: false,
-        kind: DataKind::Manual,
-        table,
+        source: Source::Manual(table),
     })
 }
 
@@ -149,7 +148,7 @@ fn reopened(r: &DeckReplica) -> (Deck, Vec<Issue>) {
 }
 
 fn table_of<'a>(deck: &'a Deck, id: &str) -> &'a Table {
-    &deck.data[&did(id)].table
+    deck.data[&did(id)].table().unwrap()
 }
 
 // --- Writing and reading -------------------------------------------------------------------
@@ -178,7 +177,7 @@ fn set_cell_writes_one_loro_change() {
     let deck = sample();
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let ops = r.len_ops();
-    let changed = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(4.0)));
+    let changed = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(4.0)));
     r.apply(&changed, "cell", None).unwrap();
     assert_that!(r.len_ops()).is_equal_to(ops + 1);
     assert_that!(r.deck().0.data).is_equal_to(changed.data);
@@ -189,7 +188,7 @@ fn set_cell_after_merge_diffs_against_the_doc() {
     let deck = sample();
     let (mut a, b) = peers(&deck);
     a.merge(&b).unwrap();
-    let changed = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(4.0)));
+    let changed = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(4.0)));
     a.apply(&changed, "cell", None).unwrap();
     assert_that!(reopened(&a).0.data).is_equal_to(changed.data);
 }
@@ -199,8 +198,8 @@ fn set_cell_after_merge_diffs_against_the_doc() {
 #[case::without_base(false)]
 fn null_marker_round_trips_through_replica(#[case] with_base: bool) {
     let deck = edited(&sample(), "d1", |d| {
-        d.table.base = with_base.then(base);
-        set_cell(&mut d.table, "r2", "c2", DataCell::Null);
+        d.table_mut().unwrap().base = with_base.then(base);
+        set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Null);
     });
     let r = DeckReplica::new(&deck, registry()).unwrap();
     let (got, _) = reopened(&r);
@@ -238,7 +237,7 @@ fn replace_starts_a_new_table_container() {
     let deck = sample();
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let old = table_map(&r, "d1").id();
-    let replaced = edited(&deck, "d1", |d| d.table.generation = "g2".to_owned());
+    let replaced = edited(&deck, "d1", |d| d.table_mut().unwrap().generation = "g2".to_owned());
     r.apply(&replaced, "replace", None).unwrap();
     assert_that!(table_map(&r, "d1").id()).is_not_equal_to(old);
     assert_that!(reopened(&r).0.data).is_equal_to(replaced.data);
@@ -252,8 +251,8 @@ fn replace_starts_a_new_table_container() {
 #[case::same_column(("r1", "c2"), ("r2", "c2"))]
 fn concurrent_cell_edits_on_shared_data_both_kept(#[case] ka: (&str, &str), #[case] kb: (&str, &str)) {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| set_cell(&mut d.table, ka.0, ka.1, DataCell::Text("A".to_owned())));
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, kb.0, kb.1, DataCell::Text("B".to_owned())));
+    let da = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), ka.0, ka.1, DataCell::Text("A".to_owned())));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), kb.0, kb.1, DataCell::Text("B".to_owned())));
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let cells = &table_of(&got, "d1").cells;
@@ -265,8 +264,8 @@ fn concurrent_cell_edits_on_shared_data_both_kept(#[case] ka: (&str, &str), #[ca
 #[test]
 fn concurrent_same_cell_edits_converge() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| set_cell(&mut d.table, "r1", "c2", DataCell::Number(1.0)));
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r1", "c2", DataCell::Number(2.0)));
+    let da = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r1", "c2", DataCell::Number(1.0)));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r1", "c2", DataCell::Number(2.0)));
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let cell = table_of(&got, "d1").cells.get(&key("r1", "c2")).cloned();
@@ -285,8 +284,8 @@ fn insert_row(t: &mut Table, id: &str, after: &str) {
 #[test]
 fn concurrent_row_inserts_after_same_row_both_kept() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| insert_row(&mut d.table, "ra", "r1"));
-    let db = edited(&deck, "d1", |d| insert_row(&mut d.table, "rb", "r1"));
+    let da = edited(&deck, "d1", |d| insert_row(d.table_mut().unwrap(), "ra", "r1"));
+    let db = edited(&deck, "d1", |d| insert_row(d.table_mut().unwrap(), "rb", "r1"));
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let rows: Vec<&str> = table_of(&got, "d1").rows.iter().collect();
@@ -299,8 +298,8 @@ fn concurrent_row_inserts_after_same_row_both_kept() {
 #[test]
 fn concurrent_row_insert_and_cell_edit_merge() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| insert_row(&mut d.table, "ra", "r2"));
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r3", "c1", DataCell::Text("IT".to_owned())));
+    let da = edited(&deck, "d1", |d| insert_row(d.table_mut().unwrap(), "ra", "r2"));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r3", "c1", DataCell::Text("IT".to_owned())));
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let t = table_of(&got, "d1");
@@ -313,10 +312,10 @@ fn concurrent_row_insert_and_cell_edit_merge() {
 fn concurrent_column_remove_and_cell_edit_drops_orphan_cell() {
     let deck = sample();
     let da = edited(&deck, "d1", |d| {
-        d.table.columns.retain(|c| c.id != "c2");
-        d.table.canonicalize();
+        d.table_mut().unwrap().columns.retain(|c| c.id != "c2");
+        d.table_mut().unwrap().canonicalize();
     });
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(7.0)));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(7.0)));
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let t = table_of(&got, "d1");
@@ -340,8 +339,8 @@ fn concurrent_rename_to_same_name_reports_name_taken() {
 #[test]
 fn concurrent_rename_column_to_different_names_converges() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| d.table.columns[0].name = "Land".to_owned());
-    let db = edited(&deck, "d1", |d| d.table.columns[0].name = "Pays".to_owned());
+    let da = edited(&deck, "d1", |d| d.table_mut().unwrap().columns[0].name = "Land".to_owned());
+    let db = edited(&deck, "d1", |d| d.table_mut().unwrap().columns[0].name = "Pays".to_owned());
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let name = table_of(&got, "d1").columns[0].name.clone();
@@ -352,7 +351,7 @@ fn concurrent_rename_column_to_different_names_converges() {
 #[test]
 fn concurrent_remove_data_and_edit_data_converge_without_data() {
     let deck = sample();
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(9.0)));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(9.0)));
     let (a, b) = merged(&deck, &Deck::default(), &db);
     assert_that!(a.deck().0.data.is_empty()).is_true();
     assert_that!(b.deck().0.data.is_empty()).is_true();
@@ -380,8 +379,8 @@ fn replace(t: &mut Table, generation: &str, rows: &[&str]) {
 #[test]
 fn concurrent_replace_is_last_writer_wins_without_duplicate_rows() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| replace(&mut d.table, "ga", &["x1", "x2"]));
-    let db = edited(&deck, "d1", |d| replace(&mut d.table, "gb", &["y1", "y2"]));
+    let da = edited(&deck, "d1", |d| replace(d.table_mut().unwrap(), "ga", &["x1", "x2"]));
+    let db = edited(&deck, "d1", |d| replace(d.table_mut().unwrap(), "gb", &["y1", "y2"]));
     let (a, b) = merged(&deck, &da, &db);
     let got = a.deck().0;
     let t = table_of(&got, "d1");
@@ -393,8 +392,8 @@ fn concurrent_replace_is_last_writer_wins_without_duplicate_rows() {
 #[test]
 fn edit_on_replaced_generation_is_lost_reported_on_both_peers_and_docs_equal() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| replace(&mut d.table, "g2", &["x1"]));
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(5.0)));
+    let da = edited(&deck, "d1", |d| replace(d.table_mut().unwrap(), "g2", &["x1"]));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(5.0)));
     let (mut a, mut b) = peers(&deck);
     a.apply(&da, "A", None).unwrap();
     b.apply(&db, "B", None).unwrap();
@@ -409,8 +408,8 @@ fn edit_on_replaced_generation_is_lost_reported_on_both_peers_and_docs_equal() {
 #[test]
 fn concurrent_edits_of_one_generation_lose_nothing() {
     let deck = sample();
-    let da = edited(&deck, "d1", |d| set_cell(&mut d.table, "r1", "c1", DataCell::Text("A".to_owned())));
-    let db = edited(&deck, "d1", |d| set_cell(&mut d.table, "r2", "c2", DataCell::Number(5.0)));
+    let da = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r1", "c1", DataCell::Text("A".to_owned())));
+    let db = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r2", "c2", DataCell::Number(5.0)));
     let (mut a, mut b) = peers(&deck);
     a.apply(&da, "A", None).unwrap();
     b.apply(&db, "B", None).unwrap();
@@ -424,7 +423,7 @@ fn peer_update_over_replica_cap_is_refused() {
     let snap = DeckReplica::new(&deck, registry()).unwrap().snapshot().unwrap();
     let (mut a, _) = DeckReplica::from_snapshot(&snap, snap.len() + 64, registry()).unwrap();
     let (mut b, _) = DeckReplica::from_snapshot(&snap, 1 << 26, registry()).unwrap();
-    let big = edited(&deck, "d1", |d| set_cell(&mut d.table, "r1", "c1", DataCell::Text("x".repeat(4_096))));
+    let big = edited(&deck, "d1", |d| set_cell(d.table_mut().unwrap(), "r1", "c1", DataCell::Text("x".repeat(4_096))));
     b.apply(&big, "B", None).unwrap();
     let err = a.merge(&b).unwrap_err();
     assert_that!(err.kind()).is_equal_to(crate::ReplicaErrorKind::TooLarge);
@@ -511,6 +510,7 @@ fn forged_invalid_id_is_repaired_from_x() {
     let r = forged(&Deck::default(), |r| {
         let m = data_map(r).insert_container("bad id!", LoroMap::new()).unwrap();
         m.insert("name", "forged").unwrap();
+        m.insert(KIND, "manual").unwrap();
     });
     let (got, _) = reopened(&r);
     assert_that!(got.data.keys().cloned().collect::<Vec<_>>()).is_equal_to(vec![did("x")]);
@@ -565,7 +565,7 @@ fn forged_label_and_column_name_with_bidi_are_cleaned_on_read() {
     let (got, _) = reopened(&r);
     let d = &got.data[&did("d1")];
     assert_that!(d.label.as_deref()).is_equal_to(Some("ab"));
-    assert_that!(d.table.columns[0].name.as_str()).is_equal_to("cd");
+    assert_that!(d.table().unwrap().columns[0].name.as_str()).is_equal_to("cd");
 }
 
 #[test]
@@ -584,7 +584,9 @@ fn forged_snapshot_with_300_data_keeps_256_in_id_order_and_names_dropped() {
     let r = forged(&Deck::default(), |r| {
         let map = data_map(r);
         for i in 0..300 {
-            map.insert_container(&format!("d{i:03}"), LoroMap::new()).unwrap().insert("name", format!("n{i}")).unwrap();
+            let m = map.insert_container(&format!("d{i:03}"), LoroMap::new()).unwrap();
+            m.insert("name", format!("n{i}")).unwrap();
+            m.insert(KIND, "manual").unwrap();
         }
     });
     let (got, issues) = reopened(&r);
@@ -605,7 +607,9 @@ fn forged_view_referencing_280th_data_does_not_change_kept_set() {
     let r = forged(&Deck::default(), |r| {
         let map = data_map(r);
         for i in 0..300 {
-            map.insert_container(&format!("d{i:03}"), LoroMap::new()).unwrap().insert("name", format!("n{i}")).unwrap();
+            let m = map.insert_container(&format!("d{i:03}"), LoroMap::new()).unwrap();
+            m.insert("name", format!("n{i}")).unwrap();
+            m.insert(KIND, "manual").unwrap();
         }
     });
     let plain = reopened(&r).0;
@@ -620,8 +624,9 @@ fn forged_view_referencing_280th_data_does_not_change_kept_set() {
 
 #[test]
 fn truncated_read_then_apply_does_not_write_truncation() {
-    let deck =
-        edited(&sample(), "d1", |d| set_cell(&mut d.table, "r2", "c1", DataCell::Text("é".repeat(MAX_TEXT_BYTES))));
+    let deck = edited(&sample(), "d1", |d| {
+        set_cell(d.table_mut().unwrap(), "r2", "c1", DataCell::Text("é".repeat(MAX_TEXT_BYTES)));
+    });
     let mut r = DeckReplica::new(&deck, registry()).unwrap();
     let (read, issues) = r.deck();
     assert_that!(keys(&issues)).is_equal_to(vec!["issue-data-truncated"]);
@@ -644,15 +649,14 @@ fn big(name: &str, rows: usize, columns: usize, overlay: usize, text: &str) -> A
         name: name.to_owned(),
         label: None,
         inline: false,
-        kind: DataKind::Manual,
-        table: Table {
+        source: Source::Manual(Table {
             generation: "g".to_owned(),
             epoch: String::new(),
             columns: cols,
             rows: Rows::repaired((0..rows).map(|r| format!("r{r}"))),
             base: None,
             cells,
-        },
+        }),
     })
 }
 
@@ -750,7 +754,7 @@ fn truncated_data_replaced_then_written_reads_back_whole() {
     let (got, issues) = reopened(&r);
     assert_that!(issues).is_empty();
     assert_that!(got.truncated.contains(&did("d1"))).is_false();
-    let written = &got.data[&did("d1")].table;
+    let written = table_of(&got, "d1");
     assert_that!(written.generation.as_str()).is_equal_to("g2");
     assert_that!(written.cell("q1", "k")).is_equal_to(CellRead::Overlay(&DataCell::Text("new".to_owned())));
 }
@@ -763,8 +767,8 @@ fn truncated_data_replaced_then_written_reads_back_whole() {
 fn repaired_by_both(da: &Deck, db: &Deck, a_first: bool) -> (DeckReplica, DeckReplica) {
     let (mut a, mut b) = merged(&sample(), da, db);
     let text = |s: &str| DataCell::Text(s.to_owned());
-    let wa = edited(&a.deck().0, "d1", |d| set_cell(&mut d.table, "r1", "c1", text("A")));
-    let wb = edited(&b.deck().0, "d1", |d| set_cell(&mut d.table, "r3", "c1", text("B")));
+    let wa = edited(&a.deck().0, "d1", |d| set_cell(d.table_mut().unwrap(), "r1", "c1", text("A")));
+    let wb = edited(&b.deck().0, "d1", |d| set_cell(d.table_mut().unwrap(), "r3", "c1", text("B")));
     a.apply(&wa, "A", None).unwrap();
     b.apply(&wb, "B", None).unwrap();
     if a_first {
@@ -794,8 +798,8 @@ fn raw_ids(r: &DeckReplica, key: &str) -> Vec<String> {
 fn both_peers_repairing_one_duplicate_row_converge(#[case] a_first: bool) {
     let deck = sample();
     // Both insert row `rx`: the merged list holds it twice, read as `rx` and `rx_2`.
-    let da = edited(&deck, "d1", |d| insert_row(&mut d.table, "rx", "r1"));
-    let db = edited(&deck, "d1", |d| insert_row(&mut d.table, "rx", "r2"));
+    let da = edited(&deck, "d1", |d| insert_row(d.table_mut().unwrap(), "rx", "r1"));
+    let db = edited(&deck, "d1", |d| insert_row(d.table_mut().unwrap(), "rx", "r2"));
     let (a, b) = repaired_by_both(&da, &db, a_first);
     let rows: Vec<String> = table_of(&a.deck().0, "d1").rows.iter().map(str::to_owned).collect();
     let expected: Vec<String> = ["r1", "rx", "r2", "rx_2", "r3"].map(str::to_owned).to_vec();
@@ -809,8 +813,8 @@ fn both_peers_repairing_one_duplicate_row_converge(#[case] a_first: bool) {
 fn both_peers_repairing_one_duplicate_column_converge(#[case] a_first: bool) {
     let deck = sample();
     // Both add column `cx`, under two names: the merged list holds it twice.
-    let da = edited(&deck, "d1", |d| d.table.columns.push(column("cx", "XA", ColumnType::Text)));
-    let db = edited(&deck, "d1", |d| d.table.columns.push(column("cx", "XB", ColumnType::Text)));
+    let da = edited(&deck, "d1", |d| d.table_mut().unwrap().columns.push(column("cx", "XA", ColumnType::Text)));
+    let db = edited(&deck, "d1", |d| d.table_mut().unwrap().columns.push(column("cx", "XB", ColumnType::Text)));
     let (a, b) = repaired_by_both(&da, &db, a_first);
     let ids: Vec<String> = table_of(&a.deck().0, "d1").columns.iter().map(|c| c.id.clone()).collect();
     assert_that!((ids.len(), raw_ids(&a, COLUMNS))).is_equal_to((4, ids));
@@ -822,3 +826,6 @@ mod data_epoch_tests;
 
 #[path = "data_undo_tests.rs"]
 mod data_undo_tests;
+
+#[path = "data_query_tests.rs"]
+mod data_query_tests;

@@ -1,5 +1,6 @@
 //! Writes and reads back the sources zip: manifest, `deck.loro`, assets, data bases
-//! (`bases/<hex>.parquet`, streamed to and from the base store) and fonts.
+//! (`bases/<hex>.parquet`, streamed to and from the base store), the query result cache
+//! (`data/<key hex>.json`, `sources_results.rs`) and fonts.
 //!
 //! Then come the pack versions (`sources_packs.rs`), the theme versions (`sources_themes.rs`)
 //! and the agent usage ledger, `usage.jsonl`, read last under its own cap. The read is
@@ -25,6 +26,7 @@ use crate::pack::PackVersion;
 use crate::pack_kind::PackKind;
 use crate::replica::DeckReplica;
 use crate::sources_bases::BaseFiles;
+use crate::sources_results::{RESULTS_DIR, RawResults, write_results};
 use crate::usage::{USAGE_FILE, USAGE_MAX_BYTES, UsageLedger};
 use crate::validate::Issue;
 use crate::widget::WidgetRegistry;
@@ -89,31 +91,33 @@ fn read_entry(
 /// Folder of the data bases in the zip: `bases/<hex>.parquet`.
 const BASES_DIR: &str = "bases/";
 
-/// Writes one stored `bases/<hex>.parquet` entry per base the deck uses now, copied from `bases`.
+/// Writes one stored `bases/<hex>.parquet` entry per base the deck uses now, copied from `bases`;
+/// the bases written and what they weigh.
 fn write_bases<W: Write + Seek>(
     zw: &mut zip::ZipWriter<W>,
     bundle: &SourceBundle,
     bases: Option<&dyn BaseFiles>,
     stored: SimpleFileOptions,
-) -> Result<(), SourcesInner> {
-    let mut written = BTreeSet::new();
+) -> Result<(BTreeSet<BaseId>, u64), SourcesInner> {
+    let (mut written, mut used) = (BTreeSet::new(), 0u64);
     for data in bundle.deck().data.values() {
-        let Some(base) = &data.table.base else { continue };
-        if !written.insert(&base.id) {
+        let Some(base) = data.table().and_then(|t| t.base.as_ref()) else { continue };
+        if !written.insert(base.id.clone()) {
             continue;
         }
         let id = || BaseSnafu { id: base.id.as_str() };
         let store = bases.ok_or_else(|| id().into_error("no base store".into()))?;
         let mut r = store.open(&base.id).map_err(|e| id().into_error(e))?;
         zw.start_file(format!("{BASES_DIR}{}.parquet", base.id.hex()), stored).context(ZipSnafu)?;
-        std::io::copy(&mut r, zw).context(IoSnafu)?;
+        used = used.saturating_add(std::io::copy(&mut r, zw).context(IoSnafu)?);
     }
-    Ok(())
+    Ok((written, used))
 }
 
 /// The bases an opened zip put into the store, and what the deck may still hold of them.
 struct BaseBudget {
-    known: BTreeSet<BaseId>,
+    /// Each base received, with its size.
+    known: BTreeMap<BaseId, u64>,
     /// Bytes left under [`MAX_DECK_BASE_BYTES`].
     left: u64,
     /// The zip's whole budget, for the error.
@@ -142,7 +146,7 @@ impl BaseBudget {
         put.map_err(|e| BaseSnafu { id: id.as_str() }.into_error(e))?;
         *budget -= usize::try_from(counted.read).unwrap_or(usize::MAX);
         self.left -= counted.read;
-        self.known.insert(id);
+        self.known.insert(id, counted.read);
         Ok(())
     }
 }
@@ -198,6 +202,16 @@ fn read_usage<R: Read + Seek>(za: &mut zip::ZipArchive<R>) -> (UsageLedger, Vec<
 
 impl SourceBundle {
     pub(super) fn write_zip(&self, usage: bool, bases: Option<&dyn BaseFiles>) -> Result<Vec<u8>, SourcesInner> {
+        self.write_zip_within(usage, bases, MAX_DECK_BASE_BYTES)
+    }
+
+    /// As `write_zip`, the bases of the manual data and of the cached results within `budget`.
+    pub(crate) fn write_zip_within(
+        &self,
+        usage: bool,
+        bases: Option<&dyn BaseFiles>,
+        budget: u64,
+    ) -> Result<Vec<u8>, SourcesInner> {
         let mut buf = Cursor::new(Vec::new());
         {
             let mut zw = zip::ZipWriter::new(&mut buf);
@@ -219,7 +233,8 @@ impl SourceBundle {
                 zw.start_file(format!("assets/{}", asset_name(id)?), stored).context(ZipSnafu)?;
                 zw.write_all(bytes).context(IoSnafu)?;
             }
-            write_bases(&mut zw, self, bases, stored)?;
+            let (mut written, used) = write_bases(&mut zw, self, bases, stored)?;
+            write_results(&mut zw, &self.results, bases, (stored, deflate), (&mut written, used), budget)?;
             for (name, bytes) in &self.fonts {
                 zw.start_file(format!("fonts/{}", safe_name(name)?), stored).context(ZipSnafu)?;
                 zw.write_all(bytes).context(IoSnafu)?;
@@ -250,7 +265,8 @@ impl SourceBundle {
         let mut raw_themes: BTreeMap<PackVersion, Vec<u8>> = BTreeMap::new();
         // Octets décompressés encore permis (anti-bombe de décompression).
         let mut budget = limits.total_bytes;
-        let mut received = BaseBudget { known: BTreeSet::new(), left: MAX_DECK_BASE_BYTES, total: limits.total_bytes };
+        let mut received = BaseBudget { known: BTreeMap::new(), left: MAX_DECK_BASE_BYTES, total: limits.total_bytes };
+        let mut results = RawResults::default();
         for i in 0..za.len() {
             // `usage.jsonl` is read after the loop (`read_usage`): skipped by name before
             // `by_index` opens it, since an entry it cannot open (encrypted) must not fail the deck.
@@ -295,6 +311,11 @@ impl SourceBundle {
                 }
                 continue; // Without a store: neither read nor counted, the data read as missing.
             }
+            if let Some(file) = name.strip_prefix(RESULTS_DIR) {
+                let total = limits.total_bytes;
+                results.put(file, f, size, |f, cap| read_entry(f, size, cap, &mut budget, total))?;
+                continue;
+            }
             let known = name == "manifest.json" || name.starts_with("assets/") || name.starts_with("fonts/");
             if !known {
                 continue; // Entrées inconnues (dont l'ancien `deck.json`) : ni lues, ni comptées.
@@ -330,7 +351,10 @@ impl SourceBundle {
         };
         let (packs, discarded_packs) = verify_packs(raw_packs);
         let (themes, discarded_themes) = verify_themes(raw_themes);
-        let (mut bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes, received.known);
+        let cached = results.verify(&received.known);
+        let known = received.known.into_keys().collect();
+        let (mut bundle, mut issues) = Self::from_replica(replica, read, assets, fonts, packs, themes, known);
+        bundle.results = cached;
         report_discarded(&mut issues, &discarded_packs);
         report_discarded_themes(&mut issues, &discarded_themes);
         let (usage, usage_issues) = read_usage(&mut za);

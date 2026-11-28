@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use snafu::{OptionExt, ResultExt};
 
-use crate::data_panel::{DataTarget, STACK_GROUP, data_missing, hex_color, plan_columns, stackable};
+use crate::data_panel::{DataTarget, STACK_GROUP, data_missing, hex_color, manual_table, plan_columns, stackable};
 use crate::data_paste::Paste;
 use crate::error::{HostKeySnafu, NoChartSnafu, NoTableSnafu, PrepareSnafu, ResponseSnafu, ViewUnfollowedSnafu};
 use crate::request::View;
@@ -161,7 +161,8 @@ impl Session {
             }
             DataEdit::Align { column, align } => {
                 need(!chart, true)?;
-                let width = self.view_columns(&target)?.len();
+                // A view of a query data aligns the columns of its ready result.
+                let width = self.result_columns(&target)?.len();
                 let op = Op::SetTableOption {
                     target: owner,
                     param: target.param,
@@ -269,7 +270,7 @@ impl Session {
         let last = {
             let deck = self.doc.sources.deck();
             let found = deck.data.get(data.as_str()).ok_or_else(|| data_missing(data.as_str()))?;
-            found.table.rows.iter().last().map(str::to_owned)
+            manual_table(data.as_str(), found)?.rows.iter().last().map(str::to_owned)
         };
         let change = TableOp::InsertRow { id: None, after: last, cells: std::collections::BTreeMap::new() };
         Ok(Op::EditData { data: data.clone(), change })

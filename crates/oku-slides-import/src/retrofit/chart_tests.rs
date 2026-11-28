@@ -309,7 +309,7 @@ fn import_table_bounds(#[case] points: usize, #[case] kept: usize, #[case] cut: 
     assert_that!(losses.contains(&LossKind::ChartTruncated)).is_equal_to(cut);
     let deck = apply_blocks(vec![element_with("c", base::CHART, "option", option)]).unwrap();
     let data = deck.data.values().next().unwrap();
-    assert_that!(data.table.rows.len()).is_equal_to(kept);
+    assert_that!(data.table().unwrap().rows.len()).is_equal_to(kept);
 }
 
 #[test]
@@ -442,5 +442,5 @@ fn import_twice_into_one_deck_makes_distinct_data() {
     assert_that!(names.len()).is_equal_to(2);
     assert_that!(names.contains(&"x")).is_true();
     assert_that!(names.contains(&"x_2")).is_true();
-    assert_that!(deck.data.values().all(|d| d.table.rows.len() == 3)).is_true();
+    assert_that!(deck.data.values().all(|d| d.table().unwrap().rows.len() == 3)).is_true();
 }

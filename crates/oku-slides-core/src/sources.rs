@@ -1,23 +1,24 @@
-//! Le zip des sources (format `oku-slides-sources`, version 15) : le replica
-//! Loro du deck (`deck.loro`), les assets d'origine, les polices, les
-//! versions de packs de widgets (`widgets/<hex>/widgets.json`,
-//! `widgets/<hex>/widgets/<nom>.typ`) et de layouts (`layouts/<hex>/layouts.json`,
-//! `layouts/<hex>/layouts/<nom>.typ`), et les versions de thèmes
-//! (`themes/<hex>/theme.json`, voir `sources_themes.rs`). C'est ce blob qui
-//! est stocké dans le PDF.
+//! The sources zip (format `oku-slides-sources`, version 16): the deck's Loro
+//! replica (`deck.loro`), the original assets, the fonts, the widget pack
+//! versions (`widgets/<hex>/widgets.json`, `widgets/<hex>/widgets/<name>.typ`),
+//! the layout versions (`layouts/<hex>/layouts.json`,
+//! `layouts/<hex>/layouts/<name>.typ`) and the theme versions
+//! (`themes/<hex>/theme.json`, see `sources_themes.rs`), the data bases
+//! (`bases/<hex>.parquet`) and the query result cache (`data/<key hex>.json`, see
+//! `sources_results.rs`). This blob is the one stored in the PDF.
 //!
-//! [`SourceBundle`] détient le replica ; le [`Deck`] n'en est qu'une vue,
-//! remplacée par [`SourceBundle::apply`], [`SourceBundle::undo`] et
-//! [`SourceBundle::redo`]. Invariant : la vue est toujours égale à la
-//! relecture du replica (`replica().deck().0 == *deck()`). La relecture est
-//! canonique ; la vue l'est donc aussi : [`SourceBundle::new`] met le deck
-//! reçu sous forme canonique ([`canonicalize`](crate::canonicalize)), et
-//! `apply` attend un deck déjà canonique (celui que rend
-//! [`apply_all`](crate::apply_all)), ce que vérifie un `debug_assert!`.
-//! Un zip d'une version antérieure (1 : `deck.json` ; 2 à 14) n'est plus lu.
+//! [`SourceBundle`] holds the replica; the [`Deck`] is only a view of it,
+//! replaced by [`SourceBundle::apply`], [`SourceBundle::undo`] and
+//! [`SourceBundle::redo`]. Invariant: the view always equals the replica's
+//! read-back (`replica().deck().0 == *deck()`). The read-back is canonical, so
+//! the view is too: [`SourceBundle::new`] canonicalizes the deck it receives
+//! ([`canonicalize`](crate::canonicalize)), and `apply` expects an already
+//! canonical deck (the one [`apply_all`](crate::apply_all) returns), which a
+//! `debug_assert!` checks. A zip of an older version (1: `deck.json`; 2 to 15)
+//! is no longer read.
 //!
-//! Le bundle porte le registre des widgets, que son replica utilise à
-//! l'écriture ; la fusion et la restauration le passent à `validate`.
+//! The bundle carries the widget registry its replica writes with; merge and
+//! restore pass it to `validate`.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::Arc;
@@ -35,6 +36,7 @@ use crate::pack::{PackFiles, PackManifest, PackVersion};
 use crate::pack_kind::PackKind;
 use crate::replica::{DeckRead, DeckReplica, HistoryPreview, KnowledgeSync, ReplicaLimits};
 use crate::sources_bases::BaseFiles;
+use crate::sources_results::{CachedResult, ResultKeyHex};
 use crate::usage::UsageLedger;
 use crate::validate::{Issue, validate};
 use crate::widget::WidgetRegistry;
@@ -51,7 +53,7 @@ use themes::theme_issues;
 /// Value of the `format` field in a source zip's manifest.
 pub const SOURCES_FORMAT: &str = "oku-slides-sources";
 /// Version of the source format; follows each change of `REPLICA_FORMAT`.
-pub const SOURCES_VERSION: u32 = 15;
+pub const SOURCES_VERSION: u32 = 16;
 
 /// Plafonds de lecture d'un zip de sources (octets non fiables).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,6 +116,10 @@ pub struct SourceBundle {
     /// The data bases this bundle received (its file's, its compactions', its pastes'), add-only;
     /// a data whose base is not among them reads as `issue-data-base-missing`.
     pub bases: BTreeSet<BaseId>,
+    /// The query results the zip caches (`data/`), checked against its bases but not against the
+    /// deck: the session keeps those its own keys name. A save writes these, the session first
+    /// setting them to its current ready results. Not part of equality: a cache.
+    pub results: BTreeMap<ResultKeyHex, CachedResult>,
 }
 
 /// Two bundles are equal when they show the same deck, assets, fonts, packs, themes and usage.
@@ -157,7 +163,20 @@ impl SourceBundle {
         let (assets, fonts, packs, themes, usage, bases) = Default::default();
         let knowledge_generation = fresh_generation();
         let knowledge_unsynced = false;
-        Ok(Self { replica, deck, knowledge_generation, knowledge_unsynced, assets, fonts, packs, themes, usage, bases })
+        let results = BTreeMap::new();
+        Ok(Self {
+            replica,
+            deck,
+            knowledge_generation,
+            knowledge_unsynced,
+            assets,
+            fonts,
+            packs,
+            themes,
+            usage,
+            bases,
+            results,
+        })
     }
 
     /// A bundle around a replica read back by [`DeckReplica::from_snapshot`].
@@ -189,6 +208,7 @@ impl SourceBundle {
             themes,
             usage: UsageLedger::default(),
             bases,
+            results: BTreeMap::new(),
         };
         issues.extend(bundle.embedded_issues());
         (bundle, issues)
@@ -236,7 +256,7 @@ impl SourceBundle {
         issues.extend(theme_issues(&self.deck, &self.themes));
         let mut seen = HashSet::new();
         for data in self.deck.data.values() {
-            if let Some(base) = &data.table.base
+            if let Some(base) = data.table().and_then(|t| t.base.as_ref())
                 && !self.bases.contains(&base.id)
                 && seen.insert(&data.name)
             {

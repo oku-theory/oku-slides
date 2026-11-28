@@ -107,7 +107,15 @@ async fn apply_edit_data_on_chart_changes_cell() {
     let r = call(&c, "apply", json!({ "ops": edit })).await;
     assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
     let s = h.session.lock().unwrap();
-    let dataset = s.deck().data.get("d-mcp").unwrap().table.to_dataset(None, 0..1, 100).unwrap();
+    let dataset = s
+        .deck()
+        .data
+        .get("d-mcp")
+        .unwrap()
+        .table()
+        .unwrap_or_else(|| panic!("a manual data"))
+        .to_dataset(None, 0..1, 100)
+        .unwrap();
     assert_that!(dataset.source[1][1].as_f64()).is_equal_to(Some(9.0));
 }
 

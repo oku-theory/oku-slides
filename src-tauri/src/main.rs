@@ -258,6 +258,9 @@ fn main() -> color_eyre::Result<()> {
             let fonts = app_fonts(&platform.storage, &font_dirs(app.handle(), &platform));
             let workspace = Workspace::resume(fonts, &platform, &platform.settings.paths.data().join("resume"))?;
             let workspace = Arc::new(Mutex::new(workspace));
+            // Query results land off the lock: the windows re-read the tab's views.
+            let results_app = app.handle().clone();
+            Workspace::on_results(&workspace, move |_| windows::emit_view(&results_app));
             let stt = Stt::new(&platform);
             // Les outils et l'agent vivent dans le runtime tokio de Tauri.
             let rt = tauri::async_runtime::handle().inner().clone();

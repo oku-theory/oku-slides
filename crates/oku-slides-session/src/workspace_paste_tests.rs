@@ -11,19 +11,19 @@ use crate::{Localize, Localizer, Request, SessionErrorKind, Workspace, Workspace
 const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/roadmap.json");
 
 /// A workspace with two tabs on roadmap.json; the first holds `d1` ("ventes") shown by `ch1`.
-struct Two {
+pub(super) struct Two {
     _data: tempfile::TempDir,
-    ws: Mutex<Workspace>,
-    a: String,
-    b: String,
+    pub(super) ws: Mutex<Workspace>,
+    pub(super) a: String,
+    pub(super) b: String,
 }
 
-fn op(v: Value) -> Op {
+pub(super) fn op(v: Value) -> Op {
     serde_json::from_value(v).unwrap_or_else(|e| panic!("op : {e}"))
 }
 
 /// `rows` rows of a text column `c1` and `columns - 1` number columns `c2`…
-fn table(rows: usize, columns: usize) -> Value {
+pub(super) fn table(rows: usize, columns: usize) -> Value {
     let mut cols = vec![json!({ "id": "c1", "name": "Mois", "type": "text" })];
     cols.extend((2..=columns).map(|i| json!({ "id": format!("c{i}"), "name": format!("v{i}"), "type": "number" })));
     let rows: Vec<Value> = (0..rows)
@@ -36,7 +36,7 @@ fn table(rows: usize, columns: usize) -> Value {
     json!({ "generation": "g1", "columns": cols, "rows": rows })
 }
 
-fn chart(id: &str, data: &str) -> Value {
+pub(super) fn chart(id: &str, data: &str) -> Value {
     json!({ "id": id, "frame": { "x": 0, "y": 0, "w": 400, "h": 300 }, "kind": "base/chart", "params": { "option": {
         "data": data, "xAxis": { "type": "category" }, "series": [{ "type": "bar" }]
     } } })
@@ -46,14 +46,14 @@ fn grid(id: &str, data: &str) -> Value {
     json!({ "id": id, "frame": { "x": 0, "y": 0, "w": 400, "h": 300 }, "kind": "base/table", "params": { "data": { "data": data, "columns": ["c2"] } } })
 }
 
-fn add(element: Value) -> Value {
+pub(super) fn add(element: Value) -> Value {
     let slot = json!({ "owner": { "slide": "s-libre" }, "param": "elements" });
     let mut op = json!({ "op": "add_element", "slot": slot });
     op["element"] = element;
     op
 }
 
-fn two_with(deck: Option<Deck>) -> Two {
+pub(super) fn two_with(deck: Option<Deck>) -> Two {
     let data = fresh_dir("oku-slides-paste-");
     let ws = workspace_on(data.path());
     let window = Workspace::lock(&ws).view().windows[0].label.clone();
@@ -101,34 +101,34 @@ fn two_large(rows: usize) -> Two {
 }
 
 impl Two {
-    fn on<R>(&self, tab: &str, f: impl FnOnce(&mut crate::Session) -> R) -> R {
+    pub(super) fn on<R>(&self, tab: &str, f: impl FnOnce(&mut crate::Session) -> R) -> R {
         Workspace::with_session(&self.ws, tab, f).0.unwrap_or_else(|e| panic!("{}", e.one_line()))
     }
 
-    fn paste(&self, from: &str, to: &str, ops: &[Value]) -> crate::Result<WorkspaceOutcome> {
+    pub(super) fn paste(&self, from: &str, to: &str, ops: &[Value]) -> crate::Result<WorkspaceOutcome> {
         apply_ws(&self.ws, json!({ "cmd": "paste_element", "from": from, "to": to, "label": "Coller", "ops": ops }))
     }
 
-    fn deck(&self, tab: &str) -> Deck {
+    pub(super) fn deck(&self, tab: &str) -> Deck {
         self.on(tab, |s| s.deck().clone())
     }
 
     /// The names of the data of `tab`, sorted.
-    fn names(&self, tab: &str) -> Vec<String> {
+    pub(super) fn names(&self, tab: &str) -> Vec<String> {
         let mut names: Vec<String> = self.deck(tab).data.values().map(|d| d.name.clone()).collect();
         names.sort();
         names
     }
 
     /// The data `tab` names `name`, with its id.
-    fn named(&self, tab: &str, name: &str) -> (String, Arc<Data>) {
+    pub(super) fn named(&self, tab: &str, name: &str) -> (String, Arc<Data>) {
         let deck = self.deck(tab);
         let found = deck.data.iter().find(|(_, d)| d.name == name).map(|(id, d)| (id.as_str().to_owned(), d.clone()));
         found.unwrap_or_else(|| panic!("{name} absente de {tab}"))
     }
 
     /// The data the view `param` of `element` (on `s-libre`) names.
-    fn view_ref(&self, tab: &str, element: &str, param: &str) -> String {
+    pub(super) fn view_ref(&self, tab: &str, element: &str, param: &str) -> String {
         let deck = self.deck(tab);
         let slide = deck.slides.iter().find(|s| s.id == "s-libre").unwrap_or_else(|| panic!("s-libre"));
         let e = slide.locate(element).map_or_else(|| panic!("{element} absent"), |l| l.element.clone());
@@ -137,11 +137,11 @@ impl Two {
     }
 }
 
-fn fr_text(key: &str, args: &[(&str, oku_slides_i18n::FluentValue<'static>)]) -> String {
+pub(super) fn fr_text(key: &str, args: &[(&str, oku_slides_i18n::FluentValue<'static>)]) -> String {
     Localizer::new(Some("fr")).tr_with(key, args)
 }
 
-fn fr(e: &crate::SessionError) -> String {
+pub(super) fn fr(e: &crate::SessionError) -> String {
     e.localize(&Localizer::new(Some("fr")))
 }
 
@@ -172,9 +172,9 @@ fn paste_into_other_deck_carries_data_with_types_and_ids() {
     let (copy, carried) = t.named(&t.b, "ventes");
     assert_that!(t.names(&t.b)).is_equal_to(vec!["ventes".to_owned()]);
     assert_that!(t.view_ref(&t.b, "ch1", "option")).is_equal_to(&copy);
-    assert_that!(carried.table.columns).is_equal_to(&source.table.columns);
-    assert_that!(carried.table.rows).is_equal_to(&source.table.rows);
-    assert_that!(carried.table.cells).is_equal_to(&source.table.cells);
+    assert_that!(carried.table().unwrap().columns).is_equal_to(&source.table().unwrap().columns);
+    assert_that!(carried.table().unwrap().rows).is_equal_to(&source.table().unwrap().rows);
+    assert_that!(carried.table().unwrap().cells).is_equal_to(&source.table().unwrap().cells);
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn paste_of_data_over_100000_cells_is_accepted() {
     let t = two_large(11_000);
     t.paste(&t.a, &t.b, &[add(grid("tb1", "d1"))]).unwrap_or_else(|e| panic!("{}", e.one_line()));
     let (copy, carried) = t.named(&t.b, "ventes");
-    assert_that!(carried.table.cells.len()).is_equal_to(110_000);
+    assert_that!(carried.table().unwrap().cells.len()).is_equal_to(110_000);
     assert_that!(t.view_ref(&t.b, "tb1", "data")).is_equal_to(copy);
 }
 

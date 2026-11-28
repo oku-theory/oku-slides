@@ -132,7 +132,7 @@ fn render_widget_reading_disk_file_fails_on_its_path(disk: TempDir, #[case] reac
 /// No package resolves: a world with a package downloader or cache would import this one.
 ///
 /// It cannot prove the absence of a download on its own (the package may be missing offline);
-/// `just render-offline-deps` guards the worker's dependency tree against any HTTP client.
+/// `just render-offline-deps` guards the worker's dependency tree against any HTTP client but polars-io's.
 #[rstest]
 fn render_widget_importing_package_fails_not_found() {
     let messages = render_leak(r#"import "@preview/cetz:0.3.4": *"#);

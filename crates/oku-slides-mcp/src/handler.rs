@@ -72,6 +72,7 @@ impl Tools {
             "chart_kind" => self.chart_kind(args).await,
             "data_list" => self.data_list().await,
             "data_read" => self.data_read(args).await,
+            "query_preview" => self.query_preview(args).await,
             "show_as" => self.show_as(args).await,
             "open_pack" => self.open_pack(turn, args).await,
             "open_theme" => self.open_theme(turn, args).await,

@@ -77,6 +77,12 @@ test:
     # Tests de rendu (DOM happy-dom) dans leur propre processus : cache de modules à part.
     cd ui && bun run test
 
+# Query results against the DuckDB oracle (t-1774): the oracle's bundled DuckDB builds apart,
+# never in the workspace build; its test is linted here, outside `just check`.
+test-oracle:
+    cargo nextest run -p oku-slides-data --features oracle --test oracle
+    cargo clippy -p oku-slides-data --features oracle --test oracle -- -D warnings
+
 # Tests de bout en bout (Playwright, sous Bun) contre un serveur neuf, sur le port
 # `port` (4872 par défaut ; `just e2e 4999` ou `just e2e port=4999` quand une autre
 # session tient déjà le port). Données et decks dans un dossier temporaire, supprimé
@@ -145,15 +151,37 @@ fakes-dev-deps-guard:
     done < <(git ls-files -- 'Cargo.toml' '*/Cargo.toml')
     exit $bad
 
-# Render worker dependency tree, not runtime: no HTTP client nor typst-kit package/download feature (t-1414)
+# Render worker dependency tree, not runtime: no HTTP client nor typst-kit package/download feature (t-1414).
+# One exception (t-1774): polars `lazy` pulls polars-stream, which forces polars-io `cloud`, so
+# reqwest, hyper, h2 and object_store compile in. No code path calls polars' cloud reader, and the
+# worker sandbox is the wall (macOS Seatbelt `(deny network*)`). They pass only when polars-io pulls
+# them: pruned of polars-io and object_store, the tree must hold no HTTP client; object_store's only
+# other parent is polars-error, whose `object_store` feature only polars-io `cloud` enables.
 render-offline-deps:
     #!/usr/bin/env bash
     set -euo pipefail
-    tree=$(cargo tree --locked -p oku-slides-render-worker -e normal,features --prefix none)
+    worker=(--locked -p oku-slides-render-worker)
+    http='^(ureq|reqwest|hyper|isahc|curl|attohttpc|surf|h2|object_store) v'
+    tree=$(cargo tree "${worker[@]}" -e normal,features --prefix none)
     bad=0
-    crates=$(grep -E '^(ureq|reqwest|hyper|isahc|curl|attohttpc|surf|h2) v' <<< "$tree" | sort -u || true)
+    pruned=$(cargo tree "${worker[@]}" -e normal --prune polars-io --prune object_store --prefix none)
+    crates=$(grep -E "$http" <<< "$pruned" | sort -u || true)
     if [ -n "$crates" ]; then
-      echo "✗ oku-slides-render-worker tire un client HTTP :"; echo "$crates"; bad=1
+      echo "✗ oku-slides-render-worker tire un client HTTP hors de polars-io :"; echo "$crates"; bad=1
+    fi
+    if grep -qE '^object_store v' <<< "$tree"; then
+      parents=$(cargo tree "${worker[@]}" -e normal --prune polars-io -i object_store --prefix depth --depth 1 \
+        | sed -nE 's/^1([^ ]+) v.*/\1/p' | sort -u)
+      if [ "$parents" != "polars-error" ]; then
+        echo "✗ object_store entre hors de polars-io, par :"; echo "$parents"; bad=1
+      fi
+      enablers=$(cargo tree "${worker[@]}" -e features -i polars-error --prefix depth | awk '
+        match($0, /^[0-9]+/) { d = substr($0, 1, RLENGTH) + 0; t = substr($0, RLENGTH + 1) }
+        { if (on) { if (d <= k) on = 0; else if (d == k + 1) { sub(/ \(\*\)$/, "", t); print t } } }
+        !done && t ~ /^polars-error feature "object_store"$/ { on = 1; done = 1; k = d }' | sort -u)
+      if [ "$enablers" != 'polars-io feature "cloud"' ]; then
+        echo "✗ polars-error/object_store activé hors de polars-io cloud, par :"; echo "$enablers"; bad=1
+      fi
     fi
     features=$(grep -E '^typst-kit feature "(system-downloader|universe-packages|system-packages|system-files|http-server)"' <<< "$tree" | sort -u || true)
     if [ -n "$features" ]; then
@@ -523,7 +551,7 @@ watch cmd="test":
     cargo watch -s "just {{cmd}}"
 
 # Tout ce que vérifie l'intégration continue, en local
-ci: check agents-lint-test commit-lint-test release-sign-test test audit
+ci: check agents-lint-test commit-lint-test release-sign-test test test-oracle audit
 
 # Update bundle signing and the publish gate of release.yml on a fake release (t-977, t-1210).
 # Needs minisign (`brew install minisign`, apt `minisign`), jq and cargo-tauri (`just setup`).

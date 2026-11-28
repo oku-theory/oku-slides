@@ -28,7 +28,7 @@ fn opened(data: &Path) -> Session {
 }
 
 fn overlay(s: &Session) -> usize {
-    s.deck().data[&id("d9")].table.overlay_len()
+    s.deck().data[&id("d9")].table().unwrap().overlay_len()
 }
 
 /// `d9` with its overlay full and one undo step on it; the id of its last row, none of
@@ -65,7 +65,7 @@ fn overflow_folds_and_drops_undo_with_notice(#[case] agent: bool) {
     })
     .unwrap_or_else(|e| panic!("overflowing edit: {}", e.one_line()));
     let mut s = s.into_inner().unwrap_or_else(PoisonError::into_inner);
-    let table = &s.deck().data[&id("d9")].table;
+    let table = s.deck().data[&id("d9")].table().unwrap();
     assert_that!(table.base.is_some()).is_true();
     assert_that!(table.overlay_len()).is_equal_to(1);
     assert_that!(table.cell(&last, "c2")).is_equal_to(CellRead::Overlay(&DataCell::Number(5.0)));
@@ -73,7 +73,7 @@ fn overflow_folds_and_drops_undo_with_notice(#[case] agent: bool) {
     assert_that!(shown).contains(cut.as_str());
     // Only the retried edit is left to undo: the steps before the fold were dropped.
     s.undo().unwrap_or_else(|e| panic!("undo: {}", e.one_line()));
-    assert_that!(s.deck().data[&id("d9")].table.cell(&last, "c2")).is_equal_to(CellRead::Base);
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().cell(&last, "c2")).is_equal_to(CellRead::Base);
     assert_that!(s.can_undo()).is_false();
 }
 
@@ -85,7 +85,7 @@ fn overflowing_apply_asks_a_fold_and_changes_nothing() {
     let e = s.apply_folding("cellule", vec![set_cell("d9", &last, 5)], None).err();
     let e = e.unwrap_or_else(|| panic!("folded under the lock"));
     assert_that!(e.transaction().is_some_and(|t| t.op_error().is_overlay_full())).is_true();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_none()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_none()).is_true();
     assert_that!(s.can_undo()).is_true();
     // The fold is the caller's, to run once the session's lock is released.
     assert_that!(s.take_fold(Instant::now()).is_some()).is_true();
@@ -102,7 +102,7 @@ fn fold_of_a_data_edited_meanwhile_is_dropped_and_keeps_undo() {
     // While the lock was released, the user edited d9 again.
     apply(&mut s, vec![set_cell("d9", "r2", 9)]);
     assert_that!(s.finish_fold(job, reply, Instant::now())).is_false();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_none()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_none()).is_true();
     assert_that!(s.can_undo()).is_true();
 }
 
@@ -115,7 +115,7 @@ fn null_marker_at_overlay_cap_folds() {
     // Every row but r0, the one the base holds, fills the overlay to its cap.
     let mut deck = s.deck().clone();
     let data = deck.data.get_mut(&id("d9")).unwrap_or_else(|| panic!("no d9"));
-    let table = &mut Arc::make_mut(data).table;
+    let table = Arc::make_mut(data).table_mut().unwrap();
     table.rows = Rows::repaired((0..=FULL_ROWS).map(|r| format!("r{r}")));
     for row in 1..=FULL_ROWS {
         for column in 1..=4 {
@@ -133,7 +133,7 @@ fn null_marker_at_overlay_cap_folds() {
     with_folding(&s, |s| s.apply_folding("vider", vec![clear.clone()], None))
         .unwrap_or_else(|e| panic!("clear: {}", e.one_line()));
     let s = s.into_inner().unwrap_or_else(PoisonError::into_inner);
-    let table = &s.deck().data[&id("d9")].table;
+    let table = s.deck().data[&id("d9")].table().unwrap();
     assert_that!(table.base.is_some() && table.base != first).is_true();
     assert_that!(table.overlay_len()).is_equal_to(1);
     assert_that!(table.cell("r0", "c1")).is_equal_to(CellRead::Cleared);

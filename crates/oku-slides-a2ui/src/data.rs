@@ -1,5 +1,5 @@
 //! Data components, host only: a chart's or a table's (`ChartData`, `TableData`), the deck's
-//! data list (`DataList`) and one data's rows (`DataSheet`).
+//! data list (`DataList`) and one data's rows (`DataSheet`), a query's with its SQL ([`QueryView`]).
 //!
 //! The session builds them from the deck; the UI writes a change at the model's `edit` path,
 //! then sends the action, which the session applies as one undoable op.
@@ -32,7 +32,7 @@ pub struct DataRef {
     pub users: usize,
 }
 
-/// A data the view can switch to: it holds every column the view reads.
+/// A data the view can switch to (it holds every column the view reads), or a query's input.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DataChoice {
@@ -56,14 +56,17 @@ pub struct DataRow {
     /// Its display label, shown instead of the name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// What makes its rows: `manual` (typed in or imported).
+    /// What makes its rows: `manual` (typed in or imported) or `query` (a SQL over other data).
     pub kind: String,
-    /// Its number of columns.
+    /// Its number of columns; a query's ready result's, else 0.
     pub columns: u32,
-    /// Its number of rows.
+    /// Its number of rows; a query's ready result's, else 0.
     pub rows: u32,
     /// The views that show it, in document order.
     pub users: Vec<DataUser>,
+    /// A query's result state; absent for a data entered by hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<DataState>,
     /// The refusal of the panel's last action on it, localized.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -79,6 +82,33 @@ pub struct DataUser {
     pub element: String,
     /// Its localized label.
     pub label: String,
+}
+
+/// The state of a query's result for its current inputs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum DataState {
+    /// Being computed.
+    Pending,
+    /// Computed: its rows can be read.
+    Ready,
+    /// Refused or failed: see the error.
+    Failed,
+}
+
+/// A query data as its sheet shows it: its SQL, its result's state and the data it reads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct QueryView {
+    /// The SQL, which a `set-query` edit replaces.
+    pub sql: String,
+    /// Its result's state.
+    pub state: DataState,
+    /// Why it failed, localized; only when `failed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// The deck's data it reads, by name.
+    pub inputs: Vec<DataChoice>,
 }
 
 #[cfg(test)]

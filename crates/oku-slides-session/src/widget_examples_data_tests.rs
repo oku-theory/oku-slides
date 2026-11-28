@@ -52,7 +52,7 @@ fn two_widgets_sharing_example_data_get_one_copy() {
     assert_that!(second.as_str()).is_equal_to(first.as_str());
     assert_that!(first.as_str()).is_not_equal_to(EXAMPLE_CHART);
     let copy = s.deck().data.get(first.as_str()).unwrap();
-    assert_that!(copy.table.rows.len()).is_equal_to(3);
+    assert_that!(copy.table().unwrap().rows.len()).is_equal_to(3);
 }
 
 #[test]

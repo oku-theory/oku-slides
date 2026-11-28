@@ -220,6 +220,11 @@ issue-data-too-many = デッキのデータが多すぎます（{ $count }）。
 issue-data-base-missing = データ「{ $data }」: ベースファイルがないため、読み取り専用にしました
 issue-data-edits-lost = データ「{ $data }」: 置き換えられた表への編集がマージで失われました
 issue-data-inline-dropped = 要素 { $element }：古いバージョンがグラフや表のデータをオプション内に保存していました。削除しました
+issue-data-kind-unknown = データ「{ $data }」: 不明な種類「{ $kind }」です。新しいバージョンのものかもしれません。読み込みませんでした
+issue-data-query-cycle = データ「{ $data }」: クエリが直接、または他のクエリを通じて自分自身を読み返します。計算しませんでした
+issue-data-query-missing-input = データ「{ $data }」: クエリがデッキにない「{ $input }」を読みます。計算しませんでした
+issue-data-query-invalid = データ「{ $data }」: クエリが無効です（{ $reason }）。計算しませんでした
+issue-data-query-failed = データ「{ $data }」: クエリが失敗しました（{ $reason }）。結果はありません
 issue-more = 表示していない問題があと{ $count }件あります
 op-data-deck-full = デッキのデータが上限を超えます: { $what ->
     [row-ids] 行 ID
@@ -241,6 +246,20 @@ op-data-rebind = 要素 { $subject } はすでに別のデータを表示して�
 op-data-internal = バッチでは表のベースやオーバーレイを設定できません
 op-data-batch-too-large = バッチが大きすぎます: セル数 { $count }、上限 { $max }
 op-data-inline = 要素 { $subject } はデータをオプション内に持っています。add_data でデッキのデータとして追加し、bind_data で結び付けてください
+op-data-derived = データ「{ $data }」はクエリから派生しています。行ではなくクエリを編集してください
+op-data-source = データには表かクエリ（sql）のどちらか一方だけを指定してください
+op-data-cycle = データ「{ $data }」がクエリを通じて自分自身を読み返します。ループを解消してください
+op-data-unknown-input = クエリが読む「{ $name }」はデッキのデータではありません
+op-data-not-query = データ「{ $data }」はクエリではありません。表は edit_data で編集してください
+op-data-read-by-queries = このデータはクエリ { $queries }{ $shown ->
+    [0] {""}
+   *[other] {"、"}ビュー { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {"、"}ほか{ $more }件
+}が使用しています。先にそれらを編集または削除してください
+op-data-rename-captured = 「{ $reader }」のクエリは、すでに自身のテーブルの一つを「{ $name }」と呼んでいます。クエリ内でそのテーブル名を変えるか（set_query）、別の名前を選んでください
+op-data-name-ambiguous = 「{ $name }」という名前のデータが複数あり、クエリがこの名前を読むため、どれを読むか不明です。先にそれらのクエリを編集してください（set_query）
 issue-unreadable-slide = 読み取れないスライドを除外しました
 issue-unreadable-field = 読み取れないデッキ項目 { $field } をリセットしました
 issue-knowledge-unreadable = 読み取れないナレッジ項目 { $id } を除外しました

@@ -180,6 +180,10 @@ pub struct RenderSettings {
     pub data_timeout_ms: u64,
     /// Maximum memory of the data process (MiB).
     pub data_memory_mib: u64,
+    /// Maximum duration of a query in the query process (ms).
+    pub query_timeout_ms: u64,
+    /// Maximum memory of the query process (MiB).
+    pub query_memory_mib: u64,
 }
 
 /// Import d'une présentation (`oku-slides import`).

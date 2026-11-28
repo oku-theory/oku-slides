@@ -1,7 +1,7 @@
 # oku-slides-a2ui
 
 The A2UI v0.9 protocol messages the session sends to the UI, and the catalog
-`urn:oku-slides:a2ui:catalog:v5` (`CATALOG_ID`). The crate only describes data: no state, no
+`urn:oku-slides:a2ui:catalog:v6` (`CATALOG_ID`). The crate only describes data: no state, no
 rendering, no disk access.
 
 ## Key types
@@ -24,9 +24,9 @@ rendering, no disk access.
   data-bound input, refused by `render`), `without_action` (the component without its action, or
   nothing), `agent_allowed` (allowed in `render`; `Prompt`, `Timeline`, `Receipt`, `SlideThumb`,
   `Notice`, `ThemeChoice`, `ChartData`, `TableData`, `DataList`, `DataSheet` are reserved to the host).
-- `SeriesSwatch` (`data.rs`): a colourable series of `ChartData`. `ChartData` / `TableData` carry a
-  chart's or table's data, `DataList` (`DataRow`, `DataUser`) the deck's data, `DataSheet` a page of
-  one data's rows; the UI writes one edit at their `edit` path, then sends `action`.
+- `data.rs`: `SeriesSwatch` (a `ChartData` series); `ChartData`/`TableData` carry a view's data, `DataList`
+  (`DataRow`, `DataUser`, `DataState`) the deck's, `DataSheet` a page of one data's rows (a query's
+  `QueryView`: SQL, state, error, inputs, also a view's `query` over one); the UI writes one edit at `edit`, then sends `action`.
 
 `ComponentKind` and its types derive `schemars::JsonSchema` (`oneOf`, one branch per component,
 named in `properties.component`); their docs are what agents read. `playbook/`: `examples()`, every
@@ -36,7 +36,7 @@ component in its variants (`agent` = `render` accepts it); `agent_reference()` a
 ## Extension point
 
 A new component is added here (a `ComponentKind` variant, with its helpers, its `kind_info` arm and
-its playbook examples) **and** in `ui/src/a2ui/catalog.tsx`. The `oku-slides-session` contract test (`forms_tests.rs`,
+its playbook examples) **and** in `ui/src/a2ui/catalog.tsx`. The session contract test (`forms_tests.rs`,
 `every_form_matches_the_ui_fixture`) compares the emitted forms with the UI fixture: it fails when
 the two sides diverge.
 

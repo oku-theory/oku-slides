@@ -14,12 +14,14 @@ use oku_slides_data::{ColumnType, Data, DataError, DataId, Dataset};
 use oku_slides_render_worker::DataWorker;
 use snafu::ResultExt;
 
+use crate::data_panel::manual_table;
 use crate::error::{BaseStaleSnafu, PrepareSnafu, RenderSnafu};
 use crate::{Result, Session};
 
 /// A read of a data's rows, taken from the session, to run with no lock held.
 #[derive(Debug)]
 pub struct RowsRead {
+    id: DataId,
     data: Arc<Data>,
     columns: Option<Vec<String>>,
     rows: Range<usize>,
@@ -37,7 +39,7 @@ impl RowsRead {
     pub fn run(self) -> Result<Dataset> {
         let refused = |e: DataError| OpError::from(e);
         let Some(worker) = self.worker else {
-            let table = &self.data.table;
+            let table = manual_table(self.id.as_str(), &self.data)?;
             let read = table.to_dataset(self.columns.as_deref(), self.rows, self.max_chars);
             return Ok(read.map_err(refused).context(PrepareSnafu)?);
         };
@@ -50,11 +52,12 @@ impl Session {
     /// The read of rows `rows` of the first `columns` columns of the deck's data `id`, cells
     /// cut at `max_chars`, with that data.
     ///
-    /// `None` when the deck has no data `id`. Run the read with no session lock held.
+    /// A query data reads as its ready result. `None` when the deck has no data `id`. Run the
+    /// read with no session lock held.
     ///
     /// # Errors
     ///
-    /// As [`Session::rows_read`].
+    /// As [`Session::rows_read`]; for a query data, as [`Session::ready_result`].
     pub fn data_rows(
         &self,
         id: &str,
@@ -64,11 +67,36 @@ impl Session {
     ) -> Option<Result<(Arc<Data>, RowsRead)>> {
         let id = DataId::try_from(id.to_owned()).ok()?;
         let data = self.deck().data.get(&id)?;
-        let first: Vec<String> = data.table.columns.iter().take(columns).map(|c| c.id.clone()).collect();
-        Some(self.rows_read(data, Some(&first), rows, max_chars).map(|read| (Arc::clone(data), read)))
+        let first = |data: &Data| -> Vec<String> {
+            data.table().map_or(&[][..], |t| &t.columns).iter().take(columns).map(|c| c.id.clone()).collect()
+        };
+        if data.sql().is_some() {
+            return Some(self.ready_result(&id, data).map(|result| {
+                let columns = Some(first(&result));
+                (Arc::clone(&result), self.result_read(&id, result, columns, rows, max_chars))
+            }));
+        }
+        Some(self.rows_read(&id, data, Some(&first(data)), rows, max_chars).map(|read| (Arc::clone(data), read)))
     }
 
-    /// The read of rows `rows` of `columns` (all when `None`) of `data`, cells cut at `max_chars`.
+    /// The read of rows `rows` of `columns` (all when `None`) of `result`, the ready result of
+    /// the query data `id`, cells cut at `max_chars`.
+    ///
+    /// Its base is the session's, not the deck's: the read worker reads it.
+    pub(crate) fn result_read(
+        &self,
+        id: &DataId,
+        result: Arc<Data>,
+        columns: Option<Vec<String>>,
+        rows: Range<usize>,
+        max_chars: usize,
+    ) -> RowsRead {
+        let worker = Some(self.data_link.worker());
+        RowsRead { id: id.clone(), data: result, columns, rows, max_chars, worker }
+    }
+
+    /// The read of rows `rows` of `columns` (all when `None`) of `data` (the deck's data `id`),
+    /// cells cut at `max_chars`.
     ///
     /// A data without base is read from its cells; one with a base the deck knows, by the
     /// data worker (the base and the cells written over it).
@@ -78,12 +106,13 @@ impl Session {
     /// A base the deck does not know.
     pub(crate) fn rows_read(
         &self,
+        id: &DataId,
         data: &Arc<Data>,
         columns: Option<&[String]>,
         rows: Range<usize>,
         max_chars: usize,
     ) -> Result<RowsRead> {
-        let worker = match &data.table.base {
+        let worker = match &manual_table(id.as_str(), data)?.base {
             None => None,
             Some(base) if !self.doc.sources.bases.contains(&base.id) => {
                 let e = OpError::from(DataError::base_invalid("the deck does not know this base"));
@@ -92,7 +121,7 @@ impl Session {
             Some(_) => Some(self.data_link.worker()),
         };
         let columns = columns.map(<[String]>::to_vec);
-        Ok(RowsRead { data: Arc::clone(data), columns, rows, max_chars, worker })
+        Ok(RowsRead { id: id.clone(), data: Arc::clone(data), columns, rows, max_chars, worker })
     }
 }
 
@@ -230,11 +259,12 @@ impl Session {
         for op in ops {
             let Op::SetColumnType { data, column, ty } = op else { continue };
             let Some(current) = self.doc.sources.deck().data.get(data).map(Arc::clone) else { continue };
-            let Some(base) = &current.table.base else { continue };
+            // A query data has no column to retype: the op refuses it.
+            let Some(base) = current.table().and_then(|t| t.base.as_ref()) else { continue };
             let found = self.base_reads.done.checks.iter().position(|c| c.change.is(data, column, *ty));
             if let Some(found) = found {
                 let checked = self.base_reads.done.checks.swap_remove(found);
-                if checked.change.snapshot.table == current.table {
+                if checked.change.snapshot.table() == current.table() {
                     checked.outcome?;
                     continue;
                 }
@@ -274,17 +304,17 @@ impl Session {
     ) -> Result<Dataset> {
         let data = self.doc.sources.deck().data.get(id).map(Arc::clone);
         let data = data.ok_or_else(|| crate::data_panel::data_missing(id.as_str()))?;
-        if data.table.base.is_none() {
-            return self.rows_read(&data, columns.as_deref(), rows, max_chars)?.run();
+        if manual_table(id.as_str(), &data)?.base.is_none() {
+            return self.rows_read(id, &data, columns.as_deref(), rows, max_chars)?.run();
         }
         let span = ViewSpan { data: id.clone(), columns, rows, max_chars };
         if let Some(found) = self.base_reads.done.views.iter().position(|v| v.span == span) {
             let done = self.base_reads.done.views.swap_remove(found);
-            if done.snapshot.table == data.table {
+            if done.snapshot.table() == data.table() {
                 return done.outcome;
             }
         }
-        let read = self.rows_read(&data, span.columns.as_deref(), span.rows.clone(), max_chars)?;
+        let read = self.rows_read(id, &data, span.columns.as_deref(), span.rows.clone(), max_chars)?;
         self.base_reads.wanted.views.push(ViewRead { span, read });
         BaseStaleSnafu { data: data.name.clone() }.fail()?
     }

@@ -50,7 +50,7 @@ fn undo_across_full_window_after_unrelated_compaction() {
     }
     // The window held only the five edits: the creation of d8 fell out of it.
     assert_that!(s.can_undo()).is_false();
-    assert_that!(s.deck().data[&id("d9")].table.base.is_some()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_some()).is_true();
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn redo_after_compaction_of_other_data() {
     assert_that!(compact_now(&mut s)).is_true();
     redo(&mut s);
     assert_that!(cells(&s, "d8")).is_equal_to(edited);
-    assert_that!(s.deck().data[&id("d9")].table.base.is_some()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_some()).is_true();
 }
 
 #[test]
@@ -73,12 +73,12 @@ fn undo_of_replace_whose_base_is_kept() {
     let mut s = opened_with(dir.path(), COMPACT_AT / 2);
     assert_that!(compact_now(&mut s)).is_true();
     let before = cells(&s, "d9");
-    let base = s.deck().data[&id("d9")].table.base.clone().unwrap_or_else(|| panic!("no base"));
+    let base = s.deck().data[&id("d9")].table().unwrap().base.clone().unwrap_or_else(|| panic!("no base"));
     let replace = json!({ "op": "edit_data", "data": "d9", "change": { "op": "replace", "table": table(3) } });
     apply(&mut s, vec![op(replace)]);
-    assert_that!(s.deck().data[&id("d9")].table.base.is_none()).is_true();
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.is_none()).is_true();
     undo(&mut s);
-    assert_that!(s.deck().data[&id("d9")].table.base.as_ref()).is_equal_to(Some(&base));
+    assert_that!(s.deck().data[&id("d9")].table().unwrap().base.as_ref()).is_equal_to(Some(&base));
     assert_that!(s.doc.sources.bases.contains(&base.id)).is_true();
     assert_that!(cells(&s, "d9")).is_equal_to(before);
 }
@@ -96,7 +96,7 @@ fn single_150000_cell_add_data_then_100_edits_stays_exact() {
     let mut s = session_on(dir.path());
     s.open(Path::new(FIXTURE)).unwrap_or_else(|e| panic!("open: {}", e.one_line()));
     host_apply(&mut s, vec![op(json!({ "op": "add_data", "id": "d9", "name": "ventes", "table": three(50_000) }))]);
-    let table = |s: &Session| -> Table { s.deck().data[&id("d9")].table.clone() };
+    let table = |s: &Session| -> Table { s.deck().data[&id("d9")].table().unwrap().clone() };
     assert_that!(table(&s).overlay_len()).is_equal_to(150_000);
     let mut states = vec![table(&s)];
     for (row, value) in (0..100).zip((1..=100).map(|v: i64| -v)) {
@@ -110,7 +110,7 @@ fn single_150000_cell_add_data_then_100_edits_stays_exact() {
     while let Some(state) = states.pop() {
         undo(&mut s);
         match s.deck().data.get(&id("d9")) {
-            Some(d) => assert_that!(d.table).is_equal_to(&state),
+            Some(d) => assert_that!(d.table().unwrap()).is_equal_to(&state),
             None => panic!("d9 gone after {} undos", 100 - states.len()),
         }
     }

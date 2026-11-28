@@ -221,6 +221,11 @@ issue-data-too-many = sunuda çok fazla veri var ({ $count }); okunmayanlar: { $
 issue-data-base-missing = “{ $data }” verisi: temel dosyası eksik, salt okunur tutuldu
 issue-data-edits-lost = “{ $data }” verisi: değiştirilen bir tabloya yapılan düzenlemeler birleştirmede kayboldu
 issue-data-inline-dropped = { $element } öğesi: eski bir sürüm grafiğinin veya tablosunun verilerini seçeneklerinde saklamış; bunlar kaldırıldı
+issue-data-kind-unknown = “{ $data }” verisi: bilinmeyen tür “{ $kind }”, belki daha yeni bir sürümden; okunmadı
+issue-data-query-cycle = “{ $data }” verisi: sorgusu kendini doğrudan ya da diğer sorgular üzerinden yeniden okuyor; hesaplanmadı
+issue-data-query-missing-input = “{ $data }” verisi: sorgusu destede olmayan “{ $input }” adını okuyor; hesaplanmadı
+issue-data-query-invalid = “{ $data }” verisi: sorgusu geçersiz ({ $reason }); hesaplanmadı
+issue-data-query-failed = “{ $data }” verisi: sorgusu başarısız oldu ({ $reason }); sonuç yok
 issue-more = gösterilmeyen diğer sorunlar: { $count }
 op-data-deck-full = Sununun verileri sınırını aşacaktı: en fazla { $max } { $what ->
     [row-ids] satır kimliği
@@ -242,6 +247,20 @@ op-data-rebind = { $subject } öğesi zaten başka verileri gösteriyor; değiş
 op-data-internal = Bir toplu işlem bir tablonun tabanını veya katmanını ayarlayamaz
 op-data-batch-too-large = Toplu işlem çok büyük: hücre sayısı { $count }, en fazla { $max }
 op-data-inline = { $subject } öğesi verilerini seçeneklerinde taşıyor; bunları add_data ile sunum verisi olarak ekleyin ve bind_data ile bağlayın
+op-data-derived = “{ $data }” verisi bir sorgudan türetilir: satırlarını değil, sorgusunu düzenleyin
+op-data-source = Bir veri ya tablo ya da sorgu (sql) alır, tam olarak birini
+op-data-cycle = “{ $data }” verisi sorguları üzerinden kendini yeniden okurdu; döngüyü kaldırın
+op-data-unknown-input = Sorgu, destenin verisi olmayan “{ $name }” adını okuyor
+op-data-not-query = “{ $data }” verisi bir sorgu değil; tablosunu edit_data ile düzenleyin
+op-data-read-by-queries = Bu veriyi { $queries } sorguları okuyor{ $shown ->
+    [0] {""}
+   *[other] {" "}ve { $views } gösteriyor
+}{ $more ->
+    [0] {""}
+   *[other] {" "}ve { $more } tane daha
+}; önce bunları düzenleyin ya da kaldırın
+op-data-rename-captured = “{ $reader }” sorgusu kendi tablolarından birine zaten “{ $name }” adını veriyor; o tabloyu sorgusunda yeniden adlandırın (set_query) ya da başka bir ad seçin
+op-data-name-ambiguous = Birden çok veri “{ $name }” adını taşıyor ve sorgular bu adı okuyor, hangisi olduğu belirsiz; önce bu sorguları düzenleyin (set_query)
 issue-unreadable-slide = okunamayan slayt, bir kenara ayrıldı
 issue-unreadable-field = okunamayan sunum alanı { $field }, sıfırlandı
 issue-knowledge-unreadable = okunamayan bilgi girdisi { $id }, bir kenara ayrıldı

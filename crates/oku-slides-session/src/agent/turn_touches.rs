@@ -265,9 +265,15 @@ pub(crate) fn touches_of(deck: &Deck, registry: &WidgetRegistry, ops: &[Op]) -> 
                 }
                 (&to.owner.slide, element, false, false, Some(slide.clone()))
             }
-            Op::EditData { data, .. } | Op::RenameData { data, .. } | Op::SetColumnType { data, .. } => {
-                // Every view of the data changes; those the batch binds later are its BindData touches.
-                for view in views.entry(data.clone()).or_insert_with(|| deck.data_users(data)).iter() {
+            Op::EditData { data, .. }
+            | Op::RenameData { data, .. }
+            | Op::SetColumnType { data, .. }
+            | Op::SetQuery { data, .. } => {
+                // Every view of the data, or of a query reading it, changes; those the batch binds later are
+                // its BindData touches.
+                for view in
+                    views.entry(data.clone()).or_insert_with(|| crate::derived::dependent_views(deck, data)).iter()
+                {
                     let Some((kind, text)) = kinds.of(&view.slide, &view.element) else { continue };
                     let (slide, element) = (view.slide.clone(), view.element.clone());
                     out.push(Touch { slide, element, kind, text, from: None, changes: 1, removed: false, data: true });

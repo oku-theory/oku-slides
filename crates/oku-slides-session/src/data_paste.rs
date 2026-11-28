@@ -11,7 +11,7 @@ use snafu::{IntoError, ResultExt};
 
 use crate::data_edit::{Follow, data_views, follow_inserts, follow_op};
 use crate::data_ops::prepared;
-use crate::data_panel::{DataTarget, data_missing};
+use crate::data_panel::{DataTarget, data_missing, manual_table};
 use crate::error::PrepareSnafu;
 use crate::{Result, Session};
 
@@ -72,7 +72,7 @@ impl Session {
         let read: Vec<String> = {
             let deck = self.doc.sources.deck();
             let stored = deck.data.get(data.as_str()).ok_or_else(|| data_missing(data.as_str()))?;
-            stored.table.columns.iter().map(|c| c.id.clone()).collect()
+            manual_table(data.as_str(), stored)?.columns.iter().map(|c| c.id.clone()).collect()
         };
         let (mut ops, added) = self.paste_changes(data, &read, paste)?;
         if !added.is_empty() {
@@ -89,7 +89,7 @@ impl Session {
         let rows: Vec<String> = {
             let deck = self.doc.sources.deck();
             let stored = deck.data.get(id.as_str()).ok_or_else(|| data_missing(id.as_str()))?;
-            stored.table.rows.iter().map(str::to_owned).collect()
+            manual_table(id.as_str(), stored)?.rows.iter().map(str::to_owned).collect()
         };
         let top = rows.iter().position(|r| *r == paste.row).ok_or_else(|| refused(DataError::no_row(&paste.row)))?;
         let left =

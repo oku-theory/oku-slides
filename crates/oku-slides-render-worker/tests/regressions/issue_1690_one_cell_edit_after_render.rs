@@ -53,7 +53,12 @@ fn one_cell_edit_after_render_reaches_the_page() {
     let mut deck = deck();
     let before = s.render(&deck, &BTreeMap::new()).unwrap().svg(0).unwrap();
     let d = deck.data.get_mut("d").unwrap();
-    set_cell(&mut Arc::make_mut(d).table, "r2", "v", DataCell::Number(4242.0));
+    set_cell(
+        Arc::make_mut(d).table_mut().unwrap_or_else(|| panic!("a manual data")),
+        "r2",
+        "v",
+        DataCell::Number(4242.0),
+    );
 
     let after = s.render(&deck, &BTreeMap::new()).unwrap().svg(0).unwrap();
 

@@ -14,8 +14,8 @@ without Tauri. Results go to stdout, logs to stderr, help in the user's language
 - `library.rs`: `deck_pack_versions`, the versions of a deck's widget then layout packs, each
   beside it (`open --out` writes `widgets/<hex>/` or `layouts/<hex>/`) or in the library, checked
   against its id.
-- `pack_render.rs`: `render` renders a deck in memory, or in the render worker when its pack
-  (`session::ProbedWidgets`) has valid widgets.
+- `pack_render.rs`: `results` (check, render, save) seeds query results from the file's cache, computes the others in the query worker (a failed one logged as an issue; save caches them);
+  `render` renders a deck in memory, or in the render worker when its pack (`session::ProbedWidgets`) has valid widgets, or it has bases or query results.
 - `import.rs`: `oku-slides import`, `ImportMode` `retrofit` or `hifi` (into the session's by `From`) gives
   the `ImportTarget` (retrofit: the layout packs of repeated `--pack`, none = `essentiel`); `session::import` applies and renders it, notes overflows (text fields past their
   page, in retrofit boxes past the bottom margin) and, in hi-fi unless `--reference none`, scores it

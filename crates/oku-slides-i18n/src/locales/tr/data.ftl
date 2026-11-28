@@ -34,3 +34,22 @@ data-needs-base = bu veriler satırlarını bir temel dosyada tutuyor; bu düzen
 data-base-row-cells = temel dosyası olan bir tablo satırları için yalnızca kimlik verir, hücre vermez
 data-row-cut = { $count } satırda başlıktan fazla hücre vardı; fazla hücreler kaldırıldı
 data-base-invalid = verilerin temel dosyası bozuk veya tablosuyla eşleşmiyor
+data-source-mismatch = verinin kaynağı türüyle uyuşmuyor: elle girilen veri bir tablo, sorgu verisi bir sorgu içerir
+data-inline-query = sorgu verisi gömülü olamaz: gömülü veri her zaman bir tablodan gelir
+data-query-parse = sorgu okunamıyor: satır { $line }, sütun { $column } konumunu kontrol edin
+data-query-construct = sorgu “{ $construct }” kullanıyor; veri sorguları bunu desteklemiyor
+data-query-too-long = sorgu { $max } bayttan uzun
+data-query-too-deep = sorgu çok derin iç içe geçmiş
+data-query-rewrite = sorgu motor için hazırlanamadı; bu bir Oku Slides hatası
+data-query-unknown-function = sorgu “{ $function }” çağırıyor; veri sorguları bunu desteklemiyor
+data-query-run = sorgu başarısız oldu: { $reason }
+data-query-input-failed = “{ $input }” girdisi başarısız oldu
+data-query-too-large = { $what ->
+    [rows] sorgu sonucu { $max } satırlık sınırı aşıyor; sonuç asla kesilmez
+    [columns] sorgu sonucu { $max } sütunluk sınırı aşıyor; sonuç asla kesilmez
+   *[text] sorgu sonucundaki bir metin hücresi { $max } baytlık sınırı aşıyor; sonuç asla kesilmez
+}
+data-query-column-type = “{ $column }” sonuç sütununun türünü veriler tutamaz: onu metne, sayıya, tam sayıya, mantıksal değere veya tarihe dönüştürün
+data-query-duplicate-column = iki sonuç sütununun adı “{ $column }”: birini AS ile yeniden adlandırın
+data-query-float-operand = “{ $function }”, ondalık sayılar içeren “{ $operand }” üzerine uygulanamaz: önce onu tam sayıya dönüştürün
+data-query-timeout = sorgu { $seconds } saniyeden uzun sürdü ve durduruldu

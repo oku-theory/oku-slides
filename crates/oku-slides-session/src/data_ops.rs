@@ -53,6 +53,7 @@ fn data_key(op: &Op) -> Option<&'static str> {
         Op::BindData { .. } => Some("session-undo-data-bind"),
         Op::RemoveData { .. } => Some("session-undo-data-remove"),
         Op::RenameData { .. } => Some("session-undo-data-rename"),
+        Op::SetQuery { .. } => Some("session-undo-data-query"),
         Op::SetColumnType { .. } => Some("session-undo-data-type"),
         Op::SetParam { .. }
         | Op::SetDeckParam { .. }

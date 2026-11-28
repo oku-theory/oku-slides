@@ -27,8 +27,8 @@ use oku_slides_i18n::{Localize, Localizer};
 use oku_slides_platform::Platform;
 use oku_slides_render::{Fonts, PackSet};
 use oku_slides_session::{
-    PackLibrary, ProbedWidgets, Storage, StoreFiles, ThemeLibrary, adopt_default_theme, embed_theme, read_document,
-    repair_theme_closure, sources_theme_layer, sources_with_packs,
+    DeckResults, PackLibrary, ProbedWidgets, Storage, StoreFiles, ThemeLibrary, adopt_default_theme, embed_theme,
+    read_document, repair_theme_closure, sources_theme_layer, sources_with_packs,
 };
 
 use crate::bench::ms;
@@ -237,7 +237,6 @@ fn load_bundle(
     }
     // Held for the run: another process's collection leaves the bases this one reads.
     store.lease(&opened.sources.bases)?;
-    widgets.set_known_bases(opened.sources.bases.clone());
     if opened.modified_elsewhere {
         tracing::warn!(path = %path.display(), "{}", l.tr("cli-pdf-modified"));
     }
@@ -292,17 +291,17 @@ struct Written {
     sources: usize,
 }
 
-/// Rend `bundle` avec `widgets`, joint ses sources au PDF et écrit le tout
+/// Rend `bundle` avec `widgets` et les résultats `results`, joint ses sources au PDF et écrit le tout
 /// dans `output` (écriture atomique).
 fn write_document(
     platform: &Platform,
     l: &Localizer,
     fonts: Fonts,
-    widgets: &ProbedWidgets,
+    (widgets, results): (&ProbedWidgets, &DeckResults),
     bundle: &SourceBundle,
     output: &Path,
 ) -> Result<Written> {
-    let doc = pack_render::render(platform, l, fonts, widgets, bundle)?;
+    let doc = pack_render::render(platform, l, fonts, widgets, (bundle, results.results(bundle.deck())))?;
     write_rendered(platform, &doc.pdf()?, doc.page_count(), bundle, output)
 }
 
@@ -369,9 +368,11 @@ fn check(platform: &Platform, out: &mut Out<'_>, app_fonts: &Fonts, limits: Sour
         BTreeMap::new()
     });
     let (bundle, widgets) =
-        sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+        sources_with_packs(platform, None, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+    let results = pack_render::results(platform, &bundle, &widgets)?;
     let deck = bundle.deck();
-    if report_issues(l, deck, &widgets.registry, &BTreeMap::new()) {
+    // Both report: a failed query is an issue of the deck.
+    if report_issues(l, deck, &widgets.registry, &BTreeMap::new()) & log_issues(l, &results.issues(deck)) {
         out.line("cli-deck-valid", &[("slides", deck.slides.len().into())])?;
     }
     Ok(())
@@ -396,8 +397,10 @@ fn render(
         use_theme(&themes, &mut bundle, wanted, l)?;
     }
     let t = Instant::now();
+    let results = pack_render::results(platform, &bundle, &widgets)?;
+    log_issues(l, &results.issues(bundle.deck()));
     let fonts = app_fonts.with(bundle.fonts.values().cloned());
-    let doc = pack_render::render(platform, l, fonts, &widgets, &bundle)?;
+    let doc = pack_render::render(platform, l, fonts, &widgets, (&bundle, results.results(bundle.deck())))?;
     let compile = t.elapsed();
     for w in doc.warnings() {
         tracing::warn!("{}", w.localize(l));
@@ -464,7 +467,7 @@ fn bench_cmd(
     let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
     // A JSON deck embeds nothing: its theme is resolved by the library, or a Pro deck would be timed as Papier.
     let (mut bundle, _) =
-        sources_with_packs(platform, &library, &base, deck.clone(), packs).map_err(|e| eyre!(e.localize(l)))?;
+        sources_with_packs(platform, None, &library, &base, deck.clone(), packs).map_err(|e| eyre!(e.localize(l)))?;
     let themes = ThemeLibrary::user(platform);
     adopt_theme(&themes, &mut bundle, l)?;
     let layer = sources_theme_layer(&themes, &bundle).map_err(|e| eyre!(e.localize(l)))?;
@@ -498,8 +501,9 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
             let deck = read_deck(storage, l, &deck)?;
             let library = PackLibrary::user(platform);
             let packs = deck_pack(storage, &library, l, (&deck_dir, limits.total_bytes), &deck)?;
-            let (mut bundle, widgets) =
-                sources_with_packs(platform, &library, &base, deck, packs).map_err(|e| eyre!(e.localize(l)))?;
+            let store = platform.bases().wrap_err_with(|| l.tr("session-bases-unavailable"))?;
+            let (mut bundle, widgets) = sources_with_packs(platform, Some(&store), &library, &base, deck, packs)
+                .map_err(|e| eyre!(e.localize(l)))?;
             let themes = ThemeLibrary::user(platform);
             if let Some(wanted) = theme {
                 use_theme(&themes, &mut bundle, &wanted, l)?;
@@ -515,7 +519,10 @@ fn run(cli: Cli, platform: &Platform, out: &mut Out<'_>) -> Result<()> {
                 bundle.fonts = fonts;
             }
             report_issues(l, bundle.deck(), &widgets.registry, &bundle.assets);
-            let written = write_document(platform, l, app_fonts.clone(), &widgets, &bundle, &output)?;
+            let results = pack_render::results(platform, &bundle, &widgets)?;
+            log_issues(l, &results.issues(bundle.deck()));
+            bundle.results = results.cache(bundle.deck());
+            let written = write_document(platform, l, app_fonts.clone(), (&widgets, &results), &bundle, &output)?;
             out.line(
                 "cli-saved",
                 &[

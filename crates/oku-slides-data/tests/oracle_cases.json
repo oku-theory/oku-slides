@@ -1,0 +1,3797 @@
+[
+  {
+    "name": "sel_where_order",
+    "group": "select",
+    "sql": "SELECT id, region, qty * price AS amount FROM sales WHERE qty > 2 ORDER BY amount DESC, id",
+    "ordered": true
+  },
+  {
+    "name": "sel_distinct",
+    "group": "select",
+    "sql": "SELECT DISTINCT region FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_limit_offset",
+    "group": "select",
+    "sql": "SELECT id FROM sales ORDER BY id LIMIT 3 OFFSET 2",
+    "ordered": true
+  },
+  {
+    "name": "sel_group_having",
+    "group": "select",
+    "sql": "SELECT region, SUM(qty) AS total, COUNT(*) AS n, COUNT(qty) AS nq FROM sales GROUP BY region HAVING SUM(qty) > 5",
+    "ordered": false
+  },
+  {
+    "name": "sel_case",
+    "group": "select",
+    "sql": "SELECT id, CASE WHEN qty >= 5 THEN 'big' WHEN qty IS NULL THEN 'none' ELSE 'small' END AS size FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_in_between_like",
+    "group": "select",
+    "sql": "SELECT id FROM sales WHERE region IN ('north','east') AND qty BETWEEN 2 AND 6 AND product LIKE 'p%'",
+    "ordered": false
+  },
+  {
+    "name": "sel_ilike",
+    "group": "select",
+    "sql": "SELECT id FROM sales WHERE product ILIKE 'P%'",
+    "ordered": false
+  },
+  {
+    "name": "sel_int_division",
+    "group": "select",
+    "sql": "SELECT id, qty / 2 AS half FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_int_div_op",
+    "group": "select",
+    "sql": "SELECT id, qty // 2 AS half FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_modulo",
+    "group": "select",
+    "sql": "SELECT id, qty % 3 AS m FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_order_default_nulls",
+    "group": "select",
+    "sql": "SELECT id, qty FROM sales ORDER BY qty, id",
+    "ordered": true
+  },
+  {
+    "name": "sel_order_desc_default_nulls",
+    "group": "select",
+    "sql": "SELECT id, qty FROM sales ORDER BY qty DESC, id",
+    "ordered": true
+  },
+  {
+    "name": "sel_order_nulls_first",
+    "group": "select",
+    "sql": "SELECT id, qty FROM sales ORDER BY qty NULLS FIRST, id",
+    "ordered": true
+  },
+  {
+    "name": "sel_order_by_position",
+    "group": "select",
+    "sql": "SELECT region, id FROM sales ORDER BY 2 DESC",
+    "ordered": true
+  },
+  {
+    "name": "sel_count_distinct",
+    "group": "select",
+    "sql": "SELECT COUNT(DISTINCT region) AS n FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_agg_no_group",
+    "group": "select",
+    "sql": "SELECT SUM(qty) AS s, AVG(price) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_scalar_subquery",
+    "group": "select",
+    "sql": "SELECT id FROM sales WHERE qty > (SELECT AVG(qty) FROM sales)",
+    "ordered": false
+  },
+  {
+    "name": "sel_in_subquery",
+    "group": "select",
+    "sql": "SELECT id FROM sales WHERE product IN (SELECT product FROM products WHERE category = 'tree')",
+    "ordered": false
+  },
+  {
+    "name": "sel_not_in_subquery",
+    "group": "select",
+    "sql": "SELECT product FROM products WHERE product NOT IN (SELECT product FROM sales WHERE product IS NOT NULL)",
+    "ordered": false
+  },
+  {
+    "name": "sel_derived_table",
+    "group": "select",
+    "sql": "SELECT r, t FROM (SELECT region AS r, SUM(qty) AS t FROM sales GROUP BY region) AS s WHERE t > 5",
+    "ordered": false
+  },
+  {
+    "name": "sel_exists_correlated",
+    "group": "select",
+    "sql": "SELECT p.product FROM products p WHERE EXISTS (SELECT 1 FROM sales s WHERE s.product = p.product)",
+    "ordered": false
+  },
+  {
+    "name": "sel_scalar_correlated",
+    "group": "select",
+    "sql": "SELECT p.product, (SELECT SUM(qty) FROM sales s WHERE s.product = p.product) AS q FROM products p",
+    "ordered": false
+  },
+  {
+    "name": "sel_distinct_on",
+    "group": "select",
+    "sql": "SELECT DISTINCT ON (region) region, id FROM sales ORDER BY region, id",
+    "ordered": true
+  },
+  {
+    "name": "sel_bool_expr",
+    "group": "select",
+    "sql": "SELECT id, qty > 3 AND price < 2 AS flag FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "sel_is_distinct_from",
+    "group": "select",
+    "sql": "SELECT id FROM sales WHERE qty IS DISTINCT FROM 3",
+    "ordered": false
+  },
+  {
+    "name": "sel_no_from",
+    "group": "select",
+    "sql": "SELECT 1 + 2 AS x",
+    "ordered": false
+  },
+  {
+    "name": "sel_values",
+    "group": "select",
+    "sql": "SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS v(n, s)",
+    "ordered": false
+  },
+  {
+    "name": "sel_string_literal_concat",
+    "group": "select",
+    "sql": "SELECT id, 'x' || region AS r FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "join_inner",
+    "group": "join",
+    "sql": "SELECT s.id, p.category FROM sales s JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "join_left",
+    "group": "join",
+    "sql": "SELECT s.id, p.category FROM sales s LEFT JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "join_right",
+    "group": "join",
+    "sql": "SELECT s.id, p.product AS pp FROM sales s RIGHT JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "join_full",
+    "group": "join",
+    "sql": "SELECT s.id, p.product AS pp FROM sales s FULL OUTER JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "join_cross",
+    "group": "join",
+    "sql": "SELECT s.id, p.product FROM sales s CROSS JOIN products p WHERE s.id <= 2",
+    "ordered": false
+  },
+  {
+    "name": "join_comma",
+    "group": "join",
+    "sql": "SELECT s.id, p.category FROM sales s, products p WHERE s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "join_using",
+    "group": "join",
+    "sql": "SELECT id, product, category FROM sales JOIN products USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "join_natural",
+    "group": "join",
+    "sql": "SELECT id, product, category FROM sales NATURAL JOIN products",
+    "ordered": false
+  },
+  {
+    "name": "join_semi",
+    "group": "join",
+    "sql": "SELECT id FROM sales SEMI JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "join_anti",
+    "group": "join",
+    "sql": "SELECT id FROM sales ANTI JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "join_self",
+    "group": "join",
+    "sql": "SELECT a.id, b.id AS id2 FROM sales a JOIN sales b ON a.region = b.region AND a.id < b.id",
+    "ordered": false
+  },
+  {
+    "name": "join_mixed_cond",
+    "group": "join",
+    "sql": "SELECT s.id, p.category FROM sales s JOIN products p ON s.product = p.product AND s.qty > 3",
+    "ordered": false
+  },
+  {
+    "name": "join_inequality",
+    "group": "join",
+    "sql": "SELECT s.id, w.product AS wp FROM sales s JOIN wide w ON s.qty > w.q3",
+    "ordered": false
+  },
+  {
+    "name": "join_three",
+    "group": "join",
+    "sql": "SELECT s.id, p.category, w.q1 FROM sales s JOIN products p ON s.product = p.product JOIN wide w ON w.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "join_left_subquery",
+    "group": "join",
+    "sql": "SELECT s.region, t.n FROM (SELECT DISTINCT region FROM sales) s LEFT JOIN (SELECT region, COUNT(*) AS n FROM sales WHERE qty > 3 GROUP BY region) t ON s.region = t.region",
+    "ordered": false
+  },
+  {
+    "name": "win_row_number",
+    "group": "window",
+    "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY region ORDER BY day) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_rank",
+    "group": "window",
+    "sql": "SELECT id, RANK() OVER (ORDER BY price) AS r, DENSE_RANK() OVER (ORDER BY price) AS dr FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_sum_partition",
+    "group": "window",
+    "sql": "SELECT id, SUM(qty) OVER (PARTITION BY region) AS t FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_running",
+    "group": "window",
+    "sql": "SELECT id, SUM(qty) OVER (PARTITION BY region ORDER BY day) AS running FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_running_global",
+    "group": "window",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY id) AS running FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_rows_frame",
+    "group": "window",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS s2 FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_rows_unbounded",
+    "group": "window",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS s FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_lag_lead",
+    "group": "window",
+    "sql": "SELECT id, LAG(qty) OVER (PARTITION BY region ORDER BY day) AS prev, LEAD(qty, 1) OVER (PARTITION BY region ORDER BY day) AS next FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_lag_default",
+    "group": "window",
+    "sql": "SELECT id, LAG(qty, 1, 0) OVER (ORDER BY id) AS prev FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_first_value",
+    "group": "window",
+    "sql": "SELECT id, FIRST_VALUE(product) OVER (PARTITION BY region ORDER BY day) AS f FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_last_value",
+    "group": "window",
+    "sql": "SELECT id, LAST_VALUE(product) OVER (PARTITION BY region ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS l FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_avg_partition",
+    "group": "window",
+    "sql": "SELECT id, AVG(price) OVER (PARTITION BY region) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_count_partition",
+    "group": "window",
+    "sql": "SELECT id, COUNT(*) OVER (PARTITION BY region) AS n FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_min_max_partition",
+    "group": "window",
+    "sql": "SELECT id, MIN(qty) OVER (PARTITION BY region) AS lo, MAX(qty) OVER (PARTITION BY region) AS hi FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_ntile",
+    "group": "window",
+    "sql": "SELECT id, NTILE(3) OVER (ORDER BY id) AS t FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_percent_rank",
+    "group": "window",
+    "sql": "SELECT id, PERCENT_RANK() OVER (ORDER BY id) AS p FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_cume_dist",
+    "group": "window",
+    "sql": "SELECT id, CUME_DIST() OVER (ORDER BY id) AS p FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_named",
+    "group": "window",
+    "sql": "SELECT id, SUM(qty) OVER w AS s FROM sales WINDOW w AS (PARTITION BY region)",
+    "ordered": false
+  },
+  {
+    "name": "win_rank_partition_desc",
+    "group": "window",
+    "sql": "SELECT id, RANK() OVER (PARTITION BY region ORDER BY qty DESC) AS r FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "win_over_agg",
+    "group": "window",
+    "sql": "SELECT region, SUM(qty) AS q, RANK() OVER (ORDER BY SUM(qty) DESC) AS r FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "win_share",
+    "group": "window",
+    "sql": "SELECT id, qty * 1.0 / SUM(qty) OVER (PARTITION BY region) AS share FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "with_one",
+    "group": "with",
+    "sql": "WITH t AS (SELECT region, SUM(qty) AS q FROM sales GROUP BY region) SELECT region FROM t WHERE q > 5",
+    "ordered": false
+  },
+  {
+    "name": "with_chained",
+    "group": "with",
+    "sql": "WITH a AS (SELECT region, qty FROM sales WHERE qty IS NOT NULL), b AS (SELECT region, MAX(qty) AS m FROM a GROUP BY region) SELECT a.region, a.qty FROM a JOIN b ON a.region = b.region AND a.qty = b.m",
+    "ordered": false
+  },
+  {
+    "name": "with_twice",
+    "group": "with",
+    "sql": "WITH t AS (SELECT region, SUM(qty) AS q FROM sales GROUP BY region) SELECT x.region, y.region AS r2 FROM t x JOIN t y ON x.q < y.q",
+    "ordered": false
+  },
+  {
+    "name": "set_union",
+    "group": "setop",
+    "sql": "SELECT product FROM sales UNION SELECT product FROM products",
+    "ordered": false
+  },
+  {
+    "name": "set_union_all",
+    "group": "setop",
+    "sql": "SELECT product FROM sales UNION ALL SELECT product FROM products",
+    "ordered": false
+  },
+  {
+    "name": "set_except",
+    "group": "setop",
+    "sql": "SELECT product FROM products EXCEPT SELECT product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "set_intersect",
+    "group": "setop",
+    "sql": "SELECT product FROM products INTERSECT SELECT product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "set_union_order",
+    "group": "setop",
+    "sql": "SELECT product FROM sales WHERE product IS NOT NULL UNION SELECT product FROM products ORDER BY product",
+    "ordered": true
+  },
+  {
+    "name": "pivot_duck",
+    "group": "pivot",
+    "sql": "PIVOT sales ON region USING SUM(qty) GROUP BY product",
+    "ordered": false
+  },
+  {
+    "name": "pivot_duck_in",
+    "group": "pivot",
+    "sql": "PIVOT sales ON region IN ('north', 'south') USING SUM(qty) GROUP BY product",
+    "ordered": false
+  },
+  {
+    "name": "pivot_standard",
+    "group": "pivot",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) FOR region IN ('north', 'south'))",
+    "ordered": false
+  },
+  {
+    "name": "pivot_rewrite_static",
+    "group": "pivot",
+    "sql": "PIVOT sales ON region IN ('north', 'south') USING SUM(qty) GROUP BY product",
+    "ordered": false
+  },
+  {
+    "name": "pivot_rewrite_static_case",
+    "group": "pivot",
+    "sql": "PIVOT sales ON region IN ('north', 'south') USING SUM(qty) GROUP BY product",
+    "ordered": false
+  },
+  {
+    "name": "unpivot_duck",
+    "group": "pivot",
+    "sql": "UNPIVOT wide ON q1, q2, q3 INTO NAME quarter VALUE amount",
+    "ordered": false
+  },
+  {
+    "name": "unpivot_columns",
+    "group": "pivot",
+    "sql": "UNPIVOT wide ON COLUMNS(* EXCLUDE (product)) INTO NAME quarter VALUE amount",
+    "ordered": false
+  },
+  {
+    "name": "unpivot_standard",
+    "group": "pivot",
+    "sql": "SELECT * FROM wide UNPIVOT (amount FOR quarter IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "unpivot_rewrite_union",
+    "group": "pivot",
+    "sql": "UNPIVOT wide ON q1, q2, q3 INTO NAME quarter VALUE amount",
+    "ordered": false
+  },
+  {
+    "name": "group_by_all",
+    "group": "byall",
+    "sql": "SELECT region, product, SUM(qty) AS q FROM sales GROUP BY ALL",
+    "ordered": false
+  },
+  {
+    "name": "group_by_all_expr",
+    "group": "byall",
+    "sql": "SELECT upper(region) AS r, SUM(qty) AS q FROM sales GROUP BY ALL",
+    "ordered": false
+  },
+  {
+    "name": "order_by_all",
+    "group": "byall",
+    "sql": "SELECT region, id FROM sales ORDER BY ALL",
+    "ordered": true
+  },
+  {
+    "name": "order_by_all_desc",
+    "group": "byall",
+    "sql": "SELECT region, id FROM sales ORDER BY ALL DESC",
+    "ordered": true
+  },
+  {
+    "name": "star_exclude",
+    "group": "star",
+    "sql": "SELECT * EXCLUDE (price, day) FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "star_replace",
+    "group": "star",
+    "sql": "SELECT * REPLACE (qty * 2 AS qty) FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "star_rename",
+    "group": "star",
+    "sql": "SELECT * RENAME (qty AS quantity) FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "star_exclude_qualified",
+    "group": "star",
+    "sql": "SELECT s.* EXCLUDE (price), p.category FROM sales s JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "star_plain",
+    "group": "star",
+    "sql": "SELECT * FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "columns_regex",
+    "group": "columns",
+    "sql": "SELECT product, COLUMNS('^q[12]$') FROM wide",
+    "ordered": false
+  },
+  {
+    "name": "columns_agg",
+    "group": "columns",
+    "sql": "SELECT MAX(COLUMNS('^q')) FROM wide",
+    "ordered": false
+  },
+  {
+    "name": "columns_star_exclude",
+    "group": "columns",
+    "sql": "SELECT COLUMNS(* EXCLUDE (product)) FROM wide",
+    "ordered": false
+  },
+  {
+    "name": "qualify",
+    "group": "qualify",
+    "sql": "SELECT id, region, qty FROM sales QUALIFY ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) = 1",
+    "ordered": false
+  },
+  {
+    "name": "qualify_alias",
+    "group": "qualify",
+    "sql": "SELECT id, region, ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) AS rn FROM sales QUALIFY rn = 1",
+    "ordered": false
+  },
+  {
+    "name": "qualify_rewrite",
+    "group": "qualify",
+    "sql": "SELECT id, region, qty FROM sales QUALIFY ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) = 1",
+    "ordered": false
+  },
+  {
+    "name": "union_by_name",
+    "group": "byname",
+    "sql": "SELECT id, region, qty FROM sales WHERE id <= 2 UNION BY NAME SELECT * FROM returns",
+    "ordered": false
+  },
+  {
+    "name": "union_all_by_name",
+    "group": "byname",
+    "sql": "SELECT id, region, qty FROM sales WHERE id <= 2 UNION ALL BY NAME SELECT * FROM returns",
+    "ordered": false
+  },
+  {
+    "name": "union_all_by_name_missing",
+    "group": "byname",
+    "sql": "SELECT id, region FROM sales WHERE id <= 2 UNION ALL BY NAME SELECT * FROM returns",
+    "ordered": false
+  },
+  {
+    "name": "min_max_by",
+    "group": "minby",
+    "sql": "SELECT region, max_by(product, qty) AS top, min_by(day, qty) AS low_day FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "arg_min_max",
+    "group": "minby",
+    "sql": "SELECT region, arg_max(product, qty) AS top, arg_min(day, qty) AS low_day FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "max_by_rewrite",
+    "group": "minby",
+    "sql": "SELECT region, max_by(product, qty) AS top FROM sales WHERE qty IS NOT NULL GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_filter",
+    "group": "filter",
+    "sql": "SELECT region, SUM(qty) FILTER (WHERE price >= 2) AS s, COUNT(*) FILTER (WHERE qty > 3) AS n FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_filter_rewrite",
+    "group": "filter",
+    "sql": "SELECT region, SUM(qty) FILTER (WHERE price >= 2) AS s, COUNT(*) FILTER (WHERE qty > 3) AS n FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "alias_where",
+    "group": "alias",
+    "sql": "SELECT id, qty * price AS amount FROM sales WHERE amount > 8",
+    "ordered": false
+  },
+  {
+    "name": "alias_group_by",
+    "group": "alias",
+    "sql": "SELECT upper(region) AS r, SUM(qty) AS t FROM sales GROUP BY r",
+    "ordered": false
+  },
+  {
+    "name": "alias_having",
+    "group": "alias",
+    "sql": "SELECT region, SUM(qty) AS t FROM sales GROUP BY region HAVING t > 5",
+    "ordered": false
+  },
+  {
+    "name": "alias_order_by",
+    "group": "alias",
+    "sql": "SELECT id, qty * price AS amount FROM sales ORDER BY amount, id",
+    "ordered": true
+  },
+  {
+    "name": "alias_where_rewrite",
+    "group": "alias",
+    "sql": "SELECT id, qty * price AS amount FROM sales WHERE amount > 8",
+    "ordered": false
+  },
+  {
+    "name": "alias_group_by_rewrite",
+    "group": "alias",
+    "sql": "SELECT upper(region) AS r, SUM(qty) AS t FROM sales GROUP BY r",
+    "ordered": false
+  },
+  {
+    "name": "alias_having_rewrite",
+    "group": "alias",
+    "sql": "SELECT region, SUM(qty) AS t FROM sales GROUP BY region HAVING t > 5",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_000",
+    "group": "fn_string",
+    "sql": "SELECT id, upper(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_001",
+    "group": "fn_string",
+    "sql": "SELECT id, lower(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_002",
+    "group": "fn_string",
+    "sql": "SELECT id, length(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_003",
+    "group": "fn_string",
+    "sql": "SELECT id, char_length(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_004",
+    "group": "fn_string",
+    "sql": "SELECT id, substr(region, 2, 3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_005",
+    "group": "fn_string",
+    "sql": "SELECT id, substring(region, 2, 3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_006",
+    "group": "fn_string",
+    "sql": "SELECT id, substring(region FROM 2 FOR 3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_007",
+    "group": "fn_string",
+    "sql": "SELECT id, left(region, 2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_008",
+    "group": "fn_string",
+    "sql": "SELECT id, right(region, 2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_009",
+    "group": "fn_string",
+    "sql": "SELECT id, replace(region, 'th', 'TH') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_010",
+    "group": "fn_string",
+    "sql": "SELECT id, trim('  x  ') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_011",
+    "group": "fn_string",
+    "sql": "SELECT id, ltrim('  x  ') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_012",
+    "group": "fn_string",
+    "sql": "SELECT id, rtrim('  x  ') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_013",
+    "group": "fn_string",
+    "sql": "SELECT id, concat(region, '-', product) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_014",
+    "group": "fn_string",
+    "sql": "SELECT id, region || '-' || product AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_015",
+    "group": "fn_string",
+    "sql": "SELECT id, concat_ws('-', region, product) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_016",
+    "group": "fn_string",
+    "sql": "SELECT id, starts_with(region, 'no') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_017",
+    "group": "fn_string",
+    "sql": "SELECT id, ends_with(region, 'th') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_018",
+    "group": "fn_string",
+    "sql": "SELECT id, contains(region, 'or') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_019",
+    "group": "fn_string",
+    "sql": "SELECT id, strpos(region, 'o') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_020",
+    "group": "fn_string",
+    "sql": "SELECT id, position('o' IN region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_021",
+    "group": "fn_string",
+    "sql": "SELECT id, lpad(region, 7, '*') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_022",
+    "group": "fn_string",
+    "sql": "SELECT id, rpad(region, 7, '*') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_023",
+    "group": "fn_string",
+    "sql": "SELECT id, reverse(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_024",
+    "group": "fn_string",
+    "sql": "SELECT id, regexp_matches(region, '^n') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_025",
+    "group": "fn_string",
+    "sql": "SELECT id, regexp_replace(region, 'o', '0') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_026",
+    "group": "fn_string",
+    "sql": "SELECT id, regexp_replace(region, 'o', '0', 'g') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_027",
+    "group": "fn_string",
+    "sql": "SELECT id, split_part(region, 'r', 1) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_028",
+    "group": "fn_string",
+    "sql": "SELECT id, repeat(region, 2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_029",
+    "group": "fn_string",
+    "sql": "SELECT id, initcap(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_030",
+    "group": "fn_string",
+    "sql": "SELECT id, region LIKE '%th' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_031",
+    "group": "fn_string",
+    "sql": "SELECT id, region NOT LIKE '%th' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_032",
+    "group": "fn_string",
+    "sql": "SELECT id, region SIMILAR TO 'n.*' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_033",
+    "group": "fn_string",
+    "sql": "SELECT id, regexp_like(region, '^n') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_034",
+    "group": "fn_string",
+    "sql": "SELECT id, octet_length(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_035",
+    "group": "fn_string",
+    "sql": "SELECT id, strlen(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_036",
+    "group": "fn_string",
+    "sql": "SELECT id, lcase(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_037",
+    "group": "fn_string",
+    "sql": "SELECT id, ucase(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_038",
+    "group": "fn_string",
+    "sql": "SELECT id, prefix(region, 'no') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_039",
+    "group": "fn_string",
+    "sql": "SELECT id, suffix(region, 'th') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_040",
+    "group": "fn_string",
+    "sql": "SELECT id, btrim('xxaxx', 'x') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_string_041",
+    "group": "fn_string",
+    "sql": "SELECT id, ascii(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_042",
+    "group": "fn_math",
+    "sql": "SELECT id, abs(qty - 5) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_043",
+    "group": "fn_math",
+    "sql": "SELECT id, round(price * 1.37, 1) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_044",
+    "group": "fn_math",
+    "sql": "SELECT id, round(price * 1.37) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_045",
+    "group": "fn_math",
+    "sql": "SELECT id, floor(price * 1.3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_046",
+    "group": "fn_math",
+    "sql": "SELECT id, ceil(price * 1.3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_047",
+    "group": "fn_math",
+    "sql": "SELECT id, ceiling(price * 1.3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_048",
+    "group": "fn_math",
+    "sql": "SELECT id, sqrt(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_049",
+    "group": "fn_math",
+    "sql": "SELECT id, power(qty, 2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_050",
+    "group": "fn_math",
+    "sql": "SELECT id, pow(qty, 2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_051",
+    "group": "fn_math",
+    "sql": "SELECT id, exp(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_052",
+    "group": "fn_math",
+    "sql": "SELECT id, ln(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_053",
+    "group": "fn_math",
+    "sql": "SELECT id, log10(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_054",
+    "group": "fn_math",
+    "sql": "SELECT id, log2(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_055",
+    "group": "fn_math",
+    "sql": "SELECT id, log(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_056",
+    "group": "fn_math",
+    "sql": "SELECT id, sign(qty - 4) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_057",
+    "group": "fn_math",
+    "sql": "SELECT id, greatest(qty, 4) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_058",
+    "group": "fn_math",
+    "sql": "SELECT id, least(qty, 4) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_059",
+    "group": "fn_math",
+    "sql": "SELECT id, mod(qty, 3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_060",
+    "group": "fn_math",
+    "sql": "SELECT id, pi() AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_061",
+    "group": "fn_math",
+    "sql": "SELECT id, trunc(price * 1.3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_062",
+    "group": "fn_math",
+    "sql": "SELECT id, cbrt(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_063",
+    "group": "fn_math",
+    "sql": "SELECT id, degrees(price) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_064",
+    "group": "fn_math",
+    "sql": "SELECT id, radians(price) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_065",
+    "group": "fn_math",
+    "sql": "SELECT id, sin(price) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_066",
+    "group": "fn_math",
+    "sql": "SELECT id, cos(price) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_067",
+    "group": "fn_math",
+    "sql": "SELECT id, -qty AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_068",
+    "group": "fn_math",
+    "sql": "SELECT id, qty::DOUBLE / 3 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_069",
+    "group": "fn_math",
+    "sql": "SELECT id, factorial(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_070",
+    "group": "fn_math",
+    "sql": "SELECT id, even(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_071",
+    "group": "fn_math",
+    "sql": "SELECT id, isnan(price) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_math_072",
+    "group": "fn_math",
+    "sql": "SELECT id, round(price, -1) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_073",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, coalesce(qty, 0) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_074",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, nullif(region, 'east') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_075",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, ifnull(qty, 0) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_076",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(qty AS DOUBLE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_077",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(qty AS VARCHAR) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_078",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(price AS INTEGER) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_079",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(price AS BIGINT) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_080",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST('12' AS INTEGER) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_081",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(qty > 3 AS INTEGER) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_082",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, TRY_CAST(region AS INTEGER) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_083",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, qty::VARCHAR AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_084",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(qty AS TEXT) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_085",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(id AS BOOLEAN) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_086",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, if(qty > 3, 'a', 'b') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_087",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CASE region WHEN 'north' THEN 1 ELSE 0 END AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_088",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, qty IS NULL AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_089",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, qty IS NOT NULL AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_090",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(price AS DECIMAL(10, 2)) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_cond_cast_091",
+    "group": "fn_cond_cast",
+    "sql": "SELECT id, CAST(qty AS REAL) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_092",
+    "group": "fn_date",
+    "sql": "SELECT id, date_trunc('month', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_093",
+    "group": "fn_date",
+    "sql": "SELECT id, date_trunc('year', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_094",
+    "group": "fn_date",
+    "sql": "SELECT id, date_trunc('week', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_095",
+    "group": "fn_date",
+    "sql": "SELECT id, date_trunc('quarter', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_096",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(year FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_097",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(month FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_098",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(day FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_099",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(quarter FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_100",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(week FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_101",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(dow FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_102",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(isodow FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_103",
+    "group": "fn_date",
+    "sql": "SELECT id, EXTRACT(doy FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_104",
+    "group": "fn_date",
+    "sql": "SELECT id, date_part('month', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_105",
+    "group": "fn_date",
+    "sql": "SELECT id, date_part('year', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_106",
+    "group": "fn_date",
+    "sql": "SELECT id, datepart('month', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_107",
+    "group": "fn_date",
+    "sql": "SELECT id, year(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_108",
+    "group": "fn_date",
+    "sql": "SELECT id, month(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_109",
+    "group": "fn_date",
+    "sql": "SELECT id, day(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_110",
+    "group": "fn_date",
+    "sql": "SELECT id, quarter(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_111",
+    "group": "fn_date",
+    "sql": "SELECT id, week(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_112",
+    "group": "fn_date",
+    "sql": "SELECT id, dayofweek(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_113",
+    "group": "fn_date",
+    "sql": "SELECT id, dayofmonth(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_114",
+    "group": "fn_date",
+    "sql": "SELECT id, dayofyear(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_115",
+    "group": "fn_date",
+    "sql": "SELECT id, isodow(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_116",
+    "group": "fn_date",
+    "sql": "SELECT id, strftime(day, '%Y-%m') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_117",
+    "group": "fn_date",
+    "sql": "SELECT id, strftime(day, '%d/%m/%Y') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_118",
+    "group": "fn_date",
+    "sql": "SELECT id, day + INTERVAL 1 DAY AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_119",
+    "group": "fn_date",
+    "sql": "SELECT id, day + INTERVAL '1 month' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_120",
+    "group": "fn_date",
+    "sql": "SELECT id, day - INTERVAL 7 DAY AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_121",
+    "group": "fn_date",
+    "sql": "SELECT id, day + 1 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_122",
+    "group": "fn_date",
+    "sql": "SELECT id, date_add(day, INTERVAL 1 MONTH) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_123",
+    "group": "fn_date",
+    "sql": "SELECT id, date_diff('day', DATE '2026-01-01', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_124",
+    "group": "fn_date",
+    "sql": "SELECT id, datediff('day', DATE '2026-01-01', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_125",
+    "group": "fn_date",
+    "sql": "SELECT id, date_diff('month', DATE '2026-01-01', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_126",
+    "group": "fn_date",
+    "sql": "SELECT id, day - DATE '2026-01-01' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_127",
+    "group": "fn_date",
+    "sql": "SELECT id, day >= DATE '2026-03-01' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_128",
+    "group": "fn_date",
+    "sql": "SELECT id, CAST('2026-05-01' AS DATE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_129",
+    "group": "fn_date",
+    "sql": "SELECT id, CAST(day AS VARCHAR) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_130",
+    "group": "fn_date",
+    "sql": "SELECT id, DATE '2026-05-01' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_131",
+    "group": "fn_date",
+    "sql": "SELECT id, make_date(2026, 1, 31) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_132",
+    "group": "fn_date",
+    "sql": "SELECT id, last_day(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_133",
+    "group": "fn_date",
+    "sql": "SELECT id, dayname(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_134",
+    "group": "fn_date",
+    "sql": "SELECT id, monthname(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_135",
+    "group": "fn_date",
+    "sql": "SELECT id, CAST(strptime('2026-01-02', '%Y-%m-%d') AS DATE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_136",
+    "group": "fn_date",
+    "sql": "SELECT id, current_date = current_date AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_137",
+    "group": "fn_date",
+    "sql": "SELECT id, epoch(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_138",
+    "group": "fn_date",
+    "sql": "SELECT id, CAST(day AS TIMESTAMP) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_139",
+    "group": "fn_date",
+    "sql": "SELECT id, yearweek(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "fn_date_140",
+    "group": "fn_date",
+    "sql": "SELECT id, isoyear(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "agg_000",
+    "group": "agg",
+    "sql": "SELECT region, sum(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_001",
+    "group": "agg",
+    "sql": "SELECT region, avg(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_002",
+    "group": "agg",
+    "sql": "SELECT region, mean(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_003",
+    "group": "agg",
+    "sql": "SELECT region, min(price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_004",
+    "group": "agg",
+    "sql": "SELECT region, max(price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_005",
+    "group": "agg",
+    "sql": "SELECT region, count(*) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_006",
+    "group": "agg",
+    "sql": "SELECT region, count(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_007",
+    "group": "agg",
+    "sql": "SELECT region, count(DISTINCT product) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_008",
+    "group": "agg",
+    "sql": "SELECT region, median(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_009",
+    "group": "agg",
+    "sql": "SELECT region, stddev(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_010",
+    "group": "agg",
+    "sql": "SELECT region, stddev_samp(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_011",
+    "group": "agg",
+    "sql": "SELECT region, stddev_pop(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_012",
+    "group": "agg",
+    "sql": "SELECT region, variance(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_013",
+    "group": "agg",
+    "sql": "SELECT region, var_samp(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_014",
+    "group": "agg",
+    "sql": "SELECT region, var_pop(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_015",
+    "group": "agg",
+    "sql": "SELECT region, string_agg(product, ',' ORDER BY id) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_016",
+    "group": "agg",
+    "sql": "SELECT region, string_agg(product, ',') AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_017",
+    "group": "agg",
+    "sql": "SELECT region, listagg(product, ',') AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_018",
+    "group": "agg",
+    "sql": "SELECT region, group_concat(product, ',') AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_019",
+    "group": "agg",
+    "sql": "SELECT region, bool_and(qty > 1) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_020",
+    "group": "agg",
+    "sql": "SELECT region, bool_or(qty > 6) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_021",
+    "group": "agg",
+    "sql": "SELECT region, quantile_cont(price, 0.5) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_022",
+    "group": "agg",
+    "sql": "SELECT region, quantile_disc(price, 0.5) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_023",
+    "group": "agg",
+    "sql": "SELECT region, first(product ORDER BY id) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_024",
+    "group": "agg",
+    "sql": "SELECT region, last(product ORDER BY id) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_025",
+    "group": "agg",
+    "sql": "SELECT region, any_value(region) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_026",
+    "group": "agg",
+    "sql": "SELECT region, sum(DISTINCT price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_027",
+    "group": "agg",
+    "sql": "SELECT region, avg(DISTINCT price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_028",
+    "group": "agg",
+    "sql": "SELECT region, product(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_029",
+    "group": "agg",
+    "sql": "SELECT region, corr(qty, price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_030",
+    "group": "agg",
+    "sql": "SELECT region, covar_samp(qty, price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_031",
+    "group": "agg",
+    "sql": "SELECT region, covar_pop(qty, price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_032",
+    "group": "agg",
+    "sql": "SELECT region, count_if(qty > 3) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_033",
+    "group": "agg",
+    "sql": "SELECT region, min(day) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_034",
+    "group": "agg",
+    "sql": "SELECT region, max(day) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_035",
+    "group": "agg",
+    "sql": "SELECT region, arbitrary(region) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_036",
+    "group": "agg",
+    "sql": "SELECT region, mode(region) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_037",
+    "group": "agg",
+    "sql": "SELECT region, approx_count_distinct(product) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_038",
+    "group": "agg",
+    "sql": "SELECT region, sum(qty) / count(*) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_039",
+    "group": "agg",
+    "sql": "SELECT region, max(qty) - min(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_040",
+    "group": "agg",
+    "sql": "SELECT region, bit_and(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_041",
+    "group": "agg",
+    "sql": "SELECT region, geomean(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_042",
+    "group": "agg",
+    "sql": "SELECT region, kurtosis(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_043",
+    "group": "agg",
+    "sql": "SELECT region, skewness(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "agg_044",
+    "group": "agg",
+    "sql": "SELECT region, percentile_cont(0.5) WITHIN GROUP (ORDER BY price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_null_group",
+    "group": "rewrite",
+    "sql": "SELECT region, SUM(qty) AS t FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_null_window",
+    "group": "rewrite",
+    "sql": "SELECT id, SUM(qty) OVER (PARTITION BY region) AS t FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_null_running",
+    "group": "rewrite",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY id) AS r FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_null_running_part",
+    "group": "rewrite",
+    "sql": "SELECT id, SUM(qty) OVER (PARTITION BY region ORDER BY day) AS r FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_count_running",
+    "group": "rewrite",
+    "sql": "SELECT id, COUNT(qty) OVER (ORDER BY id) AS n FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_avg_running",
+    "group": "rewrite",
+    "sql": "SELECT id, AVG(qty) OVER (ORDER BY id) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_min_running",
+    "group": "rewrite",
+    "sql": "SELECT id, MIN(qty) OVER (ORDER BY id DESC) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_running_ties",
+    "group": "rewrite",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY price) AS r FROM sales WHERE qty IS NOT NULL",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_null_group_by_all",
+    "group": "rewrite",
+    "sql": "SELECT region, product, SUM(qty) AS q FROM sales GROUP BY ALL",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_null_alias_group",
+    "group": "rewrite",
+    "sql": "SELECT upper(region) AS r, SUM(qty) AS t FROM sales GROUP BY r",
+    "ordered": false
+  },
+  {
+    "name": "rw_filter_sum_count",
+    "group": "rewrite",
+    "sql": "SELECT region, SUM(qty) FILTER (WHERE price >= 2) AS s, COUNT(*) FILTER (WHERE qty > 3) AS n, AVG(price) FILTER (WHERE qty > 3) AS a FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "rw_count_if",
+    "group": "rewrite",
+    "sql": "SELECT region, count_if(qty > 3) AS n FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "rw_int_division",
+    "group": "rewrite",
+    "sql": "SELECT id, qty / 2 AS h, price / 2 AS p FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_div_zero",
+    "group": "rewrite",
+    "sql": "SELECT id, qty / 0 AS h, price / 0 AS p FROM sales",
+    "ordered": false, "duck_error_is_null": true
+  },
+  {
+    "name": "probe_div_zero_double",
+    "group": "rewrite",
+    "sql": "SELECT id, price / (qty - qty) AS p FROM sales",
+    "ordered": false, "duck_error_is_null": true
+  },
+  {
+    "name": "rw_div_zero_nullif",
+    "group": "rewrite",
+    "sql": "SELECT id, qty / 0 AS h FROM sales",
+    "ordered": false, "duck_error_is_null": true
+  },
+  {
+    "name": "rw_avg_ratio",
+    "group": "rewrite",
+    "sql": "SELECT region, SUM(qty) / COUNT(*) AS r FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "rw_desc_nulls_last",
+    "group": "rewrite",
+    "sql": "SELECT id, qty FROM sales ORDER BY qty DESC, id",
+    "ordered": true
+  },
+  {
+    "name": "rw_window_desc_nulls",
+    "group": "rewrite",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_window_desc_nulls_native",
+    "group": "rewrite",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_window_asc_nulls_native",
+    "group": "rewrite",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_cast_int",
+    "group": "rewrite",
+    "sql": "SELECT id, CAST(price AS INTEGER) AS a, CAST(price * 3 AS BIGINT) AS b, CAST('12' AS INTEGER) AS c, CAST(qty AS INTEGER) AS d FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_round_half",
+    "group": "rewrite",
+    "sql": "SELECT round(2.5) AS a, round(3.5) AS b, round(-2.5) AS c, round(0.125, 2) AS d",
+    "ordered": false
+  },
+  {
+    "name": "probe_round_half_col",
+    "group": "rewrite",
+    "sql": "SELECT id, round(price + 0.5) AS a, round(price * 1.25, 1) AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_comma_join",
+    "group": "rewrite",
+    "sql": "SELECT s.id, p.category FROM sales s, products p WHERE s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "rw_join_residual",
+    "group": "rewrite",
+    "sql": "SELECT s.id, p.category FROM sales s JOIN products p ON s.product = p.product AND s.qty > 3",
+    "ordered": false
+  },
+  {
+    "name": "rw_self_join_residual",
+    "group": "rewrite",
+    "sql": "SELECT a.id, b.id AS id2 FROM sales a JOIN sales b ON a.region = b.region AND a.id < b.id",
+    "ordered": false
+  },
+  {
+    "name": "rw_alias_where_shadow",
+    "group": "rewrite",
+    "sql": "SELECT id, qty * 10 AS qty FROM sales WHERE qty > 5",
+    "ordered": false
+  },
+  {
+    "name": "probe_alias_group_shadow",
+    "group": "rewrite",
+    "sql": "SELECT upper(region) AS region, SUM(price) AS t FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "rw_year",
+    "group": "rw_fn",
+    "sql": "SELECT id, year(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_month",
+    "group": "rw_fn",
+    "sql": "SELECT id, month(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_dayfn",
+    "group": "rw_fn",
+    "sql": "SELECT id, day(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_quarter",
+    "group": "rw_fn",
+    "sql": "SELECT id, quarter(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_week",
+    "group": "rw_fn",
+    "sql": "SELECT id, week(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_dayofweek",
+    "group": "rw_fn",
+    "sql": "SELECT id, dayofweek(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_dayofmonth",
+    "group": "rw_fn",
+    "sql": "SELECT id, dayofmonth(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_dayofyear",
+    "group": "rw_fn",
+    "sql": "SELECT id, dayofyear(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_isodow",
+    "group": "rw_fn",
+    "sql": "SELECT id, isodow(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_isoyear",
+    "group": "rw_fn",
+    "sql": "SELECT id, isoyear(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_datepart",
+    "group": "rw_fn",
+    "sql": "SELECT id, datepart('month', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_dayname",
+    "group": "rw_fn",
+    "sql": "SELECT id, dayname(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_monthname",
+    "group": "rw_fn",
+    "sql": "SELECT id, monthname(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_trunc_month",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_trunc('month', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_trunc_year",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_trunc('year', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_trunc_month_date",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_trunc('month', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_interval_day",
+    "group": "rw_fn",
+    "sql": "SELECT id, day + INTERVAL 1 DAY AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_interval_days",
+    "group": "rw_fn",
+    "sql": "SELECT id, day - INTERVAL 7 DAY AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_interval_month",
+    "group": "rw_fn",
+    "sql": "SELECT id, day + INTERVAL 1 MONTH AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_interval_year",
+    "group": "rw_fn",
+    "sql": "SELECT id, day + INTERVAL 1 YEAR AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_interval_week",
+    "group": "rw_fn",
+    "sql": "SELECT id, day + INTERVAL 2 WEEK AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_interval_month_end",
+    "group": "rw_fn",
+    "sql": "SELECT id, DATE '2026-01-31' + INTERVAL 1 MONTH AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_date_add",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_add(day, INTERVAL 1 MONTH) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_diff_day",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_diff('day', DATE '2026-01-01', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_diff_month",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_diff('month', DATE '2025-12-31', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_diff_year",
+    "group": "rw_fn",
+    "sql": "SELECT id, date_diff('year', DATE '2025-12-31', day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_date_sub",
+    "group": "rw_fn",
+    "sql": "SELECT id, day - DATE '2026-01-01' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_date_plus_int",
+    "group": "rw_fn",
+    "sql": "SELECT id, day + 1 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_strftime_week",
+    "group": "rw_fn",
+    "sql": "SELECT id, strftime(day, '%Y-W%V') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_strftime_V",
+    "group": "rw_fn",
+    "sql": "SELECT id, strftime(day, '%G-W%V') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_extract_epoch",
+    "group": "rw_fn",
+    "sql": "SELECT id, EXTRACT(epoch FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_extract_isoyear",
+    "group": "rw_fn",
+    "sql": "SELECT id, EXTRACT(isoyear FROM day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_date_fn",
+    "group": "rw_fn",
+    "sql": "SELECT id, date('2026-02-03') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_strptime_date",
+    "group": "rw_fn",
+    "sql": "SELECT id, CAST(strptime('03/02/2026', '%d/%m/%Y') AS DATE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_cast_str_date",
+    "group": "rw_fn",
+    "sql": "SELECT id, CAST('2026-02-03' AS DATE) + INTERVAL '1 day' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_last_day_rw",
+    "group": "rw_fn",
+    "sql": "SELECT id, last_day(day) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_make_date_rw",
+    "group": "rw_fn",
+    "sql": "SELECT id, make_date(2026, 1, 31) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_contains",
+    "group": "rw_fn",
+    "sql": "SELECT id, contains(region, 'or') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_lcase",
+    "group": "rw_fn",
+    "sql": "SELECT id, lcase(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_ucase",
+    "group": "rw_fn",
+    "sql": "SELECT id, ucase(region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_prefix",
+    "group": "rw_fn",
+    "sql": "SELECT id, prefix(region, 'no') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_suffix",
+    "group": "rw_fn",
+    "sql": "SELECT id, suffix(region, 'th') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_regexp_matches",
+    "group": "rw_fn",
+    "sql": "SELECT id, regexp_matches(region, '^n|th$') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_log",
+    "group": "rw_fn",
+    "sql": "SELECT id, log(qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_mean_scalar",
+    "group": "rw_fn",
+    "sql": "SELECT id, qty AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_concat_null",
+    "group": "rw_fn",
+    "sql": "SELECT id, concat(region, product) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_concat_op_null",
+    "group": "rw_fn",
+    "sql": "SELECT id, region || product AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_substr_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, substr(region, -2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_substr_2",
+    "group": "rw_fn",
+    "sql": "SELECT id, substr(region, 2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_left_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, left(region, -1) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_length_utf8",
+    "group": "rw_fn",
+    "sql": "SELECT id, length('été') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_upper_utf8",
+    "group": "rw_fn",
+    "sql": "SELECT id, upper('été') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_replace_empty",
+    "group": "rw_fn",
+    "sql": "SELECT id, replace(region, '', 'x') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_split_part_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, split_part(region, 'r', -1) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_split_part_oob",
+    "group": "rw_fn",
+    "sql": "SELECT id, split_part(region, 'r', 5) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_mod_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, mod(qty - 5, 3) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_modop_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, (qty - 5) % 3 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_intdiv_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, (qty - 5) // 2 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_round_neg_num",
+    "group": "rw_fn",
+    "sql": "SELECT id, round(-price * 1.37, 1) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_greatest_null",
+    "group": "rw_fn",
+    "sql": "SELECT id, greatest(qty, NULL) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_coalesce_mixed",
+    "group": "rw_fn",
+    "sql": "SELECT id, coalesce(product, region) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_nullif_num",
+    "group": "rw_fn",
+    "sql": "SELECT id, nullif(qty, 5) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_strpos_missing",
+    "group": "rw_fn",
+    "sql": "SELECT id, strpos(region, 'zz') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_like_escape",
+    "group": "rw_fn",
+    "sql": "SELECT id, region LIKE 'n_rth' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_ilike",
+    "group": "rw_fn",
+    "sql": "SELECT id, region ILIKE 'NORTH' AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_in_null",
+    "group": "rw_fn",
+    "sql": "SELECT id, qty IN (1, NULL) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_between_sym",
+    "group": "rw_fn",
+    "sql": "SELECT id, qty BETWEEN 6 AND 2 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_case_null",
+    "group": "rw_fn",
+    "sql": "SELECT id, CASE WHEN qty > 3 THEN 'a' END AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_bool_cast_str",
+    "group": "rw_fn",
+    "sql": "SELECT id, CAST(qty > 3 AS VARCHAR) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_double_to_str",
+    "group": "rw_fn",
+    "sql": "SELECT id, CAST(price AS VARCHAR) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_str_to_double",
+    "group": "rw_fn",
+    "sql": "SELECT id, CAST('1.25' AS DOUBLE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_try_cast_bad",
+    "group": "rw_fn",
+    "sql": "SELECT id, TRY_CAST('x' AS DOUBLE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_cast_bad",
+    "group": "rw_fn",
+    "sql": "SELECT id, CAST('x' AS DOUBLE) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_if_null_cond",
+    "group": "rw_fn",
+    "sql": "SELECT id, if(qty > 3, 1, 0) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_abs_int",
+    "group": "rw_fn",
+    "sql": "SELECT id, abs(qty - 10) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_sqrt_neg",
+    "group": "rw_fn",
+    "sql": "SELECT id, sqrt(qty - 5) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_ln_zero",
+    "group": "rw_fn",
+    "sql": "SELECT id, ln(qty - qty) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_pow_frac",
+    "group": "rw_fn",
+    "sql": "SELECT id, power(qty, 0.5) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_mod_zero",
+    "group": "rw_fn",
+    "sql": "SELECT id, qty % 0 AS v FROM sales",
+    "ordered": false,
+    "duck_error_is_null": true
+  },
+  {
+    "name": "probe_double_literal",
+    "group": "rw_fn",
+    "sql": "SELECT id, 1e3 + qty AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_mean",
+    "group": "rewrite",
+    "sql": "SELECT region, mean(qty) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "probe_median_even",
+    "group": "rewrite",
+    "sql": "SELECT region, median(price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "probe_quantile_cont_25",
+    "group": "rewrite",
+    "sql": "SELECT region, quantile_cont(price, 0.25) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "probe_quantile_disc_25",
+    "group": "rewrite",
+    "sql": "SELECT region, quantile_disc(qty, 0.25) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "probe_stddev_one",
+    "group": "rewrite",
+    "sql": "SELECT region, stddev(qty) AS v, variance(qty) AS w FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "probe_count_star_empty",
+    "group": "rewrite",
+    "sql": "SELECT COUNT(*) AS n, SUM(qty) AS s, AVG(qty) AS a, MIN(qty) AS m FROM sales WHERE id > 100",
+    "ordered": false
+  },
+  {
+    "name": "rw_sum_empty",
+    "group": "rewrite",
+    "sql": "SELECT COUNT(*) AS n, SUM(qty) AS s FROM sales WHERE id > 100",
+    "ordered": false
+  },
+  {
+    "name": "probe_group_null_key",
+    "group": "rewrite",
+    "sql": "SELECT product, COUNT(*) AS n FROM sales GROUP BY product",
+    "ordered": false
+  },
+  {
+    "name": "probe_distinct_null",
+    "group": "rewrite",
+    "sql": "SELECT DISTINCT product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_join_null_key",
+    "group": "rewrite",
+    "sql": "SELECT s.id, t.id AS id2 FROM sales s JOIN sales t ON s.product = t.product",
+    "ordered": false
+  },
+  {
+    "name": "probe_union_dedup_null",
+    "group": "rewrite",
+    "sql": "SELECT product FROM sales UNION SELECT NULL AS product",
+    "ordered": false
+  },
+  {
+    "name": "probe_order_text",
+    "group": "rewrite",
+    "sql": "SELECT DISTINCT region FROM sales ORDER BY region DESC",
+    "ordered": true
+  },
+  {
+    "name": "probe_order_mixed_case",
+    "group": "rewrite",
+    "sql": "SELECT v FROM (VALUES ('b'), ('B'), ('a'), ('é'), ('e')) AS t(v) ORDER BY v",
+    "ordered": true
+  },
+  {
+    "name": "probe_limit_no_order",
+    "group": "rewrite",
+    "sql": "SELECT COUNT(*) AS n FROM (SELECT id FROM sales LIMIT 3) AS t",
+    "ordered": false
+  },
+  {
+    "name": "probe_having_no_alias",
+    "group": "rewrite",
+    "sql": "SELECT region FROM sales GROUP BY region HAVING COUNT(*) > 2",
+    "ordered": false
+  },
+  {
+    "name": "probe_group_expr",
+    "group": "rewrite",
+    "sql": "SELECT EXTRACT(month FROM day) AS m, COUNT(*) AS n FROM sales GROUP BY EXTRACT(month FROM day)",
+    "ordered": false
+  },
+  {
+    "name": "probe_subquery_from_alias_cols",
+    "group": "rewrite",
+    "sql": "SELECT x FROM (SELECT id AS x FROM sales) t WHERE x > 7",
+    "ordered": false
+  },
+  {
+    "name": "probe_cte_column_list",
+    "group": "rewrite",
+    "sql": "WITH t(a, b) AS (SELECT id, region FROM sales) SELECT a FROM t WHERE b = 'east'",
+    "ordered": false
+  },
+  {
+    "name": "probe_in_list_subquery_cte",
+    "group": "rewrite",
+    "sql": "WITH big AS (SELECT product FROM products WHERE category = 'tree') SELECT id FROM sales WHERE product IN (SELECT product FROM big)",
+    "ordered": false
+  },
+  {
+    "name": "probe_nested_window_in_cte",
+    "group": "rewrite",
+    "sql": "WITH r AS (SELECT id, region, ROW_NUMBER() OVER (PARTITION BY region ORDER BY id) AS rn FROM sales) SELECT id FROM r WHERE rn <= 2",
+    "ordered": false
+  },
+  {
+    "name": "probe_qualify_desc_nulls",
+    "group": "rewrite",
+    "sql": "SELECT id, region FROM sales QUALIFY ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) = 1",
+    "ordered": false
+  },
+  {
+    "name": "probe_qualify_rank_like",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales QUALIFY SUM(qty) OVER (PARTITION BY region) > 10",
+    "ordered": false
+  },
+  {
+    "name": "probe_quoted_ident",
+    "group": "rewrite",
+    "sql": "SELECT \"region\" AS \"Région\", COUNT(*) AS \"n rows\" FROM sales GROUP BY \"region\"",
+    "ordered": false
+  },
+  {
+    "name": "probe_case_insensitive_table",
+    "group": "rewrite",
+    "sql": "SELECT COUNT(*) AS n FROM SALES",
+    "ordered": false
+  },
+  {
+    "name": "probe_case_insensitive_col",
+    "group": "rewrite",
+    "sql": "SELECT REGION AS r FROM sales WHERE ID = 1",
+    "ordered": false
+  },
+  {
+    "name": "probe_dup_output_names",
+    "group": "rewrite",
+    "sql": "SELECT id, id FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_select_star_join_dup",
+    "group": "rewrite",
+    "sql": "SELECT * FROM sales s JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "probe_union_type_widen",
+    "group": "rewrite",
+    "sql": "SELECT qty FROM sales UNION ALL SELECT price FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_union_col_names",
+    "group": "rewrite",
+    "sql": "SELECT id AS a FROM sales WHERE id = 1 UNION ALL SELECT qty AS b FROM sales WHERE id = 2",
+    "ordered": false
+  },
+  {
+    "name": "probe_values_table",
+    "group": "rewrite",
+    "sql": "SELECT n * 2 AS d FROM (VALUES (1), (2)) AS v(n)",
+    "ordered": false
+  },
+  {
+    "name": "probe_bool_column",
+    "group": "rewrite",
+    "sql": "SELECT id FROM (SELECT id, qty > 3 AS big FROM sales) t WHERE big",
+    "ordered": false
+  },
+  {
+    "name": "probe_not",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales WHERE NOT (qty > 3)",
+    "ordered": false
+  },
+  {
+    "name": "probe_order_expr",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales ORDER BY qty * price DESC NULLS LAST, id",
+    "ordered": true
+  },
+  {
+    "name": "probe_limit_expr_order",
+    "group": "rewrite",
+    "sql": "SELECT region, SUM(qty) AS t FROM sales GROUP BY region ORDER BY t DESC NULLS LAST LIMIT 2",
+    "ordered": true
+  },
+  {
+    "name": "probe_offset_only",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales ORDER BY id OFFSET 7",
+    "ordered": true
+  },
+  {
+    "name": "probe_fetch_first",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales ORDER BY id FETCH FIRST 2 ROWS ONLY",
+    "ordered": true
+  },
+  {
+    "name": "rw_pivot_std",
+    "group": "rewrite",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) FOR region IN ('north', 'south'))",
+    "ordered": false
+  },
+  {
+    "name": "rw_pivot_std_table",
+    "group": "rewrite",
+    "sql": "SELECT * FROM wide PIVOT (MAX(q1) FOR product IN ('apple', 'pear'))",
+    "ordered": false
+  },
+  {
+    "name": "rw_pivot_std_alias",
+    "group": "rewrite",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) AS total FOR region IN ('north' AS n, 'south' AS s))",
+    "ordered": false
+  },
+  {
+    "name": "probe_pivot_std_count",
+    "group": "rewrite",
+    "sql": "SELECT * FROM (SELECT product, region FROM sales) PIVOT (COUNT(*) FOR region IN ('north', 'south'))",
+    "ordered": false
+  },
+  {
+    "name": "probe_pivot_std_any",
+    "group": "rewrite",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) FOR region IN (ANY))",
+    "ordered": false
+  },
+  {
+    "name": "rw_unpivot_std",
+    "group": "rewrite",
+    "sql": "SELECT * FROM wide UNPIVOT (amount FOR quarter IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "probe_unpivot_include_nulls",
+    "group": "rewrite",
+    "sql": "SELECT * FROM wide UNPIVOT INCLUDE NULLS (amount FOR quarter IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "probe_star_exclude_noparens",
+    "group": "rewrite",
+    "sql": "SELECT * EXCLUDE price FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_star_replace_multi",
+    "group": "rewrite",
+    "sql": "SELECT * REPLACE (qty * 2 AS qty, upper(region) AS region) FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_columns_regex_star_mix",
+    "group": "rewrite",
+    "sql": "SELECT COLUMNS('^(id|qty)$') FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_semi_in_rewrite",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales SEMI JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "probe_anti_rewrite",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales ANTI JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "rw_except_distinct",
+    "group": "rewrite",
+    "sql": "SELECT product FROM products EXCEPT SELECT product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "rw_lag_default",
+    "group": "rewrite",
+    "sql": "SELECT id, LAG(qty, 1, 0) OVER (ORDER BY id) AS prev FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_lead_offset2",
+    "group": "rewrite",
+    "sql": "SELECT id, LEAD(qty, 2) OVER (ORDER BY id) AS n2 FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_first_value_desc",
+    "group": "rewrite",
+    "sql": "SELECT id, FIRST_VALUE(id) OVER (PARTITION BY region ORDER BY qty DESC) AS f FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_row_number_no_order",
+    "group": "rewrite",
+    "sql": "SELECT COUNT(DISTINCT rn) AS n FROM (SELECT ROW_NUMBER() OVER () AS rn FROM sales) t",
+    "ordered": false
+  },
+  {
+    "name": "probe_window_order_two_keys",
+    "group": "rewrite",
+    "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY region ORDER BY price, id DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_window_in_expr",
+    "group": "rewrite",
+    "sql": "SELECT id, qty - AVG(qty) OVER (PARTITION BY region) AS dev FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_window_order_by_outer",
+    "group": "rewrite",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM sales ORDER BY rn DESC",
+    "ordered": true
+  },
+  {
+    "name": "probe_rank_feature",
+    "group": "rewrite",
+    "sql": "SELECT id, RANK() OVER (PARTITION BY region ORDER BY qty DESC NULLS LAST) AS r, DENSE_RANK() OVER (ORDER BY price) AS d FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_union_by_name_feature",
+    "group": "rewrite",
+    "sql": "SELECT id, region, qty FROM sales WHERE id <= 2 UNION ALL BY NAME SELECT * FROM returns",
+    "ordered": false
+  },
+  {
+    "name": "probe_union_distinct_by_name",
+    "group": "rewrite",
+    "sql": "SELECT id, region, qty FROM sales WHERE id <= 2 UNION BY NAME SELECT * FROM returns",
+    "ordered": false
+  },
+  {
+    "name": "probe_except_feature",
+    "group": "rewrite",
+    "sql": "SELECT product FROM products EXCEPT SELECT product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_intersect_feature",
+    "group": "rewrite",
+    "sql": "SELECT product FROM products INTERSECT SELECT product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "probe_except_all",
+    "group": "rewrite",
+    "sql": "SELECT region FROM sales EXCEPT ALL SELECT region FROM returns",
+    "ordered": false
+  },
+  {
+    "name": "probe_semi_feature",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales SEMI JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "probe_anti_feature",
+    "group": "rewrite",
+    "sql": "SELECT id FROM sales ANTI JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "probe_rows_frame_feature",
+    "group": "rewrite",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS s2 FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_win_asc_nulls",
+    "group": "r3",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_win_desc_nulls",
+    "group": "r3",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_win_part_desc_nulls",
+    "group": "r3",
+    "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_win_desc_nulls_first",
+    "group": "r3",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty DESC NULLS FIRST) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_lag_nulls",
+    "group": "r3",
+    "sql": "SELECT id, LAG(id) OVER (ORDER BY qty) AS p FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_first_value_nulls",
+    "group": "r3",
+    "sql": "SELECT id, FIRST_VALUE(id) OVER (PARTITION BY region ORDER BY qty DESC) AS f FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_sum",
+    "group": "r3",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS r FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_sum_ties",
+    "group": "r3",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY price ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS r FROM sales WHERE qty IS NOT NULL",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_sum_ties_tiebreak",
+    "group": "r3",
+    "sql": "SELECT id, SUM(qty) OVER (ORDER BY price, id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS r FROM sales WHERE qty IS NOT NULL",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_avg",
+    "group": "r3",
+    "sql": "SELECT id, AVG(qty) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_min",
+    "group": "r3",
+    "sql": "SELECT id, MIN(qty) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_max",
+    "group": "r3",
+    "sql": "SELECT id, MAX(price) OVER (PARTITION BY region ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_rows_count",
+    "group": "r3",
+    "sql": "SELECT id, COUNT(qty) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_range_min",
+    "group": "r3",
+    "sql": "SELECT id, MIN(qty) OVER (ORDER BY id) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_range_max",
+    "group": "r3",
+    "sql": "SELECT id, MAX(qty) OVER (ORDER BY id) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_running_unique_key",
+    "group": "r3",
+    "sql": "SELECT id, SUM(price) OVER (ORDER BY id) AS r FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_round_half",
+    "group": "r3",
+    "sql": "SELECT id, round(price + 0.5) AS a, round(price * 1.25, 1) AS b, round(-price - 0.5) AS c FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_round_half_lit",
+    "group": "r3",
+    "sql": "SELECT round(2.5) AS a, round(3.5) AS b, round(-2.5) AS c, round(0.125, 2) AS d",
+    "ordered": false
+  },
+  {
+    "name": "r3_round_int",
+    "group": "r3",
+    "sql": "SELECT id, round(qty) AS a, round(qty, 1) AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_cast_int_half",
+    "group": "r3",
+    "sql": "SELECT id, CAST(price + 0.5 AS INTEGER) AS a, CAST(-price - 0.5 AS BIGINT) AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_mod_neg",
+    "group": "r3",
+    "sql": "SELECT id, (qty - 5) % 3 AS a, mod(qty - 5, -3) AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_intdiv_neg",
+    "group": "r3",
+    "sql": "SELECT id, (qty - 5) // 2 AS a, (qty - 5) // -2 AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_mod_double",
+    "group": "r3",
+    "sql": "SELECT id, price % 1.5 AS a, (price - 3) % 2 AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_date_ts",
+    "group": "r3",
+    "sql": "SELECT id, day + INTERVAL 1 MONTH AS a, date_trunc('month', day) AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_group_extract_alias",
+    "group": "r3",
+    "sql": "SELECT EXTRACT(month FROM day) AS m, COUNT(*) AS n FROM sales GROUP BY EXTRACT(month FROM day)",
+    "ordered": false
+  },
+  {
+    "name": "r3_group_extract_pos",
+    "group": "r3",
+    "sql": "SELECT EXTRACT(month FROM day) AS m, COUNT(*) AS n FROM sales GROUP BY 1",
+    "ordered": false
+  },
+  {
+    "name": "r3_group_expr_upper",
+    "group": "r3",
+    "sql": "SELECT upper(region) AS r, COUNT(*) AS n FROM sales GROUP BY upper(region)",
+    "ordered": false
+  },
+  {
+    "name": "r3_group_expr_nested",
+    "group": "r3",
+    "sql": "SELECT EXTRACT(year FROM day) * 100 + EXTRACT(month FROM day) AS ym, SUM(price) AS t FROM sales GROUP BY EXTRACT(year FROM day) * 100 + EXTRACT(month FROM day)",
+    "ordered": false
+  },
+  {
+    "name": "r3_qualify_hidden",
+    "group": "r3",
+    "sql": "SELECT id, region FROM sales QUALIFY ROW_NUMBER() OVER (PARTITION BY region ORDER BY price DESC) = 1",
+    "ordered": false
+  },
+  {
+    "name": "r3_qualify_visible",
+    "group": "r3",
+    "sql": "SELECT id, region, price FROM sales QUALIFY ROW_NUMBER() OVER (PARTITION BY region ORDER BY price DESC) = 1",
+    "ordered": false
+  },
+  {
+    "name": "r3_in_null_list",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE qty IN (3, NULL)",
+    "ordered": false
+  },
+  {
+    "name": "r3_not_in_null_list",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE qty NOT IN (3, NULL)",
+    "ordered": false
+  },
+  {
+    "name": "r3_not_in_subq_null",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE qty NOT IN (SELECT qty FROM sales WHERE id >= 8)",
+    "ordered": false
+  },
+  {
+    "name": "r3_in_subq_null",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE qty IN (SELECT qty FROM sales WHERE id >= 8)",
+    "ordered": false
+  },
+  {
+    "name": "r3_not_in_list",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE region NOT IN ('north', 'east')",
+    "ordered": false
+  },
+  {
+    "name": "r3_pivot_explicit",
+    "group": "r3",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) FOR region IN ('north', 'south'))",
+    "ordered": false
+  },
+  {
+    "name": "r3_pivot_explicit_table",
+    "group": "r3",
+    "sql": "SELECT * FROM wide PIVOT (MAX(q1) FOR product IN ('apple', 'pear'))",
+    "ordered": false
+  },
+  {
+    "name": "r3_pivot_alias",
+    "group": "r3",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) AS total FOR region IN ('north' AS n, 'south' AS s))",
+    "ordered": false
+  },
+  {
+    "name": "r3_pivot_count",
+    "group": "r3",
+    "sql": "SELECT * FROM (SELECT product, region FROM sales) PIVOT (COUNT(*) FOR region IN ('north', 'south'))",
+    "ordered": false
+  },
+  {
+    "name": "r3_unpivot_include_nulls",
+    "group": "r3",
+    "sql": "SELECT * FROM wide UNPIVOT INCLUDE NULLS (amount FOR quarter IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "r3_unpivot_explicit",
+    "group": "r3",
+    "sql": "SELECT * FROM wide UNPIVOT (amount FOR quarter IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "r3_double_lit",
+    "group": "r3",
+    "sql": "SELECT id, 1e3 + qty AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_canon_ident",
+    "group": "r3",
+    "sql": "SELECT REGION AS r FROM SALES WHERE ID = 1",
+    "ordered": false
+  },
+  {
+    "name": "r3_star_join_names",
+    "group": "r3",
+    "sql": "SELECT * FROM sales s JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "r3_substr_neg_lit",
+    "group": "r3",
+    "sql": "SELECT id, substr(region, -2) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_substr_len",
+    "group": "r3",
+    "sql": "SELECT id, substr(region, 2, 3) AS v, substr(region, 0) AS w FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_maxby_rewrite",
+    "group": "r3",
+    "sql": "SELECT region, max_by(id, price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "r3_exists_rewrite",
+    "group": "r3",
+    "sql": "SELECT id FROM sales s WHERE EXISTS (SELECT 1 FROM products p WHERE p.product = s.product)",
+    "ordered": false
+  },
+  {
+    "name": "r3_scalar_subq_cte",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE price > (SELECT AVG(price) FROM sales)",
+    "ordered": false
+  },
+  {
+    "name": "r3_ilike_case",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE region ILIKE '%ORTH%'",
+    "ordered": false
+  },
+  {
+    "name": "r3_like_underscore",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE region LIKE '_o%'",
+    "ordered": false
+  },
+  {
+    "name": "r3_order_null_asc",
+    "group": "r3",
+    "sql": "SELECT id, qty FROM sales ORDER BY qty, id",
+    "ordered": true
+  },
+  {
+    "name": "r3_order_desc_explicit_first",
+    "group": "r3",
+    "sql": "SELECT id, qty FROM sales ORDER BY qty DESC NULLS FIRST, id",
+    "ordered": true
+  },
+  {
+    "name": "r3_string_order_collation",
+    "group": "r3",
+    "sql": "SELECT v FROM (VALUES ('b'), ('B'), ('a'), ('é'), ('e'), ('Z')) AS t(v) ORDER BY v DESC",
+    "ordered": true
+  },
+  {
+    "name": "r3_concat_ws_null",
+    "group": "r3",
+    "sql": "SELECT id, concat_ws('-', region, product) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_length_null",
+    "group": "r3",
+    "sql": "SELECT id, length(product) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_between_dates",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE day BETWEEN DATE '2026-02-01' AND DATE '2026-03-15'",
+    "ordered": false
+  },
+  {
+    "name": "r3_date_str_cmp",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE day >= '2026-03-01'",
+    "ordered": false
+  },
+  {
+    "name": "r3_strftime_fmt",
+    "group": "r3",
+    "sql": "SELECT id, strftime(day, '%d/%m/%Y %a %b %j') AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_extract_week_boundary",
+    "group": "r3",
+    "sql": "SELECT EXTRACT(week FROM DATE '2027-01-01') AS w, EXTRACT(dow FROM DATE '2026-11-29') AS d, EXTRACT(isodow FROM DATE '2026-11-29') AS i, EXTRACT(doy FROM DATE '2024-12-31') AS y",
+    "ordered": false
+  },
+  {
+    "name": "r3_avg_int",
+    "group": "r3",
+    "sql": "SELECT region, AVG(qty) AS a FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "r3_sum_double",
+    "group": "r3",
+    "sql": "SELECT region, SUM(price) AS a FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "r3_count_distinct_null",
+    "group": "r3",
+    "sql": "SELECT COUNT(DISTINCT product) AS n FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_min_str",
+    "group": "r3",
+    "sql": "SELECT region, MIN(product) AS a, MAX(product) AS b FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "r3_int_overflow",
+    "group": "r3",
+    "sql": "SELECT id, qty * 3000000000 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_int_plus_double",
+    "group": "r3",
+    "sql": "SELECT id, qty + 0.5 AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_bool_and_or",
+    "group": "r3",
+    "sql": "SELECT id FROM sales WHERE (qty > 3 OR price < 2) AND NOT region = 'east'",
+    "ordered": false
+  },
+  {
+    "name": "r3_null_logic",
+    "group": "r3",
+    "sql": "SELECT id, (qty > 3) OR (product = 'x') AS v, (qty > 3) AND (product IS NULL) AS w FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_case_types",
+    "group": "r3",
+    "sql": "SELECT id, CASE WHEN qty > 3 THEN qty ELSE price END AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_coalesce_types",
+    "group": "r3",
+    "sql": "SELECT id, coalesce(qty, price) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_distinct_multi",
+    "group": "r3",
+    "sql": "SELECT DISTINCT region, product FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r3_union_order_limit",
+    "group": "r3",
+    "sql": "SELECT region FROM sales UNION SELECT product FROM products ORDER BY 1 LIMIT 3",
+    "ordered": true
+  },
+  {
+    "name": "r3_nested_cte_join",
+    "group": "r3",
+    "sql": "WITH a AS (SELECT region, SUM(price) AS t FROM sales GROUP BY region), b AS (SELECT region, COUNT(*) AS n FROM sales GROUP BY region) SELECT a.region, t / n AS avgp FROM a JOIN b USING (region)",
+    "ordered": false
+  },
+  {
+    "name": "r3_left_join_null_fill",
+    "group": "r3",
+    "sql": "SELECT p.product, s.id FROM products p LEFT JOIN sales s ON p.product = s.product",
+    "ordered": false
+  },
+  {
+    "name": "r3_full_join_using",
+    "group": "r3",
+    "sql": "SELECT product, s.id, p.category FROM sales s FULL JOIN products p USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "r4_win_asc_nulls",
+    "group": "r4",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_win_desc_nulls",
+    "group": "r4",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY qty DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_win_part_desc_nulls",
+    "group": "r4",
+    "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY region ORDER BY qty DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_lag_nulls",
+    "group": "r4",
+    "sql": "SELECT id, LAG(id) OVER (ORDER BY qty) AS p FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_first_value_nulls",
+    "group": "r4",
+    "sql": "SELECT id, FIRST_VALUE(id) OVER (PARTITION BY region ORDER BY qty DESC) AS f FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_win_two_keys_same_dir",
+    "group": "r4",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY price, id) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_win_two_keys_desc",
+    "group": "r4",
+    "sql": "SELECT id, ROW_NUMBER() OVER (ORDER BY price DESC, id DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_win_nonnull_key_desc",
+    "group": "r4",
+    "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY region ORDER BY price DESC) AS rn FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_maxby",
+    "group": "r4",
+    "sql": "SELECT region, max_by(id, price) AS v FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "r4_running_avg",
+    "group": "r4",
+    "sql": "SELECT id, AVG(qty) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_mod_double",
+    "group": "r4",
+    "sql": "SELECT id, price % 1.5 AS a, (price - 3) % 2 AS b FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_cast_int_half",
+    "group": "r4",
+    "sql": "SELECT id, CAST(price + 0.5 AS INTEGER) AS a, CAST(-price - 0.5 AS BIGINT) AS b, CAST(price * 3 AS INTEGER) AS c FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_not_in_nullable_lhs",
+    "group": "r4",
+    "sql": "SELECT id FROM sales WHERE qty NOT IN (3, 4)",
+    "ordered": false
+  },
+  {
+    "name": "r4_in_nullable_lhs",
+    "group": "r4",
+    "sql": "SELECT id, qty IN (3, 4) AS v FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "r4_full_join_using",
+    "group": "r4",
+    "sql": "SELECT product, s.id, p.category FROM sales s FULL JOIN products p USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "r4_right_join_using",
+    "group": "r4",
+    "sql": "SELECT product, s.id, p.category FROM sales s RIGHT JOIN products p USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "r4_left_join_using_star",
+    "group": "r4",
+    "sql": "SELECT * FROM sales s LEFT JOIN products p USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "r4_full_join_on",
+    "group": "r4",
+    "sql": "SELECT s.product AS sp, p.product AS pp, s.id FROM sales s FULL JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_round",
+    "group": "r4",
+    "sql": "SELECT round(2.5) AS a, sign(-2.5) * floor(abs(-2.5) + 0.5) AS c",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_extract",
+    "group": "r4",
+    "sql": "SELECT EXTRACT(week FROM DATE '2027-01-01') AS w",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_values_rw",
+    "group": "r4",
+    "sql": "SELECT EXTRACT(week FROM DATE '2027-01-01') AS w, EXTRACT(dow FROM DATE '2026-11-29') AS d, EXTRACT(isodow FROM DATE '2026-11-29') AS i, EXTRACT(doy FROM DATE '2024-12-31') AS y",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_values_round",
+    "group": "r4",
+    "sql": "SELECT round(2.5) AS a, round(3.5) AS b, round(-2.5) AS c, round(0.125, 2) AS d",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_literal",
+    "group": "r4",
+    "sql": "SELECT 1 AS a, 'x' AS b",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_arith",
+    "group": "r4",
+    "sql": "SELECT 1 + 2 AS a, upper('x') AS b",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_sign",
+    "group": "r4",
+    "sql": "SELECT sign(-2.5) AS a",
+    "ordered": false
+  },
+  {
+    "name": "r4_nofrom_floor",
+    "group": "r4",
+    "sql": "SELECT floor(2.5) AS a",
+    "ordered": false
+  },
+  {
+    "name": "r4_star_join_rename",
+    "group": "r4",
+    "sql": "SELECT * FROM sales s JOIN products p ON s.product = p.product",
+    "ordered": false
+  },
+  {
+    "name": "r4_pivot_alias_names",
+    "group": "r4",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) AS total FOR region IN ('north' AS n, 'south' AS s))",
+    "ordered": false
+  },
+  {
+    "name": "r4_pivot_two_aggs",
+    "group": "r4",
+    "sql": "SELECT * FROM (SELECT product, region, qty FROM sales) PIVOT (SUM(qty) AS t, COUNT(*) AS c FOR region IN ('north', 'south'))",
+    "ordered": false
+  },
+  {
+    "name": "r4_pivot_null_value",
+    "group": "r4",
+    "sql": "SELECT * FROM (SELECT region, product, qty FROM sales) PIVOT (SUM(qty) FOR product IN ('apple', 'pear'))",
+    "ordered": false
+  },
+  {
+    "name": "r4_pivot_numeric_in",
+    "group": "r4",
+    "sql": "SELECT * FROM (SELECT region, qty, price FROM sales) PIVOT (SUM(price) FOR qty IN (1, 2, 3))",
+    "ordered": false
+  },
+  {
+    "name": "r4_unpivot_mixed_types",
+    "group": "r4",
+    "sql": "SELECT * FROM (SELECT id, qty, price FROM sales) UNPIVOT (v FOR k IN (qty, price))",
+    "ordered": false
+  },
+  {
+    "name": "r4_unpivot_native_mixed",
+    "group": "r4",
+    "sql": "SELECT * FROM (SELECT id, qty, price FROM sales) UNPIVOT (v FOR k IN (qty, price))",
+    "ordered": false
+  },
+  {
+    "name": "r4_sum_null_double",
+    "group": "r4",
+    "sql": "SELECT region, SUM(price) AS t FROM sales WHERE id <> 9 OR price IS NULL GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "r4_window_sum_partition_null",
+    "group": "r4",
+    "sql": "SELECT id, SUM(qty) OVER (PARTITION BY product) AS t FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f1_mod_exact",
+    "group": "f1",
+    "sql": "SELECT id, (qty - 5) % 3 AS a, (qty - 5) % -3 AS b, mod(qty - 5, 3) AS c, price % 1.5 AS d, (price - 3) % 2 AS e FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f1_intdiv_exact",
+    "group": "f1",
+    "sql": "SELECT id, (qty - 5) // 2 AS a, (qty - 5) // -2 AS b, qty // 3 AS c FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f1_big_mod_exact",
+    "group": "f1",
+    "sql": "SELECT id, big % 10 AS a, big // 10 AS b FROM (SELECT id, qty, 9007199254740993 * (qty - 4) AS big FROM sales) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_big_mod_double",
+    "group": "f1",
+    "sql": "SELECT id, big % 10 AS a, big // 10 AS b FROM (SELECT id, qty, 9007199254740993 * (qty - 4) AS big FROM sales) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_big_div",
+    "group": "f1",
+    "sql": "SELECT id, big / 3 AS a FROM (SELECT id, qty, 9007199254740993 * (qty - 4) AS big FROM sales) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_edges",
+    "group": "f1",
+    "sql": "SELECT x, round(x, 2) AS r2, round(x, 1) AS r1, round(x) AS r0 FROM (VALUES (1.005), (2.675), (1.015), (0.285), (-1.005), (-2.675), (1.45), (2.5), (-0.5), (0.0)) AS t(x)",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_special",
+    "group": "f1",
+    "sql": "SELECT x, round(x, 2) AS r2, round(x) AS r0 FROM (SELECT CAST('nan' AS DOUBLE) AS x UNION ALL SELECT CAST('inf' AS DOUBLE) UNION ALL SELECT CAST('-inf' AS DOUBLE) UNION ALL SELECT CAST(NULL AS DOUBLE)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_special_native",
+    "group": "f1",
+    "sql": "SELECT x, round(x, 2) AS r2, round(x) AS r0 FROM (SELECT CAST('nan' AS DOUBLE) AS x UNION ALL SELECT CAST('inf' AS DOUBLE) UNION ALL SELECT CAST('-inf' AS DOUBLE) UNION ALL SELECT CAST(NULL AS DOUBLE)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_scalar_subq_select",
+    "group": "f1",
+    "sql": "SELECT id, price - (SELECT AVG(price) FROM sales) AS d FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f1_scalar_subq_select_native",
+    "group": "f1",
+    "sql": "SELECT id, price - (SELECT AVG(price) FROM sales) AS d FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f1_scalar_subq_having",
+    "group": "f1",
+    "sql": "SELECT region, AVG(price) AS a FROM sales GROUP BY region HAVING AVG(price) > (SELECT AVG(price) FROM sales)",
+    "ordered": false
+  },
+  {
+    "name": "f1_scalar_subq_having_native",
+    "group": "f1",
+    "sql": "SELECT region, AVG(price) AS a FROM sales GROUP BY region HAVING AVG(price) > (SELECT AVG(price) FROM sales)",
+    "ordered": false
+  },
+  {
+    "name": "f1_scalar_subq_two",
+    "group": "f1",
+    "sql": "SELECT id FROM sales WHERE price > (SELECT AVG(price) FROM sales) AND qty < (SELECT MAX(qty) FROM sales)",
+    "ordered": false
+  },
+  {
+    "name": "f1_scalar_subq_empty",
+    "group": "f1",
+    "sql": "SELECT id FROM sales WHERE price > (SELECT price FROM sales WHERE id > 100)",
+    "ordered": false
+  },
+  {
+    "name": "f1_pop_aggs",
+    "group": "f1",
+    "sql": "SELECT region, stddev_pop(qty) AS a, var_pop(qty) AS b, covar_pop(qty, price) AS c FROM sales GROUP BY region",
+    "ordered": false
+  },
+  {
+    "name": "f1_cast_int_from_div",
+    "group": "f1",
+    "sql": "SELECT id, CAST(qty / 2 AS INTEGER) AS a FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_edges_double",
+    "group": "f1",
+    "sql": "SELECT x, round(x, 2) AS r2, round(x, 1) AS r1, round(x) AS r0 FROM (SELECT CAST(x AS DOUBLE) AS x FROM (VALUES (1.005), (2.675), (1.015), (0.285), (-1.005), (-2.675), (1.45), (2.5), (-0.5), (0.0)) AS v(x)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_mod_zero",
+    "group": "f1",
+    "sql": "SELECT id, qty % 0 AS a, qty // 0 AS b FROM sales",
+    "ordered": false,
+    "duck_error_is_null": true
+  },
+  {
+    "name": "f1_round0_edges",
+    "group": "f1",
+    "sql": "SELECT x, round(x) AS r0 FROM (SELECT CAST(0.49999999999999994 AS DOUBLE) AS x UNION ALL SELECT CAST(-0.49999999999999994 AS DOUBLE) UNION ALL SELECT CAST(4503599627370497 AS DOUBLE)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_tie_edges",
+    "group": "f1",
+    "sql": "SELECT x, round(x, 2) AS r2, round(x, 1) AS r1, round(x) AS r0 FROM (SELECT CAST(x AS DOUBLE) AS x FROM (VALUES (1.005), (2.675), (1.015), (0.285), (-1.005), (-2.675), (1.45), (2.5), (-0.5), (0.0)) AS v(x)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_tie_r0",
+    "group": "f1",
+    "sql": "SELECT x, round(x) AS r0 FROM (SELECT CAST(0.49999999999999994 AS DOUBLE) AS x UNION ALL SELECT CAST(-0.49999999999999994 AS DOUBLE) UNION ALL SELECT CAST(4503599627370497 AS DOUBLE)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_tie_special",
+    "group": "f1",
+    "sql": "SELECT x, round(x, 2) AS r2, round(x) AS r0 FROM (SELECT CAST('nan' AS DOUBLE) AS x UNION ALL SELECT CAST('inf' AS DOUBLE) UNION ALL SELECT CAST('-inf' AS DOUBLE) UNION ALL SELECT CAST(NULL AS DOUBLE)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f1_round_tie_cols",
+    "group": "f1",
+    "sql": "SELECT id, round(price + 0.5) AS a, round(price * 1.25, 1) AS b, round(-price - 0.5) AS c FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "f2_cast_one_pass",
+    "group": "f2",
+    "sql": "SELECT x, CAST(x AS INTEGER) AS a FROM (SELECT CAST(x AS DOUBLE) AS x FROM (VALUES (2.5), (3.5), (-2.5), (0.5), (1.4999999999999998)) AS v(x)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f2_cast_rewritten_twice",
+    "group": "f2",
+    "sql": "SELECT x, CAST(x AS INTEGER) AS a FROM (SELECT CAST(x AS DOUBLE) AS x FROM (VALUES (2.5), (3.5), (-2.5), (0.5), (1.4999999999999998)) AS v(x)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f2_fmod_float",
+    "group": "f2",
+    "sql": "SELECT x, y, x % y AS m FROM (SELECT CAST(a AS DOUBLE) AS x, CAST(b AS DOUBLE) AS y FROM (VALUES (5.3, 0.1), (-7.7, 0.3), (1e15 + 0.7, 0.9), (123456.789, -0.013), (0.3, 0.1)) AS v(a, b)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "f4_floordiv_float",
+    "group": "f2",
+    "sql": "SELECT x, y, x // y AS q FROM (SELECT CAST(a AS DOUBLE) AS x, CAST(b AS DOUBLE) AS y FROM (VALUES (5.3, 0.1), (-7.7, 0.3), (1000000000000000.7, 0.9), (123456.789, -0.013), (0.3, 0.1), (-1.0, 0.1)) AS v(a, b)) AS t",
+    "ordered": false
+  },
+  {
+    "name": "t5_make_date",
+    "group": "t5",
+    "sql": "SELECT make_date(2026, 2, 28) AS d, make_date(2024, 2, 29) AS e",
+    "ordered": false
+  },
+  {
+    "name": "t5_last_day",
+    "group": "t5",
+    "sql": "SELECT id, last_day(day) AS d FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "t5_negative_mod",
+    "group": "t5",
+    "sql": "SELECT id, -qty % 4 AS m, mod(-qty, 3) AS n, -qty // 4 AS d, qty % -3 AS p FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "t5_float_cast",
+    "group": "t5",
+    "sql": "SELECT id, CAST(price AS BIGINT) AS c, CAST(price * 3 AS INTEGER) AS i, (price + 0.5)::BIGINT AS h FROM sales",
+    "ordered": false
+  },
+  {
+    "name": "t5_literal_cast",
+    "group": "t5",
+    "sql": "SELECT CAST(2.5 AS INTEGER) AS a, CAST(-2.5 AS INTEGER) AS b, CAST(3.5 AS BIGINT) AS c, CAST(0.49 AS INT) AS d",
+    "ordered": false
+  },
+  {
+    "name": "t5_pivot_sum",
+    "group": "t5",
+    "sql": "SELECT * FROM (SELECT region, product, qty FROM sales) AS s PIVOT (sum(qty) FOR product IN ('apple', 'pear'))",
+    "ordered": false
+  },
+  {
+    "name": "t5_pivot_alias",
+    "group": "t5",
+    "sql": "SELECT * FROM (SELECT region, product, qty FROM sales) AS s PIVOT (sum(qty) AS total FOR product IN ('apple' AS a, 'pear'))",
+    "ordered": false
+  },
+  {
+    "name": "t5_pivot_count",
+    "group": "t5",
+    "sql": "SELECT * FROM (SELECT region, product FROM sales) AS s PIVOT (count(*) FOR product IN ('apple', 'kiwi'))",
+    "ordered": false
+  },
+  {
+    "name": "t5_pivot_avg",
+    "group": "t5",
+    "sql": "SELECT * FROM (SELECT region, product, price FROM sales) AS s PIVOT (avg(price) AS n FOR product IN ('apple', 'pear'))",
+    "ordered": false
+  },
+  {
+    "name": "t5_unpivot",
+    "group": "t5",
+    "sql": "SELECT * FROM wide UNPIVOT (v FOR q IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "t5_unpivot_nulls",
+    "group": "t5",
+    "sql": "SELECT * FROM wide UNPIVOT INCLUDE NULLS (v FOR q IN (q1, q2, q3))",
+    "ordered": false
+  },
+  {
+    "name": "t5_where_alias",
+    "group": "t5",
+    "sql": "SELECT id, qty * price AS amount FROM sales WHERE amount > 5",
+    "ordered": false
+  },
+  {
+    "name": "t5_star_join_on",
+    "group": "t5",
+    "sql": "SELECT * FROM sales JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "t5_star_join_using",
+    "group": "t5",
+    "sql": "SELECT * FROM sales JOIN products USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "t5_star_natural",
+    "group": "t5",
+    "sql": "SELECT * FROM sales NATURAL JOIN returns",
+    "ordered": false
+  },
+  {
+    "name": "t5_star_exclude",
+    "group": "t5",
+    "sql": "SELECT * EXCLUDE (product) FROM sales JOIN products ON sales.product = products.product",
+    "ordered": false
+  },
+  {
+    "name": "t5_star_replace",
+    "group": "t5",
+    "sql": "SELECT * REPLACE (qty * 2 AS qty) FROM sales JOIN returns USING (id)",
+    "ordered": false
+  },
+  {
+    "name": "t5_star_qualified",
+    "group": "t5",
+    "sql": "SELECT s.*, p.category FROM sales s JOIN products p USING (product)",
+    "ordered": false
+  },
+  {
+    "name": "t5_div_zero",
+    "group": "t5",
+    "sql": "SELECT id, qty % 0 AS m, qty // 0 AS d FROM sales",
+    "ordered": false,
+    "duck_error_is_null": true
+  },
+  {
+    "name": "t5_round_fuzz",
+    "group": "t5",
+    "sql": "SELECT x, round(x) AS r, round(x, 0) AS z FROM (SELECT CAST(0.5 AS DOUBLE) AS x UNION ALL SELECT CAST(1.5 AS DOUBLE) AS x UNION ALL SELECT CAST(2.5 AS DOUBLE) AS x UNION ALL SELECT CAST(-0.5 AS DOUBLE) AS x UNION ALL SELECT CAST(-1.5 AS DOUBLE) AS x UNION ALL SELECT CAST(-2.5 AS DOUBLE) AS x UNION ALL SELECT CAST(2.4999999999 AS DOUBLE) AS x UNION ALL SELECT CAST(2.5000000001 AS DOUBLE) AS x UNION ALL SELECT CAST(-2.5000000001 AS DOUBLE) AS x UNION ALL SELECT CAST(1000000000000000.5 AS DOUBLE) AS x UNION ALL SELECT CAST(4503599627370495.5 AS DOUBLE) AS x UNION ALL SELECT CAST(4503599627370497 AS DOUBLE) AS x UNION ALL SELECT CAST(1e300 AS DOUBLE) AS x UNION ALL SELECT CAST(-1e300 AS DOUBLE) AS x UNION ALL SELECT CAST(0.49999999999999994 AS DOUBLE) AS x) AS t",
+    "ordered": false
+  },
+  {
+    "name": "t5_round_fuzz_values",
+    "group": "t5",
+    "sql": "SELECT x, round(x) AS r, round(x, 0) AS z FROM (VALUES (0.5::DOUBLE), (1.5::DOUBLE), (2.5::DOUBLE), (-0.5::DOUBLE), (-1.5::DOUBLE), (-2.5::DOUBLE), (2.4999999999::DOUBLE), (2.5000000001::DOUBLE), (-2.5000000001::DOUBLE), (1000000000000000.5::DOUBLE), (4503599627370495.5::DOUBLE), (4503599627370497::DOUBLE), (1e300::DOUBLE), (-1e300::DOUBLE), (0.49999999999999994::DOUBLE)) AS t(x)",
+    "ordered": false
+  },
+  {
+    "name": "t5_round_special",
+    "group": "t5",
+    "sql": "SELECT round(x) = x AS same, round(x) IS NULL AS missing FROM (SELECT CAST('nan' AS DOUBLE) AS x UNION ALL SELECT CAST('inf' AS DOUBLE) AS x UNION ALL SELECT CAST('-inf' AS DOUBLE) AS x) AS t",
+    "ordered": false
+  },
+  {
+    "name": "t5_round_special_values",
+    "group": "t5",
+    "sql": "SELECT x, round(x) AS r FROM (VALUES ('nan'::DOUBLE), ('inf'::DOUBLE), ('-inf'::DOUBLE)) AS t(x)",
+    "ordered": false
+  },
+  {
+    "name": "t5_round_columns",
+    "group": "t5",
+    "sql": "SELECT id, round(price * 3) AS a, round(-price * 3) AS b, round(price / 2) AS c FROM sales",
+    "ordered": false
+  }
+]

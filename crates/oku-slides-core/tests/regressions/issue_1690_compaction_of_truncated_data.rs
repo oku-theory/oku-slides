@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use oku_slides_core::{Deck, DeckReplica};
 use oku_slides_data::limits::MAX_OVERLAY;
-use oku_slides_data::{BaseId, BaseRef, CellKey, Column, ColumnType, Data, DataCell, DataId, DataKind, Rows, Table};
+use oku_slides_data::{BaseId, BaseRef, CellKey, Column, ColumnType, Data, DataCell, DataId, Rows, Source, Table};
 use speculoos::prelude::*;
 
 use crate::common;
@@ -27,7 +27,7 @@ fn over_cap() -> Deck {
         base: None,
         cells,
     };
-    let data = Data { name: "z".to_owned(), label: None, inline: false, kind: DataKind::Manual, table };
+    let data = Data { name: "z".to_owned(), label: None, inline: false, source: Source::Manual(table) };
     let mut deck = Deck::default();
     deck.data.insert(z(), Arc::new(data));
     deck
@@ -49,13 +49,13 @@ fn compaction_of_truncated_data_writes_the_new_layer() {
         rows: 3,
         columns: Vec::new(),
     };
-    let from = read.data[&z()].table.clone();
+    let from = read.data[&z()].table().unwrap_or_else(|| panic!("a manual data")).clone();
     assert_that!(r.compact_data(&z(), &from, "e2".to_owned(), base.clone()).unwrap_or(false)).is_true();
     let snapshot = r.snapshot().unwrap_or_else(|e| panic!("snapshot: {e:?}"));
     let (back, _) = DeckReplica::from_snapshot(&snapshot, 1 << 28, registry).unwrap_or_else(|e| panic!("{e:?}"));
     let (deck, _) = back.deck();
     assert_that!(deck.truncated.contains(&z())).is_false();
-    let table = &deck.data[&z()].table;
+    let table = deck.data[&z()].table().unwrap_or_else(|| panic!("a manual data"));
     assert_that!(table.base.as_ref()).is_equal_to(Some(&base));
     assert_that!(table.overlay_len()).is_equal_to(0);
 }

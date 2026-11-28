@@ -15,15 +15,18 @@ export interface ElementScope {
 /**
  * The surface `ids` of `selected` on `slide`, read in a deck tab only: not read-only, not in
  * history or a theme tab, with an element selected; `off` removes it (a pack tab, an element
- * the surface does not cover). Reread when the element, its slide's render or undo change.
+ * the surface does not cover). Reread when the element, its slide's render or undo change, or
+ * when `rev` does.
  */
-export function useSelectionSurface({ ids, api, snap, slide, selected, off, fetch, send, run, say }: {
+export function useSelectionSurface({ ids, api, snap, slide, selected, off, rev, fetch, send, run, say }: {
   ids: readonly string[];
   api: TabApi;
   snap: Snapshot | null;
   slide: string | null;
   selected: Element | undefined;
   off: boolean;
+  /** Rereads when it changes: state the slide's render does not show. */
+  rev?: number;
   fetch: (api: TabApi, scope: ElementScope) => Promise<Surface | null>;
   /** Sends the shown surface's action to its element; `null`: nothing to send. */
   send: (api: TabApi, scope: ElementScope, action: QuickAction) => Promise<Snapshot> | null;
@@ -36,7 +39,7 @@ export function useSelectionSurface({ ids, api, snap, slide, selected, off, fetc
     active: isDeckTab(snap) && !!slide && !!selected && !off,
     scope: { slide: slide ?? "", element: selected?.id ?? "" },
     // A refusal forces a reread (`sync`): the model holds the refused value.
-    key: [slide, selected?.id, hash, snap?.undo_label, snap?.redo_label].join("|"),
+    key: [slide, selected?.id, hash, snap?.undo_label, snap?.redo_label, rev].join("|"),
     fetch: (scope) => fetch(api, scope),
     send: (scope, action) => send(api, scope, action),
     run,

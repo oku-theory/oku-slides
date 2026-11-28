@@ -43,7 +43,7 @@ fn shared() -> Deck {
 
 fn edit(deck: &mut Deck, change: &TableOp) {
     let data = deck.data.values_mut().next().unwrap();
-    Arc::make_mut(data).table.apply(change).unwrap();
+    Arc::make_mut(data).table_mut().unwrap().apply(change).unwrap();
 }
 
 fn set_cell(row: &str, column: &str, value: DataCell) -> TableOp {

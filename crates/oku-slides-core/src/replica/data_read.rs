@@ -4,25 +4,28 @@
 //! what is left of the deck bounds ([`DeckLoad`]). A data cut by a bound keeps the exact
 //! prefix that fits, is reported (`issue-data-truncated`) and lands in `Deck.truncated`,
 //! so it is never written back. A stored base that does not parse is reported missing
-//! (`issue-data-base-missing`); its data is kept read-only the same way.
+//! (`issue-data-base-missing`); its data is kept read-only the same way. A data of a kind this
+//! version does not know is not read (`issue-data-kind-unknown`) and never written back.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use loro::{Container, LoroMap, LoroMovableList, LoroValue, ValueOrContainer};
-use oku_slides_data::limits::{MAX_COLUMNS, MAX_DATA, MAX_NAME_CHARS, MAX_OVERLAY, MAX_ROWS, MAX_TEXT_BYTES};
+use oku_slides_data::limits::{
+    MAX_COLUMNS, MAX_DATA, MAX_NAME_CHARS, MAX_OVERLAY, MAX_ROWS, MAX_SQL_BYTES, MAX_TEXT_BYTES,
+};
 use oku_slides_data::{
-    BaseRef, CellKey, Column, ColumnType, Data, DataCell, DataId, DataKind, IdRepair, Rows, Table, clean_label,
+    BaseRef, CellKey, Column, ColumnType, Data, DataCell, DataId, DataKind, IdRepair, Rows, Source, Table, clean_label,
 };
 use oku_slides_i18n::Message;
 use serde_json::Value;
 
-use super::data::{BASE, DATA, LAYER, TABLE, epoch_of, generation_of, keyed};
+use super::data::{BASE, DATA, KIND, LAYER, SQL, TABLE, epoch_of, generation_of, keyed};
 use super::read::loro_to_json;
 use super::schema::{CELLS, COLUMNS, ROWS};
 use crate::data_bounds::DeckLoad;
 use crate::validate::Issue;
-use crate::validate_data::{base_missing, cell_type, data_issue, too_many, truncated};
+use crate::validate_data::{base_missing, cell_type, data_issue, kind_unknown, too_many, truncated};
 
 /// The data read from a replica.
 #[derive(Debug, Default)]
@@ -51,8 +54,21 @@ pub(super) fn read(root: &LoroMap, issues: &mut Vec<Issue>) -> DataRead {
             issues.push(data_issue(message));
             continue;
         };
+        let Some(kind) = kind_of(&m) else {
+            // A kind missing or this version does not know (a newer peer's): not read, never
+            // written back.
+            if let Some(raw) = string_at(&m, KIND) {
+                let kind: String = clean_label(&raw).chars().take(MAX_NAME_CHARS).collect();
+                issues.push(kind_unknown(&name_of(&m, &id), &kind));
+            } else {
+                let field = format!("{DATA}/{}/{KIND}", id.as_str());
+                issues.push(data_issue(Message::new("issue-unreadable-field").arg("field", field)));
+            }
+            out.truncated.insert(id);
+            continue;
+        };
         let mut reader = DataReader { left: load.left(), cut: false, base: false, issues: Vec::new() };
-        let data = reader.data(&m, &id);
+        let data = reader.data(&m, &id, kind);
         load = load.plus(DeckLoad::of(&data));
         if reader.cut {
             issues.push(truncated(&data.name));
@@ -89,6 +105,17 @@ fn string_at(map: &LoroMap, key: &str) -> Option<String> {
     }
 }
 
+/// The kind stored in the data map `map`; `None` if it is missing or unknown.
+fn kind_of(map: &LoroMap) -> Option<DataKind> {
+    serde_json::from_value(Value::String(string_at(map, KIND)?)).ok()
+}
+
+/// The data's name, cleaned and cut to [`MAX_NAME_CHARS`]; its id if it has none.
+fn name_of(map: &LoroMap, id: &DataId) -> String {
+    let raw = string_at(map, "name").unwrap_or_else(|| id.as_str().to_owned());
+    clean_label(&raw).chars().take(MAX_NAME_CHARS).collect()
+}
+
 fn map_in(map: &LoroMap, key: &str) -> Option<LoroMap> {
     match map.get(key) {
         Some(ValueOrContainer::Container(Container::Map(m))) => Some(m),
@@ -116,9 +143,8 @@ fn cut_bytes(text: &str, max: usize) -> &str {
 }
 
 impl DataReader {
-    fn data(&mut self, map: &LoroMap, id: &DataId) -> Data {
-        let raw = string_at(map, "name").unwrap_or_else(|| id.as_str().to_owned());
-        let name: String = clean_label(&raw).chars().take(MAX_NAME_CHARS).collect();
+    fn data(&mut self, map: &LoroMap, id: &DataId, kind: DataKind) -> Data {
+        let name = name_of(map, id);
         let label = string_at(map, "label").map(|l| clean_label(&l));
         let inline = matches!(map.get("inline"), Some(ValueOrContainer::Value(LoroValue::Bool(true))));
         // Name and label are kept whole: past the text bound, the data is cut all the same.
@@ -127,21 +153,43 @@ impl DataReader {
             self.cut = true;
         }
         self.left.text = self.left.text.saturating_sub(named);
-        let table = if let Some(t) = map_in(map, TABLE) {
-            self.table(&t, &name)
-        } else {
-            // No table to read: kept empty, reported and read-only, so it is never written back.
-            self.cut = true;
-            Table {
-                generation: String::new(),
-                epoch: String::new(),
-                columns: Vec::new(),
-                rows: Rows::default(),
-                base: None,
-                cells: imbl::OrdMap::new(),
-            }
+        let source = match kind {
+            DataKind::Manual => Source::Manual(self.manual(map, &name)),
+            DataKind::Query => Source::Query { sql: self.sql(map) },
         };
-        Data { name, label, inline, kind: DataKind::Manual, table }
+        Data { name, label, inline, source }
+    }
+
+    /// The table of a manual data; without one, kept empty, reported and read-only, so it is
+    /// never written back.
+    fn manual(&mut self, map: &LoroMap, name: &str) -> Table {
+        if let Some(t) = map_in(map, TABLE) {
+            return self.table(&t, name);
+        }
+        self.cut = true;
+        Table {
+            generation: String::new(),
+            epoch: String::new(),
+            columns: Vec::new(),
+            rows: Rows::default(),
+            base: None,
+            cells: imbl::OrdMap::new(),
+        }
+    }
+
+    /// The SQL of a query data, within [`MAX_SQL_BYTES`] and the text bound; a missing one or
+    /// one cut is reported and kept read-only, so it is never written back.
+    fn sql(&mut self, map: &LoroMap) -> String {
+        let Some(sql) = string_at(map, SQL) else {
+            self.cut = true;
+            return String::new();
+        };
+        let kept = cut_bytes(&sql, MAX_SQL_BYTES.min(self.left.text));
+        if kept.len() < sql.len() {
+            self.cut = true;
+        }
+        self.left.text -= kept.len();
+        kept.to_owned()
     }
 
     fn table(&mut self, map: &LoroMap, name: &str) -> Table {

@@ -7,6 +7,7 @@ import type { Snapshot, Surface, TabApi } from "./api";
 import type { A2uiClientAction } from "@a2ui/web_core/v0_9";
 import type { QuickAction } from "./agent/quick";
 import { type DataRoute, isPanelAction, routeDataAction } from "./dataActions";
+import { snapNumber } from "./snapNumber";
 import { isDeckTab } from "./tabKind";
 import { type HostSettings, useSessionSurface } from "./useHostSettings";
 
@@ -20,17 +21,6 @@ interface SheetScope {
   data: string;
   offset: number;
 }
-
-/** A number per snapshot, so that each new one (an edit, an undo, the agent) rereads both. */
-const snapNumbers = new WeakMap<Snapshot, number>();
-let lastNumber = 0;
-const snapNumber = (snap: Snapshot | null): number => {
-  if (!snap) return 0;
-  const known = snapNumbers.get(snap);
-  if (known !== undefined) return known;
-  snapNumbers.set(snap, ++lastNumber);
-  return lastNumber;
-};
 
 /** What `useDeckData` gives App. */
 export interface DeckData {

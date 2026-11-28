@@ -16,6 +16,7 @@ mod list;
 mod list_path;
 mod moving;
 mod packs;
+mod query;
 mod refs;
 mod value;
 mod view_data;
@@ -336,20 +337,33 @@ pub enum Op {
         /// New value; `null` removes it.
         value: Value,
     },
-    /// Adds a data to the deck: a named table that charts and tables bind to.
+    /// Adds a data to the deck: a named table that charts and tables bind to, or a query
+    /// deriving one from other data.
     ///
-    /// Leave `id` and the row and column ids out: they are drawn for you.
+    /// Give exactly one of `table` and `sql`. Leave `id` and the row and column ids out: they
+    /// are drawn for you.
     AddData {
         /// Id of the new data; drawn when left out.
         #[serde(default)]
         id: Option<DataId>,
-        /// Name shown to the user, unique in the deck (case ignored).
+        /// Name shown to the user, unique in the deck (case ignored); queries read the data by it.
         name: String,
         /// Optional longer label.
         #[serde(default)]
         label: Option<String>,
-        /// The columns and rows of the table.
-        table: NewTable,
+        /// The columns and rows of a data entered by hand.
+        #[serde(default)]
+        table: Option<NewTable>,
+        /// The query of a derived data: one SELECT reading other data of the deck by name.
+        #[serde(default)]
+        sql: Option<String>,
+    },
+    /// Replaces the query of a derived data; its inputs must exist and must not read it back.
+    SetQuery {
+        /// Id of the query data.
+        data: DataId,
+        /// The new query: one SELECT reading other data of the deck by name.
+        sql: String,
     },
     /// Edits the table of a data: a cell, a row, a column, or the whole table.
     ///
@@ -804,7 +818,11 @@ impl Op {
                 set_or_remove_map(&mut deck.vars, &key, value);
                 Ok(())
             }
-            Op::AddData { id, name, label, table } => data::add_data(deck, id, name, label.as_deref(), table),
+            Op::AddData { id, name, label, table, sql } => {
+                let source = data::NewSource::of(table, sql)?;
+                data::add_data(deck, id, name, label.as_deref(), source)
+            }
+            Op::SetQuery { data, sql } => query::set_query(deck, &data, sql),
             Op::EditData { data, change } => data::edit_data(deck, &data, &change),
             Op::BindData { target, param, data, columns } => {
                 data::bind_data(deck, registry, &target, &param, &data, columns)
@@ -828,7 +846,11 @@ impl Op {
     /// Whether the op may grow the deck's data past its bounds.
     fn grows_data(&self) -> bool {
         match self {
-            Op::AddData { .. } | Op::PutViewData { .. } | Op::RenameData { .. } | Op::SetColumnType { .. } => true,
+            Op::AddData { .. }
+            | Op::SetQuery { .. }
+            | Op::PutViewData { .. }
+            | Op::RenameData { .. }
+            | Op::SetColumnType { .. } => true,
             Op::EditData { change, .. } => !matches!(change, TableOp::RemoveRow { .. } | TableOp::RemoveColumn { .. }),
             _ => false,
         }

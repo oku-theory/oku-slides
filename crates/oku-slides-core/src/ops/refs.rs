@@ -66,6 +66,7 @@ pub(super) fn scope(op: &Op) -> Option<&str> {
         | Op::SetTokens { .. }
         | Op::SetVar { .. }
         | Op::AddData { .. }
+        | Op::SetQuery { .. }
         | Op::EditData { .. }
         | Op::BindData { .. }
         | Op::RemoveData { .. }
@@ -142,6 +143,9 @@ fn check_slide(deck: &mut Deck, registry: &WidgetRegistry, i: usize, before: &Vi
 }
 
 /// A ref to an existing, whole data, projected on columns it has.
+///
+/// A projection over a query data is refused as derived: its columns are a result, unknown
+/// until it runs, not a missing column.
 fn check_ref(deck: &Deck, data: &str, view: &View) -> Result<(), OpError> {
     let Some((id, d)) = deck.data.get_key_value(data) else {
         return Err(DataFault::Missing { data: data.to_owned() }.into());
@@ -149,8 +153,12 @@ fn check_ref(deck: &Deck, data: &str, view: &View) -> Result<(), OpError> {
     if deck.truncated.contains(id) {
         return Err(DataFault::Truncated { data: data.to_owned() }.into());
     }
-    let columns = view.value.get("columns").and_then(Value::as_array).into_iter().flatten();
-    if let Some(missing) = columns.filter_map(Value::as_str).find(|c| !d.table.columns.iter().any(|col| col.id == *c)) {
+    let mut columns = view.value.get("columns").and_then(Value::as_array).into_iter().flatten().peekable();
+    if columns.peek().is_none() {
+        return Ok(());
+    }
+    let Some(table) = d.table() else { return Err(OpError::data_derived(data)) };
+    if let Some(missing) = columns.filter_map(Value::as_str).find(|c| !table.columns.iter().any(|col| col.id == *c)) {
         return Err(DataError::no_column(missing).into());
     }
     Ok(())

@@ -713,6 +713,7 @@ fn every_form() -> Vec<super::Surface> {
                     oku_slides_a2ui::DataChoice { id: "d-ventes".into(), name: "ventes".into(), label: Some("Ventes".into()) },
                     oku_slides_a2ui::DataChoice { id: "d-budget".into(), name: "budget".into(), label: None },
                 ],
+                None,
             ),
         ),
         super::data_surface(
@@ -723,6 +724,7 @@ fn every_form() -> Vec<super::Surface> {
                 &covering_dataset(&json!([["A", "B"], [1, null]]), &["a", "b"]),
                 oku_slides_a2ui::DataRef { id: "d-table".into(), name: "table".into(), label: None, users: 1 },
                 vec![oku_slides_a2ui::DataChoice { id: "d-table".into(), name: "table".into(), label: None }],
+                None,
             ),
         ),
     ]

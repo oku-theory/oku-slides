@@ -8,16 +8,16 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use oku_slides_core::{Deck, WidgetRegistry};
-use oku_slides_data::CellPatch;
+use oku_slides_data::{CellPatch, Table};
 use oku_slides_i18n::Localizer;
-use oku_slides_render::{PackSet, RenderError};
+use oku_slides_render::{PackSet, RenderError, Results};
 use serde_json::{Map, Value};
 
 use crate::client::{
     Deferred, RenderWorker, Shared, blame, evict_assets, expect_ok, faulty_pack, set_locale, unexpected, wire,
 };
 use crate::compiled::RemoteCompiled;
-use crate::link::{Link, SentData, fingerprint_hex};
+use crate::link::{Link, SentData, SentResult, fingerprint_hex};
 use crate::protocol::{Request, Response, SlotId, WirePack};
 
 /// Un emplacement du travailleur : un rendu, ses widgets et sa langue.
@@ -32,6 +32,8 @@ pub struct RenderSlot {
     accuse: bool,
     /// Époque du travailleur où `set_widgets` a posé le pack.
     pack_epoch: u64,
+    /// The query results the next renders read ([`RenderSlot::set_results`]).
+    results: Results,
 }
 
 impl std::fmt::Debug for RenderSlot {
@@ -43,7 +45,7 @@ impl std::fmt::Debug for RenderSlot {
 impl RenderSlot {
     /// L'emplacement `id`, ouvert dans le travailleur ; `accuse` : `false` pour un essai.
     pub(crate) fn opened(worker: RenderWorker, id: SlotId, registry: Arc<WidgetRegistry>, accuse: bool) -> Self {
-        Self { worker, id, registry, chart_palette: Vec::new(), accuse, pack_epoch: 0 }
+        Self { worker, id, registry, chart_palette: Vec::new(), accuse, pack_epoch: 0, results: Results::new() }
     }
 
     /// Rendered widgets: those of the packs of `set` (none, if empty).
@@ -121,6 +123,12 @@ impl RenderSlot {
         set_locale(&mut link, l)
     }
 
+    /// The query results the next renders read: a query data absent or `None` here draws its
+    /// views' failure frame.
+    pub fn set_results(&mut self, results: Results) {
+        self.results = results;
+    }
+
     /// Renders `deck` under a new generation.
     ///
     /// # Errors
@@ -145,11 +153,12 @@ impl RenderSlot {
             return Err(RenderError::pack_disabled(pack));
         }
         let ids: Vec<String> = assets.keys().cloned().collect();
-        let req = render_request(self.id, deck, ids.clone());
+        let req = render_request(self.id, deck, ids.clone(), &self.results);
         let mut resent = false;
         let mut data_resent = false;
         let header = loop {
             send_assets(&mut link, assets)?;
+            send_results(&mut link, self.id, deck, &self.results, &self.worker.1)?;
             send_data(&mut link, self.id, deck, &self.worker.1)?;
             match link.call(&req, &[]) {
                 Ok((Response::Compiled(header), _)) => break header,
@@ -176,6 +185,7 @@ impl RenderSlot {
                     }
                     if let Some(state) = link.state.slots.get_mut(&self.id) {
                         state.data.clear();
+                        state.results.clear();
                     }
                     data_resent = true;
                 }
@@ -219,7 +229,7 @@ fn send_data(link: &mut Link, slot: SlotId, deck: &Deck, shared: &Shared) -> Res
     let sent = link.state.slots.get(&slot).map(|s| s.data.clone()).unwrap_or_default();
     let mut now = BTreeMap::new();
     for (id, data) in &deck.data {
-        let base = data.table.base.as_ref().and_then(|b| shared.base_path(&b.id));
+        let base = data.table().and_then(|t| t.base.as_ref()).and_then(|b| shared.base_path(&b.id));
         let id = id.as_str().to_owned();
         let last = sent.get(&id).filter(|s| s.base == base);
         if !last.is_some_and(|s| Arc::ptr_eq(&s.data, data)) {
@@ -244,13 +254,57 @@ fn send_data(link: &mut Link, slot: SlotId, deck: &Deck, shared: &Shared) -> Res
     Ok(())
 }
 
+/// The ready results of `results` that `deck` reads: those of its query data.
+fn ready_results<'a>(deck: &'a Deck, results: &'a Results) -> impl Iterator<Item = (&'a str, &'a Table)> {
+    results.iter().filter_map(|(id, table)| {
+        let table = table.as_ref()?;
+        deck.data.get(id).filter(|d| d.sql().is_some()).map(|_| (id.as_str(), table))
+    })
+}
+
+/// Sends the worker each ready result `deck` reads whose generation or base path changed since
+/// it was last sent to `slot`, and drops those no longer ready. Dropping one forgets its data in
+/// the worker too (`DropData`): `send_data`, after it, sends that data again.
+fn send_results(
+    link: &mut Link,
+    slot: SlotId,
+    deck: &Deck,
+    results: &Results,
+    shared: &Shared,
+) -> Result<(), RenderError> {
+    let sent = link.state.slots.get(&slot).map(|s| s.results.clone()).unwrap_or_default();
+    let mut now = BTreeMap::new();
+    for (id, table) in ready_results(deck, results) {
+        let base = table.base.as_ref().and_then(|b| shared.base_path(&b.id));
+        let next = SentResult { generation: table.generation.clone(), base: base.clone() };
+        if sent.get(id) != Some(&next) {
+            let json = serde_json::to_vec(table).map_err(|e| RenderError::frame(format!("result {id}: {e}")))?;
+            expect_ok(link, &Request::PutResult { slot, id: id.to_owned(), base }, &json)?;
+        }
+        now.insert(id.to_owned(), next);
+    }
+    let gone: Vec<String> = sent.keys().filter(|id| !now.contains_key(*id)).cloned().collect();
+    if !gone.is_empty() {
+        expect_ok(link, &Request::DropData { slot, ids: gone.clone() }, &[])?;
+    }
+    if let Some(state) = link.state.slots.get_mut(&slot) {
+        state.results = now;
+        for id in &gone {
+            state.data.remove(id);
+        }
+    }
+    Ok(())
+}
+
 /// The render request of `deck` for `slot`, without its data (sent apart, see `send_data`) nor
-/// its knowledge bundle (up to 16 MiB), which rendering never reads (t-1731).
-fn render_request(slot: SlotId, deck: &Deck, assets: Vec<String>) -> Request {
+/// its knowledge bundle (up to 16 MiB), which rendering never reads (t-1731); the query data
+/// read the ready results of `results` (sent apart, see `send_results`).
+fn render_request(slot: SlotId, deck: &Deck, assets: Vec<String>, results: &Results) -> Request {
     let data = deck.data.keys().map(|id| id.as_str().to_owned()).collect();
+    let results = ready_results(deck, results).map(|(id, _)| id.to_owned()).collect();
     let mut bare = deck.without_knowledge();
     bare.data.clear();
-    Request::Render { slot, deck: Box::new(bare), assets, data }
+    Request::Render { slot, deck: Box::new(bare), assets, data, results }
 }
 
 /// Sends the worker every asset of `assets` it is not known to have.

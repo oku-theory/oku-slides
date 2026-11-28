@@ -34,7 +34,7 @@ fn with_base(data: &Data, pdf: &std::path::Path, to: &std::path::Path) {
     std::fs::write(&src, b"their base").unwrap_or_else(|e| panic!("{e}"));
     let id = store.adopt(&src, 1 << 20).unwrap_or_else(|e| panic!("adopt: {e}"));
     let d9 = DataId::try_from("d9".to_owned()).unwrap_or_else(|e| panic!("{e}"));
-    let from = theirs.deck().data[&d9].table.clone();
+    let from = theirs.deck().data[&d9].table().unwrap_or_else(|| panic!("a manual data")).clone();
     let rows = u32::try_from(from.rows.len()).unwrap_or_else(|e| panic!("{e}"));
     let base = BaseRef { id, bytes: 10, rows, columns: Vec::new() };
     let done = theirs.compact_data(&d9, &from, "e2".to_owned(), base).unwrap_or_else(|e| panic!("compact: {e}"));

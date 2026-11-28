@@ -33,9 +33,9 @@ library (no deck text is Typst code); one compiled document gives SVG, PNG and P
 - `OkuSlidesWorld` (`world.rs`, private): virtual file system (embedded library with its JSON
   data; deck, theme, assets, packs), fonts (`Fonts`), no system font; `load-image(…, flow:)`.
 - `views` (private): `resolve_views`, run by `set_deck`, clones the deck, `data` emptied, chart and
-  table params given the dataset `plan_views` cut (plain values). `charts` (private): a `host("chart")`
-  becomes an SVG drawn by `oku-slides-chart`, `/charts/<fingerprint>.svg` (option, resolved dataset,
-  size, font, palette, labels), at its box size (measured at compilation), never scaled.
+  table params given the dataset `plan_views` cut (plain values); a query data reads its ready result
+  (`Results`, `set_results`; `with_results`), else draws a failure frame. `charts` (private): a `host("chart")`
+  becomes an SVG drawn by `oku-slides-chart`, `/charts/<fingerprint>.svg` (option, resolved dataset, size, font, palette, labels), at its box size (measured at compilation), never scaled.
 - `tables` (private): guard pass before Typst (canonical form, or `null` if invalid); Typst
   draws the table, no Rust pass. `diagnostic`: localized Typst messages; `palette`: colors.
 

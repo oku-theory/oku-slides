@@ -108,7 +108,7 @@ pub(crate) fn prepare(platform: &Platform, args: HifiArgs<'_>, input: &Input) ->
     let packs =
         BTreeMap::from([(base_pin.version, base_files), (essentiel_pin.version, essentiel_files), (version, pack)]);
     let library = PackLibrary::user(platform);
-    let (mut bundle, widgets) = sources_with_packs(platform, &library, args.base, deck, packs)?;
+    let (mut bundle, widgets) = sources_with_packs(platform, None, &library, args.base, deck, packs)?;
     // Une sonde tout entière échouée (processus de rendu) n'est pas un écart du générateur.
     if let Some(error) = &widgets.probe_failed {
         return Err(ProbeFailedSnafu { error: error.as_str() }.build().into());

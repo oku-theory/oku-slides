@@ -165,12 +165,22 @@ pub(crate) struct SlotState {
     pub(crate) theme: Option<serde_json::Map<String, serde_json::Value>>,
     /// The data the worker holds for this slot, with the base path sent; forgotten on reconnect.
     pub(crate) data: BTreeMap<String, SentData>,
+    /// The query results the worker holds for this slot; forgotten on reconnect.
+    pub(crate) results: BTreeMap<String, SentResult>,
 }
 
 /// A data as last sent to the worker: the same `Arc` and path are not sent again.
 #[derive(Debug, Clone)]
 pub(crate) struct SentData {
     pub(crate) data: Arc<oku_slides_data::Data>,
+    pub(crate) base: Option<PathBuf>,
+}
+
+/// A query result as last sent to the worker: one generation and path are not sent again.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SentResult {
+    /// The result table's generation, which names its base.
+    pub(crate) generation: String,
     pub(crate) base: Option<PathBuf>,
 }
 
@@ -320,6 +330,7 @@ impl Link {
         for slot in self.state.slots.values_mut() {
             slot.last_assets.clear();
             slot.data.clear();
+            slot.results.clear();
         }
         let ready = self.hello().and_then(|()| self.replay());
         if let Err(e) = &ready {

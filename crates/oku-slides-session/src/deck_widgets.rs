@@ -47,9 +47,6 @@ use crate::error::{OpSnafu, RegistrySnafu, RenderSnafu, SourcesSnafu, TrustedPac
 use crate::pack::PackManifest;
 use crate::{Result, Session};
 
-/// A paste's source data, by id.
-type PastedData = BTreeMap<oku_slides_data::DataId, Arc<oku_slides_data::Data>>;
-
 /// Les widgets résolus pour les packs épinglés d'un deck.
 #[derive(Debug, Clone)]
 pub(crate) struct DeckWidgets {
@@ -322,13 +319,13 @@ impl Session {
     /// # Errors
     ///
     /// As `apply`, plus `op-data-missing` for a view naming a data `source` lacks.
-    pub(crate) fn apply_paste(&mut self, label: &str, ops: Vec<Op>, source: PasteSource) -> Result<()> {
+    pub(crate) fn apply_paste(&mut self, label: &str, ops: Vec<Op>, mut source: PasteSource) -> Result<()> {
         self.ensure_caller_ops(&ops)?;
         self.ensure_pack_lease()?;
         self.ensure_theme_lease()?;
         self.ensure_replica_room(&ops)?;
-        self.carry_assets(source.assets);
-        self.apply_ops(label, ops, None, Some(&source.data))
+        self.carry_assets(std::mem::take(&mut source.assets));
+        self.apply_ops(label, ops, None, Some(&source))
     }
 
     /// Applies a rank step of a theme tab's draft (`theme_extends`), past the callers' op filter.
@@ -366,7 +363,13 @@ impl Session {
     /// `apply` once its ops passed the callers' filter; inside an agent call, records the
     /// elements it touched once it succeeded (`agent::turn_touches`). `pasted`: a paste's
     /// source data.
-    fn apply_ops(&mut self, label: &str, ops: Vec<Op>, merge: Option<&str>, pasted: Option<&PastedData>) -> Result<()> {
+    fn apply_ops(
+        &mut self,
+        label: &str,
+        ops: Vec<Op>,
+        merge: Option<&str>,
+        pasted: Option<&PasteSource>,
+    ) -> Result<()> {
         // Before the ops run: a removed element's widget is read from the deck before them.
         let pending = self.turn_touches.recording().then(|| self.touches_of_batch(&ops));
         self.apply_ops_inner(label, ops, merge, pasted)?;
@@ -382,7 +385,7 @@ impl Session {
         label: &str,
         mut ops: Vec<Op>,
         merge: Option<&str>,
-        pasted: Option<&PastedData>,
+        pasted: Option<&PasteSource>,
     ) -> Result<()> {
         // `commit_deck_widgets` a pris la séance avant d'appeler ici, et la reprend.
         self.end_widget_session();
@@ -429,7 +432,11 @@ impl Session {
         let mut next = self.doc.sources.deck().clone();
         // Mode pack : une op sur la slide d'un layout s'écrit dans son exemple (`layout_examples`).
         let pack_ops = matches!(self.mode, crate::Mode::Pack { .. }).then(|| ops.clone());
+        let binds = ops.iter().any(|op| matches!(op, Op::BindData { .. })).then(|| ops.clone());
         let moves = oku_slides_core::apply_all_moving(&mut next, ops, &registry).context(OpSnafu)?;
+        if let Some(binds) = binds {
+            self.check_query_binds(binds, &next, &registry)?;
+        }
         // An agent's knowledge writes get their provenance in this same batch (`knowledge_write`).
         if let Some(authored) = &authored
             && self.turn_touches.recording()

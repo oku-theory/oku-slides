@@ -27,10 +27,11 @@ impl DeckReplica {
     ) -> Result<bool, ReplicaError> {
         let (mut deck, _) = self.deck();
         let Some(data) = deck.data.get_mut(id) else { return Ok(false) };
-        if data.table != *from {
+        // A query data has no table to compact.
+        if data.table() != Some(from) {
             return Ok(false);
         }
-        let table = &mut Arc::make_mut(data).table;
+        let Some(table) = Arc::make_mut(data).table_mut() else { return Ok(false) };
         table.epoch = epoch;
         table.base = Some(base);
         table.cells.clear();

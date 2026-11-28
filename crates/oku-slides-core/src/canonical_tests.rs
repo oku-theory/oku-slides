@@ -556,7 +556,7 @@ fn data_deck_json(columns: &[&str], rows: &[&str]) -> Result<Deck, crate::DeckJs
 }
 
 fn table_of(deck: &Deck) -> &oku_slides_data::Table {
-    &deck.data.values().next().unwrap().table
+    deck.data.values().next().unwrap().table().unwrap()
 }
 
 /// `Rows` cannot hold a repeated id: JSON refuses it, the replica read repairs it

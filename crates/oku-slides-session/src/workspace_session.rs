@@ -44,7 +44,8 @@ impl Workspace {
                 (reply.and_then(|r| r), changed)
             }
         };
-        // Detached: each job commits under the tab's lock when its worker is done.
+        // Detached: each job commits under the tab's lock when its worker is done. Query
+        // recomputes are scheduled by every acquisition (`acquire`).
         drop(Self::schedule_compactions(ws, tab));
         (reply, changed)
     }

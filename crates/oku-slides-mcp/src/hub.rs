@@ -207,6 +207,8 @@ struct HubState {
     closed: bool,
     /// Le tour en cours ; `None` entre deux tours (une surface du fil y est alors refusée).
     turn: Option<u32>,
+    /// The turn the user stopped (`cut_turn`): a question it asks afterwards is cancelled at once.
+    cut: Option<u32>,
     /// Le dernier numéro de tour donné.
     turns: u32,
     /// Turns of the tab's thread (open, neither evicted nor cleared).

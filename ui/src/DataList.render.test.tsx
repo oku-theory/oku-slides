@@ -45,6 +45,28 @@ describe("DataList", () => {
     expect(routeDataAction({ action: "select", data: "d9" })).toEqual({ to: "sheet", data: "d9", offset: 0 });
   });
 
+  test("DataList with a query data renders every row", async () => {
+    const query = { id: "q1", name: "top", kind: "query", columns: 0, rows: 0, users: [], state: "pending" };
+    const { host } = await mount({ ...list, rows: [...rows, query] });
+    const names = [...host.querySelectorAll(".data-row-name")].map((n) => n.textContent);
+    expect(names).toEqual(["spare", "Ventes", "top"]);
+  });
+
+  test("DataList query row shows its kind and state", async () => {
+    const query = { id: "q1", name: "top", kind: "query", columns: 2, rows: 4, users: [], state: "failed" };
+    const { host } = await mount({ ...list, rows: [...rows, query] });
+    const kinds = [...host.querySelectorAll(".data-row-kind")].map((n) => n.textContent);
+    expect(kinds).toEqual([t("ui-data-kind-manual"), t("ui-data-kind-manual"), t("ui-data-kind-query")]);
+    expect(host.querySelector(".data-row-state")?.textContent).toBe(t("ui-data-state-failed"));
+  });
+
+  test("DataList add query button sends add-query", async () => {
+    const { host, actions } = await mount(list);
+    await click(host.querySelector(".data-list-add-query"));
+    expect(edits(actions)).toEqual([{ action: "add-query" }]);
+    expect(routeDataAction({ action: "add-query" })).toEqual({ to: "session", action: { action: "add-query" } });
+  });
+
   test("rename field submits rename", async () => {
     const { host, actions } = await mount(list);
     const field = host.querySelectorAll<HTMLInputElement>(".data-row-rename")[1] as HTMLInputElement;

@@ -223,7 +223,7 @@ pub fn deck_json(widgets: serde_json::Value, slides: serde_json::Value) -> serde
     if let Some(map) = widgets.as_object_mut() {
         map.insert("base".to_owned(), serde_json::json!(base));
     }
-    let mut deck = serde_json::json!({ "version": 10, "widgets": widgets, "layouts": { "essentiel": essentiel } });
+    let mut deck = serde_json::json!({ "version": 11, "widgets": widgets, "layouts": { "essentiel": essentiel } });
     deck["slides"] = slides;
     deck
 }

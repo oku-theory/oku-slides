@@ -55,7 +55,8 @@ fn issue_1690_paste_into_another_deck_copies_the_source_data_not_the_pack_exampl
     let (id, copy) = copies[0];
     assert_that!(id.as_str()).is_not_equal_to(EXAMPLE);
     assert_that!(copy.name.as_str()).is_equal_to("ventes");
-    assert_that!(copy.table.rows.iter().collect::<Vec<_>>()).is_equal_to(vec!["r1"]);
+    assert_that!(copy.table().unwrap_or_else(|| panic!("a manual data")).rows.iter().collect::<Vec<_>>())
+        .is_equal_to(vec!["r1"]);
 }
 
 #[test]

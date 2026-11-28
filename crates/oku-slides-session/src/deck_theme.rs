@@ -320,6 +320,7 @@ impl Session {
         deck: &Deck,
         layer: &Map<String, Value>,
     ) -> Result<RemoteCompiled> {
+        let results = self.query_results(deck);
         let renderer = match &mut self.variant_renderer {
             Some(r) => r,
             None => self.variant_renderer.insert(new_renderer(
@@ -330,6 +331,7 @@ impl Session {
                 &self.registry,
             )?),
         };
+        renderer.set_results(results);
         Ok(render_themed(renderer, deck, layer, &self.doc.sources.assets).context(RenderSnafu)?)
     }
 

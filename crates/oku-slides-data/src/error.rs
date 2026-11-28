@@ -4,11 +4,11 @@
 
 use std::fmt;
 
-use oku_slides_i18n::{Localize, Localizer};
+use oku_slides_i18n::{Localize, Localizer, Message};
 use snafu::{Backtrace, Snafu};
 
-use crate::ColumnType;
 use crate::text::cut_chars;
+use crate::{ColumnType, DataKind};
 
 /// Characters of a name or id quoted in a message.
 const QUOTED_CHARS: usize = 80;
@@ -51,6 +51,39 @@ pub enum DataErrorKind {
     BaseRowCells,
     /// A base file is malformed, past a bound, or does not match its recorded columns.
     BaseInvalid,
+    /// A data's source does not match its kind: a table without `kind: manual`, or `sql`
+    /// without `kind: query`.
+    SourceMismatch,
+    /// A query data marked inline: inline data is only made from a view's inline table.
+    InlineQuery,
+    /// A query's SQL does not parse; the message names the line and column, never the text.
+    QueryParse,
+    /// A query uses a construct data queries do not support; the message names it.
+    QueryConstruct,
+    /// A query's SQL is longer than [`crate::limits::MAX_SQL_BYTES`].
+    QueryTooLong,
+    /// A query nests past the parser's recursion limit or [`crate::limits::MAX_QUERY_DEPTH`].
+    QueryTooDeep,
+    /// A query calls a function data queries do not support; the message names it.
+    QueryUnknownFunction,
+    /// The rewrites made SQL the whitelist refuses or that reads other data: a bug, never a
+    /// user error.
+    QueryRewrite,
+    /// The engine refused or failed the query; the message carries its reason, never a cell.
+    QueryRun,
+    /// A query result passes a bound of a data: it is refused, never cut.
+    QueryTooLarge,
+    /// A query result column has a type no data column holds; the message names it.
+    QueryColumnType,
+    /// Two query result columns have the same name; the message names it.
+    QueryDuplicateColumn,
+    /// `%`, `mod`, `//` or `round(x, n)` meets decimal numbers, where the engine would differ
+    /// from `DuckDB` silently; the message names the operand.
+    QueryFloatOperand,
+    /// The query ran past the link's time bound and was stopped.
+    QueryTimeout,
+    /// A query data the query reads failed; the message names it.
+    QueryInputFailed,
 }
 
 /// The bound a growing edit would pass (`$what` of `data-too-large`).
@@ -113,6 +146,36 @@ pub(crate) enum DataInner {
     BaseRowCells { backtrace: Backtrace },
     #[snafu(display("the base file is not valid: {reason}"))]
     BaseInvalid { reason: String, backtrace: Backtrace },
+    #[snafu(display("a {} data gives the wrong source: a manual data its table, a query data its sql", kind.as_str()))]
+    SourceMismatch { kind: DataKind, backtrace: Backtrace },
+    #[snafu(display("a query data cannot be inline"))]
+    InlineQuery { backtrace: Backtrace },
+    #[snafu(display("the query does not parse at line {line}, column {column}"))]
+    QueryParse { line: u64, column: u64, backtrace: Backtrace },
+    #[snafu(display("the query uses {construct}, which data queries do not support"))]
+    QueryConstruct { construct: String, backtrace: Backtrace },
+    #[snafu(display("the query is longer than {max} bytes"))]
+    QueryTooLong { max: usize, backtrace: Backtrace },
+    #[snafu(display("the query is nested too deeply"))]
+    QueryTooDeep { backtrace: Backtrace },
+    #[snafu(display("the query calls {function}, which data queries do not support"))]
+    QueryUnknownFunction { function: String, backtrace: Backtrace },
+    #[snafu(display("the query could not be prepared for the engine"))]
+    QueryRewrite { backtrace: Backtrace },
+    #[snafu(display("the query failed: {reason}"))]
+    QueryRun { reason: String, backtrace: Backtrace },
+    #[snafu(display("the query result has more {what} than {max}"))]
+    QueryTooLarge { what: Bound, max: usize, backtrace: Backtrace },
+    #[snafu(display("result column {column} has a type data cannot hold"))]
+    QueryColumnType { column: String, backtrace: Backtrace },
+    #[snafu(display("two result columns are named {column}"))]
+    QueryDuplicateColumn { column: String, backtrace: Backtrace },
+    #[snafu(display("{function} is applied to {operand}, which holds decimal numbers"))]
+    QueryFloatOperand { function: String, operand: String, backtrace: Backtrace },
+    #[snafu(display("the query ran longer than {ms} ms"))]
+    QueryTimeout { ms: u64, backtrace: Backtrace },
+    #[snafu(display("its input {input} failed"))]
+    QueryInputFailed { input: String, backtrace: Backtrace },
 }
 
 impl DataError {
@@ -135,6 +198,21 @@ impl DataError {
             DataInner::NeedsBase { .. } => DataErrorKind::NeedsBase,
             DataInner::BaseRowCells { .. } => DataErrorKind::BaseRowCells,
             DataInner::BaseInvalid { .. } => DataErrorKind::BaseInvalid,
+            DataInner::SourceMismatch { .. } => DataErrorKind::SourceMismatch,
+            DataInner::InlineQuery { .. } => DataErrorKind::InlineQuery,
+            DataInner::QueryParse { .. } => DataErrorKind::QueryParse,
+            DataInner::QueryConstruct { .. } => DataErrorKind::QueryConstruct,
+            DataInner::QueryTooLong { .. } => DataErrorKind::QueryTooLong,
+            DataInner::QueryTooDeep { .. } => DataErrorKind::QueryTooDeep,
+            DataInner::QueryUnknownFunction { .. } => DataErrorKind::QueryUnknownFunction,
+            DataInner::QueryRewrite { .. } => DataErrorKind::QueryRewrite,
+            DataInner::QueryRun { .. } => DataErrorKind::QueryRun,
+            DataInner::QueryTooLarge { .. } => DataErrorKind::QueryTooLarge,
+            DataInner::QueryColumnType { .. } => DataErrorKind::QueryColumnType,
+            DataInner::QueryDuplicateColumn { .. } => DataErrorKind::QueryDuplicateColumn,
+            DataInner::QueryFloatOperand { .. } => DataErrorKind::QueryFloatOperand,
+            DataInner::QueryTimeout { .. } => DataErrorKind::QueryTimeout,
+            DataInner::QueryInputFailed { .. } => DataErrorKind::QueryInputFailed,
         }
     }
 
@@ -180,6 +258,24 @@ impl DataError {
         BaseInvalidSnafu { reason: reason.into() }.build().into()
     }
 
+    /// A query stopped by the link after `ms` milliseconds (`data-query-timeout`).
+    #[must_use]
+    pub fn query_timeout(ms: u64) -> DataError {
+        QueryTimeoutSnafu { ms }.build().into()
+    }
+
+    /// A query the engine or its worker failed for `reason` (`data-query-run`): never a cell.
+    #[must_use]
+    pub fn query_run(reason: impl Into<String>) -> DataError {
+        QueryRunSnafu { reason: reason.into() }.build().into()
+    }
+
+    /// A query whose input, the query data named `input`, failed (`data-query-input-failed`).
+    #[must_use]
+    pub fn query_input_failed(input: impl Into<String>) -> DataError {
+        QueryInputFailedSnafu { input: input.into() }.build().into()
+    }
+
     /// A column projection empty, repeated or malformed (`data-columns-invalid`).
     #[must_use]
     pub fn columns_invalid() -> DataError {
@@ -193,39 +289,72 @@ pub fn quoted(text: &str) -> String {
     cut_chars(text, QUOTED_CHARS)
 }
 
+impl DataError {
+    /// The error as a message said later: what to fix, naming the data, column or row; never
+    /// a cell's value.
+    #[must_use]
+    pub fn message(&self) -> Message {
+        let m = Message::new;
+        match &self.0 {
+            DataInner::CellType { column, ty, .. } => {
+                m("data-cell-type").arg("column", quoted(column)).arg("type", ty.as_str())
+            }
+            DataInner::ColumnType { column, ty, rows, more, .. } => m("data-column-type")
+                .arg("column", quoted(column))
+                .arg("type", ty.as_str())
+                .arg("rows", rows.iter().map(|r| quoted(r)).collect::<Vec<_>>().join(", "))
+                .arg("more", *more),
+            DataInner::NoRow { row, .. } => m("data-no-row").arg("row", quoted(row)),
+            DataInner::NoColumn { column, .. } => m("data-no-column").arg("column", quoted(column)),
+            DataInner::IdTaken { id, .. } => m("data-id-taken").arg("id", quoted(id)),
+            DataInner::IdInvalid { id, .. } => m("data-id-invalid").arg("id", quoted(id)),
+            DataInner::IdMissing { .. } => m("data-id-missing"),
+            DataInner::TooLarge { what, max, .. } => m("data-too-large").arg("what", what.as_str()).arg("max", *max),
+            DataInner::InvalidName { name, .. } => m("data-invalid-name").arg("name", quoted(name)),
+            DataInner::NonFinite { count, .. } => m("data-non-finite").arg("count", *count),
+            DataInner::ColumnsInvalid { .. } => m("data-columns-invalid"),
+            DataInner::RowWidth { max, .. } => m("data-row-width").arg("max", *max),
+            DataInner::NeedsBase { .. } => m("data-needs-base"),
+            DataInner::BaseRowCells { .. } => m("data-base-row-cells"),
+            // The reason names the file's flaw for the logs; the user only learns the base is unusable.
+            DataInner::BaseInvalid { .. } => m("data-base-invalid"),
+            DataInner::SourceMismatch { .. } => m("data-source-mismatch"),
+            DataInner::InlineQuery { .. } => m("data-inline-query"),
+            // Line and column as text: a number argument would be grouped (`1,024`) in some locales.
+            DataInner::QueryParse { line, column, .. } => {
+                m("data-query-parse").arg("line", line.to_string()).arg("column", column.to_string())
+            }
+            DataInner::QueryConstruct { construct, .. } => {
+                m("data-query-construct").arg("construct", quoted(construct))
+            }
+            DataInner::QueryTooLong { max, .. } => m("data-query-too-long").arg("max", *max),
+            DataInner::QueryTooDeep { .. } => m("data-query-too-deep"),
+            DataInner::QueryRewrite { .. } => m("data-query-rewrite"),
+            DataInner::QueryUnknownFunction { function, .. } => {
+                m("data-query-unknown-function").arg("function", quoted(function))
+            }
+            // The reason is the engine's English text, scrubbed of cell values (`engine::query`).
+            DataInner::QueryRun { reason, .. } => m("data-query-run").arg("reason", reason.clone()),
+            DataInner::QueryTooLarge { what, max, .. } => {
+                m("data-query-too-large").arg("what", what.as_str()).arg("max", *max)
+            }
+            DataInner::QueryColumnType { column, .. } => m("data-query-column-type").arg("column", quoted(column)),
+            DataInner::QueryDuplicateColumn { column, .. } => {
+                m("data-query-duplicate-column").arg("column", quoted(column))
+            }
+            DataInner::QueryFloatOperand { function, operand, .. } => {
+                m("data-query-float-operand").arg("function", quoted(function)).arg("operand", quoted(operand))
+            }
+            DataInner::QueryTimeout { ms, .. } => m("data-query-timeout").arg("seconds", ms.div_ceil(1000)),
+            DataInner::QueryInputFailed { input, .. } => m("data-query-input-failed").arg("input", quoted(input)),
+        }
+    }
+}
+
 impl Localize for DataError {
     /// What to fix, naming the data, column or row; never a cell's value.
     fn localize(&self, l: &Localizer) -> String {
-        match &self.0 {
-            DataInner::CellType { column, ty, .. } => {
-                l.tr_with("data-cell-type", &[("column", quoted(column).into()), ("type", ty.as_str().into())])
-            }
-            DataInner::ColumnType { column, ty, rows, more, .. } => l.tr_with(
-                "data-column-type",
-                &[
-                    ("column", quoted(column).into()),
-                    ("type", ty.as_str().into()),
-                    ("rows", rows.iter().map(|r| quoted(r)).collect::<Vec<_>>().join(", ").into()),
-                    ("more", (*more).into()),
-                ],
-            ),
-            DataInner::NoRow { row, .. } => l.tr_with("data-no-row", &[("row", quoted(row).into())]),
-            DataInner::NoColumn { column, .. } => l.tr_with("data-no-column", &[("column", quoted(column).into())]),
-            DataInner::IdTaken { id, .. } => l.tr_with("data-id-taken", &[("id", quoted(id).into())]),
-            DataInner::IdInvalid { id, .. } => l.tr_with("data-id-invalid", &[("id", quoted(id).into())]),
-            DataInner::IdMissing { .. } => l.tr("data-id-missing"),
-            DataInner::TooLarge { what, max, .. } => {
-                l.tr_with("data-too-large", &[("what", what.as_str().into()), ("max", (*max).into())])
-            }
-            DataInner::InvalidName { name, .. } => l.tr_with("data-invalid-name", &[("name", quoted(name).into())]),
-            DataInner::NonFinite { count, .. } => l.tr_with("data-non-finite", &[("count", (*count).into())]),
-            DataInner::ColumnsInvalid { .. } => l.tr("data-columns-invalid"),
-            DataInner::RowWidth { max, .. } => l.tr_with("data-row-width", &[("max", (*max).into())]),
-            DataInner::NeedsBase { .. } => l.tr("data-needs-base"),
-            DataInner::BaseRowCells { .. } => l.tr("data-base-row-cells"),
-            // The reason names the file's flaw for the logs; the user only learns the base is unusable.
-            DataInner::BaseInvalid { .. } => l.tr("data-base-invalid"),
-        }
+        self.message().localize(l)
     }
 }
 

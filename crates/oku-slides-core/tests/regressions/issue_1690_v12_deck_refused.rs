@@ -87,7 +87,7 @@ fn sources_zip(version: u32, snapshot: Vec<u8>) -> Vec<u8> {
 /// manifest is refused by the replica check.
 #[rstest::rstest]
 #[case::v12_file(14, SourcesErrorKind::NotSources)]
-#[case::relabelled(15, SourcesErrorKind::Replica(ReplicaErrorKind::UnsupportedVersion))]
+#[case::relabelled(16, SourcesErrorKind::Replica(ReplicaErrorKind::UnsupportedVersion))]
 fn v12_sources_zip_with_inline_chart_data_is_refused_on_open(#[case] version: u32, #[case] kind: SourcesErrorKind) {
     let limits = SourceLimits { replica_bytes: 1 << 24, total_bytes: 1 << 26, compact_after_secs: 0 };
     let zip = sources_zip(version, v12_snapshot());

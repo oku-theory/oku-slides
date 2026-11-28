@@ -8,6 +8,14 @@ pub const MAX_COLUMNS: usize = 1_000;
 pub const MAX_TEXT_BYTES: usize = 16_384;
 /// Entries in a data's overlay (its cells stored outside a base).
 pub const MAX_OVERLAY: usize = 200_000;
+/// UTF-8 bytes of a query data's SQL.
+pub const MAX_SQL_BYTES: usize = 16_384;
+/// Nesting levels of a query's syntax tree (a chain `a + b + …` nests one level per term),
+/// checked before any recursive walk of the tree.
+pub const MAX_QUERY_DEPTH: usize = 256;
+/// Nested brackets in a query's SQL, checked before parsing: past it the parser backtracks in
+/// time exponential in the nesting (sqlparser 0.60 on `NOT (`, `TRY_CAST(`, `substring(`).
+pub const MAX_SQL_NESTING: usize = 16;
 /// Characters in a row, column, data or generation id.
 pub const MAX_ID_CHARS: usize = 64;
 /// Hexadecimal characters in a drawn id.

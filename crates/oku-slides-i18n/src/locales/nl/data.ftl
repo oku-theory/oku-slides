@@ -56,3 +56,37 @@ data-row-cut = { $count ->
    *[other] { $count } rijen hadden meer cellen dan de kopregel; de extra cellen zijn verwijderd
 }
 data-base-invalid = het basisbestand van de gegevens is beschadigd of past niet bij de tabel
+data-source-mismatch = de bron van de gegevens past niet bij hun soort: handmatige gegevens bevatten een tabel, querygegevens een query
+data-inline-query = querygegevens kunnen niet ingebed zijn: ingebedde gegevens komen altijd uit een tabel
+data-query-parse = de query is niet leesbaar: controleer regel { $line }, kolom { $column }
+data-query-construct = de query gebruikt ‘{ $construct }’, wat gegevensquery’s niet ondersteunen
+data-query-too-long = de query is langer dan { $max } { $max ->
+    [one] byte
+   *[other] bytes
+}
+data-query-too-deep = de query is te diep genest
+data-query-rewrite = de query kon niet voor de engine worden voorbereid; dit is een fout in Oku Slides
+data-query-unknown-function = de query roept ‘{ $function }’ aan, wat gegevensquery’s niet ondersteunen
+data-query-run = de query is mislukt: { $reason }
+data-query-input-failed = de invoer ‘{ $input }’ is mislukt
+data-query-too-large = { $what ->
+    [rows] het queryresultaat heeft meer dan { $max } { $max ->
+        [one] rij
+       *[other] rijen
+    }; het wordt nooit ingekort
+    [columns] het queryresultaat heeft meer dan { $max } { $max ->
+        [one] kolom
+       *[other] kolommen
+    }; het wordt nooit ingekort
+   *[text] een tekstcel van het queryresultaat is langer dan { $max } { $max ->
+        [one] byte
+       *[other] bytes
+    }; het resultaat wordt nooit ingekort
+}
+data-query-column-type = de resultaatkolom ‘{ $column }’ heeft een type dat gegevens niet kunnen bevatten: zet hem om naar tekst, getal, geheel getal, booleaanse waarde of datum
+data-query-duplicate-column = twee resultaatkolommen heten ‘{ $column }’: geef er een een andere naam met AS
+data-query-float-operand = ‘{ $function }’ kan niet worden toegepast op ‘{ $operand }’, dat decimale getallen bevat: zet het eerst om naar een geheel getal
+data-query-timeout = de query duurde langer dan { $seconds } { $seconds ->
+    [one] seconde
+   *[other] seconden
+} en is gestopt

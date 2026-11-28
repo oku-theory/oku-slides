@@ -6,13 +6,15 @@ use std::path::PathBuf;
 
 use oku_slides_core::PackKind;
 use oku_slides_core::knowledge::{Cut, DocumentType, ExtractLimits, ExtractRefusal};
+use oku_slides_data::engine::QueryOut;
+use oku_slides_data::sql::EngineQuery;
 use oku_slides_data::{BaseRef, ColumnType, DataError, Dataset};
 use oku_slides_import::ReadLimits;
 use serde::{Deserialize, Serialize};
 
 /// Version du protocole : à changer à toute modification de [`Request`], de
 /// [`Response`] ou des trames. L'hôte refuse un travailleur d'une autre version.
-pub(crate) const PROTOCOL_VERSION: u32 = 9;
+pub(crate) const PROTOCOL_VERSION: u32 = 10;
 
 /// Identifiant d'un emplacement (un rendu du travailleur).
 pub(crate) type SlotId = u32;
@@ -95,18 +97,29 @@ pub(crate) enum Request {
         slot: SlotId,
         id: String,
     },
-    /// Forgets these data of `slot`.
+    /// Payload: a `Table` JSON, the ready result of query data `id` of `slot`, read over its
+    /// base `base` (inside the `bases` folder of `Hello`); kept until dropped.
+    PutResult {
+        slot: SlotId,
+        id: String,
+        #[serde(default)]
+        base: Option<PathBuf>,
+    },
+    /// Forgets these data of `slot`, and their results.
     DropData {
         slot: SlotId,
         ids: Vec<String>,
     },
     /// Renders `deck` in `slot`; every id of `assets` must have been sent (`PutAsset`). The
-    /// deck carries no data: those of `data`, sent by `PutData`, take its place.
+    /// deck carries no data: those of `data`, sent by `PutData`, take its place, and the query
+    /// data of `results` read the result `PutResult` sent; the other query data have none.
     Render {
         slot: SlotId,
         deck: Box<oku_slides_core::Deck>,
         assets: Vec<String>,
         data: Vec<String>,
+        #[serde(default)]
+        results: Vec<String>,
     },
     /// Payload: a data's JSON. Reads `columns` (all if `None`) and `rows` over its base `base`.
     ReadData {
@@ -118,6 +131,13 @@ pub(crate) enum Request {
     /// Payload: a data's JSON. Writes its base and overlay folded into the new base `out`.
     CompactData {
         base: Option<PathBuf>,
+        out: PathBuf,
+    },
+    /// Payload: the JSON array of the input data, in `inputs` order. Runs `query` over them
+    /// and writes its result as the new base `out`.
+    RunQuery {
+        query: EngineQuery,
+        inputs: Vec<QueryInputRef>,
         out: PathBuf,
     },
     /// Payload: a data's JSON. Whether every value of `column`, base included, converts to `ty`.
@@ -177,6 +197,13 @@ pub(crate) enum Request {
 pub(crate) struct ImageMeta {
     pub(crate) mime: String,
     pub(crate) len: usize,
+}
+
+/// One input of a `RunQuery`: the name the query reads it by and its base, if it has one.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct QueryInputRef {
+    pub(crate) name: String,
+    pub(crate) base: Option<PathBuf>,
 }
 
 /// Ce que le travailleur dit d'un rendu réussi.
@@ -246,7 +273,7 @@ pub(crate) enum Response {
     ExtractRefused {
         refusal: ExtractRefusal,
     },
-    /// A `Render` refused: these listed data were never received.
+    /// A `Render` refused: these listed data or results were never received.
     MissingData {
         ids: Vec<String>,
     },
@@ -258,6 +285,10 @@ pub(crate) enum Response {
     /// The base `CompactData` wrote.
     Compacted {
         base: BaseRef,
+    },
+    /// The result `RunQuery` wrote.
+    QueryDone {
+        out: QueryOut,
     },
     /// A data request the data refused (a base invalid, a column that does not convert).
     DataRefused {

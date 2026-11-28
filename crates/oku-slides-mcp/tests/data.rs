@@ -1,8 +1,9 @@
-//! The data tools over MCP: `data_list` and `data_read`, their caps and untrusted text.
+//! The data tools over MCP: `data_list`, `data_read` and `query_preview`, their caps and
+//! untrusted text.
 #![expect(clippy::panic, reason = "test helpers fail through panic!, out of reach of allow-panic-in-tests")]
 mod common;
 
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError};
 
 use common::*;
 use oku_slides_core::kinds;
@@ -246,4 +247,144 @@ async fn apply_inline_chart_creates_data() {
     let id = data[0]["id"].as_str().unwrap_or_default().to_owned();
     let rows = read(&c, json!({ "data": id })).await;
     assert_that!(rows["rows"][1]["cells"]).is_equal_to(json!(["Fév", 5.0]));
+}
+
+/// `ventes`: a text column `a` and a number column `b`, rows `x 1`, `y -1`, `z 2`.
+fn ventes() -> Value {
+    json!({ "columns": [{ "id": "c1", "name": "a" }, { "id": "c2", "name": "b" }], "rows": [
+        { "id": "r1", "cells": ["x", 1] }, { "id": "r2", "cells": ["y", -1] }, { "id": "r3", "cells": ["z", 2] }] })
+}
+
+/// The op adding the query data `id` named `name`, computed by `sql`.
+fn add_query(id: &str, name: &str, sql: &str) -> Value {
+    json!({ "op": "add_data", "id": id, "name": name, "sql": sql })
+}
+
+/// Computes the session's query results, as the workspace's thread does after each request.
+async fn settled(h: &Harness) {
+    let session = Arc::clone(&h.session);
+    let settle = move || session.lock().unwrap_or_else(PoisonError::into_inner).settle_queries();
+    tokio::task::spawn_blocking(settle).await.unwrap_or_else(|e| panic!("settle: {e}"));
+}
+
+/// The text of `data-query-run` in `l`, cut where the engine's reason goes.
+fn run_failed_in(l: &oku_slides_i18n::Localizer) -> String {
+    let marked = l.tr_with("data-query-run", &[("reason", "REASON-MARK".into())]);
+    marked.split("REASON-MARK").next().unwrap_or_default().to_owned()
+}
+
+/// [`run_failed_in`] the harness's language, which is not English.
+fn run_failed(h: &Harness) -> String {
+    let said = run_failed_in(&h.localizer);
+    assert_that!(said.is_empty()).is_false();
+    assert_that!(said.as_str()).is_not_equal_to(run_failed_in(&oku_slides_i18n::Localizer::new(Some("en"))).as_str());
+    said
+}
+
+/// The entry of data `id` in `data_list`'s reply `v`.
+fn entry(v: &Value, id: &str) -> Value {
+    v["data"].as_array().and_then(|d| d.iter().find(|d| d["id"] == id)).cloned().unwrap_or_default()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn data_list_shows_query_state_and_sql() {
+    let h = start().await;
+    let c = server(&h).await;
+    let top = "SELECT a, b FROM ventes WHERE b > 0";
+    applied(&c, vec![add_data("d1", "ventes", &ventes()), add_query("q1", "top", top)]).await;
+    applied(&c, vec![add_query("q2", "rate", "SELECT zzz FROM ventes")]).await;
+
+    let pending = entry(&listed(&c).await, "q1");
+    assert_that!(pending["state"]).is_equal_to(json!("pending"));
+    assert_that!(pending["sql"]).is_equal_to(json!(top));
+    assert_that!(pending.get("columns")).is_none();
+
+    settled(&h).await;
+    let v = listed(&c).await;
+    let ready = entry(&v, "q1");
+    assert_that!(ready["kind"]).is_equal_to(json!("query"));
+    assert_that!(ready["state"]).is_equal_to(json!("ready"));
+    assert_that!(ready["rows"]).is_equal_to(json!(2));
+    let names: Vec<&Value> =
+        ready["columns"].as_array().map(|c| c.iter().map(|c| &c["name"]).collect()).unwrap_or_default();
+    assert_that!(names).is_equal_to(vec![&json!("a"), &json!("b")]);
+    let failed = entry(&v, "q2");
+    assert_that!(failed["state"]).is_equal_to(json!("failed"));
+    assert_that!(failed["error"]["key"]).is_equal_to(json!("data-query-run"));
+    // A stored run failure quotes no name of the user's.
+    assert_that!(failed["error"]["message"].as_str().unwrap_or_default()).starts_with(run_failed(&h).as_str());
+    assert_that!(entry(&v, "d1").get("state")).is_none();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn data_read_reads_a_ready_query_result() {
+    let h = start().await;
+    let c = server(&h).await;
+    applied(&c, vec![add_data("d1", "ventes", &ventes()), add_query("q1", "top", "SELECT a FROM ventes WHERE b > 0")])
+        .await;
+
+    let r = call(&c, "data_read", json!({ "data": "q1" })).await;
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    let expected = h.localizer.tr_with("session-data-query-read-no-result", &[("data", "top".into())]);
+    assert_that!(text_of(&r)).is_equal_to(expected);
+
+    settled(&h).await;
+    let v = read(&c, json!({ "data": "q1" })).await;
+    assert_that!(v["total"]).is_equal_to(json!(2));
+    let cells: Vec<Value> =
+        v["rows"].as_array().map(|r| r.iter().map(|r| r["cells"].clone()).collect()).unwrap_or_default();
+    assert_that!(cells).is_equal_to(vec![json!(["x"]), json!(["z"])]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn query_preview_returns_rows_without_changing_deck() {
+    let h = start().await;
+    let c = server(&h).await;
+    applied(
+        &c,
+        vec![add_data("d1", "ventes", &ventes()), add_query("q1", "top", "SELECT a, b FROM ventes WHERE b > 0")],
+    )
+    .await;
+    settled(&h).await;
+    let before = h.session.lock().unwrap_or_else(PoisonError::into_inner).deck().clone();
+
+    let r = call(&c, "query_preview", json!({ "sql": "SELECT a FROM top ORDER BY a DESC", "limit": 1 })).await;
+
+    assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
+    let v = json_of(&r);
+    assert_that!(v["untrusted"]).is_equal_to(json!(true));
+    assert_that!(v["total"]).is_equal_to(json!(2));
+    assert_that!(v["columns"][0]["name"]).is_equal_to(json!("a"));
+    assert_that!(v["rows"].as_array().map(|r| r.iter().map(|r| r["cells"].clone()).collect::<Vec<_>>()))
+        .is_equal_to(Some(vec![json!(["z"])]));
+    let after = h.session.lock().unwrap_or_else(PoisonError::into_inner).deck().clone();
+    assert_that!(after).is_equal_to(before);
+}
+
+#[rstest]
+#[case::parse("DELETE FROM ventes", "DELETE")]
+#[case::unknown_input("SELECT a FROM absente", "absente")]
+#[tokio::test(flavor = "multi_thread")]
+async fn query_preview_refusal_is_wrapped_untrusted(#[case] sql: &str, #[case] named: &str) {
+    let h = start().await;
+    let c = server(&h).await;
+    applied(&c, vec![add_data("d1", "ventes", &ventes())]).await;
+
+    let r = call(&c, "query_preview", json!({ "sql": sql })).await;
+
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(untrusted_error_of(&r)).contains(named);
+}
+
+/// The engine's message names no column of the user's: the run failure is told as such.
+#[tokio::test(flavor = "multi_thread")]
+async fn query_preview_run_failure_is_wrapped_untrusted() {
+    let h = start().await;
+    let c = server(&h).await;
+    applied(&c, vec![add_data("d1", "ventes", &ventes())]).await;
+
+    let r = call(&c, "query_preview", json!({ "sql": "SELECT zzz FROM ventes" })).await;
+
+    assert_that!(r.is_error).is_equal_to(Some(true));
+    assert_that!(untrusted_error_of(&r)).starts_with(run_failed(&h).as_str());
 }

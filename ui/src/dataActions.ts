@@ -8,6 +8,10 @@ import type { ColumnType, TableOp } from "./slideTypes";
 /** An action of the session on the deck's data: one undo step each. */
 export type DataAction =
   | { action: "add" }
+  /** A query data reading no data yet; `name`: its name, else a free default one. */
+  | { action: "add-query"; name?: string }
+  /** A query data's new SQL. */
+  | { action: "set-query"; data: string; sql: string }
   | { action: "rename"; data: string; name: string }
   | { action: "remove"; data: string }
   | { action: "set-type"; data: string; column: string; type: ColumnType }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::action::{Action, Dynamic};
-use crate::data::{DataChoice, DataRef, DataRow, SeriesSwatch};
+use crate::data::{DataChoice, DataRef, DataRow, QueryView, SeriesSwatch};
 use crate::list::ListColumn;
 use crate::props::{ButtonIcon, ChoiceOption, DiffSegment, PromptImage, SlideRef, TextVariant, TimelineStep, Tone};
 
@@ -359,6 +359,10 @@ pub enum ComponentKind {
         data: DataRef,
         /// The data it can switch to, `data` included.
         choices: Vec<DataChoice>,
+        /// Over a query data: its SQL, state, error and inputs; `source` is then its ready
+        /// result, shown read-only, its SQL opening the data's sheet.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        query: Option<QueryView>,
         /// Where the UI writes the requested change.
         edit: Dynamic<Value>,
         /// Sent after `edit` is written.
@@ -384,6 +388,9 @@ pub enum ComponentKind {
         data: DataRef,
         /// The data it can switch to, `data` included.
         choices: Vec<DataChoice>,
+        /// Over a query data, as for `ChartData`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        query: Option<QueryView>,
         /// Where the UI writes the requested change.
         edit: Dynamic<Value>,
         /// Sent after `edit` is written.
@@ -401,7 +408,8 @@ pub enum ComponentKind {
         /// Sent after `edit` is written.
         action: Action,
     },
-    /// A page of one data's rows, all its columns, editable (host only).
+    /// A page of one data's rows, all its columns: editable when entered by hand, a query's
+    /// ready result read-only under its SQL (host only).
     DataSheet {
         /// The data shown.
         data: DataRef,
@@ -417,6 +425,12 @@ pub enum ComponentKind {
         offset: u32,
         /// The data's number of rows.
         total: u32,
+        /// A query data's SQL, state and inputs; absent for a data entered by hand.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        query: Option<QueryView>,
+        /// The refusal of the panel's last action on this data, localized.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
         /// Where the UI writes the requested change.
         edit: Dynamic<Value>,
         /// Sent after `edit` is written.

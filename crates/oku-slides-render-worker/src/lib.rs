@@ -47,7 +47,8 @@ mod watchdog;
 
 pub use client::RenderWorker;
 pub use compiled::RemoteCompiled;
-pub use data_worker::{DataRead, DataResult, DataWorker};
+pub use data_worker::{DataRead, DataResult, DataWorker, engine_version};
+pub use oku_slides_data::engine::QueryOut;
 pub use pack_probe::PackProbe;
 pub use reference::{ReferenceWitness, RemoteReference};
 pub use serve::{ServeError, exit_if_worker, serve};

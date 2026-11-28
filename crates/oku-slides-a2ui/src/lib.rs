@@ -8,8 +8,8 @@
 //!   Timeline, Receipt, Disclosure, Badge, Markdown, Notice, `ChartData`, `TableData`, `DataList`,
 //!   `DataSheet`), flat, linked by identifiers.
 //! - [`SeriesSwatch`]: a colorable series of a `ChartData`; [`DataRef`], [`DataChoice`]: the data a
-//!   view shows and those it can switch to; [`DataRow`], [`DataUser`]: the deck's data as its panel
-//!   lists them.
+//!   view shows and those it can switch to; [`DataRow`], [`DataUser`], [`DataState`]: the deck's
+//!   data as its panel lists them; [`QueryView`]: a query data's SQL, state and inputs.
 //! - [`TimelineStep`] / [`ToolCallDetail`]: the steps of a turn and the detail of their tool calls.
 //! - [`Dynamic`]: a literal value or a path (JSON Pointer) into the
 //!   surface's data model.
@@ -33,7 +33,7 @@ mod props;
 pub use action::{Action, Dynamic, Event};
 pub use button::ButtonBuilder;
 pub use component::{Component, ComponentKind};
-pub use data::{DataChoice, DataRef, DataRow, DataUser, SeriesSwatch};
+pub use data::{DataChoice, DataRef, DataRow, DataState, DataUser, QueryView, SeriesSwatch};
 pub use list::{ColumnKind, ListColumn, SubColumn, SubList, SubListFault};
 pub use message::{
     CATALOG_ID, CreateSurface, DeleteSurface, ServerBody, ServerMessage, UpdateComponents, UpdateDataModel, Version,

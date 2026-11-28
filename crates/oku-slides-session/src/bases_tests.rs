@@ -57,7 +57,7 @@ pub(crate) fn compact_data_onto(s: &mut Session, data: &str, bytes: &[u8], epoch
     let base = put_base(s.bases.store(), bytes);
     let id = base.id.clone();
     let data = data_id(data);
-    let from = s.deck().data[&data].table.clone();
+    let from = s.deck().data[&data].table().unwrap().clone();
     let done = s.doc.sources.compact_data(&data, &from, epoch.to_owned(), base);
     assert_that!(done.unwrap_or_else(|e| panic!("compact: {e}"))).is_true();
     s.sync_bases();
@@ -103,7 +103,7 @@ fn save_and_reopen_deck_with_base() {
     t.open(&path).unwrap_or_else(|e| panic!("reopen: {}", e.one_line()));
     assert_that!(t.doc.sources.bases.contains(&id)).is_true();
     assert_that!(t.bases.store().contains(&id).unwrap_or_else(|e| panic!("{e}"))).is_true();
-    let base = t.deck().data[&did()].table.base.as_ref().map(|b| b.id.clone());
+    let base = t.deck().data[&did()].table().unwrap().base.as_ref().map(|b| b.id.clone());
     assert_that!(base).is_equal_to(Some(id));
 }
 
@@ -199,7 +199,7 @@ fn save_and_reopen_near_512_mib_of_bases() {
     store.release([&id]).unwrap_or_else(|e| panic!("release: {e}"));
     drop(bytes);
     let base = BaseRef { id: id.clone(), bytes: len as u64, rows: 2, columns: Vec::new() };
-    let from = s.deck().data[&did()].table.clone();
+    let from = s.deck().data[&did()].table().unwrap().clone();
     let done = s.doc.sources.compact_data(&did(), &from, "e1".to_owned(), base);
     assert_that!(done.unwrap_or_else(|e| panic!("compact: {e}"))).is_true();
     s.sync_bases();

@@ -236,6 +236,11 @@ issue-data-too-many = trop de données dans le deck ({ $count }) ; non lues : { 
 issue-data-base-missing = données « { $data } » : leur fichier de base manque, gardées en lecture seule
 issue-data-edits-lost = données « { $data } » : des modifications d'un tableau remplacé ont été perdues à la fusion
 issue-data-inline-dropped = Élément { $element } : les données de son graphique ou tableau étaient rangées dans ses options par une ancienne version ; elles ont été retirées
+issue-data-kind-unknown = données « { $data } » : type inconnu « { $kind } », peut-être d’une version plus récente ; non lues
+issue-data-query-cycle = données « { $data } » : leur requête se relit elle-même, directement ou à travers d’autres requêtes ; non calculées
+issue-data-query-missing-input = données « { $data } » : leur requête lit « { $input } », absent du deck ; non calculées
+issue-data-query-invalid = données « { $data } » : leur requête n’est pas valide ({ $reason }) ; non calculées
+issue-data-query-failed = données « { $data } » : leur requête a échoué ({ $reason }) ; pas de résultat
 issue-more = autres problèmes non affichés : { $count }
 op-data-deck-full = Les données du deck dépasseraient leur limite : au plus { $max } { $what ->
     [row-ids] identifiants de ligne
@@ -258,6 +263,20 @@ op-data-rebind = L’élément { $subject } affiche déjà d’autres données ;
 op-data-internal = Un lot ne peut pas définir la base ni la surcouche d’un tableau
 op-data-batch-too-large = Lot trop grand : nombre de cellules { $count }, au plus { $max }
 op-data-inline = L’élément { $subject } porte ses données dans ses options ; ajoutez-les comme données du deck avec add_data et liez-les avec bind_data
+op-data-derived = les données « { $data } » sont dérivées d’une requête : modifiez sa requête, pas ses lignes
+op-data-source = Une donnée prend soit un tableau, soit une requête (sql), exactement l’un des deux
+op-data-cycle = La donnée « { $data } » se relirait elle-même à travers ses requêtes ; supprimez la boucle
+op-data-unknown-input = La requête lit « { $name } », qui n’est pas une donnée du deck
+op-data-not-query = La donnée « { $data } » n’est pas une requête ; modifiez son tableau avec edit_data
+op-data-read-by-queries = Cette donnée est lue par les requêtes { $queries }{ $shown ->
+    [0] {""}
+   *[other] {" "}et affichée par { $views }
+}{ $more ->
+    [0] {""}
+   *[other] {" "}et { $more } autres
+}{" "}; modifiez-les ou supprimez-les d’abord
+op-data-rename-captured = La requête de « { $reader } » nomme déjà l’une de ses propres tables « { $name } » ; renommez cette table dans sa requête (set_query) ou choisissez un autre nom
+op-data-name-ambiguous = Plusieurs données s’appellent « { $name } » et des requêtes lisent ce nom, sans qu’on sache laquelle ; modifiez d’abord ces requêtes (set_query)
 issue-unreadable-slide = slide illisible, mise de côté
 issue-unreadable-field = champ { $field } du deck illisible, réinitialisé
 issue-knowledge-unreadable = entrée de connaissances { $id } illisible, mise de côté

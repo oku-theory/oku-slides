@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::ColumnType;
 use crate::error::{Bound, DataError, DataInner};
+use crate::{ColumnType, DataKind};
 
 /// The serialized form of a [`DataError`], one variant per inner error.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,6 +24,21 @@ enum Wire {
     NeedsBase,
     BaseRowCells,
     BaseInvalid { reason: String },
+    SourceMismatch { kind: DataKind },
+    InlineQuery,
+    QueryParse { line: u64, column: u64 },
+    QueryConstruct { construct: String },
+    QueryTooLong { max: usize },
+    QueryTooDeep,
+    QueryUnknownFunction { function: String },
+    QueryRewrite,
+    QueryRun { reason: String },
+    QueryTooLarge { what: Bound, max: usize },
+    QueryColumnType { column: String },
+    QueryDuplicateColumn { column: String },
+    QueryFloatOperand { function: String, operand: String },
+    QueryTimeout { ms: u64 },
+    QueryInputFailed { input: String },
 }
 
 impl From<&DataError> for Wire {
@@ -46,6 +61,25 @@ impl From<&DataError> for Wire {
             DataInner::NeedsBase { .. } => Self::NeedsBase,
             DataInner::BaseRowCells { .. } => Self::BaseRowCells,
             DataInner::BaseInvalid { reason, .. } => Self::BaseInvalid { reason: reason.clone() },
+            DataInner::SourceMismatch { kind, .. } => Self::SourceMismatch { kind: *kind },
+            DataInner::InlineQuery { .. } => Self::InlineQuery,
+            DataInner::QueryParse { line, column, .. } => Self::QueryParse { line: *line, column: *column },
+            DataInner::QueryConstruct { construct, .. } => Self::QueryConstruct { construct: construct.clone() },
+            DataInner::QueryTooLong { max, .. } => Self::QueryTooLong { max: *max },
+            DataInner::QueryTooDeep { .. } => Self::QueryTooDeep,
+            DataInner::QueryRewrite { .. } => Self::QueryRewrite,
+            DataInner::QueryUnknownFunction { function, .. } => {
+                Self::QueryUnknownFunction { function: function.clone() }
+            }
+            DataInner::QueryRun { reason, .. } => Self::QueryRun { reason: reason.clone() },
+            DataInner::QueryTooLarge { what, max, .. } => Self::QueryTooLarge { what: *what, max: *max },
+            DataInner::QueryColumnType { column, .. } => Self::QueryColumnType { column: column.clone() },
+            DataInner::QueryDuplicateColumn { column, .. } => Self::QueryDuplicateColumn { column: column.clone() },
+            DataInner::QueryFloatOperand { function, operand, .. } => {
+                Self::QueryFloatOperand { function: function.clone(), operand: operand.clone() }
+            }
+            DataInner::QueryTimeout { ms, .. } => Self::QueryTimeout { ms: *ms },
+            DataInner::QueryInputFailed { input, .. } => Self::QueryInputFailed { input: input.clone() },
         }
     }
 }
@@ -54,8 +88,11 @@ impl From<Wire> for DataError {
     fn from(w: Wire) -> Self {
         use crate::error::{
             BaseInvalidSnafu, BaseRowCellsSnafu, CellTypeSnafu, ColumnTypeSnafu, ColumnsInvalidSnafu, IdInvalidSnafu,
-            IdMissingSnafu, IdTakenSnafu, InvalidNameSnafu, NeedsBaseSnafu, NoColumnSnafu, NoRowSnafu, NonFiniteSnafu,
-            RowWidthSnafu, TooLargeSnafu,
+            IdMissingSnafu, IdTakenSnafu, InlineQuerySnafu, InvalidNameSnafu, NeedsBaseSnafu, NoColumnSnafu,
+            NoRowSnafu, NonFiniteSnafu, QueryColumnTypeSnafu, QueryConstructSnafu, QueryDuplicateColumnSnafu,
+            QueryFloatOperandSnafu, QueryInputFailedSnafu, QueryParseSnafu, QueryRewriteSnafu, QueryRunSnafu,
+            QueryTimeoutSnafu, QueryTooDeepSnafu, QueryTooLargeSnafu, QueryTooLongSnafu, QueryUnknownFunctionSnafu,
+            RowWidthSnafu, SourceMismatchSnafu, TooLargeSnafu,
         };
         let inner = match w {
             Wire::CellType { column, ty } => CellTypeSnafu { column, ty }.build(),
@@ -73,6 +110,21 @@ impl From<Wire> for DataError {
             Wire::NeedsBase => NeedsBaseSnafu.build(),
             Wire::BaseRowCells => BaseRowCellsSnafu.build(),
             Wire::BaseInvalid { reason } => BaseInvalidSnafu { reason }.build(),
+            Wire::SourceMismatch { kind } => SourceMismatchSnafu { kind }.build(),
+            Wire::InlineQuery => InlineQuerySnafu.build(),
+            Wire::QueryParse { line, column } => QueryParseSnafu { line, column }.build(),
+            Wire::QueryConstruct { construct } => QueryConstructSnafu { construct }.build(),
+            Wire::QueryTooLong { max } => QueryTooLongSnafu { max }.build(),
+            Wire::QueryTooDeep => QueryTooDeepSnafu.build(),
+            Wire::QueryRewrite => QueryRewriteSnafu.build(),
+            Wire::QueryUnknownFunction { function } => QueryUnknownFunctionSnafu { function }.build(),
+            Wire::QueryRun { reason } => QueryRunSnafu { reason }.build(),
+            Wire::QueryTooLarge { what, max } => QueryTooLargeSnafu { what, max }.build(),
+            Wire::QueryColumnType { column } => QueryColumnTypeSnafu { column }.build(),
+            Wire::QueryDuplicateColumn { column } => QueryDuplicateColumnSnafu { column }.build(),
+            Wire::QueryFloatOperand { function, operand } => QueryFloatOperandSnafu { function, operand }.build(),
+            Wire::QueryTimeout { ms } => QueryTimeoutSnafu { ms }.build(),
+            Wire::QueryInputFailed { input } => QueryInputFailedSnafu { input }.build(),
         };
         DataError(inner)
     }

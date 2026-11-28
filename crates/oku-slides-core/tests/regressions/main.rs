@@ -34,3 +34,5 @@ mod issue_1104_manifest_errors_are_localized;
 mod issue_1381_widget_names_and_values_capped;
 mod issue_1690_compaction_of_truncated_data;
 mod issue_1690_v12_deck_refused;
+mod issue_1773_query_merged_states;
+mod issue_1773_rename_captured;

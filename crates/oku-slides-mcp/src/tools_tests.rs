@@ -231,6 +231,7 @@ const DECK_TOOLS: &[&str] = &[
     "packs",
     "present",
     "preview_widget",
+    "query_preview",
     "quit",
     "redo",
     "remove_pack",
@@ -465,6 +466,7 @@ fn tools_render_description_points_to_a2ui_examples() {
 #[rstest]
 #[case::list("data_list")]
 #[case::read("data_read")]
+#[case::preview("query_preview")]
 fn data_tools_are_read_kind_and_tab_gated(#[case] name: &str) {
     assert_that!(kinds_of(name)).is_equal_to(Some(Kinds::DECK_OR_HELP));
     assert_that!(tool_names_for(DocumentKind::Help).contains(&name.to_owned())).is_true();

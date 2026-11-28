@@ -58,8 +58,10 @@ impl Workspace {
     /// generation; under the session's alone: the links handed over, `f`, and
     /// for `Forward::Yes` the due send and the owner's pull. Then, both locks
     /// released: refused links set aside, the info refreshed, the send
-    /// forwarded and the pull run. `true`: the tab's info changed, through the
-    /// forward's acknowledgement too.
+    /// forwarded, the pull run and the query results `f` made stale recomputed
+    /// in the background ([`Workspace::schedule_recomputes`]): every caller,
+    /// UI request, agent, MCP or CLI, goes through here. `true`: the tab's
+    /// info changed, through the forward's acknowledgement too.
     pub(super) fn acquire<R>(
         ws: &Mutex<Self>,
         tab: &str,
@@ -104,6 +106,8 @@ impl Workspace {
         if taken.pull {
             Self::pull_linked(ws, tab);
         }
+        // Detached: each job lands under the tab's lock when its worker is done.
+        drop(Self::schedule_recomputes(ws, tab));
         (out, changed)
     }
 

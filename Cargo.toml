@@ -54,9 +54,20 @@ ttf-parser = "0.25"
 # Polices du système cherchées par l'import hi-fi (CLI, t-692) ; déjà tiré par typst.
 fontdb = "0.23"
 sha2 = "0.10"
-# Parquet bases (t-1690): the render worker only, through oku-slides-data `engine`.
-polars = { version = "=0.53.0", default-features = false, features = ["dtype-date", "parquet"] }
+# Parquet bases (t-1690) and queries (t-1774): the render worker only, through oku-slides-data
+# `engine`. `dtype-datetime` is needed by polars-io once `lazy` and `sql` are on.
+polars = { version = "=0.53.0", default-features = false, features = [
+  "dtype-date",
+  "dtype-datetime",
+  "lazy",
+  "parquet",
+  "sql",
+] }
+# The DuckDB oracle of query results (t-1774): oku-slides-data feature `oracle`, tests only.
+duckdb = { version = "=1.20001.0", features = ["bundled"] }
 hex = "0.4"
+# Query SQL front end (t-1772): parse and whitelist only; pinned to the version polars-sql locks.
+sqlparser = { version = "=0.60.0", features = ["visitor"] }
 # PDF reading and writing (pdf crate, knowledge extraction): no default features, so neither
 # rayon nor chrono is linked. oku-slides-pdf's `load_mem` thus loses lopdf's parallel
 # object-stream load, accepted unmeasured (t-1760); nothing here uses chrono dates.
