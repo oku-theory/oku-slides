@@ -5,7 +5,7 @@ and holds the tab's A2UI surfaces (`SurfaceHub`): thread, dock, popovers and ins
 
 ## Modules
 
-- `server` : `ToolServer`, the HTTP server (system-chosen port, token compared by SHA-256 in `token_matches`, bounded by `[serve]` limits and `SHUTDOWN_GRACE`).
+- `server` : `ToolServer`, the HTTP server (system-chosen port, token compared by SHA-256 in `token_matches`, bounded by `[serve]` limits and `SHUTDOWN_GRACE`). `caller`: `McpCaller`, the client of the fake agent and tests (JSON-RPC on one shared HTTP client).
 - `handler` : the `ServerHandler`, listing `Tools::listed`; `Tools::call` dispatches a call to its tool.
 - `tools` : `Tools`, `list_for(kind)`: the tab's kind, read once when its agent starts; an unlisted tool is
   `UnknownTool` (`tool_kinds`: `Kinds`; a theme tab lists no `widgets`, `packs` or `ask_rewrite`); input schemas (`nest_schema`: MCP 1.x); `parse`, `with_session`, `reply`.
@@ -46,5 +46,5 @@ because the agent does not know turn numbers; ACP events carry theirs (`oku-slid
 
 `oku-slides-session` (the tab's `TabSession`, agent surfaces), `oku-slides-core`, `oku-slides-data`, `oku-slides-a2ui`,
 `oku-slides-chart`, `oku-slides-i18n`, `oku-slides-platform` (listener),
-`rust-mcp-sdk` and `rust-mcp-axum` 1.x (protocol `2025-11-25`); a 2.x migration stays local to
+`rust-mcp-sdk` and `rust-mcp-axum` 1.x (protocol `2025-11-25`), `reqwest` (`caller` only); a 2.x migration stays local to
 `server.rs`, `handler.rs` and `tools.rs`.

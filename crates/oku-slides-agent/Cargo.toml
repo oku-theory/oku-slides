@@ -21,8 +21,6 @@ oku-slides-i18n.workspace = true
 oku-slides-platform.workspace = true
 oku-slides-stt.workspace = true
 agent-client-protocol = { workspace = true, features = ["unstable_end_turn_token_usage"] }
-rust-mcp-sdk.workspace = true
-async-trait.workspace = true
 tokio = { workspace = true, features = ["process", "sync", "macros", "rt", "time", "io-util", "io-std"] }
 tokio-util.workspace = true
 futures.workspace = true
@@ -38,6 +36,7 @@ time.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 oku-slides-stt = { workspace = true, features = ["test-support"] }
 oku-slides-mcp = { workspace = true, features = ["test-support"] }
 # `instructions_tests` checks deck.md's SQL function list against the whitelist.

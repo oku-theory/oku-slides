@@ -14,10 +14,10 @@ use common::workspace_harness::{
 };
 use common::*;
 use oku_slides_i18n::Localizer;
+use oku_slides_mcp::McpCaller;
 use oku_slides_mcp::McpEvent;
 use oku_slides_session::{ESSENTIEL_PACK, TabDocument, Workspace};
 use rstest::rstest;
-use rust_mcp_sdk::mcp_client::ClientRuntime;
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -25,11 +25,11 @@ use uuid::Uuid;
 
 const COMMON: &str = "#let cadre(body) = block(inset: 8pt, body)\n";
 
-async fn edit(c: &Arc<ClientRuntime>, pack: Uuid) -> CallToolResult {
+async fn edit(c: &Arc<McpCaller>, pack: Uuid) -> CallToolResult {
     call(c, "open_pack", json!({ "pack": pack.to_string() })).await
 }
 
-async fn edit_main(c: &Arc<ClientRuntime>) -> CallToolResult {
+async fn edit_main(c: &Arc<McpCaller>) -> CallToolResult {
     call(c, "open_pack", json!({})).await
 }
 
@@ -440,7 +440,7 @@ async fn open_theme_from_a_help_tab_opens_a_theme_tab() {
 
 const REQUEST: &str = "Agrandis la carte.";
 
-async fn edit_with_request(c: &Arc<ClientRuntime>, pack: Uuid) -> CallToolResult {
+async fn edit_with_request(c: &Arc<McpCaller>, pack: Uuid) -> CallToolResult {
     call(c, "open_pack", json!({ "pack": pack.to_string(), "request": REQUEST })).await
 }
 

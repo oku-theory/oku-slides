@@ -462,7 +462,7 @@ fn attach(h: &Harness, bytes: &[u8], name: &str) -> String {
 }
 
 /// The text of the knowledge file `path`, read through `knowledge_read`.
-async fn read_text(c: &rust_mcp_sdk::mcp_client::ClientRuntime, path: &str) -> String {
+async fn read_text(c: &oku_slides_mcp::McpCaller, path: &str) -> String {
     let read = call(c, "knowledge_read", json!({ "path": path })).await;
     assert_that!(read.is_error).is_none();
     json_of(&read)["text"].as_str().unwrap_or_default().to_owned()

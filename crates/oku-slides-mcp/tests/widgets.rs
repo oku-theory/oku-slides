@@ -5,7 +5,6 @@ mod common;
 
 use common::*;
 use oku_slides_mcp::McpEvent;
-use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::schema::ContentBlock;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -26,7 +25,7 @@ fn json_of(r: &rust_mcp_sdk::schema::CallToolResult) -> Value {
 async fn the_six_widget_tools_are_listed() {
     let h = start_pack_tab(SET).await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
+    let names: Vec<String> = c.list_tools().await.unwrap().tools.into_iter().map(|t| t.name).collect();
     for tool in ["widget_sources", "widget_source", "set_widget", "remove_widget", "preview_widget", "set_widget_trial"]
     {
         assert_that!(names.contains(&tool.to_owned())).named(tool).is_true();
@@ -114,7 +113,7 @@ async fn slide_widget_written_without_pack_is_read_through_pack_deck_layouts() {
 }
 
 /// Le texte d'un résultat d'erreur, débarrassé des isolants Unicode de Fluent.
-async fn error_text(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>, tool: &str, args: Value) -> String {
+async fn error_text(c: &std::sync::Arc<oku_slides_mcp::McpCaller>, tool: &str, args: Value) -> String {
     let r = call(c, tool, args).await;
     assert_that!(r.is_error).named(tool).is_equal_to(Some(true));
     text_of(&r).replace(['\u{2068}', '\u{2069}'], "")
@@ -182,7 +181,7 @@ async fn widget_tools_on_a_closed_tab_answer_in_the_user_language() {
 /// The built-in widget pack `base`, edited in its own tab.
 const SET: uuid::Uuid = oku_slides_session::pack::BASE_PACK;
 
-async fn in_pack_mode_with_kpi(c: &std::sync::Arc<rust_mcp_sdk::mcp_client::ClientRuntime>) {
+async fn in_pack_mode_with_kpi(c: &std::sync::Arc<oku_slides_mcp::McpCaller>) {
     call(c, "set_widget", json!({ "name": "_commun", "source": COMMON })).await;
     call(c, "set_widget", json!({ "name": "kpi", "source": KPI })).await;
 }

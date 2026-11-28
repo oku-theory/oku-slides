@@ -21,3 +21,4 @@ mod issue_1191_open_claim_release;
 mod issue_1213_agent_api_headers;
 mod issue_1462_diagnose_isolation;
 mod issue_1779_ask_after_cut_turn;
+mod issue_1796_caller_one_http_client;

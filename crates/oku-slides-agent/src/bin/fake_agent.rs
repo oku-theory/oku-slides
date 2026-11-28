@@ -60,12 +60,7 @@ use agent_client_protocol::schema::v1::{
     Usage, UsageUpdate,
 };
 use agent_client_protocol::{Agent, Client, ConnectionTo, Stdio};
-use async_trait::async_trait;
-use rust_mcp_sdk::mcp_client::{ClientHandler, client_runtime};
-use rust_mcp_sdk::schema::{
-    CallToolRequestParams, ClientCapabilities, Implementation, InitializeRequestParams, ProtocolVersion,
-};
-use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
+use oku_slides_mcp::McpCaller;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::Notify;
@@ -453,10 +448,6 @@ impl State {
     }
 }
 
-struct Noop;
-#[async_trait]
-impl ClientHandler for Noop {}
-
 /// Un appel d'outil MCP du script, sur le serveur de la session (`mcp` : URL et `Authorization`) s'il y en a un.
 async fn run_step(mcp: Option<&(String, String)>, step: &McpStep) -> String {
     match mcp {
@@ -520,39 +511,18 @@ fn expand_str(s: &str) -> String {
     out
 }
 
-/// Appelle un outil MCP et renvoie son résultat en JSON (texte).
+/// Calls an MCP tool and returns its result as JSON text, on the shared HTTP client (t-1796).
 async fn call_tool(url: &str, auth: &str, tool: &str, args: &Value) -> String {
-    let transport = StreamableTransportOptions {
-        mcp_url: url.to_owned(),
-        request_options: RequestOptions {
-            custom_headers: Some(HashMap::from([("Authorization".to_owned(), auth.to_owned())])),
-            ..RequestOptions::default()
-        },
+    let caller = match McpCaller::connect(url, Some(auth.to_owned())).await {
+        Ok(c) => c,
+        Err(e) => return format!("mcp start failed: {e}"),
     };
-    let details = InitializeRequestParams {
-        capabilities: ClientCapabilities::default(),
-        client_info: Implementation {
-            name: "oku-slides-fake-agent".into(),
-            version: "0.1.0".into(),
-            title: None,
-            description: None,
-            icons: vec![],
-            website_url: None,
-        },
-        protocol_version: ProtocolVersion::V2025_11_25.into(),
-        meta: None,
-    };
-    let client = client_runtime::with_transport_options(details, transport, Noop, None, None, None);
-    if let Err(e) = client.clone().start().await {
-        return format!("mcp start failed: {e}");
-    }
     let args = expand_env(args);
-    let params = CallToolRequestParams::new(tool).with_arguments(args.as_object().cloned().unwrap_or_default());
-    let out = match client.request_tool_call(params).await {
+    let out = match caller.call_tool(tool, args.as_object().cloned().unwrap_or_default()).await {
         Ok(r) => serde_json::to_string(&r).unwrap_or_default(),
         Err(e) => format!("mcp call failed: {e}"),
     };
-    let _ = client.shut_down().await;
+    let _ = caller.close().await;
     out
 }
 

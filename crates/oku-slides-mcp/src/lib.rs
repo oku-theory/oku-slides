@@ -10,11 +10,13 @@
 //! - [`TabPort`]: another tab's draft, page and fine-tuning turn, for the host to act on.
 //! - [`Lexicon`]: the spoken command words of the user's languages, matched whole.
 //! - [`HeardUtterance`]: a hands-free utterance, as the host voice router hands it on.
+//! - [`McpCaller`]: a small MCP client for the fake agent and tests, on one shared HTTP client.
 //!
 //! Dépend de `oku-slides-session` ; utilisé par `oku-slides-agent`.
 
 mod a2ui_tools;
 mod app_tools;
+mod caller;
 mod data_tools;
 mod diagnose_tools;
 mod diagnosis;
@@ -51,6 +53,7 @@ mod widget_tools;
 mod workspace_tools;
 
 pub use app_tools::{FoldedChange, InterfaceChange, PresentCommand, PresentMode, SchemeChoice};
+pub use caller::{CallerError, McpCaller};
 pub use diagnosis::{AgentDiagnosis, Diagnosis, DictationDiagnosis};
 pub use draft::MAX_REQUEST_BYTES;
 pub use error::McpError;

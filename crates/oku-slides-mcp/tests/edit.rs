@@ -5,7 +5,6 @@ mod common;
 use common::*;
 use oku_slides_core::kinds;
 use oku_slides_mcp::McpEvent;
-use rust_mcp_sdk::McpClient;
 use serde_json::json;
 use speculoos::prelude::*;
 
@@ -63,7 +62,7 @@ async fn apply_invalid_op_returns_error_with_path() {
 async fn apply_schema_accepts_every_op_kind_in_tool_list() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let tools = c.list_tools().await.unwrap().tools;
     let apply = tools.into_iter().find(|t| t.name == "apply").unwrap();
     let description = apply.description.clone().unwrap_or_default();
     assert_that!(description).contains("move_element moves an element with its children");
@@ -79,7 +78,7 @@ async fn apply_schema_accepts_every_op_kind_in_tool_list() {
 async fn tool_list_has_edit_data_not_set_data() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let tools = c.list_tools().await.unwrap().tools;
     let apply = tools.iter().find(|t| t.name == "apply").unwrap();
     let schema = serde_json::to_string(&apply.input_schema).unwrap();
     let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
@@ -123,7 +122,7 @@ async fn apply_edit_data_on_chart_changes_cell() {
 async fn tool_list_has_show_as() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let tools = c.list_tools().await.unwrap().tools;
     assert_that!(tools.iter().any(|t| t.name == "show_as")).is_true();
 }
 

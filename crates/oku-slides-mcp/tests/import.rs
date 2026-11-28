@@ -10,7 +10,6 @@ use common::*;
 use oku_slides_core::Namespace;
 use oku_slides_session::import::ImportTarget;
 use oku_slides_session::{NEUTRE_NAMESPACE, PAPIER_NAMESPACE, Workspace};
-use rust_mcp_sdk::McpClient;
 use rust_mcp_sdk::schema::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
 use speculoos::prelude::*;
@@ -40,7 +39,7 @@ fn first_element(h: &Harness, slide: &str) -> String {
 async fn import_tools_are_listed() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
+    let names: Vec<String> = c.list_tools().await.unwrap().tools.into_iter().map(|t| t.name).collect();
     for tool in ["import_report", "import_diff"] {
         assert_that!(names.contains(&tool.to_owned())).named(tool).is_true();
     }
@@ -72,7 +71,7 @@ fn tries_left(report: &Value, slide: &str) -> Option<u64> {
 }
 
 /// Déplace de 12 pt le premier élément cadré de la slide `slide`, par l'outil `apply`.
-async fn nudge(c: &rust_mcp_sdk::mcp_client::ClientRuntime, h: &Harness, slide: &str) {
+async fn nudge(c: &oku_slides_mcp::McpCaller, h: &Harness, slide: &str) {
     let (element, mut frame) = {
         let session = h.session.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let s = session.deck().slide(slide).unwrap_or_else(|| panic!("slide {slide}"));

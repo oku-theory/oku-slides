@@ -1,7 +1,7 @@
 //! Serveur de test : une session isolée, des réglages en mémoire, un client MCP.
 #![allow(dead_code, reason = "each test file uses only part of the harness")]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 pub mod app;
@@ -11,8 +11,8 @@ pub mod other_tabs;
 pub mod refusals;
 pub mod workspace_harness;
 
-use async_trait::async_trait;
 use oku_slides_core::Guides;
+use oku_slides_mcp::McpCaller;
 use oku_slides_mcp::{
     Applied, Checked, Diagnosis, HostPorts, McpEvent, Origin, Prefill, SettingsPort, SurfaceAction, SurfaceHub,
     TabPort, ToolServer, Tools, TuneRefusal, VoiceApplied, VoiceError, VoiceErrorKind, VoicePort,
@@ -20,11 +20,7 @@ use oku_slides_mcp::{
 use oku_slides_session::agent::{Sessions, Surface, TabGate, TabOpen, TabSession};
 use oku_slides_session::{Fonts, Platform, Session, Settings};
 use oku_slides_session::{VoiceEvent, VoiceView};
-use rust_mcp_sdk::mcp_client::{ClientHandler, ClientRuntime, client_runtime};
-use rust_mcp_sdk::schema::{
-    CallToolRequestParams, CallToolResult, ClientCapabilities, Implementation, InitializeRequestParams, ProtocolVersion,
-};
-use rust_mcp_sdk::{McpClient, RequestOptions, StreamableTransportOptions};
+use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::{Map, Value, json};
 use speculoos::prelude::*;
 use tokio_util::sync::CancellationToken;
@@ -452,43 +448,14 @@ pub async fn start_imported(
     start_with((platform, data), session.clone(), session, "t-1").await
 }
 
-struct Noop;
-#[async_trait]
-impl ClientHandler for Noop {}
-
-pub async fn client(url: &str, authorization: Option<String>) -> Result<Arc<ClientRuntime>, String> {
-    let mut headers = HashMap::new();
-    if let Some(a) = authorization {
-        headers.insert("Authorization".to_owned(), a);
-    }
-    let transport = StreamableTransportOptions {
-        mcp_url: url.to_owned(),
-        request_options: RequestOptions { custom_headers: Some(headers), ..RequestOptions::default() },
-    };
-    let details = InitializeRequestParams {
-        capabilities: ClientCapabilities::default(),
-        client_info: Implementation {
-            name: "test".into(),
-            version: "0.1.0".into(),
-            title: None,
-            description: None,
-            icons: vec![],
-            website_url: None,
-        },
-        protocol_version: ProtocolVersion::V2025_11_25.into(),
-        meta: None,
-    };
-    let client = client_runtime::with_transport_options(details, transport, Noop, None, None, None);
-    client.clone().start().await.map_err(|e| e.to_string())?;
-    Ok(client)
+/// A client connected to the MCP server at `url`, on the shared HTTP client (t-1796).
+pub async fn client(url: &str, authorization: Option<String>) -> Result<Arc<McpCaller>, String> {
+    McpCaller::connect(url, authorization).await.map(Arc::new).map_err(|e| e.to_string())
 }
 
-pub async fn call(client: &ClientRuntime, name: &str, args: Value) -> CallToolResult {
+pub async fn call(client: &McpCaller, name: &str, args: Value) -> CallToolResult {
     let args: Map<String, Value> = args.as_object().cloned().unwrap_or_default();
-    client
-        .request_tool_call(CallToolRequestParams::new(name).with_arguments(args))
-        .await
-        .unwrap_or_else(|e| panic!("appel de l'outil {name} : {e}"))
+    client.call_tool(name, args).await.unwrap_or_else(|e| panic!("appel de l'outil {name} : {e}"))
 }
 
 /// Premier bloc texte d'un résultat, en JSON si possible.
@@ -542,27 +509,27 @@ pub async fn next_surface(rx: &mut tokio::sync::broadcast::Receiver<McpEvent>) -
 }
 
 /// Un client MCP connecté au serveur de `h`.
-pub async fn server(h: &Harness) -> Arc<ClientRuntime> {
+pub async fn server(h: &Harness) -> Arc<McpCaller> {
     client(h.server.url(), Some(h.server.authorization())).await.unwrap_or_else(|e| panic!("client de test : {e}"))
 }
 
 /// Un appel qui ne doit ouvrir aucune fenêtre : échoue au lieu d'attendre.
-pub async fn call_within(c: &Arc<ClientRuntime>, tool: &str, args: Value) -> CallToolResult {
+pub async fn call_within(c: &Arc<McpCaller>, tool: &str, args: Value) -> CallToolResult {
     tokio::time::timeout(EVENT_WAIT, call(c, tool, args))
         .await
         .unwrap_or_else(|_| panic!("{tool} attend une réponse : une confirmation a été ouverte"))
 }
 
 /// Le schéma d'entrée de l'outil `name`, tel que la liste des outils le montre.
-pub async fn tool_schema(c: &Arc<ClientRuntime>, name: &str) -> Value {
-    let tools = c.request_tool_list(None).await.unwrap_or_else(|e| panic!("liste des outils : {e}")).tools;
+pub async fn tool_schema(c: &Arc<McpCaller>, name: &str) -> Value {
+    let tools = c.list_tools().await.unwrap_or_else(|e| panic!("liste des outils : {e}")).tools;
     let tool = tools.into_iter().find(|t| t.name == name).unwrap_or_else(|| panic!("outil {name} absent"));
     serde_json::to_value(tool.input_schema).unwrap_or_else(|e| panic!("schéma de {name} : {e}"))
 }
 
 /// La description de l'outil `name`, telle que la liste des outils la montre.
-pub async fn tool_description(c: &Arc<ClientRuntime>, name: &str) -> String {
-    let tools = c.request_tool_list(None).await.unwrap_or_else(|e| panic!("liste des outils : {e}")).tools;
+pub async fn tool_description(c: &Arc<McpCaller>, name: &str) -> String {
+    let tools = c.list_tools().await.unwrap_or_else(|e| panic!("liste des outils : {e}")).tools;
     let tool = tools.into_iter().find(|t| t.name == name).unwrap_or_else(|| panic!("outil {name} absent"));
     tool.description.unwrap_or_default()
 }

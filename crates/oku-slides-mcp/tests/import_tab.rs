@@ -10,11 +10,11 @@ use common::refusals::{CONTINUE_FR, LIMIT_FR, NO_TURN_FR, assert_refused};
 use common::workspace_harness::{start_on_agent_workspace, tab_ids};
 use common::*;
 use oku_slides_core::Namespace;
+use oku_slides_mcp::McpCaller;
 use oku_slides_mcp::SurfaceHub;
 use oku_slides_session::agent::{AgentWorkspace, FocusedTab, TabGate, TabOpen, WorkspaceRefusal};
 use oku_slides_session::import::ImportTarget;
 use oku_slides_session::{ESSENTIEL_PACK, PAPIER_NAMESPACE, Workspace};
-use rust_mcp_sdk::mcp_client::ClientRuntime;
 use rust_mcp_sdk::schema::CallToolResult;
 use serde_json::json;
 use speculoos::prelude::*;
@@ -200,13 +200,13 @@ struct LockOrderWorkspace {
     /// The workspace's own lock, held for the whole import.
     lock: Mutex<()>,
     /// The hub and a client of the tools, set once the server runs.
-    probe: OnceLock<(Arc<SurfaceHub>, Arc<ClientRuntime>)>,
+    probe: OnceLock<(Arc<SurfaceHub>, Arc<McpCaller>)>,
     /// What a widget write said under the lock, and the gate's answer once the turn moved on.
     seen: Mutex<Option<(String, bool)>>,
 }
 
 impl std::fmt::Debug for LockOrderWorkspace {
-    /// `ClientRuntime` does not implement `Debug`.
+    /// `McpCaller` does not implement `Debug`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LockOrderWorkspace").finish_non_exhaustive()
     }

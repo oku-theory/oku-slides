@@ -7,8 +7,8 @@ use std::sync::{Arc, PoisonError};
 
 use common::*;
 use oku_slides_core::kinds;
+use oku_slides_mcp::McpCaller;
 use rstest::rstest;
-use rust_mcp_sdk::mcp_client::ClientRuntime;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
@@ -35,20 +35,20 @@ fn chart(element: &str, data: &str) -> Value {
 }
 
 /// Applies `ops` through MCP; the test fails if they are refused.
-async fn applied(c: &Arc<ClientRuntime>, ops: Vec<Value>) {
+async fn applied(c: &Arc<McpCaller>, ops: Vec<Value>) {
     let r = call(c, "apply", json!({ "ops": ops })).await;
     assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
 }
 
 /// `data_list`'s reply, as JSON.
-async fn listed(c: &Arc<ClientRuntime>) -> Value {
+async fn listed(c: &Arc<McpCaller>) -> Value {
     let r = call(c, "data_list", json!({})).await;
     assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
     json_of(&r)
 }
 
 /// `data_read`'s reply for `args`, as JSON.
-async fn read(c: &Arc<ClientRuntime>, args: Value) -> Value {
+async fn read(c: &Arc<McpCaller>, args: Value) -> Value {
     let r = call(c, "data_read", args).await;
     assert_that!(r.is_error).named(&text_of(&r)).is_not_equal_to(Some(true));
     json_of(&r)

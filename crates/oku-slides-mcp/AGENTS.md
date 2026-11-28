@@ -42,7 +42,7 @@ Read `ARCHITECTURE.md` first for what this code is. This file is how to work on 
 
 ## Testing
 
-- Test the MCP server as a real server on 127.0.0.1 port 0 with a rust-mcp-sdk client in the test. (spec:2026-09-26-agent-vocal-design)
+- Test the MCP server as a real server on 127.0.0.1 port 0 with McpCaller, never the rust-mcp-sdk client: it builds an HTTP client per request, each loading the system roots (~360 ms). (spec:2026-09-26-agent-vocal-design, t-1796)
 
 ## Settled decisions
 

@@ -5,23 +5,20 @@
 mod common;
 
 use common::*;
-use rust_mcp_sdk::McpClient;
 use speculoos::prelude::*;
 
-// `ClientRuntime` n'implémente pas `Debug` : `ResultAssertions` l'exige même
-// pour `is_err`, donc on efface le côté `Ok` avant l'assertion.
 #[tokio::test(flavor = "multi_thread")]
 async fn without_token_client_is_refused() {
     let h = start().await;
-    assert_that!(client(h.server.url(), None).await.map(|_| ())).is_err();
-    assert_that!(client(h.server.url(), Some("Bearer faux".into())).await.map(|_| ())).is_err();
+    assert_that!(client(h.server.url(), None).await).is_err();
+    assert_that!(client(h.server.url(), Some("Bearer faux".into())).await).is_err();
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn tool_list_names_every_read_tool() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
+    let names: Vec<String> = c.list_tools().await.unwrap().tools.into_iter().map(|t| t.name).collect();
     for n in ["deck_outline", "slide", "render_slide", "packs", "layouts", "settings"] {
         assert_that!(names.contains(&n.to_owned())).is_true();
     }
@@ -31,7 +28,7 @@ async fn tool_list_names_every_read_tool() {
 async fn tools_list_has_pack_tools_and_no_template_tool() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let names: Vec<String> = c.request_tool_list(None).await.unwrap().tools.into_iter().map(|t| t.name).collect();
+    let names: Vec<String> = c.list_tools().await.unwrap().tools.into_iter().map(|t| t.name).collect();
     // `save_pack` is a pack tab's: `kinds.rs` checks it there.
     for t in ["packs", "open_pack", "delete_pack", "layouts"] {
         assert_that!(names.contains(&t.to_owned())).named(t).is_true();
@@ -167,7 +164,7 @@ const FRENCH_LETTERS: &[char] =
 async fn tools_list_input_schema_descriptions_are_plain_english() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let tools = c.list_tools().await.unwrap().tools;
     let mut all = Vec::new();
     for tool in tools {
         let schema = serde_json::to_value(&tool.input_schema).unwrap();

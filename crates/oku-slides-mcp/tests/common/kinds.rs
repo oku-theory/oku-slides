@@ -2,10 +2,9 @@
 
 use std::sync::{Arc, Mutex};
 
+use oku_slides_mcp::McpCaller;
 use oku_slides_session::agent::TabSession;
 use oku_slides_session::{DocumentKind, Fonts, PAPIER_THEME, Session, SessionErrorKind};
-use rust_mcp_sdk::McpClient;
-use rust_mcp_sdk::mcp_client::ClientRuntime;
 
 use super::{Harness, lock, platform_with, start, start_pack_tab, start_theme_tab, start_with};
 
@@ -52,8 +51,8 @@ pub async fn start_help_tab() -> Harness {
 }
 
 /// The names of the tools the server lists to `c`, in its order.
-pub async fn list_tool_names(c: &Arc<ClientRuntime>) -> Vec<String> {
-    let tools = c.request_tool_list(None).await.unwrap_or_else(|e| panic!("tool list: {e}")).tools;
+pub async fn list_tool_names(c: &Arc<McpCaller>) -> Vec<String> {
+    let tools = c.list_tools().await.unwrap_or_else(|e| panic!("tool list: {e}")).tools;
     tools.into_iter().map(|t| t.name).collect()
 }
 

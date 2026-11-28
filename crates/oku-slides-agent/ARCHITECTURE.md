@@ -31,7 +31,7 @@ with the UI context; agent updates become A2UI turn surfaces.
   (`PromptGuard` per prompting tab, deferred switch by epoch); `stt_watch` (400 ms `Stt` fingerprint);
   `voice_refresh` (one panel per revision for every tab's box, `Voice` and `Availability` on change); `voice_port_hands_free` (`apply_patch`: listening follows the switch; the agent only turns it off; the first on turns the read-aloud on); `voice_port_speech` (`SpeechView`, `set_speech` checks, `Stt::configure_speech`); `reader` : a thread (`catch_unwind`) that says, for the focused tab only, the `SpokenText` its relay hands it (`heard_of`), muted while presenting unless `in_presentation` and a `Wake` turn; a new turn cuts, a question's end moves its arming (`spoken_until`).
 - `instructions` : `instructions/*.md` (English): a shared core and one paragraph per tab kind (`for_kind`; a deck adds `knowledge.md`, a help tab not), then widgets (not in a theme tab) and design (deck tab, `design_for`), on a first turn; import on `Tune`.
-- `error` (`AgentError`, `Unusable`, `Reason`), `command_error` (`CommandError`): localized; `bin/fake_agent`: scripted ACP agent, tests only (`by_prompt`, `by_prefix` with `${ARG}`).
+- `error` (`AgentError`, `Unusable`, `Reason`), `command_error` (`CommandError`): localized; `bin/fake_agent`: scripted ACP agent, tests only (`by_prompt`, `by_prefix` with `${ARG}`; MCP calls through `McpCaller`).
 
 ## Flow
 

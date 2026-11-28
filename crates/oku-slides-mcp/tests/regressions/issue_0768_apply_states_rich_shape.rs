@@ -4,7 +4,6 @@
 //! La description d'`apply` cite désormais un exemple de paragraphes ; cet
 //! exemple, recopié tel quel par l'agent, doit être accepté.
 
-use rust_mcp_sdk::McpClient;
 use serde_json::{Value, json};
 use speculoos::prelude::*;
 
@@ -20,7 +19,7 @@ fn rich_example(description: &str) -> Option<Value> {
 async fn apply_description_rich_example_is_accepted_by_set_param() {
     let h = start().await;
     let c = client(h.server.url(), Some(h.server.authorization())).await.unwrap();
-    let tools = c.request_tool_list(None).await.unwrap().tools;
+    let tools = c.list_tools().await.unwrap().tools;
     let apply = tools.into_iter().find(|t| t.name == "apply").unwrap();
     let description = apply.description.unwrap_or_default();
     let example = rich_example(&description);
