@@ -235,18 +235,27 @@ Stored rows and columns always carry an id; only op input (`NewTable`) may leave
 ### Tags (`Deck.tags`, new)
 
 ```text
-Tag { id, name (unique), date (UTC, `time`), frontier (Loro frontiers, encoded) }
+Tag { id, name (unique ignoring case), date (UTC, `time`), frontier (Loro frontiers, encoded),
+      bases (base ids of the manual data at the tag) }
 ```
 
 - `tag_version { name }` records the replica's frontier **before** the op that writes the tag,
   so the tag names exactly the state the user saw. Undoable; a tag never moves; `remove_tag`
   deletes it.
-- Tags live in a Loro map (atoms), merged across copies; the history they point into is already
+- `tag_version` is alone in its batch, so the frontier is the state the user saw; `remove_tag`
+  is refused while a query names the tag (`PREVIOUS` names them all).
+- Tags live in a Loro map (atoms) at the root `tags`, outside `deck`, merged across copies; the history they point into is already
   kept whole (ADR-0007), so a tag stays readable after compaction.
 - Reading a data at a tag replays `updates_till(frontier)` into a fresh document
   (`replica/history.rs`, never `checkout`, t-809) and reads its `data` map; the base it names
   is kept for as long as the tag exists.
-- **Previous tag**: the tag with the latest `date` among those not after the current state.
+- **Previous tag**: the causally latest tag (no other tag's frontier strictly includes its
+  frontier; concurrent ones by latest `date`, then id). If nothing outside the `tags` root
+  changed since that tag, `PREVIOUS` is the tag before it, so a report tagged a moment ago
+  compares with the report before it.
+- **Derived data at a tag** are recomputed at that tag (same SQL, inputs at the tag); an
+  `AT` inside a query evaluated at a tag is refused (error state), so depth stays one. `AT`
+  reads add no current dependency edge: a data may read its own past.
 - **Names across tags**: a query names data by their **current** name; the session resolves it
   to the `DataId` and reads that id at the tag, so a later rename never breaks a comparison. A
   data that did not exist at the tag puts the query in error state ("`risques` did not exist at
@@ -599,6 +608,19 @@ Choices the phase 2 plan made within this design:
 - The element panel shows a view over a query read-only with its view controls; Kind and ShowAs
   stay disabled (visible): the session refuses those conversions over a query, because converting
   copies the query's rows.
+
+## Plan calls (phase 3 plan, 2026-11-28)
+
+Choices the phase 3 plan made within this design:
+
+- `AT (VERSION => …)` is parsed by a `DuckDbDialect` wrapper with timestamp versioning on (its
+  `dialect()` still reports DuckDB); only `VERSION => '<tag>'` and `VERSION => PREVIOUS` pass
+  the whitelist, and each versioned read becomes a synthetic frame the session fills.
+- Tags pin the bases of the manual data at the tag; the deck base budget counts current and
+  pinned bases together, and compaction past it is skipped and reported.
+- Results at a tag are ordinary result cache entries; the worker protocol is unchanged.
+- MCP gains `tags_list` and `data_read` at a tag; the Data panel lists tags (catalog v7) and the
+  history bar marks tagged versions.
 
 ## Left to the builder
 
