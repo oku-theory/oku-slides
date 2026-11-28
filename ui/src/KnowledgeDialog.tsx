@@ -17,7 +17,7 @@ import type { Run } from "./GuidesSection";
 import { t } from "./i18n";
 import { overLimitText } from "./KnowledgeNotice";
 import { revealHidden } from "./knowledgeText";
-import type { AwaitingKnowledge } from "./knowledgeTypes";
+import type { AwaitingKnowledge } from "./knowledge/types";
 import { useModalFrame } from "./modalFrame";
 import { Button } from "./primitives";
 

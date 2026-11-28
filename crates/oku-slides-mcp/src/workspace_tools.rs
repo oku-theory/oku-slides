@@ -351,7 +351,7 @@ impl Tools {
     }
 
     /// Runs `f` on the host's workspace with this tab's id, in a blocking task.
-    async fn on_workspace<T: Send + 'static>(
+    pub(crate) async fn on_workspace<T: Send + 'static>(
         &self,
         f: impl FnOnce(&dyn AgentWorkspace, &str) -> Result<T, WorkspaceRefusal> + Send + 'static,
     ) -> Result<T, ToolError> {

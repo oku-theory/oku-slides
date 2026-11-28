@@ -551,3 +551,24 @@ ui-knowledge-more = { $count ->
    *[other] { $count } ملفًا آخر غير مدرج.
   }
 ui-knowledge-close = إغلاق
+ui-knowledge-link-broken = هذا الملف غير موجود في قاعدة المعرفة.
+ui-knowledge-tree-label = ملفات المعرفة
+ui-knowledge-empty = لا تحتوي هذه العروض التقديمية على معرفة بعد.
+ui-knowledge-awaiting-badge = بانتظار الموافقة
+ui-knowledge-file-gone = أُزيل { $path } من قاعدة المعرفة.
+ui-knowledge-truncated = لا يُعرض باقي هذا الملف ({ NUMBER($kb) } ك.ب).
+ui-knowledge-in-history = قاعدة المعرفة غير متاحة أثناء تصفح السجل.
+ui-knowledge-header-invalid = تعذّرت قراءة البيانات التمهيدية (frontmatter) لهذا الملف: يُعرض نصه الخام.
+ui-markdown-failed = تعذّر عرض هذا النص.
+ui-markdown-link-blocked = لا يمكن فتح هذا الرابط من هنا.
+ui-knowledge-close-file = إغلاق الملف
+ui-knowledge-open-files = الملفات المفتوحة
+ui-knowledge-header-type = النوع
+ui-knowledge-header-status = الحالة
+ui-knowledge-header-tags = الوسوم
+ui-knowledge-header-generated = أُنشئ
+ui-knowledge-header-verified = تم التحقق
+ui-knowledge-header-stale = قديم
+ui-knowledge-header-sources = المصادر
+ui-knowledge-tab-title = { $name } — المعرفة
+ui-knowledge-open = قاعدة المعرفة

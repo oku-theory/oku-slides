@@ -350,8 +350,257 @@ agent; it is never shown in the slides themselves.
   `knowledge_import_apply` reads it from the ticket; the "Attached documents" line went to
   `knowledge.md`, not `deck.md`; the agent label is set in `turn.rs`; `Session::attach` takes an
   `Upload`, hashed and sniffed once; some tests were renamed.
-- **Deferred (under t-1728):** t-1761 the attach, import, knowledge tab e2e with lot 5's tab;
-  t-1762 a local-agent eval for `knowledge_import`; t-1763 an XLS reader if users ask.
+- **Deferred (under t-1728):** t-1762 a local-agent eval for `knowledge_import`; t-1763 an XLS reader if users ask.
+
+### Plan decisions (lot 5 builder, recorded from the plan)
+
+#### Tab model
+
+- **A view over the deck tab's session.** It gets `TabDocument::Knowledge { deck_tab }` and
+  `DocumentKind::Knowledge`. Its slot is `Slot::View`, which holds no session. A session request
+  addressed to it is refused with `WrongDocument { kind: Knowledge }`; the UI never sends one.
+  `DocumentKind::Knowledge` is used only for that refusal and for `tab_list`'s kind.
+- **Skipped everywhere a session is assumed.** These skip `Slot::View` and are each tested:
+  - dormancy: settle, wake, set_aside;
+  - `close_all`, compaction, usage;
+  - UI-state saves, the same-deck check, the dirty prompts;
+  - `state.json`: none is written or read.
+- **One per deck tab.** Opening again focuses the existing one. It opens right after its deck
+  tab, in the deck tab's window. It may then be moved to another window like any tab.
+  `open_knowledge` takes no session lock, only the workspace lock. An owner lookup never
+  unwraps: a vanished owner gives `UnknownTab`.
+- **Linked tabs.** `linked_tabs` stays deck-pack only, because `pull_linked` unparks a pack,
+  and both `detach` and the `close_with_links` flush assume one. A new `knowledge_tab_of(owner)
+  -> Option<String>` serves closing:
+  - the owner's close path closes it, in any window;
+  - `close_all` and window closes treat it as linked.
+- **Closing alone never prompts.** It is never dirty and holds no work. The UI `closeFlow`
+  reads no snapshot for it.
+- **Restore.** A knowledge entry is handled before `restore_tab`, which needs `state.json`.
+  - It is restored only when its `deck_tab` was restored as a deck.
+  - It is dropped with a `tracing::warn!` when the owner is missing, is not a deck, or already
+    has a knowledge tab. The `deck_tab` string is untrusted and only ever looked up.
+  - A downgrade to an older binary reads it as an unknown tab document and drops it. This
+    holds because `SavedTabInfo` uses a tagged `TabDocument`, which the previous release does
+    not read. The previous release reads `path`, `deck_uid` and `help`, and for a knowledge tab
+    they are all absent. Task 3 verifies this with a test on the saved JSON.
+- **Title.** Its `TabInfo.title` is the owner's title, kept current in `Workspace::note`. The UI
+  shows it through Fluent `ui-knowledge-tab-title` (`{ $name } — Knowledge`), with a book icon.
+  The agent's `tab_list` shows the raw title and the kind `knowledge`.
+- **Agent.** A knowledge tab has no agent. The agent window and voice context follow its deck
+  tab (`sessionTab(view, tab)`). There is no chat panel in the knowledge tab.
+- **Sub-tabs are not persisted.** On restore, the tab opens on the root `/index.md` if it is
+  approved, otherwise on nothing.
+- **Moves keep ids.** `knowledge_move` keeps a file's id (core test
+  `knowledge_move_against_edit_keeps_both`), so an open sub-tab follows a move.
+
+#### Live updates
+
+- `TabInfo.knowledge: Option<KnowledgeRevision { generation: u64, approvals: usize,
+  in_history: bool }>`.
+  - It uses `#[serde(default, skip_deserializing)]`, like `dirty_revision`. It is sent to the
+    UI and excluded from `SavedTabInfo`.
+  - It is set on awake deck tabs only. It is read from the live deck (the stash in History or
+    Pack mode), and set to `None` in Help or Theme mode and on dormant tabs.
+  - `shown_same` compares it.
+  - A change of `knowledge` alone broadcasts but does not call `save_layout`.
+  - The approvals count is library-wide, so another deck's approval can move it. This is
+    accepted: it only costs one re-read.
+- **UI side.**
+  - `null` means unknown: the tab keeps what it shows and re-reads nothing.
+  - On a new `generation` or `approvals` value (the effect depends on those two numbers), it
+    re-reads the tree and the active sub-tab. The other sub-tabs are marked stale and re-read
+    when shown.
+  - Re-reads coalesce: one in flight plus at most one pending.
+  - Stale replies are dropped with one `Latest` per file and one for the tree.
+- **File gone.** When an open sub-tab's file id is no longer in the tree, the sub-tab closes
+  with the toast `ui-knowledge-file-gone` naming its path. A ref dedupes the toast per id, never
+  inside a setState updater. A late page reply for it is ignored.
+- **History.** While the owner browses history, the reads are refused (`InHistory`). The tab
+  shows the notice `ui-knowledge-in-history` in place of the pane, never an error toast, and
+  reads nothing. `KnowledgeTab` takes a required `deckInHistory` prop: when it goes from true
+  to false (the deck leaves history), the tab re-reads the tree and the shown file.
+
+#### Reading requests (deck session, user-only like lot 3's review)
+
+- `knowledge_tree` → `KnowledgeTree { files: Vec<KnowledgeNode> }`.
+  - Each node is `{ id, path, title, kind, awaiting }`. The path is sent whole (core allows
+    only `[a-z0-9._-]` segments); the UI cuts a long one with a CSS ellipsis. The title is
+    cleaned with `label_within 80`.
+  - An awaiting node carries its path only, with `title` and `kind` set to `None`, like lot 3's
+    `knowledge_entry`.
+  - The awaiting set comes from the cached `knowledge_scan`; nothing is hashed per call. It
+    builds on `knowledge_files()`, the same source as `all_knowledge_entries`.
+  - All files are listed, since the core caps them at `MAX_FILES`.
+- `knowledge_page { id }` → `KnowledgePage { id, path, awaiting, header, body,
+  truncated_bytes, images }`.
+  - **Approved file, header parsed:** `header: Some(view)`, and `body` is the text after the
+    frontmatter.
+  - **Approved file, header not parsed:** `header: None`, and `body` is the whole text.
+  - **Awaiting file:** `header: None`, `body` is the whole raw text, and `images` is empty.
+    The approval hash covers the whole text, so the user reviews all of it.
+  - `body` is cut at `MAX_FILE_BYTES` with `cut`; `truncated_bytes` counts what was cut.
+  - `images: Vec<KnowledgeImage { path, asset }>` is core `cited_images(path, text)`: the
+    resolved bundle path and the asset id of each cited image. The UI never re-parses
+    citations.
+  - It builds on lot 3's `knowledge_text`, so the same id lookup and error apply.
+- `knowledge_asset { id, asset }` → `KnowledgeAsset { mime, data }`, with `data` in standard
+  base64.
+  - `id` is the knowledge file id, 32 hex characters. `asset` is `sha256:` followed by 64
+    lowercase hex characters; that is the only place `sha256:` applies.
+  - Approval and citation are checked on every request against the current text.
+  - It is refused with `KnowledgeAssetUnavailable { asset }` when:
+    - the file is unknown or awaiting approval;
+    - the file does not cite `asset`;
+    - the deck holds no such asset;
+    - the asset is larger than `MAX_KNOWLEDGE_ASSET_BYTES` (8 MiB);
+    - the sniffed MIME is not `image/png`, `image/jpeg`, `image/gif` or `image/webp`. SVG and
+      every other type are refused, and the UI shows the alt text instead.
+  - Encoding happens after every check.
+- All three are refused outside a deck tab and in history (`ensure_knowledge_review`, made
+  `pub(crate)`). They are refused to the agent window like lot 3's review requests
+  (`reviews_deck_knowledge`, `agent_window_allow.rs`, serve's allowlist).
+
+#### Header
+
+- The core gets `knowledge_header(text) -> Result<KnowledgeHeader, FrontmatterReason>`, on the
+  same strict parser. To keep items, `Node::Seq` now holds them. Collection stops past 20 items
+  for `tags` and `sources`.
+- Fields:
+  - `kind`, `title`, `description`, `status`, `stale`: as in `Frontmatter`.
+  - `tags`: the scalar items of `tags`, or a lone scalar `tags`.
+  - `generated_by`, `generated_at`: from the `generated` mapping.
+  - `verified`: a scalar `verified`, otherwise `verified.tier` when it is a scalar.
+  - `sources`: one `KnowledgeSource { resource, title, url }` per item. A scalar item becomes
+    `resource`. A map item with no scalar `resource`, `title` or `url` is dropped.
+- The session builds `KnowledgeHeaderView` from it through one `From`-style function that
+  cleans every string with `label_within 200`.
+- The UI shows header strings, `url` included, as text only. It never makes a link from them.
+
+#### Rendering
+
+- `KnowledgeMarkdown` uses the parser `commonmark.configure([Table, Strikethrough])`, with no
+  task lists and no GFM autolinks.
+  - Headings are real `h1`–`h6`, shifted by one so the body never uses `h1` (the file title is
+    the pane's `h1`), and clamped at `h6`.
+  - Raw HTML (blocks and inline) is shown as literal text.
+  - Fenced and indented code goes in `pre > code`, with no highlighting.
+  - CommonMark `<…>` autolinks and reference-style links (`[a][r]` with a `LinkReference`
+    definition) go through the same `resolveLink` as inline links. A reference definition
+    itself renders nothing.
+- The shared walk moves from `ui/src/agent/Markdown.tsx` to `ui/src/markdownRender.tsx`. It
+  exports `renderMarkdown(tree, text, hooks)`, where the hooks `link`, `image`, `heading` and
+  `url` are all mandatory. The walk never emits an `<a>` itself. The agent's `Markdown` passes
+  hooks that keep its output byte-identical, and its render tests pass unchanged.
+- **Links.** `resolveLink(href, from, paths)` classifies the raw destination once. The value it
+  classifies is the value it emits.
+  - Lezer does not decode entities or escapes in link destinations, so `resolveLink`
+    (`ui/src/knowledge/knowledgeLinks.ts`) decodes CommonMark escapes, numeric references
+    and a fixed set of named references itself, before it classifies the link. It finds the
+    scheme with ASCII whitespace and control characters removed, and lowercases the part before
+    the first `:`; the target itself only drops tabs and newlines and is trimmed.
+  - A `:` before the first `/`, `?` or `#` means a scheme. `http`, `https` and `mailto` are
+    external; any other scheme is inert.
+  - A target starting with `//` or `\` is inert.
+  - Any other target is a bundle path. It is resolved against the file's directory, or from
+    the root if it starts with `/`, with `?…` and `#…` dropped. It is percent-decoded once, and
+    a `%2e`/`%2f` that decodes to `.` or `/` makes it inert. A `..` above the root, a NUL, or a
+    `\` makes it inert. The result is `{kind:"bundle", path}` when `paths` holds it, otherwise
+    `{kind:"broken", path}`.
+- **External links** render as `<a href target="_blank" rel="noopener noreferrer">`. This is
+  the app's existing external-link path: `tauri-plugin-opener`'s click hook opens a `_blank`
+  http(s)/mailto link in the browser. It needs `opener:allow-open-url`, which no capability
+  grants today, so the agent's links are dead too. Task 7 adds it to `default.json` and
+  `agent.json`, scoped to `http://*`, `https://*` and `mailto:*`. In serve mode the browser
+  opens `_blank` itself. The agent's `Markdown` moves to `rel="noopener noreferrer"` as well.
+- **Bundle links** render as a button that opens that file in a new sub-tab, or focuses it.
+  **Broken links** render as `span.md-link-broken` with the title
+  `ui-knowledge-link-broken`. **Inert links** render as their label in plain text.
+- **Images.** The src is resolved with the same bundle-path rules. If `page.images` holds the
+  result, it loads through `knowledge_asset` into a `blob:` URL. Anything else, remote images
+  included, shows its alt text in `span.knowledge-image-alt`. Nothing remote is ever fetched.
+- **The asset cache.** `useKnowledgeAssets(api, page)` keeps `Map<asset, string | "failed">`.
+  - Each effect run builds its own map and revokes the URLs it created on cleanup.
+  - It drops replies after unmount or cleanup, and catches decode failures as `"failed"`.
+  - It is keyed by the shown file's id and its image list, and gets no page while the deck
+    browses history, so a refused image loads once history is left. At most 4 fetches run at
+    once, and the results land in one render.
+- **Awaiting files** are shown as preformatted text, with hidden characters revealed (lot 3's
+  `revealHidden`). They are never rendered as Markdown and load no images. A badge
+  `ui-knowledge-awaiting-badge` and a "Review…" button open lot 3's `KnowledgeDialog`, which the
+  `KnowledgeTab` owns and renders. There is no approve-all (lot 3 ruling). An awaiting node in
+  the tree shows its path with bidi and Cf characters removed.
+- Every attribute value (title, aria-label) comes from Fluent, never from file text, except
+  an external link's title, which shows its destination.
+
+#### Opening
+
+- From the UI:
+  - The deck's main menu (`AppMenu`) gets an entry, `ui-knowledge-open`.
+  - The tab context menu of a deck tab gets the same entry.
+  - The shortcut is ⌘⇧K (Ctrl+Shift+K elsewhere), handled in `tabShortcut` as
+    `{ kind: "knowledge" }`. On a non-deck tab it does nothing.
+  - All of these send `WorkspaceRequest::OpenKnowledge { tab }`.
+- From the agent, `open_knowledge` (no arguments, deck tabs only, `Kinds::DECK`, Knowledge
+  family, in `knowledge_tools.rs`) works like `help`:
+  - It is the turn's one tab move (`TabTarget::Knowledge`), refused with the existing tab-gate
+    reason.
+  - It returns `{ok, tab, shown}`.
+  - It is shown only if the deck tab is the one shown in its window.
+- The sub-tab strip reuses the pack item strip's markup and the shared keyboard helper
+  `stripKeyNav`, which is extracted from `WidgetTab.tsx`'s local `onTabKey` and shared by both.
+  It is not copied.
+
+#### Deferred
+
+- Receipt entries for knowledge writes, and documents shown in sent turns (lot 3 and lot 4
+  deferrals): a new sub-task under t-1728, created in Task 9, named "Knowledge: receipts for
+  writes, documents in sent turns".
+- Lot 6: export and CLI.
+
+#### Corrections after the task reviews
+
+These replace what the plan said; the text above already reads this way.
+
+- **Entities in links.** Lezer does not decode entities or escapes in link destinations.
+  `resolveLink` (`ui/src/knowledge/knowledgeLinks.ts`) decodes CommonMark escapes, numeric
+  references and a fixed set of named references itself before it classifies a link. Only a
+  literal `http`, `https` or `mailto` scheme becomes an href.
+- **Ids.** The knowledge file `id` is 32 hex characters. The asset id is `sha256:` followed by
+  64 lowercase hex characters, and that is the only place `sha256:` applies.
+- **Opener.** The opener permission is scoped to `http`, `https` and `mailto` in the main
+  windows and to `https` and `mailto` in the agent window; `build.rs` requires each file's
+  exact scope, once.
+- **e2e (t-1761).** `ui/e2e/460-knowledge-tab.cjs` attaches a PDF built in memory
+  (`ui/e2e/lib/pdf.cjs`, no binary fixture; the extraction test
+  `pdf_hand_written_page_extracts_its_text` writes the same bytes), has the fake agent run
+  `knowledge_import` then `open_knowledge`, reads the file in the tab, and proves that closing
+  the deck tab closes its knowledge tab without a question.
+
+#### Decisions after the final review
+
+- **Sub-tabs survive a tab switch.** A tab switch remounts the view, so each knowledge tab's
+  open and shown files live in a module store (`ui/src/knowledge/subTabs.ts`) under its tab id.
+  The workspace prunes the entries of tabs no longer in the view.
+- **History comes from the tab list.** `KnowledgeRevision` carries `in_history`, set from the
+  owner's mode, and the view takes `deckInHistory` from it. No snapshot is read: a snapshot
+  hands out the session's one-shot notice, which belongs to the deck tab. A refusal that lands
+  before the flag reaches the view is told once.
+- **Last tab close.** Only linked deck-pack tabs that would empty the workspace keep a close
+  (`Closed::LastWindow`). A lone deck tab whose only companion is its knowledge tab closes both,
+  as a plain last tab does: a view holds no work.
+- **Nesting and render failures.** The shared Markdown walk renders nodes past depth 64 as their
+  source text, and the knowledge body and the agent's Markdown sit in an error boundary that
+  shows the raw text under `ui-markdown-failed`. A file whose frontmatter does not parse shows its raw text under
+  `ui-knowledge-header-invalid` (`KnowledgePage.header_invalid`).
+- **Keyboard close.** Delete or Backspace on the sub-tab strip closes the shown file and moves
+  the focus to the sub-tab shown next.
+- **Link targets.** `resolveLink` strips whitespace and controls only to find the scheme; the
+  target keeps its inner spaces, drops tabs and newlines, and is trimmed, then `encodeLink`
+  encodes it.
+- **Agent window web links.** The agent window's opener refuses `http:`, so its Markdown shows
+  an `http:` link as a broken link (`span.md-link-broken`, title `ui-markdown-link-blocked`)
+  rather than a dead click; the main windows still open it.
 
 ## Testing
 

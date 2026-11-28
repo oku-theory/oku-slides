@@ -130,10 +130,12 @@ fn resume_restores_windows_tabs_focus_mode_and_deck_without_undo() {
     let b = resumed(&data);
     let after = view(&b);
     assert_that!(after.focused).is_equal_to(&before.focused);
-    // Dirty revisions restart with each launch: everything else comes back as it was.
+    // Dirty revisions restart with each launch and a dormant tab has no live knowledge
+    // revision: everything else comes back as it was.
     let unrevised = |windows: &[WindowView]| {
         let mut windows = windows.to_vec();
         windows.iter_mut().flat_map(|w| &mut w.tabs).for_each(|t| t.info.dirty_revision = None);
+        windows.iter_mut().flat_map(|w| &mut w.tabs).for_each(|t| t.info.knowledge = None);
         windows
     };
     assert_that!(unrevised(&after.windows)).is_equal_to(unrevised(&before.windows));

@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Esta aba mostra uma apresentação: essa alteração é feita em uma aba de tema.
     [help] A ajuda é somente leitura: essa alteração é feita em uma aba de tema.
     [pack] Esta aba edita um pacote: o tema é alterado na aba da apresentação, e seus valores em uma aba de tema.
+    [knowledge] Esta aba mostra a base de conhecimento de uma apresentação: essa alteração é feita na aba da apresentação.
    *[theme] Esta aba edita um tema: aqui só mudam seus valores, seu nome e os temas que ele estende.
 }
 session-in-pack-tab = Esta aba edita um pacote: feche-a para terminar; os pacotes próprios de uma apresentação abrem pela aba dessa apresentação.
@@ -764,6 +765,7 @@ session-knowledge-id-not-found = Nenhum arquivo de conhecimento tem o id { $id }
 session-knowledge-changed = O arquivo de conhecimento { $path } mudou desde que foi mostrado: revise-o novamente.
 session-knowledge-too-large-to-approve = O arquivo de conhecimento { $path } é grande demais para ser aprovado: exclua-o.
 session-knowledge-approval-invalid = Esta aprovação indica um arquivo duas vezes ou arquivos demais.
+session-knowledge-asset-unavailable = A imagem de conhecimento { $asset } não está disponível.
 session-knowledge-import-failed = Não foi possível ler o documento dentro dos seus limites de tempo e memória: nada foi importado.
 session-knowledge-import-refused = O documento não foi importado — { $reason }.
 session-attachment-gone = Este anexo já não é guardado: anexe o documento de novo.

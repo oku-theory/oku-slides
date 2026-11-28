@@ -104,6 +104,7 @@ fn check_agent_workspace_open_on_a_tab_no_window_holds_is_forbidden(#[case] req:
 #[case::new_pack(json!({ "cmd": "new_pack", "tab": "t-1", "kind": "widgets" }))]
 #[case::new_theme(json!({ "cmd": "new_theme", "tab": "t-1" }))]
 #[case::pack_opener(json!({ "cmd": "pack_opener", "tab": "t-1" }))]
+#[case::open_knowledge_refused_to_agent_window(json!({ "cmd": "open_knowledge", "tab": "t-1" }))]
 fn check_agent_workspace_other_request_is_forbidden(#[case] req: Value) {
     let (_data, ws, _tab) = workspace_with_tab();
     let ws = Workspace::lock(&ws);
@@ -155,6 +156,9 @@ fn check_agent_request_snapshot_on_a_tab_no_window_holds_is_forbidden(#[case] ta
 #[case::knowledge_review(json!({ "cmd": "knowledge_review" }))]
 #[case::knowledge_text(json!({ "cmd": "knowledge_text", "id": "00000000000000000000000000000000" }))]
 #[case::approve_knowledge(json!({ "cmd": "approve_knowledge", "files": [] }))]
+#[case::knowledge_tree(json!({ "cmd": "knowledge_tree" }))]
+#[case::knowledge_page(json!({ "cmd": "knowledge_page", "id": "00000000000000000000000000000000" }))]
+#[case::knowledge_asset(json!({ "cmd": "knowledge_asset", "id": "00000000000000000000000000000000", "asset": "sha256:00" }))]
 fn check_agent_request_other_request_is_forbidden(#[case] req: Value) {
     let (_data, ws, tab) = workspace_with_tab();
     let ws = Workspace::lock(&ws);

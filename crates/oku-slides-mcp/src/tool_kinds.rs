@@ -34,6 +34,8 @@ impl Kinds {
             DocumentKind::Help => Self::HELP,
             DocumentKind::Pack => Self::PACK,
             DocumentKind::Theme => Self::THEME,
+            // A knowledge tab runs no agent: no tool at all.
+            DocumentKind::Knowledge => return false,
         };
         self.0 & bit.0 != 0
     }

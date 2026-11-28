@@ -90,9 +90,9 @@ type SummaryKey = (u64, usize);
 
 /// One hashing pass over the bundle: the awaiting files by path, and the ceilings passed.
 #[derive(Debug)]
-struct KnowledgeScan {
-    awaiting: Vec<AwaitingKnowledge>,
-    over_limit: Vec<&'static str>,
+pub(crate) struct KnowledgeScan {
+    pub(crate) awaiting: Vec<AwaitingKnowledge>,
+    pub(crate) over_limit: Vec<&'static str>,
 }
 
 /// The scan last made, with the key it was made for; the review and the summary share it.
@@ -150,7 +150,7 @@ impl Session {
     ///
     /// The count is read before the bundle is hashed: an approval made meanwhile only makes
     /// the key stale, and the next call scans again.
-    fn knowledge_scan(&self) -> Arc<KnowledgeScan> {
+    pub(crate) fn knowledge_scan(&self) -> Arc<KnowledgeScan> {
         let key = (self.doc.sources.knowledge_generation(), self.library.knowledge_approvals().count());
         self.knowledge_summary.scan(key, || {
             let knowledge = &self.doc.sources.deck().knowledge;
@@ -239,7 +239,7 @@ impl Session {
 
     /// Refuses a review outside a deck tab, whatever the caller: `InHistory` while history
     /// shows an old version, `WrongDocument` in a help, pack or theme tab.
-    fn ensure_knowledge_review(&self) -> Result<()> {
+    pub(crate) fn ensure_knowledge_review(&self) -> Result<()> {
         ensure!(!matches!(self.mode, Mode::History { .. }), InHistorySnafu);
         let kind = self.document_kind();
         ensure!(kind == DocumentKind::Deck, WrongDocumentSnafu { kind });

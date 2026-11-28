@@ -96,6 +96,7 @@ mod knowledge_approvals;
 pub mod knowledge_fixture;
 mod knowledge_import;
 mod knowledge_import_files;
+mod knowledge_read;
 mod knowledge_review;
 mod knowledge_view;
 mod knowledge_write;
@@ -146,6 +147,7 @@ mod search;
 mod session_view;
 mod sources_budget;
 mod tab_document;
+mod tab_info;
 mod tables;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -205,6 +207,10 @@ pub use files::{EXTENSION, Opened, deck_uid_of, read_document};
 pub use guide_approvals::{GuideApprovals, VersionRef};
 pub use guide_origin::GuideOrigin;
 pub use items::{ItemView, ListView};
+pub use knowledge_read::{
+    KnowledgeAsset, KnowledgeHeaderView, KnowledgeNode, KnowledgePage, KnowledgePageImage, KnowledgeSourceView,
+    KnowledgeTree,
+};
 pub use knowledge_review::{AwaitingKnowledge, KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText};
 pub use knowledge_view::{KnowledgeEntry, KnowledgeHit, KnowledgeHits, KnowledgeImage, KnowledgeRead, QUERY_MAX_CHARS};
 pub use library::{Library, builtin_versions};
@@ -235,8 +241,8 @@ pub use theme_panel::{THEME_EXTENDS_EVENT, TokenAction, TokenState};
 pub use theme_picker::{HOST_THEME_PICKER, THEME_EVENT, ThemeCard, ThemeChoices, picked_theme, theme_picker};
 pub use theme_tab::{ThemeTab, ThemeTabView};
 pub use views::{
-    EditingView, HistoryView, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash, PileSection, SlideSummary,
-    SlideView, Snapshot, TabInfo, Target, UiState,
+    EditingView, HistoryView, KnowledgeRevision, LayoutPackView, LayoutView, LayoutsView, PackMode, PageHash,
+    PileSection, SlideSummary, SlideView, Snapshot, TabInfo, Target, UiState,
 };
 pub use voice_panel::{HOST_VOICE, VoicePanel, model_label, seconds_text, size_text};
 pub use voice_view::{
@@ -776,46 +782,6 @@ impl Session {
             .map(|n| n.to_string_lossy().trim_end_matches(EXTENSION).to_owned())
             .or_else(|| deck.params.title.as_deref().map(|t| interp(t, &deck.vars)))
             .unwrap_or_else(|| self.localizer.tr("deck-untitled"))
-    }
-
-    /// What the tab bar shows of this session.
-    ///
-    /// A pack tab reports its pack's name and a `Pack` (or `DeckPack`)
-    /// document, a theme tab its theme's and a `Theme` document, a help tab a
-    /// `Help` document. Otherwise, while history is open, the title and the
-    /// file stay those of the stashed deck.
-    pub fn tab_info(&self) -> TabInfo {
-        if let Some(info) = self.pack_tab_info().or_else(|| self.theme_tab_info()) {
-            return info;
-        }
-        let deck = match &self.mode {
-            Mode::Deck | Mode::Help { .. } | Mode::Theme { .. } => &self.doc,
-            Mode::Pack { preview: stash, .. } | Mode::History { stash, .. } => stash,
-        };
-        let document = match self.help() {
-            Some(locale) => TabDocument::Help { locale: locale.to_owned() },
-            None => TabDocument::Deck {
-                path: deck.path.as_deref().map(oku_slides_platform::storage::resolve),
-                deck_uid: Some(deck.sources.replica().deck_uid()),
-            },
-        };
-        TabInfo {
-            title: self.document_name(deck),
-            dirty: self.unsaved(),
-            dirty_revision: self.dirty_revision(),
-            pristine: matches!(self.mode, Mode::Deck)
-                && deck.blank
-                && deck.path.is_none()
-                && !deck.dirty
-                && !deck.sources.replica().can_undo()
-                && !deck.sources.replica().can_redo(),
-            theme: {
-                let user = deck.sources.deck();
-                user.theme.as_ref().and_then(|ns| user.themes.get(ns)).map(|pin| pin.id)
-            },
-            document,
-            created: None,
-        }
     }
 
     /// Un avis à montrer une fois, avec le prochain snapshot ; ajouté après

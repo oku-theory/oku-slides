@@ -389,6 +389,7 @@ fn shown_drafts_names_the_pack_and_theme_tabs_only() {
         theme: None,
         document,
         created: None,
+        knowledge: None,
     };
     let infos = [
         info(crate::TabDocument::Deck { path: None, deck_uid: None }),

@@ -1,4 +1,5 @@
-// The main menu of a tab: present, open, new packs and themes, updates, help and About.
+// The main menu of a tab: present, open, the knowledge base, new packs and themes, updates,
+// help and About.
 // Everything else is asked of the agent (t-988).
 
 import type { MenuEntry } from "./ActionMenu";
@@ -26,10 +27,12 @@ interface Props {
   onNewPack: (kind: PackKind) => void;
   /** Creates an empty theme in its own tab. */
   onNewTheme: () => void;
+  /** Opens (or shows) the deck's knowledge base in its own tab. */
+  onOpenKnowledge: () => void;
 }
 
 /** The main menu: quick gestures, pack and theme creation, updates and help. */
-export function AppMenu({ kind, present, open, onHelp, onAbout, onCheckUpdates, onNewPack, onNewTheme }: Props) {
+export function AppMenu({ kind, present, open, onHelp, onAbout, onCheckUpdates, onNewPack, onNewTheme, onOpenKnowledge }: Props) {
   const app: MenuEntry[] = [
     ...(onCheckUpdates ? [{ label: t("ui-update-check"), onSelect: onCheckUpdates }] : []),
     { label: t("ui-help"), shortcut: "⌘?", onSelect: onHelp },
@@ -43,6 +46,7 @@ export function AppMenu({ kind, present, open, onHelp, onAbout, onCheckUpdates, 
   const deck: MenuEntry[] = [
     { label: t("ui-present-screen"), shortcut: "⌘↩", onSelect: () => present("screen") },
     { label: t("ui-toolbar-open"), shortcut: "⌘O", onSelect: open },
+    { label: t("ui-knowledge-open"), shortcut: "⌘⇧K", onSelect: onOpenKnowledge },
   ];
   const creating = kind === "deck" || kind === "pack" ? [...newPacks, newTheme] : kind === "theme" ? [newTheme] : [];
   const menuEntries: MenuEntry[] = [...(kind === "deck" ? deck : []), ...creating, ...app];

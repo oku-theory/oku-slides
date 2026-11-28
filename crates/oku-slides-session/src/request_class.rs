@@ -24,7 +24,15 @@ impl Request {
 
     /// True for a review of the deck's knowledge: only a deck tab takes it, out of history.
     pub(crate) fn reviews_deck_knowledge(&self) -> bool {
-        matches!(self, Self::KnowledgeReview | Self::KnowledgeText { .. } | Self::ApproveKnowledge { .. })
+        matches!(
+            self,
+            Self::KnowledgeReview
+                | Self::KnowledgeText { .. }
+                | Self::ApproveKnowledge { .. }
+                | Self::KnowledgeTree
+                | Self::KnowledgePage { .. }
+                | Self::KnowledgeAsset { .. }
+        )
     }
 
     /// True if the request may change the deck (slides added or removed).
@@ -101,6 +109,9 @@ impl Request {
             | Self::KnowledgeReview
             | Self::KnowledgeText { .. }
             | Self::ApproveKnowledge { .. }
+            | Self::KnowledgeTree
+            | Self::KnowledgePage { .. }
+            | Self::KnowledgeAsset { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }
@@ -255,6 +266,9 @@ impl Request {
             | Self::KnowledgeReview
             | Self::KnowledgeText { .. }
             | Self::ApproveKnowledge { .. }
+            | Self::KnowledgeTree
+            | Self::KnowledgePage { .. }
+            | Self::KnowledgeAsset { .. }
             | Self::UseThemeVersion { .. } => false,
         }
     }
@@ -327,6 +341,9 @@ impl Request {
             | Self::KnowledgeReview
             | Self::KnowledgeText { .. }
             | Self::ApproveKnowledge { .. }
+            | Self::KnowledgeTree
+            | Self::KnowledgePage { .. }
+            | Self::KnowledgeAsset { .. }
             | Self::PreviewWidget { .. } => false,
         }
     }

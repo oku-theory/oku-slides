@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Ta karta pokazuje prezentację: tę zmianę wprowadza się na karcie motywu.
     [help] Pomoc jest tylko do odczytu: tę zmianę wprowadza się na karcie motywu.
     [pack] Ta karta edytuje pakiet: motyw zmienia się na karcie prezentacji, a jego wartości na karcie motywu.
+    [knowledge] Ta karta pokazuje bazę wiedzy prezentacji: tę zmianę wprowadza się na karcie prezentacji.
    *[theme] Ta karta edytuje motyw: zmieniają się tu tylko jego wartości, nazwa i motywy, które rozszerza.
 }
 session-in-pack-tab = Ta karta edytuje pakiet: zamknij ją, aby zakończyć; pakiety jednej prezentacji otwierają się z karty tej prezentacji.
@@ -773,6 +774,7 @@ session-knowledge-id-not-found = Żaden plik wiedzy nie ma identyfikatora { $id 
 session-knowledge-changed = Plik wiedzy { $path } zmienił się od czasu wyświetlenia: przejrzyj go ponownie.
 session-knowledge-too-large-to-approve = Plik wiedzy { $path } jest za duży, by go zatwierdzić: usuń go.
 session-knowledge-approval-invalid = To zatwierdzenie wskazuje plik dwa razy lub zbyt wiele plików.
+session-knowledge-asset-unavailable = Obraz wiedzy { $asset } jest niedostępny.
 session-knowledge-import-failed = Nie udało się odczytać dokumentu w jego limitach czasu i pamięci: nic nie zostało zaimportowane.
 session-knowledge-import-refused = Dokument nie został zaimportowany — { $reason }.
 session-attachment-gone = Ten załącznik nie jest już przechowywany: dołącz dokument ponownie.

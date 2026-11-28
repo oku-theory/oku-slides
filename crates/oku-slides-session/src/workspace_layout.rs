@@ -140,12 +140,24 @@ impl Workspace {
         place: &TabPlace,
         activate: bool,
     ) {
+        self.insert_tab_with(window, id, Tab::new(session), place, activate);
+    }
+
+    /// As [`Workspace::insert_tab`], for a tab already built (a knowledge tab's view).
+    pub(super) fn insert_tab_with(
+        &mut self,
+        window: Option<&str>,
+        id: String,
+        tab: Tab,
+        place: &TabPlace,
+        activate: bool,
+    ) {
         // The window first: a tab never exists without a window.
         let label = match window.filter(|l| self.window_index(l).is_ok()) {
             Some(label) => label.to_owned(),
             None => self.add_window(),
         };
-        self.tabs.insert(id.clone(), Tab::new(session));
+        self.tabs.insert(id.clone(), tab);
         self.bump_layout();
         let win = self.layout.windows.iter_mut().find(|w| w.label == label);
         debug_assert!(win.is_some(), "the window was just found or created: it always exists here");

@@ -137,6 +137,7 @@ fn params_surface_in_pack_or_theme_tab_stays_in_the_thread(#[case] kind: crate::
         crate::DocumentKind::Theme => s.open_theme_here(crate::theme::PAPIER_THEME).unwrap(),
         crate::DocumentKind::Help => s.open_help("fr", None).unwrap(),
         crate::DocumentKind::Deck => {}
+        crate::DocumentKind::Knowledge => panic!("no session shows a knowledge tab"),
     }
     s.begin_turn(1, "x");
     assert_that!(params_place(&s)).is_equal_to(super::super::forms::Place::Thread);

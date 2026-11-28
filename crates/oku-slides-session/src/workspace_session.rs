@@ -75,7 +75,7 @@ impl Workspace {
     pub(super) fn refresh(ws: &Mutex<Self>, tab: &str, info: TabInfo) -> bool {
         let mut w = Self::lock(ws);
         if w.lost_link(tab, &info) {
-            let owner = w.tabs.get(tab).and_then(|t| t.info.document.deck_tab().map(str::to_owned));
+            let owner = w.tabs.get(tab).and_then(|t| t.info.document.deck_pack_owner().map(str::to_owned));
             let text = w.platform.localizer.tr("notice-tab-resume-failed");
             drop(w);
             Self::set_aside(ws, &[tab.to_owned()]);
@@ -86,8 +86,10 @@ impl Workspace {
             }
             return true;
         }
+        // A change of the knowledge revision alone is broadcast, but is not part of the saved layout.
+        let saves = w.tabs.get(tab).is_none_or(|t| !t.info.same_layout(&info));
         let changed = w.note(tab, info);
-        if changed {
+        if changed && saves {
             w.save_layout();
         }
         changed
@@ -156,7 +158,7 @@ impl Workspace {
     ///
     /// A deck-pack tab keeps the owner and pack the workspace fixed: an info
     /// naming another owner is refused (logged), and its pack moves only
-    /// through `retarget_deck_pack`.
+    /// through `retarget_deck_pack`. A deck tab's title also names its knowledge tab.
     pub(super) fn note(&mut self, tab: &str, mut info: TabInfo) -> bool {
         let Some(t) = self.tabs.get_mut(tab) else { return false };
         if let TabDocument::DeckPack { deck_tab, pack } = &t.info.document {
@@ -170,7 +172,10 @@ impl Workspace {
         }
         // A new dirty revision alone is kept but changes nothing shown: no redraw, no layout write.
         let shown_same = TabInfo { dirty_revision: t.info.dirty_revision, ..info.clone() } == t.info;
+        let deck_title = matches!(info.document, TabDocument::Deck { .. }).then(|| info.title.clone());
         t.info = info;
-        !shown_same
+        // Its knowledge tab bears a deck's title: renamed with it.
+        let mirrored = deck_title.is_some_and(|title| self.mirror_title(tab, title));
+        !shown_same || mirrored
     }
 }

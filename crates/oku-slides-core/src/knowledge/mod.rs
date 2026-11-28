@@ -3,6 +3,7 @@
 mod assets;
 mod extract;
 mod frontmatter;
+mod header;
 mod issues;
 pub mod limits;
 mod normalize;
@@ -15,6 +16,7 @@ pub use extract::{
     Cut, CutKind, DocumentType, ExtractLimits, ExtractRefusal, Extracted, ExtractedImage, MAX_TITLE_CHARS, RASTERS,
 };
 pub use frontmatter::{Frontmatter, check_text, frontmatter, scalar_mapping, split};
+pub use header::{KnowledgeHeader, KnowledgeSource, body, knowledge_header};
 pub use issues::DropCause;
 pub(crate) use normalize::repair;
 pub use normalize::{knowledge_over_limits, normalize};

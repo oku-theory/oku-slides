@@ -23,6 +23,8 @@ export const Icon = {
   // A thème : une palette de peintre et ses taches de couleur.
   palette: stroke(<><path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.3-1.7-.3-.9.2-1.8 1.2-1.8H16a4 4 0 0 0 4-4c0-4-3.6-8.5-8-8.5z" /><circle cx="8" cy="11" r="1" /><circle cx="11" cy="7.5" r="1" /><circle cx="15.5" cy="8.5" r="1" /></>),
   packs: stroke(<><path d="M4 8l8-4 8 4v8l-8 4-8-4z" /><path d="M4 8l8 4 8-4" /><path d="M12 12v8" /></>),
+  // A deck's knowledge base: an open book.
+  book: stroke(<><path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z" /><path d="M12 6.5v13" /></>),
   // Actions.
   add: stroke(<path d="M12 5v14M5 12h14" />),
   // Titre d'une section repliable : pointe à droite, tourné vers le bas une fois ouvert.

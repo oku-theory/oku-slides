@@ -9,19 +9,27 @@ import type { DataEdit } from "./chart/dataEdit";
 import type { DataAction } from "./dataActions";
 import { host } from "./hostCall";
 import type { AddPackView, LayoutsView, PackInfo, PackKind, PackMode, PackPin, ThemeInfo, ThemePin, ThemeTabView } from "./packTypes";
-import type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledgeTypes";
+import type {
+  KnowledgeApproval,
+  KnowledgeAsset,
+  KnowledgePage,
+  KnowledgeReview,
+  KnowledgeSummary,
+  KnowledgeText,
+  KnowledgeTree,
+} from "./knowledge/types";
 import type { AttachLimits } from "./agent/attachments";
 import type { GuideKind, GuidesView, ReceivedReview, VersionRef } from "./receivedTypes";
 import type { ExtendsEdit, Frame, ListOp, Op, SlideView, TokenAction } from "./slideTypes";
 import type { View } from "./table/ShowAsButton";
 
 export { errorText, inTauri, isMac, listenTauri } from "./hostCall";
-export { closeStays, linkedTabs, tabDrag, tabPath, workspace } from "./workspaceApi";
+export { closeStays, linkedTabs, sessionTab, tabDrag, tabPath, workspace } from "./workspaceApi";
 export type { ClipReply, ImportPick, ImportTarget, OpenerOffer, SharedClip, TabAt, TabDocument, TabInfo, WindowView, WorkspaceView } from "./workspaceApi";
 export { pickOpenPath, pickSavePath } from "./filePick";
 export { subscribeUpdates, tauriUpdates } from "./updateApi";
 export type { InstallMode, UpdateApi, UpdateEvents, UpdateOffer, UpdateProgress, UpdateStatus } from "./updateApi";
-export type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledgeTypes";
+export type { KnowledgeApproval, KnowledgeReview, KnowledgeSummary, KnowledgeText } from "./knowledge/types";
 export type { Capabilities, CapabilityTotals, GuideKind, GuideOrigin, Guides, GuidesView, ReceivedRelation, ReceivedReview, VersionRef } from "./receivedTypes";
 export type { Element, ElementStyle, ExtendsEdit, FieldView, Frame, HeadingLevel, ItemView, ListOp, ListView, ObjectTarget, Op, Paragraph, Params, Run, Slide, SlideView, SlotRef, Target, TextStyle, TokenAction } from "./slideTypes";
 export { agentApi, takeCloseDecision } from "./agentApi";
@@ -307,6 +315,9 @@ type Request =
   | { cmd: "knowledge_review" }
   | { cmd: "knowledge_text"; id: string }
   | { cmd: "approve_knowledge"; files: KnowledgeApproval[] }
+  | { cmd: "knowledge_tree" }
+  | { cmd: "knowledge_page"; id: string }
+  | { cmd: "knowledge_asset"; id: string; asset: string }
   | { cmd: "remove_widget"; name: string; pack?: string }
   | { cmd: "rename_widget"; from: string; to: string; pack?: string }
   | { cmd: "duplicate_widget"; from: string; to?: string; pack?: string }
@@ -412,6 +423,12 @@ export function tabApi(tab: string) {
     knowledgeText: (id: string) => call<KnowledgeText>({ cmd: "knowledge_text", id }),
     /** Approves these knowledge files for the texts their hashes name; all or none. */
     approveKnowledge: (files: KnowledgeApproval[]) => call<Snapshot>({ cmd: "approve_knowledge", files }),
+    /** Every knowledge file by path, with whether it awaits approval. */
+    knowledgeTree: () => call<KnowledgeTree>({ cmd: "knowledge_tree" }),
+    /** A knowledge file as the tab shows it: header, body, cited images. */
+    knowledgePage: (id: string) => call<KnowledgePage>({ cmd: "knowledge_page", id }),
+    /** The bytes of an image an approved file cites; refused for any other. */
+    knowledgeAsset: (id: string, asset: string) => call<KnowledgeAsset>({ cmd: "knowledge_asset", id, asset }),
     /** Adds these received versions to the library and approves their guides, as validated. */
     acceptReceived: (versions: VersionRef[]) => call<Snapshot>({ cmd: "accept_received", versions }),
     /** Puts the review of these versions off for this tab; the deck asks again when reopened. */

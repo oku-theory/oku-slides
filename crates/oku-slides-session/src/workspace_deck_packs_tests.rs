@@ -36,7 +36,7 @@ fn links_in(f: &Packs, tab: &str) -> Vec<String> {
     let session = Workspace::lock(&f.ws).session(tab).unwrap_or_else(|e| panic!("{tab}: {}", e.one_line()));
     match &*relock(&session) {
         Slot::Ready(s) => s.deck_links.keys().cloned().collect(),
-        Slot::Dormant(_) | Slot::Closed(_) => Vec::new(),
+        Slot::Dormant(_) | Slot::Closed(_) | Slot::View => Vec::new(),
     }
 }
 

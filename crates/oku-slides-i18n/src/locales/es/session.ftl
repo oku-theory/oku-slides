@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Esta pestaña muestra una presentación: ese cambio se hace en una pestaña de tema.
     [help] La ayuda es de solo lectura: ese cambio se hace en una pestaña de tema.
     [pack] Esta pestaña edita un paquete: el tema se cambia en la pestaña de la presentación y sus valores en una pestaña de tema.
+    [knowledge] Esta pestaña muestra la base de conocimiento de una presentación: ese cambio se hace en la pestaña de la presentación.
    *[theme] Esta pestaña edita un tema: aquí solo cambian sus valores, su nombre y los temas que extiende.
 }
 session-in-pack-tab = Esta pestaña edita un paquete: ciérrala para terminar; los paquetes propios de una presentación se abren desde la pestaña de esa presentación.
@@ -764,6 +765,7 @@ session-knowledge-id-not-found = Ningún archivo de conocimiento tiene el id { $
 session-knowledge-changed = El archivo de conocimiento { $path } cambió desde que se mostró: revísalo de nuevo.
 session-knowledge-too-large-to-approve = El archivo de conocimiento { $path } es demasiado grande para aprobarlo: elimínalo.
 session-knowledge-approval-invalid = Esta aprobación nombra un archivo dos veces o demasiados archivos.
+session-knowledge-asset-unavailable = La imagen de conocimientos { $asset } no está disponible.
 session-knowledge-import-failed = No se pudo leer el documento dentro de sus límites de tiempo y memoria: no se importó nada.
 session-knowledge-import-refused = El documento no se importó — { $reason }.
 session-attachment-gone = Este adjunto ya no se conserva: adjunta el documento de nuevo.

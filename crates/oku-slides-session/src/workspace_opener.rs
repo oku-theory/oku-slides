@@ -71,7 +71,7 @@ impl Workspace {
         let opener = {
             let w = Self::lock(ws);
             let t = w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
-            t.opener.clone().filter(|_| t.info.document.deck_tab().is_none())
+            t.opener.clone().filter(|_| t.info.document.deck_pack_owner().is_none())
         };
         let Some(opener) = opener else { return Ok(None) };
         let (wrote, _changed) = Self::with_quiet(ws, tab, |s| (s.wrote_in_pack_tab(), s.wrote_in_theme_tab()));

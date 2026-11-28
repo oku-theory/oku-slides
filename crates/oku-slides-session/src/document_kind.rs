@@ -25,6 +25,8 @@ pub enum DocumentKind {
     Pack,
     /// A library theme, in its own tab.
     Theme,
+    /// A deck's knowledge base, a view over its deck tab.
+    Knowledge,
 }
 
 impl DocumentKind {
@@ -36,6 +38,7 @@ impl DocumentKind {
             Self::Help => "help",
             Self::Pack => "pack",
             Self::Theme => "theme",
+            Self::Knowledge => "knowledge",
         }
     }
 }
@@ -81,6 +84,8 @@ impl Session {
             DocumentKind::Deck => !req.drafts_theme() && !req.pack_only(),
             DocumentKind::Help => !req.drafts_theme() && !req.pack_only() && !req.reviews_deck_knowledge(),
             DocumentKind::Pack => !req.drafts_theme() && !req.reviews_deck_knowledge(),
+            // No session holds a knowledge tab: it is a view over its deck tab's.
+            DocumentKind::Knowledge => false,
         };
         ensure!(fits, WrongDocumentSnafu { kind });
         // Before any lease is taken: a refused op takes nothing and freezes nothing.
@@ -111,6 +116,7 @@ impl Session {
                 }
                 DocumentKind::Help => !op.is_knowledge(),
                 DocumentKind::Deck => true,
+                DocumentKind::Knowledge => false,
             },
         };
         ensure!(ops.iter().all(fits), WrongDocumentSnafu { kind });

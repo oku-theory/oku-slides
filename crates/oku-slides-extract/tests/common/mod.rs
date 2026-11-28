@@ -569,6 +569,42 @@ pub fn pdf_titled(pages: &[PageSpec<'_>], title: &str) -> Vec<u8> {
     save(pdf_document(pages, Some(title)))
 }
 
+/// A one-page PDF written byte by byte, as `ui/e2e/lib/pdf.cjs` writes it (no lopdf): a
+/// catalog, a page tree, a page showing `text` in Helvetica with one `Tj`, the font, the
+/// content stream, then an xref table holding each object's offset.
+pub fn pdf_hand_written(text: &str) -> Vec<u8> {
+    let mut literal = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '\\' | '(' | ')') {
+            literal.push('\\');
+        }
+        literal.push(c);
+    }
+    let content = format!("BT /F1 24 Tf 72 720 Td ({literal}) Tj ET\n");
+    let objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>".to_owned(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_owned(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
+            .to_owned(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_owned(),
+        format!("<< /Length {} >>\nstream\n{content}endstream", content.len()),
+    ];
+    let mut out = String::from("%PDF-1.4\n");
+    let mut offsets = Vec::new();
+    for (i, body) in objects.iter().enumerate() {
+        offsets.push(out.len());
+        out.push_str(&format!("{} 0 obj\n{body}\nendobj\n", i + 1));
+    }
+    let xref = out.len();
+    // Each xref entry is exactly 20 bytes: 10-digit offset, 5-digit generation, type, space, LF.
+    out.push_str(&format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1));
+    for at in offsets {
+        out.push_str(&format!("{at:010} 00000 n \n"));
+    }
+    out.push_str(&format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objects.len() + 1));
+    out.into_bytes()
+}
+
 /// A PDF whose page tree loops: the root's second kid is a `Pages` node whose kids are the
 /// root itself and a text page.
 pub fn pdf_kids_cycle() -> Vec<u8> {

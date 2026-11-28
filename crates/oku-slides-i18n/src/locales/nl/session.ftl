@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Dit tabblad toont een presentatie: die wijziging gebeurt in een thematabblad.
     [help] De help is alleen-lezen: die wijziging gebeurt in een thematabblad.
     [pack] Dit tabblad bewerkt een pakket: het thema wijzigt in het tabblad van de presentatie, de waarden ervan in een thematabblad.
+    [knowledge] Dit tabblad toont de kennisbank van een presentatie: die wijziging gebeurt in het tabblad van de presentatie.
    *[theme] Dit tabblad bewerkt een thema: hier wijzigen alleen de waarden, de naam en de thema's die het uitbreidt.
 }
 session-in-pack-tab = Dit tabblad bewerkt een pakket: sluit het om af te ronden; pakketten van één presentatie openen vanuit het tabblad van die presentatie.
@@ -764,6 +765,7 @@ session-knowledge-id-not-found = Geen kennisbestand heeft de id { $id }.
 session-knowledge-changed = Het kennisbestand { $path } is gewijzigd sinds het werd getoond: bekijk het opnieuw.
 session-knowledge-too-large-to-approve = Het kennisbestand { $path } is te groot om goed te keuren: verwijder het.
 session-knowledge-approval-invalid = Deze goedkeuring noemt een bestand twee keer of te veel bestanden.
+session-knowledge-asset-unavailable = De kennisafbeelding { $asset } is niet beschikbaar.
 session-knowledge-import-failed = Het document kon niet binnen zijn tijd- en geheugenlimieten worden gelezen: er is niets geïmporteerd.
 session-knowledge-import-refused = Het document is niet geïmporteerd — { $reason }.
 session-attachment-gone = Deze bijlage wordt niet meer bewaard: voeg het document opnieuw toe.

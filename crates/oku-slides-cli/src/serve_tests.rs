@@ -278,6 +278,9 @@ fn serve_new_window_from_a_workspace_window_is_still_applied() {
 #[case::save(serde_json::json!({ "cmd": "save" }))]
 #[case::save_copy(serde_json::json!({ "cmd": "save_copy", "path": "copy.okuslides.pdf" }))]
 #[case::apply(serde_json::json!({ "cmd": "apply", "label": "x", "ops": [] }))]
+#[case::knowledge_tree(serde_json::json!({ "cmd": "knowledge_tree" }))]
+#[case::knowledge_page(serde_json::json!({ "cmd": "knowledge_page", "id": "00000000000000000000000000000000" }))]
+#[case::knowledge_asset(serde_json::json!({ "cmd": "knowledge_asset", "id": "00000000000000000000000000000000", "asset": "sha256:00" }))]
 fn serve_tab_request_from_the_agent_window_outside_its_allowlist_is_refused(#[case] mut req: serde_json::Value) {
     let data = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
     let (s, rt) = shared_on(data.path());

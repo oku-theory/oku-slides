@@ -213,6 +213,7 @@ fn tab_of(kind: crate::DocumentKind) -> (tempfile::TempDir, crate::Session) {
         crate::DocumentKind::Help => s.open_help("en", None).unwrap(),
         crate::DocumentKind::Pack => s.open_pack_tab_here(crate::BASE_PACK, None).unwrap(),
         crate::DocumentKind::Theme => s.open_theme_here(crate::PAPIER_THEME).unwrap(),
+        crate::DocumentKind::Knowledge => panic!("no session shows a knowledge tab"),
     }
     (data, s)
 }

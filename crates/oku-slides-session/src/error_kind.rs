@@ -122,6 +122,8 @@ pub enum SessionErrorKind {
     KnowledgeTooLargeToApprove,
     /// An approval that names a file twice or too many files.
     KnowledgeApprovalInvalid,
+    /// A knowledge image the file does not cite, the deck lacks, or that is not a shown raster type.
+    KnowledgeAssetUnavailable,
     /// A document import failed in its worker (time, memory, crash): nothing was imported.
     KnowledgeImportFailed,
     /// A document the extractor refuses (scan, legacy format, damaged…): nothing was imported.

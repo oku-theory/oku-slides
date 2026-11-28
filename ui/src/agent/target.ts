@@ -1,11 +1,15 @@
 // La fenêtre de l'agent : laquelle elle est, et quel onglet elle suit.
 
-import { inTauri, type WorkspaceView } from "../api";
+import { inTauri, sessionTab, type WorkspaceView } from "../api";
 import { AGENT_LABEL } from "./link";
 
-/** L'onglet actif de la fenêtre au premier plan ; null si elle est inconnue. */
+/**
+ * The session tab of the focused window's active tab (a knowledge tab's owner deck tab); null
+ * when that window is unknown.
+ */
 export function agentTarget(view: WorkspaceView): string | null {
-  return view.windows.find((w) => w.label === view.focused)?.active ?? null;
+  const active = view.windows.find((w) => w.label === view.focused)?.active;
+  return active === undefined ? null : sessionTab(view, active);
 }
 
 /** Cette page est-elle la fenêtre de l'agent ? Synchrone : label Tauri, ou `?window=agent`. */

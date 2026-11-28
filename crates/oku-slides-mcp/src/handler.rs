@@ -67,6 +67,7 @@ impl Tools {
             "knowledge_move" => self.knowledge_move(args).await,
             "knowledge_delete" => self.knowledge_delete(args).await,
             "knowledge_import" => self.knowledge_import(args).await,
+            "open_knowledge" => self.open_knowledge(turn).await,
             "settings" => self.settings().await,
             "apply" => self.apply(args).await,
             "chart_kind" => self.chart_kind(args).await,

@@ -34,6 +34,8 @@ pub(crate) enum TabTarget {
     Tab(u64),
     /// The help tab, opened or shown (`help`).
     Help,
+    /// The knowledge tab of the deck tab that calls (`open_knowledge`).
+    Knowledge,
 }
 
 impl std::fmt::Display for TabTarget {
@@ -44,6 +46,7 @@ impl std::fmt::Display for TabTarget {
             Self::Import(id) => write!(f, "import {id}"),
             Self::Tab(n) => write!(f, "tab t-{n}"),
             Self::Help => write!(f, "help"),
+            Self::Knowledge => write!(f, "knowledge"),
         }
     }
 }

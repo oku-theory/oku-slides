@@ -158,6 +158,8 @@ pub(crate) enum SessionInner {
     KnowledgeTooLargeToApprove { path: String, backtrace: Backtrace },
     #[snafu(display("a knowledge approval names a file twice or too many files"))]
     KnowledgeApprovalInvalid { backtrace: Backtrace },
+    #[snafu(display("the knowledge image {} is not available", label(asset)))]
+    KnowledgeAssetUnavailable { asset: String, backtrace: Backtrace },
     #[snafu(display("unknown host setting: {}", label(key)))]
     HostKey { key: String, backtrace: Backtrace },
     #[snafu(display("the response could not be written as JSON"))]
@@ -321,10 +323,10 @@ impl SessionError {
             ChartKindShared, DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite,
             GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, ImportPathInvalid, ImportTabChanged,
             ImportTargetEdited, ImportTargetNotImport, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName,
-            KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting,
-            KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeImportBusy,
-            KnowledgeImportFailed, KnowledgeImportRefused, KnowledgeNotFound, KnowledgeOpsInPreview,
-            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeStamp, KnowledgeStampRandom,
+            KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAssetUnavailable,
+            KnowledgeAwaiting, KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound,
+            KnowledgeImportBusy, KnowledgeImportFailed, KnowledgeImportRefused, KnowledgeNotFound,
+            KnowledgeOpsInPreview, KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeStamp, KnowledgeStampRandom,
             KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved,
             NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotADocument,
             NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
@@ -420,6 +422,7 @@ impl SessionError {
             KnowledgeChanged { .. } => SessionErrorKind::KnowledgeChanged,
             KnowledgeTooLargeToApprove { .. } => SessionErrorKind::KnowledgeTooLargeToApprove,
             KnowledgeApprovalInvalid { .. } => SessionErrorKind::KnowledgeApprovalInvalid,
+            KnowledgeAssetUnavailable { .. } => SessionErrorKind::KnowledgeAssetUnavailable,
             HostKey { .. } => SessionErrorKind::HostKey,
             Response { .. } => SessionErrorKind::Response,
             AgentForm { .. } => SessionErrorKind::AgentForm,
@@ -608,10 +611,10 @@ impl Localize for SessionError {
             ChartKindShared, DeckJson, DeckOnly, DeckPackMismatch, EditingPack, FieldNeeded, GuideApprovalsWrite,
             GuideHasNul, GuideTooLong, HelpDeck, HistoryNotOpen, HostKey, Import, ImportPathInvalid, ImportTabChanged,
             ImportTargetEdited, ImportTargetNotImport, InHistory, InPackTab, InvalidTokenValue, InvalidWidgetName,
-            KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAwaiting,
-            KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound, KnowledgeImportBusy,
-            KnowledgeImportFailed, KnowledgeImportRefused, KnowledgeNotFound, KnowledgeOpsInPreview,
-            KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeStamp, KnowledgeStampRandom,
+            KnowledgeApprovalInvalid, KnowledgeApprovalsDamaged, KnowledgeApprovalsWrite, KnowledgeAssetUnavailable,
+            KnowledgeAwaiting, KnowledgeChangeAwaiting, KnowledgeChanged, KnowledgeDirInvalid, KnowledgeIdNotFound,
+            KnowledgeImportBusy, KnowledgeImportFailed, KnowledgeImportRefused, KnowledgeNotFound,
+            KnowledgeOpsInPreview, KnowledgePathInvalid, KnowledgeQueryInvalid, KnowledgeStamp, KnowledgeStampRandom,
             KnowledgeTooLargeToApprove, LeaseMissing, MergeUnrelated, NamespaceChanged, NamespaceReserved,
             NamespaceTaken, NoChart, NoFreeCopyName, NoLibraryDir, NoPath, NoSlide, NoTable, NoWorkDir, NotADocument,
             NotEditingPack, NotHeld, NotHelp, NotOkuSlides, NotPinned, NotRendered, Op, PackAlreadyCurrent,
@@ -768,6 +771,9 @@ impl Localize for SessionError {
                 l.tr_with("session-knowledge-too-large-to-approve", &[("path", label(path).into())])
             }
             KnowledgeApprovalInvalid { .. } => l.tr("session-knowledge-approval-invalid"),
+            KnowledgeAssetUnavailable { asset, .. } => {
+                l.tr_with("session-knowledge-asset-unavailable", &[("asset", label(asset).into())])
+            }
             HostKey { key, .. } => l.tr_with("session-host-key", &[("key", label(key).into())]),
             Response { .. } => l.tr("session-response"),
             Paste { reason, .. } => l.tr(reason.key()),

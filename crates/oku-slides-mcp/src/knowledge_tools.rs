@@ -13,16 +13,18 @@ use base64::Engine as _;
 use oku_slides_core::Op;
 use oku_slides_platform::config::{ImageRefusal, PromptImageLimits};
 use oku_slides_session::Request;
-use oku_slides_session::agent::PASTE_TYPES;
+use oku_slides_session::agent::{PASTE_TYPES, TabOpen, WorkspaceRefusal};
 use oku_slides_session::{ImportOutcome, KnowledgeEntry, KnowledgeHits, KnowledgeImage, KnowledgeRead};
 use rust_mcp_sdk::schema::{CallToolResult, ImageContent};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use snafu::ResultExt;
+use snafu::{IntoError, ResultExt};
 
 use crate::McpEvent;
-use crate::tool_error::{SessionSnafu, TaskSnafu, ToolError};
+use crate::hub::TabTarget;
+use crate::tab_gate::TabVerdict;
+use crate::tool_error::{SessionSnafu, TabNoTurnSnafu, TaskSnafu, ToolError, WorkspaceSnafu};
 use crate::tools::Tools;
 
 /// The `knowledge_search` description; `{search_hits}` is the effective hit cap.
@@ -304,6 +306,36 @@ impl Tools {
             self.prune_surfaces().await;
         }
         result
+    }
+
+    /// `open_knowledge`: this deck's knowledge tab opened or shown; the turn's one tab move.
+    ///
+    /// It takes the workspace lock alone, never a session's. The tab is shown only if this deck
+    /// tab is the one shown in its window.
+    pub(crate) async fn open_knowledge(&self, turn: Option<u32>) -> CallToolResult {
+        let Some(turn) = turn else { return self.fail_with(&TabNoTurnSnafu.build()) };
+        let mut verdict = TabVerdict::default();
+        if !verdict.ask(&self.hub, Some(turn), TabTarget::Knowledge) {
+            return self.fail_with(&verdict.refusal());
+        }
+        let opened = self.on_workspace(move |ws, own| ws.open_knowledge(own)).await;
+        // A lost task may have opened the tab: its claim stays spent (see `TabVerdict::settle_moved`).
+        let spent = matches!(&opened, Ok(TabOpen::Opened { .. } | TabOpen::Focused { .. }))
+            || matches!(opened, Err(ToolError::Task { .. }));
+        verdict.settle_moved(&self.hub, Some(turn), TabTarget::Knowledge, spent);
+        match opened {
+            Ok(TabOpen::Opened { tab, shown } | TabOpen::Focused { tab, shown }) => {
+                self.hub.emit(McpEvent::Changed);
+                self.json_result(&json!({ "ok": true, "tab": tab, "shown": shown }))
+            }
+            // No host answers these (`AgentWorkspace::open_knowledge` asks no gate, and a knowledge
+            // tab is another tab than the caller's): a bug, told as a tab the workspace lacks.
+            Ok(other @ (TabOpen::Refused | TabOpen::Here)) => {
+                tracing::error!(outcome = ?other, "open_knowledge: the workspace opened no tab");
+                self.fail_with(&WorkspaceSnafu.into_error(WorkspaceRefusal::unknown_tab()))
+            }
+            Err(e) => self.fail_with(&e),
+        }
     }
 
     /// The three steps of [`Self::knowledge_import`].

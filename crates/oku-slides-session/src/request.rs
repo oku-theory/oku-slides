@@ -376,6 +376,20 @@ pub enum Request {
         /// The files approved.
         files: Vec<KnowledgeApproval>,
     },
+    /// Lists every knowledge file, for the knowledge tab (`KnowledgeTree`).
+    KnowledgeTree,
+    /// Reads a knowledge file for the knowledge tab: header, body and cited images.
+    KnowledgePage {
+        /// The file's id.
+        id: String,
+    },
+    /// Reads an image an approved knowledge file cites, as base64.
+    KnowledgeAsset {
+        /// The file's id.
+        id: String,
+        /// The image's asset id (`sha256:<hex>`).
+        asset: String,
+    },
     /// Supprime un fichier de widget ; refusé s'il est utilisé par un modèle ou le deck.
     RemoveWidget {
         /// Namespace of the pack (see `WidgetStatus`).
@@ -537,6 +551,9 @@ impl Session {
             Request::KnowledgeReview => return json(&self.knowledge_review()?),
             Request::KnowledgeText { id } => return json(&self.knowledge_text(&id)?),
             Request::ApproveKnowledge { files } => self.approve_knowledge(&files)?,
+            Request::KnowledgeTree => return json(&self.knowledge_tree()?),
+            Request::KnowledgePage { id } => return json(&self.knowledge_page(&id)?),
+            Request::KnowledgeAsset { id, asset } => return json(&self.knowledge_asset(&id, &asset)?),
             Request::RemoveWidget { pack, name } => {
                 let statuses = self.remove_widget(pack.as_ref(), &name)?;
                 self.persist(true);
@@ -675,6 +692,9 @@ impl Session {
                     | Request::KnowledgeReview
                     | Request::KnowledgeText { .. }
                     | Request::ApproveKnowledge { .. }
+                    | Request::KnowledgeTree
+                    | Request::KnowledgePage { .. }
+                    | Request::KnowledgeAsset { .. }
             ),
             !matches!(
                 req,

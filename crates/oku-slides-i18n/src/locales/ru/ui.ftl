@@ -541,3 +541,24 @@ ui-knowledge-more = { $count ->
    *[other] Ещё { $count } файла не показаны в списке.
   }
 ui-knowledge-close = Закрыть
+ui-knowledge-link-broken = Этого файла нет в базе знаний.
+ui-knowledge-tree-label = Файлы знаний
+ui-knowledge-empty = В этой презентации пока нет знаний.
+ui-knowledge-awaiting-badge = Ожидает одобрения
+ui-knowledge-file-gone = Файл { $path } удалён из базы знаний.
+ui-knowledge-truncated = Остаток этого файла ({ NUMBER($kb) } КБ) не показан.
+ui-knowledge-in-history = База знаний недоступна во время просмотра истории.
+ui-knowledge-header-invalid = Не удаётся прочитать frontmatter этого файла: показан исходный текст.
+ui-markdown-failed = Не удалось показать этот текст.
+ui-markdown-link-blocked = Эту ссылку нельзя открыть отсюда.
+ui-knowledge-close-file = Закрыть файл
+ui-knowledge-open-files = Открытые файлы
+ui-knowledge-header-type = Тип
+ui-knowledge-header-status = Статус
+ui-knowledge-header-tags = Теги
+ui-knowledge-header-generated = Создано
+ui-knowledge-header-verified = Проверено
+ui-knowledge-header-stale = Устарело
+ui-knowledge-header-sources = Источники
+ui-knowledge-tab-title = { $name } — Знания
+ui-knowledge-open = База знаний

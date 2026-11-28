@@ -226,6 +226,7 @@ impl Session {
             theme: Some(edit.draft.base.id),
             document: TabDocument::Theme { theme: edit.draft.base.id },
             created: edit.created_empty,
+            knowledge: None,
         })
     }
 

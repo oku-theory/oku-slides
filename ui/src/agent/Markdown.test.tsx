@@ -3,7 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Markdown } from "./Markdown";
 
-const html = (text: string) => renderToStaticMarkup(createElement(Markdown, { text }));
+const html = (text: string, agentWindow = false) =>
+  renderToStaticMarkup(createElement(Markdown, { text, agentWindow }));
 
 describe("Markdown des réponses de l'agent", () => {
   test("Markdown paragraphes séparés par une ligne vide donne deux paragraphes", () => {
@@ -34,8 +35,43 @@ describe("Markdown des réponses de l'agent", () => {
     expect(html("## Plan\ntexte")).toBe('<p class="md-heading">Plan</p><p>texte</p>');
   });
 
-  test("Markdown lien http s'ouvre ailleurs", () => {
-    expect(html("[doc](https://oku.dev)")).toBe('<p><a href="https://oku.dev" target="_blank" rel="noreferrer">doc</a></p>');
+  test("Markdown http link opens elsewhere with its destination as title", () => {
+    expect(html("[doc](https://oku.dev)")).toBe(
+      '<p><a href="https://oku.dev" title="https://oku.dev" target="_blank" rel="noopener noreferrer">doc</a></p>',
+    );
+  });
+
+  test("Markdown link href encoded backslash and space", () => {
+    expect(html("[doc](<https://oku.dev/a b\\c>)")).toBe(
+      '<p><a href="https://oku.dev/a%20b%5Cc" title="https://oku.dev/a b\\c" target="_blank" rel="noopener noreferrer">doc</a></p>',
+    );
+  });
+
+  test("Markdown deep nesting renders as text past the cap", () => {
+    const out = html(`${">".repeat(10000)} deep`);
+    expect(out.split("<blockquote>").length - 1).toBeLessThanOrEqual(64);
+    expect(out).toContain("deep");
+  });
+
+  test("Markdown deep nested lists render as text past the cap", () => {
+    const out = html(Array.from({ length: 1000 }, (_, i) => `${"  ".repeat(i)}- item${i}`).join("\n"));
+    expect(out.split("<ul>").length - 1).toBeLessThanOrEqual(64);
+    expect(out).toContain("item999");
+  });
+
+  test("Markdown http link in the agent window shown broken", () => {
+    expect(html("[doc](http://oku.dev) <http://oku.dev/x>", true)).toBe(
+      '<p><span class="md-link-broken" title="ui-markdown-link-blocked">doc</span> ' +
+        '<span><span class="md-link-broken" title="ui-markdown-link-blocked">http://oku.dev/x</span></span></p>',
+    );
+  });
+
+  test("Markdown https link in the agent window opens elsewhere", () => {
+    expect(html("[doc](https://oku.dev)", true)).toContain('<a href="https://oku.dev"');
+  });
+
+  test("Markdown http link in a workspace window opens elsewhere", () => {
+    expect(html("[doc](http://oku.dev)")).toContain('<a href="http://oku.dev"');
   });
 
   test("Markdown lien javascript reste du texte", () => {

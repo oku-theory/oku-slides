@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Dieser Tab zeigt eine Präsentation: Diese Änderung erfolgt in einem Design-Tab.
     [help] Die Hilfe ist schreibgeschützt: Diese Änderung erfolgt in einem Design-Tab.
     [pack] Dieser Tab bearbeitet ein Paket: Das Design wird im Tab der Präsentation geändert, seine Werte in einem Design-Tab.
+    [knowledge] Dieser Tab zeigt die Wissensbasis einer Präsentation: Diese Änderung erfolgt im Tab der Präsentation.
    *[theme] Dieser Tab bearbeitet ein Design: Hier ändern sich nur seine Werte, sein Name und die Designs, die es erweitert.
 }
 session-in-pack-tab = Dieser Tab bearbeitet ein Paket: Schließen Sie ihn, um fertig zu werden; Pakete einer einzelnen Präsentation öffnen sich aus dem Tab dieser Präsentation.
@@ -764,6 +765,7 @@ session-knowledge-id-not-found = Keine Wissensdatei hat die ID { $id }.
 session-knowledge-changed = Die Wissensdatei { $path } hat sich geändert, seit sie angezeigt wurde: Prüfen Sie sie erneut.
 session-knowledge-too-large-to-approve = Die Wissensdatei { $path } ist zu groß für eine Freigabe: Löschen Sie sie.
 session-knowledge-approval-invalid = Diese Freigabe nennt eine Datei zweimal oder zu viele Dateien.
+session-knowledge-asset-unavailable = Das Wissensbild { $asset } ist nicht verfügbar.
 session-knowledge-import-failed = Das Dokument konnte nicht innerhalb seiner Zeit- und Speichergrenzen gelesen werden: Nichts wurde importiert.
 session-knowledge-import-refused = Das Dokument wurde nicht importiert — { $reason }.
 session-attachment-gone = Dieser Anhang wird nicht mehr aufbewahrt: Hänge das Dokument erneut an.

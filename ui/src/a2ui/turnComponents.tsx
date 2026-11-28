@@ -7,6 +7,7 @@ import { createComponentImplementation } from "@a2ui/react/v0_9";
 import { CommonSchemas, type ComponentContext } from "@a2ui/web_core/v0_9";
 import { Markdown as MarkdownView } from "../agent/Markdown";
 import { imageLabel } from "../agent/attachments";
+import { isAgentWindow } from "../agent/target";
 import { t } from "../i18n";
 import { useRememberedOpen } from "./openMemory";
 import { Hex, ToneSchema, toneClass } from "./schemas";
@@ -113,7 +114,7 @@ function StepRow({ step, context, part }: { step: z.infer<typeof Step>; context:
     // `status` vient de l'énumération de `Step` : une valeur sûre.
     <li className={`a2ui-step ${step.status}`}>
       {more ? <Toggle open={open} onToggle={() => setOpen(!open)} className="a2ui-step-toggle">{head}</Toggle> : <div className="a2ui-step-row">{head}</div>}
-      {open && step.detail !== undefined && <div className="a2ui-step-detail md"><MarkdownView text={step.detail} /></div>}
+      {open && step.detail !== undefined && <div className="a2ui-step-detail md"><MarkdownView text={step.detail} agentWindow={isAgentWindow()} /></div>}
       {open && calls.length > 0 && (
         <ol className="a2ui-calls">
           {calls.map((c, i) => <CallRow key={first + i} call={c} context={context} part={`${part}.${first + i}`} />)}
@@ -203,5 +204,5 @@ export const Badge = createComponentImplementation(BadgeApi, ({ props }) => (
 
 /** Du Markdown, sans HTML brut. */
 export const Markdown = createComponentImplementation(MarkdownApi, ({ props }) => (
-  <div className="a2ui-md md"><MarkdownView text={props.text ?? ""} /></div>
+  <div className="a2ui-md md"><MarkdownView text={props.text ?? ""} agentWindow={isAgentWindow()} /></div>
 ));

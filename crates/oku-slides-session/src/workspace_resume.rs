@@ -38,7 +38,7 @@ type Entry = (WindowLayout, Vec<(String, Option<TabInfo>)>);
 #[derive(Serialize)]
 struct SavedTabInfo<'a> {
     #[serde(flatten)]
-    info: &'a TabInfo,
+    info: TabInfo,
     /// The deck's file; `None` for any other document.
     path: Option<&'a Path>,
     /// The deck's identity; `None` for any other document.
@@ -51,6 +51,8 @@ impl<'a> SavedTabInfo<'a> {
     /// `info` with the legacy keys derived from its document.
     fn new(info: &'a TabInfo) -> Self {
         let document = &info.document;
+        // The knowledge revision is live, never saved: it is rebuilt when the tab wakes.
+        let info = TabInfo { knowledge: None, ..info.clone() };
         Self { info, path: document.path(), deck_uid: document.deck_uid(), help: document.help_locale() }
     }
 }
@@ -291,7 +293,8 @@ impl Workspace {
         Ok(cited)
     }
 
-    /// Restores `entries`' tabs: every other tab first, then each deck-pack tab whose owner is a restored deck.
+    /// Restores `entries`' tabs: every other tab first, then each deck-pack tab whose owner is a restored deck,
+    /// then the knowledge tabs ([`Workspace::restore_knowledge`]).
     ///
     /// The pre-pass sets aside a deck-pack entry whose owner is not a
     /// restored tab of kind exactly `Deck`, or that repeats an earlier
@@ -300,12 +303,19 @@ impl Workspace {
     /// once it wakes. Returns the restored ids.
     fn restore_entries(&mut self, dir: &Path, entries: &mut [Entry]) -> HashSet<String> {
         let mut restored = HashSet::new();
-        let mut deck_packs = Vec::new();
+        let (mut deck_packs, mut knowledge) = (Vec::new(), Vec::new());
         for (id, info) in entries.iter_mut().flat_map(|(_, tabs)| tabs.iter_mut()) {
-            if let Some(TabDocument::DeckPack { deck_tab, pack }) = info.as_ref().map(|i| &i.document) {
-                deck_packs.push((id.clone(), deck_tab.clone(), *pack, info.take()));
-            } else if self.restore_tab(dir, id, info.take()) {
-                restored.insert(id.clone());
+            match info.as_ref().map(|i| &i.document) {
+                Some(TabDocument::DeckPack { deck_tab, pack }) => {
+                    deck_packs.push((id.clone(), deck_tab.clone(), *pack, info.take()));
+                }
+                // Holds no state: rebuilt from its owner once that is restored.
+                Some(TabDocument::Knowledge { deck_tab }) => knowledge.push((id.clone(), deck_tab.clone())),
+                _ => {
+                    if self.restore_tab(dir, id, info.take()) {
+                        restored.insert(id.clone());
+                    }
+                }
             }
         }
         let mut seen = HashSet::new();
@@ -322,6 +332,7 @@ impl Workspace {
                 restored.insert(id);
             }
         }
+        self.restore_knowledge(knowledge, &mut restored);
         if let Some(owner) = set_aside.first() {
             let first = entries.iter().flat_map(|(_, tabs)| tabs).map(|(id, _)| id).find(|id| restored.contains(*id));
             let target = Some(owner).filter(|o| restored.contains(*o)).or(first).cloned();

@@ -514,3 +514,24 @@ ui-knowledge-more = { $count ->
    *[other] আরও { $count }টি ফাইল তালিকায় নেই।
   }
 ui-knowledge-close = বন্ধ করুন
+ui-knowledge-link-broken = এই ফাইলটি জ্ঞানভান্ডারে নেই।
+ui-knowledge-tree-label = জ্ঞান ফাইল
+ui-knowledge-empty = এই উপস্থাপনায় এখনও কোনো জ্ঞান নেই।
+ui-knowledge-awaiting-badge = অনুমোদনের অপেক্ষায়
+ui-knowledge-file-gone = { $path } জ্ঞানভান্ডার থেকে সরানো হয়েছে।
+ui-knowledge-truncated = এই ফাইলের বাকি অংশ ({ NUMBER($kb) } KB) দেখানো হয়নি।
+ui-knowledge-in-history = ইতিহাস দেখার সময় জ্ঞানভান্ডার পাওয়া যায় না।
+ui-knowledge-header-invalid = এই ফাইলের frontmatter পড়া যাচ্ছে না: এর মূল লেখা দেখানো হচ্ছে।
+ui-markdown-failed = এই লেখাটি দেখানো যায়নি।
+ui-markdown-link-blocked = এই লিংকটি এখান থেকে খোলা যায় না।
+ui-knowledge-close-file = ফাইল বন্ধ করুন
+ui-knowledge-open-files = খোলা ফাইল
+ui-knowledge-header-type = ধরন
+ui-knowledge-header-status = অবস্থা
+ui-knowledge-header-tags = ট্যাগ
+ui-knowledge-header-generated = তৈরি
+ui-knowledge-header-verified = যাচাইকৃত
+ui-knowledge-header-stale = পুরোনো
+ui-knowledge-header-sources = উৎস
+ui-knowledge-tab-title = { $name } — জ্ঞান
+ui-knowledge-open = জ্ঞানভান্ডার

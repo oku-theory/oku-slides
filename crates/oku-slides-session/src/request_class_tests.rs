@@ -137,6 +137,23 @@ fn knowledge_requests() -> [Request; 3] {
 }
 
 #[test]
+fn knowledge_reading_requests_change_no_deck() {
+    let requests = [
+        Request::KnowledgeTree,
+        Request::KnowledgePage { id: "0".repeat(32) },
+        Request::KnowledgeAsset { id: "0".repeat(32), asset: "sha256:00".into() },
+    ];
+    for request in requests {
+        assert_that!(request.changes_deck()).is_false();
+        assert_that!(request.writes_edited_draft()).is_false();
+        assert_that!(request.theme_tab_allows()).is_false();
+        assert_that!(request.edits()).is_false();
+        assert_that!(request.ends_widget_session()).is_false();
+        assert_that!(request.reviews_deck_knowledge()).is_true();
+    }
+}
+
+#[test]
 fn knowledge_review_requests_change_no_deck_and_fit_no_theme_tab() {
     for request in knowledge_requests() {
         assert_that!(request.changes_deck()).is_false();

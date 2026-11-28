@@ -250,6 +250,22 @@ pub trait AgentWorkspace: Send + Sync + std::fmt::Debug {
         let _ = (tab, path, target, gate);
         Err(WorkspaceRefusal::unavailable())
     }
+
+    /// Opens deck tab `tab`'s knowledge tab beside it (`NewTab`), or focuses the one it has (`Focus`).
+    ///
+    /// Either is shown only if `tab` is its window's active tab (t-1191).
+    ///
+    /// # Errors
+    ///
+    /// `Unavailable`, `UnknownTab`, `Closing`; `WrongDocument` (the session's) outside a deck tab.
+    ///
+    /// # Blocking
+    ///
+    /// Takes the workspace lock alone. No gate: a read-only view holds no work to protect.
+    fn open_knowledge(&self, tab: &str) -> Result<TabOpen, WorkspaceRefusal> {
+        let _ = tab;
+        Err(WorkspaceRefusal::unavailable())
+    }
 }
 
 /// A workspace with no focused tab, for hosts and tests without windows.

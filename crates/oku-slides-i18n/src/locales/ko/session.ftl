@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] 이 탭은 프레젠테이션을 보여 줍니다: 이 변경은 테마 탭에서 합니다.
     [help] 도움말은 읽기 전용입니다: 이 변경은 테마 탭에서 합니다.
     [pack] 이 탭은 팩을 편집합니다: 테마는 프레젠테이션 탭에서, 그 값은 테마 탭에서 바꿉니다.
+    [knowledge] 이 탭은 프레젠테이션의 지식 베이스를 보여 줍니다: 이 변경은 프레젠테이션 탭에서 합니다.
    *[theme] 이 탭은 테마를 편집합니다: 여기서는 그 값과 이름, 확장하는 테마만 바뀝니다.
 }
 session-in-pack-tab = 이 탭은 팩을 편집합니다. 끝내려면 탭을 닫으세요. 프레젠테이션 전용 팩은 그 프레젠테이션의 탭에서 엽니다.
@@ -748,6 +749,7 @@ session-knowledge-id-not-found = ID가 { $id }인 지식 파일이 없습니다.
 session-knowledge-changed = 지식 파일 { $path }이(가) 표시된 후 변경되었습니다. 다시 검토하세요.
 session-knowledge-too-large-to-approve = 지식 파일 { $path }은(는) 너무 커서 승인할 수 없습니다. 삭제하세요.
 session-knowledge-approval-invalid = 이 승인은 파일 하나를 두 번 지정하거나 너무 많은 파일을 지정합니다.
+session-knowledge-asset-unavailable = 지식 이미지 { $asset }을(를) 사용할 수 없습니다.
 session-knowledge-import-failed = 시간 및 메모리 제한 안에서 문서를 읽지 못했습니다. 아무것도 가져오지 않았습니다.
 session-knowledge-import-refused = 문서를 가져오지 않았습니다 — { $reason }.
 session-attachment-gone = 이 첨부 파일은 더 이상 보관되지 않습니다. 문서를 다시 첨부하세요.

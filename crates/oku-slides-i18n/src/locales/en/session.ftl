@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] This tab shows a deck: that change is made in a theme tab.
     [help] The help is read-only: that change is made in a theme tab.
     [pack] This tab edits a pack: the theme changes in the deck's tab, its values in a theme tab.
+    [knowledge] This tab shows a deck's knowledge base: that change is made in the deck's tab.
    *[theme] This tab edits a theme: only its values, its name and the themes it extends change here.
 }
 session-in-pack-tab = This tab edits a pack: close it to finish; deck-only packs open from their deck's tab.
@@ -764,6 +765,7 @@ session-knowledge-id-not-found = No knowledge file has the id { $id }.
 session-knowledge-changed = The knowledge file { $path } changed since it was shown: review it again.
 session-knowledge-too-large-to-approve = The knowledge file { $path } is too large to approve: delete it.
 session-knowledge-approval-invalid = This approval names a file twice or too many files.
+session-knowledge-asset-unavailable = The knowledge image { $asset } is not available.
 session-knowledge-import-failed = The document could not be read within its time and memory bounds: nothing was imported.
 session-knowledge-import-refused = The document was not imported — { $reason }.
 session-attachment-gone = This attachment is no longer kept: attach the document again.

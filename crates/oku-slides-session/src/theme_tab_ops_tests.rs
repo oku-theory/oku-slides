@@ -44,6 +44,7 @@ fn session_of(kind: DocumentKind, data: &std::path::Path) -> Session {
         DocumentKind::Help => s.open_help("fr", None).unwrap(),
         DocumentKind::Pack => s.open_pack_tab_here(ESSENTIEL_PACK, None).unwrap(),
         DocumentKind::Theme => s.open_theme_here(PAPIER_THEME).unwrap(),
+        DocumentKind::Knowledge => panic!("no session shows a knowledge tab"),
     }
     s
 }

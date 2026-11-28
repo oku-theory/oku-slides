@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] 此分頁顯示的是簡報：此變更需在主題分頁中進行。
     [help] 說明為唯讀：此變更需在主題分頁中進行。
     [pack] 此分頁正在編輯一個套件：主題在簡報的分頁中變更，其取值在主題分頁中變更。
+    [knowledge] 此分頁顯示簡報的知識庫：此變更需在簡報的分頁中進行。
    *[theme] 此分頁正在編輯一個主題：這裡只能變更它的取值、名稱以及它延伸的主題。
 }
 session-in-pack-tab = 此分頁正在編輯一個套件：關閉它即可完成；簡報專用的套件從該簡報的分頁開啟。
@@ -748,6 +749,7 @@ session-knowledge-id-not-found = 沒有 ID 為 { $id } 的知識檔案。
 session-knowledge-changed = 知識檔案 { $path } 在顯示後已變更：請重新審閱。
 session-knowledge-too-large-to-approve = 知識檔案 { $path } 太大，無法核准：請刪除它。
 session-knowledge-approval-invalid = 此核准兩次指定了同一個檔案，或指定的檔案過多。
+session-knowledge-asset-unavailable = 知識圖片 { $asset } 無法使用。
 session-knowledge-import-failed = 無法在時間與記憶體限制內讀取該文件：未匯入任何內容。
 session-knowledge-import-refused = 文件未匯入 — { $reason }。
 session-attachment-gone = 此附件已不再保留：請重新附加該文件。

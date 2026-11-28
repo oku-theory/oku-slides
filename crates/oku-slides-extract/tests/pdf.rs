@@ -8,8 +8,9 @@ mod common;
 use std::path::Path;
 
 use common::{
-    PageSpec, extract, limits, pdf_encrypted, pdf_form_cycle, pdf_kids_cycle, pdf_objstm_bomb, pdf_pages,
-    pdf_parent_cycle, pdf_prev_loop, pdf_shared_form, pdf_shared_subtree, pdf_titled, pdf_xref_stream_bomb, read,
+    PageSpec, extract, limits, pdf_encrypted, pdf_form_cycle, pdf_hand_written, pdf_kids_cycle, pdf_objstm_bomb,
+    pdf_pages, pdf_parent_cycle, pdf_prev_loop, pdf_shared_form, pdf_shared_subtree, pdf_titled, pdf_xref_stream_bomb,
+    read,
 };
 use oku_slides_core::knowledge::{CutKind, DocumentType, ExtractRefusal};
 use oku_slides_core::knowledge::{Extracted, MAX_TITLE_CHARS};
@@ -339,4 +340,19 @@ fn pdf_many_large_fonts_stop_at_read_total_stated() {
     let left = cut(&out, CutKind::Pages).unwrap_or_else(|| panic!("no pages cut: {}", out.markdown));
     assert_that!(left).is_greater_than_or_equal_to(15);
     assert_that!(out.markdown.as_str()).contains(format!("… {left} pages not imported (past the read limits)"));
+}
+
+/// The asset id of the PDF `ui/e2e/460-knowledge-tab.cjs` attaches, pinned there too.
+const E2E_PDF_ID: &str = "sha256:a67ffa35c1576965fc27e699bfa36e41f7ec6b6fcf31c7e585ac2fe0a23105de";
+
+/// t-1761: the PDF the knowledge tab e2e attaches, written like `ui/e2e/lib/pdf.cjs` writes
+/// it, extracts to its one line of text.
+#[test]
+fn pdf_hand_written_page_extracts_its_text() {
+    let bytes = pdf_hand_written("Knowledge e2e marker");
+    // The e2e pins the same hash: both sides write the same bytes.
+    assert_that!(oku_slides_core::asset_id(&bytes).as_str()).is_equal_to(E2E_PDF_ID);
+    let out = extracted(&bytes);
+    assert_that!(out.markdown.as_str()).contains("## Page 1\n\nKnowledge e2e marker");
+    assert_that!(out.cuts.is_empty()).is_true();
 }

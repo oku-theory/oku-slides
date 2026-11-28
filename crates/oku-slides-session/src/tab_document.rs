@@ -40,6 +40,11 @@ pub enum TabDocument {
         /// The edited pack's id.
         pack: Uuid,
     },
+    /// A deck's knowledge base: a view over its deck tab, with no session of its own.
+    Knowledge {
+        /// The owner deck's tab id.
+        deck_tab: String,
+    },
 }
 
 impl TabDocument {
@@ -51,6 +56,7 @@ impl TabDocument {
             Self::Help { .. } => DocumentKind::Help,
             Self::Pack { .. } | Self::DeckPack { .. } => DocumentKind::Pack,
             Self::Theme { .. } => DocumentKind::Theme,
+            Self::Knowledge { .. } => DocumentKind::Knowledge,
         }
     }
 
@@ -59,7 +65,11 @@ impl TabDocument {
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::Deck { path, .. } => path.as_deref(),
-            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::DeckPack { .. } => None,
+            Self::Help { .. }
+            | Self::Pack { .. }
+            | Self::Theme { .. }
+            | Self::DeckPack { .. }
+            | Self::Knowledge { .. } => None,
         }
     }
 
@@ -68,7 +78,11 @@ impl TabDocument {
     pub fn deck_uid(&self) -> Option<&str> {
         match self {
             Self::Deck { deck_uid, .. } => deck_uid.as_deref(),
-            Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::DeckPack { .. } => None,
+            Self::Help { .. }
+            | Self::Pack { .. }
+            | Self::Theme { .. }
+            | Self::DeckPack { .. }
+            | Self::Knowledge { .. } => None,
         }
     }
 
@@ -77,16 +91,34 @@ impl TabDocument {
     pub fn help_locale(&self) -> Option<&str> {
         match self {
             Self::Help { locale } => Some(locale),
-            Self::Deck { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::DeckPack { .. } => None,
+            Self::Deck { .. }
+            | Self::Pack { .. }
+            | Self::Theme { .. }
+            | Self::DeckPack { .. }
+            | Self::Knowledge { .. } => None,
         }
     }
 
-    /// The owner deck's tab, for a deck-pack tab.
+    /// The owner deck's tab, for a deck-pack or knowledge tab.
+    ///
+    /// For what follows the owner whatever the companion: focus on close, title. Links,
+    /// flushes and forwards hold work and follow [`Self::deck_pack_owner`] instead.
     #[must_use]
     pub fn deck_tab(&self) -> Option<&str> {
         match self {
-            Self::DeckPack { deck_tab, .. } => Some(deck_tab),
+            Self::DeckPack { deck_tab, .. } | Self::Knowledge { deck_tab } => Some(deck_tab),
             Self::Deck { .. } | Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } => None,
+        }
+    }
+
+    /// The owner deck's tab, for a deck-pack tab only: the one its links and forwards follow.
+    #[must_use]
+    pub fn deck_pack_owner(&self) -> Option<&str> {
+        match self {
+            Self::DeckPack { deck_tab, .. } => Some(deck_tab),
+            Self::Deck { .. } | Self::Help { .. } | Self::Pack { .. } | Self::Theme { .. } | Self::Knowledge { .. } => {
+                None
+            }
         }
     }
 }

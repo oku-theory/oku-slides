@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] このタブはプレゼンテーションを表示しています。この変更はテーマのタブで行います。
     [help] ヘルプは読み取り専用です。この変更はテーマのタブで行います。
     [pack] このタブはパックを編集しています。テーマはプレゼンテーションのタブで、その値はテーマのタブで変更します。
+    [knowledge] このタブはプレゼンテーションのナレッジベースを表示しています。この変更はプレゼンテーションのタブで行います。
    *[theme] このタブはテーマを編集しています。ここで変更できるのは、その値と名前、拡張するテーマだけです。
 }
 session-in-pack-tab = このタブはパックを編集しています。終了するには閉じてください。プレゼンテーション専用のパックは、そのプレゼンテーションのタブから開きます。
@@ -748,6 +749,7 @@ session-knowledge-id-not-found = ID { $id } のナレッジファイルはあり
 session-knowledge-changed = ナレッジファイル { $path } は表示後に変更されました。もう一度確認してください。
 session-knowledge-too-large-to-approve = ナレッジファイル { $path } は大きすぎて承認できません。削除してください。
 session-knowledge-approval-invalid = この承認は同じファイルを2回、または多すぎるファイルを指定しています。
+session-knowledge-asset-unavailable = ナレッジ画像 { $asset } は利用できません。
 session-knowledge-import-failed = 時間とメモリの制限内でドキュメントを読み取れませんでした。何もインポートされていません。
 session-knowledge-import-refused = ドキュメントはインポートされませんでした — { $reason }。
 session-attachment-gone = この添付ファイルはもう保持されていません。ドキュメントをもう一度添付してください。

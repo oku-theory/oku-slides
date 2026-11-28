@@ -44,8 +44,9 @@ impl Workspace {
         }
         let (closing, discarded) = w.window_closing(window, discard);
         if w.tab_ids().iter().all(|id| closing.contains(id)) {
-            let linked =
-                discarded.iter().filter(|id| w.tabs.get(*id).is_some_and(|t| t.info.document.deck_tab().is_some()));
+            let linked = discarded
+                .iter()
+                .filter(|id| w.tabs.get(*id).is_some_and(|t| t.info.document.deck_pack_owner().is_some()));
             let linked: Vec<String> = linked.cloned().collect();
             w.discard_at_quit.extend(linked.iter().cloned());
             let json = w.view_json();
@@ -62,7 +63,7 @@ impl Workspace {
         let unlinked: Vec<(String, String)> = closing
             .iter()
             .filter_map(|id| {
-                let owner = w.tabs.get(id)?.info.document.deck_tab()?.to_owned();
+                let owner = w.tabs.get(id)?.info.document.deck_pack_owner()?.to_owned();
                 (!closing.contains(&owner)).then(|| (owner, id.clone()))
             })
             .collect();

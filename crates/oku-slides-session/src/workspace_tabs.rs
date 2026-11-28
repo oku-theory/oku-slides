@@ -15,7 +15,7 @@ use crate::import::{ImportRequest, ImportTarget, PackLookup, import};
 use crate::library_packs::{DraftKind, PackLibrary};
 use crate::pack_lease::PackLease;
 use crate::pack_tab::PreviewSeed;
-use crate::{TabDocument, TabInfo};
+use crate::{DocumentKind, TabDocument, TabInfo};
 
 use super::{
     Fonts, Platform, Result, Session, Slot, TABS_DIR, Tab, TabPlace, UnknownTabSnafu, UnknownWindowSnafu, UnsavedSnafu,
@@ -68,7 +68,10 @@ impl Trash {
         match info.document {
             TabDocument::Pack { .. } => Some((DraftKind::Pack, created)),
             TabDocument::Theme { .. } => Some((DraftKind::Theme, created)),
-            TabDocument::Deck { .. } | TabDocument::Help { .. } | TabDocument::DeckPack { .. } => None,
+            TabDocument::Deck { .. }
+            | TabDocument::Help { .. }
+            | TabDocument::DeckPack { .. }
+            | TabDocument::Knowledge { .. } => None,
         }
     }
 }
@@ -79,7 +82,10 @@ pub(super) fn shown_drafts<'a>(infos: impl Iterator<Item = &'a TabInfo>) -> Vec<
         .filter_map(|info| match info.document {
             TabDocument::Pack { pack } => Some(pack),
             TabDocument::Theme { theme } => Some(theme),
-            TabDocument::Deck { .. } | TabDocument::Help { .. } | TabDocument::DeckPack { .. } => None,
+            TabDocument::Deck { .. }
+            | TabDocument::Help { .. }
+            | TabDocument::DeckPack { .. }
+            | TabDocument::Knowledge { .. } => None,
         })
         .collect()
 }
@@ -515,6 +521,8 @@ impl Workspace {
                 tracing::warn!(tab = %r, error = %e.one_line(), "blank tab not removed");
             }
             gone.extend(w.remove_tab(&r));
+            // A pristine deck can hold a knowledge tab: it goes with its owner.
+            gone.extend(w.remove_knowledge_of(&r));
         }
         // Whether it ended up its window's active tab: a fallback new window activates it unasked.
         let shown = w.tab_shown(&id);
@@ -590,7 +598,7 @@ impl Workspace {
         }
     }
 
-    fn next_tab_id(&mut self) -> String {
+    pub(super) fn next_tab_id(&mut self) -> String {
         let id = format!("t-{}", self.layout.next_tab);
         self.layout.next_tab = self.layout.next_tab.saturating_add(1);
         id
@@ -627,6 +635,7 @@ impl Workspace {
             | WorkspaceRequest::NewPack { .. }
             | WorkspaceRequest::NewTheme { .. }
             | WorkspaceRequest::PackOpener { .. }
+            | WorkspaceRequest::OpenKnowledge { .. }
             // Handled in `apply` itself (flushed outside the lock first, the last
             // window decided under the same lock as the close): never reached here.
             | WorkspaceRequest::Close { .. }
@@ -645,9 +654,10 @@ impl Workspace {
     /// retente, ou abandonne. So does a clean deck holding agent usage that
     /// no close tried to write (its session was busy for the pre-phase,
     /// [`Workspace::save_pending_usages`]): the retried close writes it.
+    /// A knowledge tab, a view holding nothing, always closes.
     pub(super) fn ensure_closable(&self, tab: &str, discard: bool) -> Result<()> {
         let t = self.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
-        if discard {
+        if discard || t.info.document.kind() == DocumentKind::Knowledge {
             return Ok(());
         }
         let state = t

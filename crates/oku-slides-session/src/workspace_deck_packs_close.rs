@@ -4,9 +4,10 @@
 //! decides anything: the pre-phase, outside the workspace lock, flushes the
 //! tabs the close takes through the public forward path (`flush_linked`).
 //! Under the lock an owner closes with its linked tabs, each checked by
-//! `ensure_closable`; a close whose linked tabs would empty the workspace
-//! closes nothing (`Closed::LastWindow`), while a plain last tab closes as
-//! before. A quit flushes every awake deck-pack tab, except those a refused
+//! `ensure_closable`; a close whose linked deck-pack tabs would empty the
+//! workspace closes nothing (`Closed::LastWindow`), while a plain last tab
+//! closes as before, with its knowledge tab if any (a view, holding no work).
+//! A quit flushes every awake deck-pack tab, except those a refused
 //! close discarded (`flush_all_deck_packs`), whose unsent saves are dropped
 //! (`drop_unsent`). A link pending while its tab is built is cancelled
 //! explicitly (`PendingLink`).
@@ -111,7 +112,7 @@ fn unlink_ready(slot: &mut Slot, tab: &str) -> bool {
             owner.unlink_deck_pack(tab);
             true
         }
-        Slot::Dormant(_) | Slot::Closed(_) => false,
+        Slot::Dormant(_) | Slot::Closed(_) | Slot::View => false,
     }
 }
 
@@ -159,7 +160,7 @@ impl Workspace {
             w.tab_ids()
                 .into_iter()
                 .filter(|id| !w.discard_at_quit.contains(id))
-                .filter(|id| w.tabs.get(id).is_some_and(|t| t.info.document.deck_tab().is_some() && awake(t)))
+                .filter(|id| w.tabs.get(id).is_some_and(|t| t.info.document.deck_pack_owner().is_some() && awake(t)))
                 .collect()
         };
         for tab in tabs {
@@ -167,13 +168,14 @@ impl Workspace {
         }
     }
 
-    /// Closes `tab` with its linked tabs, or keeps all when they empty everything.
+    /// Closes `tab` with its linked tabs and knowledge tab; keeps all when linked tabs empty everything.
     ///
     /// Each closed tab passes `ensure_closable` (dirty or unsent refuses
     /// unless `discard`); the owner is detached first, handing the focus to
-    /// its opener. A tab with no linked tab closes even when it is the last
-    /// one. A refused last close with `discard` records the linked tabs as
-    /// discarded at quit, until each one closes, and returns them.
+    /// its opener. A tab without linked deck-pack tabs closes even when it is
+    /// the last one, its knowledge tab with it: a view keeps no work. A refused
+    /// last close with `discard` records the linked tabs as discarded at quit,
+    /// until each one closes, and returns them.
     ///
     /// # Errors
     ///
@@ -181,8 +183,10 @@ impl Workspace {
     pub(super) fn close_with_links(&mut self, tab: &str, discard: bool) -> Result<Closed> {
         self.tabs.get(tab).context(UnknownTabSnafu { id: tab })?;
         let linked = self.linked_tabs(tab);
-        let closing: Vec<&str> = std::iter::once(tab).chain(linked.iter().map(String::as_str)).collect();
-        // A plain last tab closes as before (the host quits on the empty view).
+        let knowledge = self.knowledge_tab_of(tab);
+        let closing: Vec<&str> =
+            std::iter::once(tab).chain(linked.iter().chain(&knowledge).map(String::as_str)).collect();
+        // A last tab without deck-pack tabs closes as before (the host quits on the empty view).
         if !linked.is_empty() && self.tab_ids().iter().all(|id| closing.contains(&id.as_str())) {
             let discarded = if discard { linked } else { Vec::new() };
             self.discard_at_quit.extend(discarded.iter().cloned());
@@ -200,6 +204,7 @@ impl Workspace {
             }
             gone.extend(self.remove_tab(&t));
         }
+        gone.extend(self.remove_knowledge_of(tab));
         Ok(Closed::Gone(gone))
     }
 
@@ -208,12 +213,21 @@ impl Workspace {
     /// A deck-pack tab closed alone is flushed, removed, unlinked from its
     /// owner (lock released), and gives its owner the focus. A flush that reached
     /// the owner is in `touched` (`forward`): the host's drain runs its after-change once.
+    /// A knowledge tab closed alone is only removed, giving its owner the focus.
     pub(super) fn close_tab(ws: &Mutex<Self>, tab: &str, discard: bool) -> Result<WorkspaceOutcome> {
-        let owner = Self::lock(ws).tabs.get(tab).and_then(|t| t.info.document.deck_tab().map(str::to_owned));
-        match (&owner, discard) {
-            (_, true) => {}
-            (Some(_), false) => Self::flush_deck_pack_tab(ws, tab),
-            (None, false) => {
+        let (owner, deck_pack) = {
+            let w = Self::lock(ws);
+            let document = w.tabs.get(tab).map(|t| &t.info.document);
+            (
+                document.and_then(|d| d.deck_tab().map(str::to_owned)),
+                document.is_some_and(|d| d.deck_pack_owner().is_some()),
+            )
+        };
+        match (&owner, deck_pack, discard) {
+            // A knowledge tab holds nothing to flush.
+            (_, _, true) | (Some(_), false, false) => {}
+            (Some(_), true, false) => Self::flush_deck_pack_tab(ws, tab),
+            (None, _, false) => {
                 Self::flush_linked(ws, tab);
                 Self::save_pending_usages(ws, &[tab.to_owned()]);
             }
@@ -240,7 +254,7 @@ impl Workspace {
         let (json, trash) = (w.view_json(), w.trash());
         drop(w);
         trash.empty(gone);
-        let Some(owner) = owner else { return json.map(WorkspaceOutcome::Applied) };
+        let Some(owner) = owner.filter(|_| deck_pack) else { return json.map(WorkspaceOutcome::Applied) };
         // A dormant owner holds no links: it takes the layout's, this tab gone, at its wake.
         let sleeping = Self::lock(ws).session(&owner).is_ok_and(|slot| asleep(&slot));
         if sleeping {
@@ -254,13 +268,18 @@ impl Workspace {
 
     /// Every tab `CloseWindow` would close, and those of them discarded.
     ///
-    /// The first list is the window's own tabs plus the tabs linked to its decks, in other
-    /// windows too. The second is `discard` among them, plus each tab linked
+    /// The first list is the window's own tabs plus the tabs linked to its decks and their
+    /// knowledge tabs, in other windows too. The second is `discard` among them, plus each tab linked
     /// to a discarded owner; the caller flushes the others first.
     pub(super) fn window_closing(&self, window: &str, discard: &[String]) -> (Vec<String>, Vec<String>) {
         let own = self.layout.windows.iter().find(|w| w.label == window).map(|w| w.tabs.clone()).unwrap_or_default();
         let (mut closing, mut discarded) = (own.clone(), discard.to_vec());
         for owner in &own {
+            if let Some(knowledge) = self.knowledge_tab_of(owner)
+                && !closing.contains(&knowledge)
+            {
+                closing.push(knowledge);
+            }
             for linked in self.linked_tabs(owner) {
                 if discard.contains(owner) && !discarded.contains(&linked) {
                     discarded.push(linked.clone());
@@ -278,7 +297,7 @@ impl Workspace {
     pub(super) fn flush_closing(ws: &Mutex<Self>, closing: &[String], discarded: &[String]) {
         let flushed: Vec<String> = {
             let w = Self::lock(ws);
-            let deck_pack = |id: &String| w.tabs.get(id).is_some_and(|t| t.info.document.deck_tab().is_some());
+            let deck_pack = |id: &String| w.tabs.get(id).is_some_and(|t| t.info.document.deck_pack_owner().is_some());
             closing.iter().filter(|id| !discarded.contains(id) && deck_pack(id)).cloned().collect()
         };
         for tab in flushed {

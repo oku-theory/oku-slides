@@ -23,7 +23,7 @@ async function openMenu(extra: Record<string, unknown> = {}) {
   mounted = { root, host };
   const noop = () => {};
   await act(async () =>
-    root.render(createElement(AppMenu, { kind: "deck", present: noop, open: noop, onHelp: noop, onAbout: noop, onNewPack: noop, onNewTheme: noop, ...extra })),
+    root.render(createElement(AppMenu, { kind: "deck", present: noop, open: noop, onHelp: noop, onAbout: noop, onNewPack: noop, onNewTheme: noop, onOpenKnowledge: noop, ...extra })),
   );
   await act(async () => (host.querySelector(".action-menu-trigger") as HTMLButtonElement).click());
   return [...host.querySelectorAll('[role="menuitem"]')] as HTMLButtonElement[];
@@ -68,10 +68,22 @@ describe("AppMenu", () => {
     expect(labelled(items, "ui-update-check")).toBeDefined();
   });
 
-  test("AppMenu in a deck tab lists present, open, the three new entries, then the app entries", async () => {
+  test("app menu open knowledge calls workspace", async () => {
+    let opened = 0;
+    const items = await openMenu({ onOpenKnowledge: () => opened++ });
+    await act(async () => labelled(items, "ui-knowledge-open")?.click());
+    expect(opened).toBe(1);
+  });
+
+  test.each(["pack", "theme", "help", "history"])("AppMenu in a %s tab has no knowledge entry", async (kind) => {
+    const items = await openMenu({ kind });
+    expect(labelled(items, "ui-knowledge-open")).toBeUndefined();
+  });
+
+  test("AppMenu in a deck tab lists present, open, the knowledge, the three new entries, then the app entries", async () => {
     const items = await openMenu({ onCheckUpdates: () => {} });
     expect(names(items)).toEqual([
-      "ui-present-screen", "ui-toolbar-open", "ui-menu-new-widget-pack", "ui-menu-new-layout-pack", "ui-menu-new-theme", "ui-update-check", "ui-help", "ui-about",
+      "ui-present-screen", "ui-toolbar-open", "ui-knowledge-open", "ui-menu-new-widget-pack", "ui-menu-new-layout-pack", "ui-menu-new-theme", "ui-update-check", "ui-help", "ui-about",
     ]);
   });
 

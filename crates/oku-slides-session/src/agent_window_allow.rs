@@ -54,6 +54,7 @@ pub fn check_agent_workspace(ws: &Workspace, req: &WorkspaceRequest) -> Result<(
         | WorkspaceRequest::DismissImportPicks { .. }
         | WorkspaceRequest::NewPack { .. }
         | WorkspaceRequest::NewTheme { .. }
+        | WorkspaceRequest::OpenKnowledge { .. }
         | WorkspaceRequest::PackOpener { .. } => false,
     };
     ensure!(allowed, AgentWindowForbiddenSnafu { op: variant_name(req) });
@@ -120,6 +121,9 @@ pub fn check_agent_request(ws: &Workspace, tab: &str, req: &Request) -> Result<(
         | Request::KnowledgeReview
         | Request::KnowledgeText { .. }
         | Request::ApproveKnowledge { .. }
+        | Request::KnowledgeTree
+        | Request::KnowledgePage { .. }
+        | Request::KnowledgeAsset { .. }
         | Request::RemoveWidget { .. }
         | Request::RenameWidget { .. }
         | Request::DuplicateWidget { .. }

@@ -395,6 +395,7 @@ impl Session {
             theme: preview.theme.as_ref().and_then(|ns| preview.themes.get(ns)).map(|pin| pin.id),
             document,
             created: edit.created_empty,
+            knowledge: None,
         })
     }
 

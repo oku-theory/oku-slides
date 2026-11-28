@@ -241,6 +241,11 @@ impl Workspace {
         if let WorkspaceRequest::NewTheme { tab } = &req {
             return Self::new_theme(ws, tab);
         }
+        if let WorkspaceRequest::OpenKnowledge { tab } = &req {
+            let mut w = Self::lock(ws);
+            w.open_knowledge(tab)?;
+            return w.view_json().map(WorkspaceOutcome::Applied);
+        }
         if let WorkspaceRequest::PackOpener { tab } = &req {
             let offer = Self::pack_opener(ws, tab)?;
             return Ok(WorkspaceOutcome::Applied(serde_json::to_string(&offer).context(ResponseSnafu)?));
@@ -463,6 +468,9 @@ mod usage;
 
 #[path = "workspace_own_dir.rs"]
 mod own_dir;
+
+#[path = "workspace_knowledge.rs"]
+mod knowledge;
 
 pub use clip::Clip;
 pub use ids::is_window_label;

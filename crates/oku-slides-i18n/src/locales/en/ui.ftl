@@ -527,3 +527,24 @@ ui-knowledge-more = { $count ->
    *[other] { $count } more files are not listed.
   }
 ui-knowledge-close = Close
+ui-knowledge-link-broken = This file is not in the knowledge base.
+ui-knowledge-tree-label = Knowledge files
+ui-knowledge-empty = This deck has no knowledge yet.
+ui-knowledge-awaiting-badge = Awaiting approval
+ui-knowledge-file-gone = { $path } was removed from the knowledge base.
+ui-knowledge-truncated = The rest of this file ({ NUMBER($kb) } KB) is not shown.
+ui-knowledge-in-history = The knowledge base is not available while browsing the history.
+ui-knowledge-header-invalid = This file's frontmatter cannot be read: its raw text is shown.
+ui-markdown-failed = This text could not be shown.
+ui-markdown-link-blocked = This link can't be opened from here.
+ui-knowledge-close-file = Close the file
+ui-knowledge-open-files = Open files
+ui-knowledge-header-type = Type
+ui-knowledge-header-status = Status
+ui-knowledge-header-tags = Tags
+ui-knowledge-header-generated = Generated
+ui-knowledge-header-verified = Verified
+ui-knowledge-header-stale = Out of date
+ui-knowledge-header-sources = Sources
+ui-knowledge-tab-title = { $name } — Knowledge
+ui-knowledge-open = Knowledge base

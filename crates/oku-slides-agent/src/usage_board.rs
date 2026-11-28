@@ -121,13 +121,13 @@ pub(crate) fn tokens_of(u: &Usage) -> UsageTokens {
     }
 }
 
-/// The record's tab for a tab of `kind`; a help tab records nothing.
+/// The record's tab for a tab of `kind`; a help or knowledge tab records nothing.
 pub(crate) fn usage_tab(kind: DocumentKind) -> Option<UsageTab> {
     match kind {
         DocumentKind::Deck => Some(UsageTab::Deck),
         DocumentKind::Pack => Some(UsageTab::Pack),
         DocumentKind::Theme => Some(UsageTab::Theme),
-        DocumentKind::Help => None,
+        DocumentKind::Help | DocumentKind::Knowledge => None,
     }
 }
 

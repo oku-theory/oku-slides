@@ -72,7 +72,8 @@ fn classify(req: &WorkspaceRequest) -> (bool, bool) {
         | WorkspaceRequest::OpenPack { .. }
         | WorkspaceRequest::OpenTheme { .. }
         | WorkspaceRequest::NewPack { .. }
-        | WorkspaceRequest::NewTheme { .. } => (true, true),
+        | WorkspaceRequest::NewTheme { .. }
+        | WorkspaceRequest::OpenKnowledge { .. } => (true, true),
     }
 }
 
@@ -114,6 +115,7 @@ fn broadcast(req: &WorkspaceRequest) -> Option<&'static str> {
         | WorkspaceRequest::OpenTheme { .. }
         | WorkspaceRequest::NewPack { .. }
         | WorkspaceRequest::NewTheme { .. }
+        | WorkspaceRequest::OpenKnowledge { .. }
         | WorkspaceRequest::PackOpener { .. } => None,
     }
 }

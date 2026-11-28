@@ -29,6 +29,7 @@ import { Button } from "./primitives";
 import TypstEditor, { type EditorCommands, type EditorHistory } from "./TypstEditor";
 import type { WidgetFiles } from "./useWidgetFiles";
 import Stage from "./Stage";
+import { stripKeyNav } from "./stripKeyNav";
 import { useFieldEditing } from "./useFieldEditing";
 import type { OnListOp } from "./stageItems";
 import { type FieldKey, fieldKey } from "./stageFields";
@@ -290,12 +291,10 @@ export default function WidgetTab({
 
   /** Arrows (mirrored in RTL), Home and End move to another tab and open it. */
   const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
-    e.preventDefault();
-    const at = tabList.indexOf(active);
     const rtl = getComputedStyle(e.currentTarget).direction === "rtl";
-    const step = (e.key === "ArrowRight") !== rtl ? 1 : -1;
-    const to = e.key === "Home" ? 0 : e.key === "End" ? tabList.length - 1 : (at + step + tabList.length) % tabList.length;
+    const to = stripKeyNav(e, tabList.indexOf(active), tabList.length, rtl);
+    if (to === null) return;
+    e.preventDefault();
     open(tabList[to]);
     tabs.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[to]?.focus();
   };

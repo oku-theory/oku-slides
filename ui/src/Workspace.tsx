@@ -1,4 +1,5 @@
-// Une fenêtre : l'`App` de l'onglet actif, la barre d'onglets en bas.
+// Une fenêtre : l'`App` de l'onglet actif, la barre d'onglets en bas. A knowledge tab shows
+// KnowledgeView over its owner deck tab instead.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AboutDialog from "./AboutDialog";
@@ -6,10 +7,12 @@ import App from "./App";
 import { APP_VERSION, RELEASES } from "./appInfo";
 import TabBar from "./TabBar";
 import UpdateBar, { UpdateNoticeBar } from "./UpdateBar";
-import { closeStays, errorText, inTauri, isMac, listenTauri, tabApi, tabDrag, takeCloseDecision, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
+import { closeStays, errorText, inTauri, isMac, listenTauri, sessionTab, tabApi, tabDrag, takeCloseDecision, tauriUpdates, workspace, type ImportTarget, type WorkspaceView } from "./api";
 import { AgentCloseContext, redeem, type AgentClose } from "./closeDecision";
 import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
 import { runAllCloseGuards, runCloseGuard } from "./closeGuards";
+import { KnowledgeView } from "./knowledge/KnowledgeView";
+import { pruneSubTabs } from "./knowledge/subTabs";
 import { listenQuit } from "./quitAnswer";
 import { t } from "./i18n";
 import { newest } from "./latest";
@@ -24,6 +27,7 @@ import { useConfirm } from "./useConfirm";
 import { useTransient } from "./useTransient";
 import { useUpdate } from "./useUpdate";
 import { useVoiceContext } from "./useVoiceContext";
+import { documentKind } from "./tabKind";
 import { showBroadcast } from "./workspaceBroadcast";
 
 /** Label de cette fenêtre : celui de Tauri, ou la seule fenêtre en développement. */
@@ -129,8 +133,9 @@ export default function Workspace() {
   const shared = useSharedClip(label, setError);
 
   const win = view?.windows.find((w) => w.label === label);
-  // Hands-free: this window reports what its active tab shows, and asks listening back.
-  useVoiceContext(win?.active ?? null, win ? label : null);
+  // Hands-free: this window reports what its active tab shows (a knowledge tab's: its owner
+  // deck tab's session), and asks listening back.
+  useVoiceContext(view && win ? sessionTab(view, win.active) : null, win ? label : null);
   // L'avis de fusion, montré par l'`App` de l'onglet actif (celui de la
   // fusion, ou l'actif d'ici si elle a eu lieu dans une autre fenêtre) ; ses
   // effets passent avant celui-ci, qui l'oublie une fois montré.
@@ -138,6 +143,10 @@ export default function Workspace() {
   useEffect(() => {
     if (mergeNotice !== null) setMerged(null);
   }, [mergeNotice]);
+  // A closed knowledge tab's sub-tabs are forgotten (every window's view lists every tab).
+  useEffect(() => {
+    if (view) pruneSubTabs(new Set(view.windows.flatMap((w) => w.tabs.map((x) => x.id))));
+  }, [view]);
   const viewRef = useRef(view);
   viewRef.current = view;
   const winRef = useRef(win);
@@ -265,7 +274,10 @@ export default function Workspace() {
         const v = viewRef.current;
         if (v && !closeStays(v, label, w.active, inTauri)) closeTab(w.active);
       } else if (action.kind === "new-window") run(workspace.newWindow());
-      else {
+      else if (action.kind === "knowledge") {
+        // Only a deck tab has a knowledge base; elsewhere the shortcut does nothing.
+        if (documentKind(w.tabs.find((x) => x.id === w.active)?.document) === "deck") run(workspace.openKnowledge(w.active));
+      } else {
         const id = action.kind === "cycle" ? cycle(ids, w.active, action.delta) : nth(ids, action.n);
         if (id && id !== w.active) run(workspace.activate(id));
       }
@@ -306,6 +318,8 @@ export default function Workspace() {
       setError(null);
     }
   };
+  const activeDoc = win.tabs.find((x) => x.id === win.active)?.document;
+  const knowledgeOwner = activeDoc?.kind === "knowledge" ? activeDoc.deck_tab : null;
   const dropOutside = async (id: string) => {
     try {
       await tabDrag.drop(id);
@@ -332,38 +346,48 @@ export default function Workspace() {
       )}
       <div className="workspace-body">
         {/* En développement, `onChange` relit la vue sans relancer le snapshot : pas de boucle. */}
-        <AgentCloseContext.Provider value={agentClose}>
-          <App
+        {knowledgeOwner !== null ? (
+          <KnowledgeView
             key={win.active}
             tab={win.active}
-            windowLabel={label}
-            clip={shared.clip}
-            clipGen={shared.gen}
-            onCopy={shared.share}
-            agentDetached={view.agent_detached}
-            nonce={nonce}
-            notice={mergeNotice}
-            onOpen={onOpen}
-            importJob={imports.job?.shown ? imports.job : null}
-            onImportPick={imports.pick}
-            onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
-            onImportClose={imports.close}
-            importWaiting={waitingPicks}
-            onHelp={() => run(workspace.openHelp(label))}
-            onAbout={() => setAbout(true)}
-            windowDialog={about || asker.asking}
-            updates={appUpdates}
-            onClose={closeStays(view, label, win.active, inTauri) ? undefined : () => void closeTab(win.active)}
-            onOpenPack={async (pack, widget) => {
-              const v = await run(workspace.openPack(win.active, pack, widget));
-              return v?.windows.find((w) => w.label === label)?.active === win.active;
-            }}
-            onOpenTheme={(theme) => void run(workspace.openTheme(win.active, theme))}
-            onNewPack={(kind) => void run(workspace.newPack(win.active, kind))}
-            onNewTheme={() => void run(workspace.newTheme(win.active))}
-            onChange={inTauri ? undefined : reread}
+            owner={knowledgeOwner}
+            revision={view.windows.flatMap((w) => w.tabs).find((x) => x.id === knowledgeOwner)?.knowledge ?? null}
           />
-        </AgentCloseContext.Provider>
+        ) : (
+          <AgentCloseContext.Provider value={agentClose}>
+            <App
+              key={win.active}
+              tab={win.active}
+              windowLabel={label}
+              clip={shared.clip}
+              clipGen={shared.gen}
+              onCopy={shared.share}
+              agentDetached={view.agent_detached}
+              nonce={nonce}
+              notice={mergeNotice}
+              onOpen={onOpen}
+              importJob={imports.job?.shown ? imports.job : null}
+              onImportPick={imports.pick}
+              onImport={(target, tune) => void imports.start({ target, tune }, (path) => importFile(path, target, tune))}
+              onImportClose={imports.close}
+              importWaiting={waitingPicks}
+              onHelp={() => run(workspace.openHelp(label))}
+              onAbout={() => setAbout(true)}
+              windowDialog={about || asker.asking}
+              updates={appUpdates}
+              onClose={closeStays(view, label, win.active, inTauri) ? undefined : () => void closeTab(win.active)}
+              onOpenPack={async (pack, widget) => {
+                const v = await run(workspace.openPack(win.active, pack, widget));
+                return v?.windows.find((w) => w.label === label)?.active === win.active;
+              }}
+              onOpenTheme={(theme) => void run(workspace.openTheme(win.active, theme))}
+              onNewPack={(kind) => void run(workspace.newPack(win.active, kind))}
+              onNewTheme={() => void run(workspace.newTheme(win.active))}
+              onOpenKnowledge={() => void run(workspace.openKnowledge(win.active))}
+              onChange={inTauri ? undefined : reread}
+            />
+          </AgentCloseContext.Provider>
+        )}
       </div>
       <TabBar
         view={view}
@@ -378,6 +402,7 @@ export default function Workspace() {
         onDragOver={tabDrag.over}
         onDragLeave={tabDrag.leave}
         onDropOutside={dropOutside}
+        onOpenKnowledge={(id) => run(workspace.openKnowledge(id))}
       />
       {about && <AboutDialog version={APP_VERSION} releases={RELEASES} onClose={() => setAbout(false)} />}
       {asker.dialog}

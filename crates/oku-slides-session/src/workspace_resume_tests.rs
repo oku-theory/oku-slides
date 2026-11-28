@@ -43,6 +43,7 @@ fn info_of(document: TabDocument) -> TabInfo {
         theme: None,
         document,
         created: None,
+        knowledge: None,
     }
 }
 
@@ -362,4 +363,18 @@ fn restore_then_save_writes_documents_and_legacy_keys() {
         })
         .collect();
     assert_that!(written).is_equal_to(expected);
+}
+
+#[test]
+fn tab_info_knowledge_of_a_dormant_tab_is_none_and_reading_the_view_does_not_wake_it() {
+    let previous = previous_release();
+    let ws = resumed(&previous);
+    let view = Workspace::lock(&ws).view();
+    for tab in view.windows.iter().flat_map(|w| &w.tabs) {
+        assert_that!(tab.info.knowledge).is_none();
+    }
+    for (id, _) in &previous.tabs {
+        let slot = Workspace::lock(&ws).session(id).unwrap_or_else(|e| panic!("{e}"));
+        assert_that!(relock(&slot).is_dormant()).is_true();
+    }
 }

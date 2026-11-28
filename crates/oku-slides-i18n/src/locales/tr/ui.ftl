@@ -514,3 +514,24 @@ ui-knowledge-more = { $count ->
    *[other] { $count } dosya daha listelenmedi.
   }
 ui-knowledge-close = Kapat
+ui-knowledge-link-broken = Bu dosya bilgi tabanında yok.
+ui-knowledge-tree-label = Bilgi dosyaları
+ui-knowledge-empty = Bu sunumda henüz bilgi yok.
+ui-knowledge-awaiting-badge = Onay bekliyor
+ui-knowledge-file-gone = { $path } bilgi tabanından kaldırıldı.
+ui-knowledge-truncated = Bu dosyanın geri kalanı ({ NUMBER($kb) } KB) gösterilmiyor.
+ui-knowledge-in-history = Geçmişe göz atılırken bilgi tabanı kullanılamaz.
+ui-knowledge-header-invalid = Bu dosyanın frontmatter bölümü okunamıyor: ham metni gösteriliyor.
+ui-markdown-failed = Bu metin gösterilemedi.
+ui-markdown-link-blocked = Bu bağlantı buradan açılamaz.
+ui-knowledge-close-file = Dosyayı kapat
+ui-knowledge-open-files = Açık dosyalar
+ui-knowledge-header-type = Tür
+ui-knowledge-header-status = Durum
+ui-knowledge-header-tags = Etiketler
+ui-knowledge-header-generated = Oluşturuldu
+ui-knowledge-header-verified = Doğrulandı
+ui-knowledge-header-stale = Güncel değil
+ui-knowledge-header-sources = Kaynaklar
+ui-knowledge-tab-title = { $name } — Bilgi
+ui-knowledge-open = Bilgi tabanı

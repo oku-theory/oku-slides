@@ -114,6 +114,15 @@ impl AgentWorkspace for AppWorkspace {
         Ok(opened)
     }
 
+    /// The knowledge tab comes forward only when shown.
+    fn open_knowledge(&self, tab: &str) -> Result<TabOpen, WorkspaceRefusal> {
+        let opened = Workspace::agent_open_knowledge(&self.workspace, tab)?;
+        if let TabOpen::Opened { shown, .. } | TabOpen::Focused { shown, .. } = opened {
+            crate::windows::sync(&self.app, None, shown);
+        }
+        Ok(opened)
+    }
+
     /// The help tab comes forward only when shown.
     fn open_help(
         &self,

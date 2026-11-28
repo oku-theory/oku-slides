@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Workspace windows (w-<n>): every app command, events, dialogs, fullscreen (presenting). The agent window has its own (agent.json).",
+  "description": "Workspace windows (w-<n>): every app command, events, dialogs, fullscreen (presenting), web and mail links opened in the browser. The agent window has its own (agent.json).",
   "windows": ["w-*"],
   "permissions": [
     "core:default",
@@ -13,6 +13,10 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-message",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "http://*" }, { "url": "https://*" }, { "url": "mailto:*" }]
+    },
     "allow-request",
     "allow-workspace",
     "allow-drag-tab-over",

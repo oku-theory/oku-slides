@@ -142,7 +142,8 @@ impl Workspace {
 
     /// The deck-pack tabs whose owner is `deck_tab`, in window order.
     pub(super) fn linked_tabs(&self, deck_tab: &str) -> Vec<String> {
-        let linked = |id: &&String| self.tabs.get(*id).is_some_and(|t| t.info.document.deck_tab() == Some(deck_tab));
+        let linked =
+            |id: &&String| self.tabs.get(*id).is_some_and(|t| t.info.document.deck_pack_owner() == Some(deck_tab));
         self.layout.windows.iter().flat_map(|w| &w.tabs).filter(linked).cloned().collect()
     }
 
@@ -165,7 +166,7 @@ impl Workspace {
     /// delivered copy retargets the tab's cached document in this same call,
     /// and an applied send puts the owner in `touched`.
     pub(super) fn forward(ws: &Mutex<Self>, tab: &str, send: &DeckPackSend) {
-        let owner = Self::lock(ws).tabs.get(tab).and_then(|t| t.info.document.deck_tab().map(str::to_owned));
+        let owner = Self::lock(ws).tabs.get(tab).and_then(|t| t.info.document.deck_pack_owner().map(str::to_owned));
         #[cfg(test)]
         {
             // Cloned out first: the hook never runs with the static's mutex held.

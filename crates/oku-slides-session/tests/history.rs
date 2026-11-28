@@ -197,9 +197,14 @@ fn history_tab_info_shows_the_current_deck() {
     let before = s.tab_info();
     s.handle(req(json!({ "cmd": "history_open" }))).unwrap();
     s.handle(req(json!({ "cmd": "history_seek", "index": 0 }))).unwrap();
-    // Opening and seeking count as edits of the dirty revision; what the bar shows stays.
-    let shown = oku_slides_session::TabInfo { dirty_revision: before.dirty_revision, ..s.tab_info() };
+    // Opening and seeking count as edits of the dirty revision; what the bar shows stays,
+    // and the knowledge revision only flags the history (its reads are refused there).
+    let during = s.tab_info();
+    let in_history = during.knowledge.map(|k| k.in_history);
+    let shown =
+        oku_slides_session::TabInfo { dirty_revision: before.dirty_revision, knowledge: before.knowledge, ..during };
     assert_that!(shown).is_equal_to(&before);
+    assert_that!(in_history).is_equal_to(Some(true));
 }
 
 #[test]

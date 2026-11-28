@@ -526,3 +526,24 @@ ui-knowledge-more = { $count ->
    *[other] Mais { $count } arquivos não estão listados.
   }
 ui-knowledge-close = Fechar
+ui-knowledge-link-broken = Este arquivo não está na base de conhecimento.
+ui-knowledge-tree-label = Arquivos de conhecimento
+ui-knowledge-empty = Esta apresentação ainda não tem conhecimento.
+ui-knowledge-awaiting-badge = Aguardando aprovação
+ui-knowledge-file-gone = { $path } foi removido da base de conhecimento.
+ui-knowledge-truncated = O restante deste arquivo ({ NUMBER($kb) } KB) não é exibido.
+ui-knowledge-in-history = A base de conhecimento não está disponível durante a navegação no histórico.
+ui-knowledge-header-invalid = O frontmatter deste arquivo não pode ser lido: o texto bruto é exibido.
+ui-markdown-failed = Este texto não pôde ser exibido.
+ui-markdown-link-blocked = Este link não pode ser aberto a partir daqui.
+ui-knowledge-close-file = Fechar o arquivo
+ui-knowledge-open-files = Arquivos abertos
+ui-knowledge-header-type = Tipo
+ui-knowledge-header-status = Status
+ui-knowledge-header-tags = Etiquetas
+ui-knowledge-header-generated = Gerado
+ui-knowledge-header-verified = Verificado
+ui-knowledge-header-stale = Desatualizado
+ui-knowledge-header-sources = Fontes
+ui-knowledge-tab-title = { $name } — Conhecimento
+ui-knowledge-open = Base de conhecimento

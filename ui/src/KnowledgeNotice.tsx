@@ -2,7 +2,7 @@
 
 import type { KnowledgeSummary } from "./api";
 import { locale, t } from "./i18n";
-import type { KnowledgeLimitSlug } from "./knowledgeTypes";
+import type { KnowledgeLimitSlug } from "./knowledge/types";
 import { Button } from "./primitives";
 
 /** Each ceiling's name, as literal message ids. */

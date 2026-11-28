@@ -41,14 +41,27 @@ const AGENT_COMMANDS: &[&str] = &["agent", "agent_link", "quit_ready", "request"
 const AGENT_DENIED: &[&str] =
     &["core:default", "core:event:default", "core:event:allow-emit", "core:event:allow-emit-to"];
 
+/// The main windows' one scoped permission: opening web and mail links in the browser.
+///
+/// tauri-plugin-opener's click hook opens a `_blank` link through it (the knowledge tab, the
+/// agent's Markdown); any other scheme (`file:`, a custom app scheme) stays refused.
+const OPEN_URL_SCOPE: &str =
+    r#"{"identifier":"opener:allow-open-url","allow":[{"url":"http://*"},{"url":"https://*"},{"url":"mailto:*"}]}"#;
+
+/// The agent window's one scoped permission: `https:` and `mailto:` links only.
+///
+/// It shows the agent's text, so a plain `http:` link stays refused there.
+const AGENT_OPEN_URL_SCOPE: &str =
+    r#"{"identifier":"opener:allow-open-url","allow":[{"url":"https://*"},{"url":"mailto:*"}]}"#;
+
 type BuildError = Box<dyn std::error::Error + Send + Sync>;
 
 fn main() -> Result<(), BuildError> {
     println!("cargo:rerun-if-changed=src/main.rs");
     check_handlers(&std::fs::read_to_string("src/main.rs")?)?;
     check_capability_files()?;
-    check_capability("capabilities/default.json", "w-*", COMMANDS)?;
-    check_capability("capabilities/agent.json", "agent", AGENT_COMMANDS)?;
+    check_capability("capabilities/default.json", "w-*", COMMANDS, OPEN_URL_SCOPE)?;
+    check_capability("capabilities/agent.json", "agent", AGENT_COMMANDS, AGENT_OPEN_URL_SCOPE)?;
     check_denied("capabilities/agent.json", AGENT_DENIED)?;
     // Dynamic VC runtime on Windows: the prebuilt ONNX Runtime is built /MD, and Tauri's default
     // static vcruntime (/NODEFAULTLIB:msvcrt.lib) would leave it unresolved. The release ships
@@ -95,7 +108,9 @@ const CAPABILITY_KEYS: &[&str] = &["$schema", "identifier", "description", "wind
 ///
 /// No create permission either: a window a webview made could take a `w-*` label and every command.
 /// An app permission other than `allow-<cmd>` (a set) is refused: it would grant unchecked commands.
-fn check_capability(path: &str, window: &str, commands: &[&str]) -> Result<(), BuildError> {
+/// The only scoped permission is `open_url`, exactly and once; an opener permission by name (unscoped)
+/// is refused.
+fn check_capability(path: &str, window: &str, commands: &[&str], open_url: &str) -> Result<(), BuildError> {
     let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
     let keys = json.as_object().ok_or(format!("{path}: not an object"))?.keys();
     if let Some(key) = keys.into_iter().find(|k| !CAPABILITY_KEYS.contains(&k.as_str())) {
@@ -106,12 +121,20 @@ fn check_capability(path: &str, window: &str, commands: &[&str]) -> Result<(), B
     if windows != [window] {
         return Err(format!("{path}: windows {windows:?}, expected [{window:?}]").into());
     }
-    let permissions: Vec<&str> = json["permissions"]
-        .as_array()
-        .ok_or(format!("{path}: no permissions"))?
+    let open_url: serde_json::Value = serde_json::from_str(open_url)?;
+    let all = json["permissions"].as_array().ok_or(format!("{path}: no permissions"))?;
+    let scopes = all.iter().filter(|p| **p == open_url).count();
+    if scopes != 1 {
+        return Err(format!("{path}: holds its open-url scope {scopes} times, expected once").into());
+    }
+    let permissions: Vec<&str> = all
         .iter()
-        .map(|p| p.as_str().ok_or(format!("{path}: permission {p} is not a name")))
+        .filter(|p| **p != open_url)
+        .map(|p| p.as_str().ok_or(format!("{path}: permission {p} is neither a name nor the open-url scope")))
         .collect::<Result<_, _>>()?;
+    if let Some(opener) = permissions.iter().find(|p| p.starts_with("opener:")) {
+        return Err(format!("{path}: {opener} is unscoped: grant only the open-url scope of build.rs").into());
+    }
     if let Some(create) = permissions.iter().find(|p| p.contains("create")) {
         return Err(format!("{path}: {create} lets a webview create a window").into());
     }

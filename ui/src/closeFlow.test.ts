@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { closeFlowDeps, closeTabFlow, closeWindowFlow } from "./closeFlow";
 import { redeem } from "./closeDecision";
 import { isolate, setMessages } from "./i18n";
-import { OFFER, T0, deferred, fake, linkedOf, packEditing, snap, tabOf, themeTabOf, themeTabView } from "./test/closeFlowFake";
+import { OFFER, T0, deferred, fake, knowledgeOf, linkedOf, packEditing, snap, tabOf, themeTabOf, themeTabView } from "./test/closeFlowFake";
 import { resetMessages } from "./test/messages";
 
 const ftl = (lang: string) => Bun.file(new URL(`../../crates/oku-slides-i18n/src/locales/${lang}/ui.ftl`, import.meta.url)).text();
@@ -427,6 +427,31 @@ describe("closeTabFlow, linked deck-pack tabs", () => {
     f.state.snapshot = () => Promise.reject(new Error("rendu"));
     expect(await closeTabFlow("p", f.deps())).toBe(true);
     expect(f.log).toEqual(["guard p", "fresh", "snapshot p", "report rendu", "fresh", "savePack p", "close p false"]);
+  });
+});
+
+describe("closeTabFlow, knowledge tabs", () => {
+  test("close knowledge alone no snapshot read", async () => {
+    const f = fake([tabOf("a", true), knowledgeOf("k", "a")]);
+    expect(await closeTabFlow("k", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard k", "fresh", "close k false"]);
+    expect(f.questions).toEqual([]);
+  });
+
+  test("close deck with knowledge closes both one prompt", async () => {
+    const f = fake([tabOf("a", true), knowledgeOf("k", "a")]);
+    f.state.guard = timeout;
+    f.input.stalls.set("a", T0 - 10_000);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log).toEqual(["guard a", "fresh", ASK_STUCK, "close a true"]);
+    expect(f.state.tabs).toEqual([]);
+  });
+
+  test("close deck with knowledge reads nothing of the knowledge tab", async () => {
+    const f = fake([tabOf("a", true), knowledgeOf("k", "a")]);
+    expect(await closeTabFlow("a", f.deps())).toBe(true);
+    expect(f.log.filter((l) => l.endsWith(" k"))).toEqual([]);
+    expect(f.state.tabs).toEqual([]);
   });
 });
 

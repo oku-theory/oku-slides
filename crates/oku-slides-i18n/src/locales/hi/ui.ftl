@@ -517,3 +517,24 @@ ui-knowledge-more = { $count ->
    *[other] { $count } और फ़ाइलें सूची में नहीं हैं।
   }
 ui-knowledge-close = बंद करें
+ui-knowledge-link-broken = यह फ़ाइल ज्ञानकोष में नहीं है।
+ui-knowledge-tree-label = ज्ञान फ़ाइलें
+ui-knowledge-empty = इस प्रस्तुति में अभी कोई ज्ञान नहीं है।
+ui-knowledge-awaiting-badge = स्वीकृति की प्रतीक्षा में
+ui-knowledge-file-gone = { $path } को ज्ञानकोष से हटा दिया गया।
+ui-knowledge-truncated = इस फ़ाइल का शेष भाग ({ NUMBER($kb) } KB) नहीं दिखाया गया है।
+ui-knowledge-in-history = इतिहास देखते समय ज्ञानकोष उपलब्ध नहीं है।
+ui-knowledge-header-invalid = इस फ़ाइल का frontmatter पढ़ा नहीं जा सकता: इसका मूल पाठ दिखाया गया है।
+ui-markdown-failed = यह पाठ दिखाया नहीं जा सका।
+ui-markdown-link-blocked = यह लिंक यहाँ से नहीं खोला जा सकता।
+ui-knowledge-close-file = फ़ाइल बंद करें
+ui-knowledge-open-files = खुली फ़ाइलें
+ui-knowledge-header-type = प्रकार
+ui-knowledge-header-status = स्थिति
+ui-knowledge-header-tags = टैग
+ui-knowledge-header-generated = जनरेट किया गया
+ui-knowledge-header-verified = सत्यापित
+ui-knowledge-header-stale = पुराना
+ui-knowledge-header-sources = स्रोत
+ui-knowledge-tab-title = { $name } — ज्ञान
+ui-knowledge-open = ज्ञानकोष

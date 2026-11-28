@@ -33,7 +33,11 @@ const tab = (id: string, document: TabDocument = { kind: "deck", path: null, dec
 /** Each tab's `data-kind`. */
 const kinds = (host: HTMLElement) => [...host.querySelectorAll('[role="tab"]')].map((e) => e.getAttribute("data-kind"));
 
-async function mount(packTab = false, tabs: TabInfo[] = [tab("a", packTab ? { kind: "pack", pack: PACK } : undefined), tab("b")]) {
+async function mount(
+  packTab = false,
+  tabs: TabInfo[] = [tab("a", packTab ? { kind: "pack", pack: PACK } : undefined), tab("b")],
+  extra: Record<string, unknown> = {},
+) {
   const win: WindowView = { label: "main", active: "a", tabs };
   const view: WorkspaceView = { generation: 1, focused: "main", agent_detached: false, import_picks: [], windows: [win] };
   const noop = () => {};
@@ -56,6 +60,8 @@ async function mount(packTab = false, tabs: TabInfo[] = [tab("a", packTab ? { ki
         onDragOver: async () => {},
         onDragLeave: async () => {},
         onDropOutside: noop,
+        onOpenKnowledge: noop,
+        ...extra,
       }),
     ),
   );
@@ -161,4 +167,42 @@ test("TabBar theme tab is of the theme kind, a pack tab still of the pack kind",
     tab("pack", { kind: "pack", pack: PACK }),
   ]);
   expect(kinds(host)).toEqual(["theme", "pack"]);
+});
+
+test("tab bar knowledge title marked", async () => {
+  setMessages("en", ["ui-knowledge-tab-title = { $name } — Knowledge\n"]);
+  const host = await mount(false, [tab("Roadmap"), tab("k", { kind: "knowledge", deck_tab: "Roadmap" })]);
+  const knowledge = host.querySelectorAll('[role="tab"]')[1]!;
+  // The owner's title (the host keeps it current) through Fluent, with the book icon.
+  expect(knowledge.querySelector(".tab-title")?.textContent).toBe(t("ui-knowledge-tab-title", { name: "k" }));
+  expect(knowledge.querySelector(".tab-title")?.textContent).toBe("⁨k⁩ — Knowledge");
+  expect(knowledge.getAttribute("title")).toBe("⁨k⁩ — Knowledge");
+  expect(knowledge.querySelector(".tab-kind-icon")?.getAttribute("aria-hidden")).toBe("true");
+  expect(kinds(host)).toEqual(["deck", "knowledge"]);
+});
+
+/** Opens tab `i`'s context menu and lists its entries. */
+async function menuOf(host: HTMLElement, i: number) {
+  const el = host.querySelectorAll('[role="tab"]')[i]!;
+  await act(async () => {
+    el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  });
+  return [...document.querySelectorAll<HTMLButtonElement>('.context-menu [role="menuitem"]')];
+}
+
+test("tab bar deck tab menu opens its knowledge", async () => {
+  const opened: string[] = [];
+  const host = await mount(false, [tab("a"), tab("p", { kind: "pack", pack: PACK })], { onOpenKnowledge: (id: string) => opened.push(id) });
+  const entry = (await menuOf(host, 0)).find((b) => b.textContent === "ui-knowledge-open");
+  await act(async () => entry?.click());
+  expect(opened).toEqual(["a"]);
+});
+
+test.each([
+  ["a pack", { kind: "pack", pack: PACK }],
+  ["a help", { kind: "help", locale: "en" }],
+  ["a knowledge", { kind: "knowledge", deck_tab: "a" }],
+] as [string, TabDocument][])("tab bar %s tab menu has no knowledge entry", async (_, document) => {
+  const host = await mount(false, [tab("a"), tab("x", document)]);
+  expect((await menuOf(host, 1)).map((b) => b.textContent)).not.toContain("ui-knowledge-open");
 });

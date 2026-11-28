@@ -297,6 +297,38 @@ pub struct TabInfo {
     /// The pack or theme this tab created empty; collected when the tab leaves untouched.
     #[serde(default)]
     pub created: Option<uuid::Uuid>,
+    /// The deck's knowledge revision, so the knowledge tab re-reads when it moves.
+    ///
+    /// Live only, like `dirty_revision`: never read back from a saved layout, never written to
+    /// it. `None` outside an awake deck tab (help, pack, theme, dormant): unknown.
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub knowledge: Option<KnowledgeRevision>,
+}
+
+impl TabInfo {
+    /// True when `other` differs from `self` in nothing the saved layout keeps.
+    ///
+    /// The live fields (`dirty_revision`, `knowledge`) are ignored.
+    pub(crate) fn same_layout(&self, other: &Self) -> bool {
+        let live = |i: &Self| Self { dirty_revision: None, knowledge: None, ..i.clone() };
+        live(self) == live(other)
+    }
+}
+
+/// What the knowledge tab compares to know it must re-read: the bundle's generation (any change
+/// of the files), the approvals count and whether the deck shows its history.
+///
+/// The count is library-wide, but read only when this deck's tab info is: an approval made in
+/// another deck shows here at this deck's next refresh, not at once. Same text, same hash: only
+/// a text this deck shares with the other is concerned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct KnowledgeRevision {
+    /// The bundle's generation (`Sources::knowledge_generation`).
+    pub generation: u64,
+    /// The number of approved texts in the library.
+    pub approvals: usize,
+    /// True while the deck tab shows its history: the knowledge reads are refused.
+    pub in_history: bool,
 }
 
 /// A pack being edited: a layout pack has one slide per layout, at its example value.

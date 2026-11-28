@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Cet onglet montre un deck : cette modification se fait dans un onglet de thème.
     [help] L'aide est en lecture seule : cette modification se fait dans un onglet de thème.
     [pack] Cet onglet édite un pack : le thème se change dans l'onglet du deck, ses valeurs dans un onglet de thème.
+    [knowledge] Cet onglet montre la base de connaissances d'un deck : ce changement se fait dans l'onglet du deck.
    *[theme] Cet onglet édite un thème : seuls ses valeurs, son nom et les thèmes qu'il étend se modifient ici.
 }
 session-in-pack-tab = Cet onglet édite un pack : fermez-le pour terminer ; les packs propres à un deck s'ouvrent depuis l'onglet de ce deck.
@@ -764,6 +765,7 @@ session-knowledge-id-not-found = Aucun fichier de connaissances n'a l'identifian
 session-knowledge-changed = Le fichier de connaissances { $path } a changé depuis qu'il a été montré : relisez-le.
 session-knowledge-too-large-to-approve = Le fichier de connaissances { $path } est trop gros pour être approuvé : supprimez-le.
 session-knowledge-approval-invalid = Cette approbation nomme un fichier deux fois ou trop de fichiers.
+session-knowledge-asset-unavailable = L'image de connaissances { $asset } n'est pas disponible.
 session-knowledge-import-failed = Le document n’a pas pu être lu dans ses bornes de temps et de mémoire : rien n’a été importé.
 session-knowledge-import-refused = Le document n’a pas été importé — { $reason }.
 session-attachment-gone = Cette pièce jointe n’est plus gardée : joignez de nouveau le document.

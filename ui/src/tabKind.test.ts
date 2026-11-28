@@ -39,6 +39,7 @@ describe("documentKind", () => {
     ["a pack", { kind: "pack", pack: "p" }, "pack"],
     ["a deck pack", { kind: "deck_pack", deck_tab: "d", pack: "p" }, "pack"],
     ["a theme", { kind: "theme", theme: "t" }, "theme"],
+    ["a knowledge base", { kind: "knowledge", deck_tab: "d" }, "knowledge"],
     ["an unknown kind", { kind: "future" }, "deck"],
     ["no document", undefined, "deck"],
   ] as [string, unknown, string][])("documentKind of %s rends %s", (_, doc, kind) =>

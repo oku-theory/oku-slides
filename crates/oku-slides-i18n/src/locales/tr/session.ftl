@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Bu sekme bir sunu gösteriyor: bu değişiklik bir tema sekmesinde yapılır.
     [help] Yardım salt okunurdur: bu değişiklik bir tema sekmesinde yapılır.
     [pack] Bu sekme bir paketi düzenliyor: tema sununun sekmesinde, değerleri ise bir tema sekmesinde değişir.
+    [knowledge] Bu sekme bir sununun bilgi tabanını gösteriyor: bu değişiklik sununun sekmesinde yapılır.
    *[theme] Bu sekme bir temayı düzenliyor: burada yalnızca değerleri, adı ve genişlettiği temalar değişir.
 }
 session-in-pack-tab = Bu sekme bir paketi düzenliyor: bitirmek için kapatın; yalnızca bir sunuma ait paketler o sunumun sekmesinden açılır.
@@ -751,6 +752,7 @@ session-knowledge-id-not-found = { $id } kimliğine sahip bilgi dosyası yok.
 session-knowledge-changed = { $path } bilgi dosyası gösterildiğinden beri değişti: yeniden inceleyin.
 session-knowledge-too-large-to-approve = { $path } bilgi dosyası onaylanamayacak kadar büyük: silin.
 session-knowledge-approval-invalid = Bu onay bir dosyayı iki kez ya da çok fazla dosya adlandırıyor.
+session-knowledge-asset-unavailable = { $asset } bilgi görseli kullanılamıyor.
 session-knowledge-import-failed = Belge, süre ve bellek sınırları içinde okunamadı: hiçbir şey içe aktarılmadı.
 session-knowledge-import-refused = Belge içe aktarılmadı — { $reason }.
 session-attachment-gone = Bu ek artık saklanmıyor: belgeyi yeniden ekleyin.

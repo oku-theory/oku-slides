@@ -99,6 +99,16 @@ describe("barre d'onglets", () => {
     expect(tabShortcut(key("KeyN", "n", { metaKey: true }), true)).toBeNull();
   });
 
+  test("tab shortcut cmd shift k knowledge", () => {
+    expect(tabShortcut(key("KeyK", "K", { metaKey: true, shiftKey: true }), true)).toEqual({ kind: "knowledge" });
+    expect(tabShortcut(key("KeyK", "K", { ctrlKey: true, shiftKey: true }), false)).toEqual({ kind: "knowledge" });
+  });
+
+  test("tab shortcut cmd k not knowledge", () => {
+    // ⌘K stays the agent's typing shortcut.
+    expect(tabShortcut(key("KeyK", "k", { metaKey: true }), true)).toBeNull();
+  });
+
   test("outside : hors de la fenêtre dès le bord", () => {
     expect(outside(10, 10, 100, 100)).toBe(false);
     expect(outside(-1, 10, 100, 100)).toBe(true);
@@ -200,5 +210,13 @@ describe("othersToClose", () => {
   test("closeOthers from a deck tab closes its deck-pack tabs", () => {
     const tabs = [tab("t-1"), linked("t-2", "t-1"), tab("t-3")];
     expect(othersToClose(tabs, "t-1")).toEqual(["t-2", "t-3"]);
+  });
+
+  test("others to close keeps knowledge with its owner", () => {
+    const knowledge = (id: string, owner: string) => tab(id, { kind: "knowledge", deck_tab: owner });
+    const tabs = [tab("t-1"), knowledge("t-2", "t-1"), linked("t-3", "t-1"), tab("t-4"), knowledge("t-5", "t-4")];
+    expect(othersToClose(tabs, "t-1")).toEqual(["t-3", "t-4", "t-5"]);
+    expect(othersToClose(tabs, "t-2")).toEqual(["t-3", "t-4", "t-5"]);
+    expect(othersToClose(tabs, "t-3")).toEqual(["t-4", "t-5"]);
   });
 });

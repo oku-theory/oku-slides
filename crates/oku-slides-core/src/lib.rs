@@ -93,8 +93,9 @@ pub use error::{
 pub use fields::{FieldOwner, TextField};
 pub use heading_level::HeadingLevel;
 pub use knowledge::{
-    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgePath, Provenance, check_text, cited_images, frontmatter,
-    knowledge_file_id, knowledge_over_limits, normalize, stamp,
+    ASSETS_DIR, Frontmatter, KnowledgeFile, KnowledgeHeader, KnowledgePath, KnowledgeSource, Provenance, body,
+    check_text, cited_images, frontmatter, knowledge_file_id, knowledge_header, knowledge_over_limits, normalize,
+    stamp,
 };
 pub use layout_profile::{Arrangement, LayoutProfile, SlideRole};
 pub use link::encode_link_url;

@@ -274,7 +274,10 @@ impl Workspace {
             TabDocument::DeckPack { deck_tab, pack } => {
                 pack == ctx.pack && (deck_tab == ctx.tab || candidate == ctx.tab)
             }
-            TabDocument::Deck { .. } | TabDocument::Help { .. } | TabDocument::Theme { .. } => false,
+            TabDocument::Deck { .. }
+            | TabDocument::Help { .. }
+            | TabDocument::Theme { .. }
+            | TabDocument::Knowledge { .. } => false,
         };
         let (woken, _changed) = Self::with_quiet(ctx.ws, candidate, |s| {
             if !edits(s.tab_info().document) {

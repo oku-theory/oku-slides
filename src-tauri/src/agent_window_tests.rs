@@ -60,6 +60,27 @@ fn capability_default_leaves_agent_window_out() {
     assert_that!(strings(&default["windows"])).does_not_contain(super::LABEL);
 }
 
+/// The opener entries of a capability: each `opener:` permission, named or scoped.
+fn opener_entries(capability: &serde_json::Value) -> Vec<&serde_json::Value> {
+    let name = |p: &serde_json::Value| p.as_str().or_else(|| p["identifier"].as_str()).map(str::to_owned);
+    capability["permissions"]
+        .as_array()
+        .map(|a| a.iter().filter(|p| name(p).is_some_and(|n| n.starts_with("opener:"))).collect())
+        .unwrap_or_default()
+}
+
+#[rstest::rstest]
+#[case::default(include_str!("../capabilities/default.json"))]
+#[case::agent(include_str!("../capabilities/agent.json"))]
+fn capability_opener_open_url_scoped_to_web_and_mail(#[case] json: &str) {
+    let capability = capability(json);
+    let expected = serde_json::json!({
+        "identifier": "opener:allow-open-url",
+        "allow": [{ "url": "http://*" }, { "url": "https://*" }, { "url": "mailto:*" }],
+    });
+    assert_that!(opener_entries(&capability)).is_equal_to(vec![&expected]);
+}
+
 #[test]
 fn capability_default_allows_fullscreen_for_presentation() {
     let default = capability(include_str!("../capabilities/default.json"));

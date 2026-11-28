@@ -26,14 +26,17 @@ export function cycle(tabs: string[], active: string, delta: number): string | u
 }
 
 /**
- * The tabs "close others" closes, in bar order: all but `keep` and, for a deck-pack tab, its owner.
+ * The tabs "close others" closes, in bar order: all but `keep`, its owner for a deck-pack or
+ * knowledge tab, and the knowledge tab of whichever deck tab stays.
  *
  * The owner's other deck-pack tabs close like any tab.
  */
 export function othersToClose(tabs: TabInfo[], keep: string): string[] {
   const kept = tabs.find((x) => x.id === keep)?.document;
-  const owner = kept?.kind === "deck_pack" ? kept.deck_tab : null;
-  return tabs.filter((x) => x.id !== keep && x.id !== owner).map((x) => x.id);
+  const owner = kept?.kind === "deck_pack" || kept?.kind === "knowledge" ? kept.deck_tab : null;
+  const stays = (x: TabInfo) =>
+    x.id === keep || x.id === owner || (x.document?.kind === "knowledge" && (x.document.deck_tab === keep || x.document.deck_tab === owner));
+  return tabs.filter((x) => !stays(x)).map((x) => x.id);
 }
 
 /** Onglet n (1 à 8) ; 9 : le dernier. */
@@ -48,7 +51,9 @@ export type TabAction =
   | { kind: "new-window" }
   | { kind: "cycle"; delta: 1 | -1 }
   | { kind: "nth"; n: number }
-  | { kind: "help" };
+  | { kind: "help" }
+  /** The active deck tab's knowledge base (⌘⇧K; ⌘K stays the agent's). */
+  | { kind: "knowledge" };
 
 type Keys = Pick<KeyboardEvent, "code" | "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "repeat">;
 
@@ -67,6 +72,7 @@ export function tabShortcut(e: Keys, mac: boolean): TabAction | null {
   if (letter === "t" && !e.shiftKey) return { kind: "new-tab" };
   if (letter === "w" && !e.shiftKey) return { kind: "close-tab" };
   if (letter === "n" && e.shiftKey) return { kind: "new-window" };
+  if (letter === "k" && e.shiftKey) return { kind: "knowledge" };
   // L'aide : ⌘? comme sur macOS, ⌘/ aussi ; par caractère, où qu'il soit sur le clavier.
   if (e.key === "?" || e.key === "/") return { kind: "help" };
   const digit = /^Digit([1-9])$/.exec(e.code);

@@ -196,6 +196,13 @@ pub enum WorkspaceRequest {
         /// The requesting tab.
         tab: String,
     },
+    /// Opens deck tab `tab`'s knowledge tab beside it, or activates the one it has.
+    ///
+    /// Answers the view, like `OpenPack`. Only a deck tab has one (`WrongDocument`).
+    OpenKnowledge {
+        /// The owner deck's tab.
+        tab: String,
+    },
     /// The deck that opened pack tab `tab`, if offered an update.
     ///
     /// Answers the bare JSON of the offer (its tab, deck title and identity,

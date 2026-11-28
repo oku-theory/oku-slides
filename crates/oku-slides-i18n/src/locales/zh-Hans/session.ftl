@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] 此标签页显示的是演示文稿：此更改需在主题标签页中进行。
     [help] 帮助为只读：此更改需在主题标签页中进行。
     [pack] 此标签页正在编辑一个包：主题在演示文稿的标签页中更改，其取值在主题标签页中更改。
+    [knowledge] 此标签页显示演示文稿的知识库：此更改需在演示文稿的标签页中进行。
    *[theme] 此标签页正在编辑一个主题：这里只能更改它的取值、名称以及它扩展的主题。
 }
 session-in-pack-tab = 此标签页正在编辑一个包：关闭它即可完成；演示文稿专用的包从该演示文稿的标签页打开。
@@ -748,6 +749,7 @@ session-knowledge-id-not-found = 没有 ID 为 { $id } 的知识文件。
 session-knowledge-changed = 知识文件 { $path } 在显示后已更改：请重新审阅。
 session-knowledge-too-large-to-approve = 知识文件 { $path } 太大，无法批准：请删除它。
 session-knowledge-approval-invalid = 此批准两次指定了同一个文件，或指定的文件过多。
+session-knowledge-asset-unavailable = 知识图片 { $asset } 不可用。
 session-knowledge-import-failed = 无法在时间和内存限制内读取该文档：未导入任何内容。
 session-knowledge-import-refused = 文档未导入 — { $reason }。
 session-attachment-gone = 此附件已不再保留：请重新附加该文档。

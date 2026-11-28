@@ -28,6 +28,8 @@ interface Props {
   onDragLeave: () => Promise<unknown>;
   /** Lâché hors de la fenêtre, au curseur. */
   onDropOutside: (tab: string) => void;
+  /** Opens (or shows) deck tab `tab`'s knowledge base. */
+  onOpenKnowledge: (tab: string) => void;
 }
 
 /** Onglet glissé depuis cette barre ; `x`, `y` : le pointeur, `grab` : sa prise dans l'onglet. */
@@ -53,9 +55,14 @@ function tabName(tab: TabInfo, kind: ReturnType<typeof documentKind>): string | 
   return kind === "theme" ? t("ui-tab-kind-theme", args) : undefined;
 }
 
+/** The title a tab shows: a knowledge tab's names its deck (the host keeps the owner's title). */
+function shownTitle(tab: TabInfo): string {
+  return tab.document?.kind === "knowledge" ? t("ui-knowledge-tab-title", { name: tab.title }) : tab.title;
+}
+
 /** Barre d'onglets d'une fenêtre. */
 export default function TabBar(props: Props) {
-  const { view, win, windows, onActivate, onClose, onCloseOthers, onNew, onReorder, onMove, onDragOver, onDragLeave, onDropOutside } = props;
+  const { view, win, windows, onActivate, onClose, onCloseOthers, onNew, onReorder, onMove, onDragOver, onDragLeave, onDropOutside, onOpenKnowledge } = props;
   const els = useRef(new Map<string, HTMLElement>());
   const winRef = useRef(win);
   winRef.current = win;
@@ -161,7 +168,10 @@ export default function TabBar(props: Props) {
   // Place de dépôt montrée : celle de notre glisser, ou celle d'un onglet venu d'ailleurs.
   const slot = drag ? drag.slot : incoming ? slotAt(mids(), incoming.x, rtl) : -1;
   // Fantôme : notre onglet tant qu'il est chez nous, ou celui d'une autre fenêtre.
-  const title = (id: string) => view.windows.flatMap((w) => w.tabs).find((tab) => tab.id === id)?.title ?? "";
+  const title = (id: string) => {
+    const tab = view.windows.flatMap((w) => w.tabs).find((x) => x.id === id);
+    return tab ? shownTitle(tab) : "";
+  };
   const ghost =
     drag && !drag.out
       ? { title: title(drag.id), left: drag.x - drag.grabX, top: drag.y - drag.grabY }
@@ -187,7 +197,7 @@ export default function TabBar(props: Props) {
             aria-label={tabName(tab, kind)}
             data-kind={kind}
             className={`tab${tab.id === win.active ? " active" : ""}${drag?.id === tab.id ? " dragging" : ""}${slot === i ? " drop-before" : ""}`}
-            title={tabPath(tab) ?? tab.title}
+            title={tabPath(tab) ?? shownTitle(tab)}
             onPointerDown={(e) => onPointerDown(e, tab.id)}
             onKeyDown={(e) => {
               // Motif WAI-ARIA des onglets : Entrée / Espace activent, les flèches déplacent.
@@ -208,12 +218,12 @@ export default function TabBar(props: Props) {
               setMenu({ id: tab.id, x: e.clientX, y: e.clientY });
             }}
           >
-            {(kind === "pack" || kind === "theme") && (
+            {(kind === "pack" || kind === "theme" || kind === "knowledge") && (
               <span className="tab-kind-icon" aria-hidden="true">
-                {kind === "pack" ? Icon.packs : Icon.palette}
+                {kind === "pack" ? Icon.packs : kind === "theme" ? Icon.palette : Icon.book}
               </span>
             )}
-            <span className="tab-title">{tab.title}</span>
+            <span className="tab-title">{shownTitle(tab)}</span>
             {tab.dirty && <span className="tab-dirty" role="img" aria-label={t("ui-tab-unsaved")} />}
             <button
               className="tab-close"
@@ -252,6 +262,9 @@ export default function TabBar(props: Props) {
                 </button>
               ),
             )}
+          {documentKind(win.tabs.find((x) => x.id === menu.id)?.document) === "deck" && (
+            <button role="menuitem" onClick={pick(() => onOpenKnowledge(menu.id))}>{t("ui-knowledge-open")}</button>
+          )}
           <button role="menuitem" disabled={othersToClose(win.tabs, menu.id).length === 0} onClick={pick(() => onCloseOthers(menu.id))}>{t("ui-tab-close-others")}</button>
           <button role="menuitem" disabled={stays(menu.id)} onClick={pick(() => onClose(menu.id))}>{t("ui-tab-close")}</button>
         </ContextMenu>

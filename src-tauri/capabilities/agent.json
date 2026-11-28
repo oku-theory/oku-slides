@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "agent",
-  "description": "Detached agent window: its tab's requests, the workspace, the agent and dictation; answers the quit barrier; reaches the main window only through the agent_link relay; listens to events but never emits one; no update, quit or tab drag command, no file dialogs (it shows content from the agent and imports).",
+  "description": "Detached agent window: its tab's requests, the workspace, the agent and dictation; answers the quit barrier; opens https and mail links in the browser; reaches the main window only through the agent_link relay; listens to events but never emits one; no update, quit or tab drag command, no file dialogs (it shows content from the agent and imports).",
   "windows": ["agent"],
   "permissions": [
     "core:app:default",
@@ -13,6 +13,10 @@
     "core:window:allow-set-focus",
     "core:window:allow-set-theme",
     "core:window:allow-start-dragging",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }, { "url": "mailto:*" }]
+    },
     "allow-request",
     "allow-workspace",
     "allow-agent",

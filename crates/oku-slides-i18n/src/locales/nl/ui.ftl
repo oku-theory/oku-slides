@@ -526,3 +526,24 @@ ui-knowledge-more = { $count ->
    *[other] Nog { $count } bestanden staan niet in de lijst.
   }
 ui-knowledge-close = Sluiten
+ui-knowledge-link-broken = Dit bestand staat niet in de kennisbank.
+ui-knowledge-tree-label = Kennisbestanden
+ui-knowledge-empty = Deze presentatie heeft nog geen kennis.
+ui-knowledge-awaiting-badge = Wacht op goedkeuring
+ui-knowledge-file-gone = { $path } is uit de kennisbank verwijderd.
+ui-knowledge-truncated = De rest van dit bestand ({ NUMBER($kb) } KB) wordt niet getoond.
+ui-knowledge-in-history = De kennisbank is niet beschikbaar tijdens het bekijken van de geschiedenis.
+ui-knowledge-header-invalid = De frontmatter van dit bestand is onleesbaar: de ruwe tekst wordt getoond.
+ui-markdown-failed = Deze tekst kon niet worden getoond.
+ui-markdown-link-blocked = Deze link kan hier niet worden geopend.
+ui-knowledge-close-file = Bestand sluiten
+ui-knowledge-open-files = Geopende bestanden
+ui-knowledge-header-type = Type
+ui-knowledge-header-status = Status
+ui-knowledge-header-tags = Labels
+ui-knowledge-header-generated = Gegenereerd
+ui-knowledge-header-verified = Geverifieerd
+ui-knowledge-header-stale = Verouderd
+ui-knowledge-header-sources = Bronnen
+ui-knowledge-tab-title = { $name } — Kennis
+ui-knowledge-open = Kennisbank

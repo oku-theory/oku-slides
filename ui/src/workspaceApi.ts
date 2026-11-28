@@ -2,6 +2,7 @@
 
 import type { Element, Messages, Op, SchemeSetting, Snapshot } from "./api";
 import { host } from "./hostCall";
+import type { KnowledgeRevision } from "./knowledge/types";
 import type { PackKind } from "./packTypes";
 
 /** What a tab edits. */
@@ -10,7 +11,9 @@ export type TabDocument =
   | { kind: "help"; locale: string }
   | { kind: "pack"; pack: string }
   | { kind: "theme"; theme: string }
-  | { kind: "deck_pack"; deck_tab: string; pack: string };
+  | { kind: "deck_pack"; deck_tab: string; pack: string }
+  /** A deck's knowledge base: a view over deck tab `deck_tab`, with no session of its own. */
+  | { kind: "knowledge"; deck_tab: string };
 
 /** A tab, as the bar shows it. */
 export interface TabInfo {
@@ -27,6 +30,8 @@ export interface TabInfo {
   document: TabDocument;
   /** The pack or theme this tab created empty; collected when the tab leaves untouched. */
   created: string | null;
+  /** The deck's knowledge revision; absent outside an awake deck tab. */
+  knowledge?: KnowledgeRevision | null;
 }
 
 /** A deck tab's file, or null for any other or unknown kind. */
@@ -39,6 +44,7 @@ export function tabPath(tab: TabInfo): string | null {
     case "pack":
     case "theme":
     case "deck_pack":
+    case "knowledge":
       return null;
     default: {
       // A kind this build does not know (a newer host): no file.
@@ -49,21 +55,34 @@ export function tabPath(tab: TabInfo): string | null {
   }
 }
 
+/** The tab whose session serves `tab`: its owner deck tab for a knowledge tab, else `tab` itself. */
+export function sessionTab(view: WorkspaceView, tab: string): string {
+  const doc = view.windows.flatMap((w) => w.tabs).find((x) => x.id === tab)?.document;
+  return doc?.kind === "knowledge" ? doc.deck_tab : tab;
+}
+
 /** The deck-pack tabs whose owner is deck tab `deckTab`, in every window. */
 export function linkedTabs(windows: WindowView[], deckTab: string): TabInfo[] {
   return windows.flatMap((w) => w.tabs).filter((x) => x.document?.kind === "deck_pack" && x.document.deck_tab === deckTab);
 }
 
+/** The knowledge tab whose owner is deck tab `deckTab`, in any window; the host keeps one at most. */
+function knowledgeTabOf(windows: WindowView[], deckTab: string): TabInfo | undefined {
+  return windows.flatMap((w) => w.tabs).find((x) => x.document?.kind === "knowledge" && x.document.deck_tab === deckTab);
+}
+
 /**
  * Would closing tab `tab` of window `win` empty the workspace? Then it stays.
  *
- * Never in Tauri (the host quits keeping everything); in the browser, when the tab and its
- * linkedTabs are every tab of every window: the host refuses such a close, a lone plain tab
- * included. False for a tab the window does not hold.
+ * Never in Tauri (the host quits); in the browser, when the tab, its linkedTabs and its
+ * knowledge tab are every tab of every window: a page cannot quit, so even a lone plain tab
+ * stays. False for a tab the window does not hold.
  */
 export function closeStays(view: WorkspaceView, win: string, tab: string, inTauri: boolean): boolean {
   if (inTauri || !view.windows.find((w) => w.label === win)?.tabs.some((x) => x.id === tab)) return false;
   const closing = new Set([tab, ...linkedTabs(view.windows, tab).map((x) => x.id)]);
+  const knowledge = knowledgeTabOf(view.windows, tab);
+  if (knowledge) closing.add(knowledge.id);
   return view.windows.every((w) => w.tabs.every((x) => closing.has(x.id)));
 }
 
@@ -165,6 +184,7 @@ type WorkspaceRequest =
   | { cmd: "open_theme"; tab: string; theme: string }
   | { cmd: "new_pack"; tab: string; kind: PackKind }
   | { cmd: "new_theme"; tab: string }
+  | { cmd: "open_knowledge"; tab: string }
   | { cmd: "pack_opener"; tab: string };
 
 const ws = <T>(req: WorkspaceRequest) => host<T>("workspace", { req }, "/api/workspace", req);
@@ -220,6 +240,8 @@ export const workspace = {
   newPack: (tab: string, kind: PackKind) => ws<WorkspaceView>({ cmd: "new_pack", tab, kind }),
   /** Creates an empty library theme and opens it in its own tab, after `tab`. */
   newTheme: (tab: string) => ws<WorkspaceView>({ cmd: "new_theme", tab }),
+  /** Opens deck tab `tab`'s knowledge tab after it, or focuses the one it has. */
+  openKnowledge: (tab: string) => ws<WorkspaceView>({ cmd: "open_knowledge", tab }),
   /** The deck a pack tab may update, if any. */
   packOpener: (tab: string) => ws<OpenerOffer | null>({ cmd: "pack_opener", tab }),
 };

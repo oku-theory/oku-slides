@@ -38,7 +38,7 @@ const DESIGN: &str = include_str!("instructions/design.md");
 pub(crate) const fn design_for(kind: DocumentKind) -> Option<&'static str> {
     match kind {
         DocumentKind::Deck => Some(DESIGN),
-        DocumentKind::Help | DocumentKind::Pack | DocumentKind::Theme => None,
+        DocumentKind::Help | DocumentKind::Pack | DocumentKind::Theme | DocumentKind::Knowledge => None,
     }
 }
 
@@ -46,12 +46,15 @@ pub(crate) const fn design_for(kind: DocumentKind) -> Option<&'static str> {
 pub(crate) const IMPORT: &str = include_str!("instructions/import.md");
 
 /// The paragraph for a tab of `kind`; a help tab reads the deck's but the knowledge base.
-pub(crate) const fn for_kind(kind: DocumentKind) -> &'static str {
+///
+/// `None` for a knowledge tab, which starts no agent (`Workspace::document_kind` refuses it).
+pub(crate) const fn for_kind(kind: DocumentKind) -> Option<&'static str> {
     match kind {
-        DocumentKind::Deck => DECK,
-        DocumentKind::Help => HELP,
-        DocumentKind::Pack => PACK,
-        DocumentKind::Theme => THEME,
+        DocumentKind::Deck => Some(DECK),
+        DocumentKind::Help => Some(HELP),
+        DocumentKind::Pack => Some(PACK),
+        DocumentKind::Theme => Some(THEME),
+        DocumentKind::Knowledge => None,
     }
 }
 

@@ -11,7 +11,7 @@ use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use super::KnowledgePath;
-use super::limits::{MAX_FRONTMATTER_BYTES, MAX_YAML_DEPTH};
+use super::limits::{MAX_FRONTMATTER_BYTES, MAX_HEADER_ITEMS, MAX_YAML_DEPTH};
 use crate::error::FrontmatterReason;
 
 /// Keys the root `index.md` may carry; no other `index.md` and no `log.md` carries any.
@@ -34,11 +34,12 @@ pub struct Frontmatter {
     pub keys: Vec<String>,
 }
 
-/// A parsed YAML node, kept only as far as validation and the index need it.
+/// A parsed YAML node, kept only as far as validation and the index need it; a sequence keeps its
+/// first `MAX_HEADER_ITEMS` items, the later ones are validated then dropped.
 pub(super) enum Node {
     Scalar { text: String, plain: bool },
     Map(Vec<(String, Node)>),
-    Seq,
+    Seq(Vec<Node>),
 }
 
 impl Node {
@@ -58,7 +59,7 @@ impl Node {
 /// A collection being built while its events arrive.
 enum Open {
     Map { entries: Vec<(String, Node)>, seen: HashSet<String>, key: Option<String> },
-    Seq,
+    Seq(Vec<Node>),
 }
 
 /// Splits `text` into its YAML block and the body after the closing line.
@@ -115,17 +116,24 @@ pub(crate) fn lines(text: &str) -> impl Iterator<Item = (usize, &str, usize)> {
 pub fn frontmatter(text: &str) -> Result<Frontmatter, FrontmatterReason> {
     let (yaml, _) = split(text)?;
     let entries = parse_block(yaml)?;
-    let scalar = |name: &str| entries.iter().find(|(k, _)| k == name).and_then(|(_, v)| v.text()).map(str::to_owned);
     Ok(Frontmatter {
-        kind: scalar("type"),
-        title: scalar("title"),
-        description: scalar("description"),
-        status: scalar("status"),
-        stale: entries
-            .iter()
-            .any(|(k, v)| k == "stale" && matches!(v, Node::Scalar { text, plain: true } if text == "true")),
+        kind: scalar_of(&entries, "type"),
+        title: scalar_of(&entries, "title"),
+        description: scalar_of(&entries, "description"),
+        status: scalar_of(&entries, "status"),
+        stale: stale_of(&entries),
         keys: entries.into_iter().map(|(k, _)| k).collect(),
     })
+}
+
+/// The text of the top-level scalar `name`; `None` when absent, null or not a scalar.
+pub(super) fn scalar_of(entries: &[(String, Node)], name: &str) -> Option<String> {
+    entries.iter().find(|(k, _)| k == name).and_then(|(_, v)| v.text()).map(str::to_owned)
+}
+
+/// True only when `stale` is the plain scalar `true` (`stale: "true"` is not).
+pub(super) fn stale_of(entries: &[(String, Node)]) -> bool {
+    entries.iter().any(|(k, v)| k == "stale" && matches!(v, Node::Scalar { text, plain: true } if text == "true"))
 }
 
 /// The scalar entries of the top-level mapping `key` in the frontmatter of `text`, in file order,
@@ -215,7 +223,7 @@ pub(super) fn parse_block(yaml: &str) -> Result<Vec<(String, Node)>, Frontmatter
             }
             Event::SequenceStart(anchor, tag) => {
                 refuse_anchor_and_tag(anchor, tag.is_some())?;
-                open(&mut stack, Open::Seq)?;
+                open(&mut stack, Open::Seq(Vec::new()))?;
                 continue;
             }
             Event::MappingStart(anchor, tag) => {
@@ -225,12 +233,17 @@ pub(super) fn parse_block(yaml: &str) -> Result<Vec<(String, Node)>, Frontmatter
             }
             Event::SequenceEnd | Event::MappingEnd => match stack.pop() {
                 Some(Open::Map { entries, .. }) => Node::Map(entries),
-                _ => Node::Seq,
+                Some(Open::Seq(items)) => Node::Seq(items),
+                None => return Err(FrontmatterReason::NotYaml),
             },
         };
         match stack.last_mut() {
             None => root = Some(node),
-            Some(Open::Seq) => {}
+            Some(Open::Seq(items)) => {
+                if items.len() < MAX_HEADER_ITEMS {
+                    items.push(node);
+                }
+            }
             Some(Open::Map { entries, seen, key }) => match key.take() {
                 Some(k) => entries.push((k, node)),
                 None => match node {

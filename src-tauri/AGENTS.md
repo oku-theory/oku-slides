@@ -13,7 +13,7 @@
 - Throttle saves of window state and ignore windows that are already closed. (t-169)
 - Install an update only after state::settle in the same blocking job, then request_restart; never restart from the webview. (spec:2026-10-18-auto-update-design)
 - Let the agent quit or install only through AppPort on the stack's after-turn thread, via quit::exit and updates::install, never inside a tool call; the quit tool asks AppPort::can_quit before confirming, and refuses while any tab is unsaved, telling a count, never titles. (t-999, t-1000, plan:2026-11-01-lot-m-hands-free)
-- Grant no updater or opener permission in any capability; grant app commands per window in capabilities, the agent window never update, quit or tab drag ones, as build.rs checks against generate_handler! and its COMMANDS. (spec:2026-10-18-auto-update-design, t-980)
+- Grant no updater permission in any capability and, of the opener, only open-url scoped to exactly http, https and mailto (build.rs OPEN_URL_SCOPE), https and mailto in the agent window (AGENT_OPEN_URL_SCOPE); grant app commands per window in capabilities, the agent window never update, quit or tab drag ones, as build.rs checks against generate_handler! and its COMMANDS. (spec:2026-10-18-auto-update-design, t-980, t-1789, t-1790)
 - Keep plugins.updater.requireSignedVersion true; every updater signature must carry version:<v> in its trusted comment. (t-1210)
 
 ## Pitfalls

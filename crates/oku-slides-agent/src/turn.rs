@@ -103,7 +103,7 @@ pub(crate) async fn run(
     let mut blocks = Vec::with_capacity(9);
     if first {
         blocks.push(ContentBlock::Text(TextContent::new(INSTRUCTIONS)));
-        blocks.push(ContentBlock::Text(TextContent::new(for_kind(ctx.kind))));
+        blocks.push(ContentBlock::Text(TextContent::new(kind_paragraph(ctx.kind)?)));
         // A theme tab writes no widget.
         if ctx.kind != DocumentKind::Theme {
             blocks.push(ContentBlock::Text(TextContent::new(WIDGETS)));
@@ -166,6 +166,16 @@ pub(crate) async fn run(
     ctx.emit(AgentEvent::TurnEnded { turn, stop: as_text(&response.stop_reason) });
     ctx.emit(AgentEvent::idle());
     Ok((pending, response.usage))
+}
+
+/// The paragraph of the tab kind; a refusal for a kind that starts no agent.
+///
+/// A knowledge tab starts no agent (`Workspace::document_kind` refuses it): a turn there is a bug.
+fn kind_paragraph(kind: DocumentKind) -> agent_client_protocol::Result<&'static str> {
+    for_kind(kind).ok_or_else(|| {
+        tracing::error!(kind = kind.as_str(), "agent turn in a tab kind that starts no agent");
+        agent_client_protocol::Error::invalid_request()
+    })
 }
 
 /// The permission note naming the received guides the turn carries, `None` without any.

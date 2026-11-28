@@ -5,8 +5,10 @@
 // tab list they read next says whether a tab is dirty; a first stall refuses the close and asks
 // nothing, a second one within 30 s asks whether to close anyway. A tab's kind and read-only
 // state come from its live snapshot when one is read, never from an error kind. A deck tab's
-// deck-pack tabs (linkedTabs) are saved before it closes: the host closes them with it. An
-// agent's close passes its redeemed decision (`decide`): it answers a tab's discard question only.
+// deck-pack tabs (linkedTabs) are saved before it closes: the host closes them with it. A
+// knowledge tab is a read-only view over its owner's session: it closes with no snapshot read
+// and no question, and the host closes it with its owner, whose flow alone asks. An agent's
+// close passes its redeemed decision (`decide`): it answers a tab's discard question only.
 
 import { errorText, linkedTabs, type OpenerOffer, type Snapshot, type TabApi, type TabInfo, type WorkspaceView } from "./api";
 import type { workspace } from "./api";
@@ -335,6 +337,8 @@ export async function closeTabFlow(id: string, deps: CloseFlowDeps): Promise<boo
     const first = await freshRead(deps);
     let tab = first.tabs.find((x) => x.id === id);
     if (!tab) return true;
+    // A read-only view: nothing of its own to save or lose.
+    if (tab.document?.kind === "knowledge") return await deps.close(id, false);
     const links = await flushLinked(id, first.view, first.tabs, added, [], new Set(), deps);
     if (links === null) return false;
     // A linked tab's save reached the owner: its dirty flag is read again.

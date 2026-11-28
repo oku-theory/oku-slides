@@ -37,7 +37,7 @@ impl Workspace {
                         Slot::Ready(session) => {
                             session.finish_compaction(job, reply, Instant::now());
                         }
-                        Slot::Dormant(_) | Slot::Closed(_) => job.abandon(reply),
+                        Slot::Dormant(_) | Slot::Closed(_) | Slot::View => job.abandon(reply),
                     }
                 })
             })

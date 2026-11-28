@@ -30,6 +30,8 @@ The workspace, hand editing, dictation and the agent. Settings are in
 | ⌘⇧G | Show the guides |
 | ⌘⇧E | Show or hide the inspector |
 | ⌘K | Type an instruction for the agent |
+| ⌘⇧K | The deck's knowledge base, in its own tab (also in the main menu and a deck tab's context menu) |
+| ←, →, Delete or ⌫ on its file strip | In the knowledge tab: show the previous or next open file, close the shown one |
 | ⌘1…⌘9 | Go to tab n (⌘9: the last one) |
 | ⌘? | App help (read-only deck in French or English, otherwise English; `docs/aide/`) |
 

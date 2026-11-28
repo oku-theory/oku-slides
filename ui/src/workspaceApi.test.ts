@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { closeStays, linkedTabs, type TabDocument, type TabInfo, tabPath, type WindowView, type WorkspaceView, workspace } from "./workspaceApi";
+import {
+  closeStays,
+  linkedTabs,
+  sessionTab,
+  type TabDocument,
+  type TabInfo,
+  tabPath,
+  type WindowView,
+  type WorkspaceView,
+  workspace,
+} from "./workspaceApi";
 
 const tab = (document: TabDocument): TabInfo => ({
   id: "t-1",
@@ -31,6 +41,10 @@ describe("tabPath", () => {
     expect(tabPath(tab({ kind: "deck_pack", deck_tab: "t-1", pack: "a7e11e40-0000-4000-8000-000000000001" }))).toBeNull();
   });
 
+  test("tabPath of a knowledge tab is null", () => {
+    expect(tabPath(tab({ kind: "knowledge", deck_tab: "t-1" }))).toBeNull();
+  });
+
   test("an unknown kind (a newer host): null, not a throw", () => {
     const unknown = { kind: "slides", path: "/x" } as unknown as TabDocument;
     expect(tabPath(tab(unknown))).toBeNull();
@@ -48,6 +62,22 @@ describe("linkedTabs", () => {
   test("linkedTabs of a deck tab lists its deck_pack tabs in every window", () => {
     const windows = [win("w-1", [tabIn("t-1"), linked("t-2", "t-1"), linked("t-3", "t-9")]), win("w-2", [linked("t-4", "t-1")])];
     expect(linkedTabs(windows, "t-1").map((x) => x.id)).toEqual(["t-2", "t-4"]);
+  });
+});
+
+describe("sessionTab", () => {
+  const view = () => viewOf(win("w-1", [tabIn("t-1"), tabIn("t-2", { kind: "knowledge", deck_tab: "t-1" })]));
+
+  test("sessionTab of a knowledge tab is its owner deck tab", () => {
+    expect(sessionTab(view(), "t-2")).toBe("t-1");
+  });
+
+  test("sessionTab of a deck tab is itself", () => {
+    expect(sessionTab(view(), "t-1")).toBe("t-1");
+  });
+
+  test("sessionTab of a tab the view lacks is itself", () => {
+    expect(sessionTab(view(), "t-9")).toBe("t-9");
   });
 });
 
@@ -70,6 +100,16 @@ describe("closeStays", () => {
 
   test("closeStays of an owner with another plain tab is false", () => {
     expect(closeStays(viewOf(win("w-1", [tabIn("t-1"), linked("t-2", "t-1"), tabIn("t-3")])), "w-1", "t-1", false)).toBe(false);
+  });
+
+  test("closeStays of an owner whose knowledge tab is the only other tab is true in the browser", () => {
+    const knowledge = tabIn("t-2", { kind: "knowledge", deck_tab: "t-1" });
+    expect(closeStays(viewOf(win("w-1", [tabIn("t-1")]), win("w-2", [knowledge])), "w-1", "t-1", false)).toBe(true);
+  });
+
+  test("closeStays of a knowledge tab beside its owner is false", () => {
+    const knowledge = tabIn("t-2", { kind: "knowledge", deck_tab: "t-1" });
+    expect(closeStays(viewOf(win("w-1", [tabIn("t-1"), knowledge])), "w-1", "t-2", false)).toBe(false);
   });
 });
 
@@ -99,6 +139,12 @@ describe("new pack and new theme requests", () => {
     const sent = recordFetch(200, viewOf());
     await workspace.newTheme("t-9");
     expect(sent).toEqual([{ cmd: "new_theme", tab: "t-9" }]);
+  });
+
+  test("openKnowledge sends open_knowledge with the deck tab", async () => {
+    const sent = recordFetch(200, viewOf());
+    await workspace.openKnowledge("t-9");
+    expect(sent).toEqual([{ cmd: "open_knowledge", tab: "t-9" }]);
   });
 
   test("newPack refused by the host rejects with its error", async () => {

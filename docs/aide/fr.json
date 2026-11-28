@@ -992,6 +992,17 @@
         {
          "runs": [
           {
+           "t": "⌘⇧K",
+           "highlight": 1
+          },
+          {
+           "t": "  Base de connaissances"
+          }
+         ]
+        },
+        {
+         "runs": [
+          {
            "t": "⌘1",
            "highlight": 1
           },

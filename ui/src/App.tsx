@@ -81,7 +81,7 @@ import { createPreviewCache } from "./widgetPreviewCache";
 /** Un onglet : le deck de la session `tab`. */
 export default function App({
   tab, clip: windowClip, clipGen, onCopy, agentDetached, nonce, notice, onOpen, importJob, onImportPick, onImport, onImportClose, importWaiting,
-  onHelp, onAbout, windowDialog = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onChange, windowLabel = null,
+  onHelp, onAbout, windowDialog = false, updates, onClose, onOpenPack, onOpenTheme, onNewPack, onNewTheme, onOpenKnowledge, onChange, windowLabel = null,
 }: {
   tab: string;
   /** This window's label: its page reports with it (`usePresentReports`); `null`: unknown yet. */
@@ -128,6 +128,8 @@ export default function App({
   onNewPack: (kind: PackKind) => void;
   /** Creates an empty theme in its own tab (the app menu). */
   onNewTheme: () => void;
+  /** Opens (or shows) this deck's knowledge base in its own tab (the app menu). */
+  onOpenKnowledge: () => void;
   /** Un snapshot est arrivé (la barre d'onglets se relit, en développement). */
   onChange?: () => void;
 }) {
@@ -355,7 +357,7 @@ export default function App({
 
   const cur = snap.slides.find((s) => s.id === current);
   const mainMenu = (
-    <AppMenu kind={tabKind(snap)} onNewPack={onNewPack} onNewTheme={onNewTheme} present={present} open={open} onHelp={onHelp} onAbout={onAbout} onCheckUpdates={checkUpdates} />
+    <AppMenu kind={tabKind(snap)} onNewPack={onNewPack} onNewTheme={onNewTheme} onOpenKnowledge={onOpenKnowledge} present={present} open={open} onHelp={onHelp} onAbout={onAbout} onCheckUpdates={checkUpdates} />
   );
   const status = t(snap.dirty ? "ui-status-unsaved" : snap.path ? "ui-status-saved" : "ui-status-never-saved");
   // Historique : ni sélection, ni édition, ni outils (la session les refuserait).

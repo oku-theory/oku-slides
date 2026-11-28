@@ -19,8 +19,8 @@ export function isDeckTab(snap: Snapshot | null): boolean {
   return !!snap && tabKind(snap) === "deck";
 }
 
-/** The kind a tab's document gives it in the bar; a deck-only pack is a pack, an unknown kind a deck. */
-export function documentKind(doc: TabDocument | undefined): "deck" | "pack" | "theme" | "help" {
+/** The kind a tab's document gives it in the bar; a deck-only pack is a pack, an unknown kind a deck, a knowledge base its own. */
+export function documentKind(doc: TabDocument | undefined): "deck" | "pack" | "theme" | "help" | "knowledge" {
   switch (doc?.kind) {
     case "pack":
     case "deck_pack":
@@ -29,6 +29,8 @@ export function documentKind(doc: TabDocument | undefined): "deck" | "pack" | "t
       return "theme";
     case "help":
       return "help";
+    case "knowledge":
+      return "knowledge";
     default:
       return "deck";
   }

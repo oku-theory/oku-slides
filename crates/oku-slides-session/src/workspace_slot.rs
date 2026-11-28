@@ -10,10 +10,10 @@ use std::sync::{Arc, Mutex};
 use oku_slides_core::UsageRecord;
 
 use crate::deck_pack_link::LinkSpec;
-use crate::error::{Result, UnknownTabSnafu};
+use crate::error::{Result, UnknownTabSnafu, WrongDocumentSnafu};
 use crate::resume::Resumed;
 use crate::views::TabInfo;
-use crate::{Fonts, Platform, Session, TabDocument};
+use crate::{DocumentKind, Fonts, Platform, Session, TabDocument};
 
 /// Ce qu'il faut pour relire la session d'un onglet endormi.
 pub(super) struct Dormant {
@@ -80,6 +80,8 @@ pub(super) enum Slot {
     /// Onglet fermé avant d'avoir été relu : plus jamais réveillé, pour ne
     /// pas réécrire le dossier qu'on vient de supprimer.
     Closed(String),
+    /// A knowledge tab's: a view over its deck tab, holding no session.
+    View,
 }
 
 impl Slot {
@@ -106,6 +108,7 @@ impl Slot {
                 self.ready()
             }
             Self::Closed(id) => Err(UnknownTabSnafu { id: id.clone() }.build().into()),
+            Self::View => Err(WrongDocumentSnafu { kind: DocumentKind::Knowledge }.build().into()),
         }
     }
 
@@ -143,15 +146,15 @@ impl Slot {
     pub(super) fn ready_session(&self) -> Option<&Session> {
         match self {
             Self::Ready(session) => Some(session),
-            Self::Dormant(_) | Self::Closed(_) => None,
+            Self::Dormant(_) | Self::Closed(_) | Self::View => None,
         }
     }
 
-    /// Infos à jour d'une session relue ; `None` : endormie ou fermée.
+    /// Infos à jour d'une session relue ; `None` : endormie, fermée ou une vue.
     pub(super) fn info(&self) -> Option<TabInfo> {
         match self {
             Self::Ready(session) => Some(session.tab_info()),
-            Self::Dormant(_) | Self::Closed(_) => None,
+            Self::Dormant(_) | Self::Closed(_) | Self::View => None,
         }
     }
 
@@ -186,7 +189,7 @@ impl Slot {
                 session.stop_resume();
                 *self = Self::Closed(id.to_owned());
             }
-            Self::Dormant(_) => *self = Self::Closed(id.to_owned()),
+            Self::Dormant(_) | Self::View => *self = Self::Closed(id.to_owned()),
             Self::Closed(_) => {}
         }
     }
@@ -204,6 +207,11 @@ impl Tab {
     pub(super) fn new(session: Session) -> Self {
         let info = session.tab_info();
         Self { info, session: Arc::new(Mutex::new(Slot::Ready(Box::new(session)))), opener: None }
+    }
+
+    /// A knowledge tab: a view over its deck tab, with no session to wake.
+    pub(super) fn view(info: TabInfo) -> Self {
+        Self { info, session: Arc::new(Mutex::new(Slot::View)), opener: None }
     }
 
     /// Un onglet repris qui dort : sa session sera relue à sa première requête.

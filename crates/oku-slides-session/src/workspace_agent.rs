@@ -14,7 +14,7 @@ use crate::agent::{
     AgentWorkspace, CloseScope, CloseTabs, FocusSource, FocusedTab, HelpOpen, Sessions, TabGate, TabListing, TabOpen,
     WorkspaceRefusal,
 };
-use crate::error::{Result, UnknownTabSnafu, UnknownWindowSnafu};
+use crate::error::{Result, UnknownTabSnafu, UnknownWindowSnafu, WrongDocumentSnafu};
 use crate::import::ImportTarget;
 use crate::{DocumentKind, Session};
 
@@ -62,7 +62,8 @@ impl Workspace {
     ///
     /// # Errors
     ///
-    /// `UnknownTab`, or `UnknownWindow` once the workspace is closed.
+    /// `UnknownTab`, or `UnknownWindow` once the workspace is closed;
+    /// `WrongDocument` for a knowledge tab, which runs no agent.
     ///
     /// # Blocking
     ///
@@ -70,7 +71,10 @@ impl Workspace {
     pub fn document_kind(ws: &Mutex<Self>, tab: &str) -> Result<DocumentKind> {
         let w = Self::lock(ws);
         ensure!(!w.is_closed(), UnknownWindowSnafu { label: tab });
-        Ok(w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?.info.document.kind())
+        let kind = w.tabs.get(tab).context(UnknownTabSnafu { id: tab })?.info.document.kind();
+        // A knowledge tab is a view over its deck tab: no agent of its own.
+        ensure!(kind != DocumentKind::Knowledge, WrongDocumentSnafu { kind });
+        Ok(kind)
     }
 }
 
@@ -191,6 +195,10 @@ impl AgentWorkspace for Mutex<Workspace> {
         gate: &mut dyn FnMut(TabGate) -> bool,
     ) -> std::result::Result<TabOpen, WorkspaceRefusal> {
         Workspace::agent_import(self, tab, path, target, gate)
+    }
+
+    fn open_knowledge(&self, tab: &str) -> std::result::Result<TabOpen, WorkspaceRefusal> {
+        Workspace::agent_open_knowledge(self, tab)
     }
 
     fn open_help(

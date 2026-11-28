@@ -117,6 +117,13 @@
     "ferme l'onglet ": {
       "mcp": [{ "tool": "tab", "args": { "action": "close", "tab": "${ARG}" } }],
       "chunks": ["Onglet fermé."]
+    },
+    "import knowledge ": {
+      "mcp": [
+        { "tool": "knowledge_import", "args": { "attachment": "${ARG}" } },
+        { "tool": "open_knowledge", "args": {} }
+      ],
+      "chunks": ["Document importé."]
     }
   },
   "turns": [

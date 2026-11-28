@@ -31,6 +31,9 @@ export const linkedOf = (id: string, owner: string, dirty = false): TabInfo => (
   document: { kind: "deck_pack", deck_tab: owner, pack: "p" },
 });
 
+/** The knowledge tab of owner `owner`, as the bar shows it: never dirty. */
+export const knowledgeOf = (id: string, owner: string): TabInfo => ({ ...tabOf(id), document: { kind: "knowledge", deck_tab: owner } });
+
 /** A theme tab as the bar shows it: its cached kind is a theme. */
 export const themeTabOf = (id: string, dirty = false): TabInfo => ({ ...tabOf(id, dirty), document: { kind: "theme", theme: "t" } });
 
@@ -101,9 +104,9 @@ export function fake(tabs: TabInfo[]) {
     ...VIEW,
     windows: [{ label: "main", active: state.tabs[0]?.id ?? "", tabs: state.tabs }, ...state.otherWindows],
   });
-  /** Drops `id` and, for an owner, its deck-pack tabs, as the host closes them together. */
+  /** Drops `id` and, for an owner, its deck-pack and knowledge tabs, as the host closes them together. */
   const drop = (id: string) => {
-    const kept = (t: TabInfo) => t.id !== id && !(t.document.kind === "deck_pack" && t.document.deck_tab === id);
+    const kept = (t: TabInfo) => t.id !== id && !((t.document.kind === "deck_pack" || t.document.kind === "knowledge") && t.document.deck_tab === id);
     state.tabs = state.tabs.filter(kept);
     state.otherWindows = state.otherWindows.map((w) => ({ ...w, tabs: w.tabs.filter(kept) }));
   };

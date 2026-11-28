@@ -225,6 +225,7 @@ const DECK_TOOLS: &[&str] = &[
     "new",
     "new_conversation",
     "open",
+    "open_knowledge",
     "open_pack",
     "open_theme",
     "pack_update",
@@ -408,7 +409,9 @@ fn list_for_help_is_the_deck_tools_without_usage_undo_or_knowledge() {
     let expected: Vec<String> = DECK_TOOLS
         .iter()
         .filter(|n| {
-            !matches!(**n, "usage" | "show_usage" | "undo" | "redo" | "undo_turn") && !n.starts_with("knowledge_")
+            !matches!(**n, "usage" | "show_usage" | "undo" | "redo" | "undo_turn")
+                && !n.starts_with("knowledge_")
+                && **n != "open_knowledge"
         })
         .map(|n| (*n).to_owned())
         .collect();

@@ -4,7 +4,7 @@ import { afterAll, afterEach, expect, test } from "bun:test";
 import "./test/dom";
 import { resetMessages } from "./test/messages";
 import type { KnowledgeSummary } from "./api";
-import type { KnowledgeLimitSlug } from "./knowledgeTypes";
+import type { KnowledgeLimitSlug } from "./knowledge/types";
 
 const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");

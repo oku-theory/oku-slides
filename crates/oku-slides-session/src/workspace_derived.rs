@@ -45,7 +45,7 @@ impl Workspace {
                     let mut guard = slot.lock().unwrap_or_else(PoisonError::into_inner);
                     match &mut *guard {
                         Slot::Ready(session) => landed |= session.finish_query(job, reply),
-                        Slot::Dormant(_) | Slot::Closed(_) => job.abandon(reply),
+                        Slot::Dormant(_) | Slot::Closed(_) | Slot::View => job.abandon(reply),
                     }
                 }
                 if let Some(sink) = sink.as_ref().filter(|_| landed) {
@@ -54,7 +54,7 @@ impl Workspace {
                 let mut guard = slot.lock().unwrap_or_else(PoisonError::into_inner);
                 jobs = match &mut *guard {
                     Slot::Ready(session) => session.query_jobs(),
-                    Slot::Dormant(_) | Slot::Closed(_) => Vec::new(),
+                    Slot::Dormant(_) | Slot::Closed(_) | Slot::View => Vec::new(),
                 };
             }
         }))

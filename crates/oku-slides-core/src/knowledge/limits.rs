@@ -14,6 +14,8 @@ pub const READ_FACTOR: usize = 4;
 pub const MAX_FRONTMATTER_BYTES: usize = 16 << 10;
 /// Deepest nesting of a frontmatter YAML value.
 pub const MAX_YAML_DEPTH: usize = 16;
+/// Most items kept of a frontmatter list (`tags`, `sources`).
+pub const MAX_HEADER_ITEMS: usize = 20;
 /// Most bytes in a knowledge path.
 pub const PATH_MAX_BYTES: usize = 255;
 /// Most segments in a knowledge path.

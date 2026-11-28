@@ -3,7 +3,7 @@
 //! A deck tab counts its own; a deck-pack tab its owner deck; a pack or
 //! theme tab the deck it was opened from (`Tab.opener`, by the user or an
 //! agent; lost on restart), through any pack or theme tab between them; a
-//! help tab none. A dormant deck queues the records until it wakes.
+//! help or knowledge tab none. A dormant deck queues the records until it wakes.
 
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, TryLockError};
@@ -12,7 +12,7 @@ use oku_slides_core::UsageRecord;
 
 use crate::DocumentKind;
 use crate::agent::record_in;
-use crate::error::{Result, UnknownTabSnafu};
+use crate::error::{Result, UnknownTabSnafu, WrongDocumentSnafu};
 
 use super::{Slot, Workspace, relock};
 
@@ -35,7 +35,8 @@ impl Workspace {
                 DocumentKind::Pack | DocumentKind::Theme => {
                     current = t.info.document.deck_tab().or(t.opener.as_deref())?;
                 }
-                DocumentKind::Help => return None,
+                // A knowledge tab runs no agent: it has no turns to count.
+                DocumentKind::Help | DocumentKind::Knowledge => return None,
             }
         }
         None
@@ -49,7 +50,8 @@ impl Workspace {
     ///
     /// # Errors
     ///
-    /// `UnknownTab` for a tab unknown or closed, or after `settle`.
+    /// `UnknownTab` for a tab unknown or closed, or after `settle`;
+    /// `WrongDocument` for a knowledge tab, which keeps no ledger.
     ///
     /// # Blocking
     ///
@@ -68,6 +70,7 @@ impl Workspace {
             Slot::Ready(s) => record_in(s, owner, record),
             Slot::Dormant(dormant) => dormant.usage.push(record),
             Slot::Closed(id) => return Err(UnknownTabSnafu { id: id.clone() }.build().into()),
+            Slot::View => return Err(WrongDocumentSnafu { kind: DocumentKind::Knowledge }.build().into()),
         }
         Ok(())
     }

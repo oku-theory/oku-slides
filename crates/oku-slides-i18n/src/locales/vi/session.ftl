@@ -33,6 +33,7 @@ session-wrong-document = { $kind ->
     [deck] Thẻ này hiển thị một bản trình bày: thay đổi đó được thực hiện trong một thẻ chủ đề.
     [help] Trợ giúp chỉ để đọc: thay đổi đó được thực hiện trong một thẻ chủ đề.
     [pack] Thẻ này đang chỉnh sửa một gói: chủ đề được đổi trong thẻ của bản trình bày, còn các giá trị của nó trong một thẻ chủ đề.
+    [knowledge] Thẻ này hiển thị cơ sở tri thức của một bản trình bày: thay đổi đó được thực hiện trong thẻ của bản trình bày.
    *[theme] Thẻ này đang chỉnh sửa một chủ đề: ở đây chỉ thay đổi các giá trị, tên và các chủ đề mà nó mở rộng.
 }
 session-in-pack-tab = Thẻ này đang chỉnh sửa một gói: hãy đóng thẻ để hoàn tất; các gói riêng của một bản trình bày mở từ thẻ của bản trình bày đó.
@@ -748,6 +749,7 @@ session-knowledge-id-not-found = Không có tệp tri thức nào có mã { $id 
 session-knowledge-changed = Tệp tri thức { $path } đã thay đổi kể từ khi được hiển thị: hãy xem lại.
 session-knowledge-too-large-to-approve = Tệp tri thức { $path } quá lớn để phê duyệt: hãy xóa nó.
 session-knowledge-approval-invalid = Phê duyệt này nêu một tệp hai lần hoặc quá nhiều tệp.
+session-knowledge-asset-unavailable = Hình ảnh kiến thức { $asset } không khả dụng.
 session-knowledge-import-failed = Không thể đọc tài liệu trong giới hạn thời gian và bộ nhớ: không có gì được nhập.
 session-knowledge-import-refused = Tài liệu chưa được nhập — { $reason }.
 session-attachment-gone = Tệp đính kèm này không còn được giữ: hãy đính kèm lại tài liệu.
